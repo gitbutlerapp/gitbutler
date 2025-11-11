@@ -27,7 +27,7 @@ use but_core::ref_metadata::StackId;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_oxidize::GixRepositoryExt;
 use but_rebase::Rebase;
-use but_workspace::{legacy::StacksFilter, legacy::stack_ext::StackExt, legacy::stacks_v3};
+use but_workspace::legacy::{StacksFilter, stack_ext::StackExt, stacks_v3};
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};

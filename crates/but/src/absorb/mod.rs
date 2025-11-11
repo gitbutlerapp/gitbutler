@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-use std::io::Write;
+use std::{collections::BTreeMap, io::Write};
 
 use bstr::{BString, ByteSlice};
 use but_api::{diff, hex_hash::HexHash, virtual_branches};

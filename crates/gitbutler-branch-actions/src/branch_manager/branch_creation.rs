@@ -1,8 +1,3 @@
-use super::BranchManager;
-use crate::{
-    VirtualBranchesExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
-    r#virtual as vbranch,
-};
 use anyhow::{Context, Result, anyhow, bail};
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_error::Marker;
@@ -27,6 +22,12 @@ use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes_with_tree};
 use serde::Serialize;
 use tracing::instrument;
+
+use super::BranchManager;
+use crate::{
+    VirtualBranchesExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
+    r#virtual as vbranch,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,6 +1,6 @@
-use crate::utils::Sandbox;
-use crate::utils::setup_metadata;
 use snapbox::{file, str};
+
+use crate::utils::{Sandbox, setup_metadata};
 
 #[test]
 fn nice_help() -> anyhow::Result<()> {

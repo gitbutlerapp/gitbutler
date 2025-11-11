@@ -16,9 +16,10 @@ mod commit {
         str::FromStr,
     };
 
-    use crate::RefMetadata;
     use anyhow::anyhow;
     use serde::Serialize;
+
+    use crate::RefMetadata;
 
     /// A commit representing a snapshot, along with metadata.
     #[expect(dead_code)]

@@ -1,17 +1,19 @@
-use but_core::RefMetadata;
-use but_core::ref_metadata::{StackId, WorkspaceCommitRelation};
+use std::{env, io::Write, ops::DerefMut, path::Path};
+
+use but_core::{
+    RefMetadata,
+    ref_metadata::{StackId, WorkspaceCommitRelation},
+};
 use but_graph::VirtualBranchesTomlMetadata;
-use but_settings::AppSettings;
-use but_settings::app_settings::{
-    Claude, ExtraCsp, FeatureFlags, Fetch, GitHubOAuthAppSettings, Reviews, TelemetrySettings,
-    UiSettings,
+use but_settings::{
+    AppSettings,
+    app_settings::{
+        Claude, ExtraCsp, FeatureFlags, Fetch, GitHubOAuthAppSettings, Reviews, TelemetrySettings,
+        UiSettings,
+    },
 };
 use but_testsupport::gix_testtools::{Creation, tempfile};
 use snapbox::{Assert, Redactions};
-use std::env;
-use std::io::Write;
-use std::ops::DerefMut;
-use std::path::Path;
 
 /// A sandbox that assumes read-write testing, so all data is editable and is cleaned up afterward.
 pub struct Sandbox {

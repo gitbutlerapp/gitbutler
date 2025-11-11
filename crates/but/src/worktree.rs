@@ -1,5 +1,4 @@
-use std::io::Write;
-use std::path::PathBuf;
+use std::{io::Write, path::PathBuf};
 
 use anyhow::{Context, Result};
 use but_api::worktree::IntegrationStatus;

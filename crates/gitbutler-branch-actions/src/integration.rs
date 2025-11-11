@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use crate::{VirtualBranchesExt, branch_manager::BranchManagerExt};
 use anyhow::{Context, Result, anyhow};
 use bstr::ByteSlice;
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
@@ -17,6 +16,8 @@ use gitbutler_repo::{
 };
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
+
+use crate::{VirtualBranchesExt, branch_manager::BranchManagerExt};
 
 const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";

@@ -9,7 +9,6 @@ use gix::{ObjectId, prelude::ObjectIdExt, reference::Category};
 use petgraph::{Direction, graph::NodeIndex, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
 
-use crate::init::walk::WorktreeByBranch;
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, SegmentMetadata,
     init::{
@@ -17,7 +16,7 @@ use crate::{
         overlay::{OverlayMetadata, OverlayRepo},
         remotes,
         types::{EdgeOwned, TopoWalk},
-        walk::{RefsById, disambiguate_refs_by_branch_metadata},
+        walk::{RefsById, WorktreeByBranch, disambiguate_refs_by_branch_metadata},
     },
     projection::workspace,
 };

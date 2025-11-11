@@ -1,11 +1,11 @@
 mod stacks {
+    use but_testsupport::visualize_commit_graph_all;
+    use but_workspace::legacy::{StacksFilter, stack_details_v3, stacks_v3};
+
     use crate::ref_info::with_workspace_commit::{
         read_only_in_memory_scenario,
         utils::{StackState, add_stack},
     };
-    use but_testsupport::visualize_commit_graph_all;
-    use but_workspace::legacy::StacksFilter;
-    use but_workspace::{legacy::stack_details_v3, legacy::stacks_v3};
 
     #[test]
     fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
@@ -252,12 +252,13 @@ mod stacks {
 }
 
 mod stack_details {
+    use but_testsupport::visualize_commit_graph_all;
+    use but_workspace::legacy::stack_details_v3;
+
     use crate::ref_info::with_workspace_commit::{
         read_only_in_memory_scenario,
         utils::{StackState, add_stack, add_stack_with_segments},
     };
-    use but_testsupport::visualize_commit_graph_all;
-    use but_workspace::legacy::stack_details_v3;
 
     #[test]
     fn simple_fully_pushed() -> anyhow::Result<()> {

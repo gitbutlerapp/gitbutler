@@ -12,7 +12,10 @@ use but_action::{
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
-use but_workspace::{legacy::StacksFilter, legacy::ui::StackEntry, ui::StackDetails};
+use but_workspace::{
+    legacy::{StacksFilter, ui::StackEntry},
+    ui::StackDetails,
+};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, access::WorktreeWritePermission};
@@ -22,10 +25,10 @@ use serde::{Deserialize, Serialize};
 // use crate::command::file_lock;
 
 mod file_lock;
-use crate::claude_transcript::Transcript;
-use but_core::HunkHeader;
-use but_core::ref_metadata::StackId;
+use but_core::{HunkHeader, ref_metadata::StackId};
 use uuid::Uuid;
+
+use crate::claude_transcript::Transcript;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClaudePostToolUseInput {

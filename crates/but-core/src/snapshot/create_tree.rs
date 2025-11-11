@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 
-use crate::WorktreeChanges;
 use bstr::BString;
+
+use crate::WorktreeChanges;
 
 /// A way to determine what should be included in the snapshot when calling [create_tree()](function::create_tree).
 #[derive(Debug, Clone)]
@@ -53,14 +54,13 @@ impl Outcome {
 pub(super) mod function {
     use std::collections::BTreeSet;
 
-    use crate::{ChangeState, TreeChange, TreeStatus, WorktreeChanges};
     use anyhow::{Context, bail};
     use bstr::{BString, ByteSlice};
     use gix::{diff::index::Change, object::tree::EntryKind};
     use tracing::instrument;
 
     use super::{Outcome, State};
-    use crate::{DiffSpec, tree};
+    use crate::{ChangeState, DiffSpec, TreeChange, TreeStatus, WorktreeChanges, tree};
 
     /// Create a tree that represents the snapshot for the given `selection`, whereas the basis for these changes
     /// is the `head_tree_id` *(i.e. the tree to which `HEAD` is ultimately pointing to)* -

@@ -1,10 +1,10 @@
-use but_core::RepositoryExt;
-use but_core::ref_metadata::StackId;
+use std::io::Write;
+
+use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_settings::AppSettings;
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
-use std::io::Write;
 
 #[derive(Debug, clap::Parser)]
 pub struct Args {

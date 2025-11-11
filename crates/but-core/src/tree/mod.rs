@@ -1,11 +1,10 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
-use crate::{RepositoryExt, UnifiedPatch};
 use anyhow::bail;
 use bstr::ByteSlice;
 use gix::{merge::tree::TreatAsUnresolved, object::tree::EntryKind, prelude::ObjectIdExt};
 
-use crate::{DiffSpec, HunkHeader, HunkRange, apply_hunks};
+use crate::{DiffSpec, HunkHeader, HunkRange, RepositoryExt, UnifiedPatch, apply_hunks};
 
 /// Utility types for the [`create_tree()`] function
 pub mod create_tree {
@@ -48,8 +47,9 @@ pub mod create_tree {
         MissingDiffSpecAssociation,
     }
 }
-use crate::worktree::worktree_file_to_git_in_buf;
 use create_tree::RejectionReason;
+
+use crate::worktree::worktree_file_to_git_in_buf;
 
 /// Additional information about the outcome of a [`super::create_tree()`] call.
 #[derive(Debug)]

@@ -1,4 +1,3 @@
-use crate::{commands::workspace::canned_branch_name, error::Error};
 use anyhow::{Context, Result, anyhow};
 use but_api_macros::api_cmd;
 use but_core::DiffSpec;
@@ -21,6 +20,8 @@ use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name as norma
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gix::reference::Category;
 use tracing::instrument;
+
+use crate::{commands::workspace::canned_branch_name, error::Error};
 // Parameter structs for all functions
 
 #[api_cmd]

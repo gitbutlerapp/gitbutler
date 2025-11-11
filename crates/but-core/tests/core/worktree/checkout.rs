@@ -1,12 +1,12 @@
-use crate::worktree::utils::build_commit;
 use but_core::worktree::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout};
 use but_testsupport::{
     git_status, read_only_in_memory_scenario, visualize_commit_graph_all,
     visualize_disk_tree_skip_dot_git, visualize_index, visualize_tree, writable_scenario,
     writable_scenario_slow,
 };
-use gix::object::tree::EntryKind;
-use gix::prelude::ObjectIdExt;
+use gix::{object::tree::EntryKind, prelude::ObjectIdExt};
+
+use crate::worktree::utils::build_commit;
 
 #[test]
 fn update_unborn_head() -> anyhow::Result<()> {

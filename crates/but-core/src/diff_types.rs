@@ -1,6 +1,7 @@
-use crate::TreeChange;
 use bstr::BString;
 use serde::{Deserialize, Serialize};
+
+use crate::TreeChange;
 
 /// A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it.
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]

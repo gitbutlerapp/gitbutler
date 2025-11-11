@@ -2,10 +2,11 @@
 //! on it.
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+use std::path::{Path, PathBuf};
+
 use but_settings::AppSettings;
 #[cfg(feature = "legacy")]
 use gitbutler_command_context::CommandContext;
-use std::path::{Path, PathBuf};
 
 /// Project specific information, *not* thread-safe, and cheap to clone.
 /// That way it may own per-thread caches.

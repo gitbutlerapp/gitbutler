@@ -1,6 +1,7 @@
-use super::*;
 use bstr::BString;
 use but_core::{DiffSpec, HunkHeader};
+
+use super::*;
 
 #[test]
 fn empty() {

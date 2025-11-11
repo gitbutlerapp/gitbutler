@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
+use but_core::{ref_metadata::StackId, worktree::checkout::UncommitedWorktreeChanges};
+
 use crate::branch::OnWorkspaceMergeConflict;
-use but_core::ref_metadata::StackId;
-use but_core::worktree::checkout::UncommitedWorktreeChanges;
 
 /// Returned by [function::apply()].
 pub struct Outcome<'graph> {
@@ -110,22 +110,17 @@ pub struct Options {
 pub(crate) mod function {
     use std::borrow::Cow;
 
-    use super::{Options, Outcome, WorkspaceMerge, WorkspaceReferenceNaming};
-    use crate::commit::merge::Tip;
-    use crate::{WorkspaceCommit, ref_info::WorkspaceExt};
     use anyhow::{Context, bail};
-    use but_core::ref_metadata::StackKind;
     use but_core::{
         ObjectStorageExt, RefMetadata, RepositoryExt, extract_remote_name, ref_metadata,
         ref_metadata::{
-            StackId,
+            StackId, StackKind,
             StackKind::AppliedAndUnapplied,
             Workspace,
             WorkspaceCommitRelation::{Merged, Outside},
         },
     };
-    use but_graph::petgraph::Direction;
-    use but_graph::{SegmentIndex, init::Overlay, projection::WorkspaceKind};
+    use but_graph::{SegmentIndex, init::Overlay, petgraph::Direction, projection::WorkspaceKind};
     use but_oxidize::GixRepositoryExt;
     use gix::{
         prelude::ObjectIdExt,
@@ -136,6 +131,9 @@ pub(crate) mod function {
         },
     };
     use tracing::instrument;
+
+    use super::{Options, Outcome, WorkspaceMerge, WorkspaceReferenceNaming};
+    use crate::{WorkspaceCommit, commit::merge::Tip, ref_info::WorkspaceExt};
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.

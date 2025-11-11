@@ -1,3 +1,6 @@
+use but_core::{TreeStatusKind, ref_metadata::StackId};
+use gix::bstr::BString;
+
 use crate::{
     InputCommit, InputDiffHunk, InputStack,
     input::InputFile,
@@ -6,9 +9,6 @@ use crate::{
         tests::{id_from_hex_char, input_hunk_from_unified_diff},
     },
 };
-use but_core::TreeStatusKind;
-use but_core::ref_metadata::StackId;
-use gix::bstr::BString;
 
 #[test]
 fn workspace_simple() -> anyhow::Result<()> {

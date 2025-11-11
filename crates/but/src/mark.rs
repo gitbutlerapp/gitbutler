@@ -1,5 +1,4 @@
-use std::io::Write;
-use std::str::FromStr;
+use std::{io::Write, str::FromStr};
 
 use anyhow::bail;
 use but_core::ref_metadata::StackId;

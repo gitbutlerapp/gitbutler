@@ -1,3 +1,21 @@
+use anyhow::{Context, Result};
+use but_core::DiffSpec;
+use but_oxidize::{ObjectIdExt, OidExt};
+use but_workspace::legacy::{commit_engine, stack_heads_info, ui};
+use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+use gitbutler_command_context::CommandContext;
+use gitbutler_operating_modes::ensure_open_workspace_mode;
+use gitbutler_oplog::{
+    OplogExt, SnapshotExt,
+    entry::{OperationKind, SnapshotDetails},
+};
+use gitbutler_project::{FetchResult, access::WorktreeWritePermission};
+use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_repo::RepositoryExt;
+use gitbutler_repo_actions::RepoActionsExt;
+use gitbutler_stack::{BranchOwnershipClaims, StackId};
+use tracing::instrument;
+
 use super::r#virtual as vbranch;
 use crate::{
     VirtualBranchesExt, base,
@@ -16,23 +34,6 @@ use crate::{
         StackStatuses, UpstreamIntegrationContext,
     },
 };
-use anyhow::{Context, Result};
-use but_core::DiffSpec;
-use but_oxidize::{ObjectIdExt, OidExt};
-use but_workspace::{legacy::commit_engine, legacy::stack_heads_info, legacy::ui};
-use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
-use gitbutler_command_context::CommandContext;
-use gitbutler_operating_modes::ensure_open_workspace_mode;
-use gitbutler_oplog::{
-    OplogExt, SnapshotExt,
-    entry::{OperationKind, SnapshotDetails},
-};
-use gitbutler_project::{FetchResult, access::WorktreeWritePermission};
-use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::RepositoryExt;
-use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{BranchOwnershipClaims, StackId};
-use tracing::instrument;
 
 pub fn create_commit(
     ctx: &CommandContext,

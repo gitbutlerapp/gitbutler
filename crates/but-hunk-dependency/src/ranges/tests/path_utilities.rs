@@ -1,5 +1,4 @@
-use but_core::TreeStatusKind;
-use but_core::ref_metadata::StackId;
+use but_core::{TreeStatusKind, ref_metadata::StackId};
 
 use crate::{HunkRange, ranges::tests::id_from_hex_char};
 

@@ -2,7 +2,7 @@ use async_openai::{Client, config::OpenAIConfig};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_settings::AppSettings;
-use but_workspace::{legacy::StacksFilter, legacy::ui::StackEntry};
+use but_workspace::legacy::{StacksFilter, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use uuid::Uuid;

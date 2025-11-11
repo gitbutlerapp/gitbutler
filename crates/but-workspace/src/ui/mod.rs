@@ -12,8 +12,10 @@ pub use ref_info::inner::RefInfo;
 mod author;
 pub use author::Author;
 
-use crate::ref_info::{LocalCommit, LocalCommitRelation};
-use crate::ui;
+use crate::{
+    ref_info::{LocalCommit, LocalCommitRelation},
+    ui,
+};
 
 /// Represents the state a commit could be in.
 #[derive(Debug, Clone, Serialize)]

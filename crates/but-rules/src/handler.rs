@@ -1,14 +1,14 @@
 use std::str::FromStr;
 
-use crate::{Filter, StackTarget};
-use but_core::DiffSpec;
-use but_core::ref_metadata::StackId;
+use but_core::{DiffSpec, ref_metadata::StackId};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
-use but_workspace::{legacy::StacksFilter, legacy::commit_engine, legacy::ui::StackEntry};
+use but_workspace::legacy::{StacksFilter, commit_engine, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use itertools::Itertools;
+
+use crate::{Filter, StackTarget};
 
 pub fn process_workspace_rules(
     ctx: &mut CommandContext,

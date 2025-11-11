@@ -1,5 +1,4 @@
-use crate::utils::Sandbox;
-use crate::utils::setup_metadata;
+use crate::utils::{Sandbox, setup_metadata};
 
 #[test]
 fn worktrees() -> anyhow::Result<()> {

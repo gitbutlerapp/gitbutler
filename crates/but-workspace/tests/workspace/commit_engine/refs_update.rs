@@ -1,3 +1,12 @@
+use but_core::DiffSpec;
+use but_testsupport::{assure_stable_env, visualize_commit_graph};
+use but_workspace::{
+    commit_engine::{Destination, StackSegmentId},
+    legacy::commit_engine::ReferenceFrame,
+};
+use gitbutler_stack::VirtualBranchesState;
+use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
+
 use crate::{
     commit_engine::{
         refs_update::utils::{
@@ -13,12 +22,6 @@ use crate::{
         write_sequence,
     },
 };
-use but_core::DiffSpec;
-use but_testsupport::{assure_stable_env, visualize_commit_graph};
-use but_workspace::commit_engine::{Destination, StackSegmentId};
-use but_workspace::legacy::commit_engine::ReferenceFrame;
-use gitbutler_stack::VirtualBranchesState;
-use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
 
 #[test]
 fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {

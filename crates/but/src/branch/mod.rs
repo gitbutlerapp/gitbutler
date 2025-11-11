@@ -1,10 +1,11 @@
+use std::io::{self, Write};
+
 use atty::Stream;
 use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
-use std::io::{self, Write};
 
 mod apply;
 mod list;

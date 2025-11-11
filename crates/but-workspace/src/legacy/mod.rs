@@ -1,8 +1,9 @@
+use std::path::Path;
+
 use but_oxidize::OidExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 
 pub mod commit_engine;
 pub mod head;
@@ -13,18 +14,17 @@ pub use head::{
 };
 
 pub mod tree_manipulation;
+// TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
+pub use stacks::{
+    local_and_remote_commits, stack_branches, stack_details, stack_details_v3, stack_heads_info,
+    stacks, stacks_v3,
+};
 pub use tree_manipulation::{
     MoveChangesResult,
     move_between_commits::move_changes_between_commits,
     remove_changes_from_commit_in_stack::remove_changes_from_commit_in_stack,
     split_branch::{split_branch, split_into_dependent_branch},
     split_commit::{CommitFiles, CommmitSplitOutcome, split_commit},
-};
-
-// TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
-pub use stacks::{
-    local_and_remote_commits, stack_branches, stack_details, stack_details_v3, stack_heads_info,
-    stacks, stacks_v3,
 };
 
 /// Various types for the frontend.

@@ -1,11 +1,11 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a workspace.
 
 use anyhow::bail;
-use but_core::DiffSpec;
-use but_core::RepositoryExt;
-use but_core::ref_metadata::StackId;
-use but_core::tree::create_tree::RejectionReason;
-use but_core::tree::{CreateTreeOutcome, create_tree};
+use but_core::{
+    DiffSpec, RepositoryExt,
+    ref_metadata::StackId,
+    tree::{CreateTreeOutcome, create_tree, create_tree::RejectionReason},
+};
 use but_rebase::{RebaseOutput, commit::DateMode};
 use gix::prelude::ObjectIdExt as _;
 

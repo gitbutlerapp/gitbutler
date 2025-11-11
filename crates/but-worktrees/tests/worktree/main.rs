@@ -39,7 +39,7 @@ mod util {
 mod worktree_new {
     use anyhow::Context;
     use but_graph::VirtualBranchesTomlMetadata;
-    use but_workspace::{legacy::StacksFilter, legacy::stacks_v3};
+    use but_workspace::legacy::{StacksFilter, stacks_v3};
     use but_worktrees::new::worktree_new;
     use util::test_ctx;
 

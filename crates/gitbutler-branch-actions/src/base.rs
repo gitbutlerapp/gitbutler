@@ -1,11 +1,5 @@
 use std::{path::Path, time};
 
-use crate::{
-    VirtualBranchesExt,
-    hunk::VirtualBranchHunk,
-    integration::update_workspace_commit,
-    remote::{RemoteCommit, commit_to_remote_commit},
-};
 use anyhow::{Context, Result, anyhow};
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_error::Marker;
@@ -25,6 +19,13 @@ use gitbutler_stack::{
 };
 use serde::Serialize;
 use tracing::instrument;
+
+use crate::{
+    VirtualBranchesExt,
+    hunk::VirtualBranchHunk,
+    integration::update_workspace_commit,
+    remote::{RemoteCommit, commit_to_remote_commit},
+};
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]

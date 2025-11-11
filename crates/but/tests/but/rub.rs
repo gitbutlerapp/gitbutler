@@ -1,5 +1,6 @@
-use crate::utils::{Sandbox, setup_metadata};
 use snapbox::str;
+
+use crate::utils::{Sandbox, setup_metadata};
 
 #[test]
 fn shorthand_without_subcommand() -> anyhow::Result<()> {

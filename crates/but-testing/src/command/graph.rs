@@ -1,6 +1,8 @@
-use crate::command::{RepositoryOpenMode, meta_from_maybe_project, repo_and_maybe_project};
-use gix::odb::store::RefreshMode;
 use std::io::{Write, stdout};
+
+use gix::odb::store::RefreshMode;
+
+use crate::command::{RepositoryOpenMode, meta_from_maybe_project, repo_and_maybe_project};
 
 pub enum Dot {
     Print,

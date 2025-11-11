@@ -1,6 +1,5 @@
 use std::collections::{BTreeSet, VecDeque};
 
-use crate::TreeStatus;
 use anyhow::bail;
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gix::{
@@ -13,6 +12,7 @@ use gix::{
 };
 
 use crate::{
+    TreeStatus,
     ext::ObjectStorageExt,
     snapshot,
     worktree::checkout::{Outcome, UncommitedWorktreeChanges},

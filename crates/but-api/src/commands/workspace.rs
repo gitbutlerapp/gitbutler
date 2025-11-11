@@ -10,7 +10,9 @@ use but_graph::{VirtualBranchesTomlMetadata, petgraph::Direction};
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
 use but_workspace::{
-    commit_engine, commit_engine::StackSegmentId, legacy::MoveChangesResult, legacy::ui::StackEntry,
+    commit_engine,
+    commit_engine::StackSegmentId,
+    legacy::{MoveChangesResult, ui::StackEntry},
 };
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;

@@ -26,16 +26,6 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
-    PromptAttachment, SystemMessage, ThinkingLevel, Transcript, UserInput,
-    claude_config::fmt_claude_settings,
-    claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
-    claude_settings::ClaudeSettings,
-    db::{self, list_messages_by_session},
-    rules::{create_claude_assignment_rule, list_claude_assignment_rules},
-    send_claude_message,
-};
 use anyhow::{Result, bail};
 use but_broadcaster::{Broadcaster, FrontendEvent};
 use but_core::ref_metadata::StackId;
@@ -50,6 +40,17 @@ use tokio::{
         Mutex,
         mpsc::{UnboundedSender, unbounded_channel},
     },
+};
+
+use crate::{
+    ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
+    PromptAttachment, SystemMessage, ThinkingLevel, Transcript, UserInput,
+    claude_config::fmt_claude_settings,
+    claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
+    claude_settings::ClaudeSettings,
+    db::{self, list_messages_by_session},
+    rules::{create_claude_assignment_rule, list_claude_assignment_rules},
+    send_claude_message,
 };
 
 /// Holds the CC instances. Currently keyed by stackId, since our current model

@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
-use but_core::ref_metadata::StackId;
-use but_core::ui::TreeChange;
+use but_core::{ref_metadata::StackId, ui::TreeChange};
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::{EditModeMetadata, ensure_edit_mode, ensure_open_workspace_mode};
 use gitbutler_oplog::{

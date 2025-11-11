@@ -451,11 +451,10 @@ fn render_empty_workspace(
 
 #[cfg(test)]
 mod tests {
-    use crate::ui::test_utils::buffer_to_string;
+    use ratatui::{buffer::Buffer, layout::Rect, widgets::Widget};
 
     use super::*;
-
-    use ratatui::{buffer::Buffer, layout::Rect, widgets::Widget};
+    use crate::ui::test_utils::buffer_to_string;
 
     #[test]
     fn render_empty_workspace() {

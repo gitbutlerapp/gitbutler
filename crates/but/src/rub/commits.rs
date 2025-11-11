@@ -1,10 +1,8 @@
-use std::collections::HashSet;
-use std::io::Write;
+use std::{collections::HashSet, io::Write};
 
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
-use but_core::DiffSpec;
-use but_core::diff::tree_changes;
+use but_core::{DiffSpec, diff::tree_changes};
 use but_hunk_assignment::HunkAssignmentRequest;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_command_context::CommandContext;

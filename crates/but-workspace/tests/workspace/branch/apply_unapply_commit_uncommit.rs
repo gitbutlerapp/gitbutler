@@ -1,15 +1,8 @@
-use crate::{
-    ref_info::with_workspace_commit::utils::{
-        StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
-        named_writable_scenario_with_description_and_graph,
-    },
-    utils::r,
-};
 use bstr::ByteSlice;
-use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_core::{
     RefMetadata, RepositoryExt, ref_metadata,
     ref_metadata::{StackId, WorkspaceCommitRelation::Outside},
+    worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_graph::init::{Options, Overlay};
 use but_testsupport::{
@@ -21,6 +14,14 @@ use but_workspace::branch::{
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
 };
 use gix::refs::Category;
+
+use crate::{
+    ref_info::with_workspace_commit::utils::{
+        StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
+        named_writable_scenario_with_description_and_graph,
+    },
+    utils::r,
+};
 
 #[test]
 fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {

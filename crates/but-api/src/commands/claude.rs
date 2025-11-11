@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::{App, error::Error};
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_claude::{
@@ -16,6 +15,8 @@ use gitbutler_project::ProjectId;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 use tracing::instrument;
+
+use crate::{App, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

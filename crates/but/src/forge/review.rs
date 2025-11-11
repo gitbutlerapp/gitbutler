@@ -1,8 +1,9 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, io::Write};
 
 use anyhow::Context;
 use bstr::ByteSlice;
 use but_api::forge::ListReviewsParams;
+use but_core::ref_metadata::StackId;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
 use colored::{ColoredString, Colorize};
@@ -15,8 +16,6 @@ use crate::{
     id::CliId,
     ui::{SimpleBranch, SimpleStack},
 };
-use but_core::ref_metadata::StackId;
-use std::io::Write;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {

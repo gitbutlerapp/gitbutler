@@ -6,13 +6,13 @@ use command::parse_diff_spec;
 use gix::bstr::BString;
 
 mod args;
-use crate::command::graph::Dot;
-use crate::{
-    args::Subcommands,
-    command::{RepositoryOpenMode, repo_and_maybe_project},
-};
 use args::Args;
 use but_core::HunkHeader;
+
+use crate::{
+    args::Subcommands,
+    command::{RepositoryOpenMode, graph::Dot, repo_and_maybe_project},
+};
 
 mod command;
 

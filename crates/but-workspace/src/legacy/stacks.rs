@@ -16,12 +16,14 @@ use gix::date::parse::TimeBuf;
 use itertools::Itertools;
 use tracing::instrument;
 
-use crate::legacy::StacksFilter;
-use crate::legacy::ui::{StackEntry, StackHeadInfo};
 use crate::{
     RefInfo, branch, head_info,
-    legacy::integrated::IsCommitIntegrated,
-    legacy::state_handle,
+    legacy::{
+        StacksFilter,
+        integrated::IsCommitIntegrated,
+        state_handle,
+        ui::{StackEntry, StackHeadInfo},
+    },
     ref_info,
     ref_info::Segment,
     ui,

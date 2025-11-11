@@ -14,8 +14,7 @@ mod state;
 
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
-use but_core::UnifiedPatch;
-use but_core::{HunkHeader, ref_metadata::StackId};
+use but_core::{HunkHeader, UnifiedPatch, ref_metadata::StackId};
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };

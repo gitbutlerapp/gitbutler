@@ -1,6 +1,5 @@
 use std::{path::PathBuf, sync::atomic::AtomicBool};
 
-use crate::error::{Error, ToError};
 use anyhow::{Context as _, Result};
 use but_api_macros::api_cmd;
 use but_core::DiffSpec;
@@ -15,6 +14,8 @@ use gitbutler_repo::{
     hooks::{HookResult, MessageHookResult},
 };
 use tracing::instrument;
+
+use crate::error::{Error, ToError};
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

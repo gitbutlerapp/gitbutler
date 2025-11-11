@@ -1,8 +1,10 @@
 use std::{borrow::Cow, mem::ManuallyDrop, path::Path};
 
 use anyhow::{Context, anyhow, bail};
-use but_core::worktree::checkout::UncommitedWorktreeChanges;
-use but_core::{DiffSpec, HunkHeader, UnifiedPatch, ref_metadata::StackId};
+use but_core::{
+    DiffSpec, HunkHeader, UnifiedPatch, ref_metadata::StackId,
+    worktree::checkout::UncommitedWorktreeChanges,
+};
 use but_db::poll::ItemKind;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
@@ -163,7 +165,7 @@ pub mod stacks {
 
     use anyhow::Context;
     use but_settings::AppSettings;
-    use but_workspace::{legacy::StacksFilter, legacy::stack_branches, legacy::ui};
+    use but_workspace::legacy::{StacksFilter, stack_branches, ui};
     use gitbutler_command_context::CommandContext;
     use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_stack::StackId;

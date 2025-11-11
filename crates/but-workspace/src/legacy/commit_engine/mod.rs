@@ -1,21 +1,19 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a [reference frame](ReferenceFrame).
 
-use crate::WorkspaceCommit;
-use crate::commit_engine::{
-    CreateCommitOutcome, Destination, StackSegmentId, create_commit, index,
-};
-use crate::legacy::commit_engine::reference_frame::InferenceMode;
 use anyhow::{Context, bail};
 use bstr::BString;
-use but_core::DiffSpec;
-use but_core::ref_metadata::StackId;
-use but_core::tree::create_tree::RejectionReason;
+use but_core::{DiffSpec, ref_metadata::StackId, tree::create_tree::RejectionReason};
 use but_rebase::merge::ConflictErrorContext;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
-use gix::prelude::ObjectIdExt;
-use gix::refs::transaction::PreviousValue;
+use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
+
+use crate::{
+    WorkspaceCommit,
+    commit_engine::{CreateCommitOutcome, Destination, StackSegmentId, create_commit, index},
+    legacy::commit_engine::reference_frame::InferenceMode,
+};
 
 /// Utility types
 pub mod reference_frame;

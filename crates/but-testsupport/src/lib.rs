@@ -1,6 +1,8 @@
 //! Utilities for testing.
 #![deny(missing_docs)]
 
+use std::{collections::HashMap, io::Write, path::Path};
+
 use gix::{
     Repository,
     bstr::{BStr, ByteSlice},
@@ -8,8 +10,6 @@ use gix::{
 };
 pub use gix_testtools;
 use gix_testtools::{Creation, tempfile};
-use std::io::Write;
-use std::{collections::HashMap, path::Path};
 
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
@@ -573,6 +573,5 @@ pub use graph::{graph_tree, graph_workspace};
 
 mod prepare_cmd_env;
 pub use prepare_cmd_env::isolate_env_std_cmd;
-
 #[cfg(feature = "snapbox")]
 pub use prepare_cmd_env::isolate_snapbox_cmd;

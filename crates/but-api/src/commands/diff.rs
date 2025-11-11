@@ -1,10 +1,9 @@
-use crate::{error::Error, hex_hash::HexHash};
 use anyhow::Context;
 use but_api_macros::api_cmd;
-use but_core::ref_metadata::StackId;
 use but_core::{
     Commit,
     commit::ConflictEntries,
+    ref_metadata::StackId,
     ui::{TreeChange, TreeChanges},
 };
 use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeChanges};
@@ -18,6 +17,8 @@ use gitbutler_reference::Refname;
 use gix::refs::Category;
 use serde::Serialize;
 use tracing::instrument;
+
+use crate::{error::Error, hex_hash::HexHash};
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).

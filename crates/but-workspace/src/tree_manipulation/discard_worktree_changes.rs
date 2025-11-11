@@ -544,11 +544,12 @@ mod file {
 }
 
 mod hunk {
-    use crate::tree_manipulation::hunk::{HunkSubstraction, subtract_hunks};
     use anyhow::bail;
     use bstr::ByteSlice;
-    use but_core::worktree::worktree_file_to_git_in_buf;
-    use but_core::{ChangeState, HunkHeader, TreeChange, UnifiedPatch, apply_hunks};
+    use but_core::{
+        ChangeState, HunkHeader, TreeChange, UnifiedPatch, apply_hunks,
+        worktree::worktree_file_to_git_in_buf,
+    };
     use gix::{
         filter::plumbing::{
             driver::apply::{Delay, MaybeDelayed},
@@ -556,6 +557,8 @@ mod hunk {
         },
         prelude::ObjectIdExt,
     };
+
+    use crate::tree_manipulation::hunk::{HunkSubstraction, subtract_hunks};
 
     /// Discard `hunks_to_discard` in the resource at `wt_change`, whose previous version is `previous_state` and is expected to
     /// be tracked and readable from the object database. We will always read what's currently on disk as the current version

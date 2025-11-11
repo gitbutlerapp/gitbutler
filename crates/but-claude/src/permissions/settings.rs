@@ -1,6 +1,7 @@
+use std::path::Path;
+
 use anyhow::Result;
 use serde_json_lenient::json;
-use std::path::Path;
 
 use crate::permissions::{Permission, SerializationContext};
 

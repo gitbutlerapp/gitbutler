@@ -1,5 +1,4 @@
-use std::borrow::Cow;
-use std::ffi::OsStr;
+use std::{borrow::Cow, ffi::OsStr};
 
 /// Change the `cmd` environment to be very isolated, particularly when Git is involved.
 pub fn isolate_env_std_cmd(cmd: &mut std::process::Command) -> &mut std::process::Command {

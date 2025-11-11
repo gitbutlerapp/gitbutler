@@ -9,8 +9,7 @@ use but_api::{
     commands::{diff, virtual_branches, workspace},
     hex_hash::HexHash,
 };
-use but_core::DiffSpec;
-use but_core::ui::TreeChange;
+use but_core::{DiffSpec, ui::TreeChange};
 use but_hunk_assignment::HunkAssignment;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;

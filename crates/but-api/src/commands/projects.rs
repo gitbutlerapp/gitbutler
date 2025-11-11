@@ -1,6 +1,7 @@
+use std::path::PathBuf;
+
 use but_api_macros::api_cmd;
 use gitbutler_project::{self as projects, ProjectId};
-use std::path::PathBuf;
 use tracing::instrument;
 
 use crate::error::Error;

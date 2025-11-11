@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
 use but_core::{RefMetadata, extract_remote_name, ref_metadata};
@@ -6,7 +8,6 @@ use gix::{
     prelude::{ObjectIdExt, ReferenceExt},
     refs::Category,
 };
-use std::collections::BTreeMap;
 use tracing::instrument;
 
 use crate::{CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata};
