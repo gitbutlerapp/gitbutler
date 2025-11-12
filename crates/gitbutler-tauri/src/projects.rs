@@ -1,14 +1,14 @@
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
-
 use anyhow::{Context, bail};
 use but_api::error::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gix::bstr::ByteSlice;
+use std::collections::BTreeMap;
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 use tauri::{State, Window};
 use tracing::instrument;
 
@@ -102,8 +102,68 @@ pub fn set_project_active(
 /// the migration fails - the workspace will still be functional, just potentially
 /// with stale metadata that can confuse 'old' code.
 ///
-/// NOTE: This isn't needed for new code - it won't base any decisions on the metadata.
+/// NOTE: This isn't needed for new code - it won't base any decisions on the metadata alone.
+#[instrument(level = tracing::Level::DEBUG, skip(ctx))]
 fn reconcile_in_workspace_state_of_vb_toml(ctx: &mut CommandContext) -> Option<()> {
+    fn make_heads_match(
+        ws_stack: &but_graph::projection::Stack,
+        vb_stack: &mut but_graph::virtual_branches_legacy_types::Stack,
+    ) -> bool {
+        // Always leave extra segments.
+
+        // Add missing segments
+        let segments_to_add: Vec<_> = ws_stack
+            .segments
+            .iter()
+            .filter_map(|s| {
+                s.ref_name().and_then(|rn| {
+                    let is_in_vb_stack_branches =
+                        vb_stack.heads.iter().any(|sb| sb.name == rn.shorten());
+                    (!is_in_vb_stack_branches).then_some((s, rn))
+                })
+            })
+            .collect();
+
+        for (segment, segment_name) in segments_to_add {
+            vb_stack
+                .heads
+                .push(but_graph::virtual_branches_legacy_types::StackBranch {
+                    head: but_graph::virtual_branches_legacy_types::CommitOrChangeId::CommitId(
+                        segment
+                            .commits
+                            .first()
+                            .map_or(gix::hash::Kind::Sha1.null(), |c| c.id)
+                            .to_string(),
+                    ),
+                    name: segment_name.shorten().to_string(),
+                    description: None,
+                    pr_number: None,
+                    archived: false,
+                    review_id: None,
+                });
+        }
+
+        // finally, put them in order, for good measure.
+        let previous_heads = vb_stack.heads.clone();
+        let original_positions_by_name: BTreeMap<_, _> = vb_stack
+            .heads
+            .iter()
+            // Use our order
+            .rev()
+            .enumerate()
+            .map(|(idx, s)| (s.name.clone(), idx))
+            .collect();
+        vb_stack.heads.sort_by_key(|sb| {
+            ws_stack
+                .segments
+                .iter()
+                .position(|s| s.ref_name().is_some_and(|rn| rn.shorten() == sb.name))
+                .or_else(|| original_positions_by_name.get(&sb.name).copied())
+        });
+        // The ws_stack order is top to bottom, the other is bottom to top.
+        vb_stack.heads.reverse();
+        vb_stack.heads != previous_heads
+    }
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
     let (_repo, mut meta, graph) = ctx
@@ -117,17 +177,28 @@ fn reconcile_in_workspace_state_of_vb_toml(ctx: &mut CommandContext) -> Option<(
     let ws = graph.to_workspace().ok()?;
 
     let mut seen = BTreeSet::new();
-    for in_workspace_stack_id in ws.stacks.iter().filter_map(|s| s.id) {
+    for (ws_stack, in_workspace_stack_id) in ws.stacks.iter().filter_map(|s| s.id.map(|id| (s, id)))
+    {
         seen.insert(in_workspace_stack_id);
         let Some(vb_stack) = meta.data_mut().branches.get_mut(&in_workspace_stack_id) else {
+            tracing::warn!(
+                "Didn't find stack with id {in_workspace_stack_id} in branches metadata, and it would have to be created or old code may fail"
+            );
             continue;
         };
 
+        let made_heads_match = make_heads_match(ws_stack, vb_stack);
         if !vb_stack.in_workspace {
             tracing::warn!(
                 "Fixing stale metadata of stack {in_workspace_stack_id} to be considered inside the workspace",
             );
             vb_stack.in_workspace = true;
+            meta.set_changed_to_necessitate_write();
+        }
+        if made_heads_match {
+            tracing::warn!(
+                "Adjusted segments in stack {in_workspace_stack_id} to match what's actually there"
+            );
             meta.set_changed_to_necessitate_write();
         }
     }
@@ -173,6 +244,7 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
 }
 
 /// Fatal errors are returned as error, fixed errors for tracing will be `Some(err)`
+#[instrument(level = tracing::Level::DEBUG)]
 fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<String>> {
     if let Err(err) = but_db::DbHandle::new_in_directory(&gb_dir) {
         let db_path = but_db::DbHandle::db_file_path(&gb_dir);

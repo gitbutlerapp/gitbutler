@@ -194,23 +194,28 @@ For more realistic performance logging, use local release builds with `--release
 GITBUTLER_PERFORMANCE_LOG=1 LOG_LEVEL=debug pnpm tauri dev --release
 ```
 
-Since release builds are configured for public releases, they are very slow to compile.
-Speed them up by sourcing the following file.
-
-```bash
-export CARGO_PROFILE_RELEASE_DEBUG=0
-export CARGO_PROFILE_RELEASE_INCREMENTAL=false
-export CARGO_PROFILE_RELEASE_LTO=false
-export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=256
-export CARGO_PROFILE_RELEASE_OPT_LEVEL=2
-```
-
 ### Repository
 
 Often the behaviour depends on the current context: the repository being displayed. Next to *logs*, it's useful to learn how it's structured.
 
-To do that, launch the application from a terminal as shown in the paragraph above this one, but with `graphviz` installed.
-The `dot` program should be available in `PATH`.
+To do that, *launch the application from a terminal* as shown in the paragraph above this one, or right below, but with `graphviz` installed.
+The `dot` program should be available in `PATH` so it can run from the terminal.
+
+Doing so can look like this on MacOS, for example:
+
+###### For the stable build
+
+```shell
+GITBUTLER_PERFORMANCE_LOG=1 /Applications/GitButler/Contents/MacOS/gitbutler-tauri
+```
+
+###### For the nightly build
+
+```shell
+GITBUTLER_PERFORMANCE_LOG=1 /Applications/GitButler\ Nightly.app/Contents/MacOS/gitbutler-tauri
+```
+
+###### Producing a commit-graph visualization
 
 Then, within the application, type `dot` in any non-editable portion of the GUI, like the cheat code that it is.
 This will pop open an SVG version of the graph that GitButler uses to create the workspace projection.
