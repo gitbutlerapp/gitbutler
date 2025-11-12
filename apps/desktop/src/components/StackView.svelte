@@ -606,7 +606,6 @@
 		>
 			{#if stableStackId && selection?.branchName && selection?.codegen}
 				<CodegenMessages
-					isWorkspace
 					projectId={stableProjectId}
 					stackId={stableStackId}
 					branchName={selection.branchName}
