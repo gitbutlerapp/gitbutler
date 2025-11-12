@@ -3,7 +3,6 @@
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
     .fg-green { fill: #00AA00 }
-    .fg-magenta { fill: #AA00AA }
     .fg-yellow { fill: #AA5500 }
     .container {
       padding: 0 10px;
@@ -44,7 +43,7 @@
 </tspan>
     <tspan x="10px" y="208px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="226px"><tspan class="fg-magenta">●</tspan><tspan> </tspan><tspan class="dimmed">8dc508f</tspan><tspan> (common base) [</tspan><tspan class="fg-green bold">origin/main</tspan><tspan>] </tspan><tspan class="dimmed">2000-01-02 00:00:00 +0000</tspan><tspan> M-advanced </tspan>
+    <tspan x="10px" y="226px"><tspan>┴ </tspan><tspan class="dimmed">8dc508f</tspan><tspan> (common base) [</tspan><tspan class="fg-green bold">origin/main</tspan><tspan>] </tspan><tspan class="dimmed">2000-01-02</tspan><tspan> M-advanced </tspan>
 </tspan>
     <tspan x="10px" y="244px">
 </tspan>

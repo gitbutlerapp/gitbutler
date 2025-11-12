@@ -217,8 +217,9 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
     "target_name": "origin/main",
     "common_merge_base": "0dc3733",
     "message": "add M ",
-    "commit_date": "2000-01-02 00:00:00 +0000"
-  }
+    "commit_date": "2000-01-02"
+  },
+  "upstream_state": null
 }
 
 "#]]);
