@@ -98,7 +98,11 @@
 				{abbreviated}
 			{/if}
 			{#if isAbbrev}
-				<button onclick={() => (expanded = !expanded)} type="button" class="readmore text-bold">
+				<button
+					onclick={() => (expanded = !expanded)}
+					type="button"
+					class="readmore underline-dotted text-bold"
+				>
 					{#if expanded}
 						less
 					{:else}
@@ -134,7 +138,7 @@
 		display: flex;
 		align-items: center;
 		gap: 2px;
-		text-decoration: underline dotted;
+		font-family: var(--font-mono);
 	}
 
 	.description {
@@ -147,6 +151,5 @@
 	.readmore {
 		display: inline;
 		position: relative;
-		text-decoration: underline dotted;
 	}
 </style>
