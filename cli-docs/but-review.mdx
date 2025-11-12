@@ -53,7 +53,8 @@ Run pre-push hooks.
 
 ### `-t, --default`
 
-Use just the branch name as the review title, without opening an editor.
+Use the default content for the review title and description, skipping any prompts.
+If the review contains only a single commit, the commit message will be used for the review title and description.
 
 - **Type:** Flag (boolean)
 - **Default:** `false`
