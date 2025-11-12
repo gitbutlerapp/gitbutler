@@ -14,12 +14,32 @@ use tracing::instrument;
 
 use crate::error::Error;
 
+/// (Deprecated) Get the list of PR template paths for the given project and forge.
+/// This function is deprecated in favor of `list_available_review_templates`.
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>, Error> {
     let project = gitbutler_project::get_validated(project_id)?;
     Ok(available_review_templates(project.worktree_dir()?, &forge))
+}
+
+/// Get the list of review template paths for the given project.
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn list_available_review_templates(project_id: ProjectId) -> Result<Vec<String>, Error> {
+    let project = gitbutler_project::get_validated(project_id)?;
+    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let ctx = CommandContext::open(&project, app_settings)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let forge = &base_branch
+        .forge_repo_info
+        .as_ref()
+        .context("No forge could be determined for this repository branch")?
+        .forge;
+
+    Ok(available_review_templates(project.worktree_dir()?, forge))
 }
 
 /// (Deprecated) Get the PR template content for the given project and relative path.
@@ -113,6 +133,48 @@ pub fn review_template(project_id: ProjectId) -> Result<Option<ReviewTemplateInf
         }
         None => Ok(None),
     }
+}
+
+/// Set the review template path in the git configuration for the given project.
+/// The template path will be validated.
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn set_review_template(
+    project_id: ProjectId,
+    template_path: Option<String>,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get_validated(project_id)?;
+    let repo = project.open_isolated()?;
+    let mut git_config = repo.git_settings()?;
+
+    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let ctx = CommandContext::open(&project, app_settings)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let forge = &base_branch
+        .forge_repo_info
+        .as_ref()
+        .context("No forge could be determined for this repository branch")?
+        .forge;
+
+    let ReviewTemplateFunctions {
+        is_valid_review_template_path,
+        ..
+    } = get_review_template_functions(forge);
+
+    if let Some(ref path) = template_path {
+        let path_buf = std::path::PathBuf::from(path);
+        if !is_valid_review_template_path(&path_buf) {
+            return Err(anyhow::format_err!(
+                "Invalid review template path: {:?}",
+                project.worktree_dir()?.join(&path_buf),
+            )
+            .into());
+        }
+    }
+
+    git_config.gitbutler_forge_review_template_path = template_path.map(|p| p.into());
+    repo.set_git_settings(&git_config).map_err(Into::into)
 }
 
 #[api_cmd]

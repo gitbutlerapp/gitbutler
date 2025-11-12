@@ -25,7 +25,7 @@ impl From<AuthMethod> for String {
 /// Authenticate with GitHub
 pub async fn auth_github() -> anyhow::Result<()> {
     let auth_method_prompt = cli_prompts::prompts::Selection::new(
-        "Select an authentication method:",
+        "Select an authentication method",
         vec![
             AuthMethod::DeviceFlow,
             AuthMethod::Pat,

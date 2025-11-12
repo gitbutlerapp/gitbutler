@@ -97,6 +97,7 @@ impl From<CommandName> for EventKind {
             CommandName::ForgeListUsers => EventKind::Cli(Command::ForgeListUsers),
             CommandName::ForgeForget => EventKind::Cli(Command::ForgeForget),
             CommandName::PublishReview => EventKind::Cli(Command::PublishReview),
+            CommandName::ReviewTemplate => EventKind::Cli(Command::PublishReview),
             CommandName::Completions => EventKind::Cli(Command::Completions),
             CommandName::Absorb => EventKind::Cli(Command::Absorb),
             CommandName::Unknown => EventKind::Cli(Command::Unknown),

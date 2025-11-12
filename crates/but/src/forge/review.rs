@@ -7,6 +7,7 @@ use but_core::ref_metadata::StackId;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
 use but_workspace::ui::Commit;
+use cli_prompts::DisplayPrompt;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
@@ -45,8 +46,59 @@ pub enum Subcommands {
         #[clap(long, short = 't', default_value_t = false)]
         default: bool,
     },
+    /// Configure the template to use for review descriptions.
+    /// This will list all available templates found in the repository and allow you to select one.
+    Template {
+        /// Path to the review template file within the repository.
+        template_path: Option<String>,
+    },
 }
 
+/// Set the review template for the given project.
+pub fn set_review_template(
+    project: &Project,
+    template_path: Option<String>,
+    json: bool,
+) -> anyhow::Result<()> {
+    if let Some(path) = template_path {
+        let message = format!("Set review template path to: {}", &path);
+        but_api::forge::set_review_template(project.id, Some(path))?;
+        if !json {
+            writeln!(std::io::stdout(), "{}", message)?;
+        }
+    } else {
+        let current_template = but_api::forge::review_template(project.id)?;
+        let available_templates = but_api::forge::list_available_review_templates(project.id)?;
+        let template_prompt = cli_prompts::prompts::Selection::new_with_transformation(
+            "Select a review template (and press Enter)",
+            available_templates.into_iter(),
+            |s| {
+                if let Some(current) = &current_template {
+                    if s == &current.path {
+                        format!("{} (current)", s)
+                    } else {
+                        s.clone()
+                    }
+                } else {
+                    s.clone()
+                }
+            },
+        );
+
+        let selected_template = template_prompt
+            .display()
+            .map_err(|_| anyhow::anyhow!("Could not determine selected review template"))?;
+        let message = format!("Set review template path to: {}", &selected_template);
+        but_api::forge::set_review_template(project.id, Some(selected_template.clone()))?;
+        if !json {
+            writeln!(std::io::stdout(), "{}", message)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Publish reviews for active branches in the workspace.
 pub async fn publish_reviews(
     project: &Project,
     branch: Option<String>,
@@ -499,7 +551,7 @@ fn get_review_body_from_editor(
             template.push('\n');
         }
     } else if let Some(review_template) = but_api::forge::review_template(project_id)? {
-        template.push_str(&review_template);
+        template.push_str(&review_template.content);
     } else {
         template.push_str(branch_name);
     }

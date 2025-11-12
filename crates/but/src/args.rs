@@ -277,6 +277,7 @@ pub enum CommandName {
     ForgeListUsers,
     ForgeForget,
     PublishReview,
+    ReviewTemplate,
     Completions,
     #[default]
     Unknown,
