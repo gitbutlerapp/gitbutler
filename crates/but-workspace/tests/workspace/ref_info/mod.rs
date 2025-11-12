@@ -659,7 +659,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
 }
 
 mod utils {
-    use but_graph::VirtualBranchesTomlMetadata;
+    use but_meta::VirtualBranchesTomlMetadata;
     use but_testsupport::gix_testtools::tempfile;
     use but_workspace::ref_info;
 

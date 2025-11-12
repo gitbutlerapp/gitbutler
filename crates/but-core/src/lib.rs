@@ -108,6 +108,17 @@ pub mod sync;
 mod ext;
 pub use ext::ObjectStorageExt;
 
+/// Return `true` if `ref_name` looks like the standard GitButler workspace.
+///
+/// Note that in the future, ideally we won't rely on the name at all, but instead
+/// check for the presence of workspace ref-metadata.
+///
+/// TODO: no special handling by branch-name should be needed, it's all in the ref-metadata.
+pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
+    ref_name.as_bstr() == "refs/heads/gitbutler/workspace"
+        || ref_name.as_bstr() == "refs/heads/gitbutler/integration"
+}
+
 /// A utility to extra the name of the remote from a remote tracking ref with `ref_name`.
 /// If it's not a remote tracking ref, or no remote in `remote_names` (like `origin`) matches,
 /// `None` is returned.

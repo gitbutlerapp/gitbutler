@@ -6,7 +6,7 @@ use but_core::{
     worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_db::poll::ItemKind;
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
@@ -86,7 +86,11 @@ pub fn repo_and_maybe_project_and_graph(
 )> {
     let (repo, project) = repo_and_maybe_project(args, mode)?;
     let meta = meta_from_maybe_project(project.as_ref())?;
-    let graph = but_graph::Graph::from_head(&repo, &*meta, meta.graph_options())?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &*meta,
+        but_graph::init::Options::from_legacy_meta(&meta),
+    )?;
     Ok((repo, project, graph, meta))
 }
 

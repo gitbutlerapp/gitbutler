@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use but_graph::virtual_branches_legacy_types;
+use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::RepositoryExt;

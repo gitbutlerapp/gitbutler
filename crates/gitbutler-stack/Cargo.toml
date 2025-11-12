@@ -13,7 +13,7 @@ doctest = false
 [dependencies]
 but-core.workspace = true
 but-rebase.workspace = true
-but-graph.workspace = true
+but-meta.workspace = true
 but-error.workspace = true
 but-oxidize.workspace = true
 

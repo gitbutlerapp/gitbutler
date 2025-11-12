@@ -53,7 +53,7 @@ mod util {
 }
 
 use but_cherry_apply::CherryApplyStatus;
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::legacy::stack_details_v3;
 
 mod clean_to_both {

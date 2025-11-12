@@ -27,6 +27,7 @@ but-broadcaster.workspace = true
 but-db.workspace = true
 but-settings.workspace = true
 but-graph.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
 but-core.workspace = true
 but-action.workspace = true
 but-bot.workspace = true

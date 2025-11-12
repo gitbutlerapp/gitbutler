@@ -10,12 +10,15 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
+but-db.workspace = true
+but-settings.workspace = true
+but-meta.workspace = true
+but-graph = { workspace = true, features = ["legacy"] }
+
+gitbutler-project.workspace = true
+
 anyhow.workspace = true
 git2.workspace = true
 gix.workspace = true
 tracing.workspace = true
-gitbutler-project.workspace = true
-but-db.workspace = true
-but-settings.workspace = true
-but-graph.workspace = true
 bstr = "1.12.1"

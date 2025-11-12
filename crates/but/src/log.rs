@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use but_core::ref_metadata::StackId;
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_workspace::{
     legacy::{StacksFilter, ui::StackEntry},

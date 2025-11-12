@@ -1,6 +1,6 @@
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
 use gitbutler_command_context::CommandContext;
 use gix::bstr::BStr;

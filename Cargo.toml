@@ -15,6 +15,7 @@ but-worktrees = { path = "crates/but-worktrees" }
 but-db = { path = "crates/but-db" }
 but-path = { path = "crates/but-path" }
 but-graph = { path = "crates/but-graph" }
+but-meta = { path = "crates/but-meta" }
 but-rules = { path = "crates/but-rules" }
 but-action = { path = "crates/but-action" }
 but-bot = { path = "crates/but-bot" }

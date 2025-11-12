@@ -9,8 +9,8 @@ use anyhow::{Context, Result, anyhow};
 use but_action::{
     ActionHandler, OpenAiProvider, Source, rename_branch::RenameBranchParams, reword::CommitEvent,
 };
-use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_workspace::{
     legacy::{StacksFilter, ui::StackEntry},

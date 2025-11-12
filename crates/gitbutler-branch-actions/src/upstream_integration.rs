@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Context, Result, anyhow, bail};
 use bstr::ByteSlice;
 use but_core::Reference;
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_serde::BStringForFrontend;
@@ -192,7 +192,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
             &*meta,
             Options {
                 expensive_commit_info: true,
-                traversal: meta.graph_options(),
+                traversal: but_graph::init::Options::from_legacy_meta(&meta),
             },
         )?;
 

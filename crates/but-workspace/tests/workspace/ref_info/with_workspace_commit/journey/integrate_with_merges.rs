@@ -1,5 +1,5 @@
 //! A loose collection of states that users typically encounter.
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_commit_graph_all;
 
 use crate::ref_info::{

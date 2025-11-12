@@ -20,30 +20,30 @@ pub struct CommandContext {
     db_handle: Option<but_db::DbHandle>,
 }
 
-/// A [`but_graph::VirtualBranchesTomlMetadata`] instance that is only accessible if it sees a read
+/// A [`but_meta::VirtualBranchesTomlMetadata`] instance that is only accessible if it sees a read
 /// permission upon instantiation.
 ///
 /// This is necessary only while the `virtual_branches.toml` file is used as it's read eagerly on
 /// instantiation, and must thus not interleave with other writers.
-pub struct VirtualBranchesTomlMetadata(but_graph::VirtualBranchesTomlMetadata);
+pub struct VirtualBranchesTomlMetadata(but_meta::VirtualBranchesTomlMetadata);
 
 impl Deref for VirtualBranchesTomlMetadata {
-    type Target = but_graph::VirtualBranchesTomlMetadata;
+    type Target = but_meta::VirtualBranchesTomlMetadata;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-/// A [`but_graph::VirtualBranchesTomlMetadata`] instance that is only accessible if it sees a write
+/// A [`but_meta::VirtualBranchesTomlMetadata`] instance that is only accessible if it sees a write
 /// permission upon instantiation.
 ///
 /// This is necessary only while the `virtual_branches.toml` file is used as it's read eagerly on
 /// instantiation, and must thus not interleave with other writers.
-pub struct VirtualBranchesTomlMetadataMut(but_graph::VirtualBranchesTomlMetadata);
+pub struct VirtualBranchesTomlMetadataMut(but_meta::VirtualBranchesTomlMetadata);
 
 impl Deref for VirtualBranchesTomlMetadataMut {
-    type Target = but_graph::VirtualBranchesTomlMetadata;
+    type Target = but_meta::VirtualBranchesTomlMetadata;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -124,7 +124,11 @@ impl CommandContext {
         but_graph::Graph,
     )> {
         let meta = self.meta_inner()?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, meta.graph_options())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            but_graph::init::Options::from_legacy_meta(&meta),
+        )?;
         Ok((repo, VirtualBranchesTomlMetadata(meta), graph))
     }
 
@@ -153,7 +157,11 @@ impl CommandContext {
     )> {
         let repo = self.gix_repo()?;
         let meta = self.meta_inner()?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, meta.graph_options())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            but_graph::init::Options::from_legacy_meta(&meta),
+        )?;
         Ok((repo, VirtualBranchesTomlMetadataMut(meta), graph))
     }
 
@@ -181,7 +189,7 @@ impl CommandContext {
             commit_id,
             reference.name().to_owned(),
             &meta,
-            meta.graph_options(),
+            but_graph::init::Options::from_legacy_meta(&meta),
         )?;
         Ok((repo, VirtualBranchesTomlMetadataMut(meta), graph))
     }
@@ -224,8 +232,8 @@ impl CommandContext {
 impl CommandContext {
     /// Return the `RefMetadata` implementation based on the `virtual_branches.toml` file.
     /// This can one day be changed to auto-migrate away from the toml and to the database.
-    fn meta_inner(&self) -> Result<but_graph::VirtualBranchesTomlMetadata> {
-        but_graph::VirtualBranchesTomlMetadata::from_path(
+    fn meta_inner(&self) -> Result<but_meta::VirtualBranchesTomlMetadata> {
+        but_meta::VirtualBranchesTomlMetadata::from_path(
             self.project.gb_dir().join("virtual_branches.toml"),
         )
     }

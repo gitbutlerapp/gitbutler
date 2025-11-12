@@ -3,11 +3,13 @@ use std::{
     str::FromStr,
 };
 
+use crate::{error::Error, hex_hash::HexHash};
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_core::RepositoryExt;
-use but_graph::{VirtualBranchesTomlMetadata, petgraph::Direction};
+use but_graph::petgraph::Direction;
 use but_hunk_assignment::HunkAssignmentRequest;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_workspace::{
     commit_engine,
@@ -26,8 +28,6 @@ use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use serde::Serialize;
 use tracing::instrument;
-
-use crate::{error::Error, hex_hash::HexHash};
 
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))

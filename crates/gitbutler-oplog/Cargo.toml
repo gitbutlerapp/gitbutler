@@ -11,7 +11,7 @@ autotests = false
 doctest = false
 
 [dependencies]
-but-graph.workspace = true
+but-meta.workspace = true
 but-serde = { workspace = true, features = ["legacy"]}
 but-core.workspace = true
 but-oxidize.workspace = true

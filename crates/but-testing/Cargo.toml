@@ -20,9 +20,10 @@ but-settings.workspace = true
 but-core.workspace = true
 but-db.workspace = true
 but-workspace = {workspace = true, features = ["legacy"]}
-but-graph.workspace = true
+but-graph = {workspace = true, features = ["legacy"]}
 but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
 
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true

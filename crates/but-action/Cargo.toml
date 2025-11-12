@@ -20,7 +20,7 @@ but-settings.workspace = true
 but-secret.workspace = true
 but-db.workspace = true
 but-core.workspace = true
-but-graph.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
 but-workspace = { workspace = true, features = ["legacy"] }
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true

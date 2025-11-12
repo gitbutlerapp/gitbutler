@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use but_core::ref_metadata::StackId;
-use but_graph::virtual_branches_legacy_types::CommitOrChangeId;
+use but_meta::virtual_branches_legacy_types::CommitOrChangeId;
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::legacy::stack_ext::StackExt;

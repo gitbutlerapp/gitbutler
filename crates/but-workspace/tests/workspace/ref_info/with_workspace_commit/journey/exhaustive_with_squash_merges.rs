@@ -1,5 +1,5 @@
 //! A collection of tests that build on top of each other, like a progression of steps a user could take.
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_commit_graph_all;
 
 use crate::ref_info::{

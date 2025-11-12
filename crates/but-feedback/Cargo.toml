@@ -11,15 +11,17 @@ test = false
 doctest = false
 
 [dependencies]
+but-graph = { workspace = true, features = ["legacy"] }
+but-settings.workspace = true
+
+gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
+
 anyhow.workspace = true
 # Version must match the one in `tauri plugin updater` to avoid duplication.
 zip = { version = "4", default-features = false, features = ["bzip2"] }
 walkdir = "2.5.0"
 chrono.workspace = true
-gitbutler-command-context.workspace = true
-but-graph.workspace = true
-but-settings.workspace = true
-gitbutler-project.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::atomic::AtomicBool};
 use anyhow::{Context as _, Result};
 use but_api_macros::api_cmd;
 use but_core::DiffSpec;
-use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
+use but_meta::virtual_branches_legacy_types::BranchOwnershipClaims;
 use but_oxidize::ObjectIdExt;
 use but_settings::AppSettings;
 use gitbutler_branch_actions::{RemoteBranchFile, hooks};

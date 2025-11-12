@@ -113,11 +113,15 @@ jobs:
       - run: cargo fmt --check --all
       - run: cargo check --workspace --all-targets
       - run: |
-          # should work without any features
+          # should work without the "legacy" feature
           cargo check -p but-project
           cargo check -p but-serde
+          cargo check -p but-meta
+          cargo check -p but-graph
           cargo check -p but-workspace
         name: Special `cargo check` runs
+        env:
+          RUSTFLAGS: '--deny warnings'
       - name: cargo clippy
         run: |
           rustup component add clippy

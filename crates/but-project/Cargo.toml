@@ -18,7 +18,7 @@ legacy = ["dep:gitbutler-project", "dep:gitbutler-command-context"]
 [dependencies]
 but-core.workspace = true
 but-settings.workspace = true
-but-graph.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
 
 gitbutler-project = { workspace = true, optional = true }
 gitbutler-command-context = { workspace = true, optional = true }

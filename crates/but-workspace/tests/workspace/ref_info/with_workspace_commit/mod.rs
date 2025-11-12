@@ -4,7 +4,7 @@ use but_workspace::RefInfo;
 
 pub fn head_info(
     repo: &gix::Repository,
-    meta: &but_graph::VirtualBranchesTomlMetadata,
+    meta: &but_meta::VirtualBranchesTomlMetadata,
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
     if opts.traversal.extra_target_commit_id.is_none() {
@@ -15,7 +15,7 @@ pub fn head_info(
 
 pub fn ref_info(
     existing_ref: gix::Reference<'_>,
-    meta: &but_graph::VirtualBranchesTomlMetadata,
+    meta: &but_meta::VirtualBranchesTomlMetadata,
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
     if opts.traversal.extra_target_commit_id.is_none() {
@@ -3476,9 +3476,9 @@ mod journey;
 mod legacy;
 
 pub(crate) mod utils {
-    use but_graph::{
+    use but_graph::init::Options;
+    use but_meta::{
         VirtualBranchesTomlMetadata,
-        init::Options,
         virtual_branches_legacy_types::{Stack, StackBranch, Target},
     };
     use but_testsupport::gix_testtools::tempfile::TempDir;

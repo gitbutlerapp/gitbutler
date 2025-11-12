@@ -11,10 +11,11 @@ use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
 
 use crate::{
     WorkspaceCommit,
-    commit_engine::{CreateCommitOutcome, Destination, StackSegmentId, create_commit, index},
+    commit_engine::{CreateCommitOutcome, Destination, StackSegmentId, create_commit},
     legacy::commit_engine::reference_frame::InferenceMode,
 };
 
+pub(super) mod index;
 /// Utility types
 pub mod reference_frame;
 mod refs;

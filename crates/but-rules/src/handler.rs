@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use but_core::{DiffSpec, ref_metadata::StackId};
-use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::legacy::{StacksFilter, commit_engine, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use itertools::Itertools;
@@ -90,7 +90,7 @@ fn handle_amend(
     )?;
     let ref_info_options = but_workspace::ref_info::Options {
         expensive_commit_info: true,
-        traversal: meta.graph_options(),
+        traversal: but_graph::init::Options::from_legacy_meta(&meta),
     };
     let info = but_workspace::head_info(&repo, &meta, ref_info_options)?;
     let mut commit_id: Option<gix::ObjectId> = None;

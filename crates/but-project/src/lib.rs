@@ -39,8 +39,8 @@ impl Project {
     pub fn legacy_meta(
         &self,
         _read_only: &but_core::sync::WorktreeReadPermission,
-    ) -> anyhow::Result<but_graph::VirtualBranchesTomlMetadata> {
-        but_graph::VirtualBranchesTomlMetadata::from_path(
+    ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
+        but_meta::VirtualBranchesTomlMetadata::from_path(
             self.legacy.gb_dir().join("virtual_branches.toml"),
         )
     }
@@ -78,7 +78,7 @@ impl Project {
         &self,
         _read_only: &but_core::sync::WorktreeReadPermission,
     ) -> anyhow::Result<impl but_core::RefMetadata> {
-        but_graph::VirtualBranchesTomlMetadata::from_path(
+        but_meta::VirtualBranchesTomlMetadata::from_path(
             self.data_dir().join("virtual_branches.toml"),
         )
     }

@@ -11,12 +11,14 @@ doctest = false
 
 [features]
 legacy = [
+    "dep:but-meta",
     "dep:gitbutler-stack",
     "dep:gitbutler-command-context",
     "dep:gitbutler-cherry-pick",
     "dep:gitbutler-project",
     "dep:gitbutler-commit",
-    "dep:gitbutler-repo"
+    "dep:gitbutler-repo",
+    "but-graph/legacy"
 ]
 
 [dependencies]
@@ -27,6 +29,7 @@ but-error.workspace = true
 but-serde.workspace = true
 but-oxidize.workspace = true
 
+but-meta = { workspace = true, features = ["legacy"], optional = true}
 gitbutler-stack = { workspace = true, optional = true}
 gitbutler-command-context = { workspace = true, optional = true}
 gitbutler-cherry-pick = { workspace = true, optional = true}
@@ -51,6 +54,7 @@ tempfile.workspace = true
 [dev-dependencies]
 # We just want to test everything, with the goal that 'legacy' can one day go away.
 but-workspace = { workspace = true, features = ["legacy"] }
+but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
 insta = { version = "1.43.2", features = ["json"] }
 but-core = { workspace = true, features = ["testing"] }
