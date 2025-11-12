@@ -17,9 +17,12 @@
 			decision: PermissionDecision,
 			useWildcard: boolean
 		) => Promise<void>;
-		toolCallsExpandedState?: Map<string, boolean>;
+		toolCallExpandedState?: {
+			groups: Map<string, boolean>;
+			individual: Map<string, boolean>;
+		};
 	};
-	const { projectId, message, onPermissionDecision, toolCallsExpandedState }: Props = $props();
+	const { projectId, message, onPermissionDecision, toolCallExpandedState }: Props = $props();
 
 	let expanded = $state(false);
 </script>
@@ -39,7 +42,7 @@
 			{projectId}
 			toolCalls={message.toolCalls}
 			messageId={message.createdAt}
-			{toolCallsExpandedState}
+			{toolCallExpandedState}
 		/>
 		{#if message.toolCallsPendingApproval.length > 0}
 			{#each message.toolCallsPendingApproval as toolCall}

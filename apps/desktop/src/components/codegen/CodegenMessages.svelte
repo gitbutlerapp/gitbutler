@@ -112,7 +112,10 @@
 	let inputRef = $state<CodegenInput>();
 
 	// Track expanded state for tool calls by message createdAt timestamp
-	const toolCallsExpandedState = new Map<string, boolean>();
+	const toolCallExpandedState = {
+		groups: new Map<string, boolean>(),
+		individual: new Map<string, boolean>()
+	};
 
 	const modelOptions: { label: string; value: ModelType }[] = [
 		{ label: 'Haiku', value: 'haiku' },
@@ -582,7 +585,7 @@
 									{projectId}
 									{message}
 									{onPermissionDecision}
-									{toolCallsExpandedState}
+									{toolCallExpandedState}
 								/>
 							{/each}
 						{/snippet}

@@ -9,8 +9,26 @@
 		style?: 'nested' | 'standalone';
 		toolCall: ToolCall;
 		fullWidth?: boolean;
+		toolCallKey?: string;
+		toolCallExpandedState?: {
+			groups: Map<string, boolean>;
+			individual: Map<string, boolean>;
+		};
 	};
-	const { toolCall, style, fullWidth }: Props = $props();
+	const { toolCall, style, fullWidth, toolCallKey, toolCallExpandedState }: Props = $props();
+
+	// Initialize expanded state from map, default to false (collapsed)
+	const initialExpanded =
+		toolCallKey && toolCallExpandedState
+			? (toolCallExpandedState.individual.get(toolCallKey) ?? false)
+			: false;
+
+	function handleToggle(newExpanded: boolean) {
+		// Persist to map if available
+		if (toolCallKey && toolCallExpandedState) {
+			toolCallExpandedState.individual.set(toolCallKey, newExpanded);
+		}
+	}
 </script>
 
 <div class="tool-call {style}" class:full-width={fullWidth}>
@@ -18,6 +36,8 @@
 		label={toolCall.name}
 		icon={getToolIcon(toolCall.name)}
 		loading={toolCallLoading(toolCall)}
+		expanded={initialExpanded}
+		onToggle={handleToggle}
 	>
 		{#snippet summary()}
 			<span class="summary truncate">{formatToolCall(toolCall)}</span>

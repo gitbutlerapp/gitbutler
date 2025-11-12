@@ -9,9 +9,12 @@
 		projectId: string;
 		toolCalls: ToolCall[];
 		messageId: string;
-		toolCallsExpandedState?: Map<string, boolean>;
+		toolCallExpandedState?: {
+			groups: Map<string, boolean>;
+			individual: Map<string, boolean>;
+		};
 	};
-	const { projectId, toolCalls, messageId, toolCallsExpandedState }: Props = $props();
+	const { projectId, toolCalls, messageId, toolCallExpandedState }: Props = $props();
 
 	const filteredCalls = $derived(toolCalls.filter((tc) => tc.name !== 'TodoWrite'));
 
@@ -24,13 +27,13 @@
 	});
 
 	// Initialize from map, default to true
-	let expanded = $state(toolCallsExpandedState?.get(messageId) ?? true);
+	let expanded = $state(toolCallExpandedState?.groups.get(messageId) ?? true);
 
 	function handleToggle(newExpanded: boolean) {
 		expanded = newExpanded;
 		// Persist to map if available
-		if (toolCallsExpandedState) {
-			toolCallsExpandedState.set(messageId, newExpanded);
+		if (toolCallExpandedState) {
+			toolCallExpandedState.groups.set(messageId, newExpanded);
 		}
 	}
 </script>
@@ -38,7 +41,13 @@
 {#if filteredCalls.length > 0}
 	{#if filteredCalls.length === 1}
 		<!-- Only one tool call: show expanded directly, no container -->
-		<CodegenToolCall {projectId} toolCall={toolCalls[0]!} style="standalone" />
+		<CodegenToolCall
+			{projectId}
+			toolCall={toolCalls[0]!}
+			style="standalone"
+			toolCallKey="{messageId}-0"
+			{toolCallExpandedState}
+		/>
 	{:else}
 		<div class="tool-calls-wrapper">
 			<div
@@ -77,8 +86,14 @@
 					{#snippet content()}
 						<div class="tool-calls-expanded">
 							<div class="tool-calls-expanded__list">
-								{#each filteredCalls as toolCall}
-									<CodegenToolCall {projectId} fullWidth {toolCall} />
+								{#each filteredCalls as toolCall, index}
+									<CodegenToolCall
+										{projectId}
+										fullWidth
+										{toolCall}
+										toolCallKey="{messageId}-{index}"
+										{toolCallExpandedState}
+									/>
 								{/each}
 							</div>
 						</div>
