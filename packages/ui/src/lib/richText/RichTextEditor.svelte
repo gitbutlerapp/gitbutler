@@ -3,6 +3,7 @@
 	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
+	import { INLINE_CODE_TRANSFORMER } from '$lib/richText/customTransforers';
 	import { getCurrentText } from '$lib/richText/getText';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import PlainTextIndentPlugin from '$lib/richText/plugins/PlainTextIndentPlugin.svelte';
@@ -36,7 +37,8 @@
 		MarkdownShortcutPlugin,
 		ALL_TRANSFORMERS,
 		LinkPlugin,
-		HistoryPlugin
+		HistoryPlugin,
+		CODE
 	} from 'svelte-lexical';
 
 	interface Props {
@@ -316,6 +318,7 @@
 		{:else}
 			<PlainTextPlugin />
 			<PlainTextIndentPlugin />
+			<MarkdownShortcutPlugin transformers={[CODE, INLINE_CODE_TRANSFORMER]} />
 		{/if}
 		<HistoryPlugin />
 

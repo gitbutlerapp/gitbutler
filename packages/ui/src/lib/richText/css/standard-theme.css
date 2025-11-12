@@ -157,7 +157,7 @@
 	position: relative;
 	margin-top: 8px;
 	margin-bottom: var(--markdown-generic-bottom-margin);
-	padding: 8px 8px 8px 46px;
+	padding: 12px;
 	overflow-x: auto;
 	border: 1px solid var(--clr-border-2);
 	border-radius: var(--radius-m);
@@ -167,22 +167,6 @@
 	font-family: var(--code-block-font, var(--font-mono));
 	font-variant-ligatures: var(--code-block-ligatures, normal);
 	tab-size: var(--code-block-tab-size, 2);
-}
-
-.StandardTheme__code:before {
-	position: absolute;
-	top: 0;
-	left: 0;
-	min-width: 25px;
-	padding: 8px;
-	border-right: 1px solid var(--clr-border-2);
-	background-color: var(--clr-bg-1);
-	content: attr(data-gutter);
-	color: var(--clr-text-2);
-	letter-spacing: -1px;
-	text-align: right;
-	white-space: pre-wrap;
-	opacity: 0.6;
 }
 
 /* TABLES */

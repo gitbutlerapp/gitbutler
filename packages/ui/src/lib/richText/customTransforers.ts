@@ -1,5 +1,6 @@
+import { createInlineCodeNode } from '$lib/richText/node/inlineCode';
 import { $isParagraphNode, ParagraphNode } from 'lexical';
-import type { ElementTransformer } from '@lexical/markdown';
+import type { ElementTransformer, Transformer } from '@lexical/markdown';
 
 /**
  * A transformer used for exporting to markdown, and having paragraphs
@@ -21,4 +22,16 @@ export const ParagraphMarkdownTransformer: ElementTransformer = {
 	regExp: /./,
 	replace: () => false,
 	type: 'element'
+};
+
+export const INLINE_CODE_TRANSFORMER: Transformer = {
+	type: 'text-match',
+	importRegExp: /(`[^`]+`)/,
+	regExp: /(`[^`]+`)/,
+	replace: (textNode, match) => {
+		const codeNode = createInlineCodeNode(match[1]);
+		textNode.replace(codeNode);
+	},
+	trigger: '`',
+	dependencies: []
 };

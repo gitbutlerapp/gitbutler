@@ -16,14 +16,7 @@
 	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { showError } from '$lib/notifications/toasts';
 	import { inject } from '@gitbutler/core/context';
-	import {
-		Tooltip,
-		AsyncButton,
-		RichTextEditor,
-		FilePlugin,
-		UpDownPlugin,
-		InlineCodePlugin
-	} from '@gitbutler/ui';
+	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin, UpDownPlugin } from '@gitbutler/ui';
 	import { tick, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import type { FileSuggestionUpdate } from '@gitbutler/ui/richText/plugins/FilePlugin.svelte';
@@ -293,7 +286,6 @@
 							}
 						}}
 					/>
-					<InlineCodePlugin />
 				{/snippet}
 			</RichTextEditor>
 
