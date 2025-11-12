@@ -132,7 +132,7 @@ function isValidDeepLinkTopLevelPath(path: string): path is DeepLinkTopLevelPath
 	return DEEP_LINK_TOP_LEVEL_PATHS.includes(path as DeepLinkTopLevelPath);
 }
 
-function isValidDeepLinkUrl(url: string): url is DeepLinkUrl {
+export function isValidDeepLinkUrl(url: string): url is DeepLinkUrl {
 	const correctScheme = DEEP_LINK_SCHMES.some((scheme) => url.startsWith(`${scheme}://`));
 	if (!correctScheme) return false;
 	const pathPart = url.split('://')[1];
@@ -142,10 +142,19 @@ function isValidDeepLinkUrl(url: string): url is DeepLinkUrl {
 	return true;
 }
 
-function parseDeepLinkUrl(url: DeepLinkUrl): [DeepLinkTopLevelPath, URLSearchParams] | null {
-	const urlObj = new URL(url);
-	if (!isValidDeepLinkTopLevelPath(urlObj.pathname)) return null;
-	return [urlObj.pathname, urlObj.searchParams];
+export function parseDeepLinkUrl(url: DeepLinkUrl): [DeepLinkTopLevelPath, URLSearchParams] | null {
+	const pathPart = url.split('://')[1];
+	if (!pathPart) return null;
+	const [path, queryString] = pathPart.split('?');
+	if (!path) return null;
+	if (!isValidDeepLinkTopLevelPath(path)) return null;
+	const searchParams = parseSearchParams(queryString ?? '');
+
+	return [path, searchParams];
+}
+
+function parseSearchParams(queryString: string): URLSearchParams {
+	return new URLSearchParams(queryString);
 }
 class TauriDiskStore implements DiskStore {
 	constructor(private store: Store) {}
