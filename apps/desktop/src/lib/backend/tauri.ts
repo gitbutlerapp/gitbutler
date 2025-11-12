@@ -9,6 +9,7 @@ import {
 	writeText as tauriWriteText,
 	readText as tauriReadText
 } from '@tauri-apps/plugin-clipboard-manager';
+import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { open as filePickerTauri, type OpenDialogOptions } from '@tauri-apps/plugin-dialog';
 import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
 import { error as logErrorToFile } from '@tauri-apps/plugin-log';
@@ -17,7 +18,7 @@ import { relaunch as relaunchTauri } from '@tauri-apps/plugin-process';
 import { Store } from '@tauri-apps/plugin-store';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { readable } from 'svelte/store';
-import type { AppInfo, DiskStore, IBackend } from '$lib/backend/backend';
+import type { AppInfo, DeepLinkHandlers, DiskStore, IBackend } from '$lib/backend/backend';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
 
 export default class Tauri implements IBackend {
@@ -37,6 +38,18 @@ export default class Tauri implements IBackend {
 		});
 	});
 
+	async initDeepLinking(handlers: DeepLinkHandlers): Promise<void> {
+		// Check if app was launched via deep link
+		const urls = (await getCurrent()) ?? [];
+		if (urls.length > 0) {
+			handleDeepLinkUrls(urls, handlers);
+		}
+
+		// Listen for new deep links while app is running
+		await onOpenUrl((urls) => {
+			handleDeepLinkUrls(urls, handlers);
+		});
+	}
 	invoke = tauriInvoke;
 	listen = tauriListen;
 	checkUpdate = tauriCheck;
@@ -80,6 +93,60 @@ export default class Tauri implements IBackend {
 	}
 }
 
+function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
+	// For now, only handle a single URL at a time
+	if (urls.length !== 1) return;
+	for (const url of urls) {
+		if (!isValidDeepLinkUrl(url)) {
+			console.warn('Received invalid deep link URL:', url);
+			continue;
+		}
+
+		const result = parseDeepLinkUrl(url);
+		if (!result) {
+			console.warn('Failed to parse deep link URL:', url);
+			continue;
+		}
+
+		const [topLevel, params] = result;
+		switch (topLevel) {
+			case 'open': {
+				const path = params.get('path');
+				if (path) {
+					handlers.open(path);
+				}
+			}
+		}
+	}
+}
+
+const DEEP_LINK_SCHMES = ['but', 'but-dev', 'but-nightly'] as const;
+type DeepLinkScheme = (typeof DEEP_LINK_SCHMES)[number];
+
+const DEEP_LINK_TOP_LEVEL_PATHS = ['open'] as const;
+type DeepLinkTopLevelPath = (typeof DEEP_LINK_TOP_LEVEL_PATHS)[number];
+
+type DeepLinkUrl = `${DeepLinkScheme}://${DeepLinkTopLevelPath}${string}`;
+
+function isValidDeepLinkTopLevelPath(path: string): path is DeepLinkTopLevelPath {
+	return DEEP_LINK_TOP_LEVEL_PATHS.includes(path as DeepLinkTopLevelPath);
+}
+
+function isValidDeepLinkUrl(url: string): url is DeepLinkUrl {
+	const correctScheme = DEEP_LINK_SCHMES.some((scheme) => url.startsWith(`${scheme}://`));
+	if (!correctScheme) return false;
+	const pathPart = url.split('://')[1];
+	if (!pathPart) return false;
+	const correctPath = DEEP_LINK_TOP_LEVEL_PATHS.some((path) => pathPart.startsWith(path));
+	if (!correctPath) return false;
+	return true;
+}
+
+function parseDeepLinkUrl(url: DeepLinkUrl): [DeepLinkTopLevelPath, URLSearchParams] | null {
+	const urlObj = new URL(url);
+	if (!isValidDeepLinkTopLevelPath(urlObj.pathname)) return null;
+	return [urlObj.pathname, urlObj.searchParams];
+}
 class TauriDiskStore implements DiskStore {
 	constructor(private store: Store) {}
 

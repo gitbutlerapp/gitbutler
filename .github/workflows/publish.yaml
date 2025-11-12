@@ -180,7 +180,8 @@ jobs:
             libssl-dev \
             libgtk-3-dev \
             libappindicator3-dev \
-            librsvg2-dev;
+            librsvg2-dev \
+            xdg-utils;
 
           sudo apt install -y \
             libwebkit2gtk-4.1-0=2.44.0-2 \
