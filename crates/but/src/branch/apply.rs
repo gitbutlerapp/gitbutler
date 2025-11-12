@@ -1,19 +1,14 @@
 use std::{ops::Deref, str::FromStr};
 
 use bstr::ByteSlice;
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::Project;
-use gitbutler_reference::RemoteRefname;
 
 /// Apply a branch to the workspace
 ///
 /// Look first in through the local references, then the remote references.
-pub fn apply(project: &Project, branch_name: &str, json: bool) -> anyhow::Result<()> {
-    let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.gix_repo()?;
+pub fn apply(project: &gitbutler_project::Project, branch_name: &str, json: bool) -> anyhow::Result<()> {
+    let repo = project.open()?;
 
-    if let Some(reference) = repo.try_find_reference(branch_name)? {
+    if let Some(reference) = (&repo).try_find_reference(branch_name)? {
         // Look for the branch in the local repository
         let ref_name = gitbutler_reference::Refname::from_str(&reference.name().to_string())?;
         let remote_ref_name = reference
@@ -60,7 +55,7 @@ fn find_remote_reference(
     branch_name: &str,
 ) -> anyhow::Result<Option<gitbutler_reference::RemoteRefname>> {
     for remote in repo.remote_names().iter().map(|r| r.deref()) {
-        let remote_ref_name = RemoteRefname::new(remote.to_str()?, branch_name);
+        let remote_ref_name = gitbutler_reference::RemoteRefname::new(remote.to_str()?, branch_name);
         if repo
             .try_find_reference(&remote_ref_name.fullname())?
             .is_some()
