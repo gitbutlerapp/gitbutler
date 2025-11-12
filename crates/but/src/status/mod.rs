@@ -9,9 +9,12 @@ use but_project::Project;
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
+use gix::date::time::CustomFormat;
 use serde::Serialize;
 
 use crate::CLI_DATE;
+
+const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
 pub(crate) mod assignment;
 
@@ -28,10 +31,21 @@ struct CommonMergeBase {
     commit_date: String,
 }
 
+#[derive(Serialize, Clone)]
+struct UpstreamState {
+    target_name: String,
+    behind_count: usize,
+    latest_commit: String,
+    message: String,
+    commit_date: String,
+    last_fetched_ms: Option<u128>,
+}
+
 #[derive(Serialize)]
 struct WorktreeStatus {
     stacks: Vec<StackEntry>,
     common_merge_base: CommonMergeBase,
+    upstream_state: Option<UpstreamState>,
 }
 
 pub(crate) async fn worktree(
@@ -106,7 +120,7 @@ pub(crate) async fn worktree(
         .chars()
         .take(50)
         .collect::<String>();
-    let formatted_date = base_commit.committer().time()?.format_or_unix(CLI_DATE);
+    let formatted_date = base_commit.committer().time()?.format_or_unix(DATE_ONLY);
     let common_merge_base_data = CommonMergeBase {
         target_name: target_name.clone(),
         common_merge_base: target.sha.to_string()[..7].to_string(),
@@ -114,10 +128,52 @@ pub(crate) async fn worktree(
         commit_date: formatted_date,
     };
 
+    // Get cached upstream state information (without fetching)
+    let (upstream_state, last_fetched_ms) =
+        but_api::virtual_branches::get_base_branch_data(project.id)
+            .ok()
+            .flatten()
+            .map(|base_branch| {
+                let last_fetched = base_branch.last_fetched_ms;
+                let state = if base_branch.behind > 0 {
+                    // Get the latest commit on the upstream branch (current_sha is the tip of the remote branch)
+                    let commit_id = base_branch.current_sha;
+                    repo.find_commit(commit_id.to_gix())
+                        .ok()
+                        .and_then(|commit_obj| {
+                            let commit = commit_obj.decode().ok()?;
+                            let commit_message = commit
+                                .message
+                                .to_string()
+                                .replace('\n', " ")
+                                .chars()
+                                .take(50)
+                                .collect::<String>();
+
+                            let formatted_date =
+                                commit.committer().time().ok()?.format_or_unix(DATE_ONLY);
+
+                            Some(UpstreamState {
+                                target_name: base_branch.branch_name.clone(),
+                                behind_count: base_branch.behind,
+                                latest_commit: commit_id.to_string()[..7].to_string(),
+                                message: commit_message,
+                                commit_date: formatted_date,
+                                last_fetched_ms: last_fetched,
+                            })
+                        })
+                } else {
+                    None
+                };
+                (state, last_fetched)
+            })
+            .unwrap_or((None, None));
+
     if json {
         let worktree_status = WorktreeStatus {
             stacks: stack_details,
             common_merge_base: common_merge_base_data,
+            upstream_state: upstream_state.clone(),
         };
         let json_output = serde_json::to_string_pretty(&worktree_status)?;
         writeln!(stdout, "{json_output}")?;
@@ -149,14 +205,74 @@ pub(crate) async fn worktree(
             &review_map,
         )?;
     }
-    let dot = "●".purple();
+    // Format the last fetched time as relative time
+    let last_checked_text = last_fetched_ms
+        .map(|ms| {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            let elapsed_ms = now_ms.saturating_sub(ms);
+            let elapsed_secs = elapsed_ms / 1000;
+
+            let relative_time = if elapsed_secs < 60 {
+                format!("{} seconds ago", elapsed_secs)
+            } else if elapsed_secs < 3600 {
+                let minutes = elapsed_secs / 60;
+                format!(
+                    "{} {} ago",
+                    minutes,
+                    if minutes == 1 { "minute" } else { "minutes" }
+                )
+            } else if elapsed_secs < 86400 {
+                let hours = elapsed_secs / 3600;
+                format!(
+                    "{} {} ago",
+                    hours,
+                    if hours == 1 { "hour" } else { "hours" }
+                )
+            } else {
+                let days = elapsed_secs / 86400;
+                format!("{} {} ago", days, if days == 1 { "day" } else { "days" })
+            };
+
+            format!(" (checked {})", relative_time)
+        })
+        .unwrap_or_default();
+
+    // Display upstream state if there are new commits
+    if let Some(upstream) = &upstream_state {
+        let dot = "●".yellow();
+
+        writeln!(
+            stdout,
+            "┊{dot} {} (upstream) ⏫ {} new commits {} {}{}",
+            upstream.latest_commit.dimmed(),
+            upstream.behind_count,
+            upstream.commit_date.dimmed(),
+            upstream.message,
+            last_checked_text.dimmed()
+        )
+        .ok();
+    }
+
     writeln!(
         stdout,
-        "{dot} {} (common base) [{}] {} {}",
+        "{} {} (common base) [{}] {} {}{}",
+        if upstream_state.is_some() {
+            "├╯"
+        } else {
+            "┴"
+        },
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.commit_date.dimmed(),
-        common_merge_base_data.message
+        common_merge_base_data.message,
+        if upstream_state.is_none() {
+            last_checked_text.dimmed().to_string()
+        } else {
+            String::new()
+        }
     )
     .ok();
     Ok(())
