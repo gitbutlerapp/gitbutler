@@ -76,6 +76,7 @@ ratatui = "0.29.0"
 crossterm = "0.29.0"
 atty = "0.2.0"
 cli-prompts = "0.1.0"
+open.workspace = true
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }
