@@ -95,7 +95,8 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
                 "lineNumsAdded": [
                   1
                 ],
-                "lineNumsRemoved": []
+                "lineNumsRemoved": [],
+                "cliId": "xe"
               }
             ]
           }
@@ -145,11 +146,13 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
                     "email": "author@example.com",
                     "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
                   },
-                  "gerritReviewUrl": null
+                  "gerritReviewUrl": null,
+                  "cliId": "94"
                 }
               ],
               "upstreamCommits": [],
-              "isRemoteHead": false
+              "isRemoteHead": false,
+              "cliId": "l3"
             }
           ],
           "isConflicted": false
@@ -200,11 +203,13 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
                     "email": "author@example.com",
                     "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
                   },
-                  "gerritReviewUrl": null
+                  "gerritReviewUrl": null,
+                  "cliId": "d3"
                 }
               ],
               "upstreamCommits": [],
-              "isRemoteHead": false
+              "isRemoteHead": false,
+              "cliId": "m3"
             }
           ],
           "isConflicted": false

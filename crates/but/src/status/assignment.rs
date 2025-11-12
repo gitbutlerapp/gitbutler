@@ -2,11 +2,29 @@ use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
 
+use crate::id::CliId;
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CLIHunkAssignment {
+    #[serde(flatten)]
+    pub inner: HunkAssignment,
+    /// The CLI ID representation of this assignment
+    pub cli_id: String,
+}
+
+impl From<HunkAssignment> for CLIHunkAssignment {
+    fn from(inner: HunkAssignment) -> Self {
+        let cli_id = CliId::file_from_assignment(&inner).to_string();
+        Self { inner, cli_id }
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub(crate) struct FileAssignment {
     #[serde(with = "but_serde::bstring_lossy")]
     pub path: BString,
-    pub assignments: Vec<HunkAssignment>,
+    pub assignments: Vec<CLIHunkAssignment>,
 }
 
 impl FileAssignment {
@@ -19,7 +37,7 @@ impl FileAssignment {
         }
         Self {
             path: path.clone(),
-            assignments: filtered_assignments,
+            assignments: filtered_assignments.into_iter().map(Into::into).collect(),
         }
     }
     #[expect(dead_code)]
@@ -27,7 +45,7 @@ impl FileAssignment {
         let combined_ids: String = self
             .assignments
             .iter()
-            .map(|a| a.id.unwrap_or_default().to_string())
+            .map(|a| a.inner.id.unwrap_or_default().to_string())
             .collect::<Vec<_>>()
             .join("-");
         crate::id::hash(&format!("{},{}", &self.path.to_string(), &combined_ids))
@@ -43,7 +61,7 @@ where
         let filtered = assignment
             .assignments
             .iter()
-            .filter(|a| a.stack_id == *stack_id)
+            .filter(|a| a.inner.stack_id == *stack_id)
             .cloned()
             .collect::<Vec<_>>();
         let mut updated = assignment.clone();
