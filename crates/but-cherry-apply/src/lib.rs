@@ -24,7 +24,7 @@
 
 use anyhow::{Context, Result, bail};
 use but_core::ref_metadata::StackId;
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::GixRepositoryExt;
 use but_rebase::Rebase;
 use but_workspace::legacy::{StacksFilter, stack_ext::StackExt, stacks_v3};

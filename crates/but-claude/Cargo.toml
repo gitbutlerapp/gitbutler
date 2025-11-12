@@ -14,7 +14,7 @@ but-core.workspace = true
 but-action.workspace = true
 but-broadcaster.workspace = true
 but-db.workspace = true
-but-graph.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
 but-rules.workspace = true
 but-settings.workspace = true
 but-hunk-assignment.workspace = true

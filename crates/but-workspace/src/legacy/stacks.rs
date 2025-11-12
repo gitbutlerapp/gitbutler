@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RefMetadata;
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -225,7 +225,7 @@ pub fn stacks_v3(
 
     let options = ref_info::Options {
         expensive_commit_info: false,
-        traversal: meta.graph_options(),
+        traversal: but_graph::init::Options::from_legacy_meta(meta),
     };
     let info = match ref_name_override {
         None => head_info(repo, meta, options),
@@ -461,7 +461,7 @@ pub fn stack_details_v3(
     let mut ref_info_options = ref_info::Options {
         // TODO(perf): make this so it can be enabled for a specific stack-id.
         expensive_commit_info: true,
-        traversal: meta.graph_options(),
+        traversal: but_graph::init::Options::from_legacy_meta(meta),
     };
     let mut stack = match stack_id {
         None => {

@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use anyhow::{Ok, Result};
 use bstr::{BString, ByteSlice};
-use but_graph::virtual_branches_legacy_types;
+use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, RepoExt};
 use git2::Commit;
 use gitbutler_command_context::CommandContext;

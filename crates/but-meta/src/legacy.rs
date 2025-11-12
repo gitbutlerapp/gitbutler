@@ -10,7 +10,7 @@ use std::{
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
 use but_core::{
-    RefMetadata,
+    RefMetadata, is_workspace_ref_name,
     ref_metadata::{
         Branch, RefInfo, StackId,
         StackKind::{Applied, AppliedAndUnapplied},
@@ -161,15 +161,6 @@ impl VirtualBranchesTomlMetadata {
     pub fn data(&self) -> &VirtualBranches {
         &self.snapshot.content
     }
-
-    /// Return default options that limit single-branch commits to a sane amount (instead of traversing the whole graph),
-    /// and configure other values that require our meta-data to guide the traversal.
-    pub fn graph_options(&self) -> crate::init::Options {
-        crate::init::Options {
-            extra_target_commit_id: self.data().default_target.as_ref().map(|t| t.sha),
-            ..crate::init::Options::limited()
-        }
-    }
 }
 
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
@@ -179,7 +170,6 @@ impl Drop for VirtualBranchesTomlMetadata {
     }
 }
 
-const INTEGRATION_BRANCH_LEGACY: &str = "refs/heads/gitbutler/integration";
 const INTEGRATION_BRANCH: &str = "refs/heads/gitbutler/workspace";
 
 impl RefMetadata for VirtualBranchesTomlMetadata {
@@ -686,16 +676,6 @@ impl<T> ValueInfo for VBTomlMetadataHandle<T> {
 /// We can't store time, so put a placeholder that helps to mimic proper behaviour.
 fn standard_time() -> gix::date::Time {
     gix::date::Time::new(1675176957, 0)
-}
-
-/// Return `true` if `ref_name` looks like the standard GitButler workspace.
-///
-/// Note that in the future, ideally we won't rely on the name at all, but instead
-/// check for the presence of workspace ref-metadata.
-///
-/// TODO: no special handling by branch-name should be needed, it's all in the ref-metadata.
-pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
-    ref_name.as_bstr() == INTEGRATION_BRANCH || ref_name.as_bstr() == INTEGRATION_BRANCH_LEGACY
 }
 
 fn default_workspace() -> Workspace {

@@ -21,6 +21,7 @@ doctest = false
 but-core.workspace = true
 but-project = { workspace = true, features = ["legacy"] }
 but-workspace = { workspace = true, features = ["legacy"] }
+but-meta = { workspace = true, features = ["legacy"] }
 but-api.workspace = true
 but-action.workspace = true
 but-graph.workspace = true

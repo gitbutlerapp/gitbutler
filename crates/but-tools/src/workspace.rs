@@ -7,7 +7,7 @@ use std::{
 use anyhow::Context;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedPatch, ref_metadata::StackId};
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id};
 use but_workspace::legacy::{CommmitSplitOutcome, ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};

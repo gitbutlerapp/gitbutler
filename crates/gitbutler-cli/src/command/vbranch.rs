@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
 use but_core::ref_metadata::StackId;
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::ObjectIdExt;
 use but_settings::AppSettings;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};

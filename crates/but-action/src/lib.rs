@@ -31,7 +31,7 @@ mod simple;
 mod workflow;
 pub use action::{ActionListing, Source, list_actions};
 use but_core::ref_metadata::StackId;
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 pub use openai::{
     ChatMessage, ToolCallContent, ToolResponseContent, structured_output_blocking,
     tool_calling_loop, tool_calling_loop_stream,

@@ -17,7 +17,7 @@ testing = ["dep:gitbutler-commit"]
 
 [dependencies]
 but-settings.workspace = true
-but-graph.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
 but-workspace.workspace = true
 but-core = { workspace = true, features = ["testing"] }
 but-oxidize.workspace = true

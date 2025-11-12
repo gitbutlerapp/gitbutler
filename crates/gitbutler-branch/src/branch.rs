@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use bstr::{BStr, ByteSlice};
-use but_graph::virtual_branches_legacy_types;
+use but_meta::virtual_branches_legacy_types;
 use gitbutler_stack::StackId;
 use serde::{Deserialize, Serialize, Serializer};
 

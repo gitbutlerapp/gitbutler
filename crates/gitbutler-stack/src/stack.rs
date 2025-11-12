@@ -6,7 +6,7 @@ use std::{
 use anyhow::{Context, Result, anyhow, bail};
 use but_core::Reference;
 pub use but_core::ref_metadata::StackId;
-use but_graph::virtual_branches_legacy_types;
+use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use but_rebase::ReferenceSpec;
 use git2::Commit;

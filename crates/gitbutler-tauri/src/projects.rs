@@ -107,7 +107,7 @@ pub fn set_project_active(
 fn reconcile_in_workspace_state_of_vb_toml(ctx: &mut CommandContext) -> Option<()> {
     fn make_heads_match(
         ws_stack: &but_graph::projection::Stack,
-        vb_stack: &mut but_graph::virtual_branches_legacy_types::Stack,
+        vb_stack: &mut but_meta::virtual_branches_legacy_types::Stack,
     ) -> bool {
         // Always leave extra segments.
 
@@ -127,8 +127,8 @@ fn reconcile_in_workspace_state_of_vb_toml(ctx: &mut CommandContext) -> Option<(
         for (segment, segment_name) in segments_to_add {
             vb_stack
                 .heads
-                .push(but_graph::virtual_branches_legacy_types::StackBranch {
-                    head: but_graph::virtual_branches_legacy_types::CommitOrChangeId::CommitId(
+                .push(but_meta::virtual_branches_legacy_types::StackBranch {
+                    head: but_meta::virtual_branches_legacy_types::CommitOrChangeId::CommitId(
                         segment
                             .commits
                             .first()

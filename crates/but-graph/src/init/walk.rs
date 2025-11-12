@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, bail};
-use but_core::{RefMetadata, ref_metadata};
+use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
 use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
 use petgraph::Direction;
 
@@ -18,7 +18,6 @@ use crate::{
         remotes,
         types::{EdgeOwned, Instruction, Limit, Queue, QueueItem, TopoWalk},
     },
-    is_workspace_ref_name,
 };
 
 pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;

@@ -1,7 +1,7 @@
 use std::{fmt, path, path::Path, str::FromStr, vec};
 
 use anyhow::{Context, Result};
-use but_graph::virtual_branches_legacy_types;
+use but_meta::virtual_branches_legacy_types;
 use gitbutler_diff::Hunk;
 
 #[derive(Debug, PartialEq, Eq, Clone)]

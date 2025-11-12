@@ -196,9 +196,9 @@ GITBUTLER_PERFORMANCE_LOG=1 LOG_LEVEL=debug pnpm tauri dev --release
 
 ### Repository
 
-Often the behaviour depends on the current context: the repository being displayed. Next to *logs*, it's useful to learn how it's structured.
+Often the behaviour depends on the current context: the repository being displayed. Next to _logs_, it's useful to learn how it's structured.
 
-To do that, *launch the application from a terminal* as shown in the paragraph above this one, or right below, but with `graphviz` installed.
+To do that, _launch the application from a terminal_ as shown in the paragraph above this one, or right below, but with `graphviz` installed.
 The `dot` program should be available in `PATH` so it can run from the terminal.
 
 Doing so can look like this on MacOS, for example:

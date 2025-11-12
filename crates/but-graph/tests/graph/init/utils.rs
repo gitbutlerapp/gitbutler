@@ -1,5 +1,5 @@
 use but_core::{RefMetadata, ref_metadata::StackId};
-use but_graph::{
+use but_meta::{
     VirtualBranchesTomlMetadata,
     virtual_branches_legacy_types::{Stack, StackBranch, Target},
 };

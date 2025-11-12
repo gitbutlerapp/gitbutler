@@ -8,7 +8,7 @@ use but_core::{
         WorkspaceStack, WorkspaceStackBranch,
     },
 };
-use but_graph::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
+use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
 use but_testsupport::{
     debug_str,
     gix_testtools::tempfile::{TempDir, tempdir},

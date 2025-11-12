@@ -4,7 +4,7 @@ use but_core::{
     RefMetadata,
     ref_metadata::{StackId, WorkspaceCommitRelation},
 };
-use but_graph::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::{
     AppSettings,
     app_settings::{
