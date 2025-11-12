@@ -26,7 +26,7 @@
 		{#snippet content()}
 			{#if toolCall.result}
 				<div class="stack-v gap-6 m-b-8">
-					<Codeblock label="Tool Call Input:" content={formatToolCall(toolCall)} />
+					<Codeblock label="Tool call input:" content={formatToolCall(toolCall)} />
 					<Codeblock content={toolCall.result.slice(0, 65536)} />
 				</div>
 			{/if}
