@@ -11,34 +11,11 @@ import {
 	$createTextNode as createTextNode
 } from 'lexical';
 
-const BACKTICK_REGEX = /(^|\s)(`([^`]+)`)$/;
-
 export type InlineCodeMatch = {
 	end: number;
 	start: number;
 	code: string;
 };
-
-/**
- * Return information about the inline code match in the text, if there's any
- */
-export function getInlineCodeMatch(text: string): InlineCodeMatch | null {
-	const matchArr = BACKTICK_REGEX.exec(text);
-	if (matchArr === null) {
-		return null;
-	}
-
-	const codeLength = matchArr[2].length;
-	const startOffset = matchArr.index + matchArr[1].length;
-	const endOffset = startOffset + codeLength;
-	const code = matchArr[3];
-
-	return {
-		end: endOffset,
-		start: startOffset,
-		code
-	};
-}
 
 export type SerializedInlineCodeNode = Spread<
 	{
@@ -64,12 +41,10 @@ export class InlineCodeNode extends TextNode {
 		this.__code = code;
 	}
 
-	createDOM(config: EditorConfig): HTMLElement {
+	createDOM(_config: EditorConfig): HTMLElement {
 		const dom = document.createElement('code');
-		const inner = super.createDOM(config);
 		dom.className = 'inline-code';
-		inner.className = 'inline-code-inner';
-		dom.appendChild(inner);
+		dom.textContent = this.__code;
 		return dom;
 	}
 
@@ -90,12 +65,10 @@ export class InlineCodeNode extends TextNode {
 		};
 	}
 
-	updateDOM(prevNode: this, dom: HTMLElement, config: EditorConfig): boolean {
-		const inner = dom.firstChild;
-		if (inner === null) {
-			return true;
+	updateDOM(prevNode: this, dom: HTMLElement, _config: EditorConfig): boolean {
+		if (prevNode.__code !== this.__code) {
+			dom.textContent = this.__code;
 		}
-		super.updateDOM(prevNode, inner as HTMLElement, config);
 		return false;
 	}
 
@@ -108,7 +81,7 @@ export class InlineCodeNode extends TextNode {
 	}
 
 	isTextEntity(): boolean {
-		return false;
+		return true;
 	}
 
 	getTextContent(): string {
@@ -116,6 +89,13 @@ export class InlineCodeNode extends TextNode {
 	}
 
 	setTextContent(text: string): this {
+		// If the text no longer has backticks on both ends, convert back to a regular text node
+		if (!text.startsWith('`') || !text.endsWith('`') || text.length < 2) {
+			const textNode = createTextNode(text);
+			this.replace(textNode);
+			return textNode as any;
+		}
+
 		const writable = this.getWritable();
 		writable.__code = text;
 		writable.__text = text;
