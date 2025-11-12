@@ -15,6 +15,7 @@ you right. Let's get started.
   - [Lint & format](#lint--format)
 - [Debugging](#debugging)
   - [Logs](#logs)
+  - [Repository](#Repository)
   - [Tokio](#tokio)
 - [Troubleshooting](#troubleshooting)
 - [Building](#building)
@@ -203,6 +204,16 @@ export CARGO_PROFILE_RELEASE_LTO=false
 export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=256
 export CARGO_PROFILE_RELEASE_OPT_LEVEL=2
 ```
+
+### Repository
+
+Often the behaviour depends on the current context: the repository being displayed. Next to *logs*, it's useful to learn how it's structured.
+
+To do that, launch the application from a terminal as shown in the paragraph above this one, but with `graphviz` installed.
+The `dot` program should be available in `PATH`.
+
+Then, within the application, type `dot` in any non-editable portion of the GUI, like the cheat code that it is.
+This will pop open an SVG version of the graph that GitButler uses to create the workspace projection.
 
 ### Tokio
 
