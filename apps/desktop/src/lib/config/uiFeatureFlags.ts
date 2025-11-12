@@ -10,7 +10,6 @@ export const autoSelectBranchNameFeature = persisted(false, 'autoSelectBranchLan
 export const ircEnabled = persistWithExpiration(false, 'feature-irc', 1440 * 30);
 export const ircServer = persistWithExpiration('', 'feature-irc-server', 1440 * 30);
 export const rewrapCommitMessage = persistWithExpiration(true, 'rewrap-commit-msg', 1440 * 30);
-export const newCodegenEnabled = persisted(false, 'feature-new-codegen');
 export type StagingBehavior = 'all' | 'selection' | 'none';
 export const stagingBehaviorFeature = persisted<StagingBehavior>('all', 'feature-staging-behavior');
 export const fModeEnabled = persisted(true, 'f-mode');

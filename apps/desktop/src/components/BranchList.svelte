@@ -16,7 +16,7 @@
 	import { MoveBranchDzHandler } from '$lib/branches/dropHandler';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { currentStatus } from '$lib/codegen/messages';
-	import { newCodegenEnabled } from '$lib/config/uiFeatureFlags';
+	import { projectDisableCodegen } from '$lib/config/config';
 	import { REORDER_DROPZONE_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -68,6 +68,7 @@
 	const laneState = $derived(uiState.lane(laneId));
 	const selection = $derived(laneState.selection);
 	const selectedCommitId = $derived(selection.current?.commitId);
+	const codegenDisabled = $derived(projectDisableCodegen(projectId));
 
 	let conflictResolutionConfirmationModal =
 		$state<ReturnType<typeof ConflictResolutionConfirmModal>>();
@@ -225,8 +226,7 @@
 					{isNewBranch}
 					{pushStatus}
 					{isConflicted}
-					hasCodegenRow={$newCodegenEnabled &&
-						firstBranch &&
+					hasCodegenRow={firstBranch &&
 						stackId !== undefined &&
 						codegenQuery?.response &&
 						codegenQuery.response.length > 0}
@@ -322,7 +322,7 @@
 							isFirstBranchInStack={firstBranch}
 							isLastBranchInStack={lastBranch}
 						/>
-						{#if $newCodegenEnabled && first && codegenQuery?.response?.length === 0}
+						{#if !$codegenDisabled && first && codegenQuery?.response?.length === 0}
 							<Button
 								icon="ai-small"
 								style="neutral"
@@ -352,7 +352,7 @@
 					{/snippet}
 
 					{#snippet codegenRow()}
-						{#if $newCodegenEnabled && firstBranch && stackId}
+						{#if firstBranch && stackId}
 							{#if codegenQuery?.response && codegenQuery.response.length > 0}
 								{@const stackActive = claudeCodeService.isStackActive(projectId, stackId)}
 								{@const status = currentStatus(
@@ -380,8 +380,7 @@
 							{branchName}
 							{branchDetails}
 							{stackingReorderDropzoneManager}
-							roundedTop={$newCodegenEnabled &&
-								firstBranch &&
+							roundedTop={firstBranch &&
 								stackId !== undefined &&
 								codegenQuery?.response &&
 								codegenQuery.response.length > 0}

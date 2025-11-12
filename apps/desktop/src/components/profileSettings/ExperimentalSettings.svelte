@@ -1,11 +1,6 @@
 <script lang="ts">
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import {
-		ircEnabled,
-		ircServer,
-		newCodegenEnabled,
-		fModeEnabled
-	} from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer, fModeEnabled } from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Spacer, Textbox, Toggle } from '@gitbutler/ui';
@@ -86,21 +81,6 @@
 				checked={$settingsStore?.featureFlags.rules}
 				onclick={() =>
 					settingsService.updateFeatureFlags({ rules: !$settingsStore?.featureFlags.rules })}
-			/>
-		{/snippet}
-	</SectionCard>
-	<SectionCard labelFor="new-codegen" roundedTop={false} roundedBottom={false} orientation="row">
-		{#snippet title()}
-			Codegen (workspace)
-		{/snippet}
-		{#snippet caption()}
-			Use Claude Code from the workspace.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="new-codegen"
-				checked={$newCodegenEnabled}
-				onclick={() => ($newCodegenEnabled = !$newCodegenEnabled)}
 			/>
 		{/snippet}
 	</SectionCard>
