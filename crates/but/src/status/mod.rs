@@ -184,7 +184,7 @@ pub(crate) async fn worktree(
     let guard = project.shared_worktree_access();
     let meta = project.meta(guard.read_permission())?;
 
-    // TODO: use this for status inforamtion instead.
+    // TODO: use this for status information instead.
     let _head_info = but_workspace::head_info(
         &project.repo,
         &meta,

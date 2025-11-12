@@ -1,11 +1,11 @@
 use std::io::{self, Write};
 
+use crate::LegacyProject;
 use atty::Stream;
 use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
-use gitbutler_project::Project;
 
 mod apply;
 mod list;
@@ -67,24 +67,30 @@ pub enum Subcommands {
     },
 }
 
-pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> anyhow::Result<()> {
+pub async fn handle(
+    cmd: Option<Subcommands>,
+    legacy_project: &LegacyProject,
+    json: bool,
+) -> anyhow::Result<()> {
     let mut stdout = io::stdout();
     match cmd {
         None => {
             let local = false;
-            list::list(project, local).await
+            list::list(legacy_project, local).await
         }
-        Some(Subcommands::List { local }) => list::list(project, local).await,
+        Some(Subcommands::List { local }) => list::list(legacy_project, local).await,
         Some(Subcommands::New {
             branch_name,
             anchor,
         }) => {
-            let ctx =
-                CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+            let ctx = CommandContext::open(
+                legacy_project,
+                AppSettings::load_from_default_path_creating()?,
+            )?;
             // Get branch name or use canned name
             let branch_name = branch_name
                 .map(Ok::<_, but_api::error::Error>)
-                .unwrap_or_else(|| but_api::workspace::canned_branch_name(project.id))?;
+                .unwrap_or_else(|| but_api::workspace::canned_branch_name(legacy_project.id))?;
 
             // Store anchor string for JSON output
             let anchor_for_json = anchor.clone();
@@ -133,7 +139,7 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
                 None
             };
             but_api::stack::create_reference(
-                project.id,
+                legacy_project.id,
                 but_api::stack::create_reference::Request {
                     new_name: branch_name.clone(),
                     anchor,
@@ -155,7 +161,7 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
         }
         Some(Subcommands::Delete { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
-                project.id,
+                legacy_project.id,
                 Some(but_workspace::legacy::StacksFilter::InWorkspace),
             )?;
 
@@ -167,17 +173,19 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
                 }
 
                 if let Some(sid) = stack_entry.id {
-                    return confirm_branch_deletion(project, sid, &branch_name, force);
+                    return confirm_branch_deletion(legacy_project, sid, &branch_name, force);
                 }
             }
 
             writeln!(stdout, "Branch '{}' not found in any stack", branch_name).ok();
             Ok(())
         }
-        Some(Subcommands::Apply { branch_name }) => apply::apply(project, &branch_name, json),
+        Some(Subcommands::Apply { branch_name }) => {
+            apply::apply(legacy_project, &branch_name, json)
+        }
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
-                project.id,
+                legacy_project.id,
                 Some(but_workspace::legacy::StacksFilter::InWorkspace),
             )?;
 
@@ -189,7 +197,7 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
                 }
 
                 if let Some(sid) = stack_entry.id {
-                    return confirm_unapply_stack(project, sid, stack_entry, force);
+                    return confirm_unapply_stack(legacy_project, sid, stack_entry, force);
                 }
             }
 
@@ -200,7 +208,7 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
 }
 
 fn confirm_unapply_stack(
-    project: &Project,
+    project: &LegacyProject,
     sid: StackId,
     stack_entry: &StackEntry,
     force: bool,
@@ -243,7 +251,7 @@ fn confirm_unapply_stack(
 }
 
 fn confirm_branch_deletion(
-    project: &Project,
+    project: &LegacyProject,
     sid: StackId,
     branch_name: &str,
     force: bool,

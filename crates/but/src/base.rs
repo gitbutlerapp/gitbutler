@@ -1,12 +1,12 @@
 use std::io::Write;
 
+use crate::LegacyProject;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
     BranchStatus::{Conflicted, Empty, Integrated, SaflyUpdatable},
     Resolution, ResolutionApproach,
     StackStatuses::{UpToDate, UpdatesRequired},
 };
-use gitbutler_project::Project;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -21,7 +21,7 @@ pub enum Subcommands {
     Update,
 }
 
-pub fn handle(cmd: Subcommands, project: &Project, json: bool) -> anyhow::Result<()> {
+pub fn handle(cmd: Subcommands, project: &LegacyProject, json: bool) -> anyhow::Result<()> {
     let mut stdout = std::io::stdout();
     match cmd {
         Subcommands::Check => {

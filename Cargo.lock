@@ -3795,7 +3795,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
- "gitbutler-tagged-string",
  "gix",
  "serde",
  "thiserror 2.0.17",
@@ -3922,13 +3921,6 @@ dependencies = [
  "itertools 0.14.0",
  "rand 0.9.2",
  "tracing",
-]
-
-[[package]]
-name = "gitbutler-tagged-string"
-version = "0.0.0"
-dependencies = [
- "serde",
 ]
 
 [[package]]
