@@ -38,7 +38,7 @@
 	const message = $derived(commit.message);
 	const raw = $derived(includeTitle ? message : splitMessage(message).description);
 	const description = $derived(rewrap ? rejoinParagraphs(raw) : raw);
-	const abbreviated = $derived(truncate(description, maxLength, 3));
+	const abbreviated = $derived(truncate(description, includeTitle ? 200 : maxLength, 1));
 	const isAbbrev = $derived(abbreviated !== description);
 
 	let expanded = $state(false);
