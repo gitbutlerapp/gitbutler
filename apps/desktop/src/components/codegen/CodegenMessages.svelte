@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import AddedDirectories from '$components/codegen/AddedDirectories.svelte';
 	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
@@ -31,12 +29,8 @@
 	import { parseTemplates } from '$lib/codegen/templateParser';
 
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { vscodePath } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { pushStatusToColor, pushStatusToIcon } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -45,9 +39,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import {
-		Badge,
 		Button,
-		chipToasts,
 		ContextMenu,
 		ContextMenuItem,
 		ContextMenuSection,
@@ -59,7 +51,6 @@
 	} from '@gitbutler/ui';
 
 	import VirtualList from '@gitbutler/ui/components/VirtualList.svelte';
-	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type {
 		ClaudeMessage,
 		ThinkingLevel,
@@ -72,17 +63,15 @@
 		projectId: string;
 		branchName: string;
 		stackId: string;
-		isWorkspace?: boolean;
 		onclose?: () => void;
 	};
-	const { projectId, stackId, branchName, isWorkspace, onclose }: Props = $props();
+	const { projectId, stackId, branchName, onclose }: Props = $props();
 
 	const stableBranchName = $derived(branchName);
 
 	const attachmentService = inject(ATTACHMENT_SERVICE);
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
-	const projectsService = inject(PROJECTS_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
 	const uiState = inject(UI_STATE);
 	const urlService = inject(URL_SERVICE);
@@ -268,25 +257,6 @@
 		templateContextMenu?.close();
 	}
 
-	function showInWorkspace() {
-		goto(`${workspacePath(projectId)}?stackId=${stackId}`);
-	}
-
-	async function openInEditor() {
-		const project = await projectsService.fetchProject(projectId);
-		if (!project) {
-			chipToasts.error('Project not found');
-			return;
-		}
-		urlService.openExternalUrl(
-			getEditorUri({
-				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-				path: [vscodePath(project.path)],
-				searchParams: { windowId: '_blank' }
-			})
-		);
-	}
-
 	function getCurrentSessionId(events: ClaudeMessage[]): string | undefined {
 		// Get the most recent session ID from the messages
 		if (events.length === 0) return undefined;
@@ -349,35 +319,12 @@
 
 	const events = $derived(claudeCodeService.messages({ projectId, stackId }));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
-	const selectedBranchDetails = $derived(
-		stackService.branchDetails(projectId, stackId, stableBranchName)
-	);
 </script>
 
-<ReduxResult
-	result={combineResults(
-		events?.result,
-		permissionRequests.result,
-		selectedBranchDetails.result,
-		mcpConfigQuery.result
-	)}
-	{projectId}
->
-	{#snippet children(
-		[events, permissionRequests, branchDetailsData, mcpConfig],
-		{ projectId: _projectId }
-	)}
+<ReduxResult result={combineResults(events?.result, permissionRequests.result)} {projectId}>
+	{#snippet children([events, permissionRequests], { projectId: _projectId })}
 		{@const formattedMessages = formatMessages(events, permissionRequests, isStackActive)}
-		{@const iconName = pushStatusToIcon(branchDetailsData.pushStatus)}
-		{@const lineColor = getColorFromBranchType(pushStatusToColor(branchDetailsData.pushStatus))}
-		{@const enabledMcpServers = mcpConfig
-			? Object.keys(mcpConfig.mcpServers).length -
-				uiState.lane(stackId).disabledMcpServers.current.length
-			: 0}
-		<CodegenChatLayout branchName={stableBranchName} {isWorkspace} {onclose}>
-			{#snippet branchIcon()}
-				<BranchHeaderIcon {iconName} color={lineColor} large />
-			{/snippet}
+		<CodegenChatLayout branchName={stableBranchName} {onclose}>
 			{#snippet inWorkspaceInlineContextActions()}
 				{@const stats = usageStats(events)}
 				{@const contextUsage = Math.round(stats.contextUtilization * 100)}
@@ -448,71 +395,6 @@
 							</ContextMenuSection>
 						{/snippet}
 					</KebabButton>
-				</div>
-			{/snippet}
-			{#snippet pageWorkspaceActions()}
-				<Button
-					icon="workbench-small"
-					kind="outline"
-					size="tag"
-					reversedDirection
-					onclick={showInWorkspace}>Show in workspace</Button
-				>
-				<Button
-					icon="open-editor-small"
-					kind="outline"
-					size="tag"
-					tooltip="Open in {$userSettings.defaultCodeEditor.displayName}"
-					onclick={openInEditor}
-					reversedDirection
-				/>
-			{/snippet}
-
-			{#snippet pageContextActions()}
-				{@const stats = usageStats(events)}
-
-				<Button kind="outline" icon="mcp" reversedDirection onclick={() => mcpConfigModal?.open()}
-					>MCP
-
-					{#snippet badge()}
-						<Badge kind="soft">{enabledMcpServers}</Badge>
-					{/snippet}
-				</Button>
-
-				<div class="flex gap-4 overflow-hidden">
-					<div
-						class="text-11 context-utilization-badge-2"
-						style="--context-utilization: {stats.contextUtilization}"
-					>
-						<span class="truncate">
-							{Math.round(stats.contextUtilization * 100)}% context used
-						</span>
-					</div>
-
-					<div class="flex">
-						<Button
-							icon="clear"
-							kind="outline"
-							tooltip="Clear context and associated rules"
-							disabled={!hasRulesToClear() ||
-								!events ||
-								events.length === 0 ||
-								['running', 'compacting'].includes(currentStatus(events, isStackActive))}
-							customStyle="border-top-right-radius: 0; border-bottom-right-radius: 0;"
-							onclick={() => clearContextAndRules()}
-						/>
-						<Button
-							icon="compact"
-							kind="outline"
-							tooltip="Compact context"
-							customStyle="border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: none;"
-							disabled={!hasRulesToClear() ||
-								!events ||
-								events.length === 0 ||
-								['running', 'compacting'].includes(currentStatus(events, isStackActive))}
-							onclick={() => compactContext()}
-						/>
-					</div>
 				</div>
 			{/snippet}
 
@@ -838,58 +720,6 @@
 		align-items: center;
 		justify-content: center;
 		padding: 28px;
-	}
-
-	.context-utilization-scale {
-		position: relative;
-		width: 17px;
-		height: 17px;
-		transform: rotate(-90deg);
-
-		& svg {
-			width: 100%;
-			height: 100%;
-		}
-
-		& circle {
-			fill: none;
-			stroke-width: 2;
-			stroke-linecap: round;
-		}
-
-		& .bg-circle {
-			stroke: color-mix(in srgb, var(--clr-text-2), transparent 85%);
-		}
-
-		& .progress-circle {
-			stroke: var(--clr-text-2);
-			stroke-dasharray: calc(3.14159 * 13);
-			stroke-dashoffset: calc(3.14159 * 13 * (1 - var(--context-utilization) / 100));
-			transition: stroke-dashoffset 0.3s ease;
-		}
-	}
-
-	.context-utilization-badge-2 {
-		display: flex;
-		position: relative;
-		align-items: center;
-		justify-content: center;
-		height: var(--size-button);
-		padding: 0 8px;
-		overflow: hidden;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-ntrl-soft);
-		color: var(--clr-text-2);
-
-		&::after {
-			position: absolute;
-			bottom: 0;
-			left: 0;
-			width: calc(var(--context-utilization) * 100%);
-			height: 3px;
-			background: var(--clr-text-3);
-			content: '';
-		}
 	}
 
 	.dialog-wrapper {
