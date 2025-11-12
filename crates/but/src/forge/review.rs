@@ -6,6 +6,7 @@ use but_api::forge::ListReviewsParams;
 use but_core::ref_metadata::StackId;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
+use but_workspace::ui::Commit;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -39,7 +40,8 @@ pub enum Subcommands {
         /// Run pre-push hooks (defaults to true).
         #[clap(long, short = 'r', default_value_t = true)]
         run_hooks: bool,
-        /// Whether to use just the branch name as the review title, without opening an editor.
+        /// Use the default content for the review title and description, skipping any prompts.
+        /// If the review contains only a single commit, the commit message will be used for the review title and description.
         #[clap(long, short = 't', default_value_t = false)]
         default: bool,
     },
@@ -413,11 +415,18 @@ async fn publish_review_for_branch(
         return Ok(PublishReviewResult::AlreadyExists(reviews.clone()));
     }
 
+    let commit = default_commit(project, stack_id, branch_name)?;
     let (title, body) = if default_message {
-        (branch_name.to_string(), String::new())
+        let title = extract_commit_title(commit.as_ref())
+            .map(|t| t.to_string())
+            .unwrap_or(branch_name.to_string());
+        let body = extract_commit_description(commit.as_ref())
+            .map(|b| b.join("\n"))
+            .unwrap_or_default();
+        (title, body)
     } else {
-        let title = get_review_title_from_editor(branch_name)?;
-        let body = get_review_body_from_editor(&title)?;
+        let title = get_review_title_from_editor(commit.as_ref(), branch_name)?;
+        let body = get_review_body_from_editor(commit.as_ref(), branch_name, &title)?;
         (title, body)
     };
 
@@ -449,8 +458,46 @@ async fn publish_review_for_branch(
     })
 }
 
-fn get_review_body_from_editor(title: &str) -> anyhow::Result<String> {
+fn default_commit(
+    project: &Project,
+    stack_id: Option<StackId>,
+    branch_name: &str,
+) -> Result<Option<Commit>, anyhow::Error> {
+    let stack_details = but_api::workspace::stack_details(project.id, stack_id)?;
+    let branch = stack_details
+        .branch_details
+        .into_iter()
+        .find(|h| h.name.to_str().unwrap_or("") == branch_name);
+    let commit = if let Some(branch) = &branch
+        && branch.commits.len() == 1
+    {
+        branch.commits.first()
+    } else {
+        None
+    };
+
+    Ok(commit.cloned())
+}
+
+fn get_review_body_from_editor(
+    commit: Option<&Commit>,
+    branch_name: &str,
+    title: &str,
+) -> anyhow::Result<String> {
     let mut template = String::new();
+
+    let commit_description = extract_commit_description(commit);
+
+    // Use commit description as template if available
+    if let Some(commit_description) = commit_description {
+        for line in commit_description {
+            template.push_str(line);
+            template.push('\n');
+        }
+    } else {
+        template.push_str(branch_name);
+    }
+
     template.push_str("\n# This is the review description for:");
     template.push_str("\n# '");
     template.push_str(title);
@@ -463,9 +510,37 @@ fn get_review_body_from_editor(title: &str) -> anyhow::Result<String> {
     Ok(body)
 }
 
-fn get_review_title_from_editor(branch_name: &str) -> anyhow::Result<String> {
+fn extract_commit_description(commit: Option<&Commit>) -> Option<Vec<&str>> {
+    commit.and_then(|c| {
+        let desc_lines: Vec<&str> = c
+            .message
+            .lines()
+            .skip(1)
+            .skip_while(|l| l.trim().is_empty())
+            .map(|l| l.to_str().ok())
+            .collect::<Option<Vec<&str>>>()?;
+        if desc_lines.is_empty() {
+            None
+        } else {
+            Some(desc_lines)
+        }
+    })
+}
+
+fn get_review_title_from_editor(
+    commit: Option<&Commit>,
+    branch_name: &str,
+) -> anyhow::Result<String> {
     let mut template = String::new();
-    template.push_str(branch_name);
+
+    // Use the first line of the commit message as the default title if available
+    let commit_title = extract_commit_title(commit);
+    if let Some(commit_title) = commit_title {
+        template.push_str(commit_title);
+    } else {
+        template.push_str(branch_name);
+    }
+
     template.push_str("\n# Please enter the review title above. Lines starting\n");
     template.push_str("# with '#' will be ignored, and an empty title aborts the operation.\n");
     template.push_str("#\n");
@@ -478,6 +553,11 @@ fn get_review_title_from_editor(branch_name: &str) -> anyhow::Result<String> {
 
     Ok(title)
 }
+
+fn extract_commit_title(commit: Option<&Commit>) -> Option<&str> {
+    commit.and_then(|c| c.message.lines().next().and_then(|l| l.to_str().ok()))
+}
+
 pub async fn get_review_map(
     project: &Project,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>> {
