@@ -264,7 +264,7 @@ pub(crate) fn commit(
             let hunk_headers: Vec<but_core::HunkHeader> = fa
                 .assignments
                 .iter()
-                .filter_map(|assignment| assignment.hunk_header)
+                .filter_map(|assignment| assignment.inner.hunk_header)
                 .collect();
 
             DiffSpec {

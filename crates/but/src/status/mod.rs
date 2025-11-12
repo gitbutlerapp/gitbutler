@@ -6,7 +6,7 @@ use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
 use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
 use but_project::Project;
-use but_workspace::ui::StackDetails;
+use but_workspace::ui::{Author, BranchDetails, Commit, PushStatus, StackDetails, UpstreamCommit};
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use serde::Serialize;
@@ -17,7 +17,129 @@ pub(crate) mod assignment;
 
 use crate::id::CliId;
 
-type StackDetail = (Option<StackDetails>, Vec<FileAssignment>);
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CLICommit {
+    #[serde(flatten)]
+    pub inner: Commit,
+    /// The CLI ID representation of this commit
+    pub cli_id: String,
+}
+
+impl From<Commit> for CLICommit {
+    fn from(inner: Commit) -> Self {
+        let cli_id = CliId::commit(inner.id).to_string();
+        Self { inner, cli_id }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CLIBranchDetails {
+    /// The name of the branch.
+    #[serde(with = "but_serde::bstring_lossy")]
+    pub name: BString,
+    /// The id of the linked worktree that has the reference of `name` checked out.
+    /// Note that we don't list the main worktree here.
+    #[serde(with = "but_serde::bstring_opt_lossy")]
+    pub linked_worktree_id: Option<BString>,
+    /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
+    #[serde(with = "but_serde::bstring_opt_lossy")]
+    pub remote_tracking_branch: Option<BString>,
+    /// Description of the branch.
+    /// Can include arbitrary utf8 data, eg. markdown etc.
+    pub description: Option<String>,
+    /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
+    pub pr_number: Option<usize>,
+    /// A unique identifier for the GitButler review associated with the branch, if any.
+    pub review_id: Option<String>,
+    /// This is the last commit in the branch, aka the tip of the branch.
+    /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
+    #[serde(with = "but_serde::object_id")]
+    pub tip: gix::ObjectId,
+    /// This is the base commit from the perspective of this branch.
+    /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
+    /// If this branch is at the bottom of the stack, this is the merge base of the stack.
+    #[serde(with = "but_serde::object_id")]
+    pub base_commit: gix::ObjectId,
+    /// The pushable status for the branch.
+    pub push_status: PushStatus,
+    /// Last time, the branch was updated in Epoch milliseconds.
+    pub last_updated_at: Option<i128>,
+    /// All authors of the commits in the branch.
+    pub authors: Vec<Author>,
+    /// Whether the branch is conflicted.
+    pub is_conflicted: bool,
+    /// The commits contained in the branch, excluding the upstream commits.
+    pub commits: Vec<CLICommit>,
+    /// The commits that are only at the remote.
+    pub upstream_commits: Vec<UpstreamCommit>,
+    /// Whether it's representing a remote head
+    pub is_remote_head: bool,
+    /// The CLI ID representation of this branch
+    pub cli_id: String,
+}
+
+impl From<BranchDetails> for CLIBranchDetails {
+    fn from(inner: BranchDetails) -> Self {
+        let cli_id = CliId::branch(&inner.name.to_string()).to_string();
+        let commits = inner
+            .commits
+            .into_iter()
+            .map(CLICommit::from)
+            .collect::<Vec<_>>();
+
+        Self {
+            name: inner.name,
+            linked_worktree_id: inner.linked_worktree_id,
+            remote_tracking_branch: inner.remote_tracking_branch,
+            description: inner.description,
+            pr_number: inner.pr_number,
+            review_id: inner.review_id,
+            tip: inner.tip,
+            base_commit: inner.base_commit,
+            push_status: inner.push_status,
+            last_updated_at: inner.last_updated_at,
+            authors: inner.authors,
+            is_conflicted: inner.is_conflicted,
+            commits,
+            upstream_commits: inner.upstream_commits,
+            is_remote_head: inner.is_remote_head,
+            cli_id,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CLIStackDetails {
+    /// This is the name of the top-most branch, provided by the API for convenience
+    pub derived_name: String,
+    /// The pushable status for the stack
+    pub push_status: PushStatus,
+    /// The details about the contained branches
+    pub branch_details: Vec<CLIBranchDetails>,
+    /// Whether the stack is conflicted.
+    pub is_conflicted: bool,
+}
+
+impl From<StackDetails> for CLIStackDetails {
+    fn from(inner: StackDetails) -> Self {
+        let branch_details = inner
+            .branch_details
+            .into_iter()
+            .map(CLIBranchDetails::from)
+            .collect();
+        Self {
+            derived_name: inner.derived_name,
+            push_status: inner.push_status,
+            branch_details,
+            is_conflicted: inner.is_conflicted,
+        }
+    }
+}
+
+type StackDetail = (Option<CLIStackDetails>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
 
 #[derive(Serialize)]
@@ -89,7 +211,7 @@ pub(crate) async fn worktree(
     for stack in stacks {
         let details = but_api::workspace::stack_details(project.id, stack.id)?;
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
-        stack_details.push((stack.id, (Some(details), assignments)));
+        stack_details.push((stack.id, (Some(details.into()), assignments)));
     }
 
     // Calculate common_merge_base data
@@ -177,15 +299,12 @@ fn print_assignments(
 
         let status = state.as_ref().map(status_letter).unwrap_or_default();
 
-        let id = CliId::file_from_assignment(&fa.assignments[0])
-            .to_string()
-            .underline()
-            .blue();
+        let id = fa.assignments[0].cli_id.underline().blue();
 
         let mut locks = fa
             .assignments
             .iter()
-            .flat_map(|a| a.hunk_locks.iter())
+            .flat_map(|a| a.inner.hunk_locks.iter())
             .flatten()
             .map(|l| l.commit_id.to_string())
             .collect::<std::collections::BTreeSet<_>>()
@@ -216,7 +335,7 @@ fn print_assignments(
 #[expect(clippy::too_many_arguments)]
 pub fn print_group(
     project: &gitbutler_project::Project,
-    group: Option<StackDetails>,
+    group: Option<CLIStackDetails>,
     assignments: Vec<FileAssignment>,
     changes: &[TreeChange],
     show_files: bool,
@@ -233,10 +352,7 @@ pub fn print_group(
     if let Some(group) = &group {
         let mut first = true;
         for branch in &group.branch_details {
-            let id = CliId::branch(branch.name.to_str()?)
-                .to_string()
-                .underline()
-                .blue();
+            let id = branch.cli_id.underline().blue();
             let notch = if first { "╭" } else { "├" };
             if !first {
                 writeln!(stdout, "┊│").ok();
@@ -298,7 +414,8 @@ pub fn print_group(
                     None,
                 )?;
             }
-            for commit in &branch.commits {
+            for cli_commit in &branch.commits {
+                let commit = &cli_commit.inner;
                 let marked =
                     crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
                 let dot = match commit.state {
