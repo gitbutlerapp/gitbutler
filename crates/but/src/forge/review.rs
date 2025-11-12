@@ -9,7 +9,7 @@ use but_settings::AppSettings;
 use but_workspace::ui::Commit;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
-use gitbutler_project::Project;
+use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -426,7 +426,7 @@ async fn publish_review_for_branch(
         (title, body)
     } else {
         let title = get_review_title_from_editor(commit.as_ref(), branch_name)?;
-        let body = get_review_body_from_editor(commit.as_ref(), branch_name, &title)?;
+        let body = get_review_body_from_editor(project.id, commit.as_ref(), branch_name, &title)?;
         (title, body)
     };
 
@@ -458,6 +458,7 @@ async fn publish_review_for_branch(
     })
 }
 
+/// Get the default commit for the branch, if it has exactly one commit.
 fn default_commit(
     project: &Project,
     stack_id: Option<StackId>,
@@ -479,7 +480,10 @@ fn default_commit(
     Ok(commit.cloned())
 }
 
+/// Prompt the user to enter the review body using their default editor.
+/// Pre-fills the editor with the commit description if available.
 fn get_review_body_from_editor(
+    project_id: ProjectId,
     commit: Option<&Commit>,
     branch_name: &str,
     title: &str,
@@ -494,6 +498,8 @@ fn get_review_body_from_editor(
             template.push_str(line);
             template.push('\n');
         }
+    } else if let Some(review_template) = but_api::forge::review_template(project_id)? {
+        template.push_str(&review_template);
     } else {
         template.push_str(branch_name);
     }
@@ -510,6 +516,7 @@ fn get_review_body_from_editor(
     Ok(body)
 }
 
+/// Extract the commit description (body) from the commit message, skipping the first line (title).
 fn extract_commit_description(commit: Option<&Commit>) -> Option<Vec<&str>> {
     commit.and_then(|c| {
         let desc_lines: Vec<&str> = c
@@ -527,6 +534,8 @@ fn extract_commit_description(commit: Option<&Commit>) -> Option<Vec<&str>> {
     })
 }
 
+/// Prompt the user to enter the review title using their default editor.
+/// Pre-fills the editor with the commit title if available.
 fn get_review_title_from_editor(
     commit: Option<&Commit>,
     branch_name: &str,
@@ -554,10 +563,12 @@ fn get_review_title_from_editor(
     Ok(title)
 }
 
+/// Extract the commit title from the commit message (first line).
 fn extract_commit_title(commit: Option<&Commit>) -> Option<&str> {
     commit.and_then(|c| c.message.lines().next().and_then(|l| l.to_str().ok()))
 }
 
+/// Get a mapping from branch names to their associated reviews.
 pub async fn get_review_map(
     project: &Project,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>> {
