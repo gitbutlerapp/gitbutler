@@ -5,7 +5,11 @@ use bstr::ByteSlice;
 /// Apply a branch to the workspace
 ///
 /// Look first in through the local references, then the remote references.
-pub fn apply(project: &gitbutler_project::Project, branch_name: &str, json: bool) -> anyhow::Result<()> {
+pub fn apply(
+    project: &gitbutler_project::Project,
+    branch_name: &str,
+    json: bool,
+) -> anyhow::Result<()> {
     let repo = project.open()?;
 
     if let Some(reference) = (&repo).try_find_reference(branch_name)? {
@@ -55,7 +59,8 @@ fn find_remote_reference(
     branch_name: &str,
 ) -> anyhow::Result<Option<gitbutler_reference::RemoteRefname>> {
     for remote in repo.remote_names().iter().map(|r| r.deref()) {
-        let remote_ref_name = gitbutler_reference::RemoteRefname::new(remote.to_str()?, branch_name);
+        let remote_ref_name =
+            gitbutler_reference::RemoteRefname::new(remote.to_str()?, branch_name);
         if repo
             .try_find_reference(&remote_ref_name.fullname())?
             .is_some()
