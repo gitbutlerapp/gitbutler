@@ -1,6 +1,7 @@
 //! In place of commands.rs
 use anyhow::Context;
 use but_api_macros::api_cmd;
+use but_core::RepositoryExt;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_forge::{
@@ -21,6 +22,10 @@ pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<Strin
     Ok(available_review_templates(project.worktree_dir()?, &forge))
 }
 
+/// (Deprecated) Get the PR template content for the given project and relative path.
+///
+/// This function is deprecated in favor of `review_template`, which serves the same purpose
+/// but uses the updated storage location.
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
@@ -47,6 +52,67 @@ pub fn pr_template(
         .read_file_from_workspace(&relative_path)?
         .content
         .context("PR template was not valid UTF-8")?)
+}
+
+/// Information about the project's review template.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ReviewTemplateInfo {
+    /// The relative path to the review template within the repository.
+    pub path: String,
+    /// The content of the review template.
+    pub content: String,
+}
+
+/// Get the review template content for the given project and relative path.
+///
+/// This function determines the forge of a project and retrieves the review template
+/// from the git config.
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn review_template(project_id: ProjectId) -> Result<Option<ReviewTemplateInfo>, Error> {
+    let project = gitbutler_project::get_validated(project_id)?;
+    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let ctx = CommandContext::open(&project, app_settings)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let forge = &base_branch
+        .forge_repo_info
+        .as_ref()
+        .context("No forge could be determined for this repository branch")?
+        .forge;
+
+    match ctx
+        .gix_repo()?
+        .git_settings()?
+        .gitbutler_forge_review_template_path
+    {
+        Some(review_template_path) => {
+            let ReviewTemplateFunctions {
+                is_valid_review_template_path,
+                ..
+            } = get_review_template_functions(forge);
+            let template_path = review_template_path.to_string();
+            let path = std::path::PathBuf::from(&template_path);
+
+            if !is_valid_review_template_path(&path) {
+                return Err(anyhow::format_err!(
+                    "Invalid review template path: {:?}",
+                    project.worktree_dir()?.join(path),
+                )
+                .into());
+            }
+            let content = project
+                .read_file_from_workspace(&path)?
+                .content
+                .context("PR template was not valid UTF-8")?;
+
+            Ok(Some(ReviewTemplateInfo {
+                path: template_path,
+                content,
+            }))
+        }
+        None => Ok(None),
+    }
 }
 
 #[api_cmd]

@@ -8,6 +8,7 @@ pub mod git {
     const GIT_SIGN_COMMITS: &str = "commit.gpgsign";
     const GITBUTLER_SIGN_COMMITS: &str = "gitbutler.signCommits";
     const GITBUTLER_GERRIT_MODE: &str = "gitbutler.gerritMode";
+    const GITBUTLER_FORGE_TEMPLATE_PATH: &str = "gitbutler.forgeReviewTemplatePath";
     const SIGNING_KEY: &str = "user.signingKey";
     const SIGNING_FORMAT: &str = "gpg.format";
     const GPG_PROGRAM: &str = "gpg.program";
@@ -25,6 +26,7 @@ pub mod git {
             #[serde(rename = "signCommits")]
             pub gitbutler_sign_commits: Option<bool>,
             pub gitbutler_gerrit_mode: Option<bool>,
+            pub gitbutler_forge_review_template_path: Option<BStringForFrontend>,
             pub signing_key: Option<BStringForFrontend>,
             pub signing_format: Option<BStringForFrontend>,
             pub gpg_program: Option<BStringForFrontend>,
@@ -36,6 +38,7 @@ pub mod git {
                 crate::GitConfigSettings {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
+                    gitbutler_forge_review_template_path,
                     signing_key,
                     signing_format,
                     gpg_program,
@@ -45,6 +48,8 @@ pub mod git {
                 GitConfigSettings {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
+                    gitbutler_forge_review_template_path: gitbutler_forge_review_template_path
+                        .map(Into::into),
                     signing_key: signing_key.map(Into::into),
                     signing_format: signing_format.map(Into::into),
                     gpg_program: gpg_program
@@ -60,6 +65,7 @@ pub mod git {
                 GitConfigSettings {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
+                    gitbutler_forge_review_template_path,
                     signing_key,
                     signing_format,
                     gpg_program,
@@ -69,6 +75,8 @@ pub mod git {
                 crate::GitConfigSettings {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
+                    gitbutler_forge_review_template_path: gitbutler_forge_review_template_path
+                        .map(Into::into),
                     signing_key: signing_key.map(Into::into),
                     signing_format: signing_format.map(Into::into),
                     gpg_program: gpg_program.map(Into::into),
@@ -96,6 +104,8 @@ pub mod git {
             pub gitbutler_sign_commits: Option<bool>,
             /// If `true`, GitButler will create ChangeId trailers and will push references in the Gerrit way
             pub gitbutler_gerrit_mode: Option<bool>,
+            /// The path to the review description template to be used for this repository.
+            pub gitbutler_forge_review_template_path: Option<BString>,
             /// `user.signingKey`.
             pub signing_key: Option<BString>,
             /// `gpg.format`
@@ -118,6 +128,9 @@ pub mod git {
                 .or_else(|| config.boolean(GIT_SIGN_COMMITS))
                 .or(Some(false));
             let gitbutler_gerrit_mode = config.boolean(GITBUTLER_GERRIT_MODE).or(Some(false));
+            let gitbutler_forge_review_template_path = config
+                .string(GITBUTLER_FORGE_TEMPLATE_PATH)
+                .map(Cow::into_owned);
             let signing_key = config.string(SIGNING_KEY).map(Cow::into_owned);
             let signing_format = config.string(SIGNING_FORMAT).map(Cow::into_owned);
             let gpg_program = config.trusted_program(GPG_PROGRAM).map(Cow::into_owned);
@@ -125,6 +138,7 @@ pub mod git {
             Ok(GitConfigSettings {
                 gitbutler_sign_commits,
                 gitbutler_gerrit_mode,
+                gitbutler_forge_review_template_path,
                 signing_key,
                 signing_format,
                 gpg_program,
@@ -147,6 +161,12 @@ pub mod git {
                 config.set_raw_value(
                     &GITBUTLER_GERRIT_MODE,
                     if gerrit_mode { "true" } else { "false" },
+                )?;
+            };
+            if let Some(forge_template_path) = &self.gitbutler_forge_review_template_path {
+                config.set_raw_value(
+                    &GITBUTLER_FORGE_TEMPLATE_PATH,
+                    forge_template_path.as_bstr(),
                 )?;
             };
             if let Some(signing_key) = &self.signing_key {

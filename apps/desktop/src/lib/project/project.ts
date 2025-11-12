@@ -39,6 +39,10 @@ export type Project = {
 	preferred_forge_user: ForgeUserIdentifier | null;
 	// Gerrit mode enabled for this project, derived from git configuration
 	gerrit_mode: boolean;
+	/**
+	 * The path to the forge review template, if set in git configuration.
+	 */
+	forge_review_template_path: string | null;
 };
 
 export function vscodePath(path: string) {
