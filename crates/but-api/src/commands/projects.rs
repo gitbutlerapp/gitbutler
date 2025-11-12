@@ -22,6 +22,16 @@ pub fn add_project(path: PathBuf) -> Result<projects::AddProjectOutcome, Error> 
     Ok(gitbutler_project::add(&path)?)
 }
 
+/// Add a project by a given path.
+/// It will look for other existing projects and try to match the path
+/// to them, allowing to open projects from paths within the repository.
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn add_project_best_effort(path: PathBuf) -> Result<projects::AddProjectOutcome, Error> {
+    Ok(gitbutler_project::add_with_best_effort(&path)?)
+}
+
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]

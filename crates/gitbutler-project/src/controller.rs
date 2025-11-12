@@ -60,6 +60,30 @@ impl Controller {
         }
     }
 
+    pub(crate) fn add_with_best_effort<P: AsRef<Path>>(
+        &self,
+        worktree_dir: P,
+    ) -> Result<AddProjectOutcome> {
+        let worktree_dir = worktree_dir.as_ref();
+
+        let all_projects = self
+            .projects_storage
+            .list()
+            .context("failed to list projects from storage")?;
+
+        // Check if any existing project contains the given path
+        if let Some(existing_project) = all_projects
+            .iter()
+            .find(|project| worktree_dir.starts_with(project.worktree_dir_but_should_use_git_dir()))
+        {
+            return Ok(AddProjectOutcome::AlreadyExists(
+                existing_project.to_owned(),
+            ));
+        }
+
+        self.add(worktree_dir)
+    }
+
     pub(crate) fn add(&self, worktree_dir: impl AsRef<Path>) -> Result<AddProjectOutcome> {
         let worktree_dir = worktree_dir.as_ref();
         let all_projects = self
