@@ -66,8 +66,6 @@
 								class="tool-calls-collapsed__item"
 								class:hidable={filteredCalls.length > toolDisplayLimit}
 							>
-								<span class="separator">•</span>
-
 								{#if toolCallLoading(toolCall)}
 									<Icon name="spinner" />
 								{:else}
@@ -78,7 +76,6 @@
 						{/each}
 
 						{#if filteredCalls.length > toolDisplayLimit}
-							<span class="separator">•</span>
 							<p class="clr-text-2">+<span class="tool-calls-amount"></span> more</p>
 						{/if}
 					{/snippet}
