@@ -18,10 +18,8 @@
 	import { PROMPT_SERVICE } from '$lib/ai/promptService';
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { useGoToCodegenPage } from '$lib/codegen/redirect.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
@@ -54,10 +52,7 @@
 		contextData
 	}: Props = $props();
 
-	const { goToCodegenPage } = useGoToCodegenPage();
-
 	const aiService = inject(AI_SERVICE);
-	const rulesService = inject(RULES_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const promptService = inject(PROMPT_SERVICE);
@@ -251,21 +246,6 @@
 					{/if}
 				</ContextMenuSection>
 				<ContextMenuSection>
-					{#if stackId && first}
-						{@const rule = rulesService.aiRuleForStack({ projectId, stackId })}
-						{#if !rule.response}
-							<ContextMenuItem
-								label="Start agent session"
-								icon="agents-tab"
-								testId={TestId.BranchHeaderContextMenu_StartCodegenAgent}
-								disabled={isReadOnly}
-								onclick={() => {
-									goToCodegenPage(projectId, stackId, branchName);
-									close();
-								}}
-							/>
-						{/if}
-					{/if}
 					{#if $aiGenEnabled && aiConfigurationValid && !branch.remoteTrackingBranch && stackId}
 						<ContextMenuItem
 							label="Generate branch name"
