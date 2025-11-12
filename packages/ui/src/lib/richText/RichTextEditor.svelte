@@ -5,6 +5,7 @@
 	import { standardTheme } from '$lib/richText/config/theme';
 	import { INLINE_CODE_TRANSFORMER } from '$lib/richText/customTransforers';
 	import { getCurrentText } from '$lib/richText/getText';
+	import CodeBlockTypeAhead from '$lib/richText/plugins/CodeBlockTypeAhead.svelte';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import PlainTextIndentPlugin from '$lib/richText/plugins/PlainTextIndentPlugin.svelte';
 	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition';
@@ -37,8 +38,7 @@
 		MarkdownShortcutPlugin,
 		ALL_TRANSFORMERS,
 		LinkPlugin,
-		HistoryPlugin,
-		CODE
+		HistoryPlugin
 	} from 'svelte-lexical';
 
 	interface Props {
@@ -318,7 +318,8 @@
 		{:else}
 			<PlainTextPlugin />
 			<PlainTextIndentPlugin />
-			<MarkdownShortcutPlugin transformers={[CODE, INLINE_CODE_TRANSFORMER]} />
+			<CodeBlockTypeAhead />
+			<MarkdownShortcutPlugin transformers={[INLINE_CODE_TRANSFORMER]} />
 		{/if}
 		<HistoryPlugin />
 
