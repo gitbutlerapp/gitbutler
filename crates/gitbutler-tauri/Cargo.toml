@@ -48,7 +48,8 @@ tauri-plugin-log = "2.7.1"
 tauri-plugin-os = "2.3.2"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-shell = "2.3.3"
-tauri-plugin-single-instance = "2.3.6"
+[target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
+tauri-plugin-single-instance = { version = "2.3.6", features = ["deep-link"] }
 tauri-plugin-store = "2.4.1"
 tauri-plugin-updater = "2.9.0"
 tauri-plugin-window-state = "2.4.1"
@@ -74,6 +75,7 @@ open.workspace = true
 url = "2.5.4"
 but-path.workspace = true
 uuid.workspace = true
+tauri-plugin-deep-link = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-trafficlights-positioner = { git = "https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner", branch = "v2" }

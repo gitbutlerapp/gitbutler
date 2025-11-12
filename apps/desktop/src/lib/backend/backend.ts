@@ -1,5 +1,8 @@
 import type { Readable } from 'svelte/store';
 
+export type DeepLinkHandlers = {
+	open: (path: string) => void;
+};
 export interface IBackend {
 	/**
 	 * The name of the platform, e.g. 'macos', 'windows', 'linux', or 'web'
@@ -77,6 +80,10 @@ export interface IBackend {
 	 * Sets the window title.
 	 */
 	setWindowTitle: (title: string) => void;
+	/**
+	 * Init deep linking handling.
+	 */
+	initDeepLinking: (handlers: DeepLinkHandlers) => Promise<void>;
 }
 
 export interface DiskStore {

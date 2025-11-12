@@ -41,6 +41,11 @@ export default class Web implements IBackend {
 	setWindowTitle(title: string): void {
 		document.title = title;
 	}
+
+	async initDeepLinking(): Promise<void> {
+		// Deep linking is not supported in the web version
+		return await Promise.resolve();
+	}
 }
 
 class WebDiskStore implements DiskStore {
