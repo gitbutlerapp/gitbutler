@@ -25,6 +25,7 @@ use gitbutler_tauri::{
     projects, settings, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
+use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
 use tokio::sync::Mutex;
 
@@ -185,13 +186,37 @@ fn main() -> anyhow::Result<()> {
                     menu::handle_event(handle, &window.clone(), &event)
                 });
 
+                let app_handle_for_deep_link = app_handle.clone();
+                app_handle.deep_link().on_open_url(move |event| {
+                    println!("Received deep link: {:?}", event.urls());
+
+                    // Get main window
+                    if let Some(window) = app_handle_for_deep_link.get_window("main") {
+                        // Bring window to front and focus it
+                        #[cfg(target_os = "macos")]
+                        {
+                            // macOS requires these steps for reliable focus:
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+
+                        #[cfg(not(target_os = "macos"))]
+                        {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                });
                 Ok(())
             })
+            .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
             .plugin(tauri_plugin_http::init())
             .plugin(tauri_plugin_shell::init())
             .plugin(tauri_plugin_os::init())
             .plugin(tauri_plugin_process::init())
-            .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
+            .plugin(tauri_plugin_deep_link::init())
             .plugin(tauri_plugin_updater::Builder::new().build())
             .plugin(tauri_plugin_dialog::init())
             .plugin(tauri_plugin_fs::init())

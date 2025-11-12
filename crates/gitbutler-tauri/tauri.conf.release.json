@@ -21,6 +21,11 @@
 				"https://app.gitbutler.com/releases/release/{{target}}-{{arch}}/{{current_version}}"
 			],
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYwNTc2RDhBM0U0MjM4RUIKUldUck9FSStpbTFYWUE5UkJ3eXhuekZOL2V2RnpKaFUxbGJRNzBMVmF5V0gzV1JvN3hRblJMRDIK"
-		}
+		},
+		"deep-link": {
+      "desktop": {
+        "schemes": ["gb"]
+      }
+    }
 	}
 }
