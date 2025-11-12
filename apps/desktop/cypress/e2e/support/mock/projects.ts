@@ -16,7 +16,8 @@ export const MOCK_PROJECT_A: Project = {
 	is_open: false,
 	forge_override: undefined,
 	preferred_forge_user: null,
-	gerrit_mode: false
+	gerrit_mode: false,
+	forge_review_template_path: null
 };
 
 export function createMockProject(id: string, title: string, path: string): Project {

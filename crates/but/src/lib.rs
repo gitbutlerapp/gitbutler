@@ -424,6 +424,18 @@ async fn match_subcommand(
                 .ok();
                 result
             }
+            forge::review::Subcommands::Template { template_path } => {
+                let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
+                let result = forge::review::set_review_template(&project, template_path, args.json)
+                    .context("Failed to set review template.");
+                metrics_if_configured(
+                    app_settings,
+                    CommandName::ReviewTemplate,
+                    props(start, &result),
+                )
+                .ok();
+                result
+            }
         },
         Subcommands::Completions { shell } => completions::generate_completions(shell),
     }

@@ -59,6 +59,26 @@ If the review contains only a single commit, the commit message will be used for
 - **Type:** Flag (boolean)
 - **Default:** `false`
 
+### template
+
+Configure the template to use for review descriptions.
+This will list all available templates found in the repository and allow you to select one.
+
+```
+but review template [OPTIONS] [TEMPLATE_PATH]
+```
+
+#### Arguments
+
+- `template_path`
+
+Path to the review template file within the repository.
+
+- **Type:** String
+- **Required:** Optional
+
+This command will validate the provided relative path and ensure the template file exists in the repository.
+
 ## Examples
 
 Publish all active branches:
@@ -81,4 +101,8 @@ but review publish --run-hooks=false
 
 ```
 but review publish --default
+```
+
+```
+but review template .gitbutler/review_templates/feature_template.md
 ```

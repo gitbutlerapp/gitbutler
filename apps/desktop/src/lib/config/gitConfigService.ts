@@ -53,6 +53,10 @@ export class GitConfigService {
 		return await this.setGbConfig(projectId, { gitbutlerGerritMode: gerritMode });
 	}
 
+	async setForgeReviewTemplatePath(projectId: string, path: string | null) {
+		return await this.setGbConfig(projectId, { gitbutlerForgeReviewTemplatePath: path });
+	}
+
 	async checkGitFetch(projectId: string, remoteName: string | null | undefined) {
 		if (!remoteName) return;
 		const resp = await this.backend.invoke<string>('git_test_fetch', {
@@ -88,6 +92,7 @@ export class GitConfigService {
 export class GbConfig {
 	signCommits?: boolean | undefined;
 	gitbutlerGerritMode?: boolean | undefined;
+	gitbutlerForgeReviewTemplatePath?: string | null;
 	signingKey?: string | undefined;
 	signingFormat?: string | undefined;
 	gpgProgram?: string | undefined;

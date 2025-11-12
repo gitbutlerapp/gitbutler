@@ -7,9 +7,10 @@ use but_core::ref_metadata::StackId;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
 use but_workspace::ui::Commit;
+use cli_prompts::DisplayPrompt;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
-use gitbutler_project::Project;
+use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -45,8 +46,59 @@ pub enum Subcommands {
         #[clap(long, short = 't', default_value_t = false)]
         default: bool,
     },
+    /// Configure the template to use for review descriptions.
+    /// This will list all available templates found in the repository and allow you to select one.
+    Template {
+        /// Path to the review template file within the repository.
+        template_path: Option<String>,
+    },
 }
 
+/// Set the review template for the given project.
+pub fn set_review_template(
+    project: &Project,
+    template_path: Option<String>,
+    json: bool,
+) -> anyhow::Result<()> {
+    if let Some(path) = template_path {
+        let message = format!("Set review template path to: {}", &path);
+        but_api::forge::set_review_template(project.id, Some(path))?;
+        if !json {
+            writeln!(std::io::stdout(), "{}", message)?;
+        }
+    } else {
+        let current_template = but_api::forge::review_template(project.id)?;
+        let available_templates = but_api::forge::list_available_review_templates(project.id)?;
+        let template_prompt = cli_prompts::prompts::Selection::new_with_transformation(
+            "Select a review template (and press Enter)",
+            available_templates.into_iter(),
+            |s| {
+                if let Some(current) = &current_template {
+                    if s == &current.path {
+                        format!("{} (current)", s)
+                    } else {
+                        s.clone()
+                    }
+                } else {
+                    s.clone()
+                }
+            },
+        );
+
+        let selected_template = template_prompt
+            .display()
+            .map_err(|_| anyhow::anyhow!("Could not determine selected review template"))?;
+        let message = format!("Set review template path to: {}", &selected_template);
+        but_api::forge::set_review_template(project.id, Some(selected_template.clone()))?;
+        if !json {
+            writeln!(std::io::stdout(), "{}", message)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Publish reviews for active branches in the workspace.
 pub async fn publish_reviews(
     project: &Project,
     branch: Option<String>,
@@ -426,7 +478,7 @@ async fn publish_review_for_branch(
         (title, body)
     } else {
         let title = get_review_title_from_editor(commit.as_ref(), branch_name)?;
-        let body = get_review_body_from_editor(commit.as_ref(), branch_name, &title)?;
+        let body = get_review_body_from_editor(project.id, commit.as_ref(), branch_name, &title)?;
         (title, body)
     };
 
@@ -458,6 +510,7 @@ async fn publish_review_for_branch(
     })
 }
 
+/// Get the default commit for the branch, if it has exactly one commit.
 fn default_commit(
     project: &Project,
     stack_id: Option<StackId>,
@@ -479,7 +532,10 @@ fn default_commit(
     Ok(commit.cloned())
 }
 
+/// Prompt the user to enter the review body using their default editor.
+/// Pre-fills the editor with the commit description if available.
 fn get_review_body_from_editor(
+    project_id: ProjectId,
     commit: Option<&Commit>,
     branch_name: &str,
     title: &str,
@@ -494,6 +550,8 @@ fn get_review_body_from_editor(
             template.push_str(line);
             template.push('\n');
         }
+    } else if let Some(review_template) = but_api::forge::review_template(project_id)? {
+        template.push_str(&review_template.content);
     } else {
         template.push_str(branch_name);
     }
@@ -510,6 +568,7 @@ fn get_review_body_from_editor(
     Ok(body)
 }
 
+/// Extract the commit description (body) from the commit message, skipping the first line (title).
 fn extract_commit_description(commit: Option<&Commit>) -> Option<Vec<&str>> {
     commit.and_then(|c| {
         let desc_lines: Vec<&str> = c
@@ -527,6 +586,8 @@ fn extract_commit_description(commit: Option<&Commit>) -> Option<Vec<&str>> {
     })
 }
 
+/// Prompt the user to enter the review title using their default editor.
+/// Pre-fills the editor with the commit title if available.
 fn get_review_title_from_editor(
     commit: Option<&Commit>,
     branch_name: &str,
@@ -554,10 +615,12 @@ fn get_review_title_from_editor(
     Ok(title)
 }
 
+/// Extract the commit title from the commit message (first line).
 fn extract_commit_title(commit: Option<&Commit>) -> Option<&str> {
     commit.and_then(|c| c.message.lines().next().and_then(|l| l.to_str().ok()))
 }
 
+/// Get a mapping from branch names to their associated reviews.
 pub async fn get_review_map(
     project: &Project,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>> {
