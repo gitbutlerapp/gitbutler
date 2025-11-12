@@ -24,16 +24,19 @@
 			expanded = !expanded;
 		}}
 	>
-		<div class="tool-call-header__arrow">
-			<Icon name="chevron-right" />
-		</div>
-		{#if toolCallLoading(toolCall)}
-			<Icon name="spinner" />
-		{:else}
-			<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
-		{/if}
+		<div class="flex items-center gap-6">
+			<div class="tool-call-header__arrow">
+				<Icon name="chevron-right" />
+			</div>
+			{#if toolCallLoading(toolCall)}
+				<Icon name="spinner" />
+			{:else}
+				<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
+			{/if}
 
-		<span class="tool-name">{toolCall.name}</span>
+			<span class="tool-name">{toolCall.name}</span>
+		</div>
+
 		<span class="summary truncate">{formatToolCall(toolCall)}</span>
 	</button>
 
