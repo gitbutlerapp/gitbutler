@@ -74,6 +74,13 @@
 	const shortcutService = inject(SHORTCUT_SERVICE);
 	$effect(() => shortcutService.listen());
 
+	// Deep linking
+	backend.initDeepLinking({
+		open: (path: string) => {
+			projectsService.handleDeepLinkOpen(path);
+		}
+	});
+
 	// =============================================================================
 	// ANALYTICS & NAVIGATION
 	// =============================================================================
