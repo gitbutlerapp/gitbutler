@@ -467,7 +467,7 @@ fn get_or_init_legacy_non_bare_project(
 /// and which can derive all other information from there.
 pub fn get_or_init_project_with_legacy_support(
     directory: impl AsRef<Path>,
-) -> anyhow::Result<but_project::Project> {
+) -> anyhow::Result<but_ctx::Context> {
     let directory = directory.as_ref();
     let repo = gix::discover(directory)?;
     let worktree_dir = repo
@@ -479,9 +479,9 @@ pub fn get_or_init_project_with_legacy_support(
             init::repo(directory, false, false)
                 .and_then(|()| gitbutler_project::Project::find_by_worktree_dir(directory))
         })?;
-    Ok(but_project::Project {
+    Ok(but_ctx::Context {
         settings: AppSettings::load_from_default_path_creating()?,
-        legacy: project,
+        project,
         repo,
     })
 }
@@ -489,16 +489,16 @@ pub fn get_or_init_project_with_legacy_support(
 /// Discover the Git repository in `directory` and return it,
 pub fn get_project_with_legacy_support(
     directory: impl AsRef<Path>,
-) -> anyhow::Result<but_project::Project> {
+) -> anyhow::Result<but_ctx::Context> {
     let directory = directory.as_ref();
     let repo = gix::discover(directory)?;
     let worktree_dir = repo
         .workdir()
         .context("Bare repositories are not yet supported.")?;
     let project = gitbutler_project::Project::find_by_worktree_dir(worktree_dir)?;
-    Ok(but_project::Project {
+    Ok(but_ctx::Context {
         settings: AppSettings::load_from_default_path_creating()?,
-        legacy: project,
+        project,
         repo,
     })
 }

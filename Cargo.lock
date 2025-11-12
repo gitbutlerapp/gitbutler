@@ -712,6 +712,7 @@ dependencies = [
  "but-api",
  "but-claude",
  "but-core",
+ "but-ctx",
  "but-cursor",
  "but-gerrit",
  "but-github",
@@ -720,7 +721,6 @@ dependencies = [
  "but-hunk-dependency",
  "but-meta",
  "but-oxidize",
- "but-project",
  "but-rules",
  "but-secret",
  "but-serde",
@@ -981,6 +981,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-ctx"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-core",
+ "but-meta",
+ "but-settings",
+ "gitbutler-command-context",
+ "gitbutler-project",
+ "gix",
+]
+
+[[package]]
 name = "but-cursor"
 version = "0.0.0"
 dependencies = [
@@ -1182,19 +1195,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "dirs 6.0.0",
-]
-
-[[package]]
-name = "but-project"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-core",
- "but-meta",
- "but-settings",
- "gitbutler-command-context",
- "gitbutler-project",
- "gix",
 ]
 
 [[package]]

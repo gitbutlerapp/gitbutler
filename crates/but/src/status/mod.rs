@@ -3,9 +3,9 @@ use std::{collections::BTreeMap, io::Write};
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
-use but_project::Project;
 use but_workspace::ui::{Author, BranchDetails, Commit, PushStatus, StackDetails, UpstreamCommit};
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
@@ -171,7 +171,7 @@ struct WorktreeStatus {
 }
 
 pub(crate) async fn worktree(
-    project: &Project,
+    project: &Context,
     json: bool,
     show_files: bool,
     verbose: bool,
@@ -194,7 +194,7 @@ pub(crate) async fn worktree(
         },
     )?;
 
-    let project = &project.legacy;
+    let project = &project.project;
     let review_map = if review {
         crate::forge::review::get_review_map(project).await?
     } else {

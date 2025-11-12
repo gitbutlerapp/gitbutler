@@ -1,10 +1,10 @@
 [package]
-name = "but-project"
+name = "but-ctx"
 version = "0.0.0"
 edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
-description = "A project implementation to act as 'context'"
+description = "A context implementation specific for a repository"
 rust-version = "1.89"
 
 [lib]
@@ -25,4 +25,3 @@ gitbutler-command-context = { workspace = true, optional = true }
 
 anyhow.workspace = true
 gix.workspace = true
-

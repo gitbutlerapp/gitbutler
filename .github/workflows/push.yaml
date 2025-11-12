@@ -114,7 +114,7 @@ jobs:
       - run: cargo check --workspace --all-targets
       - run: |
           # should work without the "legacy" feature
-          cargo check -p but-project
+          cargo check -p but-ctx
           cargo check -p but-serde
           cargo check -p but-meta
           cargo check -p but-graph
