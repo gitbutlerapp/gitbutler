@@ -14,9 +14,10 @@
 	type Props = {
 		commit: UpstreamCommit | Commit;
 		rewrap?: boolean;
+		includeTitle?: boolean;
 	};
 
-	const { commit, rewrap }: Props = $props();
+	const { commit, rewrap, includeTitle }: Props = $props();
 
 	const userService = inject(USER_SERVICE);
 	const userSettings = inject(SETTINGS);
@@ -35,7 +36,7 @@
 	const maxLength = $derived((messageWidthRem - 2) * fontFactor - (Math.pow(zoom, 2) - 1));
 
 	const message = $derived(commit.message);
-	const raw = $derived(splitMessage(message).description);
+	const raw = $derived(includeTitle ? message : splitMessage(message).description);
 	const description = $derived(rewrap ? rejoinParagraphs(raw) : raw);
 	const abbreviated = $derived(truncate(description, maxLength, 3));
 	const isAbbrev = $derived(abbreviated !== description);

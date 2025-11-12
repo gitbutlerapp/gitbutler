@@ -36,7 +36,7 @@
 						<ReduxResult {projectId} result={commit.result}>
 							{#snippet children(commit)}
 								<div class="commit-bubble">
-									<CommitDetails {commit} />
+									<CommitDetails includeTitle {commit} />
 								</div>
 							{/snippet}
 							{#snippet empty()}
