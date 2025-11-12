@@ -224,5 +224,3 @@
 		</SectionCard>
 	{/if}
 </div>
-
-<Spacer />

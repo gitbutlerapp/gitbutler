@@ -42,6 +42,11 @@ export function projectRunCommitHooks(projectId: string): Persisted<boolean> {
 	return persisted(false, key + projectId);
 }
 
+export function projectDisableCodegen(projectId: string): Persisted<boolean> {
+	const key = 'projectDisableCodegen';
+	return persisted(false, key + projectId);
+}
+
 export function persistedChatModelName<T extends string>(
 	projectId: string,
 	defaultValue: T
