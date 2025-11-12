@@ -2,7 +2,6 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import AddedDirectories from '$components/codegen/AddedDirectories.svelte';
 	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
-	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
 	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
@@ -84,7 +83,6 @@
 	const mcpConfigQuery = $derived(claudeCodeService.mcpConfig({ projectId }));
 	const attachments = $derived(attachmentService.getByBranch(branchName));
 
-	let settingsModal: ClaudeCodeSettingsModal | undefined;
 	let clearContextModal = $state<Modal>();
 	let modelContextMenu = $state<ContextMenu>();
 	let modelTrigger = $state<HTMLButtonElement>();
@@ -364,14 +362,6 @@
 										close();
 									}}
 								/>
-								<ContextMenuItem
-									label="Agent settings"
-									icon="mixer"
-									onclick={() => {
-										settingsModal?.show();
-										close();
-									}}
-								/>
 							</ContextMenuSection>
 							<ContextMenuSection>
 								<ContextMenuItem
@@ -494,7 +484,13 @@
 					{#if claudeAvailable.response?.status === 'not_available'}
 						{#if formattedMessages.length > 0}
 							<CodegenChatClaudeNotAvaliableBanner
-								onSettingsBtnClick={() => settingsModal?.show()}
+								onSettingsBtnClick={() => {
+									uiState.global.modal.set({
+										type: 'project-settings',
+										projectId,
+										selectedId: 'agent'
+									});
+								}}
 							/>
 						{/if}
 					{:else}
@@ -709,8 +705,6 @@
 		{openPromptConfigDir}
 	/>
 {/if}
-
-<ClaudeCodeSettingsModal bind:this={settingsModal} onClose={() => {}} />
 
 <style lang="postcss">
 	.chat-view__placeholder {

@@ -3,7 +3,9 @@
 	import GitForm from '$components/GitForm.svelte';
 	import PreferencesForm from '$components/PreferencesForm.svelte';
 	import SettingsModalLayout from '$components/SettingsModalLayout.svelte';
+	import AgentSettings from '$components/projectSettings/AgentSettings.svelte';
 	import GeneralSettings from '$components/projectSettings/GeneralSettings.svelte';
+	import { projectDisableCodegen } from '$lib/config/config';
 	import iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ProjectSettingsModalState } from '$lib/state/uiState.svelte';
 
@@ -13,7 +15,9 @@
 
 	const { data }: Props = $props();
 
-	const pages = [
+	const codegenDisabled = $derived(projectDisableCodegen(data.projectId));
+
+	const allPages = [
 		{
 			id: 'project',
 			label: 'Project',
@@ -30,11 +34,19 @@
 			icon: 'ai' as keyof typeof iconsJson
 		},
 		{
+			id: 'agent',
+			label: 'Agent settings',
+			icon: 'mixer' as keyof typeof iconsJson,
+			requireCodegen: true
+		},
+		{
 			id: 'experimental',
 			label: 'Experimental',
 			icon: 'idea' as keyof typeof iconsJson
 		}
 	];
+
+	const pages = $derived(allPages.filter((page) => !page.requireCodegen || !$codegenDisabled));
 
 	let currentSelectedId = $state(data.selectedId || pages[0]!.id);
 
@@ -57,6 +69,8 @@
 				<GitForm projectId={data.projectId} />
 			{:else if currentPage.id === 'ai'}
 				<CloudForm projectId={data.projectId} />
+			{:else if currentPage.id === 'agent'}
+				<AgentSettings />
 			{:else if currentPage.id === 'experimental'}
 				<PreferencesForm projectId={data.projectId} />
 			{:else}
