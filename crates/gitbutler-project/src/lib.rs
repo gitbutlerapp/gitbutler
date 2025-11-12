@@ -69,6 +69,11 @@ pub fn add<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjectOutcome> {
     controller.add(path)
 }
 
+pub fn add_with_best_effort<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjectOutcome> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.add_with_best_effort(path)
+}
+
 /// Testing purpose only.
 pub fn add_with_path(
     data_dir: impl AsRef<Path>,

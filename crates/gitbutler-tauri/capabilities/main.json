@@ -6,6 +6,7 @@
 	"local": true,
 	"permissions": [
 		"core:default",
+		"core:event:default",
 		"core:window:allow-start-dragging",
 		"core:window:allow-set-title",
 		"core:window:default",
@@ -20,6 +21,7 @@
 		"http:allow-fetch",
 		"clipboard-manager:allow-read-text",
 		"clipboard-manager:allow-write-text",
+		"deep-link:default",
 		{
 			"identifier": "http:default",
 			"allow": [

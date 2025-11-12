@@ -1,5 +1,11 @@
+import { goto } from '$app/navigation';
 import { showError } from '$lib/notifications/toasts';
-import { type AddProjectOutcome, type Project } from '$lib/project/project';
+import {
+	handleAddProjectOutcome,
+	type AddProjectOutcome,
+	type Project
+} from '$lib/project/project';
+import { projectPath } from '$lib/routes/routes.svelte';
 import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
 import { getCookie } from '$lib/utils/cookies';
 import { InjectionToken } from '@gitbutler/core/context';
@@ -128,6 +134,20 @@ export class ProjectsService {
 		return await this.api.endpoints.addProject.mutate({ path });
 	}
 
+	async handleDeepLinkOpen(path: string) {
+		const outcome = await this.api.endpoints.addProjectWithBestEffort.mutate({ path });
+		if (outcome) {
+			switch (outcome.type) {
+				case 'added':
+				case 'alreadyExists':
+					goto(projectPath(outcome.subject.id));
+					break;
+				default:
+					handleAddProjectOutcome(outcome);
+			}
+		}
+	}
+
 	async getValidPath(): Promise<string | undefined> {
 		const path = await this.promptForDirectory();
 		if (!path) return undefined;
@@ -199,6 +219,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			addProject: build.mutation<AddProjectOutcome, { path: string }>({
 				extraOptions: { command: 'add_project' },
+				query: (args) => args,
+				invalidatesTags: () => [invalidatesList(ReduxTag.Project)]
+			}),
+			addProjectWithBestEffort: build.mutation<AddProjectOutcome, { path: string }>({
+				extraOptions: { command: 'add_project_best_effort' },
 				query: (args) => args,
 				invalidatesTags: () => [invalidatesList(ReduxTag.Project)]
 			}),
