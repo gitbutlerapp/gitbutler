@@ -1,3 +1,7 @@
+### API usage
+
+* Avoid using code from `gitbutler-`-prefixed crates, and prefer code from `but-` prefixed crates as long as it's not in the `legacy` module.
+
 ### Output
 * Usable output goes to `stdout` with `writeln!(stdout, …).ok()`.
     - Obtain `stdout` once per function using `let mut stdout = std::io::stdout();`

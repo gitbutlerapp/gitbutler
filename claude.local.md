@@ -1,2 +1,2 @@
-- use pnpm rather than npm for typescript and svelte related tasks
-- See `crates/but/agents.md` for information about the `but` CLI specifically
+@.github/copilot-instructions.md
+@crates/but/agents.md
