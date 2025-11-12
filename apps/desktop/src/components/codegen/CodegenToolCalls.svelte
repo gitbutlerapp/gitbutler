@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
+	import ExpandableSection from '$components/codegen/ExpandableSection.svelte';
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
 	import { getToolIcon } from '$lib/utils/codegenTools';
 	import { Icon } from '@gitbutler/ui';
@@ -25,11 +26,11 @@
 	// Initialize from map, default to true
 	let expanded = $state(toolCallsExpandedState?.get(messageId) ?? true);
 
-	function toggleExpanded() {
-		expanded = !expanded;
+	function handleToggle(newExpanded: boolean) {
+		expanded = newExpanded;
 		// Persist to map if available
 		if (toolCallsExpandedState) {
-			toolCallsExpandedState.set(messageId, expanded);
+			toolCallsExpandedState.set(messageId, newExpanded);
 		}
 	}
 </script>
@@ -42,24 +43,15 @@
 		<div class="tool-calls-wrapper">
 			<div
 				class="tool-calls-container"
-				class:expanded
 				style="--initial-tool-items: {toolCalls.length - toolDisplayLimit}"
 			>
-				<!-- Header for multiple tool calls -->
-				<button
-					type="button"
-					class="text-13 tool-calls-header"
-					onclick={toggleExpanded}
-					class:expanded
+				<ExpandableSection
+					root
+					label="{filteredCalls.length} tool calls"
+					bind:expanded
+					onToggle={handleToggle}
 				>
-					<div class="flex gap-6 items-center">
-						<div class="tool-calls-header__arrow">
-							<Icon name="chevron-right" />
-						</div>
-						<span class="text-semibold">{filteredCalls.length} tool calls</span>
-					</div>
-
-					{#if !expanded}
+					{#snippet summary()}
 						{#each toolsToDisplay as toolCall}
 							<div
 								class="tool-calls-collapsed__item"
@@ -80,19 +72,18 @@
 							<span class="separator">•</span>
 							<p class="clr-text-2">+<span class="tool-calls-amount"></span> more</p>
 						{/if}
-					{/if}
-				</button>
+					{/snippet}
 
-				<!-- Content -->
-				{#if expanded}
-					<div class="tool-calls-expanded">
-						<div class="tool-calls-expanded__list">
-							{#each filteredCalls as toolCall}
-								<CodegenToolCall {projectId} fullWidth {toolCall} />
-							{/each}
+					{#snippet content()}
+						<div class="tool-calls-expanded">
+							<div class="tool-calls-expanded__list">
+								{#each filteredCalls as toolCall}
+									<CodegenToolCall {projectId} fullWidth {toolCall} />
+								{/each}
+							</div>
 						</div>
-					</div>
-				{/if}
+					{/snippet}
+				</ExpandableSection>
 			</div>
 		</div>
 	{/if}
@@ -110,7 +101,6 @@
 		width: 100%;
 		max-width: var(--message-max-width);
 		overflow: hidden;
-		/* background-color: red; */
 	}
 
 	/* Hide items in collapsed mode based on container width */
@@ -133,32 +123,6 @@
 		}
 	}
 
-	.tool-calls-header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		cursor: pointer;
-
-		&:hover {
-			.tool-calls-header__arrow {
-				color: var(--clr-text-2);
-			}
-		}
-	}
-
-	.tool-calls-header__arrow {
-		display: flex;
-		margin-left: -2px;
-		color: var(--clr-text-3);
-		transition:
-			background-color var(--transition-fast),
-			transform var(--transition-medium);
-	}
-
-	.expanded .tool-calls-header__arrow {
-		transform: rotate(90deg);
-	}
-
 	.tool-calls-collapsed__item {
 		display: contents;
 	}
@@ -170,7 +134,6 @@
 
 	.tool-calls-expanded {
 		display: flex;
-		margin-top: 12px;
 		gap: 10px;
 	}
 
