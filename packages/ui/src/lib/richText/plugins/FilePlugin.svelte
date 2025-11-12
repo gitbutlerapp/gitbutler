@@ -10,6 +10,7 @@
 </script>
 
 <script lang="ts">
+	import { createInlineCodeNode } from '$lib/richText/node/inlineCode';
 	import TypeAhead from '$lib/richText/plugins/TypeAhead.svelte';
 	import {
 		$isRangeSelection as isRangeSelection,
@@ -87,16 +88,19 @@
 			const matchIndex = textBeforeCursor.lastIndexOf(match);
 			if (matchIndex !== -1) {
 				const replacement = '`' + path + '`';
-				const newTextBefore =
-					textBeforeCursor.slice(0, matchIndex) +
-					replacement +
-					textBeforeCursor.slice(matchIndex + match.length);
-				const newText = newTextBefore + textAfterCursor;
-				const newNode = new TextNode(newText);
-				const selectionStart = matchIndex;
-				const selectionEnd = matchIndex + replacement.length;
-				anchorNode.replace(newNode);
-				newNode.select(selectionStart, selectionEnd);
+				const textBefore = textBeforeCursor.slice(0, matchIndex);
+
+				// Split the text node and insert inline code node
+				const beforeNode = new TextNode(textBefore);
+				const inlineCodeNode = createInlineCodeNode(replacement);
+				const afterNode = new TextNode(textAfterCursor);
+
+				anchorNode.replace(beforeNode);
+				beforeNode.insertAfter(inlineCodeNode);
+				inlineCodeNode.insertAfter(afterNode);
+
+				// Position cursor after the inline code
+				afterNode.selectStart();
 			}
 		});
 
