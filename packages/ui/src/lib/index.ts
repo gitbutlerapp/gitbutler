@@ -43,6 +43,7 @@ export { default as SeriesLabelsRow } from '$components/SeriesLabelsRow.svelte';
 export { default as SidebarEntry } from '$components/SidebarEntry.svelte';
 export { default as SimpleCommitRow } from '$components/SimpleCommitRow.svelte';
 export { default as Spacer } from '$components/Spacer.svelte';
+export { default as TagInput, type Tag } from '$components/TagInput.svelte';
 export { default as Textarea } from '$components/Textarea.svelte';
 export { default as Textbox } from '$components/Textbox.svelte';
 export { default as EmailTextbox } from '$components/EmailTextbox.svelte';
@@ -152,3 +153,10 @@ export {
 export { default as FormattingBar } from '$lib/richText/tools/FormattingBar.svelte';
 export { default as FormattingButton } from '$lib/richText/tools/FormattingButton.svelte';
 export * from '$lib/utils/testIds';
+
+// Shared types
+export type {
+	BaseInputProps,
+	InputStylingProps,
+	InputStateCallbacks
+} from '$components/inputTypes';
