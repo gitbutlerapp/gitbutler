@@ -15,8 +15,9 @@ pub struct Args {
     #[clap(long, short = 'j', global = true)]
     pub json: bool,
     /// Source entity for rub operation (when no subcommand is specified).
+    /// If no target is specified, this is treated as a path to open on the GUI.
     #[clap(value_name = "SOURCE")]
-    pub source: Option<String>,
+    pub source_or_path: Option<String>,
     /// Target entity for rub operation (when no subcommand is specified).
     #[clap(value_name = "TARGET", requires = "source")]
     pub target: Option<String>,
