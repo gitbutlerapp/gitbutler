@@ -222,12 +222,12 @@ fn apply_nonexistent_branch() -> anyhow::Result<()> {
     // Try to apply a branch that doesn't exist
     env.but("branch apply nonexistent-branch")
         .assert()
-        .success()
-        .stderr_eq(str![])
-        .stdout_eq(str![[r#"
-Could not find branch 'nonexistent-branch' in local repository
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not find branch 'nonexistent-branch' in local repository
 
-"#]]);
+"#]])
+        .stdout_eq(str![""]);
 
     Ok(())
 }
@@ -239,8 +239,11 @@ fn apply_nonexistent_branch_with_json() -> anyhow::Result<()> {
     // Try to apply a branch that doesn't exist with JSON output
     env.but("--json branch apply nonexistent-branch")
         .assert()
-        .success()
-        .stderr_eq(str![]);
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not find branch 'nonexistent-branch' in local repository
+
+"#]]);
     // Note: Currently the apply function doesn't output anything with JSON when branch not found
     // This might be improved to output an error in JSON format
 

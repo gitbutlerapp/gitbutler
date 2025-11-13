@@ -1,10 +1,11 @@
 use std::io::Write;
 
+use crate::we_need_proper_json_output_here;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_project::Project;
 
-pub async fn list(project: &Project, local: bool) -> Result<(), anyhow::Error> {
+pub async fn list(project: &Project, local: bool) -> Result<serde_json::Value, anyhow::Error> {
     let mut stdout = std::io::stdout();
     let filter = if local {
         Some(BranchListingFilter {
@@ -50,7 +51,7 @@ pub async fn list(project: &Project, local: bool) -> Result<(), anyhow::Error> {
         );
         writeln!(stdout, "{} {}{}", "(remote)".dimmed(), branch.name, reviews).ok();
     }
-    Ok(())
+    Ok(we_need_proper_json_output_here())
 }
 
 fn print_applied_branches(
