@@ -363,7 +363,7 @@ pub mod merge {
                 .filter_map(|(top_segment, relation)| {
                     match relation {
                         WorkspaceCommitRelation::Merged => {}
-                        WorkspaceCommitRelation::UnmergedTree => {
+                        WorkspaceCommitRelation::MergeFrom {..} => {
                             // These need to be part of the parents list, but shouldn't be merged.
                             // If the caller wants to retry them, they can be passed here as "Merged".
                             todo!("this is a placeholder for where we will have to start handling this UnmergedTree")
