@@ -55,7 +55,6 @@ gitbutler-storage = { path = "crates/gitbutler-storage" }
 gitbutler-fs = { path = "crates/gitbutler-fs" }
 gitbutler-time = { path = "crates/gitbutler-time" }
 gitbutler-commit = { path = "crates/gitbutler-commit" }
-gitbutler-tagged-string = { path = "crates/gitbutler-tagged-string" }
 gitbutler-url = { path = "crates/gitbutler-url" }
 gitbutler-diff = { path = "crates/gitbutler-diff" }
 gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }

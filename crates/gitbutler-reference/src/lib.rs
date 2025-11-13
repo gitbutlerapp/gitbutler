@@ -1,7 +1,6 @@
 mod refname;
 
 use anyhow::bail;
-use gitbutler_tagged_string::TaggedString;
 pub use refname::{LocalRefname, Refname, RemoteRefname, VirtualRefname};
 
 // TODO(ST): return `BString`, probably take BString, as branch names don't have to be valid UTF8
@@ -44,7 +43,5 @@ pub fn normalize_branch_name(name: &str) -> anyhow::Result<String> {
     Ok(sanitized.to_string())
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct _ReferenceName;
 /// The name of a reference i.e. `refs/heads/master`
-pub type ReferenceName = TaggedString<_ReferenceName>;
+pub type ReferenceName = String;

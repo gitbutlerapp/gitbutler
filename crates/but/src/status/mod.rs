@@ -184,7 +184,7 @@ pub(crate) async fn worktree(
     let guard = project.shared_worktree_access();
     let meta = project.meta(guard.read_permission())?;
 
-    // TODO: use this for status inforamtion instead.
+    // TODO: use this for status information instead.
     let _head_info = but_workspace::head_info(
         &project.repo,
         &meta,
@@ -194,7 +194,7 @@ pub(crate) async fn worktree(
         },
     )?;
 
-    let project = &project.project;
+    let project = &project.legacy_project;
     let review_map = if review {
         crate::forge::review::get_review_map(project).await?
     } else {

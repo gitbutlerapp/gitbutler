@@ -35,6 +35,8 @@ mod ui;
 mod worktree;
 
 const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
+/// A utility to clearly mark the old project type to get away from.
+type LegacyProject = gitbutler_project::Project;
 
 /// Handle `args` which must be what's passed by `std::env::args_os()`.
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
@@ -443,14 +445,14 @@ async fn match_subcommand(
 
 fn get_or_init_legacy_non_bare_project(
     current_dir: &std::path::Path,
-) -> anyhow::Result<gitbutler_project::Project> {
+) -> anyhow::Result<LegacyProject> {
     let repo = gix::discover(current_dir)?;
     if let Some(path) = repo.workdir() {
-        let project = match gitbutler_project::Project::find_by_worktree_dir(path) {
+        let project = match LegacyProject::find_by_worktree_dir(path) {
             Ok(p) => Ok(p),
             Err(_e) => {
                 crate::init::repo(path, false, false)?;
-                gitbutler_project::Project::find_by_worktree_dir(path)
+                LegacyProject::find_by_worktree_dir(path)
             }
         }?;
         Ok(project)
@@ -473,15 +475,15 @@ pub fn get_or_init_project_with_legacy_support(
     let worktree_dir = repo
         .workdir()
         .context("Bare repositories are not yet supported.")?;
-    let project = gitbutler_project::Project::find_by_worktree_dir_opt(worktree_dir)?
+    let project = LegacyProject::find_by_worktree_dir_opt(worktree_dir)?
         .map(anyhow::Ok)
         .unwrap_or_else(|| {
             init::repo(directory, false, false)
-                .and_then(|()| gitbutler_project::Project::find_by_worktree_dir(directory))
+                .and_then(|()| LegacyProject::find_by_worktree_dir(directory))
         })?;
     Ok(but_ctx::Context {
         settings: AppSettings::load_from_default_path_creating()?,
-        project,
+        legacy_project: project,
         repo,
     })
 }
@@ -495,10 +497,10 @@ pub fn get_project_with_legacy_support(
     let worktree_dir = repo
         .workdir()
         .context("Bare repositories are not yet supported.")?;
-    let project = gitbutler_project::Project::find_by_worktree_dir(worktree_dir)?;
+    let project = LegacyProject::find_by_worktree_dir(worktree_dir)?;
     Ok(but_ctx::Context {
         settings: AppSettings::load_from_default_path_creating()?,
-        project,
+        legacy_project: project,
         repo,
     })
 }

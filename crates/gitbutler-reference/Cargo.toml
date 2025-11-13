@@ -13,6 +13,5 @@ doctest = false
 anyhow.workspace = true
 git2.workspace = true
 gix.workspace = true
-gitbutler-tagged-string.workspace = true
 serde .workspace = true
 thiserror.workspace = true
