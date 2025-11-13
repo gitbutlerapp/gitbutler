@@ -77,6 +77,8 @@
 		position: relative;
 		align-items: center;
 		width: fit-content;
+		width: 100%;
+		overflow: hidden;
 		gap: 10px;
 		user-select: none;
 
@@ -107,6 +109,7 @@
 	.section-summary {
 		display: flex;
 		align-items: center;
+		overflow: hidden;
 		gap: 8px;
 	}
 
