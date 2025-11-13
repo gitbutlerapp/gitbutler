@@ -9,6 +9,7 @@ import ts from 'typescript-eslint';
 
 /// Forget about linting
 
+// other comment
 export default ts.config(
 	js.configs.recommended,
 	...ts.configs.recommended,
