@@ -161,7 +161,6 @@ pub fn handle(cmd: Subcommands, project: &LegacyProject, json: bool) -> anyhow::
                                 stack_id,
                                 approach,
                                 delete_integrated_branches: true,
-                                force_integrated_branches: vec![],
                             };
                             resolutions.push(resolution);
                         }

@@ -86,22 +86,19 @@ describe('Upstream Integration', () => {
 				{
 					stackId: 'stack-a-id',
 					approach: { type: 'rebase' },
-					deleteIntegratedBranches: true,
-					forceIntegratedBranches: []
+					deleteIntegratedBranches: true
 				},
 				{
 					stackId: 'stack-b-id',
 					approach: { type: 'delete' },
-					deleteIntegratedBranches: false,
-					forceIntegratedBranches: []
+					deleteIntegratedBranches: false
 				},
 				{
 					stackId: 'stack-c-id',
 					approach: {
 						type: 'delete'
 					},
-					deleteIntegratedBranches: true,
-					forceIntegratedBranches: []
+					deleteIntegratedBranches: true
 				}
 			],
 			baseBranchResolution: undefined

@@ -98,19 +98,13 @@
 		// Side effect, refresh results
 		results.clear();
 		for (const status of statusesTmp) {
-			const mergedAssociatedReviews = filteredReviews.filter(
-				(r) => status.stack.heads.some((h) => h.name === r.sourceBranch) && r.mergedAt !== undefined
-			);
-			const forceIntegratedBranches = mergedAssociatedReviews.map((r) => r.sourceBranch);
-
 			if (status.stack.id) {
 				const dontDelete = someBranchesShouldNotBeDeleted(status.stack.heads.map((b) => b.name));
 
 				results.set(status.stack.id, {
 					stackId: status.stack.id,
 					approach: getResolutionApproachV3(status),
-					deleteIntegratedBranches: !dontDelete,
-					forceIntegratedBranches
+					deleteIntegratedBranches: !dontDelete
 				});
 			}
 		}
