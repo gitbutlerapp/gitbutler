@@ -415,11 +415,19 @@ pub enum WorkspaceCommitRelation {
     /// The stack is considered to be merged into the workspace commit, with its tree being observable
     /// in the worktree associated with the workspace reference.
     Merged,
-    /// The stack is supposed to be in the workspace commit, but its tree isn't observable
-    /// in the worktree associated with the workspace reference.
+    /// The stack is supposed to be in the workspace commit, but its tree either isn't observable
+    /// in the worktree associated with the workspace reference, or it's observable only from the given `commit`.
     ///
-    /// Stacks with this relationship can never conflict with any other `Merged` stat.
-    UnmergedTree,
+    /// Stacks with this relationship can never conflict with any other `Merged` stack, if their commit is `None`.
+    MergeFrom {
+        /// If `None`, the tree of the stack isn't observable at all in the workspace tree, even though it's stack tip
+        /// is a parent of the workspace commit. This is useful to 'mute' stacks, without losing track of them.
+        ///
+        /// If `Some(commit_id)`, the `commit_id^{tree}` is merged into the workspace tree, while the tip of the stack
+        /// is a parent of the workspace. `commit_id` is assumed to be in the stack, and observable by the user.
+        /// This is useful to view a different stack segment, not only the tip/top-most commit.
+        commit_id: Option<gix::ObjectId>,
+    },
     /// The stack may have previously been merged into the workspace commit,
     /// and is considered *outside* of the workspace.
     ///
@@ -434,7 +442,7 @@ impl WorkspaceCommitRelation {
     /// Return `true` if this relation suggests that the owning stack is reachable from the workspace commit.
     pub fn is_in_workspace(&self) -> bool {
         match self {
-            WorkspaceCommitRelation::Merged | WorkspaceCommitRelation::UnmergedTree => true,
+            WorkspaceCommitRelation::Merged | WorkspaceCommitRelation::MergeFrom { .. } => true,
             WorkspaceCommitRelation::Outside => false,
         }
     }
