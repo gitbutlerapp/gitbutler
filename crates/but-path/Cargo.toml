@@ -12,3 +12,4 @@ doctest = false
 [dependencies]
 anyhow.workspace = true
 dirs = "6.0.0"
+open.workspace = true

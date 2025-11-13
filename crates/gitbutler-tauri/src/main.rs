@@ -190,21 +190,9 @@ fn main() -> anyhow::Result<()> {
                 app_handle.deep_link().on_open_url(move |_| {
                     // Get main window
                     if let Some(window) = app_handle_for_deep_link.get_window("main") {
-                        // Bring window to front and focus it
-                        #[cfg(target_os = "macos")]
-                        {
-                            // macOS requires these steps for reliable focus:
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-
-                        #[cfg(not(target_os = "macos"))]
-                        {
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        let _ = window.unminimize();
+                        let _ = window.show();
+                        let _ = window.set_focus();
                     }
                 });
                 Ok(())
