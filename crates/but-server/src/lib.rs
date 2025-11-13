@@ -255,6 +255,7 @@ async fn handle_command(
         // Project management
         "update_project" => iprojects::update_project_cmd(request.params),
         "add_project" => iprojects::add_project_cmd(request.params),
+        "add_project_best_effort" => iprojects::add_project_best_effort_cmd(request.params),
         "get_project" => iprojects::get_project_cmd(request.params),
         "delete_project" => iprojects::delete_project_cmd(request.params),
         "is_gerrit" => iprojects::is_gerrit_cmd(request.params),

@@ -226,6 +226,7 @@ fn main() -> anyhow::Result<()> {
                 users::delete_user,
                 users::get_user,
                 but_api::projects::add_project,
+                but_api::projects::add_project_best_effort,
                 but_api::projects::get_project,
                 but_api::projects::update_project,
                 but_api::projects::delete_project,
