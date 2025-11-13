@@ -57,6 +57,18 @@ but branch list [OPTIONS]
 
 - `-l, --local` - Show only local branches
 
+### apply
+
+Apply a branch to the workspace.
+
+```
+but branch apply <BRANCH_NAME>
+```
+
+#### Arguments
+
+- `<BRANCH_NAME>` - Name of the branch to apply (required)
+
 ### unapply
 
 Unapply a branch from the workspace.
@@ -115,6 +127,19 @@ List only local branches:
 
 ```
 but branch list --local
+```
+
+Apply a branch to the workspace:
+
+```
+but branch apply my-feature
+
+```
+
+Apply a remote branch to the workspace:
+
+```
+but branch apply origin/my-feature
 ```
 
 Unapply a branch from the workspace:
