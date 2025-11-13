@@ -29,7 +29,6 @@ pub mod workspace {
                 stack_id: id,
                 approach,
                 delete_integrated_branches: false,
-                force_integrated_branches: vec![],
             })
             .collect();
         gitbutler_branch_actions::integrate_upstream(&ctx, &resolutions, None)?;
