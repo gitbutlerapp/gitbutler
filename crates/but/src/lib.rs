@@ -251,7 +251,7 @@ async fn match_subcommand(
             Ok(())
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
+            let ctx = get_or_init_context_with_legacy_support(&args.current_dir)?;
             let metrics_command = match cmd {
                 None | Some(branch::Subcommands::List { .. }) => CommandName::BranchList,
                 Some(branch::Subcommands::New { .. }) => CommandName::BranchNew,
@@ -259,9 +259,11 @@ async fn match_subcommand(
                 Some(branch::Subcommands::Unapply { .. }) => CommandName::BranchUnapply,
                 Some(branch::Subcommands::Apply { .. }) => CommandName::BranchApply,
             };
-            let result = branch::handle(cmd, &project, args.json).await;
+            // TODO: print JSON result here, based on args
+            // TODO: add stdout abstraction to deal with dev/null + for_humans.
+            let result = branch::handle(cmd, &ctx, args.json).await;
             metrics_if_configured(app_settings, metrics_command, props(start, &result)).ok();
-            result
+            result.map(|_| ())
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
@@ -513,6 +515,17 @@ pub fn get_context_with_legacy_support(
         legacy_project: project,
         repo,
     })
+}
+
+fn we_need_proper_json_output_here() -> serde_json::Value {
+    serde_json::Value::Null
+}
+
+/// Convert anything into a json value, **or panic**.
+/// I think this should never fail at runtime, but I am not sure.
+fn into_json_value(value: impl serde::Serialize) -> serde_json::Value {
+    serde_json::to_value(&value)
+        .expect("BUG: Failed to serialize JSON value, we should know that at compile time")
 }
 
 pub(crate) fn props<E, T, R>(start: std::time::Instant, result: R) -> Props

@@ -1,11 +1,11 @@
-use std::io::{self, Write};
-
-use crate::LegacyProject;
+use crate::{LegacyProject, into_json_value, we_need_proper_json_output_here};
+use anyhow::bail;
 use atty::Stream;
 use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
+use std::io::{self, Write};
 
 mod apply;
 mod list;
@@ -69,10 +69,11 @@ pub enum Subcommands {
 
 pub async fn handle(
     cmd: Option<Subcommands>,
-    legacy_project: &LegacyProject,
+    ctx: &but_ctx::Context,
     json: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<serde_json::Value> {
     let mut stdout = io::stdout();
+    let legacy_project = &ctx.legacy_project;
     match cmd {
         None => {
             let local = false;
@@ -157,7 +158,7 @@ pub async fn handle(
             } else {
                 writeln!(stdout, "{branch_name}").ok();
             }
-            Ok(())
+            Ok(we_need_proper_json_output_here())
         }
         Some(Subcommands::Delete { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
@@ -178,10 +179,10 @@ pub async fn handle(
             }
 
             writeln!(stdout, "Branch '{}' not found in any stack", branch_name).ok();
-            Ok(())
+            Ok(we_need_proper_json_output_here())
         }
         Some(Subcommands::Apply { branch_name }) => {
-            apply::apply(legacy_project, &branch_name, json)
+            apply::apply(ctx, &branch_name, json).map(into_json_value)
         }
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
@@ -202,7 +203,7 @@ pub async fn handle(
             }
 
             writeln!(stdout, "Branch '{}' not found in any stack", branch_name).ok();
-            Ok(())
+            Ok(we_need_proper_json_output_here())
         }
     }
 }
@@ -212,7 +213,7 @@ fn confirm_unapply_stack(
     sid: StackId,
     stack_entry: &StackEntry,
     force: bool,
-) -> Result<(), anyhow::Error> {
+) -> Result<serde_json::Value, anyhow::Error> {
     let mut stdout = io::stdout();
     let branches = stack_entry
         .heads
@@ -235,8 +236,7 @@ fn confirm_unapply_stack(
 
         let input = input.trim().to_lowercase();
         if input != "y" && input != "yes" {
-            writeln!(stdout, "Aborted unapply operation.").ok();
-            return Ok(());
+            bail!("Aborted unapply operation.");
         }
     }
 
@@ -247,7 +247,7 @@ fn confirm_unapply_stack(
         branches
     )
     .ok();
-    Ok(())
+    Ok(we_need_proper_json_output_here())
 }
 
 fn confirm_branch_deletion(
@@ -255,7 +255,7 @@ fn confirm_branch_deletion(
     sid: StackId,
     branch_name: &str,
     force: bool,
-) -> Result<(), anyhow::Error> {
+) -> Result<serde_json::Value, anyhow::Error> {
     let mut stdout = io::stdout();
     if !force {
         writeln!(
@@ -271,12 +271,11 @@ fn confirm_branch_deletion(
 
         let input = input.trim().to_lowercase();
         if input != "y" && input != "yes" {
-            writeln!(stdout, "Aborted branch deletion.").ok();
-            return Ok(());
+            bail!("Aborted branch deletion.");
         }
     }
 
     but_api::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
     writeln!(stdout, "Deleted branch {branch_name}").ok();
-    Ok(())
+    Ok(we_need_proper_json_output_here())
 }

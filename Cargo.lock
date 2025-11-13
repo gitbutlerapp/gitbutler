@@ -810,6 +810,7 @@ name = "but-api"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bstr",
  "but-action",
  "but-api-macros",
  "but-broadcaster",
@@ -852,6 +853,7 @@ dependencies = [
  "gitbutler-user",
  "gix",
  "open",
+ "schemars 1.1.0",
  "serde",
  "serde-error",
  "serde_json",
