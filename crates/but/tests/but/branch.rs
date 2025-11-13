@@ -4,7 +4,7 @@ use crate::utils::{Sandbox, setup_metadata};
 
 #[test]
 fn new_outputs_branch_name() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 9477ae7 (A) add A
@@ -35,7 +35,7 @@ my-anchored-feature
 
 #[test]
 fn new_with_json_output() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 9477ae7 (A) add A

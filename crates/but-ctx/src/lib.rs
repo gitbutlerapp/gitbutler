@@ -1,5 +1,4 @@
-//! A crate to host a `Context` type, suitable to provide the context *applications* need to operate
-//! on it.
+//! A crate to host a `Context` type, suitable to provide the context *applications* need to operate on a Git repository.
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 use std::path::{Path, PathBuf};
@@ -8,8 +7,10 @@ use but_settings::AppSettings;
 #[cfg(feature = "legacy")]
 use gitbutler_command_context::CommandContext;
 
-/// A context specific to a repository(project) specific information, *not* thread-safe, and cheap to clone.
-/// That way it may own per-thread caches.
+/// A context specific to a repository, along with commonly used information to make higher-level functions
+/// more convenient to implement.
+/// This type is *not* thread-safe, and cheap to clone. That way it may own per-thread caches.
+/// It's fine for it to one day receive thread-safe shared state, as needed, similar to [`gix::Repository`].
 #[derive(Debug, Clone)]
 pub struct Context {
     /// The application context, here for convenience and as feature toggles and flags are needed.
@@ -22,7 +23,6 @@ pub struct Context {
 }
 
 /// Legacy - none of this should be kept.
-// TODO: make this an extension implemented elsewhere.
 #[cfg(feature = "legacy")]
 impl Context {
     /// Return a context for calling into `gitbutler-` functions.

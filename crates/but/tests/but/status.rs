@@ -2,7 +2,7 @@ use crate::utils::{Sandbox, setup_metadata};
 
 #[test]
 fn worktrees() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_slow("two-worktrees")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     *   063d8c1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -41,8 +41,44 @@ fn worktrees() -> anyhow::Result<()> {
 }
 
 #[test]
+fn unborn() -> anyhow::Result<()> {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("unborn")?;
+    insta::assert_snapshot!(env.git_log()?, @r"");
+
+    // TODO: make this work
+    env.but("status --verbose")
+        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: No push remote set
+
+"#]])
+        .stdout_eq(snapbox::str![]);
+    Ok(())
+}
+
+#[test]
+fn first_commit_no_workspace() -> anyhow::Result<()> {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("first-commit")?;
+    insta::assert_snapshot!(env.git_log()?, @"* 85efbe4 (HEAD -> main) M");
+
+    // TODO: make this work
+    env.but("status --verbose")
+        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: No push remote set
+
+"#]])
+        .stdout_eq(snapbox::str![]);
+    Ok(())
+}
+
+#[test]
 fn json_shows_paths_as_strings() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
     setup_metadata(&env, &["A", "B"])?;

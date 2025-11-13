@@ -4,7 +4,7 @@ use crate::utils::{Sandbox, setup_metadata};
 
 #[test]
 fn commit_with_message_flag() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 9477ae7 (A) add A
@@ -34,7 +34,7 @@ Created commit [..] on branch A
 
 #[test]
 fn commit_with_branch_hint() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -66,7 +66,7 @@ Created commit [..] on branch B
 
 #[test]
 fn commit_with_nonexistent_branch_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -93,7 +93,7 @@ Error: Branch 'nonexistent' not found
 
 #[test]
 fn commit_with_create_flag_creates_new_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  

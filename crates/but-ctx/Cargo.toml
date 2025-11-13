@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
-description = "A context implementation specific for a repository"
+description = "A context implementation specific to a repository"
 rust-version = "1.89"
 
 [lib]

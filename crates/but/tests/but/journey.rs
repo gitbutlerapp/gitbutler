@@ -125,7 +125,7 @@ Error: workspace at refs/heads/main is missing a base
 
 #[test]
 fn from_workspace() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  

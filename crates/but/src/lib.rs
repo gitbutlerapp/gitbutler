@@ -271,13 +271,13 @@ async fn match_subcommand(
             verbose,
             review,
         } => {
-            let project = get_project_with_legacy_support(&args.current_dir)?;
+            let project = get_or_init_context_with_legacy_support(&args.current_dir)?;
             let result = status::worktree(&project, args.json, show_files, verbose, review).await;
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
             result
         }
         Subcommands::Stf { verbose, review } => {
-            let project = get_project_with_legacy_support(&args.current_dir)?;
+            let project = get_or_init_context_with_legacy_support(&args.current_dir)?;
             let result = status::worktree(&project, args.json, true, verbose, review).await;
             metrics_if_configured(app_settings, CommandName::Stf, props(start, &result)).ok();
             result
@@ -467,7 +467,7 @@ fn get_or_init_legacy_non_bare_project(
 /// Legacy - none of this should be kept.
 /// Turn this instance into a project, which knows about the Git repository discovered from `directory`
 /// and which can derive all other information from there.
-pub fn get_or_init_project_with_legacy_support(
+pub fn get_or_init_context_with_legacy_support(
     directory: impl AsRef<Path>,
 ) -> anyhow::Result<but_ctx::Context> {
     let directory = directory.as_ref();
@@ -489,7 +489,7 @@ pub fn get_or_init_project_with_legacy_support(
 }
 
 /// Discover the Git repository in `directory` and return it,
-pub fn get_project_with_legacy_support(
+pub fn get_context_with_legacy_support(
     directory: impl AsRef<Path>,
 ) -> anyhow::Result<but_ctx::Context> {
     let directory = directory.as_ref();
