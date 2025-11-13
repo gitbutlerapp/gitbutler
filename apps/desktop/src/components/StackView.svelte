@@ -11,7 +11,11 @@
 	import SelectionView from '$components/SelectionView.svelte';
 	import StackDragHandle from '$components/StackDragHandle.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
+	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
 	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
+	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
+	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
+	import { MessageSender } from '$lib/codegen/messageQueue.svelte';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
@@ -33,6 +37,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
+	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { Button, FileViewHeader, TestId } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
@@ -306,6 +311,47 @@
 	});
 
 	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
+
+	// Codegen related services and state
+	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+	const attachmentService = inject(ATTACHMENT_SERVICE);
+
+	let mcpConfigModal = $state<CodegenMcpConfigModal>();
+
+	const mcpConfigQuery = $derived(claudeCodeService.mcpConfig({ projectId }));
+	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
+	const isStackActive = $derived(isStackActiveQuery?.response || false);
+	const events = $derived(claudeCodeService.messages({ projectId, stackId }));
+	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
+	const attachments = $derived(attachmentService.getByBranch(branchName));
+
+	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
+	const selectedModel = $derived(projectState.selectedModel.current);
+	const selectedPermissionMode = $derived(uiState.lane(laneId).permissionMode.current);
+
+	const messageSender = $derived(
+		stackId && branchName
+			? new MessageSender({
+					projectId: reactive(() => projectId),
+					selectedBranch: reactive(() => ({ stackId, head: branchName })),
+					thinkingLevel: reactive(() => selectedThinkingLevel),
+					model: reactive(() => selectedModel),
+					permissionMode: reactive(() => selectedPermissionMode)
+				})
+			: undefined
+	);
+	const initialPrompt = $derived(messageSender?.prompt);
+
+	async function onAbort() {
+		if (stackId) {
+			await claudeCodeService.cancelSession({ projectId, stackId });
+		}
+	}
+
+	async function sendMessage(prompt: string) {
+		await messageSender?.sendMessage(prompt, attachments);
+		attachmentService.clearByBranch(branchName);
+	}
 </script>
 
 <!-- ATTENTION -->
@@ -608,8 +654,19 @@
 				<CodegenMessages
 					projectId={stableProjectId}
 					stackId={stableStackId}
+					{laneId}
 					branchName={selection.branchName}
 					onclose={onclosePreview}
+					onMcpSettings={() => {
+						mcpConfigModal?.open();
+					}}
+					{onAbort}
+					{initialPrompt}
+					events={events.response || []}
+					permissionRequests={permissionRequests.response || []}
+					onSubmit={sendMessage}
+					onChange={(prompt) => messageSender?.setPrompt(prompt)}
+					{isStackActive}
 				/>
 			{:else}
 				<div class="details-view__inner">
@@ -687,6 +744,27 @@
 		{/if}
 	{/if}
 </div>
+
+<ReduxResult result={mcpConfigQuery.result} {projectId} {stackId} hideError>
+	{#snippet children(mcpConfig, { stackId })}
+		{@const laneState = stackId ? uiState.lane(stackId) : undefined}
+		<CodegenMcpConfigModal
+			disabledServers={laneState?.disabledMcpServers.current || []}
+			bind:this={mcpConfigModal}
+			{mcpConfig}
+			toggleServer={(server) => {
+				const disabledServers = laneState?.disabledMcpServers.current;
+				if (disabledServers) {
+					if (disabledServers.includes(server)) {
+						laneState?.disabledMcpServers.set(disabledServers.filter((s) => s !== server));
+					} else {
+						laneState?.disabledMcpServers.set([...disabledServers, server]);
+					}
+				}
+			}}
+		/>
+	{/snippet}
+</ReduxResult>
 
 <style lang="postcss">
 	.stack-view-wrapper {

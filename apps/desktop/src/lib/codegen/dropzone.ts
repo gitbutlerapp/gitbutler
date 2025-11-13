@@ -12,12 +12,13 @@ export class CodegenRuleDropData {
 export class CodegenRuleDropHandler implements DropzoneHandler {
 	constructor(
 		private projectId: string,
-		private stackId: string,
+		private stackId: string | undefined,
 		private rulesService: RulesService,
 		private headerAlreadyHasRule: boolean
 	) {}
 
 	accepts(data: unknown): boolean {
+		if (!this.stackId) return false;
 		if (this.headerAlreadyHasRule) return false;
 		if (!(data instanceof CodegenRuleDropData)) return false;
 		if (data.rule.action.subject.subject.target.subject === this.stackId) return false;
@@ -25,6 +26,10 @@ export class CodegenRuleDropHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: CodegenRuleDropData): void {
+		if (!this.stackId) {
+			console.warn('Unsupported operation, no stackId provided.');
+			return;
+		}
 		this.rulesService.updateWorkspaceRuleMutate({
 			projectId: this.projectId,
 			request: {
@@ -46,29 +51,33 @@ export class CodegenRuleDropHandler implements DropzoneHandler {
 
 export class CodegenCommitDropHandler implements DropzoneHandler {
 	constructor(
-		private stackId: string,
-		private branchName: string,
+		private stackId: string | undefined,
 		private add: (items: PromptAttachment[]) => void
 	) {}
 
 	accepts(data: unknown): boolean {
-		// For now, accept all commits without restrictions
+		if (!this.stackId) return false;
 		return data instanceof CommitDropData && data.stackId === this.stackId;
 	}
 
 	ondrop(data: CommitDropData): void {
+		if (!this.stackId) {
+			console.warn('Unsupported operation, no stackId provided.');
+			return;
+		}
 		this.add([{ type: 'commit', commitId: data.commit.id }]);
 	}
 }
 
 export class CodegenFileDropHandler implements DropzoneHandler {
 	constructor(
-		private stackId: string,
+		private stackId: string | undefined,
 		private branchName: string,
 		private add: (items: PromptAttachment[]) => void
 	) {}
 
 	accepts(data: unknown): boolean {
+		if (!this.stackId) return false;
 		return (
 			data instanceof FileChangeDropData &&
 			(data.stackId === undefined || data.stackId === this.stackId)
@@ -76,6 +85,10 @@ export class CodegenFileDropHandler implements DropzoneHandler {
 	}
 
 	async ondrop(data: FileChangeDropData): Promise<void> {
+		if (!this.stackId) {
+			console.warn('Unsupported operation, no stackId provided.');
+			return;
+		}
 		const changes = await data.treeChanges();
 		const commitId = data.selectionId.type === 'commit' ? data.selectionId.commitId : undefined;
 		const attachments: PromptAttachment[] = changes.map((change) => ({
@@ -90,19 +103,22 @@ export class CodegenFileDropHandler implements DropzoneHandler {
 
 export class CodegenHunkDropHandler implements DropzoneHandler {
 	constructor(
-		private stackId: string,
-		private branchName: string,
+		private stackId: string | undefined,
 		private add: (items: PromptAttachment[]) => void
 	) {}
 
 	accepts(data: unknown): boolean {
-		// For now, accept all hunks without restrictions
+		if (!this.stackId) return false;
 		return (
 			data instanceof HunkDropDataV3 && (data.stackId === null || data.stackId === this.stackId)
 		);
 	}
 
 	ondrop(data: HunkDropDataV3): void {
+		if (!this.stackId) {
+			console.warn('Unsupported operation, no stackId provided.');
+			return;
+		}
 		this.add([
 			{
 				type: 'lines',

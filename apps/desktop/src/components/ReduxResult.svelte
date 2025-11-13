@@ -24,6 +24,7 @@
 		result: Result<A> | undefined;
 		children: Snippet<[A, Env<B, C>]>;
 		loading?: Snippet<[A | undefined]>;
+		hideError?: boolean;
 		error?: Snippet<[unknown]>;
 		empty?: Snippet<[]>;
 		onerror?: (err: unknown) => void;
@@ -94,16 +95,16 @@
 {/snippet}
 
 {#if display.result?.error}
-	{@const error = display.result.error}
-	{@render errorComponent(error)}
+	{#if !props.hideError}
+		{@const error = display.result.error}
+		{@render errorComponent(error)}
+	{/if}
 {:else if display.result?.data !== undefined}
 	{@render props.children(display.result.data, display.env)}
 {:else if display.result?.status === 'pending' || display.result?.status === 'uninitialized'}
 	{@render loadingComponent(display.result.data, display.result.status)}
 {:else if display.result?.status === 'fulfilled'}
 	{@render props.empty?.()}
-{:else}
-	what
 {/if}
 
 <style>

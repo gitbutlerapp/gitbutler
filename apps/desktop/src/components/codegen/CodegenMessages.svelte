@@ -6,16 +6,13 @@
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
-	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
 	import CodegenPromptConfigModal from '$components/codegen/CodegenPromptConfigModal.svelte';
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
 	import CodegenTodoAccordion from '$components/codegen/CodegenTodoAccordion.svelte';
 	import noClaudeCodeSvg from '$lib/assets/empty-state/claude-disconected.svg?raw';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
-	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { MessageSender } from '$lib/codegen/messageQueue.svelte';
 	import {
 		currentStatus,
 		thinkingOrCompactingStartedAt,
@@ -30,13 +27,10 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { formatCompactNumber } from '$lib/utils/number';
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import {
 		Button,
 		ContextMenu,
@@ -55,22 +49,44 @@
 		ThinkingLevel,
 		ModelType,
 		PermissionMode,
-		PermissionDecision
+		PermissionDecision,
+		ClaudePermissionRequest
 	} from '$lib/codegen/types';
 
 	type Props = {
 		projectId: string;
 		branchName: string;
-		stackId: string;
+		stackId?: string;
+		laneId: string;
+		initialPrompt?: string;
+		isStackActive?: boolean;
+		events: ClaudeMessage[];
+		permissionRequests: ClaudePermissionRequest[];
+		onMcpSettings?: () => void;
 		onclose?: () => void;
+		onChange: (value: string) => void;
+		onAbort?: () => Promise<void>;
+		onSubmit?: (prompt: string) => Promise<void>;
 	};
-	const { projectId, stackId, branchName, onclose }: Props = $props();
+	const {
+		projectId,
+		stackId,
+		laneId,
+		branchName,
+		initialPrompt,
+		isStackActive = false,
+		events,
+		permissionRequests,
+		onclose,
+		onChange,
+		onAbort,
+		onSubmit,
+		onMcpSettings
+	}: Props = $props();
 
 	const stableBranchName = $derived(branchName);
 
-	const attachmentService = inject(ATTACHMENT_SERVICE);
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
-	const stackService = inject(STACK_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
 	const uiState = inject(UI_STATE);
 	const urlService = inject(URL_SERVICE);
@@ -78,10 +94,7 @@
 	const settingsService = inject(SETTINGS_SERVICE);
 	const claudeSettings = $derived($settingsService?.claude);
 
-	const stacks = $derived(stackService.stacks(projectId));
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
-	const mcpConfigQuery = $derived(claudeCodeService.mcpConfig({ projectId }));
-	const attachments = $derived(attachmentService.getByBranch(branchName));
 
 	let clearContextModal = $state<Modal>();
 	let modelContextMenu = $state<ContextMenu>();
@@ -93,7 +106,6 @@
 	let templateContextMenu = $state<ContextMenu>();
 	let templateTrigger = $state<HTMLButtonElement>();
 
-	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 	let promptConfigModal = $state<CodegenPromptConfigModal>();
 	let virtualList = $state<VirtualList<Message>>();
 	let inputRef = $state<CodegenInput>();
@@ -148,34 +160,7 @@
 	const projectState = uiState.project(projectId);
 	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
 	const selectedModel = $derived(projectState.selectedModel.current);
-	const selectedPermissionMode = $derived(uiState.lane(stackId).permissionMode.current);
-
-	$effect(() => {
-		if (stacks.response) {
-			// Make sure the current selection is valid
-			const branchFound = stacks.response.some(
-				(s) => s.id === stackId && s.heads.some((h) => h.name === stableBranchName)
-			);
-			if (!branchFound) {
-				selectFirstBranch();
-			}
-		}
-	});
-
-	function selectFirstBranch() {
-		if (!stacks.response) return;
-
-		const firstStack = stacks.response[0];
-		const firstHead = firstStack?.heads[0];
-		if (firstHead && firstStack.id) {
-			projectState.selectedClaudeSession.set({
-				stackId: firstStack.id,
-				head: firstHead.name
-			});
-		} else {
-			projectState.selectedClaudeSession.set(undefined);
-		}
-	}
+	const selectedPermissionMode = $derived(uiState.lane(laneId).permissionMode.current);
 
 	async function onPermissionDecision(
 		id: string,
@@ -189,9 +174,6 @@
 			useWildcard
 		});
 	}
-	async function onAbort() {
-		await claudeCodeService.cancelSession({ projectId, stackId });
-	}
 
 	function selectModel(model: ModelType) {
 		projectState.selectedModel.set(model);
@@ -204,7 +186,7 @@
 	}
 
 	function selectPermissionMode(mode: PermissionMode) {
-		uiState.lane(stackId).permissionMode.set(mode);
+		uiState.lane(laneId).permissionMode.set(mode);
 		permissionModeContextMenu?.close();
 	}
 
@@ -229,28 +211,10 @@
 		return short ? thinkingLevel.shortLabel : thinkingLevel.label;
 	}
 
-	const messageSender = new MessageSender({
-		projectId: reactive(() => projectId),
-		selectedBranch: reactive(() => ({ stackId, head: stableBranchName })),
-		thinkingLevel: reactive(() => selectedThinkingLevel),
-		model: reactive(() => selectedModel),
-		permissionMode: reactive(() => selectedPermissionMode)
-	});
-
-	const initialPrompt = $derived(messageSender.prompt);
-
-	async function sendMessage(prompt: string) {
-		await messageSender.sendMessage(prompt, attachments);
-		attachmentService.clearByBranch(branchName);
-		setTimeout(() => {
-			virtualList?.scrollToBottom();
-		}, 100);
-	}
-
 	function insertTemplate(templateContent: string) {
-		const currentPrompt = messageSender.prompt;
+		const currentPrompt = inputRef?.getText();
 		const newPrompt = currentPrompt + (currentPrompt ? '\n\n' : '') + templateContent;
-		messageSender.setPrompt(newPrompt);
+		onChange?.(newPrompt);
 		inputRef?.setText(newPrompt);
 		templateContextMenu?.close();
 	}
@@ -297,15 +261,12 @@
 		}
 	}
 
-	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
-	const isStackActive = $derived(isStackActiveQuery?.response || false);
-
 	// Check if there are rules to delete for the current session
 	const rules = $derived(rulesService.workspaceRules(projectId));
 	const hasRulesToClear = $derived(() => {
-		if (!events.response || !rules.response) return false;
+		if (!events || !rules.response) return false;
 
-		const sessionId = getCurrentSessionId(events.response);
+		const sessionId = getCurrentSessionId(events);
 		if (!sessionId) return false;
 
 		return rules.response.some((rule) =>
@@ -315,283 +276,260 @@
 		);
 	});
 
-	const events = $derived(claudeCodeService.messages({ projectId, stackId }));
-	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
+	const formattedMessages = $derived(formatMessages(events, permissionRequests, isStackActive));
 </script>
 
-<ReduxResult result={combineResults(events?.result, permissionRequests.result)} {projectId}>
-	{#snippet children([events, permissionRequests], { projectId: _projectId })}
-		{@const formattedMessages = formatMessages(events, permissionRequests, isStackActive)}
-		<CodegenChatLayout branchName={stableBranchName} {onclose}>
-			{#snippet inWorkspaceInlineContextActions()}
-				{@const stats = usageStats(events)}
-				{@const contextUsage = Math.round(stats.contextUtilization * 100)}
+<CodegenChatLayout branchName={stableBranchName} {onclose}>
+	{#snippet inWorkspaceInlineContextActions()}
+		{@const stats = usageStats(events)}
+		{@const contextUsage = Math.round(stats.contextUtilization * 100)}
 
-				<div class="flex gap-10 items-center">
-					{#if stats.tokens > 0}
-						<Tooltip text="Tokens: {stats.tokens.toLocaleString()} / ${stats.cost.toFixed(2)} ">
-							<span class="text-12 clr-text-2">
-								{formatCompactNumber(stats.tokens)}
-							</span>
-						</Tooltip>
+		<div class="flex gap-10 items-center">
+			{#if stats.tokens > 0}
+				<Tooltip text="Tokens: {stats.tokens.toLocaleString()} / ${stats.cost.toFixed(2)} ">
+					<span class="text-12 clr-text-2">
+						{formatCompactNumber(stats.tokens)}
+					</span>
+				</Tooltip>
 
-						<Tooltip text="{contextUsage}% context used">
-							<div class="context-utilization-scale" style="--context-utilization: {contextUsage}">
-								<svg viewBox="0 0 17 17">
-									<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
-									<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
-								</svg>
-							</div>
-						</Tooltip>
-					{/if}
-
-					<KebabButton>
-						{#snippet contextMenu({ close })}
-							{@const isDisabled =
-								!hasRulesToClear() ||
-								!events ||
-								events.length === 0 ||
-								['running', 'compacting'].includes(currentStatus(events, isStackActive))}
-
-							<ContextMenuSection>
-								<ContextMenuItem
-									label="MCP settings"
-									icon="mcp"
-									onclick={() => {
-										mcpConfigModal?.open();
-										close();
-									}}
-								/>
-							</ContextMenuSection>
-							<ContextMenuSection>
-								<ContextMenuItem
-									label="Clear context"
-									icon="clear"
-									disabled={isDisabled}
-									onclick={() => {
-										clearContextAndRules();
-										close();
-									}}
-								/>
-								<ContextMenuItem
-									label="Compact context"
-									icon="compact"
-									disabled={isDisabled}
-									onclick={() => {
-										compactContext();
-										close();
-									}}
-								/>
-							</ContextMenuSection>
-						{/snippet}
-					</KebabButton>
-				</div>
-			{/snippet}
-
-			{#snippet messages()}
-				{@const todos = getTodos(events)}
-				{#if todos.length > 0}
-					<CodegenTodoAccordion {todos} />
-				{/if}
-
-				{#if claudeAvailable.response?.status === 'not_available' && formattedMessages.length === 0}
-					<div class="no-agent-placeholder">
-						<div class="no-agent-placeholder__content">
-							{@html noClaudeCodeSvg}
-							<h2 class="text-serif-42">Connect Claude Code</h2>
-							<p class="text-13 text-body clr-text-2">
-								If you haven't installed Claude Code, check our <Link
-									class="clr-text-1"
-									href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
-									>installation guide</Link
-								>.
-								<br />
-								Click the button below to check if Claude Code is now available.
-							</p>
-
-							<div>
-								<ClaudeCheck />
-							</div>
-						</div>
-
-						<p class="text-12 text-body clr-text-2">
-							Having trouble connecting?
-							<br />
-							Check the <Link href="https://docs.claude.com/en/docs/claude-code/troubleshooting"
-								>troubleshooting guide</Link
-							> for common issues and solutions.
-						</p>
+				<Tooltip text="{contextUsage}% context used">
+					<div class="context-utilization-scale" style="--context-utilization: {contextUsage}">
+						<svg viewBox="0 0 17 17">
+							<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
+							<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
+						</svg>
 					</div>
-				{:else if !isStackActive && formattedMessages.length === 0}
-					<div class="chat-view__placeholder">
-						<EmptyStatePlaceholder
-							image={laneNewSvg}
-							width={320}
-							topBottomPadding={0}
-							bottomMargin={0}
-						>
-							{#snippet title()}
-								Let's build something amazing
-							{/snippet}
-							{#snippet caption()}
-								Your canvas is clear
-								<br />
-								Let the code take shape
-							{/snippet}
-						</EmptyStatePlaceholder>
-					</div>
-				{:else}
-					<VirtualList
-						bind:this={virtualList}
-						grow
-						stickToBottom
-						items={formattedMessages}
-						batchSize={1}
-						visibility={$userSettings.scrollbarVisibilityState}
-						padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
-						defaultHeight={65}
-					>
-						{#snippet chunkTemplate(messages)}
-							{#each messages as message}
-								<CodegenClaudeMessage
-									{projectId}
-									{message}
-									{onPermissionDecision}
-									{toolCallExpandedState}
-								/>
-							{/each}
-						{/snippet}
-						{@const thinkingStatus = currentStatus(events, isStackActive)}
-						{@const startAt = thinkingOrCompactingStartedAt(events)}
-						{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
-							{@const status = userFeedbackStatus(formattedMessages)}
-							{#if status.waitingForFeedback}
-								<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-							{:else}
-								<CodegenServiceMessageThinking
-									{startAt}
-									msSpentWaiting={status.msSpentWaiting}
-									overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
-								/>
-							{/if}
-						{/if}
-					</VirtualList>
-				{/if}
-			{/snippet}
+				</Tooltip>
+			{/if}
 
-			{#snippet input()}
-				<div class="dialog-wrapper">
-					{#if claudeAvailable.response?.status === 'not_available'}
-						{#if formattedMessages.length > 0}
-							<CodegenChatClaudeNotAvaliableBanner
-								onSettingsBtnClick={() => {
-									uiState.global.modal.set({
-										type: 'project-settings',
-										projectId,
-										selectedId: 'agent'
-									});
+			<KebabButton>
+				{#snippet contextMenu({ close })}
+					{@const isDisabled =
+						!hasRulesToClear() ||
+						!events ||
+						events.length === 0 ||
+						['running', 'compacting'].includes(currentStatus(events, isStackActive))}
+
+					{#if onMcpSettings}
+						<ContextMenuSection>
+							<ContextMenuItem
+								label="MCP settings"
+								icon="mcp"
+								onclick={() => {
+									onMcpSettings?.();
+									close();
 								}}
 							/>
-						{/if}
-					{:else}
-						{@const status = currentStatus(events, isStackActive)}
-						{@const laneState = uiState.lane(stackId)}
-						{@const addedDirs = laneState.addedDirs.current}
-
-						<AddedDirectories
-							{addedDirs}
-							onRemoveDir={(dir) => {
-								laneState.addedDirs.remove(dir);
+						</ContextMenuSection>
+					{/if}
+					<ContextMenuSection>
+						<ContextMenuItem
+							label="Clear context"
+							icon="clear"
+							disabled={isDisabled}
+							onclick={() => {
+								clearContextAndRules();
+								close();
 							}}
 						/>
+						<ContextMenuItem
+							label="Compact context"
+							icon="compact"
+							disabled={isDisabled}
+							onclick={() => {
+								compactContext();
+								close();
+							}}
+						/>
+					</ContextMenuSection>
+				{/snippet}
+			</KebabButton>
+		</div>
+	{/snippet}
 
-						<CodegenInput
-							bind:this={inputRef}
-							{projectId}
-							{stackId}
-							branchName={stableBranchName}
-							value={initialPrompt}
-							loading={['running', 'compacting'].includes(status)}
-							compacting={status === 'compacting'}
-							onChange={(prompt) => messageSender.setPrompt(prompt)}
-							onsubmit={sendMessage}
-							{onAbort}
-						>
-							{#snippet actionsOnLeft()}
-								{@const permissionModeLabel = permissionModeOptions.find(
-									(a) => a.value === selectedPermissionMode
-								)?.label}
+	{#snippet messages()}
+		{@const todos = getTodos(events)}
+		{#if todos.length > 0}
+			<CodegenTodoAccordion {todos} />
+		{/if}
 
-								<div class="flex m-right-4 gap-2">
-									<Button
-										bind:el={templateTrigger}
-										kind="ghost"
-										icon="script"
-										tooltip="Insert template"
-										onclick={(e) => templateContextMenu?.toggle(e)}
-									/>
-									<Button
-										bind:el={thinkingModeTrigger}
-										kind="ghost"
-										icon="thinking"
-										reversedDirection
-										onclick={() => thinkingModeContextMenu?.toggle()}
-										tooltip="Thinking mode"
-										children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
-									/>
-									<Button
-										bind:el={permissionModeTrigger}
-										kind="ghost"
-										icon={getPermissionModeIcon(selectedPermissionMode)}
-										shrinkable
-										onclick={() => permissionModeContextMenu?.toggle()}
-										tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
-											? 'Permission modes disable when all permissions are allowed'
-											: permissionModeLabel}
-										disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
-									/>
-								</div>
-							{/snippet}
+		{#if claudeAvailable.response?.status === 'not_available' && formattedMessages.length === 0}
+			<div class="no-agent-placeholder">
+				<div class="no-agent-placeholder__content">
+					{@html noClaudeCodeSvg}
+					<h2 class="text-serif-42">Connect Claude Code</h2>
+					<p class="text-13 text-body clr-text-2">
+						If you haven't installed Claude Code, check our <Link
+							class="clr-text-1"
+							href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
+							>installation guide</Link
+						>.
+						<br />
+						Click the button below to check if Claude Code is now available.
+					</p>
 
-							{#snippet actionsOnRight()}
-								{#if !claudeSettings?.useConfiguredModel}
-									<Button
-										bind:el={modelTrigger}
-										kind="ghost"
-										icon="chevron-down"
-										shrinkable
-										onclick={() => modelContextMenu?.toggle()}
-									>
-										{modelOptions.find((a) => a.value === selectedModel)?.label}
-									</Button>
-								{/if}
-							{/snippet}
-						</CodegenInput>
-					{/if}
+					<div>
+						<ClaudeCheck />
+					</div>
 				</div>
-			{/snippet}
-		</CodegenChatLayout>
-	{/snippet}
-</ReduxResult>
 
-<ReduxResult result={mcpConfigQuery.result} {projectId} {stackId}>
-	{#snippet children(mcpConfig, { stackId })}
-		{@const laneState = uiState.lane(stackId)}
-		<CodegenMcpConfigModal
-			bind:this={mcpConfigModal}
-			{mcpConfig}
-			disabledServers={laneState.disabledMcpServers.current}
-			toggleServer={(server) => {
-				const disabledServers = laneState.disabledMcpServers.current;
-				if (disabledServers.includes(server)) {
-					laneState.disabledMcpServers.set(disabledServers.filter((s) => s !== server));
-				} else {
-					laneState.disabledMcpServers.set([...disabledServers, server]);
-				}
-			}}
-		/>
+				<p class="text-12 text-body clr-text-2">
+					Having trouble connecting?
+					<br />
+					Check the <Link href="https://docs.claude.com/en/docs/claude-code/troubleshooting"
+						>troubleshooting guide</Link
+					> for common issues and solutions.
+				</p>
+			</div>
+		{:else if !isStackActive && formattedMessages.length === 0}
+			<div class="chat-view__placeholder">
+				<EmptyStatePlaceholder image={laneNewSvg} width={320} topBottomPadding={0} bottomMargin={0}>
+					{#snippet title()}
+						Let's build something amazing
+					{/snippet}
+					{#snippet caption()}
+						Your canvas is clear
+						<br />
+						Let the code take shape
+					{/snippet}
+				</EmptyStatePlaceholder>
+			</div>
+		{:else}
+			<VirtualList
+				bind:this={virtualList}
+				grow
+				stickToBottom
+				items={formattedMessages}
+				batchSize={1}
+				visibility={$userSettings.scrollbarVisibilityState}
+				padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
+				defaultHeight={65}
+			>
+				{#snippet chunkTemplate(messages)}
+					{#each messages as message}
+						<CodegenClaudeMessage
+							{projectId}
+							{message}
+							{onPermissionDecision}
+							{toolCallExpandedState}
+						/>
+					{/each}
+				{/snippet}
+				{@const thinkingStatus = currentStatus(events, isStackActive)}
+				{@const startAt = thinkingOrCompactingStartedAt(events)}
+				{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
+					{@const status = userFeedbackStatus(formattedMessages)}
+					{#if status.waitingForFeedback}
+						<CodegenServiceMessageUseTool toolCall={status.toolCall} />
+					{:else}
+						<CodegenServiceMessageThinking
+							{startAt}
+							msSpentWaiting={status.msSpentWaiting}
+							overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
+						/>
+					{/if}
+				{/if}
+			</VirtualList>
+		{/if}
 	{/snippet}
-</ReduxResult>
+
+	{#snippet input()}
+		<div class="dialog-wrapper">
+			{#if claudeAvailable.response?.status === 'not_available'}
+				{#if formattedMessages.length > 0}
+					<CodegenChatClaudeNotAvaliableBanner
+						onSettingsBtnClick={() => {
+							uiState.global.modal.set({
+								type: 'project-settings',
+								projectId,
+								selectedId: 'agent'
+							});
+						}}
+					/>
+				{/if}
+			{:else}
+				{@const status = currentStatus(events, isStackActive)}
+				{@const laneState = uiState.lane(laneId)}
+				{@const addedDirs = laneState.addedDirs.current}
+
+				<AddedDirectories
+					{addedDirs}
+					onRemoveDir={(dir) => {
+						laneState.addedDirs.remove(dir);
+					}}
+				/>
+
+				<CodegenInput
+					bind:this={inputRef}
+					{projectId}
+					{stackId}
+					branchName={stableBranchName}
+					value={initialPrompt || ''}
+					loading={['running', 'compacting'].includes(status)}
+					compacting={status === 'compacting'}
+					{onChange}
+					onSubmit={async (prompt) => {
+						await onSubmit?.(prompt);
+						setTimeout(() => {
+							virtualList?.scrollToBottom();
+						}, 100);
+					}}
+					{onAbort}
+				>
+					{#snippet actionsOnLeft()}
+						{@const permissionModeLabel = permissionModeOptions.find(
+							(a) => a.value === selectedPermissionMode
+						)?.label}
+
+						<div class="flex m-right-4 gap-2">
+							<Button
+								bind:el={templateTrigger}
+								kind="ghost"
+								icon="script"
+								tooltip="Insert template"
+								onclick={(e) => templateContextMenu?.toggle(e)}
+							/>
+							<Button
+								bind:el={thinkingModeTrigger}
+								kind="ghost"
+								icon="thinking"
+								reversedDirection
+								onclick={() => thinkingModeContextMenu?.toggle()}
+								tooltip="Thinking mode"
+								children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
+							/>
+							<Button
+								bind:el={permissionModeTrigger}
+								kind="ghost"
+								icon={getPermissionModeIcon(selectedPermissionMode)}
+								shrinkable
+								onclick={() => permissionModeContextMenu?.toggle()}
+								tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
+									? 'Permission modes disable when all permissions are allowed'
+									: permissionModeLabel}
+								disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
+							/>
+						</div>
+					{/snippet}
+
+					{#snippet actionsOnRight()}
+						{#if !claudeSettings?.useConfiguredModel}
+							<Button
+								bind:el={modelTrigger}
+								kind="ghost"
+								icon="chevron-down"
+								shrinkable
+								onclick={() => modelContextMenu?.toggle()}
+							>
+								{modelOptions.find((a) => a.value === selectedModel)?.label}
+							</Button>
+						{/if}
+					{/snippet}
+				</CodegenInput>
+			{/if}
+		</div>
+	{/snippet}
+</CodegenChatLayout>
 
 {#snippet thinkingBtnText()}
 	{thinkingLevelToUiLabel(selectedThinkingLevel, true)}

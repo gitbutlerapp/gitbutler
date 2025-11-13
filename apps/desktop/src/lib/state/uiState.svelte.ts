@@ -66,6 +66,9 @@ export type ExclusiveAction =
 			commitId: string;
 	  }
 	| {
+			type: 'codegen';
+	  }
+	| {
 			type: 'create-pr';
 			stackId: string | undefined;
 			branchName: string;
@@ -360,6 +363,8 @@ export function replaceBranchInExclusiveAction(
 			if (action.branchName === oldBranchName) {
 				return { ...action, branchName };
 			}
+			return action;
+		case 'codegen':
 			return action;
 	}
 }
