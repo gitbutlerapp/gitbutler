@@ -70,10 +70,10 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     // If no subcommand is provided but we have source and target, default to rub
     match args.cmd.take() {
-        None if args.source.is_some() && args.target.is_some() => {
+        None if args.source_or_path.is_some() && args.target.is_some() => {
             // Default to rub when two arguments are provided without a subcommand
             let source = args
-                .source
+                .source_or_path
                 .as_ref()
                 .expect("source is checked to be Some in match guard");
             let target = args
@@ -89,6 +89,16 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             }
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
             result
+        }
+        None if args.source_or_path.is_some() && args.target.is_none() => {
+            // If only one arguments is provided without a subcommand, check if this is a valid path.
+            let maybe_path = args
+                .source_or_path
+                .as_ref()
+                .expect("path is checked to be Some in match guard");
+            let path = std::path::Path::new(args.current_dir.as_path()).join(maybe_path);
+            gui::open(&path)?;
+            Ok(())
         }
         None => {
             // No subcommand and no source/target means help was requested

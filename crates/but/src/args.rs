@@ -15,10 +15,11 @@ pub struct Args {
     #[clap(long, short = 'j', global = true)]
     pub json: bool,
     /// Source entity for rub operation (when no subcommand is specified).
+    /// If no target is specified, this is treated as a path to open on the GUI.
     #[clap(value_name = "SOURCE")]
-    pub source: Option<String>,
+    pub source_or_path: Option<String>,
     /// Target entity for rub operation (when no subcommand is specified).
-    #[clap(value_name = "TARGET", requires = "source")]
+    #[clap(value_name = "TARGET", requires = "source_or_path")]
     pub target: Option<String>,
     /// Subcommand to run.
     #[clap(subcommand)]
@@ -100,8 +101,7 @@ For examples see `but rub --help`."
     /// Removes all marks from the workspace
     Unmark,
     /// Open the GitButler GUI for the current project.
-    // TODO: unhide once the FE can be switched to a given project.
-    #[clap(visible_alias = ".", hide = true)]
+    #[clap(visible_alias = ".")]
     Gui,
     /// Commit changes to a stack.
     Commit {
