@@ -529,38 +529,6 @@ function contentBlockToString(lastBlock?: ContentBlockParam): string | undefined
 
 	if (lastBlock.type === 'text') {
 		return lastBlock.text;
-	} else if (lastBlock.type === 'web_search_tool_result') {
-		const toolUse = lastBlock.content;
-		if (Array.isArray(toolUse)) {
-			const lastTool = toolUse.at(-1);
-			if (lastTool) {
-				return lastTool.url;
-			}
-		}
-	} else if (lastBlock.type === 'tool_result') {
-		// Skipping tool calls until we figure out how to parse them safely.
-		const content = lastBlock.content;
-		if (typeof content === 'string') {
-			return content;
-		} else if (Array.isArray(content)) {
-			const lastBlock = content.at(-1);
-			if (lastBlock?.type === 'text') {
-				return lastBlock.text;
-			} else if (lastBlock?.type === 'image') {
-				const source = lastBlock.source;
-				if (source.type === 'url') {
-					return source.url;
-				} else {
-					return '<image>';
-				}
-			}
-		}
-	} else if (lastBlock.type === 'thinking') {
-		return lastBlock.thinking;
-	} else if (lastBlock.type === 'server_tool_use') {
-		return lastBlock.name;
-	} else if (lastBlock.type === 'redacted_thinking') {
-		return lastBlock.data;
 	}
 }
 
@@ -575,11 +543,7 @@ export function extractLastMessage(messages: ClaudeMessage[]): string | undefine
 		const { payload } = message;
 		if (payload.source === 'claude') {
 			const content = payload.data;
-			if (content.type === 'assistant') {
-				const contentBlocks = content.message.content;
-				const summary = contentBlockToString(contentBlocks.at(-1));
-				if (summary) return summary;
-			} else if (content.type === 'result') {
+			if (content.type === 'result') {
 				if (content.subtype === 'success') {
 					if (content.result) return content.result;
 				} else {
