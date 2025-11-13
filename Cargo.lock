@@ -721,6 +721,8 @@ dependencies = [
  "but-hunk-dependency",
  "but-meta",
  "but-oxidize",
+ "but-path",
+ "but-project",
  "but-rules",
  "but-secret",
  "but-serde",
@@ -747,7 +749,6 @@ dependencies = [
  "gitbutler-stack",
  "gix",
  "insta",
- "open",
  "posthog-rs",
  "ratatui",
  "regex",
@@ -1195,6 +1196,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "dirs 6.0.0",
+ "open",
 ]
 
 [[package]]
