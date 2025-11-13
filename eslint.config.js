@@ -7,6 +7,8 @@ import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 import ts from 'typescript-eslint';
 
+/// Forget about linting
+
 export default ts.config(
 	js.configs.recommended,
 	...ts.configs.recommended,
