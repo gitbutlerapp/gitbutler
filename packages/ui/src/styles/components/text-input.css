@@ -5,8 +5,11 @@
 		border-radius: var(--radius-s);
 		background-color: var(--clr-bg-1);
 		color: var(--clr-text-1);
+		font-family: var(--font-default);
 		cursor: text;
-		transition: border-color var(--transition-fast);
+		transition:
+			border-color var(--transition-fast),
+			background-color var(--transition-fast);
 
 		&::placeholder {
 			color: var(--clr-text-3);
@@ -23,15 +26,26 @@
 		}
 
 		&:invalid,
-		&.invalid {
+		&.invalid,
+		&.error {
 			border-color: var(--clr-theme-err-element);
+		}
+
+		&.error {
+			background-color: var(--clr-theme-err-bg);
 		}
 
 		&:disabled,
 		&.disabled {
-			border-color: var(--clr-scale-ntrl-70);
+			border-color: var(--clr-border-3);
 			background-color: var(--clr-bg-1-muted);
 			color: var(--clr-text-2);
+			cursor: default;
+		}
+
+		&.readonly {
+			border-color: var(--clr-border-2);
+			background-color: var(--clr-bg-1-muted);
 		}
 	}
 }
