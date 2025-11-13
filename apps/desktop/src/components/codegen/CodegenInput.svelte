@@ -24,11 +24,11 @@
 	type Props = {
 		projectId: string;
 		branchName: string;
-		stackId: string;
+		stackId?: string;
 		value: string;
 		loading: boolean;
 		compacting: boolean;
-		onsubmit: (text: string) => Promise<void>;
+		onSubmit?: (text: string) => Promise<void>;
 		onAbort?: () => Promise<void>;
 		actionsOnLeft: Snippet;
 		actionsOnRight: Snippet;
@@ -42,7 +42,7 @@
 		value = $bindable(),
 		loading,
 		compacting,
-		onsubmit,
+		onSubmit,
 		onAbort,
 		actionsOnLeft,
 		actionsOnRight,
@@ -148,7 +148,7 @@
 			// for clearing the input, so we do it here to keep them in sync.
 			// TODO: Make it so that updating laneState resets the editor.
 			editorRef?.clear();
-			await onsubmit(text);
+			await onSubmit?.(text);
 		} catch (err) {
 			if (state) {
 				editorRef?.load(state);
@@ -184,9 +184,9 @@
 	}
 
 	const handlers = $derived([
-		new CodegenCommitDropHandler(stackId, branchName, addAttachment),
+		new CodegenCommitDropHandler(stackId, addAttachment),
 		new CodegenFileDropHandler(stackId, branchName, addAttachment),
-		new CodegenHunkDropHandler(stackId, branchName, addAttachment)
+		new CodegenHunkDropHandler(stackId, addAttachment)
 	]);
 
 	const placeholderVariants = [
@@ -197,9 +197,13 @@
 		'What to code?'
 	];
 
-	// Expose method to set text programmatically (e.g., for template insertion)
+	// Expose methods to manipulate text programmatically (e.g., for template insertion)
 	export function setText(text: string) {
 		editorRef?.setText(text);
+	}
+
+	export function getText() {
+		return editorRef?.getPlaintext();
 	}
 </script>
 
@@ -225,7 +229,7 @@
 			}
 		}}
 	>
-		<CodegenQueued {projectId} {stackId} {branchName} />
+		<CodegenQueued {projectId} laneId={stackId} {branchName} />
 
 		<Dropzone {handlers}>
 			{#snippet overlay({ hovered, activated })}

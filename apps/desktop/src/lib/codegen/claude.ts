@@ -69,7 +69,7 @@ export class ClaudeCodeService {
 		return this.api.endpoints.checkAvailable.fetch;
 	}
 
-	isStackActive(projectId: string, stackId: string) {
+	isStackActive(projectId: string, stackId?: string) {
 		return this.api.endpoints.isStackActive.useQuery({
 			projectId,
 			stackId
@@ -167,7 +167,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					...providesItem(ReduxTag.ClaudeSessionDetails, args.projectId + args.sessionId)
 				]
 			}),
-			getMessages: build.query<ClaudeMessage[], { projectId: string; stackId: string }>({
+			getMessages: build.query<ClaudeMessage[], { projectId: string; stackId?: string }>({
 				extraOptions: { command: 'claude_get_messages' },
 				query: (args) => args,
 				providesTags: (_result, _error, args) => [
@@ -267,7 +267,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				// let's cache it for a long time.
 				keepUnusedDataFor: 60 * 60 * 24
 			}),
-			isStackActive: build.query<boolean, { projectId: string; stackId: string }>({
+			isStackActive: build.query<boolean, { projectId: string; stackId?: string }>({
 				extraOptions: { command: 'claude_is_stack_active' },
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.ClaudeStackActive)],
@@ -330,7 +330,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				undefined,
 				{
 					projectId: string;
-					stackId: string;
+					stackId?: string;
 				}
 			>({
 				extraOptions: {

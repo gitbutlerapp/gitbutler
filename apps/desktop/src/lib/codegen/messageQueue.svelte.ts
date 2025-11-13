@@ -159,7 +159,10 @@ export class MessageQueueProcessor {
 				const status = isCompletedWithStatus(events.response, isActive.response ?? false);
 				const laneState = this.uiState.lane(queue.stackId);
 
-				if (status.type === 'completed' && status.code === 0) {
+				if (
+					(status.type === 'completed' && status.code === 0) ||
+					status.type === 'noMessagesSent'
+				) {
 					const message = queue.messages[0]!;
 					this.clientState.dispatch(
 						messageQueueSlice.actions.upsert({

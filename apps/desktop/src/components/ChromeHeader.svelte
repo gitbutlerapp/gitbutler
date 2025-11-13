@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import CreateBranchModal from '$components/CreateBranchModal.svelte';
 	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
 	import { BACKEND } from '$lib/backend';
@@ -11,9 +12,13 @@
 	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import {
 		Button,
+		ContextMenu,
+		ContextMenuItem,
+		ContextMenuSection,
 		Icon,
 		NotificationButton,
 		OptionsGroup,
@@ -36,6 +41,7 @@
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const ircService = inject(IRC_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
 	const base = $derived(baseReponse?.response);
@@ -75,6 +81,8 @@
 	const isHasUpstreamCommits = $derived(upstreamCommits > 0);
 
 	let modal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
+	let createNewContextMenu = $state<ContextMenu>();
+	let createNewTrigger = $state<HTMLButtonElement>();
 
 	const projects = $derived(projectsService.projects());
 
@@ -93,6 +101,8 @@
 	function openModal() {
 		modal?.show();
 	}
+
+	let createBranchModal = $state<CreateBranchModal>();
 </script>
 
 {#if projectId}
@@ -243,8 +253,37 @@
 				}}
 			/>
 		{/if}
+		<Button
+			bind:el={createNewTrigger}
+			kind="ghost"
+			icon="plus-small"
+			onclick={() => createNewContextMenu?.toggle()}
+		>
+			Create new
+		</Button>
 	</div>
 </div>
+
+<ContextMenu bind:this={createNewContextMenu} leftClickTrigger={createNewTrigger}>
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Branch"
+			onclick={() => {
+				createBranchModal?.show();
+				createNewContextMenu?.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Codegen session"
+			onclick={() => {
+				uiState.project(projectId).exclusiveAction.set({ type: 'codegen' });
+				createNewContextMenu?.close();
+			}}
+		/>
+	</ContextMenuSection>
+</ContextMenu>
+
+<CreateBranchModal bind:this={createBranchModal} {projectId} />
 
 <style>
 	.chrome-header {

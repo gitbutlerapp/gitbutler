@@ -63,9 +63,9 @@
 	}
 
 	const handlers = $derived([
-		new CodegenCommitDropHandler(stackId, branchName, addAttachment),
+		new CodegenCommitDropHandler(stackId, addAttachment),
 		new CodegenFileDropHandler(stackId, branchName, addAttachment),
-		new CodegenHunkDropHandler(stackId, branchName, addAttachment)
+		new CodegenHunkDropHandler(stackId, addAttachment)
 	]);
 
 	function toggleSelection() {

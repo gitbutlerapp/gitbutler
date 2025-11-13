@@ -35,12 +35,14 @@ export class AttachmentService {
 		});
 	}
 
-	getByBranch(branchName: string) {
-		return promptAttachmentSelectors.selectById(this.state, branchName)?.attachments || [];
+	getByBranch(branchName?: string) {
+		return (
+			promptAttachmentSelectors.selectById(this.state, branchName || 'default')?.attachments || []
+		);
 	}
 
-	clearByBranch(branchName: string) {
-		return this.clientState.dispatch(promptattachmentSlice.actions.remove(branchName));
+	clearByBranch(branchName?: string) {
+		return this.clientState.dispatch(promptattachmentSlice.actions.remove(branchName || 'default'));
 	}
 
 	removeByBranch(branchName: string, attachment: PromptAttachment) {

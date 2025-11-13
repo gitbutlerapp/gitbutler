@@ -61,9 +61,9 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const isCommitting = $derived(exclusiveAction?.type === 'commit');
 	const isDraftStackVisible = $derived(
-		isCommitting && exclusiveAction?.type === 'commit' && exclusiveAction?.stackId === undefined
+		(exclusiveAction?.type === 'commit' && exclusiveAction.stackId === undefined) ||
+			exclusiveAction?.type === 'codegen'
 	);
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
@@ -174,7 +174,11 @@
 	}}
 >
 	<div class="lanes-scrollable">
-		<StackDraft {projectId} visible={isDraftStackVisible} />
+		<StackDraft
+			{projectId}
+			visible={isDraftStackVisible}
+			mode={exclusiveAction?.type === 'codegen' ? 'codegen' : 'commit'}
+		/>
 
 		<!--
 	Ideally we wouldn't key on stack id, but the opacity change is done on the

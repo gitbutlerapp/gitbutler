@@ -17,18 +17,18 @@
 
 	interface Props {
 		projectId: string;
-		stackId: string;
+		laneId?: string;
 		branchName: string;
 	}
 
-	const { projectId, stackId, branchName }: Props = $props();
+	const { projectId, laneId, branchName }: Props = $props();
 
 	const clientState = inject(CLIENT_STATE);
 
 	const queue = $derived(
 		messageQueueSelectors
 			.selectAll(clientState.messageQueue)
-			.find((q) => q.head === branchName && q.stackId === stackId && q.projectId === projectId)
+			.find((q) => q.head === branchName && q.stackId === laneId && q.projectId === projectId)
 	);
 
 	function deleteMessage(message: any) {
