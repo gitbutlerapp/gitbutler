@@ -11,7 +11,7 @@
 </script>
 
 <script lang="ts">
-	import { Button, Modal, SectionCard, Select, SelectItem, Textbox, Toggle } from '@gitbutler/ui';
+	import { Button, Modal, Select, SelectItem, Textbox, TagInput, Toggle } from '@gitbutler/ui';
 	import type { GerritPushFlag } from '$lib/stacks/stack';
 
 	const {
@@ -33,49 +33,19 @@
 	let topicValue = $state(branchName);
 
 	// Tags section
-	let committedTags = $state<string[]>([]);
-	let currentTagInput = $state('');
+	let tags = $state<Array<{ id: string; label: string }>>([]);
+	let tagInputValue = $state('');
 
 	// Private section
 	let isPrivate = $state(false);
-
-	// Commit current input as a tag
-	function commitCurrentTag() {
-		const trimmed = validateTagInput(currentTagInput.trim());
-		if (trimmed && !committedTags.includes(trimmed)) {
-			committedTags = [...committedTags, trimmed];
-			currentTagInput = '';
-		}
-	}
-
-	// Handle keyboard input for tags
-	function handleTagKeydown(event: KeyboardEvent) {
-		if (event.key === ' ' || event.key === 'Enter' || event.key === ',') {
-			event.preventDefault();
-			commitCurrentTag();
-		} else if (event.key === 'Backspace' && currentTagInput === '' && committedTags.length > 0) {
-			// Remove last tag if backspace pressed on empty input
-			committedTags = committedTags.slice(0, -1);
-		}
-	}
 
 	// Validate topic input to allow only alphanumeric characters, dashes, and underscores
 	function validateTopicInput(value: string): string {
 		return value.replace(/[^a-zA-Z0-9-_]/g, '');
 	}
 
-	// Validate tag input to allow alphanumeric characters, dashes, and underscores
-	function validateTagInput(value: string): string {
-		return value.replace(/[^a-zA-Z0-9-_]/g, '');
-	}
-
 	function handleTopicInput(value: string) {
 		topicValue = validateTopicInput(value);
-	}
-
-	function handleTagInput(event: Event) {
-		const target = event.target as HTMLInputElement;
-		currentTagInput = target.value;
 	}
 
 	function buildGerritFlags(): GerritPushFlag[] {
@@ -90,8 +60,8 @@
 		}
 
 		// Include hashtags if has values
-		committedTags.forEach((tag) => {
-			flags.push({ type: 'hashtag', subject: tag });
+		tags.forEach((tag) => {
+			flags.push({ type: 'hashtag', subject: tag.label });
 		});
 
 		// Include private if enabled
@@ -103,8 +73,6 @@
 	}
 
 	function handlePush() {
-		// Commit any remaining input as a tag before building flags
-		commitCurrentTag();
 		const flags = buildGerritFlags();
 		onPush(flags);
 		modal?.close();
@@ -116,8 +84,8 @@
 		// Reset form state
 		status = 'ready';
 		topicValue = branchName;
-		committedTags = [];
-		currentTagInput = '';
+		tags = [];
+		tagInputValue = '';
 		isPrivate = false;
 		modal?.show();
 	}
@@ -127,195 +95,72 @@
 	}
 </script>
 
-<Modal bind:this={modal} title="Gerrit Push Options" width="medium" onSubmit={() => handlePush()}>
-	<div class="gerrit-push-modal">
-		<div class="push-options">
-			<!-- Status Section -->
-			<SectionCard orientation="row" centerAlign>
-				{#snippet title()}
-					Status
-				{/snippet}
-				{#snippet actions()}
-					<Select
-						value={status}
-						options={[
-							{ label: 'Ready for review', value: 'ready' },
-							{ label: 'Work in progress', value: 'wip' }
-						]}
-						onselect={(value) => {
-							status = value as 'ready' | 'wip';
-						}}
-					>
-						{#snippet itemSnippet({ item, highlighted })}
-							<SelectItem selected={item.value === status} {highlighted}>
-								{item.label}
-							</SelectItem>
-						{/snippet}
-					</Select>
-				{/snippet}
-			</SectionCard>
+<Modal bind:this={modal} title="Gerrit push options" width={400} onSubmit={() => handlePush()}>
+	<div class="push-options">
+		<!-- Status Section -->
+		<Select
+			label="Status"
+			value={status}
+			options={[
+				{ label: 'Ready for review', value: 'ready' },
+				{ label: 'Work in progress', value: 'wip' }
+			]}
+			onselect={(value) => {
+				status = value as 'ready' | 'wip';
+			}}
+		>
+			{#snippet itemSnippet({ item, highlighted })}
+				<SelectItem selected={item.value === status} {highlighted}>
+					{item.label}
+				</SelectItem>
+			{/snippet}
+		</Select>
 
-			<!-- Topic Section -->
-			<SectionCard orientation="row" centerAlign>
-				{#snippet title()}
-					Topic
-				{/snippet}
-				{#snippet actions()}
-					<div class="topic-input-container">
-						<Textbox
-							bind:value={topicValue}
-							oninput={handleTopicInput}
-							placeholder="Enter topic name"
-							wide
-						/>
-					</div>
-				{/snippet}
-			</SectionCard>
+		<!-- Topic Section -->
+		<Textbox
+			label="Topic"
+			bind:value={topicValue}
+			oninput={handleTopicInput}
+			placeholder="Enter topic name"
+			wide
+		/>
 
-			<!-- Tags Section -->
-			<SectionCard orientation="row" centerAlign>
-				{#snippet title()}
-					Tags
-				{/snippet}
-				{#snippet actions()}
-					<div class="tags-input-container">
-						<div
-							class="tags-input-field"
-							role="textbox"
-							tabindex="0"
-							onclick={(e) => {
-								const input = e.currentTarget.querySelector('.tags-input') as HTMLInputElement;
-								if (input) input.focus();
-							}}
-							onkeydown={(e) => {
-								if (e.key === 'Enter' || e.key === ' ') {
-									const input = e.currentTarget.querySelector('.tags-input') as HTMLInputElement;
-									if (input) input.focus();
-								}
-							}}
-						>
-							{#each committedTags as tag}
-								<span class="tag-pill-inline">{tag}</span>
-							{/each}
-							<input
-								class="tags-input"
-								type="text"
-								bind:value={currentTagInput}
-								oninput={handleTagInput}
-								onkeydown={handleTagKeydown}
-								onblur={commitCurrentTag}
-								placeholder={committedTags.length === 0 && currentTagInput === ''
-									? 'Enter tags (space or comma to separate)'
-									: ''}
-							/>
-						</div>
-					</div>
-				{/snippet}
-			</SectionCard>
-
-			<!-- Private Section -->
-			<SectionCard labelFor="private-toggle" orientation="row">
-				{#snippet title()}
-					Mark as private
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="private-toggle"
-						checked={isPrivate}
-						onclick={() => (isPrivate = !isPrivate)}
-					/>
-				{/snippet}
-			</SectionCard>
-		</div>
+		<!-- Tags Section -->
+		<TagInput
+			label="Tags"
+			bind:tags
+			bind:value={tagInputValue}
+			helperText="Add tags separated by spaces or commas"
+			wide
+		/>
 	</div>
 
 	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit" disabled={!canPush}>Push</Button>
+		<label class="toggle-wrapper">
+			<Toggle id="private-toggle" bind:checked={isPrivate} />
+			<span class="text-13 text-body clr-text-2">Mark as private 🔒</span>
+		</label>
+		<div class="flex-1 flex justify-end gap-8">
+			<Button kind="outline" onclick={close}>Cancel</Button>
+			<Button style="pop" type="submit" disabled={!canPush}>Push</Button>
+		</div>
 	{/snippet}
 </Modal>
 
 <style lang="postcss">
-	.gerrit-push-modal {
-		display: flex;
-		flex-direction: column;
-		margin-top: 8px;
-		gap: 16px;
-	}
-
-	.description {
-		margin: 0;
-		line-height: 1.5;
-	}
-
 	.push-options {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+		gap: 16px;
 	}
 
-	.topic-input-container {
-		flex-shrink: 0;
-		width: 320px;
-	}
-
-	.tags-input-container {
-		flex-shrink: 0;
-		width: 320px;
-	}
-
-	.tags-input-field {
+	.toggle-wrapper {
 		display: flex;
-		flex-wrap: nowrap;
 		align-items: center;
-		height: 32px;
-		min-height: 32px;
-		padding: 5px 8px;
-		overflow-x: auto;
-		overflow-y: hidden;
-		gap: 3px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: 6px;
-		background: var(--clr-bg-1);
-		cursor: text;
-	}
+		gap: 10px;
 
-	.tags-input-field:hover {
-		border-color: var(--clr-border-3);
-	}
-
-	.tags-input-field:focus-within {
-		border-color: var(--clr-border-2);
-		box-shadow: var(--focus-box-shadow);
-	}
-
-	.tag-pill-inline {
-		display: flex;
-		flex-shrink: 0;
-		align-items: center;
-		height: 18px;
-		padding: 1px 4px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: 10px;
-		background: var(--clr-bg-2);
-		color: var(--clr-text-2);
-		font-size: 11px;
-		line-height: 1.2;
-		white-space: nowrap;
-	}
-
-	.tags-input {
-		flex: 1;
-		flex-shrink: 0;
-		min-width: 120px;
-		border: none;
-		outline: none;
-		background: transparent;
-		color: var(--clr-text-1);
-		font-size: 13px;
-	}
-
-	.tags-input::placeholder {
-		color: var(--clr-text-3);
+		& label {
+			cursor: pointer;
+		}
 	}
 </style>

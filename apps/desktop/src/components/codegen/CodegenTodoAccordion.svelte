@@ -25,7 +25,7 @@
 		</div>
 		{#if displayTodo && !expanded}
 			<CodegenStatusIcon status={displayTodo.status} />
-			<span class="text-12 clr-text-2">
+			<span class="text-12 clr-text-2 truncate">
 				{completedCount}/{totalCount}.
 				{displayTodo.content}
 			</span>

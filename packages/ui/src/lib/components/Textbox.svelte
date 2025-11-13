@@ -276,12 +276,6 @@
 			& .textbox__icon {
 				color: var(--clr-scale-ntrl-60);
 			}
-
-			& .textbox__input {
-				border: 1px solid var(--clr-border-3);
-				background-color: var(--clr-bg-1-muted);
-				color: var(--clr-text-2);
-			}
 		}
 	}
 
@@ -289,16 +283,6 @@
 		position: relative;
 		flex-grow: 1;
 		width: 100%;
-
-		&.readonly {
-			border-color: var(--clr-border-2);
-			background-color: var(--clr-bg-1-muted);
-		}
-
-		&.error {
-			border-color: var(--clr-theme-err-element);
-			background-color: var(--clr-theme-err-bg);
-		}
 
 		&.size-default {
 			height: var(--size-cta);

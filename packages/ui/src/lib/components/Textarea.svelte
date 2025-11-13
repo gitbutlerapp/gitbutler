@@ -215,26 +215,12 @@
 	.textarea {
 		overflow-x: hidden;
 		overflow-y: auto; /* Enable scrolling when max height is reached */
-		font-family: var(--font-default);
-		cursor: text;
 		resize: none;
-
-		transition:
-			border-color var(--transition-fast),
-			background-color var(--transition-fast);
 
 		&.hide-scrollbar {
 			&::-webkit-scrollbar {
 				display: none;
 			}
-		}
-
-		&:disabled {
-			cursor: default;
-		}
-
-		&::placeholder {
-			color: var(--clr-text-3);
 		}
 	}
 

@@ -77,7 +77,9 @@
 		position: relative;
 		align-items: center;
 		width: fit-content;
-		gap: 8px;
+		width: 100%;
+		overflow: hidden;
+		gap: 10px;
 		user-select: none;
 
 		&:hover {
@@ -107,7 +109,8 @@
 	.section-summary {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		overflow: hidden;
+		gap: 8px;
 	}
 
 	.section-content {
