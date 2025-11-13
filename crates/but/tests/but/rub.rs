@@ -4,7 +4,7 @@ use crate::utils::{Sandbox, setup_metadata};
 
 #[test]
 fn shorthand_without_subcommand() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     // Must set metadata to match the scenario
     setup_metadata(&env, &["A", "B"])?;

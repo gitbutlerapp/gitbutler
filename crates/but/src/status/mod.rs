@@ -171,22 +171,22 @@ struct WorktreeStatus {
 }
 
 pub(crate) async fn worktree(
-    project: &Context,
+    ctx: &Context,
     json: bool,
     show_files: bool,
     verbose: bool,
     review: bool,
 ) -> anyhow::Result<()> {
-    let mut ctx = project.legacy_ctx()?;
+    let mut legacy_ctx = ctx.legacy_ctx()?;
     let mut stdout = std::io::stdout();
-    but_rules::process_rules(&mut ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
+    but_rules::process_rules(&mut legacy_ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
-    let guard = project.shared_worktree_access();
-    let meta = project.meta(guard.read_permission())?;
+    let guard = ctx.shared_worktree_access();
+    let meta = ctx.meta(guard.read_permission())?;
 
     // TODO: use this for status information instead.
     let _head_info = but_workspace::head_info(
-        &project.repo,
+        &ctx.repo,
         &meta,
         but_workspace::ref_info::Options {
             expensive_commit_info: true,
@@ -194,7 +194,7 @@ pub(crate) async fn worktree(
         },
     )?;
 
-    let project = &project.legacy_project;
+    let project = &ctx.legacy_project;
     let review_map = if review {
         crate::forge::review::get_review_map(project).await?
     } else {
@@ -229,10 +229,10 @@ pub(crate) async fn worktree(
     }
 
     // Calculate common_merge_base data
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let stack = gitbutler_stack::VirtualBranchesHandle::new(legacy_ctx.project().gb_dir());
     let target = stack.get_default_target()?;
     let target_name = format!("{}/{}", target.branch.remote(), target.branch.branch());
-    let repo = ctx.gix_repo()?;
+    let repo = legacy_ctx.gix_repo()?;
     let base_commit = repo.find_commit(target.sha.to_gix())?;
     let base_commit = base_commit.decode()?;
     let message = base_commit
@@ -305,7 +305,7 @@ pub(crate) async fn worktree(
     let stack_details_len = stack_details.len();
     for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
         let mut stack_mark = stack_id.and_then(|stack_id| {
-            if crate::mark::stack_marked(&mut ctx, stack_id).unwrap_or_default() {
+            if crate::mark::stack_marked(&mut legacy_ctx, stack_id).unwrap_or_default() {
                 Some("◀ Marked ▶".red().bold())
             } else {
                 None
@@ -321,7 +321,7 @@ pub(crate) async fn worktree(
             verbose,
             review,
             &mut stack_mark,
-            &mut ctx,
+            &mut legacy_ctx,
             i == stack_details_len - 1,
             i == 0,
             &review_map,

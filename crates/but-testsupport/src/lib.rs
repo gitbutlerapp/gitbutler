@@ -4,7 +4,6 @@
 use std::{collections::HashMap, io::Write, path::Path};
 
 use gix::{
-    Repository,
     bstr::{BStr, ByteSlice},
     config::tree::Key,
 };
@@ -36,8 +35,15 @@ pub fn hunk_header(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
 /// by producing a command that is anchored to the `gix` repository.
 /// Call [`run()`](CommandExt::run) when done configuring its arguments.
 pub fn git(repo: &gix::Repository) -> std::process::Command {
+    git_at_dir(repo.workdir().unwrap_or(repo.git_dir()))
+}
+
+/// While `gix` can't (or can't conveniently) do everything, let's make using `git` easier,
+/// by producing a command that is anchored the workdir or git-dir described by `dir`.
+/// Call [`run()`](CommandExt::run) when done configuring its arguments.
+pub fn git_at_dir(dir: impl AsRef<Path>) -> std::process::Command {
     let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
-    cmd.current_dir(repo.workdir().expect("non-bare"));
+    cmd.current_dir(dir);
     isolate_env_std_cmd(&mut cmd);
     cmd
 }
@@ -46,7 +52,7 @@ pub fn git(repo: &gix::Repository) -> std::process::Command {
 /// Panic if the script fails.
 pub fn invoke_bash(script: &str, repo: &gix::Repository) {
     let mut cmd = std::process::Command::new("bash");
-    cmd.current_dir(repo.workdir().expect("non-bare"));
+    cmd.current_dir(repo.workdir().unwrap_or(repo.git_dir()));
     isolate_env_std_cmd(&mut cmd);
     cmd.stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -154,7 +160,13 @@ pub fn visualize_commit_graph(
 
 /// Produce a graph of all commits reachable from all refs.
 pub fn visualize_commit_graph_all(repo: &gix::Repository) -> std::io::Result<String> {
-    let log = git(repo)
+    visualize_commit_graph_all_from_dir(repo.workdir().unwrap_or(repo.git_dir()))
+}
+
+/// Produce a graph of all commits reachable from all refs, assuming `dir` is the worktree or git_dir
+/// of a valid Git repository.
+pub fn visualize_commit_graph_all_from_dir(dir: impl AsRef<Path>) -> std::io::Result<String> {
+    let log = git_at_dir(dir)
         .args(["log", "--oneline", "--graph", "--decorate", "--all"])
         .output()?;
     assert!(log.status.success());
@@ -163,7 +175,12 @@ pub fn visualize_commit_graph_all(repo: &gix::Repository) -> std::io::Result<Str
 
 /// Run a condensed status on `repo`.
 pub fn git_status(repo: &gix::Repository) -> std::io::Result<String> {
-    let out = git(repo).args(["status", "--porcelain"]).output()?;
+    git_status_at_dir(repo.workdir().unwrap_or(repo.git_dir()))
+}
+
+/// Run a condensed status on the worktree or git_dir pointed to by `dir`.
+pub fn git_status_at_dir(dir: impl AsRef<Path>) -> std::io::Result<String> {
+    let out = git_at_dir(dir).args(["status", "--porcelain"]).output()?;
     assert!(out.status.success(), "STDERR: {}", out.stderr.as_bstr());
     Ok(out.stdout.to_str().expect("no illformed UTF-8").to_string())
 }
@@ -348,7 +365,7 @@ pub fn write_sequence(
 }
 
 /// Obtain a `(repo, tmp)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script.
-pub fn writable_scenario(name: &str) -> (Repository, tempfile::TempDir) {
+pub fn writable_scenario(name: &str) -> (gix::Repository, tempfile::TempDir) {
     writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
         .expect("fixtures will yield valid repositories")
 }
@@ -358,7 +375,7 @@ pub fn writable_scenario(name: &str) -> (Repository, tempfile::TempDir) {
 pub fn writable_scenario_with_args(
     name: &str,
     args: impl IntoIterator<Item = impl Into<String>>,
-) -> (Repository, tempfile::TempDir) {
+) -> (gix::Repository, tempfile::TempDir) {
     writable_scenario_inner(name, Creation::CopyFromReadOnly, args)
         .expect("fixtures will yield valid repositories")
 }
@@ -366,7 +383,7 @@ pub fn writable_scenario_with_args(
 /// Obtain a `(repo, tmp)` where `tmp` is the result of the execution of the `tests/fixtures/scenario/$name.sh` script.
 ///
 /// It's slow because it has to re-execute the script, in case the script creates files with absolute paths in them.
-pub fn writable_scenario_slow(name: &str) -> (Repository, tempfile::TempDir) {
+pub fn writable_scenario_slow(name: &str) -> (gix::Repository, tempfile::TempDir) {
     writable_scenario_inner(name, Creation::ExecuteScript, None::<String>)
         .expect("fixtures will yield valid repositories")
 }
@@ -504,7 +521,10 @@ pub fn visualize_disk_tree_skip_dot_git(_root: &Path) -> anyhow::Result<termtree
 
 /// Produce the id at the reference with `name` (short-name is fine), and also return the full name
 /// of the reference.
-pub fn id_at<'repo>(repo: &'repo Repository, name: &str) -> (gix::Id<'repo>, gix::refs::FullName) {
+pub fn id_at<'repo>(
+    repo: &'repo gix::Repository,
+    name: &str,
+) -> (gix::Id<'repo>, gix::refs::FullName) {
     let mut rn = repo
         .find_reference(name)
         .expect("statically known reference exists");

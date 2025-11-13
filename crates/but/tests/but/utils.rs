@@ -34,6 +34,12 @@ impl Drop for Sandbox {
     }
 }
 
+//  TODO: prior init shouldn't be necessary
+enum Mode {
+    Init,
+    Open,
+}
+
 /// Lifecycle
 impl Sandbox {
     /// Create a new instance with empty everything.
@@ -44,24 +50,36 @@ impl Sandbox {
         })
     }
 
-    /// Provide a scenario with `name` for writing, and `but` already invoked to add the project,
+    /// Provide a scenario with `name` for writing, and `but init` already invoked to add the project,
     /// with a target added.
+    ///
+    /// Prefer to use [`Self::open_scenario_with_target_and_default_settings()`] instead for less side-effects
+    /// TODO: we shouldn't have to add the project for interaction - it's only useful for listing.
+    /// TODO: there should be no need for the target.
+    pub fn init_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
+        Self::open_or_init_scenario_with_target_inner(name, Creation::CopyFromReadOnly, Mode::Init)
+    }
+
+    /// Provide a scenario with `name` for writing, with target added.
     ///
     /// TODO: we shouldn't have to add the project for interaction - it's only useful for listing.
     /// TODO: there should be no need for the target.
-    pub fn init_scenario_with_target(name: &str) -> anyhow::Result<Sandbox> {
-        Self::init_scenario_with_target_inner(name, Creation::CopyFromReadOnly)
+    pub fn open_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
+        Self::open_or_init_scenario_with_target_inner(name, Creation::CopyFromReadOnly, Mode::Open)
     }
 
-    /// Like [`Self::init_scenario_with_target`], Execute the script at `name` instead of
+    /// Like [`Self::init_scenario_with_target_and_default_settings`], Execute the script at `name` instead of
     /// copying it - necessary if Git places absolute paths.
-    pub fn init_scenario_with_target_slow(name: &str) -> anyhow::Result<Sandbox> {
-        Self::init_scenario_with_target_inner(name, Creation::ExecuteScript)
+    pub fn init_scenario_with_target_and_default_settings_slow(
+        name: &str,
+    ) -> anyhow::Result<Sandbox> {
+        Self::open_or_init_scenario_with_target_inner(name, Creation::ExecuteScript, Mode::Init)
     }
 
-    fn init_scenario_with_target_inner(
+    fn open_or_init_scenario_with_target_inner(
         name: &str,
         script_creation: Creation,
+        mode: Mode,
     ) -> anyhow::Result<Sandbox> {
         let project = but_testsupport::gix_testtools::scripted_fixture_writable_with_args(
             format!("scenario/{name}.sh"),
@@ -74,9 +92,12 @@ impl Sandbox {
             app_root: Some(tempfile::TempDir::new()?),
         };
         let repo = sandbox.repo()?;
-        sandbox.file(
-            ".git/gitbutler/virtual_branches.toml",
-            r#"
+
+        // This can fail on unborn repos, let it, see if we can handle unborn.
+        if let Ok(commit_id) = repo.rev_parse_single("origin/main") {
+            sandbox.file(
+                ".git/gitbutler/virtual_branches.toml",
+                r#"
 [default_target]
 branchName = "main"
 remoteName = "origin"
@@ -88,13 +109,16 @@ pushRemoteName = "origin"
 
 [branches]
         "#
-            .replace(
-                "<EXTRA_TARGET>",
-                &repo.rev_parse_single("origin/main")?.to_string(),
-            ),
-        );
+                .replace("<EXTRA_TARGET>", &commit_id.to_string()),
+            );
+        }
         sandbox.set_default_settings()?;
-        sandbox.but("init").assert().success();
+        match mode {
+            Mode::Init => {
+                sandbox.but("init").assert().success();
+            }
+            Mode::Open => {}
+        }
         Ok(sandbox)
     }
 }
@@ -180,8 +204,9 @@ impl Sandbox {
 
     /// Show a git log for all refs.
     pub fn git_log(&self) -> anyhow::Result<String> {
-        let repo = self.repo()?;
-        Ok(but_testsupport::visualize_commit_graph_all(&repo)?)
+        Ok(but_testsupport::visualize_commit_graph_all_from_dir(
+            self.projects_root(),
+        )?)
     }
 
     /// Show the `git status` as string.
