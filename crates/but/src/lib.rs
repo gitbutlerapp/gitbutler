@@ -483,7 +483,7 @@ pub fn get_or_init_project_with_legacy_support(
         })?;
     Ok(but_ctx::Context {
         settings: AppSettings::load_from_default_path_creating()?,
-        project,
+        legacy_project: project,
         repo,
     })
 }
@@ -500,7 +500,7 @@ pub fn get_project_with_legacy_support(
     let project = LegacyProject::find_by_worktree_dir(worktree_dir)?;
     Ok(but_ctx::Context {
         settings: AppSettings::load_from_default_path_creating()?,
-        project,
+        legacy_project: project,
         repo,
     })
 }

@@ -194,7 +194,7 @@ pub(crate) async fn worktree(
         },
     )?;
 
-    let project = &project.project;
+    let project = &project.legacy_project;
     let review_map = if review {
         crate::forge::review::get_review_map(project).await?
     } else {

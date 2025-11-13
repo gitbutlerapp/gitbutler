@@ -16,7 +16,7 @@ pub struct Context {
     pub settings: AppSettings,
     /// The legacy implementation, for all the old code.
     #[cfg(feature = "legacy")]
-    pub project: gitbutler_project::Project,
+    pub legacy_project: gitbutler_project::Project,
     /// The repository of the project, which also provides access to the `git_dir`.
     pub repo: gix::Repository,
 }
@@ -27,7 +27,7 @@ pub struct Context {
 impl Context {
     /// Return a context for calling into `gitbutler-` functions.
     pub fn legacy_ctx(&self) -> anyhow::Result<CommandContext> {
-        CommandContext::open(&self.project, self.settings.clone())
+        CommandContext::open(&self.legacy_project, self.settings.clone())
     }
 
     /// Return a wrapper for metadata that only supports read-only access when presented with the project wide permission
@@ -41,7 +41,7 @@ impl Context {
         _read_only: &but_core::sync::WorktreeReadPermission,
     ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
         but_meta::VirtualBranchesTomlMetadata::from_path(
-            self.project.gb_dir().join("virtual_branches.toml"),
+            self.legacy_project.gb_dir().join("virtual_branches.toml"),
         )
     }
 }
