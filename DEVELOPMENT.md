@@ -105,7 +105,6 @@ $ sudo ./install_node.sh
 
 4. pnpm
 
-Finally, we use `pnpm` as our javascript package manager. You can leverage `corepack`, which comes shipped with `node`, to install and use the `pnpm` version we defined in our `package.json`.
 
 ```bash
 $ cd gitbutler-repo
