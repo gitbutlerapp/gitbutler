@@ -267,6 +267,7 @@
 <ContextMenu bind:this={createNewContextMenu} leftClickTrigger={createNewTrigger}>
 	<ContextMenuSection>
 		<ContextMenuItem
+			icon="branch-remote"
 			label="Branch"
 			onclick={() => {
 				createBranchModal?.show();
@@ -274,6 +275,7 @@
 			}}
 		/>
 		<ContextMenuItem
+			icon="ai-outline"
 			label="Codegen session"
 			onclick={() => {
 				uiState.project(projectId).exclusiveAction.set({ type: 'codegen' });
