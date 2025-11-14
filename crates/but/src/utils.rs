@@ -43,6 +43,8 @@ impl Output {
 /// JSON utilities
 impl Output {
     /// Write `value` as pretty JSON to the output.
+    ///
+    /// Note that it's owned to avoid double-printing with [ResultJsonExt::output_json]
     pub fn write_value(&mut self, value: impl serde::Serialize) -> std::io::Result<()> {
         json_pretty_to_stdout(&value)
     }

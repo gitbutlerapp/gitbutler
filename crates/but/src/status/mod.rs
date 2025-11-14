@@ -19,6 +19,7 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 pub(crate) mod assignment;
 
 use crate::id::CliId;
+use crate::utils::Output;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -172,7 +173,7 @@ struct WorktreeStatus {
 
 pub(crate) async fn worktree(
     ctx: &Context,
-    json: bool,
+    out: &mut Output,
     show_files: bool,
     verbose: bool,
     review: bool,
@@ -291,14 +292,13 @@ pub(crate) async fn worktree(
             })
             .unwrap_or((None, None));
 
-    if json {
+    if let Some(out) = out.for_json() {
         let worktree_status = WorktreeStatus {
             stacks: stack_details,
             common_merge_base: common_merge_base_data,
             upstream_state: upstream_state.clone(),
         };
-        let json_output = serde_json::to_string_pretty(&worktree_status)?;
-        writeln!(stdout, "{json_output}")?;
+        out.write_value(worktree_status)?;
         return Ok(());
     }
 

@@ -124,6 +124,7 @@ async fn match_subcommand(
     start: std::time::Instant,
     mut out: Output,
 ) -> Result<()> {
+    let out = &mut out;
     let metrics_cmd = cmd.to_metrics_command();
 
     match cmd {
@@ -259,7 +260,7 @@ async fn match_subcommand(
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let ctx = get_or_init_context_with_legacy_support(&args.current_dir)?;
-            branch::handle(cmd, &ctx, &mut out)
+            branch::handle(cmd, &ctx, out)
                 .await
                 .output_json(args.json)
                 .emit_metrics(app_settings, metrics_cmd, start)
@@ -283,15 +284,15 @@ async fn match_subcommand(
             review,
         } => {
             let project = get_or_init_context_with_legacy_support(&args.current_dir)?;
-            let result = status::worktree(&project, args.json, show_files, verbose, review).await;
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            status::worktree(&project, out, show_files, verbose, review)
+                .await
+                .emit_metrics(app_settings, metrics_cmd, start)
         }
         Subcommands::Stf { verbose, review } => {
             let project = get_or_init_context_with_legacy_support(&args.current_dir)?;
-            let result = status::worktree(&project, args.json, true, verbose, review).await;
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            status::worktree(&project, out, true, verbose, review)
+                .await
+                .emit_metrics(app_settings, metrics_cmd, start)
         }
         Subcommands::Rub { source, target } => {
             let mut stderr = std::io::stderr();
