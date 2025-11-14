@@ -41,6 +41,8 @@ export default class Tauri implements IBackend {
 	async initDeepLinking(handlers: DeepLinkHandlers): Promise<void> {
 		// Listen for new deep links while app is running
 		await onOpenUrl((urls) => {
+			// eslint-disable-next-line no-console
+			console.log('App launched via deep link URLs:', urls);
 			handleDeepLinkUrls(urls, handlers);
 		});
 	}
