@@ -27,8 +27,6 @@
 
 	let { projectId, visible, mode = $bindable('commit') }: Props = $props();
 
-	const DETAILS_RIGHT_PADDING_REM = 1.125;
-
 	const uiState = inject(UI_STATE);
 	const projectState = $derived(uiState.project(projectId));
 	const stackService = inject(STACK_SERVICE);
@@ -158,7 +156,6 @@
 				in:fly={{ y: 20, duration: 200 }}
 				class="codegen-draft deep-shadow"
 				data-details="default"
-				style:right="{DETAILS_RIGHT_PADDING_REM}rem"
 			>
 				<ReduxResult {projectId} result={newNameQuery.result}>
 					{#snippet children(newName)}
