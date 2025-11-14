@@ -12,7 +12,6 @@ import type {
 	GitButlerUpdate,
 	SystemMessage
 } from '$lib/codegen/types';
-import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
 
 export type Message = { createdAt: string } &
 	/* This is strictly only things that the real fleshy human has said */
@@ -524,12 +523,18 @@ export function getTodos(events: ClaudeMessage[]): ClaudeTodo[] {
 	return todos ?? [];
 }
 
-function contentBlockToString(lastBlock?: ContentBlockParam): string | undefined {
-	if (!lastBlock) return;
-
-	if (lastBlock.type === 'text') {
-		return lastBlock.text;
+/**
+ * Extracts the last non-empty line from a string
+ */
+function extractLastNonEmptyLine(text: string): string {
+	const lines = text.split('\n');
+	for (let i = lines.length - 1; i >= 0; i--) {
+		const trimmedLine = lines[i]?.trim();
+		if (trimmedLine && trimmedLine.length > 0) {
+			return trimmedLine;
+		}
 	}
+	return text.trim();
 }
 
 export function extractLastMessage(messages: ClaudeMessage[]): string | undefined {
@@ -545,21 +550,25 @@ export function extractLastMessage(messages: ClaudeMessage[]): string | undefine
 			const content = payload.data;
 			if (content.type === 'result') {
 				if (content.subtype === 'success') {
-					if (content.result) return content.result;
+					const trimmedResult = content.result.trim();
+					if (trimmedResult.length > 0) return extractLastNonEmptyLine(trimmedResult);
 				} else {
 					return 'an error has occurred';
 				}
 			} else if (content.type === 'user') {
 				const messageContent = content.message.content;
 				if (typeof messageContent === 'string') {
-					return messageContent;
-				} else {
-					const summary = contentBlockToString(messageContent.at(-1));
-					if (summary) return summary;
+					const trimmedContent = messageContent.trim();
+					if (trimmedContent.length > 0) {
+						return extractLastNonEmptyLine(trimmedContent);
+					}
 				}
 			}
 		} else if (payload.source === 'user') {
-			return payload.message;
+			const trimmedMessage = payload.message.trim();
+			if (trimmedMessage.length > 0) {
+				return extractLastNonEmptyLine(trimmedMessage);
+			}
 		}
 	}
 }
