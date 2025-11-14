@@ -644,7 +644,7 @@
 		{@const selection = laneState.selection.current}
 		<div
 			in:fly={{ y: 20, duration: 200 }}
-			class="details-view"
+			class="details-view deep-shadow"
 			bind:this={compactDiv}
 			data-details={stableStackId}
 			style:right="{DETAILS_RIGHT_PADDING_REM}rem"
@@ -859,7 +859,6 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
-		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
 	}
 
 	/* Needed for `focusCursor.svelte` to work correctly on `Drawer` components . */
@@ -869,10 +868,6 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-	}
-
-	:global(.dark) .details-view {
-		box-shadow: 0 10px 50px 5px color(srgb 0 0 0 / 0.5);
 	}
 
 	.changed-files-section {

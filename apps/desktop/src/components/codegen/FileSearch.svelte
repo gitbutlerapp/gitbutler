@@ -19,7 +19,7 @@
 
 {#if shouldShow}
 	<div
-		class="dialog-popup"
+		class="dialog-popup deep-shadow"
 		use:clickOutside={{ handler: () => onexit() }}
 		in:fly={{ y: 8, duration: 200 }}
 	>
@@ -68,11 +68,6 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
-		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
-	}
-
-	:global(.dark) .dialog-popup {
-		box-shadow: 0 10px 50px 5px color(srgb 0 0 0 / 0.5);
 	}
 
 	.dialog-popup__header {

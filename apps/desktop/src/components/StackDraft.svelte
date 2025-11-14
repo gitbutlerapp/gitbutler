@@ -143,11 +143,12 @@
 				/>
 			</div>
 		</ConfigurableScrollableContainer>
+
 		{#if mode === 'codegen'}
 			<div
 				bind:this={draftCodegenEl}
 				in:fly={{ y: 20, duration: 200 }}
-				class="codegen-draft"
+				class="codegen-draft deep-shadow"
 				data-details="default"
 				style:right="{DETAILS_RIGHT_PADDING_REM}rem"
 			>
@@ -231,8 +232,8 @@
 		margin-top: 12px;
 		margin-right: 18px;
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
-		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
 	}
 </style>
