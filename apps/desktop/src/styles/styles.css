@@ -155,3 +155,13 @@ body {
 	);
 	background-size: 5px 5px;
 }
+
+.deep-shadow {
+	box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
+}
+
+.dark {
+	& .deep-shadow {
+		box-shadow: 0 10px 50px 5px color(srgb 0 0 0 / 0.5);
+	}
+}

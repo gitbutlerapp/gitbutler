@@ -113,11 +113,13 @@
 
 	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
 
-	export async function show() {
+	export async function show(initialType?: 'stack' | 'dependent') {
 		createRefModal?.show();
 		createRefName = await stackService.fetchNewBranchName(projectId);
 		// Reset selected stack to default
 		selectedStackId = undefined;
+		// Set branch type - default to 'stack' unless explicitly provided
+		createRefType = initialType ?? 'stack';
 	}
 
 	export function close() {

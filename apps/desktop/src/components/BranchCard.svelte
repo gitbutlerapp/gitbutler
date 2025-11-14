@@ -24,19 +24,13 @@
 	import type { Snippet } from 'svelte';
 
 	interface BranchCardProps {
-		type: 'draft-branch' | 'normal-branch' | 'stack-branch' | 'pr-branch';
+		type: 'normal-branch' | 'stack-branch' | 'pr-branch';
 		projectId: string;
 		branchName: string;
 		isCommitting?: boolean;
 		lineColor: string;
 		readonly: boolean;
 		first?: boolean;
-	}
-
-	interface DraftBranchProps extends BranchCardProps {
-		type: 'draft-branch';
-		branchContent?: Snippet;
-		buttons?: Snippet;
 	}
 
 	interface NormalBranchProps extends BranchCardProps {
@@ -87,7 +81,7 @@
 		lastUpdatedAt: number;
 	}
 
-	type Props = DraftBranchProps | NormalBranchProps | StackBranchProps | PrBranchProps;
+	type Props = NormalBranchProps | StackBranchProps | PrBranchProps;
 
 	let { projectId, branchName, lineColor, readonly, ...args }: Props = $props();
 
@@ -112,20 +106,13 @@
 	const laneState = $derived(args.type === 'stack-branch' ? uiState.lane(args.laneId) : undefined);
 	const selection = $derived(laneState ? laneState.selection.current : undefined);
 	const selected = $derived(selection?.branchName === branchName);
-	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
+	const isPushed = $derived(!!args.trackingBranch);
 	const isCommitTarget = $derived(
-		exclusiveAction?.type === 'commit' &&
-			(exclusiveAction.branchName === branchName ||
-				(exclusiveAction.branchName === undefined && args.type === 'draft-branch'))
+		exclusiveAction?.type === 'commit' && exclusiveAction.branchName === branchName
 	);
 
 	// Consolidated rounded bottom logic from both BranchCard and BranchHeader
 	const isRoundedBottom = $derived.by(() => {
-		const isDraft = args.type === 'draft-branch';
-
-		// Draft branches should be rounded
-		if (isDraft) return true;
-
 		// Empty branches being committed should be rounded
 		if (args.isCommitting) {
 			const isEmpty =
@@ -149,13 +136,7 @@
 	});
 
 	async function updateBranchName(title: string) {
-		if (args.type === 'draft-branch') {
-			uiState.global.draftBranchName.set(title);
-			const normalized = await stackService.normalizeBranchName(title);
-			if (normalized) {
-				uiState.global.draftBranchName.set(normalized);
-			}
-		} else if (args.type === 'stack-branch') {
+		if (args.type === 'stack-branch') {
 			if (!args.stackId) return;
 			updateName({
 				projectId,
@@ -354,40 +335,17 @@
 				{/if}
 			{/snippet}
 		</BranchHeader>
-	{:else}
-		<BranchHeader
-			{branchName}
-			isEmpty
-			selected
-			draft
-			{lineColor}
-			isCommitting={args.isCommitting}
-			{isCommitTarget}
-			iconName="branch-local"
-			{updateBranchName}
-			isUpdatingName={nameUpdate.current.isLoading}
-			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-			roundedBottom={isRoundedBottom}
-			readonly={false}
-			isPushed={false}
-		>
-			{#snippet emptyState()}
-				A new branch will be created for your commit.
-				<br />
-				Click the name to rename it now or later.
-			{/snippet}
-		</BranchHeader>
 	{/if}
 
 	{#if args.type === 'stack-branch' && args.hasCodegenRow && args.codegenRow}
-		<BranchDividerLine {lineColor} height="0.375rem" />
+		<BranchDividerLine {lineColor} short />
 		{@render args.codegenRow()}
 		{#if args.numberOfCommits > 0 || args.numberOfUpstreamCommits > 0}
-			<BranchDividerLine {lineColor} height="0.375rem" />
+			<BranchDividerLine {lineColor} short />
 		{/if}
 	{/if}
 
-	{#if args.type === 'stack-branch' || args.type === 'normal-branch' || args.type === 'draft-branch'}
+	{#if args.type === 'stack-branch' || args.type === 'normal-branch'}
 		{#if args.branchContent}
 			{@render args.branchContent()}
 		{/if}

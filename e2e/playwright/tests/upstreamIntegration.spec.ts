@@ -185,7 +185,8 @@ test('should handle the update of an empty branch gracefully', async ({
 	await expect(stacks).toHaveCount(0);
 
 	// Create a new branch
-	await clickByTestId(page, 'create-stack-button');
+	await clickByTestId(page, 'chrome-create-new-button');
+	await clickByTestId(page, 'chrome-header-create-branch-menu-item');
 	const modal = await waitForTestId(page, 'create-new-branch-modal');
 
 	const input = modal.locator('#new-branch-name-input');
@@ -231,7 +232,8 @@ test('should handle the update of a branch with an empty commit', async ({
 	await expect(stacks).toHaveCount(0);
 
 	// Create a new branch
-	await clickByTestId(page, 'create-stack-button');
+	await clickByTestId(page, 'chrome-create-new-button');
+	await clickByTestId(page, 'chrome-header-create-branch-menu-item');
 	const modal = await waitForTestId(page, 'create-new-branch-modal');
 
 	const input = modal.locator('#new-branch-name-input');

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Dropzone from '$components/Dropzone.svelte';
-	import MultiStackCreateNew from '$components/MultiStackCreateNew.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
@@ -137,7 +136,6 @@
 						{/if}
 					</div>
 				</div>
-				<MultiStackCreateNew {projectId} />
 			</div>
 		{/snippet}
 	</Dropzone>
@@ -161,14 +159,13 @@
 		justify-content: center;
 		width: 100%;
 		height: 100%;
-		margin-bottom: 20px;
+		margin-bottom: 8px;
 		gap: 10px;
 
 		/* SVG ANIMATION */
 		&.activated {
 			opacity: 1;
-			& .hidden-dropzone__svg,
-			.hidden-dropzone__content:after {
+			& .hidden-dropzone__content:after {
 				opacity: 1;
 				transition: opacity 0.1s;
 			}
@@ -265,8 +262,6 @@
 	/* SVG */
 	.hidden-dropzone__svg {
 		overflow: visible;
-		/* opacity: 0; */
-		opacity: 0.7;
 		transition: opacity 0.15s;
 		will-change: opacity;
 	}

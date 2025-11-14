@@ -1,6 +1,8 @@
 <script lang="ts">
-	import BranchCard from '$components/BranchCard.svelte';
+	import BranchDividerLine from '$components/BranchDividerLine.svelte';
+	import CodegenRow from '$components/CodegenRow.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import DraftBranchHeader from '$components/DraftBranchHeader.svelte';
 	import NewCommitView from '$components/NewCommitView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
@@ -24,8 +26,6 @@
 	};
 
 	let { projectId, visible, mode = $bindable('commit') }: Props = $props();
-
-	const DETAILS_RIGHT_PADDING_REM = 1.125;
 
 	const uiState = inject(UI_STATE);
 	const projectState = $derived(uiState.project(projectId));
@@ -123,33 +123,39 @@
 				<ReduxResult {projectId} result={newNameQuery.result}>
 					{#snippet children(newName)}
 						{@const branchName = draftBranchName.current || newName}
-						<BranchCard
-							type="draft-branch"
-							{projectId}
+						<DraftBranchHeader
 							{branchName}
-							isCommitting
-							readonly={false}
 							lineColor="var(--clr-commit-local)"
+							{mode}
+							isCommitting={mode === 'commit'}
+							updateBranchName={(name) => uiState.global.draftBranchName.set(name)}
+							isUpdatingName={false}
+							failedToUpdateName={false}
 						/>
+
+						{#if mode === 'codegen'}
+							<BranchDividerLine lineColor="var(--clr-commit-local)" short />
+							<CodegenRow draft />
+						{/if}
 					{/snippet}
 				</ReduxResult>
 				<Resizer
 					persistId="resizer-darft-panel"
 					viewport={draftPanelEl}
 					direction="right"
-					defaultValue={23}
+					defaultValue={20}
 					minWidth={16}
 					maxWidth={64}
 				/>
 			</div>
 		</ConfigurableScrollableContainer>
+
 		{#if mode === 'codegen'}
 			<div
 				bind:this={draftCodegenEl}
 				in:fly={{ y: 20, duration: 200 }}
-				class="codegen-draft"
+				class="codegen-draft deep-shadow"
 				data-details="default"
-				style:right="{DETAILS_RIGHT_PADDING_REM}rem"
 			>
 				<ReduxResult {projectId} result={newNameQuery.result}>
 					{#snippet children(newName)}
@@ -231,8 +237,8 @@
 		margin-top: 12px;
 		margin-right: 18px;
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
-		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
 	}
 </style>

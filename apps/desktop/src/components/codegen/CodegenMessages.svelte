@@ -475,6 +475,7 @@
 						}, 100);
 					}}
 					{onAbort}
+					onCancel={onclose}
 				>
 					{#snippet actionsOnLeft()}
 						{@const permissionModeLabel = permissionModeOptions.find(
@@ -680,5 +681,34 @@
 		height: 100%;
 		margin-bottom: 32px;
 		gap: 18px;
+	}
+
+	.context-utilization-scale {
+		position: relative;
+		width: 17px;
+		height: 17px;
+		transform: rotate(-90deg);
+
+		& svg {
+			width: 100%;
+			height: 100%;
+		}
+
+		& circle {
+			fill: none;
+			stroke-width: 2;
+			stroke-linecap: round;
+		}
+
+		& .bg-circle {
+			stroke: color-mix(in srgb, var(--clr-text-2), transparent 85%);
+		}
+
+		& .progress-circle {
+			stroke: var(--clr-text-2);
+			stroke-dasharray: calc(3.14159 * 13);
+			stroke-dashoffset: calc(3.14159 * 13 * (1 - var(--context-utilization) / 100));
+			transition: stroke-dashoffset 0.3s ease;
+		}
 	}
 </style>
