@@ -67,7 +67,13 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let output_format = if args.json {
         OutputFormat::Json
     } else {
-        args.format.unwrap_or_default()
+        args.format.unwrap_or_else(|| {
+            if atty::is(atty::Stream::Stdout) {
+                OutputFormat::Human
+            } else {
+                OutputFormat::Shell
+            }
+        })
     };
     let out = Output::new(output_format);
 
@@ -78,7 +84,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
     but_secret::secret::set_application_namespace(namespace);
 
-    // If no subcommand is provided but we have source and target, default to rub
+    // If no subcommand is provided, but we have source and target, default to rub
     match args.cmd.take() {
         None if args.source_or_path.is_some() && args.target.is_some() => {
             // Default to rub when two arguments are provided without a subcommand

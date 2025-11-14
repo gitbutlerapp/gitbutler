@@ -258,6 +258,7 @@ impl Sandbox {
         self.with_updated_env(cmd)
             .env("GITBUTLER_CHANGE_ID", "42")
             .env("BUT_OUTPUT_FORMAT", "human")
+            .env("NOPAGER", "1")
     }
 
     /// Invoke an isolated `git` with the given `args`, which will be split automatically.

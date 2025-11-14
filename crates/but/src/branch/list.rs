@@ -1,12 +1,15 @@
-use std::io::Write;
+use std::fmt::Write;
 
-use crate::utils::we_need_proper_json_output_here;
+use crate::utils::{Output, we_need_proper_json_output_here};
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_project::Project;
 
-pub async fn list(project: &Project, local: bool) -> Result<serde_json::Value, anyhow::Error> {
-    let mut stdout = std::io::stdout();
+pub async fn list(
+    project: &Project,
+    local: bool,
+    out: &mut Output,
+) -> Result<serde_json::Value, anyhow::Error> {
     let filter = if local {
         Some(BranchListingFilter {
             local: Some(true),
@@ -22,7 +25,7 @@ pub async fn list(project: &Project, local: bool) -> Result<serde_json::Value, a
         project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
-    print_applied_branches(&applied_stacks, &branch_review_map);
+    print_applied_branches(&applied_stacks, &branch_review_map, out);
     let branches = but_api::virtual_branches::list_branches(project.id, filter)?;
     let (branches, remote_only_branches): (Vec<_>, Vec<_>) =
         branches.into_iter().partition(|b| b.has_local);
@@ -40,7 +43,7 @@ pub async fn list(project: &Project, local: bool) -> Result<serde_json::Value, a
             &branch_review_map,
         );
 
-        writeln!(stdout, "{}{}", branch.name, reviews).ok();
+        writeln!(out, "{}{}", branch.name, reviews).ok();
     }
 
     for branch in remote_only_branches {
@@ -49,7 +52,7 @@ pub async fn list(project: &Project, local: bool) -> Result<serde_json::Value, a
             &None,
             &branch_review_map,
         );
-        writeln!(stdout, "{} {}{}", "(remote)".dimmed(), branch.name, reviews).ok();
+        writeln!(out, "{} {}{}", "(remote)".dimmed(), branch.name, reviews).ok();
     }
     Ok(we_need_proper_json_output_here())
 }
@@ -60,8 +63,8 @@ fn print_applied_branches(
         String,
         Vec<gitbutler_forge::review::ForgeReview>,
     >,
+    out: &mut Output,
 ) {
-    let mut stdout = std::io::stdout();
     for stack in applied_stacks {
         let first_branch = stack.heads.first();
         let last_branch = stack.heads.last();
@@ -74,7 +77,7 @@ fn print_applied_branches(
                     &None,
                     branch_review_map,
                 );
-                writeln!(stdout, "{}{}", branch_entry.green(), reviews).ok();
+                writeln!(out, "{}{}", branch_entry.green(), reviews).ok();
                 continue;
             }
 
@@ -100,7 +103,7 @@ fn print_applied_branches(
                 branch_review_map,
             );
 
-            writeln!(stdout, "{}{}", branch_entry.green(), reviews).ok();
+            writeln!(out, "{}{}", branch_entry.green(), reviews).ok();
         }
     }
 }
