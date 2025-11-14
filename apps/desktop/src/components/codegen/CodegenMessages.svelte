@@ -475,6 +475,7 @@
 						}, 100);
 					}}
 					{onAbort}
+					onCancel={onclose}
 				>
 					{#snippet actionsOnLeft()}
 						{@const permissionModeLabel = permissionModeOptions.find(

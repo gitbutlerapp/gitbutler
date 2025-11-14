@@ -30,6 +30,7 @@
 		compacting: boolean;
 		onSubmit?: (text: string) => Promise<void>;
 		onAbort?: () => Promise<void>;
+		onCancel?: () => void;
 		actionsOnLeft: Snippet;
 		actionsOnRight: Snippet;
 		onChange: (value: string) => void;
@@ -44,6 +45,7 @@
 		compacting,
 		onSubmit,
 		onAbort,
+		onCancel,
 		actionsOnLeft,
 		actionsOnRight,
 		onChange
@@ -161,6 +163,13 @@
 		if (!event) return false;
 		if (fileSuggestions) {
 			return handleFileSuggestionsKeyDown(event, fileSuggestions);
+		}
+
+		// Handle Escape to cancel/close
+		if (event.key === 'Escape' && onCancel) {
+			event.preventDefault();
+			onCancel();
+			return true;
 		}
 
 		// Handle Ctrl+C to abort
