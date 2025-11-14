@@ -1143,7 +1143,7 @@ describe('Commit Actions with no stacks', () => {
 		cy.getByTestId('draft-stack').should('contain', mockBackend.cannedBranchName);
 
 		// Update the stack name
-		cy.getByTestId('branch-card').within(() => {
+		cy.getByTestId('branch-header').within(() => {
 			cy.get('input[type="text"]')
 				.should('be.visible')
 				.should('be.enabled')
