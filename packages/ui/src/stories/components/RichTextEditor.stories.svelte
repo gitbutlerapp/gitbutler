@@ -10,7 +10,7 @@
 		args: {
 			styleContext: 'client-editor',
 			namespace: 'commit-message',
-			markdown: false,
+			plaintext: true,
 			onError: (error: unknown) => console.error(error),
 			placeholder: 'Type your message here…'
 		}
@@ -27,7 +27,7 @@
 			<div class="text-input">
 				<RichTextEditor
 					namespace={args.namespace || 'commit-message'}
-					markdown={args.markdown || false}
+					plaintext={args.plaintext ?? true}
 					onError={args.onError || console.error}
 					styleContext={args.styleContext || 'client-editor'}
 					placeholder={args.placeholder || 'Type your message here…'}

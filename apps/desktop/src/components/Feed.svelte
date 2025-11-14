@@ -249,7 +249,7 @@
 					<RichTextEditor
 						bind:this={editor}
 						namespace="feed"
-						markdown={false}
+						plaintext={true}
 						styleContext="chat-input"
 						placeholder="Tab tab tab"
 						disabled={botting.current.isLoading}

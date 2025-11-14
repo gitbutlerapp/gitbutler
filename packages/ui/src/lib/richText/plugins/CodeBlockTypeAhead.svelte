@@ -14,14 +14,17 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 	import TypeAhead, { type Match } from '$lib/richText/plugins/TypeAhead.svelte';
 	import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
 	import {
-		$createLineBreakNode as createLineBreakNode,
 		$createTextNode as createTextNode,
+		$createParagraphNode as createParagraphNode,
 		$getSelection as getSelection,
 		$isRangeSelection as isRangeSelection,
 		$isTextNode as isTextNode,
+		$isParagraphNode as isParagraphNode,
 		COMMAND_PRIORITY_HIGH,
 		KEY_BACKSPACE_COMMAND,
-		KEY_DELETE_COMMAND
+		KEY_DELETE_COMMAND,
+		KEY_ARROW_DOWN_COMMAND,
+		KEY_ARROW_UP_COMMAND
 	} from 'lexical';
 	import { CodeNode, $createCodeNode as createCodeNode } from 'svelte-lexical';
 	import { getEditor } from 'svelte-lexical';
@@ -48,51 +51,64 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 
 	function handleMatch(match: Match) {
 		// Perform the transformation immediately when ``` is typed
-		editor.update(() => {
-			const selection = getSelection();
-			if (!isRangeSelection(selection)) return;
+		// Use queueMicrotask to ensure this runs after the current input event is processed
+		// and added to the history, so undoing will revert to the state before typing ```
+		editor.update(
+			() => {
+				const selection = getSelection();
+				if (!isRangeSelection(selection)) return;
 
-			const anchor = selection.anchor;
-			const node = anchor.getNode();
-			if (!isTextNode(node)) return;
+				const anchor = selection.anchor;
+				const node = anchor.getNode();
+				if (!isTextNode(node)) return;
 
-			const text = node.getTextContent();
+				const paragraph = node.getParent();
+				if (!isParagraphNode(paragraph)) return;
 
-			// Split the text: before the ```, and after the ```
-			const beforeCode = text.substring(0, match.start);
-			const afterCode = text.substring(match.end);
+				const text = node.getTextContent();
 
-			// Update the current node to contain only the text before the code block
-			node.setTextContent(beforeCode);
+				// Split the text: before the ```, and after the ```
+				const beforeCode = text.substring(0, match.start);
+				const afterCode = text.substring(match.end);
 
-			// Create the code block (no language parameter)
-			const codeNode = createCodeNode();
+				// Create the code block paragraph
+				const codeParagraph = createParagraphNode();
+				const codeNode = createCodeNode();
+				codeParagraph.append(codeNode);
 
-			// Insert structure: linebreak, code block, linebreak, text node (for continuation)
-			let lastInserted = node.insertAfter(createLineBreakNode());
+				// Determine what to do based on whether we have text before/after
+				const hasTextBefore = beforeCode.trim().length > 0;
+				const hasTextAfter = afterCode.trim().length > 0;
 
-			if (lastInserted) {
-				lastInserted = lastInserted.insertAfter(codeNode);
-			}
+				if (hasTextBefore) {
+					// Keep the text before ``` in the current paragraph
+					node.setTextContent(beforeCode);
+					paragraph.insertAfter(codeParagraph);
+				} else {
+					// No text before, replace the current paragraph with the code block
+					paragraph.replace(codeParagraph);
+				}
 
-			if (lastInserted) {
-				lastInserted = lastInserted.insertAfter(createLineBreakNode());
-			}
+				// Always create a paragraph after the code block
+				if (hasTextAfter) {
+					// Create a new paragraph with the text after ```
+					const afterParagraph = createParagraphNode();
+					afterParagraph.append(createTextNode(afterCode));
+					codeParagraph.insertAfter(afterParagraph);
+				} else {
+					// Create an empty paragraph after the code block for navigation
+					const emptyParagraph = createParagraphNode();
+					emptyParagraph.append(createTextNode(''));
+					codeParagraph.insertAfter(emptyParagraph);
+				}
 
-			// If there was text after the ```, put it on a new line after the code block
-			if (afterCode.trim() && lastInserted) {
-				const afterNode = createTextNode(afterCode);
-				lastInserted.insertAfter(afterNode);
-				// Focus inside the code block, not after
-				codeNode.selectStart();
-			} else {
-				// Add an empty text node after the final linebreak so user can navigate down
-				const emptyNode = createTextNode('');
-				lastInserted?.insertAfter(emptyNode);
 				// Focus inside the code block
 				codeNode.selectStart();
+			},
+			{
+				tag: 'history-merge'
 			}
-		});
+		);
 	}
 
 	function handleExit() {
@@ -100,7 +116,7 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 	}
 
 	/**
-	 * Handle backspace/delete when cursor is in an empty code block.
+	 * Handle backspace when cursor is in an empty code block paragraph.
 	 * This allows users to delete empty code blocks easily.
 	 */
 	function handleDeletion(): boolean {
@@ -109,22 +125,156 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 
 		const anchor = selection.anchor;
 		const node = anchor.getNode();
-		if (!node || !(node instanceof CodeNode)) return false;
+		if (!node) return false;
 
-		// Only delete if the code block is empty
-		const textContent = node.getTextContent();
-		if (textContent.length > 0) return false;
+		// Check if we're in a code block
+		if (node instanceof CodeNode) {
+			const textContent = node.getTextContent();
+			if (textContent.length > 0) return false;
 
-		// Remove the code block
-		node.remove();
+			const paragraph = node.getParent();
+			if (!isParagraphNode(paragraph)) return false;
+
+			// Remove the empty code block paragraph
+			const prevParagraph = paragraph.getPreviousSibling();
+			paragraph.remove();
+
+			// Move cursor to end of previous paragraph, or stay put
+			if (prevParagraph && isParagraphNode(prevParagraph)) {
+				prevParagraph.selectEnd();
+			}
+
+			return true;
+		}
+
+		// Handle backspace at start of paragraph after empty code block
+		if (isTextNode(node) && anchor.offset === 0) {
+			const paragraph = node.getParent();
+			if (!isParagraphNode(paragraph)) return false;
+
+			const prevParagraph = paragraph.getPreviousSibling();
+			if (!prevParagraph || !isParagraphNode(prevParagraph)) return false;
+
+			// Check if previous paragraph is an empty code block
+			const prevChild = prevParagraph.getFirstChild();
+			if (prevChild instanceof CodeNode && prevChild.getTextContent().length === 0) {
+				prevParagraph.remove();
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Handle Arrow Down when cursor is at the end of a code block.
+	 * This allows users to exit the code block and continue typing after it.
+	 */
+	function handleArrowDown(): boolean {
+		const selection = getSelection();
+		if (!isRangeSelection(selection)) return false;
+
+		const anchor = selection.anchor;
+		let node = anchor.getNode();
+		if (!node) return false;
+
+		// Check if we're in a CodeNode or if we're selecting the CodeNode itself
+		let codeNode: CodeNode | null = null;
+
+		if (node instanceof CodeNode) {
+			codeNode = node;
+		} else if (node.getParent() instanceof CodeNode) {
+			// We're inside a text node within the code block
+			codeNode = node.getParent() as CodeNode;
+		}
+
+		if (!codeNode) return false;
+
+		// Check if we're at the end of the code block content
+		const textContent = codeNode.getTextContent();
+		const cursorOffset = anchor.offset;
+
+		// Determine if we're on the last line
+		const lastLineStart = textContent.lastIndexOf('\n') + 1;
+		const isOnLastLine = cursorOffset >= lastLineStart;
+
+		// Only exit if we're on the last line
+		if (!isOnLastLine) return false;
+
+		const codeParagraph = codeNode.getParent();
+		if (!isParagraphNode(codeParagraph)) return false;
+
+		// Find the next paragraph after the code block
+		const nextParagraph = codeParagraph.getNextSibling();
+
+		if (nextParagraph && isParagraphNode(nextParagraph)) {
+			// Move to the start of the next paragraph
+			nextParagraph.selectStart();
+			return true;
+		} else {
+			// No next paragraph, create one
+			const newParagraph = createParagraphNode();
+			newParagraph.append(createTextNode(''));
+			codeParagraph.insertAfter(newParagraph);
+			newParagraph.selectStart();
+			return true;
+		}
+	}
+
+	/**
+	 * Handle Arrow Up when cursor is at the start of a code block.
+	 * This allows users to insert a paragraph before the code block.
+	 */
+	function handleArrowUp(e: KeyboardEvent): boolean {
+		const selection = getSelection();
+		if (!isRangeSelection(selection)) return false;
+
+		const anchor = selection.anchor;
+		let node = anchor.getNode();
+		if (!node) return false;
+
+		// Check if we're in a CodeNode or if we're selecting the CodeNode itself
+		let codeNode: CodeNode | null = null;
+
+		if (node instanceof CodeNode) {
+			codeNode = node;
+		} else if (node.getParent() instanceof CodeNode) {
+			// We're inside a text node within the code block
+			codeNode = node.getParent() as CodeNode;
+		}
+
+		if (!codeNode) return false;
+
+		// Check if we're at the start of the code block content
+		const cursorOffset = anchor.offset;
+
+		// Only handle if we're at the very beginning (offset 0)
+		if (cursorOffset !== 0) return false;
+
+		const codeParagraph = codeNode.getParent();
+		if (!isParagraphNode(codeParagraph)) return false;
+
+		// Check if there's a previous paragraph
+		const prevParagraph = codeParagraph.getPreviousSibling();
+
+		if (!prevParagraph || !isParagraphNode(prevParagraph)) {
+			// No previous paragraph, create one
+			const newParagraph = createParagraphNode();
+			newParagraph.append(createTextNode(''));
+			codeParagraph.insertBefore(newParagraph);
+			newParagraph.selectEnd();
+			e.preventDefault();
+		}
 		return true;
 	}
 
-	// Register deletion handlers
+	// Register deletion and navigation handlers
 	$effect(() =>
 		mergeUnlisten(
 			editor.registerCommand(KEY_BACKSPACE_COMMAND, handleDeletion, COMMAND_PRIORITY_HIGH),
-			editor.registerCommand(KEY_DELETE_COMMAND, handleDeletion, COMMAND_PRIORITY_HIGH)
+			editor.registerCommand(KEY_DELETE_COMMAND, handleDeletion, COMMAND_PRIORITY_HIGH),
+			editor.registerCommand(KEY_ARROW_DOWN_COMMAND, handleArrowDown, COMMAND_PRIORITY_HIGH),
+			editor.registerCommand(KEY_ARROW_UP_COMMAND, handleArrowUp, COMMAND_PRIORITY_HIGH)
 		)
 	);
 </script>

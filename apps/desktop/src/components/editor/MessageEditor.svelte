@@ -329,7 +329,7 @@
 					namespace="CommitMessageEditor"
 					{placeholder}
 					bind:this={composer}
-					markdown={false}
+					plaintext={true}
 					onError={(e) => console.warn('Editor error', e)}
 					initialText={initialValue}
 					onChange={handleChange}

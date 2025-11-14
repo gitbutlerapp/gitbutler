@@ -246,7 +246,7 @@
 				bind:this={editorRef}
 				bind:value
 				namespace="codegen-input"
-				markdown={false}
+				plaintext={true}
 				styleContext="chat-input"
 				placeholder="{randomPlaceholder} Use @ to reference files…"
 				minHeight="4rem"

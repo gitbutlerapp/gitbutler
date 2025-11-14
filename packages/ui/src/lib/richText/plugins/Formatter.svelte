@@ -62,10 +62,13 @@
 	};
 
 	function formatBlock(type: keyof typeof blockMap) {
-		editor.update(() => {
-			const selection = getSelection();
-			setBlocksType(selection, () => blockMap[type]());
-		});
+		editor.update(
+			() => {
+				const selection = getSelection();
+				setBlocksType(selection, () => blockMap[type]());
+			},
+			{ tag: 'history-merge' }
+		);
 	}
 
 	function nonZeroRange() {

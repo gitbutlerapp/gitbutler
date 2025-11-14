@@ -11,12 +11,10 @@ a few rows down we do not update the cursor position to correctly.
 -->
 <script lang="ts">
 	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
-	import { WRAP_EXEMPTIONS, wrapAll, wrapIfNecssary } from '$lib/richText/linewrap';
+	import { wrapAll, wrapIfNecssary } from '$lib/richText/linewrap';
 	import {
 		$isTextNode as isTextNode,
 		TextNode,
-		$getRoot as getRoot,
-		$isParagraphNode as isParagraphNode,
 		type NodeKey,
 		type NodeMutation,
 		$getNodeByKey as getNodeByKey,
@@ -66,7 +64,8 @@ a few rows down we do not update the cursor position to correctly.
 					}
 
 					if (type === 'updated' && maxLength) {
-						if (isInCodeBlock(key)) {
+						const inCodeBlock = isInCodeBlock(key);
+						if (inCodeBlock) {
 							continue;
 						}
 						if (!isTextNode(node)) {
@@ -77,45 +76,50 @@ a few rows down we do not update the cursor position to correctly.
 				}
 			},
 			{
-				// Allows undoing the wrap.
-				tag: 'history'
+				// Merge with the current history entry so wrapping doesn't create separate undo steps
+				tag: 'history-merge'
 			}
 		);
 	}
 
 	/**
 	 * Checks if given node id is contained within a code block.
-	 *
-	 * You don't want to call this from within a loop, since then
-	 * you will end up with an O(n^2) loop.
-	 *
-	 * It is a known limitation that it has no state machine, so
-	 * open/close matches could be different, e.g. ~~~ vs. ```.
+	 * In the new multi-paragraph structure, code blocks are CodeNodes within paragraphs.
 	 */
 	function isInCodeBlock(nodeId: string): boolean {
 		if (lastCheckedLine === nodeId) {
 			return lastCheckedResult;
 		}
-		const rootParagraph = getRoot().getFirstChild();
-		if (!isParagraphNode(rootParagraph)) {
-			throw new Error('Expected paragraph node as first child');
+
+		const node = getNodeByKey(nodeId);
+		if (!node) {
+			lastCheckedLine = nodeId;
+			lastCheckedResult = false;
+			return false;
 		}
 
-		let node = rootParagraph.getFirstChild();
-		if (node === null) return false; // Empty doc.
-
-		let codeBlockOpen = false;
-
-		while (node && node.getKey() !== nodeId) {
-			const line = node.getTextContent();
-			if (WRAP_EXEMPTIONS.FencedCodeBlock.test(line)) {
-				codeBlockOpen = !codeBlockOpen;
+		// Check if this node or any parent is a CodeNode
+		let current: any = node;
+		let depth = 0;
+		while (current) {
+			if (current.getType && current.getType() === 'code') {
+				lastCheckedLine = nodeId;
+				lastCheckedResult = true;
+				return true;
 			}
-			node = node?.getNextSibling() || null;
+			current = current.getParent ? current.getParent() : null;
+			depth++;
+
+			if (depth > 10) {
+				console.warn(
+					'[HardWrap] Parent chain depth exceeded 10, stopping to prevent infinite loop'
+				);
+				break;
+			}
 		}
 
 		lastCheckedLine = nodeId;
-		lastCheckedResult = codeBlockOpen;
-		return codeBlockOpen;
+		lastCheckedResult = false;
+		return false;
 	}
 </script>
