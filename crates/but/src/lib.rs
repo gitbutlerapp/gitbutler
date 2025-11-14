@@ -3,13 +3,17 @@ use std::{ffi::OsString, io::Write, path::Path};
 use anyhow::{Context, Result};
 
 mod args;
-use crate::utils::{Output, OutputFormat, OutputTarget, ResultExt, print_grouped_help, props};
+use crate::args::CommandName;
+use crate::metrics::MetricsContext;
+use crate::utils::{
+    Output, OutputFormat, ResultErrorExt, ResultJsonExt, ResultMetricsExt, print_grouped_help,
+};
 use args::{Args, Subcommands, actions, claude, cursor};
 use but_claude::hooks::OutputAsJson;
 use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
-use metrics::{Event, Metrics, Props, metrics_if_configured};
+use metrics::{Event, Metrics, Props};
 
 mod absorb;
 mod base;
@@ -60,24 +64,12 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let mut args: Args = clap::Parser::parse_from(args);
     let app_settings = AppSettings::load_from_default_path_creating()?;
-    let output_target = if args.json {
-        OutputTarget::Blackhole
+    let output_format = if args.json {
+        OutputFormat::Json
     } else {
-        match args.format.unwrap_or_default() {
-            args::OutputFormat::Human | args::OutputFormat::Shell => OutputTarget::Stdout,
-            args::OutputFormat::Json => {
-                // Our code likes to check this flag instead, as convenience also for the caller.
-                args.json = true;
-                OutputTarget::Blackhole
-            }
-        }
+        args.format.unwrap_or_default()
     };
-    let output_format = args.format.and_then(|fmt| match fmt {
-        args::OutputFormat::Human => Some(OutputFormat::Human),
-        args::OutputFormat::Shell => Some(OutputFormat::Shell),
-        args::OutputFormat::Json => None,
-    });
-    let out = Output::new(output_target, output_format);
+    let out = Output::new(output_format);
 
     if args.trace > 0 {
         trace::init(args.trace)?;
@@ -85,7 +77,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
     but_secret::secret::set_application_namespace(namespace);
-    let start = std::time::Instant::now();
 
     // If no subcommand is provided but we have source and target, default to rub
     match args.cmd.take() {
@@ -100,13 +91,13 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 .as_ref()
                 .expect("target is checked to be Some in match guard");
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result =
-                rub::handle(&project, args.json, source, target).context("Rubbed the wrong way.");
-            if let Err(e) = &result {
-                writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
-            }
-            metrics_if_configured(app_settings, args::CommandName::Rub, props(start, &result)).ok();
-            result
+            rub::handle(&project, args.json, source, target)
+                .context("Rubbed the wrong way.")
+                .emit_metrics(MetricsContext::new_if_enabled(
+                    &app_settings,
+                    CommandName::Rub,
+                ))
+                .show_root_cause_error_then_exit()
         }
         None if args.source_or_path.is_some() && args.target.is_none() => {
             // If only one argument is provided without a subcommand, check if this is a valid path.
@@ -123,7 +114,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             print_grouped_help().ok();
             Ok(())
         }
-        Some(cmd) => match_subcommand(cmd, args, app_settings, start, out).await,
+        Some(cmd) => match_subcommand(cmd, args, app_settings, out).await,
     }
 }
 
@@ -131,10 +122,10 @@ async fn match_subcommand(
     cmd: Subcommands,
     args: Args,
     app_settings: AppSettings,
-    start: std::time::Instant,
     mut out: Output,
 ) -> Result<()> {
-    let metrics_cmd = cmd.to_metrics_command();
+    let out = &mut out;
+    let metrics_ctx = cmd.to_metrics_context(&app_settings);
 
     match cmd {
         Subcommands::Mcp { internal } => {
@@ -169,27 +160,16 @@ async fn match_subcommand(
             Ok(())
         }
         Subcommands::Claude(claude::Platform { cmd }) => match cmd {
-            claude::Subcommands::PreTool => {
-                let result = but_claude::hooks::handle_pre_tool_call();
-                let p = props(start, &result);
-                result.out_json();
-                metrics_if_configured(app_settings, metrics_cmd, p).ok();
-                Ok(())
-            }
-            claude::Subcommands::PostTool => {
-                let result = but_claude::hooks::handle_post_tool_call();
-                let p = props(start, &result);
-                result.out_json();
-                metrics_if_configured(app_settings, metrics_cmd, p).ok();
-                Ok(())
-            }
-            claude::Subcommands::Stop => {
-                let result = but_claude::hooks::handle_stop().await;
-                let p = props(start, &result);
-                result.out_json();
-                metrics_if_configured(app_settings, metrics_cmd, p).ok();
-                Ok(())
-            }
+            claude::Subcommands::PreTool => but_claude::hooks::handle_pre_tool_call()
+                .output_claude_json()
+                .emit_metrics(metrics_ctx),
+            claude::Subcommands::PostTool => but_claude::hooks::handle_post_tool_call()
+                .output_claude_json()
+                .emit_metrics(metrics_ctx),
+            claude::Subcommands::Stop => but_claude::hooks::handle_stop()
+                .await
+                .output_claude_json()
+                .emit_metrics(metrics_ctx),
             claude::Subcommands::PermissionPromptMcp { session_id } => {
                 but_claude::mcp::start(&args.current_dir, &session_id).await
             }
@@ -244,48 +224,33 @@ async fn match_subcommand(
             }
         },
         Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
-            cursor::Subcommands::AfterEdit => {
-                let mut stdout = std::io::stdout();
-                let result = but_cursor::handle_after_edit().await;
-                let p = props(start, &result);
-                writeln!(stdout, "{}", serde_json::to_string(&result?)?).ok();
-                metrics_if_configured(app_settings, metrics_cmd, p).ok();
-                Ok(())
-            }
-            cursor::Subcommands::Stop { nightly } => {
-                let mut stdout = std::io::stdout();
-                let result = but_cursor::handle_stop(nightly).await;
-                let p = props(start, &result);
-                writeln!(stdout, "{}", serde_json::to_string(&result?)?).ok();
-                metrics_if_configured(app_settings, metrics_cmd, p).ok();
-                Ok(())
-            }
+            cursor::Subcommands::AfterEdit => but_cursor::handle_after_edit()
+                .await
+                .output_json(true)
+                .emit_metrics(metrics_ctx),
+            cursor::Subcommands::Stop { nightly } => but_cursor::handle_stop(nightly)
+                .await
+                .output_json(true)
+                .emit_metrics(metrics_ctx),
         },
         Subcommands::Base(base::Platform { cmd }) => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = base::handle(cmd, &project, args.json);
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            Ok(())
+            base::handle(cmd, &project, args.json).emit_metrics(metrics_ctx)
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let ctx = get_or_init_context_with_legacy_support(&args.current_dir)?;
-            branch::handle(cmd, &ctx, &mut out)
+            branch::handle(cmd, &ctx, out)
                 .await
                 .output_json(args.json)
-                .emit_metrics(app_settings, metrics_cmd, start)
+                .emit_metrics(metrics_ctx)
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = worktree::handle(cmd, &project, args.json);
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            worktree::handle(cmd, &project, args.json).emit_metrics(metrics_ctx)
         }
         Subcommands::Log => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = log::commit_graph(&project, args.json);
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result?;
-            Ok(())
+            log::commit_graph(&project, args.json).emit_metrics(metrics_ctx)
         }
         Subcommands::Status {
             show_files,
@@ -293,54 +258,38 @@ async fn match_subcommand(
             review,
         } => {
             let project = get_or_init_context_with_legacy_support(&args.current_dir)?;
-            let result = status::worktree(&project, args.json, show_files, verbose, review).await;
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            status::worktree(&project, out, show_files, verbose, review)
+                .await
+                .emit_metrics(metrics_ctx)
         }
         Subcommands::Stf { verbose, review } => {
             let project = get_or_init_context_with_legacy_support(&args.current_dir)?;
-            let result = status::worktree(&project, args.json, true, verbose, review).await;
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            status::worktree(&project, out, true, verbose, review)
+                .await
+                .emit_metrics(metrics_ctx)
         }
         Subcommands::Rub { source, target } => {
-            let mut stderr = std::io::stderr();
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result =
-                rub::handle(&project, args.json, &source, &target).context("Rubbed the wrong way.");
-            if let Err(e) = &result {
-                writeln!(stderr, "{} {}", e, e.root_cause()).ok();
-            }
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            rub::handle(&project, args.json, &source, &target)
+                .context("Rubbed the wrong way.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit()
         }
         Subcommands::Mark { target, delete } => {
-            let mut stderr = std::io::stderr();
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = mark::handle(&project, args.json, &target, delete)
-                .context("Can't mark this. Taaaa-na-na-na. Can't mark this.");
-            if let Err(e) = &result {
-                writeln!(stderr, "{} {}", e, e.root_cause()).ok();
-            }
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            mark::handle(&project, args.json, &target, delete)
+                .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit()
         }
         Subcommands::Unmark => {
-            let mut stderr = std::io::stderr();
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = mark::unmark(&project, args.json)
-                .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.");
-            if let Err(e) = &result {
-                writeln!(stderr, "{} {}", e, e.root_cause()).ok();
-            }
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            mark::unmark(&project, args.json)
+                .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit()
         }
-        Subcommands::Gui => {
-            let result = gui::open(&args.current_dir);
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
-        }
+        Subcommands::Gui => gui::open(&args.current_dir).emit_metrics(metrics_ctx),
         Subcommands::Commit {
             message,
             branch,
@@ -348,72 +297,56 @@ async fn match_subcommand(
             only,
         } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = commit::commit(
+            commit::commit(
                 &project,
                 args.json,
                 message.as_deref(),
                 branch.as_deref(),
                 only,
                 create,
-            );
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            )
+            .emit_metrics(metrics_ctx)
         }
         Subcommands::Push(push_args) => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = push::handle(push_args, &project, args.json);
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            push::handle(push_args, &project, args.json).emit_metrics(metrics_ctx)
         }
         Subcommands::New { target } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = commit::insert_blank_commit(&project, args.json, &target);
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            commit::insert_blank_commit(&project, args.json, &target).emit_metrics(metrics_ctx)
         }
         Subcommands::Describe { target } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = describe::describe_target(&project, args.json, &target);
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            describe::describe_target(&project, args.json, &target).emit_metrics(metrics_ctx)
         }
         Subcommands::Oplog { since } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = oplog::show_oplog(&project, args.json, since.as_deref());
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            oplog::show_oplog(&project, args.json, since.as_deref()).emit_metrics(metrics_ctx)
         }
         Subcommands::Restore { oplog_sha, force } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = oplog::restore_to_oplog(&project, args.json, &oplog_sha, force);
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            oplog::restore_to_oplog(&project, args.json, &oplog_sha, force)
+                .emit_metrics(metrics_ctx)
         }
         Subcommands::Undo => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = oplog::undo_last_operation(&project, args.json);
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            oplog::undo_last_operation(&project, args.json).emit_metrics(metrics_ctx)
         }
         Subcommands::Snapshot { message } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = oplog::create_snapshot(&project, args.json, message.as_deref());
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            oplog::create_snapshot(&project, args.json, message.as_deref())
+                .emit_metrics(metrics_ctx)
         }
         Subcommands::Absorb { source } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let result = absorb::handle(&project, args.json, source.as_deref());
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
+            absorb::handle(&project, args.json, source.as_deref()).emit_metrics(metrics_ctx)
         }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, repo)
-            .context("Failed to initialize GitButler project."),
-        Subcommands::Forge(forge::integration::Platform { cmd }) => {
-            let result = forge::integration::handle(cmd).await;
-            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-            result
-        }
+            .context("Failed to initialize GitButler project.")
+            .emit_metrics(metrics_ctx),
+        Subcommands::Forge(forge::integration::Platform { cmd }) => forge::integration::handle(cmd)
+            .await
+            .emit_metrics(metrics_ctx),
         Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
             forge::review::Subcommands::Publish {
                 branch,
@@ -423,7 +356,7 @@ async fn match_subcommand(
                 default,
             } => {
                 let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-                let result = forge::review::publish_reviews(
+                forge::review::publish_reviews(
                     &project,
                     branch,
                     skip_force_push_protection,
@@ -433,19 +366,19 @@ async fn match_subcommand(
                     args.json,
                 )
                 .await
-                .context("Failed to publish reviews for branches.");
-                metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-                result
+                .context("Failed to publish reviews for branches.")
+                .emit_metrics(metrics_ctx)
             }
             forge::review::Subcommands::Template { template_path } => {
                 let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-                let result = forge::review::set_review_template(&project, template_path, args.json)
-                    .context("Failed to set review template.");
-                metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
-                result
+                forge::review::set_review_template(&project, template_path, args.json)
+                    .context("Failed to set review template.")
+                    .emit_metrics(metrics_ctx)
             }
         },
-        Subcommands::Completions { shell } => completions::generate_completions(shell),
+        Subcommands::Completions { shell } => {
+            completions::generate_completions(shell).emit_metrics(metrics_ctx)
+        }
     }
 }
 

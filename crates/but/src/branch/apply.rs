@@ -1,9 +1,8 @@
-use crate::utils::{Output, OutputFormat};
+use crate::utils::Output;
 use anyhow::bail;
 use bstr::ByteSlice;
 use gitbutler_reference::RemoteRefname;
 use gix::reference::Category;
-use std::io::Write;
 use std::{ops::Deref, str::FromStr};
 
 /// Apply a branch to the workspace, and return the full ref name to it.
@@ -53,23 +52,20 @@ pub fn apply(
         bail!("Could not find branch '{branch_name}' in local repository");
     };
 
-    match out.format {
-        OutputFormat::Human => {
-            let short_name = reference.name().shorten();
-            let is_remote_reference = reference
-                .name()
-                .category()
-                .is_some_and(|c| c == Category::RemoteBranch);
-            if is_remote_reference {
-                writeln!(out, "Applied remote branch '{short_name}' to workspace")
-            } else {
-                writeln!(out, "Applied branch '{short_name}' to workspace")
-            }
-            .ok();
+    if let Some(out) = out.for_human() {
+        let short_name = reference.name().shorten();
+        let is_remote_reference = reference
+            .name()
+            .category()
+            .is_some_and(|c| c == Category::RemoteBranch);
+        if is_remote_reference {
+            writeln!(out, "Applied remote branch '{short_name}' to workspace")
+        } else {
+            writeln!(out, "Applied branch '{short_name}' to workspace")
         }
-        OutputFormat::Shell => {
-            writeln!(out, "{reference_name}", reference_name = reference.name())?;
-        }
+        .ok();
+    } else if let Some(out) = out.for_shell() {
+        writeln!(out, "{reference_name}", reference_name = reference.name())?;
     }
 
     Ok(reference.inner.into())

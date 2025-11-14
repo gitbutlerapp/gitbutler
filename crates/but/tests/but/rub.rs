@@ -16,10 +16,6 @@ fn shorthand_without_subcommand() -> anyhow::Result<()> {
         .failure()
         .stderr_eq(str![[r#"
 Rubbed the wrong way. Source 'nonexistent1' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.
-Error: Rubbed the wrong way.
-
-Caused by:
-    Source 'nonexistent1' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.
 
 "#]]);
 

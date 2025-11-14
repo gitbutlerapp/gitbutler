@@ -1,4 +1,4 @@
-use crate::forge::review;
+use crate::utils::OutputFormat;
 use crate::{base, branch, forge};
 use std::path::PathBuf;
 
@@ -203,70 +203,10 @@ For examples see `but rub --help`."
     },
 }
 
-impl Subcommands {
-    pub fn to_metrics_command(&self) -> CommandName {
-        use CommandName::*;
-        match self {
-            Subcommands::Log => Log,
-            Subcommands::Status { .. } => Status,
-            Subcommands::Stf { .. } => Stf,
-            Subcommands::Rub { .. } => Rub,
-            Subcommands::Base(base::Platform { cmd }) => match cmd {
-                base::Subcommands::Update => BaseUpdate,
-                base::Subcommands::Check => BaseCheck,
-            },
-            Subcommands::Branch(branch::Platform { cmd }) => match cmd {
-                None | Some(branch::Subcommands::List { .. }) => BranchList,
-                Some(branch::Subcommands::New { .. }) => BranchNew,
-                Some(branch::Subcommands::Delete { .. }) => BranchDelete,
-                Some(branch::Subcommands::Unapply { .. }) => BranchUnapply,
-                Some(branch::Subcommands::Apply { .. }) => BranchApply,
-            },
-            Subcommands::Worktree(crate::worktree::Platform { cmd: _ }) => Worktree,
-            Subcommands::Mark { .. } => Mark,
-            Subcommands::Unmark => Unmark,
-            Subcommands::Gui => Gui,
-            Subcommands::Commit { .. } => Commit,
-            Subcommands::Push(_) => Push,
-            Subcommands::New { .. } => New,
-            Subcommands::Describe { .. } => Describe,
-            Subcommands::Oplog { .. } => Oplog,
-            Subcommands::Restore { .. } => Restore,
-            Subcommands::Undo => Undo,
-            Subcommands::Snapshot { .. } => Snapshot,
-            Subcommands::Claude(claude::Platform { cmd }) => match cmd {
-                claude::Subcommands::PreTool => ClaudePreTool,
-                claude::Subcommands::PostTool => ClaudePostTool,
-                claude::Subcommands::Stop => ClaudeStop,
-                claude::Subcommands::Last { .. }
-                | claude::Subcommands::PermissionPromptMcp { .. } => Unknown,
-            },
-            Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
-                cursor::Subcommands::AfterEdit => CursorAfterEdit,
-                cursor::Subcommands::Stop { .. } => CursorStop,
-            },
-            Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
-                forge::integration::Subcommands::Auth => ForgeAuth,
-                forge::integration::Subcommands::Forget { .. } => ForgeForget,
-                forge::integration::Subcommands::ListUsers => ForgeListUsers,
-            },
-            Subcommands::Review(review::Platform { cmd }) => match cmd {
-                review::Subcommands::Publish { .. } => PublishReview,
-                review::Subcommands::Template { .. } => ReviewTemplate,
-            },
-            Subcommands::Completions { .. } => Completions,
-            Subcommands::Absorb { .. } => Absorb,
-            Subcommands::Metrics { .. }
-            | Subcommands::Actions(_)
-            | Subcommands::Mcp { .. }
-            | Subcommands::Init { .. } => Unknown,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum CommandName {
     Log,
+    Init,
     Absorb,
     Status,
     Stf,
@@ -303,18 +243,6 @@ pub enum CommandName {
     Completions,
     #[default]
     Unknown,
-}
-
-/// How to format the output.
-#[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    /// Produce verbose output for human consumption.
-    #[default]
-    Human,
-    /// The output is optimised for variable assignment in shells.
-    Shell,
-    /// Output detailed information as JSON for tool consumption.
-    Json,
 }
 
 pub mod actions {

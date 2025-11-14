@@ -7,6 +7,94 @@ use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::args::CommandName;
+use crate::utils::ResultMetricsExt;
+
+/// All we need to emit metrics.
+pub struct MetricsContext {
+    start: std::time::Instant,
+    pub command: CommandName,
+}
+
+impl MetricsContext {
+    pub fn new_if_enabled(settings: &AppSettings, cmd: CommandName) -> Option<Self> {
+        settings.telemetry.app_metrics_enabled.then(|| Self {
+            start: std::time::Instant::now(),
+            command: cmd,
+        })
+    }
+}
+
+mod subcommands_impl {
+    use crate::args::{Subcommands, claude, cursor};
+    use crate::forge::review;
+    use crate::metrics::MetricsContext;
+    use crate::{base, branch, forge};
+    use but_settings::AppSettings;
+
+    impl Subcommands {
+        /// Create all context that is needed to emit metrics for `self` once, if `settings` permit.
+        pub fn to_metrics_context(&self, settings: &AppSettings) -> Option<MetricsContext> {
+            use crate::args::CommandName::*;
+            let cmd = match self {
+                Subcommands::Log => Log,
+                Subcommands::Status { .. } => Status,
+                Subcommands::Stf { .. } => Stf,
+                Subcommands::Rub { .. } => Rub,
+                Subcommands::Base(base::Platform { cmd }) => match cmd {
+                    base::Subcommands::Update => BaseUpdate,
+                    base::Subcommands::Check => BaseCheck,
+                },
+                Subcommands::Branch(branch::Platform { cmd }) => match cmd {
+                    None | Some(branch::Subcommands::List { .. }) => BranchList,
+                    Some(branch::Subcommands::New { .. }) => BranchNew,
+                    Some(branch::Subcommands::Delete { .. }) => BranchDelete,
+                    Some(branch::Subcommands::Unapply { .. }) => BranchUnapply,
+                    Some(branch::Subcommands::Apply { .. }) => BranchApply,
+                },
+                Subcommands::Worktree(crate::worktree::Platform { cmd: _ }) => Worktree,
+                Subcommands::Mark { .. } => Mark,
+                Subcommands::Unmark => Unmark,
+                Subcommands::Gui => Gui,
+                Subcommands::Commit { .. } => Commit,
+                Subcommands::Push(_) => Push,
+                Subcommands::New { .. } => New,
+                Subcommands::Describe { .. } => Describe,
+                Subcommands::Oplog { .. } => Oplog,
+                Subcommands::Restore { .. } => Restore,
+                Subcommands::Undo => Undo,
+                Subcommands::Snapshot { .. } => Snapshot,
+                Subcommands::Claude(claude::Platform { cmd }) => match cmd {
+                    claude::Subcommands::PreTool => ClaudePreTool,
+                    claude::Subcommands::PostTool => ClaudePostTool,
+                    claude::Subcommands::Stop => ClaudeStop,
+                    claude::Subcommands::Last { .. }
+                    | claude::Subcommands::PermissionPromptMcp { .. } => Unknown,
+                },
+                Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
+                    cursor::Subcommands::AfterEdit => CursorAfterEdit,
+                    cursor::Subcommands::Stop { .. } => CursorStop,
+                },
+                Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
+                    forge::integration::Subcommands::Auth => ForgeAuth,
+                    forge::integration::Subcommands::Forget { .. } => ForgeForget,
+                    forge::integration::Subcommands::ListUsers => ForgeListUsers,
+                },
+                Subcommands::Review(review::Platform { cmd }) => match cmd {
+                    review::Subcommands::Publish { .. } => PublishReview,
+                    review::Subcommands::Template { .. } => ReviewTemplate,
+                },
+                Subcommands::Completions { .. } => Completions,
+                Subcommands::Absorb { .. } => Absorb,
+                Subcommands::Init { .. } => Init,
+                Subcommands::Metrics { .. } | Subcommands::Actions(_) | Subcommands::Mcp { .. } => {
+                    Unknown
+                }
+            };
+
+            MetricsContext::new_if_enabled(settings, cmd)
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -26,6 +114,7 @@ pub enum EventKind {
 #[serde(rename_all = "camelCase")]
 pub enum Command {
     Log,
+    Init,
     Status,
     Stf,
     Rub,
@@ -100,6 +189,7 @@ impl From<CommandName> for EventKind {
             CommandName::ReviewTemplate => EventKind::Cli(Command::PublishReview),
             CommandName::Completions => EventKind::Cli(Command::Completions),
             CommandName::Absorb => EventKind::Cli(Command::Absorb),
+            CommandName::Init => EventKind::Cli(Command::Init),
             CommandName::Unknown => EventKind::Cli(Command::Unknown),
         }
     }
@@ -264,16 +354,18 @@ fn posthog_client(app_settings: AppSettings) -> Option<impl Future<Output = post
     }
 }
 
-/// If metrics are configured, this function spawns a process to handle metrics logging so that this CLI process can exit as soon as possible.
-pub(crate) fn metrics_if_configured(
-    app_settings: AppSettings,
-    cmd: CommandName,
-    props: Props,
-) -> anyhow::Result<()> {
-    if !app_settings.telemetry.app_metrics_enabled {
-        return Ok(());
-    }
-    if let Some(v) = cmd.to_possible_value() {
+impl<T> ResultMetricsExt for anyhow::Result<T> {
+    fn emit_metrics(self, ctx: Option<MetricsContext>) -> anyhow::Result<()> {
+        let Some(MetricsContext { start, command }) = ctx else {
+            return self.map(|_| ());
+        };
+
+        let props = Props::from_result(start, &self);
+        let Some(v) = command.to_possible_value() else {
+            tracing::warn!("BUG: didn't get string value for {command:?}");
+            return self.map(|_| ());
+        };
+
         let binary_path = std::env::current_exe().unwrap_or_default();
         tokio::process::Command::new(binary_path)
             .arg("metrics")
@@ -286,6 +378,6 @@ pub(crate) fn metrics_if_configured(
             .group()
             .kill_on_drop(false)
             .spawn()?;
+        self.map(|_| ())
     }
-    Ok(())
 }
