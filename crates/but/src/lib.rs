@@ -33,6 +33,7 @@ mod mcp;
 mod mcp_internal;
 mod metrics;
 mod oplog;
+mod pager;
 mod push;
 mod rub;
 mod status;
@@ -77,6 +78,11 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
     but_secret::secret::set_application_namespace(namespace);
+
+    // Setup pager for long output if appropriate (terminal output, not JSON mode)
+    if !args.json {
+        pager::setup_pager_if_appropriate().ok();
+    }
 
     // If no subcommand is provided but we have source and target, default to rub
     match args.cmd.take() {
