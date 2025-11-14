@@ -104,7 +104,7 @@ describe('Branch Actions - single branch with uncommitted changes', () => {
 		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
 
-	it('should be able to create a new branch from the workspace button', () => {
+	it('should be able to create a new branch from the ChromeHeader context menu', () => {
 		const newBranchName = 'new-branch-from-workspace';
 
 		// Click the button to commit into new branch
@@ -116,8 +116,11 @@ describe('Branch Actions - single branch with uncommitted changes', () => {
 		// Cancel the commit
 		cy.getByTestId('commit-drawer-cancel-button').should('be.visible').click();
 
-		// Create a new branch
-		cy.getByTestId('create-stack-button').should('be.visible').click();
+		// Open the "Create new" context menu in the ChromeHeader
+		cy.getByTestId('chrome-create-new-button').should('be.visible').click();
+
+		// Click on the "Branch" menu item
+		cy.getByTestId('chrome-header-create-branch-menu-item').should('be.visible').click();
 
 		// The create branch dialog should be visible
 		cy.getByTestId('create-new-branch-modal').should('be.visible');

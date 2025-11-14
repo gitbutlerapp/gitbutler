@@ -261,6 +261,7 @@
 			/>
 		{/if}
 		<Button
+			testId={TestId.ChromeCreateNewButton}
 			bind:el={createNewTrigger}
 			kind="outline"
 			icon="plus-small"
@@ -277,6 +278,7 @@
 			icon="branch-remote"
 			label="Branch"
 			keyboardShortcut="$mod+B"
+			testId={TestId.ChromeHeaderCreateBranchMenuItem}
 			onclick={() => {
 				createBranchModal?.show();
 				createNewContextMenu?.close();
@@ -285,6 +287,7 @@
 		<ContextMenuItem
 			icon="ai-outline"
 			label="Codegen session"
+			testId={TestId.ChromeHeaderCreateCodegenSessionMenuItem}
 			onclick={() => {
 				uiState.project(projectId).exclusiveAction.set({ type: 'codegen' });
 				createNewContextMenu?.close();
