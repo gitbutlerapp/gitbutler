@@ -116,11 +116,8 @@ describe('Branch Actions - single branch with uncommitted changes', () => {
 		// Cancel the commit
 		cy.getByTestId('commit-drawer-cancel-button').should('be.visible').click();
 
-		// Open the "Create new" context menu in the ChromeHeader
-		cy.getByTestId('chrome-create-new-button').should('be.visible').click();
-
-		// Click on the "Branch" menu item
-		cy.getByTestId('chrome-header-create-branch-menu-item').should('be.visible').click();
+		// Click on the "Create branch" button in the ChromeHeader
+		cy.getByTestId('chrome-header-create-branch-button').should('be.visible').click();
 
 		// The create branch dialog should be visible
 		cy.getByTestId('create-new-branch-modal').should('be.visible');
