@@ -185,8 +185,8 @@
 				persistId="resizer-draft-codegen"
 				viewport={draftCodegenEl}
 				direction="right"
-				defaultValue={23}
-				minWidth={16}
+				defaultValue={32}
+				minWidth={20}
 				maxWidth={64}
 			/>
 		{/if}
