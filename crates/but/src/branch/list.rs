@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::we_need_proper_json_output_here;
+use crate::utils::we_need_proper_json_output_here;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_project::Project;

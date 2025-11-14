@@ -88,6 +88,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
 
     env
         .but("--json status")
+        .env_remove("BUT_OUTPUT_FORMAT")
         .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .success()

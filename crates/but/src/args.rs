@@ -1,6 +1,6 @@
+use crate::forge::review;
+use crate::{base, branch, forge};
 use std::path::PathBuf;
-
-use crate::forge;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("GIX_VERSION"))]
@@ -11,6 +11,11 @@ pub struct Args {
     /// Run as if gitbutler-cli was started in PATH instead of the current working directory.
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
     pub current_dir: PathBuf,
+    /// Explicitly control how output should be formatted.
+    ///
+    /// If unset and from a terminal, it defaults to human output, when redirected it's for shells.
+    #[clap(long, short = 'f', env = "BUT_OUTPUT_FORMAT", conflicts_with = "json")]
+    pub format: Option<OutputFormat>,
     /// Whether to use JSON output format.
     #[clap(long, short = 'j', global = true)]
     pub json: bool,
@@ -84,9 +89,9 @@ For examples see `but rub --help`."
         repo: bool,
     },
     /// Commands for managing the base.
-    Base(crate::base::Platform),
+    Base(base::Platform),
     /// Commands for managing branches.
-    Branch(crate::branch::Platform),
+    Branch(branch::Platform),
     /// Commands for managing worktrees.
     #[clap(hide = true)]
     Worktree(crate::worktree::Platform),
@@ -198,35 +203,82 @@ For examples see `but rub --help`."
     },
 }
 
+impl Subcommands {
+    pub fn to_metrics_command(&self) -> CommandName {
+        use CommandName::*;
+        match self {
+            Subcommands::Log => Log,
+            Subcommands::Status { .. } => Status,
+            Subcommands::Stf { .. } => Stf,
+            Subcommands::Rub { .. } => Rub,
+            Subcommands::Base(base::Platform { cmd }) => match cmd {
+                base::Subcommands::Update => BaseUpdate,
+                base::Subcommands::Check => BaseCheck,
+            },
+            Subcommands::Branch(branch::Platform { cmd }) => match cmd {
+                None | Some(branch::Subcommands::List { .. }) => BranchList,
+                Some(branch::Subcommands::New { .. }) => BranchNew,
+                Some(branch::Subcommands::Delete { .. }) => BranchDelete,
+                Some(branch::Subcommands::Unapply { .. }) => BranchUnapply,
+                Some(branch::Subcommands::Apply { .. }) => BranchApply,
+            },
+            Subcommands::Worktree(crate::worktree::Platform { cmd: _ }) => Worktree,
+            Subcommands::Mark { .. } => Mark,
+            Subcommands::Unmark => Unmark,
+            Subcommands::Gui => Gui,
+            Subcommands::Commit { .. } => Commit,
+            Subcommands::Push(_) => Push,
+            Subcommands::New { .. } => New,
+            Subcommands::Describe { .. } => Describe,
+            Subcommands::Oplog { .. } => Oplog,
+            Subcommands::Restore { .. } => Restore,
+            Subcommands::Undo => Undo,
+            Subcommands::Snapshot { .. } => Snapshot,
+            Subcommands::Claude(claude::Platform { cmd }) => match cmd {
+                claude::Subcommands::PreTool => ClaudePreTool,
+                claude::Subcommands::PostTool => ClaudePostTool,
+                claude::Subcommands::Stop => ClaudeStop,
+                claude::Subcommands::Last { .. }
+                | claude::Subcommands::PermissionPromptMcp { .. } => Unknown,
+            },
+            Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
+                cursor::Subcommands::AfterEdit => CursorAfterEdit,
+                cursor::Subcommands::Stop { .. } => CursorStop,
+            },
+            Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
+                forge::integration::Subcommands::Auth => ForgeAuth,
+                forge::integration::Subcommands::Forget { .. } => ForgeForget,
+                forge::integration::Subcommands::ListUsers => ForgeListUsers,
+            },
+            Subcommands::Review(review::Platform { cmd }) => match cmd {
+                review::Subcommands::Publish { .. } => PublishReview,
+                review::Subcommands::Template { .. } => ReviewTemplate,
+            },
+            Subcommands::Completions { .. } => Completions,
+            Subcommands::Absorb { .. } => Absorb,
+            Subcommands::Metrics { .. }
+            | Subcommands::Actions(_)
+            | Subcommands::Mcp { .. }
+            | Subcommands::Init { .. } => Unknown,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum CommandName {
-    #[clap(alias = "log")]
     Log,
-    #[clap(alias = "absorb")]
     Absorb,
-    #[clap(alias = "st")]
     Status,
-    #[clap(alias = "stf", hide = true)]
     Stf,
-    #[clap(alias = "rub")]
     Rub,
-    #[clap(alias = "commit")]
     Commit,
-    #[clap(alias = "push")]
     Push,
-    #[clap(alias = "new")]
     New,
-    #[clap(alias = "describe")]
     Describe,
-    #[clap(alias = "oplog")]
     Oplog,
-    #[clap(alias = "restore")]
     Restore,
-    #[clap(alias = "undo")]
     Undo,
-    #[clap(alias = "snapshot")]
     Snapshot,
-    #[clap(alias = "gui")]
     Gui,
     BaseCheck,
     BaseUpdate,
@@ -235,40 +287,10 @@ pub enum CommandName {
     BranchList,
     BranchUnapply,
     BranchApply,
-    #[clap(
-        alias = "claude-pre-tool",
-        alias = "claudepretool",
-        alias = "claudePreTool",
-        alias = "ClaudePreTool"
-    )]
     ClaudePreTool,
-    #[clap(
-        alias = "claude-post-tool",
-        alias = "claudeposttool",
-        alias = "claudePostTool",
-        alias = "ClaudePostTool"
-    )]
     ClaudePostTool,
-    #[clap(
-        alias = "claude-stop",
-        alias = "claudestop",
-        alias = "claudeStop",
-        alias = "ClaudeStop"
-    )]
     ClaudeStop,
-    #[clap(
-        alias = "cursor-after-edit",
-        alias = "cursorafteredit",
-        alias = "cursorAfterEdit",
-        alias = "CursorAfterEdit"
-    )]
     CursorAfterEdit,
-    #[clap(
-        alias = "cursor-stop",
-        alias = "cursorstop",
-        alias = "cursorStop",
-        alias = "CursorStop"
-    )]
     CursorStop,
     Worktree,
     Mark,
@@ -281,6 +303,18 @@ pub enum CommandName {
     Completions,
     #[default]
     Unknown,
+}
+
+/// How to format the output.
+#[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
+pub enum OutputFormat {
+    /// Produce verbose output for human consumption.
+    #[default]
+    Human,
+    /// The output is optimised for variable assignment in shells.
+    Shell,
+    /// Output detailed information as JSON for tool consumption.
+    Json,
 }
 
 pub mod actions {

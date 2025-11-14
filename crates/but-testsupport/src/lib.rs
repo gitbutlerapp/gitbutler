@@ -51,8 +51,13 @@ pub fn git_at_dir(dir: impl AsRef<Path>) -> std::process::Command {
 /// Run the given `script` in bash, with the `cwd` set to the `repo` worktree.
 /// Panic if the script fails.
 pub fn invoke_bash(script: &str, repo: &gix::Repository) {
+    invoke_bash_at_dir(script, repo.workdir().unwrap_or(repo.git_dir()))
+}
+/// Run the given `script` in bash, with the `cwd` set to `dir`.
+/// Panic if the script fails.
+pub fn invoke_bash_at_dir(script: &str, dir: &Path) {
     let mut cmd = std::process::Command::new("bash");
-    cmd.current_dir(repo.workdir().unwrap_or(repo.git_dir()));
+    cmd.current_dir(dir);
     isolate_env_std_cmd(&mut cmd);
     cmd.stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())

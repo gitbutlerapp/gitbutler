@@ -1,6 +1,9 @@
+use crate::utils::{Output, OutputFormat};
 use anyhow::bail;
 use bstr::ByteSlice;
 use gitbutler_reference::RemoteRefname;
+use gix::reference::Category;
+use std::io::Write;
 use std::{ops::Deref, str::FromStr};
 
 /// Apply a branch to the workspace, and return the full ref name to it.
@@ -9,7 +12,7 @@ use std::{ops::Deref, str::FromStr};
 pub fn apply(
     ctx: &but_ctx::Context,
     branch_name: &str,
-    json: bool,
+    out: &mut Output,
 ) -> anyhow::Result<but_api::json::Reference> {
     let legacy_project = &ctx.legacy_project;
     let ctx = ctx.legacy_ctx()?;
@@ -32,9 +35,6 @@ pub fn apply(
             remote_ref_name,
             None,
         )?;
-        if !json {
-            println!("Applied branch '{branch_name}' to workspace");
-        }
         reference
     } else if let Some((remote_ref, reference)) = find_remote_reference(&repo, branch_name)? {
         let remote = remote_ref.remote();
@@ -48,13 +48,29 @@ pub fn apply(
             Some(remote_ref.clone()),
             None,
         )?;
-        if !json {
-            println!("Applied remote branch '{branch_name}' to workspace");
-        }
         reference
     } else {
         bail!("Could not find branch '{branch_name}' in local repository");
     };
+
+    match out.format {
+        OutputFormat::Human => {
+            let short_name = reference.name().shorten();
+            let is_remote_reference = reference
+                .name()
+                .category()
+                .is_some_and(|c| c == Category::RemoteBranch);
+            if is_remote_reference {
+                writeln!(out, "Applied remote branch '{short_name}' to workspace")
+            } else {
+                writeln!(out, "Applied branch '{short_name}' to workspace")
+            }
+            .ok();
+        }
+        OutputFormat::Shell => {
+            writeln!(out, "{reference_name}", reference_name = reference.name())?;
+        }
+    }
 
     Ok(reference.inner.into())
 }

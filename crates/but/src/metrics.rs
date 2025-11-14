@@ -116,6 +116,18 @@ impl Props {
         }
     }
 
+    pub fn from_result<E, T, R>(start: std::time::Instant, result: R) -> Props
+    where
+        R: std::ops::Deref<Target = anyhow::Result<T, E>>,
+        E: std::fmt::Display,
+    {
+        let error = result.as_ref().err().map(|e| e.to_string());
+        let mut props = Props::new();
+        props.insert("durationMs", start.elapsed().as_millis());
+        props.insert("error", error);
+        props
+    }
+
     pub fn insert<K: Into<String>, V: Serialize>(&mut self, key: K, value: V) {
         if let Ok(value) = serde_json::to_value(value) {
             self.values.insert(key.into(), value);
