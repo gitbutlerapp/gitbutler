@@ -46,16 +46,19 @@
 		const mentionEnd = mentionMatch.end;
 
 		// Replace the search text with the selected mention
-		editor.update(() => {
-			const selection = getSelection();
-			insertMention({
-				selection,
-				start: mentionStart,
-				end: mentionEnd,
-				id: suggestion.id,
-				label: suggestion.label
-			});
-		});
+		editor.update(
+			() => {
+				const selection = getSelection();
+				insertMention({
+					selection,
+					start: mentionStart,
+					end: mentionEnd,
+					id: suggestion.id,
+					label: suggestion.label
+				});
+			},
+			{ tag: 'history-merge' }
+		);
 
 		exit();
 	}

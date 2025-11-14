@@ -129,37 +129,40 @@ export function getSelectionPosition(windowScrollY?: number) {
  * offset are passed.
  */
 export function insertFilePath(editor: LexicalEditor, path: string, count: number) {
-	editor.update(() => {
-		const selection = $getSelection();
-		if (!$isRangeSelection(selection)) {
-			return;
-		}
+	editor.update(
+		() => {
+			const selection = $getSelection();
+			if (!$isRangeSelection(selection)) {
+				return;
+			}
 
-		const pathNode = new TextNode(path);
+			const pathNode = new TextNode(path);
 
-		const node = selection.getNodes().at(0);
+			const node = selection.getNodes().at(0);
 
-		if (!(node instanceof TextNode)) {
-			selection.insertNodes([pathNode]);
-			return;
-		}
+			if (!(node instanceof TextNode)) {
+				selection.insertNodes([pathNode]);
+				return;
+			}
 
-		const offset = selection.anchor.offset;
-		let target: TextNode | undefined;
+			const offset = selection.anchor.offset;
+			let target: TextNode | undefined;
 
-		if (offset === count) {
-			[target] = node.splitText(count);
-		} else {
-			[, target] = node.splitText(offset - count, offset);
-		}
+			if (offset === count) {
+				[target] = node.splitText(count);
+			} else {
+				[, target] = node.splitText(offset - count, offset);
+			}
 
-		if (!target) {
-			throw new Error('Expected target');
-		}
+			if (!target) {
+				throw new Error('Expected target');
+			}
 
-		target.replace(pathNode, false);
-		pathNode.selectEnd();
-	});
+			target.replace(pathNode, false);
+			pathNode.selectEnd();
+		},
+		{ tag: 'history-merge' }
+	);
 }
 
 /**
@@ -200,24 +203,30 @@ export function insertImageAtCaret(
 }
 
 export function insertTextAtCaret(editor: LexicalEditor, text: string) {
-	editor.update(() => {
-		const selection = $getSelection();
-		if (!$isRangeSelection(selection)) {
-			return;
-		}
-		const node = selection.getNodes().at(0);
+	editor.update(
+		() => {
+			const selection = $getSelection();
+			if (!$isRangeSelection(selection)) {
+				return;
+			}
+			const node = selection.getNodes().at(0);
 
-		if (!(node instanceof TextNode)) {
-			selection.insertText(text);
-			return;
-		}
-		const offset = selection.anchor.offset;
-		node.spliceText(offset, 0, text);
-	});
+			if (!(node instanceof TextNode)) {
+				selection.insertText(text);
+				return;
+			}
+			const offset = selection.anchor.offset;
+			node.spliceText(offset, 0, text);
+		},
+		{ tag: 'history-merge' }
+	);
 }
 
 export function setEditorText(editor: LexicalEditor, text: string) {
-	editor.update(() => {
-		$convertFromMarkdownString(text, [INLINE_CODE_TRANSFORMER, CODE]);
-	});
+	editor.update(
+		() => {
+			$convertFromMarkdownString(text, [INLINE_CODE_TRANSFORMER, CODE]);
+		},
+		{ discrete: true }
+	);
 }

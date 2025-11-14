@@ -3,17 +3,18 @@ import { $isParagraphNode, ParagraphNode } from 'lexical';
 import type { ElementTransformer, Transformer } from '@lexical/markdown';
 
 /**
- * A transformer used for exporting to markdown, and having paragraphs
- * separated by `\n\n` instead of just a single newline.
+ * A transformer used for exporting to markdown, where each paragraph
+ * becomes its own line separated by `\n`.
  */
-export const ParagraphMarkdownTransformer: ElementTransformer = {
+export const PARAGRAPH_TRANSFORMER: ElementTransformer = {
 	dependencies: [ParagraphNode],
 	export: (node, traverseChildren) => {
 		if ($isParagraphNode(node)) {
 			const nextSibling = node.getNextSibling();
 			const text = traverseChildren(node);
+			// Each paragraph becomes a line, separated by a single newline
 			if (nextSibling !== null) {
-				return `${text}\n`;
+				return `${text}`;
 			}
 			return text;
 		}

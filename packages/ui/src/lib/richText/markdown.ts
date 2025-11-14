@@ -1,4 +1,4 @@
-import { ParagraphMarkdownTransformer } from '$lib/richText/customTransforers';
+import { PARAGRAPH_TRANSFORMER } from '$lib/richText/customTransforers';
 import { isWrappingExempt, parseBullet, parseIndent, wrapLine } from '$lib/richText/linewrap';
 import {
 	$convertFromMarkdownString as convertFromMarkdownString,
@@ -8,8 +8,7 @@ import {
 	$getRoot as getRoot,
 	type LexicalEditor,
 	$createParagraphNode as createParagraphNode,
-	$createTextNode as createTextNode,
-	$createLineBreakNode as createLineBreakNode
+	$createTextNode as createTextNode
 } from 'lexical';
 import { ALL_TRANSFORMERS } from 'svelte-lexical';
 
@@ -25,7 +24,7 @@ export function updateEditorToRichText(editor: LexicalEditor | undefined) {
  */
 export function getMarkdownString(maxLength?: number): string {
 	const markdown = convertToMarkdownString(
-		[ParagraphMarkdownTransformer, ...ALL_TRANSFORMERS],
+		[PARAGRAPH_TRANSFORMER, ...ALL_TRANSFORMERS],
 		undefined,
 		true
 	);
@@ -121,11 +120,11 @@ export function updateEditorToPlaintext(editor: LexicalEditor | undefined, maxLe
 		const root = getRoot();
 		root.clear();
 
-		const paragraph = createParagraphNode();
+		// Create a separate paragraph for each line
 		for (const line of text.split('\n')) {
+			const paragraph = createParagraphNode();
 			paragraph.append(createTextNode(line));
-			paragraph.append(createLineBreakNode());
+			root.append(paragraph);
 		}
-		root.append(paragraph);
 	});
 }

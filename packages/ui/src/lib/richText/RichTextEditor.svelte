@@ -3,7 +3,7 @@
 	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
-	import { INLINE_CODE_TRANSFORMER } from '$lib/richText/customTransforers';
+	import { INLINE_CODE_TRANSFORMER, PARAGRAPH_TRANSFORMER } from '$lib/richText/customTransforers';
 	import { getCurrentText } from '$lib/richText/getText';
 	import CodeBlockTypeAhead from '$lib/richText/plugins/CodeBlockTypeAhead.svelte';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
@@ -43,7 +43,7 @@
 
 	interface Props {
 		namespace: string;
-		markdown: boolean;
+		plaintext: boolean;
 		onError: (error: unknown) => void;
 		styleContext: 'client-editor' | 'chat-input';
 		plugins?: Snippet;
@@ -68,7 +68,7 @@
 	let {
 		disabled,
 		namespace,
-		markdown,
+		plaintext,
 		onError,
 		minHeight,
 		maxHeight,
@@ -130,7 +130,7 @@
 	});
 
 	$effect(() => {
-		markdownTransitionPlugin.setMarkdown(markdown);
+		markdownTransitionPlugin.setMarkdown(!plaintext);
 	});
 
 	$effect(() => {
@@ -200,7 +200,7 @@
 			if (composer) {
 				const editor = composer.getEditor();
 				editor?.read(() => {
-					const text = getCurrentText(markdown, wrapCountValue);
+					const text = getCurrentText(!plaintext, wrapCountValue);
 					resolve(text);
 				});
 			}
@@ -268,7 +268,7 @@
 		class="lexical-container lexical-{styleContext} scrollbar"
 		bind:this={editorDiv}
 		use:focusable={{ button: true }}
-		class:plain-text={!markdown}
+		class:plain-text={plaintext}
 		class:disabled={isDisabled}
 		style:min-height={minHeight}
 		style:max-height={maxHeight}
@@ -291,7 +291,7 @@
 		<EmojiPlugin bind:this={emojiPlugin} />
 
 		<OnChangePlugin
-			{markdown}
+			markdown={!plaintext}
 			onChange={(newValue, changeUpToAnchor, textAfterAnchor) => {
 				value = newValue;
 				onChange?.(newValue, changeUpToAnchor, textAfterAnchor);
@@ -300,10 +300,15 @@
 		/>
 
 		{#if onInput}
-			<OnInput {markdown} {onInput} maxLength={wrapCountValue} />
+			<OnInput markdown={!plaintext} {onInput} maxLength={wrapCountValue} />
 		{/if}
 
-		{#if markdown}
+		{#if plaintext}
+			<PlainTextPlugin />
+			<PlainTextIndentPlugin />
+			<CodeBlockTypeAhead />
+			<MarkdownShortcutPlugin transformers={[INLINE_CODE_TRANSFORMER, PARAGRAPH_TRANSFORMER]} />
+		{:else}
 			<AutoFocusPlugin />
 			<AutoLinkPlugin />
 			<CheckListPlugin />
@@ -315,11 +320,6 @@
 			<LinkPlugin />
 			<MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
 			<RichTextPlugin />
-		{:else}
-			<PlainTextPlugin />
-			<PlainTextIndentPlugin />
-			<CodeBlockTypeAhead />
-			<MarkdownShortcutPlugin transformers={[INLINE_CODE_TRANSFORMER]} />
 		{/if}
 		<HistoryPlugin />
 

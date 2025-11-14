@@ -44,6 +44,11 @@
 	text-wrap: var(--lexical-input-client-text-wrap, normal);
 }
 
+/* Remove paragraph margins in plain-text mode */
+.lexical-container.plain-text .StandardTheme__paragraph {
+	margin-bottom: 0;
+}
+
 .StandardTheme__quote {
 	position: relative;
 	margin-bottom: var(--markdown-generic-bottom-margin);
@@ -155,10 +160,10 @@
 .StandardTheme__code {
 	display: block;
 	position: relative;
-	margin-top: 8px;
-	margin-bottom: var(--markdown-generic-bottom-margin);
-	padding: 12px;
-	overflow-x: auto;
+	max-height: 400px;
+	margin: 8px 0;
+	padding: 8px 12px;
+	overflow: auto;
 	border: 1px solid var(--clr-border-2);
 	border-radius: var(--radius-m);
 	background-color: var(--clr-bg-1);

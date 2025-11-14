@@ -72,37 +72,40 @@
 		const fileStart = fileMatch;
 
 		// Replace the search text with the selected file path
-		editor.update(() => {
-			const selection = getSelection();
-			if (!isRangeSelection(selection)) return;
+		editor.update(
+			() => {
+				const selection = getSelection();
+				if (!isRangeSelection(selection)) return;
 
-			const anchor = selection.anchor;
-			const anchorNode = anchor.getNode();
-			if (!isTextNode(anchorNode)) return;
+				const anchor = selection.anchor;
+				const anchorNode = anchor.getNode();
+				if (!isTextNode(anchorNode)) return;
 
-			const offset = anchor.offset;
-			const fullText = anchorNode.getTextContent();
-			const textBeforeCursor = fullText.slice(0, offset);
-			const textAfterCursor = fullText.slice(offset);
-			const match = '@' + fileStart;
-			const matchIndex = textBeforeCursor.lastIndexOf(match);
-			if (matchIndex !== -1) {
-				const replacement = '`' + path + '`';
-				const textBefore = textBeforeCursor.slice(0, matchIndex);
+				const offset = anchor.offset;
+				const fullText = anchorNode.getTextContent();
+				const textBeforeCursor = fullText.slice(0, offset);
+				const textAfterCursor = fullText.slice(offset);
+				const match = '@' + fileStart;
+				const matchIndex = textBeforeCursor.lastIndexOf(match);
+				if (matchIndex !== -1) {
+					const replacement = '`' + path + '`';
+					const textBefore = textBeforeCursor.slice(0, matchIndex);
 
-				// Split the text node and insert inline code node
-				const beforeNode = new TextNode(textBefore);
-				const inlineCodeNode = createInlineCodeNode(replacement);
-				const afterNode = new TextNode(textAfterCursor);
+					// Split the text node and insert inline code node
+					const beforeNode = new TextNode(textBefore);
+					const inlineCodeNode = createInlineCodeNode(replacement);
+					const afterNode = new TextNode(textAfterCursor);
 
-				anchorNode.replace(beforeNode);
-				beforeNode.insertAfter(inlineCodeNode);
-				inlineCodeNode.insertAfter(afterNode);
+					anchorNode.replace(beforeNode);
+					beforeNode.insertAfter(inlineCodeNode);
+					inlineCodeNode.insertAfter(afterNode);
 
-				// Position cursor after the inline code
-				afterNode.selectStart();
-			}
-		});
+					// Position cursor after the inline code
+					afterNode.selectStart();
+				}
+			},
+			{ discrete: true }
+		);
 
 		exit();
 	}
