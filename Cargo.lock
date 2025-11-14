@@ -1092,6 +1092,7 @@ name = "but-github"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-error",
  "but-forge-storage",
  "but-secret",
  "but-settings",

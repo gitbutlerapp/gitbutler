@@ -23,6 +23,7 @@ export type ForgeConfig = {
 	baseBranch?: string;
 	githubAuthenticated?: boolean;
 	githubIsLoading?: boolean;
+	githubError?: { code: string; message: string };
 	gitlabAuthenticated?: boolean;
 	detectedForgeProvider: ForgeProvider | undefined;
 	forgeOverride?: ForgeName;
@@ -35,7 +36,12 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 	private _forge = $state<Forge>(this.default);
 	private _config: any = undefined;
 	private _determinedForgeType = $state<ForgeName>('default');
+	private _githubError = $state<{ code: string; message: string } | undefined>(undefined);
 	private _canSetupIntegration = $derived.by(() => {
+		// Don't show the setup prompt if there's a network error
+		if (this._githubError?.code === 'errors.network') {
+			return undefined;
+		}
 		return isAvalilableForge(this._determinedForgeType) &&
 			!this._forge.authenticated &&
 			!this._forge.isLoading
@@ -78,10 +84,12 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			baseBranch,
 			githubAuthenticated,
 			githubIsLoading,
+			githubError,
 			gitlabAuthenticated,
 			detectedForgeProvider,
 			forgeOverride
 		} = config;
+		this._githubError = githubError;
 		if (repo && baseBranch) {
 			this._determinedForgeType = this.determineForgeType(repo, detectedForgeProvider);
 			this._forge = this.build({

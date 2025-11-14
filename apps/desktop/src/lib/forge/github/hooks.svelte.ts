@@ -57,6 +57,8 @@ type GitHubAccess = {
 	host: Reactive<string | undefined>;
 	accessToken: Reactive<string | undefined>;
 	isLoading: Reactive<boolean>;
+	error: Reactive<{ code: string; message: string } | undefined>;
+	isError: Reactive<boolean>;
 };
 
 /**
@@ -79,6 +81,10 @@ export function useGitHubAccessToken(projectId: Reactive<string>): GitHubAccess 
 	return {
 		host: reactive(() => host),
 		accessToken: reactive(() => aceessToken),
-		isLoading: reactive(() => ghUserResponse?.result.isLoading ?? false)
+		isLoading: reactive(() => ghUserResponse?.result.isLoading ?? false),
+		error: reactive(
+			() => ghUserResponse?.result.error as { code: string; message: string } | undefined
+		),
+		isError: reactive(() => ghUserResponse?.result.isError ?? false)
 	};
 }
