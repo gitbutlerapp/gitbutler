@@ -9,7 +9,7 @@ import {
 	writeText as tauriWriteText,
 	readText as tauriReadText
 } from '@tauri-apps/plugin-clipboard-manager';
-import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
+import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { open as filePickerTauri, type OpenDialogOptions } from '@tauri-apps/plugin-dialog';
 import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
 import { error as logErrorToFile } from '@tauri-apps/plugin-log';
@@ -39,12 +39,6 @@ export default class Tauri implements IBackend {
 	});
 
 	async initDeepLinking(handlers: DeepLinkHandlers): Promise<void> {
-		// Check if app was launched via deep link
-		const urls = (await getCurrent()) ?? [];
-		if (urls.length > 0) {
-			handleDeepLinkUrls(urls, handlers);
-		}
-
 		// Listen for new deep links while app is running
 		await onOpenUrl((urls) => {
 			handleDeepLinkUrls(urls, handlers);
@@ -94,27 +88,27 @@ export default class Tauri implements IBackend {
 }
 
 function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
-	// For now, only handle a single URL at a time
-	if (urls.length !== 1) return;
-	for (const url of urls) {
-		if (!isValidDeepLinkUrl(url)) {
-			console.warn('Received invalid deep link URL:', url);
-			continue;
-		}
+	// We don't care about the previous URLs, only the last one.
+	const url = urls[urls.length - 1];
+	if (!url) return;
 
-		const result = parseDeepLinkUrl(url);
-		if (!result) {
-			console.warn('Failed to parse deep link URL:', url);
-			continue;
-		}
+	if (!isValidDeepLinkUrl(url)) {
+		console.warn('Received invalid deep link URL:', url);
+		return;
+	}
 
-		const [topLevel, params] = result;
-		switch (topLevel) {
-			case 'open': {
-				const path = params.get('path');
-				if (path) {
-					handlers.open(path);
-				}
+	const result = parseDeepLinkUrl(url);
+	if (!result) {
+		console.warn('Failed to parse deep link URL:', url);
+		return;
+	}
+
+	const [topLevel, params] = result;
+	switch (topLevel) {
+		case 'open': {
+			const path = params.get('path');
+			if (path) {
+				handlers.open(path);
 			}
 		}
 	}
