@@ -79,7 +79,7 @@ impl Claudes {
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
-        stack_id: StackId,
+        stack_id: Option<StackId>,
     ) -> () {
         let res = self
             .compact_inner(ctx.clone(), broadcaster.clone(), stack_id)
@@ -111,7 +111,7 @@ impl Claudes {
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
-        stack_id: StackId,
+        stack_id: Option<StackId>,
     ) -> Result<()> {
         let (send_kill, mut _recv_kill) = unbounded_channel();
         self.requests
@@ -165,7 +165,7 @@ impl Claudes {
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
-        stack_id: StackId,
+        stack_id: Option<StackId>,
     ) -> Result<()> {
         let rule = {
             let mut ctx = ctx.lock().await;

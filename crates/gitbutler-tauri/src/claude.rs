@@ -20,7 +20,7 @@ use tracing::instrument;
 pub async fn claude_send_message(
     app: State<'_, App>,
     project_id: ProjectId,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
     message: String,
     thinking_level: ThinkingLevel,
     model: ModelType,
@@ -53,7 +53,7 @@ pub async fn claude_send_message(
 pub fn claude_get_messages(
     app: State<'_, App>,
     project_id: ProjectId,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
 ) -> Result<Vec<ClaudeMessage>, Error> {
     claude::claude_get_messages(
         &app,
@@ -69,7 +69,7 @@ pub fn claude_get_messages(
 pub async fn claude_cancel_session(
     app: State<'_, App>,
     project_id: ProjectId,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
 ) -> Result<bool, Error> {
     claude::claude_cancel_session(
         &app,
@@ -86,7 +86,7 @@ pub async fn claude_cancel_session(
 pub async fn claude_is_stack_active(
     app: State<'_, App>,
     project_id: ProjectId,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
 ) -> Result<bool, Error> {
     claude::claude_is_stack_active(
         &app,
@@ -103,7 +103,7 @@ pub async fn claude_is_stack_active(
 pub async fn claude_compact_history(
     app: State<'_, App>,
     project_id: ProjectId,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
 ) -> Result<(), Error> {
     claude::claude_compact_history(
         &app,

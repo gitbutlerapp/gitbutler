@@ -508,21 +508,33 @@ pub fn get_or_create_session(
         .into_iter()
         .find(|r| r.session_id.to_string() == session_id)
     {
-        if let Some(stack_id) = stacks.iter().find_map(|s| {
-            let id = s.id?;
-            (id == rule.stack_id).then_some(id)
-        }) {
-            stack_id
+        if let Some(rule_stack_id) = rule.stack_id {
+            // Rule has a specific stack ID
+            if let Some(stack_id) = stacks.iter().find_map(|s| {
+                let id = s.id?;
+                (id == rule_stack_id).then_some(id)
+            }) {
+                stack_id
+            } else {
+                let stack_id = create_stack(ctx, vb_state, perm)?;
+                crate::rules::update_claude_assignment_rule_target(ctx, rule.id, Some(stack_id))?;
+                stack_id
+            }
         } else {
+            // Rule is for general session, create/use a stack for this hook
             let stack_id = create_stack(ctx, vb_state, perm)?;
-            crate::rules::update_claude_assignment_rule_target(ctx, rule.id, stack_id)?;
+            crate::rules::update_claude_assignment_rule_target(ctx, rule.id, Some(stack_id))?;
             stack_id
         }
     } else {
         // If the session is not in the list of sessions, then create a new stack + session entry
         // Create a new stack
         let stack_id = create_stack(ctx, vb_state, perm)?;
-        crate::rules::create_claude_assignment_rule(ctx, Uuid::parse_str(session_id)?, stack_id)?;
+        crate::rules::create_claude_assignment_rule(
+            ctx,
+            Uuid::parse_str(session_id)?,
+            Some(stack_id),
+        )?;
         stack_id
     };
     Ok(stack_id)

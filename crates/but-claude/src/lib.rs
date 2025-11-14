@@ -2,14 +2,15 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use but_broadcaster::{Broadcaster, FrontendEvent};
+use but_core::ref_metadata::StackId;
 use gitbutler_command_context::CommandContext;
+use gitbutler_project::ProjectId;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 pub mod bridge;
 pub use bridge::ClaudeCheckResult;
-use but_core::ref_metadata::StackId;
 
 pub(crate) mod claude_config;
 pub mod claude_mcp;
@@ -467,18 +468,26 @@ pub struct ClaudeUserParams {
     pub attachments: Option<Vec<PromptAttachment>>,
 }
 
+/// Generates the event name for broadcasting Claude messages
+pub(crate) fn claude_event_name(project_id: ProjectId, stack_id: Option<StackId>) -> String {
+    match stack_id {
+        Some(id) => format!("project://{project_id}/claude/{id}/message_recieved"),
+        None => format!("project://{project_id}/claude/general/message_recieved"),
+    }
+}
+
 pub async fn send_claude_message(
     ctx: &mut CommandContext,
     broadcaster: Arc<Mutex<Broadcaster>>,
     session_id: uuid::Uuid,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
     content: MessagePayload,
 ) -> Result<()> {
     let message = db::save_new_message(ctx, session_id, content.clone())?;
     let project_id = ctx.project().id;
 
     broadcaster.lock().await.send(FrontendEvent {
-        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+        name: claude_event_name(project_id, stack_id),
         payload: json!(message),
     });
     Ok(())
