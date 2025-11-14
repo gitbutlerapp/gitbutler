@@ -17,9 +17,6 @@
 	import { inject } from '@gitbutler/core/context';
 	import {
 		Button,
-		ContextMenu,
-		ContextMenuItem,
-		ContextMenuSection,
 		Icon,
 		NotificationButton,
 		OptionsGroup,
@@ -83,8 +80,6 @@
 	const isHasUpstreamCommits = $derived(upstreamCommits > 0);
 
 	let modal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
-	let createNewContextMenu = $state<ContextMenu>();
-	let createNewTrigger = $state<HTMLButtonElement>();
 
 	const projects = $derived(projectsService.projects());
 
@@ -261,40 +256,26 @@
 			/>
 		{/if}
 		<Button
-			testId={TestId.ChromeCreateNewButton}
-			bind:el={createNewTrigger}
+			testId={TestId.ChromeHeaderCreateBranchButton}
 			kind="outline"
 			icon="plus-small"
-			onclick={() => createNewContextMenu?.toggle()}
+			hotkey="⌘B"
+			reversedDirection
+			onclick={() => createBranchModal?.show()}
 		>
-			Create new
+			Create branch
 		</Button>
-	</div>
-</div>
-
-<ContextMenu bind:this={createNewContextMenu} leftClickTrigger={createNewTrigger}>
-	<ContextMenuSection>
-		<ContextMenuItem
-			icon="branch-remote"
-			label="Branch"
-			keyboardShortcut="$mod+B"
-			testId={TestId.ChromeHeaderCreateBranchMenuItem}
-			onclick={() => {
-				createBranchModal?.show();
-				createNewContextMenu?.close();
-			}}
-		/>
-		<ContextMenuItem
-			icon="ai-outline"
-			label="Codegen session"
-			testId={TestId.ChromeHeaderCreateCodegenSessionMenuItem}
+		<Button
+			testId={TestId.ChromeHeaderCreateCodegenSessionButton}
+			kind="outline"
+			tooltip="New Codegen Session"
+			icon="ai-new-session"
 			onclick={() => {
 				uiState.project(projectId).exclusiveAction.set({ type: 'codegen' });
-				createNewContextMenu?.close();
 			}}
 		/>
-	</ContextMenuSection>
-</ContextMenu>
+	</div>
+</div>
 
 <CreateBranchModal bind:this={createBranchModal} {projectId} />
 
