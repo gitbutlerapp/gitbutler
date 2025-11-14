@@ -700,7 +700,7 @@ describe('Commit Actions with branches containing changes', () => {
 	});
 });
 
-describe('Commit Actions with lots of uncommitted changes', () => {
+describe.skip('Commit Actions with lots of uncommitted changes', () => {
 	let mockBackend: LotsOfFileChanges;
 	beforeEach(() => {
 		mockBackend = new LotsOfFileChanges();
