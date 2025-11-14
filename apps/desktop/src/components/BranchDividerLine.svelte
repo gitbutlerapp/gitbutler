@@ -1,17 +1,22 @@
 <script lang="ts">
 	interface Props {
 		lineColor: string;
-		height?: string;
+		short?: boolean;
 	}
 
-	const { lineColor, height = '0.625rem' }: Props = $props();
+	const { lineColor, short = false }: Props = $props();
 </script>
 
-<div class="commit-line" style:--commit-color={lineColor} style:height></div>
+<div class="commit-line" class:short style:--commit-color={lineColor}></div>
 
 <style>
 	.commit-line {
+		height: 12px;
 		margin: 0 21px;
 		background-color: var(--commit-color);
+
+		&.short {
+			height: 6px;
+		}
 	}
 </style>

@@ -338,10 +338,10 @@
 	{/if}
 
 	{#if args.type === 'stack-branch' && args.hasCodegenRow && args.codegenRow}
-		<BranchDividerLine {lineColor} height="0.375rem" />
+		<BranchDividerLine {lineColor} short />
 		{@render args.codegenRow()}
 		{#if args.numberOfCommits > 0 || args.numberOfUpstreamCommits > 0}
-			<BranchDividerLine {lineColor} height="0.375rem" />
+			<BranchDividerLine {lineColor} short />
 		{/if}
 	{/if}
 

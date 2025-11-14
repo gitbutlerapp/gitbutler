@@ -134,7 +134,7 @@
 						/>
 
 						{#if mode === 'codegen'}
-							<BranchDividerLine lineColor="var(--clr-commit-local)" height="0.375rem" />
+							<BranchDividerLine lineColor="var(--clr-commit-local)" short />
 							<CodegenRow draft />
 						{/if}
 					{/snippet}
