@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 
 mod args;
 use crate::utils::{Output, OutputFormat, OutputTarget, ResultExt, print_grouped_help, props};
-use args::{Args, CommandName, Subcommands, actions, claude, cursor};
+use args::{Args, Subcommands, actions, claude, cursor};
 use but_claude::hooks::OutputAsJson;
 use but_settings::AppSettings;
 use colored::Colorize;
@@ -105,7 +105,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             if let Err(e) = &result {
                 writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
             }
-            metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
+            metrics_if_configured(app_settings, args::CommandName::Rub, props(start, &result)).ok();
             result
         }
         None if args.source_or_path.is_some() && args.target.is_none() => {
@@ -134,6 +134,8 @@ async fn match_subcommand(
     start: std::time::Instant,
     mut out: Output,
 ) -> Result<()> {
+    let metrics_cmd = cmd.to_metrics_command();
+
     match cmd {
         Subcommands::Mcp { internal } => {
             if internal {
@@ -171,21 +173,21 @@ async fn match_subcommand(
                 let result = but_claude::hooks::handle_pre_tool_call();
                 let p = props(start, &result);
                 result.out_json();
-                metrics_if_configured(app_settings, CommandName::ClaudePreTool, p).ok();
+                metrics_if_configured(app_settings, metrics_cmd, p).ok();
                 Ok(())
             }
             claude::Subcommands::PostTool => {
                 let result = but_claude::hooks::handle_post_tool_call();
                 let p = props(start, &result);
                 result.out_json();
-                metrics_if_configured(app_settings, CommandName::ClaudePostTool, p).ok();
+                metrics_if_configured(app_settings, metrics_cmd, p).ok();
                 Ok(())
             }
             claude::Subcommands::Stop => {
                 let result = but_claude::hooks::handle_stop().await;
                 let p = props(start, &result);
                 result.out_json();
-                metrics_if_configured(app_settings, CommandName::ClaudeStop, p).ok();
+                metrics_if_configured(app_settings, metrics_cmd, p).ok();
                 Ok(())
             }
             claude::Subcommands::PermissionPromptMcp { session_id } => {
@@ -247,7 +249,7 @@ async fn match_subcommand(
                 let result = but_cursor::handle_after_edit().await;
                 let p = props(start, &result);
                 writeln!(stdout, "{}", serde_json::to_string(&result?)?).ok();
-                metrics_if_configured(app_settings, CommandName::CursorStop, p).ok();
+                metrics_if_configured(app_settings, metrics_cmd, p).ok();
                 Ok(())
             }
             cursor::Subcommands::Stop { nightly } => {
@@ -255,46 +257,33 @@ async fn match_subcommand(
                 let result = but_cursor::handle_stop(nightly).await;
                 let p = props(start, &result);
                 writeln!(stdout, "{}", serde_json::to_string(&result?)?).ok();
-                metrics_if_configured(app_settings, CommandName::CursorStop, p).ok();
+                metrics_if_configured(app_settings, metrics_cmd, p).ok();
                 Ok(())
             }
         },
         Subcommands::Base(base::Platform { cmd }) => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            let metrics_cmd = match cmd {
-                base::Subcommands::Check => CommandName::BaseCheck,
-                base::Subcommands::Update => CommandName::BaseUpdate,
-            };
             let result = base::handle(cmd, &project, args.json);
             metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             Ok(())
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let ctx = get_or_init_context_with_legacy_support(&args.current_dir)?;
-            let metrics_command = match cmd {
-                None | Some(branch::Subcommands::List { .. }) => CommandName::BranchList,
-                Some(branch::Subcommands::New { .. }) => CommandName::BranchNew,
-                Some(branch::Subcommands::Delete { .. }) => CommandName::BranchDelete,
-                Some(branch::Subcommands::Unapply { .. }) => CommandName::BranchUnapply,
-                Some(branch::Subcommands::Apply { .. }) => CommandName::BranchApply,
-            };
-            // TODO: print JSON result here, based on args
-            let result = branch::handle(cmd, &ctx, &mut out)
+            branch::handle(cmd, &ctx, &mut out)
                 .await
-                .output_json(args.json);
-            metrics_if_configured(app_settings, metrics_command, props(start, &result)).ok();
-            result.map(|_| ())
+                .output_json(args.json)
+                .emit_metrics(app_settings, metrics_cmd, start)
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = worktree::handle(cmd, &project, args.json);
-            metrics_if_configured(app_settings, CommandName::Worktree, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Log => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = log::commit_graph(&project, args.json);
-            metrics_if_configured(app_settings, CommandName::Log, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result?;
             Ok(())
         }
@@ -305,13 +294,13 @@ async fn match_subcommand(
         } => {
             let project = get_or_init_context_with_legacy_support(&args.current_dir)?;
             let result = status::worktree(&project, args.json, show_files, verbose, review).await;
-            metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Stf { verbose, review } => {
             let project = get_or_init_context_with_legacy_support(&args.current_dir)?;
             let result = status::worktree(&project, args.json, true, verbose, review).await;
-            metrics_if_configured(app_settings, CommandName::Stf, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Rub { source, target } => {
@@ -322,7 +311,7 @@ async fn match_subcommand(
             if let Err(e) = &result {
                 writeln!(stderr, "{} {}", e, e.root_cause()).ok();
             }
-            metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Mark { target, delete } => {
@@ -333,7 +322,7 @@ async fn match_subcommand(
             if let Err(e) = &result {
                 writeln!(stderr, "{} {}", e, e.root_cause()).ok();
             }
-            metrics_if_configured(app_settings, CommandName::Mark, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Unmark => {
@@ -344,12 +333,12 @@ async fn match_subcommand(
             if let Err(e) = &result {
                 writeln!(stderr, "{} {}", e, e.root_cause()).ok();
             }
-            metrics_if_configured(app_settings, CommandName::Unmark, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Gui => {
             let result = gui::open(&args.current_dir);
-            metrics_if_configured(app_settings, CommandName::Gui, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Commit {
@@ -367,65 +356,60 @@ async fn match_subcommand(
                 only,
                 create,
             );
-            metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Push(push_args) => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = push::handle(push_args, &project, args.json);
-            metrics_if_configured(app_settings, CommandName::Push, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::New { target } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = commit::insert_blank_commit(&project, args.json, &target);
-            metrics_if_configured(app_settings, CommandName::New, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Describe { target } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = describe::describe_target(&project, args.json, &target);
-            metrics_if_configured(app_settings, CommandName::Describe, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Oplog { since } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = oplog::show_oplog(&project, args.json, since.as_deref());
-            metrics_if_configured(app_settings, CommandName::Oplog, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Restore { oplog_sha, force } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = oplog::restore_to_oplog(&project, args.json, &oplog_sha, force);
-            metrics_if_configured(app_settings, CommandName::Restore, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Undo => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = oplog::undo_last_operation(&project, args.json);
-            metrics_if_configured(app_settings, CommandName::Undo, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Snapshot { message } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = oplog::create_snapshot(&project, args.json, message.as_deref());
-            metrics_if_configured(app_settings, CommandName::Snapshot, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Absorb { source } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = absorb::handle(&project, args.json, source.as_deref());
-            metrics_if_configured(app_settings, CommandName::Absorb, props(start, &result)).ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, repo)
             .context("Failed to initialize GitButler project."),
         Subcommands::Forge(forge::integration::Platform { cmd }) => {
-            let metrics_cmd = match cmd {
-                forge::integration::Subcommands::Auth => CommandName::ForgeAuth,
-                forge::integration::Subcommands::ListUsers => CommandName::ForgeListUsers,
-                forge::integration::Subcommands::Forget { .. } => CommandName::ForgeForget,
-            };
             let result = forge::integration::handle(cmd).await;
             metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
@@ -450,24 +434,14 @@ async fn match_subcommand(
                 )
                 .await
                 .context("Failed to publish reviews for branches.");
-                metrics_if_configured(
-                    app_settings,
-                    CommandName::PublishReview,
-                    props(start, &result),
-                )
-                .ok();
+                metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
                 result
             }
             forge::review::Subcommands::Template { template_path } => {
                 let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
                 let result = forge::review::set_review_template(&project, template_path, args.json)
                     .context("Failed to set review template.");
-                metrics_if_configured(
-                    app_settings,
-                    CommandName::ReviewTemplate,
-                    props(start, &result),
-                )
-                .ok();
+                metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
                 result
             }
         },

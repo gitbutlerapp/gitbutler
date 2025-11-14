@@ -66,14 +66,21 @@ impl Output {
 /// Utilities attached to `anyhow::Result<impl serde::Serialize>`.
 pub trait ResultExt {
     /// Write this value as pretty `JSON` to stdout if `json` is `true`.
-    fn output_json(self, json: bool) -> Self;
+    fn output_json(self, json: bool) -> anyhow::Result<()>;
+
+    fn emit_metrics(
+        self,
+        app_settings: but_settings::AppSettings,
+        cmd: crate::args::CommandName,
+        start: std::time::Instant,
+    ) -> anyhow::Result<()>;
 }
 
 impl<T> ResultExt for anyhow::Result<T>
 where
     T: serde::Serialize,
 {
-    fn output_json(self, json: bool) -> Self {
+    fn output_json(self, json: bool) -> anyhow::Result<()> {
         if json && let Ok(value) = &self {
             let stdout = std::io::stdout();
             let mut stdout = stdout.lock();
@@ -81,7 +88,18 @@ where
                 .expect("This is to indicate that the write failed, leading to invalid JSON");
             stdout.write_all(b"\n").ok();
         }
-        self
+        self.map(|_| ())
+    }
+
+    fn emit_metrics(
+        self,
+        app_settings: but_settings::AppSettings,
+        cmd: crate::args::CommandName,
+        start: std::time::Instant,
+    ) -> anyhow::Result<()> {
+        let props = Props::from_result(start, &self);
+        crate::metrics_if_configured(app_settings, cmd, props).ok();
+        self.map(|_| ())
     }
 }
 
@@ -97,16 +115,13 @@ pub fn into_json_value(value: impl serde::Serialize) -> serde_json::Value {
         .expect("BUG: Failed to serialize JSON value, we should know that at compile time")
 }
 
+// TODO: remove when unused
 pub fn props<E, T, R>(start: std::time::Instant, result: R) -> Props
 where
     R: std::ops::Deref<Target = anyhow::Result<T, E>>,
     E: std::fmt::Display,
 {
-    let error = result.as_ref().err().map(|e| e.to_string());
-    let mut props = Props::new();
-    props.insert("durationMs", start.elapsed().as_millis());
-    props.insert("error", error);
-    props
+    Props::from_result(start, result)
 }
 
 pub fn print_grouped_help() -> std::io::Result<()> {
