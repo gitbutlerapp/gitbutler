@@ -537,38 +537,65 @@ function extractLastNonEmptyLine(text: string): string {
 	return text.trim();
 }
 
-export function extractLastMessage(messages: ClaudeMessage[]): string | undefined {
-	if (messages.length === 0) {
-		return undefined;
+/**
+ * Extract text from a single message if it's "interesting to a human"
+ * Returns undefined if the message should be skipped
+ */
+function extractTextFromMessage(message: ClaudeMessage): string | undefined {
+	const { payload } = message;
+
+	if (payload.source === 'claude') {
+		const content = payload.data;
+
+		// Assistant text messages (conversational responses)
+		if (content.type === 'assistant') {
+			const msgContent = content.message.content[0];
+			if (msgContent?.type === 'text') {
+				const trimmedText = msgContent.text.trim();
+				if (trimmedText.length > 0) {
+					return extractLastNonEmptyLine(trimmedText);
+				}
+			}
+		}
+
+		// Result messages (final summaries)
+		if (content.type === 'result') {
+			if (content.subtype === 'success') {
+				const trimmedResult = content.result.trim();
+				if (trimmedResult.length > 0) {
+					return extractLastNonEmptyLine(trimmedResult);
+				}
+			} else {
+				return 'an error has occurred';
+			}
+		}
+	} else if (payload.source === 'user') {
+		// User messages (actual human input)
+		const trimmedMessage = payload.message.trim();
+		if (trimmedMessage.length > 0) {
+			return extractLastNonEmptyLine(trimmedMessage);
+		}
 	}
+
+	return undefined;
+}
+
+/**
+ * Extracts the most recent message "of interest to a human":
+ * - Claude's conversational text (assistant messages with text content)
+ * - Claude's final summaries (result messages)
+ * - User input
+ *
+ * Explicitly skips tool results (claude-user messages) as they're not interesting
+ */
+export function extractLastMessage(messages: ClaudeMessage[]): string | undefined {
 	for (let i = messages.length - 1; i >= 0; i--) {
 		const message = messages[i];
 		if (!message) continue;
 
-		const { payload } = message;
-		if (payload.source === 'claude') {
-			const content = payload.data;
-			if (content.type === 'result') {
-				if (content.subtype === 'success') {
-					const trimmedResult = content.result.trim();
-					if (trimmedResult.length > 0) return extractLastNonEmptyLine(trimmedResult);
-				} else {
-					return 'an error has occurred';
-				}
-			} else if (content.type === 'user') {
-				const messageContent = content.message.content;
-				if (typeof messageContent === 'string') {
-					const trimmedContent = messageContent.trim();
-					if (trimmedContent.length > 0) {
-						return extractLastNonEmptyLine(trimmedContent);
-					}
-				}
-			}
-		} else if (payload.source === 'user') {
-			const trimmedMessage = payload.message.trim();
-			if (trimmedMessage.length > 0) {
-				return extractLastNonEmptyLine(trimmedMessage);
-			}
-		}
+		const extracted = extractTextFromMessage(message);
+		if (extracted) return extracted;
 	}
+
+	return undefined;
 }
