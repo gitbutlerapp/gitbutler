@@ -5,6 +5,9 @@ import type { ElementTransformer, Transformer } from '@lexical/markdown';
 /**
  * A transformer used for exporting to markdown, where each paragraph
  * becomes its own line separated by `\n`.
+ *
+ * NOTE: This transformer is export-only and should never match during typing.
+ * The regExp is set to never match to prevent interference with user input.
  */
 export const PARAGRAPH_TRANSFORMER: ElementTransformer = {
 	dependencies: [ParagraphNode],
@@ -20,7 +23,7 @@ export const PARAGRAPH_TRANSFORMER: ElementTransformer = {
 		}
 		return null;
 	},
-	regExp: /./,
+	regExp: /(?:)/,
 	replace: () => false,
 	type: 'element'
 };
