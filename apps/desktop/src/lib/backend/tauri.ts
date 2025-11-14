@@ -42,11 +42,15 @@ export default class Tauri implements IBackend {
 		// Check if app was launched via deep link
 		const urls = (await getCurrent()) ?? [];
 		if (urls.length > 0) {
+			// eslint-disable-next-line no-console
+			console.log('App launched via deep link URLs:', urls);
 			handleDeepLinkUrls(urls, handlers);
 		}
 
 		// Listen for new deep links while app is running
 		await onOpenUrl((urls) => {
+			// eslint-disable-next-line no-console
+			console.log('App launched via deep link URLs:', urls);
 			handleDeepLinkUrls(urls, handlers);
 		});
 	}
