@@ -1,6 +1,6 @@
-use crate::{LegacyProject, into_json_value, we_need_proper_json_output_here};
+use crate::LegacyProject;
+use crate::utils::{Output, OutputFormat, into_json_value, we_need_proper_json_output_here};
 use anyhow::bail;
-use atty::Stream;
 use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
@@ -70,9 +70,8 @@ pub enum Subcommands {
 pub async fn handle(
     cmd: Option<Subcommands>,
     ctx: &but_ctx::Context,
-    json: bool,
+    out: &mut Output,
 ) -> anyhow::Result<serde_json::Value> {
-    let mut stdout = io::stdout();
     let legacy_project = &ctx.legacy_project;
     match cmd {
         None => {
@@ -147,18 +146,19 @@ pub async fn handle(
                 },
             )?;
 
-            if json {
-                let response = json::BranchNewOutput {
-                    branch: branch_name,
-                    anchor: anchor_for_json,
-                };
-                writeln!(stdout, "{}", serde_json::to_string_pretty(&response)?)?;
-            } else if atty::is(Stream::Stdout) {
-                writeln!(stdout, "Created branch {branch_name}").ok();
-            } else {
-                writeln!(stdout, "{branch_name}").ok();
+            let json = json::BranchNewOutput {
+                branch: branch_name.clone(),
+                anchor: anchor_for_json,
+            };
+            match out.format {
+                OutputFormat::Human => {
+                    writeln!(out, "Created branch {branch_name}").ok();
+                }
+                OutputFormat::Shell => {
+                    writeln!(out, "{branch_name}").ok();
+                }
             }
-            Ok(we_need_proper_json_output_here())
+            Ok(into_json_value(json))
         }
         Some(Subcommands::Delete { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
@@ -178,11 +178,11 @@ pub async fn handle(
                 }
             }
 
-            writeln!(stdout, "Branch '{}' not found in any stack", branch_name).ok();
+            writeln!(out, "Branch '{}' not found in any stack", branch_name).ok();
             Ok(we_need_proper_json_output_here())
         }
         Some(Subcommands::Apply { branch_name }) => {
-            apply::apply(ctx, &branch_name, json).map(into_json_value)
+            apply::apply(ctx, &branch_name, out).map(into_json_value)
         }
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
@@ -202,7 +202,7 @@ pub async fn handle(
                 }
             }
 
-            writeln!(stdout, "Branch '{}' not found in any stack", branch_name).ok();
+            writeln!(out, "Branch '{}' not found in any stack", branch_name).ok();
             Ok(we_need_proper_json_output_here())
         }
     }

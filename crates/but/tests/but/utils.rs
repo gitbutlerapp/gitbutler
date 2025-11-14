@@ -255,7 +255,9 @@ impl Sandbox {
             cmd = cmd
                 .args(shell_words::split(args).expect("statically known args must split correctly"))
         }
-        self.with_updated_env(cmd).env("GITBUTLER_CHANGE_ID", "42")
+        self.with_updated_env(cmd)
+            .env("GITBUTLER_CHANGE_ID", "42")
+            .env("BUT_OUTPUT_FORMAT", "human")
     }
 
     /// Invoke an isolated `git` with the given `args`, which will be split automatically.
@@ -265,6 +267,12 @@ impl Sandbox {
             .args(shell_words::split(args).expect("statically known args must split correctly"))
             .assert()
             .success();
+        self
+    }
+
+    /// Invoke the given `script` in `bash` in this sandbox
+    pub fn invoke_bash(&self, script: &str) -> &Self {
+        but_testsupport::invoke_bash_at_dir(script, self.projects_root());
         self
     }
 }

@@ -18,7 +18,7 @@ fn new_outputs_branch_name() -> anyhow::Result<()> {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-my-feature
+Created branch my-feature
 
 "#]]);
 
@@ -27,7 +27,7 @@ my-feature
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-my-anchored-feature
+Created branch my-anchored-feature
 
 "#]]);
     Ok(())
@@ -46,6 +46,7 @@ fn new_with_json_output() -> anyhow::Result<()> {
 
     // Test JSON output without anchor
     env.but("--json branch new my-feature")
+        .env_remove("BUT_OUTPUT_FORMAT")
         .assert()
         .success()
         .stderr_eq(str![])
@@ -58,6 +59,7 @@ fn new_with_json_output() -> anyhow::Result<()> {
 
     // Test JSON output with anchor
     env.but("branch new --json --anchor 9477ae7 my-anchored-feature")
+        .env_remove("BUT_OUTPUT_FORMAT")
         .assert()
         .success()
         .stderr_eq(str![])
@@ -71,6 +73,7 @@ fn new_with_json_output() -> anyhow::Result<()> {
 
     // Test JSON output when branch already exists - it's idempotent.
     env.but("branch --json new my-feature")
+        .env_remove("BUT_OUTPUT_FORMAT")
         .assert()
         .success()
         .stderr_eq(str![])
@@ -81,6 +84,7 @@ fn new_with_json_output() -> anyhow::Result<()> {
 
 "#]]);
     env.but("branch new --json --anchor 9477ae7 my-anchored-feature")
+        .env_remove("BUT_OUTPUT_FORMAT")
         .assert()
         .success()
         .stderr_eq(str![])
@@ -117,12 +121,23 @@ fn apply_local_branch() -> anyhow::Result<()> {
     env.invoke_git("checkout gitbutler/workspace");
 
     // Apply the local branch
-    env.but("branch apply feature-branch")
+    env.but("--format human branch apply feature-branch")
+        .env_remove("BUT_OUTPUT_FORMAT")
         .assert()
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
 Applied branch 'feature-branch' to workspace
+
+"#]]);
+    // It's idempotent and can produce a shell value.
+    env.but("-f shell branch apply feature-branch")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+refs/heads/feature-branch
 
 "#]]);
 
@@ -158,6 +173,7 @@ fn apply_local_branch_with_json_output() -> anyhow::Result<()> {
 
     // Apply with JSON output
     env.but("--json branch apply feature-branch")
+        .env_remove("BUT_OUTPUT_FORMAT")
         .assert()
         .success()
         .stderr_eq(str![]);
@@ -186,12 +202,16 @@ fn apply_remote_branch() -> anyhow::Result<()> {
     setup_metadata(&env, &["A"])?;
 
     // Create a remote branch reference
-    env.invoke_git("checkout origin/main");
     env.file("remote-feature.txt", "remote feature content");
-    env.invoke_git("add remote-feature.txt");
-    env.invoke_git("commit -m 'Add remote feature'");
-    env.invoke_git("update-ref refs/remotes/origin/remote-feature HEAD");
-    env.invoke_git("checkout gitbutler/workspace");
+    env.invoke_bash(
+        r#"
+        git checkout origin/main
+        git add remote-feature.txt
+        git commit -m 'Add remote feature'
+        git update-ref refs/remotes/origin/remote-feature HEAD
+        git checkout gitbutler/workspace
+    "#,
+    );
 
     // Apply the remote branch
     env.but("branch apply remote-feature")
@@ -199,7 +219,7 @@ fn apply_remote_branch() -> anyhow::Result<()> {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Applied remote branch 'remote-feature' to workspace
+Applied remote branch 'origin/remote-feature' to workspace
 
 "#]]);
 
@@ -238,6 +258,7 @@ fn apply_nonexistent_branch_with_json() -> anyhow::Result<()> {
 
     // Try to apply a branch that doesn't exist with JSON output
     env.but("--json branch apply nonexistent-branch")
+        .env_remove("BUT_OUTPUT_FORMAT")
         .assert()
         .failure()
         .stderr_eq(str![[r#"

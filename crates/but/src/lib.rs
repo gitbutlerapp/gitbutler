@@ -3,6 +3,7 @@ use std::{ffi::OsString, io::Write, path::Path};
 use anyhow::{Context, Result};
 
 mod args;
+use crate::utils::{Output, OutputFormat, OutputTarget, ResultExt, print_grouped_help, props};
 use args::{Args, CommandName, Subcommands, actions, claude, cursor};
 use but_claude::hooks::OutputAsJson;
 use but_settings::AppSettings;
@@ -48,7 +49,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
-    // The but push --help output is different if gerrit mode is enabled, hence the special handling
+    // The `but push --help` output is different if gerrit mode is enabled, hence the special handling
     let args_vec: Vec<String> = std::env::args().collect();
     if args_vec.iter().any(|arg| arg == "push")
         && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
@@ -59,6 +60,24 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let mut args: Args = clap::Parser::parse_from(args);
     let app_settings = AppSettings::load_from_default_path_creating()?;
+    let output_target = if args.json {
+        OutputTarget::Blackhole
+    } else {
+        match args.format.unwrap_or_default() {
+            args::OutputFormat::Human | args::OutputFormat::Shell => OutputTarget::Stdout,
+            args::OutputFormat::Json => {
+                // Our code likes to check this flag instead, as convenience also for the caller.
+                args.json = true;
+                OutputTarget::Blackhole
+            }
+        }
+    };
+    let output_format = args.format.and_then(|fmt| match fmt {
+        args::OutputFormat::Human => Some(OutputFormat::Human),
+        args::OutputFormat::Shell => Some(OutputFormat::Shell),
+        args::OutputFormat::Json => None,
+    });
+    let out = Output::new(output_target, output_format);
 
     if args.trace > 0 {
         trace::init(args.trace)?;
@@ -84,14 +103,13 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             let result =
                 rub::handle(&project, args.json, source, target).context("Rubbed the wrong way.");
             if let Err(e) = &result {
-                let mut stderr = std::io::stderr();
-                writeln!(stderr, "{} {}", e, e.root_cause()).ok();
+                writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
             }
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
             result
         }
         None if args.source_or_path.is_some() && args.target.is_none() => {
-            // If only one arguments is provided without a subcommand, check if this is a valid path.
+            // If only one argument is provided without a subcommand, check if this is a valid path.
             let maybe_path = args
                 .source_or_path
                 .as_ref()
@@ -105,7 +123,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             print_grouped_help().ok();
             Ok(())
         }
-        Some(cmd) => match_subcommand(cmd, args, app_settings, start).await,
+        Some(cmd) => match_subcommand(cmd, args, app_settings, start, out).await,
     }
 }
 
@@ -114,6 +132,7 @@ async fn match_subcommand(
     args: Args,
     app_settings: AppSettings,
     start: std::time::Instant,
+    mut out: Output,
 ) -> Result<()> {
     match cmd {
         Subcommands::Mcp { internal } => {
@@ -260,8 +279,9 @@ async fn match_subcommand(
                 Some(branch::Subcommands::Apply { .. }) => CommandName::BranchApply,
             };
             // TODO: print JSON result here, based on args
-            // TODO: add stdout abstraction to deal with dev/null + for_humans.
-            let result = branch::handle(cmd, &ctx, args.json).await;
+            let result = branch::handle(cmd, &ctx, &mut out)
+                .await
+                .output_json(args.json);
             metrics_if_configured(app_settings, metrics_command, props(start, &result)).ok();
             result.map(|_| ())
         }
@@ -517,196 +537,7 @@ pub fn get_context_with_legacy_support(
     })
 }
 
-fn we_need_proper_json_output_here() -> serde_json::Value {
-    serde_json::Value::Null
-}
-
-/// Convert anything into a json value, **or panic**.
-/// I think this should never fail at runtime, but I am not sure.
-fn into_json_value(value: impl serde::Serialize) -> serde_json::Value {
-    serde_json::to_value(&value)
-        .expect("BUG: Failed to serialize JSON value, we should know that at compile time")
-}
-
-pub(crate) fn props<E, T, R>(start: std::time::Instant, result: R) -> Props
-where
-    R: std::ops::Deref<Target = Result<T, E>>,
-    E: std::fmt::Display,
-{
-    let error = result.as_ref().err().map(|e| e.to_string());
-    let mut props = Props::new();
-    props.insert("durationMs", start.elapsed().as_millis());
-    props.insert("error", error);
-    props
-}
-
-fn print_grouped_help() -> std::io::Result<()> {
-    use std::collections::HashSet;
-
-    use clap::CommandFactory;
-    use terminal_size::{Width, terminal_size};
-
-    let mut stdout = std::io::stdout();
-
-    // Get terminal width, default to 80 if detection fails
-    let terminal_width = if let Some((Width(w), _)) = terminal_size() {
-        w as usize
-    } else {
-        80
-    };
-
-    // Helper function to truncate text to fit within available width
-    let truncate_text = |text: &str, available_width: usize| -> String {
-        const ELLIPSIS_LEN: usize = 1;
-        if text.len() <= available_width {
-            text.to_string()
-        } else if available_width > ELLIPSIS_LEN {
-            format!("{}…", &text[..available_width.saturating_sub(ELLIPSIS_LEN)])
-        } else {
-            text.chars().take(available_width).collect()
-        }
-    };
-
-    let cmd = Args::command();
-    let subcommands: Vec<_> = cmd.get_subcommands().collect();
-
-    // Define command groupings and their order (excluding MISC)
-    let groups = [
-        ("Inspection".yellow(), vec!["status"]),
-        (
-            "Branching and Committing".yellow(),
-            vec!["commit", "new", "branch", "base", "mark", "unmark"],
-        ),
-        (
-            "Server Interactions".yellow(),
-            vec!["push", "review", "forge"],
-        ),
-        (
-            "Editing Commits".yellow(),
-            vec!["rub", "describe", "absorb"],
-        ),
-        (
-            "Operation History".yellow(),
-            vec!["oplog", "undo", "restore", "snapshot"],
-        ),
-    ];
-
-    writeln!(
-        stdout,
-        "{}",
-        "The GitButler CLI change control system".red()
-    )?;
-    writeln!(stdout)?;
-    writeln!(stdout, "Usage: but [OPTIONS] <COMMAND>")?;
-    writeln!(stdout, "       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]")?;
-    writeln!(stdout)?;
-    writeln!(
-        stdout,
-        "The GitButler CLI can be used to do nearly anything the desktop client can do (and more)."
-    )?;
-    writeln!(
-        stdout,
-        "It is a drop in replacement for most of the Git commands you would normally use, but Git"
-    )?;
-    writeln!(
-        stdout,
-        "commands (blame, log, etc) can also be used, as GitButler is fully Git compatible."
-    )?;
-    writeln!(stdout)?;
-    writeln!(
-        stdout,
-        "Checkout the full docs here: https://docs.gitbutler.com/cli-overview"
-    )?;
-    writeln!(stdout)?;
-
-    // Keep track of which commands we've already printed
-    let mut printed_commands = HashSet::new();
-    const LONGEST_COMMAND_LEN: usize = 13;
-    const LONGEST_COMMAND_LEN_AND_ELLIPSIS: usize = LONGEST_COMMAND_LEN + 3;
-
-    // Print grouped commands
-    for (group_name, command_names) in &groups {
-        writeln!(stdout, "{group_name}:")?;
-        for cmd_name in command_names {
-            if let Some(subcmd) = subcommands.iter().find(|c| c.get_name() == *cmd_name) {
-                let about = subcmd.get_about().unwrap_or_default().to_string();
-                // Calculate available width: terminal_width - indent (2) - command column (10) - buffer (1)
-                let available_width =
-                    terminal_width.saturating_sub(LONGEST_COMMAND_LEN_AND_ELLIPSIS);
-                let truncated_about = truncate_text(&about, available_width);
-                writeln!(
-                    stdout,
-                    "  {:<LONGEST_COMMAND_LEN$}{}",
-                    cmd_name.green(),
-                    truncated_about,
-                )?;
-                printed_commands.insert(cmd_name.to_string());
-            }
-        }
-        writeln!(stdout)?;
-    }
-
-    // Collect any remaining commands not in the explicit groups
-    let misc_commands: Vec<_> = subcommands
-        .iter()
-        .filter(|subcmd| !printed_commands.contains(subcmd.get_name()) && !subcmd.is_hide_set())
-        .collect();
-
-    // Print MISC section if there are any ungrouped commands
-    if !misc_commands.is_empty() {
-        writeln!(stdout, "{}:", "Other Commands".yellow())?;
-        for subcmd in misc_commands {
-            let about = subcmd.get_about().unwrap_or_default().to_string();
-            // Calculate available width: terminal_width - indent (2) - command column (10) - buffer (1)
-            let available_width = terminal_width.saturating_sub(LONGEST_COMMAND_LEN_AND_ELLIPSIS);
-            let truncated_about = truncate_text(&about, available_width);
-            writeln!(
-                stdout,
-                "  {:<LONGEST_COMMAND_LEN$}{}",
-                subcmd.get_name().green(),
-                truncated_about
-            )?;
-        }
-        writeln!(stdout)?;
-    }
-
-    // Add command completion instructions
-    writeln!(
-        stdout,
-        "To add command completion, add this to your shell rc: (for example ~/.zshrc)"
-    )?;
-    writeln!(stdout, "  eval \"$(but completions zsh)\"")?;
-    writeln!(stdout)?;
-
-    writeln!(
-        stdout,
-        "To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, MCP), see:"
-    )?;
-    writeln!(
-        stdout,
-        "  https://docs.gitbutler.com/features/ai-integration/ai-overview"
-    )?;
-    writeln!(stdout)?;
-
-    writeln!(stdout, "{}:", "Options".yellow())?;
-    // Truncate long option descriptions if needed
-    let option_descriptions = [
-        (
-            "  -C, --current-dir <PATH>",
-            "Run as if but was started in PATH instead of the current working directory [default: .]",
-        ),
-        ("  -j, --json", "Whether to use JSON output format"),
-        ("  -h, --help", "Print help"),
-    ];
-
-    for (flag, desc) in option_descriptions {
-        let available_width = terminal_width.saturating_sub(flag.len() + 2);
-        let truncated_desc = truncate_text(desc, available_width);
-        writeln!(stdout, "{}  {}", flag, truncated_desc)?;
-    }
-
-    Ok(())
-}
+mod utils;
 
 mod trace {
     use tracing::metadata::LevelFilter;

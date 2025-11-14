@@ -80,6 +80,7 @@ cli-prompts = "0.1.0"
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }
+serde_json = { workspace = true, features = ["preserve_order"] }
 but-testsupport = { workspace = true, features = ["snapbox"] }
 snapbox = { workspace = true, features = ["term-svg", "regex"] }
 shell-words = "1.1.0"

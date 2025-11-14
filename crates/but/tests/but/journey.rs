@@ -178,6 +178,7 @@ fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {
     // Test with actual commands that need a repo (they'll fail but should accept the flag)
     // Before subcommand
     env.but("--json status")
+        .env_remove("BUT_OUTPUT_FORMAT")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -187,6 +188,7 @@ Error: Could not find a git repository in '.' or in any of its parents
 
     // After subcommand
     env.but("status --json")
+        .env_remove("BUT_OUTPUT_FORMAT")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -196,13 +198,21 @@ Error: Could not find a git repository in '.' or in any of its parents
 
     // Test with log command as well
     // Before subcommand
-    env.but("--json log").assert().failure().stderr_eq(str![[r#"
+    env.but("--json log")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
 Error: Could not find a git repository in '.' or in any of its parents
 
 "#]]);
 
     // After subcommand
-    env.but("log --json").assert().failure().stderr_eq(str![[r#"
+    env.but("log --json")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
 Error: Could not find a git repository in '.' or in any of its parents
 
 "#]]);
