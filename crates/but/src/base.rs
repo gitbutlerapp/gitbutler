@@ -21,7 +21,7 @@ pub enum Subcommands {
     Update,
 }
 
-pub fn handle(cmd: Subcommands, project: &LegacyProject, json: bool) -> anyhow::Result<()> {
+pub async fn handle(cmd: Subcommands, project: &LegacyProject, json: bool) -> anyhow::Result<()> {
     let mut stdout = std::io::stdout();
     match cmd {
         Subcommands::Check => {
@@ -65,7 +65,7 @@ pub fn handle(cmd: Subcommands, project: &LegacyProject, json: bool) -> anyhow::
             }
 
             let status =
-                but_api::virtual_branches::upstream_integration_statuses(project.id, None)?;
+                but_api::virtual_branches::upstream_integration_statuses(project.id, None).await?;
 
             match status {
                 UpToDate => _ = writeln!(stdout, "\n✅ Everything is up to date").ok(),
@@ -118,7 +118,7 @@ pub fn handle(cmd: Subcommands, project: &LegacyProject, json: bool) -> anyhow::
         }
         Subcommands::Update => {
             let status =
-                but_api::virtual_branches::upstream_integration_statuses(project.id, None)?;
+                but_api::virtual_branches::upstream_integration_statuses(project.id, None).await?;
             let resolutions = match status {
                 UpToDate => {
                     writeln!(stdout, "✅ Everything is up to date").ok();
@@ -170,7 +170,8 @@ pub fn handle(cmd: Subcommands, project: &LegacyProject, json: bool) -> anyhow::
             };
 
             if let Some(resolutions) = resolutions {
-                but_api::virtual_branches::integrate_upstream(project.id, resolutions, None)?;
+                but_api::virtual_branches::integrate_upstream(project.id, resolutions, None)
+                    .await?;
             }
             Ok(())
         }

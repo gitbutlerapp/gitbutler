@@ -246,7 +246,7 @@ async fn match_subcommand(
                 base::Subcommands::Check => CommandName::BaseCheck,
                 base::Subcommands::Update => CommandName::BaseUpdate,
             };
-            let result = base::handle(cmd, &project, args.json);
+            let result = base::handle(cmd, &project, args.json).await;
             metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             Ok(())
         }

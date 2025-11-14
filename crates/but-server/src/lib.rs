@@ -303,9 +303,25 @@ async fn handle_command(
         "update_commit_message" => virtual_branches::update_commit_message_cmd(request.params),
         "find_commit" => virtual_branches::find_commit_cmd(request.params),
         "upstream_integration_statuses" => {
-            virtual_branches::upstream_integration_statuses_cmd(request.params)
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = virtual_branches::upstream_integration_statuses_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
         }
-        "integrate_upstream" => virtual_branches::integrate_upstream_cmd(request.params),
+        "integrate_upstream" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = virtual_branches::integrate_upstream_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         "resolve_upstream_integration" => {
             virtual_branches::resolve_upstream_integration_cmd(request.params)
         }
