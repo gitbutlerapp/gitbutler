@@ -1,5 +1,5 @@
 use crate::LegacyProject;
-use crate::utils::{Output, OutputFormat, into_json_value, we_need_proper_json_output_here};
+use crate::utils::{Output, into_json_value, we_need_proper_json_output_here};
 use anyhow::bail;
 use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
@@ -146,19 +146,18 @@ pub async fn handle(
                 },
             )?;
 
-            let json = json::BranchNewOutput {
-                branch: branch_name.clone(),
-                anchor: anchor_for_json,
-            };
-            match out.format {
-                OutputFormat::Human => {
-                    writeln!(out, "Created branch {branch_name}").ok();
-                }
-                OutputFormat::Shell => {
-                    writeln!(out, "{branch_name}").ok();
-                }
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Created branch {branch_name}").ok();
+            } else if let Some(out) = out.for_shell() {
+                writeln!(out, "{branch_name}")?;
+            } else if let Some(out) = out.for_json() {
+                let value = json::BranchNewOutput {
+                    branch: branch_name.clone(),
+                    anchor: anchor_for_json,
+                };
+                out.write_value(value)?;
             }
-            Ok(into_json_value(json))
+            Ok(serde_json::Value::Null)
         }
         Some(Subcommands::Delete { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(

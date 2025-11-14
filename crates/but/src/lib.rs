@@ -3,7 +3,9 @@ use std::{ffi::OsString, io::Write, path::Path};
 use anyhow::{Context, Result};
 
 mod args;
-use crate::utils::{Output, OutputFormat, OutputTarget, ResultExt, print_grouped_help, props};
+use crate::utils::{
+    Output, OutputFormat, ResultJsonExt, ResultMetricsExt, print_grouped_help, props,
+};
 use args::{Args, Subcommands, actions, claude, cursor};
 use but_claude::hooks::OutputAsJson;
 use but_settings::AppSettings;
@@ -60,24 +62,12 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let mut args: Args = clap::Parser::parse_from(args);
     let app_settings = AppSettings::load_from_default_path_creating()?;
-    let output_target = if args.json {
-        OutputTarget::Blackhole
+    let output_format = if args.json {
+        OutputFormat::Json
     } else {
-        match args.format.unwrap_or_default() {
-            args::OutputFormat::Human | args::OutputFormat::Shell => OutputTarget::Stdout,
-            args::OutputFormat::Json => {
-                // Our code likes to check this flag instead, as convenience also for the caller.
-                args.json = true;
-                OutputTarget::Blackhole
-            }
-        }
+        args.format.unwrap_or_default()
     };
-    let output_format = args.format.and_then(|fmt| match fmt {
-        args::OutputFormat::Human => Some(OutputFormat::Human),
-        args::OutputFormat::Shell => Some(OutputFormat::Shell),
-        args::OutputFormat::Json => None,
-    });
-    let out = Output::new(output_target, output_format);
+    let out = Output::new(output_format);
 
     if args.trace > 0 {
         trace::init(args.trace)?;

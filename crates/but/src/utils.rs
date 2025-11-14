@@ -4,29 +4,62 @@ use colored::Colorize;
 use std::io::Write;
 
 /// How we should format anything written to [`std::io::stdout()`].
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, clap::ValueEnum, Default)]
 pub enum OutputFormat {
     /// The output to write is supposed to be for human consumption, and can be more verbose.
+    #[default]
     Human,
     /// The output should be suitable for shells, and assigning the major result to variables so that it can be re-used
     /// in subsequent CLI invocations.
     Shell,
-}
-
-/// Where to write
-pub enum OutputTarget {
-    Stdout,
-    Blackhole,
+    /// Output detailed information as JSON for tool consumption.
+    Json,
 }
 
 /// A utility `std::io::Write` implementation that can always be used to generate output for humans or for scripts.
 pub struct Output {
-    /// How to print the output, one should match on it.
-    pub format: OutputFormat,
+    /// How to print the output, one should match on it. Match on this if you prefer this style.
+    format: OutputFormat,
     /// The actual writer.
     inner: Box<dyn std::io::Write>,
 }
 
+/// Conversions
+impl Output {
+    /// Provide a write implementation for humans, if the format setting permits.
+    pub fn for_human(&mut self) -> Option<&mut (dyn std::io::Write + 'static)> {
+        matches!(self.format, OutputFormat::Human).then(|| self.inner.as_mut())
+    }
+    /// Provide a write implementation for Shwll output, if the format setting permits.
+    pub fn for_shell(&mut self) -> Option<&mut (dyn std::io::Write + 'static)> {
+        matches!(self.format, OutputFormat::Shell).then(|| self.inner.as_mut())
+    }
+    /// Provide a handle to receive a serde-serializable value to write to stdout.
+    pub fn for_json(&mut self) -> Option<&mut Self> {
+        matches!(self.format, OutputFormat::Json).then_some(self)
+    }
+}
+
+/// JSON utilities
+impl Output {
+    /// Write `value` as pretty JSON to the output.
+    pub fn write_value(&mut self, value: impl serde::Serialize) -> std::io::Result<()> {
+        json_pretty_to_stdout(&value)
+    }
+}
+
+fn json_pretty_to_stdout(value: &impl serde::Serialize) -> std::io::Result<()> {
+    let stdout = std::io::stdout();
+    let mut stdout = stdout.lock();
+    let value = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
+    if value != "null" {
+        stdout.write_all(value.as_bytes())?;
+        stdout.write_all(b"\n").ok();
+    }
+    Ok(())
+}
+
+/// We allow writing directly, knowing that JSON output will be a blackhole anyway.
 impl Write for Output {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.inner.write(buf)
@@ -39,35 +72,29 @@ impl Write for Output {
 
 /// Lifecycle
 impl Output {
-    /// Create a new instance to output to `target`.
-    pub fn new(target: OutputTarget, format: Option<OutputFormat>) -> Self {
+    /// Create a new instance to output with `format` (advisory), which affects where it prints to.
+    pub fn new(format: OutputFormat) -> Self {
         Output {
-            format: match target {
-                OutputTarget::Stdout => format.unwrap_or_else(|| {
-                    if atty::is(atty::Stream::Stdout) {
-                        OutputFormat::Human
-                    } else {
-                        OutputFormat::Shell
-                    }
-                }),
-                OutputTarget::Blackhole => {
-                    // Most likely implemented, and it doesn't matter
-                    OutputFormat::Human
-                }
-            },
-            inner: match target {
-                OutputTarget::Stdout => Box::new(std::io::stdout()),
-                OutputTarget::Blackhole => Box::new(std::io::sink()),
+            format,
+            inner: match format {
+                OutputFormat::Human | OutputFormat::Shell => Box::new(std::io::stdout()),
+                OutputFormat::Json => Box::new(std::io::sink()),
             },
         }
     }
 }
 
 /// Utilities attached to `anyhow::Result<impl serde::Serialize>`.
-pub trait ResultExt {
+pub trait ResultJsonExt {
     /// Write this value as pretty `JSON` to stdout if `json` is `true`.
+    ///
+    /// This style is great if you don't want to forget that JSON must be implemented.
+    /// Note that "null" isn't printed and silently dropped.
     fn output_json(self, json: bool) -> anyhow::Result<()>;
+}
 
+/// Utilities attached to `anyhow::Result<T>`.
+pub trait ResultMetricsExt {
     fn emit_metrics(
         self,
         app_settings: but_settings::AppSettings,
@@ -76,21 +103,19 @@ pub trait ResultExt {
     ) -> anyhow::Result<()>;
 }
 
-impl<T> ResultExt for anyhow::Result<T>
+impl<T> ResultJsonExt for anyhow::Result<T>
 where
     T: serde::Serialize,
 {
     fn output_json(self, json: bool) -> anyhow::Result<()> {
         if json && let Ok(value) = &self {
-            let stdout = std::io::stdout();
-            let mut stdout = stdout.lock();
-            serde_json::to_writer_pretty(&mut stdout, value)
-                .expect("This is to indicate that the write failed, leading to invalid JSON");
-            stdout.write_all(b"\n").ok();
+            json_pretty_to_stdout(value)?;
         }
         self.map(|_| ())
     }
+}
 
+impl<T> ResultMetricsExt for anyhow::Result<T> {
     fn emit_metrics(
         self,
         app_settings: but_settings::AppSettings,

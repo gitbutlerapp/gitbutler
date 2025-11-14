@@ -1,4 +1,5 @@
 use crate::forge::review;
+use crate::utils::OutputFormat;
 use crate::{base, branch, forge};
 use std::path::PathBuf;
 
@@ -303,18 +304,6 @@ pub enum CommandName {
     Completions,
     #[default]
     Unknown,
-}
-
-/// How to format the output.
-#[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    /// Produce verbose output for human consumption.
-    #[default]
-    Human,
-    /// The output is optimised for variable assignment in shells.
-    Shell,
-    /// Output detailed information as JSON for tool consumption.
-    Json,
 }
 
 pub mod actions {
