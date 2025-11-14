@@ -115,6 +115,8 @@
 		// If polling was previously done but now should restart (e.g., after a force push)
 		if (prevIsDone && !isDone) {
 			loadedOnce = false;
+			elapsedMs = 0;
+			prevChecksStartedAt = undefined;
 		}
 
 		const result = checksQuery?.result;
