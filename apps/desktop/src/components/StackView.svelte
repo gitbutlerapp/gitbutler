@@ -147,13 +147,13 @@
 	// Resizer configuration for stack panels and details view
 	const RESIZER_CONFIG = {
 		panel1: {
-			minWidth: 18,
+			minWidth: 20,
 			maxWidth: 64,
 			defaultValue: 23
 		},
 		panel2: {
-			minWidth: 18,
-			maxWidth: 56,
+			minWidth: 20,
+			maxWidth: 64,
 			defaultValue: 32
 		}
 	} as const;

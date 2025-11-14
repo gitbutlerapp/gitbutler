@@ -47,7 +47,7 @@
 	}
 
 	.chat-container {
-		--message-max-width: 700px;
+		--message-max-width: 840px;
 		display: flex;
 		position: relative;
 		flex: 1;
