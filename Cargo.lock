@@ -748,6 +748,7 @@ dependencies = [
  "gitbutler-stack",
  "gix",
  "insta",
+ "minus",
  "posthog-rs",
  "ratatui",
  "regex",
@@ -2115,6 +2116,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2102ea4f781910f8a5b98dd061f4c2023f479ce7bb1236330099ceb5a93cf17"
 dependencies = [
  "bitflags 1.3.2",
+ "crossterm_winapi",
+ "libc",
+ "mio 0.8.11",
+ "parking_lot",
+ "signal-hook",
+ "signal-hook-mio",
+ "winapi",
+]
+
+[[package]]
+name = "crossterm"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f476fe445d41c9e991fd07515a6f463074b782242ccf4a5b7b1d1012e70824df"
+dependencies = [
+ "bitflags 2.10.0",
  "crossterm_winapi",
  "libc",
  "mio 0.8.11",
@@ -6808,6 +6825,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "minus"
+version = "5.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "093bd0520d2a37943566a73750e6d44094dac75d66a978d1f0d97ffc78686832"
+dependencies = [
+ "crossbeam-channel",
+ "crossterm 0.27.0",
+ "once_cell",
+ "parking_lot",
+ "regex",
+ "textwrap",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "mio"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7483,6 +7515,9 @@ name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
+dependencies = [
+ "parking_lot_core",
+]
 
 [[package]]
 name = "once_cell_polyfill"
@@ -10545,6 +10580,15 @@ name = "termtree"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
+
+[[package]]
+name = "textwrap"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c13547615a44dc9c452a8a534638acdf07120d4b6847c8178705da06306a3057"
+dependencies = [
+ "unicode-width 0.2.0",
+]
 
 [[package]]
 name = "thiserror"

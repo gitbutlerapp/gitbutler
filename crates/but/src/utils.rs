@@ -20,18 +20,21 @@ pub struct Output {
     /// How to print the output, one should match on it. Match on this if you prefer this style.
     format: OutputFormat,
     /// The actual writer.
-    inner: Box<dyn std::io::Write>,
+    // TODO: remove once nobody writes to io::out anymore.
+    inner: std::io::Stdout,
+    /// Possibly a pager we are using. If `Some`, our `inner` is the pager itself which we interact with from here.
+    pager: Option<minus::Pager>,
 }
 
 /// Conversions
 impl Output {
     /// Provide a write implementation for humans, if the format setting permits.
-    pub fn for_human(&mut self) -> Option<&mut (dyn std::io::Write + 'static)> {
-        matches!(self.format, OutputFormat::Human).then(|| self.inner.as_mut())
+    pub fn for_human(&mut self) -> Option<&mut (dyn std::fmt::Write + 'static)> {
+        matches!(self.format, OutputFormat::Human).then(|| self as &mut dyn std::fmt::Write)
     }
     /// Provide a write implementation for Shwll output, if the format setting permits.
-    pub fn for_shell(&mut self) -> Option<&mut (dyn std::io::Write + 'static)> {
-        matches!(self.format, OutputFormat::Shell).then(|| self.inner.as_mut())
+    pub fn for_shell(&mut self) -> Option<&mut (dyn std::fmt::Write + 'static)> {
+        matches!(self.format, OutputFormat::Shell).then(|| self as &mut dyn std::fmt::Write)
     }
     /// Provide a handle to receive a serde-serializable value to write to stdout.
     pub fn for_json(&mut self) -> Option<&mut Self> {
@@ -61,13 +64,32 @@ fn json_pretty_to_stdout(value: &impl serde::Serialize) -> std::io::Result<()> {
 }
 
 /// We allow writing directly, knowing that JSON output will be a blackhole anyway.
+/// TODO: remove this once `std::fmt::Write` is in use everywhere.
 impl Write for Output {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.inner.write(buf)
+        match self.format {
+            OutputFormat::Human | OutputFormat::Shell => self.inner.write(buf),
+            OutputFormat::Json => Ok(buf.len()),
+        }
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        self.inner.flush()
+        match self.format {
+            OutputFormat::Human | OutputFormat::Shell => self.inner.flush(),
+            OutputFormat::Json => Ok(()),
+        }
+    }
+}
+
+impl std::fmt::Write for Output {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        if let Some(out) = self.pager.as_mut() {
+            out.write_str(s)
+        } else {
+            self.inner
+                .write_all(s.as_bytes())
+                .map_err(|_| std::fmt::Error)
+        }
     }
 }
 
@@ -77,13 +99,27 @@ impl Output {
     ///
     /// It's configured to print to stdout unless [`OutputFormat::Json`] is used, then it prints everything
     /// to a `/dev/null` equivalent, so callers never have to worry if they interleave JSON with other output.
+    ///
+    /// WARNING: the current implementation is static and would cache everything in memory.
+    ///          Use `dynamic_output` (cargo feature + see https://docs.rs/minus/5.6.1/minus/#threads) otherwise.
+    ///          It also needs to avoid
     pub fn new(format: OutputFormat) -> Self {
         Output {
             format,
-            inner: match format {
-                OutputFormat::Human | OutputFormat::Shell => Box::new(std::io::stdout()),
-                OutputFormat::Json => Box::new(std::io::sink()),
+            inner: std::io::stdout(),
+            pager: if std::env::var_os("NOPAGER").is_some() {
+                None
+            } else {
+                Some(minus::Pager::new())
             },
+        }
+    }
+}
+
+impl Drop for Output {
+    fn drop(&mut self) {
+        if let Some(pager) = self.pager.take() {
+            minus::page_all(pager).ok();
         }
     }
 }

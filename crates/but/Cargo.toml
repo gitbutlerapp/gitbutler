@@ -77,6 +77,7 @@ ratatui = "0.29.0"
 crossterm = "0.29.0"
 atty = "0.2.0"
 cli-prompts = "0.1.0"
+minus = { version = "5.6.1", default-features = false, features = ["static_output", "search"] }
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }

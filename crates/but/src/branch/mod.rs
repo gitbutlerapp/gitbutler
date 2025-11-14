@@ -76,9 +76,9 @@ pub async fn handle(
     match cmd {
         None => {
             let local = false;
-            list::list(legacy_project, local).await
+            list::list(legacy_project, local, out).await
         }
-        Some(Subcommands::List { local }) => list::list(legacy_project, local).await,
+        Some(Subcommands::List { local }) => list::list(legacy_project, local, out).await,
         Some(Subcommands::New {
             branch_name,
             anchor,
