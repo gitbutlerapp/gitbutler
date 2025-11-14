@@ -60,9 +60,9 @@
 		display: flex;
 		z-index: var(--z-floating);
 		position: absolute;
-		right: 12px;
+		right: 0;
 		bottom: calc(100% + 6px);
-		left: 12px;
+		left: 0;
 		flex-direction: column;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
