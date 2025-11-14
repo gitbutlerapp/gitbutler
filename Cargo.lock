@@ -706,6 +706,7 @@ name = "but"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "async-openai",
  "atty",
  "bstr",
  "but-action",
@@ -737,6 +738,7 @@ dependencies = [
  "colored",
  "command-group",
  "crossterm 0.29.0",
+ "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
@@ -757,11 +759,13 @@ dependencies = [
  "shell-words",
  "snapbox",
  "strum 0.27.2",
+ "term_size",
  "terminal_size",
  "tokio",
  "tracing",
  "tracing-forest",
  "tracing-subscriber",
+ "unicode-width 0.1.14",
 ]
 
 [[package]]
@@ -1097,6 +1101,7 @@ dependencies = [
  "but-secret",
  "but-settings",
  "gitbutler-user",
+ "http 1.3.1",
  "octorust",
  "reqwest 0.12.24",
  "serde",
@@ -10527,6 +10532,16 @@ dependencies = [
  "futf",
  "mac",
  "utf-8",
+]
+
+[[package]]
+name = "term_size"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e4129646ca0ed8f45d09b929036bafad5377103edd06e50bf574b353d2b08d9"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]
