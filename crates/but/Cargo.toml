@@ -50,6 +50,8 @@ gitbutler-command-context.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-oplog.workspace = true
 
+git2.workspace = true
+async-openai.workspace = true
 posthog-rs = { version = "0.3.7" }
 serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
@@ -77,6 +79,8 @@ ratatui = "0.29.0"
 crossterm = "0.29.0"
 atty = "0.2.0"
 cli-prompts = "0.1.0"
+unicode-width = "0.1"
+term_size = "0.3"
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }
