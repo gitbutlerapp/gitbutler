@@ -139,6 +139,7 @@ pub enum Code {
     SecretKeychainNotFound,
     MissingLoginKeychain,
     GitForcePushProtection,
+    NetworkError,
 }
 
 impl std::fmt::Display for Code {
@@ -157,6 +158,7 @@ impl std::fmt::Display for Code {
             Code::SecretKeychainNotFound => "errors.secret.keychain_notfound",
             Code::MissingLoginKeychain => "errors.secret.missing_login_keychain",
             Code::GitForcePushProtection => "errors.git.force_push_protection",
+            Code::NetworkError => "errors.network",
         };
         f.write_str(code)
     }

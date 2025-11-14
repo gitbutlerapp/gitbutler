@@ -28,7 +28,7 @@ impl GitHubClient {
         Ok(Self { github })
     }
 
-    pub async fn get_authenticated(&self) -> Result<AuthenticatedUser> {
+    pub async fn get_authenticated(&self) -> Result<AuthenticatedUser, octorust::ClientError> {
         self.github
             .users()
             .get_authenticated()
@@ -57,7 +57,6 @@ impl GitHubClient {
                     }
                 }
             })
-            .map_err(Into::into)
     }
 
     pub async fn list_open_pulls(&self, owner: &str, repo: &str) -> Result<Vec<PullRequest>> {
