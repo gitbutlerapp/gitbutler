@@ -1,5 +1,5 @@
 use crate::args::Args;
-use crate::metrics::Props;
+use crate::metrics::MetricsContext;
 use colored::Colorize;
 use std::io::Write;
 
@@ -95,14 +95,25 @@ pub trait ResultJsonExt {
     fn output_json(self, json: bool) -> anyhow::Result<()>;
 }
 
+pub trait ResultErrorExt {
+    fn show_root_cause_error_then_exit(self) -> !;
+}
+
+impl ResultErrorExt for anyhow::Result<()> {
+    fn show_root_cause_error_then_exit(self) -> ! {
+        let code = if let Err(e) = &self {
+            writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
+            1
+        } else {
+            0
+        };
+        std::process::exit(code);
+    }
+}
+
 /// Utilities attached to `anyhow::Result<T>`.
 pub trait ResultMetricsExt {
-    fn emit_metrics(
-        self,
-        app_settings: but_settings::AppSettings,
-        cmd: crate::args::CommandName,
-        start: std::time::Instant,
-    ) -> anyhow::Result<()>;
+    fn emit_metrics(self, ctx: Option<MetricsContext>) -> anyhow::Result<()>;
 }
 
 impl<T> ResultJsonExt for anyhow::Result<T>
@@ -117,19 +128,6 @@ where
     }
 }
 
-impl<T> ResultMetricsExt for anyhow::Result<T> {
-    fn emit_metrics(
-        self,
-        app_settings: but_settings::AppSettings,
-        cmd: crate::args::CommandName,
-        start: std::time::Instant,
-    ) -> anyhow::Result<()> {
-        let props = Props::from_result(start, &self);
-        crate::metrics_if_configured(app_settings, cmd, props).ok();
-        self.map(|_| ())
-    }
-}
-
 /// A placeholder, which should be substituted for the actual return value.
 pub fn we_need_proper_json_output_here() -> serde_json::Value {
     serde_json::Value::Null
@@ -140,15 +138,6 @@ pub fn we_need_proper_json_output_here() -> serde_json::Value {
 pub fn into_json_value(value: impl serde::Serialize) -> serde_json::Value {
     serde_json::to_value(&value)
         .expect("BUG: Failed to serialize JSON value, we should know that at compile time")
-}
-
-// TODO: remove when unused
-pub fn props<E, T, R>(start: std::time::Instant, result: R) -> Props
-where
-    R: std::ops::Deref<Target = anyhow::Result<T, E>>,
-    E: std::fmt::Display,
-{
-    Props::from_result(start, result)
 }
 
 pub fn print_grouped_help() -> std::io::Result<()> {
