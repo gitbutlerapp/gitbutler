@@ -33,6 +33,15 @@ a few rows down we do not update the cursor position to correctly.
 
 	let lastCheckedLine: undefined | string = undefined;
 	let lastCheckedResult = false;
+	let hasInitialized = false;
+
+	// Auto-wrap content on mount if enabled
+	$effect(() => {
+		if (enabled && maxLength && !hasInitialized) {
+			hasInitialized = true;
+			setTimeout(() => wrapAll(editor, maxLength), 0);
+		}
+	});
 
 	$effect(() => {
 		if (enabled) {
@@ -40,7 +49,7 @@ a few rows down we do not update the cursor position to correctly.
 		}
 	});
 
-	$effect(() => {
+	$effect(() =>
 		editor.registerCommand(
 			WRAP_ALL_COMMAND,
 			() => {
@@ -50,8 +59,8 @@ a few rows down we do not update the cursor position to correctly.
 				return true;
 			},
 			COMMAND_PRIORITY_NORMAL
-		);
-	});
+		)
+	);
 
 	function onTextNodeMutation(nodes: Map<NodeKey, NodeMutation>) {
 		editor.update(
