@@ -90,6 +90,7 @@ pub fn create_reference(
         &graph.to_workspace()?,
         &mut *meta,
         |_| StackId::generate(),
+        None,
     )?;
 
     let workspace = graph.to_workspace()?;
@@ -158,6 +159,7 @@ pub fn create_branch(
                 &ws,
                 &mut *meta,
                 |_| StackId::generate(),
+                None, // order - not used for dependent branches
             )?;
     } else {
         // NOTE: locking is built-in here.
