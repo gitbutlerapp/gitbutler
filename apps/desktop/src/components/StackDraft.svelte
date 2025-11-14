@@ -1,6 +1,8 @@
 <script lang="ts">
-	import BranchCard from '$components/BranchCard.svelte';
+	import BranchDividerLine from '$components/BranchDividerLine.svelte';
+	import CodegenRow from '$components/CodegenRow.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import DraftBranchHeader from '$components/DraftBranchHeader.svelte';
 	import NewCommitView from '$components/NewCommitView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
@@ -123,21 +125,27 @@
 				<ReduxResult {projectId} result={newNameQuery.result}>
 					{#snippet children(newName)}
 						{@const branchName = draftBranchName.current || newName}
-						<BranchCard
-							type="draft-branch"
-							{projectId}
+						<DraftBranchHeader
 							{branchName}
-							isCommitting
-							readonly={false}
 							lineColor="var(--clr-commit-local)"
+							{mode}
+							isCommitting={mode === 'commit'}
+							updateBranchName={(name) => uiState.global.draftBranchName.set(name)}
+							isUpdatingName={false}
+							failedToUpdateName={false}
 						/>
+
+						{#if mode === 'codegen'}
+							<BranchDividerLine lineColor="var(--clr-commit-local)" height="0.375rem" />
+							<CodegenRow draft />
+						{/if}
 					{/snippet}
 				</ReduxResult>
 				<Resizer
 					persistId="resizer-darft-panel"
 					viewport={draftPanelEl}
 					direction="right"
-					defaultValue={23}
+					defaultValue={20}
 					minWidth={16}
 					maxWidth={64}
 				/>

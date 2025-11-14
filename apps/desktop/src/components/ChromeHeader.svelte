@@ -255,7 +255,7 @@
 		{/if}
 		<Button
 			bind:el={createNewTrigger}
-			kind="ghost"
+			kind="outline"
 			icon="plus-small"
 			onclick={() => createNewContextMenu?.toggle()}
 		>
