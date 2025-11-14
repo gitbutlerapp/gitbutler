@@ -199,6 +199,8 @@ Cypress.on('window:before:load', (win) => {
 				return 'GitButler';
 			case 'plugin:app|version':
 				return '0.0.0';
+			case 'plugin:deep-link|get_current':
+				return await Promise.resolve(null);
 			default:
 				return raiseMissingMockError(command);
 		}
