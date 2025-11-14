@@ -187,13 +187,14 @@ fn main() -> anyhow::Result<()> {
                 });
 
                 let app_handle_for_deep_link = app_handle.clone();
-                app_handle.deep_link().on_open_url(move |_| {
+                app_handle.deep_link().on_open_url(move |event| {
                     // Get main window
                     if let Some(window) = app_handle_for_deep_link.get_window("main") {
                         let _ = window.unminimize();
                         let _ = window.show();
                         let _ = window.set_focus();
                     }
+                    event.urls().clear();
                 });
                 Ok(())
             })

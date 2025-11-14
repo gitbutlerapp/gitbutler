@@ -94,27 +94,27 @@ export default class Tauri implements IBackend {
 }
 
 function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
-	// For now, only handle a single URL at a time
-	if (urls.length !== 1) return;
-	for (const url of urls) {
-		if (!isValidDeepLinkUrl(url)) {
-			console.warn('Received invalid deep link URL:', url);
-			continue;
-		}
+	// We don't care about the previous URLs, only the last one.
+	const url = urls[urls.length - 1];
+	if (!url) return;
 
-		const result = parseDeepLinkUrl(url);
-		if (!result) {
-			console.warn('Failed to parse deep link URL:', url);
-			continue;
-		}
+	if (!isValidDeepLinkUrl(url)) {
+		console.warn('Received invalid deep link URL:', url);
+		return;
+	}
 
-		const [topLevel, params] = result;
-		switch (topLevel) {
-			case 'open': {
-				const path = params.get('path');
-				if (path) {
-					handlers.open(path);
-				}
+	const result = parseDeepLinkUrl(url);
+	if (!result) {
+		console.warn('Failed to parse deep link URL:', url);
+		return;
+	}
+
+	const [topLevel, params] = result;
+	switch (topLevel) {
+		case 'open': {
+			const path = params.get('path');
+			if (path) {
+				handlers.open(path);
 			}
 		}
 	}
