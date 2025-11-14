@@ -668,6 +668,7 @@ pub fn create_reference(
         &ws,
         &mut *meta,
         |_| StackId::generate(),
+        None,
     )?;
 
     if project.is_some() {

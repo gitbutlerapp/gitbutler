@@ -63,6 +63,7 @@ pub fn create_virtual_branch(
             &ws,
             &mut *meta,
             |_| StackId::generate(),
+            branch.order,
         )?;
 
         let ws = graph.to_workspace()?;

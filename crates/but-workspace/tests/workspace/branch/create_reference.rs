@@ -74,6 +74,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )
         .unwrap_err();
         assert_eq!(
@@ -106,6 +107,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )
         .expect("it updates the workspace metadata legitimate the new ref at base");
         let ws = graph.to_workspace()?;
@@ -129,6 +131,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -147,6 +150,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -168,6 +172,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -190,6 +195,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -257,6 +263,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         // It handles this special case, by creating the necessary workspace metadata
@@ -281,6 +288,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         let ws = graph.to_workspace()?;
@@ -306,6 +314,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         // Note how 'Above' *a commit* means directly above, not on top of everything.
@@ -334,6 +343,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         let ws = graph.to_workspace()?;
@@ -361,6 +371,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         // *Above a segment means what one would expect though.
@@ -388,6 +399,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         let ws = graph.to_workspace()?;
@@ -415,6 +427,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -440,6 +453,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -470,6 +484,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -503,6 +518,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -592,6 +608,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -614,6 +631,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         let ws = graph.to_workspace()?;
@@ -641,6 +659,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         // Note how 'Above' *a commit* means directly above, not on top of everything.
@@ -668,6 +687,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         // *Above a segment means what one would expect though.
@@ -697,6 +717,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         let ws = graph.to_workspace()?;
@@ -723,6 +744,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         let ws = graph.to_workspace()?;
@@ -750,6 +772,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -775,6 +798,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -805,6 +829,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -838,6 +863,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -925,6 +951,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         let ws = graph.to_workspace()?;
@@ -979,6 +1006,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1004,6 +1032,7 @@ mod with_workspace {
             &ws,
             &mut meta,
             stack_id_for_name,
+            None,
         )?;
 
         let ws = graph.to_workspace()?;
@@ -1050,6 +1079,7 @@ mod with_workspace {
                 &ws,
                 &mut *meta,
                 stack_id_for_name,
+                None,
             )
             .unwrap_err();
 
@@ -1116,6 +1146,7 @@ mod with_workspace {
                 &ws,
                 &mut *meta,
                 stack_id_for_name,
+                None,
             )
             .unwrap_err();
 
@@ -1148,6 +1179,7 @@ mod with_workspace {
                 &ws,
                 &mut *meta,
                 stack_id_for_name,
+                None,
             )
             .unwrap_err();
 
@@ -1176,6 +1208,7 @@ mod with_workspace {
             &ws,
             &mut *meta,
             stack_id_for_name,
+            None,
         )
         .unwrap_err();
         assert_eq!(
@@ -1204,6 +1237,7 @@ mod with_workspace {
             &ws,
             &mut *meta,
             stack_id_for_name,
+            None,
         )
         .unwrap_err();
 
@@ -1239,6 +1273,7 @@ fn errors() -> anyhow::Result<()> {
         &ws,
         &mut *meta,
         stack_id_for_name,
+        None,
     )
     .unwrap_err();
     assert_eq!(err.to_string(), "Cannot create reference on unborn branch");
@@ -1274,6 +1309,7 @@ fn errors() -> anyhow::Result<()> {
             &ws,
             &mut *meta,
             stack_id_for_name,
+            None,
         )
         .unwrap_err();
         assert_eq!(
@@ -1301,6 +1337,7 @@ fn errors() -> anyhow::Result<()> {
             &ws,
             &mut *meta,
             stack_id_for_name,
+            None,
         )
         .unwrap_err();
         assert_eq!(
@@ -1332,6 +1369,7 @@ fn errors() -> anyhow::Result<()> {
             &ws,
             &mut *meta,
             stack_id_for_name,
+            None,
         )
         .unwrap_err();
         assert_eq!(
@@ -1375,6 +1413,7 @@ fn errors() -> anyhow::Result<()> {
             &ws,
             &mut *meta,
             stack_id_for_name,
+            None,
         )
         .unwrap_err();
         assert_eq!(
@@ -1421,6 +1460,7 @@ fn errors() -> anyhow::Result<()> {
             &ws,
             &mut *meta,
             stack_id_for_name,
+            None,
         )
         .unwrap_err();
         assert_eq!(
@@ -1473,6 +1513,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &ws,
         &mut meta,
         stack_id_for_name,
+        None,
     )
     .expect("this works as the branch is unique");
 
@@ -1507,6 +1548,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &ws,
         &mut meta,
         stack_id_for_name,
+        None,
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1527,6 +1569,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &ws,
         &mut meta,
         stack_id_for_name,
+        None,
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1549,6 +1592,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &ws,
         &mut meta,
         stack_id_for_name,
+        None,
     )
     .unwrap_err();
     assert_eq!(
@@ -1565,6 +1609,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &ws,
         &mut meta,
         stack_id_for_name,
+        None,
     )?;
 
     assert!(
@@ -1594,6 +1639,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &ws,
         &mut meta,
         stack_id_for_name,
+        None,
     )?;
 
     assert!(
@@ -1653,6 +1699,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         &ws,
         &mut meta,
         stack_id_for_name,
+        None,
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1672,6 +1719,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         &ws,
         &mut meta,
         stack_id_for_name,
+        None,
     )
     .unwrap_err();
 
@@ -1693,6 +1741,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         &ws,
         &mut meta,
         stack_id_for_name,
+        None,
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1711,6 +1760,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         &ws,
         &mut meta,
         stack_id_for_name,
+        None,
     )
     .unwrap_err();
 
