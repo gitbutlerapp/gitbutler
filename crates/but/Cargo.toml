@@ -77,10 +77,6 @@ ratatui = "0.29.0"
 crossterm = "0.29.0"
 atty = "0.2.0"
 cli-prompts = "0.1.0"
-git2.workspace = true
-
-[target.'cfg(not(windows))'.dependencies]
-pager = "0.16.1"
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }
