@@ -12,6 +12,7 @@
 	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import {
@@ -43,6 +44,7 @@
 	const settingsService = inject(SETTINGS_SERVICE);
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
+	const shortcutService = inject(SHORTCUT_SERVICE);
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
 	const base = $derived(baseReponse?.response);
 	const settingsStore = $derived(settingsService.appSettings);
@@ -103,6 +105,8 @@
 	}
 
 	let createBranchModal = $state<CreateBranchModal>();
+
+	$effect(() => shortcutService.on('create-branch', () => createBranchModal?.show()));
 </script>
 
 {#if projectId}
@@ -269,6 +273,7 @@
 		<ContextMenuItem
 			icon="branch-remote"
 			label="Branch"
+			keyboardShortcut="$mod+B"
 			onclick={() => {
 				createBranchModal?.show();
 				createNewContextMenu?.close();

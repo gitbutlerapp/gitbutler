@@ -15,6 +15,11 @@ export const shortcuts = {
 			title: 'Clone repository',
 			keys: '$mod+Shift+O',
 			description: null
+		},
+		create_branch: {
+			title: 'Create branch',
+			keys: '$mod+B',
+			description: null
 		}
 	},
 	view: {
