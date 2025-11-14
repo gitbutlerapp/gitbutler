@@ -1,7 +1,3 @@
-use std::env;
-
-use anyhow::Result;
-
 /// Initialize a pager if appropriate.
 ///
 /// This function will:
@@ -11,53 +7,31 @@ use anyhow::Result;
 /// - Read the `core.pager` git config value if PAGER is not set
 /// - Fall back to `less` if neither is configured
 /// - Respect the NOPAGER environment variable to disable paging (handled by pager crate)
-pub fn setup_pager_if_appropriate() -> Result<()> {
-    // Do not use pager on Windows
-    #[cfg(target_os = "windows")]
+#[cfg_attr(windows, allow(unused))]
+pub fn from_env_or_git(directory: &std::path::Path) {
+    #[cfg(windows)]
     {
         return Ok(());
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(windows))]
     {
         // If PAGER is already set, use the default pager behavior which will use it
-        if env::var("PAGER").is_ok() {
+        if std::env::var("PAGER").is_ok() {
             pager::Pager::new().setup();
-            return Ok(());
+            return;
         }
 
-        // Try to get the pager from git config
-        let pager_command = get_git_pager()?;
+        let git_pager = gix::discover(directory)
+            .ok()
+            .and_then(|repo| {
+                repo.config_snapshot()
+                    .trusted_program("core.pager")
+                    .map(|p| p.into_owned())
+            })
+            .unwrap_or_else(|| std::ffi::OsString::from("less"));
 
         // Set the pager program (will automatically skip if output is not to a terminal)
-        pager::Pager::with_pager(&pager_command).setup();
-
-        Ok(())
-    }
-}
-
-/// Get the pager command from git config, falling back to "less" if not set.
-fn get_git_pager() -> Result<String> {
-    // Try to read core.pager from git config
-    match git2::Config::open_default() {
-        Ok(config) => {
-            match config.get_string("core.pager") {
-                Ok(pager) => Ok(pager),
-                Err(e) if e.code() == git2::ErrorCode::NotFound => {
-                    // core.pager not set, use default
-                    Ok("less".to_string())
-                }
-                Err(e) => {
-                    // Some other error, use default
-                    eprintln!("Warning: Failed to read core.pager config: {}", e);
-                    Ok("less".to_string())
-                }
-            }
-        }
-        Err(e) => {
-            // Can't open git config, use default
-            eprintln!("Warning: Failed to open git config: {}", e);
-            Ok("less".to_string())
-        }
+        pager::Pager::with_pager(&git_pager.to_string_lossy()).setup();
     }
 }

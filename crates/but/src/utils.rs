@@ -4,10 +4,9 @@ use colored::Colorize;
 use std::io::Write;
 
 /// How we should format anything written to [`std::io::stdout()`].
-#[derive(Debug, Copy, Clone, clap::ValueEnum, Default)]
+#[derive(Debug, Copy, Clone, clap::ValueEnum)]
 pub enum OutputFormat {
     /// The output to write is supposed to be for human consumption, and can be more verbose.
-    #[default]
     Human,
     /// The output should be suitable for shells, and assigning the major result to variables so that it can be re-used
     /// in subsequent CLI invocations.
@@ -75,6 +74,9 @@ impl Write for Output {
 /// Lifecycle
 impl Output {
     /// Create a new instance to output with `format` (advisory), which affects where it prints to.
+    ///
+    /// It's configured to print to stdout unless [`OutputFormat::Json`] is used, then it prints everything
+    /// to a `/dev/null` equivalent, so callers never have to worry if they interleave JSON with other output.
     pub fn new(format: OutputFormat) -> Self {
         Output {
             format,

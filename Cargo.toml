@@ -125,7 +125,6 @@ regex = { version = "1.11.3", default-features = false, features = ["std", "unic
 clap = { version = "4.5.51", default-features = false, features = ["derive", "std", "help"]}
 tracing-forest = { version = "0.3.0" }
 sysinfo = { version = "0.37.2", default-features = false }
-pager = "0.16.1"
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,
