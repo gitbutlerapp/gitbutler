@@ -20,6 +20,11 @@ export const shortcuts = {
 			title: 'Create branch',
 			keys: '$mod+B',
 			description: null
+		},
+		create_dependent_branch: {
+			title: 'Create dependent branch',
+			keys: '$mod+Shift+B',
+			description: null
 		}
 	},
 	view: {

@@ -81,6 +81,9 @@ pub fn build<R: Runtime>(
             &MenuItemBuilder::with_id("file/create-branch", "Create Branch…")
                 .accelerator("CmdOrCtrl+B")
                 .build(handle)?,
+            &MenuItemBuilder::with_id("file/create-dependent-branch", "Create Dependent Branch…")
+                .accelerator("CmdOrCtrl+Shift+B")
+                .build(handle)?,
             &PredefinedMenuItem::separator(handle)?,
         ])
         .build()?;
@@ -262,6 +265,11 @@ pub fn handle_event<R: Runtime>(
 
     if event.id() == "file/create-branch" {
         emit(webview, SHORTCUT_EVENT, "create-branch");
+        return;
+    }
+
+    if event.id() == "file/create-dependent-branch" {
+        emit(webview, SHORTCUT_EVENT, "create-dependent-branch");
         return;
     }
 

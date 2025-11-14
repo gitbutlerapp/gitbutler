@@ -107,6 +107,9 @@
 	let createBranchModal = $state<CreateBranchModal>();
 
 	$effect(() => shortcutService.on('create-branch', () => createBranchModal?.show()));
+	$effect(() =>
+		shortcutService.on('create-dependent-branch', () => createBranchModal?.show('dependent'))
+	);
 </script>
 
 {#if projectId}
