@@ -15,6 +15,7 @@
 	import {
 		COMMAND_PRIORITY_CRITICAL,
 		$getRoot as getRoot,
+		$isParagraphNode as isParagraphNode,
 		KEY_DOWN_COMMAND,
 		FOCUS_COMMAND,
 		BLUR_COMMAND,
@@ -188,9 +189,6 @@
 			const currentText = await getPlaintext();
 			if (currentText?.trim() === '') {
 				setText(initialText);
-				if (wrapCountValue !== undefined) {
-					wrapAll();
-				}
 			}
 		}
 	}
@@ -204,6 +202,20 @@
 					resolve(text);
 				});
 			}
+		});
+	}
+
+	export function getParagraphCount(): Promise<number> {
+		return new Promise((resolve) => {
+			if (!composer) {
+				resolve(0);
+				return;
+			}
+			composer.getEditor()?.read(() => {
+				const root = getRoot();
+				const count = root.getChildren().filter(isParagraphNode).length;
+				resolve(count);
+			});
 		});
 	}
 
