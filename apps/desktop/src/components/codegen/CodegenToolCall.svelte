@@ -44,12 +44,12 @@
 		{/snippet}
 
 		{#snippet content()}
-			{#if toolCall.result}
-				<div class="stack-v gap-6 m-b-8">
-					<Codeblock label="Tool call input:" content={formatToolCall(toolCall)} />
+			<div class="stack-v gap-6 m-b-8">
+				<Codeblock label="Tool call input:" content={formatToolCall(toolCall)} />
+				{#if toolCall.result}
 					<Codeblock content={toolCall.result.slice(0, 65536)} />
-				</div>
-			{/if}
+				{/if}
+			</div>
 		{/snippet}
 	</ExpandableSection>
 </div>
