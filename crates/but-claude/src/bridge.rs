@@ -53,11 +53,11 @@ use crate::{
     send_claude_message,
 };
 
-/// Holds the CC instances. Currently keyed by stackId, since our current model
-/// assumes one CC per stack at any given time.
+/// Holds the CC instances. Keyed by optional stackId - None represents a general
+/// project-wide session, Some(StackId) represents a stack-specific session.
 pub struct Claudes {
     /// A set that contains all the currently running requests
-    pub(crate) requests: Mutex<HashMap<StackId, Arc<Claude>>>,
+    pub(crate) requests: Mutex<HashMap<Option<StackId>, Arc<Claude>>>,
 }
 
 pub struct Claude {
@@ -75,12 +75,14 @@ impl Claudes {
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
-        stack_id: StackId,
+        stack_id: Option<StackId>,
         user_params: ClaudeUserParams,
     ) -> Result<()> {
         if self.requests.lock().await.contains_key(&stack_id) {
+            let mode = stack_id.map_or("project", |_| "stack");
             bail!(
-                "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
+                "Claude is currently thinking for this {}, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application.",
+                mode
             );
         } else {
             self.spawn_claude(ctx.clone(), broadcaster.clone(), stack_id, user_params)
@@ -95,11 +97,13 @@ impl Claudes {
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
-        stack_id: StackId,
+        stack_id: Option<StackId>,
     ) -> Result<()> {
         if self.requests.lock().await.contains_key(&stack_id) {
+            let mode = stack_id.map_or("project", |_| "stack");
             bail!(
-                "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
+                "Claude is currently thinking for this {}, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application.",
+                mode
             )
         } else {
             self.compact(ctx, broadcaster, stack_id).await
@@ -111,7 +115,7 @@ impl Claudes {
     pub fn get_messages(
         &self,
         ctx: &mut CommandContext,
-        stack_id: StackId,
+        stack_id: Option<StackId>,
     ) -> Result<Vec<ClaudeMessage>> {
         let rule = list_claude_assignment_rules(ctx)?
             .into_iter()
@@ -124,8 +128,8 @@ impl Claudes {
         }
     }
 
-    /// Cancel a running Claude session for the given stack
-    pub async fn cancel_session(&self, stack_id: StackId) -> Result<bool> {
+    /// Cancel a running Claude session for the given stack (or general session if None)
+    pub async fn cancel_session(&self, stack_id: Option<StackId>) -> Result<bool> {
         let requests = self.requests.lock().await;
         if let Some(claude) = requests.get(&stack_id) {
             // Send the kill signal
@@ -139,8 +143,8 @@ impl Claudes {
         }
     }
 
-    /// Check if there is an active Claude session for the given stack ID
-    pub async fn is_stack_active(&self, stack_id: StackId) -> bool {
+    /// Check if there is an active Claude session for the given stack ID (or general session if None)
+    pub async fn is_stack_active(&self, stack_id: Option<StackId>) -> bool {
         let requests = self.requests.lock().await;
         requests.contains_key(&stack_id)
     }
@@ -149,7 +153,7 @@ impl Claudes {
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
-        stack_id: StackId,
+        stack_id: Option<StackId>,
         user_params: ClaudeUserParams,
     ) -> () {
         let res = self
@@ -182,7 +186,7 @@ impl Claudes {
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
-        stack_id: StackId,
+        stack_id: Option<StackId>,
         user_params: ClaudeUserParams,
     ) -> Result<()> {
         // Capture the start time to filter messages created during this session
@@ -303,7 +307,7 @@ impl Claudes {
                 // Broadcast each new message
                 for message in new_messages {
                     broadcaster.lock().await.send(FrontendEvent {
-                        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+                        name: crate::claude_event_name(project_id, stack_id),
                         payload: serde_json::json!(message),
                     });
                 }
@@ -325,7 +329,7 @@ impl Claudes {
 async fn handle_exit(
     ctx: Arc<Mutex<CommandContext>>,
     broadcaster: Arc<Mutex<Broadcaster>>,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
     session_id: uuid::Uuid,
     mut read_stderr: PipeReader,
     mut handle: Child,
@@ -397,7 +401,7 @@ async fn spawn_command(
     ctx: Arc<Mutex<CommandContext>>,
     user_params: ClaudeUserParams,
     summary_to_resume: Option<String>,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
@@ -509,7 +513,7 @@ async fn spawn_command(
     // Format branch information for the system prompt
     let branch_info = {
         let mut ctx = ctx.lock().await;
-        format_branch_info(&mut ctx, stack_id)
+        format_branch_info(&mut ctx, stack_id).await
     };
     let system_prompt = format!("{}\n\n{}", SYSTEM_PROMPT, branch_info);
     command.args(["--append-system-prompt", &system_prompt]);
@@ -579,23 +583,43 @@ Sorry, this project is managed by GitButler so you must integrate upstream upstr
 </git-usage>";
 
 /// Formats branch information for the system prompt
-fn format_branch_info(ctx: &mut CommandContext, stack_id: StackId) -> String {
-    let mut output = String::from(
-        "<branch-info>\n\
-        This repository uses GitButler for branch management. While git shows you are on\n\
+async fn format_branch_info(ctx: &mut CommandContext, stack_id: Option<StackId>) -> String {
+    let mut output = String::from("<branch-info>\n");
+
+    output.push_str(
+        "This repository uses GitButler for branch management. While git shows you are on\n\
         the `gitbutler/workspace` branch, this is actually a merge commit containing one or\n\
-        more independent stacks of branches being worked on simultaneously.\n\n\
-        This session is specific to a particular branch within that workspace. When asked about\n\
-        the current branch or what changes have been made, you should focus on the current working\n\
-        branch listed below, not the workspace branch itself.\n\n\
-        Changes and diffs should be understood relative to the target branch (upstream), as that\n\
-        represents the integration point for this work.\n\n\
-        When asked about uncommitted changes you must only consider changes assigned to the stack.\n\n",
+        more independent stacks of branches being worked on simultaneously.\n\n",
     );
 
-    append_target_branch_info(&mut output, ctx);
-    append_stack_branches_info(&mut output, stack_id, ctx);
-    append_assigned_files_info(&mut output, stack_id, ctx);
+    match stack_id {
+        Some(stack_id) => {
+            output.push_str(
+                "This session is specific to a particular branch within that workspace. When asked about\n\
+                the current branch or what changes have been made, you should focus on the current working\n\
+                branch listed below, not the workspace branch itself.\n\n\
+                Changes and diffs should be understood relative to the target branch (upstream), as that\n\
+                represents the integration point for this work.\n\n\
+                When asked about uncommitted changes you must only consider changes assigned to the stack.\n\n",
+            );
+
+            append_target_branch_info(&mut output, ctx);
+            append_stack_branches_info(&mut output, stack_id, ctx);
+            append_assigned_files_info(&mut output, stack_id, ctx);
+        }
+        None => {
+            output.push_str(
+                "This is a general project-wide session. You can see and work with all stacks and branches.\n\
+                When the user asks about changes or branches without specifying which one, you should consider\n\
+                all active stacks in the workspace.\n\n\
+                You have access to all files and changes across all stacks.\n\n",
+            );
+
+            append_target_branch_info(&mut output, ctx);
+            append_all_stacks_info(&mut output, ctx);
+            append_all_assigned_files_info(&mut output, ctx);
+        }
+    }
 
     output.push_str("</branch-info>");
     output
@@ -732,6 +756,113 @@ fn format_file_with_line_ranges(
     }
 }
 
+/// Appends information about all stacks in the workspace (for general sessions)
+fn append_all_stacks_info(output: &mut String, ctx: &mut CommandContext) {
+    let Ok(repo) = ctx.gix_repo() else {
+        tracing::warn!("Failed to get repository");
+        output.push_str("Unable to fetch repository information.\n");
+        return;
+    };
+
+    let stacks = match but_workspace::legacy::stacks(
+        ctx,
+        &ctx.project().gb_dir(),
+        &repo,
+        but_workspace::legacy::StacksFilter::InWorkspace,
+    ) {
+        Ok(stacks) if !stacks.is_empty() => stacks,
+        Ok(_) => {
+            output.push_str("There are no stacks currently in the workspace.\n");
+            return;
+        }
+        Err(e) => {
+            tracing::warn!("Failed to fetch stacks: {e}");
+            output.push_str("Unable to fetch stack information.\n");
+            return;
+        }
+    };
+
+    output.push_str("The following stacks are currently in the workspace:\n");
+    for stack in stacks {
+        let (Some(stack_id), Some(name)) = (stack.id, stack.name()) else {
+            continue;
+        };
+
+        output.push_str(&format!(
+            "- {} (stack_id: {stack_id})\n",
+            name.to_str_lossy()
+        ));
+
+        // List branches in this stack
+        if !stack.heads.is_empty() {
+            output.push_str("  Branches:\n");
+            for head in &stack.heads {
+                let checkout_marker = if head.is_checked_out {
+                    " (checked out)"
+                } else {
+                    ""
+                };
+                output.push_str(&format!(
+                    "  - {}{checkout_marker}\n",
+                    head.name.to_str_lossy()
+                ));
+            }
+        }
+    }
+}
+
+/// Appends information about all assigned files across all stacks (for general sessions)
+fn append_all_assigned_files_info(output: &mut String, ctx: &mut CommandContext) {
+    let Ok((assignments, _error)) = but_hunk_assignment::assignments_with_fallback(
+        ctx,
+        false,
+        None::<Vec<but_core::TreeChange>>,
+        None,
+    ) else {
+        tracing::warn!("Failed to fetch hunk assignments");
+        return;
+    };
+
+    // Group assignments by stack_id
+    let mut stacks_with_files: HashMap<Option<StackId>, Vec<&but_hunk_assignment::HunkAssignment>> =
+        HashMap::new();
+    for assignment in &assignments {
+        stacks_with_files
+            .entry(assignment.stack_id)
+            .or_default()
+            .push(assignment);
+    }
+
+    if stacks_with_files.is_empty() {
+        return;
+    }
+
+    output.push_str("\nFile assignments across all stacks:\n");
+
+    // Show unassigned files first if any
+    if let Some(unassigned) = stacks_with_files.get(&None) {
+        output.push_str("Unassigned files:\n");
+        for assignment in unassigned {
+            output.push_str(&format!("  - {}\n", assignment.path));
+        }
+        output.push('\n');
+    }
+
+    // Show files grouped by stack
+    let mut stack_ids: Vec<_> = stacks_with_files.keys().copied().flatten().collect();
+    stack_ids.sort();
+
+    for stack_id in stack_ids {
+        if let Some(files) = stacks_with_files.get(&Some(stack_id)) {
+            output.push_str(&format!("Stack {stack_id} files:\n"));
+            for assignment in files {
+                output.push_str(&format!("  - {}\n", assignment.path));
+            }
+            output.push('\n');
+        }
+    }
+}
+
 fn format_message_with_summary(
     summary: &str,
     message: &str,
@@ -775,7 +906,7 @@ fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
 async fn upsert_session(
     ctx: Arc<Mutex<CommandContext>>,
     session_id: uuid::Uuid,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
 ) -> Result<crate::ClaudeSession> {
     let mut ctx = ctx.lock().await;
     let session = if let Some(session) = db::get_session_by_id(&mut ctx, session_id)? {
@@ -796,7 +927,7 @@ fn spawn_response_streaming(
     broadcaster: Arc<Mutex<Broadcaster>>,
     read_stdout: PipeReader,
     session_id: uuid::Uuid,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
