@@ -49,7 +49,7 @@
 	const backend = inject(BACKEND);
 	const uiState = inject(UI_STATE);
 
-	const mode = $derived(modeService.mode({ projectId }));
+	const mode = $derived(modeService.mode(projectId));
 	const currentMode = $derived(mode.response);
 	const currentBranchName = $derived.by(() => {
 		if (currentMode?.type === 'OpenWorkspace') {

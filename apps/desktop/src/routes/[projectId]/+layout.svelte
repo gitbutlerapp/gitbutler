@@ -82,7 +82,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const worktreeService = inject(WORKTREE_SERVICE);
 
-	const modeQuery = $derived(modeService.mode({ projectId }));
+	const modeQuery = $derived(modeService.mode(projectId));
 	const mode = $derived(modeQuery.response);
 
 	// Invalidate stacks when switching branches outside workspace
@@ -213,6 +213,16 @@
 	// Listen for stack details updates
 	$effect(() => {
 		stackService.stackDetailsUpdateListener(projectId);
+	});
+
+	const headResponse = $derived(modeService.head(projectId));
+	const head = $derived(headResponse.response);
+
+	// If the head changes, invalidate stacks and details
+	$effect(() => {
+		if (head) {
+			stackService.invalidateStacksAndDetails();
+		}
 	});
 
 	// =============================================================================
