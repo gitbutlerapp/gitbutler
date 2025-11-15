@@ -93,28 +93,52 @@ export default class Tauri implements IBackend {
 	}
 }
 
+const LAST_PROCESSED_DEEP_LINK_URL_KEY = 'lastProcessedDeepLinkUrl';
+
+function alreadyProcessedDeepLinkUrl(url: string): boolean {
+	const lastProcessedUrl = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
+	return lastProcessedUrl === url;
+}
+
+function markDeepLinkUrlAsProcessed(url: string): void {
+	localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, url);
+}
+
 function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
-	// For now, only handle a single URL at a time
-	if (urls.length !== 1) return;
-	for (const url of urls) {
-		if (!isValidDeepLinkUrl(url)) {
-			console.warn('Received invalid deep link URL:', url);
-			continue;
-		}
+	// We don't care about the previous URLs, only the last one.
+	const url = urls[urls.length - 1];
+	if (!url) return;
+	if (!isValidDeepLinkUrl(url)) {
+		console.warn('Received invalid deep link URL:', url);
+		return;
+	}
 
-		const result = parseDeepLinkUrl(url);
-		if (!result) {
-			console.warn('Failed to parse deep link URL:', url);
-			continue;
-		}
+	const result = parseDeepLinkUrl(url);
+	if (!result) {
+		console.warn('Failed to parse deep link URL:', url);
+		return;
+	}
 
-		const [topLevel, params] = result;
-		switch (topLevel) {
-			case 'open': {
-				const path = params.get('path');
-				if (path) {
-					handlers.open(path);
-				}
+	const [topLevel, params] = result;
+	const timestamp = params.get('t');
+	if (!timestamp) {
+		// All deeplinks mus t have a timestamp to avoid processing duplicates.
+		console.warn('Deep link URL missing timestamp parameter:', url);
+		return;
+	}
+
+	if (alreadyProcessedDeepLinkUrl(url)) {
+		// Already processed this URL.
+		return;
+	}
+
+	markDeepLinkUrlAsProcessed(url);
+
+	switch (topLevel) {
+		case 'open': {
+			const path = params.get('path');
+			if (path) {
+				handlers.open(path);
 			}
 		}
 	}

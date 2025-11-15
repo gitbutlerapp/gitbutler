@@ -66,7 +66,19 @@ impl AppChannel {
             AppChannel::Dev => "but-dev",
         };
 
-        let url = format!("{}://open?path={}", scheme, possibly_project_dir.display());
+        // Add a timestamp to avoid processing the same URL multiple times due to caching.
+        // Read more https://github.com/gitbutlerapp/gitbutler/pull/11234#issuecomment-3533202481
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+
+        let url = format!(
+            "{}://open?path={}&t={}",
+            scheme,
+            possibly_project_dir.display(),
+            timestamp
+        );
 
         let mut cmd_errors = Vec::new();
 
