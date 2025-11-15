@@ -311,6 +311,7 @@ fn main() -> anyhow::Result<()> {
                 remotes::list_remotes,
                 remotes::add_remote,
                 modes::operating_mode,
+                modes::head_sha,
                 modes::enter_edit_mode,
                 modes::save_edit_and_return_to_workspace,
                 modes::abort_edit_and_return_to_workspace,

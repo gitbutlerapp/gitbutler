@@ -4077,6 +4077,7 @@ dependencies = [
  "gitbutler-filemonitor",
  "gitbutler-operating-modes",
  "gitbutler-project",
+ "gix",
  "serde-error",
  "tokio",
  "tokio-util",
