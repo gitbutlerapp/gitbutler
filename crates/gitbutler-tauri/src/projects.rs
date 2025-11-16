@@ -1,5 +1,5 @@
 use anyhow::{Context, bail};
-use but_api::error::Error;
+use but_api::json::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;

@@ -4,7 +4,7 @@ use but_action::cli::{InstallMode, do_install_cli, get_cli_path};
 use but_api_macros::api_cmd;
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::json::Error;
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

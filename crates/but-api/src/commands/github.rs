@@ -1,95 +1,105 @@
 //! In place of commands.rs
+use crate::json::Error;
 use anyhow::Result;
-use but_api_macros::api_cmd;
-use but_github::{AuthStatusResponse, AuthenticatedUser, CheckAuthStatusParams, Verification};
-use serde::{Deserialize, Serialize};
+use but_api_macros::{api_cmd, api_cmd_async_tauri, api_cmd_tauri};
+use but_github::{AuthStatusResponse, AuthenticatedUser, Verification};
+use but_secret::Sensitive;
 use tracing::instrument;
 
-use crate::{NoParams, error::Error};
+pub mod json {
+    use but_github::{AuthStatusResponse, AuthenticatedUser};
+    use serde::Serialize;
 
-pub async fn init_device_oauth(_params: NoParams) -> Result<Verification, Error> {
-    but_github::init_device_oauth().await.map_err(Into::into)
-}
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AuthStatusResponseSensitive {
+        pub access_token: String,
+        pub login: String,
+        pub name: Option<String>,
+        pub email: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub host: Option<String>,
+    }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthStatusResponseSensitive {
-    pub access_token: String,
-    pub login: String,
-    pub name: Option<String>,
-    pub email: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub host: Option<String>,
-}
+    impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
+        fn from(
+            AuthStatusResponse {
+                access_token,
+                login,
+                name,
+                email,
+                host,
+            }: AuthStatusResponse,
+        ) -> Self {
+            AuthStatusResponseSensitive {
+                access_token: access_token.0,
+                login,
+                name,
+                email,
+                host,
+            }
+        }
+    }
 
-impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
-    fn from(
-        AuthStatusResponse {
-            access_token,
-            login,
-            name,
-            email,
-            host,
-        }: AuthStatusResponse,
-    ) -> Self {
-        AuthStatusResponseSensitive {
-            access_token: access_token.0,
-            login,
-            name,
-            email,
-            host,
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AuthenticatedUserSensitive {
+        pub access_token: String,
+        pub login: String,
+        pub avatar_url: Option<String>,
+        pub name: Option<String>,
+        pub email: Option<String>,
+    }
+
+    impl From<AuthenticatedUser> for AuthenticatedUserSensitive {
+        fn from(
+            AuthenticatedUser {
+                access_token,
+                login,
+                avatar_url,
+                name,
+                email,
+            }: AuthenticatedUser,
+        ) -> Self {
+            AuthenticatedUserSensitive {
+                access_token: access_token.0,
+                login,
+                avatar_url,
+                name,
+                email,
+            }
         }
     }
 }
 
-pub async fn check_auth_status(
-    params: CheckAuthStatusParams,
-) -> Result<AuthStatusResponseSensitive, Error> {
+#[api_cmd_async_tauri]
+#[instrument(err(Debug))]
+pub async fn init_device_oauth() -> Result<Verification> {
+    but_github::init_device_oauth().await
+}
+
+#[api_cmd_async_tauri(json::AuthStatusResponseSensitive)]
+#[instrument(err(Debug))]
+pub async fn check_auth_status(device_code: String) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    let status_result = but_github::check_auth_status(params, &storage).await;
-    match status_result {
-        Ok(status) => Ok(status.into()),
-        Err(e) => Err(e.into()),
-    }
+    but_github::check_auth_status(device_code, &storage).await
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StoreGitHubPatParams {
-    pub access_token: String,
-}
-
-pub async fn strore_github_pat(
-    params: StoreGitHubPatParams,
-) -> Result<AuthStatusResponseSensitive, Error> {
-    let StoreGitHubPatParams { access_token } = params;
+#[api_cmd_async_tauri(json::AuthStatusResponseSensitive)]
+#[instrument(err(Debug))]
+pub async fn store_github_pat(access_token: Sensitive<String>) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    let status_result = but_github::store_pat(&but_secret::Sensitive(access_token), &storage).await;
-    match status_result {
-        Ok(status) => Ok(status.into()),
-        Err(e) => Err(e.into()),
-    }
+    but_github::store_pat(&access_token, &storage).await
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StoreGitHubEnterprisePatParams {
-    pub access_token: String,
-    pub host: String,
-}
-
+#[api_cmd_async_tauri(json::AuthStatusResponseSensitive)]
+#[instrument(err(Debug))]
 pub async fn store_github_enterprise_pat(
-    params: StoreGitHubEnterprisePatParams,
-) -> Result<AuthStatusResponseSensitive, Error> {
-    let StoreGitHubEnterprisePatParams { access_token, host } = params;
+    access_token: Sensitive<String>,
+    host: String,
+) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    let status_result =
-        but_github::store_enterprise_pat(&host, &but_secret::Sensitive(access_token), &storage)
-            .await;
-    match status_result {
-        Ok(status) => Ok(status.into()),
-        Err(e) => Err(e.into()),
-    }
+    but_github::store_enterprise_pat(&host, &access_token, &storage).await
 }
 
 #[api_cmd]
@@ -101,74 +111,34 @@ pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Re
     Ok(())
 }
 
-#[api_cmd]
+#[api_cmd_tauri]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub fn clear_all_github_tokens() -> Result<(), Error> {
+pub fn clear_all_github_tokens() -> Result<()> {
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    but_github::clear_all_github_tokens(&storage).map_err(Into::into)
+    but_github::clear_all_github_tokens(&storage)
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthenticatedUserSensitive {
-    pub access_token: String,
-    pub login: String,
-    pub avatar_url: Option<String>,
-    pub name: Option<String>,
-    pub email: Option<String>,
-}
-
-impl From<AuthenticatedUser> for AuthenticatedUserSensitive {
-    fn from(
-        AuthenticatedUser {
-            access_token,
-            login,
-            avatar_url,
-            name,
-            email,
-        }: AuthenticatedUser,
-    ) -> Self {
-        AuthenticatedUserSensitive {
-            access_token: access_token.0,
-            login,
-            avatar_url,
-            name,
-            email,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetGhUserParams {
-    pub account: but_github::GithubAccountIdentifier,
-}
-
+#[api_cmd_async_tauri(json::AuthenticatedUserSensitive)]
+#[instrument(err(Debug))]
 pub async fn get_gh_user(
-    params: GetGhUserParams,
-) -> Result<Option<AuthenticatedUserSensitive>, Error> {
-    let GetGhUserParams { account } = params;
+    account: but_github::GithubAccountIdentifier,
+) -> Result<Option<AuthenticatedUser>> {
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    but_github::get_gh_user(&account, &storage)
-        .await
-        .map(|res| res.map(Into::into))
-        .map_err(Into::into)
+    but_github::get_gh_user(&account, &storage).await
 }
 
-pub async fn list_known_github_accounts() -> Result<Vec<but_github::GithubAccountIdentifier>, Error>
-{
+#[api_cmd_async_tauri]
+#[instrument(err(Debug))]
+pub async fn list_known_github_accounts() -> Result<Vec<but_github::GithubAccountIdentifier>> {
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    but_github::list_known_github_accounts(&storage)
-        .await
-        .map_err(Into::into)
+    but_github::list_known_github_accounts(&storage).await
 }
 
+#[instrument(err(Debug))]
 pub async fn check_github_credentials(
-    account: &but_github::GithubAccountIdentifier,
-) -> Result<but_github::CredentialCheckResult, Error> {
+    account: but_github::GithubAccountIdentifier,
+) -> Result<but_github::CredentialCheckResult> {
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    but_github::check_credentials(account, &storage)
-        .await
-        .map_err(Into::into)
+    but_github::check_credentials(&account, &storage).await
 }

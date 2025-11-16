@@ -4,7 +4,7 @@ use gitbutler_project::ProjectId;
 use gitbutler_repo::{GitRemote, RepoCommands};
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::json::Error;
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

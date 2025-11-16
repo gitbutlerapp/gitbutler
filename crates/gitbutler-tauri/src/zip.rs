@@ -7,7 +7,7 @@ pub mod commands {
             self, GetAnonymousGraphPathParams, GetLogsArchivePathParams,
             GetProjectArchivePathParams,
         },
-        error::Error,
+        json::Error,
     };
     use tauri::State;
     use tracing::instrument;

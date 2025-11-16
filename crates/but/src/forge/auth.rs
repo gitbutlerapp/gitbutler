@@ -1,9 +1,7 @@
 use crate::utils::OutputChannel;
 use anyhow::bail;
-use but_api::{
-    NoParams,
-    github::{AuthStatusResponseSensitive, StoreGitHubPatParams},
-};
+use but_github::AuthStatusResponse;
+use but_secret::Sensitive;
 use cli_prompts::DisplayPrompt;
 
 #[derive(Debug, Clone)]
@@ -63,11 +61,10 @@ async fn github_pat(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::Result<
         bail!("No PAT provided. Aborting authentication.");
     }
 
-    let pat = input.trim().to_string();
-    let AuthStatusResponseSensitive { login, .. } =
-        but_api::github::strore_github_pat(StoreGitHubPatParams { access_token: pat })
-            .await
-            .map_err(|err| anyhow::Error::from(err).context("Authentication failed"))?;
+    let pat = Sensitive(input.trim().to_string());
+    let AuthStatusResponse { login, .. } = but_api::github::store_github_pat(pat)
+        .await
+        .map_err(|err| err.context("Authentication failed"))?;
 
     writeln!(
         out_for_humans,
@@ -100,19 +97,15 @@ async fn github_enterprise(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::
 
     input.clear();
     std::io::stdin().read_line(&mut input)?;
-    let pat = input.trim().to_string();
+    let pat = Sensitive(input.trim().to_string());
     if pat.is_empty() {
         bail!("No PAT provided. Aborting authentication.");
     }
 
-    let AuthStatusResponseSensitive { login, .. } = but_api::github::store_github_enterprise_pat(
-        but_api::github::StoreGitHubEnterprisePatParams {
-            access_token: pat,
-            host: base_url,
-        },
-    )
-    .await
-    .map_err(|err| anyhow::Error::from(err).context("Authentication failed"))?;
+    let AuthStatusResponse { login, .. } =
+        but_api::github::store_github_enterprise_pat(pat, base_url)
+            .await
+            .map_err(|err| err.context("Authentication failed"))?;
 
     writeln!(
         out_for_humans,
@@ -125,7 +118,7 @@ async fn github_enterprise(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::
 
 /// Authenticate with GitHub usgin the device OAuth flow
 async fn github_oauth(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
-    let code = but_api::github::init_device_oauth(NoParams {}).await?;
+    let code = but_api::github::init_device_oauth().await?;
     writeln!(
         out_for_humans,
         "Device authorization initiated. Please visit the following URL and enter the code:\n\nhttps://github.com/login/device\n\nCode: {}\n\n",
@@ -143,11 +136,9 @@ async fn github_oauth(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::Resul
         bail!("Authorization process aborted by user.")
     }
 
-    let status = but_api::github::check_auth_status(but_github::CheckAuthStatusParams {
-        device_code: code.device_code,
-    })
-    .await
-    .map_err(|err| anyhow::Error::from(err).context("Authentication failed"))?;
+    let status = but_api::github::check_auth_status(code.device_code)
+        .await
+        .map_err(|err| err.context("Authentication failed"))?;
 
     writeln!(
         out_for_humans,

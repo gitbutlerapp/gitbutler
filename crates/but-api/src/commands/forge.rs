@@ -12,7 +12,7 @@ use gitbutler_project::ProjectId;
 use gitbutler_repo::RepoCommands;
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::json::Error;
 
 /// (Deprecated) Get the list of PR template paths for the given project and forge.
 /// This function is deprecated in favor of `list_available_review_templates`.

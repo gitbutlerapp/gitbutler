@@ -9,7 +9,7 @@ use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt as _;
 use tracing::instrument;
 
-use crate::error::{Error, ToError as _};
+use crate::json::{Error, ToError as _};
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

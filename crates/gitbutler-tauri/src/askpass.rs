@@ -1,4 +1,4 @@
-use but_api::{commands::askpass, error::Error};
+use but_api::{commands::askpass, json::Error};
 use gitbutler_repo_actions::askpass::AskpassRequestId;
 use tracing::instrument;
 

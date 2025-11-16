@@ -15,7 +15,7 @@ use gitbutler_repo::{
 };
 use tracing::instrument;
 
-use crate::error::{Error, ToError};
+use crate::json::{Error, ToError};
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

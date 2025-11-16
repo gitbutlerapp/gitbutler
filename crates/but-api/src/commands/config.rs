@@ -6,7 +6,7 @@ use gix::bstr::BString;
 use serde::Serialize;
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::json::Error;
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

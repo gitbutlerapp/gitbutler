@@ -1,5 +1,5 @@
 use anyhow::Context;
-use but_api::error::Error;
+use but_api::json::Error;
 use but_error::Code;
 use but_settings::AppSettingsWithDiskSync;
 #[cfg(target_os = "macos")]

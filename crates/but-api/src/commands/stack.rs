@@ -12,7 +12,7 @@ use gitbutler_user::User;
 use gix::refs::Category;
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::json::Error;
 
 pub mod create_reference {
     use serde::{Deserialize, Serialize};

@@ -88,7 +88,7 @@ pub async fn handle(
             )?;
             // Get branch name or use canned name
             let branch_name = branch_name
-                .map(Ok::<_, but_api::error::Error>)
+                .map(Ok::<_, but_api::json::Error>)
                 .unwrap_or_else(|| but_api::workspace::canned_branch_name(legacy_project.id))?;
 
             // Store anchor string for JSON output

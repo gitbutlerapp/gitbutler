@@ -12,14 +12,14 @@ use axum::{
     routing::{any, get},
 };
 use but_api::{
-    App, NoParams,
+    App,
     commands::{
         askpass, cherry_apply, claude, cli, config, diff, forge, git, github, modes, open, oplog,
         projects as iprojects, remotes, repo, rules, secret, settings, stack, users,
         virtual_branches, workspace, zip,
     },
-    error::ToError as _,
     github::{clear_all_github_tokens_cmd, forget_github_account_cmd},
+    json::ToError as _,
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
@@ -362,14 +362,14 @@ async fn handle_command(
         "update_workspace_rule" => rules::update_workspace_rule_cmd(request.params),
         "list_workspace_rules" => rules::list_workspace_rules_cmd(request.params),
         "init_device_oauth" => {
-            let result = github::init_device_oauth(NoParams {}).await;
+            let result = github::init_device_oauth_json().await;
             result.map(|r| json!(r))
         }
         "check_auth_status" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = github::check_auth_status(params).await;
+                    let result = github::check_auth_status_cmd(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -379,7 +379,7 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = github::strore_github_pat(params).await;
+                    let result = github::store_github_pat_cmd(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -389,22 +389,22 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = github::store_github_enterprise_pat(params).await;
+                    let result = github::store_github_enterprise_pat_cmd(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
             }
         }
         "forget_github_account" => forget_github_account_cmd(request.params),
-        "list_known_github_accounts" => {
-            github::list_known_github_accounts().await.map(|r| json!(r))
-        }
+        "list_known_github_accounts" => github::list_known_github_accounts_json()
+            .await
+            .map(|r| json!(r)),
         "clear_all_github_tokens" => clear_all_github_tokens_cmd(request.params),
         "get_gh_user" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = github::get_gh_user(params).await;
+                    let result = github::get_gh_user_cmd(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),

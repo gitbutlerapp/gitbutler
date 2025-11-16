@@ -4,7 +4,7 @@ use but_api::{
         self, CancelSessionParams, CompactHistoryParams, GetMessagesParams, IsStackActiveParams,
         SendMessageParams,
     },
-    error::Error,
+    json::Error,
 };
 use but_claude::{
     ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, PromptAttachment, ThinkingLevel,

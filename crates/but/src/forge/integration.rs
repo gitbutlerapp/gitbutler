@@ -100,7 +100,7 @@ async fn list_github_users(out: &mut OutputChannel) -> anyhow::Result<()> {
         writeln!(out, "Known GitHub usernames:")?;
         let mut some_accounts_invalid = false;
         for account in known_accounts {
-            let account_status = but_api::github::check_github_credentials(&account)
+            let account_status = but_api::github::check_github_credentials(account.clone())
                 .await
                 .ok();
 
