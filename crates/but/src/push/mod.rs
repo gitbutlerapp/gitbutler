@@ -1,5 +1,4 @@
-use std::io::Write;
-
+use crate::utils::OutputChannel;
 use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_settings::AppSettings;
 use gitbutler_branch_actions::internal::PushResult;
@@ -108,8 +107,7 @@ fn get_gerrit_flags(
     Ok(flags)
 }
 
-pub fn handle(args: Args, project: &Project, _json: bool) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+pub fn handle(args: Args, project: &Project, out: &mut OutputChannel) -> anyhow::Result<()> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     // Check gerrit mode early
@@ -139,92 +137,91 @@ pub fn handle(args: Args, project: &Project, _json: bool) -> anyhow::Result<()> 
         gerrit_flags,
     )?;
 
-    writeln!(stdout, "Push completed successfully").ok();
-    writeln!(stdout, "Pushed to remote: {}", result.remote).ok();
-    if !gerrit_mode && !result.branch_to_remote.is_empty() {
-        for (branch, remote_ref) in &result.branch_to_remote {
-            writeln!(stdout, "  {} -> {}", branch, remote_ref).ok();
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Push completed successfully")?;
+        writeln!(out, "Pushed to remote: {}", result.remote)?;
+        if !gerrit_mode && !result.branch_to_remote.is_empty() {
+            for (branch, remote_ref) in &result.branch_to_remote {
+                writeln!(out, "  {} -> {}", branch, remote_ref)?;
+            }
         }
     }
 
     Ok(())
 }
 
-pub fn print_help() -> std::io::Result<()> {
-    let stdout = std::io::stdout();
-    let mut stdout = stdout.lock();
-
-    // Print basic push help
-    writeln!(stdout, "Push a branch/stack to remote")?;
-    writeln!(stdout,)?;
-    writeln!(stdout, "Usage: but push [OPTIONS] <BRANCH_ID>")?;
-    writeln!(stdout,)?;
-    writeln!(stdout, "Arguments:")?;
-    writeln!(stdout, "  <BRANCH_ID>  Branch name or CLI ID to push")?;
-    writeln!(stdout,)?;
-    writeln!(stdout, "Options:")?;
+pub fn print_help(out: &mut OutputChannel) -> std::fmt::Result {
+    use std::fmt::Write;
+    writeln!(out, "Push a branch/stack to remote")?;
+    writeln!(out,)?;
+    writeln!(out, "Usage: but push [OPTIONS] <BRANCH_ID>")?;
+    writeln!(out,)?;
+    writeln!(out, "Arguments:")?;
+    writeln!(out, "  <BRANCH_ID>  Branch name or CLI ID to push")?;
+    writeln!(out,)?;
+    writeln!(out, "Options:")?;
     writeln!(
-        stdout,
+        out,
         "  -f, --with-force                  Force push even if it's not fast-forward"
     )?;
     writeln!(
-        stdout,
+        out,
         "  -s, --skip-force-push-protection  Skip force push protection checks"
     )?;
     writeln!(
-        stdout,
+        out,
         "  -r, --run-hooks                   Run pre-push hooks"
     )?;
 
     // Check if gerrit mode is enabled and show gerrit options
     if is_gerrit_enabled_for_help() {
-        writeln!(stdout,)?;
-        writeln!(stdout, "Gerrit Options:")?;
+        writeln!(out,)?;
+        writeln!(out, "Gerrit Options:")?;
         writeln!(
-            stdout,
+            out,
             "  -w, --wip                         Mark change as work-in-progress"
         )?;
         writeln!(
-            stdout,
+            out,
             "  -y, --ready                       Mark change as ready for review (default)"
         )?;
         writeln!(
-            stdout,
+            out,
             "  -a, --hashtag, --tag <TAG>        Add hashtag to change (can be used multiple times)"
         )?;
         writeln!(
-            stdout,
+            out,
             "  -t, --topic <TOPIC>               Add custom topic to change"
         )?;
         writeln!(
-            stdout,
+            out,
             "      --tb, --topic-from-branch     Use branch name as topic"
         )?;
         writeln!(
-            stdout,
+            out,
             "  -p, --private                     Mark change as private"
         )?;
-        writeln!(stdout,)?;
-        writeln!(stdout, "Notes:")?;
+        writeln!(out,)?;
+        writeln!(out, "Notes:")?;
         writeln!(
-            stdout,
+            out,
             "  - --wip and --ready are mutually exclusive. Ready is the default state."
         )?;
         writeln!(
-            stdout,
+            out,
             "  - --topic and --topic-from-branch are mutually exclusive. At most one topic can be set."
         )?;
         writeln!(
-            stdout,
+            out,
             "  - Multiple hashtags can be specified by using --hashtag (or --tag) multiple times."
         )?;
         writeln!(
-            stdout,
+            out,
             "  - Multiple flags can be combined (e.g., --ready --private --tag tag1 --hashtag tag2)."
         )?;
     }
 
-    writeln!(stdout, "  -h, --help                        Print help")?;
+    writeln!(out, "  -h, --help                        Print help")?;
 
     Ok(())
 }

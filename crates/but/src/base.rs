@@ -1,6 +1,5 @@
-use std::io::Write;
-
 use crate::LegacyProject;
+use crate::utils::OutputChannel;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
     BranchStatus::{Conflicted, Empty, Integrated, SaflyUpdatable},
@@ -21,99 +20,105 @@ pub enum Subcommands {
     Update,
 }
 
-pub fn handle(cmd: Subcommands, project: &LegacyProject, json: bool) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+pub fn handle(
+    cmd: Subcommands,
+    project: &LegacyProject,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     match cmd {
         Subcommands::Check => {
-            if !json {
-                writeln!(stdout, "🔍 Checking base branch status...").ok();
-            }
-            let base_branch = but_api::virtual_branches::fetch_from_remotes(
-                project.id,
-                Some("auto".to_string()),
-            )?;
-            writeln!(stdout, "\n📍 Base branch:\t\t{}", base_branch.branch_name).ok();
-            writeln!(
-                stdout,
-                "⏫ Upstream commits:\t{} new commits on {}\n",
-                base_branch.behind, base_branch.branch_name
-            )
-            .ok();
-            let commits = base_branch.recent_commits.iter().take(3);
-            for commit in commits {
+            if let Some(out) = out.for_human() {
+                writeln!(out, "🔍 Checking base branch status...")?;
+                let base_branch = but_api::virtual_branches::fetch_from_remotes(
+                    project.id,
+                    Some("auto".to_string()),
+                )?;
+                writeln!(out, "\n📍 Base branch:\t\t{}", base_branch.branch_name)?;
                 writeln!(
-                    stdout,
-                    "\t{} {}",
-                    &commit.id[..7],
-                    &commit
-                        .description
-                        .to_string()
-                        .replace('\n', " ")
-                        .chars()
-                        .take(72)
-                        .collect::<String>()
-                )
-                .ok();
-            }
-            let hidden_commits = base_branch.behind.saturating_sub(3);
-            if hidden_commits > 0 {
-                writeln!(
-                    stdout,
-                    "\t... ({hidden_commits} more - run `but base check --all` to see all)"
-                )
-                .ok();
-            }
+                    out,
+                    "⏫ Upstream commits:\t{} new commits on {}\n",
+                    base_branch.behind, base_branch.branch_name
+                )?;
+                let commits = base_branch.recent_commits.iter().take(3);
+                for commit in commits {
+                    writeln!(
+                        out,
+                        "\t{} {}",
+                        &commit.id[..7],
+                        &commit
+                            .description
+                            .to_string()
+                            .replace('\n', " ")
+                            .chars()
+                            .take(72)
+                            .collect::<String>()
+                    )?;
+                }
+                let hidden_commits = base_branch.behind.saturating_sub(3);
+                if hidden_commits > 0 {
+                    writeln!(
+                        out,
+                        "\t... ({hidden_commits} more - run `but base check --all` to see all)"
+                    )?;
+                }
 
-            let status =
-                but_api::virtual_branches::upstream_integration_statuses(project.id, None)?;
+                let status =
+                    but_api::virtual_branches::upstream_integration_statuses(project.id, None)?;
 
-            match status {
-                UpToDate => _ = writeln!(stdout, "\n✅ Everything is up to date").ok(),
-                UpdatesRequired {
-                    worktree_conflicts,
-                    statuses,
-                } => {
-                    if !worktree_conflicts.is_empty() {
-                        writeln!(stdout,
-                            "\n❗️ There are uncommitted changes in the worktree that may conflict with the updates."
-                        ).ok();
+                match status {
+                    UpToDate => {
+                        writeln!(out, "\n✅ Everything is up to date")?;
                     }
-                    if !statuses.is_empty() {
-                        writeln!(stdout, "\n{}", "Active Branch Status".bold()).ok();
-                        for (_id, status) in statuses {
-                            for bs in status.branch_statuses {
-                                let status_icon = match bs.status {
-                                    SaflyUpdatable => "✅".to_string(),
-                                    Integrated => "🔄".to_string(),
-                                    Conflicted { rebasable } => {
-                                        if rebasable {
-                                            "⚠️".to_string()
-                                        } else {
-                                            "❗️".to_string()
+                    UpdatesRequired {
+                        worktree_conflicts,
+                        statuses,
+                    } => {
+                        if !worktree_conflicts.is_empty() {
+                            writeln!(
+                                out,
+                                "\n❗️ There are uncommitted changes in the worktree that may conflict with the updates."
+                            )?;
+                        }
+                        if !statuses.is_empty() {
+                            writeln!(out, "\n{}", "Active Branch Status".bold())?;
+                            for (_id, status) in statuses {
+                                for bs in status.branch_statuses {
+                                    let status_icon = match bs.status {
+                                        SaflyUpdatable => "✅".to_string(),
+                                        Integrated => "🔄".to_string(),
+                                        Conflicted { rebasable } => {
+                                            if rebasable {
+                                                "⚠️".to_string()
+                                            } else {
+                                                "❗️".to_string()
+                                            }
                                         }
-                                    }
-                                    Empty => "✅".to_string(),
-                                };
-                                let status_text = match bs.status {
-                                    SaflyUpdatable => "Updatable".green(),
-                                    Integrated => "Integrated".blue(),
-                                    Conflicted { rebasable } => {
-                                        if rebasable {
-                                            "Conflicted (Rebasable)".yellow()
-                                        } else {
-                                            "Conflicted (Not Rebasable)".red()
+                                        Empty => "✅".to_string(),
+                                    };
+                                    let status_text = match bs.status {
+                                        SaflyUpdatable => "Updatable".green(),
+                                        Integrated => "Integrated".blue(),
+                                        Conflicted { rebasable } => {
+                                            if rebasable {
+                                                "Conflicted (Rebasable)".yellow()
+                                            } else {
+                                                "Conflicted (Not Rebasable)".red()
+                                            }
                                         }
-                                    }
-                                    Empty => "Nothing to do".normal(),
-                                };
-                                writeln!(stdout, "\n{} {} ({})", status_icon, bs.name, status_text)
-                                    .ok();
+                                        Empty => "Nothing to do".normal(),
+                                    };
+                                    writeln!(
+                                        out,
+                                        "\n{} {} ({})",
+                                        status_icon, bs.name, status_text
+                                    )?;
+                                }
                             }
                         }
                     }
                 }
+                writeln!(out, "\nRun `but base update` to update your branches")?;
             }
-            writeln!(stdout, "\nRun `but base update` to update your branches").ok();
             Ok(())
         }
         Subcommands::Update => {
@@ -121,7 +126,9 @@ pub fn handle(cmd: Subcommands, project: &LegacyProject, json: bool) -> anyhow::
                 but_api::virtual_branches::upstream_integration_statuses(project.id, None)?;
             let resolutions = match status {
                 UpToDate => {
-                    writeln!(stdout, "✅ Everything is up to date").ok();
+                    if let Some(out) = out.for_human() {
+                        writeln!(out, "✅ Everything is up to date")?;
+                    }
                     None
                 }
                 UpdatesRequired {
@@ -129,28 +136,32 @@ pub fn handle(cmd: Subcommands, project: &LegacyProject, json: bool) -> anyhow::
                     statuses,
                 } => {
                     if !worktree_conflicts.is_empty() {
-                        writeln!(stdout,
-                            "❗️ There are uncommitted changes in the worktree that may conflict with
+                        if let Some(out) = out.for_human() {
+                            writeln!(out,
+                                     "❗️ There are uncommitted changes in the worktree that may conflict with
                             the updates. Please commit or stash them and try again."
-                        )
-                        .ok();
+                            )?;
+                        }
                         None
                     } else {
-                        writeln!(stdout, "🔄 Updating branches...").ok();
+                        if let Some(out) = out.for_human() {
+                            writeln!(out, "🔄 Updating branches...")?;
+                        }
                         let mut resolutions = vec![];
                         for (maybe_stack_id, status) in statuses {
                             let Some(stack_id) = maybe_stack_id else {
-                                writeln!(
-                                    stdout,
-                                    "No stack ID, assuming we're on single-branch mode...",
-                                )
-                                .ok();
+                                if let Some(out) = out.for_human() {
+                                    writeln!(
+                                        out,
+                                        "No stack ID, assuming we're on single-branch mode...",
+                                    )?;
+                                }
                                 continue;
                             };
                             let approach = if status
                                 .branch_statuses
                                 .iter()
-                                .all(|s| s.status == gitbutler_branch_actions::upstream_integration::BranchStatus::Integrated)
+                                .all(|s| s.status == Integrated)
                             && status.tree_status != gitbutler_branch_actions::upstream_integration::TreeStatus::Conflicted
                             {
                                     ResolutionApproach::Delete

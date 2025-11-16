@@ -1,5 +1,4 @@
-use std::io::Write;
-
+use crate::utils::OutputChannel;
 use but_action::Source;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
@@ -8,7 +7,7 @@ use serde::Serialize;
 
 pub(crate) fn handle_changes(
     project: &Project,
-    json: bool,
+    out: &mut OutputChannel,
     handler: impl Into<but_action::ActionHandler>,
     change_description: &str,
 ) -> anyhow::Result<()> {
@@ -21,7 +20,7 @@ pub(crate) fn handle_changes(
         Source::ButCli,
         None,
     )?;
-    print(&response, json)
+    print_json_or_human(&response, out)
 }
 
 impl From<crate::args::actions::Handler> for but_action::ActionHandler {
@@ -34,26 +33,24 @@ impl From<crate::args::actions::Handler> for but_action::ActionHandler {
 
 pub(crate) fn list_actions(
     project: &Project,
-    json: bool,
+    out: &mut OutputChannel,
     offset: i64,
     limit: i64,
 ) -> anyhow::Result<()> {
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     let response = but_action::list_actions(ctx, offset, limit)?;
-    print(&response, json)
+    print_json_or_human(&response, out)
 }
 
-pub(crate) fn print<T>(this: &T, json: bool) -> anyhow::Result<()>
+pub(crate) fn print_json_or_human<T>(this: &T, out: &mut OutputChannel) -> anyhow::Result<()>
 where
     T: ?Sized + Serialize + std::fmt::Debug,
 {
-    let mut stdout = std::io::stdout();
-    if json {
-        let json = serde_json::to_string_pretty(&this)?;
-        writeln!(stdout, "{json}")?;
-    } else {
-        writeln!(stdout, "{this:#?}").ok();
+    if let Some(out) = out.for_json() {
+        out.write_value(this)?;
+    } else if let Some(out) = out.for_human() {
+        writeln!(out, "{this:#?}")?;
     }
     Ok(())
 }

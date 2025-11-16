@@ -16,10 +16,11 @@ use gitbutler_oplog::{
 };
 
 use crate::id::CliId;
+use crate::utils::OutputChannel;
 
 pub(crate) fn handle(
     project: &Project,
-    _json: bool,
+    out: &mut OutputChannel,
     source_str: &str,
     target_str: &str,
 ) -> anyhow::Result<()> {
@@ -33,15 +34,15 @@ pub(crate) fn handle(
             }
             (CliId::UncommittedFile { path, .. }, CliId::Unassigned) => {
                 create_snapshot(ctx, project, OperationKind::MoveHunk);
-                assign::unassign_file(ctx, path)?;
+                assign::unassign_file(ctx, path, out)?;
             }
             (CliId::UncommittedFile { path, assignment }, CliId::Commit { oid }) => {
                 create_snapshot(ctx, project, OperationKind::AmendCommit);
-                amend::file_to_commit(ctx, path, *assignment, oid)?;
+                amend::file_to_commit(ctx, path, *assignment, oid, out)?;
             }
             (CliId::UncommittedFile { path, .. }, CliId::Branch { name }) => {
                 create_snapshot(ctx, project, OperationKind::MoveHunk);
-                assign::assign_file_to_branch(ctx, path, name)?;
+                assign::assign_file_to_branch(ctx, path, name, out)?;
             }
             (CliId::Unassigned, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
@@ -51,41 +52,41 @@ pub(crate) fn handle(
             }
             (CliId::Unassigned, CliId::Commit { oid }) => {
                 create_snapshot(ctx, project, OperationKind::AmendCommit);
-                amend::assignments_to_commit(ctx, None, oid)?;
+                amend::assignments_to_commit(ctx, None, oid, out)?;
             }
             (CliId::Unassigned, CliId::Branch { name: to }) => {
                 create_snapshot(ctx, project, OperationKind::MoveHunk);
-                assign::assign_all(ctx, None, Some(to))?;
+                assign::assign_all(ctx, None, Some(to), out)?;
             }
             (CliId::Commit { .. }, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
             (CliId::Commit { oid }, CliId::Unassigned) => {
                 create_snapshot(ctx, project, OperationKind::UndoCommit);
-                undo::commit(ctx, oid)?;
+                undo::commit(ctx, oid, out)?;
             }
             (CliId::Commit { oid: source }, CliId::Commit { oid: destination }) => {
                 create_snapshot(ctx, project, OperationKind::SquashCommit);
-                squash::commits(ctx, source, destination)?;
+                squash::commits(ctx, source, destination, out)?;
             }
             (CliId::Commit { oid }, CliId::Branch { name }) => {
                 create_snapshot(ctx, project, OperationKind::MoveCommit);
-                move_commit::to_branch(ctx, oid, name)?;
+                move_commit::to_branch(ctx, oid, name, out)?;
             }
             (CliId::Branch { .. }, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
             (CliId::Branch { name: from }, CliId::Unassigned) => {
                 create_snapshot(ctx, project, OperationKind::MoveHunk);
-                assign::assign_all(ctx, Some(from), None)?;
+                assign::assign_all(ctx, Some(from), None, out)?;
             }
             (CliId::Branch { name }, CliId::Commit { oid }) => {
                 create_snapshot(ctx, project, OperationKind::AmendCommit);
-                amend::assignments_to_commit(ctx, Some(name), oid)?;
+                amend::assignments_to_commit(ctx, Some(name), oid, out)?;
             }
             (CliId::Branch { name: from }, CliId::Branch { name: to }) => {
                 create_snapshot(ctx, project, OperationKind::MoveHunk);
-                assign::assign_all(ctx, Some(from), Some(to))?;
+                assign::assign_all(ctx, Some(from), Some(to), out)?;
             }
             (CliId::UncommittedFile { .. }, CliId::CommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
@@ -98,15 +99,15 @@ pub(crate) fn handle(
             }
             (CliId::CommittedFile { path, commit_oid }, CliId::Branch { name }) => {
                 create_snapshot(ctx, project, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path, *commit_oid, Some(name))?;
+                commits::uncommit_file(ctx, path, *commit_oid, Some(name), out)?;
             }
             (CliId::CommittedFile { path, commit_oid }, CliId::Commit { oid }) => {
                 create_snapshot(ctx, project, OperationKind::FileChanges);
-                commits::commited_file_to_another_commit(ctx, path, *commit_oid, *oid)?;
+                commits::commited_file_to_another_commit(ctx, path, *commit_oid, *oid, out)?;
             }
             (CliId::CommittedFile { path, commit_oid }, CliId::Unassigned) => {
                 create_snapshot(ctx, project, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path, *commit_oid, None)?;
+                commits::uncommit_file(ctx, path, *commit_oid, None, out)?;
             }
             (CliId::Branch { .. }, CliId::CommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))

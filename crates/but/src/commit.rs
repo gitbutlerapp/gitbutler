@@ -1,9 +1,6 @@
-use std::{
-    collections::BTreeMap,
-    io::{self, Write},
-};
+use std::collections::BTreeMap;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
     commands::{diff, virtual_branches, workspace},
@@ -15,23 +12,27 @@ use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
+use crate::utils::OutputChannel;
 use crate::{
     editor::get_text_from_editor_no_comments, id::CliId, status::assignment::FileAssignment,
 };
 
-pub(crate) fn insert_blank_commit(project: &Project, _json: bool, target: &str) -> Result<()> {
-    let mut stdout = std::io::stdout();
+pub(crate) fn insert_blank_commit(
+    project: &Project,
+    out: &mut OutputChannel,
+    target: &str,
+) -> Result<()> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     // Resolve the target ID
     let cli_ids = CliId::from_str(&mut ctx, target)?;
 
     if cli_ids.is_empty() {
-        anyhow::bail!("Target '{}' not found", target);
+        bail!("Target '{}' not found", target);
     }
 
     if cli_ids.len() > 1 {
-        anyhow::bail!(
+        bail!(
             "Target '{}' is ambiguous. Found {} matches",
             target,
             cli_ids.len()
@@ -63,7 +64,7 @@ pub(crate) fn insert_blank_commit(project: &Project, _json: bool, target: &str) 
             )
         }
         _ => {
-            anyhow::bail!(
+            bail!(
                 "Target must be a commit ID or branch name, not {}",
                 cli_id.kind()
             );
@@ -78,7 +79,9 @@ pub(crate) fn insert_blank_commit(project: &Project, _json: bool, target: &str) 
         Some(target_commit_id.to_string()),
         offset,
     )?;
-    writeln!(stdout, "{success_message}").ok();
+    if let Some(out) = out.for_human() {
+        writeln!(out, "{success_message}")?;
+    }
     Ok(())
 }
 
@@ -103,13 +106,13 @@ fn find_branch_head_commit(
                 } else if let Some(commit) = branch_details.upstream_commits.first() {
                     Ok(commit.id)
                 } else {
-                    anyhow::bail!("Branch '{}' has no commits", branch_name);
+                    bail!("Branch '{}' has no commits", branch_name);
                 };
             }
         }
     }
 
-    anyhow::bail!("Branch '{}' not found in any stack", branch_name);
+    bail!("Branch '{}' not found in any stack", branch_name);
 }
 
 fn find_stack_containing_commit(
@@ -137,12 +140,12 @@ fn find_stack_containing_commit(
         }
     }
 
-    anyhow::bail!("Commit {} not found in any stack", commit_id);
+    bail!("Commit {} not found in any stack", commit_id);
 }
 
 pub(crate) fn commit(
     project: &Project,
-    _json: bool,
+    out: &mut OutputChannel,
     message: Option<&str>,
     branch_hint: Option<&str>,
     only: bool,
@@ -168,7 +171,7 @@ pub(crate) fn commit(
         .collect();
 
     let (target_stack_id, target_stack) =
-        select_stack(&mut ctx, project, &stacks, branch_hint, create_branch)?;
+        select_stack(&mut ctx, project, &stacks, branch_hint, create_branch, out)?;
 
     // Get changes and assignments using but-api
     let worktree_changes = diff::changes_in_worktree(project_id)?;
@@ -210,9 +213,7 @@ pub(crate) fn commit(
     files_to_commit.extend(stack_assigned);
 
     if files_to_commit.is_empty() {
-        let mut stdout = std::io::stdout();
-        writeln!(stdout, "No changes to commit.").ok();
-        return Ok(());
+        bail!("No changes to commit.")
     }
 
     // Get commit message
@@ -223,7 +224,7 @@ pub(crate) fn commit(
     };
 
     if commit_message.trim().is_empty() {
-        anyhow::bail!("Aborting commit due to empty commit message.");
+        bail!("Aborting commit due to empty commit message.");
     }
 
     // If a branch hint was provided, find that specific branch; otherwise use first branch
@@ -288,17 +289,17 @@ pub(crate) fn commit(
         target_branch.name.to_string(),
     )?;
 
-    let mut stdout = std::io::stdout();
-    let commit_short = match outcome.new_commit {
-        Some(id) => id.to_string()[..7].to_string(),
-        None => "unknown".to_string(),
-    };
-    writeln!(
-        stdout,
-        "Created commit {} on branch {}",
-        commit_short, target_branch.name
-    )
-    .ok();
+    if let Some(out) = out.for_human() {
+        let commit_short = match outcome.new_commit {
+            Some(id) => id.to_hex_with_len(7).to_string(),
+            None => "unknown".to_string(),
+        };
+        writeln!(
+            out,
+            "Created commit {} on branch {}",
+            commit_short, target_branch.name
+        )?;
+    }
 
     Ok(())
 }
@@ -306,11 +307,11 @@ pub(crate) fn commit(
 fn create_independent_branch(
     branch_name: &str,
     project: &Project,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     but_workspace::ui::StackDetails,
 )> {
-    let mut stdout = std::io::stdout();
     // Create a new independent stack with the given branch name
     let (new_stack_id_opt, _new_ref) = but_api::commands::stack::create_reference(
         project.id,
@@ -321,13 +322,15 @@ fn create_independent_branch(
     )?;
 
     if let Some(new_stack_id) = new_stack_id_opt {
-        writeln!(stdout, "Created new independent branch '{}'", branch_name).ok();
+        if let Some(out) = out.for_human() {
+            writeln!(out, "Created new independent branch '{}'", branch_name)?;
+        }
         Ok((
             new_stack_id,
             workspace::stack_details(project.id, Some(new_stack_id))?,
         ))
     } else {
-        anyhow::bail!("Failed to create new branch '{}'", branch_name);
+        bail!("Failed to create new branch '{}'", branch_name);
     }
 }
 
@@ -340,6 +343,7 @@ fn select_stack(
     )],
     branch_hint: Option<&str>,
     create_branch: bool,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     but_workspace::ui::StackDetails,
@@ -354,7 +358,7 @@ fn select_stack(
             Some(hint) => String::from(hint),
             None => but_api::workspace::canned_branch_name(project.id)?,
         };
-        return create_independent_branch(&branch_name, project);
+        return create_independent_branch(&branch_name, project, out);
     }
 
     match branch_hint {
@@ -366,15 +370,15 @@ fn select_stack(
 
             // Branch not found - create if flag is set, otherwise error
             if create_branch {
-                create_independent_branch(hint, project)
+                create_independent_branch(hint, project, out)
             } else {
-                anyhow::bail!("Branch '{}' not found", hint)
+                bail!("Branch '{}' not found", hint)
             }
         }
         None if create_branch => {
             // Create with canned name
             let branch_name = but_api::workspace::canned_branch_name(project.id)?;
-            create_independent_branch(&branch_name, project)
+            create_independent_branch(&branch_name, project, out)
         }
         None if stacks.len() == 1 => {
             // Only one stack - use it
@@ -382,7 +386,11 @@ fn select_stack(
         }
         None => {
             // Prompt user to select
-            prompt_for_stack_selection(stacks)
+            if out.for_human().is_some() {
+                prompt_for_stack_selection(stacks)
+            } else {
+                bail!("Multiple candidate stacks found")
+            }
         }
     }
 }
@@ -406,9 +414,9 @@ fn find_stack_by_hint(
     }
 
     // Try CLI ID parsing
-    let cli_ids = crate::id::CliId::from_str(ctx, hint).ok()?;
+    let cli_ids = CliId::from_str(ctx, hint).ok()?;
     for cli_id in cli_ids {
-        if let crate::id::CliId::Branch { name } = cli_id {
+        if let CliId::Branch { name } = cli_id {
             for (stack_id, stack_details) in stacks {
                 if stack_details.branch_details.iter().any(|b| b.name == name) {
                     return Some((*stack_id, stack_details.clone()));
@@ -425,12 +433,14 @@ fn prompt_for_stack_selection(
         but_core::ref_metadata::StackId,
         but_workspace::ui::StackDetails,
     )],
-) -> anyhow::Result<(
+) -> Result<(
     but_core::ref_metadata::StackId,
     but_workspace::ui::StackDetails,
 )> {
+    use std::io::Write;
     let mut stdout = std::io::stdout();
-    writeln!(stdout, "Multiple stacks found. Choose one to commit to:").ok();
+    writeln!(stdout, "Multiple stacks found. Choose one to commit to:")?;
+
     for (i, (stack_id, stack_details)) in stacks.iter().enumerate() {
         let branch_names: Vec<String> = stack_details
             .branch_details
@@ -443,15 +453,14 @@ fn prompt_for_stack_selection(
             i + 1,
             stack_id,
             branch_names.join(", ")
-        )
-        .ok();
+        )?;
     }
 
-    print!("Enter selection (1-{}): ", stacks.len());
-    io::stdout().flush()?;
+    write!(stdout, "Enter selection (1-{}): ", stacks.len())?;
+    std::io::stdout().flush()?;
 
     let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
+    std::io::stdin().read_line(&mut input)?;
 
     let selection: usize = input
         .trim()

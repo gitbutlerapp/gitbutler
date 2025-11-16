@@ -1,11 +1,10 @@
 use crate::LegacyProject;
-use crate::utils::{Output, into_json_value, we_need_proper_json_output_here};
+use crate::utils::{OutputChannel, into_json_value, we_need_proper_json_output_here};
 use anyhow::bail;
 use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
-use std::io::{self, Write};
 
 mod apply;
 mod list;
@@ -70,7 +69,7 @@ pub enum Subcommands {
 pub async fn handle(
     cmd: Option<Subcommands>,
     ctx: &but_ctx::Context,
-    out: &mut Output,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<serde_json::Value> {
     let legacy_project = &ctx.legacy_project;
     match cmd {
@@ -147,7 +146,7 @@ pub async fn handle(
             )?;
 
             if let Some(out) = out.for_human() {
-                writeln!(out, "Created branch {branch_name}").ok();
+                writeln!(out, "Created branch {branch_name}")?;
             } else if let Some(out) = out.for_shell() {
                 writeln!(out, "{branch_name}")?;
             } else if let Some(out) = out.for_json() {
@@ -173,11 +172,13 @@ pub async fn handle(
                 }
 
                 if let Some(sid) = stack_entry.id {
-                    return confirm_branch_deletion(legacy_project, sid, &branch_name, force);
+                    return confirm_branch_deletion(legacy_project, sid, &branch_name, force, out);
                 }
             }
 
-            writeln!(out, "Branch '{}' not found in any stack", branch_name).ok();
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Branch '{}' not found in any stack", branch_name)?;
+            }
             Ok(we_need_proper_json_output_here())
         }
         Some(Subcommands::Apply { branch_name }) => {
@@ -197,11 +198,13 @@ pub async fn handle(
                 }
 
                 if let Some(sid) = stack_entry.id {
-                    return confirm_unapply_stack(legacy_project, sid, stack_entry, force);
+                    return confirm_unapply_stack(legacy_project, sid, stack_entry, force, out);
                 }
             }
 
-            writeln!(out, "Branch '{}' not found in any stack", branch_name).ok();
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Branch '{}' not found in any stack", branch_name)?;
+            }
             Ok(we_need_proper_json_output_here())
         }
     }
@@ -212,8 +215,8 @@ fn confirm_unapply_stack(
     sid: StackId,
     stack_entry: &StackEntry,
     force: bool,
+    out: &mut OutputChannel,
 ) -> Result<serde_json::Value, anyhow::Error> {
-    let mut stdout = io::stdout();
     let branches = stack_entry
         .heads
         .iter()
@@ -221,17 +224,18 @@ fn confirm_unapply_stack(
         .collect::<Vec<_>>()
         .join(", ");
 
-    if !force {
+    if !force && out.for_human().is_some() {
+        use std::io::Write;
+        let mut stdout = std::io::stdout();
         writeln!(
             stdout,
             "Are you sure you want to unapply stack with branches '{}'? [y/N]:",
             branches
-        )
-        .ok();
+        )?;
 
-        io::stdout().flush()?;
+        std::io::stdout().flush()?;
         let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
+        std::io::stdin().read_line(&mut input)?;
 
         let input = input.trim().to_lowercase();
         if input != "y" && input != "yes" {
@@ -239,13 +243,19 @@ fn confirm_unapply_stack(
         }
     }
 
-    but_api::virtual_branches::unapply_stack(project.id, sid)?;
-    writeln!(
-        stdout,
-        "Unapplied stack with branches '{}' from workspace",
-        branches
-    )
-    .ok();
+    if force {
+        but_api::virtual_branches::unapply_stack(project.id, sid)?;
+    } else {
+        bail!("Refusing to unapply stack without --force");
+    }
+
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "Unapplied stack with branches '{}' from workspace",
+            branches
+        )?;
+    }
     Ok(we_need_proper_json_output_here())
 }
 
@@ -254,19 +264,20 @@ fn confirm_branch_deletion(
     sid: StackId,
     branch_name: &str,
     force: bool,
+    out: &mut OutputChannel,
 ) -> Result<serde_json::Value, anyhow::Error> {
-    let mut stdout = io::stdout();
-    if !force {
+    if !force && out.for_human().is_some() {
+        use std::io::Write;
+        let mut stdout = std::io::stdout();
         writeln!(
             stdout,
             "Are you sure you want to delete branch '{}'? [y/N]:",
             branch_name
-        )
-        .ok();
+        )?;
 
-        io::stdout().flush()?;
+        std::io::stdout().flush()?;
         let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
+        std::io::stdin().read_line(&mut input)?;
 
         let input = input.trim().to_lowercase();
         if input != "y" && input != "yes" {
@@ -274,7 +285,17 @@ fn confirm_branch_deletion(
         }
     }
 
-    but_api::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
-    writeln!(stdout, "Deleted branch {branch_name}").ok();
+    if force {
+        but_api::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
+    } else {
+        bail!(
+            "Refusing to remove branch '{}' from workspace without --force",
+            branch_name
+        );
+    }
+
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Deleted branch {branch_name}")?;
+    }
     Ok(we_need_proper_json_output_here())
 }

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, io::Write};
+use std::collections::BTreeMap;
 
 use anyhow::Context;
 use bstr::ByteSlice;
@@ -13,6 +13,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
 
+use crate::utils::OutputChannel;
 use crate::{
     editor::get_text_from_editor_no_comments,
     id::CliId,
@@ -58,13 +59,13 @@ pub enum Subcommands {
 pub fn set_review_template(
     project: &Project,
     template_path: Option<String>,
-    json: bool,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     if let Some(path) = template_path {
         let message = format!("Set review template path to: {}", &path);
         but_api::forge::set_review_template(project.id, Some(path))?;
-        if !json {
-            writeln!(std::io::stdout(), "{}", message)?;
+        if let Some(out) = out.for_human() {
+            writeln!(out, "{}", message)?;
         }
     } else {
         let current_template = but_api::forge::review_template(project.id)?;
@@ -90,8 +91,8 @@ pub fn set_review_template(
             .map_err(|_| anyhow::anyhow!("Could not determine selected review template"))?;
         let message = format!("Set review template path to: {}", &selected_template);
         but_api::forge::set_review_template(project.id, Some(selected_template.clone()))?;
-        if !json {
-            writeln!(std::io::stdout(), "{}", message)?;
+        if let Some(out) = out.for_human() {
+            writeln!(out, "{}", message)?;
         }
     }
 
@@ -106,44 +107,28 @@ pub async fn publish_reviews(
     with_force: bool,
     run_hooks: bool,
     default: bool,
-    json: bool,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let review_map = get_review_map(project).await?;
     let applied_stacks = but_api::workspace::stacks(
         project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
-    match branch {
-        Some(branch_id) => {
-            let branch_names = get_branch_names(project, &branch_id)?;
-            handle_multiple_branches_in_workspace(
-                project,
-                &review_map,
-                &applied_stacks,
-                skip_force_push_protection,
-                with_force,
-                run_hooks,
-                default,
-                json,
-                Some(branch_names),
-            )
-            .await
-        }
-        None => {
-            handle_multiple_branches_in_workspace(
-                project,
-                &review_map,
-                &applied_stacks,
-                skip_force_push_protection,
-                with_force,
-                run_hooks,
-                default,
-                json,
-                None,
-            )
-            .await
-        }
-    }
+    let maybe_branch_names = branch
+        .map(|branch_id| get_branch_names(project, &branch_id))
+        .transpose()?;
+    handle_multiple_branches_in_workspace(
+        project,
+        &review_map,
+        &applied_stacks,
+        skip_force_push_protection,
+        with_force,
+        run_hooks,
+        default,
+        out,
+        maybe_branch_names,
+    )
+    .await
 }
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
@@ -172,10 +157,9 @@ pub async fn handle_multiple_branches_in_workspace(
     with_force: bool,
     run_hooks: bool,
     default_message: bool,
-    json: bool,
+    out: &mut OutputChannel,
     selected_branches: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
     let mut overall_outcome = PublishReviewsOutcome {
         published: vec![],
         already_existing: vec![],
@@ -190,14 +174,12 @@ pub async fn handle_multiple_branches_in_workspace(
     };
 
     if selected_branches.is_empty() {
-        if !json {
+        if let Some(out) = out.for_human() {
             writeln!(
-                stdout,
+                out,
                 "No branches selected for review publication. Aborting."
-            )
-            .ok();
+            )?;
         }
-
         return Ok(());
     }
 
@@ -219,7 +201,7 @@ pub async fn handle_multiple_branches_in_workspace(
             with_force,
             run_hooks,
             default_message,
-            json,
+            out,
         )
         .await?;
 
@@ -229,12 +211,10 @@ pub async fn handle_multiple_branches_in_workspace(
             .extend(outcome.already_existing);
     }
 
-    if json {
-        let outcome_json = serde_json::to_string_pretty(&overall_outcome)?;
-        writeln!(stdout, "{}", outcome_json)?;
-    } else {
-        writeln!(stdout).ok();
-        display_review_publication_summary(overall_outcome).ok();
+    if let Some(out) = out.for_json() {
+        out.write_value(overall_outcome)?;
+    } else if let Some(out) = out.for_human() {
+        display_review_publication_summary(overall_outcome, out)?;
     }
 
     Ok(())
@@ -286,9 +266,8 @@ async fn publish_reviews_for_branch_and_dependents(
     with_force: bool,
     run_hooks: bool,
     default_message: bool,
-    json: bool,
+    out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
-    let mut stdout = std::io::stdout();
     let (base_branch, _) = get_base_branch_and_repo(project)?;
     let all_branches_up_to_subject = stack_entry
         .heads
@@ -297,16 +276,17 @@ async fn publish_reviews_for_branch_and_dependents(
         .take_while(|h| h.name != branch_name)
         .collect::<Vec<_>>();
 
-    if !json && !all_branches_up_to_subject.is_empty() {
-        writeln!(
-            stdout,
-            "Pushing branch '{}' with {} dependent branch(es) first",
-            branch_name,
-            all_branches_up_to_subject.len()
-        )
-        .ok();
-    } else if !json {
-        writeln!(stdout, "Pushing branch '{}'", branch_name).ok();
+    if let Some(out) = out.for_human() {
+        if !all_branches_up_to_subject.is_empty() {
+            writeln!(
+                out,
+                "Pushing branch '{}' with {} dependent branch(es) first",
+                branch_name,
+                all_branches_up_to_subject.len()
+            )?;
+        } else {
+            writeln!(out, "Pushing branch '{}'", branch_name)?;
+        }
     }
 
     let result = but_api::stack::push_stack(
@@ -321,27 +301,28 @@ async fn publish_reviews_for_branch_and_dependents(
         vec![],
     )?;
 
-    if !json {
-        writeln!(stdout, "Push completed successfully").ok();
-        writeln!(stdout, "Pushed to remote: {}", result.remote).ok();
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Push completed successfully")?;
+        writeln!(out, "Pushed to remote: {}", result.remote)?;
         if !result.branch_to_remote.is_empty() {
             for (branch, remote_ref) in &result.branch_to_remote {
-                writeln!(stdout, "  {} -> {}", branch, remote_ref).ok();
+                writeln!(out, "  {} -> {}", branch, remote_ref)?;
             }
         }
-        writeln!(stdout,).ok();
+        writeln!(out)?;
     }
 
     let mut newly_published = Vec::new();
     let mut already_existing = Vec::new();
     let mut current_target_branch = base_branch.short_name();
     for head in stack_entry.heads.iter().rev() {
-        writeln!(
-            stdout,
-            "Publishing review for branch '{}' targetting '{}",
-            head.name, current_target_branch
-        )
-        .ok();
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "Publishing review for branch '{}' targetting '{}",
+                head.name, current_target_branch
+            )?;
+        }
 
         let published_review = publish_review_for_branch(
             project,
@@ -386,9 +367,11 @@ fn get_base_branch_and_repo(
     Ok((base_branch, repo))
 }
 
-/// Display a summary of published and already existing reviews
-fn display_review_publication_summary(outcome: PublishReviewsOutcome) -> std::io::Result<()> {
-    let mut stdout = std::io::stdout();
+/// Display a summary of published and already existing reviews for humans
+fn display_review_publication_summary(
+    outcome: PublishReviewsOutcome,
+    out: &mut dyn std::fmt::Write,
+) -> std::fmt::Result {
     // Group published reviews by branch name
     let mut published_by_branch: BTreeMap<&str, Vec<&gitbutler_forge::review::ForgeReview>> =
         BTreeMap::new();
@@ -399,9 +382,9 @@ fn display_review_publication_summary(outcome: PublishReviewsOutcome) -> std::io
             .push(review);
     }
     for (branch, reviews) in published_by_branch {
-        writeln!(stdout, "Published reviews for branch '{}':", branch)?;
+        writeln!(out, "Published reviews for branch '{}':", branch)?;
         for review in reviews {
-            print_review_information(review)?;
+            print_review_information(review, out)?;
         }
     }
 
@@ -415,9 +398,9 @@ fn display_review_publication_summary(outcome: PublishReviewsOutcome) -> std::io
             .push(review);
     }
     for (branch, reviews) in existing_by_branch {
-        writeln!(stdout, "Review(s) already exist for branch '{}':", branch)?;
+        writeln!(out, "Review(s) already exist for branch '{}':", branch)?;
         for review in reviews {
-            print_review_information(review)?;
+            print_review_information(review, out)?;
         }
     }
 
@@ -425,9 +408,12 @@ fn display_review_publication_summary(outcome: PublishReviewsOutcome) -> std::io
 }
 
 /// Print review information in a formatted way
-fn print_review_information(review: &gitbutler_forge::review::ForgeReview) -> std::io::Result<()> {
+fn print_review_information(
+    review: &gitbutler_forge::review::ForgeReview,
+    out: &mut dyn std::fmt::Write,
+) -> std::fmt::Result {
     writeln!(
-        std::io::stdout(),
+        out,
         "  '{}' ({}{}): {}",
         review.title.bold(),
         review.unit_symbol.blue(),

@@ -4,19 +4,22 @@ use colored::Colorize;
 use std::io::Write;
 
 /// How we should format anything written to [`std::io::stdout()`].
-#[derive(Debug, Copy, Clone, clap::ValueEnum)]
+#[derive(Debug, Copy, Clone, clap::ValueEnum, Default)]
 pub enum OutputFormat {
     /// The output to write is supposed to be for human consumption, and can be more verbose.
+    #[default]
     Human,
     /// The output should be suitable for shells, and assigning the major result to variables so that it can be re-used
     /// in subsequent CLI invocations.
     Shell,
     /// Output detailed information as JSON for tool consumption.
     Json,
+    /// Do not output anything, like redirecting to `/dev/null`.
+    None,
 }
 
 /// A utility `std::io::Write` implementation that can always be used to generate output for humans or for scripts.
-pub struct Output {
+pub struct OutputChannel {
     /// How to print the output, one should match on it. Match on this if you prefer this style.
     format: OutputFormat,
     /// The actual writer.
@@ -27,7 +30,7 @@ pub struct Output {
 }
 
 /// Conversions
-impl Output {
+impl OutputChannel {
     /// Provide a write implementation for humans, if the format setting permits.
     pub fn for_human(&mut self) -> Option<&mut (dyn std::fmt::Write + 'static)> {
         matches!(self.format, OutputFormat::Human).then(|| self as &mut dyn std::fmt::Write)
@@ -43,7 +46,7 @@ impl Output {
 }
 
 /// JSON utilities
-impl Output {
+impl OutputChannel {
     /// Write `value` as pretty JSON to the output.
     ///
     /// Note that it's owned to avoid double-printing with [ResultJsonExt::output_json]
@@ -63,38 +66,36 @@ fn json_pretty_to_stdout(value: &impl serde::Serialize) -> std::io::Result<()> {
     Ok(())
 }
 
-/// We allow writing directly, knowing that JSON output will be a blackhole anyway.
-/// TODO: remove this once `std::fmt::Write` is in use everywhere.
-impl Write for Output {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self.format {
-            OutputFormat::Human | OutputFormat::Shell => self.inner.write(buf),
-            OutputFormat::Json => Ok(buf.len()),
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self.format {
-            OutputFormat::Human | OutputFormat::Shell => self.inner.flush(),
-            OutputFormat::Json => Ok(()),
-        }
-    }
-}
-
-impl std::fmt::Write for Output {
+impl std::fmt::Write for OutputChannel {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
-        if let Some(out) = self.pager.as_mut() {
-            out.write_str(s)
-        } else {
-            self.inner
-                .write_all(s.as_bytes())
-                .map_err(|_| std::fmt::Error)
+        match self.format {
+            OutputFormat::Human | OutputFormat::Shell => {
+                if let Some(out) = self.pager.as_mut() {
+                    out.write_str(s)
+                } else {
+                    self.inner.write_all(s.as_bytes()).or_else(|err| {
+                        if err.kind() == std::io::ErrorKind::BrokenPipe {
+                            // Ignore broken pipes and keep writing.
+                            // This allows the caller to use `?` without having to think
+                            // about ignoring errors selectively.
+                            Ok(())
+                        } else {
+                            Err(std::fmt::Error)
+                        }
+                    })
+                }
+            }
+            OutputFormat::Json | OutputFormat::None => {
+                // It's not an error to try to write in JSON mode, it's a feature.
+                // However, the only way to write JSON is to use [Self::write_value()].
+                Ok(())
+            }
         }
     }
 }
 
 /// Lifecycle
-impl Output {
+impl OutputChannel {
     /// Create a new instance to output with `format` (advisory), which affects where it prints to.
     ///
     /// It's configured to print to stdout unless [`OutputFormat::Json`] is used, then it prints everything
@@ -103,20 +104,35 @@ impl Output {
     /// WARNING: the current implementation is static and would cache everything in memory.
     ///          Use `dynamic_output` (cargo feature + see https://docs.rs/minus/5.6.1/minus/#threads) otherwise.
     ///          It also needs to avoid
-    pub fn new(format: OutputFormat) -> Self {
-        Output {
+    pub fn new_with_pager(format: OutputFormat) -> Self {
+        OutputChannel {
             format,
             inner: std::io::stdout(),
-            pager: if std::env::var_os("NOPAGER").is_some() {
+            pager: if !matches!(format, OutputFormat::Human)
+                || std::env::var_os("NOPAGER").is_some()
+            {
                 None
             } else {
                 Some(minus::Pager::new())
             },
         }
     }
+
+    /// Like [`Self::new_with_pager`], but will never create a pager or write JSON.
+    /// Use this if a second instance of a channel is needed, and the first one could have a pager.
+    pub fn new_without_pager_non_json(format: OutputFormat) -> Self {
+        OutputChannel {
+            format: match format {
+                OutputFormat::Human | OutputFormat::Shell | OutputFormat::None => format,
+                OutputFormat::Json => OutputFormat::None,
+            },
+            inner: std::io::stdout(),
+            pager: None,
+        }
+    }
 }
 
-impl Drop for Output {
+impl Drop for OutputChannel {
     fn drop(&mut self) {
         if let Some(pager) = self.pager.take() {
             minus::page_all(pager).ok();
@@ -178,13 +194,11 @@ pub fn into_json_value(value: impl serde::Serialize) -> serde_json::Value {
         .expect("BUG: Failed to serialize JSON value, we should know that at compile time")
 }
 
-pub fn print_grouped_help() -> std::io::Result<()> {
+pub fn print_grouped_help(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
     use std::collections::HashSet;
 
     use clap::CommandFactory;
     use terminal_size::{Width, terminal_size};
-
-    let mut stdout = std::io::stdout();
 
     // Get terminal width, default to 80 if detection fails
     let terminal_width = if let Some((Width(w), _)) = terminal_size() {
@@ -229,33 +243,29 @@ pub fn print_grouped_help() -> std::io::Result<()> {
         ),
     ];
 
+    writeln!(out, "{}", "The GitButler CLI change control system".red())?;
+    writeln!(out)?;
+    writeln!(out, "Usage: but [OPTIONS] <COMMAND>")?;
+    writeln!(out, "       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]")?;
+    writeln!(out)?;
     writeln!(
-        stdout,
-        "{}",
-        "The GitButler CLI change control system".red()
-    )?;
-    writeln!(stdout)?;
-    writeln!(stdout, "Usage: but [OPTIONS] <COMMAND>")?;
-    writeln!(stdout, "       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]")?;
-    writeln!(stdout)?;
-    writeln!(
-        stdout,
+        out,
         "The GitButler CLI can be used to do nearly anything the desktop client can do (and more)."
     )?;
     writeln!(
-        stdout,
+        out,
         "It is a drop in replacement for most of the Git commands you would normally use, but Git"
     )?;
     writeln!(
-        stdout,
+        out,
         "commands (blame, log, etc) can also be used, as GitButler is fully Git compatible."
     )?;
-    writeln!(stdout)?;
+    writeln!(out)?;
     writeln!(
-        stdout,
+        out,
         "Checkout the full docs here: https://docs.gitbutler.com/cli-overview"
     )?;
-    writeln!(stdout)?;
+    writeln!(out)?;
 
     // Keep track of which commands we've already printed
     let mut printed_commands = HashSet::new();
@@ -264,7 +274,7 @@ pub fn print_grouped_help() -> std::io::Result<()> {
 
     // Print grouped commands
     for (group_name, command_names) in &groups {
-        writeln!(stdout, "{group_name}:")?;
+        writeln!(out, "{group_name}:")?;
         for cmd_name in command_names {
             if let Some(subcmd) = subcommands.iter().find(|c| c.get_name() == *cmd_name) {
                 let about = subcmd.get_about().unwrap_or_default().to_string();
@@ -273,7 +283,7 @@ pub fn print_grouped_help() -> std::io::Result<()> {
                     terminal_width.saturating_sub(LONGEST_COMMAND_LEN_AND_ELLIPSIS);
                 let truncated_about = truncate_text(&about, available_width);
                 writeln!(
-                    stdout,
+                    out,
                     "  {:<LONGEST_COMMAND_LEN$}{}",
                     cmd_name.green(),
                     truncated_about,
@@ -281,7 +291,7 @@ pub fn print_grouped_help() -> std::io::Result<()> {
                 printed_commands.insert(cmd_name.to_string());
             }
         }
-        writeln!(stdout)?;
+        writeln!(out)?;
     }
 
     // Collect any remaining commands not in the explicit groups
@@ -292,41 +302,41 @@ pub fn print_grouped_help() -> std::io::Result<()> {
 
     // Print MISC section if there are any ungrouped commands
     if !misc_commands.is_empty() {
-        writeln!(stdout, "{}:", "Other Commands".yellow())?;
+        writeln!(out, "{}:", "Other Commands".yellow())?;
         for subcmd in misc_commands {
             let about = subcmd.get_about().unwrap_or_default().to_string();
             // Calculate available width: terminal_width - indent (2) - command column (10) - buffer (1)
             let available_width = terminal_width.saturating_sub(LONGEST_COMMAND_LEN_AND_ELLIPSIS);
             let truncated_about = truncate_text(&about, available_width);
             writeln!(
-                stdout,
+                out,
                 "  {:<LONGEST_COMMAND_LEN$}{}",
                 subcmd.get_name().green(),
                 truncated_about
             )?;
         }
-        writeln!(stdout)?;
+        writeln!(out)?;
     }
 
     // Add command completion instructions
     writeln!(
-        stdout,
+        out,
         "To add command completion, add this to your shell rc: (for example ~/.zshrc)"
     )?;
-    writeln!(stdout, "  eval \"$(but completions zsh)\"")?;
-    writeln!(stdout)?;
+    writeln!(out, "  eval \"$(but completions zsh)\"")?;
+    writeln!(out)?;
 
     writeln!(
-        stdout,
+        out,
         "To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, MCP), see:"
     )?;
     writeln!(
-        stdout,
+        out,
         "  https://docs.gitbutler.com/features/ai-integration/ai-overview"
     )?;
-    writeln!(stdout)?;
+    writeln!(out)?;
 
-    writeln!(stdout, "{}:", "Options".yellow())?;
+    writeln!(out, "{}:", "Options".yellow())?;
     // Truncate long option descriptions if needed
     let option_descriptions = [
         (
@@ -340,7 +350,7 @@ pub fn print_grouped_help() -> std::io::Result<()> {
     for (flag, desc) in option_descriptions {
         let available_width = terminal_width.saturating_sub(flag.len() + 2);
         let truncated_desc = truncate_text(desc, available_width);
-        writeln!(stdout, "{}  {}", flag, truncated_desc)?;
+        writeln!(out, "{}  {}", flag, truncated_desc)?;
     }
 
     Ok(())

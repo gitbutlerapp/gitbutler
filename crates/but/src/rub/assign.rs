@@ -1,35 +1,39 @@
-use std::io::Write;
-
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignmentRequest;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 
-use crate::command;
+use crate::utils::OutputChannel;
 
 pub(crate) fn assign_file_to_branch(
     ctx: &mut CommandContext,
     path: &str,
     branch_name: &str,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
     let reqs = to_assignment_request(ctx, path, Some(branch_name))?;
-    do_assignments(ctx, reqs)?;
-    writeln!(
-        stdout,
-        "Assigned {} → {}.",
-        path.bold(),
-        format!("[{branch_name}]").green()
-    )
-    .ok();
+    do_assignments(ctx, reqs, out)?;
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "Assigned {} → {}.",
+            path.bold(),
+            format!("[{branch_name}]").green()
+        )?;
+    }
     Ok(())
 }
 
-pub(crate) fn unassign_file(ctx: &mut CommandContext, path: &str) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+pub(crate) fn unassign_file(
+    ctx: &mut CommandContext,
+    path: &str,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     let reqs = to_assignment_request(ctx, path, None)?;
-    do_assignments(ctx, reqs)?;
-    writeln!(stdout, "Unassigned {}", path.bold()).ok();
+    do_assignments(ctx, reqs, out)?;
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Unassigned {}", path.bold())?;
+    }
     Ok(())
 }
 
@@ -37,8 +41,8 @@ pub(crate) fn assign_all(
     ctx: &mut CommandContext,
     from_branch: Option<&str>,
     to_branch: Option<&str>,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
     let from_stack_id = branch_name_to_stack_id(ctx, from_branch)?;
     let to_stack_id = branch_name_to_stack_id(ctx, to_branch)?;
 
@@ -59,28 +63,28 @@ pub(crate) fn assign_all(
             });
         }
     }
-    do_assignments(ctx, reqs)?;
-    if to_branch.is_some() {
-        writeln!(
-            stdout,
-            "Assigned all {} changes to {}.",
-            from_branch
-                .map(|b| format!("[{b}]").green())
-                .unwrap_or_else(|| "unassigned".to_string().bold()),
-            to_branch
-                .map(|b| format!("[{b}]").green())
-                .unwrap_or_else(|| "unassigned".to_string().bold())
-        )
-        .ok();
-    } else {
-        writeln!(
-            stdout,
-            "Unassigned all {} changes.",
-            from_branch
-                .map(|b| format!("[{b}]").green())
-                .unwrap_or_else(|| "unassigned".to_string().bold())
-        )
-        .ok();
+    do_assignments(ctx, reqs, out)?;
+    if let Some(out) = out.for_human() {
+        if to_branch.is_some() {
+            writeln!(
+                out,
+                "Assigned all {} changes to {}.",
+                from_branch
+                    .map(|b| format!("[{b}]").green())
+                    .unwrap_or_else(|| "unassigned".to_string().bold()),
+                to_branch
+                    .map(|b| format!("[{b}]").green())
+                    .unwrap_or_else(|| "unassigned".to_string().bold())
+            )?;
+        } else {
+            writeln!(
+                out,
+                "Unassigned all {} changes.",
+                from_branch
+                    .map(|b| format!("[{b}]").green())
+                    .unwrap_or_else(|| "unassigned".to_string().bold())
+            )?;
+        }
     }
     Ok(())
 }
@@ -88,10 +92,13 @@ pub(crate) fn assign_all(
 fn do_assignments(
     ctx: &mut CommandContext,
     reqs: Vec<HunkAssignmentRequest>,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let rejections = but_hunk_assignment::assign(ctx, reqs, None)?;
-    if !rejections.is_empty() {
-        command::print(&rejections, false)?;
+    if !rejections.is_empty()
+        && let Some(out) = out.for_human()
+    {
+        writeln!(out, "{rejections:#?}")?;
     }
     Ok(())
 }

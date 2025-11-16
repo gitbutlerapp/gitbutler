@@ -14,8 +14,14 @@ pub struct Args {
     /// Explicitly control how output should be formatted.
     ///
     /// If unset and from a terminal, it defaults to human output, when redirected it's for shells.
-    #[clap(long, short = 'f', env = "BUT_OUTPUT_FORMAT", conflicts_with = "json")]
-    pub format: Option<OutputFormat>,
+    #[clap(
+        long,
+        short = 'f',
+        env = "BUT_OUTPUT_FORMAT",
+        conflicts_with = "json",
+        default_value = "human"
+    )]
+    pub format: OutputFormat,
     /// Whether to use JSON output format.
     #[clap(long, short = 'j', global = true)]
     pub json: bool,

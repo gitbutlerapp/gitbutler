@@ -1,5 +1,3 @@
-use std::{collections::BTreeMap, io::Write};
-
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
@@ -11,6 +9,7 @@ use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 use crate::CLI_DATE;
 
@@ -19,7 +18,7 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 pub(crate) mod assignment;
 
 use crate::id::CliId;
-use crate::utils::Output;
+use crate::utils::OutputChannel;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -173,13 +172,12 @@ struct WorktreeStatus {
 
 pub(crate) async fn worktree(
     ctx: &Context,
-    out: &mut Output,
+    out: &mut OutputChannel,
     show_files: bool,
     verbose: bool,
     review: bool,
 ) -> anyhow::Result<()> {
     let mut legacy_ctx = ctx.legacy_ctx()?;
-    let mut stdout = std::io::stdout();
     but_rules::process_rules(&mut legacy_ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
     let guard = ctx.shared_worktree_access();
@@ -302,6 +300,10 @@ pub(crate) async fn worktree(
         return Ok(());
     }
 
+    let Some(out) = out.for_human() else {
+        return Ok(());
+    };
+
     let stack_details_len = stack_details.len();
     for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
         let mut stack_mark = stack_id.and_then(|stack_id| {
@@ -325,6 +327,7 @@ pub(crate) async fn worktree(
             i == stack_details_len - 1,
             i == 0,
             &review_map,
+            out,
         )?;
     }
     // Format the last fetched time as relative time
@@ -367,19 +370,18 @@ pub(crate) async fn worktree(
         let dot = "●".yellow();
 
         writeln!(
-            stdout,
+            out,
             "┊{dot} {} (upstream) ⏫ {} new commits {} {}{}",
             upstream.latest_commit.dimmed(),
             upstream.behind_count,
             upstream.commit_date.dimmed(),
             upstream.message,
             last_checked_text.dimmed()
-        )
-        .ok();
+        )?;
     }
 
     writeln!(
-        stdout,
+        out,
         "{} {} (common base) [{}] {} {}{}",
         if upstream_state.is_some() {
             "├╯"
@@ -395,8 +397,7 @@ pub(crate) async fn worktree(
         } else {
             String::new()
         }
-    )
-    .ok();
+    )?;
     Ok(())
 }
 
@@ -404,8 +405,8 @@ fn print_assignments(
     assignments: &Vec<FileAssignment>,
     changes: &[TreeChange],
     dotted: bool,
-) -> std::io::Result<()> {
-    let mut stdout = std::io::stdout();
+    out: &mut dyn std::fmt::Write,
+) -> std::fmt::Result {
     for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match &state {
@@ -439,9 +440,9 @@ fn print_assignments(
             locks = format!("🔒 {locks}");
         }
         if dotted {
-            writeln!(stdout, "┊   {id} {status} {path} {locks}")?;
+            writeln!(out, "┊   {id} {status} {path} {locks}")?;
         } else {
-            writeln!(stdout, "┊│   {id} {status} {path} {locks}")?;
+            writeln!(out, "┊│   {id} {status} {path} {locks}")?;
         }
     }
 
@@ -462,8 +463,8 @@ pub fn print_group(
     _last: bool,
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
+    out: &mut dyn std::fmt::Write,
 ) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
     let repo = project.open_isolated()?;
     if let Some(group) = &group {
         let mut first = true;
@@ -471,7 +472,7 @@ pub fn print_group(
             let id = branch.cli_id.underline().blue();
             let notch = if first { "╭" } else { "├" };
             if !first {
-                writeln!(stdout, "┊│").ok();
+                writeln!(out, "┊│")?;
             }
 
             let no_commits = if branch.commits.is_empty() {
@@ -502,15 +503,14 @@ pub fn print_group(
                 })
                 .unwrap_or_default();
             writeln!(
-                stdout,
+                out,
                 "┊{notch}┄{id} [{branch}{workspace}]{reviews} {no_commits} {stack_mark}",
                 stack_mark = stack_mark.clone().unwrap_or_default(),
                 branch = branch.name.to_string().green().bold(),
-            )
-            .ok();
+            )?;
             *stack_mark = None; // Only show the stack mark for the first branch
             if first {
-                print_assignments(&assignments, changes, false).ok();
+                print_assignments(&assignments, changes, false, out)?;
             }
             first = false;
             for commit in &branch.upstream_commits {
@@ -528,6 +528,7 @@ pub fn print_group(
                     false,
                     show_url,
                     None,
+                    out,
                 )?;
             }
             for cli_commit in &branch.commits {
@@ -558,25 +559,25 @@ pub fn print_group(
                     commit.has_conflicts,
                     show_url,
                     commit.gerrit_review_url.clone(),
+                    out,
                 )?;
             }
         }
     } else {
         let id = CliId::Unassigned.to_string().underline().blue();
         writeln!(
-            stdout,
+            out,
             "╭┄{} [{}] {}",
             id,
             "Unassigned Changes".to_string().green().bold(),
             stack_mark.clone().unwrap_or_default()
-        )
-        .ok();
-        print_assignments(&assignments, changes, true).ok();
+        )?;
+        print_assignments(&assignments, changes, true, out)?;
     }
     if !first {
-        writeln!(stdout, "├╯").ok();
+        writeln!(out, "├╯")?;
     }
-    writeln!(stdout, "┊").ok();
+    writeln!(out, "┊")?;
     Ok(())
 }
 
@@ -676,8 +677,8 @@ fn print_commit(
     has_conflicts: bool,
     show_url: bool,
     review_url: Option<String>,
+    out: &mut dyn std::fmt::Write,
 ) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
     let mark = if marked {
         Some("◀ Marked ▶".red().bold())
     } else {
@@ -721,7 +722,7 @@ fn print_commit(
         // Verbose format: author and timestamp on first line, message on second line
         let formatted_time = created_at.format_or_unix(CLI_DATE);
         writeln!(
-            stdout,
+            out,
             "┊{dot}   {}{} {} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
             &commit_id.to_string()[2..7].dimmed(),
@@ -733,9 +734,8 @@ fn print_commit(
                 .map(|r| format!("◖{}◗", r.underline().blue()))
                 .unwrap_or_default(),
             mark.unwrap_or_default()
-        )
-        .ok();
-        writeln!(stdout, "┊│     {message}").ok();
+        )?;
+        writeln!(out, "┊│     {message}")?;
     } else {
         // Original format: everything on one line
         let review_url = if show_url {
@@ -745,7 +745,7 @@ fn print_commit(
         }
         .unwrap_or_default();
         writeln!(
-            stdout,
+            out,
             "┊{dot}   {}{} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
             &commit_id.to_string()[2..7].dimmed(),
@@ -754,8 +754,7 @@ fn print_commit(
             conflicted_str,
             review_url,
             mark.unwrap_or_default()
-        )
-        .ok();
+        )?;
     }
     if show_files {
         for change in &commit_details.changes.changes {
@@ -765,7 +764,7 @@ fn print_commit(
                 .underline();
             let path = path_with_color(&change.status, change.path.to_string());
             let status_letter = status_letter(&change.status);
-            writeln!(stdout, "┊│     {cid} {status_letter} {path}").ok();
+            writeln!(out, "┊│     {cid} {status_letter} {path}")?;
         }
     }
     Ok(())

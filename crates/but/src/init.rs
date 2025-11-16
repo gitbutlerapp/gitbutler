@@ -1,9 +1,13 @@
-use std::{io::Write, path::Path};
+use std::path::Path;
 
+use crate::utils::OutputChannel;
 use anyhow::Context;
 
-pub(crate) fn repo(repo_path: &Path, _json: bool, init_repo: bool) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+pub(crate) fn repo(
+    repo_path: &Path,
+    out: &mut OutputChannel,
+    init_repo: bool,
+) -> anyhow::Result<()> {
     let repo = if init_repo
         && matches!(
             gix::open(repo_path),
@@ -68,22 +72,21 @@ pub(crate) fn repo(repo_path: &Path, _json: bool, init_repo: bool) -> anyhow::Re
         let name = head_ref.name().shorten().to_string();
 
         but_api::virtual_branches::set_base_branch(project.id, name.clone(), Some(remote_name))?;
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "Initialized GitButler project from {}. The default target is {}",
+                repo_path.display(),
+                name
+            )?;
+        }
+    } else if let Some(out) = out.for_human() {
         writeln!(
-            stdout,
-            "Initialized GitButler project from {}. The default target is {}",
-            repo_path.display(),
-            name
-        )
-        .ok();
-    } else {
-        writeln!(
-            stdout,
+            out,
             "The repository {} is already initialized as GitButler project. The default target is {:?}",
             repo_path.display(),
             target.map(|t| t.branch_name)
-        )
-        .ok();
-        return Ok(());
+        )?;
     }
     Ok(())
 }
