@@ -22,7 +22,7 @@ use crate::{App, error::Error};
 #[serde(rename_all = "camelCase")]
 pub struct SendMessageParams {
     pub project_id: ProjectId,
-    pub stack_id: StackId,
+    pub stack_id: Option<StackId>,
     #[serde(flatten)]
     pub user_params: ClaudeUserParams,
 }
@@ -48,7 +48,7 @@ pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result
 #[serde(rename_all = "camelCase")]
 pub struct GetMessagesParams {
     pub project_id: ProjectId,
-    pub stack_id: StackId,
+    pub stack_id: Option<StackId>,
 }
 
 pub fn claude_get_messages(
@@ -137,7 +137,7 @@ pub fn claude_update_permission_request(
 #[serde(rename_all = "camelCase")]
 pub struct CancelSessionParams {
     pub project_id: ProjectId,
-    pub stack_id: StackId,
+    pub stack_id: Option<StackId>,
 }
 
 pub async fn claude_cancel_session(app: &App, params: CancelSessionParams) -> Result<bool, Error> {
@@ -157,7 +157,7 @@ pub async fn claude_check_available() -> Result<ClaudeCheckResult, Error> {
 #[serde(rename_all = "camelCase")]
 pub struct IsStackActiveParams {
     pub project_id: ProjectId,
-    pub stack_id: StackId,
+    pub stack_id: Option<StackId>,
 }
 
 pub async fn claude_is_stack_active(app: &App, params: IsStackActiveParams) -> Result<bool, Error> {
@@ -169,7 +169,7 @@ pub async fn claude_is_stack_active(app: &App, params: IsStackActiveParams) -> R
 #[serde(rename_all = "camelCase")]
 pub struct CompactHistoryParams {
     pub project_id: ProjectId,
-    pub stack_id: StackId,
+    pub stack_id: Option<StackId>,
 }
 
 pub async fn claude_compact_history(app: &App, params: CompactHistoryParams) -> Result<(), Error> {
