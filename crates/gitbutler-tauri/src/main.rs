@@ -21,8 +21,8 @@ use but_api::{
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
-    WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, github, logs, menu,
-    projects, settings, zip,
+    WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, logs, menu, projects,
+    settings, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -299,14 +299,14 @@ fn main() -> anyhow::Result<()> {
                 config::store_author_globally_if_unset,
                 config::get_author_info,
                 menu::menu_item_set_enabled,
-                github::init_device_oauth,
-                github::check_auth_status,
-                github::store_github_pat,
-                github::store_github_enterprise_pat,
+                but_api::github::tauri_init_device_oauth::init_device_oauth,
+                but_api::github::tauri_check_auth_status::check_auth_status,
+                but_api::github::tauri_store_github_pat::store_github_pat,
+                but_api::github::tauri_store_github_enterprise_pat::store_github_enterprise_pat,
+                but_api::github::tauri_get_gh_user::get_gh_user,
                 but_api::github::forget_github_account,
-                github::list_known_github_accounts,
+                but_api::github::list_known_github_accounts,
                 but_api::github::clear_all_github_tokens,
-                github::get_gh_user,
                 askpass::submit_prompt_response,
                 remotes::list_remotes,
                 remotes::add_remote,

@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 use but_broadcaster::Broadcaster;
 use but_claude::bridge::Claudes;
-use serde::Deserialize;
 use tokio::sync::Mutex;
 
 pub mod commands;
@@ -23,9 +22,6 @@ pub struct App {
     pub archival: Arc<but_feedback::Archival>,
     pub claudes: Arc<Claudes>,
 }
-
-#[derive(Deserialize)]
-pub struct NoParams {}
 
 /// Types meant to be serialised to JSON, without degenerating information despite the need to be UTF-8 encodable.
 /// EXPERIMENTAL
