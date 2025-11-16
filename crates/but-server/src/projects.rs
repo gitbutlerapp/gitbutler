@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context as _, Result};
-use but_api::{App, error::ToError};
+use but_api::{App, json::ToError};
 use but_broadcaster::FrontendEvent;
 use but_db::poll::DBWatcherHandle;
 use but_settings::AppSettingsWithDiskSync;
@@ -131,7 +131,7 @@ pub struct ProjectInfo {
     headsup: Option<String>,
 }
 
-pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::error::Error> {
+pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::json::Error> {
     let active_projects = extra.active_projects.lock().await;
     let project_ids: Vec<ProjectId> = active_projects.projects.keys().copied().collect();
     let projects_for_frontend = but_api::projects::list_projects(project_ids)?;
@@ -143,7 +143,7 @@ pub async fn set_project_active(
     extra: &Extra,
     app_settings_sync: AppSettingsWithDiskSync,
     params: serde_json::Value,
-) -> Result<serde_json::Value, but_api::error::Error> {
+) -> Result<serde_json::Value, but_api::json::Error> {
     let params: SetProjectActiveParams = serde_json::from_value(params).to_error()?;
     let project = gitbutler_project::get_validated(params.id).context("project not found")?;
 

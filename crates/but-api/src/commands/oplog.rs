@@ -28,7 +28,7 @@ use gitbutler_oplog::{
 use gitbutler_project::ProjectId;
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::json::Error;
 
 /// List snapshots in the oplog.
 ///

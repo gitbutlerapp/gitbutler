@@ -1,25 +1,30 @@
-//! Utilities to control which errors show in the frontend.
-//!
-//! ## How to use this
-//!
-//! Just make sure this `Error` type is used for each provided `tauri` command. The rest happens automatically
-//! such that [context](gitbutler_error::error::Context) is handled correctly.
-//!
-//! ### Interfacing with `tauri` using `Error`
-//!
-//! `tauri` serializes backend errors and makes these available as JSON objects to the frontend. The format
-//! is an implementation detail, but here it's implemented to turn each `Error` into a dict with `code`
-//! and `messsage` fields.
-//!
-//! The values in these fields are controlled by attaching context, please [see the `error` docs](gitbutler_error::error))
-//! on how to do this.
-pub(crate) use frontend::{Error, UnmarkedError};
+use gix::refs::Target;
+use schemars;
+use serde::Serialize;
 
-mod frontend {
+pub use error::{Error, ToError, UnmarkedError};
+
+mod error {
+    //! Utilities to control which errors show in the frontend.
+    //!
+    //! ## How to use this
+    //!
+    //! Just make sure this `Error` type is used for each provided `tauri` command. The rest happens automatically
+    //! such that [context](gitbutler_error::error::Context) is handled correctly.
+    //!
+    //! ### Interfacing with `tauri` using `Error`
+    //!
+    //! `tauri` serializes backend errors and makes these available as JSON objects to the frontend. The format
+    //! is an implementation detail, but here it's implemented to turn each `Error` into a dict with `code`
+    //! and `messsage` fields.
+    //!
+    //! The values in these fields are controlled by attaching context, please [see the `error` docs](gitbutler_error::error))
+    //! on how to do this.
+
     use std::borrow::Cow;
 
-    use gitbutler_error::error::AnyhowContextExt;
-    use serde::{ser::SerializeMap, Serialize};
+    use but_error::AnyhowContextExt;
+    use serde::{Serialize, ser::SerializeMap};
 
     /// An error type for serialization which isn't expected to carry a code.
     #[derive(Debug)]
@@ -65,6 +70,22 @@ mod frontend {
         }
     }
 
+    impl From<Error> for anyhow::Error {
+        fn from(value: Error) -> Self {
+            value.0
+        }
+    }
+
+    pub trait ToError<T> {
+        fn to_error(self) -> Result<T, Error>;
+    }
+
+    impl<T, E: std::error::Error + Send + Sync + 'static> ToError<T> for Result<T, E> {
+        fn to_error(self) -> Result<T, Error> {
+            self.map_err(|e| Error(e.into()))
+        }
+    }
+
     impl Serialize for Error {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -88,7 +109,7 @@ mod frontend {
     #[cfg(test)]
     mod tests {
         use anyhow::anyhow;
-        use gitbutler_error::error::{Code, Context};
+        use but_error::{Code, Context};
 
         use super::*;
 
@@ -100,7 +121,7 @@ mod frontend {
         fn no_context_or_code_shows_root_error() {
             let err = anyhow!("err msg");
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "err msg",
                 "just one error on display here"
             );
@@ -115,7 +136,7 @@ mod frontend {
         fn find_code() {
             let err = anyhow!("err msg").context(Code::Validation);
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "errors.validation: err msg",
                 "note how the context becomes an error, in front of the original one"
             );
@@ -128,13 +149,13 @@ mod frontend {
 
         #[test]
         fn find_code_after_cause() {
-            let original_err = std::io::Error::new(std::io::ErrorKind::Other, "actual cause");
+            let original_err = std::io::Error::other("actual cause");
             let err = anyhow::Error::from(original_err)
                 .context("err msg")
                 .context(Code::Validation);
 
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "errors.validation: err msg: actual cause",
                 "an even longer chain, with the cause as root as one might expect"
             );
@@ -148,7 +169,7 @@ mod frontend {
         #[test]
         fn find_context() {
             let err = anyhow!("err msg").context(Context::new_static(Code::Validation, "ctx msg"));
-            assert_eq!(format!("{:#}", err), "ctx msg: err msg");
+            assert_eq!(format!("{err:#}"), "ctx msg: err msg");
             assert_eq!(
                 json(err),
                 "{\"code\":\"errors.validation\",\"message\":\"ctx msg\"}",
@@ -160,7 +181,7 @@ mod frontend {
         fn find_context_without_message() {
             let err = anyhow!("err msg").context(Context::from(Code::Validation));
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "Something went wrong: err msg",
                 "on display, `Context` does just insert a generic message"
             );
@@ -177,7 +198,7 @@ mod frontend {
                 .context("top msg")
                 .context(Code::Validation);
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "errors.validation: top msg: bottom msg",
                 "now it's clear why bottom is bottom"
             );
@@ -195,7 +216,7 @@ mod frontend {
                 .context("top msg")
                 .context(Code::Validation);
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "errors.validation: top msg: errors.projects.git.auth: bottom msg",
                 "each code is treated like its own error in the chain"
             );
@@ -204,6 +225,72 @@ mod frontend {
                 "{\"code\":\"errors.validation\",\"message\":\"top msg\"}",
                 "it finds the most recent 'code' (and the same would be true for contexts, of course)"
             );
+        }
+    }
+}
+
+/// To make bstring work with schemars.
+#[cfg(feature = "path-bytes")]
+fn bstring_schema(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    // TODO: implement this. How to get description and what not?
+    generate.root_schema_for::<String>()
+}
+
+/// The full name of a Git reference.
+#[derive(Debug, Clone, schemars::JsonSchema, Serialize)]
+pub struct FullRefName {
+    /// The full name, like `refs/heads/main` or `refs/remotes/origin/foo`.
+    /// Note that it might be degenerated if it can't be represented in Unicode.
+    pub full: String,
+    /// `full` without degeneration, as plain bytes.
+    #[cfg(feature = "path-bytes")]
+    #[schemars(schema_with = "bstring_schema")]
+    pub full_bytes: bstr::BString,
+}
+
+impl From<gix::refs::FullName> for FullRefName {
+    fn from(value: gix::refs::FullName) -> Self {
+        FullRefName {
+            full: value.as_bstr().to_string(),
+            #[cfg(feature = "path-bytes")]
+            full_bytes: value.as_bstr().into(),
+        }
+    }
+}
+
+/// A Git reference identified by its full reference name, along with the information Git stores about it.
+// TODO: make this work with schemars
+#[derive(Debug, Clone, Serialize)]
+pub struct Reference {
+    /// The full name, like `refs/heads/main` or `refs/remotes/origin/foo`.
+    /// Note that it might be degenerated if it can't be represented in Unicode.
+    pub name: FullRefName,
+    /// Set if the reference points to an object id. This is the common case.
+    #[serde(with = "but_serde::object_id_opt", default)]
+    pub target_id: Option<gix::ObjectId>,
+    /// Set if the reference points to the name of another reference. This happens if the reference is symbolic.
+    #[serde(default)]
+    pub target_ref: Option<FullRefName>,
+}
+
+impl From<gix::refs::Reference> for Reference {
+    fn from(
+        gix::refs::Reference {
+            name,
+            target,
+            peeled: _ignored,
+        }: gix::refs::Reference,
+    ) -> Self {
+        Reference {
+            name: name.into(),
+            target_id: match &target {
+                Target::Object(id) => Some(*id),
+                Target::Symbolic(_) => None,
+            },
+            target_ref: match target {
+                Target::Object(_) => None,
+                Target::Symbolic(rn) => Some(rn.into()),
+            },
         }
     }
 }

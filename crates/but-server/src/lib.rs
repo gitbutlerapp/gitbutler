@@ -18,8 +18,8 @@ use but_api::{
         projects as iprojects, remotes, repo, rules, secret, settings, stack, users,
         virtual_branches, workspace, zip,
     },
-    error::ToError as _,
     github::{clear_all_github_tokens_cmd, forget_github_account_cmd},
+    json::ToError as _,
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
@@ -362,7 +362,7 @@ async fn handle_command(
         "update_workspace_rule" => rules::update_workspace_rule_cmd(request.params),
         "list_workspace_rules" => rules::list_workspace_rules_cmd(request.params),
         "init_device_oauth" => {
-            let result = github::init_device_oauth().await;
+            let result = github::init_device_oauth_json().await;
             result.map(|r| json!(r))
         }
         "check_auth_status" => {
@@ -396,9 +396,9 @@ async fn handle_command(
             }
         }
         "forget_github_account" => forget_github_account_cmd(request.params),
-        "list_known_github_accounts" => {
-            github::list_known_github_accounts().await.map(|r| json!(r))
-        }
+        "list_known_github_accounts" => github::list_known_github_accounts_json()
+            .await
+            .map(|r| json!(r)),
         "clear_all_github_tokens" => clear_all_github_tokens_cmd(request.params),
         "get_gh_user" => {
             let params = serde_json::from_value(request.params).to_error();

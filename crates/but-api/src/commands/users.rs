@@ -4,7 +4,7 @@ use gitbutler_user::User;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::json::Error;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserWithSecretsSensitive {

@@ -16,7 +16,7 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 use tracing::instrument;
 
-use crate::{App, error::Error};
+use crate::{App, json::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

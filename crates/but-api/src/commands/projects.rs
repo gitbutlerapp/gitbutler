@@ -4,7 +4,7 @@ use but_api_macros::api_cmd;
 use gitbutler_project::{self as projects, ProjectId};
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::json::Error;
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

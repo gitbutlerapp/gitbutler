@@ -4,7 +4,7 @@ use anyhow::Context;
 use but_error::Code;
 use serde::Deserialize;
 
-use crate::{App, error::Error};
+use crate::{App, json::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -9,7 +9,7 @@ use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
 use gitbutler_project::ProjectId;
 use tracing::instrument;
 
-use crate::error::Error;
+use crate::json::Error;
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

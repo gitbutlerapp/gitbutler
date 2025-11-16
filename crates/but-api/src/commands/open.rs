@@ -6,7 +6,7 @@ use but_api_macros::api_cmd;
 use tracing::instrument;
 use url::Url;
 
-use crate::error::Error;
+use crate::json::Error;
 
 pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
     let target_url = Url::parse(path).with_context(|| format!("Invalid path format: '{path}'"))?;

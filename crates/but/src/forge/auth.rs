@@ -64,7 +64,7 @@ async fn github_pat(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::Result<
     let pat = Sensitive(input.trim().to_string());
     let AuthStatusResponse { login, .. } = but_api::github::store_github_pat(pat)
         .await
-        .map_err(|err| anyhow::Error::from(err).context("Authentication failed"))?;
+        .map_err(|err| err.context("Authentication failed"))?;
 
     writeln!(
         out_for_humans,
@@ -105,7 +105,7 @@ async fn github_enterprise(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::
     let AuthStatusResponse { login, .. } =
         but_api::github::store_github_enterprise_pat(pat, base_url)
             .await
-            .map_err(|err| anyhow::Error::from(err).context("Authentication failed"))?;
+            .map_err(|err| err.context("Authentication failed"))?;
 
     writeln!(
         out_for_humans,
@@ -138,7 +138,7 @@ async fn github_oauth(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::Resul
 
     let status = but_api::github::check_auth_status(code.device_code)
         .await
-        .map_err(|err| anyhow::Error::from(err).context("Authentication failed"))?;
+        .map_err(|err| err.context("Authentication failed"))?;
 
     writeln!(
         out_for_humans,
