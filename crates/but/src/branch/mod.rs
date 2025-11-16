@@ -1,5 +1,5 @@
 use crate::LegacyProject;
-use crate::utils::{Output, into_json_value, we_need_proper_json_output_here};
+use crate::utils::{OutputChannel, into_json_value, we_need_proper_json_output_here};
 use anyhow::bail;
 use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
@@ -70,7 +70,7 @@ pub enum Subcommands {
 pub async fn handle(
     cmd: Option<Subcommands>,
     ctx: &but_ctx::Context,
-    out: &mut Output,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<serde_json::Value> {
     let legacy_project = &ctx.legacy_project;
     match cmd {
@@ -177,7 +177,9 @@ pub async fn handle(
                 }
             }
 
-            writeln!(out, "Branch '{}' not found in any stack", branch_name).ok();
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Branch '{}' not found in any stack", branch_name).ok();
+            }
             Ok(we_need_proper_json_output_here())
         }
         Some(Subcommands::Apply { branch_name }) => {
@@ -201,7 +203,9 @@ pub async fn handle(
                 }
             }
 
-            writeln!(out, "Branch '{}' not found in any stack", branch_name).ok();
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Branch '{}' not found in any stack", branch_name).ok();
+            }
             Ok(we_need_proper_json_output_here())
         }
     }

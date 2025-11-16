@@ -1,5 +1,5 @@
-use std::io::Write;
-
+use crate::utils::OutputChannel;
+use anyhow::bail;
 use but_oxidize::TimeExt;
 use colored::Colorize;
 use gitbutler_oplog::entry::{OperationKind, Snapshot};
@@ -8,8 +8,11 @@ use gix::date::time::CustomFormat;
 
 pub const ISO8601_NO_TZ: CustomFormat = CustomFormat::new("%Y-%m-%d %H:%M:%S");
 
-pub(crate) fn show_oplog(project: &Project, json: bool, since: Option<&str>) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+pub(crate) fn show_oplog(
+    project: &Project,
+    out: &mut OutputChannel,
+    since: Option<&str>,
+) -> anyhow::Result<()> {
     let snapshots = if let Some(since_sha) = since {
         // Get all snapshots first to find the starting point
         let all_snapshots = but_api::oplog::list_snapshots(project.id, 1000, None, None)?; // Get a large number to find the SHA
@@ -41,22 +44,19 @@ pub(crate) fn show_oplog(project: &Project, json: bool, since: Option<&str>) -> 
     };
 
     if snapshots.is_empty() {
-        if json {
-            writeln!(stdout, "[]")?;
-        } else {
-            writeln!(stdout, "No operations found in history.").ok();
+        if let Some(out) = out.for_json() {
+            out.write_value(&snapshots)?;
+        } else if let Some(out) = out.for_human() {
+            writeln!(out, "No operations found in history.").ok();
         }
         return Ok(());
     }
 
-    if json {
-        // Output JSON format
-        let json_output = serde_json::to_string_pretty(&snapshots)?;
-        writeln!(stdout, "{json_output}")?;
-    } else {
-        // Output human-readable format
-        writeln!(stdout, "{}", "Operations History".blue().bold()).ok();
-        writeln!(stdout, "{}", "─".repeat(50).dimmed()).ok();
+    if let Some(out) = out.for_json() {
+        out.write_value(&snapshots)?;
+    } else if let Some(out) = out.for_human() {
+        writeln!(out, "{}", "Operations History".blue().bold()).ok();
+        writeln!(out, "{}", "─".repeat(50).dimmed()).ok();
 
         for snapshot in snapshots {
             let time_string = snapshot_time_string(&snapshot);
@@ -105,7 +105,7 @@ pub(crate) fn show_oplog(project: &Project, json: bool, since: Option<&str>) -> 
             };
 
             writeln!(
-                stdout,
+                out,
                 "{} {} [{}] {}",
                 commit_id,
                 time_string.dimmed(),
@@ -128,11 +128,10 @@ fn snapshot_time_string(snapshot: &Snapshot) -> String {
 
 pub(crate) fn restore_to_oplog(
     project: &Project,
-    _json: bool,
+    out: &mut OutputChannel,
     oplog_sha: &str,
     force: bool,
 ) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
     let repo = project.open()?;
     let commit_id = repo.rev_parse_single(oplog_sha)?.detach();
     let target_snapshot = &but_api::oplog::get_snapshot(project.id, commit_id.to_string())?;
@@ -147,75 +146,88 @@ pub(crate) fn restore_to_oplog(
 
     let target_time = snapshot_time_string(target_snapshot);
 
-    writeln!(stdout, "{}", "Restoring to oplog snapshot...".blue().bold()).ok();
-    writeln!(
-        stdout,
-        "  Target: {} ({})",
-        target_operation.green(),
-        target_time.dimmed()
-    )
-    .ok();
-    writeln!(
-        stdout,
-        "  Snapshot: {}",
-        commit_sha_string[..7].cyan().underline()
-    )
-    .ok();
-
-    // Confirm the restoration (safety check)
-    if !force {
+    if let Some(out) = out.for_human() {
+        writeln!(out, "{}", "Restoring to oplog snapshot...".blue().bold()).ok();
         writeln!(
-            stdout,
-            "\n{}",
-            "⚠️  This will overwrite your current workspace state."
-                .yellow()
-                .bold()
+            out,
+            "  Target: {} ({})",
+            target_operation.green(),
+            target_time.dimmed()
         )
         .ok();
-        print!("Continue with restore? [y/N]: ");
-        use std::io::{self, Write};
-        io::stdout().flush()?;
+        writeln!(
+            out,
+            "  Snapshot: {}",
+            commit_sha_string[..7].cyan().underline()
+        )
+        .ok();
 
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
+        // Confirm the restoration (safety check)
+        if !force {
+            writeln!(
+                out,
+                "\n{}",
+                "⚠️  This will overwrite your current workspace state."
+                    .yellow()
+                    .bold()
+            )
+            .ok();
+            print!("Continue with restore? [y/N]: ");
+            use std::io::{self, Write};
+            io::stdout().flush()?;
 
-        let input = input.trim().to_lowercase();
-        if input != "y" && input != "yes" {
-            writeln!(stdout, "{}", "Restore cancelled.".yellow()).ok();
-            return Ok(());
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+
+            let input = input.trim().to_lowercase();
+            if input != "y" && input != "yes" {
+                writeln!(out, "{}", "Restore cancelled.".yellow()).ok();
+                return Ok(());
+            }
         }
     }
 
     // Restore to the target snapshot using the but-api crate
-    but_api::oplog::restore_snapshot(project.id, commit_sha_string)?;
+    if force {
+        but_api::oplog::restore_snapshot(project.id, commit_sha_string)?;
+    } else {
+        bail!("Unable to possibly overwrite changes in the worktree without --force");
+    }
 
-    writeln!(
-        stdout,
-        "\n{} Restore completed successfully!",
-        "✓".green().bold(),
-    )
-    .ok();
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "\n{} Restore completed successfully!",
+            "✓".green().bold(),
+        )
+        .ok();
 
-    writeln!(
-        stdout,
-        "{}",
-        "\nWorkspace has been restored to the selected snapshot.".green()
-    )
-    .ok();
+        writeln!(
+            out,
+            "{}",
+            "\nWorkspace has been restored to the selected snapshot.".green()
+        )
+        .ok();
+    }
 
     Ok(())
 }
 
-pub(crate) fn undo_last_operation(project: &Project, _json: bool) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+pub(crate) fn undo_last_operation(
+    project: &Project,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     // Get the last two snapshots - restore to the second one back
     let snapshots = but_api::oplog::list_snapshots(project.id, 2, None, None)?;
 
     if snapshots.len() < 2 {
-        writeln!(stdout, "{}", "No previous operations to undo.".yellow()).ok();
+        if let Some(out) = out.for_human() {
+            writeln!(out, "{}", "No previous operations to undo.".yellow()).ok();
+        }
         return Ok(());
     }
 
+    // TODO: Why the second most recent one, and not use the most recent one?
     let target_snapshot = &snapshots[1];
 
     let target_operation = target_snapshot
@@ -226,66 +238,64 @@ pub(crate) fn undo_last_operation(project: &Project, _json: bool) -> anyhow::Res
 
     let target_time = snapshot_time_string(target_snapshot);
 
-    writeln!(stdout, "{}", "Undoing operation...".blue().bold()).ok();
-    writeln!(
-        stdout,
-        "  Reverting to: {} ({})",
-        target_operation.green(),
-        target_time.dimmed()
-    )
-    .ok();
+    if let Some(out) = out.for_human() {
+        writeln!(out, "{}", "Undoing operation...".blue().bold()).ok();
+        writeln!(
+            out,
+            "  Reverting to: {} ({})",
+            target_operation.green(),
+            target_time.dimmed()
+        )
+        .ok();
+    }
 
     // Restore to the previous snapshot using the but_api
+    // TODO: Why does this not require force? It will also overwrite user changes (I think).
     but_api::oplog::restore_snapshot(project.id, target_snapshot.commit_id.to_string())?;
 
-    let restore_commit_short = format!(
-        "{}{}",
-        &target_snapshot.commit_id.to_string()[..7]
-            .blue()
-            .underline(),
-        &target_snapshot.commit_id.to_string()[7..12].blue().dimmed()
-    );
+    if let Some(out) = out.for_human() {
+        let restore_commit_short = format!(
+            "{}{}",
+            &target_snapshot.commit_id.to_string()[..7]
+                .blue()
+                .underline(),
+            &target_snapshot.commit_id.to_string()[7..12].blue().dimmed()
+        );
 
-    writeln!(
-        stdout,
-        "{} Undo completed successfully! Restored to snapshot: {}",
-        "✓".green().bold(),
-        restore_commit_short
-    )
-    .ok();
+        writeln!(
+            out,
+            "{} Undo completed successfully! Restored to snapshot: {}",
+            "✓".green().bold(),
+            restore_commit_short
+        )
+        .ok();
+    }
 
     Ok(())
 }
 
 pub(crate) fn create_snapshot(
     project: &Project,
-    json: bool,
+    out: &mut OutputChannel,
     message: Option<&str>,
 ) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
     let snapshot_id = but_api::oplog::create_snapshot(project.id, message.map(String::from))?;
 
-    if json {
-        let output = serde_json::json!({
+    if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({
             "snapshot_id": snapshot_id.to_string(),
             "message": message.unwrap_or(""),
             "operation": "create_snapshot"
-        });
-        writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
-    } else {
-        writeln!(
-            stdout,
-            "{}",
-            "Snapshot created successfully!".green().bold()
-        )
-        .ok();
+        }))?;
+    } else if let Some(out) = out.for_human() {
+        writeln!(out, "{}", "Snapshot created successfully!".green().bold()).ok();
 
         if let Some(msg) = message {
-            writeln!(stdout, "  Message: {}", msg.cyan()).ok();
+            writeln!(out, "  Message: {}", msg.cyan()).ok();
         }
 
         writeln!(
-            stdout,
+            out,
             "  Snapshot ID: {}{}",
             snapshot_id.to_string()[..7].blue().underline(),
             snapshot_id.to_string()[7..12].blue().dimmed()
@@ -293,7 +303,7 @@ pub(crate) fn create_snapshot(
         .ok();
 
         writeln!(
-            stdout,
+            out,
             "\n{} Use 'but restore {}' to restore to this snapshot later.",
             "💡".bright_blue(),
             &snapshot_id.to_string()[..7]
