@@ -6,7 +6,8 @@ mod args;
 use crate::args::CommandName;
 use crate::metrics::MetricsContext;
 use crate::utils::{
-    Output, OutputFormat, ResultErrorExt, ResultJsonExt, ResultMetricsExt, print_grouped_help,
+    OutputChannel, OutputFormat, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
+    print_grouped_help,
 };
 use args::{Args, Subcommands, actions, claude, cursor};
 use but_claude::hooks::OutputAsJson;
@@ -55,10 +56,12 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     // The `but push --help` output is different if gerrit mode is enabled, hence the special handling
     let args_vec: Vec<String> = std::env::args().collect();
+    // TODO: handle this as part of clap, it can be told to not generate all help.
     if args_vec.iter().any(|arg| arg == "push")
         && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
     {
-        push::print_help().ok();
+        let mut out = OutputChannel::new_with_pager(OutputFormat::Human);
+        push::print_help(&mut out).ok();
         return Ok(());
     }
 
@@ -75,7 +78,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             }
         })
     };
-    let out = Output::new(output_format);
+    let mut out = OutputChannel::new_with_pager(output_format);
 
     if args.trace > 0 {
         trace::init(args.trace)?;
@@ -97,7 +100,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 .as_ref()
                 .expect("target is checked to be Some in match guard");
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            rub::handle(&project, args.json, source, target)
+            rub::handle(&project, &mut out, source, target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(MetricsContext::new_if_enabled(
                     &app_settings,
@@ -128,7 +131,7 @@ async fn match_subcommand(
     cmd: Subcommands,
     args: Args,
     app_settings: AppSettings,
-    mut out: Output,
+    mut out: OutputChannel,
 ) -> Result<()> {
     let out = &mut out;
     let metrics_ctx = cmd.to_metrics_context(&app_settings);
@@ -147,11 +150,11 @@ async fn match_subcommand(
                 handler,
             }) => {
                 let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-                command::handle_changes(&project, args.json, handler, &description)
+                command::handle_changes(&project, out, handler, &description)
             }
             None => {
                 let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-                command::list_actions(&project, args.json, 0, 10)
+                command::list_actions(&project, out, 0, 10)
             }
         },
         Subcommands::Metrics {
@@ -241,7 +244,7 @@ async fn match_subcommand(
         },
         Subcommands::Base(base::Platform { cmd }) => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            base::handle(cmd, &project, args.json).emit_metrics(metrics_ctx)
+            base::handle(cmd, &project, out).emit_metrics(metrics_ctx)
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let ctx = get_or_init_context_with_legacy_support(&args.current_dir)?;
@@ -256,7 +259,7 @@ async fn match_subcommand(
         }
         Subcommands::Log => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            log::commit_graph(&project, args.json).emit_metrics(metrics_ctx)
+            log::commit_graph(&project, out).emit_metrics(metrics_ctx)
         }
         Subcommands::Status {
             show_files,
@@ -276,7 +279,7 @@ async fn match_subcommand(
         }
         Subcommands::Rub { source, target } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            rub::handle(&project, args.json, &source, &target)
+            rub::handle(&project, out, &source, &target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit()
@@ -315,7 +318,7 @@ async fn match_subcommand(
         }
         Subcommands::Push(push_args) => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            push::handle(push_args, &project, args.json).emit_metrics(metrics_ctx)
+            push::handle(push_args, &project, out).emit_metrics(metrics_ctx)
         }
         Subcommands::New { target } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
@@ -323,25 +326,23 @@ async fn match_subcommand(
         }
         Subcommands::Describe { target } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            describe::describe_target(&project, args.json, &target).emit_metrics(metrics_ctx)
+            describe::describe_target(&project, out, &target).emit_metrics(metrics_ctx)
         }
         Subcommands::Oplog { since } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            oplog::show_oplog(&project, args.json, since.as_deref()).emit_metrics(metrics_ctx)
+            oplog::show_oplog(&project, out, since.as_deref()).emit_metrics(metrics_ctx)
         }
         Subcommands::Restore { oplog_sha, force } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            oplog::restore_to_oplog(&project, args.json, &oplog_sha, force)
-                .emit_metrics(metrics_ctx)
+            oplog::restore_to_oplog(&project, out, &oplog_sha, force).emit_metrics(metrics_ctx)
         }
         Subcommands::Undo => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            oplog::undo_last_operation(&project, args.json).emit_metrics(metrics_ctx)
+            oplog::undo_last_operation(&project, out).emit_metrics(metrics_ctx)
         }
         Subcommands::Snapshot { message } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            oplog::create_snapshot(&project, args.json, message.as_deref())
-                .emit_metrics(metrics_ctx)
+            oplog::create_snapshot(&project, out, message.as_deref()).emit_metrics(metrics_ctx)
         }
         Subcommands::Absorb { source } => {
             let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;

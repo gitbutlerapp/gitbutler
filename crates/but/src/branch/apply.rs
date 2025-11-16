@@ -1,4 +1,4 @@
-use crate::utils::Output;
+use crate::utils::OutputChannel;
 use anyhow::bail;
 use bstr::ByteSlice;
 use gitbutler_reference::RemoteRefname;
@@ -11,7 +11,7 @@ use std::{ops::Deref, str::FromStr};
 pub fn apply(
     ctx: &but_ctx::Context,
     branch_name: &str,
-    out: &mut Output,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<but_api::json::Reference> {
     let legacy_project = &ctx.legacy_project;
     let ctx = ctx.legacy_ctx()?;

@@ -19,7 +19,7 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 pub(crate) mod assignment;
 
 use crate::id::CliId;
-use crate::utils::Output;
+use crate::utils::OutputChannel;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -173,7 +173,7 @@ struct WorktreeStatus {
 
 pub(crate) async fn worktree(
     ctx: &Context,
-    out: &mut Output,
+    out: &mut OutputChannel,
     show_files: bool,
     verbose: bool,
     review: bool,
