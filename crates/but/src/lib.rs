@@ -71,16 +71,9 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let output_format = if args.json {
         OutputFormat::Json
     } else {
-        args.format.unwrap_or_else(|| {
-            if atty::is(atty::Stream::Stdout) {
-                OutputFormat::Human
-            } else {
-                OutputFormat::Shell
-            }
-        })
+        args.format
     };
     // Set it so code past this point can assume it's set.;
-    args.format = Some(output_format);
     let mut out = OutputChannel::new_with_pager(output_format);
 
     if args.trace > 0 {
@@ -405,7 +398,7 @@ fn get_or_init_legacy_non_bare_project(args: &Args) -> anyhow::Result<LegacyProj
             Err(_e) => {
                 init::repo(
                     path,
-                    &mut OutputChannel::new_without_pager_non_json(args.format.unwrap()),
+                    &mut OutputChannel::new_without_pager_non_json(args.format),
                     false,
                 )?;
                 LegacyProject::find_by_worktree_dir(path)
@@ -431,7 +424,7 @@ pub fn get_or_init_context_with_legacy_support(args: &Args) -> anyhow::Result<bu
         .unwrap_or_else(|| {
             init::repo(
                 directory,
-                &mut OutputChannel::new_without_pager_non_json(args.format.unwrap()),
+                &mut OutputChannel::new_without_pager_non_json(args.format),
                 false,
             )
             .and_then(|()| LegacyProject::find_by_worktree_dir(directory))

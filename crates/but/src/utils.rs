@@ -4,9 +4,10 @@ use colored::Colorize;
 use std::io::Write;
 
 /// How we should format anything written to [`std::io::stdout()`].
-#[derive(Debug, Copy, Clone, clap::ValueEnum)]
+#[derive(Debug, Copy, Clone, clap::ValueEnum, Default)]
 pub enum OutputFormat {
     /// The output to write is supposed to be for human consumption, and can be more verbose.
+    #[default]
     Human,
     /// The output should be suitable for shells, and assigning the major result to variables so that it can be re-used
     /// in subsequent CLI invocations.
