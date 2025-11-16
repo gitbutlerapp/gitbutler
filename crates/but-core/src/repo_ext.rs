@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use anyhow::Context;
 use but_error::Code;
 use gix::prelude::ObjectIdExt;
@@ -129,6 +127,7 @@ impl RepositoryExt for gix::Repository {
     }
 
     fn write_local_common_config(&self, local_config: &gix::config::File) -> anyhow::Result<()> {
+        use std::io::Write;
         // Note: we don't use a lock file here to not risk changing the mode, and it's what Git does.
         //       But we lock the file so there is no raciness.
         let local_config_path = self.common_dir().join("config");

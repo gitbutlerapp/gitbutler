@@ -1,25 +1,28 @@
-use std::io::Write;
-
-use anyhow::Result;
-use but_oxidize::ObjectIdExt;
+use anyhow::{Result, bail};
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
+use crate::utils::OutputChannel;
 use crate::{editor::get_text_from_editor_no_comments, id::CliId};
 
-pub(crate) fn describe_target(project: &Project, _json: bool, target: &str) -> Result<()> {
+pub(crate) fn describe_target(
+    project: &Project,
+    out: &mut OutputChannel,
+    target: &str,
+) -> Result<()> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     // Resolve the commit ID
     let cli_ids = CliId::from_str(&mut ctx, target)?;
 
     if cli_ids.is_empty() {
-        anyhow::bail!("ID '{}' not found", target);
+        bail!("ID '{}' not found", target);
     }
 
     if cli_ids.len() > 1 {
-        anyhow::bail!(
+        bail!(
             "Target ID '{}' is ambiguous. Found {} matches",
             target,
             cli_ids.len()
@@ -30,21 +33,25 @@ pub(crate) fn describe_target(project: &Project, _json: bool, target: &str) -> R
 
     match cli_id {
         CliId::Branch { name } => {
-            edit_branch_name(&ctx, project, name)?;
+            edit_branch_name(&ctx, project, name, out)?;
         }
         CliId::Commit { oid } => {
-            edit_commit_message_by_id(&ctx, project, *oid)?;
+            edit_commit_message_by_id(&ctx, project, *oid, out)?;
         }
         _ => {
-            anyhow::bail!("Target must be a commit ID, not {}", cli_id.kind());
+            bail!("Target must be a commit ID, not {}", cli_id.kind());
         }
     }
 
     Ok(())
 }
 
-fn edit_branch_name(_ctx: &CommandContext, project: &Project, branch_name: &str) -> Result<()> {
-    let mut stdout = std::io::stdout();
+fn edit_branch_name(
+    _ctx: &CommandContext,
+    project: &Project,
+    branch_name: &str,
+    out: &mut OutputChannel,
+) -> Result<()> {
     // Find which stack this branch belongs to
     let stacks = but_api::workspace::stacks(
         project.id,
@@ -64,21 +71,22 @@ fn edit_branch_name(_ctx: &CommandContext, project: &Project, branch_name: &str)
                 branch_name.to_owned(),
                 new_name.clone(),
             )?;
-            writeln!(stdout, "Renamed branch '{}' to '{}'", branch_name, new_name).ok();
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Renamed branch '{}' to '{}'", branch_name, new_name)?;
+            }
             return Ok(());
         }
     }
 
-    writeln!(stdout, "Branch '{}' not found in any stack", branch_name).ok();
-    Ok(())
+    bail!("Branch '{}' not found in any stack", branch_name)
 }
 
 fn edit_commit_message_by_id(
     ctx: &CommandContext,
     project: &Project,
     commit_oid: gix::ObjectId,
+    out: &mut OutputChannel,
 ) -> Result<()> {
-    let mut stdout = std::io::stdout();
     // Find which stack this commit belongs to
     let stacks = but_api::workspace::stacks(project.id, None)?;
     let mut found_commit_message = None;
@@ -137,8 +145,7 @@ fn edit_commit_message_by_id(
     let new_message = get_commit_message_from_editor(&current_message, &changed_files)?;
 
     if new_message.trim() == current_message.trim() {
-        writeln!(stdout, "No changes to commit message.").ok();
-        return Ok(());
+        bail!("No changes to commit message.");
     }
 
     // Use gitbutler_branch_actions::update_commit_message instead of low-level primitives
@@ -150,13 +157,14 @@ fn edit_commit_message_by_id(
         &new_message,
     )?;
 
-    writeln!(
-        stdout,
-        "Updated commit message for {} (now {})",
-        &commit_oid.to_string()[..7],
-        &new_commit_oid.to_string()[..7]
-    )
-    .ok();
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "Updated commit message for {} (now {})",
+            commit_oid.to_hex_with_len(7),
+            new_commit_oid.to_gix().to_hex_with_len(7)
+        )?;
+    }
 
     Ok(())
 }
@@ -206,7 +214,7 @@ fn get_commit_message_from_editor(
     let message = get_text_from_editor_no_comments("but_commit_msg", &template)?;
 
     if message.is_empty() {
-        anyhow::bail!("Aborting due to empty commit message");
+        bail!("Aborting due to empty commit message");
     }
 
     Ok(message)
@@ -225,7 +233,7 @@ fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
     let branch_name = get_text_from_editor_no_comments("but_branch_name", &template)?;
 
     if branch_name.is_empty() {
-        anyhow::bail!("Aborting due to empty branch name");
+        bail!("Aborting due to empty branch name");
     }
 
     Ok(branch_name)

@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use but_core::ref_metadata::StackId;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
@@ -12,9 +10,9 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
 use crate::id::CliId;
+use crate::utils::OutputChannel;
 
-pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+pub(crate) fn commit_graph(project: &Project, out: &mut OutputChannel) -> anyhow::Result<()> {
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
     let stacks = stacks(ctx)?
@@ -23,161 +21,157 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
 
-    if json {
+    if let Some(out) = out.for_json() {
         let stacks: Vec<_> = stacks.into_iter().map(|(_, stack)| stack).collect();
-        let json_output = serde_json::to_string_pretty(&stacks)?;
-        writeln!(std::io::stdout(), "{json_output}")?;
+        out.write_value(stacks)?;
         return Ok(());
-    }
-
-    let mut nesting = 0;
-    for (i, (stack_id, stack)) in stacks.iter().enumerate() {
-        let marked = crate::mark::stack_marked(ctx, *stack_id).unwrap_or_default();
-        let mut mark = if marked {
-            Some("◀ Marked ▶".red().bold())
-        } else {
-            None
-        };
-        let mut second_consecutive = false;
-        let mut stacked = false;
-        for branch in stack.branch_details.iter() {
-            let line = if second_consecutive {
-                if branch.upstream_commits.is_empty() {
-                    '├'
-                } else {
-                    '╭'
-                }
+    } else if let Some(out) = out.for_human() {
+        let mut nesting = 0;
+        for (i, (stack_id, stack)) in stacks.iter().enumerate() {
+            let marked = crate::mark::stack_marked(ctx, *stack_id).unwrap_or_default();
+            let mut mark = if marked {
+                Some("◀ Marked ▶".red().bold())
             } else {
-                '╭'
+                None
             };
-            second_consecutive = branch.upstream_commits.is_empty();
-            let extra_space = if !branch.upstream_commits.is_empty() {
-                if stacked { "│ " } else { "  " }
-            } else {
-                ""
-            };
-            let id = CliId::branch(&branch.name.to_string())
-                .to_string()
-                .underline()
-                .blue();
-            writeln!(
-                stdout,
-                "{}{}{} [{}] {} {}",
-                "│ ".repeat(nesting),
-                extra_space,
-                line,
-                branch.name.to_string().green().bold(),
-                id,
-                mark.clone().unwrap_or_default()
-            )
-            .ok();
-            mark = None; // show this on the first branch in the stack
-            for (j, commit) in branch.upstream_commits.iter().enumerate() {
-                let time_string = chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
-                    .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string();
-                let state_str = "{upstream}";
-                let extra_space = if stacked { "│ " } else { "  " };
-                writeln!(
-                    stdout,
-                    "{}{}● {}{} {} {} {}",
-                    "│ ".repeat(nesting),
-                    extra_space,
-                    &commit.id.to_string()[..2].blue().underline(),
-                    &commit.id.to_string()[2..7].blue(),
-                    state_str.yellow(),
-                    commit.author.name,
-                    time_string.dimmed(),
-                )
-                .ok();
-                writeln!(
-                    stdout,
-                    "{}{}┊ {}",
-                    "│ ".repeat(nesting),
-                    extra_space,
-                    commit.message.to_string().lines().next().unwrap_or("")
-                )
-                .ok();
-                let bend = if stacked { "├" } else { "╭" };
-                if j == branch.upstream_commits.len() - 1 {
-                    writeln!(stdout, "{}{}─╯", "│ ".repeat(nesting), bend).ok();
-                } else {
-                    writeln!(stdout, "{}  ┊", "│ ".repeat(nesting)).ok();
-                }
-            }
-            for commit in branch.commits.iter() {
-                let marked =
-                    crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
-                let mark = if marked {
-                    Some("◀ Marked ▶".red().bold())
-                } else {
-                    None
-                };
-                let state_str = match commit.state {
-                    but_workspace::ui::CommitState::LocalOnly => "{local}".normal(),
-                    but_workspace::ui::CommitState::LocalAndRemote(_) => "{pushed}".cyan(),
-                    but_workspace::ui::CommitState::Integrated => "{integrated}".purple(),
-                };
-                let conflicted_str = if commit.has_conflicts {
-                    "{conflicted}".red()
-                } else {
-                    "".normal()
-                };
-                let time_string = chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
-                    .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string();
-                writeln!(
-                    stdout,
-                    "{}● {}{} {} {} {} {} {}",
-                    "│ ".repeat(nesting),
-                    &commit.id.to_string()[..2].blue().underline(),
-                    &commit.id.to_string()[2..7].blue(),
-                    state_str,
-                    conflicted_str,
-                    commit.author.name,
-                    time_string.dimmed(),
-                    mark.clone().unwrap_or_default()
-                )
-                .ok();
-                writeln!(
-                    stdout,
-                    "{}│ {}",
-                    "│ ".repeat(nesting),
-                    commit.message.to_string().lines().next().unwrap_or("")
-                )
-                .ok();
-                if i == stacks.len() - 1 {
-                    if nesting == 0 {
-                        writeln!(stdout, "│").ok();
+            let mut second_consecutive = false;
+            let mut stacked = false;
+            for branch in stack.branch_details.iter() {
+                let line = if second_consecutive {
+                    if branch.upstream_commits.is_empty() {
+                        '├'
+                    } else {
+                        '╭'
                     }
                 } else {
-                    writeln!(stdout, "{}│", "│ ".repeat(nesting)).ok();
+                    '╭'
+                };
+                second_consecutive = branch.upstream_commits.is_empty();
+                let extra_space = if !branch.upstream_commits.is_empty() {
+                    if stacked { "│ " } else { "  " }
+                } else {
+                    ""
+                };
+                let id = CliId::branch(&branch.name.to_string())
+                    .to_string()
+                    .underline()
+                    .blue();
+                writeln!(
+                    out,
+                    "{}{}{} [{}] {} {}",
+                    "│ ".repeat(nesting),
+                    extra_space,
+                    line,
+                    branch.name.to_string().green().bold(),
+                    id,
+                    mark.clone().unwrap_or_default()
+                )?;
+                mark = None; // show this on the first branch in the stack
+                for (j, commit) in branch.upstream_commits.iter().enumerate() {
+                    let time_string =
+                        chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
+                            .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
+                            .format("%Y-%m-%d %H:%M:%S")
+                            .to_string();
+                    let state_str = "{upstream}";
+                    let extra_space = if stacked { "│ " } else { "  " };
+                    writeln!(
+                        out,
+                        "{}{}● {}{} {} {} {}",
+                        "│ ".repeat(nesting),
+                        extra_space,
+                        &commit.id.to_string()[..2].blue().underline(),
+                        &commit.id.to_string()[2..7].blue(),
+                        state_str.yellow(),
+                        commit.author.name,
+                        time_string.dimmed(),
+                    )?;
+                    writeln!(
+                        out,
+                        "{}{}┊ {}",
+                        "│ ".repeat(nesting),
+                        extra_space,
+                        commit.message.to_string().lines().next().unwrap_or("")
+                    )?;
+                    let bend = if stacked { "├" } else { "╭" };
+                    if j == branch.upstream_commits.len() - 1 {
+                        writeln!(out, "{}{}─╯", "│ ".repeat(nesting), bend)?;
+                    } else {
+                        writeln!(out, "{}  ┊", "│ ".repeat(nesting))?;
+                    }
                 }
-                stacked = true;
+                for commit in branch.commits.iter() {
+                    let marked =
+                        crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
+                    let mark = if marked {
+                        Some("◀ Marked ▶".red().bold())
+                    } else {
+                        None
+                    };
+                    let state_str = match commit.state {
+                        but_workspace::ui::CommitState::LocalOnly => "{local}".normal(),
+                        but_workspace::ui::CommitState::LocalAndRemote(_) => "{pushed}".cyan(),
+                        but_workspace::ui::CommitState::Integrated => "{integrated}".purple(),
+                    };
+                    let conflicted_str = if commit.has_conflicts {
+                        "{conflicted}".red()
+                    } else {
+                        "".normal()
+                    };
+                    let time_string =
+                        chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
+                            .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
+                            .format("%Y-%m-%d %H:%M:%S")
+                            .to_string();
+                    writeln!(
+                        out,
+                        "{}● {}{} {} {} {} {} {}",
+                        "│ ".repeat(nesting),
+                        &commit.id.to_string()[..2].blue().underline(),
+                        &commit.id.to_string()[2..7].blue(),
+                        state_str,
+                        conflicted_str,
+                        commit.author.name,
+                        time_string.dimmed(),
+                        mark.clone().unwrap_or_default()
+                    )?;
+                    writeln!(
+                        out,
+                        "{}│ {}",
+                        "│ ".repeat(nesting),
+                        commit.message.to_string().lines().next().unwrap_or("")
+                    )?;
+                    if i == stacks.len() - 1 {
+                        if nesting == 0 {
+                            writeln!(out, "│")?;
+                        }
+                    } else {
+                        writeln!(out, "{}│", "│ ".repeat(nesting))?;
+                    }
+                    stacked = true;
+                }
+            }
+            nesting += 1;
+        }
+        if nesting > 0 {
+            for _ in (0..nesting - 1).rev() {
+                if nesting == 1 {
+                    writeln!(out, "└─╯")?;
+                } else {
+                    let prefix = "│ ".repeat(nesting - 2);
+                    writeln!(out, "{prefix}├─╯")?;
+                }
+                nesting -= 1;
             }
         }
-        nesting += 1;
-    }
-    if nesting > 0 {
-        for _ in (0..nesting - 1).rev() {
-            if nesting == 1 {
-                writeln!(stdout, "└─╯").ok();
-            } else {
-                let prefix = "│ ".repeat(nesting - 2);
-                writeln!(stdout, "{prefix}├─╯").ok();
-            }
-            nesting -= 1;
-        }
-    }
 
-    let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir())
-        .get_default_target()?
-        .sha
-        .to_string()[..7]
-        .to_string();
-    writeln!(stdout, "● {common_merge_base} (base)").ok();
+        let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir())
+            .get_default_target()?
+            .sha
+            .to_string()[..7]
+            .to_string();
+        writeln!(out, "● {common_merge_base} (base)")?;
+    }
 
     Ok(())
 }

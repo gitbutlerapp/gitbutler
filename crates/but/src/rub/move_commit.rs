@@ -1,5 +1,6 @@
-use std::io::Write;
-
+use super::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id};
+use crate::utils::OutputChannel;
+use anyhow::bail;
 use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gitbutler_branch_actions::reorder::commits_order;
@@ -7,14 +8,12 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::ObjectId;
 
-use super::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id};
-
 pub(crate) fn to_branch(
     ctx: &mut CommandContext,
     oid: &ObjectId,
     branch_name: &str,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
     let target_stack_id = branch_name_to_stack_id(ctx, Some(branch_name))?.ok_or(
         anyhow::anyhow!("Could not find stack for branch {}", branch_name),
     )?;
@@ -38,42 +37,41 @@ pub(crate) fn to_branch(
     } else if let Some(illegal_move) =
         gitbutler_branch_actions::move_commit(ctx, target_stack_id, oid.to_git2(), source_stack_id)?
     {
-        match illegal_move {
-            gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(deps) => {
-                writeln!(
-                    stdout,
-                    "Cannot move commit {} because it depends on commits: {}",
-                    oid,
-                    deps.join(", ")
-                )
-                .ok();
-            }
-            gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentChanges(deps) => {
-                writeln!(
-                    stdout,
-                    "Cannot move commit {} because it has dependent changes: {}",
-                    oid,
-                    deps.join(", ")
-                )
-                .ok();
-            }
-            gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentUncommittedChanges => {
-                writeln!(
-                    stdout,
-                    "Cannot move commit {oid} because it has dependent uncommitted changes"
-                )
-                .ok();
-            }
+        if let Some(out) = out.for_human() {
+            match illegal_move {
+                gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(deps) => {
+                    writeln!(
+                        out,
+                        "Cannot move commit {} because it depends on commits: {}",
+                        oid,
+                        deps.join(", ")
+                    )
+                }
+                gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentChanges(deps) => {
+                    writeln!(
+                        out,
+                        "Cannot move commit {} because it has dependent changes: {}",
+                        oid,
+                        deps.join(", ")
+                    )
+                }
+                gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentUncommittedChanges => {
+                    writeln!(
+                        out,
+                        "Cannot move commit {oid} because it has dependent uncommitted changes"
+                    )
+                }
+            }?;
         }
-
-        return Ok(());
+        bail!("Illegal move")
     }
-    writeln!(
-        stdout,
-        "Moved {} → {}",
-        oid.to_string()[..7].blue(),
-        format!("[{branch_name}]").green()
-    )
-    .ok();
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "Moved {} → {}",
+            oid.to_string()[..7].blue(),
+            format!("[{branch_name}]").green()
+        )?;
+    }
     Ok(())
 }

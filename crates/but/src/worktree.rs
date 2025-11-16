@@ -1,5 +1,6 @@
-use std::{io::Write, path::PathBuf};
+use std::path::PathBuf;
 
+use crate::utils::OutputChannel;
 use anyhow::{Context, Result};
 use but_api::worktree::IntegrationStatus;
 use but_worktrees::WorktreeId;
@@ -58,23 +59,11 @@ fn parse_worktree_identifier(
     Ok(WorktreeId::from_bstr(input))
 }
 
-pub fn handle(cmd: Subcommands, project: &gitbutler_project::Project, json: bool) -> Result<()> {
-    let mut stderr = std::io::stderr();
-    match handle_inner(cmd, project, json) {
-        Ok(_) => Ok(()),
-        Err(e) => {
-            writeln!(stderr, "{:?}", e).ok();
-            Err(e)
-        }
-    }
-}
-
-pub fn handle_inner(
+pub fn handle(
     cmd: Subcommands,
     project: &gitbutler_project::Project,
-    json: bool,
+    out: &mut OutputChannel,
 ) -> Result<()> {
-    let mut stdout = std::io::stdout();
     match cmd {
         Subcommands::New { reference } => {
             // Naivly append refs/heads/ if it's not present to always have a
@@ -85,37 +74,38 @@ pub fn handle_inner(
                 gix::refs::FullName::try_from(format!("refs/heads/{}", reference))?
             };
             let output = but_api::worktree::worktree_new(project.id, reference)?;
-            if json {
-                writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
-            } else {
+            if let Some(out) = out.for_json() {
+                out.write_value(output)?;
+            } else if let Some(out) = out.for_human() {
                 writeln!(
-                    stdout,
+                    out,
                     "Created worktree at: {}",
                     output.created.path.display()
-                )
-                .ok();
+                )?;
                 if let Some(reference) = output.created.created_from_ref {
-                    writeln!(stdout, "Reference: {}", reference).ok();
+                    writeln!(out, "Reference: {}", reference)?;
                 }
             }
             Ok(())
         }
         Subcommands::List => {
             let output = but_api::worktree::worktree_list(project.id)?;
-            if json {
-                writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
-            } else if output.entries.is_empty() {
-                writeln!(stdout, "No worktrees found").ok();
-            } else {
-                for entry in &output.entries {
-                    writeln!(stdout, "Path: {}", entry.path.display()).ok();
-                    if let Some(reference) = &entry.created_from_ref {
-                        writeln!(stdout, "Reference: {}", reference).ok();
+            if let Some(out) = out.for_json() {
+                out.write_value(output)?;
+            } else if let Some(out) = out.for_human() {
+                if output.entries.is_empty() {
+                    writeln!(out, "No worktrees found")?;
+                } else {
+                    for entry in &output.entries {
+                        writeln!(out, "Path: {}", entry.path.display())?;
+                        if let Some(reference) = &entry.created_from_ref {
+                            writeln!(out, "Reference: {}", reference)?;
+                        }
+                        if let Some(base) = entry.base {
+                            writeln!(out, "Base: {}", base)?;
+                        }
+                        writeln!(out)?;
                     }
-                    if let Some(base) = entry.base {
-                        writeln!(stdout, "Base: {}", base).ok();
-                    }
-                    writeln!(stdout,).ok();
                 }
             }
             Ok(())
@@ -155,50 +145,44 @@ pub fn handle_inner(
                     target_ref.clone(),
                 )?;
 
-                if json {
-                    writeln!(stdout, "{}", serde_json::to_string_pretty(&status)?)?;
-                } else {
-                    writeln!(stdout, "Integration status for worktree: {}", id.as_str()).ok();
-                    writeln!(stdout, "Target: {}", target_ref).ok();
+                if let Some(out) = out.for_json() {
+                    out.write_value(status)?;
+                } else if let Some(out) = out.for_human() {
+                    writeln!(out, "Integration status for worktree: {}", id.as_str())?;
+                    writeln!(out, "Target: {}", target_ref)?;
                     match status {
                         IntegrationStatus::NoMergeBaseFound => {
-                            writeln!(stdout, "Status: Cannot integrate - no merge base found").ok();
+                            writeln!(out, "Status: Cannot integrate - no merge base found")?;
                         }
                         IntegrationStatus::WorktreeIsBare => {
-                            writeln!(stdout, "Status: Cannot integrate - worktree is bare").ok();
+                            writeln!(out, "Status: Cannot integrate - worktree is bare")?;
                         }
                         IntegrationStatus::CausesWorkspaceConflicts => {
                             writeln!(
-                                stdout,
+                                out,
                                 "Status: Cannot integrate - would cause workspace conflicts"
-                            )
-                            .ok();
+                            )?;
                         }
                         IntegrationStatus::Integratable {
                             cherry_pick_conflicts,
                             commits_above_conflict,
                             working_dir_conflicts,
                         } => {
-                            writeln!(stdout, "Status: Integratable").ok();
+                            writeln!(out, "Status: Integratable")?;
                             if cherry_pick_conflicts {
-                                writeln!(stdout, "  Warning: Cherry-pick will have conflicts").ok();
+                                writeln!(out, "  Warning: Cherry-pick will have conflicts")?;
                             }
                             if commits_above_conflict {
-                                writeln!(stdout, "  Warning: Commits above will have conflicts")
-                                    .ok();
+                                writeln!(out, "  Warning: Commits above will have conflicts")?;
                             }
                             if working_dir_conflicts {
-                                writeln!(
-                                    stdout,
-                                    "  Warning: Working directory will have conflicts"
-                                )
-                                .ok();
+                                writeln!(out, "  Warning: Working directory will have conflicts")?;
                             }
                             if !cherry_pick_conflicts
                                 && !commits_above_conflict
                                 && !working_dir_conflicts
                             {
-                                writeln!(stdout, "  No conflicts expected").ok();
+                                writeln!(out, "  No conflicts expected")?;
                             }
                         }
                     }
@@ -207,11 +191,11 @@ pub fn handle_inner(
                 // Actual integration
                 but_api::worktree::worktree_integrate(project.id, id.clone(), target_ref.clone())?;
 
-                if json {
-                    writeln!(stdout, "{{\"status\": \"success\"}}")?;
-                } else {
-                    writeln!(stdout, "Successfully integrated worktree: {}", id.as_str()).ok();
-                    writeln!(stdout, "Target: {}", target_ref).ok();
+                if let Some(out) = out.for_json() {
+                    out.write_value(serde_json::json!({"status": "success"}))?;
+                } else if let Some(out) = out.for_human() {
+                    writeln!(out, "Successfully integrated worktree: {}", id.as_str())?;
+                    writeln!(out, "Target: {}", target_ref)?;
                 }
             }
 
@@ -232,20 +216,21 @@ pub fn handle_inner(
                     reference.clone(),
                 )?;
 
-                if json {
-                    writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
-                } else if output.destroyed_ids.is_empty() {
-                    writeln!(stdout, "No worktrees found for reference: {}", reference).ok();
-                } else {
-                    writeln!(
-                        stdout,
-                        "Destroyed {} worktree(s) for reference: {}",
-                        output.destroyed_ids.len(),
-                        reference
-                    )
-                    .ok();
-                    for id in &output.destroyed_ids {
-                        writeln!(stdout, "  - {}", id.as_str()).ok();
+                if let Some(out) = out.for_json() {
+                    out.write_value(output)?;
+                } else if let Some(out) = out.for_human() {
+                    if output.destroyed_ids.is_empty() {
+                        writeln!(out, "No worktrees found for reference: {}", reference)?;
+                    } else {
+                        writeln!(
+                            out,
+                            "Destroyed {} worktree(s) for reference: {}",
+                            output.destroyed_ids.len(),
+                            reference
+                        )?;
+                        for id in &output.destroyed_ids {
+                            writeln!(out, "  - {}", id.as_str())?;
+                        }
                     }
                 }
             } else {
@@ -253,10 +238,10 @@ pub fn handle_inner(
                 let id = parse_worktree_identifier(&target, project)?;
                 let output = but_api::worktree::worktree_destroy_by_id(project.id, id.clone())?;
 
-                if json {
-                    writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
-                } else {
-                    writeln!(stdout, "Destroyed worktree: {}", id.as_str()).ok();
+                if let Some(out) = out.for_json() {
+                    out.write_value(output)?;
+                } else if let Some(out) = out.for_human() {
+                    writeln!(out, "Destroyed worktree: {}", id.as_str())?;
                 }
             }
 

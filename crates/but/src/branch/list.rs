@@ -1,6 +1,4 @@
-use std::fmt::Write;
-
-use crate::utils::{Output, we_need_proper_json_output_here};
+use crate::utils::{OutputChannel, we_need_proper_json_output_here};
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_project::Project;
@@ -8,7 +6,7 @@ use gitbutler_project::Project;
 pub async fn list(
     project: &Project,
     local: bool,
-    out: &mut Output,
+    out: &mut OutputChannel,
 ) -> Result<serde_json::Value, anyhow::Error> {
     let filter = if local {
         Some(BranchListingFilter {
@@ -25,7 +23,7 @@ pub async fn list(
         project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
-    print_applied_branches(&applied_stacks, &branch_review_map, out);
+    print_applied_branches(&applied_stacks, &branch_review_map, out)?;
     let branches = but_api::virtual_branches::list_branches(project.id, filter)?;
     let (branches, remote_only_branches): (Vec<_>, Vec<_>) =
         branches.into_iter().partition(|b| b.has_local);
@@ -43,7 +41,9 @@ pub async fn list(
             &branch_review_map,
         );
 
-        writeln!(out, "{}{}", branch.name, reviews).ok();
+        if let Some(out) = out.for_human() {
+            writeln!(out, "{}{}", branch.name, reviews)?;
+        }
     }
 
     for branch in remote_only_branches {
@@ -52,7 +52,9 @@ pub async fn list(
             &None,
             &branch_review_map,
         );
-        writeln!(out, "{} {}{}", "(remote)".dimmed(), branch.name, reviews).ok();
+        if let Some(out) = out.for_human() {
+            writeln!(out, "{} {}{}", "(remote)".dimmed(), branch.name, reviews)?;
+        }
     }
     Ok(we_need_proper_json_output_here())
 }
@@ -63,8 +65,8 @@ fn print_applied_branches(
         String,
         Vec<gitbutler_forge::review::ForgeReview>,
     >,
-    out: &mut Output,
-) {
+    out: &mut OutputChannel,
+) -> std::fmt::Result {
     for stack in applied_stacks {
         let first_branch = stack.heads.first();
         let last_branch = stack.heads.last();
@@ -77,7 +79,9 @@ fn print_applied_branches(
                     &None,
                     branch_review_map,
                 );
-                writeln!(out, "{}{}", branch_entry.green(), reviews).ok();
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "{}{}", branch_entry.green(), reviews)?;
+                }
                 continue;
             }
 
@@ -103,7 +107,10 @@ fn print_applied_branches(
                 branch_review_map,
             );
 
-            writeln!(out, "{}{}", branch_entry.green(), reviews).ok();
+            if let Some(out) = out.for_human() {
+                writeln!(out, "{}{}", branch_entry.green(), reviews)?;
+            }
         }
     }
+    Ok(())
 }

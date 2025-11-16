@@ -1,4 +1,4 @@
-use std::{collections::HashSet, io::Write};
+use std::collections::HashSet;
 
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
@@ -9,14 +9,15 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 
 use crate::rub::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id};
+use crate::utils::OutputChannel;
 
 pub fn commited_file_to_another_commit(
     ctx: &mut CommandContext,
     path: &str,
     source_id: gix::ObjectId,
     target_id: gix::ObjectId,
+    out: &mut OutputChannel,
 ) -> Result<()> {
-    let mut stdout = std::io::stdout();
     let source_stack = stack_id_by_commit_id(ctx, &source_id)?;
     let target_stack = stack_id_by_commit_id(ctx, &target_id)?;
 
@@ -44,7 +45,9 @@ pub fn commited_file_to_another_commit(
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
-    writeln!(stdout, "Moved files between commits!").ok();
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Moved files between commits!")?;
+    }
 
     Ok(())
 }
@@ -54,8 +57,8 @@ pub fn uncommit_file(
     path: &str,
     source_id: gix::ObjectId,
     target_branch: Option<&str>,
+    out: &mut OutputChannel,
 ) -> Result<()> {
-    let mut stdout = std::io::stdout();
     let source_stack = stack_id_by_commit_id(ctx, &source_id)?;
 
     let repo = ctx.gix_repo()?;
@@ -124,7 +127,9 @@ pub fn uncommit_file(
         but_hunk_assignment::assign(ctx, to_assign, None)?;
     }
 
-    writeln!(stdout, "Uncommitted changes").ok();
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Uncommitted changes")?;
+    }
 
     Ok(())
 }

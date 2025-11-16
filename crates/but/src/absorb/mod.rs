@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, io::Write};
+use std::collections::BTreeMap;
 
 use bstr::{BString, ByteSlice};
 use but_api::{diff, hex_hash::HexHash, virtual_branches};
@@ -6,9 +6,11 @@ use but_core::DiffSpec;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::HunkDependencies;
 use but_settings::AppSettings;
+use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
+use crate::utils::OutputChannel;
 use crate::{id::CliId, rub::parse_sources};
 
 /// Amends changes into the appropriate commits where they belong.
@@ -24,7 +26,11 @@ use crate::{id::CliId, rub::parse_sources};
 /// If an Uncommitted File id is provided, absorb will be peformed for just that file
 /// If a Branch (stack) id is provided, absorb will be performed for all changes assigned to that stack
 /// If no source is provided, absorb is performed for all uncommitted changes
-pub(crate) fn handle(project: &Project, _json: bool, source: Option<&str>) -> anyhow::Result<()> {
+pub(crate) fn handle(
+    project: &Project,
+    out: &mut OutputChannel,
+    source: Option<&str>,
+) -> anyhow::Result<()> {
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     let source: Option<CliId> = source
         .and_then(|s| parse_sources(ctx, s).ok())
@@ -43,11 +49,11 @@ pub(crate) fn handle(project: &Project, _json: bool, source: Option<&str>) -> an
         match source {
             CliId::UncommittedFile { path, assignment } => {
                 // Absorb this particular file
-                absorb_file(project, ctx, &path, assignment, &assignments, &dependencies)?;
+                absorb_file(project, &path, assignment, &assignments, &dependencies, out)?;
             }
             CliId::Branch { name } => {
                 // Absorb everything that is assigned to this lane
-                absorb_branch(project, ctx, &name, &assignments, &dependencies)?;
+                absorb_branch(project, &name, &assignments, &dependencies, out)?;
             }
             _ => {
                 anyhow::bail!("Invalid source: expected an uncommitted file or branch");
@@ -55,7 +61,7 @@ pub(crate) fn handle(project: &Project, _json: bool, source: Option<&str>) -> an
         }
     } else {
         // Try to absorb everything uncommitted
-        absorb_all(project, ctx, &assignments, &dependencies)?;
+        absorb_all(project, &assignments, &dependencies, out)?;
     }
     Ok(())
 }
@@ -63,11 +69,11 @@ pub(crate) fn handle(project: &Project, _json: bool, source: Option<&str>) -> an
 /// Absorb a single file into the appropriate commit
 fn absorb_file(
     project: &Project,
-    _ctx: &mut CommandContext,
     path: &str,
     _assignment: Option<but_core::ref_metadata::StackId>,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Filter assignments to just this file
     let file_assignments: Vec<_> = assignments
@@ -87,7 +93,7 @@ fn absorb_file(
     // Apply each group to its target commit
     for ((stack_id, commit_id), file_hunks) in changes_by_commit {
         let diff_specs = convert_assignments_to_diff_specs(&file_hunks)?;
-        amend_commit(project, stack_id, commit_id, diff_specs)?;
+        amend_commit(project, stack_id, commit_id, diff_specs, out)?;
     }
 
     Ok(())
@@ -96,10 +102,10 @@ fn absorb_file(
 /// Absorb all files assigned to a specific branch/stack
 fn absorb_branch(
     project: &Project,
-    _ctx: &mut CommandContext,
     branch_name: &str,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Get the stack ID for this branch
     let stacks = but_api::workspace::stacks(project.id, None)?;
@@ -134,7 +140,7 @@ fn absorb_branch(
     // Apply each group to its target commit
     for ((target_stack_id, commit_id), hunks) in changes_by_commit {
         let diff_specs = convert_assignments_to_diff_specs(&hunks)?;
-        amend_commit(project, target_stack_id, commit_id, diff_specs)?;
+        amend_commit(project, target_stack_id, commit_id, diff_specs, out)?;
     }
 
     Ok(())
@@ -143,13 +149,14 @@ fn absorb_branch(
 /// Absorb all uncommitted changes
 fn absorb_all(
     project: &Project,
-    _ctx: &mut CommandContext,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
     if assignments.is_empty() {
-        writeln!(stdout, "No uncommitted changes to absorb").ok();
+        if let Some(out) = out.for_human() {
+            writeln!(out, "No uncommitted changes to absorb")?;
+        }
         return Ok(());
     }
 
@@ -159,7 +166,7 @@ fn absorb_all(
     // Apply each group to its target commit
     for ((stack_id, commit_id), hunks) in changes_by_commit {
         let diff_specs = convert_assignments_to_diff_specs(&hunks)?;
-        amend_commit(project, stack_id, commit_id, diff_specs)?;
+        amend_commit(project, stack_id, commit_id, diff_specs, out)?;
     }
 
     Ok(())
@@ -312,9 +319,8 @@ fn amend_commit(
     stack_id: but_core::ref_metadata::StackId,
     commit_id: gix::ObjectId,
     diff_specs: Vec<DiffSpec>,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
-    let mut stderr = std::io::stderr();
     // Convert commit_id to HexHash
     let hex_hash = HexHash::from(commit_id);
 
@@ -322,21 +328,22 @@ fn amend_commit(
         project.id, stack_id, hex_hash, diff_specs,
     )?;
 
-    if !outcome.paths_to_rejected_changes.is_empty() {
-        writeln!(
-            stderr,
-            "Warning: Failed to absorb {} file(s)",
-            outcome.paths_to_rejected_changes.len()
-        )
-        .ok();
-    }
+    if let Some(out) = out.for_human() {
+        if !outcome.paths_to_rejected_changes.is_empty() {
+            writeln!(
+                out,
+                "{warning}: Failed to absorb {} file(s)",
+                outcome.paths_to_rejected_changes.len(),
+                warning = "warning".yellow(),
+            )?;
+        }
 
-    writeln!(
-        stdout,
-        "Absorbed changes into commit {}",
-        &commit_id.to_hex().to_string()[..7]
-    )
-    .ok();
+        writeln!(
+            out,
+            "Absorbed changes into commit {}",
+            &commit_id.to_hex().to_string()[..7]
+        )?;
+    }
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-use std::{ffi::OsString, io::Write, path::Path};
+use std::{ffi::OsString, path::Path};
 
 use anyhow::{Context, Result};
 
@@ -6,7 +6,8 @@ mod args;
 use crate::args::CommandName;
 use crate::metrics::MetricsContext;
 use crate::utils::{
-    Output, OutputFormat, ResultErrorExt, ResultJsonExt, ResultMetricsExt, print_grouped_help,
+    OutputChannel, OutputFormat, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
+    print_grouped_help,
 };
 use args::{Args, Subcommands, actions, claude, cursor};
 use but_claude::hooks::OutputAsJson;
@@ -49,16 +50,19 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     // Check if help is requested with no subcommand
     if args.len() == 1 || args.iter().any(|arg| arg == "--help" || arg == "-h") && args.len() == 2 {
-        print_grouped_help().ok();
+        let mut out = OutputChannel::new_with_pager(OutputFormat::Human);
+        print_grouped_help(&mut out)?;
         return Ok(());
     }
 
     // The `but push --help` output is different if gerrit mode is enabled, hence the special handling
     let args_vec: Vec<String> = std::env::args().collect();
+    // TODO: handle this as part of clap, it can be told to not generate all help.
     if args_vec.iter().any(|arg| arg == "push")
         && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
     {
-        push::print_help().ok();
+        let mut out = OutputChannel::new_with_pager(OutputFormat::Human);
+        push::print_help(&mut out)?;
         return Ok(());
     }
 
@@ -75,7 +79,9 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             }
         })
     };
-    let out = Output::new(output_format);
+    // Set it so code past this point can assume it's set.;
+    args.format = Some(output_format);
+    let mut out = OutputChannel::new_with_pager(output_format);
 
     if args.trace > 0 {
         trace::init(args.trace)?;
@@ -96,8 +102,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 .target
                 .as_ref()
                 .expect("target is checked to be Some in match guard");
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            rub::handle(&project, args.json, source, target)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            rub::handle(&project, &mut out, source, target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(MetricsContext::new_if_enabled(
                     &app_settings,
@@ -117,7 +123,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         }
         None => {
             // No subcommand and no source/target means help was requested
-            print_grouped_help().ok();
+            print_grouped_help(&mut out)?;
             Ok(())
         }
         Some(cmd) => match_subcommand(cmd, args, app_settings, out).await,
@@ -128,7 +134,7 @@ async fn match_subcommand(
     cmd: Subcommands,
     args: Args,
     app_settings: AppSettings,
-    mut out: Output,
+    mut out: OutputChannel,
 ) -> Result<()> {
     let out = &mut out;
     let metrics_ctx = cmd.to_metrics_context(&app_settings);
@@ -146,12 +152,12 @@ async fn match_subcommand(
                 description,
                 handler,
             }) => {
-                let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-                command::handle_changes(&project, args.json, handler, &description)
+                let project = get_or_init_legacy_non_bare_project(&args)?;
+                command::handle_changes(&project, out, handler, &description)
             }
             None => {
-                let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-                command::list_actions(&project, args.json, 0, 10)
+                let project = get_or_init_legacy_non_bare_project(&args)?;
+                command::list_actions(&project, out, 0, 10)
             }
         },
         Subcommands::Metrics {
@@ -180,7 +186,7 @@ async fn match_subcommand(
                 but_claude::mcp::start(&args.current_dir, &session_id).await
             }
             claude::Subcommands::Last { offset } => {
-                let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
+                let project = get_or_init_legacy_non_bare_project(&args)?;
                 let mut ctx = gitbutler_command_context::CommandContext::open(
                     &project,
                     app_settings.clone(),
@@ -240,57 +246,59 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx),
         },
         Subcommands::Base(base::Platform { cmd }) => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            base::handle(cmd, &project, args.json).emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            base::handle(cmd, &project, out).emit_metrics(metrics_ctx)
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
-            let ctx = get_or_init_context_with_legacy_support(&args.current_dir)?;
+            let ctx = get_or_init_context_with_legacy_support(&args)?;
             branch::handle(cmd, &ctx, out)
                 .await
                 .output_json(args.json)
                 .emit_metrics(metrics_ctx)
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            worktree::handle(cmd, &project, args.json).emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            worktree::handle(cmd, &project, out)
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit()
         }
         Subcommands::Log => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            log::commit_graph(&project, args.json).emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            log::commit_graph(&project, out).emit_metrics(metrics_ctx)
         }
         Subcommands::Status {
             show_files,
             verbose,
             review,
         } => {
-            let project = get_or_init_context_with_legacy_support(&args.current_dir)?;
+            let project = get_or_init_context_with_legacy_support(&args)?;
             status::worktree(&project, out, show_files, verbose, review)
                 .await
                 .emit_metrics(metrics_ctx)
         }
         Subcommands::Stf { verbose, review } => {
-            let project = get_or_init_context_with_legacy_support(&args.current_dir)?;
+            let project = get_or_init_context_with_legacy_support(&args)?;
             status::worktree(&project, out, true, verbose, review)
                 .await
                 .emit_metrics(metrics_ctx)
         }
         Subcommands::Rub { source, target } => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            rub::handle(&project, args.json, &source, &target)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            rub::handle(&project, out, &source, &target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit()
         }
         Subcommands::Mark { target, delete } => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            mark::handle(&project, args.json, &target, delete)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            mark::handle(&project, out, &target, delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit()
         }
         Subcommands::Unmark => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            mark::unmark(&project, args.json)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            mark::unmark(&project, out)
                 .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit()
@@ -302,10 +310,10 @@ async fn match_subcommand(
             create,
             only,
         } => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args)?;
             commit::commit(
                 &project,
-                args.json,
+                out,
                 message.as_deref(),
                 branch.as_deref(),
                 only,
@@ -314,45 +322,46 @@ async fn match_subcommand(
             .emit_metrics(metrics_ctx)
         }
         Subcommands::Push(push_args) => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            push::handle(push_args, &project, args.json).emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            push::handle(push_args, &project, out).emit_metrics(metrics_ctx)
         }
         Subcommands::New { target } => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            commit::insert_blank_commit(&project, args.json, &target).emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            commit::insert_blank_commit(&project, out, &target).emit_metrics(metrics_ctx)
         }
         Subcommands::Describe { target } => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            describe::describe_target(&project, args.json, &target).emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            describe::describe_target(&project, out, &target).emit_metrics(metrics_ctx)
         }
         Subcommands::Oplog { since } => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            oplog::show_oplog(&project, args.json, since.as_deref()).emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            oplog::show_oplog(&project, out, since.as_deref()).emit_metrics(metrics_ctx)
         }
         Subcommands::Restore { oplog_sha, force } => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            oplog::restore_to_oplog(&project, args.json, &oplog_sha, force)
-                .emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            oplog::restore_to_oplog(&project, out, &oplog_sha, force).emit_metrics(metrics_ctx)
         }
         Subcommands::Undo => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            oplog::undo_last_operation(&project, args.json).emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            oplog::undo_last_operation(&project, out).emit_metrics(metrics_ctx)
         }
         Subcommands::Snapshot { message } => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            oplog::create_snapshot(&project, args.json, message.as_deref())
-                .emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            oplog::create_snapshot(&project, out, message.as_deref()).emit_metrics(metrics_ctx)
         }
         Subcommands::Absorb { source } => {
-            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-            absorb::handle(&project, args.json, source.as_deref()).emit_metrics(metrics_ctx)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            absorb::handle(&project, out, source.as_deref()).emit_metrics(metrics_ctx)
         }
-        Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, repo)
+        Subcommands::Init { repo } => init::repo(&args.current_dir, out, repo)
             .context("Failed to initialize GitButler project.")
             .emit_metrics(metrics_ctx),
-        Subcommands::Forge(forge::integration::Platform { cmd }) => forge::integration::handle(cmd)
-            .await
-            .emit_metrics(metrics_ctx),
+        Subcommands::Forge(forge::integration::Platform { cmd }) => {
+            forge::integration::handle(cmd, out)
+                .await
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit()
+        }
         Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
             forge::review::Subcommands::Publish {
                 branch,
@@ -361,7 +370,7 @@ async fn match_subcommand(
                 run_hooks,
                 default,
             } => {
-                let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
+                let project = get_or_init_legacy_non_bare_project(&args)?;
                 forge::review::publish_reviews(
                     &project,
                     branch,
@@ -369,15 +378,15 @@ async fn match_subcommand(
                     with_force,
                     run_hooks,
                     default,
-                    args.json,
+                    out,
                 )
                 .await
                 .context("Failed to publish reviews for branches.")
                 .emit_metrics(metrics_ctx)
             }
             forge::review::Subcommands::Template { template_path } => {
-                let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
-                forge::review::set_review_template(&project, template_path, args.json)
+                let project = get_or_init_legacy_non_bare_project(&args)?;
+                forge::review::set_review_template(&project, template_path, out)
                     .context("Failed to set review template.")
                     .emit_metrics(metrics_ctx)
             }
@@ -388,34 +397,31 @@ async fn match_subcommand(
     }
 }
 
-fn get_or_init_legacy_non_bare_project(
-    current_dir: &std::path::Path,
-) -> anyhow::Result<LegacyProject> {
-    let repo = gix::discover(current_dir)?;
+fn get_or_init_legacy_non_bare_project(args: &Args) -> anyhow::Result<LegacyProject> {
+    let repo = gix::discover(&args.current_dir)?;
     if let Some(path) = repo.workdir() {
         let project = match LegacyProject::find_by_worktree_dir(path) {
             Ok(p) => Ok(p),
             Err(_e) => {
-                crate::init::repo(path, false, false)?;
+                init::repo(
+                    path,
+                    &mut OutputChannel::new_without_pager_non_json(args.format.unwrap()),
+                    false,
+                )?;
                 LegacyProject::find_by_worktree_dir(path)
             }
         }?;
         Ok(project)
     } else {
-        let mut stdout = std::io::stdout();
-        let error_desc = "Bare repositories are not supported.";
-        writeln!(stdout, "{error_desc}").ok();
-        anyhow::bail!(error_desc);
+        anyhow::bail!("Bare repositories are not supported.");
     }
 }
 
 /// Legacy - none of this should be kept.
 /// Turn this instance into a project, which knows about the Git repository discovered from `directory`
 /// and which can derive all other information from there.
-pub fn get_or_init_context_with_legacy_support(
-    directory: impl AsRef<Path>,
-) -> anyhow::Result<but_ctx::Context> {
-    let directory = directory.as_ref();
+pub fn get_or_init_context_with_legacy_support(args: &Args) -> anyhow::Result<but_ctx::Context> {
+    let directory = &args.current_dir;
     let repo = gix::discover(directory)?;
     let worktree_dir = repo
         .workdir()
@@ -423,8 +429,12 @@ pub fn get_or_init_context_with_legacy_support(
     let project = LegacyProject::find_by_worktree_dir_opt(worktree_dir)?
         .map(anyhow::Ok)
         .unwrap_or_else(|| {
-            init::repo(directory, false, false)
-                .and_then(|()| LegacyProject::find_by_worktree_dir(directory))
+            init::repo(
+                directory,
+                &mut OutputChannel::new_without_pager_non_json(args.format.unwrap()),
+                false,
+            )
+            .and_then(|()| LegacyProject::find_by_worktree_dir(directory))
         })?;
     Ok(but_ctx::Context {
         settings: AppSettings::load_from_default_path_creating()?,

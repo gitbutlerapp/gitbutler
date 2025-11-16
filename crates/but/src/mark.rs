@@ -1,4 +1,4 @@
-use std::{io::Write, str::FromStr};
+use std::str::FromStr;
 
 use anyhow::bail;
 use but_core::ref_metadata::StackId;
@@ -9,9 +9,11 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::Project;
 
 use crate::rub::branch_name_to_stack_id;
+use crate::utils::OutputChannel;
+
 pub(crate) fn handle(
     project: &Project,
-    _json: bool,
+    out: &mut OutputChannel,
     target_str: &str,
     delete: bool,
 ) -> anyhow::Result<()> {
@@ -29,14 +31,18 @@ pub(crate) fn handle(
         but_rules::delete_rule(ctx, &rule.id())?;
     }
     match target_result[0].clone() {
-        crate::id::CliId::Branch { name } => mark_branch(ctx, name, delete),
-        crate::id::CliId::Commit { oid } => mark_commit(ctx, oid, delete),
+        crate::id::CliId::Branch { name } => mark_branch(ctx, name, delete, out),
+        crate::id::CliId::Commit { oid } => mark_commit(ctx, oid, delete, out),
         _ => bail!("Nope"),
     }
 }
 
-fn mark_commit(ctx: &mut CommandContext, oid: gix::ObjectId, delete: bool) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+fn mark_commit(
+    ctx: &mut CommandContext,
+    oid: gix::ObjectId,
+    delete: bool,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     if delete {
         let rules = but_rules::list_rules(ctx)?;
         for rule in rules {
@@ -44,7 +50,9 @@ fn mark_commit(ctx: &mut CommandContext, oid: gix::ObjectId, delete: bool) -> an
                 but_rules::delete_rule(ctx, &rule.id())?;
             }
         }
-        writeln!(stdout, "Mark was removed").ok();
+        if let Some(out) = out.for_human() {
+            writeln!(out, "Mark was removed")?;
+        }
         return Ok(());
     }
     let repo = ctx.gix_repo()?;
@@ -61,17 +69,22 @@ fn mark_commit(ctx: &mut CommandContext, oid: gix::ObjectId, delete: bool) -> an
         action,
     };
     but_rules::create_rule(ctx, req)?;
-    writeln!(
-        stdout,
-        "Changes will be amended into commit → {}",
-        &oid.to_string()
-    )
-    .ok();
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "Changes will be amended into commit → {}",
+            &oid.to_string()
+        )?;
+    }
     Ok(())
 }
 
-fn mark_branch(ctx: &mut CommandContext, branch_name: String, delete: bool) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+fn mark_branch(
+    ctx: &mut CommandContext,
+    branch_name: String,
+    delete: bool,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     let stack_id = branch_name_to_stack_id(ctx, Some(&branch_name))?;
     if delete {
         let rules = but_rules::list_rules(ctx)?;
@@ -80,7 +93,9 @@ fn mark_branch(ctx: &mut CommandContext, branch_name: String, delete: bool) -> a
                 but_rules::delete_rule(ctx, &rule.id())?;
             }
         }
-        writeln!(stdout, "Mark was removed").ok();
+        if let Some(out) = out.for_human() {
+            writeln!(out, "Mark was removed")?;
+        }
         return Ok(());
     }
     // TODO: if there are other marks of this kind, get rid of them
@@ -96,7 +111,9 @@ fn mark_branch(ctx: &mut CommandContext, branch_name: String, delete: bool) -> a
         action,
     };
     but_rules::create_rule(ctx, req)?;
-    writeln!(stdout, "Changes will be assigned to → {branch_name}").ok();
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Changes will be assigned to → {branch_name}")?;
+    }
     Ok(())
 }
 
@@ -122,15 +139,16 @@ pub(crate) fn commit_marked(ctx: &mut CommandContext, commit_id: String) -> anyh
     Ok(rules)
 }
 
-pub(crate) fn unmark(project: &Project, _json: bool) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+pub(crate) fn unmark(project: &Project, out: &mut OutputChannel) -> anyhow::Result<()> {
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     let rules = but_rules::list_rules(ctx)?;
     let rule_count = rules.len();
 
     if rule_count == 0 {
-        writeln!(stdout, "No marks to remove").ok();
+        if let Some(out) = out.for_human() {
+            writeln!(out, "No marks to remove")?;
+        }
         return Ok(());
     }
 
@@ -138,12 +156,13 @@ pub(crate) fn unmark(project: &Project, _json: bool) -> anyhow::Result<()> {
         but_rules::delete_rule(ctx, &rule.id())?;
     }
 
-    writeln!(
-        stdout,
-        "Removed {} mark{}",
-        rule_count,
-        if rule_count == 1 { "" } else { "s" }
-    )
-    .ok();
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "Removed {} mark{}",
+            rule_count,
+            if rule_count == 1 { "" } else { "s" }
+        )?;
+    }
     Ok(())
 }

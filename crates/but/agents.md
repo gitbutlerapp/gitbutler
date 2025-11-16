@@ -3,16 +3,12 @@
 * Avoid using code from `gitbutler-`-prefixed crates, and prefer code from `but-` prefixed crates as long as it's not in the `legacy` module.
 
 ### Output
-* Usable output goes to `stdout` with `writeln!(stdout, …).ok()`.
-    - Obtain `stdout` once per function using `let mut stdout = std::io::stdout();`
-    - Use `stdout` when writing: `writeln!(stdout, "…").ok();`
-    - Use `atty::is` to print human output, otherwise print output optimised for use in bash scripts, when single values are returned.
-    - **But** when writing `json`, always use `writeln!(stdout, "{json_pretty}")?`
-* Error or side-channel information goes to `stderr` with `writeln!(stderr, …).ok()`.
-    - Obtain `stderr` once per function using `let mut stderr = std::io::stderr();`
-    - Use `stderr` when writing: `writeln!(stderr, "…").ok();`
-* The `.ok()` at the end ignores write errors gracefully (e.g., broken pipe) instead of panicking.
-* `--json` only outputs the happy path, there are no JSON errors.
+
+Usable output goes to `out: &mut OutputChannel`
+
+- For humans, use `if let Some(out) = out.for_human() { writeln!(out, “{…}")?; }`
+- For shell, use `if let Some(out) = out.for_shell() { writeln!(out, “{…}")?; }`
+- For JSON, use `if let Some(out) = out.for_json() { out.write_value(json)?; }`
 
 ### Testing
 

@@ -1,15 +1,19 @@
-use std::io::Write;
-
+use crate::utils::OutputChannel;
 use but_core::ref_metadata::StackId;
 use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
 
-pub(crate) fn commit(ctx: &mut CommandContext, oid: &ObjectId) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout();
+pub(crate) fn commit(
+    ctx: &mut CommandContext,
+    oid: &ObjectId,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, oid.to_git2())?;
-    writeln!(stdout, "Uncommitted {}", oid.to_string()[..7].blue()).ok();
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Uncommitted {}", oid.to_string()[..7].blue())?;
+    }
     Ok(())
 }
 
