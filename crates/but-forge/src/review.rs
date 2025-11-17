@@ -274,6 +274,23 @@ pub struct ForgeReview {
     pub unit_symbol: String,
 }
 
+impl ForgeReview {
+    /// Whether the review is still open (not merged or closed)
+    pub fn is_open(&self) -> bool {
+        self.merged_at.is_none() && self.closed_at.is_none()
+    }
+
+    /// Whether the review has been merged
+    pub fn is_merged(&self) -> bool {
+        self.merged_at.is_some()
+    }
+
+    /// Whether the review points to the given commit ID and has been merged
+    pub fn is_merged_at_commit(&self, commit_id: &str) -> bool {
+        self.is_merged() && self.sha == commit_id
+    }
+}
+
 impl From<but_github::PullRequest> for ForgeReview {
     fn from(pr: but_github::PullRequest) -> Self {
         ForgeReview {
@@ -321,6 +338,30 @@ pub async fn list_forge_reviews(
         }
         _ => Err(Error::msg(format!(
             "Listing reviews for forge {:?} is not implemented yet.",
+            forge,
+        ))),
+    }
+}
+
+/// Get a specific review (e.g. pull request) for a given forge repository
+pub async fn get_forge_review(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    pr_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<ForgeReview> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let pr =
+                but_github::pr::get(preferred_account, owner, repo, pr_number, storage).await?;
+            Ok(ForgeReview::from(pr))
+        }
+        _ => Err(Error::msg(format!(
+            "Getting reviews for forge {:?} is not implemented yet.",
             forge,
         ))),
     }

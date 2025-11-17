@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{Context, Result, anyhow};
 use but_api_macros::api_cmd;
 use but_core::DiffSpec;
@@ -550,51 +552,173 @@ pub fn find_commit(
     gitbutler_branch_actions::find_commit(&ctx, commit_id).map_err(Into::into)
 }
 
-#[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub fn upstream_integration_statuses(
+pub async fn upstream_integration_statuses(
     project_id: ProjectId,
     target_commit_id: Option<String>,
 ) -> Result<StackStatuses, Error> {
+    upstream_integration_statuses_cmd(UpstreamIntegrationStatusesParams {
+        project_id,
+        target_commit_id,
+    })
+    .await
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpstreamIntegrationStatusesParams {
+    pub project_id: ProjectId,
+    pub target_commit_id: Option<String>,
+}
+
+pub async fn upstream_integration_statuses_cmd(
+    params: UpstreamIntegrationStatusesParams,
+) -> Result<StackStatuses, Error> {
+    let UpstreamIntegrationStatusesParams {
+        project_id,
+        target_commit_id,
+    } = params;
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = target_commit_id
         .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
         .transpose()?;
+
+    // Get all the actively applied reviews
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let resolved_reviews = resolve_review_map(project, &base_branch).await?;
+
     Ok(gitbutler_branch_actions::upstream_integration_statuses(
-        &ctx, commit_id,
+        &ctx,
+        commit_id,
+        &resolved_reviews,
     )?)
 }
 
-#[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub fn integrate_upstream(
+pub async fn integrate_upstream(
     project_id: ProjectId,
     resolutions: Vec<Resolution>,
     base_branch_resolution: Option<BaseBranchResolution>,
 ) -> Result<IntegrationOutcome, Error> {
+    integrate_upstream_cmd(IntegrateUpstreamParams {
+        project_id,
+        resolutions,
+        base_branch_resolution,
+    })
+    .await
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntegrateUpstreamParams {
+    pub project_id: ProjectId,
+    pub resolutions: Vec<Resolution>,
+    pub base_branch_resolution: Option<BaseBranchResolution>,
+}
+
+pub async fn integrate_upstream_cmd(
+    params: IntegrateUpstreamParams,
+) -> Result<IntegrationOutcome, Error> {
+    let IntegrateUpstreamParams {
+        project_id,
+        resolutions,
+        base_branch_resolution,
+    } = params;
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let outcome =
-        gitbutler_branch_actions::integrate_upstream(&ctx, &resolutions, base_branch_resolution)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let resolved_reviews = resolve_review_map(project, &base_branch).await?;
+    let outcome = gitbutler_branch_actions::integrate_upstream(
+        &ctx,
+        &resolutions,
+        base_branch_resolution,
+        &resolved_reviews,
+    )?;
 
     Ok(outcome)
 }
 
-#[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub fn resolve_upstream_integration(
+pub async fn resolve_upstream_integration(
     project_id: ProjectId,
     resolution_approach: BaseBranchResolutionApproach,
 ) -> Result<String, Error> {
+    resolve_upstream_integration_cmd(ResolveUpstreamIntegrationParams {
+        project_id,
+        resolution_approach,
+    })
+    .await
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolveUpstreamIntegrationParams {
+    pub project_id: ProjectId,
+    pub resolution_approach: BaseBranchResolutionApproach,
+}
+
+pub async fn resolve_upstream_integration_cmd(
+    params: ResolveUpstreamIntegrationParams,
+) -> Result<String, Error> {
+    let ResolveUpstreamIntegrationParams {
+        project_id,
+        resolution_approach,
+    } = params;
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    let new_target_id =
-        gitbutler_branch_actions::resolve_upstream_integration(&ctx, resolution_approach)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let resolved_reviews = resolve_review_map(project, &base_branch).await?;
+    let new_target_id = gitbutler_branch_actions::resolve_upstream_integration(
+        &ctx,
+        resolution_approach,
+        &resolved_reviews,
+    )?;
     let commit_id = git2::Oid::to_string(&new_target_id);
     Ok(commit_id)
+}
+
+/// Resolve all actively applied reviews for the given project and command context
+/// TODO: This should be moved somewhere else more appropriate.
+async fn resolve_review_map(
+    project: gitbutler_project::Project,
+    base_branch: &BaseBranch,
+) -> Result<HashMap<String, but_forge::ForgeReview>, Error> {
+    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let Some(forge_repo_info) = base_branch.forge_repo_info.as_ref() else {
+        // No forge? No problem!
+        // If there's no forge associated with the base branch, there can't be any reviews.
+        // Return an empty map.
+        return Ok(HashMap::new());
+    };
+
+    let filter = Some(BranchListingFilter {
+        local: None,
+        applied: Some(true),
+    });
+    let branches = list_branches(project.id, filter)?;
+    let mut reviews = branches.iter().fold(HashMap::new(), |mut acc, branch| {
+        if let Some(stack_ref) = &branch.stack {
+            acc.extend(stack_ref.pull_requests.iter().map(|(k, v)| (k.clone(), *v)));
+        }
+        acc
+    });
+    let mut resolved_reviews = HashMap::new();
+    for (key, pr_number) in reviews.drain() {
+        if let Ok(resolved) = but_forge::get_forge_review(
+            &project.preferred_forge_user,
+            forge_repo_info,
+            pr_number,
+            &storage,
+        )
+        .await
+        {
+            resolved_reviews.insert(key, resolved);
+        }
+    }
+    Ok(resolved_reviews)
 }

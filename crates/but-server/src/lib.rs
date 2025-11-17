@@ -310,11 +310,36 @@ async fn handle_command(
         }
         "find_commit" => legacy::virtual_branches::find_commit_cmd(request.params),
         "upstream_integration_statuses" => {
-            legacy::virtual_branches::upstream_integration_statuses_cmd(request.params)
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result =
+                        legacy::virtual_branches::upstream_integration_statuses_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
         }
-        "integrate_upstream" => legacy::virtual_branches::integrate_upstream_cmd(request.params),
+        "integrate_upstream" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = legacy::virtual_branches::integrate_upstream_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         "resolve_upstream_integration" => {
-            legacy::virtual_branches::resolve_upstream_integration_cmd(request.params)
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result =
+                        legacy::virtual_branches::resolve_upstream_integration_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
         }
         // Operating modes commands
         "operating_mode" => legacy::modes::operating_mode_cmd(request.params),

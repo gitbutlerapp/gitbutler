@@ -6,7 +6,7 @@ pub use crate::forge::{ForgeName, ForgeRepoInfo, ForgeUser, deserialize_preferre
 mod review;
 pub use review::{
     CreateForgeReviewParams, ForgeReview, ReviewTemplateFunctions, available_review_templates,
-    create_forge_review, get_review_template_functions, list_forge_reviews,
+    create_forge_review, get_forge_review, get_review_template_functions, list_forge_reviews,
 };
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
