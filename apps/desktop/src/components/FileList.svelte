@@ -210,21 +210,18 @@
 			return;
 		}
 
-		if (!e.metaKey) {
-			return updateSelection({
-				allowMultiple: true,
-				metaKey: e.metaKey,
-				shiftKey: e.shiftKey,
-				key: e.key,
-				targetElement: e.currentTarget as HTMLElement,
-				files: changes,
-				selectedFileIds,
-				fileIdSelection: idSelection,
-				selectionId: selectionId,
-				preventDefault: () => e.preventDefault()
-			});
-		}
-		return false;
+		return updateSelection({
+			allowMultiple: true,
+			metaKey: e.metaKey,
+			shiftKey: e.shiftKey,
+			key: e.key,
+			targetElement: e.currentTarget as HTMLElement,
+			files: changes,
+			selectedFileIds,
+			fileIdSelection: idSelection,
+			selectionId: selectionId,
+			preventDefault: () => e.preventDefault()
+		});
 	}
 	const currentSelection = $derived(idSelection.getById(selectionId));
 	const lastAdded = $derived(currentSelection.lastAdded);

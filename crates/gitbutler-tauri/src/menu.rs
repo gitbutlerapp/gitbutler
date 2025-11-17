@@ -120,9 +120,6 @@ pub fn build<R: Runtime>(
         ])?;
     }
 
-    #[cfg(target_os = "macos")]
-    edit_menu.append(&PredefinedMenuItem::select_all(handle, None)?)?;
-
     let view_menu = &Submenu::new(handle, "View", true)?;
 
     #[cfg(target_os = "macos")]
