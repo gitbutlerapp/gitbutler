@@ -550,13 +550,33 @@ pub fn find_commit(
     gitbutler_branch_actions::find_commit(&ctx, commit_id).map_err(Into::into)
 }
 
-#[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub fn upstream_integration_statuses(
+pub async fn upstream_integration_statuses(
     project_id: ProjectId,
     target_commit_id: Option<String>,
 ) -> Result<StackStatuses, Error> {
+    upstream_integration_statuses_cmd(UpstreamIntegrationStatuses {
+        project_id,
+        target_commit_id,
+    })
+    .await
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpstreamIntegrationStatuses {
+    pub project_id: ProjectId,
+    pub target_commit_id: Option<String>,
+}
+
+pub async fn upstream_integration_statuses_cmd(
+    params: UpstreamIntegrationStatuses,
+) -> Result<StackStatuses, Error> {
+    let UpstreamIntegrationStatuses {
+        project_id,
+        target_commit_id,
+    } = params;
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = target_commit_id
@@ -567,14 +587,37 @@ pub fn upstream_integration_statuses(
     )?)
 }
 
-#[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub fn integrate_upstream(
+pub async fn integrate_upstream(
     project_id: ProjectId,
     resolutions: Vec<Resolution>,
     base_branch_resolution: Option<BaseBranchResolution>,
 ) -> Result<IntegrationOutcome, Error> {
+    integrate_upstream_cmd(IntegrateUpstreamParams {
+        project_id,
+        resolutions,
+        base_branch_resolution,
+    })
+    .await
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntegrateUpstreamParams {
+    pub project_id: ProjectId,
+    pub resolutions: Vec<Resolution>,
+    pub base_branch_resolution: Option<BaseBranchResolution>,
+}
+
+pub async fn integrate_upstream_cmd(
+    params: IntegrateUpstreamParams,
+) -> Result<IntegrationOutcome, Error> {
+    let IntegrateUpstreamParams {
+        project_id,
+        resolutions,
+        base_branch_resolution,
+    } = params;
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let outcome =

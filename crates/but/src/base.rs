@@ -20,7 +20,7 @@ pub enum Subcommands {
     Update,
 }
 
-pub fn handle(
+pub async fn handle(
     cmd: Subcommands,
     project: &LegacyProject,
     out: &mut OutputChannel,
@@ -64,7 +64,8 @@ pub fn handle(
 
                 let status = but_api::legacy::virtual_branches::upstream_integration_statuses(
                     project.id, None,
-                )?;
+                )
+                .await?;
 
                 match status {
                     UpToDate => {
@@ -124,7 +125,8 @@ pub fn handle(
         }
         Subcommands::Update => {
             let status =
-                but_api::legacy::virtual_branches::upstream_integration_statuses(project.id, None)?;
+                but_api::legacy::virtual_branches::upstream_integration_statuses(project.id, None)
+                    .await?;
             let resolutions = match status {
                 UpToDate => {
                     if let Some(out) = out.for_human() {
@@ -186,7 +188,8 @@ pub fn handle(
                     project.id,
                     resolutions,
                     None,
-                )?;
+                )
+                .await?;
             }
             Ok(())
         }

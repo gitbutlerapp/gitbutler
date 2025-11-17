@@ -244,7 +244,9 @@ async fn match_subcommand(
         },
         Subcommands::Base(base::Platform { cmd }) => {
             let project = get_or_init_legacy_non_bare_project(&args)?;
-            base::handle(cmd, &project, out).emit_metrics(metrics_ctx)
+            base::handle(cmd, &project, out)
+                .await
+                .emit_metrics(metrics_ctx)
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let ctx = get_or_init_context_with_legacy_support(&args)?;
