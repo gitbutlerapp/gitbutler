@@ -18,7 +18,7 @@ impl AppSettings {
     pub fn load(config_path: &Path) -> Result<Self> {
         // If the file on config_path does not exist, create it empty
         if !config_path.exists() {
-            gitbutler_fs::create_dirs_then_write(config_path, "{}\n")?;
+            but_fs::create_dirs_then_write(config_path, "{}\n")?;
         }
 
         // merge customizations from disk into the defaults to get a complete set of settings.
@@ -56,7 +56,7 @@ impl AppSettings {
         // Merge the new customizations into the existing ones
         // TODO: This will nuke any comments in the file
         merge_non_null_json_value(diff, &mut customizations);
-        gitbutler_fs::write(config_path, to_string_pretty(&customizations)?)?;
+        but_fs::write(config_path, to_string_pretty(&customizations)?)?;
         Ok(())
     }
 }

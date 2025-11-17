@@ -9,8 +9,7 @@ use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
-use crate::id::CliId;
-use crate::utils::OutputChannel;
+use crate::{id::CliId, utils::OutputChannel};
 
 pub(crate) fn commit_graph(project: &Project, out: &mut OutputChannel) -> anyhow::Result<()> {
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;

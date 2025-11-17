@@ -1,7 +1,8 @@
-use crate::utils::{OutputChannel, we_need_proper_json_output_here};
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_project::Project;
+
+use crate::utils::{OutputChannel, we_need_proper_json_output_here};
 
 pub async fn list(
     project: &Project,
@@ -19,12 +20,12 @@ pub async fn list(
 
     let branch_review_map = crate::forge::review::get_review_map(project).await?;
 
-    let applied_stacks = but_api::workspace::stacks(
+    let applied_stacks = but_api::legacy::workspace::stacks(
         project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
     print_applied_branches(&applied_stacks, &branch_review_map, out)?;
-    let branches = but_api::virtual_branches::list_branches(project.id, filter)?;
+    let branches = but_api::legacy::virtual_branches::list_branches(project.id, filter)?;
     let (branches, remote_only_branches): (Vec<_>, Vec<_>) =
         branches.into_iter().partition(|b| b.has_local);
     for branch in branches {
@@ -61,10 +62,7 @@ pub async fn list(
 
 fn print_applied_branches(
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
-    branch_review_map: &std::collections::HashMap<
-        String,
-        Vec<gitbutler_forge::review::ForgeReview>,
-    >,
+    branch_review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     out: &mut OutputChannel,
 ) -> std::fmt::Result {
     for stack in applied_stacks {

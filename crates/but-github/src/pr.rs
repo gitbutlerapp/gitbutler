@@ -4,7 +4,7 @@ pub async fn list(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     owner: &str,
     repo: &str,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::PullRequest>> {
     let account_id = resolve_account(preferred_account, storage)?;
     if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
@@ -24,7 +24,7 @@ pub async fn list(
 pub async fn create(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     params: crate::client::CreatePullRequestParams<'_>,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<crate::client::PullRequest> {
     let account_id = resolve_account(preferred_account, storage)?;
     if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
@@ -46,7 +46,7 @@ pub async fn create(
 
 fn resolve_account(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<crate::GithubAccountIdentifier, anyhow::Error> {
     let known_accounts = crate::token::list_known_github_accounts(storage)?;
     let Some(default_account) = known_accounts.first() else {

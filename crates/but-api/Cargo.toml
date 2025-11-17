@@ -20,10 +20,28 @@ tauri = ["dep:tauri"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.
 path-bytes = ["dep:bstr"]
+## Make legacy functionality available.
+legacy = [
+    "dep:gitbutler-user",
+    "dep:gitbutler-project",
+    "dep:gitbutler-branch",
+    "dep:gitbutler-branch-actions",
+    "dep:gitbutler-commit",
+    "dep:gitbutler-command-context",
+    "dep:gitbutler-reference",
+    "dep:gitbutler-stack",
+    "dep:gitbutler-repo",
+    "dep:gitbutler-repo-actions",
+    "dep:gitbutler-edit-mode",
+    "dep:gitbutler-operating-modes",
+    "dep:gitbutler-sync",
+    "dep:gitbutler-oplog",
+]
+
 
 [dependencies]
 but-settings.workspace = true
-but-github.workspace = true
+but-github = { workspace = true, features = ["legacy"] }
 but-secret.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-worktrees.workspace = true
@@ -46,22 +64,22 @@ but-feedback.workspace = true
 but-error.workspace = true
 but-rules.workspace = true
 but-oxidize.workspace = true
+but-forge.workspace = true
 
-gitbutler-user.workspace = true
-gitbutler-project.workspace = true
-gitbutler-branch.workspace = true
-gitbutler-branch-actions.workspace = true
-gitbutler-commit.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-reference.workspace = true
-gitbutler-stack.workspace = true
-gitbutler-repo.workspace = true
-gitbutler-repo-actions.workspace = true
-gitbutler-edit-mode.workspace = true
-gitbutler-operating-modes.workspace = true
-gitbutler-sync.workspace = true
-gitbutler-oplog.workspace = true
-gitbutler-forge.workspace = true
+gitbutler-user = {workspace = true, optional = true}
+gitbutler-project = {workspace = true, optional = true}
+gitbutler-branch = {workspace = true, optional = true}
+gitbutler-branch-actions = {workspace = true, optional = true}
+gitbutler-commit = {workspace = true, optional = true}
+gitbutler-command-context = {workspace = true, optional = true}
+gitbutler-reference = {workspace = true, optional = true}
+gitbutler-stack = {workspace = true, optional = true}
+gitbutler-repo = {workspace = true, optional = true}
+gitbutler-repo-actions = {workspace = true, optional = true}
+gitbutler-edit-mode = {workspace = true, optional = true}
+gitbutler-operating-modes = {workspace = true, optional = true}
+gitbutler-sync = {workspace = true, optional = true}
+gitbutler-oplog = {workspace = true, optional = true}
 
 tauri = { version = "^2.9.2", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
 

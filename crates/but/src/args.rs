@@ -1,6 +1,6 @@
-use crate::utils::OutputFormat;
-use crate::{base, branch, forge};
 use std::path::PathBuf;
+
+use crate::{base, branch, forge, utils::OutputFormat};
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("GIX_VERSION"))]

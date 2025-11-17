@@ -6,8 +6,7 @@ use command_group::AsyncCommandGroup;
 use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::args::CommandName;
-use crate::utils::ResultMetricsExt;
+use crate::{args::CommandName, utils::ResultMetricsExt};
 
 /// All we need to emit metrics.
 pub struct MetricsContext {
@@ -25,11 +24,14 @@ impl MetricsContext {
 }
 
 mod subcommands_impl {
-    use crate::args::{Subcommands, claude, cursor};
-    use crate::forge::review;
-    use crate::metrics::MetricsContext;
-    use crate::{base, branch, forge};
     use but_settings::AppSettings;
+
+    use crate::{
+        args::{Subcommands, claude, cursor},
+        base, branch, forge,
+        forge::review,
+        metrics::MetricsContext,
+    };
 
     impl Subcommands {
         /// Create all context that is needed to emit metrics for `self` once, if `settings` permit.

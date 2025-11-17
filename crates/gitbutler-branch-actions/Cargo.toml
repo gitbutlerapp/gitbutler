@@ -20,6 +20,7 @@ but-rebase.workspace = true
 but-core.workspace = true
 but-graph = { workspace = true, features = ["legacy"] }
 but-oxidize.workspace = true
+but-forge.workspace = true
 
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
@@ -35,7 +36,6 @@ gitbutler-cherry-pick.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-hunk-dependency.workspace = true
 gitbutler-workspace.workspace = true
-gitbutler-forge.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 

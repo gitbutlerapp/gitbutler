@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
-use crate::utils::OutputChannel;
 use anyhow::{Context, Result};
-use but_api::worktree::IntegrationStatus;
+use but_api::legacy::worktree::IntegrationStatus;
 use but_worktrees::WorktreeId;
+
+use crate::utils::OutputChannel;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -73,7 +74,7 @@ pub fn handle(
             } else {
                 gix::refs::FullName::try_from(format!("refs/heads/{}", reference))?
             };
-            let output = but_api::worktree::worktree_new(project.id, reference)?;
+            let output = but_api::legacy::worktree::worktree_new(project.id, reference)?;
             if let Some(out) = out.for_json() {
                 out.write_value(output)?;
             } else if let Some(out) = out.for_human() {
@@ -89,7 +90,7 @@ pub fn handle(
             Ok(())
         }
         Subcommands::List => {
-            let output = but_api::worktree::worktree_list(project.id)?;
+            let output = but_api::legacy::worktree::worktree_list(project.id)?;
             if let Some(out) = out.for_json() {
                 out.write_value(output)?;
             } else if let Some(out) = out.for_human() {
@@ -125,7 +126,7 @@ pub fn handle(
             } else {
                 // No target specified - get it from the worktree metadata
                 // First, we need to get the worktree metadata to find what reference it was created from
-                let worktree_list = but_api::worktree::worktree_list(project.id)?;
+                let worktree_list = but_api::legacy::worktree::worktree_list(project.id)?;
                 let worktree_entry = worktree_list
                     .entries
                     .iter()
@@ -139,7 +140,7 @@ pub fn handle(
 
             if dry {
                 // Dry run - check integration status
-                let status = but_api::worktree::worktree_integration_status(
+                let status = but_api::legacy::worktree::worktree_integration_status(
                     project.id,
                     id.clone(),
                     target_ref.clone(),
@@ -189,7 +190,11 @@ pub fn handle(
                 }
             } else {
                 // Actual integration
-                but_api::worktree::worktree_integrate(project.id, id.clone(), target_ref.clone())?;
+                but_api::legacy::worktree::worktree_integrate(
+                    project.id,
+                    id.clone(),
+                    target_ref.clone(),
+                )?;
 
                 if let Some(out) = out.for_json() {
                     out.write_value(serde_json::json!({"status": "success"}))?;
@@ -211,7 +216,7 @@ pub fn handle(
                     gix::refs::FullName::try_from(format!("refs/heads/{}", target))?
                 };
 
-                let output = but_api::worktree::worktree_destroy_by_reference(
+                let output = but_api::legacy::worktree::worktree_destroy_by_reference(
                     project.id,
                     reference.clone(),
                 )?;
@@ -236,7 +241,8 @@ pub fn handle(
             } else {
                 // Treat target as a path or worktree name
                 let id = parse_worktree_identifier(&target, project)?;
-                let output = but_api::worktree::worktree_destroy_by_id(project.id, id.clone())?;
+                let output =
+                    but_api::legacy::worktree::worktree_destroy_by_id(project.id, id.clone())?;
 
                 if let Some(out) = out.for_json() {
                     out.write_value(output)?;

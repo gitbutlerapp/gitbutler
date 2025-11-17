@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
@@ -9,7 +11,6 @@ use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
-use std::collections::BTreeMap;
 
 use crate::CLI_DATE;
 
@@ -17,8 +18,7 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
 pub(crate) mod assignment;
 
-use crate::id::CliId;
-use crate::utils::OutputChannel;
+use crate::{id::CliId, utils::OutputChannel};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,7 +50,7 @@ pub struct CLIBranchDetails {
     #[serde(with = "but_serde::bstring_opt_lossy")]
     pub remote_tracking_branch: Option<BString>,
     /// Description of the branch.
-    /// Can include arbitrary utf8 data, eg. markdown etc.
+    /// Can include arbitrary utf8 data, e.g. markdown etc.
     pub description: Option<String>,
     /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
     pub pr_number: Option<usize>,
@@ -200,8 +200,8 @@ pub(crate) async fn worktree(
         std::collections::HashMap::new()
     };
 
-    let stacks = but_api::workspace::stacks(project.id, None)?;
-    let worktree_changes = but_api::diff::changes_in_worktree(project.id)?;
+    let stacks = but_api::legacy::workspace::stacks(project.id, None)?;
+    let worktree_changes = but_api::legacy::diff::changes_in_worktree(project.id)?;
 
     let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
     for assignment in worktree_changes.assignments {
@@ -222,7 +222,7 @@ pub(crate) async fn worktree(
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
     for stack in stacks {
-        let details = but_api::workspace::stack_details(project.id, stack.id)?;
+        let details = but_api::legacy::workspace::stack_details(project.id, stack.id)?;
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
         stack_details.push((stack.id, (Some(details.into()), assignments)));
     }
@@ -251,7 +251,7 @@ pub(crate) async fn worktree(
 
     // Get cached upstream state information (without fetching)
     let (upstream_state, last_fetched_ms) =
-        but_api::virtual_branches::get_base_branch_data(project.id)
+        but_api::legacy::virtual_branches::get_base_branch_data(project.id)
             .ok()
             .flatten()
             .map(|base_branch| {
@@ -462,7 +462,7 @@ pub fn print_group(
     ctx: &mut CommandContext,
     _last: bool,
     first: bool,
-    review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
+    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     out: &mut dyn std::fmt::Write,
 ) -> anyhow::Result<()> {
     let repo = project.open_isolated()?;
@@ -646,13 +646,13 @@ fn status_from_changes(changes: &[TreeChange], path: BString) -> Option<TreeStat
 
 pub(crate) fn all_committed_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
     let mut committed_files = Vec::new();
-    let stacks = but_api::workspace::stacks(ctx.project().id, None)?;
+    let stacks = but_api::legacy::workspace::stacks(ctx.project().id, None)?;
     for stack in stacks {
-        let details = but_api::workspace::stack_details(ctx.project().id, stack.id)?;
+        let details = but_api::legacy::workspace::stack_details(ctx.project().id, stack.id)?;
         for branch in details.branch_details {
             for commit in branch.commits {
                 let commit_details =
-                    but_api::diff::commit_details(ctx.project().id, commit.id.into())?;
+                    but_api::legacy::diff::commit_details(ctx.project().id, commit.id.into())?;
                 for change in &commit_details.changes.changes {
                     let cid = CliId::committed_file(&change.path.to_string(), commit.id);
                     committed_files.push(cid);
@@ -711,7 +711,7 @@ fn print_commit(
         message = "(no commit message)".to_string().dimmed().italic();
     }
 
-    let commit_details = but_api::diff::commit_details(project_id, commit_id.into())?;
+    let commit_details = but_api::legacy::diff::commit_details(project_id, commit_id.into())?;
     let no_changes = if show_files && commit_details.changes.changes.is_empty() {
         "(no changes)".dimmed().italic()
     } else {

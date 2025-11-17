@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use anyhow::Context;
 use bstr::ByteSlice;
-use but_api::forge::ListReviewsParams;
+use but_api::legacy::forge::ListReviewsParams;
 use but_core::ref_metadata::StackId;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
@@ -13,11 +13,11 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
 
-use crate::utils::OutputChannel;
 use crate::{
     editor::get_text_from_editor_no_comments,
     id::CliId,
     ui::{SimpleBranch, SimpleStack},
+    utils::OutputChannel,
 };
 
 #[derive(Debug, clap::Parser)]
@@ -63,13 +63,14 @@ pub fn set_review_template(
 ) -> anyhow::Result<()> {
     if let Some(path) = template_path {
         let message = format!("Set review template path to: {}", &path);
-        but_api::forge::set_review_template(project.id, Some(path))?;
+        but_api::legacy::forge::set_review_template(project.id, Some(path))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", message)?;
         }
     } else {
-        let current_template = but_api::forge::review_template(project.id)?;
-        let available_templates = but_api::forge::list_available_review_templates(project.id)?;
+        let current_template = but_api::legacy::forge::review_template(project.id)?;
+        let available_templates =
+            but_api::legacy::forge::list_available_review_templates(project.id)?;
         let template_prompt = cli_prompts::prompts::Selection::new_with_transformation(
             "Select a review template (and press Enter)",
             available_templates.into_iter(),
@@ -90,7 +91,7 @@ pub fn set_review_template(
             .display()
             .map_err(|_| anyhow::anyhow!("Could not determine selected review template"))?;
         let message = format!("Set review template path to: {}", &selected_template);
-        but_api::forge::set_review_template(project.id, Some(selected_template.clone()))?;
+        but_api::legacy::forge::set_review_template(project.id, Some(selected_template.clone()))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", message)?;
         }
@@ -110,7 +111,7 @@ pub async fn publish_reviews(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let review_map = get_review_map(project).await?;
-    let applied_stacks = but_api::workspace::stacks(
+    let applied_stacks = but_api::legacy::workspace::stacks(
         project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
@@ -133,7 +134,7 @@ pub async fn publish_reviews(
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-    let branch_ids = crate::id::CliId::from_str(&mut ctx, branch_id)?
+    let branch_ids = CliId::from_str(&mut ctx, branch_id)?
         .iter()
         .filter_map(|clid| match clid {
             CliId::Branch { name } => Some(name.clone()),
@@ -151,7 +152,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
 #[allow(clippy::too_many_arguments)]
 pub async fn handle_multiple_branches_in_workspace(
     project: &Project,
-    review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
+    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     skip_force_push_protection: bool,
     with_force: bool,
@@ -222,7 +223,7 @@ pub async fn handle_multiple_branches_in_workspace(
 
 fn generate_simple_stacks(
     project: &Project,
-    review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
+    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
 ) -> Result<Vec<SimpleStack>, anyhow::Error> {
     let mut simple_stacks = vec![];
@@ -260,7 +261,7 @@ fn generate_simple_stacks(
 async fn publish_reviews_for_branch_and_dependents(
     project: &Project,
     branch_name: &str,
-    review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
+    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     stack_entry: &but_workspace::legacy::ui::StackEntry,
     skip_force_push_protection: bool,
     with_force: bool,
@@ -289,7 +290,7 @@ async fn publish_reviews_for_branch_and_dependents(
         }
     }
 
-    let result = but_api::stack::push_stack(
+    let result = but_api::legacy::stack::push_stack(
         project.id,
         stack_entry
             .id
@@ -373,8 +374,7 @@ fn display_review_publication_summary(
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     // Group published reviews by branch name
-    let mut published_by_branch: BTreeMap<&str, Vec<&gitbutler_forge::review::ForgeReview>> =
-        BTreeMap::new();
+    let mut published_by_branch: BTreeMap<&str, Vec<&but_forge::ForgeReview>> = BTreeMap::new();
     for review in &outcome.published {
         published_by_branch
             .entry(review.source_branch.as_str())
@@ -389,8 +389,7 @@ fn display_review_publication_summary(
     }
 
     // Group already existing reviews by branch name
-    let mut existing_by_branch: BTreeMap<&str, Vec<&gitbutler_forge::review::ForgeReview>> =
-        BTreeMap::new();
+    let mut existing_by_branch: BTreeMap<&str, Vec<&but_forge::ForgeReview>> = BTreeMap::new();
     for review in &outcome.already_existing {
         existing_by_branch
             .entry(review.source_branch.as_str())
@@ -409,7 +408,7 @@ fn display_review_publication_summary(
 
 /// Print review information in a formatted way
 fn print_review_information(
-    review: &gitbutler_forge::review::ForgeReview,
+    review: &but_forge::ForgeReview,
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     writeln!(
@@ -427,13 +426,13 @@ fn print_review_information(
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PublishReviewsOutcome {
-    published: Vec<gitbutler_forge::review::ForgeReview>,
-    already_existing: Vec<gitbutler_forge::review::ForgeReview>,
+    published: Vec<but_forge::ForgeReview>,
+    already_existing: Vec<but_forge::ForgeReview>,
 }
 
 enum PublishReviewResult {
-    Published(Box<gitbutler_forge::review::ForgeReview>),
-    AlreadyExists(Vec<gitbutler_forge::review::ForgeReview>),
+    Published(Box<but_forge::ForgeReview>),
+    AlreadyExists(Vec<but_forge::ForgeReview>),
 }
 
 async fn publish_review_for_branch(
@@ -441,7 +440,7 @@ async fn publish_review_for_branch(
     stack_id: Option<StackId>,
     branch_name: &str,
     target_branch: &str,
-    review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
+    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     default_message: bool,
 ) -> anyhow::Result<PublishReviewResult> {
     // Check if a review already exists for the branch.
@@ -469,9 +468,9 @@ async fn publish_review_for_branch(
     };
 
     // Publish a new review for the branch
-    but_api::forge::publish_review_cmd(but_api::forge::PublishReviewParams {
+    but_api::legacy::forge::publish_review_cmd(but_api::legacy::forge::PublishReviewParams {
         project_id: project.id,
-        params: gitbutler_forge::review::CreateForgeReviewParams {
+        params: but_forge::CreateForgeReviewParams {
             title,
             body,
             source_branch: branch_name.to_string(),
@@ -484,7 +483,7 @@ async fn publish_review_for_branch(
     .map(|review| {
         if let Some(stack_id) = stack_id {
             let review_number = review.number.try_into().ok();
-            but_api::stack::update_branch_pr_number(
+            but_api::legacy::stack::update_branch_pr_number(
                 project.id,
                 stack_id,
                 branch_name.to_string(),
@@ -502,7 +501,7 @@ fn default_commit(
     stack_id: Option<StackId>,
     branch_name: &str,
 ) -> Result<Option<Commit>, anyhow::Error> {
-    let stack_details = but_api::workspace::stack_details(project.id, stack_id)?;
+    let stack_details = but_api::legacy::workspace::stack_details(project.id, stack_id)?;
     let branch = stack_details
         .branch_details
         .into_iter()
@@ -536,7 +535,7 @@ fn get_review_body_from_editor(
             template.push_str(line);
             template.push('\n');
         }
-    } else if let Some(review_template) = but_api::forge::review_template(project_id)? {
+    } else if let Some(review_template) = but_api::legacy::forge::review_template(project_id)? {
         template.push_str(&review_template.content);
     } else {
         template.push_str(branch_name);
@@ -609,8 +608,8 @@ fn extract_commit_title(commit: Option<&Commit>) -> Option<&str> {
 /// Get a mapping from branch names to their associated reviews.
 pub async fn get_review_map(
     project: &Project,
-) -> anyhow::Result<std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>> {
-    let reviews = but_api::forge::list_reviews_cmd(ListReviewsParams {
+) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
+    let reviews = but_api::legacy::forge::list_reviews_cmd(ListReviewsParams {
         project_id: project.id,
     })
     .await
@@ -639,10 +638,7 @@ pub async fn get_review_map(
 pub fn get_review_numbers(
     branch_name: &str,
     associated_review_number: &Option<usize>,
-    branch_review_map: &std::collections::HashMap<
-        String,
-        Vec<gitbutler_forge::review::ForgeReview>,
-    >,
+    branch_review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
 ) -> ColoredString {
     if let Some(reviews) = branch_review_map.get(branch_name) {
         let review_numbers = reviews

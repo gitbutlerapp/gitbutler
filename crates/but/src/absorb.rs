@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use bstr::{BString, ByteSlice};
-use but_api::{diff, hex_hash::HexHash, virtual_branches};
+use but_api::{
+    json::HexHash,
+    legacy::{diff, virtual_branches},
+};
 use but_core::DiffSpec;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::HunkDependencies;
@@ -10,8 +13,7 @@ use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
-use crate::utils::OutputChannel;
-use crate::{id::CliId, rub::parse_sources};
+use crate::{id::CliId, rub::parse_sources, utils::OutputChannel};
 
 /// Amends changes into the appropriate commits where they belong.
 ///
@@ -108,7 +110,7 @@ fn absorb_branch(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Get the stack ID for this branch
-    let stacks = but_api::workspace::stacks(project.id, None)?;
+    let stacks = but_api::legacy::workspace::stacks(project.id, None)?;
 
     // Find the stack that contains this branch
     let stack = stacks
@@ -223,7 +225,7 @@ fn determine_target_commit(
     // Priority 2: Use the assignment's stack ID if available
     if let Some(stack_id) = assignment.stack_id {
         // We need to find the topmost commit in this stack
-        let stack_details = but_api::workspace::stack_details(project_id, Some(stack_id))?;
+        let stack_details = but_api::legacy::workspace::stack_details(project_id, Some(stack_id))?;
 
         // Find the topmost commit in the first branch
         if let Some(branch) = stack_details.branch_details.first()
@@ -236,7 +238,7 @@ fn determine_target_commit(
         virtual_branches::insert_blank_commit(project_id, stack_id, None, -1)?;
 
         // Now fetch the stack details again to get the newly created commit
-        let stack_details = but_api::workspace::stack_details(project_id, Some(stack_id))?;
+        let stack_details = but_api::legacy::workspace::stack_details(project_id, Some(stack_id))?;
         if let Some(branch) = stack_details.branch_details.first()
             && let Some(commit) = branch.commits.first()
         {
@@ -247,11 +249,11 @@ fn determine_target_commit(
     }
 
     // Priority 3: If no assignment, find the topmost commit of the leftmost lane
-    let stacks = but_api::workspace::stacks(project_id, None)?;
+    let stacks = but_api::legacy::workspace::stacks(project_id, None)?;
     if let Some(stack) = stacks.first()
         && let Some(stack_id) = stack.id
     {
-        let stack_details = but_api::workspace::stack_details(project_id, Some(stack_id))?;
+        let stack_details = but_api::legacy::workspace::stack_details(project_id, Some(stack_id))?;
 
         if let Some(branch) = stack_details.branch_details.first()
             && let Some(commit) = branch.commits.first()
@@ -263,7 +265,7 @@ fn determine_target_commit(
         virtual_branches::insert_blank_commit(project_id, stack_id, None, -1)?;
 
         // Now fetch the stack details again to get the newly created commit
-        let stack_details = but_api::workspace::stack_details(project_id, Some(stack_id))?;
+        let stack_details = but_api::legacy::workspace::stack_details(project_id, Some(stack_id))?;
         if let Some(branch) = stack_details.branch_details.first()
             && let Some(commit) = branch.commits.first()
         {
@@ -324,7 +326,7 @@ fn amend_commit(
     // Convert commit_id to HexHash
     let hex_hash = HexHash::from(commit_id);
 
-    let outcome = but_api::workspace::amend_commit_from_worktree_changes(
+    let outcome = but_api::legacy::workspace::amend_commit_from_worktree_changes(
         project.id, stack_id, hex_hash, diff_specs,
     )?;
 

@@ -702,6 +702,7 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-cursor",
+ "but-forge",
  "but-gerrit",
  "but-github",
  "but-graph",
@@ -729,7 +730,6 @@ dependencies = [
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-commit",
- "gitbutler-forge",
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
@@ -808,6 +808,7 @@ dependencies = [
  "but-core",
  "but-error",
  "but-feedback",
+ "but-forge",
  "but-forge-storage",
  "but-gerrit",
  "but-github",
@@ -830,7 +831,6 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-edit-mode",
- "gitbutler-forge",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-project",
@@ -1049,14 +1049,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-forge"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-forge-storage",
+ "but-fs",
+ "but-github",
+ "git-url-parse",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "but-forge-storage"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-fs",
  "but-secret",
- "gitbutler-storage",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "but-fs"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gix",
+ "serde",
+ "toml 0.9.8",
+ "walkdir",
 ]
 
 [[package]]
@@ -1291,8 +1315,8 @@ name = "but-settings"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-fs",
  "but-path",
- "gitbutler-fs",
  "notify",
  "serde",
  "serde_json",
@@ -3490,6 +3514,7 @@ dependencies = [
  "bstr",
  "but-core",
  "but-error",
+ "but-forge",
  "but-gerrit",
  "but-graph",
  "but-hunk-assignment",
@@ -3506,7 +3531,6 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-diff",
- "gitbutler-forge",
  "gitbutler-git",
  "gitbutler-hunk-dependency",
  "gitbutler-operating-modes",
@@ -3655,31 +3679,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-forge"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-forge-storage",
- "but-github",
- "git-url-parse",
- "gitbutler-fs",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "gitbutler-fs"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bstr",
- "gix",
- "serde",
- "toml 0.9.8",
- "walkdir",
-]
-
-[[package]]
 name = "gitbutler-git"
 version = "0.0.0"
 dependencies = [
@@ -3736,11 +3735,11 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-fs",
  "but-serde",
  "but-workspace",
  "git2",
  "gitbutler-command-context",
- "gitbutler-fs",
  "gitbutler-stack",
  "gitbutler-testsupport",
  "serde",
@@ -3755,13 +3754,13 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-fs",
  "but-meta",
  "but-oxidize",
  "but-serde",
  "git2",
  "gitbutler-branch",
  "gitbutler-command-context",
- "gitbutler-fs",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
@@ -3783,11 +3782,11 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-error",
+ "but-forge",
+ "but-fs",
  "but-path",
  "but-serde",
  "git2",
- "gitbutler-forge",
- "gitbutler-storage",
  "gitbutler-testsupport",
  "gix",
  "insta",
@@ -3883,6 +3882,7 @@ dependencies = [
  "bstr",
  "but-core",
  "but-error",
+ "but-fs",
  "but-meta",
  "but-oxidize",
  "but-rebase",
@@ -3890,7 +3890,6 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-diff",
- "gitbutler-fs",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-repo-actions",
@@ -3901,13 +3900,6 @@ dependencies = [
  "serde",
  "tempfile",
  "toml 0.9.8",
-]
-
-[[package]]
-name = "gitbutler-storage"
-version = "0.0.0"
-dependencies = [
- "gitbutler-fs",
 ]
 
 [[package]]
@@ -3949,9 +3941,6 @@ dependencies = [
  "but-db",
  "but-error",
  "but-feedback",
- "but-github",
- "but-graph",
- "but-meta",
  "but-path",
  "but-secret",
  "but-settings",
@@ -3997,6 +3986,7 @@ name = "gitbutler-testsupport"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-fs",
  "but-meta",
  "but-oxidize",
  "but-settings",
@@ -4009,7 +3999,6 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
- "gitbutler-storage",
  "gitbutler-url",
  "gitbutler-user",
  "gix",
@@ -4041,9 +4030,9 @@ name = "gitbutler-user"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-fs",
  "but-path",
  "but-secret",
- "gitbutler-storage",
  "keyring",
  "serde",
  "serde_json",

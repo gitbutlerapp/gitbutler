@@ -9,7 +9,7 @@ const PROJECTS_FILE: &str = "projects.json";
 
 #[derive(Debug, Clone)]
 pub(crate) struct Storage {
-    inner: gitbutler_storage::Storage,
+    inner: but_fs::Storage,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -34,7 +34,7 @@ pub struct UpdateRequest {
     pub forge_override: Option<String>,
     #[serde(default = "default_false")]
     pub unset_forge_override: bool,
-    pub preferred_forge_user: Option<gitbutler_forge::ForgeUser>,
+    pub preferred_forge_user: Option<but_forge::ForgeUser>,
 }
 
 impl UpdateRequest {
@@ -116,7 +116,7 @@ fn default_false() -> bool {
 impl Storage {
     pub fn from_path(path: impl Into<PathBuf>) -> Self {
         Storage {
-            inner: gitbutler_storage::Storage::new(path),
+            inner: but_fs::Storage::new(path),
         }
     }
 

@@ -13,14 +13,19 @@ rust-version = "1.89"
 [lib]
 doctest = false
 
+[features]
+legacy = ["dep:gitbutler-user"]
+
 [dependencies]
-serde.workspace = true
 but-settings.workspace = true
 but-secret.workspace = true
 but-forge-storage.workspace = true
 but-error.workspace = true
+
+gitbutler-user = { workspace = true, optional = true }
+
+serde.workspace = true
 anyhow.workspace = true
-gitbutler-user.workspace = true
 serde_json.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 octorust = { version = "0.10.0", default-features = false }

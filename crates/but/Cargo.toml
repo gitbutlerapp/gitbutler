@@ -22,7 +22,7 @@ but-core.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 but-workspace = { workspace = true, features = ["legacy"] }
 but-meta = { workspace = true, features = ["legacy"] }
-but-api.workspace = true
+but-api = { workspace = true, features = ["legacy"] }
 but-action.workspace = true
 but-graph.workspace = true
 but-settings.workspace = true
@@ -39,13 +39,13 @@ but-github.workspace = true
 but-secret.workspace = true
 but-oxidize.workspace = true
 but-path.workspace = true
+but-forge.workspace = true
 
 gitbutler-project.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
-gitbutler-forge.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-oplog.workspace = true

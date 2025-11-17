@@ -1,13 +1,14 @@
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
+
 use anyhow::{Context, bail};
 use but_api::json::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gix::bstr::ByteSlice;
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
 use tauri::{State, Window};
 use tracing::instrument;
 
@@ -17,9 +18,9 @@ use crate::{WindowState, window, window::state::ProjectAccessMode};
 #[instrument(skip(window_state), err(Debug))]
 pub fn list_projects(
     window_state: State<'_, WindowState>,
-) -> Result<Vec<but_api::projects::ProjectForFrontend>, Error> {
+) -> Result<Vec<but_api::legacy::projects::ProjectForFrontend>, Error> {
     let open_projects = window_state.open_projects();
-    but_api::projects::list_projects(open_projects)
+    but_api::legacy::projects::list_projects(open_projects)
 }
 
 /// Additional information to help the user interface communicate what happened with the project.

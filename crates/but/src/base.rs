@@ -1,11 +1,11 @@
-use crate::LegacyProject;
-use crate::utils::OutputChannel;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
     BranchStatus::{Conflicted, Empty, Integrated, SaflyUpdatable},
     Resolution, ResolutionApproach,
     StackStatuses::{UpToDate, UpdatesRequired},
 };
+
+use crate::{LegacyProject, utils::OutputChannel};
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -29,7 +29,7 @@ pub fn handle(
         Subcommands::Check => {
             if let Some(out) = out.for_human() {
                 writeln!(out, "🔍 Checking base branch status...")?;
-                let base_branch = but_api::virtual_branches::fetch_from_remotes(
+                let base_branch = but_api::legacy::virtual_branches::fetch_from_remotes(
                     project.id,
                     Some("auto".to_string()),
                 )?;
@@ -62,8 +62,9 @@ pub fn handle(
                     )?;
                 }
 
-                let status =
-                    but_api::virtual_branches::upstream_integration_statuses(project.id, None)?;
+                let status = but_api::legacy::virtual_branches::upstream_integration_statuses(
+                    project.id, None,
+                )?;
 
                 match status {
                     UpToDate => {
@@ -123,7 +124,7 @@ pub fn handle(
         }
         Subcommands::Update => {
             let status =
-                but_api::virtual_branches::upstream_integration_statuses(project.id, None)?;
+                but_api::legacy::virtual_branches::upstream_integration_statuses(project.id, None)?;
             let resolutions = match status {
                 UpToDate => {
                     if let Some(out) = out.for_human() {
@@ -181,7 +182,11 @@ pub fn handle(
             };
 
             if let Some(resolutions) = resolutions {
-                but_api::virtual_branches::integrate_upstream(project.id, resolutions, None)?;
+                but_api::legacy::virtual_branches::integrate_upstream(
+                    project.id,
+                    resolutions,
+                    None,
+                )?;
             }
             Ok(())
         }

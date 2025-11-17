@@ -8,8 +8,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::Project;
 
-use crate::rub::branch_name_to_stack_id;
-use crate::utils::OutputChannel;
+use crate::{rub::branch_name_to_stack_id, utils::OutputChannel};
 
 pub(crate) fn handle(
     project: &Project,

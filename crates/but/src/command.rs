@@ -1,9 +1,10 @@
-use crate::utils::OutputChannel;
 use but_action::Source;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use serde::Serialize;
+
+use crate::utils::OutputChannel;
 
 pub(crate) fn handle_changes(
     project: &Project,

@@ -499,7 +499,6 @@ If you are interested in joining our small but tightly knit engineering team, we
 This is a list of crates/modules that we want to eliminate or split into smaller crates:
 
 - [gitbutler-reference](crates/gitbutler-reference/) (just bad)
-- [gitbutler-storage](crates/gitbutler-storage/) (legacy way of dealing with files)
 - [gitbutler-branch-actions](crates/gitbutler-branch-actions/) (contains functionality outside of the virtual branch domain (e.g. commit actions etc.))
 - [gitbutler-repository](crates/gitbutler-repository/)
 - [gitbutler-branch](crates/gitbutler-branch/) (contains `diff` and `branch` contexts due to a cyclic dependency)

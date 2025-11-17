@@ -134,7 +134,7 @@ pub struct ProjectInfo {
 pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::json::Error> {
     let active_projects = extra.active_projects.lock().await;
     let project_ids: Vec<ProjectId> = active_projects.projects.keys().copied().collect();
-    let projects_for_frontend = but_api::projects::list_projects(project_ids)?;
+    let projects_for_frontend = but_api::legacy::projects::list_projects(project_ids)?;
     Ok(json!(projects_for_frontend))
 }
 

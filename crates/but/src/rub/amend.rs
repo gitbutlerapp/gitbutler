@@ -1,5 +1,3 @@
-use super::assign::branch_name_to_stack_id;
-use crate::utils::OutputChannel;
 use but_core::{DiffSpec, ref_metadata::StackId};
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::commit_engine::{self, CreateCommitOutcome};
@@ -7,6 +5,9 @@ use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gix::ObjectId;
+
+use super::assign::branch_name_to_stack_id;
+use crate::utils::OutputChannel;
 
 pub(crate) fn file_to_commit(
     ctx: &mut CommandContext,

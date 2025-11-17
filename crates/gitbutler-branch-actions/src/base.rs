@@ -3,10 +3,10 @@ use std::{path::Path, time};
 use anyhow::{Context, Result, anyhow};
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_error::Marker;
+use but_forge::ForgeRepoInfo;
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
-use gitbutler_forge::forge::ForgeRepoInfo;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -386,7 +386,7 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
         target.remote_url.clone()
     };
 
-    let forge_repo_info = gitbutler_forge::derive_forge_repo_info(&remote_url);
+    let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url);
 
     let base = BaseBranch {
         branch_name: target.branch.fullname(),

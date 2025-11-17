@@ -36,6 +36,8 @@ but-feedback = { path = "crates/but-feedback" }
 but-forge-storage = { path = "crates/but-forge-storage" }
 but-settings = { path = "crates/but-settings" }
 but-oxidize = { path = "crates/but-oxidize" }
+but-fs = { path = "crates/but-fs" }
+but-forge = { path = "crates/but-forge" }
 
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
@@ -51,8 +53,6 @@ gitbutler-project = { path = "crates/gitbutler-project" }
 gitbutler-user = { path = "crates/gitbutler-user" }
 gitbutler-branch = { path = "crates/gitbutler-branch" }
 gitbutler-reference = { path = "crates/gitbutler-reference" }
-gitbutler-storage = { path = "crates/gitbutler-storage" }
-gitbutler-fs = { path = "crates/gitbutler-fs" }
 gitbutler-time = { path = "crates/gitbutler-time" }
 gitbutler-commit = { path = "crates/gitbutler-commit" }
 gitbutler-url = { path = "crates/gitbutler-url" }
@@ -61,7 +61,6 @@ gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
 gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
 gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
-gitbutler-forge = { path = "crates/gitbutler-forge" }
 gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 

@@ -1,9 +1,11 @@
-use crate::utils::OutputChannel;
+use std::{ops::Deref, str::FromStr};
+
 use anyhow::bail;
 use bstr::ByteSlice;
 use gitbutler_reference::RemoteRefname;
 use gix::reference::Category;
-use std::{ops::Deref, str::FromStr};
+
+use crate::utils::OutputChannel;
 
 /// Apply a branch to the workspace, and return the full ref name to it.
 ///
@@ -28,7 +30,7 @@ pub fn apply(
                 gitbutler_reference::RemoteRefname::from_str(&ref_name.to_string()).ok()
             });
 
-        but_api::virtual_branches::create_virtual_branch_from_branch(
+        but_api::legacy::virtual_branches::create_virtual_branch_from_branch(
             legacy_project.id,
             ref_name,
             remote_ref_name,
@@ -41,7 +43,7 @@ pub fn apply(
         // Look for the branch in the remote references
         let ref_name =
             gitbutler_reference::Refname::from_str(&format!("refs/remotes/{remote}/{name}"))?;
-        but_api::virtual_branches::create_virtual_branch_from_branch(
+        but_api::legacy::virtual_branches::create_virtual_branch_from_branch(
             legacy_project.id,
             ref_name,
             Some(remote_ref.clone()),

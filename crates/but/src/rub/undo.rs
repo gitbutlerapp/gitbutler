@@ -1,9 +1,10 @@
-use crate::utils::OutputChannel;
 use but_core::ref_metadata::StackId;
 use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
+
+use crate::utils::OutputChannel;
 
 pub(crate) fn commit(
     ctx: &mut CommandContext,

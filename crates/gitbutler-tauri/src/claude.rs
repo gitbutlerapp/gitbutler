@@ -1,10 +1,10 @@
 use but_api::{
     App,
-    commands::claude::{
+    json::Error,
+    legacy::claude::{
         self, CancelSessionParams, CompactHistoryParams, GetMessagesParams, IsStackActiveParams,
         SendMessageParams,
     },
-    json::Error,
 };
 use but_claude::{
     ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, PromptAttachment, ThinkingLevel,

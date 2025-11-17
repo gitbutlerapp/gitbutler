@@ -26,14 +26,11 @@ but-secret.workspace = true
 but-broadcaster.workspace = true
 but-db.workspace = true
 but-settings.workspace = true
-but-graph.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
 but-core.workspace = true
 but-action.workspace = true
 but-bot.workspace = true
-but-api = { workspace = true, features = ["tauri", "path-bytes"] }
+but-api = { workspace = true, features = ["tauri", "path-bytes", "legacy"] }
 but-claude.workspace = true
-but-github.workspace = true
 
 gitbutler-watcher.workspace = true
 gitbutler-repo-actions.workspace = true
@@ -41,6 +38,7 @@ gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 
 tauri = { version = "^2.9.2", features = ["unstable"] }
+tauri-plugin-single-instance = { version = "2.3.6", features = ["deep-link"] }
 tauri-plugin-dialog = "2.4.2"
 tauri-plugin-fs = "2.4.2"
 tauri-plugin-http = "2.5.4"
@@ -48,12 +46,11 @@ tauri-plugin-log = "2.7.1"
 tauri-plugin-os = "2.3.2"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-shell = "2.3.3"
-[target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
-tauri-plugin-single-instance = { version = "2.3.6", features = ["deep-link"] }
 tauri-plugin-store = "2.4.1"
 tauri-plugin-updater = "2.9.0"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-clipboard-manager = "2.3.2"
+
 
 anyhow.workspace = true
 backtrace = { version = "0.3.76", optional = true }

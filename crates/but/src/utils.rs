@@ -1,7 +1,8 @@
-use crate::args::Args;
-use crate::metrics::MetricsContext;
-use colored::Colorize;
 use std::io::Write;
+
+use colored::Colorize;
+
+use crate::{args::Args, metrics::MetricsContext};
 
 /// How we should format anything written to [`std::io::stdout()`].
 #[derive(Debug, Copy, Clone, clap::ValueEnum, Default)]

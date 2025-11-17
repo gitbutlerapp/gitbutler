@@ -1,5 +1,5 @@
 #![allow(deprecated)]
-use but_api::{commands::settings, json::Error};
+use but_api::{json::Error, legacy::settings};
 use but_settings::{
     AppSettingsWithDiskSync,
     api::{

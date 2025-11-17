@@ -4,8 +4,7 @@ use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
-use crate::utils::OutputChannel;
-use crate::{editor::get_text_from_editor_no_comments, id::CliId};
+use crate::{editor::get_text_from_editor_no_comments, id::CliId, utils::OutputChannel};
 
 pub(crate) fn describe_target(
     project: &Project,
@@ -53,7 +52,7 @@ fn edit_branch_name(
     out: &mut OutputChannel,
 ) -> Result<()> {
     // Find which stack this branch belongs to
-    let stacks = but_api::workspace::stacks(
+    let stacks = but_api::legacy::workspace::stacks(
         project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
@@ -65,7 +64,7 @@ fn edit_branch_name(
 
         if let Some(sid) = stack_entry.id {
             let new_name = get_branch_name_from_editor(branch_name)?;
-            but_api::stack::update_branch_name(
+            but_api::legacy::stack::update_branch_name(
                 project.id,
                 sid,
                 branch_name.to_owned(),
@@ -88,13 +87,13 @@ fn edit_commit_message_by_id(
     out: &mut OutputChannel,
 ) -> Result<()> {
     // Find which stack this commit belongs to
-    let stacks = but_api::workspace::stacks(project.id, None)?;
+    let stacks = but_api::legacy::workspace::stacks(project.id, None)?;
     let mut found_commit_message = None;
     let mut stack_id = None;
 
     for stack_entry in &stacks {
         if let Some(sid) = stack_entry.id {
-            let stack_details = but_api::workspace::stack_details(project.id, Some(sid))?;
+            let stack_details = but_api::legacy::workspace::stack_details(project.id, Some(sid))?;
 
             // Check if this commit exists in any branch of this stack
             for branch_details in &stack_details.branch_details {
@@ -135,7 +134,7 @@ fn edit_commit_message_by_id(
         .ok_or_else(|| anyhow::anyhow!("Could not find stack for commit {}", commit_oid))?;
 
     // Get the files changed in this commit using but_api
-    let commit_details = but_api::diff::commit_details(project.id, commit_oid.into())?;
+    let commit_details = but_api::legacy::diff::commit_details(project.id, commit_oid.into())?;
     let changed_files = get_changed_files_from_commit_details(&commit_details);
 
     // Get current commit message
@@ -170,7 +169,7 @@ fn edit_commit_message_by_id(
 }
 
 fn get_changed_files_from_commit_details(
-    commit_details: &but_api::diff::CommitDetails,
+    commit_details: &but_api::legacy::diff::CommitDetails,
 ) -> Vec<String> {
     let mut files = Vec::new();
 

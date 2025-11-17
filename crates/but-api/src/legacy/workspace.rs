@@ -3,7 +3,6 @@ use std::{
     str::FromStr,
 };
 
-use crate::{hex_hash::HexHash, json::Error};
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_core::RepositoryExt;
@@ -28,6 +27,8 @@ use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use serde::Serialize;
 use tracing::instrument;
+
+use crate::json::{Error, HexHash};
 
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))

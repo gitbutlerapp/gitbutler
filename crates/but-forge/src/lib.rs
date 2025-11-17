@@ -1,10 +1,13 @@
 use git_url_parse::{GitUrl, types::provider::GenericProvider};
 
-use crate::forge::{ForgeName, ForgeRepoInfo};
-pub use crate::forge::{ForgeUser, deserialize_preferred_forge_user_opt};
+mod forge;
+pub use crate::forge::{ForgeName, ForgeRepoInfo, ForgeUser, deserialize_preferred_forge_user_opt};
 
-pub mod forge;
-pub mod review;
+mod review;
+pub use review::{
+    CreateForgeReviewParams, ForgeReview, ReviewTemplateFunctions, available_review_templates,
+    create_forge_review, get_review_template_functions, list_forge_reviews,
+};
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
     if host.contains("github.com") || host.starts_with("github.") {
