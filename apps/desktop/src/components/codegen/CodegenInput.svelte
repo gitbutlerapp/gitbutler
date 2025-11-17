@@ -198,14 +198,6 @@
 		new CodegenHunkDropHandler(stackId, addAttachment)
 	]);
 
-	const placeholderVariants = [
-		'What to build?',
-		'Describe your changes.',
-		'What to create?',
-		'Describe what to build.',
-		'What to code?'
-	];
-
 	// Expose methods to manipulate text programmatically (e.g., for template insertion)
 	export function setText(text: string) {
 		editorRef?.setText(text);
@@ -253,15 +245,13 @@
 				</div>
 			{/if}
 
-			{@const randomPlaceholder =
-				placeholderVariants[Math.floor(Math.random() * placeholderVariants.length)]}
 			<RichTextEditor
 				bind:this={editorRef}
 				bind:value
 				namespace="codegen-input"
 				plaintext={true}
 				styleContext="chat-input"
-				placeholder="{randomPlaceholder} Use @ to reference files…"
+				placeholder="Use @ to reference files, ↓ and ↑ for prompt history"
 				minHeight="4rem"
 				maxHeight="20rem"
 				onError={(e: unknown) => console.warn('Editor error', e)}
