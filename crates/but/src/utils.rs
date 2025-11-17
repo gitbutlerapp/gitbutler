@@ -1,8 +1,8 @@
 use std::io::Write;
 
-use colored::Colorize;
-
 use crate::{args::Args, metrics::MetricsContext};
+use colored::Colorize;
+use minus::ExitStrategy;
 
 /// How we should format anything written to [`std::io::stdout()`].
 #[derive(Debug, Copy, Clone, clap::ValueEnum, Default)]
@@ -114,7 +114,11 @@ impl OutputChannel {
             {
                 None
             } else {
-                Some(minus::Pager::new())
+                let pager = minus::Pager::new();
+                let msg = "can talk to newly created pager";
+                pager.set_exit_strategy(ExitStrategy::PagerQuit).expect(msg);
+                pager.set_prompt("GitButler").expect(msg);
+                Some(pager)
             },
         }
     }
