@@ -180,6 +180,11 @@
 			outline: none;
 			background-color: var(--clr-bg-1-muted);
 		}
+
+		&[disabled] {
+			cursor: not-allowed;
+			opacity: 0.5;
+		}
 	}
 
 	.branch-name-input[readonly] {
