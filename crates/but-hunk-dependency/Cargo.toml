@@ -16,6 +16,7 @@ but-serde.workspace = true
 but-oxidize.workspace = true
 
 gitbutler-command-context.workspace = true
+gitbutler-repo.workspace = true
 # For `ui` module
 gitbutler-stack.workspace = true
 # TODO: remove once not needed anymore

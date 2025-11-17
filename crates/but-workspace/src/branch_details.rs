@@ -1,15 +1,17 @@
 use std::collections::HashSet;
 
-use anyhow::Context;
-use but_core::RefMetadata;
-use gix::{date::parse::TimeBuf, prelude::ObjectIdExt, reference::Category, remote::Direction};
-use itertools::Itertools;
-
 use crate::{
     ref_info::function::workspace_data_of_default_workspace_branch,
     ui,
     ui::{CommitState, PushStatus, UpstreamCommit},
 };
+use anyhow::Context;
+use but_core::RefMetadata;
+use but_oxidize::{ObjectIdExt as _, OidExt};
+use gix::{
+    date::parse::TimeBuf, prelude::ObjectIdExt as _, reference::Category, remote::Direction,
+};
+use itertools::Itertools;
 
 /// Returns information about the current state of a branch identified by its `name`.
 /// This branch is assumed to not be in the workspace, but it will still be assumed to want to integrate with the workspace target
@@ -175,22 +177,24 @@ fn upstream_commits_gix(
     branch_id: gix::ObjectId,
     authors: &mut HashSet<ui::Author>,
 ) -> anyhow::Result<Vec<UpstreamCommit>> {
-    let revwalk = upstream_id
-        .ancestors()
-        .with_hidden([branch_id, integration_branch_id])
-        .first_parent_only()
-        .all()?;
+    let git2_repo = git2::Repository::open(upstream_id.repo.path())?;
+    let mut revwalk = git2_repo.revwalk()?;
+    revwalk.simplify_first_parent()?;
+    revwalk.push(upstream_id.to_git2())?;
+    revwalk.hide(branch_id.to_git2())?;
+    revwalk.hide(integration_branch_id.to_git2())?;
+
     let mut out = Vec::new();
-    for info in revwalk {
-        let info = info?;
-        let commit = info.id().object()?.into_commit();
+    for id in revwalk {
+        let id = id?.to_gix().attach(upstream_id.repo);
+        let commit = id.object()?.into_commit();
         let commit = commit.decode()?;
         let author: ui::Author = commit.author().into();
         let commiter: ui::Author = commit.committer().into();
         authors.insert(author.clone());
         authors.insert(commiter);
         out.push(UpstreamCommit {
-            id: info.id,
+            id: id.detach(),
             message: commit.message.into(),
             created_at: i128::from(commit.time().seconds) * 1000,
             author,
@@ -206,16 +210,17 @@ fn local_commits_gix(
     integration_branch_id: gix::ObjectId,
     authors: &mut HashSet<ui::Author>,
 ) -> anyhow::Result<Vec<ui::Commit>> {
-    let revwalk = branch_id
-        .ancestors()
-        .with_hidden([integration_branch_id])
-        .first_parent_only()
-        .all()?;
+    // TODO(gix): make this work in `gix` or use the Graph traversal for this.
+    let git2_repo = git2::Repository::open(branch_id.repo.path())?;
+    let mut revwalk = git2_repo.revwalk()?;
+    revwalk.push(branch_id.to_git2())?;
+    revwalk.hide(integration_branch_id.to_git2())?;
+    revwalk.simplify_first_parent()?;
 
     let mut out = Vec::new();
-    for info in revwalk {
-        let info = info?;
-        let commit = but_core::Commit::from_id(info.id())?;
+    for id in revwalk {
+        let id = id?.to_gix().attach(branch_id.repo);
+        let commit = but_core::Commit::from_id(id)?;
 
         let mut buf = TimeBuf::default();
         let author: ui::Author = commit.author.to_ref(&mut buf).into();
@@ -223,11 +228,11 @@ fn local_commits_gix(
         authors.insert(author.clone());
         authors.insert(commiter);
         out.push(ui::Commit {
-            id: info.id,
+            id: id.detach(),
             parent_ids: commit.parents.iter().cloned().collect(),
             message: commit.message.clone(),
             has_conflicts: commit.is_conflicted(),
-            state: CommitState::LocalAndRemote(info.id),
+            state: CommitState::LocalAndRemote(id.detach()),
             created_at: i128::from(commit.committer.time.seconds) * 1000,
             author,
             gerrit_review_url: None,

@@ -1166,6 +1166,7 @@ dependencies = [
  "but-workspace",
  "git2",
  "gitbutler-command-context",
+ "gitbutler-repo",
  "gitbutler-stack",
  "gitbutler-testsupport",
  "gix",

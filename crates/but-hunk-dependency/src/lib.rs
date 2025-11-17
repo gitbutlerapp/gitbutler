@@ -129,7 +129,8 @@ mod input;
 
 use anyhow::Context;
 use but_core::{TreeChange, UnifiedPatch};
-use but_oxidize::ObjectIdExt;
+use but_oxidize::{ObjectIdExt, OidExt};
+use gitbutler_repo::logging::{LogUntil, RepositoryExt};
 use gix::{prelude::ObjectIdExt as _, trace};
 pub use input::{InputCommit, InputDiffHunk, InputFile, InputStack};
 
@@ -211,17 +212,20 @@ fn commits_in_stack_base_to_tip_without_merge_bases(
     git2_repo: &git2::Repository,
     common_merge_base: gix::ObjectId,
 ) -> anyhow::Result<Vec<gix::ObjectId>> {
-    let commit_ids: Vec<_> = tip
-        .ancestors()
-        .first_parent_only()
-        .with_hidden(Some(common_merge_base))
-        .all()?
-        .collect::<Result<_, _>>()?;
-    let commit_ids = commit_ids.into_iter().rev().filter_map(|info| {
-        let commit = info.id().object().ok()?.into_commit();
+    let commit_ids: Vec<_> = git2_repo
+        .l(
+            tip.to_git2(),
+            LogUntil::Commit(common_merge_base.to_git2()),
+            false, /* all parents */
+        )?
+        .into_iter()
+        .map(|oid| oid.to_gix().attach(tip.repo))
+        .collect();
+    let commit_ids = commit_ids.into_iter().rev().filter_map(|id| {
+        let commit = id.object().ok()?.into_commit();
         let commit = commit.decode().ok()?;
         if commit.parents.len() == 1 {
-            return Some(info.id);
+            return Some(id.detach());
         }
 
         // TODO: probably to be reviewed as it basically doesn't give access to the
@@ -232,7 +236,7 @@ fn commits_in_stack_base_to_tip_without_merge_bases(
                 .is_ok_and(|(number_commits_ahead, _)| number_commits_ahead == 0)
         });
 
-        (!has_integrated_parent).then_some(info.id)
+        (!has_integrated_parent).then_some(id.detach())
     });
     Ok(commit_ids.collect())
 }
