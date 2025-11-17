@@ -293,7 +293,7 @@
 <div
 	role="presentation"
 	bind:this={resizerDiv}
-	data-remove-from-draggable
+	data-no-drag
 	onpointerdown={onMouseDown}
 	ondblclick={() => {
 		onDblClick?.();

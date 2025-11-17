@@ -308,7 +308,7 @@ export function cloneElement(node: HTMLElement) {
 	const cloneEl = node.cloneNode(true) as HTMLElement;
 
 	// exclude all ignored elements from the clone
-	const ignoredElements = Array.from(cloneEl.querySelectorAll('[data-remove-from-draggable]'));
+	const ignoredElements = Array.from(cloneEl.querySelectorAll('[data-no-drag]'));
 	ignoredElements.forEach((el) => el.remove());
 
 	return cloneEl;
