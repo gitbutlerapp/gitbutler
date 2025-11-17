@@ -235,11 +235,9 @@ pub async fn handle(
                 AppSettings::load_from_default_path_creating()?,
             )?;
             // Get branch name or use canned name
-            let branch_name = branch_name
-                .map(Ok::<_, but_api::json::Error>)
-                .unwrap_or_else(|| {
-                    but_api::legacy::workspace::canned_branch_name(legacy_project.id)
-                })?;
+            let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
+                but_api::legacy::workspace::canned_branch_name(legacy_project.id)
+            })?;
 
             // Store anchor string for JSON output
             let anchor_for_json = anchor.clone();

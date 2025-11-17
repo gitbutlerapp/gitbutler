@@ -1,11 +1,9 @@
 //! In place of commands.rs
 use anyhow::Result;
-use but_api_macros::{api_cmd, api_cmd_tauri};
+use but_api_macros::api_cmd_tauri;
 use but_github::{AuthStatusResponse, AuthenticatedUser, Verification};
 use but_secret::Sensitive;
 use tracing::instrument;
-
-use crate::json::Error;
 
 pub mod json {
     use but_github::{AuthStatusResponse, AuthenticatedUser};
@@ -103,10 +101,9 @@ pub async fn store_github_enterprise_pat(
     but_github::store_enterprise_pat(&host, &access_token, &storage).await
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Result<(), Error> {
+pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Result<()> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     but_github::forget_gh_access_token(&account, &storage).ok();
     Ok(())

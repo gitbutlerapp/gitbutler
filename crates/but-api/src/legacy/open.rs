@@ -1,12 +1,10 @@
 //! In place of commands.rs
 use std::env;
 
-use anyhow::{Context, bail};
-use but_api_macros::api_cmd;
+use anyhow::{Context, Result, bail};
+use but_api_macros::api_cmd_tauri;
 use tracing::instrument;
 use url::Url;
-
-use crate::json::Error;
 
 pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
     let target_url = Url::parse(path).with_context(|| format!("Invalid path format: '{path}'"))?;
@@ -85,17 +83,15 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn open_url(url: String) -> Result<(), Error> {
-    Ok(open_that(&url)?)
+pub fn open_url(url: String) -> Result<()> {
+    open_that(&url)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn show_in_finder(path: String) -> Result<(), Error> {
+pub fn show_in_finder(path: String) -> Result<()> {
     // Cross-platform implementation to open file/directory in the default file manager
     // macOS: Opens in Finder (with -R flag to reveal the item)
     // Windows: Opens in File Explorer

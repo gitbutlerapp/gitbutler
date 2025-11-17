@@ -1,7 +1,7 @@
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{FnArg, ItemFn, Pat, Path, parse_macro_input};
+use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 
 /// To be used on functions, so a function `func` will be turned into:
 /// * `func` - the original item, unchanged
@@ -59,11 +59,11 @@ pub fn api_cmd(_attr: TokenStream, item: TokenStream) -> TokenStream {
         // Cmd function
         #vis fn #cmd_name(
             params: ::serde_json::Value,
-        ) -> Result<::serde_json::Value, crate::json::Error> {
-            use crate::json::ToError;
-            let params: #struct_name = ::serde_json::from_value(params).to_error()?;
-            let result = #fn_name(#(params.#param_names),*)?;
-            ::serde_json::to_value(result).to_error()
+        ) -> anyhow::Result<::serde_json::Value> {
+            use crate::json::ToJsonError;
+            let params: #struct_name = ::serde_json::from_value(params).to_json_error()?;
+            let value = #fn_name(#(params.#param_names),*)?;
+            Ok(::serde_json::to_value(value)?)
         }
 
     };
@@ -87,10 +87,47 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = &sig.inputs;
     let output = &sig.output;
 
+    enum Conv {
+        From,
+        TryFrom,
+    }
+
     let path = if attr.is_empty() {
         None
     } else {
-        Some(parse_macro_input!(attr as Path))
+        let meta = syn::parse_macro_input!(attr as syn::Meta);
+        match meta {
+            syn::Meta::Path(path) => {
+                // #[api_cmd_tauri(Foo)]
+                Some((Conv::From, path))
+            }
+            syn::Meta::NameValue(nv) => {
+                if let (Some(ident), Expr::Path(path)) = (&nv.path.get_ident(), &nv.value) {
+                    if *ident == "try_from" {
+                        // #[api_cmd_tauri(try_from = Foo)]
+                        Some((Conv::TryFrom, path.path.clone()))
+                    } else {
+                        return syn::Error::new_spanned(
+                            ident,
+                            "Need `try_from = path` to use try-from instead of from",
+                        )
+                        .to_compile_error()
+                        .into();
+                    }
+                } else {
+                    return syn::Error::new_spanned(
+                        nv,
+                        "Need `try_from = path` to use try-from instead of from",
+                    )
+                    .to_compile_error()
+                    .into();
+                }
+            }
+            syn::Meta::List(list) => {
+                // #[api_cmd_tauri(key, other, try_from = Foo)]
+                panic!("Currently unsupported: {list:?}")
+            }
+        }
     };
 
     /// Detect `Result<Option<` type
@@ -110,8 +147,9 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    let outputs_result_option = path.map(|p| {
+    let outputs_result_option = path.map(|(conv, p)| {
         (
+            conv,
             p,
             is_result_option(match &sig.output {
                 syn::ReturnType::Type(_, ty) => ty.as_ref(),
@@ -172,14 +210,29 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
     let tauri_cmd_name = format_ident!("__cmd__{}", json_name);
     let tauri_orig_cmd_name = format_ident!("__cmd__{}", fn_name);
 
-    let convert_json = if let Some((path, is_result_opt)) = outputs_result_option {
-        if is_result_opt {
-            quote! {
-                let result: Option<#path> = result.map(Into::into);
+    let convert_json = if let Some((conv, path, is_result_opt)) = outputs_result_option {
+        match conv {
+            Conv::From => {
+                if is_result_opt {
+                    quote! {
+                        let result: Option<#path> = result.map(Into::into);
+                    }
+                } else {
+                    quote! {
+                        let result: #path = result.into();
+                    }
+                }
             }
-        } else {
-            quote! {
-                let result: #path = result.into();
+            Conv::TryFrom => {
+                if is_result_opt {
+                    quote! {
+                        let result: Option<#path> = result.map(TryInto::try_into).transpose()?;
+                    }
+                } else {
+                    quote! {
+                        let result: #path = result.try_into()?;
+                    }
+                }
             }
         }
     } else {
@@ -205,12 +258,11 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
         // Cmd function
         #vis #asyncness fn #cmd_name(
             params: ::serde_json::Value,
-        ) -> Result<::serde_json::Value, crate::json::Error> {
-            use crate::json::ToError;
-            let params: #struct_name = ::serde_json::from_value(params).to_error()?;
+        ) -> anyhow::Result<::serde_json::Value> {
+            let params: #struct_name = ::serde_json::from_value(params)?;
             let result = #call_fn?;
             #convert_json
-            ::serde_json::to_value(result).to_error()
+            Ok(::serde_json::to_value(result)?)
         }
 
         // tauri function
@@ -218,10 +270,10 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
         #vis #asyncness fn #json_name(
             #input
         ) -> Result<::serde_json::Value, crate::json::Error> {
-            use crate::json::ToError;
+            use crate::json::ToJsonError;
             let result = #call_fn_args?;
             #convert_json
-            ::serde_json::to_value(result).to_error()
+            ::serde_json::to_value(result).to_json_error()
         }
 
         #[cfg(feature = "tauri")]

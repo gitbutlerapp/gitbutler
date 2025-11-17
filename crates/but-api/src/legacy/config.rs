@@ -1,4 +1,5 @@
-use but_api_macros::api_cmd;
+use anyhow::Result;
+use but_api_macros::api_cmd_tauri;
 use but_core::{RepositoryExt, settings::git::ui::GitConfigSettings};
 use but_serde::bstring_opt_lossy;
 use gitbutler_project::ProjectId;
@@ -6,37 +7,30 @@ use gix::bstr::BString;
 use serde::Serialize;
 use tracing::instrument;
 
-use crate::json::Error;
-
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings, Error> {
+pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings> {
     gitbutler_project::get(project_id)?
         .open()?
         .git_settings()
         .map(Into::into)
-        .map_err(Into::into)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn set_gb_config(project_id: ProjectId, config: GitConfigSettings) -> Result<(), Error> {
+pub fn set_gb_config(project_id: ProjectId, config: GitConfigSettings) -> Result<()> {
     gitbutler_project::get(project_id)?
         .open()?
         .set_git_settings(&config.into())
-        .map_err(Into::into)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn store_author_globally_if_unset(
     project_id: ProjectId,
     name: String,
     email: String,
-) -> Result<(), Error> {
+) -> Result<()> {
     let repo = gitbutler_project::get(project_id)?.open()?;
     but_rebase::commit::save_author_if_unset_in_repo(
         &repo,
@@ -58,11 +52,10 @@ pub struct AuthorInfo {
     pub email: Option<BString>,
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 /// Return the Git author information as the project repository would see it.
-pub fn get_author_info(project_id: ProjectId) -> Result<AuthorInfo, Error> {
+pub fn get_author_info(project_id: ProjectId) -> Result<AuthorInfo> {
     let repo = gitbutler_project::get(project_id)?.open()?;
     let (name, email) = repo
         .author()

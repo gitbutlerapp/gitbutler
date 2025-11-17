@@ -1,8 +1,7 @@
-use anyhow::Context;
-use but_api_macros::api_cmd;
+use anyhow::{Context, Result};
+use but_api_macros::api_cmd_tauri;
 use but_core::{
     Commit,
-    commit::ConflictEntries,
     ref_metadata::StackId,
     ui::{TreeChange, TreeChanges},
 };
@@ -15,43 +14,45 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::Refname;
 use gix::refs::Category;
-use serde::Serialize;
 use tracing::instrument;
 
-use crate::json::{Error, HexHash};
+use crate::json::HexHash;
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
     project_id: ProjectId,
     change: TreeChange,
-) -> anyhow::Result<Option<but_core::UnifiedPatch>, Error> {
+) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
     let change: but_core::TreeChange = change.into();
     let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let repo = project.open()?;
-    Ok(change.unified_patch(&repo, app_settings.context_lines)?)
+    change.unified_patch(&repo, app_settings.context_lines)
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CommitDetails {
-    pub commit: but_workspace::ui::Commit,
-    #[serde(flatten)]
-    pub changes: but_core::ui::TreeChanges,
-    pub conflict_entries: Option<ConflictEntries>,
+pub mod json {
+    use but_core::commit::ConflictEntries;
+    use serde::Serialize;
+
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CommitDetails {
+        pub commit: but_workspace::ui::Commit,
+        #[serde(flatten)]
+        pub changes: but_core::ui::TreeChanges,
+        pub conflict_entries: Option<ConflictEntries>,
+    }
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn commit_details(
     project_id: ProjectId,
     commit_id: HexHash,
-) -> anyhow::Result<CommitDetails, Error> {
+) -> anyhow::Result<json::CommitDetails> {
     let project = gitbutler_project::get(project_id)?;
     let repo = project.open()?;
     let commit = repo
@@ -59,7 +60,7 @@ pub fn commit_details(
         .context("Failed for find commit")?;
     let changes = but_core::diff::ui::commit_changes_by_worktree_dir(&repo, commit_id.into())?;
     let conflict_entries = Commit::from_id(commit.id())?.conflict_entries()?;
-    Ok(CommitDetails {
+    Ok(json::CommitDetails {
         commit: commit.try_into()?,
         changes,
         conflict_entries,
@@ -72,17 +73,16 @@ pub fn commit_details(
 /// Otherwise, if stack_id is not provided, this will include all changes as compared to the target branch
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn changes_in_branch(
     project_id: ProjectId,
     _stack_id: Option<StackId>,
     branch: Refname,
-) -> anyhow::Result<TreeChanges, Error> {
+) -> anyhow::Result<TreeChanges> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    changes_in_branch_inner(ctx, branch).map_err(Into::into)
+    changes_in_branch_inner(ctx, branch)
 }
 
 fn changes_in_branch_inner(ctx: CommandContext, branch: Refname) -> anyhow::Result<TreeChanges> {
@@ -111,10 +111,9 @@ fn changes_in_branch_inner(ctx: CommandContext, branch: Refname) -> anyhow::Resu
 /// * conflicts are ignored
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChanges, Error> {
+pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChanges> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
@@ -164,13 +163,12 @@ pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChan
     })
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn assign_hunk(
     project_id: ProjectId,
     assignments: Vec<HunkAssignmentRequest>,
-) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
+) -> anyhow::Result<Vec<AssignmentRejection>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let rejections = but_hunk_assignment::assign(ctx, assignments, None)?;

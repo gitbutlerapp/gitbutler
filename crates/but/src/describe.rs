@@ -169,7 +169,7 @@ fn edit_commit_message_by_id(
 }
 
 fn get_changed_files_from_commit_details(
-    commit_details: &but_api::legacy::diff::CommitDetails,
+    commit_details: &but_api::legacy::diff::json::CommitDetails,
 ) -> Vec<String> {
     let mut files = Vec::new();
 

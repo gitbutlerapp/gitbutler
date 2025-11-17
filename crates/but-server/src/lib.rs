@@ -11,7 +11,7 @@ use axum::{
     response::IntoResponse,
     routing::{any, get},
 };
-use but_api::{github, json::ToError as _, legacy};
+use but_api::{github, json, legacy};
 use but_claude::Broadcaster;
 use but_claude::Claude;
 use but_settings::AppSettingsWithDiskSync;
@@ -79,7 +79,7 @@ pub async fn run() {
             get(|| async { "Hello, World!" }).post({
                 let app = app.clone();
                 let extra = extra.clone();
-                move |req| handle_command(req, app, extra, app_settings)
+                move |req| handle_json_command(req, app, extra, app_settings)
             }),
         )
         .route(
@@ -149,9 +149,10 @@ async fn handle_command(
     app: Claude,
     extra: Extra,
     app_settings_sync: AppSettingsWithDiskSync,
-) -> Json<serde_json::Value> {
+    // TODO: make this anyhow::Result<serde_json::Value>
+) -> anyhow::Result<serde_json::Value> {
     let command: &str = &request.command;
-    let result = match command {
+    match command {
         // General commands
         "git_remote_branches" => legacy::git::git_remote_branches_cmd(request.params),
         "git_test_push" => legacy::git::git_test_push_cmd(request.params),
@@ -199,50 +200,29 @@ async fn handle_command(
         "target_commits" => legacy::workspace::target_commits_cmd(request.params),
         // App settings
         "get_app_settings" => legacy::settings::get_app_settings_cmd(request.params),
-        "update_onboarding_complete" => {
-            serde_json::from_value(request.params)
-                .to_error()
-                .and_then(|params| {
-                    legacy::settings::update_onboarding_complete(&app_settings_sync, params)
-                        .map(|r| json!(r))
-                })
-        }
-        "update_telemetry" => {
-            serde_json::from_value(request.params)
-                .to_error()
-                .and_then(|params| {
-                    legacy::settings::update_telemetry(&app_settings_sync, params).map(|r| json!(r))
-                })
-        }
-        "update_telemetry_distinct_id" => serde_json::from_value(request.params)
-            .to_error()
-            .and_then(|params| {
-                legacy::settings::update_telemetry_distinct_id(&app_settings_sync, params)
-                    .map(|r| json!(r))
-            }),
-        "update_feature_flags" => {
-            serde_json::from_value(request.params)
-                .to_error()
-                .and_then(|params| {
-                    legacy::settings::update_feature_flags(&app_settings_sync, params)
-                        .map(|r| json!(r))
-                })
-        }
-        "update_claude" => serde_json::from_value(request.params)
-            .to_error()
-            .and_then(|params| {
-                legacy::settings::update_claude(&app_settings_sync, params).map(|r| json!(r))
-            }),
-        "update_fetch" => serde_json::from_value(request.params)
-            .to_error()
-            .and_then(|params| {
-                legacy::settings::update_fetch(&app_settings_sync, params).map(|r| json!(r))
-            }),
-        "update_reviews" => serde_json::from_value(request.params)
-            .to_error()
-            .and_then(|params| {
-                legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
-            }),
+        "update_onboarding_complete" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_onboarding_complete(&app_settings_sync, params)
+                .map(|r| json!(r))
+        }),
+        "update_telemetry" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_telemetry(&app_settings_sync, params).map(|r| json!(r))
+        }),
+        "update_telemetry_distinct_id" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_telemetry_distinct_id(&app_settings_sync, params)
+                .map(|r| json!(r))
+        }),
+        "update_feature_flags" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_feature_flags(&app_settings_sync, params).map(|r| json!(r))
+        }),
+        "update_claude" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_claude(&app_settings_sync, params).map(|r| json!(r))
+        }),
+        "update_fetch" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_fetch(&app_settings_sync, params).map(|r| json!(r))
+        }),
+        "update_reviews" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
+        }),
         // Secret management
         "secret_get_global" => legacy::secret::secret_get_global_cmd(request.params),
         "secret_set_global" => legacy::secret::secret_set_global_cmd(request.params),
@@ -314,7 +294,7 @@ async fn handle_command(
         }
         "find_commit" => legacy::virtual_branches::find_commit_cmd(request.params),
         "upstream_integration_statuses" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result =
@@ -325,7 +305,7 @@ async fn handle_command(
             }
         }
         "integrate_upstream" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = legacy::virtual_branches::integrate_upstream_cmd(params).await;
@@ -335,7 +315,7 @@ async fn handle_command(
             }
         }
         "resolve_upstream_integration" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result =
@@ -398,11 +378,11 @@ async fn handle_command(
         "update_workspace_rule" => legacy::rules::update_workspace_rule_cmd(request.params),
         "list_workspace_rules" => legacy::rules::list_workspace_rules_cmd(request.params),
         "init_device_oauth" => {
-            let result = github::init_device_oauth_json().await;
+            let result = github::init_device_oauth().await;
             result.map(|r| json!(r))
         }
         "check_auth_status" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = github::check_auth_status_cmd(params).await;
@@ -412,7 +392,7 @@ async fn handle_command(
             }
         }
         "store_github_pat" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = github::store_github_pat_cmd(params).await;
@@ -422,7 +402,7 @@ async fn handle_command(
             }
         }
         "store_github_enterprise_pat" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = github::store_github_enterprise_pat_cmd(params).await;
@@ -432,12 +412,12 @@ async fn handle_command(
             }
         }
         "forget_github_account" => github::forget_github_account_cmd(request.params),
-        "list_known_github_accounts" => github::list_known_github_accounts_json()
-            .await
-            .map(|r| json!(r)),
+        "list_known_github_accounts" => {
+            github::list_known_github_accounts().await.map(|r| json!(r))
+        }
         "clear_all_github_tokens" => github::clear_all_github_tokens_cmd(request.params),
         "get_gh_user" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = github::get_gh_user_cmd(params).await;
@@ -451,7 +431,7 @@ async fn handle_command(
         "pr_template" => legacy::forge::pr_template_cmd(request.params),
         "determine_forge_from_url" => legacy::forge::determine_forge_from_url_cmd(request.params),
         "list_reviews" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = legacy::forge::list_reviews_cmd(params).await;
@@ -461,7 +441,7 @@ async fn handle_command(
             }
         }
         "publish_review" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = legacy::forge::publish_review_cmd(params).await;
@@ -477,7 +457,7 @@ async fn handle_command(
         "cli_path" => legacy::cli::cli_path_cmd(request.params),
         // Askpass commands (async)
         "submit_prompt_response" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = legacy::askpass::submit_prompt_response(params).await;
@@ -504,28 +484,25 @@ async fn handle_command(
         //
         // Zip/Archive commands
         "get_project_archive_path" => {
-            let params = serde_json::from_value(request.params).to_error();
-            match params {
-                Ok(params) => {
-                    let result = legacy::zip::get_project_archive_path(&extra.archival, params);
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct GetProjectArchivePathParams {
+                pub project_id: ProjectId,
             }
+            let params = serde_json::from_value::<GetProjectArchivePathParams>(request.params)?;
+            extra
+                .archival
+                .zip_entire_repository(params.project_id)
+                .map(to_json_or_panic)
         }
         "get_logs_archive_path" => {
-            let result = legacy::zip::get_logs_archive_path(&extra.archival);
+            let result = extra.archival.zip_logs();
             result.map(|r| json!(r))
         }
         "claude_send_message" => {
-            let params = serde_json::from_value(request.params).to_error();
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_send_message(&app, params).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
+            let params = deserialize_json(request.params)?;
+            let result = legacy::claude::claude_send_message(&app, params).await;
+            result.map(|r| json!(r))
         }
         "claude_get_mcp_config" => {
             #[derive(Deserialize)]
@@ -533,17 +510,12 @@ async fn handle_command(
             struct Params {
                 project_id: ProjectId,
             }
-            let params = serde_json::from_value::<Params>(request.params).to_error();
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_get_mcp_config(params.project_id).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
+            let params = serde_json::from_value::<Params>(request.params)?;
+            let result = legacy::claude::claude_get_mcp_config(params.project_id).await;
+            result.map(|r| json!(r))
         }
         "claude_get_messages" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = legacy::claude::claude_get_messages(&app, params);
@@ -559,7 +531,7 @@ async fn handle_command(
                 project_id: ProjectId,
                 session_id: String,
             }
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(Params {
                     project_id,
@@ -580,7 +552,7 @@ async fn handle_command(
             legacy::claude::claude_update_permission_request_cmd(request.params)
         }
         "claude_cancel_session" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = legacy::claude::claude_cancel_session(&app, params).await;
@@ -594,7 +566,7 @@ async fn handle_command(
             result.map(|r| json!(r))
         }
         "claude_is_stack_active" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = legacy::claude::claude_is_stack_active(&app, params).await;
@@ -604,7 +576,7 @@ async fn handle_command(
             }
         }
         "claude_compact_history" => {
-            let params = serde_json::from_value(request.params).to_error();
+            let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
                     let result = legacy::claude::claude_compact_history(&app, params).await;
@@ -626,14 +598,9 @@ async fn handle_command(
             struct Params {
                 project_id: ProjectId,
             }
-            let params = serde_json::from_value::<Params>(request.params).to_error();
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_get_sub_agents(params.project_id).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
+            let params = serde_json::from_value::<Params>(request.params)?;
+            let result = legacy::claude::claude_get_sub_agents(params.project_id).await;
+            result.map(|r| json!(r))
         }
         "claude_verify_path" => {
             #[derive(Debug, Deserialize)]
@@ -642,22 +609,37 @@ async fn handle_command(
                 pub project_id: ProjectId,
                 pub path: String,
             }
-            let params = serde_json::from_value::<Params>(request.params).to_error();
-            match params {
-                Ok(params) => {
-                    let result =
-                        legacy::claude::claude_verify_path(params.project_id, params.path).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
+            let params = serde_json::from_value::<Params>(request.params)?;
+            let result = legacy::claude::claude_verify_path(params.project_id, params.path).await;
+            result.map(|r| json!(r))
         }
 
-        _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
-    };
-
-    match result {
-        Ok(value) => Json(json!(Response::Success(value))),
-        Err(e) => Json(json!(Response::Error(json!(e)))),
+        _ => Err(anyhow::anyhow!("Command {} not found!", command)),
     }
+}
+
+async fn handle_json_command(
+    req: Json<Request>,
+    // TODO: this is due to mixing UI broadcasting into Claude related state (which also broadcasts)
+    app: Claude,
+    extra: Extra,
+    app_settings_sync: AppSettingsWithDiskSync,
+    // TODO: make this anyhow::Result<serde_json::Value>
+) -> Json<serde_json::Value> {
+    let res = handle_command(req, app, extra, app_settings_sync).await;
+    match res {
+        Ok(value) => Json(json!(Response::Success(value))),
+        Err(e) => {
+            let e = json::Error::from(e);
+            Json(json!(Response::Error(json!(e))))
+        }
+    }
+}
+
+fn to_json_or_panic(value: impl serde::Serialize) -> serde_json::Value {
+    serde_json::to_value(value).unwrap()
+}
+
+fn deserialize_json<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> anyhow::Result<T> {
+    Ok(serde_json::from_value(value)?)
 }

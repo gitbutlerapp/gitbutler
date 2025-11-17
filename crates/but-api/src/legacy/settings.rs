@@ -1,5 +1,6 @@
 //! In place of commands.rs
-use but_api_macros::api_cmd;
+use anyhow::Result;
+use but_api_macros::api_cmd_tauri;
 use but_settings::{
     AppSettings, AppSettingsWithDiskSync,
     api::{
@@ -9,12 +10,9 @@ use but_settings::{
 use serde::Deserialize;
 use tracing::instrument;
 
-use crate::json::Error;
-
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn get_app_settings() -> Result<AppSettings, Error> {
+pub fn get_app_settings() -> Result<AppSettings> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
     Ok(app_settings)
 }
@@ -28,10 +26,8 @@ pub struct UpdateOnboardingCompleteParams {
 pub fn update_onboarding_complete(
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateOnboardingCompleteParams,
-) -> Result<(), Error> {
-    app_settings_sync
-        .update_onboarding_complete(params.update)
-        .map_err(|e| e.into())
+) -> Result<()> {
+    app_settings_sync.update_onboarding_complete(params.update)
 }
 
 #[derive(Deserialize)]
@@ -43,10 +39,8 @@ pub struct UpdateTelemetryParams {
 pub fn update_telemetry(
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateTelemetryParams,
-) -> Result<(), Error> {
-    app_settings_sync
-        .update_telemetry(params.update)
-        .map_err(|e| e.into())
+) -> Result<()> {
+    app_settings_sync.update_telemetry(params.update)
 }
 
 #[derive(Deserialize)]
@@ -58,10 +52,8 @@ pub struct UpdateTelemetryDistinctIdParams {
 pub fn update_telemetry_distinct_id(
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateTelemetryDistinctIdParams,
-) -> Result<(), Error> {
-    app_settings_sync
-        .update_telemetry_distinct_id(params.app_distinct_id)
-        .map_err(|e| e.into())
+) -> Result<()> {
+    app_settings_sync.update_telemetry_distinct_id(params.app_distinct_id)
 }
 
 #[derive(Deserialize)]
@@ -73,10 +65,8 @@ pub struct UpdateFeatureFlagsParams {
 pub fn update_feature_flags(
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateFeatureFlagsParams,
-) -> Result<(), Error> {
-    app_settings_sync
-        .update_feature_flags(params.update)
-        .map_err(|e| e.into())
+) -> Result<()> {
+    app_settings_sync.update_feature_flags(params.update)
 }
 
 #[derive(Deserialize)]
@@ -88,10 +78,8 @@ pub struct UpdateClaudeParams {
 pub fn update_claude(
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateClaudeParams,
-) -> Result<(), Error> {
-    app_settings_sync
-        .update_claude(params.update)
-        .map_err(|e| e.into())
+) -> Result<()> {
+    app_settings_sync.update_claude(params.update)
 }
 
 #[derive(Deserialize)]
@@ -103,10 +91,8 @@ pub struct UpdateReviewsParams {
 pub fn update_reviews(
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateReviewsParams,
-) -> Result<(), Error> {
-    app_settings_sync
-        .update_reviews(params.update)
-        .map_err(|e| e.into())
+) -> Result<()> {
+    app_settings_sync.update_reviews(params.update)
 }
 
 #[derive(Deserialize)]
@@ -118,10 +104,8 @@ pub struct UpdateFetchParams {
 pub fn update_fetch(
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateFetchParams,
-) -> Result<(), Error> {
-    app_settings_sync
-        .update_fetch(params.update)
-        .map_err(|e| e.into())
+) -> Result<()> {
+    app_settings_sync.update_fetch(params.update)
 }
 
 #[derive(Deserialize)]
@@ -133,8 +117,6 @@ pub struct UpdateUiParams {
 pub fn update_ui(
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateUiParams,
-) -> Result<(), Error> {
-    app_settings_sync
-        .update_ui(params.update)
-        .map_err(|e| e.into())
+) -> Result<()> {
+    app_settings_sync.update_ui(params.update)
 }

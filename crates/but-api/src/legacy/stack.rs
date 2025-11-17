@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
-use anyhow::{Context, anyhow};
-use but_api_macros::api_cmd;
+use anyhow::{Context, Result, anyhow};
+use but_api_macros::api_cmd_tauri;
 use but_settings::AppSettings;
 use gitbutler_branch_actions::{internal::PushResult, stack::CreateSeriesRequest};
 use gitbutler_command_context::CommandContext;
@@ -11,8 +11,6 @@ use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use gix::refs::Category;
 use tracing::instrument;
-
-use crate::json::Error;
 
 pub mod create_reference {
     use serde::{Deserialize, Serialize};
@@ -42,13 +40,12 @@ pub mod create_reference {
     }
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn create_reference(
     project_id: ProjectId,
     request: create_reference::Request,
-) -> Result<(Option<StackId>, gix::refs::FullName), Error> {
+) -> Result<(Option<StackId>, gix::refs::FullName)> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let create_reference::Request { new_name, anchor } = request;
@@ -56,7 +53,7 @@ pub fn create_reference(
         .to_full_name(new_name.as_str())
         .map_err(anyhow::Error::from)?;
     let anchor = anchor
-        .map(|anchor| -> Result<_, Error> {
+        .map(|anchor| -> Result<_> {
             Ok(match anchor {
                 create_reference::Anchor::AtCommit {
                     commit_id,
@@ -101,14 +98,13 @@ pub fn create_reference(
     Ok((stack_id, new_ref))
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn create_branch(
     project_id: ProjectId,
     stack_id: StackId,
     request: CreateSeriesRequest,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     if ctx.app_settings().feature_flags.ws3 {
@@ -124,8 +120,7 @@ pub fn create_branch(
         if request.preceding_head.is_some() {
             return Err(anyhow!(
                 "BUG: cannot have preceding head name set - let's use the new API instead"
-            )
-            .into());
+            ));
         }
 
         ctx.snapshot_create_dependent_branch(&request.name, guard.write_permission())
@@ -168,14 +163,9 @@ pub fn create_branch(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn remove_branch(
-    project_id: ProjectId,
-    stack_id: StackId,
-    branch_name: String,
-) -> Result<(), Error> {
+pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: String) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -207,30 +197,28 @@ pub fn remove_branch(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn update_branch_name(
     project_id: ProjectId,
     stack_id: StackId,
     branch_name: String,
     new_name: String,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_name(&ctx, stack_id, branch_name, new_name)?;
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn update_branch_description(
     project_id: ProjectId,
     stack_id: StackId,
     branch_name: String,
     description: Option<String>,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_description(
@@ -242,15 +230,14 @@ pub fn update_branch_description(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn update_branch_pr_number(
     project_id: ProjectId,
     stack_id: StackId,
     branch_name: String,
     pr_number: Option<usize>,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_pr_number(
@@ -262,8 +249,7 @@ pub fn update_branch_pr_number(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn push_stack(
     project_id: ProjectId,
@@ -273,7 +259,7 @@ pub fn push_stack(
     branch: String,
     run_hooks: bool,
     push_opts: Vec<but_gerrit::PushFlag>,
-) -> Result<PushResult, Error> {
+) -> Result<PushResult> {
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::push_stack(
@@ -285,18 +271,16 @@ pub fn push_stack(
         run_hooks,
         push_opts,
     )
-    .map_err(|e| e.into())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn push_stack_to_review(
     project_id: ProjectId,
     stack_id: StackId,
     top_branch: String,
     user: User,
-) -> Result<String, Error> {
+) -> Result<String> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let review_id =

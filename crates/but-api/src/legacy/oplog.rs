@@ -16,8 +16,8 @@
 //! Depending on the snapshot operation kind, there may be a payload (body) with additional details about the operation (e.g. commit message).
 //! Refer to `gitbutler_oplog::entry::Snapshot` and `gitbutler_oplog::entry::SnapshotDetails` for the metadata stored.
 //!
-use anyhow::Context;
-use but_api_macros::api_cmd;
+use anyhow::{Context, Result};
+use but_api_macros::api_cmd_tauri;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
@@ -27,8 +27,6 @@ use gitbutler_oplog::{
 };
 use gitbutler_project::ProjectId;
 use tracing::instrument;
-
-use crate::json::Error;
 
 /// List snapshots in the oplog.
 ///
@@ -41,15 +39,14 @@ use crate::json::Error;
 ///
 /// # Errors
 /// Returns an error if the project cannot be found or if there is an issue accessing the oplog.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn list_snapshots(
     project_id: ProjectId,
     limit: usize,
     sha: Option<String>,
     exclude_kind: Option<Vec<OperationKind>>,
-) -> Result<Vec<Snapshot>, Error> {
+) -> Result<Vec<Snapshot>> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let snapshots = ctx.list_snapshots(
@@ -70,10 +67,9 @@ pub fn list_snapshots(
 ///
 /// # Errors
 /// Returns an error if the project cannot be found, if the snapshot SHA is invalid, or if the underlying commit is not a valid snapshot commit
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn get_snapshot(project_id: ProjectId, sha: String) -> Result<Snapshot, Error> {
+pub fn get_snapshot(project_id: ProjectId, sha: String) -> Result<Snapshot> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let snapshot = ctx.get_snapshot(sha.parse().map_err(anyhow::Error::from)?)?;
@@ -89,13 +85,9 @@ pub fn get_snapshot(project_id: ProjectId, sha: String) -> Result<Snapshot, Erro
 ///
 /// # Errors
 /// Returns an error if the project cannot be found or if there is an issue creating the snapshot.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn create_snapshot(
-    project_id: ProjectId,
-    message: Option<String>,
-) -> Result<gix::ObjectId, Error> {
+pub fn create_snapshot(project_id: ProjectId, message: Option<String>) -> Result<gix::ObjectId> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -117,10 +109,9 @@ pub fn create_snapshot(
 /// This operation modifies the repository state, reverting it to the specified snapshot.
 /// This includes the state of the working directory as well as commmit history and references.
 /// Additionally, a new snapshot is created in the oplog to record the restore action.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<(), Error> {
+pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<()> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -142,13 +133,9 @@ pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<(), Error>
 ///
 /// # Errors
 /// Returns an error if the project cannot be found, if the snapshot SHA is invalid, or if there is an issue computing the diff.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn snapshot_diff(
-    project_id: ProjectId,
-    sha: String,
-) -> Result<Vec<but_core::ui::TreeChange>, Error> {
+pub fn snapshot_diff(project_id: ProjectId, sha: String) -> Result<Vec<but_core::ui::TreeChange>> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let diff = ctx.snapshot_diff(sha.parse().map_err(anyhow::Error::from)?)?;
