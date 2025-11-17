@@ -17,6 +17,7 @@
 //! * **minimal dependencies**
 //!    - both for the *crate* and for *parameters* of functions as well.
 //!         - i.e. try to avoid 'God' structures so the function only has access to what it needs to.
+//!    - don't introduce dependencies towards legacy crates (e.g. prefixed withn "gitbutler-")
 //! * **The filesystem is `Sync` but we don't have atomic operations**
 //!    - Let's be very careful about changes to the filesystem, must at least be on the level of Git which means `.lock` files instead of direct writes.
 //!    - If only one part of the application is supposed to change the worktree, let's protect the Application from itself by using `gitbutler::access` just like we do now.
