@@ -11,6 +11,7 @@ use crate::{
 
 mod apply;
 mod list;
+mod show;
 
 mod json {
     use serde::Serialize;
@@ -133,6 +134,26 @@ pub enum Subcommands {
         #[clap(long)]
         no_check: bool,
     },
+    /// Show commits ahead of base for a specific branch
+    Show {
+        /// CLI ID or name of the branch to show
+        branch_id: String,
+        /// Fetch and display review information
+        #[clap(short, long)]
+        review: bool,
+        /// Disable pager output
+        #[clap(long)]
+        no_pager: bool,
+        /// Show files modified in each commit with line counts
+        #[clap(short, long)]
+        files: bool,
+        /// Generate AI summary of the branch changes
+        #[clap(long)]
+        ai: bool,
+        /// Check if the branch merges cleanly into upstream and identify conflicting commits
+        #[clap(long)]
+        check: bool,
+    },
     /// Apply a branch to the workspace
     Apply {
         /// Name of the branch to apply
@@ -152,6 +173,7 @@ pub async fn handle(
     cmd: Option<Subcommands>,
     ctx: &but_ctx::Context,
     out: &mut OutputChannel,
+    json: bool,
 ) -> anyhow::Result<serde_json::Value> {
     let legacy_project = &ctx.legacy_project;
     match cmd {
@@ -173,7 +195,8 @@ pub async fn handle(
                 json,
                 check,
             )
-            .await
+            .await?;
+            Ok(we_need_proper_json_output_here())
         }
         Some(Subcommands::List {
             filter,
@@ -197,9 +220,30 @@ pub async fn handle(
                 json,
                 check,
             )
-            .await
+            .await?;
+            Ok(we_need_proper_json_output_here())
         }
-        Some(Subcommands::List { local }) => list::list(legacy_project, local, out).await,
+        Some(Subcommands::Show {
+            branch_id,
+            review,
+            no_pager,
+            files,
+            ai,
+            check,
+        }) => {
+            show::show(
+                legacy_project,
+                &branch_id,
+                json,
+                review,
+                !no_pager,
+                files,
+                ai,
+                check,
+            )
+            .await?;
+            Ok(we_need_proper_json_output_here())
+        }
         Some(Subcommands::New {
             branch_name,
             anchor,
