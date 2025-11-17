@@ -8,6 +8,7 @@ use crate::utils::{
     assure_nonconflicting, conflicted, fixture_writable, four_commits_writable, visualize_tree,
 };
 
+mod editor_creation;
 mod error_handling;
 
 mod commit {
@@ -18,7 +19,7 @@ mod commit {
 
         #[test]
         fn fail_if_nothing_can_be_written() -> anyhow::Result<()> {
-            let mut repo = fixture("four-commits")?;
+            let (mut repo, _) = fixture("four-commits")?;
             {
                 let mut config = repo.config_snapshot_mut();
                 config.set_raw_value(&"user.name", "name")?;
@@ -684,18 +685,30 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
 
 pub mod utils {
     use anyhow::Result;
+    use but_graph::VirtualBranchesTomlMetadata;
     use but_rebase::RebaseOutput;
     use but_testsupport::gix_testtools;
     use gix::{ObjectId, prelude::ObjectIdExt};
 
     /// Returns a fixture that may not be written to, objects will never touch disk either.
-    pub fn fixture(fixture_name: &str) -> Result<gix::Repository> {
+    pub fn fixture(
+        fixture_name: &str,
+    ) -> anyhow::Result<(
+        gix::Repository,
+        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    )> {
         let root = gix_testtools::scripted_fixture_read_only("rebase.sh")
             .map_err(anyhow::Error::from_boxed)?;
         let worktree_root = root.join(fixture_name);
         let repo =
-            gix::open_opts(worktree_root, gix::open::Options::isolated())?.with_object_memory();
-        Ok(repo)
+            gix::open_opts(&worktree_root, gix::open::Options::isolated())?.with_object_memory();
+
+        let meta = VirtualBranchesTomlMetadata::from_path(
+            repo.path()
+                .join(".git")
+                .join("should-never-be-written.toml"),
+        )?;
+        Ok((repo, std::mem::ManuallyDrop::new(meta)))
     }
 
     /// Returns a fixture that may be written to.
@@ -722,7 +735,7 @@ pub mod utils {
 
     /// The commits in the fixture repo, starting from the oldest
     pub fn four_commits() -> Result<(gix::Repository, Commits)> {
-        let repo = fixture("four-commits")?;
+        let (repo, _) = fixture("four-commits")?;
         let commits: Vec<_> = repo
             .head_id()?
             .ancestors()
@@ -789,5 +802,16 @@ pub mod utils {
                     .is_conflicted()
             })
             .collect()
+    }
+
+    pub fn standard_options() -> but_graph::init::Options {
+        but_graph::init::Options {
+            collect_tags: true,
+            commits_limit_hint: None,
+            commits_limit_recharge_location: vec![],
+            hard_limit: None,
+            extra_target_commit_id: None,
+            dangerously_skip_postprocessing_for_debugging: false,
+        }
     }
 }
