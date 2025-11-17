@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use anyhow::Result;
+use but_fs::write;
 use but_oxidize::OidExt as _;
-use gitbutler_fs::write;
 use gitbutler_project::Project;
 use gitbutler_repo::{GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME};
 use gitbutler_stack::VirtualBranchesHandle;

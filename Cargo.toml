@@ -51,8 +51,7 @@ gitbutler-project = { path = "crates/gitbutler-project" }
 gitbutler-user = { path = "crates/gitbutler-user" }
 gitbutler-branch = { path = "crates/gitbutler-branch" }
 gitbutler-reference = { path = "crates/gitbutler-reference" }
-gitbutler-storage = { path = "crates/gitbutler-storage" }
-gitbutler-fs = { path = "crates/gitbutler-fs" }
+but-fs = { path = "crates/but-fs" }
 gitbutler-time = { path = "crates/gitbutler-time" }
 gitbutler-commit = { path = "crates/gitbutler-commit" }
 gitbutler-url = { path = "crates/gitbutler-url" }

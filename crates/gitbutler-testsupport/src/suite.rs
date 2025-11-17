@@ -13,7 +13,7 @@ use crate::{VAR_NO_CLEANUP, init_opts, init_opts_bare, test_project::setup_confi
 
 pub struct Suite {
     pub local_app_data: Option<TempDir>,
-    pub storage: gitbutler_storage::Storage,
+    pub storage: but_fs::Storage,
 }
 
 impl Drop for Suite {
@@ -27,7 +27,7 @@ impl Drop for Suite {
 impl Default for Suite {
     fn default() -> Self {
         let local_app_data = temp_dir();
-        let storage = gitbutler_storage::Storage::new(local_app_data.path());
+        let storage = but_fs::Storage::new(local_app_data.path());
         Self {
             storage,
             local_app_data: Some(local_app_data),

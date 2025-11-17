@@ -225,7 +225,6 @@ The `crates/` directory contains ~65 Rust crates organized by functionality:
 **Note**: Some crates are marked for refactoring (see DEVELOPMENT.md). Be cautious when modifying:
 
 - gitbutler-reference
-- gitbutler-storage
 - gitbutler-branch-actions
 - gitbutler-repository
 - gitbutler-url

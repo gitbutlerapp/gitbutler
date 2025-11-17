@@ -5,10 +5,10 @@ use std::{
 
 use anyhow::{Result, anyhow};
 use but_error::Code;
+use but_fs::read_toml_file_or_default;
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt as _, RepoExt};
 use git2::Repository;
-use gitbutler_fs::read_toml_file_or_default;
 use gitbutler_reference::Refname;
 use gitbutler_repo::commit_message::CommitMessage;
 use itertools::Itertools;
@@ -429,7 +429,7 @@ impl VirtualBranchesHandle {
 
 fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> Result<()> {
     let v = virtual_branches_legacy_types::VirtualBranches::from(virtual_branches.clone());
-    gitbutler_fs::create_dirs_then_write(file_path, toml::to_string(&v)?).map_err(Into::into)
+    but_fs::create_dirs_then_write(file_path, toml::to_string(&v)?).map_err(Into::into)
 }
 
 /// Re-commit a commit with altered parentage

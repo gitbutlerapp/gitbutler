@@ -1,7 +1,7 @@
 use std::path::{self};
 
 use anyhow::{Error, Result};
-use gitbutler_fs::list_files;
+use but_fs::list_files;
 use serde::{Deserialize, Serialize};
 
 use crate::forge::ForgeName;

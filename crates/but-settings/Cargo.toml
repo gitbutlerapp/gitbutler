@@ -12,7 +12,7 @@ doctest = false
 [dependencies]
 but-path.workspace = true
 
-gitbutler-fs.workspace = true
+but-fs.workspace = true
 
 anyhow.workspace = true
 serde.workspace = true
