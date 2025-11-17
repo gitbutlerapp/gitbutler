@@ -1,7 +1,8 @@
 use std::path::Path;
 
-use crate::utils::OutputChannel;
 use anyhow::Context;
+
+use crate::utils::OutputChannel;
 
 pub(crate) fn repo(
     repo_path: &Path,

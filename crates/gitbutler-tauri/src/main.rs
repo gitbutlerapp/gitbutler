@@ -14,10 +14,12 @@
 use std::sync::Arc;
 
 use anyhow::bail;
-use but_api::App;
-use but_api::legacy::{
-    cherry_apply, cli, config, diff, forge, git, modes, open, oplog, remotes, repo, rules, secret,
-    stack, users, virtual_branches, workspace,
+use but_api::{
+    App,
+    legacy::{
+        cherry_apply, cli, config, diff, forge, git, modes, open, oplog, remotes, repo, rules,
+        secret, stack, users, virtual_branches, workspace,
+    },
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;

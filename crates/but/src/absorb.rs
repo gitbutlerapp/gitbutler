@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use bstr::{BString, ByteSlice};
-use but_api::{json::HexHash, legacy::diff, legacy::virtual_branches};
+use but_api::{
+    json::HexHash,
+    legacy::{diff, virtual_branches},
+};
 use but_core::DiffSpec;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::HunkDependencies;
@@ -10,8 +13,7 @@ use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
-use crate::utils::OutputChannel;
-use crate::{id::CliId, rub::parse_sources};
+use crate::{id::CliId, rub::parse_sources, utils::OutputChannel};
 
 /// Amends changes into the appropriate commits where they belong.
 ///

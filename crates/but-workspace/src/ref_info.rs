@@ -337,14 +337,8 @@ impl std::fmt::Debug for Segment {
 }
 
 pub(crate) mod function {
-    use crate::{
-        AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch,
-        ref_info::{LocalCommit, LocalCommitRelation},
-        ui::PushStatus,
-    };
     use anyhow::bail;
-    use but_core::is_workspace_ref_name;
-    use but_core::ref_metadata::ValueInfo;
+    use but_core::{is_workspace_ref_name, ref_metadata::ValueInfo};
     use but_graph::{
         Graph, SegmentIndex,
         petgraph::Direction,
@@ -352,6 +346,12 @@ pub(crate) mod function {
     };
     use gix::prelude::ObjectIdExt;
     use tracing::instrument;
+
+    use crate::{
+        AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch,
+        ref_info::{LocalCommit, LocalCommitRelation},
+        ui::PushStatus,
+    };
 
     /// Gather information about the current `HEAD` and the workspace that might be associated with it,
     /// based on data in `repo` and `meta`. Use `options` to further configure the call.

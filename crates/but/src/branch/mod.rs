@@ -1,10 +1,13 @@
-use crate::LegacyProject;
-use crate::utils::{OutputChannel, into_json_value, we_need_proper_json_output_here};
 use anyhow::bail;
 use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
+
+use crate::{
+    LegacyProject,
+    utils::{OutputChannel, into_json_value, we_need_proper_json_output_here},
+};
 
 mod apply;
 mod list;

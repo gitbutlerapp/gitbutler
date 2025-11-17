@@ -1,7 +1,8 @@
 use std::path::Path;
 
-use crate::commit_engine::index::{delete_entry_by_path_bounded_stages, upsert_index_entry};
 use bstr::{BStr, ByteSlice};
+
+use crate::commit_engine::index::{delete_entry_by_path_bounded_stages, upsert_index_entry};
 
 /// Turn `rhs` into `lhs` by modifying `rhs`. This will leave `rhs` intact as much as possible.
 /// Note that conflicting entries will be replaced by an addition or edit automatically.

@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
-use crate::utils::OutputChannel;
 use anyhow::{Context, Result};
 use but_api::legacy::worktree::IntegrationStatus;
 use but_worktrees::WorktreeId;
+
+use crate::utils::OutputChannel;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {

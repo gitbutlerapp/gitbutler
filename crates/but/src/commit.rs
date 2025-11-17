@@ -12,9 +12,9 @@ use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
-use crate::utils::OutputChannel;
 use crate::{
     editor::get_text_from_editor_no_comments, id::CliId, status::assignment::FileAssignment,
+    utils::OutputChannel,
 };
 
 pub(crate) fn insert_blank_commit(

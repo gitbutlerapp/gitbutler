@@ -4,8 +4,7 @@ use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
-use crate::utils::OutputChannel;
-use crate::{editor::get_text_from_editor_no_comments, id::CliId};
+use crate::{editor::get_text_from_editor_no_comments, id::CliId, utils::OutputChannel};
 
 pub(crate) fn describe_target(
     project: &Project,

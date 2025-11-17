@@ -1,7 +1,8 @@
-use crate::utils::{OutputChannel, we_need_proper_json_output_here};
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_project::Project;
+
+use crate::utils::{OutputChannel, we_need_proper_json_output_here};
 
 pub async fn list(
     project: &Project,

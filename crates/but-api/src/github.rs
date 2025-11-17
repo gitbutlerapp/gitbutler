@@ -1,10 +1,11 @@
 //! In place of commands.rs
-use crate::json::Error;
 use anyhow::Result;
 use but_api_macros::{api_cmd, api_cmd_async_tauri, api_cmd_tauri};
 use but_github::{AuthStatusResponse, AuthenticatedUser, Verification};
 use but_secret::Sensitive;
 use tracing::instrument;
+
+use crate::json::Error;
 
 pub mod json {
     use but_github::{AuthStatusResponse, AuthenticatedUser};

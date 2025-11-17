@@ -1,11 +1,11 @@
-use crate::LegacyProject;
-use crate::utils::OutputChannel;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
     BranchStatus::{Conflicted, Empty, Integrated, SaflyUpdatable},
     Resolution, ResolutionApproach,
     StackStatuses::{UpToDate, UpdatesRequired},
 };
+
+use crate::{LegacyProject, utils::OutputChannel};
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {

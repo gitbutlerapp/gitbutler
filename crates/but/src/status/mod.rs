@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
@@ -9,7 +11,6 @@ use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
-use std::collections::BTreeMap;
 
 use crate::CLI_DATE;
 
@@ -17,8 +18,7 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
 pub(crate) mod assignment;
 
-use crate::id::CliId;
-use crate::utils::OutputChannel;
+use crate::{id::CliId, utils::OutputChannel};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

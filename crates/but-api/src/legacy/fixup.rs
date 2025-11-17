@@ -1,5 +1,6 @@
-use gitbutler_command_context::CommandContext;
 use std::collections::{BTreeMap, BTreeSet};
+
+use gitbutler_command_context::CommandContext;
 use tracing::instrument;
 
 /// Validate and fix workspace stack `in_workspace` status of `virtual_branches.toml`

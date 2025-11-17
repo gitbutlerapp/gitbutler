@@ -3,18 +3,21 @@ use std::{ffi::OsString, path::Path};
 use anyhow::{Context, Result};
 
 mod args;
-use crate::args::CommandName;
-use crate::metrics::MetricsContext;
-use crate::utils::{
-    OutputChannel, OutputFormat, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
-    print_grouped_help,
-};
 use args::{Args, Subcommands, actions, claude, cursor};
 use but_claude::hooks::OutputAsJson;
 use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
 use metrics::{Event, Metrics, Props};
+
+use crate::{
+    args::CommandName,
+    metrics::MetricsContext,
+    utils::{
+        OutputChannel, OutputFormat, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
+        print_grouped_help,
+    },
+};
 
 mod absorb;
 mod base;

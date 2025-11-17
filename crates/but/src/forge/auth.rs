@@ -1,8 +1,9 @@
-use crate::utils::OutputChannel;
 use anyhow::bail;
 use but_github::AuthStatusResponse;
 use but_secret::Sensitive;
 use cli_prompts::DisplayPrompt;
+
+use crate::utils::OutputChannel;
 
 #[derive(Debug, Clone)]
 enum AuthMethod {

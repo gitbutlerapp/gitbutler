@@ -1,13 +1,14 @@
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
+
 use anyhow::{Context, bail};
 use but_api::json::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gix::bstr::ByteSlice;
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
 use tauri::{State, Window};
 use tracing::instrument;
 

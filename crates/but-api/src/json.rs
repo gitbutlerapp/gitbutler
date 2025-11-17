@@ -1,8 +1,7 @@
+pub use error::{Error, ToError, UnmarkedError};
 use gix::refs::Target;
 use schemars;
 use serde::Serialize;
-
-pub use error::{Error, ToError, UnmarkedError};
 
 mod hex_hash {
     use std::{ops::Deref, str::FromStr};

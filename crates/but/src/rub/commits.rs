@@ -8,8 +8,10 @@ use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 
-use crate::rub::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id};
-use crate::utils::OutputChannel;
+use crate::{
+    rub::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id},
+    utils::OutputChannel,
+};
 
 pub fn commited_file_to_another_commit(
     ctx: &mut CommandContext,

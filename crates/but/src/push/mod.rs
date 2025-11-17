@@ -1,9 +1,10 @@
-use crate::utils::OutputChannel;
 use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_settings::AppSettings;
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+
+use crate::utils::OutputChannel;
 
 #[derive(Debug, clap::Parser)]
 pub struct Args {

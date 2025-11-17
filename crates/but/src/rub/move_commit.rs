@@ -1,5 +1,3 @@
-use super::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id};
-use crate::utils::OutputChannel;
 use anyhow::bail;
 use but_oxidize::ObjectIdExt;
 use colored::Colorize;
@@ -7,6 +5,9 @@ use gitbutler_branch_actions::reorder::commits_order;
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::ObjectId;
+
+use super::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id};
+use crate::utils::OutputChannel;
 
 pub(crate) fn to_branch(
     ctx: &mut CommandContext,

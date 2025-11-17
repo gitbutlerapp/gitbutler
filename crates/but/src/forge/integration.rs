@@ -2,8 +2,7 @@ use anyhow::bail;
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 
-use crate::forge::auth::auth_github;
-use crate::utils::OutputChannel;
+use crate::{forge::auth::auth_github, utils::OutputChannel};
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
