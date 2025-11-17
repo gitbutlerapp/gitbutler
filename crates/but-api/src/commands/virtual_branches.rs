@@ -207,7 +207,7 @@ pub fn set_base_branch(
     push_remote: Option<String>,
 ) -> Result<BaseBranch, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let branch_name = format!("refs/remotes/{branch}")
         .parse()
         .context("Invalid branch name")?;
@@ -221,6 +221,8 @@ pub fn set_base_branch(
     if let Some(push_remote) = push_remote {
         gitbutler_branch_actions::set_target_push_remote(&ctx, &push_remote)?;
     }
+    crate::legacy::fixup::reconcile_in_workspace_state_of_vb_toml(&mut ctx);
+
     Ok(base_branch)
 }
 
