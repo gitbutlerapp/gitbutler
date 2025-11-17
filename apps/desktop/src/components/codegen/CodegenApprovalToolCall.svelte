@@ -37,6 +37,20 @@
 	let selectedDenyDecision = $state<DenyDecision>('denyOnce');
 	let selectedWildcardDecision = $state<WildcardDecision>('precise');
 
+	const helperText = $derived.by(() => {
+		const isProject =
+			selectedAllowDecision === 'allowProject' || selectedDenyDecision === 'denyProject';
+		const isAlways =
+			selectedAllowDecision === 'allowAlways' || selectedDenyDecision === 'denyAlways';
+
+		if (isProject) {
+			return 'Permissions will be saved to .claude/settings.local.json';
+		} else if (isAlways) {
+			return 'Permissions will be saved to ~/.claude/settings.json';
+		}
+		return null;
+	});
+
 	const allowLabels: Record<AllowDecision, string> = {
 		allowOnce: 'Allow once',
 		allowProject: 'Allow this project',
@@ -86,6 +100,15 @@
 
 		<Codeblock content={formatToolCall(toolCall)} />
 	</div>
+
+	{#if helperText}
+		<div class="tool-call__helper-text">
+			<Icon name="info-small-outline" />
+			<p class="text-12">
+				{helperText}
+			</p>
+		</div>
+	{/if}
 
 	<div class="tool-call__actions">
 		{#if wildcardSelector.show}
@@ -239,6 +262,16 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
+	}
+
+	.tool-call__helper-text {
+		display: flex;
+		align-items: center;
+		padding: 10px 12px;
+		gap: 8px;
+		border-top: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
+		color: var(--clr-text-2);
 	}
 
 	.tool-call__actions {
