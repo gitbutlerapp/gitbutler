@@ -1,6 +1,23 @@
+import {
+	openCommitDrawer,
+	stageFirstFile,
+	startEditingCommitMessage,
+	unstageAllFiles,
+	updateCommitMessage,
+	verifyCommitDrawerContent,
+	verifyCommitMessageEditor,
+	verifyCommitPlaceholderPosition
+} from '../src/commit.ts';
+import { writeFiles } from '../src/file.ts';
 import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
-import { clickByTestId, dragAndDropByLocator, getByTestId, waitForTestId } from '../src/util.ts';
-import { expect, test } from '@playwright/test';
+import {
+	clickByTestId,
+	dragAndDropByLocator,
+	getByTestId,
+	waitForTestId,
+	waitForTestIdToNotExist
+} from '../src/util.ts';
+import { expect, Page, test } from '@playwright/test';
 import { writeFileSync } from 'fs';
 
 let gitbutler: GitButler;
@@ -83,3 +100,155 @@ test('should be able to amend a file to a commit', async ({ page, context }, tes
 	const pushButton = getByTestId(page, 'stack-push-button');
 	await expect(pushButton).toBeDisabled();
 });
+
+test('should be able to commit a bunch of times in a row and edit their message', async ({
+	page,
+	context
+}, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+
+	// Create a couple of uncommitted files.
+	const fileNames = ['file1.txt', 'file2.txt', 'file3.txt', 'file4.txt', 'file5.txt', 'file6.txt'];
+	const filesContent: Record<string, string> = {};
+	for (const fileName of fileNames) {
+		const filePath = gitbutler.pathInWorkdir(`local-clone/${fileName}`);
+		filesContent[filePath] = `This is ${fileName}\n`;
+	}
+	writeFiles(filesContent);
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	const TIMES = 3;
+	await commitMultipleTimes(TIMES, page);
+	await amendCommitMessageMultipleTimes(TIMES - 1, page);
+	await startAmendingACommitMessageAndCancel(page, TIMES - 1);
+	await startCommittingAndCancel(page, TIMES);
+});
+
+/**
+ * Commit multiple times in a row.
+ *
+ * Each time, only the first file will be staged and committed.
+ */
+async function commitMultipleTimes(TIMES: number, page: Page) {
+	for (let i = 0; i < TIMES; i++) {
+		// Start committing the files one by one
+		await clickByTestId(page, 'start-commit-button');
+
+		await verifyCommitPlaceholderPosition(page);
+		await unstageAllFiles(page);
+		await stageFirstFile(page);
+
+		const commitTitle = getCommitTitle(i);
+		const commitMessage = getCommitDescription(i);
+
+		// Fill the commit message
+		await verifyCommitMessageEditor(page, '', '');
+		await updateCommitMessage(page, commitTitle, commitMessage);
+
+		// Submit the commit
+		await clickByTestId(page, 'commit-drawer-action-button');
+
+		// Commit with title should be visible in the commit list
+		const commitRow = getByTestId(page, 'commit-row').filter({ hasText: commitTitle });
+		await expect(commitRow).toBeVisible();
+	}
+}
+
+async function startCommittingAndCancel(page: Page, index: number) {
+	// Start committing the files one by one
+	await clickByTestId(page, 'start-commit-button');
+
+	await verifyCommitPlaceholderPosition(page);
+	await unstageAllFiles(page);
+	await stageFirstFile(page);
+
+	const commitTitle = getCommitTitle(index);
+	const commitMessage = getCommitDescription(index);
+
+	// Fill the commit message
+	await verifyCommitMessageEditor(page, '', '');
+	await updateCommitMessage(page, commitTitle, commitMessage);
+
+	// Cancel the commit
+	await clickByTestId(page, 'commit-drawer-cancel-button');
+
+	// Commit with title should be visible in the commit list
+	const commitRow = getByTestId(page, 'commit-row').filter({ hasText: commitTitle });
+	await expect(commitRow).toHaveCount(0);
+}
+
+/**
+ * Amend the commit message of multiple commits in a row.
+ */
+async function amendCommitMessageMultipleTimes(TIMES: number, page: Page) {
+	for (let i = 0; i < TIMES; i++) {
+		const commitTitle = getCommitTitle(i);
+		const commitMessage = getCommitDescription(i);
+		const newCommitTitle = getAmendedCommitTitle(i);
+		const newCommitMessage = getAmendedCommitDescription(i);
+
+		// Open the commit drawer and verify initial content
+		const commitDrawer = await openCommitDrawer(page, commitTitle);
+		await verifyCommitDrawerContent(commitDrawer, commitTitle, commitMessage);
+
+		// Start editing the commit message
+		await startEditingCommitMessage(page, commitDrawer);
+		await verifyCommitMessageEditor(page, commitTitle, commitMessage);
+
+		// Update and submit the changes
+		await updateCommitMessage(page, newCommitTitle, newCommitMessage);
+		await clickByTestId(page, 'commit-drawer-action-button');
+
+		// Verify the changes were applied
+		await waitForTestIdToNotExist(page, 'edit-commit-message-box');
+		await verifyCommitDrawerContent(commitDrawer, newCommitTitle, newCommitMessage);
+	}
+}
+
+async function startAmendingACommitMessageAndCancel(page: Page, commitIndex: number) {
+	const commitTitle = getCommitTitle(commitIndex);
+	const commitMessage = getCommitDescription(commitIndex);
+	const newCommitTitle = getAmendedCommitTitle(commitIndex);
+	const newCommitMessage = getAmendedCommitDescription(commitIndex);
+
+	// Open the commit drawer and verify initial content
+	const commitDrawer = await openCommitDrawer(page, commitTitle);
+	await verifyCommitDrawerContent(commitDrawer, commitTitle, commitMessage);
+
+	// Start editing the commit message
+	await startEditingCommitMessage(page, commitDrawer);
+	await verifyCommitMessageEditor(page, commitTitle, commitMessage);
+
+	// Update and cancel the changes
+	await updateCommitMessage(page, newCommitTitle, newCommitMessage);
+	await clickByTestId(page, 'commit-drawer-cancel-button');
+
+	// Verify the changes were NOT applied (original values remain)
+	await waitForTestIdToNotExist(page, 'edit-commit-message-box');
+	await verifyCommitDrawerContent(commitDrawer, commitTitle, commitMessage);
+}
+
+function getCommitTitle(i: number): string {
+	return `Commit number ${i + 1}`;
+}
+
+function getAmendedCommitTitle(i: number): string {
+	return `Amended Commit number ${i + 1}`;
+}
+
+function getCommitDescription(i: number): string {
+	return `Description for commit ${i + 1}`;
+}
+
+function getAmendedCommitDescription(i: number): string {
+	return `Amended description for commit ${i + 1}`;
+}
