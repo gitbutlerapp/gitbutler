@@ -114,14 +114,18 @@ export function updateSelection({
 		}
 	}
 
-	switch (key) {
+	switch (key.toLowerCase()) {
 		case 'a':
 			if (allowMultiple && metaKey) {
 				preventDefault();
+
 				for (let i = 0; i < files.length; i++) {
 					const file = files[i]!;
 					fileIdSelection.add(file.path, selectionId, i);
 				}
+
+				// Clear file preview after selecting all files (don't show preview for bulk selection)
+				fileIdSelection.clearPreview(selectionId);
 			}
 			break;
 		case 'k':
