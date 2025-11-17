@@ -107,6 +107,23 @@ impl GitHubClient {
 
         Ok(pr.into())
     }
+
+    pub async fn get_pull_request(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<PullRequest> {
+        let pr = self
+            .github
+            .pulls()
+            .get(owner, repo, pr_number)
+            .await
+            .map(|response| response.body)
+            .map_err(anyhow::Error::from)?;
+
+        Ok(pr.into())
+    }
 }
 
 pub struct CreatePullRequestParams<'a> {

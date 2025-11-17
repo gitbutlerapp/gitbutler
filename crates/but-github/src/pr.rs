@@ -44,6 +44,32 @@ pub async fn create(
     }
 }
 
+pub async fn get(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    owner: &str,
+    repo: &str,
+    pr_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<crate::client::PullRequest> {
+    let account_id = resolve_account(preferred_account, storage)?;
+    if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
+        let gh = account_id
+            .client(&access_token)
+            .context("Failed to create GitHub client")?;
+        let pr_number = pr_number.try_into().context("PR number is too large")?;
+        let pr = gh
+            .get_pull_request(owner, repo, pr_number)
+            .await
+            .context("Failed to get pull request")?;
+        Ok(pr)
+    } else {
+        bail!(
+            "No GitHub access token found for account '{}'.\nPlease, try to re-authenticate with this account.",
+            account_id
+        );
+    }
+}
+
 fn resolve_account(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     storage: &but_forge_storage::Controller,
