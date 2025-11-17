@@ -143,7 +143,7 @@
 					persistId="resizer-darft-panel"
 					viewport={draftPanelEl}
 					direction="right"
-					defaultValue={20}
+					defaultValue={22}
 					minWidth={16}
 					maxWidth={64}
 				/>
