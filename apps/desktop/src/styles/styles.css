@@ -1,5 +1,4 @@
 @import '@gitbutler/ui/main.css';
-@import './draggable.css';
 
 :root {
 	--dropzone-fill: oklch(from var(--clr-scale-pop-50) l c h / 0.1);
@@ -73,11 +72,8 @@ body {
 }
 
 /* STATES */
-
 .series-highlight-animation {
-	/* animation-delay: 0.1s; */
 	backface-visibility: hidden;
-	/* border: 1px solid red; */
 	animation: series-highlight-animation 0.9s forwards;
 }
 
