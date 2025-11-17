@@ -19,12 +19,12 @@ pub async fn list(
 
     let branch_review_map = crate::forge::review::get_review_map(project).await?;
 
-    let applied_stacks = but_api::commands::workspace::stacks(
+    let applied_stacks = but_api::legacy::workspace::stacks(
         project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
     print_applied_branches(&applied_stacks, &branch_review_map, out)?;
-    let branches = but_api::commands::virtual_branches::list_branches(project.id, filter)?;
+    let branches = but_api::legacy::virtual_branches::list_branches(project.id, filter)?;
     let (branches, remote_only_branches): (Vec<_>, Vec<_>) =
         branches.into_iter().partition(|b| b.has_local);
     for branch in branches {

@@ -12,14 +12,13 @@ use axum::{
     routing::{any, get},
 };
 use but_api::{
-    App,
-    commands::{
+    App, github,
+    json::ToError as _,
+    legacy::{
         askpass, cherry_apply, claude, cli, config, diff, forge, git, modes, open, oplog,
         projects as iprojects, remotes, repo, rules, secret, settings, stack, users,
         virtual_branches, workspace, zip,
     },
-    github,
-    json::ToError as _,
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;

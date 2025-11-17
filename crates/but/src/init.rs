@@ -18,7 +18,7 @@ pub(crate) fn repo(
         gix::open(repo_path)
             .context("You can run `but init --repo` to initialize a new Git repository")?
     };
-    let outcome = but_api::commands::projects::add_project(repo_path.to_path_buf())?;
+    let outcome = but_api::legacy::projects::add_project(repo_path.to_path_buf())?;
     let project = match outcome.clone() {
         gitbutler_project::AddProjectOutcome::Added(project) => Ok(project),
         gitbutler_project::AddProjectOutcome::AlreadyExists(project) => Ok(project),
@@ -51,7 +51,7 @@ pub(crate) fn repo(
             repo_path.display()
         )),
     }?;
-    let target = but_api::commands::virtual_branches::get_base_branch_data(project.id)?;
+    let target = but_api::legacy::virtual_branches::get_base_branch_data(project.id)?;
     // If new or already exists but target is not set, set the target to be the remote's HEAD
     if (matches!(outcome, gitbutler_project::AddProjectOutcome::Added(_))
         || matches!(
@@ -71,7 +71,7 @@ pub(crate) fn repo(
 
         let name = head_ref.name().shorten().to_string();
 
-        but_api::commands::virtual_branches::set_base_branch(
+        but_api::legacy::virtual_branches::set_base_branch(
             project.id,
             name.clone(),
             Some(remote_name),

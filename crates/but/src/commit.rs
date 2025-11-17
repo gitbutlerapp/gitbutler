@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use anyhow::{Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
-    commands::{diff, virtual_branches, workspace},
     json::HexHash,
+    legacy::{diff, virtual_branches, workspace},
 };
 use but_core::{DiffSpec, ui::TreeChange};
 use but_hunk_assignment::HunkAssignment;
@@ -313,9 +313,9 @@ fn create_independent_branch(
     but_workspace::ui::StackDetails,
 )> {
     // Create a new independent stack with the given branch name
-    let (new_stack_id_opt, _new_ref) = but_api::commands::stack::create_reference(
+    let (new_stack_id_opt, _new_ref) = but_api::legacy::stack::create_reference(
         project.id,
-        but_api::commands::stack::create_reference::Request {
+        but_api::legacy::stack::create_reference::Request {
             new_name: branch_name.to_string(),
             anchor: None,
         },
@@ -356,7 +356,7 @@ fn select_stack(
         );
         let branch_name = match branch_hint {
             Some(hint) => String::from(hint),
-            None => but_api::commands::workspace::canned_branch_name(project.id)?,
+            None => but_api::legacy::workspace::canned_branch_name(project.id)?,
         };
         return create_independent_branch(&branch_name, project, out);
     }
@@ -377,7 +377,7 @@ fn select_stack(
         }
         None if create_branch => {
             // Create with canned name
-            let branch_name = but_api::commands::workspace::canned_branch_name(project.id)?;
+            let branch_name = but_api::legacy::workspace::canned_branch_name(project.id)?;
             create_independent_branch(&branch_name, project, out)
         }
         None if stacks.len() == 1 => {

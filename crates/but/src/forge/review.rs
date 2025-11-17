@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use anyhow::Context;
 use bstr::ByteSlice;
-use but_api::commands::forge::ListReviewsParams;
+use but_api::legacy::forge::ListReviewsParams;
 use but_core::ref_metadata::StackId;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
@@ -63,14 +63,14 @@ pub fn set_review_template(
 ) -> anyhow::Result<()> {
     if let Some(path) = template_path {
         let message = format!("Set review template path to: {}", &path);
-        but_api::commands::forge::set_review_template(project.id, Some(path))?;
+        but_api::legacy::forge::set_review_template(project.id, Some(path))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", message)?;
         }
     } else {
-        let current_template = but_api::commands::forge::review_template(project.id)?;
+        let current_template = but_api::legacy::forge::review_template(project.id)?;
         let available_templates =
-            but_api::commands::forge::list_available_review_templates(project.id)?;
+            but_api::legacy::forge::list_available_review_templates(project.id)?;
         let template_prompt = cli_prompts::prompts::Selection::new_with_transformation(
             "Select a review template (and press Enter)",
             available_templates.into_iter(),
@@ -91,7 +91,7 @@ pub fn set_review_template(
             .display()
             .map_err(|_| anyhow::anyhow!("Could not determine selected review template"))?;
         let message = format!("Set review template path to: {}", &selected_template);
-        but_api::commands::forge::set_review_template(project.id, Some(selected_template.clone()))?;
+        but_api::legacy::forge::set_review_template(project.id, Some(selected_template.clone()))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", message)?;
         }
@@ -111,7 +111,7 @@ pub async fn publish_reviews(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let review_map = get_review_map(project).await?;
-    let applied_stacks = but_api::commands::workspace::stacks(
+    let applied_stacks = but_api::legacy::workspace::stacks(
         project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
@@ -290,7 +290,7 @@ async fn publish_reviews_for_branch_and_dependents(
         }
     }
 
-    let result = but_api::commands::stack::push_stack(
+    let result = but_api::legacy::stack::push_stack(
         project.id,
         stack_entry
             .id
@@ -468,7 +468,7 @@ async fn publish_review_for_branch(
     };
 
     // Publish a new review for the branch
-    but_api::commands::forge::publish_review_cmd(but_api::commands::forge::PublishReviewParams {
+    but_api::legacy::forge::publish_review_cmd(but_api::legacy::forge::PublishReviewParams {
         project_id: project.id,
         params: but_forge::CreateForgeReviewParams {
             title,
@@ -483,7 +483,7 @@ async fn publish_review_for_branch(
     .map(|review| {
         if let Some(stack_id) = stack_id {
             let review_number = review.number.try_into().ok();
-            but_api::commands::stack::update_branch_pr_number(
+            but_api::legacy::stack::update_branch_pr_number(
                 project.id,
                 stack_id,
                 branch_name.to_string(),
@@ -501,7 +501,7 @@ fn default_commit(
     stack_id: Option<StackId>,
     branch_name: &str,
 ) -> Result<Option<Commit>, anyhow::Error> {
-    let stack_details = but_api::commands::workspace::stack_details(project.id, stack_id)?;
+    let stack_details = but_api::legacy::workspace::stack_details(project.id, stack_id)?;
     let branch = stack_details
         .branch_details
         .into_iter()
@@ -535,7 +535,7 @@ fn get_review_body_from_editor(
             template.push_str(line);
             template.push('\n');
         }
-    } else if let Some(review_template) = but_api::commands::forge::review_template(project_id)? {
+    } else if let Some(review_template) = but_api::legacy::forge::review_template(project_id)? {
         template.push_str(&review_template.content);
     } else {
         template.push_str(branch_name);
@@ -609,7 +609,7 @@ fn extract_commit_title(commit: Option<&Commit>) -> Option<&str> {
 pub async fn get_review_map(
     project: &Project,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
-    let reviews = but_api::commands::forge::list_reviews_cmd(ListReviewsParams {
+    let reviews = but_api::legacy::forge::list_reviews_cmd(ListReviewsParams {
         project_id: project.id,
     })
     .await

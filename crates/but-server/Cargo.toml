@@ -18,6 +18,18 @@ doctest = false
 [features]
 
 [dependencies]
+but-api = { workspace = true, features = ["path-bytes", "legacy"] }
+but-broadcaster.workspace = true
+but-db.workspace = true
+but-path.workspace = true
+but-settings.workspace = true
+but-feedback.workspace = true
+but-secret.workspace = true
+
+gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
+gitbutler-watcher.workspace = true
+
 serde.workspace = true
 axum = { version = "0.8.6", features = ["ws"] }
 futures-util = { version = "0.3", default-features = false, features = [
@@ -31,16 +43,6 @@ anyhow.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
 
-but-api = { workspace = true, features = ["path-bytes"] }
-but-broadcaster.workspace = true
-but-db.workspace = true
-but-path.workspace = true
-but-settings.workspace = true
-but-feedback.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-project.workspace = true
-gitbutler-watcher.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 tracing-forest.workspace = true
-but-secret.workspace = true

@@ -21,7 +21,7 @@ use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gix::reference::Category;
 use tracing::instrument;
 
-use crate::{commands::workspace::canned_branch_name, json::Error};
+use crate::{json::Error, legacy::workspace::canned_branch_name};
 // Parameter structs for all functions
 
 #[api_cmd]

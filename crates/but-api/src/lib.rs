@@ -13,11 +13,10 @@ use but_broadcaster::Broadcaster;
 use but_claude::bridge::Claudes;
 use tokio::sync::Mutex;
 
-pub mod commands;
-// pub use commands::*;
+#[cfg(feature = "legacy")]
+pub mod legacy;
 
 pub mod github;
-pub mod legacy;
 
 #[derive(Clone)]
 pub struct App {

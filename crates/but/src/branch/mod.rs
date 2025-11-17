@@ -90,7 +90,7 @@ pub async fn handle(
             let branch_name = branch_name
                 .map(Ok::<_, but_api::json::Error>)
                 .unwrap_or_else(|| {
-                    but_api::commands::workspace::canned_branch_name(legacy_project.id)
+                    but_api::legacy::workspace::canned_branch_name(legacy_project.id)
                 })?;
 
             // Store anchor string for JSON output
@@ -116,14 +116,14 @@ pub async fn handle(
                 // Create the anchor for create_reference
                 // as dependent branch
                 match anchor_id {
-                    crate::id::CliId::Commit { oid } => Some(
-                        but_api::commands::stack::create_reference::Anchor::AtCommit {
+                    crate::id::CliId::Commit { oid } => {
+                        Some(but_api::legacy::stack::create_reference::Anchor::AtCommit {
                             commit_id: (*oid).into(),
                             position: but_workspace::branch::create_reference::Position::Above,
-                        },
-                    ),
+                        })
+                    }
                     crate::id::CliId::Branch { name } => Some(
-                        but_api::commands::stack::create_reference::Anchor::AtReference {
+                        but_api::legacy::stack::create_reference::Anchor::AtReference {
                             short_name: name.clone(),
                             position: but_workspace::branch::create_reference::Position::Above,
                         },
@@ -139,9 +139,9 @@ pub async fn handle(
                 // Create an independent branch
                 None
             };
-            but_api::commands::stack::create_reference(
+            but_api::legacy::stack::create_reference(
                 legacy_project.id,
-                but_api::commands::stack::create_reference::Request {
+                but_api::legacy::stack::create_reference::Request {
                     new_name: branch_name.clone(),
                     anchor,
                 },
@@ -161,7 +161,7 @@ pub async fn handle(
             Ok(serde_json::Value::Null)
         }
         Some(Subcommands::Delete { branch_name, force }) => {
-            let stacks = but_api::commands::workspace::stacks(
+            let stacks = but_api::legacy::workspace::stacks(
                 legacy_project.id,
                 Some(but_workspace::legacy::StacksFilter::InWorkspace),
             )?;
@@ -187,7 +187,7 @@ pub async fn handle(
             apply::apply(ctx, &branch_name, out).map(into_json_value)
         }
         Some(Subcommands::Unapply { branch_name, force }) => {
-            let stacks = but_api::commands::workspace::stacks(
+            let stacks = but_api::legacy::workspace::stacks(
                 legacy_project.id,
                 Some(but_workspace::legacy::StacksFilter::InWorkspace),
             )?;
@@ -246,7 +246,7 @@ fn confirm_unapply_stack(
     }
 
     if force {
-        but_api::commands::virtual_branches::unapply_stack(project.id, sid)?;
+        but_api::legacy::virtual_branches::unapply_stack(project.id, sid)?;
     } else {
         bail!("Refusing to unapply stack without --force");
     }
@@ -288,7 +288,7 @@ fn confirm_branch_deletion(
     }
 
     if force {
-        but_api::commands::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
+        but_api::legacy::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
     } else {
         bail!(
             "Refusing to remove branch '{}' from workspace without --force",

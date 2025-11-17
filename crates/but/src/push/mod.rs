@@ -127,7 +127,7 @@ pub fn handle(args: Args, project: &Project, out: &mut OutputChannel) -> anyhow:
     let gerrit_flags = get_gerrit_flags(&args, &branch_name, gerrit_mode)?;
 
     // Call push_stack
-    let result: PushResult = but_api::commands::stack::push_stack(
+    let result: PushResult = but_api::legacy::stack::push_stack(
         project.id,
         stack_id,
         args.with_force,
@@ -325,7 +325,7 @@ fn format_branch_suggestions(branches: &[String]) -> String {
 }
 
 fn find_stack_id_by_branch_name(project: &Project, branch_name: &str) -> anyhow::Result<StackId> {
-    let stacks = but_api::commands::workspace::stacks(
+    let stacks = but_api::legacy::workspace::stacks(
         project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;

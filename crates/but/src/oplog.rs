@@ -15,7 +15,7 @@ pub(crate) fn show_oplog(
 ) -> anyhow::Result<()> {
     let snapshots = if let Some(since_sha) = since {
         // Get all snapshots first to find the starting point
-        let all_snapshots = but_api::commands::oplog::list_snapshots(project.id, 1000, None, None)?; // Get a large number to find the SHA
+        let all_snapshots = but_api::legacy::oplog::list_snapshots(project.id, 1000, None, None)?; // Get a large number to find the SHA
         let mut found_index = None;
 
         // Find the snapshot that matches the since SHA (partial match supported)
@@ -40,7 +40,7 @@ pub(crate) fn show_oplog(
             }
         }
     } else {
-        but_api::commands::oplog::list_snapshots(project.id, 20, None, None)?
+        but_api::legacy::oplog::list_snapshots(project.id, 20, None, None)?
     };
 
     if snapshots.is_empty() {
@@ -133,8 +133,7 @@ pub(crate) fn restore_to_oplog(
 ) -> anyhow::Result<()> {
     let repo = project.open()?;
     let commit_id = repo.rev_parse_single(oplog_sha)?.detach();
-    let target_snapshot =
-        &but_api::commands::oplog::get_snapshot(project.id, commit_id.to_string())?;
+    let target_snapshot = &but_api::legacy::oplog::get_snapshot(project.id, commit_id.to_string())?;
 
     let commit_sha_string = commit_id.to_string();
 
@@ -188,7 +187,7 @@ pub(crate) fn restore_to_oplog(
 
     // Restore to the target snapshot using the but-api crate
     if force {
-        but_api::commands::oplog::restore_snapshot(project.id, commit_sha_string)?;
+        but_api::legacy::oplog::restore_snapshot(project.id, commit_sha_string)?;
     } else {
         bail!("Unable to possibly overwrite changes in the worktree without --force");
     }
@@ -215,7 +214,7 @@ pub(crate) fn undo_last_operation(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Get the last two snapshots - restore to the second one back
-    let snapshots = but_api::commands::oplog::list_snapshots(project.id, 2, None, None)?;
+    let snapshots = but_api::legacy::oplog::list_snapshots(project.id, 2, None, None)?;
 
     if snapshots.len() < 2 {
         if let Some(out) = out.for_human() {
@@ -247,7 +246,7 @@ pub(crate) fn undo_last_operation(
 
     // Restore to the previous snapshot using the but_api
     // TODO: Why does this not require force? It will also overwrite user changes (I think).
-    but_api::commands::oplog::restore_snapshot(project.id, target_snapshot.commit_id.to_string())?;
+    but_api::legacy::oplog::restore_snapshot(project.id, target_snapshot.commit_id.to_string())?;
 
     if let Some(out) = out.for_human() {
         let restore_commit_short = format!(
@@ -275,7 +274,7 @@ pub(crate) fn create_snapshot(
     message: Option<&str>,
 ) -> anyhow::Result<()> {
     let snapshot_id =
-        but_api::commands::oplog::create_snapshot(project.id, message.map(String::from))?;
+        but_api::legacy::oplog::create_snapshot(project.id, message.map(String::from))?;
 
     if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({

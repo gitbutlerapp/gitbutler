@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use anyhow::bail;
 use but_api::App;
-use but_api::commands::{
+use but_api::legacy::{
     cherry_apply, cli, config, diff, forge, git, modes, open, oplog, remotes, repo, rules, secret,
     stack, users, virtual_branches, workspace,
 };
@@ -226,12 +226,12 @@ fn main() -> anyhow::Result<()> {
                 users::set_user,
                 users::delete_user,
                 users::get_user,
-                but_api::commands::projects::add_project,
-                but_api::commands::projects::add_project_best_effort,
-                but_api::commands::projects::get_project,
-                but_api::commands::projects::update_project,
-                but_api::commands::projects::delete_project,
-                but_api::commands::projects::is_gerrit,
+                but_api::legacy::projects::add_project,
+                but_api::legacy::projects::add_project_best_effort,
+                but_api::legacy::projects::get_project,
+                but_api::legacy::projects::update_project,
+                but_api::legacy::projects::delete_project,
+                but_api::legacy::projects::is_gerrit,
                 projects::list_projects,
                 projects::set_project_active,
                 projects::open_project_in_window,
@@ -324,7 +324,7 @@ fn main() -> anyhow::Result<()> {
                 forge::determine_forge_from_url,
                 forge::list_reviews,
                 forge::publish_review,
-                but_api::commands::settings::get_app_settings,
+                but_api::legacy::settings::get_app_settings,
                 settings::update_onboarding_complete,
                 settings::update_telemetry,
                 settings::update_feature_flags,
@@ -376,17 +376,17 @@ fn main() -> anyhow::Result<()> {
                 claude::claude_cancel_session,
                 claude::claude_is_stack_active,
                 claude::claude_compact_history,
-                but_api::commands::claude::claude_get_session_details,
-                but_api::commands::claude::claude_list_permission_requests,
-                but_api::commands::claude::claude_update_permission_request,
-                but_api::commands::claude::claude_check_available,
-                but_api::commands::claude::claude_list_prompt_templates,
-                but_api::commands::claude::claude_get_prompt_dirs,
-                but_api::commands::claude::claude_maybe_create_prompt_dir,
-                but_api::commands::claude::claude_get_mcp_config,
-                but_api::commands::claude::claude_get_sub_agents,
-                but_api::commands::claude::claude_verify_path,
-                but_api::commands::claude::claude_get_user_message
+                but_api::legacy::claude::claude_get_session_details,
+                but_api::legacy::claude::claude_list_permission_requests,
+                but_api::legacy::claude::claude_update_permission_request,
+                but_api::legacy::claude::claude_check_available,
+                but_api::legacy::claude::claude_list_prompt_templates,
+                but_api::legacy::claude::claude_get_prompt_dirs,
+                but_api::legacy::claude::claude_maybe_create_prompt_dir,
+                but_api::legacy::claude::claude_get_mcp_config,
+                but_api::legacy::claude::claude_get_sub_agents,
+                but_api::legacy::claude::claude_verify_path,
+                but_api::legacy::claude::claude_get_user_message
             ])
             .menu(move |handle| menu::build(handle, &app_settings_for_menu))
             .on_window_event(|window, event| match event {

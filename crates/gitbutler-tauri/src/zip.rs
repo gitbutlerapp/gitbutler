@@ -3,11 +3,11 @@ pub mod commands {
     use std::path::PathBuf;
 
     use but_api::{
-        commands::zip::{
+        json::Error,
+        legacy::zip::{
             self, GetAnonymousGraphPathParams, GetLogsArchivePathParams,
             GetProjectArchivePathParams,
         },
-        json::Error,
     };
     use tauri::State;
     use tracing::instrument;
