@@ -40,6 +40,7 @@ mod oplog;
 mod push;
 mod rub;
 mod status;
+mod table;
 mod ui;
 mod worktree;
 
@@ -247,7 +248,7 @@ async fn match_subcommand(
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let ctx = get_or_init_context_with_legacy_support(&args)?;
-            branch::handle(cmd, &ctx, out)
+            branch::handle(cmd, &ctx, out, args.json)
                 .await
                 .output_json(args.json)
                 .emit_metrics(metrics_ctx)

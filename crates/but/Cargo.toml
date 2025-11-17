@@ -50,11 +50,20 @@ gitbutler-command-context.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-oplog.workspace = true
 
+git2.workspace = true
+async-openai.workspace = true
 posthog-rs = { version = "0.3.7" }
 serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
 strum = { version = "0.27", features = ["derive"] }
-clap = { workspace = true, features = ["env", "wrap_help", "color", "error-context", "usage", "suggestions" ] }
+clap = { workspace = true, features = [
+    "env",
+    "wrap_help",
+    "color",
+    "error-context",
+    "usage",
+    "suggestions",
+] }
 clap_complete = "4.5.60"
 chrono.workspace = true
 bstr.workspace = true
@@ -76,7 +85,12 @@ tracing-forest.workspace = true
 ratatui = "0.29.0"
 crossterm = "0.29.0"
 cli-prompts = "0.1.0"
-minus = { version = "5.6.1", default-features = false, features = ["static_output", "search"] }
+minus = { version = "5.6.1", default-features = false, features = [
+    "static_output",
+    "search",
+] }
+unicode-width = "0.1"
+term_size = "0.3"
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }

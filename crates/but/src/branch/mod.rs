@@ -11,6 +11,7 @@ use crate::{
 
 mod apply;
 mod list;
+mod show;
 
 mod json {
     use serde::Serialize;
@@ -20,6 +21,68 @@ mod json {
         pub branch: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub anchor: Option<String>,
+    }
+
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct BranchListOutput {
+        pub applied_stacks: Vec<StackOutput>,
+        pub branches: Vec<BranchOutput>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub more_branches: Option<usize>,
+    }
+
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct StackOutput {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub id: Option<String>,
+        pub heads: Vec<BranchHeadOutput>,
+    }
+
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct BranchHeadOutput {
+        pub name: String,
+        pub reviews: Vec<ReviewOutput>,
+        /// Last commit timestamp in milliseconds since epoch
+        pub last_commit_at: u128,
+        /// Number of commits ahead of the base branch
+        pub commits_ahead: Option<usize>,
+        pub last_author: AuthorOutput,
+        /// Whether the branch merges cleanly into upstream
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub merges_cleanly: Option<bool>,
+    }
+
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct BranchOutput {
+        pub name: String,
+        pub reviews: Vec<ReviewOutput>,
+        pub has_local: bool,
+        /// Last commit timestamp in milliseconds since epoch
+        pub last_commit_at: u128,
+        /// Number of commits ahead of the base branch
+        pub commits_ahead: Option<usize>,
+        pub last_author: AuthorOutput,
+        /// Whether the branch merges cleanly into upstream
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub merges_cleanly: Option<bool>,
+    }
+
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AuthorOutput {
+        pub name: Option<String>,
+        pub email: Option<String>,
+    }
+
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ReviewOutput {
+        pub number: u64,
+        pub url: String,
     }
 }
 
@@ -50,9 +113,46 @@ pub enum Subcommands {
     },
     /// List the branches in the repository
     List {
+        /// Filter branches by name (case-insensitive substring match)
+        filter: Option<String>,
         /// Show only local branches
-        #[clap(long, short = 'l')]
+        #[clap(long, short = 'l', conflicts_with = "remote")]
         local: bool,
+        /// Show only remote branches
+        #[clap(long, short = 'r', conflicts_with = "local")]
+        remote: bool,
+        /// Show all branches (not just active + 20 most recent)
+        #[clap(long, short = 'a')]
+        all: bool,
+        /// Don't calculate and show number of commits ahead of base (faster)
+        #[clap(long)]
+        no_ahead: bool,
+        /// Fetch and display review information (PRs, MRs, etc.)
+        #[clap(long)]
+        review: bool,
+        /// Don't check if each branch merges cleanly into upstream
+        #[clap(long)]
+        no_check: bool,
+    },
+    /// Show commits ahead of base for a specific branch
+    Show {
+        /// CLI ID or name of the branch to show
+        branch_id: String,
+        /// Fetch and display review information
+        #[clap(short, long)]
+        review: bool,
+        /// Disable pager output
+        #[clap(long)]
+        no_pager: bool,
+        /// Show files modified in each commit with line counts
+        #[clap(short, long)]
+        files: bool,
+        /// Generate AI summary of the branch changes
+        #[clap(long)]
+        ai: bool,
+        /// Check if the branch merges cleanly into upstream and identify conflicting commits
+        #[clap(long)]
+        check: bool,
     },
     /// Apply a branch to the workspace
     Apply {
@@ -73,14 +173,77 @@ pub async fn handle(
     cmd: Option<Subcommands>,
     ctx: &but_ctx::Context,
     out: &mut OutputChannel,
+    json: bool,
 ) -> anyhow::Result<serde_json::Value> {
     let legacy_project = &ctx.legacy_project;
     match cmd {
         None => {
             let local = false;
-            list::list(legacy_project, local, out).await
+            let remote = false;
+            let all = false;
+            let ahead = true; // Calculate ahead by default
+            let review = false; // Don't fetch reviews by default
+            let check = true; // Check merge by default
+            list::list(
+                legacy_project,
+                local,
+                remote,
+                all,
+                ahead,
+                review,
+                None,
+                json,
+                check,
+            )
+            .await?;
+            Ok(we_need_proper_json_output_here())
         }
-        Some(Subcommands::List { local }) => list::list(legacy_project, local, out).await,
+        Some(Subcommands::List {
+            filter,
+            local,
+            remote,
+            all,
+            no_ahead,
+            review,
+            no_check,
+        }) => {
+            let ahead = !no_ahead; // Invert the flag
+            let check = !no_check; // Invert the flag
+            list::list(
+                legacy_project,
+                local,
+                remote,
+                all,
+                ahead,
+                review,
+                filter,
+                json,
+                check,
+            )
+            .await?;
+            Ok(we_need_proper_json_output_here())
+        }
+        Some(Subcommands::Show {
+            branch_id,
+            review,
+            no_pager,
+            files,
+            ai,
+            check,
+        }) => {
+            show::show(
+                legacy_project,
+                &branch_id,
+                json,
+                review,
+                !no_pager,
+                files,
+                ai,
+                check,
+            )
+            .await?;
+            Ok(we_need_proper_json_output_here())
+        }
         Some(Subcommands::New {
             branch_name,
             anchor,
