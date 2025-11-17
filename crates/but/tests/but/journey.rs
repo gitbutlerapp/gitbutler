@@ -37,7 +37,7 @@ fn from_scratch_needs_work() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 
     env.but("status").assert().failure().stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents
+Error: Could not find a git repository in '.' or in any of its parents[..]
 
 "#]]);
 
@@ -182,7 +182,7 @@ fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents
+Error: Could not find a git repository in '.' or in any of its parents[..]
 
 "#]]);
 
@@ -192,7 +192,7 @@ Error: Could not find a git repository in '.' or in any of its parents
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents
+Error: Could not find a git repository in '.' or in any of its parents[..]
 
 "#]]);
 
@@ -203,7 +203,7 @@ Error: Could not find a git repository in '.' or in any of its parents
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents
+Error: Could not find a git repository in '.' or in any of its parents[..]
 
 "#]]);
 
@@ -213,7 +213,7 @@ Error: Could not find a git repository in '.' or in any of its parents
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents
+Error: Could not find a git repository in '.' or in any of its parents[..]
 
 "#]]);
 
