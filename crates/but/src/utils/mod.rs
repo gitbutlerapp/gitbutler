@@ -4,6 +4,9 @@ use crate::{args::Args, metrics::MetricsContext};
 use colored::Colorize;
 use minus::ExitStrategy;
 
+pub mod table;
+pub use table::types::Table;
+
 /// How we should format anything written to [`std::io::stdout()`].
 #[derive(Debug, Copy, Clone, clap::ValueEnum, Default)]
 pub enum OutputFormat {

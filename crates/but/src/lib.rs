@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 use std::{ffi::OsString, path::Path};
 
 use anyhow::{Context, Result};
@@ -40,7 +42,6 @@ mod oplog;
 mod push;
 mod rub;
 mod status;
-mod table;
 mod ui;
 mod worktree;
 

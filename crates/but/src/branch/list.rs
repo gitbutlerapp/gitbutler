@@ -572,7 +572,7 @@ fn print_applied_branches_table(
     use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
 
-    use crate::table::{Cell, Table};
+    use crate::utils::{Table, table::Cell};
 
     if applied_stacks.is_empty() {
         return Ok(());
@@ -696,7 +696,7 @@ fn print_branches_table(
     merge_status_map: Option<&std::collections::HashMap<String, bool>>,
     id_map: &HashMap<String, String>,
 ) -> Result<(), anyhow::Error> {
-    use crate::table::{Cell, Table};
+    use crate::utils::{Table, table::Cell};
 
     if branches.is_empty() {
         return Ok(());
