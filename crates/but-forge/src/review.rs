@@ -284,6 +284,11 @@ impl ForgeReview {
     pub fn is_merged(&self) -> bool {
         self.merged_at.is_some()
     }
+
+    /// Whether the review points to the given commit ID and has been merged
+    pub fn is_merged_at_commit(&self, commit_id: &str) -> bool {
+        self.is_merged() && self.sha == commit_id
+    }
 }
 
 impl From<but_github::PullRequest> for ForgeReview {
