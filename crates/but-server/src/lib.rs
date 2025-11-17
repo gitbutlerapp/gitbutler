@@ -11,15 +11,7 @@ use axum::{
     response::IntoResponse,
     routing::{any, get},
 };
-use but_api::{
-    App, github,
-    json::ToError as _,
-    legacy::{
-        askpass, cherry_apply, claude, cli, config, diff, forge, git, modes, open, oplog,
-        projects as iprojects, remotes, repo, rules, secret, settings, stack, users,
-        virtual_branches, workspace, zip,
-    },
-};
+use but_api::{App, github, json::ToError as _, legacy};
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
@@ -157,55 +149,57 @@ async fn handle_command(
     let command: &str = &request.command;
     let result = match command {
         // General commands
-        "git_remote_branches" => git::git_remote_branches_cmd(request.params),
-        "git_test_push" => git::git_test_push_cmd(request.params),
-        "git_test_fetch" => git::git_test_fetch_cmd(request.params),
-        "git_index_size" => git::git_index_size_cmd(request.params),
-        "delete_all_data" => git::delete_all_data_cmd(request.params),
-        "git_set_global_config" => git::git_set_global_config_cmd(request.params),
-        "git_remove_global_config" => git::git_remove_global_config_cmd(request.params),
-        "git_get_global_config" => git::git_get_global_config_cmd(request.params),
+        "git_remote_branches" => legacy::git::git_remote_branches_cmd(request.params),
+        "git_test_push" => legacy::git::git_test_push_cmd(request.params),
+        "git_test_fetch" => legacy::git::git_test_fetch_cmd(request.params),
+        "git_index_size" => legacy::git::git_index_size_cmd(request.params),
+        "delete_all_data" => legacy::git::delete_all_data_cmd(request.params),
+        "git_set_global_config" => legacy::git::git_set_global_config_cmd(request.params),
+        "git_remove_global_config" => legacy::git::git_remove_global_config_cmd(request.params),
+        "git_get_global_config" => legacy::git::git_get_global_config_cmd(request.params),
         // Diff commands
-        "tree_change_diffs" => diff::tree_change_diffs_cmd(request.params),
-        "commit_details" => diff::commit_details_cmd(request.params),
-        "changes_in_branch" => diff::changes_in_branch_cmd(request.params),
-        "changes_in_worktree" => diff::changes_in_worktree_cmd(request.params),
-        "assign_hunk" => diff::assign_hunk_cmd(request.params),
+        "tree_change_diffs" => legacy::diff::tree_change_diffs_cmd(request.params),
+        "commit_details" => legacy::diff::commit_details_cmd(request.params),
+        "changes_in_branch" => legacy::diff::changes_in_branch_cmd(request.params),
+        "changes_in_worktree" => legacy::diff::changes_in_worktree_cmd(request.params),
+        "assign_hunk" => legacy::diff::assign_hunk_cmd(request.params),
         // Cherry apply commands
-        "cherry_apply_status" => cherry_apply::cherry_apply_status_cmd(request.params),
-        "cherry_apply" => cherry_apply::cherry_apply_cmd(request.params),
+        "cherry_apply_status" => legacy::cherry_apply::cherry_apply_status_cmd(request.params),
+        "cherry_apply" => legacy::cherry_apply::cherry_apply_cmd(request.params),
         // Workspace commands
-        "stacks" => workspace::stacks_cmd(request.params),
-        "head_info" => workspace::head_info_cmd(request.params),
+        "stacks" => legacy::workspace::stacks_cmd(request.params),
+        "head_info" => legacy::workspace::head_info_cmd(request.params),
         #[cfg(unix)]
-        "show_graph_svg" => workspace::show_graph_svg_cmd(request.params),
-        "stack_details" => workspace::stack_details_cmd(request.params),
-        "branch_details" => workspace::branch_details_cmd(request.params),
+        "show_graph_svg" => legacy::workspace::show_graph_svg_cmd(request.params),
+        "stack_details" => legacy::workspace::stack_details_cmd(request.params),
+        "branch_details" => legacy::workspace::branch_details_cmd(request.params),
         "create_commit_from_worktree_changes" => {
-            workspace::create_commit_from_worktree_changes_cmd(request.params)
+            legacy::workspace::create_commit_from_worktree_changes_cmd(request.params)
         }
         "amend_commit_from_worktree_changes" => {
-            workspace::amend_commit_from_worktree_changes_cmd(request.params)
+            legacy::workspace::amend_commit_from_worktree_changes_cmd(request.params)
         }
-        "discard_worktree_changes" => workspace::discard_worktree_changes_cmd(request.params),
+        "discard_worktree_changes" => {
+            legacy::workspace::discard_worktree_changes_cmd(request.params)
+        }
         "move_changes_between_commits" => {
-            workspace::move_changes_between_commits_cmd(request.params)
+            legacy::workspace::move_changes_between_commits_cmd(request.params)
         }
-        "split_branch" => workspace::split_branch_cmd(request.params),
+        "split_branch" => legacy::workspace::split_branch_cmd(request.params),
         "split_branch_into_dependent_branch" => {
-            workspace::split_branch_into_dependent_branch_cmd(request.params)
+            legacy::workspace::split_branch_into_dependent_branch_cmd(request.params)
         }
-        "uncommit_changes" => workspace::uncommit_changes_cmd(request.params),
-        "stash_into_branch" => workspace::stash_into_branch_cmd(request.params),
-        "canned_branch_name" => workspace::canned_branch_name_cmd(request.params),
-        "target_commits" => workspace::target_commits_cmd(request.params),
+        "uncommit_changes" => legacy::workspace::uncommit_changes_cmd(request.params),
+        "stash_into_branch" => legacy::workspace::stash_into_branch_cmd(request.params),
+        "canned_branch_name" => legacy::workspace::canned_branch_name_cmd(request.params),
+        "target_commits" => legacy::workspace::target_commits_cmd(request.params),
         // App settings
-        "get_app_settings" => settings::get_app_settings_cmd(request.params),
+        "get_app_settings" => legacy::settings::get_app_settings_cmd(request.params),
         "update_onboarding_complete" => {
             serde_json::from_value(request.params)
                 .to_error()
                 .and_then(|params| {
-                    settings::update_onboarding_complete(&app_settings_sync, params)
+                    legacy::settings::update_onboarding_complete(&app_settings_sync, params)
                         .map(|r| json!(r))
                 })
         }
@@ -213,153 +207,167 @@ async fn handle_command(
             serde_json::from_value(request.params)
                 .to_error()
                 .and_then(|params| {
-                    settings::update_telemetry(&app_settings_sync, params).map(|r| json!(r))
+                    legacy::settings::update_telemetry(&app_settings_sync, params).map(|r| json!(r))
                 })
         }
         "update_telemetry_distinct_id" => serde_json::from_value(request.params)
             .to_error()
             .and_then(|params| {
-                settings::update_telemetry_distinct_id(&app_settings_sync, params).map(|r| json!(r))
+                legacy::settings::update_telemetry_distinct_id(&app_settings_sync, params)
+                    .map(|r| json!(r))
             }),
         "update_feature_flags" => {
             serde_json::from_value(request.params)
                 .to_error()
                 .and_then(|params| {
-                    settings::update_feature_flags(&app_settings_sync, params).map(|r| json!(r))
+                    legacy::settings::update_feature_flags(&app_settings_sync, params)
+                        .map(|r| json!(r))
                 })
         }
         "update_claude" => serde_json::from_value(request.params)
             .to_error()
             .and_then(|params| {
-                settings::update_claude(&app_settings_sync, params).map(|r| json!(r))
+                legacy::settings::update_claude(&app_settings_sync, params).map(|r| json!(r))
             }),
         "update_fetch" => serde_json::from_value(request.params)
             .to_error()
             .and_then(|params| {
-                settings::update_fetch(&app_settings_sync, params).map(|r| json!(r))
+                legacy::settings::update_fetch(&app_settings_sync, params).map(|r| json!(r))
             }),
         "update_reviews" => serde_json::from_value(request.params)
             .to_error()
             .and_then(|params| {
-                settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
+                legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
             }),
         // Secret management
-        "secret_get_global" => secret::secret_get_global_cmd(request.params),
-        "secret_set_global" => secret::secret_set_global_cmd(request.params),
-        "secret_delete_global" => secret::secret_delete_global_cmd(request.params),
+        "secret_get_global" => legacy::secret::secret_get_global_cmd(request.params),
+        "secret_set_global" => legacy::secret::secret_set_global_cmd(request.params),
+        "secret_delete_global" => legacy::secret::secret_delete_global_cmd(request.params),
         // User management
-        "get_user" => users::get_user_cmd(request.params),
-        "set_user" => users::set_user_cmd(request.params),
-        "delete_user" => users::delete_user_cmd(request.params),
+        "get_user" => legacy::users::get_user_cmd(request.params),
+        "set_user" => legacy::users::set_user_cmd(request.params),
+        "delete_user" => legacy::users::delete_user_cmd(request.params),
         // Project management
-        "update_project" => iprojects::update_project_cmd(request.params),
-        "add_project" => iprojects::add_project_cmd(request.params),
-        "add_project_best_effort" => iprojects::add_project_best_effort_cmd(request.params),
-        "get_project" => iprojects::get_project_cmd(request.params),
-        "delete_project" => iprojects::delete_project_cmd(request.params),
-        "is_gerrit" => iprojects::is_gerrit_cmd(request.params),
+        "update_project" => legacy::projects::update_project_cmd(request.params),
+        "add_project" => legacy::projects::add_project_cmd(request.params),
+        "add_project_best_effort" => legacy::projects::add_project_best_effort_cmd(request.params),
+        "get_project" => legacy::projects::get_project_cmd(request.params),
+        "delete_project" => legacy::projects::delete_project_cmd(request.params),
+        "is_gerrit" => legacy::projects::is_gerrit_cmd(request.params),
         "list_projects" => projects::list_projects(&extra).await,
         "set_project_active" => {
             projects::set_project_active(&app, &extra, app_settings_sync, request.params).await
         }
         // Virtual branches commands
-        "normalize_branch_name" => virtual_branches::normalize_branch_name_cmd(request.params),
-        "create_virtual_branch" => virtual_branches::create_virtual_branch_cmd(request.params),
-        "delete_local_branch" => virtual_branches::delete_local_branch_cmd(request.params),
+        "normalize_branch_name" => {
+            legacy::virtual_branches::normalize_branch_name_cmd(request.params)
+        }
+        "create_virtual_branch" => {
+            legacy::virtual_branches::create_virtual_branch_cmd(request.params)
+        }
+        "delete_local_branch" => legacy::virtual_branches::delete_local_branch_cmd(request.params),
         "create_virtual_branch_from_branch" => {
-            virtual_branches::create_virtual_branch_from_branch_cmd(request.params)
+            legacy::virtual_branches::create_virtual_branch_from_branch_cmd(request.params)
         }
         "integrate_upstream_commits" => {
-            virtual_branches::integrate_upstream_commits_cmd(request.params)
+            legacy::virtual_branches::integrate_upstream_commits_cmd(request.params)
         }
         "get_initial_integration_steps_for_branch" => {
-            virtual_branches::get_initial_integration_steps_for_branch_cmd(request.params)
+            legacy::virtual_branches::get_initial_integration_steps_for_branch_cmd(request.params)
         }
         "integrate_branch_with_steps" => {
-            virtual_branches::integrate_branch_with_steps_cmd(request.params)
+            legacy::virtual_branches::integrate_branch_with_steps_cmd(request.params)
         }
-        "get_base_branch_data" => virtual_branches::get_base_branch_data_cmd(request.params),
-        "set_base_branch" => virtual_branches::set_base_branch_cmd(request.params),
-        "push_base_branch" => virtual_branches::push_base_branch_cmd(request.params),
-        "update_stack_order" => virtual_branches::update_stack_order_cmd(request.params),
-        "unapply_stack" => virtual_branches::unapply_stack_cmd(request.params),
-        "can_apply_remote_branch" => virtual_branches::can_apply_remote_branch_cmd(request.params),
-        "list_commit_files" => virtual_branches::list_commit_files_cmd(request.params),
-        "amend_virtual_branch" => virtual_branches::amend_virtual_branch_cmd(request.params),
-        "undo_commit" => virtual_branches::undo_commit_cmd(request.params),
-        "insert_blank_commit" => virtual_branches::insert_blank_commit_cmd(request.params),
-        "reorder_stack" => virtual_branches::reorder_stack_cmd(request.params),
-        "find_git_branches" => virtual_branches::find_git_branches_cmd(request.params),
-        "list_branches" => virtual_branches::list_branches_cmd(request.params),
+        "get_base_branch_data" => {
+            legacy::virtual_branches::get_base_branch_data_cmd(request.params)
+        }
+        "set_base_branch" => legacy::virtual_branches::set_base_branch_cmd(request.params),
+        "push_base_branch" => legacy::virtual_branches::push_base_branch_cmd(request.params),
+        "update_stack_order" => legacy::virtual_branches::update_stack_order_cmd(request.params),
+        "unapply_stack" => legacy::virtual_branches::unapply_stack_cmd(request.params),
+        "can_apply_remote_branch" => {
+            legacy::virtual_branches::can_apply_remote_branch_cmd(request.params)
+        }
+        "list_commit_files" => legacy::virtual_branches::list_commit_files_cmd(request.params),
+        "amend_virtual_branch" => {
+            legacy::virtual_branches::amend_virtual_branch_cmd(request.params)
+        }
+        "undo_commit" => legacy::virtual_branches::undo_commit_cmd(request.params),
+        "insert_blank_commit" => legacy::virtual_branches::insert_blank_commit_cmd(request.params),
+        "reorder_stack" => legacy::virtual_branches::reorder_stack_cmd(request.params),
+        "find_git_branches" => legacy::virtual_branches::find_git_branches_cmd(request.params),
+        "list_branches" => legacy::virtual_branches::list_branches_cmd(request.params),
         "get_branch_listing_details" => {
-            virtual_branches::get_branch_listing_details_cmd(request.params)
+            legacy::virtual_branches::get_branch_listing_details_cmd(request.params)
         }
-        "squash_commits" => virtual_branches::squash_commits_cmd(request.params),
-        "fetch_from_remotes" => virtual_branches::fetch_from_remotes_cmd(request.params),
-        "move_commit" => virtual_branches::move_commit_cmd(request.params),
-        "move_branch" => virtual_branches::move_branch_cmd(request.params),
-        "tear_off_branch" => virtual_branches::tear_off_branch_cmd(request.params),
-        "update_commit_message" => virtual_branches::update_commit_message_cmd(request.params),
-        "find_commit" => virtual_branches::find_commit_cmd(request.params),
+        "squash_commits" => legacy::virtual_branches::squash_commits_cmd(request.params),
+        "fetch_from_remotes" => legacy::virtual_branches::fetch_from_remotes_cmd(request.params),
+        "move_commit" => legacy::virtual_branches::move_commit_cmd(request.params),
+        "move_branch" => legacy::virtual_branches::move_branch_cmd(request.params),
+        "tear_off_branch" => legacy::virtual_branches::tear_off_branch_cmd(request.params),
+        "update_commit_message" => {
+            legacy::virtual_branches::update_commit_message_cmd(request.params)
+        }
+        "find_commit" => legacy::virtual_branches::find_commit_cmd(request.params),
         "upstream_integration_statuses" => {
-            virtual_branches::upstream_integration_statuses_cmd(request.params)
+            legacy::virtual_branches::upstream_integration_statuses_cmd(request.params)
         }
-        "integrate_upstream" => virtual_branches::integrate_upstream_cmd(request.params),
+        "integrate_upstream" => legacy::virtual_branches::integrate_upstream_cmd(request.params),
         "resolve_upstream_integration" => {
-            virtual_branches::resolve_upstream_integration_cmd(request.params)
+            legacy::virtual_branches::resolve_upstream_integration_cmd(request.params)
         }
         // Operating modes commands
-        "operating_mode" => modes::operating_mode_cmd(request.params),
-        "enter_edit_mode" => modes::enter_edit_mode_cmd(request.params),
+        "operating_mode" => legacy::modes::operating_mode_cmd(request.params),
+        "enter_edit_mode" => legacy::modes::enter_edit_mode_cmd(request.params),
         "abort_edit_and_return_to_workspace" => {
-            modes::abort_edit_and_return_to_workspace_cmd(request.params)
+            legacy::modes::abort_edit_and_return_to_workspace_cmd(request.params)
         }
         "save_edit_and_return_to_workspace" => {
-            modes::save_edit_and_return_to_workspace_cmd(request.params)
+            legacy::modes::save_edit_and_return_to_workspace_cmd(request.params)
         }
-        "edit_initial_index_state" => modes::edit_initial_index_state_cmd(request.params),
-        "edit_changes_from_initial" => modes::edit_changes_from_initial_cmd(request.params),
+        "edit_initial_index_state" => legacy::modes::edit_initial_index_state_cmd(request.params),
+        "edit_changes_from_initial" => legacy::modes::edit_changes_from_initial_cmd(request.params),
         // Repository commands
-        "git_get_local_config" => repo::git_get_local_config_cmd(request.params),
-        "git_set_local_config" => repo::git_set_local_config_cmd(request.params),
-        "check_signing_settings" => repo::check_signing_settings_cmd(request.params),
-        "git_clone_repository" => repo::git_clone_repository_cmd(request.params),
-        "get_uncommited_files" => repo::get_uncommited_files_cmd(request.params),
-        "get_commit_file" => repo::get_commit_file_cmd(request.params),
-        "get_workspace_file" => repo::get_workspace_file_cmd(request.params),
-        "find_files" => repo::find_files_cmd(request.params),
-        "pre_commit_hook" => repo::pre_commit_hook_cmd(request.params),
-        "pre_commit_hook_diffspecs" => repo::pre_commit_hook_diffspecs_cmd(request.params),
-        "post_commit_hook" => repo::post_commit_hook_cmd(request.params),
-        "message_hook" => repo::message_hook_cmd(request.params),
+        "git_get_local_config" => legacy::repo::git_get_local_config_cmd(request.params),
+        "git_set_local_config" => legacy::repo::git_set_local_config_cmd(request.params),
+        "check_signing_settings" => legacy::repo::check_signing_settings_cmd(request.params),
+        "git_clone_repository" => legacy::repo::git_clone_repository_cmd(request.params),
+        "get_uncommited_files" => legacy::repo::get_uncommited_files_cmd(request.params),
+        "get_commit_file" => legacy::repo::get_commit_file_cmd(request.params),
+        "get_workspace_file" => legacy::repo::get_workspace_file_cmd(request.params),
+        "find_files" => legacy::repo::find_files_cmd(request.params),
+        "pre_commit_hook" => legacy::repo::pre_commit_hook_cmd(request.params),
+        "pre_commit_hook_diffspecs" => legacy::repo::pre_commit_hook_diffspecs_cmd(request.params),
+        "post_commit_hook" => legacy::repo::post_commit_hook_cmd(request.params),
+        "message_hook" => legacy::repo::message_hook_cmd(request.params),
         // Stack management commands
-        "create_branch" => stack::create_branch_cmd(request.params),
-        "remove_branch" => stack::remove_branch_cmd(request.params),
-        "update_branch_name" => stack::update_branch_name_cmd(request.params),
-        "update_branch_description" => stack::update_branch_description_cmd(request.params),
-        "update_branch_pr_number" => stack::update_branch_pr_number_cmd(request.params),
-        "push_stack" => stack::push_stack_cmd(request.params),
-        "push_stack_to_review" => stack::push_stack_to_review_cmd(request.params),
+        "create_branch" => legacy::stack::create_branch_cmd(request.params),
+        "remove_branch" => legacy::stack::remove_branch_cmd(request.params),
+        "update_branch_name" => legacy::stack::update_branch_name_cmd(request.params),
+        "update_branch_description" => legacy::stack::update_branch_description_cmd(request.params),
+        "update_branch_pr_number" => legacy::stack::update_branch_pr_number_cmd(request.params),
+        "push_stack" => legacy::stack::push_stack_cmd(request.params),
+        "push_stack_to_review" => legacy::stack::push_stack_to_review_cmd(request.params),
         // Undo/Snapshot commands
-        "list_snapshots" => oplog::list_snapshots_cmd(request.params),
-        "restore_snapshot" => oplog::restore_snapshot_cmd(request.params),
-        "snapshot_diff" => oplog::snapshot_diff_cmd(request.params),
+        "list_snapshots" => legacy::oplog::list_snapshots_cmd(request.params),
+        "restore_snapshot" => legacy::oplog::restore_snapshot_cmd(request.params),
+        "snapshot_diff" => legacy::oplog::snapshot_diff_cmd(request.params),
         // "oplog_diff_worktrees" => undo::oplog_diff_worktrees(&ctx, request.params),
         // Config management commands
-        "get_gb_config" => config::get_gb_config_cmd(request.params),
-        "set_gb_config" => config::set_gb_config_cmd(request.params),
+        "get_gb_config" => legacy::config::get_gb_config_cmd(request.params),
+        "set_gb_config" => legacy::config::set_gb_config_cmd(request.params),
         "store_author_globally_if_unset" => {
-            config::store_author_globally_if_unset_cmd(request.params)
+            legacy::config::store_author_globally_if_unset_cmd(request.params)
         }
-        "get_author_info" => config::get_author_info_cmd(request.params),
+        "get_author_info" => legacy::config::get_author_info_cmd(request.params),
         // Remotes management commands
-        "list_remotes" => remotes::list_remotes_cmd(request.params),
-        "add_remote" => remotes::add_remote_cmd(request.params),
+        "list_remotes" => legacy::remotes::list_remotes_cmd(request.params),
+        "add_remote" => legacy::remotes::add_remote_cmd(request.params),
         // Rules/Workspace rules commands
-        "create_workspace_rule" => rules::create_workspace_rule_cmd(request.params),
-        "delete_workspace_rule" => rules::delete_workspace_rule_cmd(request.params),
-        "update_workspace_rule" => rules::update_workspace_rule_cmd(request.params),
-        "list_workspace_rules" => rules::list_workspace_rules_cmd(request.params),
+        "create_workspace_rule" => legacy::rules::create_workspace_rule_cmd(request.params),
+        "delete_workspace_rule" => legacy::rules::delete_workspace_rule_cmd(request.params),
+        "update_workspace_rule" => legacy::rules::update_workspace_rule_cmd(request.params),
+        "list_workspace_rules" => legacy::rules::list_workspace_rules_cmd(request.params),
         "init_device_oauth" => {
             let result = github::init_device_oauth_json().await;
             result.map(|r| json!(r))
@@ -410,14 +418,14 @@ async fn handle_command(
             }
         }
         // Forge commands
-        "pr_templates" => forge::pr_templates_cmd(request.params),
-        "pr_template" => forge::pr_template_cmd(request.params),
-        "determine_forge_from_url" => forge::determine_forge_from_url_cmd(request.params),
+        "pr_templates" => legacy::forge::pr_templates_cmd(request.params),
+        "pr_template" => legacy::forge::pr_template_cmd(request.params),
+        "determine_forge_from_url" => legacy::forge::determine_forge_from_url_cmd(request.params),
         "list_reviews" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = forge::list_reviews_cmd(params).await;
+                    let result = legacy::forge::list_reviews_cmd(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -427,7 +435,7 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = forge::publish_review_cmd(params).await;
+                    let result = legacy::forge::publish_review_cmd(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -436,22 +444,22 @@ async fn handle_command(
         // // Menu commands (limited - no menu_item_set_enabled as it's Tauri-specific)
         // "get_editor_link_scheme" => menu::get_editor_link_scheme(&ctx, request.params),
         // CLI commands
-        "install_cli" => cli::install_cli_cmd(request.params),
-        "cli_path" => cli::cli_path_cmd(request.params),
+        "install_cli" => legacy::cli::install_cli_cmd(request.params),
+        "cli_path" => legacy::cli::cli_path_cmd(request.params),
         // Askpass commands (async)
         "submit_prompt_response" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = askpass::submit_prompt_response(params).await;
+                    let result = legacy::askpass::submit_prompt_response(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
             }
         }
         // Open/System commands (limited - no open_project_in_window as it's Tauri-specific)
-        "open_url" => open::open_url_cmd(request.params),
-        "show_in_finder" => open::show_in_finder_cmd(request.params),
+        "open_url" => legacy::open::open_url_cmd(request.params),
+        "show_in_finder" => legacy::open::show_in_finder_cmd(request.params),
 
         // TODO: Tauri-specific commands that cannot be ported to HTTP API:
         //
@@ -470,7 +478,7 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = zip::get_project_archive_path(&app, params);
+                    let result = legacy::zip::get_project_archive_path(&app, params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -480,7 +488,7 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = zip::get_logs_archive_path(&app, params);
+                    let result = legacy::zip::get_logs_archive_path(&app, params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -490,7 +498,7 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = claude::claude_send_message(&app, params).await;
+                    let result = legacy::claude::claude_send_message(&app, params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -505,7 +513,7 @@ async fn handle_command(
             let params = serde_json::from_value::<Params>(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = claude::claude_get_mcp_config(params.project_id).await;
+                    let result = legacy::claude::claude_get_mcp_config(params.project_id).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -515,7 +523,7 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = claude::claude_get_messages(&app, params);
+                    let result = legacy::claude::claude_get_messages(&app, params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -534,38 +542,39 @@ async fn handle_command(
                     project_id,
                     session_id,
                 }) => {
-                    let result = claude::claude_get_session_details(project_id, session_id).await;
+                    let result =
+                        legacy::claude::claude_get_session_details(project_id, session_id).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
             }
         }
-        "claude_get_user_message" => claude::claude_get_user_message_cmd(request.params),
+        "claude_get_user_message" => legacy::claude::claude_get_user_message_cmd(request.params),
         "claude_list_permission_requests" => {
-            claude::claude_list_permission_requests_cmd(request.params)
+            legacy::claude::claude_list_permission_requests_cmd(request.params)
         }
         "claude_update_permission_request" => {
-            claude::claude_update_permission_request_cmd(request.params)
+            legacy::claude::claude_update_permission_request_cmd(request.params)
         }
         "claude_cancel_session" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = claude::claude_cancel_session(&app, params).await;
+                    let result = legacy::claude::claude_cancel_session(&app, params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
             }
         }
         "claude_check_available" => {
-            let result = claude::claude_check_available().await;
+            let result = legacy::claude::claude_check_available().await;
             result.map(|r| json!(r))
         }
         "claude_is_stack_active" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = claude::claude_is_stack_active(&app, params).await;
+                    let result = legacy::claude::claude_is_stack_active(&app, params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -575,16 +584,18 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = claude::claude_compact_history(&app, params).await;
+                    let result = legacy::claude::claude_compact_history(&app, params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
             }
         }
-        "claude_list_prompt_templates" => claude::claude_list_prompt_templates_cmd(request.params),
-        "claude_get_prompt_dirs" => claude::claude_get_prompt_dirs_cmd(request.params),
+        "claude_list_prompt_templates" => {
+            legacy::claude::claude_list_prompt_templates_cmd(request.params)
+        }
+        "claude_get_prompt_dirs" => legacy::claude::claude_get_prompt_dirs_cmd(request.params),
         "claude_maybe_create_prompt_dir" => {
-            claude::claude_maybe_create_prompt_dir_cmd(request.params)
+            legacy::claude::claude_maybe_create_prompt_dir_cmd(request.params)
         }
         "claude_get_sub_agents" => {
             #[derive(Deserialize)]
@@ -595,7 +606,7 @@ async fn handle_command(
             let params = serde_json::from_value::<Params>(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = claude::claude_get_sub_agents(params.project_id).await;
+                    let result = legacy::claude::claude_get_sub_agents(params.project_id).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -611,7 +622,8 @@ async fn handle_command(
             let params = serde_json::from_value::<Params>(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = claude::claude_verify_path(params.project_id, params.path).await;
+                    let result =
+                        legacy::claude::claude_verify_path(params.project_id, params.path).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
