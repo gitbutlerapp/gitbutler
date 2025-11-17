@@ -14,6 +14,7 @@ use tokio::sync::Mutex;
 pub mod commands;
 pub use commands::*;
 pub mod hex_hash;
+pub mod legacy;
 
 #[derive(Clone)]
 pub struct App {
