@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
     commands::{diff, virtual_branches, workspace},
-    hex_hash::HexHash,
+    json::HexHash,
 };
 use but_core::{DiffSpec, ui::TreeChange};
 use but_hunk_assignment::HunkAssignment;
@@ -356,7 +356,7 @@ fn select_stack(
         );
         let branch_name = match branch_hint {
             Some(hint) => String::from(hint),
-            None => but_api::workspace::canned_branch_name(project.id)?,
+            None => but_api::commands::workspace::canned_branch_name(project.id)?,
         };
         return create_independent_branch(&branch_name, project, out);
     }
@@ -377,7 +377,7 @@ fn select_stack(
         }
         None if create_branch => {
             // Create with canned name
-            let branch_name = but_api::workspace::canned_branch_name(project.id)?;
+            let branch_name = but_api::commands::workspace::canned_branch_name(project.id)?;
             create_independent_branch(&branch_name, project, out)
         }
         None if stacks.len() == 1 => {

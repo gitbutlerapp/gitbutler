@@ -17,7 +17,7 @@ use crate::json::Error;
 pub mod create_reference {
     use serde::{Deserialize, Serialize};
 
-    use crate::hex_hash::HexHash;
+    use crate::json::HexHash;
 
     #[derive(Deserialize, Serialize, Debug)]
     #[serde(rename_all = "camelCase")]

@@ -17,9 +17,9 @@ use crate::{WindowState, window, window::state::ProjectAccessMode};
 #[instrument(skip(window_state), err(Debug))]
 pub fn list_projects(
     window_state: State<'_, WindowState>,
-) -> Result<Vec<but_api::projects::ProjectForFrontend>, Error> {
+) -> Result<Vec<but_api::commands::projects::ProjectForFrontend>, Error> {
     let open_projects = window_state.open_projects();
-    but_api::projects::list_projects(open_projects)
+    but_api::commands::projects::list_projects(open_projects)
 }
 
 /// Additional information to help the user interface communicate what happened with the project.

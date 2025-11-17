@@ -28,7 +28,7 @@ pub fn apply(
                 gitbutler_reference::RemoteRefname::from_str(&ref_name.to_string()).ok()
             });
 
-        but_api::virtual_branches::create_virtual_branch_from_branch(
+        but_api::commands::virtual_branches::create_virtual_branch_from_branch(
             legacy_project.id,
             ref_name,
             remote_ref_name,
@@ -41,7 +41,7 @@ pub fn apply(
         // Look for the branch in the remote references
         let ref_name =
             gitbutler_reference::Refname::from_str(&format!("refs/remotes/{remote}/{name}"))?;
-        but_api::virtual_branches::create_virtual_branch_from_branch(
+        but_api::commands::virtual_branches::create_virtual_branch_from_branch(
             legacy_project.id,
             ref_name,
             Some(remote_ref.clone()),

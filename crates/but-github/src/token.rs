@@ -10,7 +10,7 @@ use crate::client::GitHubClient;
 pub fn persist_gh_access_token(
     account_id: &GithubAccountIdentifier,
     access_token: &Sensitive<String>,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     let oauth_account = GitHubAccount::new(account_id, access_token.clone());
     persist_github_account(&oauth_account, storage)
@@ -19,7 +19,7 @@ pub fn persist_gh_access_token(
 /// Delete a GitHub account access token for a given username.
 pub fn delete_gh_access_token(
     account_id: &GithubAccountIdentifier,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     let account = find_github_account(account_id, storage)?;
     if let Some(account) = account {
@@ -32,14 +32,14 @@ pub fn delete_gh_access_token(
 /// Retrieve a GitHub account access token for a given username.
 pub fn get_gh_access_token(
     account_id: &GithubAccountIdentifier,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<Option<Sensitive<String>>> {
     let account = find_github_account(account_id, storage)?;
     Ok(account.map(|acct| acct.access_token()))
 }
 
 pub fn list_known_github_accounts(
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<Vec<GithubAccountIdentifier>> {
     Ok(storage
         .github_accounts()?
@@ -48,9 +48,7 @@ pub fn list_known_github_accounts(
         .collect::<Vec<_>>())
 }
 
-pub fn clear_all_github_accounts(
-    storage: &but_forge_storage::controller::Controller,
-) -> Result<()> {
+pub fn clear_all_github_accounts(storage: &but_forge_storage::Controller) -> Result<()> {
     delete_all_github_accounts(storage)?;
     Ok(())
 }
@@ -228,7 +226,7 @@ fn retrieve_github_secret(account_secret_key: &str) -> Result<Option<Sensitive<S
 
 fn persist_github_account(
     account: &GitHubAccount,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     let secret_key = account.secret_key();
     storage.add_github_account(&account.into())?;
@@ -244,7 +242,7 @@ fn persist_github_account(
 
 fn delete_github_account(
     account: &GitHubAccount,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     let secret_key = account.secret_key();
     storage.remove_github_account(&account.into())?;
@@ -254,7 +252,7 @@ fn delete_github_account(
     secret::delete(&secret_key, secret::Namespace::BuildKind)
 }
 
-fn delete_all_github_accounts(storage: &but_forge_storage::controller::Controller) -> Result<()> {
+fn delete_all_github_accounts(storage: &but_forge_storage::Controller) -> Result<()> {
     let keys_to_delete = storage.clear_all_github_accounts()?;
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
@@ -266,7 +264,7 @@ fn delete_all_github_accounts(storage: &but_forge_storage::controller::Controlle
 
 fn find_github_account(
     account_id: &GithubAccountIdentifier,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<Option<GitHubAccount>> {
     let accounts = storage.github_accounts()?;
     let result = match account_id {

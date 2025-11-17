@@ -119,9 +119,9 @@ pub struct Project {
     pub forge_override: Option<String>,
     #[serde(
         default,
-        deserialize_with = "gitbutler_forge::deserialize_preferred_forge_user_opt"
+        deserialize_with = "but_forge::deserialize_preferred_forge_user_opt"
     )]
-    pub preferred_forge_user: Option<gitbutler_forge::ForgeUser>,
+    pub preferred_forge_user: Option<but_forge::ForgeUser>,
 }
 
 impl Project {

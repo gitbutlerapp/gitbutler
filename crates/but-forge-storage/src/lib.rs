@@ -1,3 +1,6 @@
-pub mod controller;
+mod controller;
+pub use controller::Controller;
+
 pub mod settings;
-pub mod storage;
+
+mod storage;

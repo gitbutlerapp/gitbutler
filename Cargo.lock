@@ -702,6 +702,7 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-cursor",
+ "but-forge",
  "but-gerrit",
  "but-github",
  "but-graph",
@@ -729,7 +730,6 @@ dependencies = [
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-commit",
- "gitbutler-forge",
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
@@ -808,6 +808,7 @@ dependencies = [
  "but-core",
  "but-error",
  "but-feedback",
+ "but-forge",
  "but-forge-storage",
  "but-gerrit",
  "but-github",
@@ -830,7 +831,6 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-edit-mode",
- "gitbutler-forge",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-project",
@@ -1046,6 +1046,19 @@ dependencies = [
  "tempfile",
  "walkdir",
  "zip",
+]
+
+[[package]]
+name = "but-forge"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-forge-storage",
+ "but-fs",
+ "but-github",
+ "git-url-parse",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3501,6 +3514,7 @@ dependencies = [
  "bstr",
  "but-core",
  "but-error",
+ "but-forge",
  "but-gerrit",
  "but-graph",
  "but-hunk-assignment",
@@ -3517,7 +3531,6 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-diff",
- "gitbutler-forge",
  "gitbutler-git",
  "gitbutler-hunk-dependency",
  "gitbutler-operating-modes",
@@ -3666,19 +3679,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-forge"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-forge-storage",
- "but-fs",
- "but-github",
- "git-url-parse",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "gitbutler-git"
 version = "0.0.0"
 dependencies = [
@@ -3782,11 +3782,11 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-error",
+ "but-forge",
  "but-fs",
  "but-path",
  "but-serde",
  "git2",
- "gitbutler-forge",
  "gitbutler-testsupport",
  "gix",
  "insta",
@@ -3941,9 +3941,6 @@ dependencies = [
  "but-db",
  "but-error",
  "but-feedback",
- "but-github",
- "but-graph",
- "but-meta",
  "but-path",
  "but-secret",
  "but-settings",

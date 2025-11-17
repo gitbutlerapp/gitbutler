@@ -4,11 +4,11 @@ version = "0.0.0"
 edition = "2024"
 repository = "https://github.com/gitbutlerapp/gitbutler"
 license-file = "../../LICENSE.md"
-description = "A GitButler CLI tool"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 readme = "../../README.md"
 publish = false
 rust-version = "1.89"
+description = "Store and retrieve information about forges"
 
 [lib]
 doctest = false

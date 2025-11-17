@@ -58,7 +58,7 @@ pub struct AuthStatusResponse {
 
 pub async fn check_auth_status(
     device_code: String,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<AuthStatusResponse> {
     #[derive(Debug, Deserialize, Serialize, Clone, Default)]
     struct AccessTokenContainer {
@@ -109,7 +109,7 @@ pub async fn check_auth_status(
 /// Fetch the authenticated user data from GitHub and persist the access token. (OAuth)
 async fn fetch_and_persist_oauth_user_data(
     access_token: &Sensitive<String>,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<client::AuthenticatedUser, anyhow::Error> {
     let gh = client::GitHubClient::new(access_token).context("Failed to create GitHub client")?;
     let user = gh
@@ -128,7 +128,7 @@ async fn fetch_and_persist_oauth_user_data(
 /// Store a PAT access token and fetch the associated user data.
 pub async fn store_pat(
     access_token: &Sensitive<String>,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<AuthStatusResponse> {
     let user = fetch_and_persist_pat_user_data(access_token, storage).await?;
     Ok(AuthStatusResponse {
@@ -143,7 +143,7 @@ pub async fn store_pat(
 /// Fetch the authenticated user data from GitHub and persist the access token. (PAT)
 async fn fetch_and_persist_pat_user_data(
     access_token: &Sensitive<String>,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<client::AuthenticatedUser, anyhow::Error> {
     let gh = client::GitHubClient::new(access_token).context("Failed to create GitHub client")?;
     let user = gh
@@ -163,7 +163,7 @@ async fn fetch_and_persist_pat_user_data(
 pub async fn store_enterprise_pat(
     host: &str,
     access_token: &Sensitive<String>,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<AuthStatusResponse> {
     let user = fetch_and_persist_enterprise_user_data(host, access_token, storage).await?;
     Ok(AuthStatusResponse {
@@ -179,7 +179,7 @@ pub async fn store_enterprise_pat(
 async fn fetch_and_persist_enterprise_user_data(
     host: &str,
     access_token: &Sensitive<String>,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<client::AuthenticatedUser, anyhow::Error> {
     let gh = client::GitHubClient::new_with_host_override(access_token, host)
         .context("Failed to create GitHub client")?;
@@ -198,7 +198,7 @@ async fn fetch_and_persist_enterprise_user_data(
 
 pub fn forget_gh_access_token(
     account: &GithubAccountIdentifier,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     token::delete_gh_access_token(account, storage).context("Failed to delete access token")
 }
@@ -214,7 +214,7 @@ pub struct AuthenticatedUser {
 
 pub async fn get_gh_user(
     account: &GithubAccountIdentifier,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<Option<AuthenticatedUser>> {
     if let Some(access_token) = token::get_gh_access_token(account, storage)? {
         let gh = account
@@ -267,7 +267,7 @@ pub enum CredentialCheckResult {
 /// Check the validity of the stored credentials for the given GitHub account.
 pub async fn check_credentials(
     account: &GithubAccountIdentifier,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<CredentialCheckResult> {
     if let Some(access_token) = token::get_gh_access_token(account, storage)? {
         let gh = account
@@ -283,11 +283,12 @@ pub async fn check_credentials(
 }
 
 pub async fn list_known_github_accounts(
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<Vec<token::GithubAccountIdentifier>> {
     let known_accounts = token::list_known_github_accounts(storage)
         .context("Failed to list known GitHub usernames")?;
     // Migrate the users from the previous storage method.
+    #[cfg(feature = "legacy")]
     if let Some(stored_gh_access_token) = gitbutler_user::forget_github_login_for_user()?
         && known_accounts.is_empty()
     {
@@ -302,7 +303,7 @@ pub async fn list_known_github_accounts(
     Ok(known_accounts)
 }
 
-pub fn clear_all_github_tokens(storage: &but_forge_storage::controller::Controller) -> Result<()> {
+pub fn clear_all_github_tokens(storage: &but_forge_storage::Controller) -> Result<()> {
     token::clear_all_github_accounts(storage).context("Failed to clear all GitHub tokens")
 }
 

@@ -2,12 +2,11 @@
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_core::RepositoryExt;
+use but_forge::{
+    ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions,
+};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
-use gitbutler_forge::{
-    forge::ForgeName,
-    review::{ReviewTemplateFunctions, available_review_templates, get_review_template_functions},
-};
 use gitbutler_project::ProjectId;
 use gitbutler_repo::RepoCommands;
 use tracing::instrument;
@@ -181,14 +180,12 @@ pub fn set_review_template(
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>, Error> {
-    Ok(gitbutler_forge::determine_forge_from_url(&url))
+    Ok(but_forge::determine_forge_from_url(&url))
 }
 
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub async fn list_reviews(
-    project_id: ProjectId,
-) -> Result<Vec<gitbutler_forge::review::ForgeReview>, Error> {
+pub async fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeReview>, Error> {
     list_reviews_cmd(ListReviewsParams { project_id }).await
 }
 
@@ -200,13 +197,13 @@ pub struct ListReviewsParams {
 
 pub async fn list_reviews_cmd(
     ListReviewsParams { project_id }: ListReviewsParams,
-) -> Result<Vec<gitbutler_forge::review::ForgeReview>, Error> {
+) -> Result<Vec<but_forge::ForgeReview>, Error> {
     let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let ctx = CommandContext::open(&project, app_settings)?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    gitbutler_forge::review::list_forge_reviews(
+    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    but_forge::list_forge_reviews(
         &project.preferred_forge_user,
         &base_branch
             .forge_repo_info
@@ -221,8 +218,8 @@ pub async fn list_reviews_cmd(
 #[instrument(err(Debug))]
 pub async fn publish_review(
     project_id: ProjectId,
-    params: gitbutler_forge::review::CreateForgeReviewParams,
-) -> Result<gitbutler_forge::review::ForgeReview, Error> {
+    params: but_forge::CreateForgeReviewParams,
+) -> Result<but_forge::ForgeReview, Error> {
     publish_review_cmd(PublishReviewParams { project_id, params }).await
 }
 
@@ -230,18 +227,18 @@ pub async fn publish_review(
 #[serde(rename_all = "camelCase")]
 pub struct PublishReviewParams {
     pub project_id: ProjectId,
-    pub params: gitbutler_forge::review::CreateForgeReviewParams,
+    pub params: but_forge::CreateForgeReviewParams,
 }
 
 pub async fn publish_review_cmd(
     PublishReviewParams { project_id, params }: PublishReviewParams,
-) -> Result<gitbutler_forge::review::ForgeReview, Error> {
+) -> Result<but_forge::ForgeReview, Error> {
     let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let ctx = CommandContext::open(&project, app_settings)?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    gitbutler_forge::review::create_forge_review(
+    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    but_forge::create_forge_review(
         &project.preferred_forge_user,
         &base_branch
             .forge_repo_info

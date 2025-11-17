@@ -119,6 +119,7 @@ jobs:
           cargo check -p but-meta
           cargo check -p but-graph
           cargo check -p but-workspace
+          cargo check -p but-github
         name: Special `cargo check` runs
         env:
           RUSTFLAGS: '--deny warnings'

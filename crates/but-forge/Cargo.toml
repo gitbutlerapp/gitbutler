@@ -1,19 +1,21 @@
 [package]
-name = "gitbutler-forge"
+name = "but-forge"
 version = "0.0.0"
 edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+description = "Utilities to interact with forges in a somewhat generic way"
 
 [lib]
 doctest = false
 
 [dependencies]
+but-fs.workspace = true
+but-github.workspace = true
+but-forge-storage.workspace = true
+
+git-url-parse = "0.6.0"
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 anyhow.workspace = true
-but-fs.workspace = true
-but-github.workspace = true
-git-url-parse = "0.6.0"
-but-forge-storage.workspace = true

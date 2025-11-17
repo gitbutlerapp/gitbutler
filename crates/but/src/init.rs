@@ -51,7 +51,7 @@ pub(crate) fn repo(
             repo_path.display()
         )),
     }?;
-    let target = but_api::virtual_branches::get_base_branch_data(project.id)?;
+    let target = but_api::commands::virtual_branches::get_base_branch_data(project.id)?;
     // If new or already exists but target is not set, set the target to be the remote's HEAD
     if (matches!(outcome, gitbutler_project::AddProjectOutcome::Added(_))
         || matches!(
@@ -71,7 +71,11 @@ pub(crate) fn repo(
 
         let name = head_ref.name().shorten().to_string();
 
-        but_api::virtual_branches::set_base_branch(project.id, name.clone(), Some(remote_name))?;
+        but_api::commands::virtual_branches::set_base_branch(
+            project.id,
+            name.clone(),
+            Some(remote_name),
+        )?;
         if let Some(out) = out.for_human() {
             writeln!(
                 out,

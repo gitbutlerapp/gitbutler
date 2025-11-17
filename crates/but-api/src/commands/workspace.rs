@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::{hex_hash::HexHash, json::Error};
+use crate::{json::Error, json::HexHash};
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_core::RepositoryExt;

@@ -26,14 +26,11 @@ but-secret.workspace = true
 but-broadcaster.workspace = true
 but-db.workspace = true
 but-settings.workspace = true
-but-graph.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
 but-core.workspace = true
 but-action.workspace = true
 but-bot.workspace = true
 but-api = { workspace = true, features = ["tauri", "path-bytes"] }
 but-claude.workspace = true
-but-github.workspace = true
 
 gitbutler-watcher.workspace = true
 gitbutler-repo-actions.workspace = true

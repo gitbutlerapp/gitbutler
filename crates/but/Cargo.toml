@@ -39,13 +39,13 @@ but-github.workspace = true
 but-secret.workspace = true
 but-oxidize.workspace = true
 but-path.workspace = true
+but-forge.workspace = true
 
 gitbutler-project.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
-gitbutler-forge.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-oplog.workspace = true

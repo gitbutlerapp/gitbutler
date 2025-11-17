@@ -18,7 +18,7 @@ use gix::refs::Category;
 use serde::Serialize;
 use tracing::instrument;
 
-use crate::{hex_hash::HexHash, json::Error};
+use crate::{json::Error, json::HexHash};
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).

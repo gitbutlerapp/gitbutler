@@ -308,7 +308,7 @@ impl From<but_github::PullRequest> for ForgeReview {
 pub async fn list_forge_reviews(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<Vec<ForgeReview>> {
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
@@ -341,7 +341,7 @@ pub async fn create_forge_review(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     params: &CreateForgeReviewParams,
-    storage: &but_forge_storage::controller::Controller,
+    storage: &but_forge_storage::Controller,
 ) -> Result<ForgeReview> {
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..

@@ -34,7 +34,7 @@ pub struct UpdateRequest {
     pub forge_override: Option<String>,
     #[serde(default = "default_false")]
     pub unset_forge_override: bool,
-    pub preferred_forge_user: Option<gitbutler_forge::ForgeUser>,
+    pub preferred_forge_user: Option<but_forge::ForgeUser>,
 }
 
 impl UpdateRequest {

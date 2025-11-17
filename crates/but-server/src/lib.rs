@@ -14,11 +14,11 @@ use axum::{
 use but_api::{
     App,
     commands::{
-        askpass, cherry_apply, claude, cli, config, diff, forge, git, github, modes, open, oplog,
+        askpass, cherry_apply, claude, cli, config, diff, forge, git, modes, open, oplog,
         projects as iprojects, remotes, repo, rules, secret, settings, stack, users,
         virtual_branches, workspace, zip,
     },
-    github::{clear_all_github_tokens_cmd, forget_github_account_cmd},
+    github,
     json::ToError as _,
 };
 use but_broadcaster::Broadcaster;
@@ -395,11 +395,11 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
-        "forget_github_account" => forget_github_account_cmd(request.params),
+        "forget_github_account" => github::forget_github_account_cmd(request.params),
         "list_known_github_accounts" => github::list_known_github_accounts_json()
             .await
             .map(|r| json!(r)),
-        "clear_all_github_tokens" => clear_all_github_tokens_cmd(request.params),
+        "clear_all_github_tokens" => github::clear_all_github_tokens_cmd(request.params),
         "get_gh_user" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {

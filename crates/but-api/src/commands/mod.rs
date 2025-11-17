@@ -6,7 +6,6 @@ pub mod config;
 pub mod diff;
 pub mod forge;
 pub mod git;
-pub mod github;
 pub mod modes;
 pub mod open;
 pub mod oplog;
