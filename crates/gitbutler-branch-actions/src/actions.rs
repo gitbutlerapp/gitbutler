@@ -538,6 +538,7 @@ pub fn get_uncommited_files(ctx: &CommandContext) -> Result<Vec<RemoteBranchFile
 pub fn upstream_integration_statuses(
     ctx: &CommandContext,
     target_commit_oid: Option<git2::Oid>,
+    review_map: &std::collections::HashMap<String, but_forge::ForgeReview>,
 ) -> Result<StackStatuses> {
     let mut guard = ctx.project().exclusive_worktree_access();
 
@@ -547,6 +548,7 @@ pub fn upstream_integration_statuses(
         target_commit_oid,
         guard.write_permission(),
         &gix_repo,
+        review_map,
     )?;
 
     upstream_integration::upstream_integration_statuses(&context)
@@ -556,6 +558,7 @@ pub fn integrate_upstream(
     ctx: &CommandContext,
     resolutions: &[Resolution],
     base_branch_resolution: Option<BaseBranchResolution>,
+    review_map: &std::collections::HashMap<String, but_forge::ForgeReview>,
 ) -> Result<IntegrationOutcome> {
     let mut guard = ctx.project().exclusive_worktree_access();
 
@@ -568,6 +571,7 @@ pub fn integrate_upstream(
         ctx,
         resolutions,
         base_branch_resolution,
+        review_map,
         guard.write_permission(),
     )
 }
@@ -575,12 +579,14 @@ pub fn integrate_upstream(
 pub fn resolve_upstream_integration(
     ctx: &CommandContext,
     resolution_approach: BaseBranchResolutionApproach,
+    review_map: &std::collections::HashMap<String, but_forge::ForgeReview>,
 ) -> Result<git2::Oid> {
     let mut guard = ctx.project().exclusive_worktree_access();
 
     upstream_integration::resolve_upstream_integration(
         ctx,
         resolution_approach,
+        review_map,
         guard.write_permission(),
     )
 }

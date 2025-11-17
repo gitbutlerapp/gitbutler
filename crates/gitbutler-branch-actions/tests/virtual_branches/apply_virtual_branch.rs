@@ -69,7 +69,7 @@ fn rebase_commit() {
 
     {
         // fetch remote
-        gitbutler_branch_actions::integrate_upstream(ctx, &[], None).unwrap();
+        gitbutler_branch_actions::integrate_upstream(ctx, &[], None, &Default::default()).unwrap();
 
         // branch is stil unapplied
         let stacks = stack_details(ctx);

@@ -31,7 +31,12 @@ pub mod workspace {
                 delete_integrated_branches: false,
             })
             .collect();
-        gitbutler_branch_actions::integrate_upstream(&ctx, &resolutions, None)?;
+        gitbutler_branch_actions::integrate_upstream(
+            &ctx,
+            &resolutions,
+            None,
+            &Default::default(),
+        )?;
 
         Ok(())
     }

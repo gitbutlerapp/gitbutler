@@ -331,7 +331,15 @@ async fn handle_command(
             }
         }
         "resolve_upstream_integration" => {
-            legacy::virtual_branches::resolve_upstream_integration_cmd(request.params)
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result =
+                        legacy::virtual_branches::resolve_upstream_integration_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
         }
         // Operating modes commands
         "operating_mode" => legacy::modes::operating_mode_cmd(request.params),

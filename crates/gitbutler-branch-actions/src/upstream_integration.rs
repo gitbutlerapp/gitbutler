@@ -172,6 +172,7 @@ pub struct UpstreamIntegrationContext<'a> {
     target: Target,
     ctx: &'a CommandContext,
     gix_repo: &'a gix::Repository,
+    review_map: &'a HashMap<String, but_forge::ForgeReview>,
 }
 
 impl<'a> UpstreamIntegrationContext<'a> {
@@ -180,6 +181,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
         target_commit_oid: Option<git2::Oid>,
         permission: &'a mut WorktreeWritePermission,
         gix_repo: &'a gix::Repository,
+        review_map: &'a HashMap<String, but_forge::ForgeReview>,
     ) -> Result<Self> {
         let meta = ctx.meta(permission.read_permission())?;
         let repo = ctx.gix_repo()?;
@@ -214,6 +216,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
             stacks_in_workspace,
             ctx,
             gix_repo,
+            review_map,
         })
     }
 }
@@ -267,6 +270,7 @@ fn get_stack_status(
     gix_repo: &gix::Repository,
     new_target_commit_id: gix::ObjectId,
     stack_id: Option<StackId>,
+    review_map: &HashMap<String, but_forge::ForgeReview>,
     ctx: &CommandContext,
 ) -> Result<StackStatus> {
     let mut last_head: git2::Oid = gix_to_git2_oid(new_target_commit_id);
@@ -288,11 +292,18 @@ fn get_stack_status(
             continue;
         };
 
-        // Check if the branch in question has already been integrated
-        if matches!(
+        let branch_head_string = branch_head.id.to_string();
+
+        // Check if the branch has been integrated (either via review or commits)
+        let is_integrated_via_review = review_map
+            .get(&branch.name.to_string())
+            .is_some_and(|review| review.is_merged_at_commit(&branch_head_string));
+        let is_integrated_via_commits = matches!(
             branch_head.state,
             but_workspace::ui::CommitState::Integrated
-        ) {
+        );
+
+        if is_integrated_via_commits || is_integrated_via_review {
             branch_statuses.push(NameAndStatus {
                 name: branch.name.to_string(),
                 status: BranchStatus::Integrated,
@@ -358,6 +369,7 @@ pub fn upstream_integration_statuses(
         new_target,
         target,
         stacks_in_workspace,
+        review_map,
         ..
     } = context;
     let old_target = repo.find_commit(target.sha)?;
@@ -436,6 +448,7 @@ pub fn upstream_integration_statuses(
                     &gix_repo_in_memory,
                     git2_to_gix_object_id(new_target.id()),
                     stack.id,
+                    review_map,
                     context.ctx,
                 )?,
             ))
@@ -452,6 +465,7 @@ pub(crate) fn integrate_upstream(
     ctx: &CommandContext,
     resolutions: &[Resolution],
     base_branch_resolution: Option<BaseBranchResolution>,
+    review_map: &HashMap<String, but_forge::ForgeReview>,
     permission: &mut WorktreeWritePermission,
 ) -> Result<IntegrationOutcome> {
     let old_workspace = WorkspaceState::create(ctx, permission.read_permission())?;
@@ -461,7 +475,13 @@ pub(crate) fn integrate_upstream(
         .unwrap_or((None, None));
 
     let gix_repo = ctx.gix_repo()?;
-    let context = UpstreamIntegrationContext::open(ctx, target_commit_oid, permission, &gix_repo)?;
+    let context = UpstreamIntegrationContext::open(
+        ctx,
+        target_commit_oid,
+        permission,
+        &gix_repo,
+        review_map,
+    )?;
     let virtual_branches_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let default_target = virtual_branches_state.get_default_target()?;
 
@@ -607,6 +627,17 @@ pub(crate) fn integrate_upstream(
             if let Some(output) = rebase_output {
                 stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
             }
+
+            // Dissociate closed reviews
+            for head in stack.clone().heads.iter() {
+                let branch_name = head.name.to_string();
+                if let Some(review) = review_map.get(&branch_name)
+                    && !review.is_open()
+                {
+                    stack.set_pr_number(ctx, &branch_name, None)?;
+                }
+            }
+
             stack.set_stack_head(&virtual_branches_state, &gix_repo, *head, *tree)?;
 
             let delete_local_refs = resolutions
@@ -637,10 +668,11 @@ pub(crate) fn integrate_upstream(
 pub(crate) fn resolve_upstream_integration(
     ctx: &CommandContext,
     resolution_approach: BaseBranchResolutionApproach,
+    review_map: &HashMap<String, but_forge::ForgeReview>,
     permission: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
     let gix_repo = ctx.gix_repo()?;
-    let context = UpstreamIntegrationContext::open(ctx, None, permission, &gix_repo)?;
+    let context = UpstreamIntegrationContext::open(ctx, None, permission, &gix_repo, review_map)?;
     let repo = ctx.repo();
     let new_target_id = context.new_target.id();
     let old_target_id = context.target.sha;
