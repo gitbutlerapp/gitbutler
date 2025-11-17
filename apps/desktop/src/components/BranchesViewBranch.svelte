@@ -4,11 +4,10 @@
 	import CherryApplyModal from '$components/CherryApplyModal.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { pushStatusToColor, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
+	import { getColorFromPushStatus, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 
 	type Props = {
 		projectId: string;
@@ -57,7 +56,7 @@
 {/snippet}
 
 {#snippet branchCard(branch: BranchDetails, env: { projectId: string; stackId?: string })}
-	{@const commitColor = getColorFromBranchType(pushStatusToColor(branch.pushStatus))}
+	{@const commitColor = getColorFromPushStatus(branch.pushStatus)}
 	<BranchCard
 		type="normal-branch"
 		first={isTopBranch}

@@ -2,10 +2,9 @@
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import { getColorFromCommitState } from '$components/lib';
 	import { type CommitStatusType } from '$lib/commits/commit';
-	import { pushStatusToColor, pushStatusToIcon, type PushStatus } from '$lib/stacks/stack';
+	import { getColorFromPushStatus, pushStatusToIcon, type PushStatus } from '$lib/stacks/stack';
 	import { Icon } from '@gitbutler/ui';
 	import { getFileIcon } from '@gitbutler/ui/components/file/getFileIcon';
-	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 
 	type Props = {
 		type: 'branch' | 'commit' | 'file' | 'folder' | 'hunk' | 'ai-session';
@@ -30,7 +29,7 @@
 		{#if pushStatus}
 			<BranchHeaderIcon
 				iconName={pushStatusToIcon(pushStatus)}
-				color={getColorFromBranchType(pushStatusToColor(pushStatus))}
+				color={getColorFromPushStatus(pushStatus)}
 				small
 			/>
 		{/if}

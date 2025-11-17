@@ -1,7 +1,6 @@
 import { showToast } from '$lib/notifications/toasts';
 import { TestId } from '@gitbutler/ui';
 import type { Author, Commit, UpstreamCommit } from '$lib/branches/v3';
-import type { CellType } from '@gitbutler/ui/components/commitLines/types';
 import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 export type CreateBranchFromBranchOutcome = {
@@ -161,16 +160,19 @@ export type PushStatus =
 	 */
 	| 'integrated';
 
-export function pushStatusToColor(pushStatus: PushStatus): CellType {
+/**
+ * Converts push status directly to a CSS color string.
+ */
+export function getColorFromPushStatus(pushStatus: PushStatus): string {
 	switch (pushStatus) {
 		case 'nothingToPush':
 		case 'unpushedCommits':
 		case 'unpushedCommitsRequiringForce':
-			return 'LocalAndRemote';
+			return 'var(--clr-commit-remote)';
 		case 'completelyUnpushed':
-			return 'LocalOnly';
+			return 'var(--clr-commit-local)';
 		case 'integrated':
-			return 'Integrated';
+			return 'var(--clr-commit-integrated)';
 	}
 }
 
