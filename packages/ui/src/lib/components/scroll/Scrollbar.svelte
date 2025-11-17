@@ -299,7 +299,7 @@
 <div
 	bind:this={track}
 	data-remove-from-panning
-	data-remove-from-draggable
+	data-no-drag
 	class="scrollbar-track"
 	class:horz
 	class:vert

@@ -1,9 +1,8 @@
-import { getColorFromCommitState } from '$components/lib';
 import { type CommitStatusType } from '$lib/commits/commit';
+import DragClone from '$lib/dragging/DragClone.svelte';
 import { FileChangeDropData, type DropData } from '$lib/dragging/draggables';
-import { getFileIcon } from '@gitbutler/ui/components/file/getFileIcon';
-import iconsJson from '@gitbutler/ui/data/icons.json';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+import { mount } from 'svelte';
 import type { DropzoneRegistry } from '$lib/dragging/registry';
 import type { PushStatus } from '$lib/stacks/stack';
 import type { DragStateService } from '@gitbutler/ui/drag/dragStateService.svelte';
@@ -12,6 +11,29 @@ import type { DragStateService } from '@gitbutler/ui/drag/dragStateService.svelt
 const DRAGGING_CLASS = 'dragging';
 
 type chipType = 'file' | 'folder' | 'hunk' | 'ai-session' | 'branch';
+
+type DragCloneType = 'branch' | 'commit' | 'file' | 'folder' | 'hunk' | 'ai-session';
+
+interface DragCloneProps {
+	type: DragCloneType;
+	label?: string;
+	filePath?: string;
+	commitType?: CommitStatusType;
+	childrenAmount?: number;
+	pushStatus?: PushStatus;
+}
+
+/**
+ * Helper to create a drag clone using the Svelte DragClone component
+ */
+function createSvelteDragClone(props: DragCloneProps): HTMLElement {
+	const container = document.createElement('div');
+	mount(DragClone, {
+		target: container,
+		props
+	});
+	return container.firstElementChild as HTMLElement;
+}
 
 export type DraggableConfig = {
 	readonly disabled?: boolean;
@@ -28,19 +50,6 @@ export type DraggableConfig = {
 	readonly dragStateService?: DragStateService;
 	readonly pushStatus?: PushStatus;
 };
-
-function createElement<K extends keyof HTMLElementTagNameMap>(
-	tag: K,
-	classNames: string[],
-	textContent?: string,
-	src?: string
-): HTMLElementTagNameMap[K] {
-	const el = document.createElement(tag);
-	el.classList.add(...classNames);
-	if (textContent) el.textContent = textContent;
-	if (src) (el as HTMLImageElement).src = src;
-	return el;
-}
 
 function setupDragHandlers(
 	node: HTMLElement,
@@ -246,16 +255,14 @@ function setupDragHandlers(
 //// BRANCH DRAGGABLE ///////
 /////////////////////////////
 
-function createBranchElement(label: string | undefined): HTMLDivElement {
-	const cardEl = createElement('div', ['draggable-branch-card', 'text-15', 'text-bold'], label);
-
-	return cardEl;
-}
-
 export function draggableBranch(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig) {
 		if (opts.disabled) return;
-		return createBranchElement(opts.label);
+		return createSvelteDragClone({
+			type: 'branch',
+			label: opts.label,
+			pushStatus: opts.pushStatus
+		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
 		handlerWidth: false
@@ -266,170 +273,28 @@ export function draggableBranch(node: HTMLElement, initialOpts: DraggableConfig)
 //// COMMIT DRAGGABLE V3 ////
 /////////////////////////////
 
-function createCommitElementV3(
-	commitType: CommitStatusType | undefined,
-	label: string | undefined
-): HTMLDivElement {
-	const commitColor = getColorFromCommitState(commitType || 'LocalOnly', false);
-
-	const cardEl = createElement('div', [
-		'draggable-commit-v3',
-		commitType === 'LocalOnly' || commitType === 'Integrated' || commitType === 'Base'
-			? 'draggable-commit-v3-local'
-			: 'draggable-commit-v3-remote'
-	]);
-
-	cardEl.style.setProperty('--commit-color', commitColor);
-
-	const commitIndicationEl = createElement('div', ['draggable-commit-v3-indicator']);
-	cardEl.appendChild(commitIndicationEl);
-
-	const labelEl = createElement(
-		'div',
-		['truncate', 'text-13', 'text-semibold', 'draggable-commit-v3-label'],
-		label || 'Empty commit'
-	);
-	cardEl.appendChild(labelEl);
-
-	return cardEl;
-}
-
 export function draggableCommitV3(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig) {
 		if (opts.disabled) return;
-		return createCommitElementV3(opts.commitType, opts.label);
+		return createSvelteDragClone({
+			type: 'commit',
+			commitType: opts.commitType,
+			label: opts.label
+		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
 		handlerWidth: false
 	});
 }
 
-//////////////////
-/// DRAG CHIPS ///
-//////////////////
-
-// --- CHIP CONTAINER HELPERS ---
-
-function createFileChip(label?: string, filePath?: string): HTMLDivElement {
-	const el = createElement('div', ['dragchip-file-container']);
-	if (filePath) {
-		const icon = getFileIcon(filePath);
-		el.appendChild(createElement('img', ['dragchip-file-icon'], undefined, icon));
-	}
-	el.appendChild(
-		createElement(
-			'span',
-			['text-12', 'text-semibold', 'truncate', 'dragchip-file-name'],
-			label || 'Empty file'
-		)
-	);
-	return el;
-}
-
-function createFolderChip(label?: string): HTMLDivElement {
-	const el = createElement('div', ['dragchip-file-container']);
-	const icon = createSVGIcon(iconsJson['folder'], ['dragchip-file-icon']);
-	el.appendChild(icon);
-	el.appendChild(
-		createElement(
-			'span',
-			['text-12', 'text-semibold', 'truncate', 'dragchip-file-name'],
-			label || 'Empty folder'
-		)
-	);
-	return el;
-}
-
-function createHunkChip(label?: string): HTMLDivElement {
-	const el = createElement('div', ['dragchip-hunk-container']);
-	const deco = createElement('div', ['dragchip-hunk-decorator'], '〈/〉');
-	el.appendChild(deco);
-	el.appendChild(createElement('span', ['dragchip-hunk-label'], label || 'Empty hunk'));
-	return el;
-}
-
-function createSVGIcon(pathData: string, classNames: string[]): SVGSVGElement {
-	const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	icon.classList.add(...classNames);
-	icon.setAttribute('viewBox', '0 0 16 16');
-	icon.setAttribute('fill-rule', 'evenodd');
-	const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-	path.setAttribute('fill', 'currentColor');
-	path.setAttribute('d', pathData);
-	icon.appendChild(path);
-	return icon;
-}
-
-function createAISessionChip(label?: string): HTMLDivElement {
-	const el = createElement('div', ['dragchip-ai-session-container']);
-	const iconAi = createSVGIcon(iconsJson['ai-small'], ['dragchip-ai-session-icon']);
-	el.appendChild(iconAi);
-	if (label) {
-		el.appendChild(
-			createElement(
-				'span',
-				['text-12', 'text-semibold', 'truncate', 'dragchip-ai-session-label'],
-				label
-			)
-		);
-	}
-	const iconDragHandle = createSVGIcon(iconsJson['draggable'], ['dragchip-ai-session-icon']);
-	el.appendChild(iconDragHandle);
-	return el;
-}
-
-export interface ChipsElementOptions {
-	childrenAmount?: number;
-	label?: string;
-	filePath?: string;
-	chipType?: chipType;
-}
-
-export function createChipsElement({
-	childrenAmount = 1,
-	label,
-	filePath,
-	chipType = 'file'
-}: ChipsElementOptions = {}): HTMLDivElement {
-	const container = createElement('div', ['dragchip-container']);
-
-	if (chipType === 'ai-session') {
-		container.appendChild(createAISessionChip(label));
-	} else {
-		const chip = createElement('div', ['dragchip']);
-		container.appendChild(chip);
-
-		if (chipType === 'file') {
-			chip.appendChild(createFileChip(label, filePath));
-		} else if (chipType === 'folder') {
-			chip.appendChild(createFolderChip(label));
-		} else if (chipType === 'hunk') {
-			chip.appendChild(createHunkChip(label));
-		}
-
-		if (childrenAmount > 1) {
-			chip.appendChild(
-				createElement('div', ['text-11', 'text-bold', 'dragchip-amount'], childrenAmount.toString())
-			);
-		}
-	}
-
-	if (childrenAmount === 2) {
-		container.classList.add('dragchip-two');
-	} else if (childrenAmount > 2) {
-		container.classList.add('dragchip-multiple');
-	}
-
-	return container;
-}
-
 export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig, selectedElements: Element[]) {
-		return createChipsElement({
+		const chipType = opts.chipType || 'file';
+		return createSvelteDragClone({
+			type: chipType as DragCloneType,
 			childrenAmount: selectedElements.length,
 			label: opts.label,
-			filePath: opts.filePath,
-			chipType: opts.chipType || 'file'
+			filePath: opts.filePath
 		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone);
@@ -443,7 +308,7 @@ export function cloneElement(node: HTMLElement) {
 	const cloneEl = node.cloneNode(true) as HTMLElement;
 
 	// exclude all ignored elements from the clone
-	const ignoredElements = Array.from(cloneEl.querySelectorAll('[data-remove-from-draggable]'));
+	const ignoredElements = Array.from(cloneEl.querySelectorAll('[data-no-drag]'));
 	ignoredElements.forEach((el) => el.remove());
 
 	return cloneEl;

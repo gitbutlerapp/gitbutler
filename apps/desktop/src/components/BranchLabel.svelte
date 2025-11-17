@@ -130,6 +130,7 @@
 	autocorrect="off"
 	spellcheck="false"
 	data-remove-from-panning
+	data-no-drag
 	use:clickOutside={{
 		handler: () => inputEl?.blur()
 	}}
@@ -179,6 +180,11 @@
 			border: 1px solid color-mix(in srgb, var(--clr-scale-ntrl-40), transparent 60%);
 			outline: none;
 			background-color: var(--clr-bg-1-muted);
+		}
+
+		&[disabled] {
+			cursor: not-allowed;
+			opacity: 0.5;
 		}
 	}
 
