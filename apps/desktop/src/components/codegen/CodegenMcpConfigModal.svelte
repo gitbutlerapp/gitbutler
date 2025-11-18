@@ -29,7 +29,7 @@
 <Modal
 	bind:this={modal}
 	width={480}
-	title={Object.entries(mcpConfig.mcpServers).length > 0 ? 'MCP Server Configuration' : undefined}
+	title={Object.entries(mcpConfig.mcpServers).length > 0 ? 'MCP server configuration' : undefined}
 >
 	<ScrollableContainer>
 		<div class="flex flex-col gap-8">
