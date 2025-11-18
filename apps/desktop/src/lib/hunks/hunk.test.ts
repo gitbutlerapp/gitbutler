@@ -1,10 +1,12 @@
 import {
 	lineIdsToHunkHeaders,
 	extractLineGroups,
+	extractAllGroups,
 	hunkContainsHunk,
 	hunkContainsLine,
 	getLineLocks,
-	orderHeaders
+	orderHeaders,
+	diffToHunkHeaders
 } from '$lib/hunks/hunk';
 import { describe, expect, test } from 'vitest';
 import type { LineId } from '@gitbutler/ui/utils/diffParsing';
@@ -495,6 +497,609 @@ describe('orderHeaders', () => {
 			{ oldStart: 0, oldLines: 0, newStart: -5, newLines: 1 },
 			{ oldStart: -2, oldLines: 1, newStart: 0, newLines: 0 },
 			{ oldStart: 1, oldLines: 1, newStart: 0, newLines: 0 }
+		]);
+	});
+});
+
+describe.concurrent('extractAllGroups', () => {
+	test('should extract all added and removed lines from a simple diff', () => {
+		const hunkDiff = `@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line 2 changed
+ line 3
+`;
+		const [lineGroups, parentHunkHeader] = extractAllGroups(hunkDiff);
+
+		expect(parentHunkHeader).toEqual({
+			oldStart: 1,
+			oldLines: 3,
+			newStart: 1,
+			newLines: 3
+		});
+
+		expect(lineGroups).toEqual([
+			{
+				type: 'removed',
+				lines: [{ oldLine: 2, newLine: undefined }]
+			},
+			{
+				type: 'added',
+				lines: [{ oldLine: undefined, newLine: 2 }]
+			}
+		]);
+	});
+
+	test('should extract multiple consecutive removed lines', () => {
+		const hunkDiff = `@@ -1,4 +1,3 @@
+ line 1
+-line 2
+-line 3
+-line 4
++new line 2
++new line 3
+`;
+		const [lineGroups, parentHunkHeader] = extractAllGroups(hunkDiff);
+
+		expect(parentHunkHeader).toEqual({
+			oldStart: 1,
+			oldLines: 4,
+			newStart: 1,
+			newLines: 3
+		});
+
+		expect(lineGroups).toEqual([
+			{
+				type: 'removed',
+				lines: [
+					{ oldLine: 2, newLine: undefined },
+					{ oldLine: 3, newLine: undefined },
+					{ oldLine: 4, newLine: undefined }
+				]
+			},
+			{
+				type: 'added',
+				lines: [
+					{ oldLine: undefined, newLine: 2 },
+					{ oldLine: undefined, newLine: 3 }
+				]
+			}
+		]);
+	});
+
+	test('should extract multiple consecutive added lines', () => {
+		const hunkDiff = `@@ -1,3 +1,4 @@
+ line 1
+-old line
++new line 2
++new line 3
++new line 4
+ line 5
+`;
+		const [lineGroups, parentHunkHeader] = extractAllGroups(hunkDiff);
+
+		expect(parentHunkHeader).toEqual({
+			oldStart: 1,
+			oldLines: 3,
+			newStart: 1,
+			newLines: 4
+		});
+
+		expect(lineGroups).toEqual([
+			{
+				type: 'removed',
+				lines: [{ oldLine: 2, newLine: undefined }]
+			},
+			{
+				type: 'added',
+				lines: [
+					{ oldLine: undefined, newLine: 2 },
+					{ oldLine: undefined, newLine: 3 },
+					{ oldLine: undefined, newLine: 4 }
+				]
+			}
+		]);
+	});
+
+	test('should group non-consecutive changes separately', () => {
+		const hunkDiff = `@@ -1,6 +1,6 @@
+ line 1
+-line 2
++line 2 changed
+ line 3
+ line 4
+-line 5
++line 5 changed
+ line 6
+`;
+		const [lineGroups, parentHunkHeader] = extractAllGroups(hunkDiff);
+
+		expect(parentHunkHeader).toEqual({
+			oldStart: 1,
+			oldLines: 6,
+			newStart: 1,
+			newLines: 6
+		});
+
+		expect(lineGroups).toEqual([
+			{
+				type: 'removed',
+				lines: [{ oldLine: 2, newLine: undefined }]
+			},
+			{
+				type: 'added',
+				lines: [{ oldLine: undefined, newLine: 2 }]
+			},
+			{
+				type: 'removed',
+				lines: [{ oldLine: 5, newLine: undefined }]
+			},
+			{
+				type: 'added',
+				lines: [{ oldLine: undefined, newLine: 5 }]
+			}
+		]);
+	});
+
+	test('should handle diff with only added lines', () => {
+		const hunkDiff = `@@ -1,2 +1,4 @@
+ line 1
++new line 2
++new line 3
+ line 4
+`;
+		const [lineGroups, parentHunkHeader] = extractAllGroups(hunkDiff);
+
+		expect(parentHunkHeader).toEqual({
+			oldStart: 1,
+			oldLines: 2,
+			newStart: 1,
+			newLines: 4
+		});
+
+		expect(lineGroups).toEqual([
+			{
+				type: 'added',
+				lines: [
+					{ oldLine: undefined, newLine: 2 },
+					{ oldLine: undefined, newLine: 3 }
+				]
+			}
+		]);
+	});
+
+	test('should handle diff with only removed lines', () => {
+		const hunkDiff = `@@ -1,4 +1,2 @@
+ line 1
+-line 2
+-line 3
+ line 4
+`;
+		const [lineGroups, parentHunkHeader] = extractAllGroups(hunkDiff);
+
+		expect(parentHunkHeader).toEqual({
+			oldStart: 1,
+			oldLines: 4,
+			newStart: 1,
+			newLines: 2
+		});
+
+		expect(lineGroups).toEqual([
+			{
+				type: 'removed',
+				lines: [
+					{ oldLine: 2, newLine: undefined },
+					{ oldLine: 3, newLine: undefined }
+				]
+			}
+		]);
+	});
+
+	test('should handle diff with only context lines (no changes)', () => {
+		const hunkDiff = `@@ -1,3 +1,3 @@
+ line 1
+ line 2
+ line 3
+`;
+		const [lineGroups, parentHunkHeader] = extractAllGroups(hunkDiff);
+
+		expect(parentHunkHeader).toEqual({
+			oldStart: 1,
+			oldLines: 3,
+			newStart: 1,
+			newLines: 3
+		});
+
+		expect(lineGroups).toEqual([]);
+	});
+
+	test('should handle complex diff with multiple change groups', () => {
+		const hunkDiff = `@@ -1,10 +1,12 @@
+ 1
+ 2
+ 3
+- 4
++ new 4
+ 5
+- 6
+- 7
++ new 6
++ new 7
++ an extra line
++ another extra line
+ 8
+ 9
+ 10
+`;
+		const [lineGroups, parentHunkHeader] = extractAllGroups(hunkDiff);
+
+		expect(parentHunkHeader).toEqual({
+			oldStart: 1,
+			oldLines: 10,
+			newStart: 1,
+			newLines: 12
+		});
+
+		expect(lineGroups).toEqual([
+			{
+				type: 'removed',
+				lines: [{ oldLine: 4, newLine: undefined }]
+			},
+			{
+				type: 'added',
+				lines: [{ oldLine: undefined, newLine: 4 }]
+			},
+			{
+				type: 'removed',
+				lines: [
+					{ oldLine: 6, newLine: undefined },
+					{ oldLine: 7, newLine: undefined }
+				]
+			},
+			{
+				type: 'added',
+				lines: [
+					{ oldLine: undefined, newLine: 6 },
+					{ oldLine: undefined, newLine: 7 },
+					{ oldLine: undefined, newLine: 8 },
+					{ oldLine: undefined, newLine: 9 }
+				]
+			}
+		]);
+	});
+
+	test('should handle file deletion (all lines removed)', () => {
+		const hunkDiff = `@@ -1,3 +0,0 @@
+-line 1
+-line 2
+-line 3
+`;
+		const [lineGroups, parentHunkHeader] = extractAllGroups(hunkDiff);
+
+		expect(parentHunkHeader).toEqual({
+			oldStart: 1,
+			oldLines: 3,
+			newStart: 0,
+			newLines: 0
+		});
+
+		expect(lineGroups).toEqual([
+			{
+				type: 'removed',
+				lines: [
+					{ oldLine: 1, newLine: undefined },
+					{ oldLine: 2, newLine: undefined },
+					{ oldLine: 3, newLine: undefined }
+				]
+			}
+		]);
+	});
+
+	test('should handle new file creation (all lines added)', () => {
+		const hunkDiff = `@@ -0,0 +1,3 @@
++line 1
++line 2
++line 3
+`;
+		const [lineGroups, parentHunkHeader] = extractAllGroups(hunkDiff);
+
+		expect(parentHunkHeader).toEqual({
+			oldStart: 0,
+			oldLines: 0,
+			newStart: 1,
+			newLines: 3
+		});
+
+		expect(lineGroups).toEqual([
+			{
+				type: 'added',
+				lines: [
+					{ oldLine: undefined, newLine: 1 },
+					{ oldLine: undefined, newLine: 2 },
+					{ oldLine: undefined, newLine: 3 }
+				]
+			}
+		]);
+	});
+});
+
+describe.concurrent('diffToHunkHeaders', () => {
+	test('should return empty array for diff with no changes', () => {
+		const hunkDiff = `@@ -1,3 +1,3 @@
+ line 1
+ line 2
+ line 3
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([]);
+	});
+
+	test('should convert single removed line to hunk header for discard action', () => {
+		const hunkDiff = `@@ -1,3 +1,2 @@
+ line 1
+-line 2
+ line 3
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 2, oldLines: 1, newStart: 1, newLines: 2 }
+		]);
+	});
+
+	test('should convert single removed line to hunk header for commit action', () => {
+		const hunkDiff = `@@ -1,3 +1,2 @@
+ line 1
+-line 2
+ line 3
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 2, oldLines: 1, newStart: 0, newLines: 0 }
+		]);
+	});
+
+	test('should convert single added line to hunk header for discard action', () => {
+		const hunkDiff = `@@ -1,2 +1,3 @@
+ line 1
++new line 2
+ line 3
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 1, oldLines: 2, newStart: 2, newLines: 1 }
+		]);
+	});
+
+	test('should convert single added line to hunk header for commit action', () => {
+		const hunkDiff = `@@ -1,2 +1,3 @@
+ line 1
++new line 2
+ line 3
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 0, oldLines: 0, newStart: 2, newLines: 1 }
+		]);
+	});
+
+	test('should convert multiple consecutive removed lines', () => {
+		const hunkDiff = `@@ -1,5 +1,2 @@
+ line 1
+-line 2
+-line 3
+-line 4
+ line 5
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 2, oldLines: 3, newStart: 1, newLines: 2 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 2, oldLines: 3, newStart: 0, newLines: 0 }
+		]);
+	});
+
+	test('should convert multiple consecutive added lines', () => {
+		const hunkDiff = `@@ -1,2 +1,5 @@
+ line 1
++new line 2
++new line 3
++new line 4
+ line 5
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 1, oldLines: 2, newStart: 2, newLines: 3 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 0, oldLines: 0, newStart: 2, newLines: 3 }
+		]);
+	});
+
+	test('should convert mixed add/remove to separate hunk headers', () => {
+		const hunkDiff = `@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line 2 changed
+ line 3
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 2, oldLines: 1, newStart: 1, newLines: 3 },
+			{ oldStart: 1, oldLines: 3, newStart: 2, newLines: 1 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 2, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 2, newLines: 1 }
+		]);
+	});
+
+	test('should handle multiple separate change groups', () => {
+		const hunkDiff = `@@ -1,6 +1,6 @@
+ line 1
+-line 2
++line 2 changed
+ line 3
+ line 4
+-line 5
++line 5 changed
+ line 6
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 2, oldLines: 1, newStart: 1, newLines: 6 },
+			{ oldStart: 1, oldLines: 6, newStart: 2, newLines: 1 },
+			{ oldStart: 5, oldLines: 1, newStart: 1, newLines: 6 },
+			{ oldStart: 1, oldLines: 6, newStart: 5, newLines: 1 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 2, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 2, newLines: 1 },
+			{ oldStart: 5, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 5, newLines: 1 }
+		]);
+	});
+
+	test('should handle complex diff with multiple change types', () => {
+		const hunkDiff = `@@ -1,10 +1,12 @@
+ 1
+ 2
+ 3
+- 4
++ new 4
+ 5
+- 6
+- 7
++ new 6
++ new 7
++ an extra line
++ another extra line
+ 8
+ 9
+ 10
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 4, oldLines: 1, newStart: 1, newLines: 12 },
+			{ oldStart: 1, oldLines: 10, newStart: 4, newLines: 1 },
+			{ oldStart: 6, oldLines: 2, newStart: 1, newLines: 12 },
+			{ oldStart: 1, oldLines: 10, newStart: 6, newLines: 4 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 4, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 4, newLines: 1 },
+			{ oldStart: 6, oldLines: 2, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 6, newLines: 4 }
+		]);
+	});
+
+	test('should handle file deletion (all lines removed)', () => {
+		const hunkDiff = `@@ -1,3 +0,0 @@
+-line 1
+-line 2
+-line 3
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 1, oldLines: 3, newStart: 0, newLines: 0 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 1, oldLines: 3, newStart: 0, newLines: 0 }
+		]);
+	});
+
+	test('should handle new file creation (all lines added)', () => {
+		const hunkDiff = `@@ -0,0 +1,3 @@
++line 1
++line 2
++line 3
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 0, oldLines: 0, newStart: 1, newLines: 3 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 0, oldLines: 0, newStart: 1, newLines: 3 }
+		]);
+	});
+
+	test('should handle diff with only removals', () => {
+		const hunkDiff = `@@ -1,5 +1,2 @@
+ line 1
+-line 2
+-line 3
+-line 4
+ line 5
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 2, oldLines: 3, newStart: 1, newLines: 2 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 2, oldLines: 3, newStart: 0, newLines: 0 }
+		]);
+	});
+
+	test('should handle diff with only additions', () => {
+		const hunkDiff = `@@ -1,2 +1,5 @@
+ line 1
++new line 2
++new line 3
++new line 4
+ line 5
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 1, oldLines: 2, newStart: 2, newLines: 3 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 0, oldLines: 0, newStart: 2, newLines: 3 }
+		]);
+	});
+
+	test('should handle diff at the beginning of file', () => {
+		const hunkDiff = `@@ -1,3 +1,4 @@
+-old first line
++new first line
++another new line
+ line 2
+ line 3
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 4 },
+			{ oldStart: 1, oldLines: 3, newStart: 1, newLines: 2 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 1, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 1, newLines: 2 }
+		]);
+	});
+
+	test('should handle diff at the end of file', () => {
+		const hunkDiff = `@@ -1,3 +1,4 @@
+ line 1
+ line 2
+-old last line
++new last line
++another new line
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 3, oldLines: 1, newStart: 1, newLines: 4 },
+			{ oldStart: 1, oldLines: 3, newStart: 3, newLines: 2 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 3, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 3, newLines: 2 }
+		]);
+	});
+
+	test('should handle alternating additions and removals', () => {
+		const hunkDiff = `@@ -1,5 +1,5 @@
+ line 1
+-line 2
++new line 2
+-line 3
++new line 3
+ line 5
+`;
+		expect(diffToHunkHeaders(hunkDiff, 'discard')).toEqual([
+			{ oldStart: 2, oldLines: 1, newStart: 1, newLines: 5 },
+			{ oldStart: 1, oldLines: 5, newStart: 2, newLines: 1 },
+			{ oldStart: 3, oldLines: 1, newStart: 1, newLines: 5 },
+			{ oldStart: 1, oldLines: 5, newStart: 3, newLines: 1 }
+		]);
+		expect(diffToHunkHeaders(hunkDiff, 'commit')).toEqual([
+			{ oldStart: 2, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 2, newLines: 1 },
+			{ oldStart: 3, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 3, newLines: 1 }
 		]);
 	});
 });
