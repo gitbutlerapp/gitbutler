@@ -18,7 +18,8 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
 pub(crate) mod assignment;
 
-use crate::{id::CliId, utils::OutputChannel};
+use crate::id::{CliId, IdDb};
+use crate::utils::OutputChannel;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -564,7 +565,8 @@ pub fn print_group(
             }
         }
     } else {
-        let id = CliId::Unassigned.to_string().underline().blue();
+        let id_db = IdDb::new(ctx)?;
+        let id = id_db.unassigned().to_string().underline().blue();
         writeln!(
             out,
             "╭┄{} [{}] {}",

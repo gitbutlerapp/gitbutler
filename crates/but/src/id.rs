@@ -1,8 +1,38 @@
 use std::fmt::Display;
 
+use bstr::ByteSlice;
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
 use gitbutler_command_context::CommandContext;
+
+pub struct IdDb {
+    unassigned: CliId,
+}
+
+impl IdDb {
+    pub fn new(ctx: &CommandContext) -> anyhow::Result<Self> {
+        let mut max_zero_count = 1; // Ensure at least two "0" in ID.
+        let stacks = crate::log::stacks(ctx)?;
+        for stack in stacks {
+            for head in &stack.heads {
+                for field in head.name.fields_with(|c| c != '0') {
+                    max_zero_count = std::cmp::max(field.len(), max_zero_count);
+                }
+            }
+        }
+        Ok(Self {
+            unassigned: CliId::Unassigned {
+                id: str::repeat("0", max_zero_count + 1),
+            },
+        })
+    }
+
+    /// Represents the unassigned area. Its ID is a repeated string of '0', long
+    /// enough to disambiguate against any existing branch name.
+    pub fn unassigned(&self) -> &CliId {
+        &self.unassigned
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum CliId {
@@ -20,7 +50,9 @@ pub enum CliId {
     Commit {
         oid: gix::ObjectId,
     },
-    Unassigned,
+    Unassigned {
+        id: String,
+    },
 }
 
 impl CliId {
@@ -30,7 +62,7 @@ impl CliId {
             CliId::CommittedFile { .. } => "a committed file",
             CliId::Branch { .. } => "a branch",
             CliId::Commit { .. } => "a commit",
-            CliId::Unassigned => "the unassigned area",
+            CliId::Unassigned { .. } => "the unassigned area",
         }
     }
     pub fn commit(oid: gix::ObjectId) -> Self {
@@ -41,10 +73,6 @@ impl CliId {
         CliId::Branch {
             name: name.to_owned(),
         }
-    }
-
-    pub fn unassigned() -> Self {
-        CliId::Unassigned
     }
 
     pub fn file_from_assignment(assignment: &HunkAssignment) -> Self {
@@ -99,7 +127,7 @@ impl CliId {
 
     pub fn matches(&self, s: &str) -> bool {
         match self {
-            CliId::Unassigned => s.find(|c: char| c != '0').is_none(),
+            CliId::Unassigned { .. } => s.find(|c: char| c != '0').is_none(),
             _ => s == self.to_string(),
         }
     }
@@ -110,7 +138,7 @@ impl CliId {
                 let oid_hash = hash(&oid.to_string());
                 oid_hash.starts_with(s)
             }
-            CliId::Unassigned => s.find(|c: char| c != '0').is_none(),
+            CliId::Unassigned { .. } => s.find(|c: char| c != '0').is_none(),
             _ => self.to_string().starts_with(s),
         }
     }
@@ -122,6 +150,9 @@ impl CliId {
                 s
             ));
         }
+
+        // TODO: make callers of this function pass IdDb instead
+        let id_db = IdDb::new(ctx)?;
 
         let mut matches = Vec::new();
 
@@ -155,8 +186,8 @@ impl CliId {
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
-            if CliId::unassigned().matches_prefix(s) {
-                cli_matches.push(CliId::unassigned());
+            if id_db.unassigned().matches_prefix(s) {
+                cli_matches.push(id_db.unassigned().clone());
             }
             matches.extend(cli_matches);
         } else {
@@ -178,8 +209,8 @@ impl CliId {
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            if CliId::unassigned().matches(s) {
-                cli_matches.push(CliId::unassigned());
+            if id_db.unassigned().matches(s) {
+                cli_matches.push(id_db.unassigned().clone());
             }
             matches.extend(cli_matches);
         }
@@ -214,8 +245,8 @@ impl Display for CliId {
             CliId::Branch { name } => {
                 write!(f, "{}", hash(name))
             }
-            CliId::Unassigned => {
-                write!(f, "00")
+            CliId::Unassigned { id } => {
+                write!(f, "{}", id)
             }
             CliId::Commit { oid } => {
                 // let oid_str = oid.to_string();
