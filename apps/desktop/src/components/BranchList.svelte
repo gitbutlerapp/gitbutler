@@ -15,6 +15,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { MoveBranchDzHandler } from '$lib/branches/dropHandler';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
+	import { focusClaudeInput } from '$lib/codegen/focusClaudeInput';
 	import { currentStatus } from '$lib/codegen/messages';
 	import { projectDisableCodegen } from '$lib/config/config';
 	import { REORDER_DROPZONE_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
@@ -331,15 +332,7 @@
 									if (!stackId) return;
 									laneState?.selection.set({ branchName, codegen: true, previewOpen: true });
 									setTimeout(() => {
-										// This is a hacky way, but we need the job done until we
-										// can figure out a good way of autofocusing text inputs,
-										// without too many of them firing at the wrong times.
-										const element = document.querySelector(
-											`[data-id="${stackId}"] .ContentEditable__root`
-										);
-										if (element instanceof HTMLElement) {
-											element?.focus();
-										}
+										focusClaudeInput(stackId);
 									}, 100);
 								}}
 							/>

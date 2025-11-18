@@ -258,6 +258,7 @@
 				initialText={value}
 				{onChange}
 				onKeyDown={handleEditorKeyDown}
+				autoFocus={false}
 			>
 				{#snippet plugins()}
 					<FilePlugin
