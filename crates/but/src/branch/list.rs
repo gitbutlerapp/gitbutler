@@ -1,5 +1,6 @@
-use std::{collections::HashMap, io::Write};
+use std::collections::HashMap;
 
+use crate::utils::OutputChannel;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_project::Project;
@@ -49,10 +50,9 @@ pub async fn list(
     ahead: bool,
     review: bool,
     filter: Option<String>,
-    json: bool,
+    out: &mut OutputChannel,
     check_merge: bool,
 ) -> Result<(), anyhow::Error> {
-    let mut stdout = std::io::stdout();
     let listing_filter = if local {
         Some(BranchListingFilter {
             local: Some(true),
@@ -63,7 +63,6 @@ pub async fn list(
     };
 
     let branch_review_map = if review {
-        println!("Fetching branch review information...");
         crate::forge::review::get_review_map(project).await?
     } else {
         HashMap::new()
@@ -151,14 +150,14 @@ pub async fn list(
     };
 
     // Calculate commits ahead if requested
-    let commits_ahead_map: Option<std::collections::HashMap<String, usize>> = if ahead {
+    let commits_ahead_map: Option<HashMap<String, usize>> = if ahead {
         Some(calculate_commits_ahead(project, &branches_to_show)?)
     } else {
         None
     };
 
     // Check merge status if requested
-    let merge_status_map: Option<std::collections::HashMap<String, bool>> = if check_merge {
+    let merge_status_map: Option<HashMap<String, bool>> = if check_merge {
         Some(check_branches_merge_cleanly(
             project,
             &applied_stacks,
@@ -188,10 +187,9 @@ pub async fn list(
         index += 1;
     }
 
-    // Store ID map to file for later use by `but branch show`
     store_id_map(project, &id_map)?;
 
-    if json {
+    if let Some(out) = out.for_json() {
         output_json(
             &applied_stacks,
             &branches_to_show,
@@ -200,11 +198,12 @@ pub async fn list(
             commits_ahead_map.as_ref(),
             merge_status_map.as_ref(),
             project,
+            out,
         )?;
-    } else {
+    } else if let Some(out) = out.for_human() {
         // Print applied branches section with header
         if !applied_stacks.is_empty() {
-            writeln!(stdout, "{}", "Applied Branches".green()).ok();
+            writeln!(out, "{}", "Applied Branches".green())?;
             print_applied_branches_table(
                 &applied_stacks,
                 &branch_review_map,
@@ -212,44 +211,47 @@ pub async fn list(
                 commits_ahead_map.as_ref(),
                 merge_status_map.as_ref(),
                 &id_map,
+                out,
             )?;
         }
 
         // Print unapplied branches section with header
         if !branches_to_show.is_empty() {
             if !applied_stacks.is_empty() {
-                writeln!(stdout).ok(); // Add blank line between sections
+                writeln!(out)?;
             }
-            writeln!(stdout, "Unapplied Branches").ok();
+            writeln!(out, "Unapplied Branches")?;
             print_branches_table(
                 &branches_to_show,
                 &branch_review_map,
                 commits_ahead_map.as_ref(),
                 merge_status_map.as_ref(),
                 &id_map,
+                out,
             )?;
         }
 
         if more_count > 0 {
             writeln!(
-                stdout,
+                out,
                 "\n... and {} more branches (use --all to show all)",
                 more_count
-            )
-            .ok();
+            )?;
         }
     }
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn output_json(
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     branches: &[gitbutler_branch_actions::BranchListing],
     more_count: usize,
-    branch_review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    commits_ahead_map: Option<&std::collections::HashMap<String, usize>>,
-    merge_status_map: Option<&std::collections::HashMap<String, bool>>,
+    branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
+    commits_ahead_map: Option<&HashMap<String, usize>>,
+    merge_status_map: Option<&HashMap<String, bool>>,
     project: &Project,
+    out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
     use but_oxidize::gix_to_git2_oid;
     use but_settings::AppSettings;
@@ -346,15 +348,13 @@ fn output_json(
         },
     };
 
-    let json_output = serde_json::to_string_pretty(&output)?;
-    let mut stdout = std::io::stdout();
-    writeln!(stdout, "{}", json_output)?;
+    out.write_value(output)?;
     Ok(())
 }
 
 fn get_reviews_json(
     branch_name: &str,
-    branch_review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
 ) -> Vec<crate::branch::json::ReviewOutput> {
     if let Some(reviews) = branch_review_map.get(branch_name) {
         reviews
@@ -373,14 +373,14 @@ fn check_branches_merge_cleanly(
     project: &Project,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     branches: &[gitbutler_branch_actions::BranchListing],
-) -> Result<std::collections::HashMap<String, bool>, anyhow::Error> {
+) -> Result<HashMap<String, bool>, anyhow::Error> {
     use but_oxidize::GixRepositoryExt;
     use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
 
     let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     let repo = ctx.repo();
-    let gix_repo = ctx.gix_repo()?.for_tree_diffing()?;
+    let gix_repo = ctx.gix_repo()?.for_tree_diffing()?.with_object_memory();
 
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
     let target = stack.get_default_target()?;
@@ -402,7 +402,7 @@ fn check_branches_merge_cleanly(
         }
     };
 
-    let mut result = std::collections::HashMap::new();
+    let mut result = HashMap::new();
 
     // Check applied stacks
     for stack_entry in applied_stacks {
@@ -478,7 +478,7 @@ fn check_branches_merge_cleanly(
 fn calculate_commits_ahead(
     project: &Project,
     branches: &[gitbutler_branch_actions::BranchListing],
-) -> Result<std::collections::HashMap<String, usize>, anyhow::Error> {
+) -> Result<HashMap<String, usize>, anyhow::Error> {
     use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
 
@@ -504,7 +504,7 @@ fn calculate_commits_ahead(
         }
     };
 
-    let mut result = std::collections::HashMap::new();
+    let mut result = HashMap::new();
 
     for branch in branches {
         let branch_commit = match repo.find_commit(branch.head) {
@@ -562,11 +562,12 @@ fn format_date_for_display(timestamp_ms: u128) -> String {
 
 fn print_applied_branches_table(
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
-    branch_review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
     project: &Project,
-    commits_ahead_map: Option<&std::collections::HashMap<String, usize>>,
-    merge_status_map: Option<&std::collections::HashMap<String, bool>>,
+    commits_ahead_map: Option<&HashMap<String, usize>>,
+    merge_status_map: Option<&HashMap<String, bool>>,
     id_map: &HashMap<String, String>,
+    out: &mut (dyn std::fmt::Write + 'static),
 ) -> Result<(), anyhow::Error> {
     use but_oxidize::gix_to_git2_oid;
     use but_settings::AppSettings;
@@ -577,8 +578,6 @@ fn print_applied_branches_table(
     if applied_stacks.is_empty() {
         return Ok(());
     }
-
-    let mut stdout = std::io::stdout();
 
     // Open repo to get commit information
     let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
@@ -685,24 +684,23 @@ fn print_applied_branches_table(
         }
     }
 
-    table.render(&mut stdout)?;
+    table.render(out)?;
     Ok(())
 }
 
 fn print_branches_table(
     branches: &[gitbutler_branch_actions::BranchListing],
-    branch_review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    commits_ahead_map: Option<&std::collections::HashMap<String, usize>>,
-    merge_status_map: Option<&std::collections::HashMap<String, bool>>,
+    branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
+    commits_ahead_map: Option<&HashMap<String, usize>>,
+    merge_status_map: Option<&HashMap<String, bool>>,
     id_map: &HashMap<String, String>,
+    out: &mut (dyn std::fmt::Write + 'static),
 ) -> Result<(), anyhow::Error> {
     use crate::utils::{Table, table::Cell};
 
     if branches.is_empty() {
         return Ok(());
     }
-
-    let mut stdout = std::io::stdout();
 
     // Define column headers with fixed widths
     let headers = vec![
@@ -783,6 +781,6 @@ fn print_branches_table(
         ]);
     }
 
-    table.render(&mut stdout)?;
+    table.render(out)?;
     Ok(())
 }

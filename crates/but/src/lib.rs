@@ -251,9 +251,8 @@ async fn match_subcommand(
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let ctx = get_or_init_context_with_legacy_support(&args)?;
-            branch::handle(cmd, &ctx, out, args.json)
+            branch::handle(cmd, &ctx, out)
                 .await
-                .output_json(args.json)
                 .emit_metrics(metrics_ctx)
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {

@@ -4,10 +4,7 @@ use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
 
-use crate::{
-    LegacyProject,
-    utils::{OutputChannel, into_json_value, we_need_proper_json_output_here},
-};
+use crate::{LegacyProject, utils::OutputChannel};
 
 mod apply;
 mod list;
@@ -141,9 +138,6 @@ pub enum Subcommands {
         /// Fetch and display review information
         #[clap(short, long)]
         review: bool,
-        /// Disable pager output
-        #[clap(long)]
-        no_pager: bool,
         /// Show files modified in each commit with line counts
         #[clap(short, long)]
         files: bool,
@@ -173,8 +167,7 @@ pub async fn handle(
     cmd: Option<Subcommands>,
     ctx: &but_ctx::Context,
     out: &mut OutputChannel,
-    json: bool,
-) -> anyhow::Result<serde_json::Value> {
+) -> anyhow::Result<()> {
     let legacy_project = &ctx.legacy_project;
     match cmd {
         None => {
@@ -192,11 +185,11 @@ pub async fn handle(
                 ahead,
                 review,
                 None,
-                json,
+                out,
                 check,
             )
             .await?;
-            Ok(we_need_proper_json_output_here())
+            Ok(())
         }
         Some(Subcommands::List {
             filter,
@@ -217,32 +210,21 @@ pub async fn handle(
                 ahead,
                 review,
                 filter,
-                json,
+                out,
                 check,
             )
             .await?;
-            Ok(we_need_proper_json_output_here())
+            Ok(())
         }
         Some(Subcommands::Show {
             branch_id,
             review,
-            no_pager,
             files,
             ai,
             check,
         }) => {
-            show::show(
-                legacy_project,
-                &branch_id,
-                json,
-                review,
-                !no_pager,
-                files,
-                ai,
-                check,
-            )
-            .await?;
-            Ok(we_need_proper_json_output_here())
+            show::show(legacy_project, &branch_id, out, review, files, ai, check).await?;
+            Ok(())
         }
         Some(Subcommands::New {
             branch_name,
@@ -324,7 +306,7 @@ pub async fn handle(
                 };
                 out.write_value(value)?;
             }
-            Ok(serde_json::Value::Null)
+            Ok(())
         }
         Some(Subcommands::Delete { branch_name, force }) => {
             let stacks = but_api::legacy::workspace::stacks(
@@ -347,11 +329,9 @@ pub async fn handle(
             if let Some(out) = out.for_human() {
                 writeln!(out, "Branch '{}' not found in any stack", branch_name)?;
             }
-            Ok(we_need_proper_json_output_here())
+            Ok(())
         }
-        Some(Subcommands::Apply { branch_name }) => {
-            apply::apply(ctx, &branch_name, out).map(into_json_value)
-        }
+        Some(Subcommands::Apply { branch_name }) => apply::apply(ctx, &branch_name, out),
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::legacy::workspace::stacks(
                 legacy_project.id,
@@ -373,7 +353,7 @@ pub async fn handle(
             if let Some(out) = out.for_human() {
                 writeln!(out, "Branch '{}' not found in any stack", branch_name)?;
             }
-            Ok(we_need_proper_json_output_here())
+            Ok(())
         }
     }
 }
@@ -384,7 +364,7 @@ fn confirm_unapply_stack(
     stack_entry: &StackEntry,
     force: bool,
     out: &mut OutputChannel,
-) -> Result<serde_json::Value, anyhow::Error> {
+) -> Result<(), anyhow::Error> {
     let branches = stack_entry
         .heads
         .iter()
@@ -424,7 +404,7 @@ fn confirm_unapply_stack(
             branches
         )?;
     }
-    Ok(we_need_proper_json_output_here())
+    Ok(())
 }
 
 fn confirm_branch_deletion(
@@ -433,7 +413,7 @@ fn confirm_branch_deletion(
     branch_name: &str,
     force: bool,
     out: &mut OutputChannel,
-) -> Result<serde_json::Value, anyhow::Error> {
+) -> Result<(), anyhow::Error> {
     if !force && out.for_human().is_some() {
         use std::io::Write;
         let mut stdout = std::io::stdout();
@@ -465,5 +445,5 @@ fn confirm_branch_deletion(
     if let Some(out) = out.for_human() {
         writeln!(out, "Deleted branch {branch_name}")?;
     }
-    Ok(we_need_proper_json_output_here())
+    Ok(())
 }
