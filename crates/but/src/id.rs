@@ -98,7 +98,10 @@ impl CliId {
     }
 
     pub fn matches(&self, s: &str) -> bool {
-        s == self.to_string()
+        match self {
+            CliId::Unassigned => s.find(|c: char| c != '0').is_none(),
+            _ => s == self.to_string(),
+        }
     }
 
     pub fn matches_prefix(&self, s: &str) -> bool {
@@ -107,6 +110,7 @@ impl CliId {
                 let oid_hash = hash(&oid.to_string());
                 oid_hash.starts_with(s)
             }
+            CliId::Unassigned => s.find(|c: char| c != '0').is_none(),
             _ => self.to_string().starts_with(s),
         }
     }
