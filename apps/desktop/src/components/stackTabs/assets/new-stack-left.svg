@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="194" height="72" viewBox="0 0 194 72" fill="none">
+
+  <g>
+    <path d="M64.6 0.599998H128.6V71.6H64.6V0.599998Z" fill="var(--clr-bg-1)" />
+    <path d="M82.6 44.6V51.6" stroke="var(--image-outline)" stroke-width="1.2" />
+    <path
+      d="M72.6 15.6C72.6 12.2863 75.2863 9.6 78.6 9.6H114.6C117.914 9.6 120.6 12.2863 120.6 15.6V38.6C120.6 41.9137 117.914 44.6 114.6 44.6H78.6C75.2863 44.6 72.6 41.9137 72.6 38.6V15.6Z"
+      stroke="var(--image-outline)" stroke-width="1.2" />
+    <text fill="var(--image-outline)" xml:space="preserve" style="white-space: pre"
+      font-family="Inter"
+      font-size="12" font-weight="600" letter-spacing="0em">
+        <tspan x="81.6" y="27.4636">Br #1</tspan>
+      </text>
+    <path
+      d="M120.6 71.6V57.6C120.6 54.2863 117.914 51.6 114.6 51.6H78.6C75.2863 51.6 72.6 54.2863 72.6 57.6V71.6"
+      stroke="var(--image-outline)" stroke-width="1.2" />
+    <path d="M64.6 0.599998H128.6" stroke="var(--image-outline)" stroke-width="1.2" />
+  </g>
+  <g>
+    <path d="M0.6 10.6C0.6 5.07715 5.07715 0.599998 10.6 0.599998H64.6V71.6H0.6V10.6Z"
+      fill="var(--image-accent-bg)" />
+    <path d="M64.6 71.6V0.599998H10.6C5.07715 0.599998 0.6 5.07715 0.6 10.6V71.6"
+      stroke="var(--image-accent-outline)" stroke-width="1.2" />
+    <path opacity="0.7"
+      d="M8.6 15.6C8.6 12.2863 11.2863 9.6 14.6 9.6H49.6C52.9137 9.6 55.6 12.2863 55.6 15.6V55.6C55.6 58.9137 52.9137 61.6 49.6 61.6H14.6C11.2863 61.6 8.6 58.9137 8.6 55.6V15.6Z"
+      fill="var(--image-accent-bg)" />
+    <path
+      d="M8.6 15.6C8.6 12.2863 11.2863 9.6 14.6 9.6H49.6C52.9137 9.6 55.6 12.2863 55.6 15.6V55.6C55.6 58.9137 52.9137 61.6 49.6 61.6H14.6C11.2863 61.6 8.6 58.9137 8.6 55.6V15.6Z"
+      stroke="var(--image-accent-outline)" stroke-width="1.2" />
+    <text fill="var(--image-accent-outline)" xml:space="preserve" style="white-space: pre"
+      font-family="Inter"
+      font-size="12" font-weight="600" letter-spacing="0em">
+        <tspan x="16.6" y="27.4636">Br #3</tspan>
+      </text>
+  </g>
+  <g>
+    <path d="M128.6 0.599998H182.6C188.123 0.599998 192.6 5.07715 192.6 10.6V71.6H128.6V0.599998Z"
+      fill="var(--clr-bg-1)" />
+    <path d="M192.6 71.6V10.6C192.6 5.07715 188.123 0.599998 182.6 0.599998H128.6V71.6"
+      stroke="var(--image-outline)" stroke-width="1.2" />
+    <path opacity="0.7"
+      d="M136.6 15.6C136.6 12.2863 139.286 9.6 142.6 9.6H177.6C180.914 9.6 183.6 12.2863 183.6 15.6V55.6C183.6 58.9137 180.914 61.6 177.6 61.6H142.6C139.286 61.6 136.6 58.9137 136.6 55.6V15.6Z"
+      fill="var(--image-bg)" />
+    <path
+      d="M136.6 15.6C136.6 12.2863 139.286 9.6 142.6 9.6H177.6C180.914 9.6 183.6 12.2863 183.6 15.6V55.6C183.6 58.9137 180.914 61.6 177.6 61.6H142.6C139.286 61.6 136.6 58.9137 136.6 55.6V15.6Z"
+      stroke="var(--image-outline)" stroke-width="1.2" />
+    <text fill="var(--image-outline)" xml:space="preserve" style="white-space: pre"
+      font-family="Inter"
+      font-size="12" font-weight="600" letter-spacing="0em">
+        <tspan x="143.6" y="27.4636">Br #2</tspan>
+      </text>
+  </g>
+
+</svg>

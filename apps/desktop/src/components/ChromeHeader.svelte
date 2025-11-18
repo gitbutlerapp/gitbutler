@@ -14,6 +14,7 @@
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { useCreateAiStack } from '$lib/stacks/createAiStack.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import {
@@ -44,6 +45,7 @@
 	const settingsService = inject(SETTINGS_SERVICE);
 	const modeService = inject(MODE_SERVICE);
 	const shortcutService = inject(SHORTCUT_SERVICE);
+	const stackService = inject(STACK_SERVICE);
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
 	const base = $derived(baseReponse?.response);
 	const settingsStore = $derived(settingsService.appSettings);
@@ -97,6 +99,9 @@
 	const unreadCount = $derived(ircService.unreadCount());
 	const isNotificationsUnread = $derived(unreadCount.current > 0);
 
+	const stacks = $derived(stackService.stacks(projectId));
+	const hasNoBranches = $derived(stacks.response?.length === 0);
+
 	function openModal() {
 		modal?.show();
 	}
@@ -107,6 +112,8 @@
 	$effect(() =>
 		shortcutService.on('create-dependent-branch', () => createBranchModal?.show('dependent'))
 	);
+
+	// $effect(() => createBranchModal?.show());
 </script>
 
 {#if projectId}
@@ -259,7 +266,7 @@
 		{/if}
 		<Button
 			testId={TestId.ChromeHeaderCreateBranchButton}
-			kind="outline"
+			kind={hasNoBranches ? 'solid' : 'outline'}
 			icon="plus-small"
 			hotkey="⌘B"
 			reversedDirection
