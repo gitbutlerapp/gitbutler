@@ -19,16 +19,12 @@ export function useCreateAiStack(projectId: Reactive<string>) {
 			}
 		});
 
-		// Because the ui state is updated asyncly, we need to let some time
-		// pass. This is far from a good solution to this problem.
-		await sleep(50);
-		uiState.project(pid).stackId.set(stack.id);
 		if (!stack.id) return;
-
 		const lane = uiState.lane(stack.id);
 		lane.selection.set({ codegen: true, branchName: stack.heads[0]?.name, previewOpen: true });
 
-		// I strongly dislike this sleep
+		// Because the ui state is updated asyncly, we need to let some time
+		// pass. This is far from a good solution to this problem.
 		await sleep(50);
 		focusClaudeInput(stack.id);
 	}

@@ -199,7 +199,7 @@
 				{getDisplayNameForWorkflowKind(action.kind)}:
 			</span>
 
-			<FeedItemKind type="workflow" {projectId} kind={action.kind} />
+			<FeedItemKind type="workflow" kind={action.kind} />
 		</div>
 	{:else if isFeedMessage(action)}
 		{#if action.type === 'assistant'}
@@ -237,7 +237,7 @@
 				{#if action.toolCalls.length > 0}
 					<div class="action-item__content-tool-calls">
 						{#each action.toolCalls as toolCall}
-							<FeedItemKind type="tool-call" {projectId} {toolCall} />
+							<FeedItemKind type="tool-call" {toolCall} />
 						{/each}
 					</div>
 				{/if}
