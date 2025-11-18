@@ -107,7 +107,6 @@
 		} else {
 			laneState.selection.set({ branchName, commitId, upstream, previewOpen: true });
 		}
-		projectState.stackId.set(stackId);
 		onselect?.();
 	}
 

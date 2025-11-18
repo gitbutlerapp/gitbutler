@@ -2,8 +2,6 @@
 	import dependentBranchSvg from '$components/stackTabs/assets/dependent-branch.svg?raw';
 	import newStackSvg from '$components/stackTabs/assets/new-stack.svg?raw';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/core/context';
 
 	import {
@@ -28,7 +26,6 @@
 
 	let { projectId, stackId }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
-	const uiState = inject(UI_STATE);
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
 
@@ -84,14 +81,10 @@
 
 	async function addNew() {
 		if (createRefType === 'stack') {
-			const stack = await createNewStack({
+			await createNewStack({
 				projectId,
 				branch: { name: slugifiedRefName }
 			});
-			// Why is there a timing thing going on here? Without sleep you end
-			// up on stacks[0] after creating a new one.
-			await sleep(50);
-			uiState.project(projectId).stackId.set(stack.id);
 			createRefModal?.close();
 		} else {
 			if (!selectedStackId || !slugifiedRefName) {

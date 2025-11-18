@@ -76,7 +76,6 @@ export type ExclusiveAction =
 
 export type ProjectUiState = {
 	exclusiveAction: ExclusiveAction | undefined;
-	stackId: string | undefined;
 	branchesSelection: BranchesSelection;
 	showActions: boolean;
 	branchesToPoll: string[];
@@ -171,7 +170,6 @@ export class UiState {
 	readonly project = this.buildScopedProps<ProjectUiState>(this.scopesCache.projects, {
 		exclusiveAction: undefined,
 		branchesSelection: {},
-		stackId: undefined,
 		showActions: false,
 		branchesToPoll: [],
 		selectedClaudeSession: undefined,
@@ -458,11 +456,6 @@ export function updateStaleProjectState(
 	baseCommitShas: string[]
 ) {
 	const projectState = uiState.project(projectId);
-
-	// Unselect the current stack if it is not in the list of stack IDs
-	if (projectState.stackId.current && !stackIds.includes(projectState.stackId.current)) {
-		projectState.stackId.set(undefined);
-	}
 
 	if (projectState.exclusiveAction.current) {
 		updateExclusiveActionState(

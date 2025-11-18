@@ -4,24 +4,17 @@
 	import WorkspaceView from '$components/WorkspaceView.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 
 	const modeService = inject(MODE_SERVICE);
 
 	const projectId = $derived(page.params.projectId!);
 	const mode = $derived(modeService.mode({ projectId }));
-	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
-	const projectState = $derived(uiState.project(projectId));
-	const stackId = $derived(projectState.stackId.current);
 
 	// Check for stackId in URL query parameters
 	const urlStackId = $derived(page.url.searchParams.get('stackId'));
 	let scrollToStackId = $state<string | undefined>(undefined);
-
-	const firstStackQuery = $derived(stackService.stackAt(projectId, 0));
-	const firstStack = $derived(firstStackQuery.response);
 
 	// Read all local commits in the workspace for the given project
 	$effect(() => {
@@ -30,10 +23,7 @@
 
 	$effect(() => {
 		if (urlStackId) {
-			projectState.stackId.set(urlStackId);
 			scrollToStackId = urlStackId;
-		} else if (stackId === undefined && firstStack) {
-			projectState.stackId.set(firstStack.id);
 		}
 	});
 

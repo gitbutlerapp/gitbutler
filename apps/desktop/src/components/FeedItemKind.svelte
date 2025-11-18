@@ -7,7 +7,6 @@
 	import type { WorkflowKind } from '$lib/actions/types';
 
 	interface BaseProps {
-		projectId: string;
 		type: 'workflow' | 'tool-call';
 	}
 
@@ -23,30 +22,26 @@
 
 	type Props = WorkflowProps | ToolCallProps;
 
-	const { projectId, ...rest }: Props = $props();
+	const { ...rest }: Props = $props();
 	const uiState = inject(UI_STATE);
 
 	let isExpanded = $state(false);
 
 	function selectCommit(stackId: string, branchName: string, commitId: string) {
-		const projectState = uiState.project(projectId);
 		const laneState = uiState.lane(stackId);
 		laneState.selection.set({
 			branchName,
 			commitId,
 			previewOpen: true
 		});
-		projectState.stackId.set(stackId);
 	}
 
 	function selectBranch(stackId: string, branchName: string) {
-		const projectState = uiState.project(projectId);
 		const laneState = uiState.lane(stackId);
 		laneState.selection.set({
 			branchName,
 			previewOpen: true
 		});
-		projectState.stackId.set(stackId);
 	}
 </script>
 

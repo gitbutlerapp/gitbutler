@@ -43,8 +43,6 @@ export default class StackMacros {
 				commitId: outcome.newCommit,
 				previewOpen: true
 			});
-
-			this.uiState.project(this.projectId).stackId.set(stack.id);
 		}
 	}
 
@@ -124,6 +122,5 @@ export default class StackMacros {
 			commitId: newCommitId,
 			previewOpen
 		});
-		this.uiState.project(this.projectId).stackId.set(destinationStackId);
 	}
 }

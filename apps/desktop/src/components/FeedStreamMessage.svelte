@@ -94,7 +94,7 @@
 			<p class="vibing">Vibing</p>
 			<div class="stream-message__tool-calls">
 				{#each toolCalls as toolCall, index (index)}
-					<FeedItemKind type="tool-call" {projectId} {toolCall} />
+					<FeedItemKind type="tool-call" {toolCall} />
 				{/each}
 			</div>
 		{/if}
