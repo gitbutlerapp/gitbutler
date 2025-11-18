@@ -99,16 +99,6 @@ impl Options {
             ..Default::default()
         }
     }
-
-    /// Return default options that limit single-branch commits to a sane amount (instead of traversing the whole graph),
-    /// and configure other values that require our meta-data to guide the traversal.
-    #[cfg(feature = "legacy")]
-    pub fn from_legacy_meta(meta: &but_meta::VirtualBranchesTomlMetadata) -> Self {
-        Options {
-            extra_target_commit_id: meta.data().default_target.as_ref().map(|t| t.sha),
-            ..Self::limited()
-        }
-    }
 }
 
 /// Builder

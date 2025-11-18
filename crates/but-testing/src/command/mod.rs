@@ -86,11 +86,7 @@ pub fn repo_and_maybe_project_and_graph(
 )> {
     let (repo, project) = repo_and_maybe_project(args, mode)?;
     let meta = meta_from_maybe_project(project.as_ref())?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &*meta,
-        but_graph::init::Options::from_legacy_meta(&meta),
-    )?;
+    let graph = but_graph::Graph::from_head(&repo, &*meta, meta.to_graph_options())?;
     Ok((repo, project, graph, meta))
 }
 

@@ -1488,11 +1488,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         * 3d57fc1 1
         ");
 
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        but_graph::init::Options::from_legacy_meta(&meta),
-    )?;
+    let graph = but_graph::Graph::from_head(&repo, &meta, meta.to_graph_options())?;
     let ws = graph.to_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1671,12 +1667,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         ");
 
     let id = id_by_rev(&repo, "@~1");
-    let graph = but_graph::Graph::from_commit_traversal(
-        id,
-        None,
-        &meta,
-        but_graph::init::Options::from_legacy_meta(&meta),
-    )?;
+    let graph = but_graph::Graph::from_commit_traversal(id, None, &meta, meta.to_graph_options())?;
     let ws = graph.to_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1778,7 +1769,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         &meta,
         Options {
             extra_target_commit_id: Some(first_id.detach()),
-            ..but_graph::init::Options::from_legacy_meta(&meta)
+            ..meta.to_graph_options()
         },
     )?;
     let ws = graph.to_workspace()?;

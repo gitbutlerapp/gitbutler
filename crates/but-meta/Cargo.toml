@@ -14,6 +14,7 @@ test = false
 [features]
 legacy = [
     "dep:but-serde",
+    "dep:but-graph",
     "dep:gitbutler-reference",
     "dep:tracing",
     "dep:itertools",
@@ -26,11 +27,12 @@ legacy = [
 
 [dependencies]
 but-core.workspace = true
+but-serde = { workspace = true, optional = true }
+but-graph = { workspace = true, optional = true }
 
 bstr.workspace = true
 anyhow.workspace = true
 
-but-serde = { workspace = true, optional = true }
 gitbutler-reference = {workspace = true, optional = true}
 gix = { workspace = true, features = ["revision"], optional = true }
 tracing = { workspace = true, optional = true }

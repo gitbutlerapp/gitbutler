@@ -1187,6 +1187,7 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-graph",
  "but-meta",
  "but-serde",
  "but-testsupport",

@@ -90,7 +90,7 @@ fn handle_amend(
     )?;
     let ref_info_options = but_workspace::ref_info::Options {
         expensive_commit_info: true,
-        traversal: but_graph::init::Options::from_legacy_meta(&meta),
+        traversal: meta.to_graph_options(),
     };
     let info = but_workspace::head_info(&repo, &meta, ref_info_options)?;
     let mut commit_id: Option<gix::ObjectId> = None;
