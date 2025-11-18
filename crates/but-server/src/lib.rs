@@ -12,7 +12,7 @@ use axum::{
     routing::{any, get},
 };
 use but_api::{github, json::ToError as _, legacy};
-use but_broadcaster::Broadcaster;
+use but_claude::Broadcaster;
 use but_claude::Claude;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};

@@ -1,7 +1,7 @@
+#![deny(unsafe_code)]
 use std::sync::Arc;
 
 use anyhow::Result;
-use but_broadcaster::{Broadcaster, FrontendEvent};
 use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -30,6 +30,10 @@ mod rules;
 
 use crate::bridge::Claudes;
 pub use permissions::Permission;
+
+pub mod broadcaster;
+use broadcaster::FrontendEvent;
+pub use broadcaster::types::Broadcaster;
 
 /// Various in-memory state that is required for calling most claude functions.
 // TODO: There are UI concepts like broadcasting tied into this type.

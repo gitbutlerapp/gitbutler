@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use but_db::poll::ItemKind;
 use gitbutler_project::ProjectId;
 use serde::Serialize;
@@ -61,15 +59,20 @@ impl FrontendEvent {
     }
 }
 
-pub struct Broadcaster {
-    senders: HashMap<uuid::Uuid, tokio::sync::mpsc::UnboundedSender<FrontendEvent>>,
+pub(super) mod types {
+    use super::FrontendEvent;
+    use std::collections::HashMap;
+
+    #[derive(Default)]
+    pub struct Broadcaster {
+        pub(super) senders: HashMap<uuid::Uuid, tokio::sync::mpsc::UnboundedSender<FrontendEvent>>,
+    }
 }
+use types::Broadcaster;
 
 impl Broadcaster {
     pub fn new() -> Self {
-        Self {
-            senders: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn send(&self, event: FrontendEvent) {
@@ -88,11 +91,5 @@ impl Broadcaster {
 
     pub fn deregister_sender(&mut self, id: &uuid::Uuid) {
         self.senders.remove(id);
-    }
-}
-
-impl Default for Broadcaster {
-    fn default() -> Self {
-        Self::new()
     }
 }

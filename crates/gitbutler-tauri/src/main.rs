@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use anyhow::bail;
 use but_api::{github, legacy};
-use but_broadcaster::Broadcaster;
+use but_claude::Broadcaster;
 use but_claude::Claude;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{

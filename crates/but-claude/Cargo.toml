@@ -12,7 +12,6 @@ doctest = false
 [dependencies]
 but-core.workspace = true
 but-action.workspace = true
-but-broadcaster.workspace = true
 but-db.workspace = true
 but-meta = { workspace = true, features = ["legacy"] }
 but-rules.workspace = true

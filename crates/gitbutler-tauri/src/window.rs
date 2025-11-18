@@ -74,7 +74,7 @@ pub(crate) mod state {
             fn from(project_item: (ProjectId, ItemKind)) -> Self {
                 let (project_id, item) = project_item;
                 // Use the shared conversion function from but_broadcaster
-                let event = but_broadcaster::FrontendEvent::from_db_item(project_id, item);
+                let event = but_claude::broadcaster::FrontendEvent::from_db_item(project_id, item);
                 ChangeForFrontend {
                     name: event.name,
                     payload: event.payload,

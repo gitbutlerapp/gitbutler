@@ -25,7 +25,6 @@ but-api = { path = "crates/but-api" }
 but-api-macros = { path = "crates/but-api-macros" }
 but-claude = { path = "crates/but-claude" }
 but-cursor = { path = "crates/but-cursor" }
-but-broadcaster = { path = "crates/but-broadcaster" }
 but-gerrit = { path = "crates/but-gerrit" }
 but-cherry-apply = { path = "crates/but-cherry-apply" }
 but-github = { path = "crates/but-github" }
