@@ -1,6 +1,7 @@
 import { sortLikeFileTree } from '$lib/files/filetreeV3';
 import { type TreeChange } from '$lib/hunks/change';
 import {
+	diffToHunkHeaders,
 	hunkHeaderEquals,
 	lineIdsToHunkHeaders,
 	orderHeaders,
@@ -23,12 +24,32 @@ import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { type ThunkDispatch, type UnknownAction } from '@reduxjs/toolkit';
 import { persistReducer } from 'redux-persist';
 import storage from 'redux-persist/es/storage';
+import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { ChangeDiff, DiffService } from '$lib/hunks/diffService.svelte';
 import type { ClientState } from '$lib/state/clientState.svelte';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 
 export const UNCOMMITTED_SERVICE = new InjectionToken<UncommittedService>('UncommittedService');
+
+type PreprocessedHunkHeaderType = 'complete' | 'partial';
+
+interface BasePreprocessedHunkHeader {
+	readonly type: PreprocessedHunkHeaderType;
+	readonly hunkDiff: DiffHunk;
+}
+
+interface CompletePreprocessedHunkHeader extends BasePreprocessedHunkHeader {
+	readonly type: 'complete';
+	readonly header: HunkHeader;
+}
+
+interface PartialPreprocessedHunkHeader extends BasePreprocessedHunkHeader {
+	readonly type: 'partial';
+	readonly selectedLines: LineId[];
+}
+
+type PreprocessedHunkHeader = CompletePreprocessedHunkHeader | PartialPreprocessedHunkHeader;
 
 export class UncommittedService {
 	/** The change selection slice of the full redux state. */
@@ -67,19 +88,19 @@ export class UncommittedService {
 		this.dispatch(uncommittedActions.clearHunkSelection({ stackId: stackId || null }));
 	}
 
-	async findHunkDiff(
-		projectId: string,
-		filePath: string,
-		hunk: HunkHeader
-	): Promise<DiffHunk | undefined> {
+	async getUnifiedDiff(projectId: string, filePath: string): Promise<UnifiedDiff> {
 		const treeChange = await this.worktreeService.fetchTreeChange(projectId, filePath);
 		if (treeChange === undefined) {
 			throw new Error('Failed to fetch change');
 		}
 		const changeDiff = await this.diffService.fetchDiff(projectId, treeChange);
-		if (changeDiff === undefined) {
+		if (!changeDiff) {
 			throw new Error('Failed to fetch diff');
 		}
+		return changeDiff;
+	}
+
+	findHunkDiff(changeDiff: UnifiedDiff, hunk: HunkHeader): DiffHunk | undefined {
 		const file = changeDiff;
 
 		if (file?.type !== 'Patch') return undefined;
@@ -92,6 +113,77 @@ export class UncommittedService {
 				hunkDiff.newLines === hunk.newLines
 		);
 		return hunkDiff;
+	}
+
+	/**
+	 * Check whether the given hunks represent a completely selected file.
+	 */
+	isCompletelySelectedFile(changeDiff: UnifiedDiff, hunkHeaders: HunkHeader[]): boolean {
+		const file = changeDiff;
+
+		if (file?.type !== 'Patch') return false;
+		const fileHunks = file.subject.hunks;
+
+		if (fileHunks.length !== hunkHeaders.length) {
+			return false;
+		}
+
+		for (const hunkHeader of hunkHeaders) {
+			const matchingHunk = fileHunks.find(
+				(hunkDiff) =>
+					hunkDiff.oldStart === hunkHeader.oldStart &&
+					hunkDiff.oldLines === hunkHeader.oldLines &&
+					hunkDiff.newStart === hunkHeader.newStart &&
+					hunkDiff.newLines === hunkHeader.newLines
+			);
+
+			if (!matchingHunk) {
+				// Hunk from selection not found in actual file hunks
+				return false;
+			}
+		}
+		return true;
+	}
+
+	processHunkHeaders(
+		changeDiff: UnifiedDiff,
+		preprocessedHeaders: PreprocessedHunkHeader[]
+	): HunkHeader[] {
+		const finalHunkHeaders: HunkHeader[] = [];
+
+		// Check if all hunks are completely selected.
+		if (preprocessedHeaders.every((h) => h.type === 'complete')) {
+			const hunkHeaders = preprocessedHeaders.map((h) => h.header);
+			const completelySelected = this.isCompletelySelectedFile(changeDiff, hunkHeaders);
+			if (completelySelected) {
+				// All hunks in the file are completely selected, return an empty array to indicate
+				// that the whole file is selected.
+				return [];
+			}
+		}
+		for (const preprocessedHeader of preprocessedHeaders) {
+			switch (preprocessedHeader.type) {
+				case 'complete': {
+					// Turn the complete hunk into a list of 0-anchored hunk headers.
+					const generatedHeaders = diffToHunkHeaders(preprocessedHeader.hunkDiff.diff, 'commit');
+					finalHunkHeaders.push(...generatedHeaders);
+					break;
+				}
+				case 'partial': {
+					// Turn the selected lines into individual 0-anchored hunk headers.
+					const generatedHeaders = lineIdsToHunkHeaders(
+						preprocessedHeader.selectedLines,
+						preprocessedHeader.hunkDiff.diff,
+						'commit'
+					);
+					finalHunkHeaders.push(...generatedHeaders);
+					break;
+				}
+			}
+		}
+
+		finalHunkHeaders.sort(orderHeaders);
+		return finalHunkHeaders;
 	}
 
 	/**
@@ -124,8 +216,9 @@ export class UncommittedService {
 
 		const worktreeChanges: DiffSpec[] = [];
 		for (const [path, selection] of Object.entries(pathGroups)) {
-			const hunkHeaders: HunkHeader[] = [];
+			const preprocessedHeaders: PreprocessedHunkHeader[] = [];
 			const change = uncommittedSelectors.treeChanges.selectById(state.treeChanges, path)!;
+			const changeDiff = await this.getUnifiedDiff(projectId, path);
 			for (const { lines, assignmentId } of selection) {
 				// We want to use `null` to commit from unassigned changes if new stack was created.
 				const assignment = uncommittedSelectors.hunkAssignments.selectById(
@@ -134,33 +227,39 @@ export class UncommittedService {
 				)!;
 
 				if (assignment.hunkHeader !== null) {
+					const hunkDiff = this.findHunkDiff(changeDiff, assignment.hunkHeader);
+					if (!hunkDiff) {
+						throw new Error('Hunk not found while commiting');
+					}
+
 					if (lines.length === 0) {
-						hunkHeaders.push(assignment.hunkHeader);
+						// A complete hunk is selected.
+						preprocessedHeaders.push({
+							type: 'complete',
+							header: assignment.hunkHeader,
+							hunkDiff
+						});
 						continue;
 					} else {
-						const hunkDiff = await this.findHunkDiff(
-							projectId,
-							assignment.path,
-							assignment.hunkHeader
-						);
-						if (!hunkDiff) {
-							throw new Error('Hunk not found while commiting');
-						}
-						hunkHeaders.push(...lineIdsToHunkHeaders(lines, hunkDiff.diff, 'commit'));
+						// Only some lines withing the hunk are selected.
+						preprocessedHeaders.push({
+							type: 'partial',
+							selectedLines: lines,
+							hunkDiff
+						});
 						continue;
 					}
 				}
 			}
 
-			hunkHeaders.sort(orderHeaders);
-
 			const status = change.status;
 			worktreeChanges.push({
 				pathBytes: change.pathBytes,
 				previousPathBytes: status.type === 'Rename' ? status.subject.previousPathBytes : null,
-				hunkHeaders
+				hunkHeaders: this.processHunkHeaders(changeDiff, preprocessedHeaders)
 			});
 		}
+
 		return worktreeChanges;
 	}
 

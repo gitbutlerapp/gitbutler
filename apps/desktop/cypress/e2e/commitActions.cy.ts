@@ -672,22 +672,7 @@ describe('Commit Actions with branches containing changes', () => {
 				{
 					pathBytes: [102, 105, 108, 101, 68, 46, 116, 120, 116],
 					previousPathBytes: null,
-					hunkHeaders: [
-						{
-							oldStart: 2,
-							oldLines: 8,
-							newStart: 2,
-							newLines: 7,
-							diff: '@@ -2,8 +2,7 @@\n context line 0\n context line 1\n context line 2\n-context line 3\n-old line to be removed\n+new line added\n context line 4\n context line 5\n context line 6'
-						},
-						{
-							oldStart: 10,
-							oldLines: 7,
-							newStart: 10,
-							newLines: 7,
-							diff: '@@ -10,7 +10,7 @@\n context before 1\n context before 2\n context before 3\n-old value\n+updated value\n context after 1\n context after 2\n context after 3'
-						}
-					]
+					hunkHeaders: []
 				},
 				{
 					pathBytes: [102, 105, 108, 101, 74, 46, 116, 120, 116],

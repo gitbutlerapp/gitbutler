@@ -226,6 +226,42 @@ export function extractLineGroups(lineIds: LineId[], diff: string): [DeltaLineGr
 	return [lineGroups, parentHunkHeader];
 }
 
+export function extractAllGroups(diff: string): [DeltaLineGroup[], HunkHeader] {
+	const lineGroups: DeltaLineGroup[] = [];
+	let currentGroup: DeltaLineGroup | undefined = undefined;
+	const parsedHunk = memoizedParseHunk(diff);
+
+	for (const section of parsedHunk.contentSections) {
+		for (const line of section.lines) {
+			const lineId = {
+				oldLine: line.beforeLineNumber,
+				newLine: line.afterLineNumber
+			};
+			const deltaType = lineType(lineId);
+			if (deltaType === undefined) {
+				// start a new group
+				if (currentGroup !== undefined) {
+					currentGroup = undefined;
+				}
+				continue;
+			}
+
+			if (currentGroup === undefined || currentGroup.type !== deltaType) {
+				currentGroup = { type: deltaType, lines: [] };
+				lineGroups.push(currentGroup);
+			}
+			currentGroup.lines.push(lineId);
+		}
+	}
+	const parentHunkHeader: HunkHeader = {
+		oldStart: parsedHunk.oldStart,
+		oldLines: parsedHunk.oldLines,
+		newStart: parsedHunk.newStart,
+		newLines: parsedHunk.newLines
+	};
+	return [lineGroups, parentHunkHeader];
+}
+
 /**
  * Build a list of hunk headers from a list of line IDs.
  *
@@ -242,6 +278,17 @@ export function lineIdsToHunkHeaders(
 	}
 
 	const [lineGroups, parentHunkHeader] = extractLineGroups(lineIds, diff);
+
+	return lineGroups.map((lineGroup) => lineGroupsToHunkHeader(lineGroup, parentHunkHeader, action));
+}
+
+/**
+ * Build a list of hunk headers that cover the entire diff.
+ *
+ * This is used when the user selects the entire hunk.
+ */
+export function diffToHunkHeaders(diff: string, action: 'discard' | 'commit'): HunkHeader[] {
+	const [lineGroups, parentHunkHeader] = extractAllGroups(diff);
 
 	return lineGroups.map((lineGroup) => lineGroupsToHunkHeader(lineGroup, parentHunkHeader, action));
 }
