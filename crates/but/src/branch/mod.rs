@@ -141,9 +141,6 @@ pub enum Subcommands {
         /// Fetch and display review information
         #[clap(short, long)]
         review: bool,
-        /// Disable pager output
-        #[clap(long)]
-        no_pager: bool,
         /// Show files modified in each commit with line counts
         #[clap(short, long)]
         files: bool,
@@ -173,7 +170,6 @@ pub async fn handle(
     cmd: Option<Subcommands>,
     ctx: &but_ctx::Context,
     out: &mut OutputChannel,
-    json: bool,
 ) -> anyhow::Result<serde_json::Value> {
     let legacy_project = &ctx.legacy_project;
     match cmd {
@@ -192,7 +188,7 @@ pub async fn handle(
                 ahead,
                 review,
                 None,
-                json,
+                out,
                 check,
             )
             .await?;
@@ -217,7 +213,7 @@ pub async fn handle(
                 ahead,
                 review,
                 filter,
-                json,
+                out,
                 check,
             )
             .await?;
@@ -226,22 +222,11 @@ pub async fn handle(
         Some(Subcommands::Show {
             branch_id,
             review,
-            no_pager,
             files,
             ai,
             check,
         }) => {
-            show::show(
-                legacy_project,
-                &branch_id,
-                json,
-                review,
-                !no_pager,
-                files,
-                ai,
-                check,
-            )
-            .await?;
+            show::show(legacy_project, &branch_id, out, review, files, ai, check).await?;
             Ok(we_need_proper_json_output_here())
         }
         Some(Subcommands::New {

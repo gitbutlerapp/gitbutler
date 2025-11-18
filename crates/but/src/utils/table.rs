@@ -1,5 +1,4 @@
 use crate::utils::table::types::Table;
-use std::io::Write;
 use terminal_size::Width;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -57,7 +56,7 @@ impl Table {
         self.rows.push(row);
     }
 
-    pub fn render<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+    pub fn render<W: std::fmt::Write + ?Sized>(&self, out: &mut W) -> std::fmt::Result {
         if self.headers.is_empty() {
             return Ok(());
         }
@@ -71,27 +70,27 @@ impl Table {
 
         // Render rows
         for row in &self.rows {
-            self.render_row(writer, row, &column_widths)?;
-            writeln!(writer)?;
+            self.render_row(out, row, &column_widths)?;
+            writeln!(out)?;
         }
 
         Ok(())
     }
 
-    fn render_row<W: Write>(
+    fn render_row<W: std::fmt::Write + ?Sized>(
         &self,
-        writer: &mut W,
+        out: &mut W,
         cells: &[Cell],
         column_widths: &[usize],
-    ) -> std::io::Result<()> {
+    ) -> std::fmt::Result {
         for (i, cell) in cells.iter().enumerate() {
             if i > 0 {
-                write!(writer, " ")?;
+                write!(out, " ")?;
             }
 
             let width = column_widths.get(i).copied().unwrap_or(0);
             let formatted = format_cell(&cell.content, width, cell.align);
-            write!(writer, "{}", formatted)?;
+            write!(out, "{}", formatted)?;
         }
         Ok(())
     }

@@ -1,5 +1,11 @@
 use std::collections::BTreeMap;
 
+use crate::{
+    editor::get_text_from_editor_no_comments,
+    id::CliId,
+    ui::{SimpleBranch, SimpleStack},
+    utils::OutputChannel,
+};
 use anyhow::Context;
 use bstr::ByteSlice;
 use but_api::legacy::forge::ListReviewsParams;
@@ -12,13 +18,7 @@ use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    editor::get_text_from_editor_no_comments,
-    id::CliId,
-    ui::{SimpleBranch, SimpleStack},
-    utils::OutputChannel,
-};
+use tracing::instrument;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -606,6 +606,7 @@ fn extract_commit_title(commit: Option<&Commit>) -> Option<&str> {
 }
 
 /// Get a mapping from branch names to their associated reviews.
+#[instrument(skip(project))]
 pub async fn get_review_map(
     project: &Project,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {

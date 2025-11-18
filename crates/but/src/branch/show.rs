@@ -1,25 +1,21 @@
-use std::{
-    io::{IsTerminal, Write},
-    process::{Command, Stdio},
-};
-
-use colored::Colorize;
-use gitbutler_project::Project;
-
 use super::list::load_id_map;
+use crate::utils::OutputChannel;
+use but_settings::AppSettings;
+use colored::Colorize;
+use gitbutler_command_context::CommandContext;
+use gitbutler_project::Project;
+use tracing::instrument;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn show(
     project: &Project,
     branch_id: &str,
-    json: bool,
+    out: &mut OutputChannel,
     review: bool,
-    use_pager: bool,
     show_files: bool,
     generate_ai_summary: bool,
     check_merge: bool,
 ) -> anyhow::Result<()> {
-    // Load the ID map
     let id_map = load_id_map(project)?;
 
     // Find the branch name from the ID
@@ -48,8 +44,6 @@ pub async fn show(
 
     // Get review information if requested
     let reviews = if review {
-        let mut stderr = std::io::stderr();
-        writeln!(stderr, "Fetching review data...").ok();
         crate::forge::review::get_review_map(project)
             .await?
             .get(&branch_name)
@@ -73,7 +67,7 @@ pub async fn show(
         None
     };
 
-    if json {
+    if let Some(out) = out.for_json() {
         output_json(
             &branch_name,
             &commits,
@@ -81,16 +75,17 @@ pub async fn show(
             &reviews,
             ai_summary.as_deref(),
             merge_check.as_ref(),
+            out,
         )?;
-    } else {
+    } else if let Some(out) = out.for_human() {
         output_human(
             &branch_name,
             &commits,
             &unassigned_files,
             &reviews,
-            use_pager,
             ai_summary.as_deref(),
             merge_check.as_ref(),
+            out,
         )?;
     }
 
@@ -124,12 +119,10 @@ fn check_merge_conflicts(
     branch_name: &str,
 ) -> Result<MergeCheck, anyhow::Error> {
     use but_oxidize::GixRepositoryExt;
-    use but_settings::AppSettings;
-    use gitbutler_command_context::CommandContext;
 
     let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     let repo = ctx.repo();
-    let gix_repo = ctx.gix_repo()?.for_tree_diffing()?;
+    let gix_repo = ctx.gix_repo()?.for_tree_diffing()?.with_object_memory();
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
@@ -176,13 +169,6 @@ fn check_merge_conflicts(
 
     // If there are conflicts, identify which files conflict and which commits modified them
     if !merges_cleanly {
-        let mut stderr = std::io::stderr();
-        writeln!(
-            stderr,
-            "Detecting conflicting files and their modifying commits..."
-        )
-        .ok();
-
         // Get the list of conflicting files from the merge
         let conflict_paths = get_merge_conflict_paths(
             &gix_repo,
@@ -530,20 +516,16 @@ struct CommitInfo {
     files: Vec<FileChange>,
 }
 
+#[instrument(skip(commits))]
 async fn generate_branch_summary(
     branch_name: &str,
     commits: &[CommitInfo],
 ) -> anyhow::Result<String> {
-    use std::io::Write;
-
     use async_openai::types::{
         ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessageArgs,
         CreateChatCompletionRequestArgs,
     };
     use but_action::OpenAiProvider;
-
-    let mut stderr = std::io::stderr();
-    writeln!(stderr, "Generating AI summary...").ok();
 
     // Get OpenAI provider (tries GitButler proxied, own key, then env var)
     let provider = OpenAiProvider::with(None)
@@ -614,6 +596,7 @@ fn output_json(
     reviews: &[but_forge::ForgeReview],
     ai_summary: Option<&str>,
     merge_check: Option<&MergeCheck>,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let reviews_json: Vec<_> = reviews
         .iter()
@@ -650,8 +633,7 @@ fn output_json(
         });
     }
 
-    let mut stdout = std::io::stdout();
-    writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
+    out.write_value(output)?;
     Ok(())
 }
 
@@ -660,13 +642,13 @@ fn output_human(
     commits: &[CommitInfo],
     unassigned_files: &[String],
     reviews: &[but_forge::ForgeReview],
-    use_pager: bool,
     ai_summary: Option<&str>,
     merge_check: Option<&MergeCheck>,
+    out: &mut dyn std::fmt::Write,
 ) -> anyhow::Result<()> {
+    use std::fmt::Write;
     // Build output as a string first
-    let mut output = String::new();
-    use std::fmt::Write as FmtWrite;
+    let mut buf = String::new();
 
     // Show branch name with review info if available
     let reviews_str = if !reviews.is_empty() {
@@ -681,22 +663,22 @@ fn output_human(
     };
 
     writeln!(
-        output,
+        buf,
         "{} {}{} ({} commits ahead)",
         "Branch:".bold(),
         branch_name.green(),
         reviews_str,
         commits.len().to_string().cyan()
     )?;
-    writeln!(output)?;
+    writeln!(buf)?;
 
     if commits.is_empty() {
-        writeln!(output, "No commits ahead of base branch.")?;
+        writeln!(buf, "No commits ahead of base branch.")?;
     } else {
         for (i, commit) in commits.iter().enumerate() {
-            writeln!(output, "{} {}", commit.short_sha.yellow(), commit.message)?;
+            writeln!(buf, "{} {}", commit.short_sha.yellow(), commit.message)?;
             writeln!(
-                output,
+                buf,
                 "    {} by {}",
                 format_timestamp(commit.timestamp).dimmed(),
                 commit.author_name.dimmed()
@@ -712,11 +694,11 @@ fn output_human(
                 commit.deletions,
                 if commit.deletions == 1 { "" } else { "s" }
             );
-            writeln!(output, "    {}", stats_str.dimmed())?;
+            writeln!(buf, "    {}", stats_str.dimmed())?;
 
             // Show per-file changes if available
             if !commit.files.is_empty() {
-                writeln!(output)?;
+                writeln!(buf)?;
                 for file in &commit.files {
                     let status_color = match file.status.as_str() {
                         "added" => file.path.green(),
@@ -736,90 +718,90 @@ fn output_human(
                         )
                     };
 
-                    writeln!(output, "{}", change_str)?;
+                    writeln!(buf, "{}", change_str)?;
                 }
             }
 
             // Add blank line between commits (but not after the last one)
             if i < commits.len() - 1 {
-                writeln!(output)?;
+                writeln!(buf)?;
             }
         }
     }
 
     // Display unassigned files if any exist
     if !unassigned_files.is_empty() {
-        writeln!(output)?;
-        writeln!(output)?;
-        writeln!(output, "{}", "Unassigned Files:".bold())?;
+        writeln!(buf)?;
+        writeln!(buf)?;
+        writeln!(buf, "{}", "Unassigned Files:".bold())?;
         for file in unassigned_files {
-            writeln!(output, "  {}", file.yellow())?;
+            writeln!(buf, "  {}", file.yellow())?;
         }
     }
 
     // Display review details if available
     if !reviews.is_empty() {
-        writeln!(output)?;
-        writeln!(output)?;
-        writeln!(output, "{}", "Reviews:".bold())?;
+        writeln!(buf)?;
+        writeln!(buf)?;
+        writeln!(buf, "{}", "Reviews:".bold())?;
         for review in reviews {
-            writeln!(output)?;
+            writeln!(buf)?;
             writeln!(
-                output,
+                buf,
                 "  {} {}{}",
                 "PR/MR:".dimmed(),
                 review.unit_symbol,
                 review.number
             )?;
-            writeln!(output, "  {} {}", "Title:".dimmed(), review.title)?;
-            writeln!(output, "  {} {}", "URL:".dimmed(), review.html_url.cyan())?;
+            writeln!(buf, "  {} {}", "Title:".dimmed(), review.title)?;
+            writeln!(buf, "  {} {}", "URL:".dimmed(), review.html_url.cyan())?;
 
             if let Some(body) = &review.body
                 && !body.is_empty()
             {
-                writeln!(output, "  {}", "Description:".dimmed())?;
+                writeln!(buf, "  {}", "Description:".dimmed())?;
                 // Indent each line of the description
                 for line in body.lines() {
-                    writeln!(output, "    {}", line)?;
+                    writeln!(buf, "    {}", line)?;
                 }
             }
 
             if review.draft {
-                writeln!(output, "  {} {}", "Status:".dimmed(), "Draft".yellow())?;
+                writeln!(buf, "  {} {}", "Status:".dimmed(), "Draft".yellow())?;
             }
         }
     }
 
     // Display AI summary if available
     if let Some(summary) = ai_summary {
-        writeln!(output)?;
-        writeln!(output)?;
-        writeln!(output, "{}", "AI Summary:".bold().cyan())?;
-        writeln!(output, "{}", summary)?;
-        writeln!(output)?;
+        writeln!(buf)?;
+        writeln!(buf)?;
+        writeln!(buf, "{}", "AI Summary:".bold().cyan())?;
+        writeln!(buf, "{}", summary)?;
+        writeln!(buf)?;
     }
 
     // Display merge check if available
     if let Some(check) = merge_check {
-        writeln!(output)?;
-        writeln!(output)?;
+        writeln!(buf)?;
+        writeln!(buf)?;
         if check.merges_cleanly {
             writeln!(
-                output,
+                buf,
                 "{} {}",
                 "Merge Check:".bold(),
                 "Merges cleanly into upstream".green()
             )?;
         } else {
             writeln!(
-                output,
+                buf,
                 "{} {}",
                 "Merge Check:".bold(),
                 "Conflicts detected".red().bold()
             )?;
-            writeln!(output)?;
+            writeln!(buf)?;
             writeln!(
-                output,
+                buf,
                 "  {} file{} conflict{}:",
                 check.conflicting_files.len(),
                 if check.conflicting_files.len() == 1 {
@@ -833,84 +815,50 @@ fn output_human(
                     ""
                 }
             )?;
-            writeln!(output)?;
+            writeln!(buf)?;
 
             for file in &check.conflicting_files {
-                writeln!(output, "  {}", file.path.yellow().bold())?;
+                writeln!(buf, "  {}", file.path.yellow().bold())?;
 
                 // Show branch commits that modified this file
                 if !file.branch_commits.is_empty() {
-                    writeln!(output, "    Modified by this branch:")?;
+                    writeln!(buf, "    Modified by this branch:")?;
                     for commit in &file.branch_commits {
+                        writeln!(buf, "      {} {}", commit.short_sha.cyan(), commit.message)?;
                         writeln!(
-                            output,
-                            "      {} {}",
-                            commit.short_sha.cyan(),
-                            commit.message
-                        )?;
-                        writeln!(
-                            output,
+                            buf,
                             "        {} by {}",
                             format_timestamp(commit.timestamp).dimmed(),
                             commit.author_name.dimmed()
                         )?;
                     }
-                    writeln!(output)?;
+                    writeln!(buf)?;
                 }
 
                 // Show upstream commits that modified this file
                 if !file.upstream_commits.is_empty() {
-                    writeln!(output, "    Modified by upstream:")?;
+                    writeln!(buf, "    Modified by upstream:")?;
                     for commit in &file.upstream_commits {
                         writeln!(
-                            output,
+                            buf,
                             "      {} {}",
                             commit.short_sha.magenta(),
                             commit.message
                         )?;
                         writeln!(
-                            output,
+                            buf,
                             "        {} by {}",
                             format_timestamp(commit.timestamp).dimmed(),
                             commit.author_name.dimmed()
                         )?;
                     }
-                    writeln!(output)?;
+                    writeln!(buf)?;
                 }
             }
         }
     }
 
-    // Output to pager if requested and we're in a TTY
-    if use_pager && std::io::stdout().is_terminal() {
-        // Try to use a pager (less with color support)
-        let pager = std::env::var("PAGER").unwrap_or_else(|_| "less".to_string());
-
-        match Command::new(&pager)
-            .arg("-R") // Allow ANSI color codes
-            .stdin(Stdio::piped())
-            .spawn()
-        {
-            Ok(mut child) => {
-                if let Some(mut stdin) = child.stdin.take() {
-                    // Write output to pager
-                    if stdin.write_all(output.as_bytes()).is_ok() {
-                        drop(stdin); // Close stdin to signal end of input
-                        let _ = child.wait(); // Wait for pager to finish
-                        return Ok(());
-                    }
-                }
-                // If pager fails, fall through to direct output
-            }
-            Err(_) => {
-                // If pager fails to start, fall through to direct output
-            }
-        }
-    }
-
-    // Direct output (no pager or pager failed)
-    let mut stdout = std::io::stdout();
-    write!(stdout, "{}", output)?;
+    out.write_str(&buf)?;
     Ok(())
 }
 
