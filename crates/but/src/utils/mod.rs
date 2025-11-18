@@ -4,6 +4,9 @@ use crate::{args::Args, metrics::MetricsContext};
 use colored::Colorize;
 use minus::ExitStrategy;
 
+pub mod table;
+pub use table::types::Table;
+
 /// How we should format anything written to [`std::io::stdout()`].
 #[derive(Debug, Copy, Clone, clap::ValueEnum, Default)]
 pub enum OutputFormat {
@@ -23,8 +26,7 @@ pub enum OutputFormat {
 pub struct OutputChannel {
     /// How to print the output, one should match on it. Match on this if you prefer this style.
     format: OutputFormat,
-    /// The actual writer.
-    // TODO: remove once nobody writes to io::out anymore.
+    /// The output to use if there is no pager.
     inner: std::io::Stdout,
     /// Possibly a pager we are using. If `Some`, our `inner` is the pager itself which we interact with from here.
     pager: Option<minus::Pager>,
@@ -155,11 +157,13 @@ pub trait ResultJsonExt {
 }
 
 pub trait ResultErrorExt {
-    fn show_root_cause_error_then_exit(self) -> !;
+    fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> !;
 }
 
 impl ResultErrorExt for anyhow::Result<()> {
-    fn show_root_cause_error_then_exit(self) -> ! {
+    fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> ! {
+        // Trigger the pager to be flushed before exiting early, or destructors aren't called.
+        drop(out);
         let code = if let Err(e) = &self {
             writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
             1

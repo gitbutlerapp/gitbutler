@@ -1,6 +1,19 @@
+use crate::utils::table::types::Table;
 use std::io::Write;
-
+use terminal_size::Width;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
+/// Avoid paths like `table::Table` when importing.
+pub(super) mod types {
+    use crate::utils::table::Cell;
+
+    /// A simple table formatter that can render tables with fixed-width columns
+    pub struct Table {
+        pub(super) headers: Vec<Cell>,
+        pub(super) rows: Vec<Vec<Cell>>,
+        pub(super) terminal_width: usize,
+    }
+}
 
 /// Represents a single cell in a table
 #[derive(Debug, Clone)]
@@ -30,16 +43,9 @@ impl Cell {
     }
 }
 
-/// A simple table formatter that can render tables with fixed-width columns
-pub struct Table {
-    headers: Vec<Cell>,
-    rows: Vec<Vec<Cell>>,
-    terminal_width: usize,
-}
-
 impl Table {
     pub fn new(headers: Vec<Cell>) -> Self {
-        let terminal_width = get_terminal_width();
+        let terminal_width = terminal_width();
         Self {
             headers,
             rows: Vec::new(),
@@ -223,10 +229,6 @@ fn strip_ansi_codes(s: &str) -> String {
     result
 }
 
-fn get_terminal_width() -> usize {
-    if let Some((w, _)) = term_size::dimensions() {
-        w
-    } else {
-        80 // default fallback
-    }
+fn terminal_width() -> usize {
+    terminal_size::terminal_size().map_or(80, |(Width(w), _)| w as usize)
 }

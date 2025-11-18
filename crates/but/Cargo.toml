@@ -90,7 +90,6 @@ minus = { version = "5.6.1", default-features = false, features = [
     "search",
 ] }
 unicode-width = "0.1"
-term_size = "0.3"
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }

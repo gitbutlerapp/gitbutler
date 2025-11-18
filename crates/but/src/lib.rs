@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 use std::{ffi::OsString, path::Path};
 
 use anyhow::{Context, Result};
@@ -40,7 +42,6 @@ mod oplog;
 mod push;
 mod rub;
 mod status;
-mod table;
 mod ui;
 mod worktree;
 
@@ -106,7 +107,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                     &app_settings,
                     CommandName::Rub,
                 ))
-                .show_root_cause_error_then_exit()
+                .show_root_cause_error_then_exit_without_destructors(out)
         }
         None if args.source_or_path.is_some() && args.target.is_none() => {
             // If only one argument is provided without a subcommand, check if this is a valid path.
@@ -131,9 +132,9 @@ async fn match_subcommand(
     cmd: Subcommands,
     args: Args,
     app_settings: AppSettings,
-    mut out: OutputChannel,
+    mut output: OutputChannel,
 ) -> Result<()> {
-    let out = &mut out;
+    let out = &mut output;
     let metrics_ctx = cmd.to_metrics_context(&app_settings);
 
     match cmd {
@@ -259,7 +260,7 @@ async fn match_subcommand(
             let project = get_or_init_legacy_non_bare_project(&args)?;
             worktree::handle(cmd, &project, out)
                 .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit()
+                .show_root_cause_error_then_exit_without_destructors(output)
         }
         Subcommands::Log => {
             let project = get_or_init_legacy_non_bare_project(&args)?;
@@ -286,21 +287,21 @@ async fn match_subcommand(
             rub::handle(&project, out, &source, &target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit()
+                .show_root_cause_error_then_exit_without_destructors(output)
         }
         Subcommands::Mark { target, delete } => {
             let project = get_or_init_legacy_non_bare_project(&args)?;
             mark::handle(&project, out, &target, delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
                 .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit()
+                .show_root_cause_error_then_exit_without_destructors(output)
         }
         Subcommands::Unmark => {
             let project = get_or_init_legacy_non_bare_project(&args)?;
             mark::unmark(&project, out)
                 .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
                 .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit()
+                .show_root_cause_error_then_exit_without_destructors(output)
         }
         Subcommands::Gui => gui::open(&args.current_dir).emit_metrics(metrics_ctx),
         Subcommands::Commit {
@@ -359,7 +360,7 @@ async fn match_subcommand(
             forge::integration::handle(cmd, out)
                 .await
                 .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit()
+                .show_root_cause_error_then_exit_without_destructors(output)
         }
         Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
             forge::review::Subcommands::Publish {
