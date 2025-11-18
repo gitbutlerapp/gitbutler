@@ -140,7 +140,17 @@ impl Handler {
                     self.emit_app_event(Change::GitFetch(ctx.project().id))?;
                 }
                 "logs/HEAD" => {
-                    self.emit_app_event(Change::GitActivity(ctx.project().id))?;
+                    let repo = ctx.repo();
+                    let head_ref = repo.head().context("failed to get head")?;
+                    let head_sha = head_ref
+                        .peel_to_commit()
+                        .context("failed to get head commit")?
+                        .id()
+                        .to_string();
+                    self.emit_app_event(Change::GitActivity {
+                        project_id: ctx.project().id,
+                        head_sha,
+                    })?;
                 }
                 "index" => {
                     let _ = self.emit_worktree_changes(ctx);

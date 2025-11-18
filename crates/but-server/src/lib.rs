@@ -326,6 +326,7 @@ async fn handle_command(
         }
         // Operating modes commands
         "operating_mode" => legacy::modes::operating_mode_cmd(request.params),
+        "head_sha" => legacy::modes::head_sha_cmd(request.params),
         "enter_edit_mode" => legacy::modes::enter_edit_mode_cmd(request.params),
         "abort_edit_and_return_to_workspace" => {
             legacy::modes::abort_edit_and_return_to_workspace_cmd(request.params)

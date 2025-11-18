@@ -298,6 +298,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::remotes::tauri_list_remotes::list_remotes,
                 legacy::remotes::tauri_add_remote::add_remote,
                 legacy::modes::tauri_operating_mode::operating_mode,
+                legacy::modes::tauri_head_sha::head_sha,
                 legacy::modes::tauri_enter_edit_mode::enter_edit_mode,
                 legacy::modes::tauri_save_edit_and_return_to_workspace::save_edit_and_return_to_workspace,
                 legacy::modes::tauri_abort_edit_and_return_to_workspace::abort_edit_and_return_to_workspace,

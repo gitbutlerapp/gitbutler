@@ -9,12 +9,50 @@ use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
 use gitbutler_project::ProjectId;
 use tracing::instrument;
 
+use crate::json::Error;
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeadAndMode {
+    pub head: Option<String>,
+    pub operating_mode: Option<OperatingMode>,
+}
+
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn operating_mode(project_id: ProjectId) -> Result<OperatingMode> {
+pub fn operating_mode(project_id: ProjectId) -> Result<HeadAndMode, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    Ok(gitbutler_operating_modes::operating_mode(&ctx))
+    let head = match ctx.repo().head() {
+        Ok(head_ref) => head_ref.shorthand().map(|s| s.to_string()),
+        Err(_) => None,
+    };
+
+    Ok(HeadAndMode {
+        head,
+        operating_mode: Some(gitbutler_operating_modes::operating_mode(&ctx)),
+    })
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeadSha {
+    head_sha: String,
+}
+
+#[api_cmd_tauri]
+#[instrument(err(Debug))]
+pub fn head_sha(project_id: ProjectId) -> Result<HeadSha, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let head_ref = ctx.repo().head().context("failed to get head")?;
+    let head_sha = head_ref
+        .peel_to_commit()
+        .context("failed to get head commit")?
+        .id()
+        .to_string();
+
+    Ok(HeadSha { head_sha })
 }
 
 #[api_cmd_tauri]
