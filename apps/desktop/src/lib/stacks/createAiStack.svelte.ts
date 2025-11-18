@@ -1,3 +1,4 @@
+import { focusClaudeInput } from '$lib/codegen/focusClaudeInput';
 import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 import { UI_STATE } from '$lib/state/uiState.svelte';
 import { sleep } from '$lib/utils/sleep';
@@ -26,6 +27,10 @@ export function useCreateAiStack(projectId: Reactive<string>) {
 
 		const lane = uiState.lane(stack.id);
 		lane.selection.set({ codegen: true, branchName: stack.heads[0]?.name, previewOpen: true });
+
+		// I strongly dislike this sleep
+		await sleep(50);
+		focusClaudeInput(stack.id);
 	}
 
 	return { createAiStack };
