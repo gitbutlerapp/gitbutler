@@ -64,6 +64,7 @@
 		monospaceFont?: string;
 		tabSize?: number;
 		enableLigatures?: boolean;
+		autoFocus?: boolean;
 	}
 
 	let {
@@ -87,7 +88,8 @@
 		useMonospaceFont,
 		monospaceFont,
 		tabSize,
-		enableLigatures
+		enableLigatures,
+		autoFocus = true
 	}: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
@@ -321,7 +323,6 @@
 			<CodeBlockTypeAhead />
 			<MarkdownShortcutPlugin transformers={[INLINE_CODE_TRANSFORMER, PARAGRAPH_TRANSFORMER]} />
 		{:else}
-			<AutoFocusPlugin />
 			<AutoLinkPlugin />
 			<CheckListPlugin />
 			<CodeActionMenuPlugin anchorElem={editorDiv} />
@@ -332,6 +333,9 @@
 			<LinkPlugin />
 			<MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
 			<RichTextPlugin />
+		{/if}
+		{#if autoFocus}
+			<AutoFocusPlugin />
 		{/if}
 		<HistoryPlugin />
 

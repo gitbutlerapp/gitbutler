@@ -340,6 +340,7 @@
 					monospaceFont={$userSettings.diffFont}
 					tabSize={$userSettings.tabSize}
 					enableLigatures={$userSettings.diffLigatures}
+					autoFocus={false}
 				>
 					{#snippet plugins()}
 						<Formatter bind:this={formatter} />
