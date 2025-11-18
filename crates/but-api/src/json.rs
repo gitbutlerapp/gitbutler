@@ -1,6 +1,7 @@
 pub use error::{Error, ToError, UnmarkedError};
 use gix::refs::Target;
 use schemars;
+use schemars::JsonSchema;
 use serde::Serialize;
 
 mod hex_hash {
@@ -53,6 +54,53 @@ mod hex_hash {
         }
     }
 
+    mod stringy {
+        use schemars::JsonSchema;
+        use serde::{Deserialize, Deserializer, Serialize, Serializer};
+        use std::str::FromStr;
+
+        /// A type that deserializes a hexadecimal hash into a string, unchanged.
+        /// This is to workaround `schemars` which doesn't (always) work with transformations.
+        #[derive(Debug, Clone, JsonSchema)]
+        pub struct HexHashString(String);
+
+        impl TryFrom<HexHashString> for gix::ObjectId {
+            type Error = gix::hash::decode::Error;
+
+            fn try_from(value: HexHashString) -> Result<Self, Self::Error> {
+                value.0.parse()
+            }
+        }
+
+        impl From<gix::ObjectId> for HexHashString {
+            fn from(value: gix::ObjectId) -> Self {
+                HexHashString(value.to_hex().to_string())
+            }
+        }
+
+        impl<'de> Deserialize<'de> for HexHashString {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let hex = String::deserialize(deserializer)?;
+                gix::ObjectId::from_str(&hex)
+                    .map(|_| HexHashString(hex))
+                    .map_err(serde::de::Error::custom)
+            }
+        }
+
+        impl Serialize for HexHashString {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                serializer.serialize_str(&self.0)
+            }
+        }
+    }
+    pub use stringy::HexHashString;
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -73,7 +121,7 @@ mod hex_hash {
         }
     }
 }
-pub use hex_hash::HexHash;
+pub use hex_hash::{HexHash, HexHashString};
 
 mod error {
     //! Utilities to control which errors show in the frontend.
@@ -330,15 +378,14 @@ impl From<gix::refs::FullName> for FullRefName {
 }
 
 /// A Git reference identified by its full reference name, along with the information Git stores about it.
-// TODO: make this work with schemars
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Reference {
     /// The full name, like `refs/heads/main` or `refs/remotes/origin/foo`.
     /// Note that it might be degenerated if it can't be represented in Unicode.
     pub name: FullRefName,
     /// Set if the reference points to an object id. This is the common case.
-    #[serde(with = "but_serde::object_id_opt", default)]
-    pub target_id: Option<gix::ObjectId>,
+    #[serde(default)]
+    pub target_id: Option<HexHashString>,
     /// Set if the reference points to the name of another reference. This happens if the reference is symbolic.
     #[serde(default)]
     pub target_ref: Option<FullRefName>,
@@ -355,7 +402,7 @@ impl From<gix::refs::Reference> for Reference {
         Reference {
             name: name.into(),
             target_id: match &target {
-                Target::Object(id) => Some(*id),
+                Target::Object(id) => Some((*id).into()),
                 Target::Symbolic(_) => None,
             },
             target_ref: match target {

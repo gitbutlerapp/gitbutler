@@ -18,7 +18,6 @@ legacy = [
     "dep:gitbutler-project",
     "dep:gitbutler-commit",
     "dep:gitbutler-repo",
-    "but-graph/legacy"
 ]
 
 [dependencies]

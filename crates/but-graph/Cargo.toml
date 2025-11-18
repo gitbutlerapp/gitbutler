@@ -11,12 +11,8 @@ rust-version = "1.89"
 doctest = false
 test = false
 
-[features]
-legacy = ["dep:but-meta"]
-
 [dependencies]
 but-core.workspace = true
-but-meta = { workspace = true, optional = true, features = ["legacy"] }
 
 gix = { workspace = true, features = ["revision"] }
 bstr.workspace = true
@@ -27,7 +23,7 @@ tracing.workspace = true
 itertools.workspace = true
 
 [dev-dependencies]
-but-meta.workspace = true
+but-meta = { workspace = true, features = ["legacy"]}
 but-testsupport.workspace = true
 
 gitbutler-reference.workspace = true

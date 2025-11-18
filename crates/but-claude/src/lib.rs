@@ -28,7 +28,16 @@ pub mod permissions;
 pub mod prompt_templates;
 mod rules;
 
+use crate::bridge::Claudes;
 pub use permissions::Permission;
+
+/// Various in-memory state that is required for calling most claude functions.
+// TODO: There are UI concepts like broadcasting tied into this type.
+#[derive(Clone)]
+pub struct Claude {
+    pub broadcaster: Arc<Mutex<Broadcaster>>,
+    pub instance_by_stack: Arc<Claudes>,
+}
 
 /// Represents a Claude Code session that GitButler is tracking.
 #[derive(Serialize, Deserialize, Debug, Clone)]

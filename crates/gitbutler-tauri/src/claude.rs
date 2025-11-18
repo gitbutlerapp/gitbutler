@@ -1,5 +1,4 @@
 use but_api::{
-    App,
     json::Error,
     legacy::claude::{
         self, CancelSessionParams, CompactHistoryParams, GetMessagesParams, IsStackActiveParams,
@@ -7,7 +6,8 @@ use but_api::{
     },
 };
 use but_claude::{
-    ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, PromptAttachment, ThinkingLevel,
+    Claude, ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, PromptAttachment,
+    ThinkingLevel,
 };
 use but_core::ref_metadata::StackId;
 use gitbutler_project::ProjectId;
@@ -16,9 +16,9 @@ use tracing::instrument;
 
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(skip(claude), err(Debug))]
 pub async fn claude_send_message(
-    app: State<'_, App>,
+    claude: State<'_, Claude>,
     project_id: ProjectId,
     stack_id: StackId,
     message: String,
@@ -30,7 +30,7 @@ pub async fn claude_send_message(
     attachments: Option<Vec<PromptAttachment>>,
 ) -> Result<(), Error> {
     claude::claude_send_message(
-        &app,
+        &claude,
         SendMessageParams {
             project_id,
             stack_id,
@@ -49,14 +49,14 @@ pub async fn claude_send_message(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(skip(claude), err(Debug))]
 pub fn claude_get_messages(
-    app: State<'_, App>,
+    claude: State<'_, Claude>,
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<Vec<ClaudeMessage>, Error> {
     claude::claude_get_messages(
-        &app,
+        &claude,
         GetMessagesParams {
             project_id,
             stack_id,
@@ -65,14 +65,14 @@ pub fn claude_get_messages(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(skip(claude), err(Debug))]
 pub async fn claude_cancel_session(
-    app: State<'_, App>,
+    claude: State<'_, Claude>,
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<bool, Error> {
     claude::claude_cancel_session(
-        &app,
+        &claude,
         CancelSessionParams {
             project_id,
             stack_id,
@@ -82,14 +82,14 @@ pub async fn claude_cancel_session(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(skip(claude), err(Debug))]
 pub async fn claude_is_stack_active(
-    app: State<'_, App>,
+    claude: State<'_, Claude>,
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<bool, Error> {
     claude::claude_is_stack_active(
-        &app,
+        &claude,
         IsStackActiveParams {
             project_id,
             stack_id,
@@ -99,14 +99,14 @@ pub async fn claude_is_stack_active(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(skip(claude), err(Debug))]
 pub async fn claude_compact_history(
-    app: State<'_, App>,
+    claude: State<'_, Claude>,
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<(), Error> {
     claude::claude_compact_history(
-        &app,
+        &claude,
         CompactHistoryParams {
             project_id,
             stack_id,

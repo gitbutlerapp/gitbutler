@@ -124,6 +124,7 @@ pub struct VirtualBranchesTomlMetadata {
     snapshot: Snapshot,
 }
 
+/// Lifecycle
 impl VirtualBranchesTomlMetadata {
     /// Initialize a store backed by a file on disk.
     ///
@@ -160,6 +161,19 @@ impl VirtualBranchesTomlMetadata {
     /// Return a snapshot of the underlying data. Useful for working around (intended) limitations of the RefMetadata trait.
     pub fn data(&self) -> &VirtualBranches {
         &self.snapshot.content
+    }
+}
+
+/// Utilities
+impl VirtualBranchesTomlMetadata {
+    /// Return default options that limit single-branch commits to a sane amount (instead of traversing the whole graph),
+    /// and configure other values that require our meta-data to guide the traversal.
+    #[cfg(feature = "legacy")]
+    pub fn to_graph_options(&self) -> but_graph::init::Options {
+        but_graph::init::Options {
+            extra_target_commit_id: self.data().default_target.as_ref().map(|t| t.sha),
+            ..but_graph::init::Options::limited()
+        }
     }
 }
 
