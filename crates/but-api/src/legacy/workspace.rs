@@ -4,17 +4,14 @@ use std::{
 };
 
 use anyhow::Context;
-use but_api_macros::api_cmd;
+use anyhow::Result;
+use but_api_macros::api_cmd_tauri;
 use but_core::RepositoryExt;
 use but_graph::petgraph::Direction;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
-use but_workspace::{
-    commit_engine,
-    commit_engine::StackSegmentId,
-    legacy::{MoveChangesResult, ui::StackEntry},
-};
+use but_workspace::{commit_engine, commit_engine::StackSegmentId, legacy::ui::StackEntry};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -25,19 +22,17 @@ use gitbutler_oplog::{
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
-use serde::Serialize;
 use tracing::instrument;
 
-use crate::json::{Error, HexHash};
+use crate::json::HexHash;
 
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo, Error> {
+pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
@@ -50,21 +45,18 @@ pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo, Er
             expensive_commit_info: true,
         },
     )
-    .map_err(Into::into)
     .and_then(|info| {
         but_workspace::ui::RefInfo::for_ui(info, &repo)
             .map(|ref_info| ref_info.pruned_to_entrypoint())
-            .map_err(Into::into)
     })
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn stacks(
     project_id: ProjectId,
     filter: Option<but_workspace::legacy::StacksFilter>,
-) -> Result<Vec<StackEntry>, Error> {
+) -> Result<Vec<StackEntry>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
@@ -74,14 +66,12 @@ pub fn stacks(
     } else {
         but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, filter.unwrap_or_default())
     }
-    .map_err(Into::into)
 }
 
 #[cfg(unix)]
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn show_graph_svg(project_id: ProjectId) -> Result<(), Error> {
+pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
     use but_settings::AppSettings;
 
     let project = gitbutler_project::get(project_id)?;
@@ -133,13 +123,12 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<(), Error> {
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn stack_details(
     project_id: ProjectId,
     stack_id: Option<StackId>,
-) -> Result<but_workspace::ui::StackDetails, Error> {
+) -> Result<but_workspace::ui::StackDetails> {
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut details = if ctx.app_settings().feature_flags.ws3 {
@@ -231,14 +220,13 @@ fn handle_gerrit(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn branch_details(
     project_id: ProjectId,
     branch_name: String,
     remote: Option<String>,
-) -> Result<but_workspace::ui::BranchDetails, Error> {
+) -> Result<but_workspace::ui::BranchDetails> {
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut details = if ctx.app_settings().feature_flags.ws3 {
@@ -284,8 +272,7 @@ pub fn branch_details(
 /// hunks would fail.
 /// `stack_branch_name` is the short name of the reference that the UI knows is present in a given segment.
 /// It is necessary to insert the new commit into the right bucket.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn create_commit_from_worktree_changes(
     project_id: ProjectId,
@@ -294,7 +281,7 @@ pub fn create_commit_from_worktree_changes(
     worktree_changes: Vec<but_core::DiffSpec>,
     message: String,
     stack_branch_name: String,
-) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
+) -> Result<commit_engine::ui::CreateCommitOutcome> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -329,15 +316,14 @@ pub fn create_commit_from_worktree_changes(
 /// All `changes` are meant to be relative to the worktree.
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn amend_commit_from_worktree_changes(
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: HexHash,
     worktree_changes: Vec<but_core::DiffSpec>,
-) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
+) -> Result<commit_engine::ui::CreateCommitOutcome> {
     let project = gitbutler_project::get(project_id)?;
     let mut guard = project.exclusive_worktree_access();
     let repo = project.open_for_merging()?;
@@ -366,13 +352,12 @@ pub fn amend_commit_from_worktree_changes(
 /// If whole files should be discarded, be sure to not pass any [hunks](but_workspace::discard::ui::DiscardSpec::hunk_headers)
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
     project_id: ProjectId,
     worktree_changes: Vec<but_core::DiffSpec>,
-) -> Result<Vec<but_core::DiffSpec>, Error> {
+) -> Result<Vec<but_core::DiffSpec>> {
     let project = gitbutler_project::get(project_id)?;
     let repo = project.open()?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -393,26 +378,30 @@ pub fn discard_worktree_changes(
     Ok(refused)
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UIMoveChangesResult {
-    replaced_commits: Vec<(String, String)>,
-}
+mod json {
+    use but_workspace::legacy::MoveChangesResult;
+    use serde::Serialize;
 
-impl From<MoveChangesResult> for UIMoveChangesResult {
-    fn from(value: MoveChangesResult) -> Self {
-        Self {
-            replaced_commits: value
-                .replaced_commits
-                .into_iter()
-                .map(|(x, y)| (x.to_hex().to_string(), y.to_hex().to_string()))
-                .collect(),
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct UIMoveChangesResult {
+        replaced_commits: Vec<(String, String)>,
+    }
+
+    impl From<MoveChangesResult> for UIMoveChangesResult {
+        fn from(value: MoveChangesResult) -> Self {
+            Self {
+                replaced_commits: value
+                    .replaced_commits
+                    .into_iter()
+                    .map(|(x, y)| (x.to_hex().to_string(), y.to_hex().to_string()))
+                    .collect(),
+            }
         }
     }
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn move_changes_between_commits(
     project_id: ProjectId,
@@ -421,7 +410,7 @@ pub fn move_changes_between_commits(
     destination_stack_id: StackId,
     destination_commit_id: HexHash,
     changes: Vec<but_core::DiffSpec>,
-) -> Result<UIMoveChangesResult, Error> {
+) -> Result<json::UIMoveChangesResult> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -446,8 +435,7 @@ pub fn move_changes_between_commits(
     Ok(result.into())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn split_branch(
     project_id: ProjectId,
@@ -455,7 +443,7 @@ pub fn split_branch(
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
-) -> Result<UIMoveChangesResult, Error> {
+) -> Result<json::UIMoveChangesResult> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -489,8 +477,7 @@ pub fn split_branch(
     Ok(move_changes_result.into())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn split_branch_into_dependent_branch(
     project_id: ProjectId,
@@ -498,7 +485,7 @@ pub fn split_branch_into_dependent_branch(
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
-) -> Result<UIMoveChangesResult, Error> {
+) -> Result<json::UIMoveChangesResult> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -528,8 +515,7 @@ pub fn split_branch_into_dependent_branch(
 /// If `assign_to` is provided, the changes will be assigned to the stack
 /// specified.
 /// If `assign_to` is not provided, the changes will be unassigned.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn uncommit_changes(
     project_id: ProjectId,
@@ -537,7 +523,7 @@ pub fn uncommit_changes(
     commit_id: HexHash,
     changes: Vec<but_core::DiffSpec>,
     assign_to: Option<StackId>,
-) -> Result<UIMoveChangesResult, Error> {
+) -> Result<json::UIMoveChangesResult> {
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -611,14 +597,13 @@ pub fn uncommit_changes(
 /// Unlike the regular stash, the user specifies a new branch where those changes will be 'saved'/committed.
 /// Immediately after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn stash_into_branch(
     project_id: ProjectId,
     branch_name: String,
     worktree_changes: Vec<but_core::DiffSpec>,
-) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
+) -> Result<commit_engine::ui::CreateCommitOutcome> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let repo = ctx.gix_repo_for_merging()?;
@@ -677,26 +662,23 @@ pub fn stash_into_branch(
 
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
 /// The main point of this is to be able to provide branch names that are not already taken.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn canned_branch_name(project_id: ProjectId) -> Result<String, Error> {
+pub fn canned_branch_name(project_id: ProjectId) -> Result<String> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
     let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     gitbutler_stack::Stack::next_available_name(&ctx.gix_repo()?, &state, template, false)
-        .map_err(Into::into)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn target_commits(
     project_id: ProjectId,
     last_commit_id: Option<HexHash>,
     page_size: Option<usize>,
-) -> Result<Vec<but_workspace::ui::Commit>, Error> {
+) -> Result<Vec<but_workspace::ui::Commit>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     but_workspace::legacy::log_target_first_parent(
@@ -704,5 +686,4 @@ pub fn target_commits(
         last_commit_id.map(|id| id.into()),
         page_size.unwrap_or(30),
     )
-    .map_err(Into::into)
 }

@@ -1,6 +1,6 @@
 //! In place of commands.rs
-use anyhow::Context;
-use but_api_macros::api_cmd;
+use anyhow::{Context, Result};
+use but_api_macros::api_cmd_tauri;
 use but_core::{ref_metadata::StackId, ui::TreeChange};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
@@ -9,36 +9,31 @@ use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
 use gitbutler_project::ProjectId;
 use tracing::instrument;
 
-use crate::json::Error;
-
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn operating_mode(project_id: ProjectId) -> Result<OperatingMode, Error> {
+pub fn operating_mode(project_id: ProjectId) -> Result<OperatingMode> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_operating_modes::operating_mode(&ctx))
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn enter_edit_mode(
     project_id: ProjectId,
     commit_id: String,
     stack_id: StackId,
-) -> Result<EditModeMetadata, Error> {
+) -> Result<EditModeMetadata> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit = git2::Oid::from_str(&commit_id).context("Failed to parse commit oid")?;
 
-    gitbutler_edit_mode::commands::enter_edit_mode(&ctx, commit, stack_id).map_err(Into::into)
+    gitbutler_edit_mode::commands::enter_edit_mode(&ctx, commit, stack_id)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Error> {
+pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
@@ -47,10 +42,9 @@ pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), E
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Error> {
+pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
@@ -59,24 +53,22 @@ pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Er
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn edit_initial_index_state(
     project_id: ProjectId,
-) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>, Error> {
+) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    gitbutler_edit_mode::commands::starting_index_state(&ctx).map_err(Into::into)
+    gitbutler_edit_mode::commands::starting_index_state(&ctx)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn edit_changes_from_initial(project_id: ProjectId) -> Result<Vec<TreeChange>, Error> {
+pub fn edit_changes_from_initial(project_id: ProjectId) -> Result<Vec<TreeChange>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    gitbutler_edit_mode::commands::changes_from_initial(&ctx).map_err(Into::into)
+    gitbutler_edit_mode::commands::changes_from_initial(&ctx)
 }

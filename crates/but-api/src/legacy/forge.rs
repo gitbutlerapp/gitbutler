@@ -1,6 +1,7 @@
 //! In place of commands.rs
 use anyhow::Context;
-use but_api_macros::api_cmd;
+use anyhow::Result;
+use but_api_macros::api_cmd_tauri;
 use but_core::RepositoryExt;
 use but_forge::{
     ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions,
@@ -11,23 +12,19 @@ use gitbutler_project::ProjectId;
 use gitbutler_repo::RepoCommands;
 use tracing::instrument;
 
-use crate::json::Error;
-
 /// (Deprecated) Get the list of PR template paths for the given project and forge.
 /// This function is deprecated in favor of `list_available_review_templates`.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>, Error> {
+pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>> {
     let project = gitbutler_project::get_validated(project_id)?;
     Ok(available_review_templates(project.worktree_dir()?, &forge))
 }
 
 /// Get the list of review template paths for the given project.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn list_available_review_templates(project_id: ProjectId) -> Result<Vec<String>, Error> {
+pub fn list_available_review_templates(project_id: ProjectId) -> Result<Vec<String>> {
     let project = gitbutler_project::get_validated(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let ctx = CommandContext::open(&project, app_settings)?;
@@ -45,14 +42,13 @@ pub fn list_available_review_templates(project_id: ProjectId) -> Result<Vec<Stri
 ///
 /// This function is deprecated in favor of `review_template`, which serves the same purpose
 /// but uses the updated storage location.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn pr_template(
     project_id: ProjectId,
     relative_path: std::path::PathBuf,
     forge: ForgeName,
-) -> Result<String, Error> {
+) -> Result<String> {
     let project = gitbutler_project::get_validated(project_id)?;
 
     let ReviewTemplateFunctions {
@@ -64,32 +60,32 @@ pub fn pr_template(
         return Err(anyhow::format_err!(
             "Invalid review template path: {:?}",
             project.worktree_dir()?.join(relative_path),
-        )
-        .into());
+        ));
     }
-    Ok(project
+    project
         .read_file_from_workspace(&relative_path)?
         .content
-        .context("PR template was not valid UTF-8")?)
+        .context("PR template was not valid UTF-8")
 }
 
-/// Information about the project's review template.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct ReviewTemplateInfo {
-    /// The relative path to the review template within the repository.
-    pub path: String,
-    /// The content of the review template.
-    pub content: String,
+mod json {
+    /// Information about the project's review template.
+    #[derive(Debug, Clone, serde::Serialize)]
+    pub struct ReviewTemplateInfo {
+        /// The relative path to the review template within the repository.
+        pub path: String,
+        /// The content of the review template.
+        pub content: String,
+    }
 }
 
 /// Get the review template content for the given project and relative path.
 ///
 /// This function determines the forge of a project and retrieves the review template
 /// from the git config.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn review_template(project_id: ProjectId) -> Result<Option<ReviewTemplateInfo>, Error> {
+pub fn review_template(project_id: ProjectId) -> Result<Option<json::ReviewTemplateInfo>> {
     let project = gitbutler_project::get_validated(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let ctx = CommandContext::open(&project, app_settings)?;
@@ -117,15 +113,14 @@ pub fn review_template(project_id: ProjectId) -> Result<Option<ReviewTemplateInf
                 return Err(anyhow::format_err!(
                     "Invalid review template path: {:?}",
                     project.worktree_dir()?.join(path),
-                )
-                .into());
+                ));
             }
             let content = project
                 .read_file_from_workspace(&path)?
                 .content
                 .context("PR template was not valid UTF-8")?;
 
-            Ok(Some(ReviewTemplateInfo {
+            Ok(Some(json::ReviewTemplateInfo {
                 path: template_path,
                 content,
             }))
@@ -136,13 +131,9 @@ pub fn review_template(project_id: ProjectId) -> Result<Option<ReviewTemplateInf
 
 /// Set the review template path in the git configuration for the given project.
 /// The template path will be validated.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn set_review_template(
-    project_id: ProjectId,
-    template_path: Option<String>,
-) -> Result<(), Error> {
+pub fn set_review_template(project_id: ProjectId, template_path: Option<String>) -> Result<()> {
     let project = gitbutler_project::get_validated(project_id)?;
     let repo = project.open_isolated()?;
     let mut git_config = repo.git_settings()?;
@@ -167,37 +158,23 @@ pub fn set_review_template(
             return Err(anyhow::format_err!(
                 "Invalid review template path: {:?}",
                 project.worktree_dir()?.join(&path_buf),
-            )
-            .into());
+            ));
         }
     }
 
     git_config.gitbutler_forge_review_template_path = template_path.map(|p| p.into());
-    repo.set_git_settings(&git_config).map_err(Into::into)
+    repo.set_git_settings(&git_config)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>, Error> {
+pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>> {
     Ok(but_forge::determine_forge_from_url(&url))
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub async fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeReview>, Error> {
-    list_reviews_cmd(ListReviewsParams { project_id }).await
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListReviewsParams {
-    pub project_id: ProjectId,
-}
-
-pub async fn list_reviews_cmd(
-    ListReviewsParams { project_id }: ListReviewsParams,
-) -> Result<Vec<but_forge::ForgeReview>, Error> {
+pub async fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeReview>> {
     let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let ctx = CommandContext::open(&project, app_settings)?;
@@ -211,28 +188,14 @@ pub async fn list_reviews_cmd(
         &storage,
     )
     .await
-    .map_err(Into::into)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub async fn publish_review(
     project_id: ProjectId,
     params: but_forge::CreateForgeReviewParams,
-) -> Result<but_forge::ForgeReview, Error> {
-    publish_review_cmd(PublishReviewParams { project_id, params }).await
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PublishReviewParams {
-    pub project_id: ProjectId,
-    pub params: but_forge::CreateForgeReviewParams,
-}
-
-pub async fn publish_review_cmd(
-    PublishReviewParams { project_id, params }: PublishReviewParams,
-) -> Result<but_forge::ForgeReview, Error> {
+) -> Result<but_forge::ForgeReview> {
     let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let ctx = CommandContext::open(&project, app_settings)?;
@@ -247,5 +210,4 @@ pub async fn publish_review_cmd(
         &storage,
     )
     .await
-    .map_err(Into::into)
 }

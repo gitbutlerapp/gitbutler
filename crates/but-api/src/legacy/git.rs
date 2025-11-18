@@ -1,6 +1,7 @@
 //! In place of commands.rs
+use anyhow::Result;
 use anyhow::{Context, anyhow};
-use but_api_macros::api_cmd;
+use but_api_macros::api_cmd_tauri;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
@@ -9,39 +10,34 @@ use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt as _;
 use tracing::instrument;
 
-use crate::json::{Error, ToError as _};
-
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn git_remote_branches(project_id: ProjectId) -> Result<Vec<RemoteRefname>, Error> {
+pub fn git_remote_branches(project_id: ProjectId) -> Result<Vec<RemoteRefname>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    Ok(ctx.repo().remote_branches()?)
+    ctx.repo().remote_branches()
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn git_test_push(
     project_id: ProjectId,
     remote_name: String,
     branch_name: String,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     ctx.git_test_push(&remote_name, &branch_name, Some(None))?;
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn git_test_fetch(
     project_id: ProjectId,
     remote_name: String,
     action: Option<String>,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     ctx.fetch(
@@ -51,10 +47,9 @@ pub fn git_test_fetch(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn git_index_size(project_id: ProjectId) -> Result<usize, Error> {
+pub fn git_index_size(project_id: ProjectId) -> Result<usize> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let size = ctx
@@ -65,10 +60,9 @@ pub fn git_index_size(project_id: ProjectId) -> Result<usize, Error> {
     Ok(size)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn delete_all_data() -> Result<(), Error> {
+pub fn delete_all_data() -> Result<()> {
     for project in gitbutler_project::dangerously_list_projects_without_migration()
         .context("failed to list projects")?
     {
@@ -78,29 +72,26 @@ pub fn delete_all_data() -> Result<(), Error> {
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn git_set_global_config(key: String, value: String) -> Result<String, Error> {
-    let mut config = git2::Config::open_default().to_error()?;
-    config.set_str(&key, &value).to_error()?;
+pub fn git_set_global_config(key: String, value: String) -> Result<String> {
+    let mut config = git2::Config::open_default()?;
+    config.set_str(&key, &value)?;
     Ok(value)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn git_remove_global_config(key: String) -> Result<(), Error> {
-    let mut config = git2::Config::open_default().to_error()?;
-    config.remove(&key).to_error()?;
+pub fn git_remove_global_config(key: String) -> Result<()> {
+    let mut config = git2::Config::open_default()?;
+    config.remove(&key)?;
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn git_get_global_config(key: String) -> Result<Option<String>, Error> {
-    let config = git2::Config::open_default().to_error()?;
+pub fn git_get_global_config(key: String) -> Result<Option<String>> {
+    let config = git2::Config::open_default()?;
     let value = config.get_string(&key);
     match value {
         Ok(value) => Ok(Some(value)),
@@ -108,7 +99,7 @@ pub fn git_get_global_config(key: String) -> Result<Option<String>, Error> {
             if e.code() == git2::ErrorCode::NotFound {
                 Ok(None)
             } else {
-                Err(anyhow!(e).into())
+                Err(anyhow!(e))
             }
         }
     }

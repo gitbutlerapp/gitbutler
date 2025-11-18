@@ -55,7 +55,6 @@ but-serde.workspace = true
 but-graph.workspace = true
 but-meta = { workspace = true, features = ["legacy"] }
 but-claude.workspace = true
-but-broadcaster.workspace = true
 but-cherry-apply.workspace = true
 but-hunk-dependency.workspace = true
 but-path.workspace = true

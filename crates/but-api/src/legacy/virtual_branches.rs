@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result, anyhow};
-use but_api_macros::api_cmd;
+use but_api_macros::api_cmd_tauri;
 use but_core::DiffSpec;
 use but_oxidize::ObjectIdExt;
 use but_settings::AppSettings;
@@ -26,20 +26,18 @@ use tracing::instrument;
 use crate::{json::Error, legacy::workspace::canned_branch_name};
 // Parameter structs for all functions
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn normalize_branch_name(name: String) -> Result<String, Error> {
-    Ok(normalize_name(&name)?)
+pub fn normalize_branch_name(name: String) -> Result<String> {
+    normalize_name(&name)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn create_virtual_branch(
     project_id: ProjectId,
     branch: BranchCreateRequest,
-) -> Result<StackEntryNoOpt, Error> {
+) -> Result<StackEntryNoOpt> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let ws3_enabled = ctx.app_settings().feature_flags.ws3;
@@ -100,29 +98,27 @@ pub fn create_virtual_branch(
     Ok(stack_entry)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn delete_local_branch(
     project_id: ProjectId,
     refname: Refname,
     given_name: String,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::delete_local_branch(&ctx, &refname, given_name)?;
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn create_virtual_branch_from_branch(
     project_id: ProjectId,
     branch: Refname,
     remote: Option<RemoteRefname>,
     pr_number: Option<usize>,
-) -> Result<gitbutler_branch_actions::CreateBranchFromBranchOutcome, Error> {
+) -> Result<gitbutler_branch_actions::CreateBranchFromBranchOutcome> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let outcome = gitbutler_branch_actions::create_virtual_branch_from_branch(
@@ -131,15 +127,14 @@ pub fn create_virtual_branch_from_branch(
     Ok(outcome.into())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn integrate_upstream_commits(
     project_id: ProjectId,
     stack_id: StackId,
     series_name: String,
     integration_strategy: Option<IntegrationStrategy>,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::integrate_upstream_commits(
@@ -151,8 +146,7 @@ pub fn integrate_upstream_commits(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn get_initial_integration_steps_for_branch(
     project_id: ProjectId,
@@ -172,25 +166,22 @@ pub fn get_initial_integration_steps_for_branch(
     Ok(steps)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn integrate_branch_with_steps(
     project_id: ProjectId,
     stack_id: StackId,
     branch_name: String,
     steps: Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::integrate_branch_with_steps(&ctx, stack_id, branch_name, steps)
-        .map_err(Into::into)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>, Error> {
+pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     if let Ok(base_branch) = gitbutler_branch_actions::base::get_base_branch_data(&ctx) {
@@ -200,14 +191,13 @@ pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>,
     }
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn set_base_branch(
     project_id: ProjectId,
     branch: String,
     push_remote: Option<String>,
-) -> Result<BaseBranch, Error> {
+) -> Result<BaseBranch> {
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let branch_name = format!("refs/remotes/{branch}")
@@ -228,33 +218,27 @@ pub fn set_base_branch(
     Ok(base_branch)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn push_base_branch(project_id: ProjectId, with_force: bool) -> Result<(), Error> {
+pub fn push_base_branch(project_id: ProjectId, with_force: bool) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::push_base_branch(&ctx, with_force)?;
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn update_stack_order(
-    project_id: ProjectId,
-    stacks: Vec<BranchUpdateRequest>,
-) -> Result<(), Error> {
+pub fn update_stack_order(project_id: ProjectId, stacks: Vec<BranchUpdateRequest>) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::update_stack_order(&ctx, stacks)?;
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<(), Error> {
+pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -277,42 +261,34 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<(), Err
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn can_apply_remote_branch(
-    project_id: ProjectId,
-    branch: RemoteRefname,
-) -> Result<bool, Error> {
+pub fn can_apply_remote_branch(project_id: ProjectId, branch: RemoteRefname) -> Result<bool> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    Ok(gitbutler_branch_actions::can_apply_remote_branch(
-        &ctx, &branch,
-    )?)
+    gitbutler_branch_actions::can_apply_remote_branch(&ctx, &branch)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn list_commit_files(
     project_id: ProjectId,
     commit_id: String,
-) -> Result<Vec<RemoteBranchFile>, Error> {
+) -> Result<Vec<RemoteBranchFile>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
-    gitbutler_branch_actions::list_commit_files(&ctx, commit_id).map_err(Into::into)
+    gitbutler_branch_actions::list_commit_files(&ctx, commit_id)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn amend_virtual_branch(
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: String,
     worktree_changes: Vec<DiffSpec>,
-) -> Result<String, Error> {
+) -> Result<String> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
@@ -320,14 +296,9 @@ pub fn amend_virtual_branch(
     Ok(oid.to_string())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn undo_commit(
-    project_id: ProjectId,
-    stack_id: StackId,
-    commit_id: String,
-) -> Result<(), Error> {
+pub fn undo_commit(project_id: ProjectId, stack_id: StackId, commit_id: String) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
@@ -335,15 +306,14 @@ pub fn undo_commit(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn insert_blank_commit(
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: Option<String>,
     offset: i32,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = match commit_id {
@@ -359,68 +329,63 @@ pub fn insert_blank_commit(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn reorder_stack(
     project_id: ProjectId,
     stack_id: StackId,
     stack_order: StackOrder,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::reorder_stack(&ctx, stack_id, stack_order)?;
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn find_git_branches(
     project_id: ProjectId,
     branch_name: String,
-) -> Result<Vec<RemoteBranchData>, Error> {
+) -> Result<Vec<RemoteBranchData>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let branches = gitbutler_branch_actions::find_git_branches(&ctx, &branch_name)?;
     Ok(branches)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn list_branches(
     project_id: ProjectId,
     filter: Option<BranchListingFilter>,
-) -> Result<Vec<BranchListing>, Error> {
+) -> Result<Vec<BranchListing>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let branches = gitbutler_branch_actions::list_branches(&ctx, filter, None)?;
     Ok(branches)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn get_branch_listing_details(
     project_id: ProjectId,
     branch_names: Vec<String>,
-) -> Result<Vec<BranchListingDetails>, Error> {
+) -> Result<Vec<BranchListingDetails>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let branches = gitbutler_branch_actions::get_branch_listing_details(&ctx, branch_names)?;
     Ok(branches)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn squash_commits(
     project_id: ProjectId,
     stack_id: StackId,
     source_commit_ids: Vec<String>,
     target_commit_id: String,
-) -> Result<(), Error> {
+) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let source_commit_ids: Vec<git2::Oid> = source_commit_ids
@@ -438,13 +403,9 @@ pub fn squash_commits(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn fetch_from_remotes(
-    project_id: ProjectId,
-    action: Option<String>,
-) -> Result<BaseBranch, Error> {
+pub fn fetch_from_remotes(project_id: ProjectId, action: Option<String>) -> Result<BaseBranch> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
@@ -463,31 +424,28 @@ pub fn fetch_from_remotes(
     .context("failed to update project with last fetched timestamp")?;
 
     if let FetchResult::Error { error, .. } = project_data_last_fetched {
-        return Err(anyhow!(error).into());
+        return Err(anyhow!(error));
     }
 
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
     Ok(base_branch)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn move_commit(
     project_id: ProjectId,
     commit_id: String,
     target_stack_id: StackId,
     source_stack_id: StackId,
-) -> Result<Option<MoveCommitIllegalAction>, Error> {
+) -> Result<Option<MoveCommitIllegalAction>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::move_commit(&ctx, target_stack_id, commit_id, source_stack_id)
-        .map_err(Into::into)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn move_branch(
     project_id: ProjectId,
@@ -495,7 +453,7 @@ pub fn move_branch(
     target_branch_name: String,
     source_stack_id: StackId,
     subject_branch_name: String,
-) -> Result<MoveBranchResult, Error> {
+) -> Result<MoveBranchResult> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::move_branch(
@@ -505,32 +463,28 @@ pub fn move_branch(
         source_stack_id,
         subject_branch_name.as_str(),
     )
-    .map_err(Into::into)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn tear_off_branch(
     project_id: ProjectId,
     source_stack_id: StackId,
     subject_branch_name: String,
-) -> Result<MoveBranchResult, Error> {
+) -> Result<MoveBranchResult> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::tear_off_branch(&ctx, source_stack_id, subject_branch_name.as_str())
-        .map_err(Into::into)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn update_commit_message(
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: String,
     message: String,
-) -> Result<String, Error> {
+) -> Result<String> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
@@ -539,46 +493,21 @@ pub fn update_commit_message(
     Ok(new_commit_id.to_string())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn find_commit(
-    project_id: ProjectId,
-    commit_id: String,
-) -> Result<Option<RemoteCommit>, Error> {
+pub fn find_commit(project_id: ProjectId, commit_id: String) -> Result<Option<RemoteCommit>> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
-    gitbutler_branch_actions::find_commit(&ctx, commit_id).map_err(Into::into)
+    gitbutler_branch_actions::find_commit(&ctx, commit_id)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub async fn upstream_integration_statuses(
     project_id: ProjectId,
     target_commit_id: Option<String>,
-) -> Result<StackStatuses, Error> {
-    upstream_integration_statuses_cmd(UpstreamIntegrationStatusesParams {
-        project_id,
-        target_commit_id,
-    })
-    .await
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpstreamIntegrationStatusesParams {
-    pub project_id: ProjectId,
-    pub target_commit_id: Option<String>,
-}
-
-pub async fn upstream_integration_statuses_cmd(
-    params: UpstreamIntegrationStatusesParams,
-) -> Result<StackStatuses, Error> {
-    let UpstreamIntegrationStatusesParams {
-        project_id,
-        target_commit_id,
-    } = params;
+) -> Result<StackStatuses> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = target_commit_id
@@ -589,44 +518,16 @@ pub async fn upstream_integration_statuses_cmd(
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
     let resolved_reviews = resolve_review_map(project, &base_branch).await?;
 
-    Ok(gitbutler_branch_actions::upstream_integration_statuses(
-        &ctx,
-        commit_id,
-        &resolved_reviews,
-    )?)
+    gitbutler_branch_actions::upstream_integration_statuses(&ctx, commit_id, &resolved_reviews)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub async fn integrate_upstream(
     project_id: ProjectId,
     resolutions: Vec<Resolution>,
     base_branch_resolution: Option<BaseBranchResolution>,
-) -> Result<IntegrationOutcome, Error> {
-    integrate_upstream_cmd(IntegrateUpstreamParams {
-        project_id,
-        resolutions,
-        base_branch_resolution,
-    })
-    .await
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IntegrateUpstreamParams {
-    pub project_id: ProjectId,
-    pub resolutions: Vec<Resolution>,
-    pub base_branch_resolution: Option<BaseBranchResolution>,
-}
-
-pub async fn integrate_upstream_cmd(
-    params: IntegrateUpstreamParams,
-) -> Result<IntegrationOutcome, Error> {
-    let IntegrateUpstreamParams {
-        project_id,
-        resolutions,
-        base_branch_resolution,
-    } = params;
+) -> Result<IntegrationOutcome> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
@@ -641,33 +542,12 @@ pub async fn integrate_upstream_cmd(
     Ok(outcome)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub async fn resolve_upstream_integration(
     project_id: ProjectId,
     resolution_approach: BaseBranchResolutionApproach,
-) -> Result<String, Error> {
-    resolve_upstream_integration_cmd(ResolveUpstreamIntegrationParams {
-        project_id,
-        resolution_approach,
-    })
-    .await
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ResolveUpstreamIntegrationParams {
-    pub project_id: ProjectId,
-    pub resolution_approach: BaseBranchResolutionApproach,
-}
-
-pub async fn resolve_upstream_integration_cmd(
-    params: ResolveUpstreamIntegrationParams,
-) -> Result<String, Error> {
-    let ResolveUpstreamIntegrationParams {
-        project_id,
-        resolution_approach,
-    } = params;
+) -> Result<String> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
@@ -683,11 +563,10 @@ pub async fn resolve_upstream_integration_cmd(
 }
 
 /// Resolve all actively applied reviews for the given project and command context
-/// TODO: This should be moved somewhere else more appropriate.
 async fn resolve_review_map(
     project: gitbutler_project::Project,
     base_branch: &BaseBranch,
-) -> Result<HashMap<String, but_forge::ForgeReview>, Error> {
+) -> Result<HashMap<String, but_forge::ForgeReview>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     let Some(forge_repo_info) = base_branch.forge_repo_info.as_ref() else {
         // No forge? No problem!

@@ -805,7 +805,6 @@ dependencies = [
  "bstr",
  "but-action",
  "but-api-macros",
- "but-broadcaster",
  "but-cherry-apply",
  "but-claude",
  "but-core",
@@ -882,19 +881,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "but-broadcaster"
-version = "0.0.0"
-dependencies = [
- "but-db",
- "gitbutler-project",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "but-cherry-apply"
 version = "0.0.0"
 dependencies = [
@@ -921,7 +907,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-action",
- "but-broadcaster",
  "but-core",
  "but-db",
  "but-hunk-assignment",
@@ -1294,7 +1279,6 @@ dependencies = [
  "anyhow",
  "axum",
  "but-api",
- "but-broadcaster",
  "but-claude",
  "but-db",
  "but-feedback",
@@ -3941,7 +3925,6 @@ dependencies = [
  "but-action",
  "but-api",
  "but-bot",
- "but-broadcaster",
  "but-claude",
  "but-core",
  "but-db",

@@ -1,4 +1,4 @@
-pub use error::{Error, ToError, UnmarkedError};
+pub use error::{Error, ToJsonError, UnmarkedError};
 use gix::refs::Target;
 use schemars;
 use schemars::JsonSchema;
@@ -195,12 +195,12 @@ mod error {
         }
     }
 
-    pub trait ToError<T> {
-        fn to_error(self) -> Result<T, Error>;
+    pub trait ToJsonError<T> {
+        fn to_json_error(self) -> Result<T, Error>;
     }
 
-    impl<T, E: std::error::Error + Send + Sync + 'static> ToError<T> for Result<T, E> {
-        fn to_error(self) -> Result<T, Error> {
+    impl<T, E: std::error::Error + Send + Sync + 'static> ToJsonError<T> for Result<T, E> {
+        fn to_json_error(self) -> Result<T, Error> {
             self.map_err(|e| Error(e.into()))
         }
     }

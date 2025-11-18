@@ -46,6 +46,7 @@ pub async fn claude_send_message(
         },
     )
     .await
+    .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -62,6 +63,7 @@ pub fn claude_get_messages(
             stack_id,
         },
     )
+    .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -79,6 +81,7 @@ pub async fn claude_cancel_session(
         },
     )
     .await
+    .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -96,6 +99,7 @@ pub async fn claude_is_stack_active(
         },
     )
     .await
+    .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -113,4 +117,5 @@ pub async fn claude_compact_history(
         },
     )
     .await
+    .map_err(Into::into)
 }

@@ -19,6 +19,7 @@ pub fn update_onboarding_complete(
         &app_settings_sync,
         settings::UpdateOnboardingCompleteParams { update },
     )
+    .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -31,6 +32,7 @@ pub fn update_telemetry(
         &app_settings_sync,
         settings::UpdateTelemetryParams { update },
     )
+    .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -43,6 +45,7 @@ pub fn update_telemetry_distinct_id(
         &app_settings_sync,
         settings::UpdateTelemetryDistinctIdParams { app_distinct_id },
     )
+    .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -55,6 +58,7 @@ pub fn update_feature_flags(
         &app_settings_sync,
         settings::UpdateFeatureFlagsParams { update },
     )
+    .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -64,6 +68,7 @@ pub fn update_claude(
     update: ClaudeUpdate,
 ) -> Result<(), Error> {
     settings::update_claude(&app_settings_sync, settings::UpdateClaudeParams { update })
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -73,6 +78,7 @@ pub fn update_fetch(
     update: FetchUpdate,
 ) -> Result<(), Error> {
     settings::update_fetch(&app_settings_sync, settings::UpdateFetchParams { update })
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -82,6 +88,7 @@ pub fn update_reviews(
     update: ReviewsUpdate,
 ) -> Result<(), Error> {
     settings::update_reviews(&app_settings_sync, settings::UpdateReviewsParams { update })
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -90,5 +97,5 @@ pub fn update_ui(
     app_settings_sync: State<'_, AppSettingsWithDiskSync>,
     update: UiUpdate,
 ) -> Result<(), Error> {
-    settings::update_ui(&app_settings_sync, settings::UpdateUiParams { update })
+    settings::update_ui(&app_settings_sync, settings::UpdateUiParams { update }).map_err(Into::into)
 }

@@ -1,44 +1,40 @@
 use std::path::PathBuf;
 
-use but_api_macros::api_cmd;
+use but_api_macros::api_cmd_tauri;
 use gitbutler_project::{self as projects, ProjectId};
 use tracing::instrument;
 
-use crate::json::Error;
+use anyhow::Result;
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn update_project(project: projects::UpdateRequest) -> Result<projects::api::Project, Error> {
+pub fn update_project(project: projects::UpdateRequest) -> Result<projects::api::Project> {
     Ok(gitbutler_project::update(project)?.into())
 }
 
 /// Adds an existing git repository as a GitButler project.
 /// If the directory is not a git repository, an error is returned.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn add_project(path: PathBuf) -> Result<projects::AddProjectOutcome, Error> {
-    Ok(gitbutler_project::add(&path)?)
+pub fn add_project(path: PathBuf) -> Result<projects::AddProjectOutcome> {
+    gitbutler_project::add(&path)
 }
 
 /// Add a project by a given path.
 /// It will look for other existing projects and try to match the path
 /// to them, allowing to open projects from paths within the repository.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn add_project_best_effort(path: PathBuf) -> Result<projects::AddProjectOutcome, Error> {
-    Ok(gitbutler_project::add_with_best_effort(&path)?)
+pub fn add_project_best_effort(path: PathBuf) -> Result<projects::AddProjectOutcome> {
+    gitbutler_project::add_with_best_effort(&path)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn get_project(
     project_id: ProjectId,
     no_validation: Option<bool>,
-) -> Result<projects::api::Project, Error> {
+) -> Result<projects::api::Project> {
     if no_validation.unwrap_or(false) {
         Ok(gitbutler_project::get_raw(project_id)?.migrated()?.into())
     } else {
@@ -46,13 +42,12 @@ pub fn get_project(
     }
 }
 
-#[api_cmd]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn list_projects(opened_projects: Vec<ProjectId>) -> Result<Vec<ProjectForFrontend>, Error> {
+pub fn list_projects(opened_projects: Vec<ProjectId>) -> Result<Vec<ProjectForFrontend>> {
     gitbutler_project::assure_app_can_startup_or_fix_it(
         gitbutler_project::dangerously_list_projects_without_migration(),
     )
-    .map_err(Into::into)
     .map(|projects| {
         projects
             .into_iter()
@@ -73,20 +68,18 @@ pub fn list_projects(opened_projects: Vec<ProjectId>) -> Result<Vec<ProjectForFr
     })
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
-    gitbutler_project::delete(project_id).map_err(Into::into)
+pub fn delete_project(project_id: ProjectId) -> Result<()> {
+    gitbutler_project::delete(project_id)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn is_gerrit(project_id: ProjectId) -> Result<bool, Error> {
+pub fn is_gerrit(project_id: ProjectId) -> Result<bool> {
     let project = gitbutler_project::get_raw(project_id)?;
     let repo = project.open()?;
-    gitbutler_project::gerrit::is_used_by_default_remote(&repo).map_err(Into::into)
+    gitbutler_project::gerrit::is_used_by_default_remote(&repo)
 }
 
 #[derive(serde::Serialize)]

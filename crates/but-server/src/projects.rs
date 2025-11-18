@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use crate::Extra;
 use anyhow::{Context as _, Result};
-use but_api::json::ToError;
-use but_broadcaster::FrontendEvent;
+use but_api::json::ToJsonError;
 use but_claude::Claude;
+use but_claude::broadcaster::FrontendEvent;
 use but_db::poll::DBWatcherHandle;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_command_context::CommandContext;
@@ -131,7 +131,7 @@ pub struct ProjectInfo {
     headsup: Option<String>,
 }
 
-pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::json::Error> {
+pub async fn list_projects(extra: &Extra) -> anyhow::Result<serde_json::Value> {
     let active_projects = extra.active_projects.lock().await;
     let project_ids: Vec<ProjectId> = active_projects.projects.keys().copied().collect();
     let projects_for_frontend = but_api::legacy::projects::list_projects(project_ids)?;
@@ -143,8 +143,8 @@ pub async fn set_project_active(
     extra: &Extra,
     app_settings_sync: AppSettingsWithDiskSync,
     params: serde_json::Value,
-) -> Result<serde_json::Value, but_api::json::Error> {
-    let params: SetProjectActiveParams = serde_json::from_value(params).to_error()?;
+) -> Result<serde_json::Value> {
+    let params: SetProjectActiveParams = serde_json::from_value(params).to_json_error()?;
     let project = gitbutler_project::get_validated(params.id).context("project not found")?;
 
     // TODO: Adding projects to a list of active projects requires some more

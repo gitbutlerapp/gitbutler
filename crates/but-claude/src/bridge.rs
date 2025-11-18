@@ -27,7 +27,6 @@ use std::{
 };
 
 use anyhow::{Result, bail};
-use but_broadcaster::{Broadcaster, FrontendEvent};
 use but_core::ref_metadata::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
@@ -42,8 +41,9 @@ use tokio::{
     },
 };
 
+use crate::broadcaster::FrontendEvent;
 use crate::{
-    ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
+    Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
     PromptAttachment, SystemMessage, ThinkingLevel, Transcript, UserInput,
     claude_config::fmt_claude_settings,
     claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},

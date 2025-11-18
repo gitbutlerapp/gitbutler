@@ -20,7 +20,6 @@ doctest = false
 [dependencies]
 but-api = { workspace = true, features = ["path-bytes", "legacy"] }
 but-claude.workspace = true
-but-broadcaster.workspace = true
 but-db.workspace = true
 but-path.workspace = true
 but-settings.workspace = true

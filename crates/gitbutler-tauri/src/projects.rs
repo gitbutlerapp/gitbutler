@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::{Context, bail};
-use but_api::json::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
@@ -13,14 +12,15 @@ use tauri::{State, Window};
 use tracing::instrument;
 
 use crate::{WindowState, window, window::state::ProjectAccessMode};
+use but_api::json;
 
 #[tauri::command(async)]
 #[instrument(skip(window_state), err(Debug))]
 pub fn list_projects(
     window_state: State<'_, WindowState>,
-) -> Result<Vec<but_api::legacy::projects::ProjectForFrontend>, Error> {
+) -> Result<Vec<but_api::legacy::projects::ProjectForFrontend>, json::Error> {
     let open_projects = window_state.open_projects();
-    but_api::legacy::projects::list_projects(open_projects)
+    but_api::legacy::projects::list_projects(open_projects).map_err(Into::into)
 }
 
 /// Additional information to help the user interface communicate what happened with the project.
@@ -45,7 +45,7 @@ pub fn set_project_active(
     app_settings_sync: tauri::State<'_, AppSettingsWithDiskSync>,
     window: Window,
     id: ProjectId,
-) -> Result<Option<ProjectInfo>, Error> {
+) -> Result<Option<ProjectInfo>, json::Error> {
     let project = match gitbutler_project::get_validated(id).ok() {
         Some(project) => project,
         None => {
@@ -100,7 +100,7 @@ pub fn set_project_active(
 /// without haveing to lock explicitly.
 #[tauri::command]
 #[instrument(skip(handle), err(Debug))]
-pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
+pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result<(), json::Error> {
     let label = std::time::UNIX_EPOCH
         .elapsed()
         .or_else(|_| std::time::UNIX_EPOCH.duration_since(std::time::SystemTime::now()))

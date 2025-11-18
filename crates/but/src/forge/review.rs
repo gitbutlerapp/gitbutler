@@ -8,7 +8,6 @@ use crate::{
 };
 use anyhow::Context;
 use bstr::ByteSlice;
-use but_api::legacy::forge::ListReviewsParams;
 use but_core::ref_metadata::StackId;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
@@ -468,18 +467,17 @@ async fn publish_review_for_branch(
     };
 
     // Publish a new review for the branch
-    but_api::legacy::forge::publish_review_cmd(but_api::legacy::forge::PublishReviewParams {
-        project_id: project.id,
-        params: but_forge::CreateForgeReviewParams {
+    but_api::legacy::forge::publish_review(
+        project.id,
+        but_forge::CreateForgeReviewParams {
             title,
             body,
             source_branch: branch_name.to_string(),
             target_branch: target_branch.to_string(),
             draft: false,
         },
-    })
+    )
     .await
-    .map_err(Into::into)
     .map(|review| {
         if let Some(stack_id) = stack_id {
             let review_number = review.number.try_into().ok();
@@ -610,11 +608,9 @@ fn extract_commit_title(commit: Option<&Commit>) -> Option<&str> {
 pub async fn get_review_map(
     project: &Project,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
-    let reviews = but_api::legacy::forge::list_reviews_cmd(ListReviewsParams {
-        project_id: project.id,
-    })
-    .await
-    .unwrap_or_default();
+    let reviews = but_api::legacy::forge::list_reviews(project.id)
+        .await
+        .unwrap_or_default();
 
     let branch_review_map =
         reviews
