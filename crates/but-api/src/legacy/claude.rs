@@ -16,7 +16,8 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 use tracing::instrument;
 
-use crate::{App, json::Error};
+use crate::json::Error;
+use but_claude::Claude;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,16 +28,17 @@ pub struct SendMessageParams {
     pub user_params: ClaudeUserParams,
 }
 
-pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result<(), Error> {
+pub async fn claude_send_message(claude: &Claude, params: SendMessageParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = Arc::new(Mutex::new(CommandContext::open(
         &project,
         AppSettings::load_from_default_path_creating()?,
     )?));
-    app.claudes
+    claude
+        .instance_by_stack
         .send_message(
             ctx,
-            app.broadcaster.clone(),
+            claude.broadcaster.clone(),
             params.stack_id,
             params.user_params,
         )
@@ -52,12 +54,14 @@ pub struct GetMessagesParams {
 }
 
 pub fn claude_get_messages(
-    app: &App,
+    claude: &Claude,
     params: GetMessagesParams,
 ) -> Result<Vec<ClaudeMessage>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let messages = app.claudes.get_messages(&mut ctx, params.stack_id)?;
+    let messages = claude
+        .instance_by_stack
+        .get_messages(&mut ctx, params.stack_id)?;
     Ok(messages)
 }
 
@@ -140,8 +144,14 @@ pub struct CancelSessionParams {
     pub stack_id: StackId,
 }
 
-pub async fn claude_cancel_session(app: &App, params: CancelSessionParams) -> Result<bool, Error> {
-    let cancelled = app.claudes.cancel_session(params.stack_id).await?;
+pub async fn claude_cancel_session(
+    claude: &Claude,
+    params: CancelSessionParams,
+) -> Result<bool, Error> {
+    let cancelled = claude
+        .instance_by_stack
+        .cancel_session(params.stack_id)
+        .await?;
     Ok(cancelled)
 }
 
@@ -160,8 +170,14 @@ pub struct IsStackActiveParams {
     pub stack_id: StackId,
 }
 
-pub async fn claude_is_stack_active(app: &App, params: IsStackActiveParams) -> Result<bool, Error> {
-    let is_active = app.claudes.is_stack_active(params.stack_id).await;
+pub async fn claude_is_stack_active(
+    claude: &Claude,
+    params: IsStackActiveParams,
+) -> Result<bool, Error> {
+    let is_active = claude
+        .instance_by_stack
+        .is_stack_active(params.stack_id)
+        .await;
     Ok(is_active)
 }
 
@@ -172,14 +188,18 @@ pub struct CompactHistoryParams {
     pub stack_id: StackId,
 }
 
-pub async fn claude_compact_history(app: &App, params: CompactHistoryParams) -> Result<(), Error> {
+pub async fn claude_compact_history(
+    claude: &Claude,
+    params: CompactHistoryParams,
+) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = Arc::new(Mutex::new(CommandContext::open(
         &project,
         AppSettings::load_from_default_path_creating()?,
     )?));
-    app.claudes
-        .compact_history(ctx, app.broadcaster.clone(), params.stack_id)
+    claude
+        .instance_by_stack
+        .compact_history(ctx, claude.broadcaster.clone(), params.stack_id)
         .await?;
     Ok(())
 }

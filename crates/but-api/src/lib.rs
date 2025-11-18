@@ -7,23 +7,10 @@
 //! Lower-level crates like `but-workspace` won't use filesystem-based locking beyond what Git offers natively.
 #![forbid(unsafe_code)]
 
-use std::sync::Arc;
-
-use but_broadcaster::Broadcaster;
-use but_claude::bridge::Claudes;
-use tokio::sync::Mutex;
-
 #[cfg(feature = "legacy")]
 pub mod legacy;
 
 pub mod github;
-
-#[derive(Clone)]
-pub struct App {
-    pub broadcaster: Arc<Mutex<Broadcaster>>,
-    pub archival: Arc<but_feedback::Archival>,
-    pub claudes: Arc<Claudes>,
-}
 
 /// Types meant to be serialised to JSON, without degenerating information despite the need to be UTF-8 encodable.
 /// EXPERIMENTAL

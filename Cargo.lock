@@ -1295,6 +1295,7 @@ dependencies = [
  "axum",
  "but-api",
  "but-broadcaster",
+ "but-claude",
  "but-db",
  "but-feedback",
  "but-path",

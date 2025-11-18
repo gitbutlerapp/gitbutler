@@ -11,8 +11,9 @@ use axum::{
     response::IntoResponse,
     routing::{any, get},
 };
-use but_api::{App, github, json::ToError as _, legacy};
+use but_api::{github, json::ToError as _, legacy};
 use but_broadcaster::Broadcaster;
+use but_claude::Claude;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
 use gitbutler_project::ProjectId;
@@ -42,6 +43,7 @@ pub(crate) struct Request {
 #[derive(Clone)]
 pub(crate) struct Extra {
     active_projects: Arc<Mutex<ActiveProjects>>,
+    archival: Arc<but_feedback::Archival>,
 }
 
 pub async fn run() {
@@ -54,19 +56,20 @@ pub async fn run() {
     let app_data_dir = but_path::app_data_dir().unwrap();
 
     let broadcaster = Arc::new(Mutex::new(Broadcaster::new()));
+    let archival = Arc::new(but_feedback::Archival {
+        cache_dir: app_data_dir.join("cache").clone(),
+        logs_dir: app_data_dir.join("logs").clone(),
+    });
     let extra = Extra {
         active_projects: Arc::new(Mutex::new(ActiveProjects::new())),
+        archival,
     };
     let app_settings =
         AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
 
-    let app = App {
+    let app = Claude {
         broadcaster: broadcaster.clone(),
-        archival: Arc::new(but_feedback::Archival {
-            cache_dir: app_data_dir.join("cache").clone(),
-            logs_dir: app_data_dir.join("logs").clone(),
-        }),
-        claudes: Default::default(),
+        instance_by_stack: Default::default(),
     };
 
     // build our application with a single route
@@ -142,7 +145,8 @@ async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>
 
 async fn handle_command(
     Json(request): Json<Request>,
-    app: App,
+    // TODO: this is due to mixing UI broadcasting into Claude related state (which also broadcasts)
+    app: Claude,
     extra: Extra,
     app_settings_sync: AppSettingsWithDiskSync,
 ) -> Json<serde_json::Value> {
@@ -503,21 +507,15 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = legacy::zip::get_project_archive_path(&app, params);
+                    let result = legacy::zip::get_project_archive_path(&extra.archival, params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
             }
         }
         "get_logs_archive_path" => {
-            let params = serde_json::from_value(request.params).to_error();
-            match params {
-                Ok(params) => {
-                    let result = legacy::zip::get_logs_archive_path(&app, params);
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
+            let result = legacy::zip::get_logs_archive_path(&extra.archival);
+            result.map(|r| json!(r))
         }
         "claude_send_message" => {
             let params = serde_json::from_value(request.params).to_error();

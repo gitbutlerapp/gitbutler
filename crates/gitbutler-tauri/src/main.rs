@@ -14,8 +14,9 @@
 use std::sync::Arc;
 
 use anyhow::bail;
-use but_api::{App, github, legacy};
+use but_api::{github, legacy};
 use but_broadcaster::Broadcaster;
+use but_claude::Claude;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
     WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, logs, menu, projects,
@@ -166,18 +167,17 @@ fn main() -> anyhow::Result<()> {
                     }
                 });
 
+                let claude = Claude {
+                    broadcaster: broadcaster.clone(),
+                    instance_by_stack: Default::default(),
+                };
                 let archival = Arc::new(but_feedback::Archival {
                     cache_dir: app_cache_dir.clone(),
                     logs_dir: app_log_dir.clone(),
                 });
-                let app = App {
-                    broadcaster: broadcaster.clone(),
-                    archival: archival.clone(),
-                    claudes: Default::default(),
-                };
-
+                app_handle.manage(archival);
                 app_handle.manage(app_settings);
-                app_handle.manage(app);
+                app_handle.manage(claude);
 
                 tauri_app.on_menu_event(move |handle, event| {
                     menu::handle_event(handle, &window.clone(), &event)
