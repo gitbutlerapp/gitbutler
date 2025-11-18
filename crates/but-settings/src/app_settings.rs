@@ -44,10 +44,6 @@ pub struct FeatureFlags {
     ///     - CRUD workspace
     ///     - CRUD files
     pub undo: bool,
-    /// Enable the usage of GitButler Acitions.
-    pub actions: bool,
-    /// Enable the usage of the butbot chat.
-    pub butbot: bool,
     /// Enable processing of workspace rules.
     pub rules: bool,
     /// Enable single branch mode.

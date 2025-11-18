@@ -192,10 +192,6 @@ export type FeatureFlags = {
 	ws3: boolean;
 	/** Use the V3 version of apply and unapply. */
 	apply3: boolean;
-	/** Enable the usage of GitButler Acitions. */
-	actions: boolean;
-	/** Enable the usage of butbot chat */
-	butbot: boolean;
 	/** Enable processing of workspace rules. */
 	rules: boolean;
 	/** Enable single-branch mode. */
