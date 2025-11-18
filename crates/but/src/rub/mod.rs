@@ -24,12 +24,6 @@ pub(crate) fn handle(
     target_str: &str,
 ) -> anyhow::Result<()> {
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-
-    if let Some(out) = out.for_human() {
-        writeln!(out, "Amended unassigned files {source_str} → {target_str}")?;
-        return Ok(());
-    }
-
     let (sources, target) = ids(ctx, source_str, target_str)?;
 
     for source in sources {
