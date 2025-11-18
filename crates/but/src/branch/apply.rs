@@ -14,7 +14,7 @@ pub fn apply(
     ctx: &but_ctx::Context,
     branch_name: &str,
     out: &mut OutputChannel,
-) -> anyhow::Result<but_api::json::Reference> {
+) -> anyhow::Result<()> {
     let legacy_project = &ctx.legacy_project;
     let ctx = ctx.legacy_ctx()?;
     let repo = ctx.gix_repo()?;
@@ -69,7 +69,10 @@ pub fn apply(
         writeln!(out, "{reference_name}", reference_name = reference.name())?;
     }
 
-    Ok(reference.inner.into())
+    if let Some(out) = out.for_json() {
+        out.write_value(but_api::json::Reference::from(reference.inner))?;
+    }
+    Ok(())
 }
 
 fn find_remote_reference<'repo>(

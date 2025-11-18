@@ -191,18 +191,6 @@ where
     }
 }
 
-/// A placeholder, which should be substituted for the actual return value.
-pub fn we_need_proper_json_output_here() -> serde_json::Value {
-    serde_json::Value::Null
-}
-
-/// Convert anything into a json value, **or panic**.
-/// I think this should never fail at runtime, but I am not sure.
-pub fn into_json_value(value: impl serde::Serialize) -> serde_json::Value {
-    serde_json::to_value(&value)
-        .expect("BUG: Failed to serialize JSON value, we should know that at compile time")
-}
-
 pub fn print_grouped_help(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
     use std::collections::HashSet;
 
