@@ -1,20 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="113" height="58" viewBox="0 0 113 58" fill="none">
   <path
     d="M1 9C1 4.58172 4.58172 1 9 1H104C108.418 1 112 4.58172 112 9V19C112 23.4183 108.418 27 104 27H9C4.58172 27 1 23.4183 1 19V9Z"
-    fill="var(--theme/pop/bg)" stroke="var(--illustration-accent-outline)" stroke-width="1.2" />
-  <circle cx="17" cy="14" r="5" fill="var(--illustration-accent-outline)" />
-  <path d="M17 15V32" stroke="var(--illustration-accent-outline)" stroke-width="2" />
-  <text fill="var(--illustration-accent-outline)" xml:space="preserve" style="white-space: pre"
+    fill="var(--image-accent-bg)" stroke="var(--image-accent-outline)" stroke-width="1.2" />
+  <circle cx="17" cy="14" r="5" fill="var(--image-accent-outline)" />
+  <path d="M17 15V32" stroke="var(--image-accent-outline)" stroke-width="2" />
+  <text fill="var(--image-accent-outline)" xml:space="preserve" style="white-space: pre"
     font-family="Inter" font-size="11" font-weight="600" letter-spacing="0em">
     <tspan x="31" y="17.5">Branch A</tspan>
   </text>
   <path d="M1 40C1 35.5817 4.58172 32 9 32H104C108.418 32 112 35.5817 112 40V58H1V40Z"
     fill="var(--clr-bg-1)" />
   <path d="M112 58V40C112 35.5817 108.418 32 104 32H9C4.58172 32 1 35.5817 1 40V58"
-    stroke="var(--illustration-outline)" stroke-width="1.2" />
-  <circle cx="17" cy="46" r="5" transform="rotate(-180 17 46)" fill="var(--illustration-outline)" />
-  <path d="M17 42L17 32.5" stroke="var(--illustration-outline)" stroke-width="2" />
-  <text fill="var(--illustration-text)" xml:space="preserve" style="white-space: pre"
+    stroke="var(--image-outline)" stroke-width="1.2" />
+  <circle cx="17" cy="46" r="5" transform="rotate(-180 17 46)" fill="var(--image-outline)" />
+  <path d="M17 42L17 32.5" stroke="var(--image-outline)" stroke-width="2" />
+  <text fill="var(--image-outline)" xml:space="preserve" style="white-space: pre"
     font-family="Inter" font-size="11" font-weight="600" letter-spacing="0em">
     <tspan x="31" y="48.5">Branch B</tspan>
   </text>
