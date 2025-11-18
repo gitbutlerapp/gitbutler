@@ -114,8 +114,10 @@ export function updateSelection({
 		}
 	}
 
-	switch (key.toLowerCase()) {
+	switch (key) {
+		// To support either Cmd+a or Cmd+shift+a?
 		case 'a':
+		case 'A':
 			if (allowMultiple && metaKey) {
 				preventDefault();
 
