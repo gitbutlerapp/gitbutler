@@ -23,7 +23,7 @@ export const PARAGRAPH_TRANSFORMER: ElementTransformer = {
 		}
 		return null;
 	},
-	regExp: /(?:)/,
+	regExp: /$.^/,
 	replace: () => false,
 	type: 'element'
 };
