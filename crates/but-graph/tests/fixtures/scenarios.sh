@@ -15,10 +15,12 @@ function setup_remote_tracking() {
   local mode=${3:-"cp"}
   mkdir -p .git/refs/remotes/origin
 
+  local dst=".git/refs/remotes/origin/$remote_branch_name";
+  mkdir -p "${dst%/*}"
   if [[ "$mode" == "cp" ]]; then
-    cp ".git/refs/heads/$branch_name" ".git/refs/remotes/origin/$remote_branch_name"
+    cp ".git/refs/heads/$branch_name" $dst
   else
-    mv ".git/refs/heads/$branch_name" ".git/refs/remotes/origin/$remote_branch_name"
+    mv ".git/refs/heads/$branch_name" $dst
   fi
 }
 
@@ -1019,6 +1021,7 @@ EOF
     commit init
     commit M1
     git branch gitbutler/target
+    setup_remote_tracking "gitbutler/target"
     commit M2
     setup_target_to_match_main
     git checkout -b A

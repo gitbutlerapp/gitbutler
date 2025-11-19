@@ -164,19 +164,6 @@ impl VirtualBranchesTomlMetadata {
     }
 }
 
-/// Utilities
-impl VirtualBranchesTomlMetadata {
-    /// Return default options that limit single-branch commits to a sane amount (instead of traversing the whole graph),
-    /// and configure other values that require our meta-data to guide the traversal.
-    #[cfg(feature = "legacy")]
-    pub fn to_graph_options(&self) -> but_graph::init::Options {
-        but_graph::init::Options {
-            extra_target_commit_id: self.data().default_target.as_ref().map(|t| t.sha),
-            ..but_graph::init::Options::limited()
-        }
-    }
-}
-
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
 impl Drop for VirtualBranchesTomlMetadata {
     fn drop(&mut self) {
@@ -551,7 +538,7 @@ fn branch_from_ref_name(ref_name: &FullNameRef) -> anyhow::Result<RemoteRefname>
     }
 
     // TODO: remove this as we don't handle symbolic names with slashes correctly.
-    // At least try to not always set this value, but this test is also ambiguous.
+    //       At least try to not always set this value, but this test is also ambiguous.
     let slash_pos = short_name
         .find_byte(b'/')
         .context("remote branch didn't have '/' in the name, but should be 'origin/foo'")?;

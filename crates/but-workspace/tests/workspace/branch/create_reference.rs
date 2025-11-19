@@ -1488,7 +1488,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         * 3d57fc1 1
         ");
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, meta.to_graph_options())?;
+    let graph = but_graph::Graph::from_head(&repo, &meta, Default::default())?;
     let ws = graph.to_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1667,16 +1667,16 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         ");
 
     let id = id_by_rev(&repo, "@~1");
-    let graph = but_graph::Graph::from_commit_traversal(id, None, &meta, meta.to_graph_options())?;
+    let graph = but_graph::Graph::from_commit_traversal(id, None, &meta, Default::default())?;
     let ws = graph.to_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-        ⌂:0:DETACHED <> ✓!
-        └── ≡:0:anon:
-            └── :0:anon:
-                ├── ·12995d7 (✓)
-                └── ·3d57fc1 (✓)
-        ");
+    ⌂:0:DETACHED <> ✓!
+    └── ≡:0:anon:
+        └── :0:anon:
+            ├── ·12995d7
+            └── ·3d57fc1
+    ");
 
     let first_ref = rc("refs/heads/first");
     let first_id = id_by_rev(&repo, "@~2");
@@ -1694,13 +1694,13 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-        ⌂:0:DETACHED <> ✓!
-        └── ≡:0:anon:
-            ├── :0:anon:
-            │   └── ·12995d7 (✓)
-            └── 📙:2:first
-                └── ·3d57fc1 (✓)
-        ");
+    ⌂:0:DETACHED <> ✓!
+    └── ≡:0:anon:
+        ├── :0:anon:
+        │   └── ·12995d7
+        └── 📙:1:first
+            └── ·3d57fc1
+    ");
 
     let new = r("refs/heads/new-independent");
     let err = but_workspace::branch::create_reference(
@@ -1736,13 +1736,13 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-        ⌂:0:second <> ✓!
-        └── ≡📙:0:second
-            ├── 📙:0:second
-            │   └── ·12995d7 (✓)
-            └── 📙:2:first
-                └── ·3d57fc1 (✓)
-        ");
+    ⌂:0:second <> ✓!
+    └── ≡📙:0:second
+        ├── 📙:0:second
+        │   └── ·12995d7
+        └── 📙:1:first
+            └── ·3d57fc1
+    ");
 
     let err = but_workspace::branch::create_reference(
         new,
@@ -1769,7 +1769,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         &meta,
         Options {
             extra_target_commit_id: Some(first_id.detach()),
-            ..meta.to_graph_options()
+            ..Default::default()
         },
     )?;
     let ws = graph.to_workspace()?;

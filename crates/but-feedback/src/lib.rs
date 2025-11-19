@@ -35,14 +35,14 @@ impl Archival {
         let repo = &ctx.repo;
         let meta = ctx.legacy_meta(guard.read_permission())?;
         let mut graph =
-            but_graph::Graph::from_head(repo, &meta, meta.to_graph_options()).or_else(|_| {
+            but_graph::Graph::from_head(repo, &meta, Default::default()).or_else(|_| {
                 but_graph::Graph::from_head(
                     repo,
                     &meta,
                     but_graph::init::Options {
                         // Assume it fails because of post-processing, try again without.
                         dangerously_skip_postprocessing_for_debugging: true,
-                        ..meta.to_graph_options()
+                        ..Default::default()
                     },
                 )
             })?;

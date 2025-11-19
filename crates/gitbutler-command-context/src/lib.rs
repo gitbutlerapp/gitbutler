@@ -124,7 +124,7 @@ impl CommandContext {
         but_graph::Graph,
     )> {
         let meta = self.meta_inner()?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, meta.to_graph_options())?;
+        let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
         Ok((repo, VirtualBranchesTomlMetadata(meta), graph))
     }
 
@@ -153,7 +153,7 @@ impl CommandContext {
     )> {
         let repo = self.gix_repo()?;
         let meta = self.meta_inner()?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, meta.to_graph_options())?;
+        let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
         Ok((repo, VirtualBranchesTomlMetadataMut(meta), graph))
     }
 
@@ -181,7 +181,7 @@ impl CommandContext {
             commit_id,
             reference.name().to_owned(),
             &meta,
-            meta.to_graph_options(),
+            but_graph::init::Options::limited(),
         )?;
         Ok((repo, VirtualBranchesTomlMetadataMut(meta), graph))
     }
