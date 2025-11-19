@@ -137,7 +137,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
     let branch_ids = CliId::from_str(&mut ctx, branch_id)?
         .iter()
         .filter_map(|clid| match clid {
-            CliId::Branch { name } => Some(name.clone()),
+            CliId::Branch { name, .. } => Some(name.clone()),
             _ => None,
         })
         .collect::<Vec<_>>();

@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use bstr::ByteSlice;
 use but_core::ref_metadata::StackId;
@@ -6,6 +6,7 @@ use but_hunk_assignment::HunkAssignment;
 use gitbutler_command_context::CommandContext;
 
 pub struct IdDb {
+    branch_name_to_cli_id: HashMap<String, CliId>,
     unassigned: CliId,
 }
 
@@ -13,18 +14,90 @@ impl IdDb {
     pub fn new(ctx: &CommandContext) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         let stacks = crate::utils::commits::stacks(ctx)?;
-        for stack in stacks {
+        let mut pairs_to_count: HashMap<u16, u8> = HashMap::new();
+        fn u8_pair_to_u16(two: [u8; 2]) -> u16 {
+            two[0] as u16 * 256 + two[1] as u16
+        }
+        for stack in &stacks {
             for head in &stack.heads {
+                for pair in head.name.windows(2) {
+                    let pair: [u8; 2] = pair.try_into()?;
+                    if !pair[0].is_ascii_alphanumeric() || !pair[1].is_ascii_alphanumeric() {
+                        continue;
+                    }
+                    let could_collide_with_commits =
+                        pair[0].is_ascii_hexdigit() && pair[1].is_ascii_hexdigit();
+                    if could_collide_with_commits {
+                        continue;
+                    }
+                    let u16pair = u8_pair_to_u16(pair);
+                    pairs_to_count
+                        .entry(u16pair)
+                        .and_modify(|count| *count = count.saturating_add(1))
+                        .or_insert(1);
+                }
                 for field in head.name.fields_with(|c| c != '0') {
                     max_zero_count = std::cmp::max(field.len(), max_zero_count);
                 }
             }
         }
+
+        let mut branch_name_to_cli_id: HashMap<String, CliId> = HashMap::new();
+        for stack in stacks {
+            'head: for head in &stack.heads {
+                // Find first non-conflicting pair and use it as CliId.
+                for pair in head.name.windows(2) {
+                    let pair: [u8; 2] = pair.try_into()?;
+                    let u16pair = u8_pair_to_u16(pair);
+                    if let Some(1) = pairs_to_count.get(&u16pair) {
+                        let name = head.name.to_string();
+                        let id = str::from_utf8(&pair)
+                            .expect("if we stored it, it's ascii-alphanum")
+                            .to_owned();
+                        branch_name_to_cli_id.insert(name.clone(), CliId::Branch { name, id });
+                        continue 'head;
+                    }
+                }
+            }
+        }
         Ok(Self {
+            branch_name_to_cli_id,
             unassigned: CliId::Unassigned {
                 id: str::repeat("0", max_zero_count + 1),
             },
         })
+    }
+
+    fn find_branches_by_name(
+        &mut self,
+        ctx: &CommandContext,
+        name: &str,
+    ) -> anyhow::Result<Vec<CliId>> {
+        let stacks = crate::utils::commits::stacks(ctx)?;
+        let mut matches = Vec::new();
+
+        for stack in stacks {
+            for head in &stack.heads {
+                let branch_name = head.name.to_string();
+                // Exact match or partial match
+                if branch_name == name || branch_name.contains(name) {
+                    matches.push(self.branch(&branch_name).clone())
+                }
+            }
+        }
+
+        Ok(matches)
+    }
+
+    /// Returns the ID for a branch of the given name. If no such ID exists,
+    /// generate one.
+    pub fn branch(&mut self, name: &str) -> &CliId {
+        self.branch_name_to_cli_id
+            .entry(name.to_owned())
+            .or_insert_with(|| CliId::Branch {
+                name: name.to_owned(),
+                id: hash(name),
+            })
     }
 
     /// Represents the unassigned area. Its ID is a repeated string of '0', long
@@ -46,6 +119,7 @@ pub enum CliId {
     },
     Branch {
         name: String,
+        id: String,
     },
     Commit {
         oid: gix::ObjectId,
@@ -69,12 +143,6 @@ impl CliId {
         CliId::Commit { oid }
     }
 
-    pub fn branch(name: &str) -> Self {
-        CliId::Branch {
-            name: name.to_owned(),
-        }
-    }
-
     pub fn file_from_assignment(assignment: &HunkAssignment) -> Self {
         CliId::UncommittedFile {
             path: assignment.path.clone(),
@@ -87,23 +155,6 @@ impl CliId {
             path: path.to_string(),
             commit_oid,
         }
-    }
-
-    fn find_branches_by_name(ctx: &CommandContext, name: &str) -> anyhow::Result<Vec<Self>> {
-        let stacks = crate::utils::commits::stacks(ctx)?;
-        let mut matches = Vec::new();
-
-        for stack in stacks {
-            for head in &stack.heads {
-                let branch_name = head.name.to_string();
-                // Exact match or partial match
-                if branch_name == name || branch_name.contains(name) {
-                    matches.push(CliId::branch(&branch_name));
-                }
-            }
-        }
-
-        Ok(matches)
     }
 
     fn find_commits_by_sha(ctx: &CommandContext, sha_prefix: &str) -> anyhow::Result<Vec<Self>> {
@@ -152,12 +203,12 @@ impl CliId {
         }
 
         // TODO: make callers of this function pass IdDb instead
-        let id_db = IdDb::new(ctx)?;
+        let mut id_db = IdDb::new(ctx)?;
 
         let mut matches = Vec::new();
 
         // First, try exact branch name match
-        if let Ok(branch_matches) = Self::find_branches_by_name(ctx, s) {
+        if let Ok(branch_matches) = id_db.find_branches_by_name(ctx, s) {
             matches.extend(branch_matches);
         }
 
@@ -242,8 +293,8 @@ impl Display for CliId {
                 let value = hash(&format!("{commit_oid}{path}"));
                 write!(f, "{value}")
             }
-            CliId::Branch { name } => {
-                write!(f, "{}", hash(name))
+            CliId::Branch { id, .. } => {
+                write!(f, "{}", id)
             }
             CliId::Unassigned { id } => {
                 write!(f, "{}", id)
@@ -263,7 +314,6 @@ pub(crate) fn hash(input: &str) -> String {
     for byte in input.bytes() {
         hash = hash.wrapping_mul(31).wrapping_add(byte as u64);
     }
-
     // First character: g-z (20 options)
     let first_chars = "ghijklmnopqrstuvwxyz";
     let first_char = first_chars.chars().nth((hash % 20) as usize).unwrap();

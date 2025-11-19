@@ -30,7 +30,7 @@ pub(crate) fn handle(
         but_rules::delete_rule(ctx, &rule.id())?;
     }
     match target_result[0].clone() {
-        crate::id::CliId::Branch { name } => mark_branch(ctx, name, delete, out),
+        crate::id::CliId::Branch { name, .. } => mark_branch(ctx, name, delete, out),
         crate::id::CliId::Commit { oid } => mark_commit(ctx, oid, delete, out),
         _ => bail!("Nope"),
     }

@@ -189,7 +189,7 @@ pub async fn handle(
                             position: but_workspace::branch::create_reference::Position::Above,
                         })
                     }
-                    crate::id::CliId::Branch { name } => Some(
+                    crate::id::CliId::Branch { name, .. } => Some(
                         but_api::legacy::stack::create_reference::Anchor::AtReference {
                             short_name: name.clone(),
                             position: but_workspace::branch::create_reference::Position::Above,
