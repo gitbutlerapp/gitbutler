@@ -39,7 +39,7 @@ pub(crate) fn handle(
                 create_snapshot(ctx, project, OperationKind::AmendCommit);
                 amend::file_to_commit(ctx, path, *assignment, oid, out)?;
             }
-            (CliId::UncommittedFile { path, .. }, CliId::Branch { name }) => {
+            (CliId::UncommittedFile { path, .. }, CliId::Branch { name, .. }) => {
                 create_snapshot(ctx, project, OperationKind::MoveHunk);
                 assign::assign_file_to_branch(ctx, path, name, out)?;
             }
@@ -53,7 +53,7 @@ pub(crate) fn handle(
                 create_snapshot(ctx, project, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, None, oid, out)?;
             }
-            (CliId::Unassigned { .. }, CliId::Branch { name: to }) => {
+            (CliId::Unassigned { .. }, CliId::Branch { name: to, .. }) => {
                 create_snapshot(ctx, project, OperationKind::MoveHunk);
                 assign::assign_all(ctx, None, Some(to), out)?;
             }
@@ -68,22 +68,22 @@ pub(crate) fn handle(
                 create_snapshot(ctx, project, OperationKind::SquashCommit);
                 squash::commits(ctx, source, destination, out)?;
             }
-            (CliId::Commit { oid }, CliId::Branch { name }) => {
+            (CliId::Commit { oid }, CliId::Branch { name, .. }) => {
                 create_snapshot(ctx, project, OperationKind::MoveCommit);
                 move_commit::to_branch(ctx, oid, name, out)?;
             }
             (CliId::Branch { .. }, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
-            (CliId::Branch { name: from }, CliId::Unassigned { .. }) => {
+            (CliId::Branch { name: from, .. }, CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, project, OperationKind::MoveHunk);
                 assign::assign_all(ctx, Some(from), None, out)?;
             }
-            (CliId::Branch { name }, CliId::Commit { oid }) => {
+            (CliId::Branch { name, .. }, CliId::Commit { oid }) => {
                 create_snapshot(ctx, project, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, Some(name), oid, out)?;
             }
-            (CliId::Branch { name: from }, CliId::Branch { name: to }) => {
+            (CliId::Branch { name: from, .. }, CliId::Branch { name: to, .. }) => {
                 create_snapshot(ctx, project, OperationKind::MoveHunk);
                 assign::assign_all(ctx, Some(from), Some(to), out)?;
             }
@@ -96,7 +96,7 @@ pub(crate) fn handle(
             (CliId::CommittedFile { .. }, CliId::CommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
-            (CliId::CommittedFile { path, commit_oid }, CliId::Branch { name }) => {
+            (CliId::CommittedFile { path, commit_oid }, CliId::Branch { name, .. }) => {
                 create_snapshot(ctx, project, OperationKind::FileChanges);
                 commits::uncommit_file(ctx, path, *commit_oid, Some(name), out)?;
             }
@@ -152,7 +152,7 @@ fn ids(
                     CliId::Commit { oid } => {
                         format!("{} (commit {})", id, &oid.to_string()[..7])
                     }
-                    CliId::Branch { name } => format!("{id} (branch '{name}')"),
+                    CliId::Branch { name, .. } => format!("{id} (branch '{name}')"),
                     _ => format!("{} ({})", id, id.kind()),
                 })
                 .collect();
@@ -191,7 +191,7 @@ pub(crate) fn parse_sources(ctx: &mut CommandContext, source: &str) -> anyhow::R
                         CliId::Commit { oid } => {
                             format!("{} (commit {})", id, &oid.to_string()[..7])
                         }
-                        CliId::Branch { name } => format!("{id} (branch '{name}')"),
+                        CliId::Branch { name, .. } => format!("{id} (branch '{name}')"),
                         _ => format!("{} ({})", id, id.kind()),
                     })
                     .collect();

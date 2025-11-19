@@ -31,7 +31,7 @@ pub(crate) fn describe_target(
     let cli_id = &cli_ids[0];
 
     match cli_id {
-        CliId::Branch { name } => {
+        CliId::Branch { name, .. } => {
             edit_branch_name(&ctx, project, name, out)?;
         }
         CliId::Commit { oid } => {

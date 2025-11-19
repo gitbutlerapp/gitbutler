@@ -86,9 +86,9 @@ pub struct CLIBranchDetails {
     pub cli_id: String,
 }
 
-impl From<BranchDetails> for CLIBranchDetails {
-    fn from(inner: BranchDetails) -> Self {
-        let cli_id = CliId::branch(&inner.name.to_string()).to_string();
+impl CLIBranchDetails {
+    fn from_branch_details(id_db: &mut IdDb, inner: BranchDetails) -> Self {
+        let cli_id = id_db.branch(&inner.name.to_string()).to_string();
         let commits = inner
             .commits
             .into_iter()
@@ -129,12 +129,14 @@ pub struct CLIStackDetails {
     pub is_conflicted: bool,
 }
 
-impl From<StackDetails> for CLIStackDetails {
-    fn from(inner: StackDetails) -> Self {
+impl CLIStackDetails {
+    fn from_stack_details(id_db: &mut IdDb, inner: StackDetails) -> Self {
         let branch_details = inner
             .branch_details
             .into_iter()
-            .map(CLIBranchDetails::from)
+            .map(|cli_branch_details| {
+                CLIBranchDetails::from_branch_details(id_db, cli_branch_details)
+            })
             .collect();
         Self {
             derived_name: inner.derived_name,
@@ -224,10 +226,17 @@ pub(crate) async fn worktree(
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
+    let mut id_db = IdDb::new(&legacy_ctx)?;
     for stack in stacks {
         let details = but_api::legacy::workspace::stack_details(project.id, stack.id)?;
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
-        stack_details.push((stack.id, (Some(details.into()), assignments)));
+        stack_details.push((
+            stack.id,
+            (
+                Some(CLIStackDetails::from_stack_details(&mut id_db, details)),
+                assignments,
+            ),
+        ));
     }
 
     // Calculate common_merge_base data
@@ -628,11 +637,12 @@ pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> 
 }
 
 pub(crate) fn all_branches(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
+    let mut id_db = IdDb::new(ctx)?;
     let stacks = crate::utils::commits::stacks(ctx)?;
     let mut branches = Vec::new();
     for stack in stacks {
         for head in stack.heads {
-            branches.push(CliId::branch(&head.name.to_string()));
+            branches.push(id_db.branch(&head.name.to_string()).clone());
         }
     }
     Ok(branches)

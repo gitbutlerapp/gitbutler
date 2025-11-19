@@ -53,7 +53,7 @@ pub(crate) fn handle(
                 // Absorb this particular file
                 absorb_file(project, &path, assignment, &assignments, &dependencies, out)?;
             }
-            CliId::Branch { name } => {
+            CliId::Branch { name, .. } => {
                 // Absorb everything that is assigned to this lane
                 absorb_branch(project, &name, &assignments, &dependencies, out)?;
             }

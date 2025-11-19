@@ -54,7 +54,7 @@ pub(crate) fn insert_blank_commit(
                 ),
             )
         }
-        CliId::Branch { name } => {
+        CliId::Branch { name, .. } => {
             // For branches, we need to find the branch and get its head commit
             let head_commit_id = find_branch_head_commit(project.id, name)?;
             (
@@ -238,7 +238,7 @@ pub(crate) fn commit(
                 // If no exact match, try to parse as CLI ID and match
                 if let Ok(cli_ids) = crate::id::CliId::from_str(&mut ctx, hint) {
                     for cli_id in cli_ids {
-                        if let crate::id::CliId::Branch { name } = cli_id
+                        if let crate::id::CliId::Branch { name, .. } = cli_id
                             && let Some(branch) =
                                 target_stack.branch_details.iter().find(|b| b.name == name)
                         {
@@ -416,7 +416,7 @@ fn find_stack_by_hint(
     // Try CLI ID parsing
     let cli_ids = CliId::from_str(ctx, hint).ok()?;
     for cli_id in cli_ids {
-        if let CliId::Branch { name } = cli_id {
+        if let CliId::Branch { name, .. } = cli_id {
             for (stack_id, stack_details) in stacks {
                 if stack_details.branch_details.iter().any(|b| b.name == name) {
                     return Some((*stack_id, stack_details.clone()));
