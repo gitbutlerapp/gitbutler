@@ -9,10 +9,10 @@
 </script>
 
 <script lang="ts">
+	import BranchNameTextbox from '$components/BranchNameTextbox.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, ElementId, Modal, TestId, Textbox } from '@gitbutler/ui';
-	import { slugify } from '@gitbutler/ui/utils/string';
+	import { Button, ElementId, Modal, TestId } from '@gitbutler/ui';
 
 	const { projectId, stackId, laneId, branchName, isPushed }: BranchRenameModalProps = $props();
 	const stackService = inject(STACK_SERVICE);
@@ -20,9 +20,8 @@
 	const [renameBranch, renameQuery] = stackService.updateBranchName;
 
 	let newName: string | undefined = $state();
+	let slugifiedRefName: string | undefined = $state();
 	let modal: Modal | undefined = $state();
-
-	const slugifiedRefName = $derived(newName && slugify(newName));
 
 	export function show() {
 		newName = branchName;
@@ -37,20 +36,18 @@
 	type={isPushed ? 'warning' : 'info'}
 	bind:this={modal}
 	onSubmit={async (close) => {
-		if (newName) {
-			renameBranch({ projectId, stackId, laneId, branchName, newName });
+		if (slugifiedRefName) {
+			renameBranch({ projectId, stackId, laneId, branchName, newName: slugifiedRefName });
 		}
 		close();
 	}}
 >
-	<Textbox
+	<BranchNameTextbox
 		placeholder="New name"
 		id={ElementId.NewBranchNameInput}
 		bind:value={newName}
 		autofocus
-		helperText={slugifiedRefName && slugifiedRefName !== newName
-			? `Branch name will be: ${slugifiedRefName}`
-			: undefined}
+		onslugifiedvalue={(value) => (slugifiedRefName = value)}
 	/>
 
 	{#if isPushed}
@@ -66,7 +63,7 @@
 			testId={TestId.BranchHeaderRenameModal_ActionButton}
 			style="pop"
 			type="submit"
-			disabled={!newName}
+			disabled={!slugifiedRefName}
 			loading={renameQuery.current.isLoading}>Rename</Button
 		>
 	{/snippet}

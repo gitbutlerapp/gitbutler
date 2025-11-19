@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BranchNameTextbox from '$components/BranchNameTextbox.svelte';
 	import dependentBranchSvg from '$components/stackTabs/assets/dependent-branch.svg?raw';
 	import newStackLefttSvg from '$components/stackTabs/assets/new-stack-left.svg?raw';
 	import newStackRightSvg from '$components/stackTabs/assets/new-stack-right.svg?raw';
@@ -16,10 +17,8 @@
 		Select,
 		SelectItem,
 		TestId,
-		Toggle,
-		Textbox
+		Toggle
 	} from '@gitbutler/ui';
-	import { slugify } from '@gitbutler/ui/utils/string';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	type Props = {
@@ -40,8 +39,7 @@
 	// Persisted preference for branch placement
 	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
 
-	const slugifiedRefName = $derived(createRefName && slugify(createRefName));
-	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
+	let slugifiedRefName: string | undefined = $state();
 
 	// Get all stacks in the workspace
 	const allStacksQuery = $derived(stackService.stacks(projectId));
@@ -133,12 +131,12 @@
 
 <Modal bind:this={createRefModal} width={500} testId={TestId.CreateNewBranchModal}>
 	<div class="content-wrap">
-		<Textbox
+		<BranchNameTextbox
 			label="New branch"
 			id={ElementId.NewBranchNameInput}
 			bind:value={createRefName}
 			autofocus
-			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
+			onslugifiedvalue={(value) => (slugifiedRefName = value)}
 		/>
 
 		<div class="options-wrap">
