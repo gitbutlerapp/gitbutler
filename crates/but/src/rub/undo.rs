@@ -1,13 +1,13 @@
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
 use colored::Colorize;
-use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
 
 use crate::utils::OutputChannel;
 
 pub(crate) fn commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     oid: &ObjectId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
@@ -18,10 +18,7 @@ pub(crate) fn commit(
     Ok(())
 }
 
-pub(crate) fn stack_id_by_commit_id(
-    ctx: &CommandContext,
-    oid: &ObjectId,
-) -> anyhow::Result<StackId> {
+pub(crate) fn stack_id_by_commit_id(ctx: &Context, oid: &ObjectId) -> anyhow::Result<StackId> {
     let stacks = crate::utils::commits::stacks(ctx)?
         .iter()
         .filter_map(|s| {

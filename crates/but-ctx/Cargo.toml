@@ -9,19 +9,22 @@ rust-version = "1.89"
 
 [lib]
 doctest = false
-test = false
+test = true
 
 [features]
 # Support for a built-in legacy project.
-legacy = ["dep:gitbutler-project", "dep:gitbutler-command-context"]
+legacy = ["dep:gitbutler-project", "dep:tracing"]
 
 [dependencies]
 but-core.workspace = true
 but-settings.workspace = true
 but-meta = { workspace = true, features = ["legacy"] }
+but-db.workspace = true
+but-graph.workspace = true
 
 gitbutler-project = { workspace = true, optional = true }
-gitbutler-command-context = { workspace = true, optional = true }
 
+tracing = { workspace = true, optional = true }
 anyhow.workspace = true
 gix.workspace = true
+git2.workspace = true

@@ -1,11 +1,12 @@
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 
 pub(crate) fn obtain(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: String,
     file_path: String,
 ) -> anyhow::Result<()> {
-    let mut db = ctx.db()?.file_write_locks();
+    let mut db = ctx.db.get_mut()?;
+    let mut db = db.file_write_locks();
     let max_wait_time = std::time::Duration::from_secs(60 * 10);
     let start = std::time::Instant::now();
 
@@ -44,11 +45,12 @@ pub(crate) fn obtain(
 /// If file_path is provided, it will clear the lock for that file.
 /// Otherwise, it will clear all locks for the session_id.
 pub fn clear(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: String,
     file_path: Option<String>,
 ) -> anyhow::Result<()> {
-    let mut db = ctx.db()?.file_write_locks();
+    let mut db = ctx.db.get_mut()?;
+    let mut db = db.file_write_locks();
 
     let locks = db.list()?;
     let locks_to_remove: Vec<_> = if let Some(path) = file_path {

@@ -22,15 +22,15 @@
 //!
 //!   - otherwise, it can be applied anywhere
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
+use but_ctx::access::{WorktreeReadPermission, WorktreeWritePermission};
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::GixRepositoryExt;
 use but_rebase::Rebase;
 use but_workspace::legacy::{StacksFilter, stack_ext::StackExt, stacks_v3};
 use gitbutler_branch_actions::update_workspace_commit;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use gix::{ObjectId, Repository};
@@ -47,12 +47,12 @@ pub enum CherryApplyStatus {
 }
 
 pub fn cherry_apply_status(
-    ctx: &CommandContext,
+    ctx: &Context,
     _perm: &WorktreeReadPermission,
     subject: ObjectId,
 ) -> Result<CherryApplyStatus> {
-    let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    let project = ctx.project();
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let project = &ctx.legacy_project;
     let meta =
         VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
     let stacks = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
@@ -92,7 +92,7 @@ pub fn cherry_apply_status(
 }
 
 pub fn cherry_apply(
-    ctx: &CommandContext,
+    ctx: &Context,
     perm: &mut WorktreeWritePermission,
     subject: ObjectId,
     target: StackId,
@@ -117,8 +117,8 @@ pub fn cherry_apply(
         }
     };
 
-    let repo = ctx.gix_repo_for_merging()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repo = ctx.open_repo_for_merging()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut stack = vb_state.get_stack(target)?;
     let mut steps = stack.as_rebase_steps(ctx, &repo)?;
     // Insert before the head references (len - 1)

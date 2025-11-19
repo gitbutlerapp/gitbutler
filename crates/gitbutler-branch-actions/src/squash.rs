@@ -1,13 +1,13 @@
-use anyhow::{Context, Ok, Result, bail};
+use anyhow::{Context as _, Ok, Result, bail};
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     RepositoryExt as _,
     logging::{LogUntil, RepositoryExt},
@@ -24,7 +24,7 @@ use crate::{
 /// Squashes one or multiple commuits from a virtual branch into a destination commit
 /// All of the commits involved have to be in the same stack
 pub(crate) fn squash_commits(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     source_ids: Vec<git2::Oid>,
     desitnation_id: git2::Oid,
@@ -55,21 +55,20 @@ pub(crate) fn squash_commits(
 /// 4. Take the parent most commit from the source commits and destination commit, and use that as the squash target.
 /// - This ensures that squashing parents into children works as expected.
 fn do_squash_commits(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     mut source_ids: Vec<git2::Oid>,
     destination_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let vb_state = ctx.project().virtual_branches();
+    let vb_state = ctx.legacy_project.virtual_branches();
     let stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
 
     let default_target = vb_state.get_default_target()?;
-    let merge_base = ctx
-        .repo()
-        .merge_base(stack.head_oid(&gix_repo)?.to_git2(), default_target.sha)?;
+    let repo = ctx.git2_repo.get()?;
+    let merge_base = repo.merge_base(stack.head_oid(&gix_repo)?.to_git2(), default_target.sha)?;
 
     // =========== Step 1: Reorder
 
@@ -142,7 +141,7 @@ fn do_squash_commits(
 
     // stack was updated by reorder_stack, therefore it is reloaded
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let branch_commit_oids = ctx.repo().l(
+    let branch_commit_oids = repo.l(
         stack.head_oid(&gix_repo)?.to_git2(),
         LogUntil::Commit(merge_base),
         false,
@@ -150,7 +149,7 @@ fn do_squash_commits(
 
     let branch_commits = branch_commit_oids
         .iter()
-        .filter_map(|id| ctx.repo().find_commit(*id).ok())
+        .filter_map(|id| repo.find_commit(*id).ok())
         .collect_vec();
 
     // Find the new destination commit using the change id, error if not found
@@ -162,7 +161,7 @@ fn do_squash_commits(
     // Find the new source commits using the change ids, error if not found
     let source_commits = source_ids
         .iter()
-        .filter_map(|id| ctx.repo().find_commit(*id).ok())
+        .filter_map(|id| repo.find_commit(*id).ok())
         .collect::<Vec<_>>();
 
     validate(
@@ -192,7 +191,7 @@ fn do_squash_commits(
     let source_commits_without_destination = source_commits
         .iter()
         .filter(|&commit| commit.id() != destination_commit.id());
-    let gerrit_mode = but_core::RepositoryExt::git_settings(&ctx.gix_repo()?)?
+    let gerrit_mode = but_core::RepositoryExt::git_settings(&*ctx.repo.get()?)?
         .gitbutler_gerrit_mode
         .unwrap_or(false);
 
@@ -218,8 +217,7 @@ fn do_squash_commits(
     let parents: Vec<_> = parent_most_source_commit.parents().collect();
 
     // Create a new commit with the final tree
-    let new_commit_oid = ctx
-        .repo()
+    let new_commit_oid = repo
         .commit_with_signature(
             None,
             &destination_commit.author(),
@@ -233,11 +231,11 @@ fn do_squash_commits(
 
     let mut steps: Vec<RebaseStep> = Vec::new();
 
-    for head in stack.heads_by_commit(ctx.repo().find_commit(merge_base)?, &gix_repo) {
+    for head in stack.heads_by_commit(repo.find_commit(merge_base)?, &gix_repo) {
         steps.push(RebaseStep::Reference(but_core::Reference::Virtual(head)));
     }
     for oid in branch_commit_oids.iter().rev() {
-        let commit = ctx.repo().find_commit(*oid)?;
+        let commit = repo.find_commit(*oid)?;
         if parent_most_source_commit.id() == *oid {
             steps.push(RebaseStep::Pick {
                 commit_id: new_commit_oid.to_gix(),
@@ -274,7 +272,7 @@ fn do_squash_commits(
 }
 
 fn validate(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack: &gitbutler_stack::Stack,
     branch_commit_oids: &[git2::Oid],
     commits_to_squash_together: &[git2::Commit<'_>],
@@ -300,10 +298,11 @@ fn validate(
         bail!("cannot squash into conflicted destination commit",);
     }
 
+    let git2_repo = &*ctx.git2_repo.get()?;
     let remote_commits = stack
         .branches()
         .iter()
-        .flat_map(|b| b.commits(ctx, stack))
+        .flat_map(|b| b.commits(git2_repo, &ctx.legacy_project, stack))
         .flat_map(|c| c.remote_commits)
         .map(|c| c.id())
         .collect_vec();

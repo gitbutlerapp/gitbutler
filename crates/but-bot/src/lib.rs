@@ -1,6 +1,6 @@
 use but_action::OpenAiProvider;
+use but_ctx::Context;
 use but_tools::emit::Emitter;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 
 mod butbot;
@@ -14,7 +14,7 @@ pub fn bot(
     project_id: ProjectId,
     message_id: String,
     emitter: std::sync::Arc<Emitter>,
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     openai: &OpenAiProvider,
     chat_messages: Vec<but_action::ChatMessage>,
 ) -> anyhow::Result<String> {

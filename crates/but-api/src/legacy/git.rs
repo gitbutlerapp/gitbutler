@@ -1,8 +1,7 @@
 //! In place of commands.rs
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::api_cmd_tauri;
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::RepositoryExt as _;
@@ -12,9 +11,9 @@ use tracing::instrument;
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn git_remote_branches(project_id: ProjectId) -> Result<Vec<RemoteRefname>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    ctx.repo().remote_branches()
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let repo = ctx.git2_repo.get()?;
+    repo.remote_branches()
 }
 
 #[api_cmd_tauri]
@@ -24,8 +23,7 @@ pub fn git_test_push(
     remote_name: String,
     branch_name: String,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     ctx.git_test_push(&remote_name, &branch_name, Some(None))?;
     Ok(())
 }
@@ -37,8 +35,7 @@ pub fn git_test_fetch(
     remote_name: String,
     action: Option<String>,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     ctx.fetch(
         &remote_name,
         Some(action.unwrap_or_else(|| "test".to_string())),
@@ -49,10 +46,10 @@ pub fn git_test_fetch(
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn git_index_size(project_id: ProjectId) -> Result<usize> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let size = ctx
-        .repo()
+        .git2_repo
+        .get()?
         .index()
         .context("failed to get index size")?
         .len();

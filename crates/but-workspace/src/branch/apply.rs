@@ -110,7 +110,7 @@ pub struct Options {
 pub(crate) mod function {
     use std::borrow::Cow;
 
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use but_core::{
         ObjectStorageExt, RefMetadata, RepositoryExt, extract_remote_name, ref_metadata,
         ref_metadata::{

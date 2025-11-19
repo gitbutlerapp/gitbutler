@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
+use but_ctx::CommandContext;
 use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::RepositoryExt;

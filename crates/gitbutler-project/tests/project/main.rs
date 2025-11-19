@@ -166,7 +166,7 @@ mod delete {
         let path = repository.path();
         let project = gitbutler_project::add_with_path(data_dir.path(), path)?.unwrap_project();
 
-        let repo = project.open_isolated()?;
+        let repo = project.open_isolated_repo()?;
         let head_id = repo.head_id()?;
 
         // Create references in both namespaces
@@ -224,7 +224,7 @@ mod delete {
         let path = repository.path();
         let project = gitbutler_project::add_with_path(data_dir.path(), path)?.unwrap_project();
 
-        let repo = project.open_isolated()?;
+        let repo = project.open_isolated_repo()?;
         let head_id = repo.head_id()?;
 
         repo.reference(

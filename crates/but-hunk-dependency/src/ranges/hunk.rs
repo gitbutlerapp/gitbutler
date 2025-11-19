@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_core::{TreeStatusKind, ref_metadata::StackId};
 
 use crate::utils::PaniclessSubtraction;

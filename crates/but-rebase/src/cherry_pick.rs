@@ -25,7 +25,7 @@ pub enum EmptyCommit {
 pub(crate) mod function {
     use std::{collections::HashSet, path::PathBuf};
 
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use bstr::BString;
     use but_core::commit::{HEADERS_CONFLICTED_FIELD, HeadersV2, TreeKind};
     use gix::{object::tree::EntryKind, prelude::ObjectIdExt};

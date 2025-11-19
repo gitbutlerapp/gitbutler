@@ -7,12 +7,13 @@ use std::{
 };
 
 use but_core::TreeChange;
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_oxidize::ObjectIdExt;
 use but_tools::emit::{Emittable, Emitter, TokenUpdate};
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::{Project, ProjectId, access::WorktreeWritePermission};
+use gitbutler_project::{Project, ProjectId};
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 pub use openai::{CredentialsKind, OpenAiProvider};
 use serde::{Deserialize, Serialize};
@@ -44,12 +45,12 @@ pub fn freestyle(
     project_id: ProjectId,
     message_id: String,
     emitter: Arc<Emitter>,
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     openai: &OpenAiProvider,
     chat_messages: Vec<openai::ChatMessage>,
     model: Option<String>,
 ) -> anyhow::Result<String> {
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.open_repo()?;
 
     let project_status = but_tools::workspace::get_project_status(ctx, &repo, None)?;
     let serialized_status = serde_json::to_string_pretty(&project_status)
@@ -143,7 +144,7 @@ pub fn freestyle(
 
 pub fn absorb(
     emitter: Arc<Emitter>,
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     openai: &OpenAiProvider,
     changes: Vec<TreeChange>,
 ) -> anyhow::Result<()> {
@@ -152,7 +153,7 @@ pub fn absorb(
 
 pub fn branch_changes(
     emitter: Arc<Emitter>,
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     openai: &OpenAiProvider,
     changes: Vec<TreeChange>,
 ) -> anyhow::Result<()> {
@@ -161,7 +162,7 @@ pub fn branch_changes(
 
 pub fn auto_commit(
     emitter: Arc<Emitter>,
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     openai: &OpenAiProvider,
     changes: Vec<TreeChange>,
 ) -> anyhow::Result<()> {
@@ -169,7 +170,7 @@ pub fn auto_commit(
 }
 
 pub fn handle_changes(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     change_summary: &str,
     external_prompt: Option<String>,
     handler: ActionHandler,
@@ -188,7 +189,7 @@ pub fn handle_changes(
 }
 
 fn default_target_setting_if_none(
-    ctx: &CommandContext,
+    ctx: &Context,
     vb_state: &VirtualBranchesHandle,
 ) -> anyhow::Result<Target> {
     if let Ok(default_target) = vb_state.get_default_target() {
@@ -196,7 +197,7 @@ fn default_target_setting_if_none(
     }
     // Lets do the equivalent of `git symbolic-ref refs/remotes/origin/HEAD --short` to guess the default target.
 
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let remote_name = repo
         .remote_default_name(gix::remote::Direction::Push)
         .ok_or_else(|| anyhow::anyhow!("No push remote set"))?
@@ -222,10 +223,9 @@ fn default_target_setting_if_none(
     Ok(target)
 }
 
-fn stacks(ctx: &CommandContext, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
-    let project = ctx.project();
-    if ctx.app_settings().feature_flags.ws3 {
-        let meta = ref_metadata_toml(ctx.project())?;
+fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
+    if ctx.settings().feature_flags.ws3 {
+        let meta = ref_metadata_toml(&ctx.legacy_project)?;
         but_workspace::legacy::stacks_v3(
             repo,
             &meta,
@@ -235,7 +235,7 @@ fn stacks(ctx: &CommandContext, repo: &gix::Repository) -> anyhow::Result<Vec<St
     } else {
         but_workspace::legacy::stacks(
             ctx,
-            &project.gb_dir(),
+            &ctx.project_data_dir(),
             repo,
             but_workspace::legacy::StacksFilter::InWorkspace,
         )
@@ -248,16 +248,16 @@ fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMet
 
 /// Returns the currently applied stacks, creating one if none exists.
 fn stacks_creating_if_none(
-    ctx: &CommandContext,
+    ctx: &Context,
     vb_state: &VirtualBranchesHandle,
     repo: &gix::Repository,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<Vec<StackEntry>> {
     let stacks = stacks(ctx, repo)?;
     if stacks.is_empty() {
-        let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
+        let template = gitbutler_stack::canned_branch_name(&*ctx.git2_repo.get()?)?;
         let branch_name = gitbutler_stack::Stack::next_available_name(
-            &ctx.gix_repo()?,
+            &*ctx.repo.get()?,
             vb_state,
             template,
             false,

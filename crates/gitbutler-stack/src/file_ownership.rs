@@ -1,6 +1,6 @@
 use std::{fmt, path, path::Path, str::FromStr, vec};
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_meta::virtual_branches_legacy_types;
 use gitbutler_diff::Hunk;
 

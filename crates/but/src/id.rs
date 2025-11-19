@@ -2,8 +2,8 @@ use std::{collections::HashMap, fmt::Display};
 
 use bstr::ByteSlice;
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
-use gitbutler_command_context::CommandContext;
 
 pub struct IdDb {
     branch_name_to_cli_id: HashMap<String, CliId>,
@@ -11,7 +11,7 @@ pub struct IdDb {
 }
 
 impl IdDb {
-    pub fn new(ctx: &CommandContext) -> anyhow::Result<Self> {
+    pub fn new(ctx: &Context) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         let stacks = crate::utils::commits::stacks(ctx)?;
         let mut pairs_to_count: HashMap<u16, u8> = HashMap::new();
@@ -68,11 +68,7 @@ impl IdDb {
         })
     }
 
-    fn find_branches_by_name(
-        &mut self,
-        ctx: &CommandContext,
-        name: &str,
-    ) -> anyhow::Result<Vec<CliId>> {
+    fn find_branches_by_name(&mut self, ctx: &Context, name: &str) -> anyhow::Result<Vec<CliId>> {
         let stacks = crate::utils::commits::stacks(ctx)?;
         let mut matches = Vec::new();
 
@@ -157,7 +153,7 @@ impl CliId {
         }
     }
 
-    fn find_commits_by_sha(ctx: &CommandContext, sha_prefix: &str) -> anyhow::Result<Vec<Self>> {
+    fn find_commits_by_sha(ctx: &Context, sha_prefix: &str) -> anyhow::Result<Vec<Self>> {
         let mut matches = Vec::new();
 
         // Only try SHA matching if the input looks like a hex string
@@ -194,7 +190,7 @@ impl CliId {
         }
     }
 
-    pub fn from_str(ctx: &mut CommandContext, s: &str) -> anyhow::Result<Vec<Self>> {
+    pub fn from_str(ctx: &mut Context, s: &str) -> anyhow::Result<Vec<Self>> {
         if s.len() < 2 {
             return Err(anyhow::anyhow!(
                 "Id needs to be at least 2 characters long: {}",

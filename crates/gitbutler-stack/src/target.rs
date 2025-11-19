@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_reference::RemoteRefname;

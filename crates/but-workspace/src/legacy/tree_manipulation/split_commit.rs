@@ -1,6 +1,6 @@
 use anyhow::Result;
+use but_ctx::Context;
 use but_rebase::Rebase;
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 
 use crate::legacy::{
@@ -21,14 +21,14 @@ use crate::legacy::{
 /// 2. Replace the original commit in the stack with the new commits.
 /// 3. Update the stack to reflect the new commits.
 pub fn split_commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     stack_id: StackId,
     source_commit_id: gix::ObjectId,
     pieces: &[CommitFiles],
     context_lines: u32,
 ) -> Result<CommmitSplitOutcome> {
-    let repository = ctx.gix_repo()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repository = ctx.repo.get()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(stack_id)?;
 
@@ -65,7 +65,7 @@ pub fn split_commit(
 }
 
 fn new_commits(
-    ctx: &CommandContext,
+    ctx: &Context,
     source_commit_id: gix::ObjectId,
     pieces: &[CommitFiles],
     context_lines: u32,

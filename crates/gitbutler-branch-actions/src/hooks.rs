@@ -1,4 +1,4 @@
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use gitbutler_repo::{
     hooks::{self, HookResult},
     staging,
@@ -6,11 +6,12 @@ use gitbutler_repo::{
 use gitbutler_stack::BranchOwnershipClaims;
 
 pub fn pre_commit(
-    ctx: &CommandContext,
+    ctx: &Context,
     ownership: &BranchOwnershipClaims,
 ) -> Result<HookResult, anyhow::Error> {
-    let repo = ctx.repo();
-    let diffs = gitbutler_diff::workdir(ctx.repo(), repo.head()?.peel_to_commit()?.id())?;
+    let repo = &*ctx.git2_repo.get()?;
+    let diffs =
+        gitbutler_diff::workdir(&*ctx.git2_repo.get()?, repo.head()?.peel_to_commit()?.id())?;
     let selected_files = staging::filter_diff_by_hunk_ids(
         diffs,
         ownership
@@ -23,7 +24,7 @@ pub fn pre_commit(
 }
 
 pub fn pre_commit_with_tree(
-    ctx: &CommandContext,
+    ctx: &Context,
     tree_id: git2::Oid,
 ) -> Result<HookResult, anyhow::Error> {
     hooks::pre_commit_with_tree(ctx, tree_id)

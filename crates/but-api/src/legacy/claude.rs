@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_api_macros::api_cmd_tauri;
 use but_claude::{
     Claude, ClaudeCheckResult, ClaudeMessage, ClaudeUserParams, Transcript,
@@ -9,11 +7,10 @@ use but_claude::{
     prompt_templates,
 };
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use serde::Deserialize;
-use tokio::sync::Mutex;
 use tracing::instrument;
 
 #[derive(Deserialize)]
@@ -27,14 +24,11 @@ pub struct SendMessageParams {
 
 pub async fn claude_send_message(claude: &Claude, params: SendMessageParams) -> Result<()> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = Arc::new(Mutex::new(CommandContext::open(
-        &project,
-        AppSettings::load_from_default_path_creating()?,
-    )?));
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     claude
         .instance_by_stack
         .send_message(
-            ctx,
+            ctx.into_sync(),
             claude.broadcaster.clone(),
             params.stack_id,
             params.user_params,
@@ -55,7 +49,7 @@ pub fn claude_get_messages(
     params: GetMessagesParams,
 ) -> Result<Vec<ClaudeMessage>> {
     let project = gitbutler_project::get(params.project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let messages = claude
         .instance_by_stack
         .get_messages(&mut ctx, params.stack_id)?;
@@ -69,11 +63,14 @@ pub async fn claude_get_session_details(
     session_id: String,
 ) -> Result<but_claude::ClaudeSessionDetails> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
-    let session = but_claude::db::get_session_by_id(&mut ctx, session_id)?
-        .context("Could not find session")?;
-    let worktree_dir = project.worktree_dir()?;
+    let (worktree_dir, session) = {
+        let mut ctx = Context::new_from_legacy_project(project.clone())?;
+        let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
+        let session = but_claude::db::get_session_by_id(&mut ctx, session_id)?
+            .context("Could not find session")?;
+        let worktree_dir = project.worktree_dir()?;
+        (worktree_dir, session)
+    };
     let current_id = Transcript::current_valid_session_id(worktree_dir, &session).await?;
     if let Some(current_id) = current_id {
         let transcript_path =
@@ -100,7 +97,7 @@ pub fn claude_get_user_message(
     offset: Option<i64>,
 ) -> Result<Option<ClaudeMessage>> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     but_claude::db::get_user_message(&mut ctx, offset)
 }
 
@@ -110,7 +107,7 @@ pub fn claude_list_permission_requests(
     project_id: ProjectId,
 ) -> Result<Vec<but_claude::ClaudePermissionRequest>> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     but_claude::db::list_all_permission_requests(&mut ctx)
 }
 #[api_cmd_tauri]
@@ -122,7 +119,7 @@ pub fn claude_update_permission_request(
     use_wildcard: bool,
 ) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     but_claude::db::update_permission_request(&mut ctx, &request_id, decision, use_wildcard)
 }
 
@@ -173,13 +170,10 @@ pub struct CompactHistoryParams {
 
 pub async fn claude_compact_history(claude: &Claude, params: CompactHistoryParams) -> Result<()> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = Arc::new(Mutex::new(CommandContext::open(
-        &project,
-        AppSettings::load_from_default_path_creating()?,
-    )?));
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     claude
         .instance_by_stack
-        .compact_history(ctx, claude.broadcaster.clone(), params.stack_id)
+        .compact_history(ctx.into_sync(), claude.broadcaster.clone(), params.stack_id)
         .await?;
     Ok(())
 }

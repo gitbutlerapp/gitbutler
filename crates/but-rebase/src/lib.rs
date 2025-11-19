@@ -3,7 +3,7 @@
 //! It will only affect the commit-graph, and never the alter the worktree in any way.
 #![deny(missing_docs)]
 
-use anyhow::{Context, Ok, Result, anyhow, bail};
+use anyhow::{Context as _, Ok, Result, anyhow, bail};
 use bstr::BString;
 use gix::{objs::Exists, prelude::ObjectIdExt};
 use tracing::instrument;

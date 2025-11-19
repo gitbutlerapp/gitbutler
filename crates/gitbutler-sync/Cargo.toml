@@ -14,7 +14,7 @@ but-error.workspace = true
 but-oxidize.workspace = true
 
 gitbutler-oplog.workspace = true
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-project.workspace = true
 gitbutler-user.workspace = true
 gitbutler-reference.workspace = true

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, anyhow};
+use anyhow::{Context as _, anyhow};
 use gitbutler_stack::StackId;
 
 #[derive(Debug, Clone)]

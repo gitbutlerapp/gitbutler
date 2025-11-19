@@ -1,13 +1,13 @@
 /// Tests for cherry-apply functionality
 mod util {
     use but_cherry_apply::{CherryApplyStatus, cherry_apply, cherry_apply_status};
-    use gitbutler_command_context::CommandContext;
+    use but_ctx::Context;
     use gitbutler_stack::VirtualBranchesHandle;
     use gix_testtools::tempfile::TempDir;
 
     pub fn test_ctx(name: &str) -> anyhow::Result<TestContext> {
         let (ctx, tmpdir) = gitbutler_testsupport::writable::fixture("cherry_apply.sh", name)?;
-        let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
+        let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
 
         Ok(TestContext {
             ctx,
@@ -17,7 +17,7 @@ mod util {
     }
 
     pub struct TestContext {
-        pub ctx: CommandContext,
+        pub ctx: Context,
         pub handle: VirtualBranchesHandle,
         pub _tmpdir: TempDir,
     }
@@ -26,10 +26,7 @@ mod util {
         pub fn get_status(&self, commit_id: gix::ObjectId) -> anyhow::Result<CherryApplyStatus> {
             cherry_apply_status(
                 &self.ctx,
-                self.ctx
-                    .project()
-                    .exclusive_worktree_access()
-                    .read_permission(),
+                self.ctx.exclusive_worktree_access().read_permission(),
                 commit_id,
             )
         }
@@ -41,10 +38,7 @@ mod util {
         ) -> anyhow::Result<()> {
             cherry_apply(
                 &self.ctx,
-                self.ctx
-                    .project()
-                    .exclusive_worktree_access()
-                    .write_permission(),
+                self.ctx.exclusive_worktree_access().write_permission(),
                 commit_id,
                 target_stack,
             )
@@ -65,7 +59,7 @@ mod clean_to_both {
     fn status_is_applicable_to_any_stack() -> anyhow::Result<()> {
         let test_ctx = test_ctx("clean-to-both")?;
 
-        let repo = test_ctx.ctx.gix_repo()?;
+        let repo = test_ctx.ctx.repo.get()?;
         let commit_id = repo
             .rev_parse_single("refs/gitbutler/clean-commit")?
             .detach();
@@ -81,7 +75,7 @@ mod clean_to_both {
     fn can_apply_to_foo_stack() -> anyhow::Result<()> {
         let test_ctx = test_ctx("clean-to-both")?;
 
-        let repo = test_ctx.ctx.gix_repo()?;
+        let repo = test_ctx.ctx.repo.get()?;
         let commit_id = repo
             .rev_parse_single("refs/gitbutler/clean-commit")?
             .detach();
@@ -101,7 +95,7 @@ mod clean_to_both {
         let meta = VirtualBranchesTomlMetadata::from_path(
             test_ctx
                 .ctx
-                .project()
+                .legacy_project
                 .gb_dir()
                 .join("virtual_branches.toml"),
         )?;
@@ -130,7 +124,7 @@ mod clean_to_both {
     fn can_apply_to_bar_stack() -> anyhow::Result<()> {
         let test_ctx = test_ctx("clean-to-both")?;
 
-        let repo = test_ctx.ctx.gix_repo()?;
+        let repo = test_ctx.ctx.repo.get()?;
         let commit_id = repo
             .rev_parse_single("refs/gitbutler/clean-commit")?
             .detach();
@@ -150,7 +144,7 @@ mod clean_to_both {
         let meta = VirtualBranchesTomlMetadata::from_path(
             test_ctx
                 .ctx
-                .project()
+                .legacy_project
                 .gb_dir()
                 .join("virtual_branches.toml"),
         )?;
@@ -185,7 +179,7 @@ mod conflicts_with_bar {
     fn status_is_locked_to_bar() -> anyhow::Result<()> {
         let test_ctx = test_ctx("conflicts-with-bar")?;
 
-        let repo = test_ctx.ctx.gix_repo()?;
+        let repo = test_ctx.ctx.repo.get()?;
         let commit_id = repo
             .rev_parse_single("refs/gitbutler/bar-conflict")?
             .detach();
@@ -209,7 +203,7 @@ mod conflicts_with_bar {
     fn can_only_apply_to_bar_stack() -> anyhow::Result<()> {
         let test_ctx = test_ctx("conflicts-with-bar")?;
 
-        let repo = test_ctx.ctx.gix_repo()?;
+        let repo = test_ctx.ctx.repo.get()?;
         let commit_id = repo
             .rev_parse_single("refs/gitbutler/bar-conflict")?
             .detach();
@@ -229,7 +223,7 @@ mod conflicts_with_bar {
         let meta = VirtualBranchesTomlMetadata::from_path(
             test_ctx
                 .ctx
-                .project()
+                .legacy_project
                 .gb_dir()
                 .join("virtual_branches.toml"),
         )?;
@@ -264,7 +258,7 @@ mod conflicts_with_both {
     fn status_is_causes_workspace_conflict() -> anyhow::Result<()> {
         let test_ctx = test_ctx("conflicts-with-both")?;
 
-        let repo = test_ctx.ctx.gix_repo()?;
+        let repo = test_ctx.ctx.repo.get()?;
         let commit_id = repo
             .rev_parse_single("refs/gitbutler/both-conflict")?
             .detach();
@@ -280,7 +274,7 @@ mod conflicts_with_both {
     fn cannot_apply_to_foo_stack() -> anyhow::Result<()> {
         let test_ctx = test_ctx("conflicts-with-both")?;
 
-        let repo = test_ctx.ctx.gix_repo()?;
+        let repo = test_ctx.ctx.repo.get()?;
         let commit_id = repo
             .rev_parse_single("refs/gitbutler/both-conflict")?
             .detach();
@@ -310,7 +304,7 @@ mod conflicts_with_both {
     fn cannot_apply_to_bar_stack() -> anyhow::Result<()> {
         let test_ctx = test_ctx("conflicts-with-both")?;
 
-        let repo = test_ctx.ctx.gix_repo()?;
+        let repo = test_ctx.ctx.repo.get()?;
         let commit_id = repo
             .rev_parse_single("refs/gitbutler/both-conflict")?
             .detach();
@@ -346,7 +340,7 @@ mod no_stacks {
     fn status_is_no_stacks() -> anyhow::Result<()> {
         let test_ctx = test_ctx("no-stacks")?;
 
-        let repo = test_ctx.ctx.gix_repo()?;
+        let repo = test_ctx.ctx.repo.get()?;
         let commit_id = repo
             .rev_parse_single("refs/gitbutler/no-stacks-commit")?
             .detach();

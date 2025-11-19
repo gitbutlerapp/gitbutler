@@ -3,16 +3,16 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_api_macros::api_cmd_tauri;
 use but_core::RepositoryExt;
+use but_ctx::Context;
 use but_graph::petgraph::Direction;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_workspace::{commit_engine, commit_engine::StackSegmentId, legacy::ui::StackEntry};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
@@ -32,10 +32,9 @@ fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMet
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    let meta = ref_metadata_toml(ctx.project())?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let meta = ref_metadata_toml(&ctx.legacy_project)?;
     but_workspace::head_info(
         &repo,
         &meta,
@@ -56,14 +55,18 @@ pub fn stacks(
     project_id: ProjectId,
     filter: Option<but_workspace::legacy::StacksFilter>,
 ) -> Result<Vec<StackEntry>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    if ctx.app_settings().feature_flags.ws3 {
-        let meta = ref_metadata_toml(ctx.project())?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    if ctx.settings().feature_flags.ws3 {
+        let meta = ref_metadata_toml(&ctx.legacy_project)?;
         but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
     } else {
-        but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, filter.unwrap_or_default())
+        but_workspace::legacy::stacks(
+            &ctx,
+            &ctx.project_data_dir(),
+            &repo,
+            filter.unwrap_or_default(),
+        )
     }
 }
 
@@ -71,12 +74,9 @@ pub fn stacks(
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
-    use but_settings::AppSettings;
-
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.gix_repo_local_only()?;
-    let meta = ref_metadata_toml(&project)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let repo = ctx.open_isolated_repo()?;
+    let meta = ref_metadata_toml(&ctx.legacy_project)?;
     let mut graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -129,27 +129,24 @@ pub fn stack_details(
     stack_id: Option<StackId>,
 ) -> Result<but_workspace::ui::StackDetails> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut details = if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
-        let meta = ref_metadata_toml(ctx.project())?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let mut details = if ctx.settings().feature_flags.ws3 {
+        let repo = ctx.open_repo_for_merging_non_persisting()?;
+        let meta = ref_metadata_toml(&ctx.legacy_project)?;
         but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
     } else {
         but_workspace::legacy::stack_details(
-            &project.gb_dir(),
+            &ctx.project_data_dir(),
             stack_id.context("BUG(opt-stack-id)")?,
             &ctx,
         )
     }?;
-    let repo = ctx.gix_repo()?;
-    let gerrit_mode = ctx
-        .gix_repo()?
-        .git_settings()?
-        .gitbutler_gerrit_mode
-        .unwrap_or(false);
+    let repo = ctx.repo.get()?;
+    let gerrit_mode = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
+    let mut db = ctx.db.get_mut()?;
     if gerrit_mode {
         for branch in details.branch_details.iter_mut() {
-            handle_gerrit(branch, &repo, &mut ctx)?;
+            handle_gerrit(branch, &repo, &mut db)?;
             update_push_status(branch);
         }
     }
@@ -191,9 +188,9 @@ fn update_push_status(branch: &mut but_workspace::ui::BranchDetails) {
 fn handle_gerrit(
     branch: &mut but_workspace::ui::BranchDetails,
     repo: &gix::Repository,
-    ctx: &mut CommandContext,
+    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<()> {
-    let mut db = ctx.db()?.gerrit_metadata();
+    let mut db = db.gerrit_metadata();
     for commit in branch.commits.iter_mut() {
         let change_id = repo
             .find_commit(commit.id)
@@ -227,10 +224,10 @@ pub fn branch_details(
     remote: Option<String>,
 ) -> Result<but_workspace::ui::BranchDetails> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut details = if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
-        let meta = ref_metadata_toml(ctx.project())?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let mut details = if ctx.settings().feature_flags.ws3 {
+        let repo = ctx.open_repo_for_merging_non_persisting()?;
+        let meta = ref_metadata_toml(&ctx.legacy_project)?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
             None => {
                 format!("refs/heads/{branch_name}")
@@ -244,20 +241,22 @@ pub fn branch_details(
         but_workspace::branch_details(&repo, ref_name.as_ref(), &meta)
     } else {
         but_workspace::legacy::branch_details(
-            &project.gb_dir(),
+            &ctx.project_data_dir(),
             &branch_name,
             remote.as_deref(),
             &ctx,
         )
     }?;
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
+    let mut db = ctx.db.get_mut()?;
     let gerrit_mode = ctx
-        .gix_repo()?
+        .repo
+        .get()?
         .git_settings()?
         .gitbutler_gerrit_mode
         .unwrap_or(false);
     if gerrit_mode {
-        handle_gerrit(&mut details, &repo, &mut ctx)?;
+        handle_gerrit(&mut details, &repo, &mut db)?;
         update_push_status(&mut details);
     }
     Ok(details)
@@ -281,9 +280,8 @@ pub fn create_commit_from_worktree_changes(
     message: String,
     stack_branch_name: String,
 ) -> Result<commit_engine::ui::CreateCommitOutcome> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
 
     let outcome = but_workspace::legacy::commit_engine::create_commit_simple(
@@ -324,8 +322,8 @@ pub fn amend_commit_from_worktree_changes(
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome> {
     let project = gitbutler_project::get(project_id)?;
-    let mut guard = project.exclusive_worktree_access();
-    let repo = project.open_for_merging()?;
+    let mut guard = but_core::sync::exclusive_worktree_access(project.git_dir());
+    let repo = project.open_repo_for_merging()?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
@@ -358,9 +356,9 @@ pub fn discard_worktree_changes(
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<Vec<but_core::DiffSpec>> {
     let project = gitbutler_project::get(project_id)?;
-    let repo = project.open()?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+    let repo = project.open_repo()?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let mut guard = ctx.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardChanges),
@@ -369,7 +367,7 @@ pub fn discard_worktree_changes(
     let refused = but_workspace::discard_workspace_changes(
         &repo,
         worktree_changes,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
     )?;
     if !refused.is_empty() {
         tracing::warn!(?refused, "Failed to discard at least one hunk");
@@ -410,9 +408,8 @@ pub fn move_changes_between_commits(
     destination_commit_id: HexHash,
     changes: Vec<but_core::DiffSpec>,
 ) -> Result<json::UIMoveChangesResult> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::AmendCommit),
@@ -425,10 +422,10 @@ pub fn move_changes_between_commits(
         destination_stack_id,
         destination_commit_id.into(),
         changes,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, &ctx, false)?;
 
     Ok(result.into())
@@ -443,9 +440,8 @@ pub fn split_branch(
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
 ) -> Result<json::UIMoveChangesResult> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::SplitBranch),
@@ -458,10 +454,10 @@ pub fn split_branch(
         source_branch_name,
         new_branch_name.clone(),
         &file_changes_to_split_off,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, &ctx, false)?;
 
     let refname = Refname::Local(LocalRefname::new(&new_branch_name, None));
@@ -485,9 +481,8 @@ pub fn split_branch_into_dependent_branch(
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
 ) -> Result<json::UIMoveChangesResult> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::SplitBranch),
@@ -500,10 +495,10 @@ pub fn split_branch_into_dependent_branch(
         source_branch_name,
         new_branch_name.clone(),
         &file_changes_to_split_off,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, &ctx, false)?;
 
     Ok(move_changes_result.into())
@@ -524,8 +519,8 @@ pub fn uncommit_changes(
     assign_to: Option<StackId>,
 ) -> Result<json::UIMoveChangesResult> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let mut guard = ctx.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardChanges),
@@ -557,10 +552,10 @@ pub fn uncommit_changes(
         stack_id,
         commit_id.into(),
         changes,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, &ctx, false)?;
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
@@ -603,11 +598,10 @@ pub fn stash_into_branch(
     branch_name: String,
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.gix_repo_for_merging()?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let repo = ctx.open_repo_for_merging()?;
 
-    let mut guard = project.exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
     let _ = ctx.snapshot_stash_into_branch(branch_name.clone(), perm);
@@ -626,7 +620,7 @@ pub fn stash_into_branch(
 
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        &project,
+        &ctx.legacy_project,
         Some(stack.id),
         commit_engine::Destination::NewCommit {
             parent_commit_id: Some(parent_commit_id),
@@ -639,11 +633,11 @@ pub fn stash_into_branch(
             }),
         },
         worktree_changes,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
         perm,
     );
 
-    let vb_state = VirtualBranchesHandle::new(project.gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx, false)
         .context("failed to update gitbutler workspace")?;
 
@@ -652,7 +646,7 @@ pub fn stash_into_branch(
         perm,
         false,
         Vec::new(),
-        ctx.app_settings().feature_flags.cv3,
+        ctx.settings().feature_flags.cv3,
     )?;
 
     let outcome = outcome?;
@@ -664,11 +658,11 @@ pub fn stash_into_branch(
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn canned_branch_name(project_id: ProjectId) -> Result<String> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
-    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    gitbutler_stack::Stack::next_available_name(&ctx.gix_repo()?, &state, template, false)
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let template = gitbutler_stack::canned_branch_name(&*ctx.git2_repo.get()?)?;
+    let state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let repo = ctx.repo.get()?;
+    gitbutler_stack::Stack::next_available_name(&repo, &state, template, false)
 }
 
 #[api_cmd_tauri]
@@ -678,8 +672,7 @@ pub fn target_commits(
     last_commit_id: Option<HexHash>,
     page_size: Option<usize>,
 ) -> Result<Vec<but_workspace::ui::Commit>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     but_workspace::legacy::log_target_first_parent(
         &ctx,
         last_commit_id.map(|id| id.into()),

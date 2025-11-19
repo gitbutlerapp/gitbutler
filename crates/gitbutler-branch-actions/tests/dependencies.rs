@@ -4,8 +4,8 @@ use std::{
 };
 
 use anyhow::Result;
+use but_ctx::Context;
 use gitbutler_branch_actions::compute_workspace_dependencies;
-use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{ChangeType, GitHunk, Hunk};
 use gitbutler_hunk_dependency::HunkLock;
 use gitbutler_stack::VirtualBranchesHandle;
@@ -792,7 +792,7 @@ fn dependencies_handle_complex_branch_checkout() -> Result<()> {
 fn assert_hunk_lock_matches_by_message(
     actual_hunk_lock: HunkLock,
     expected_commit_message: &str,
-    ctx: &CommandContext,
+    ctx: &Context,
     message: &str,
 ) {
     let commit_message = get_commit_message(ctx, actual_hunk_lock.commit_id);
@@ -802,8 +802,8 @@ fn assert_hunk_lock_matches_by_message(
     );
 }
 
-fn get_commit_message(ctx: &CommandContext, commit_id: git2::Oid) -> String {
-    let repo = ctx.repo();
+fn get_commit_message(ctx: &Context, commit_id: git2::Oid) -> String {
+    let repo = &*ctx.git2_repo.get().unwrap();
     let commit = repo.find_commit(commit_id).unwrap();
     let commit_message = commit.message().unwrap();
     commit_message.to_string()
@@ -812,7 +812,7 @@ fn get_commit_message(ctx: &CommandContext, commit_id: git2::Oid) -> String {
 fn assert_commit_map_matches_by_message(
     actual: &HashMap<git2::Oid, HashSet<git2::Oid>>,
     expected: HashMap<&str, Vec<&str>>,
-    ctx: &CommandContext,
+    ctx: &Context,
     message: &str,
 ) {
     let actual_messages = extract_commit_messages(actual, ctx);
@@ -853,12 +853,12 @@ fn assert_commit_map_matches_by_message(
 
 fn extract_commit_messages(
     actual: &HashMap<git2::Oid, HashSet<git2::Oid>>,
-    ctx: &CommandContext,
+    ctx: &Context,
 ) -> HashMap<String, Vec<String>> {
     let mut actual_messages: HashMap<String, Vec<String>> = HashMap::new();
 
     for (oid_key, oid_values) in actual {
-        let repo = ctx.repo();
+        let repo = &*ctx.git2_repo.get().unwrap();
         let key_commit = repo.find_commit(*oid_key).unwrap();
         let key_message = key_commit.message().unwrap().trim().to_string();
         let actual_values: Vec<String> = oid_values
@@ -875,16 +875,16 @@ fn extract_commit_messages(
     actual_messages
 }
 
-fn command_ctx(name: &str) -> Result<CommandContext> {
+fn command_ctx(name: &str) -> Result<Context> {
     gitbutler_testsupport::read_only::fixture("dependencies.sh", name)
 }
 
-fn command_ctx_after_updates(name: &str) -> Result<CommandContext> {
+fn command_ctx_after_updates(name: &str) -> Result<Context> {
     gitbutler_testsupport::read_only::fixture("dependencies-after-updates.sh", name)
 }
 
-fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
-    let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
+fn test_ctx(ctx: &Context) -> Result<TestContext> {
+    let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
     let branches = handle.list_all_stacks()?;
     let stack = branches.iter().find(|b| b.name == "my_stack").unwrap();
 

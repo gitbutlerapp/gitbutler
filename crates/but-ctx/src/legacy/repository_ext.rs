@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use gix::bstr::{BString, ByteVec};
 use tracing::instrument;
 

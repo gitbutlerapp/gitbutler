@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_core::{ChangeState, DiffSpec, TreeStatus};
 
@@ -190,7 +190,7 @@ pub fn discard_workspace_changes(
 mod file {
     use std::path::{Path, PathBuf};
 
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use bstr::{BStr, BString, ByteSlice, ByteVec};
     use but_core::ChangeState;
     use gix::{

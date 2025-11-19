@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_clap::generator;
 
 fn main() -> Result<()> {

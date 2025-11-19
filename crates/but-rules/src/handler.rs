@@ -1,17 +1,17 @@
 use std::str::FromStr;
 
 use but_core::{DiffSpec, ref_metadata::StackId};
+use but_ctx::Context;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::legacy::{StacksFilter, commit_engine, ui::StackEntry};
-use gitbutler_command_context::CommandContext;
 use itertools::Itertools;
 
 use crate::{Filter, StackTarget};
 
 pub fn process_workspace_rules(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<usize> {
@@ -39,14 +39,14 @@ pub fn process_workspace_rules(
         return Ok(updates);
     }
 
-    let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    let stacks_in_ws = if ctx.app_settings().feature_flags.ws3 {
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let stacks_in_ws = if ctx.settings().feature_flags.ws3 {
         let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
+            ctx.project_data_dir().join("virtual_branches.toml"),
         )?;
         but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)
     } else {
-        but_workspace::legacy::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+        but_workspace::legacy::stacks(ctx, &ctx.project_data_dir(), &repo, StacksFilter::default())
     }?;
 
     for rule in rules {
@@ -76,17 +76,17 @@ pub fn process_workspace_rules(
 }
 
 fn handle_amend(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     assignments: Vec<HunkAssignment>,
     change_id: String,
 ) -> anyhow::Result<()> {
     let changes: Vec<DiffSpec> = assignments.into_iter().map(|a| a.into()).collect();
-    let project = ctx.project();
-    let mut guard = project.exclusive_worktree_access();
-    let repo = project.open_for_merging()?;
+    let project = &ctx.legacy_project;
+    let mut guard = ctx.exclusive_worktree_access();
+    let repo = project.open_repo_for_merging()?;
 
     let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project().gb_dir().join("virtual_branches.toml"),
+        ctx.project_data_dir().join("virtual_branches.toml"),
     )?;
     let ref_info_options = but_workspace::ref_info::Options {
         expensive_commit_info: true,
@@ -122,14 +122,14 @@ fn handle_amend(
             new_message: None,
         },
         changes,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
         guard.write_permission(),
     )?;
     Ok(())
 }
 
 fn get_or_create_stack_id(
-    ctx: &CommandContext,
+    ctx: &Context,
     target: StackTarget,
     stacks_in_ws: &[StackEntry],
 ) -> Option<StackId> {
@@ -167,11 +167,11 @@ fn get_or_create_stack_id(
     }
 }
 
-fn create_stack(ctx: &CommandContext) -> anyhow::Result<StackId> {
-    let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
-    let vb_state = &gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir());
+fn create_stack(ctx: &Context) -> anyhow::Result<StackId> {
+    let template = gitbutler_stack::canned_branch_name(&*ctx.git2_repo.get()?)?;
+    let vb_state = &gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let branch_name =
-        gitbutler_stack::Stack::next_available_name(&ctx.gix_repo()?, vb_state, template, false)?;
+        gitbutler_stack::Stack::next_available_name(&*ctx.repo.get()?, vb_state, template, false)?;
     let create_req = gitbutler_branch::BranchCreateRequest {
         name: Some(branch_name),
         ownership: None,
@@ -179,7 +179,7 @@ fn create_stack(ctx: &CommandContext) -> anyhow::Result<StackId> {
         selected_for_changes: None,
     };
 
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
     let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
@@ -187,7 +187,7 @@ fn create_stack(ctx: &CommandContext) -> anyhow::Result<StackId> {
 }
 
 fn handle_assign(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     assignments: Vec<HunkAssignment>,
     deps: Option<&HunkDependencies>,
 ) -> anyhow::Result<usize> {

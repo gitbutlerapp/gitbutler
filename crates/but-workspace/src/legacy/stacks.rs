@@ -4,12 +4,12 @@ use std::{
     path::Path,
 };
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::BString;
 use but_core::RefMetadata;
+use but_ctx::Context;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_stack::{Stack, StackBranch, StackId};
 use gix::date::parse::TimeBuf;
@@ -87,7 +87,7 @@ pub fn stack_heads_info(
 ///
 /// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
 pub fn stacks(
-    ctx: &CommandContext,
+    ctx: &Context,
     gb_dir: &Path,
     repo: &gix::Repository,
     filter: StacksFilter,
@@ -284,31 +284,25 @@ pub fn stacks_v3(
 pub fn stack_details(
     gb_dir: &Path,
     stack_id: StackId,
-    ctx: &CommandContext,
+    ctx: &Context,
 ) -> anyhow::Result<ui::StackDetails> {
     /// Determines if a force push is required to push a branch to its remote.
-    fn requires_force(
-        ctx: &CommandContext,
-        branch: &StackBranch,
-        remote: &str,
-    ) -> anyhow::Result<bool> {
+    fn requires_force(ctx: &Context, branch: &StackBranch, remote: &str) -> anyhow::Result<bool> {
         let upstream = branch.remote_reference(remote);
 
-        let upstream_reference = match ctx.repo().refname_to_id(&upstream) {
+        let git2_repo = ctx.git2_repo.get()?;
+        let upstream_reference = match git2_repo.refname_to_id(&upstream) {
             Ok(reference) => reference,
             Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(false),
             Err(other) => return Err(other).context("failed to find upstream reference"),
         };
 
-        let upstream_commit = ctx
-            .repo()
+        let upstream_commit = git2_repo
             .find_commit(upstream_reference)
             .context("failed to find upstream commit")?;
 
-        let branch_head = branch.head_oid(&ctx.gix_repo()?)?;
-        let merge_base = ctx
-            .repo()
-            .merge_base(upstream_commit.id(), branch_head.to_git2())?;
+        let branch_head = branch.head_oid(&*ctx.repo.get()?)?;
+        let merge_base = git2_repo.merge_base(upstream_commit.id(), branch_head.to_git2())?;
 
         Ok(merge_base != upstream_commit.id())
     }
@@ -342,7 +336,7 @@ pub fn stack_details(
     let mut stack = state.get_stack(stack_id)?;
     let branches = stack.branches();
     let branches = branches.iter().filter(|b| !b.archived);
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let remote = state
         .get_default_target()
         .context("failed to get default target")?
@@ -355,7 +349,8 @@ pub fn stack_details(
 
     for branch in branches {
         let upstream_reference = ctx
-            .repo()
+            .git2_repo
+            .get()?
             .find_reference(&branch.remote_reference(remote.as_str()))
             .ok()
             .map(|_| branch.remote_reference(remote.as_str()));
@@ -619,8 +614,8 @@ impl ui::BranchDetails {
 
 /// Return the branches that belong to a particular [`Stack`]
 /// The entries are ordered from newest to oldest.
-pub fn stack_branches(stack_id: StackId, ctx: &CommandContext) -> anyhow::Result<Vec<ui::Branch>> {
-    let state = state_handle(&ctx.project().gb_dir());
+pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui::Branch>> {
+    let state = state_handle(&ctx.project_data_dir());
     let remote = state
         .get_default_target()
         .context("failed to get default target")?
@@ -629,10 +624,11 @@ pub fn stack_branches(stack_id: StackId, ctx: &CommandContext) -> anyhow::Result
     let mut stack_branches = vec![];
     let mut stack = state.get_stack(stack_id)?;
     let mut current_base = stack.merge_base(ctx)?;
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     for internal in stack.branches() {
         let upstream_reference = ctx
-            .repo()
+            .git2_repo
+            .get()?
             .find_reference(&internal.remote_reference(remote.as_str()))
             .ok()
             .map(|_| internal.remote_reference(remote.as_str()));
@@ -668,10 +664,10 @@ pub fn stack_branches(stack_id: StackId, ctx: &CommandContext) -> anyhow::Result
 pub fn stack_branch_local_and_remote_commits(
     stack_id: StackId,
     branch_name: String,
-    ctx: &CommandContext,
+    ctx: &Context,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<ui::Commit>> {
-    let state = state_handle(&ctx.project().gb_dir());
+    let state = state_handle(&ctx.project_data_dir());
     let stack = state.get_stack(stack_id)?;
 
     let branches = stack.branches();
@@ -686,13 +682,14 @@ pub fn stack_branch_local_and_remote_commits(
 }
 
 fn upstream_only_commits(
-    ctx: &CommandContext,
+    ctx: &Context,
     repo: &gix::Repository,
     stack_branch: &StackBranch,
     stack: &Stack,
     current_local_and_remote_commits: Option<&Vec<ui::Commit>>,
 ) -> anyhow::Result<Vec<ui::UpstreamCommit>> {
-    let branch_commits = stack_branch.commits(ctx, stack)?;
+    let git2_repo = ctx.git2_repo.get()?;
+    let branch_commits = stack_branch.commits(&git2_repo, &ctx.legacy_project, stack)?;
 
     let local_and_remote = if let Some(current_local_and_remote) = current_local_and_remote_commits
     {
@@ -727,20 +724,21 @@ fn upstream_only_commits(
 
 /// Returns a list of the commits that are local and optionally remote as well.
 pub fn local_and_remote_commits(
-    ctx: &CommandContext,
+    ctx: &Context,
     repo: &gix::Repository,
     stack_branch: &gitbutler_stack::StackBranch,
     stack: &Stack,
 ) -> anyhow::Result<Vec<ui::Commit>> {
-    let state = state_handle(&ctx.project().gb_dir());
+    let state = state_handle(&ctx.project_data_dir());
     let default_target = state
         .get_default_target()
         .context("failed to get default target")?;
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());
-    let mut check_commit = IsCommitIntegrated::new(repo, ctx.repo(), &default_target, &mut graph)?;
+    let git2_repo = ctx.git2_repo.get()?;
+    let mut check_commit = IsCommitIntegrated::new(repo, &git2_repo, &default_target, &mut graph)?;
 
-    let branch_commits = stack_branch.commits(ctx, stack)?;
+    let branch_commits = stack_branch.commits(&git2_repo, &ctx.legacy_project, stack)?;
     let mut local_and_remote: Vec<ui::Commit> = vec![];
     let mut is_integrated = false;
 

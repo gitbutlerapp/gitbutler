@@ -254,15 +254,14 @@ fn output_json(
     project: &Project,
     out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
+    use but_ctx::Context;
     use but_oxidize::gix_to_git2_oid;
-    use but_settings::AppSettings;
-    use gitbutler_command_context::CommandContext;
 
     use crate::branch::json::*;
 
     // Open repo to get commit information
-    let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.repo();
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let repo = &*ctx.git2_repo.get()?;
 
     let applied_stacks_output: Vec<StackOutput> = applied_stacks
         .iter()
@@ -375,13 +374,12 @@ fn check_branches_merge_cleanly(
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     branches: &[gitbutler_branch_actions::BranchListing],
 ) -> Result<HashMap<String, bool>, anyhow::Error> {
+    use but_ctx::Context;
     use but_oxidize::GixRepositoryExt;
-    use but_settings::AppSettings;
-    use gitbutler_command_context::CommandContext;
 
-    let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.repo();
-    let gix_repo = ctx.gix_repo()?.for_tree_diffing()?.with_object_memory();
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.open_repo()?.for_tree_diffing()?.with_object_memory();
 
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
     let target = stack.get_default_target()?;
@@ -392,14 +390,14 @@ fn check_branches_merge_cleanly(
         target.branch.remote(),
         target.branch.branch()
     );
-    let target_commit = match gix_repo.find_reference(&target_ref_name) {
+    let target_commit = match repo.find_reference(&target_ref_name) {
         Ok(reference) => {
             let target_oid = reference.id();
-            repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
+            git2_repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
         }
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
-            repo.find_commit(target.sha)?
+            git2_repo.find_commit(target.sha)?
         }
     };
 
@@ -409,15 +407,15 @@ fn check_branches_merge_cleanly(
     for stack_entry in applied_stacks {
         for head in &stack_entry.heads {
             let branch_name = head.name.to_string();
-            match repo.find_commit(but_oxidize::gix_to_git2_oid(head.tip)) {
+            match git2_repo.find_commit(but_oxidize::gix_to_git2_oid(head.tip)) {
                 Ok(branch_commit) => {
                     // Find merge base
-                    match repo.merge_base(target_commit.id(), branch_commit.id()) {
+                    match git2_repo.merge_base(target_commit.id(), branch_commit.id()) {
                         Ok(merge_base) => {
-                            let merge_base_commit = repo.find_commit(merge_base)?;
+                            let merge_base_commit = git2_repo.find_commit(merge_base)?;
 
                             // Check if branch merges cleanly into target
-                            let merges_cleanly = gix_repo
+                            let merges_cleanly = repo
                                 .merges_cleanly_compat(
                                     merge_base_commit.tree_id(),
                                     target_commit.tree_id(),
@@ -443,15 +441,15 @@ fn check_branches_merge_cleanly(
     // Check unapplied branches
     for branch in branches {
         let branch_name = branch.name.to_string();
-        match repo.find_commit(branch.head) {
+        match git2_repo.find_commit(branch.head) {
             Ok(branch_commit) => {
                 // Find merge base
-                match repo.merge_base(target_commit.id(), branch_commit.id()) {
+                match git2_repo.merge_base(target_commit.id(), branch_commit.id()) {
                     Ok(merge_base) => {
-                        let merge_base_commit = repo.find_commit(merge_base)?;
+                        let merge_base_commit = git2_repo.find_commit(merge_base)?;
 
                         // Check if branch merges cleanly into target
-                        let merges_cleanly = gix_repo
+                        let merges_cleanly = repo
                             .merges_cleanly_compat(
                                 merge_base_commit.tree_id(),
                                 target_commit.tree_id(),
@@ -480,11 +478,10 @@ fn calculate_commits_ahead(
     project: &Project,
     branches: &[gitbutler_branch_actions::BranchListing],
 ) -> Result<HashMap<String, usize>, anyhow::Error> {
-    use but_settings::AppSettings;
-    use gitbutler_command_context::CommandContext;
+    use but_ctx::Context;
 
-    let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.repo();
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let repo = &*ctx.git2_repo.get()?;
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
     let target = stack.get_default_target()?;
 
@@ -494,7 +491,7 @@ fn calculate_commits_ahead(
         target.branch.remote(),
         target.branch.branch()
     );
-    let target_commit = match ctx.gix_repo()?.find_reference(&target_ref_name) {
+    let target_commit = match ctx.repo.get()?.find_reference(&target_ref_name) {
         Ok(reference) => {
             let target_oid = reference.id();
             repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
@@ -570,9 +567,8 @@ fn print_applied_branches_table(
     id_map: &HashMap<String, String>,
     out: &mut (dyn std::fmt::Write + 'static),
 ) -> Result<(), anyhow::Error> {
+    use but_ctx::Context;
     use but_oxidize::gix_to_git2_oid;
-    use but_settings::AppSettings;
-    use gitbutler_command_context::CommandContext;
 
     use crate::utils::{Table, table::Cell};
 
@@ -581,8 +577,8 @@ fn print_applied_branches_table(
     }
 
     // Open repo to get commit information
-    let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.repo();
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let repo = &*ctx.git2_repo.get()?;
 
     // Define column headers with fixed widths
     let headers = vec![

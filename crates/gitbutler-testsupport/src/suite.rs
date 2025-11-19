@@ -4,8 +4,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use but_ctx::Context;
 use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_repo::RepositoryExt;
 use tempfile::{TempDir, tempdir};
 
@@ -85,7 +85,7 @@ impl Suite {
 
 pub struct Case {
     pub project: gitbutler_project::Project,
-    pub ctx: CommandContext,
+    pub ctx: Context,
     /// The directory containing the `ctx`
     pub project_tmp: Option<TempDir>,
 }
@@ -104,8 +104,7 @@ impl Drop for Case {
 
 impl Case {
     fn new(project: gitbutler_project::Project, project_tmp: TempDir) -> Case {
-        let ctx = CommandContext::open(&project, AppSettings::default())
-            .expect("failed to create project repository");
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         Case {
             project,
             ctx,
@@ -115,8 +114,7 @@ impl Case {
 
     pub fn refresh(mut self, _suite: &Suite) -> Self {
         let project = gitbutler_project::get(self.project.id).expect("failed to get project");
-        let ctx = CommandContext::open(&project, AppSettings::default())
-            .expect("failed to create project repository");
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         Self {
             ctx,
             project,

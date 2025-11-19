@@ -1,13 +1,13 @@
+use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
 use colored::Colorize;
-use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
 
 use super::undo::stack_id_by_commit_id;
 use crate::utils::OutputChannel;
 
 pub(crate) fn commits(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     source: &ObjectId,
     destination: &ObjectId,
     out: &mut OutputChannel,

@@ -1,14 +1,14 @@
 use std::collections::BTreeMap;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::ByteSlice;
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
 use but_workspace::ui::Commit;
 use cli_prompts::DisplayPrompt;
 use colored::{ColoredString, Colorize};
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -133,7 +133,7 @@ pub async fn publish_reviews(
 }
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
-    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let branch_ids = CliId::from_str(&mut ctx, branch_id)?
         .iter()
         .filter_map(|clid| match clid {
@@ -362,8 +362,8 @@ fn get_base_branch_and_repo(
     project: &Project,
 ) -> Result<(gitbutler_branch_actions::BaseBranch, gix::Repository), anyhow::Error> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(project, app_settings)?;
-    let repo = ctx.gix_repo()?;
+    let ctx = Context::new_from_legacy_project_and_settings(project, app_settings);
+    let repo = ctx.open_repo()?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
     Ok((base_branch, repo))
 }

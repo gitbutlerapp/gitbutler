@@ -2,11 +2,11 @@
 use std::os::unix::prelude::PermissionsExt;
 use std::{borrow::Borrow, fs, path::PathBuf};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use bstr::{BString, ByteSlice, ByteVec};
+use but_ctx::Context;
 use diffy::{Line, Patch, apply_bytes as diffy_apply};
 use gitbutler_cherry_pick::RepositoryExt as _;
-use gitbutler_command_context::CommandContext;
 use hex::ToHex;
 
 use crate::GitHunk;
@@ -15,7 +15,7 @@ use crate::GitHunk;
 // constructs a tree from those changes on top of the target
 // and writes it as a new tree for storage
 pub fn hunks_onto_oid<T>(
-    ctx: &CommandContext,
+    ctx: &Context,
     target: git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
 ) -> Result<git2::Oid>
@@ -26,7 +26,7 @@ where
 }
 
 pub fn hunks_onto_commit<T>(
-    ctx: &CommandContext,
+    ctx: &Context,
     commit_oid: git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
 ) -> Result<git2::Oid>
@@ -34,7 +34,7 @@ where
     T: Into<GitHunk> + Clone,
 {
     // read the base sha into an index
-    let git_repository: &git2::Repository = ctx.repo();
+    let git_repository = &*ctx.git2_repo.get()?;
 
     let head_commit = git_repository.find_commit(commit_oid)?;
     let base_tree = git_repository.find_real_tree(&head_commit, Default::default())?;
@@ -43,7 +43,7 @@ where
 }
 
 pub fn hunks_onto_tree<T>(
-    ctx: &CommandContext,
+    ctx: &Context,
     base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
     allow_new_file: bool,
@@ -51,13 +51,13 @@ pub fn hunks_onto_tree<T>(
 where
     T: Into<GitHunk> + Clone,
 {
-    let git_repository = ctx.repo();
+    let git_repository = &*ctx.git2_repo.get()?;
     let mut builder = git2::build::TreeUpdateBuilder::new();
     // now update the index with content in the working directory for each file
     for (rel_path, hunks) in files {
         let rel_path = rel_path.borrow();
         let hunks: Vec<GitHunk> = hunks.borrow().iter().map(|h| h.clone().into()).collect();
-        let full_path = ctx.project().worktree_dir()?.join(rel_path);
+        let full_path = ctx.legacy_project.worktree_dir()?.join(rel_path);
 
         let is_submodule = full_path.is_dir()
             && hunks.len() == 1
@@ -118,7 +118,7 @@ where
 
                 // if the link target is inside the project repository, make it relative
                 let link_target = link_target
-                    .strip_prefix(ctx.project().worktree_dir()?)
+                    .strip_prefix(ctx.legacy_project.worktree_dir()?)
                     .unwrap_or(&link_target);
 
                 let blob_oid = git_repository.blob(
@@ -226,7 +226,7 @@ where
 
     // now write out the tree
     let tree_oid = builder
-        .create_updated(ctx.repo(), base_tree)
+        .create_updated(&*ctx.git2_repo.get()?, base_tree)
         .context("failed to write updated tree")?;
 
     Ok(tree_oid)

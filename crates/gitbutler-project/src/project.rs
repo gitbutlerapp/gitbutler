@@ -3,7 +3,7 @@ use std::{
     time,
 };
 
-use anyhow::Context;
+use anyhow::Context as _;
 use serde::{Deserialize, Serialize};
 
 use crate::default_true::DefaultTrue;
@@ -269,7 +269,7 @@ impl Project {
     /// knows no environment variables.
     ///
     /// Use it for fastest-possible access, when incomplete configuration is acceptable.
-    pub fn open_isolated(&self) -> anyhow::Result<gix::Repository> {
+    pub fn open_isolated_repo(&self) -> anyhow::Result<gix::Repository> {
         Ok(gix::open_opts(
             self.git_dir(),
             gix::open::Options::isolated(),
@@ -281,13 +281,13 @@ impl Project {
     /// This repository is good for standard tasks, like checking refs and traversing the commit graph,
     /// and for reading objects as well.
     ///
-    /// Diffing and merging is better done with [`Self::open_for_merging()`].
-    pub fn open(&self) -> anyhow::Result<gix::Repository> {
+    /// Diffing and merging is better done with [`Self::open_repo_for_merging()`].
+    pub fn open_repo(&self) -> anyhow::Result<gix::Repository> {
         Ok(gix::open(self.git_dir())?)
     }
 
     /// Calls [`but_core::open_repo_for_merging()`]
-    pub fn open_for_merging(&self) -> anyhow::Result<gix::Repository> {
+    pub fn open_repo_for_merging(&self) -> anyhow::Result<gix::Repository> {
         but_core::open_repo_for_merging(self.git_dir())
     }
 
@@ -362,7 +362,7 @@ impl Project {
 
     /// Return the path to the Git directory of the 'prime' repository, the one that holds all worktrees.
     pub fn common_git_dir(&self) -> anyhow::Result<PathBuf> {
-        let repo = self.open_isolated()?;
+        let repo = self.open_isolated_repo()?;
         Ok(repo.common_dir().to_owned())
     }
 }

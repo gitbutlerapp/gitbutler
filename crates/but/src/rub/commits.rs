@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_core::{DiffSpec, diff::tree_changes};
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
 use gitbutler_branch_actions::update_workspace_commit;
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
 };
 
 pub fn commited_file_to_another_commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     path: &str,
     source_id: gix::ObjectId,
     target_id: gix::ObjectId,
@@ -23,7 +23,7 @@ pub fn commited_file_to_another_commit(
     let source_stack = stack_id_by_commit_id(ctx, &source_id)?;
     let target_stack = stack_id_by_commit_id(ctx, &target_id)?;
 
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let source_commit = repo.find_commit(source_id)?;
     let source_commit_parent_id = source_commit.parent_ids().next().context("First parent")?;
 
@@ -41,10 +41,10 @@ pub fn commited_file_to_another_commit(
         target_stack,
         target_id,
         relevant_changes,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
     if let Some(out) = out.for_human() {
@@ -55,7 +55,7 @@ pub fn commited_file_to_another_commit(
 }
 
 pub fn uncommit_file(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     path: &str,
     source_id: gix::ObjectId,
     target_branch: Option<&str>,
@@ -63,17 +63,20 @@ pub fn uncommit_file(
 ) -> Result<()> {
     let source_stack = stack_id_by_commit_id(ctx, &source_id)?;
 
-    let repo = ctx.gix_repo()?;
+    let relevant_changes = {
+        let repo = ctx.repo.get()?;
 
-    let source_commit = repo.find_commit(source_id)?;
-    let source_commit_parent_id = source_commit.parent_ids().next().context("First parent")?;
+        let source_commit = repo.find_commit(source_id)?;
+        let source_commit_parent_id = source_commit.parent_ids().next().context("First parent")?;
 
-    let (tree_changes, _) = tree_changes(&repo, Some(source_commit_parent_id.detach()), source_id)?;
-    let relevant_changes = tree_changes
-        .into_iter()
-        .filter(|tc| tc.path.to_str_lossy() == path)
-        .map(Into::into)
-        .collect::<Vec<DiffSpec>>();
+        let (tree_changes, _) =
+            tree_changes(&repo, Some(source_commit_parent_id.detach()), source_id)?;
+        tree_changes
+            .into_iter()
+            .filter(|tc| tc.path.to_str_lossy() == path)
+            .map(Into::into)
+            .collect::<Vec<DiffSpec>>()
+    };
 
     // If we want to assign the changes after uncommitting, we could try to do
     // something with the hunk headers, but this is not precise as the hunk
@@ -96,10 +99,10 @@ pub fn uncommit_file(
         source_stack,
         source_id,
         relevant_changes,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
     let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(

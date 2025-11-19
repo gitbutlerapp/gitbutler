@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
+use anyhow::{Context as _, Result};
+use but_ctx::Context;
 use gitbutler_project::Project;
 use gitbutler_reference::RemoteRefname;
 
@@ -28,22 +27,22 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
         .canonicalize()?;
     let outcome = gitbutler_project::add_with_path(data_dir, path)?;
     let project = outcome.try_project()?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     if let Some(refname) = refname {
         gitbutler_branch_actions::set_base_branch(
             &ctx,
             &refname,
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )?;
     };
     debug_print(project)
 }
 
 pub fn switch_to_workspace(project: Project, refname: RemoteRefname) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     debug_print(gitbutler_branch_actions::set_base_branch(
         &ctx,
         &refname,
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )?)
 }

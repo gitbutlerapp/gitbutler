@@ -5,11 +5,10 @@ use std::{
 };
 
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_meta::VirtualBranchesTomlMetadata;
-use but_settings::AppSettings;
 use but_workspace::legacy::StacksFilter;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::diff::blob::{
@@ -133,11 +132,11 @@ pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
         repo.workdir()
             .ok_or(anyhow::anyhow!("No worktree found for repo"))?,
     )?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project().gb_dir().join("virtual_branches.toml"),
+        ctx.project_data_dir().join("virtual_branches.toml"),
     )?;
-    let vb_state = &VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
     let stack_id =
@@ -202,12 +201,12 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
         return Ok(CursorHookOutput::default());
     }
 
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
 
     let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project().gb_dir().join("virtual_branches.toml"),
+        ctx.project_data_dir().join("virtual_branches.toml"),
     )?;
-    let vb_state = &VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
     let stack_id =
         but_claude::hooks::get_or_create_session(ctx, &input.conversation_id, stacks, vb_state)?;
@@ -254,7 +253,7 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
                         branch_name: branch.branch_name.clone(),
                         commit_id,
                         project: project.clone(),
-                        app_settings: ctx.app_settings().clone(),
+                        app_settings: ctx.settings().clone(),
                         trigger: id,
                     };
                     let reword_result = but_action::reword::commit(&openai_client, commit_event)

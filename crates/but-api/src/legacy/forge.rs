@@ -1,12 +1,11 @@
 //! In place of commands.rs
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_api_macros::api_cmd_tauri;
 use but_core::RepositoryExt;
+use but_ctx::Context;
 use but_forge::{
     ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions,
 };
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_repo::RepoCommands;
 use tracing::instrument;
@@ -25,8 +24,7 @@ pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<Strin
 #[instrument(err(Debug))]
 pub fn list_available_review_templates(project_id: ProjectId) -> Result<Vec<String>> {
     let project = gitbutler_project::get_validated(project_id)?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(&project, app_settings)?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
     let forge = &base_branch
         .forge_repo_info
@@ -86,8 +84,7 @@ mod json {
 #[instrument(err(Debug))]
 pub fn review_template(project_id: ProjectId) -> Result<Option<json::ReviewTemplateInfo>> {
     let project = gitbutler_project::get_validated(project_id)?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(&project, app_settings)?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
     let forge = &base_branch
         .forge_repo_info
@@ -95,11 +92,8 @@ pub fn review_template(project_id: ProjectId) -> Result<Option<json::ReviewTempl
         .context("No forge could be determined for this repository branch")?
         .forge;
 
-    match ctx
-        .gix_repo()?
-        .git_settings()?
-        .gitbutler_forge_review_template_path
-    {
+    let repo = ctx.repo.get()?;
+    match repo.git_settings()?.gitbutler_forge_review_template_path {
         Some(review_template_path) => {
             let ReviewTemplateFunctions {
                 is_valid_review_template_path,
@@ -134,11 +128,10 @@ pub fn review_template(project_id: ProjectId) -> Result<Option<json::ReviewTempl
 #[instrument(err(Debug))]
 pub fn set_review_template(project_id: ProjectId, template_path: Option<String>) -> Result<()> {
     let project = gitbutler_project::get_validated(project_id)?;
-    let repo = project.open_isolated()?;
+    let repo = project.open_isolated_repo()?;
     let mut git_config = repo.git_settings()?;
 
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(&project, app_settings)?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
     let forge = &base_branch
         .forge_repo_info
@@ -174,11 +167,15 @@ pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>> {
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub async fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeReview>> {
-    let project = gitbutler_project::get(project_id)?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(&project, app_settings)?;
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let (storage, base_branch, project) = {
+        let ctx = Context::new_from_legacy_project_id(project_id)?;
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project,
+        )
+    };
     but_forge::list_forge_reviews(
         &project.preferred_forge_user,
         &base_branch
@@ -195,11 +192,15 @@ pub async fn publish_review(
     project_id: ProjectId,
     params: but_forge::CreateForgeReviewParams,
 ) -> Result<but_forge::ForgeReview> {
-    let project = gitbutler_project::get(project_id)?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(&project, app_settings)?;
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let (storage, base_branch, project) = {
+        let ctx = Context::new_from_legacy_project_id(project_id)?;
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project,
+        )
+    };
     but_forge::create_forge_review(
         &project.preferred_forge_user,
         &base_branch

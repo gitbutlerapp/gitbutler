@@ -1,6 +1,6 @@
 use std::{fmt::Display, ops::RangeInclusive, str::FromStr};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use bstr::ByteSlice;
 
 use crate::diff;

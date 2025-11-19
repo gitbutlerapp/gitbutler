@@ -12,14 +12,14 @@ fn insert_blank_commit_down() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -80,14 +80,14 @@ fn insert_blank_commit_up() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

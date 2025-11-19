@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use gitbutler_stack::Stack;

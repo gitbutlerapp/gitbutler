@@ -1,7 +1,6 @@
 use anyhow::bail;
-use but_settings::AppSettings;
+use but_ctx::Context;
 use colored::Colorize;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 mod amend;
 mod assign;
@@ -23,7 +22,7 @@ pub(crate) fn handle(
     source_str: &str,
     target_str: &str,
 ) -> anyhow::Result<()> {
-    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let (sources, target) = ids(ctx, source_str, target_str)?;
 
     for source in sources {
@@ -32,15 +31,15 @@ pub(crate) fn handle(
                 bail!(makes_no_sense_error(&source, &target))
             }
             (CliId::UncommittedFile { path, .. }, CliId::Unassigned { .. }) => {
-                create_snapshot(ctx, project, OperationKind::MoveHunk);
+                create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::unassign_file(ctx, path, out)?;
             }
             (CliId::UncommittedFile { path, assignment }, CliId::Commit { oid }) => {
-                create_snapshot(ctx, project, OperationKind::AmendCommit);
+                create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::file_to_commit(ctx, path, *assignment, oid, out)?;
             }
             (CliId::UncommittedFile { path, .. }, CliId::Branch { name, .. }) => {
-                create_snapshot(ctx, project, OperationKind::MoveHunk);
+                create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_file_to_branch(ctx, path, name, out)?;
             }
             (CliId::Unassigned { .. }, CliId::UncommittedFile { .. }) => {
@@ -50,41 +49,41 @@ pub(crate) fn handle(
                 bail!(makes_no_sense_error(&source, &target))
             }
             (CliId::Unassigned { .. }, CliId::Commit { oid }) => {
-                create_snapshot(ctx, project, OperationKind::AmendCommit);
+                create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, None, oid, out)?;
             }
             (CliId::Unassigned { .. }, CliId::Branch { name: to, .. }) => {
-                create_snapshot(ctx, project, OperationKind::MoveHunk);
+                create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_all(ctx, None, Some(to), out)?;
             }
             (CliId::Commit { .. }, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
             (CliId::Commit { oid }, CliId::Unassigned { .. }) => {
-                create_snapshot(ctx, project, OperationKind::UndoCommit);
+                create_snapshot(ctx, OperationKind::UndoCommit);
                 undo::commit(ctx, oid, out)?;
             }
             (CliId::Commit { oid: source }, CliId::Commit { oid: destination }) => {
-                create_snapshot(ctx, project, OperationKind::SquashCommit);
+                create_snapshot(ctx, OperationKind::SquashCommit);
                 squash::commits(ctx, source, destination, out)?;
             }
             (CliId::Commit { oid }, CliId::Branch { name, .. }) => {
-                create_snapshot(ctx, project, OperationKind::MoveCommit);
+                create_snapshot(ctx, OperationKind::MoveCommit);
                 move_commit::to_branch(ctx, oid, name, out)?;
             }
             (CliId::Branch { .. }, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
             (CliId::Branch { name: from, .. }, CliId::Unassigned { .. }) => {
-                create_snapshot(ctx, project, OperationKind::MoveHunk);
+                create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_all(ctx, Some(from), None, out)?;
             }
             (CliId::Branch { name, .. }, CliId::Commit { oid }) => {
-                create_snapshot(ctx, project, OperationKind::AmendCommit);
+                create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, Some(name), oid, out)?;
             }
             (CliId::Branch { name: from, .. }, CliId::Branch { name: to, .. }) => {
-                create_snapshot(ctx, project, OperationKind::MoveHunk);
+                create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_all(ctx, Some(from), Some(to), out)?;
             }
             (CliId::UncommittedFile { .. }, CliId::CommittedFile { .. }) => {
@@ -97,15 +96,15 @@ pub(crate) fn handle(
                 bail!(makes_no_sense_error(&source, &target))
             }
             (CliId::CommittedFile { path, commit_oid }, CliId::Branch { name, .. }) => {
-                create_snapshot(ctx, project, OperationKind::FileChanges);
+                create_snapshot(ctx, OperationKind::FileChanges);
                 commits::uncommit_file(ctx, path, *commit_oid, Some(name), out)?;
             }
             (CliId::CommittedFile { path, commit_oid }, CliId::Commit { oid }) => {
-                create_snapshot(ctx, project, OperationKind::FileChanges);
+                create_snapshot(ctx, OperationKind::FileChanges);
                 commits::commited_file_to_another_commit(ctx, path, *commit_oid, *oid, out)?;
             }
             (CliId::CommittedFile { path, commit_oid }, CliId::Unassigned { .. }) => {
-                create_snapshot(ctx, project, OperationKind::FileChanges);
+                create_snapshot(ctx, OperationKind::FileChanges);
                 commits::uncommit_file(ctx, path, *commit_oid, None, out)?;
             }
             (CliId::Branch { .. }, CliId::CommittedFile { .. }) => {
@@ -132,11 +131,7 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
     )
 }
 
-fn ids(
-    ctx: &mut CommandContext,
-    source: &str,
-    target: &str,
-) -> anyhow::Result<(Vec<CliId>, CliId)> {
+fn ids(ctx: &mut Context, source: &str, target: &str) -> anyhow::Result<(Vec<CliId>, CliId)> {
     let sources = parse_sources(ctx, source)?;
     let target_result = crate::id::CliId::from_str(ctx, target)?;
     if target_result.len() != 1 {
@@ -166,7 +161,7 @@ fn ids(
     Ok((sources, target_result[0].clone()))
 }
 
-pub(crate) fn parse_sources(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn parse_sources(ctx: &mut Context, source: &str) -> anyhow::Result<Vec<CliId>> {
     // Check if it's a range (contains '-')
     if source.contains('-') {
         parse_range(ctx, source)
@@ -206,7 +201,7 @@ pub(crate) fn parse_sources(ctx: &mut CommandContext, source: &str) -> anyhow::R
     }
 }
 
-fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_range(ctx: &mut Context, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split('-').collect();
     if parts.len() != 2 {
         return Err(anyhow::anyhow!(
@@ -259,15 +254,16 @@ fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<Cli
         end_str
     ))
 }
-fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
+fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
     use std::collections::BTreeMap;
 
     use bstr::BString;
     use but_hunk_assignment::HunkAssignment;
 
-    let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
-            .changes;
+    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
+        ctx.legacy_project.worktree_dir()?.into(),
+    )?
+    .changes;
     let (assignments, _) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
 
@@ -322,7 +318,7 @@ fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Ve
     Ok(all_files)
 }
 
-fn parse_list(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_list(ctx: &mut Context, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split(',').collect();
     let mut result = Vec::new();
 
@@ -348,8 +344,8 @@ fn parse_list(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliI
     Ok(result)
 }
 
-fn create_snapshot(ctx: &mut CommandContext, project: &Project, operation: OperationKind) {
-    let mut guard = project.exclusive_worktree_access();
+fn create_snapshot(ctx: &mut Context, operation: OperationKind) {
+    let mut guard = ctx.exclusive_worktree_access();
     let _snapshot = ctx
         .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
         .ok(); // Ignore errors for snapshot creation

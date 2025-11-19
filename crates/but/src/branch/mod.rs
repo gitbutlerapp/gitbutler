@@ -1,9 +1,9 @@
 use anyhow::bail;
 pub use branch::{Platform, Subcommands};
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
-use gitbutler_command_context::CommandContext;
 
 use crate::{LegacyProject, args::branch, utils::OutputChannel};
 
@@ -86,10 +86,9 @@ mod json {
 
 pub async fn handle(
     cmd: Option<Subcommands>,
-    ctx: &but_ctx::Context,
+    legacy_project: &LegacyProject,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let legacy_project = &ctx.legacy_project;
     match cmd {
         None => {
             let local = false;
@@ -151,10 +150,10 @@ pub async fn handle(
             branch_name,
             anchor,
         }) => {
-            let ctx = CommandContext::open(
+            let ctx = Context::new_from_legacy_project_and_settings(
                 legacy_project,
                 AppSettings::load_from_default_path_creating()?,
-            )?;
+            );
             // Get branch name or use canned name
             let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
                 but_api::legacy::workspace::canned_branch_name(legacy_project.id)
@@ -250,7 +249,7 @@ pub async fn handle(
             }
             Ok(())
         }
-        Some(Subcommands::Apply { branch_name }) => apply::apply(ctx, &branch_name, out),
+        Some(Subcommands::Apply { branch_name }) => apply::apply(legacy_project, &branch_name, out),
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::legacy::workspace::stacks(
                 legacy_project.id,

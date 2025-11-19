@@ -3,7 +3,7 @@ use std::{
     ops::{Deref, Index, IndexMut},
 };
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use petgraph::{
     Direction,
     prelude::EdgeRef,

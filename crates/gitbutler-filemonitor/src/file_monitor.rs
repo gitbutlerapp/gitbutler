@@ -1,6 +1,6 @@
 use std::{collections::HashSet, path::Path, time::Duration};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
 use gitbutler_project::ProjectId;
 use notify::{RecommendedWatcher, Watcher};

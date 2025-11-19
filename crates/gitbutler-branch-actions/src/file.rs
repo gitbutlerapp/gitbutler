@@ -3,9 +3,9 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
+use but_ctx::Context;
 use gitbutler_cherry_pick::RepositoryExt as _;
-use gitbutler_command_context::CommandContext;
 use gitbutler_diff::FileDiff;
 use serde::Serialize;
 
@@ -103,7 +103,7 @@ impl Get<VirtualBranchFile> for Vec<VirtualBranchFile> {
 }
 
 pub(crate) fn list_virtual_commit_files(
-    ctx: &CommandContext,
+    ctx: &Context,
     commit: &git2::Commit,
     context_lines: bool,
 ) -> Result<Vec<VirtualBranchFile>> {
@@ -111,15 +111,20 @@ pub(crate) fn list_virtual_commit_files(
         return Ok(vec![]);
     }
     let parent = commit.parent(0).context("failed to get parent commit")?;
-    let repo = ctx.repo();
+    let repo = &*ctx.git2_repo.get()?;
     let commit_tree = repo
         .find_real_tree(commit, Default::default())
         .context("failed to get commit tree")?;
     let parent_tree = repo
         .find_real_tree(&parent, Default::default())
         .context("failed to get parent tree")?;
-    let diff = gitbutler_diff::trees(ctx.repo(), &parent_tree, &commit_tree, context_lines)?;
-    let hunks_by_filepath = virtual_hunks_by_file_diffs(ctx.project().worktree_dir()?, diff);
+    let diff = gitbutler_diff::trees(
+        &*ctx.git2_repo.get()?,
+        &parent_tree,
+        &commit_tree,
+        context_lines,
+    )?;
+    let hunks_by_filepath = virtual_hunks_by_file_diffs(ctx.legacy_project.worktree_dir()?, diff);
     Ok(virtual_hunks_into_virtual_files(hunks_by_filepath))
 }
 

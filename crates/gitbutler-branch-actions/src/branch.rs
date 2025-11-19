@@ -7,14 +7,14 @@ use std::{
     vec,
 };
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
+use but_ctx::Context;
+use but_ctx::access::WorktreeReadPermission;
 use but_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_serde::BStringForFrontend;
 use gitbutler_branch::{BranchIdentity, ReferenceExtGix};
-use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
-use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::{RemoteRefname, normalize_branch_name};
 use gitbutler_stack::{Stack, StackId, Target};
 use gix::{object::tree::diff::Action, prelude::TreeDiffChangeExt, reference::Category};
@@ -25,15 +25,18 @@ use crate::{RemoteBranchFile, VirtualBranchesExt, gravatar::gravatar_url_from_em
 
 #[instrument(level = tracing::Level::DEBUG, skip(ctx, _permission))]
 pub(crate) fn get_uncommited_files_raw(
-    ctx: &CommandContext,
+    ctx: &Context,
     _permission: &WorktreeReadPermission,
 ) -> Result<DiffByPathMap> {
-    gitbutler_diff::workdir(ctx.repo(), ctx.repo().head()?.peel_to_commit()?.id())
-        .context("Failed to list uncommited files")
+    gitbutler_diff::workdir(
+        &*ctx.git2_repo.get()?,
+        ctx.git2_repo.get()?.head()?.peel_to_commit()?.id(),
+    )
+    .context("Failed to list uncommited files")
 }
 
 pub(crate) fn get_uncommited_files(
-    context: &CommandContext,
+    context: &Context,
     _permission: &WorktreeReadPermission,
 ) -> Result<Vec<RemoteBranchFile>> {
     let files = get_uncommited_files_raw(context, _permission)?
@@ -46,11 +49,11 @@ pub(crate) fn get_uncommited_files(
 
 /// Returns a list of branches associated with this project.
 pub fn list_branches(
-    ctx: &CommandContext,
+    ctx: &Context,
     filter: Option<BranchListingFilter>,
     filter_branch_names: Option<Vec<BranchIdentity>>,
 ) -> Result<Vec<BranchListing>> {
-    let mut repo = ctx.gix_repo()?;
+    let mut repo = ctx.repo.get()?.clone();
     repo.object_cache_size_if_unset(1024 * 1024);
     let has_filter = filter.is_some();
     let filter = filter.unwrap_or_default();
@@ -83,16 +86,16 @@ pub fn list_branches(
         });
     }
 
-    let vb_handle = ctx.project().virtual_branches();
+    let vb_handle = ctx.legacy_project.virtual_branches();
     let remote_names = repo.remote_names();
-    let stacks = if ctx.app_settings().feature_flags.ws3 {
+    let stacks = if ctx.settings().feature_flags.ws3 {
         if let Some(workspace_ref) = repo.try_find_reference("refs/heads/gitbutler/workspace")? {
             // Let's get this here for convenience, and hope this isn't ever called by a writer (or there will be a deadlock).
-            let read_guard = ctx.project().shared_worktree_access();
+            let read_guard = ctx.shared_worktree_access();
             let meta = ctx.meta(read_guard.read_permission())?;
             let info = but_workspace::ref_info(
                 workspace_ref,
-                &*meta,
+                &meta,
                 but_workspace::ref_info::Options {
                     traversal: but_graph::init::Options::limited(),
                     expensive_commit_info: false,
@@ -675,7 +678,7 @@ pub struct StackReference {
 /// Takes a list of `branch_names` (the given name, as returned by `BranchListing`) and returns
 /// a list of enriched branch data.
 pub fn get_branch_listing_details(
-    ctx: &CommandContext,
+    ctx: &Context,
     branch_names: impl IntoIterator<Item = impl TryInto<BranchIdentity>>,
 ) -> Result<Vec<BranchListingDetails>> {
     let branch_names: Vec<_> = branch_names
@@ -683,12 +686,12 @@ pub fn get_branch_listing_details(
         .map(TryInto::try_into)
         .filter_map(Result::ok)
         .collect();
-    let repo = ctx.gix_repo_local_only()?.for_tree_diffing()?;
+    let repo = ctx.open_isolated_repo()?.for_tree_diffing()?;
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
     let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {
         let target = ctx
-            .project()
+            .legacy_project
             .virtual_branches()
             .get_default_target()
             .context("failed to get default target")?;

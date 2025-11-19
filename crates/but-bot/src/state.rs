@@ -1,10 +1,10 @@
 use std::{collections::BTreeMap, fmt::Display};
 
+use but_ctx::Context;
 use but_tools::{
     emit::Emittable,
     tool::{Tool, Toolset},
 };
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gix::ObjectId;
 use schemars::{JsonSchema, schema_for};
@@ -347,7 +347,7 @@ impl Tool for AddTodos {
     fn call(
         self: std::sync::Arc<Self>,
         _: serde_json::Value,
-        _: &mut CommandContext,
+        _: &mut Context,
         _: std::sync::Arc<but_tools::emit::Emitter>,
         _: &mut std::collections::HashMap<ObjectId, ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -388,7 +388,7 @@ impl Tool for UpdateTodoStatus {
     fn call(
         self: std::sync::Arc<Self>,
         _: serde_json::Value,
-        _: &mut CommandContext,
+        _: &mut Context,
         _: std::sync::Arc<but_tools::emit::Emitter>,
         _: &mut std::collections::HashMap<ObjectId, ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {

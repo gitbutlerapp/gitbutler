@@ -1,23 +1,21 @@
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use gitbutler_operating_modes::{EditModeMetadata, write_edit_mode_metadata};
 
 /// Creates a branch from the head commit
-fn create_and_checkout_branch(ctx: &CommandContext, branch_name: &str) {
-    let repository = ctx.repo();
-    repository
-        .branch(
-            branch_name,
-            &repository.head().unwrap().peel_to_commit().unwrap(),
-            true,
-        )
-        .unwrap();
+fn create_and_checkout_branch(ctx: &Context, branch_name: &str) {
+    let repo = &*ctx.git2_repo.get().unwrap();
+    repo.branch(
+        branch_name,
+        &repo.head().unwrap().peel_to_commit().unwrap(),
+        true,
+    )
+    .unwrap();
 
-    repository
-        .set_head(format!("refs/heads/{branch_name}").as_str())
+    repo.set_head(format!("refs/heads/{branch_name}").as_str())
         .unwrap();
 }
 
-fn create_edit_mode_metadata(ctx: &CommandContext) {
+fn create_edit_mode_metadata(ctx: &Context) {
     write_edit_mode_metadata(
         ctx,
         &EditModeMetadata {

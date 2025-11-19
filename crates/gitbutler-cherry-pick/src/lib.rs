@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_oxidize::git2_to_gix_object_id;
 use gitbutler_commit::commit_ext::CommitExt;
 

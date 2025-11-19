@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 
 pub async fn list(
     preferred_account: Option<&crate::GithubAccountIdentifier>,

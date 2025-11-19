@@ -13,14 +13,12 @@ use super::*;
 #[test]
 fn workdir_vbranch_restore() -> anyhow::Result<()> {
     let test = Test::default();
-    let Test {
-        repo, project, ctx, ..
-    } = &test;
+    let Test { repo, ctx, .. } = &test;
 
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -37,7 +35,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
                 name: Some(round.to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )?;
         gitbutler_branch_actions::create_commit(
             ctx,
@@ -56,7 +54,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
     let _empty = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &Default::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )?;
 
     let snapshots = ctx.list_snapshots(10, None, Vec::new())?;
@@ -68,7 +66,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
 
     let previous_files_count = wd_file_count(&worktree_dir)?;
     assert_eq!(previous_files_count, 3, "one file per round");
-    let mut guard = project.exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     ctx.restore_snapshot(snapshots[0].commit_id, guard.write_permission())
         .expect("restoration succeeds");
 
@@ -100,20 +98,18 @@ fn make_lines(count: usize) -> Vec<u8> {
 
 #[test]
 fn basic_oplog() -> anyhow::Result<()> {
-    let Test {
-        repo, project, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse()?,
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )?;
 
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )?;
 
     // create commit
@@ -146,7 +142,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     let _empty_branch_id = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )?;
 
     std::fs::remove_file(&base_merge_parent_path)?;
@@ -192,7 +188,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     );
 
     {
-        let mut guard = project.exclusive_worktree_access();
+        let mut guard = ctx.exclusive_worktree_access();
         ctx.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
     }
 
@@ -203,7 +199,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     assert_eq!(file_lines, "parent A");
 
     {
-        let mut guard = project.exclusive_worktree_access();
+        let mut guard = ctx.exclusive_worktree_access();
         ctx.restore_snapshot(snapshots[2].clone().commit_id, guard.write_permission())?;
     }
 
@@ -231,7 +227,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     assert!(commit.is_err());
 
     {
-        let mut guard = project.exclusive_worktree_access();
+        let mut guard = ctx.exclusive_worktree_access();
         ctx.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
     }
 
@@ -262,7 +258,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse()?,
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )?;
 
     assert_eq!(
@@ -274,7 +270,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )?;
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
@@ -318,7 +314,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         "one vbranch, two commits, one snapshot each"
     );
 
-    let mut guard = project.exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     ctx.restore_snapshot(snapshots[0].commit_id, guard.write_permission())
         .expect("can restore the most recent snapshot, to undo commit 2, resetting to commit 1");
 
@@ -372,13 +368,13 @@ fn head_corrupt_is_recreated_automatically() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -400,7 +396,7 @@ fn head_corrupt_is_recreated_automatically() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .expect("the snapshot doesn't fail despite the corrupt head");
 
@@ -419,13 +415,13 @@ fn first_snapshot_diff_works() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse()?,
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )?;
 
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )?;
 
     // create first commit to create the very first snapshot

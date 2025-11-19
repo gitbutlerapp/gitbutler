@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_core::{RefMetadata, extract_remote_name, ref_metadata};
 use gix::{

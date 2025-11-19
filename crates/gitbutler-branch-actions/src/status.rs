@@ -1,13 +1,13 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_oxidize::ObjectIdExt;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{Hunk, diff_files_into_hunks};
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, Stack, StackId};
 use tracing::instrument;
 
@@ -31,11 +31,11 @@ pub struct VirtualBranchesStatus {
 }
 
 pub fn get_applied_status(
-    ctx: &CommandContext,
+    ctx: &Context,
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<VirtualBranchesStatus> {
     let diffs = gitbutler_diff::workdir(
-        ctx.repo(),
+        &*ctx.git2_repo.get()?,
         but_workspace::legacy::remerged_workspace_commit_v2(ctx)?,
     )?;
     get_applied_status_cached(ctx, perm, &diffs)
@@ -49,13 +49,13 @@ pub fn get_applied_status(
 // TODO(kv): make this side effect free
 #[instrument(level = tracing::Level::DEBUG, skip(ctx, perm, worktree_changes))]
 pub fn get_applied_status_cached(
-    ctx: &CommandContext,
+    ctx: &Context,
     perm: Option<&mut WorktreeWritePermission>,
     worktree_changes: &gitbutler_diff::DiffByPathMap,
 ) -> Result<VirtualBranchesStatus> {
     ensure_open_workspace_mode(ctx).context("ng applied status requires open workspace mode")?;
     let mut virtual_branches = ctx
-        .project()
+        .legacy_project
         .virtual_branches()
         .list_stacks_in_workspace()?;
 
@@ -90,7 +90,7 @@ pub fn get_applied_status_cached(
             .map(|branch| (branch.id, HashMap::new()))
             .collect();
 
-    let vb_state = ctx.project().virtual_branches();
+    let vb_state = ctx.legacy_project.virtual_branches();
     let default_target = vb_state.get_default_target()?;
 
     let workspace_dependencies =
@@ -216,7 +216,7 @@ pub fn get_applied_status_cached(
         .collect::<Vec<_>>();
 
     // write updated state if not resolving
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     for (vbranch, files) in &mut hunks_by_branch {
         vbranch.set_tree(gitbutler_diff::write::hunks_onto_oid(
             ctx,
@@ -228,7 +228,7 @@ pub fn get_applied_status_cached(
             .context(format!("failed to write virtual branch {}", vbranch.name))?;
     }
 
-    let worktree_dir = ctx.project().worktree_dir()?;
+    let worktree_dir = ctx.legacy_project.worktree_dir()?;
     let hunks_by_branch: Vec<(Stack, HashMap<PathBuf, Vec<VirtualBranchHunk>>)> = hunks_by_branch
         .iter()
         .map(|(branch, hunks)| {

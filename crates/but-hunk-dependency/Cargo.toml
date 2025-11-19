@@ -15,7 +15,7 @@ but-workspace = { workspace = true, features = ["legacy"] }
 but-serde.workspace = true
 but-oxidize.workspace = true
 
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-repo.workspace = true
 # For `ui` module
 gitbutler-stack.workspace = true

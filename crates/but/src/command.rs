@@ -1,6 +1,5 @@
 use but_action::Source;
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use gitbutler_project::Project;
 use serde::Serialize;
 
@@ -12,7 +11,7 @@ pub(crate) fn handle_changes(
     handler: impl Into<but_action::ActionHandler>,
     change_description: &str,
 ) -> anyhow::Result<()> {
-    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let response = but_action::handle_changes(
         ctx,
         change_description,
@@ -38,7 +37,7 @@ pub(crate) fn list_actions(
     offset: i64,
     limit: i64,
 ) -> anyhow::Result<()> {
-    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
 
     let response = but_action::list_actions(ctx, offset, limit)?;
     print_json_or_human(&response, out)

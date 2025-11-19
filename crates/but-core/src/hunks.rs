@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::{BStr, BString, ByteSlice};
 
 use crate::HunkHeader;

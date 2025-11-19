@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::{Context as _, anyhow};
 
 use crate::InputDiffHunk;
 

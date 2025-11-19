@@ -12,12 +12,12 @@ fn twice() {
         let project = gitbutler_project::add_with_path(data_dir.path(), test_project.path())
             .expect("failed to add project")
             .unwrap_project();
-        let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
 
         gitbutler_branch_actions::set_base_branch(
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )
         .unwrap();
         let stacks = stack_details(&ctx);
@@ -29,11 +29,11 @@ fn twice() {
         let project = gitbutler_project::add_with_path(data_dir.path(), test_project.path())
             .unwrap()
             .unwrap_project();
-        let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         gitbutler_branch_actions::set_base_branch(
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -56,7 +56,7 @@ fn dirty_non_target() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -78,7 +78,7 @@ fn dirty_target() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -103,7 +103,7 @@ fn commit_on_non_target_local() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -124,7 +124,7 @@ fn commit_on_non_target_remote() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -149,7 +149,7 @@ fn commit_on_target() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -176,7 +176,7 @@ fn submodule() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

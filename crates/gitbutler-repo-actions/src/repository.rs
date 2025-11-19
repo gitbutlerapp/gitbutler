@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
+use but_ctx::Context;
 use but_error::Code;
-use but_oxidize::{ObjectIdExt, RepoExt};
-use gitbutler_command_context::CommandContext;
+use but_oxidize::ObjectIdExt;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -46,7 +46,7 @@ pub trait RepoActionsExt {
     ) -> Result<()>;
 }
 
-impl RepoActionsExt for CommandContext {
+impl RepoActionsExt for Context {
     fn git_test_push(
         &self,
         remote_name: &str,
@@ -55,8 +55,8 @@ impl RepoActionsExt for CommandContext {
     ) -> Result<()> {
         let target_branch_refname =
             Refname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}"))?;
-        let branch = self
-            .repo()
+        let git2_repo = self.git2_repo.get()?;
+        let branch = git2_repo
             .maybe_find_branch_by_refname(&target_branch_refname)?
             .ok_or(anyhow!("failed to find branch {}", target_branch_refname))?;
 
@@ -91,36 +91,39 @@ impl RepoActionsExt for CommandContext {
     }
 
     fn add_branch_reference(&self, stack: &Stack) -> Result<()> {
-        let gix_repo = self.repo().to_gix()?;
-        let (should_write, with_force) =
-            match self.repo().find_reference(&stack.refname()?.to_string()) {
-                Ok(reference) => match reference.target() {
-                    Some(head_oid) => Ok((head_oid != stack.head_oid(&gix_repo)?.to_git2(), true)),
-                    None => Ok((true, true)),
-                },
-                Err(err) => match err.code() {
-                    git2::ErrorCode::NotFound => Ok((true, false)),
-                    _ => Err(err),
-                },
-            }
-            .context("failed to lookup reference")?;
+        let gix_repo = self.repo.get()?;
+        let repo = self.git2_repo.get()?;
+        let (should_write, with_force) = match repo.find_reference(&stack.refname()?.to_string()) {
+            Ok(reference) => match reference.target() {
+                Some(head_oid) => Ok((head_oid != stack.head_oid(&gix_repo)?.to_git2(), true)),
+                None => Ok((true, true)),
+            },
+            Err(err) => match err.code() {
+                git2::ErrorCode::NotFound => Ok((true, false)),
+                _ => Err(err),
+            },
+        }
+        .context("failed to lookup reference")?;
 
         if should_write {
-            self.repo()
-                .reference(
-                    &stack.refname()?.to_string(),
-                    stack.head_oid(&gix_repo)?.to_git2(),
-                    with_force,
-                    "new vbranch",
-                )
-                .context("failed to create branch reference")?;
+            repo.reference(
+                &stack.refname()?.to_string(),
+                stack.head_oid(&gix_repo)?.to_git2(),
+                with_force,
+                "new vbranch",
+            )
+            .context("failed to create branch reference")?;
         }
 
         Ok(())
     }
 
     fn delete_branch_reference(&self, stack: &Stack) -> Result<()> {
-        match self.repo().find_reference(&stack.refname()?.to_string()) {
+        match self
+            .git2_repo
+            .get()?
+            .find_reference(&stack.refname()?.to_string())
+        {
             Ok(mut reference) => {
                 reference
                     .delete()
@@ -137,7 +140,7 @@ impl RepoActionsExt for CommandContext {
 
     // returns the number of commits between the first oid to the second oid
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
-        let oids = self.repo().l(from, LogUntil::Commit(to), false)?;
+        let oids = self.git2_repo.get()?.l(from, LogUntil::Commit(to), false)?;
         Ok(oids.len().try_into()?)
     }
 
@@ -148,11 +151,9 @@ impl RepoActionsExt for CommandContext {
         parents: &[&git2::Commit],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let (author, committer) = self
-            .repo()
-            .signatures()
-            .context("failed to get signatures")?;
-        self.repo()
+        let git2_repo = self.git2_repo.get()?;
+        let (author, committer) = git2_repo.signatures().context("failed to get signatures")?;
+        git2_repo
             .commit_with_signature(
                 None,
                 &author,
@@ -175,7 +176,7 @@ impl RepoActionsExt for CommandContext {
         askpass_broker: Option<Option<StackId>>,
         push_opts: Vec<String>,
     ) -> Result<String> {
-        let use_git_executable = self.project().preferred_key == AuthKey::SystemExecutable;
+        let use_git_executable = self.legacy_project.preferred_key == AuthKey::SystemExecutable;
         if !use_git_executable && force_push_protection {
             bail!("Force push protection is only supported when 'Using the Git executable'");
         }
@@ -197,7 +198,7 @@ impl RepoActionsExt for CommandContext {
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
         if use_git_executable {
-            let path = self.project().git_dir().to_owned();
+            let path = self.legacy_project.git_dir().to_owned();
             let remote = branch.remote().to_string();
             match std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
@@ -230,12 +231,13 @@ impl RepoActionsExt for CommandContext {
                 }
             }
         } else {
-            let auth_flows = credentials::help(self, branch.remote())?;
+            let git2_repo = self.git2_repo.get()?;
+            let auth_flows = credentials::help(&git2_repo, &self.legacy_project, branch.remote())?;
             for (mut remote, callbacks) in auth_flows {
                 let mut update_refs_error: Option<git2::Error> = None;
                 for callback in callbacks {
                     let mut cbs: git2::RemoteCallbacks = callback.into();
-                    if self.project().omit_certificate_check.unwrap_or(false) {
+                    if self.legacy_project.omit_certificate_check.unwrap_or(false) {
                         cbs.certificate_check(|_, _| {
                             Ok(git2::CertificateCheckStatus::CertificateOk)
                         });
@@ -255,7 +257,7 @@ impl RepoActionsExt for CommandContext {
                     match push_result {
                         Ok(()) => {
                             tracing::info!(
-                                project_id = %self.project().id,
+                                project_id = %self.legacy_project.id,
                                 remote = %branch.remote(),
                                 %head,
                                 branch = branch.branch(),
@@ -265,12 +267,12 @@ impl RepoActionsExt for CommandContext {
                         }
                         Err(err) => match err.class() {
                             git2::ErrorClass::Net | git2::ErrorClass::Http => {
-                                tracing::warn!(project_id = %self.project().id, ?err, "push failed due to network");
+                                tracing::warn!(project_id = %self.legacy_project.id, ?err, "push failed due to network");
                                 continue;
                             }
                             _ => match err.code() {
                                 git2::ErrorCode::Auth => {
-                                    tracing::warn!(project_id = %self.project().id, ?err, "push failed due to auth");
+                                    tracing::warn!(project_id = %self.legacy_project.id, ?err, "push failed due to auth");
                                     continue;
                                 }
                                 _ => {
@@ -297,8 +299,8 @@ impl RepoActionsExt for CommandContext {
         // NOTE(qix-): without a lot of work. This is a temporary measure to
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
-        if self.project().preferred_key == AuthKey::SystemExecutable {
-            let path = self.project().git_dir().to_owned();
+        if self.legacy_project.preferred_key == AuthKey::SystemExecutable {
+            let path = self.legacy_project.git_dir().to_owned();
             let remote = remote_name.to_string();
             return std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
@@ -317,12 +319,13 @@ impl RepoActionsExt for CommandContext {
             .map_err(Into::into);
         }
 
-        let auth_flows = credentials::help(self, remote_name)?;
+        let git2_repo = self.git2_repo.get()?;
+        let auth_flows = credentials::help(&git2_repo, &self.legacy_project, remote_name)?;
         for (mut remote, callbacks) in auth_flows {
             for callback in callbacks {
                 let mut fetch_opts = git2::FetchOptions::new();
                 let mut cbs: git2::RemoteCallbacks = callback.into();
-                if self.project().omit_certificate_check.unwrap_or(false) {
+                if self.legacy_project.omit_certificate_check.unwrap_or(false) {
                     cbs.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
                 }
                 fetch_opts.remote_callbacks(cbs);
@@ -330,17 +333,17 @@ impl RepoActionsExt for CommandContext {
 
                 match remote.fetch(&[&refspec], Some(&mut fetch_opts), None) {
                     Ok(()) => {
-                        tracing::info!(project_id = %self.project().id, %refspec, "git fetched");
+                        tracing::info!(project_id = %self.legacy_project.id, %refspec, "git fetched");
                         return Ok(());
                     }
                     Err(err) => match err.class() {
                         git2::ErrorClass::Net | git2::ErrorClass::Http => {
-                            tracing::warn!(project_id = %self.project().id, ?err, "fetch failed due to network");
+                            tracing::warn!(project_id = %self.legacy_project.id, ?err, "fetch failed due to network");
                             continue;
                         }
                         _ => match err.code() {
                             git2::ErrorCode::Auth => {
-                                tracing::warn!(project_id = %self.project().id, ?err, "fetch failed due to auth");
+                                tracing::warn!(project_id = %self.legacy_project.id, ?err, "fetch failed due to auth");
                                 continue;
                             }
                             _ => {

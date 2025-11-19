@@ -1,10 +1,10 @@
 use anyhow::{Result, bail};
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::{legacy::stack_ext::StackExt, ui::CommitState};
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use gix::ObjectId;
@@ -44,12 +44,12 @@ pub enum InteractiveIntegrationStep {
 /// This basically just lists the upstream and local commits in the display order (child to parent) and creates a `Pick` step for each.
 /// The user can then modify this in the UI.
 pub fn get_initial_integration_steps_for_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: Option<StackId>,
     branch_name: String,
 ) -> Result<Vec<InteractiveIntegrationStep>> {
-    let repo = ctx.gix_repo()?;
-    let project = ctx.project();
+    let repo = ctx.repo.get()?;
+    let project = &ctx.legacy_project;
     let meta =
         VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
     let stack_details = but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)?;
@@ -99,15 +99,15 @@ pub fn get_initial_integration_steps_for_branch(
 
 /// Integrate a branch with the given steps.
 pub fn integrate_branch_with_steps(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     branch_name: String,
     steps: Vec<InteractiveIntegrationStep>,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let repository = ctx.gix_repo()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repository = ctx.repo.get()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let mut source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
@@ -235,7 +235,7 @@ fn integration_steps_to_rebase_steps(
 }
 
 pub fn integrate_upstream_commits_for_series(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     perm: &mut WorktreeWritePermission,
     series_name: String,

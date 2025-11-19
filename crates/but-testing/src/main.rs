@@ -1,7 +1,7 @@
 //! A debug-CLI for making `but`-crates functionality available in real-world repositories.
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use command::parse_diff_spec;
 use gix::bstr::BString;
 

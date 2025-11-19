@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use tracing::instrument;
 
 /// Validate and fix workspace stack `in_workspace` status of `virtual_branches.toml`
@@ -13,7 +13,7 @@ use tracing::instrument;
 ///
 /// NOTE: This isn't needed for new code - it won't base any decisions on the metadata alone.
 #[instrument(level = tracing::Level::DEBUG, skip(ctx))]
-pub fn reconcile_in_workspace_state_of_vb_toml(ctx: &mut CommandContext) -> Option<()> {
+pub fn reconcile_in_workspace_state_of_vb_toml(ctx: &mut Context) -> Option<()> {
     fn make_heads_match(
         ws_stack: &but_graph::projection::Stack,
         vb_stack: &mut but_meta::virtual_branches_legacy_types::Stack,
@@ -73,10 +73,10 @@ pub fn reconcile_in_workspace_state_of_vb_toml(ctx: &mut CommandContext) -> Opti
         vb_stack.heads.reverse();
         vb_stack.heads != previous_heads
     }
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
     let (_repo, mut meta, graph) = ctx
-        .graph_and_meta_mut_and_repo_from_reference(
+        .graph_and_legacy_meta_mut_and_repo_from_reference(
             "refs/heads/gitbutler/workspace"
                 .try_into()
                 .expect("statically known to be valid"),

@@ -138,10 +138,10 @@ fn one_branch_in_workspace_multiple_remotes() -> Result<()> {
 
 mod util {
     use anyhow::Result;
+    use but_ctx::Context;
     use but_settings::{AppSettings, app_settings::FeatureFlags};
     use gitbutler_branch::BranchIdentity;
     use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
-    use gitbutler_command_context::CommandContext;
 
     /// A flattened and simplified mirror of `BranchListing` for comparing the actual and expected data.
     #[derive(Debug, PartialEq)]
@@ -218,11 +218,11 @@ mod util {
         }
     }
 
-    pub fn project_ctx(name: &str) -> Result<CommandContext> {
+    pub fn project_ctx(name: &str) -> Result<Context> {
         gitbutler_testsupport::read_only::fixture("for-listing.sh", name)
     }
 
-    pub fn project_ctx_without_ws3(name: &str) -> Result<CommandContext> {
+    pub fn project_ctx_without_ws3(name: &str) -> Result<Context> {
         gitbutler_testsupport::read_only::fixture_with_features(
             "for-listing.sh",
             name,
@@ -234,7 +234,7 @@ mod util {
     }
 
     pub fn list_branches(
-        ctx: &CommandContext,
+        ctx: &Context,
         filter: Option<BranchListingFilter>,
     ) -> Result<Vec<BranchListing>> {
         let mut branches = gitbutler_branch_actions::list_branches(ctx, filter, None)?;

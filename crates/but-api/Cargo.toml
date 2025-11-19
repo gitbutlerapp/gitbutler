@@ -27,7 +27,7 @@ legacy = [
     "dep:gitbutler-branch",
     "dep:gitbutler-branch-actions",
     "dep:gitbutler-commit",
-    "dep:gitbutler-command-context",
+    "dep:but-ctx",
     "dep:gitbutler-reference",
     "dep:gitbutler-stack",
     "dep:gitbutler-repo",
@@ -59,8 +59,8 @@ but-cherry-apply.workspace = true
 but-hunk-dependency.workspace = true
 but-path.workspace = true
 but-forge-storage.workspace = true
-but-feedback.workspace = true
 but-error.workspace = true
+but-db.workspace = true
 but-rules.workspace = true
 but-oxidize.workspace = true
 but-forge.workspace = true
@@ -70,7 +70,7 @@ gitbutler-project = {workspace = true, optional = true}
 gitbutler-branch = {workspace = true, optional = true}
 gitbutler-branch-actions = {workspace = true, optional = true}
 gitbutler-commit = {workspace = true, optional = true}
-gitbutler-command-context = {workspace = true, optional = true}
+but-ctx = {workspace = true, optional = true}
 gitbutler-reference = {workspace = true, optional = true}
 gitbutler-stack = {workspace = true, optional = true}
 gitbutler-repo = {workspace = true, optional = true}

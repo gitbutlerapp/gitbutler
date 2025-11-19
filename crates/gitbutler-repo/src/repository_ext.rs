@@ -1,6 +1,6 @@
 use std::str;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::BString;
 use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix};
 use but_error::Code;

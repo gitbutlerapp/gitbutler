@@ -1,9 +1,9 @@
 use std::{collections::HashSet, path::Path};
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
+use but_ctx::Context;
 use but_error::Code;
 use but_oxidize::OidExt;
-use gitbutler_command_context::CommandContext;
 
 use crate::{
     legacy::state_handle,
@@ -16,10 +16,10 @@ pub fn branch_details(
     gb_dir: &Path,
     branch_name: &str,
     remote: Option<&str>,
-    ctx: &CommandContext,
+    ctx: &Context,
 ) -> anyhow::Result<ui::BranchDetails> {
     let state = state_handle(gb_dir);
-    let repository = ctx.repo();
+    let repository = &*ctx.git2_repo.get()?;
 
     let default_target = state.get_default_target()?;
 

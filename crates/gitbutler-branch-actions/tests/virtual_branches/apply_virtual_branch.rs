@@ -26,7 +26,7 @@ fn rebase_commit() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -35,7 +35,7 @@ fn rebase_commit() {
         let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest::default(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )
         .unwrap();
         fs::write(repo.path().join("another_file.txt"), "virtual").unwrap();
@@ -137,7 +137,7 @@ fn upstream_integration_status_without_review_map() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -149,7 +149,7 @@ fn upstream_integration_status_without_review_map() {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -202,7 +202,7 @@ fn upstream_integration_status_with_merged_pr() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -214,7 +214,7 @@ fn upstream_integration_status_with_merged_pr() {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -292,7 +292,7 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -304,7 +304,7 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -381,7 +381,7 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -393,7 +393,7 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -470,7 +470,7 @@ fn upstream_integration_status_with_different_branch_pr() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -482,7 +482,7 @@ fn upstream_integration_status_with_different_branch_pr() {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 

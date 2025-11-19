@@ -1,10 +1,9 @@
 use std::borrow::Cow;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::api_cmd_tauri;
-use but_settings::AppSettings;
+use but_ctx::Context;
 use gitbutler_branch_actions::{internal::PushResult, stack::CreateSeriesRequest};
-use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
@@ -46,8 +45,7 @@ pub fn create_reference(
     project_id: ProjectId,
     request: create_reference::Request,
 ) -> Result<(Option<StackId>, gix::refs::FullName)> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let create_reference::Request { new_name, anchor } = request;
     let new_ref = Category::LocalBranch
         .to_full_name(new_name.as_str())
@@ -77,7 +75,7 @@ pub fn create_reference(
         })
         .transpose()?;
 
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     let (repo, mut meta, graph) =
         ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
     let graph = but_workspace::branch::create_reference(
@@ -85,7 +83,7 @@ pub fn create_reference(
         anchor,
         &repo,
         &graph.to_workspace()?,
-        &mut *meta,
+        &mut meta,
         |_| StackId::generate(),
         None,
     )?;
@@ -105,11 +103,10 @@ pub fn create_branch(
     stack_id: StackId,
     request: CreateSeriesRequest,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    if ctx.app_settings().feature_flags.ws3 {
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    if ctx.settings().feature_flags.ws3 {
         use but_workspace::branch::create_reference::Position::Above;
-        let mut guard = project.exclusive_worktree_access();
+        let mut guard = ctx.exclusive_worktree_access();
         let (repo, mut meta, graph) =
             ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
         let ws = graph.to_workspace()?;
@@ -152,7 +149,7 @@ pub fn create_branch(
                 },
                 &repo,
                 &ws,
-                &mut *meta,
+                &mut meta,
                 |_| StackId::generate(),
                 None, // order - not used for dependent branches
             )?;
@@ -166,10 +163,9 @@ pub fn create_branch(
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: String) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
-    if ctx.app_settings().feature_flags.ws3 {
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    if ctx.settings().feature_flags.ws3 {
         let (repo, mut meta, graph) =
             ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
         let ws = graph.to_workspace()?;
@@ -182,7 +178,7 @@ pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: Stri
             ref_name.as_ref(),
             &repo,
             &ws,
-            &mut *meta,
+            &mut meta,
             but_workspace::branch::remove_reference::Options {
                 avoid_anonymous_stacks: true,
                 // The UI kind of keeps it, but we can't do that somehow
@@ -205,8 +201,7 @@ pub fn update_branch_name(
     branch_name: String,
     new_name: String,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::stack::update_branch_name(&ctx, stack_id, branch_name, new_name)?;
     Ok(())
 }
@@ -219,8 +214,7 @@ pub fn update_branch_description(
     branch_name: String,
     description: Option<String>,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::stack::update_branch_description(
         &ctx,
         stack_id,
@@ -238,8 +232,7 @@ pub fn update_branch_pr_number(
     branch_name: String,
     pr_number: Option<usize>,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::stack::update_branch_pr_number(
         &ctx,
         stack_id,
@@ -261,7 +254,7 @@ pub fn push_stack(
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<PushResult> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     gitbutler_branch_actions::stack::push_stack(
         &mut ctx,
         stack_id,
@@ -281,8 +274,7 @@ pub fn push_stack_to_review(
     top_branch: String,
     user: User,
 ) -> Result<String> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let review_id =
         gitbutler_sync::stack_upload::push_stack_to_review(&ctx, &user, stack_id, top_branch)?;
 

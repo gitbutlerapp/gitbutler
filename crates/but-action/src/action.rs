@@ -1,6 +1,6 @@
 use std::{fmt::Debug, str::FromStr};
 
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -146,21 +146,19 @@ impl ButlerAction {
     }
 }
 
-pub(crate) fn persist_action(ctx: &mut CommandContext, action: ButlerAction) -> anyhow::Result<()> {
-    ctx.db()?
+pub(crate) fn persist_action(ctx: &mut Context, action: ButlerAction) -> anyhow::Result<()> {
+    ctx.db
+        .get_mut()?
         .butler_actions()
         .insert(action.try_into()?)
         .map_err(|e| anyhow::anyhow!("Failed to persist action: {}", e))?;
     Ok(())
 }
 
-pub fn list_actions(
-    ctx: &mut CommandContext,
-    offset: i64,
-    limit: i64,
-) -> anyhow::Result<ActionListing> {
+pub fn list_actions(ctx: &mut Context, offset: i64, limit: i64) -> anyhow::Result<ActionListing> {
     let (total, actions) = ctx
-        .db()?
+        .db
+        .get_mut()?
         .butler_actions()
         .list(offset, limit)
         .map_err(|e| anyhow::anyhow!("Failed to list actions: {}", e))?;

@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::{BString, ByteVec};
 use but_core::{TreeChange, UnifiedPatch};
 

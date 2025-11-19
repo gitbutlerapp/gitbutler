@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 
 pub trait RepositoryExt {
     fn l(&self, from: git2::Oid, to: LogUntil, include_all_parents: bool)

@@ -19,7 +19,7 @@ mod tests {
 #!/bin/sh
 # do nothing
 ";
-        git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_PRE_COMMIT, hook);
+        git2_hooks::create_hook(&*ctx.git2_repo.get()?, git2_hooks::HOOK_PRE_COMMIT, hook);
         assert_eq!(
             hooks::pre_commit(ctx, &selected_hunks)?,
             HookResult::Success
@@ -55,7 +55,11 @@ if echo "$STAGED_DIFF" | grep -qE "^\+.*forbidden"; then
     exit 1
 fi
 "#;
-        git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_PRE_COMMIT, hook.as_bytes());
+        git2_hooks::create_hook(
+            &*ctx.git2_repo.get()?,
+            git2_hooks::HOOK_PRE_COMMIT,
+            hook.as_bytes(),
+        );
         std::fs::write(project.worktree_dir()?.join("test.txt"), "forbidden\n")?;
 
         // While we have changed a file to include the forbidden word, the hook should not
@@ -78,14 +82,14 @@ fi
             }],
         };
 
-        assert!(!is_file_staged(ctx.repo(), "test.txt")?);
+        assert!(!is_file_staged(&*ctx.git2_repo.get()?, "test.txt")?);
         assert_eq!(
             hooks::pre_commit(ctx, &ownership2)?,
             HookResult::Failure(ErrorData {
                 error: "rejected\n".to_owned()
             })
         );
-        assert!(!is_file_staged(ctx.repo(), "test.txt")?);
+        assert!(!is_file_staged(&*ctx.git2_repo.get()?, "test.txt")?);
         Ok(())
     }
 
@@ -99,7 +103,7 @@ fi
 echo 'rejected'
 exit 1
 ";
-        git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_POST_COMMIT, hook);
+        git2_hooks::create_hook(&*ctx.git2_repo.get()?, git2_hooks::HOOK_POST_COMMIT, hook);
 
         assert_eq!(
             gitbutler_repo::hooks::post_commit(ctx)?,
@@ -120,7 +124,7 @@ exit 1
 echo 'rejected'
 exit 1
 ";
-        git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_COMMIT_MSG, hook);
+        git2_hooks::create_hook(&*ctx.git2_repo.get()?, git2_hooks::HOOK_COMMIT_MSG, hook);
 
         let message = "commit message".to_owned();
         assert_eq!(
@@ -141,7 +145,7 @@ exit 1
 #!/bin/sh
 echo 'rewritten message' > $1
 ";
-        git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_COMMIT_MSG, hook);
+        git2_hooks::create_hook(&*ctx.git2_repo.get()?, git2_hooks::HOOK_COMMIT_MSG, hook);
 
         let message = "commit message".to_owned();
         assert_eq!(
@@ -162,7 +166,7 @@ echo 'rewritten message' > $1
 #!/bin/sh
 echo 'commit message' > $1
 ";
-        git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_COMMIT_MSG, hook);
+        git2_hooks::create_hook(&*ctx.git2_repo.get()?, git2_hooks::HOOK_COMMIT_MSG, hook);
 
         let message = "commit message\n".to_owned();
         assert_eq!(

@@ -1,6 +1,6 @@
 use std::io;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use clap::CommandFactory;
 use clap_complete::Shell;
 

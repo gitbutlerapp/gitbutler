@@ -1,17 +1,17 @@
 use anyhow::Result;
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use uuid::Uuid;
 
 use crate::{ClaudePermissionRequest, ClaudeSession};
 
 /// Creates a new ClaudeSession with the session_id provided and saves it to the database.
-pub fn save_new_session(ctx: &mut CommandContext, id: Uuid) -> anyhow::Result<ClaudeSession> {
+pub fn save_new_session(ctx: &mut Context, id: Uuid) -> anyhow::Result<ClaudeSession> {
     save_new_session_with_gui_flag(ctx, id, false)
 }
 
 /// Creates a new ClaudeSession with the session_id provided and saves it to the database.
 pub fn save_new_session_with_gui_flag(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     id: Uuid,
     in_gui: bool,
 ) -> anyhow::Result<ClaudeSession> {
@@ -26,7 +26,8 @@ pub fn save_new_session_with_gui_flag(
         approved_permissions: vec![],
         denied_permissions: vec![],
     };
-    ctx.db()?
+    ctx.db
+        .get_mut()?
         .claude_sessions()
         .insert(session.clone().try_into()?)?;
     Ok(session)
@@ -34,7 +35,7 @@ pub fn save_new_session_with_gui_flag(
 
 /// Adds a session ID to the list of session IDs for a given session.
 pub fn add_session_id(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: Uuid,
     new_session_id: Uuid,
 ) -> anyhow::Result<()> {
@@ -46,10 +47,12 @@ pub fn add_session_id(
 
         let json = serde_json::to_string(&session.session_ids)?;
 
-        ctx.db()?
+        ctx.db
+            .get_mut()?
             .claude_sessions()
             .update_session_ids(&session_id.to_string(), &json)?;
-        ctx.db()?
+        ctx.db
+            .get_mut()?
             .claude_sessions()
             .update_current_id(&session_id.to_string(), &new_session_id.to_string())?;
     }
@@ -57,12 +60,9 @@ pub fn add_session_id(
 }
 
 /// Updates the current session ID for a given session in the database.
-pub fn set_session_in_gui(
-    ctx: &mut CommandContext,
-    session_id: Uuid,
-    in_gui: bool,
-) -> anyhow::Result<()> {
-    ctx.db()?
+pub fn set_session_in_gui(ctx: &mut Context, session_id: Uuid, in_gui: bool) -> anyhow::Result<()> {
+    ctx.db
+        .get_mut()?
         .claude_sessions()
         .update_in_gui(&session_id.to_string(), in_gui)?;
     Ok(())
@@ -70,14 +70,14 @@ pub fn set_session_in_gui(
 
 /// Updates the permissions for a given session in the database.
 pub fn update_session_permissions(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: Uuid,
     approved_permissions: &[crate::Permission],
     denied_permissions: &[crate::Permission],
 ) -> anyhow::Result<()> {
     let approved_json = serde_json::to_string(approved_permissions)?;
     let denied_json = serde_json::to_string(denied_permissions)?;
-    ctx.db()?.claude_sessions().update_permissions(
+    ctx.db.get_mut()?.claude_sessions().update_permissions(
         &session_id.to_string(),
         &approved_json,
         &denied_json,
@@ -86,8 +86,8 @@ pub fn update_session_permissions(
 }
 
 /// Lists all known Claude sessions
-pub fn list_all_sessions(ctx: &mut CommandContext) -> anyhow::Result<Vec<ClaudeSession>> {
-    let sessions = ctx.db()?.claude_sessions().list()?;
+pub fn list_all_sessions(ctx: &mut Context) -> anyhow::Result<Vec<ClaudeSession>> {
+    let sessions = ctx.db.get_mut()?.claude_sessions().list()?;
     sessions
         .into_iter()
         .map(|s| s.try_into())
@@ -96,10 +96,14 @@ pub fn list_all_sessions(ctx: &mut CommandContext) -> anyhow::Result<Vec<ClaudeS
 
 /// Retrieves a Claude session by its ID from the database.
 pub fn get_session_by_id(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: Uuid,
 ) -> anyhow::Result<Option<ClaudeSession>> {
-    let session = ctx.db()?.claude_sessions().get(&session_id.to_string())?;
+    let session = ctx
+        .db
+        .get_mut()?
+        .claude_sessions()
+        .get(&session_id.to_string())?;
     match session {
         Some(s) => Ok(Some(s.try_into()?)),
         None => Ok(None),
@@ -107,11 +111,12 @@ pub fn get_session_by_id(
 }
 
 pub fn get_session_by_current_id(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     current_id: Uuid,
 ) -> anyhow::Result<Option<ClaudeSession>> {
     let session = ctx
-        .db()?
+        .db
+        .get_mut()?
         .claude_sessions()
         .get_by_current_id(&current_id.to_string())?;
     match session {
@@ -122,17 +127,18 @@ pub fn get_session_by_current_id(
 
 /// Deletes a Claude session and all associated messages from the database. This is what we want to use when we want to delete a session completely.
 pub fn delete_session_and_messages_by_id(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: Uuid,
 ) -> anyhow::Result<()> {
-    ctx.db()?
+    ctx.db
+        .get_mut()?
         .delete_session_and_messages(&session_id.to_string())?;
     Ok(())
 }
 
 /// Creates a new ClaudeMessage with the provided session_id and payload, and saves it to the database.
 pub fn save_new_message(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: Uuid,
     payload: crate::MessagePayload,
 ) -> anyhow::Result<crate::ClaudeMessage> {
@@ -142,7 +148,8 @@ pub fn save_new_message(
         created_at: chrono::Utc::now().naive_utc(),
         payload,
     };
-    ctx.db()?
+    ctx.db
+        .get_mut()?
         .claude_messages()
         .insert(message.clone().try_into()?)?;
     Ok(message)
@@ -151,11 +158,12 @@ pub fn save_new_message(
 /// Lists all messages associated with a given session ID from the database.
 /// Messages that fail to deserialize are skipped and logged as warnings.
 pub fn list_messages_by_session(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: Uuid,
 ) -> anyhow::Result<Vec<crate::ClaudeMessage>> {
     let messages = ctx
-        .db()?
+        .db
+        .get_mut()?
         .claude_messages()
         .list_by_session(&session_id.to_string())?;
     messages
@@ -167,11 +175,12 @@ pub fn list_messages_by_session(
 /// Gets the most recent user input message
 /// Optionally an offset may be provided. The offset must be a positive integer
 pub fn get_user_message(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     offset: Option<i64>,
 ) -> anyhow::Result<Option<crate::ClaudeMessage>> {
     let message = ctx
-        .db()?
+        .db
+        .get_mut()?
         .claude_messages()
         .get_message_of_type(MessagePayloadDbType::User.to_string(), offset)?;
 
@@ -183,9 +192,9 @@ pub fn get_user_message(
 
 /// Lists all Permission Requests
 pub fn list_all_permission_requests(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
 ) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
-    let requests = ctx.db()?.claude_permission_requests().list()?;
+    let requests = ctx.db.get_mut()?.claude_permission_requests().list()?;
     requests
         .into_iter()
         .map(|s| s.try_into())
@@ -194,13 +203,14 @@ pub fn list_all_permission_requests(
 
 /// Update permission request decision
 pub fn update_permission_request(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     id: &str,
     decision: crate::PermissionDecision,
     use_wildcard: bool,
 ) -> anyhow::Result<()> {
     let decision_str = serde_json::to_string(&decision)?;
-    ctx.db()?
+    ctx.db
+        .get_mut()?
         .claude_permission_requests()
         .set_decision_and_wildcard(id, Some(decision_str), use_wildcard)?;
     Ok(())

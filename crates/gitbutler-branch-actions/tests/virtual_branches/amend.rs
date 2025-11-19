@@ -26,7 +26,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -39,7 +39,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -95,14 +95,14 @@ fn non_locked_hunk() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -153,14 +153,14 @@ fn locked_hunk() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -216,14 +216,14 @@ fn non_existing_ownership() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

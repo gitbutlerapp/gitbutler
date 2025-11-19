@@ -7,7 +7,7 @@ use std::{
     time::Instant,
 };
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_core::{
     RefMetadata, is_workspace_ref_name,
@@ -728,7 +728,7 @@ mod fs {
         path::Path,
     };
 
-    use anyhow::Context;
+    use anyhow::Context as _;
     use gix::tempfile::{AutoRemove, ContainingDirectory};
     use serde::de::DeserializeOwned;
 

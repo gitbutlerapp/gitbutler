@@ -11,14 +11,16 @@ doctest = false
 test = false
 
 [dependencies]
+but-core.workspace = true
+but-db.workspace = true
+
+gitbutler-commit.workspace = true
+but-ctx.workspace = true
+
 sha-1 = "0.10.1"
 uuid.workspace = true
 anyhow.workspace = true
 bstr.workspace = true
-but-core.workspace = true
-but-db.workspace = true
-gitbutler-commit.workspace = true
-gitbutler-command-context.workspace = true
 chrono.workspace = true
 serde.workspace = true
 gix = { workspace = true }

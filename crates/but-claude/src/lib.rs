@@ -2,7 +2,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use gitbutler_command_context::CommandContext;
+use but_ctx::ThreadSafeContext;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
@@ -257,7 +257,7 @@ impl PermissionDecision {
         request: &ClaudePermissionRequest,
         project_path: &std::path::Path,
         runtime_permissions: &mut crate::permissions::Permissions,
-        ctx: Option<&mut gitbutler_command_context::CommandContext>,
+        ctx: Option<&mut but_ctx::Context>,
         session_id: Option<uuid::Uuid>,
     ) -> anyhow::Result<()> {
         use crate::permissions::{
@@ -482,14 +482,19 @@ pub struct ClaudeUserParams {
 }
 
 pub async fn send_claude_message(
-    ctx: &mut CommandContext,
+    sync_ctx: ThreadSafeContext,
     broadcaster: Arc<Mutex<Broadcaster>>,
     session_id: uuid::Uuid,
     stack_id: StackId,
     content: MessagePayload,
 ) -> Result<()> {
-    let message = db::save_new_message(ctx, session_id, content.clone())?;
-    let project_id = ctx.project().id;
+    let (message, project_id) = {
+        let mut ctx = sync_ctx.into_thread_local();
+        (
+            db::save_new_message(&mut ctx, session_id, content.clone())?,
+            ctx.legacy_project.id,
+        )
+    };
 
     broadcaster.lock().await.send(FrontendEvent {
         name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),

@@ -2,7 +2,7 @@
 
 use std::borrow::Borrow;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use gix::bstr::ByteSlice;
 
 mod ext;

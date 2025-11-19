@@ -1,8 +1,8 @@
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
+use but_ctx::Context;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
-use gitbutler_command_context::CommandContext;
 use gix::bstr::BStr;
 /// Direct access to lower-level utilities for cases where this is enough.
 ///
@@ -28,16 +28,16 @@ pub mod paths {
 }
 
 pub mod virtual_branches {
-    use gitbutler_command_context::CommandContext;
+    use but_ctx::Context;
     use gitbutler_stack::{Target, VirtualBranchesHandle};
 
     use crate::empty_bare_repository;
 
-    pub fn set_test_target(ctx: &CommandContext) -> anyhow::Result<()> {
-        let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    pub fn set_test_target(ctx: &Context) -> anyhow::Result<()> {
+        let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
         let (remote_repo, _tmp) = empty_bare_repository();
-        let mut remote = ctx
-            .repo()
+        let git2_repo = &*ctx.git2_repo.get()?;
+        let mut remote = git2_repo
             .remote("origin", remote_repo.path().to_str().unwrap())
             .expect("failed to add remote");
         remote.push(&["refs/heads/master:refs/heads/master"], None)?;
@@ -71,8 +71,8 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
 }
 
 pub mod writable {
+    use but_ctx::Context;
     use but_settings::AppSettings;
-    use gitbutler_command_context::CommandContext;
     use gitbutler_project::Project;
     use tempfile::TempDir;
 
@@ -81,19 +81,18 @@ pub mod writable {
     pub fn fixture(
         script_name: &str,
         project_directory: &str,
-    ) -> anyhow::Result<(CommandContext, TempDir)> {
+    ) -> anyhow::Result<(Context, TempDir)> {
         fixture_with_settings(script_name, project_directory, |_| {})
     }
     pub fn fixture_with_settings(
         script_name: &str,
         project_directory: &str,
         change_settings: fn(&mut AppSettings),
-    ) -> anyhow::Result<(CommandContext, TempDir)> {
+    ) -> anyhow::Result<(Context, TempDir)> {
         let (project, tempdir) = fixture_project(script_name, project_directory)?;
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let open = CommandContext::open(&project, settings);
-        let ctx = open?;
+        let ctx = Context::new_from_legacy_project_and_settings(&project, settings);
         Ok((ctx, tempdir))
     }
     pub fn fixture_project(
@@ -118,7 +117,7 @@ pub mod writable {
     pub fn but_fixture(
         script_name: &str,
         project_directory: &str,
-    ) -> anyhow::Result<(CommandContext, TempDir)> {
+    ) -> anyhow::Result<(Context, TempDir)> {
         but_fixture_with_settings(script_name, project_directory, |_| {})
     }
 
@@ -127,12 +126,11 @@ pub mod writable {
         script_name: &str,
         project_directory: &str,
         change_settings: fn(&mut AppSettings),
-    ) -> anyhow::Result<(CommandContext, TempDir)> {
+    ) -> anyhow::Result<(Context, TempDir)> {
         let (project, tempdir) = but_fixture_project(script_name, project_directory)?;
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let open = CommandContext::open(&project, settings);
-        let ctx = open?;
+        let ctx = Context::new_from_legacy_project_and_settings(&project, settings);
         Ok((ctx, tempdir))
     }
 
@@ -213,16 +211,16 @@ pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termt
     visualize_gix_tree(git2_to_gix_object_id(tree_id).attach(&repo))
 }
 
-pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
-    let repo = ctx.gix_repo_for_merging_non_persisting().unwrap();
-    let stacks = if ctx.app_settings().feature_flags.ws3 {
+pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
+    let repo = ctx.open_repo_for_merging_non_persisting().unwrap();
+    let stacks = if ctx.settings().feature_flags.ws3 {
         let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
+            ctx.project_data_dir().join("virtual_branches.toml"),
         )
         .unwrap();
         but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
     } else {
-        but_workspace::legacy::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+        but_workspace::legacy::stacks(ctx, &ctx.project_data_dir(), &repo, StacksFilter::default())
     }
     .unwrap();
     let mut details = vec![];
@@ -232,14 +230,14 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
             .expect("BUG(opt-stack-id): test code shouldn't trigger this");
         details.push((
             stack_id,
-            if ctx.app_settings().feature_flags.ws3 {
+            if ctx.settings().feature_flags.ws3 {
                 let meta = VirtualBranchesTomlMetadata::from_path(
-                    ctx.project().gb_dir().join("virtual_branches.toml"),
+                    ctx.project_data_dir().join("virtual_branches.toml"),
                 )
                 .unwrap();
                 but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
             } else {
-                but_workspace::legacy::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+                but_workspace::legacy::stack_details(&ctx.project_data_dir(), stack_id, ctx)
             }
             .unwrap(),
         ));
@@ -250,8 +248,8 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
 pub mod read_only {
     use std::collections::BTreeSet;
 
+    use but_ctx::Context;
     use but_settings::{AppSettings, app_settings::FeatureFlags};
-    use gitbutler_command_context::CommandContext;
     use gitbutler_project::Project;
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
@@ -265,9 +263,12 @@ pub mod read_only {
     /// the output of `script_name`.
     ///
     /// Returns the project that is strictly for read-only use.
-    pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<CommandContext> {
+    pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<Context> {
         let project = fixture_project(script_name, project_directory)?;
-        CommandContext::open(&project, AppSettings::default())
+        Ok(Context::new_from_legacy_project_and_settings(
+            &project,
+            AppSettings::default(),
+        ))
     }
 
     /// As [fixture()], but allows setting `features` in the app settings
@@ -275,15 +276,15 @@ pub mod read_only {
         script_name: &str,
         project_directory: &str,
         features: FeatureFlags,
-    ) -> anyhow::Result<CommandContext> {
+    ) -> anyhow::Result<Context> {
         let project = fixture_project(script_name, project_directory)?;
-        CommandContext::open(
+        Ok(Context::new_from_legacy_project_and_settings(
             &project,
             AppSettings {
                 feature_flags: features,
                 ..Default::default()
             },
-        )
+        ))
     }
 
     /// Like [`fixture()`], but will return only the `Project` at `project_directory` after executing `script_name`.

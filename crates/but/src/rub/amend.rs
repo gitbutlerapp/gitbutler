@@ -1,16 +1,16 @@
 use but_core::{DiffSpec, ref_metadata::StackId};
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::commit_engine::{self, CreateCommitOutcome};
 use colored::Colorize;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeWritePermission;
 use gix::ObjectId;
 
 use super::assign::branch_name_to_stack_id;
 use crate::utils::OutputChannel;
 
 pub(crate) fn file_to_commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     path: &str,
     stack_id: Option<StackId>,
     oid: &ObjectId,
@@ -22,7 +22,7 @@ pub(crate) fn file_to_commit(
         .map(|assignment| assignment.into())
         .collect();
 
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     let new_commit = amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?
         .new_commit
         .map(|c| {
@@ -37,7 +37,7 @@ pub(crate) fn file_to_commit(
 }
 
 pub(crate) fn assignments_to_commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     branch_name: Option<&str>,
     oid: &ObjectId,
     out: &mut OutputChannel,
@@ -48,7 +48,7 @@ pub(crate) fn assignments_to_commit(
         .filter(|assignment| assignment.stack_id == stack_id)
         .map(|assignment| assignment.into())
         .collect();
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     let new_commit = amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?
         .new_commit
         .map(|c| {
@@ -72,32 +72,33 @@ pub(crate) fn assignments_to_commit(
     Ok(())
 }
 
-fn wt_assignments(ctx: &mut CommandContext) -> anyhow::Result<Vec<HunkAssignment>> {
-    let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
-            .changes;
+fn wt_assignments(ctx: &mut Context) -> anyhow::Result<Vec<HunkAssignment>> {
+    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
+        ctx.legacy_project.worktree_dir()?.into(),
+    )?
+    .changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
     Ok(assignments)
 }
 
 fn amend_diff_specs(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     diff_specs: Vec<DiffSpec>,
     stack_id: Option<StackId>,
     oid: ObjectId,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<CreateCommitOutcome> {
     but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
-        &ctx.gix_repo_for_merging()?,
-        ctx.project(),
+        &ctx.open_repo_for_merging()?,
+        &ctx.legacy_project,
         stack_id,
         commit_engine::Destination::AmendCommit {
             commit_id: oid,
             new_message: None,
         },
         but_workspace::flatten_diff_specs(diff_specs),
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
         perm,
     )
 }

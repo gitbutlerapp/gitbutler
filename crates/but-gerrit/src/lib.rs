@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use bstr::{BString, ByteSlice};
 use but_core::commit::HeadersV2;
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use gitbutler_commit::commit_ext::CommitExt;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
@@ -144,13 +144,14 @@ fn with_change_id_trailer(msg: BString, change_id: Uuid) -> BString {
 }
 
 pub fn record_push_metadata(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     repo: &gix::Repository,
     candidate_ids: Vec<gix::ObjectId>,
     push_output: PushOutput,
 ) -> anyhow::Result<()> {
     let mappings = mappings(repo, candidate_ids, push_output)?;
-    let mut db = ctx.db()?.gerrit_metadata();
+    let mut db = ctx.db.get_mut()?;
+    let mut db = db.gerrit_metadata();
 
     for mapping in mappings {
         let existing = db.get(&mapping.change_id)?;

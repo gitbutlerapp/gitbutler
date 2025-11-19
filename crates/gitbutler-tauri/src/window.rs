@@ -2,15 +2,15 @@ pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::Result;
+    use but_ctx::Context;
     use but_settings::AppSettingsWithDiskSync;
-    use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use tauri::AppHandle;
     use tracing::instrument;
 
     pub(crate) mod event {
-        use anyhow::{Context, Result};
+        use anyhow::{Context as _, Result};
         use but_db::poll::ItemKind;
         use but_settings::AppSettings;
         use gitbutler_project::ProjectId;
@@ -168,7 +168,7 @@ pub(crate) mod state {
             window: &WindowLabelRef,
             project: &projects::Project,
             app_settings: &AppSettingsWithDiskSync,
-            ctx: &mut CommandContext,
+            ctx: &mut Context,
         ) -> Result<ProjectAccessMode> {
             let mut state_by_label = self.state.lock();
             if let Some(state) = state_by_label.get(window)
@@ -180,7 +180,7 @@ pub(crate) mod state {
                     .map(|_| ProjectAccessMode::First)
                     .unwrap_or(ProjectAccessMode::Shared));
             }
-            let exclusive_access = project.try_exclusive_access().ok();
+            let exclusive_access = ctx.try_exclusive_access().ok();
             let handler = handler_from_app(&self.app_handle)?;
             let worktree_dir = project.worktree_dir()?;
             let project_id = project.id;
@@ -191,8 +191,8 @@ pub(crate) mod state {
                 app_settings.clone(),
             )?;
 
-            let db = ctx.db()?;
-            let db_watcher = but_db::poll::watch_in_background(db, {
+            let db = ctx.db.get()?;
+            let db_watcher = but_db::poll::watch_in_background(&db, {
                 let app_handle = self.app_handle.clone();
                 move |item| ChangeForFrontend::from((project_id, item)).send(&app_handle)
             })?;

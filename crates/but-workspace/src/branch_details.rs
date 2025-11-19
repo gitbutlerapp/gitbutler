@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use but_core::RefMetadata;
 use but_oxidize::{ObjectIdExt as _, OidExt};
 use gix::{

@@ -1,23 +1,27 @@
 use std::{ops::Deref, str::FromStr};
 
+use crate::utils::OutputChannel;
 use anyhow::bail;
 use bstr::ByteSlice;
+use but_ctx::Context;
+use but_ctx::LegacyProject;
+use but_settings::AppSettings;
 use gitbutler_reference::RemoteRefname;
 use gix::reference::Category;
-
-use crate::utils::OutputChannel;
 
 /// Apply a branch to the workspace, and return the full ref name to it.
 ///
 /// Look first in through the local references, then the remote references.
 pub fn apply(
-    ctx: &but_ctx::Context,
+    legacy_project: &LegacyProject,
     branch_name: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let legacy_project = &ctx.legacy_project;
-    let ctx = ctx.legacy_ctx()?;
-    let repo = ctx.gix_repo()?;
+    let ctx = &mut Context::new_from_legacy_project_and_settings(
+        legacy_project,
+        AppSettings::load_from_default_path_creating()?,
+    );
+    let repo = ctx.repo.get()?;
 
     let reference = if let Some(reference) = repo.try_find_reference(branch_name)? {
         // Look for the branch in the local repository

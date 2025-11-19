@@ -1,7 +1,7 @@
 use anyhow::{Result, bail};
 // A happy little module for uploading stacks.
+use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt as _, git2_signature_to_gix_signature};
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::HasCommitHeaders as _;
 use gitbutler_oplog::reflog::{ReflogCommits, set_reference_to_oplog};
 use gitbutler_repo::{commit_message::CommitMessage, signature};
@@ -14,14 +14,14 @@ use crate::cloud::{RemoteKind, push_to_gitbutler_server, remote};
 
 /// Pushes all the branches in a stack, starting at the specified top_branch.
 pub fn push_stack_to_review(
-    ctx: &CommandContext,
+    ctx: &Context,
     user: &User,
     stack_id: StackId,
     top_branch: String,
 ) -> Result<String> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut stack = vb_state.get_stack(stack_id)?;
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     // We set the stack immediatly after because it might be an old stack that
     // dosn't yet have review_ids assigned. When reading they will have been
     // assigned new review_ids, so we just need to persist them here.
@@ -34,11 +34,14 @@ pub fn push_stack_to_review(
     let Some(review_base_id) = vb_state.upsert_last_pushed_base(&repo)? else {
         bail!("This is impossible. If you got here, I'm sorry.");
     };
-    set_reference_to_oplog(ctx.project().git_dir(), ReflogCommits::new(ctx.project())?)?;
+    set_reference_to_oplog(
+        ctx.legacy_project.git_dir(),
+        ReflogCommits::new(&ctx.legacy_project)?,
+    )?;
 
     let target_commit_id = vb_state.get_default_target()?.sha.to_gix();
-    let git2_repository = ctx.repo();
-    let mut revwalk = git2_repository.revwalk()?;
+    let git2_repo = ctx.git2_repo.get()?;
+    let mut revwalk = git2_repo.revwalk()?;
     revwalk.push(top_branch.id.to_git2())?;
     revwalk.hide(target_commit_id.to_git2())?;
     let commits = revwalk
@@ -49,7 +52,7 @@ pub fn push_stack_to_review(
 
     let refspec = format_refspec(&review_head);
 
-    let remote = remote(ctx, RemoteKind::Oplog)?;
+    let remote = remote(&ctx.legacy_project, &git2_repo, RemoteKind::Oplog)?;
     push_to_gitbutler_server(ctx, Some(user), &[&refspec], remote)?;
 
     let Some(head_review) = branch_heads.first() else {

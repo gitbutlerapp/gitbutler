@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use parking_lot::{ArcRwLockReadGuard, ArcRwLockWriteGuard, RawRwLock};
 
 /// Try to obtain the exclusive inter-process lock on the entire project that stores its application data in `project_data`,

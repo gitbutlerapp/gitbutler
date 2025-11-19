@@ -1,6 +1,6 @@
 use std::{borrow::Cow, io::Write, path::Path, process::Stdio};
 
-use anyhow::{Context, anyhow, bail};
+use anyhow::{Context as _, anyhow, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{GitConfigSettings, RepositoryExt, cmd::prepare_with_shell_on_windows};
 use but_error::Code;

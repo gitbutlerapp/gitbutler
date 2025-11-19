@@ -1,11 +1,11 @@
 use anyhow::{Context as _, Result, bail};
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_diff::Hunk;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{OwnershipClaim, Stack, StackId};
 use tracing::instrument;
 
@@ -24,17 +24,17 @@ use crate::VirtualBranchesExt as _;
 /// undone.
 #[instrument(level = tracing::Level::DEBUG, skip(ctx, _perm))]
 pub(crate) fn undo_commit(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     commit_to_remove: git2::Oid,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<Stack> {
-    let vb_state = ctx.project().virtual_branches();
+    let vb_state = ctx.legacy_project.virtual_branches();
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
 
     let merge_base = stack.merge_base(ctx)?;
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let steps = stack
         .as_rebase_steps(ctx, &repo)?
         .into_iter()
@@ -52,7 +52,7 @@ pub(crate) fn undo_commit(
     rebase.steps(steps)?;
     let output = rebase.rebase()?;
 
-    for ownership in ownership_update(ctx.repo(), commit_to_remove)? {
+    for ownership in ownership_update(&*ctx.git2_repo.get()?, commit_to_remove)? {
         stack.ownership.put(ownership);
     }
 

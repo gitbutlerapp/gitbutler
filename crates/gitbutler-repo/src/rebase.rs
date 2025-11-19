@@ -1,10 +1,9 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_core::commit::ConflictEntries;
 use but_oxidize::{GixRepositoryExt as _, ObjectIdExt as _, OidExt as _};
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
-use gitbutler_command_context::gix_repo_for_merging;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 
 use crate::RepositoryExt as _;
@@ -100,7 +99,7 @@ pub fn merge_commits(
 
     let target_merge_tree = repo.find_real_tree(&target_commit, Default::default())?;
     let incoming_merge_tree = repo.find_real_tree(&incoming_commit, Default::default())?;
-    let gix_repo = gix_repo_for_merging(repo.path())?;
+    let gix_repo = but_core::open_repo_for_merging(repo.path())?;
     let mut merge_result = gix_repo.merge_trees(
         base_tree.id().to_gix(),
         incoming_merge_tree.id().to_gix(),

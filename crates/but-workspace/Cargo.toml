@@ -13,7 +13,7 @@ doctest = false
 legacy = [
     "dep:but-meta",
     "dep:gitbutler-stack",
-    "dep:gitbutler-command-context",
+    "dep:but-ctx",
     "dep:gitbutler-cherry-pick",
     "dep:gitbutler-project",
     "dep:gitbutler-commit",
@@ -31,7 +31,7 @@ but-oxidize.workspace = true
 
 but-meta = { workspace = true, features = ["legacy"], optional = true}
 gitbutler-stack = { workspace = true, optional = true}
-gitbutler-command-context = { workspace = true, optional = true}
+but-ctx = { workspace = true, optional = true}
 gitbutler-cherry-pick = { workspace = true, optional = true}
 gitbutler-project = { workspace = true, optional = true}
 gitbutler-commit = { workspace = true, optional = true}

@@ -18,7 +18,7 @@ but-status.workspace = true
 but-gerrit.workspace = true
 but-oxidize.workspace = true
 
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-commit.workspace = true

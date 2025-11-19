@@ -1,6 +1,6 @@
 use std::{collections::HashSet, path::PathBuf, str::FromStr};
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice};
 use gix::prelude::ObjectIdExt;
 use serde::{Deserialize, Serialize};

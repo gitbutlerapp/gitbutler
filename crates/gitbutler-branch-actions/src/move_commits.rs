@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
-use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use serde::Serialize;
@@ -20,15 +20,15 @@ use crate::{
 ///
 /// commit will end up at the top of the destination stack
 pub(crate) fn move_commit(
-    ctx: &CommandContext,
+    ctx: &Context,
     target_stack_id: StackId,
     subject_commit_oid: git2::Oid,
     perm: &mut WorktreeWritePermission,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let vb_state = ctx.project().virtual_branches();
-    let repo = ctx.repo();
+    let vb_state = ctx.legacy_project.virtual_branches();
+    let repo = &*ctx.git2_repo.get()?;
 
     let applied_stacks = vb_state
         .list_stacks_in_workspace()
@@ -82,10 +82,10 @@ pub(crate) fn move_commit(
 }
 
 fn get_source_branch_diffs(
-    ctx: &CommandContext,
+    ctx: &Context,
     source_stack: &gitbutler_stack::Stack,
 ) -> Result<BranchStatus> {
-    let repo = ctx.repo();
+    let repo = &*ctx.git2_repo.get()?;
     let source_stack_head = repo.find_commit(source_stack.head_oid(&repo.to_gix()?)?.to_git2())?;
     let source_stack_head_tree = source_stack_head.tree()?;
     let uncommitted_changes_tree = repo.find_tree(source_stack.tree(ctx)?)?;
@@ -116,7 +116,7 @@ pub enum MoveCommitIllegalAction {
 ///
 /// Will fail if the commit is not in the source stack or if has dependent changes.
 fn take_commit_from_source_stack(
-    ctx: &CommandContext,
+    ctx: &Context,
     source_stack: &mut gitbutler_stack::Stack,
     subject_commit: git2::Commit<'_>,
     workspace_dependencies: &HunkDependencyResult,
@@ -154,7 +154,7 @@ fn take_commit_from_source_stack(
     }
 
     let merge_base = source_stack.merge_base(ctx)?;
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
     let steps = source_stack
         .as_rebase_steps(ctx, &gix_repo)?
         .into_iter()
@@ -173,7 +173,7 @@ fn take_commit_from_source_stack(
     let new_source_head = output.top_commit.to_git2();
 
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    let vb_state = ctx.project().virtual_branches();
+    let vb_state = ctx.legacy_project.virtual_branches();
     source_stack.set_stack_head(&vb_state, &gix_repo, new_source_head, None)?;
     Ok(None)
 }
@@ -181,11 +181,11 @@ fn take_commit_from_source_stack(
 /// Move the commit to the destination stack.
 fn move_commit_to_destination_stack(
     vb_state: &VirtualBranchesHandle,
-    ctx: &CommandContext,
+    ctx: &Context,
     mut destination_stack: gitbutler_stack::Stack,
     commit_id: git2::Oid,
 ) -> Result<(), anyhow::Error> {
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
     let merge_base = destination_stack.merge_base(ctx)?;
     let mut steps = destination_stack.as_rebase_steps(ctx, &gix_repo)?;
     // TODO: In the future we can make the API provide additional info for exacly where to place the commit on the destination stack

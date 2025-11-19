@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_core::ref_metadata::MaybeDebug;
 
@@ -28,7 +28,7 @@ impl std::fmt::Debug for Stack {
 
 /// Structures related to creating a merge-commit along with the respective tree.
 pub mod merge {
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use but_core::ref_metadata::{MaybeDebug, WorkspaceCommitRelation};
     use but_graph::SegmentIndex;
     use but_oxidize::GixRepositoryExt;

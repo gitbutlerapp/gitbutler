@@ -36,7 +36,7 @@ gitbutler-cherry-pick.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-hunk-dependency.workspace = true
 gitbutler-workspace.workspace = true
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-project.workspace = true
 
 tracing.workspace = true

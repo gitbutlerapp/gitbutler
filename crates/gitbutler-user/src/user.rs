@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_secret::{Sensitive, secret};
 use serde::{Deserialize, Serialize};
 

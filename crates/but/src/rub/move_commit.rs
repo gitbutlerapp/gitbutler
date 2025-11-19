@@ -1,8 +1,8 @@
 use anyhow::bail;
+use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gitbutler_branch_actions::reorder::commits_order;
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::ObjectId;
 
@@ -10,7 +10,7 @@ use super::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id};
 use crate::utils::OutputChannel;
 
 pub(crate) fn to_branch(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     oid: &ObjectId,
     branch_name: &str,
     out: &mut OutputChannel,
@@ -20,7 +20,7 @@ pub(crate) fn to_branch(
     )?;
     let source_stack_id = stack_id_by_commit_id(ctx, oid)?;
     if source_stack_id == target_stack_id {
-        let vb_state = &VirtualBranchesHandle::new(ctx.project().gb_dir());
+        let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
         let stack = vb_state.get_stack_in_workspace(source_stack_id)?;
         let mut stack_order = commits_order(ctx, &stack)?;
         let git2_oid = oid.to_git2();
