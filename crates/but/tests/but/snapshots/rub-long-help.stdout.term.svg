@@ -1,4 +1,4 @@
-<svg width="740px" height="524px" xmlns="http://www.w3.org/2000/svg">
+<svg width="835px" height="650px" xmlns="http://www.w3.org/2000/svg">
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
@@ -22,57 +22,71 @@
 </tspan>
     <tspan x="10px" y="46px">
 </tspan>
-    <tspan x="10px" y="64px"><tspan>Non-exhaustive list of operations:</tspan>
+    <tspan x="10px" y="64px"><tspan>The </tspan><tspan class="bold">rub</tspan><tspan> command is a simple verb that helps you do a number of editing operations by doing</tspan>
 </tspan>
-    <tspan x="10px" y="82px"><tspan>      │Source     │Target</tspan>
+    <tspan x="10px" y="82px"><tspan>combinations of two things.</tspan>
 </tspan>
-    <tspan x="10px" y="100px"><tspan>──────┼───────────┼──────</tspan>
+    <tspan x="10px" y="100px">
 </tspan>
-    <tspan x="10px" y="118px"><tspan>Amend │File,Branch│Commit</tspan>
+    <tspan x="10px" y="118px"><tspan>For example, you can "rub" a file onto a branch to assign that file to the branch. You can also</tspan>
 </tspan>
-    <tspan x="10px" y="136px"><tspan>Squash│Commit     │Commit</tspan>
+    <tspan x="10px" y="136px"><tspan>"rub" a commit onto another commit to squash them together. You can rub a commit onto a branch to</tspan>
 </tspan>
-    <tspan x="10px" y="154px"><tspan>Assign│File,Branch│Branch</tspan>
+    <tspan x="10px" y="154px"><tspan>move that commit. You can rub a file from one commit to another.</tspan>
 </tspan>
-    <tspan x="10px" y="172px"><tspan>Move  │Commit     │Branch</tspan>
+    <tspan x="10px" y="172px">
 </tspan>
-    <tspan x="10px" y="190px">
+    <tspan x="10px" y="190px"><tspan>Non-exhaustive list of operations:</tspan>
 </tspan>
-    <tspan x="10px" y="208px"><tspan>For examples see `but rub --help`.</tspan>
+    <tspan x="10px" y="208px">
 </tspan>
-    <tspan x="10px" y="226px">
+    <tspan x="10px" y="226px"><tspan>  </tspan><tspan class="bold">      │Source     │Target</tspan>
 </tspan>
-    <tspan x="10px" y="244px"><tspan class="underline bold">Usage:</tspan><tspan> </tspan><tspan class="bold">but rub</tspan><tspan> [OPTIONS] &lt;SOURCE&gt; &lt;TARGET&gt;</tspan>
+    <tspan x="10px" y="244px"><tspan>  </tspan><tspan class="bold">──────┼───────────┼──────</tspan>
 </tspan>
-    <tspan x="10px" y="262px">
+    <tspan x="10px" y="262px"><tspan>  </tspan><tspan class="bold">Amend │File,Branch│Commit</tspan>
 </tspan>
-    <tspan x="10px" y="280px"><tspan class="underline bold">Arguments:</tspan>
+    <tspan x="10px" y="280px"><tspan>  </tspan><tspan class="bold">Squash│Commit     │Commit</tspan>
 </tspan>
-    <tspan x="10px" y="298px"><tspan>  &lt;SOURCE&gt;</tspan>
+    <tspan x="10px" y="298px"><tspan>  </tspan><tspan class="bold">Assign│File,Branch│Branch</tspan>
 </tspan>
-    <tspan x="10px" y="316px"><tspan>          The source entity to combine</tspan>
+    <tspan x="10px" y="316px"><tspan>  </tspan><tspan class="bold">Move  │Commit     │Branch</tspan>
 </tspan>
     <tspan x="10px" y="334px">
 </tspan>
-    <tspan x="10px" y="352px"><tspan>  &lt;TARGET&gt;</tspan>
+    <tspan x="10px" y="352px">
 </tspan>
-    <tspan x="10px" y="370px"><tspan>          The target entity to combine with the source</tspan>
+    <tspan x="10px" y="370px"><tspan class="underline bold">Usage:</tspan><tspan> </tspan><tspan class="bold">but rub</tspan><tspan> [OPTIONS] &lt;SOURCE&gt; &lt;TARGET&gt;</tspan>
 </tspan>
     <tspan x="10px" y="388px">
 </tspan>
-    <tspan x="10px" y="406px"><tspan class="underline bold">Options:</tspan>
+    <tspan x="10px" y="406px"><tspan class="underline bold">Arguments:</tspan>
 </tspan>
-    <tspan x="10px" y="424px"><tspan>  </tspan><tspan class="bold">-j</tspan><tspan>, </tspan><tspan class="bold">--json</tspan>
+    <tspan x="10px" y="424px"><tspan>  &lt;SOURCE&gt;</tspan>
 </tspan>
-    <tspan x="10px" y="442px"><tspan>          Whether to use JSON output format</tspan>
+    <tspan x="10px" y="442px"><tspan>          The source entity to combine</tspan>
 </tspan>
     <tspan x="10px" y="460px">
 </tspan>
-    <tspan x="10px" y="478px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+    <tspan x="10px" y="478px"><tspan>  &lt;TARGET&gt;</tspan>
 </tspan>
-    <tspan x="10px" y="496px"><tspan>          Print help (see a summary with '-h')</tspan>
+    <tspan x="10px" y="496px"><tspan>          The target entity to combine with the source</tspan>
 </tspan>
     <tspan x="10px" y="514px">
+</tspan>
+    <tspan x="10px" y="532px"><tspan class="underline bold">Options:</tspan>
+</tspan>
+    <tspan x="10px" y="550px"><tspan>  </tspan><tspan class="bold">-j</tspan><tspan>, </tspan><tspan class="bold">--json</tspan>
+</tspan>
+    <tspan x="10px" y="568px"><tspan>          Whether to use JSON output format</tspan>
+</tspan>
+    <tspan x="10px" y="586px">
+</tspan>
+    <tspan x="10px" y="604px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+</tspan>
+    <tspan x="10px" y="622px"><tspan>          Print help (see a summary with '-h')</tspan>
+</tspan>
+    <tspan x="10px" y="640px">
 </tspan>
   </text>
 

@@ -43,7 +43,7 @@
 </tspan>
     <tspan x="10px" y="226px"><tspan class="fg-yellow">Inspection</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="244px"><tspan>  </tspan><tspan class="fg-green">status       </tspan><tspan>Overview of the uncommitted changes in the repository</tspan>
+    <tspan x="10px" y="244px"><tspan>  </tspan><tspan class="fg-green">status       </tspan><tspan>Overview of the project workspace state</tspan>
 </tspan>
     <tspan x="10px" y="262px">
 </tspan>

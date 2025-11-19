@@ -6,7 +6,8 @@ use command_group::AsyncCommandGroup;
 use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::{args::CommandName, utils::ResultMetricsExt};
+use crate::Subcommands;
+use crate::utils::ResultMetricsExt;
 
 /// All we need to emit metrics.
 pub struct MetricsContext {
@@ -27,16 +28,16 @@ mod subcommands_impl {
     use but_settings::AppSettings;
 
     use crate::{
-        args::{Subcommands, claude, cursor},
         base, branch, forge,
         forge::review,
         metrics::MetricsContext,
+        subcommands::{Subcommands, claude, cursor},
     };
 
     impl Subcommands {
         /// Create all context that is needed to emit metrics for `self` once, if `settings` permit.
         pub fn to_metrics_context(&self, settings: &AppSettings) -> Option<MetricsContext> {
-            use crate::args::CommandName::*;
+            use crate::metrics::CommandName::*;
             let cmd = match self {
                 Subcommands::Log => Log,
                 Subcommands::Status { .. } => Status,
@@ -152,6 +153,112 @@ pub enum Command {
     PublishReview,
     Completions,
     Absorb,
+    Unknown,
+}
+
+impl Subcommands {
+    pub fn to_metrics_command(&self) -> CommandName {
+        use crate::{base, branch, forge, subcommands::{claude, cursor}};
+        use CommandName::*;
+        match self {
+            Subcommands::Log => Log,
+            Subcommands::Status { .. } => Status,
+            Subcommands::Stf { .. } => Stf,
+            Subcommands::Rub { .. } => Rub,
+            Subcommands::Base(base::Platform { cmd }) => match cmd {
+                base::Subcommands::Update => BaseUpdate,
+                base::Subcommands::Check => BaseCheck,
+            },
+            Subcommands::Branch(branch::Platform { cmd }) => match cmd {
+                None | Some(branch::Subcommands::List { .. }) => BranchList,
+                Some(branch::Subcommands::New { .. }) => BranchNew,
+                Some(branch::Subcommands::Delete { .. }) => BranchDelete,
+                Some(branch::Subcommands::Unapply { .. }) => BranchUnapply,
+                Some(branch::Subcommands::Apply { .. }) => BranchApply,
+                Some(branch::Subcommands::Show { .. }) => BranchShow,
+            },
+            Subcommands::Worktree(crate::worktree::Platform { cmd: _ }) => Worktree,
+            Subcommands::Mark { .. } => Mark,
+            Subcommands::Unmark => Unmark,
+            Subcommands::Gui => Gui,
+            Subcommands::Commit { .. } => Commit,
+            Subcommands::Push(_) => Push,
+            Subcommands::New { .. } => New,
+            Subcommands::Describe { .. } => Describe,
+            Subcommands::Oplog { .. } => Oplog,
+            Subcommands::Restore { .. } => Restore,
+            Subcommands::Undo => Undo,
+            Subcommands::Snapshot { .. } => Snapshot,
+            Subcommands::Claude(claude::Platform { cmd }) => match cmd {
+                claude::Subcommands::PreTool => ClaudePreTool,
+                claude::Subcommands::PostTool => ClaudePostTool,
+                claude::Subcommands::Stop => ClaudeStop,
+                claude::Subcommands::Last { .. }
+                | claude::Subcommands::PermissionPromptMcp { .. } => Unknown,
+            },
+            Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
+                cursor::Subcommands::AfterEdit => CursorAfterEdit,
+                cursor::Subcommands::Stop { .. } => CursorStop,
+            },
+            Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
+                forge::integration::Subcommands::Auth => ForgeAuth,
+                forge::integration::Subcommands::Forget { .. } => ForgeForget,
+                forge::integration::Subcommands::ListUsers => ForgeListUsers,
+            },
+            Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
+                forge::review::Subcommands::Publish { .. } => PublishReview,
+                forge::review::Subcommands::Template { .. } => ReviewTemplate,
+            },
+            Subcommands::Completions { .. } => Completions,
+            Subcommands::Absorb { .. } => Absorb,
+            Subcommands::Metrics { .. }
+            | Subcommands::Actions(_)
+            | Subcommands::Mcp { .. }
+            | Subcommands::Init { .. } => Unknown,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
+pub enum CommandName {
+    Log,
+    Init,
+    Absorb,
+    Status,
+    Stf,
+    Rub,
+    Commit,
+    Push,
+    New,
+    Describe,
+    Oplog,
+    Restore,
+    Undo,
+    Snapshot,
+    Gui,
+    BaseCheck,
+    BaseUpdate,
+    BranchNew,
+    BranchDelete,
+    BranchList,
+    BranchShow,
+    BranchUnapply,
+    BranchApply,
+    ClaudePreTool,
+    ClaudePostTool,
+    ClaudeStop,
+    CursorAfterEdit,
+    CursorStop,
+    Worktree,
+    Mark,
+    Unmark,
+    ForgeAuth,
+    ForgeListUsers,
+    ForgeForget,
+    PublishReview,
+    ReviewTemplate,
+    Completions,
+    #[default]
     Unknown,
 }
 

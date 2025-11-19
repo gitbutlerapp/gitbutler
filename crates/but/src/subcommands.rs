@@ -1,64 +1,17 @@
-use std::path::PathBuf;
-
-use crate::{forge, metrics::CommandName, utils::OutputFormat};
-
-#[derive(Debug, clap::Parser)]
-#[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("GIX_VERSION"))]
-pub struct Args {
-    /// Enable tracing for debug and performance information printed to stderr.
-    #[clap(short = 't', long, action = clap::ArgAction::Count, hide = true, env = "BUT_TRACE")]
-    pub trace: u8,
-    /// Run as if gitbutler-cli was started in PATH instead of the current working directory.
-    #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
-    pub current_dir: PathBuf,
-    /// Explicitly control how output should be formatted.
-    ///
-    /// If unset and from a terminal, it defaults to human output, when redirected it's for shells.
-    #[clap(
-        long,
-        short = 'f',
-        env = "BUT_OUTPUT_FORMAT",
-        conflicts_with = "json",
-        default_value = "human"
-    )]
-    pub format: OutputFormat,
-    /// Whether to use JSON output format.
-    #[clap(long, short = 'j', global = true)]
-    pub json: bool,
-    /// Source entity for rub operation (when no subcommand is specified).
-    /// If no target is specified, this is treated as a path to open on the GUI.
-    #[clap(value_name = "SOURCE")]
-    pub source_or_path: Option<String>,
-    /// Target entity for rub operation (when no subcommand is specified).
-    #[clap(value_name = "TARGET", requires = "source_or_path")]
-    pub target: Option<String>,
-    /// Subcommand to run.
-    #[clap(subcommand)]
-    pub cmd: Option<Subcommands>,
-}
+use crate::{base, branch, forge, metrics::CommandName};
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
+    /// Show commits on active branches in your workspace.
+    #[clap(hide = true)]
+    Log,
+
     /// Overview of the project workspace state.
     ///
     /// This shows unassigned files, files assigned to stacks, all applied
     /// branches (stacked or parallel), commits on each of those branches,
     /// upstream commits that are unintegrated, commit status (pushed or local),
     /// and base branch information.
-    ///
-    /// ## Examples
-    ///
-    /// Normal usage:
-    ///
-    /// ```text
-    /// $ but status
-    /// ```
-    ///
-    /// Shorthand with listing files modified
-    ///
-    /// ```text
-    /// $ but status -f
-    /// ```
     ///
     #[clap(alias = "st")]
     Status {
@@ -114,7 +67,6 @@ pub enum Subcommands {
         /// The target entity to combine with the source
         target: String,
     },
-
     /// Initializes a GitButler project from a git repository in the current directory.
     Init {
         /// Also initializes a git repository in the current directory if one does not exist.
@@ -304,115 +256,5 @@ pub mod cursor {
             #[clap(long, default_value = "false")]
             nightly: bool,
         },
-    }
-}
-
-pub mod base {
-    #[derive(Debug, clap::Parser)]
-    pub struct Platform {
-        #[clap(subcommand)]
-        pub cmd: Subcommands,
-    }
-
-    #[derive(Debug, clap::Subcommand)]
-    pub enum Subcommands {
-        /// Fetches remotes from the remote and checks the mergeability of the branches in the workspace.
-        /// - more info
-        Check,
-        /// Updates the workspace (with all applied branches) to include the latest changes from the base branch.
-        Update,
-    }
-}
-
-pub mod branch {
-    #[derive(Debug, clap::Parser)]
-    pub struct Platform {
-        #[clap(subcommand)]
-        pub cmd: Option<Subcommands>,
-    }
-
-    #[derive(Debug, clap::Subcommand)]
-    pub enum Subcommands {
-        /// Creates a new branch in the workspace
-        New {
-            /// Name of the new branch
-            branch_name: Option<String>,
-            /// Anchor point - either a commit ID or branch name to create the new branch from
-            #[clap(long, short = 'a')]
-            anchor: Option<String>,
-        },
-        /// Deletes a branch from the workspace
-        #[clap(short_flag = 'd')]
-        Delete {
-            /// Name of the branch to delete
-            branch_name: String,
-            /// Force deletion without confirmation
-            #[clap(long, short = 'f')]
-            force: bool,
-        },
-        /// List the branches in the repository
-        List {
-            /// Filter branches by name (case-insensitive substring match)
-            filter: Option<String>,
-            /// Show only local branches
-            #[clap(long, short = 'l', conflicts_with = "remote")]
-            local: bool,
-            /// Show only remote branches
-            #[clap(long, short = 'r', conflicts_with = "local")]
-            remote: bool,
-            /// Show all branches (not just active + 20 most recent)
-            #[clap(long, short = 'a')]
-            all: bool,
-            /// Don't calculate and show number of commits ahead of base (faster)
-            #[clap(long)]
-            no_ahead: bool,
-            /// Fetch and display review information (PRs, MRs, etc.)
-            #[clap(long)]
-            review: bool,
-            /// Don't check if each branch merges cleanly into upstream
-            #[clap(long)]
-            no_check: bool,
-        },
-        /// Show commits ahead of base for a specific branch
-        Show {
-            /// CLI ID or name of the branch to show
-            branch_id: String,
-            /// Fetch and display review information
-            #[clap(short, long)]
-            review: bool,
-            /// Show files modified in each commit with line counts
-            #[clap(short, long)]
-            files: bool,
-            /// Generate AI summary of the branch changes
-            #[clap(long)]
-            ai: bool,
-            /// Check if the branch merges cleanly into upstream and identify conflicting commits
-            #[clap(long)]
-            check: bool,
-        },
-        /// Apply a branch to the workspace
-        Apply {
-            /// Name of the branch to apply
-            branch_name: String,
-        },
-        /// Unapply a branch from the workspace
-        Unapply {
-            /// Name of the branch to unapply
-            branch_name: String,
-            /// Force unapply without confirmation
-            #[clap(long, short = 'f')]
-            force: bool,
-        },
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn clap() {
-        use clap::CommandFactory;
-        Args::command().debug_assert();
     }
 }

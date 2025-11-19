@@ -13,8 +13,7 @@ use gix::date::time::CustomFormat;
 use metrics::{Event, Metrics, Props};
 
 use crate::{
-    args::CommandName,
-    metrics::MetricsContext,
+    metrics::{CommandName, MetricsContext},
     utils::{
         OutputChannel, OutputFormat, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
         print_grouped_help,

@@ -24,10 +24,10 @@ pub(crate) fn handle_changes(
     print_json_or_human(&response, out)
 }
 
-impl From<crate::args::actions::Handler> for but_action::ActionHandler {
-    fn from(val: crate::args::actions::Handler) -> Self {
+impl From<crate::subcommands::actions::Handler> for but_action::ActionHandler {
+    fn from(val: crate::subcommands::actions::Handler) -> Self {
         match val {
-            crate::args::actions::Handler::Simple => but_action::ActionHandler::HandleChangesSimple,
+            crate::subcommands::actions::Handler::Simple => but_action::ActionHandler::HandleChangesSimple,
         }
     }
 }
