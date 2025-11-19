@@ -190,9 +190,9 @@
 		{#each mutableStacks as stack, i (stack.id)}
 			<div
 				bind:this={stackElements[stack.id || 'branchless']}
-				class="reorderable-stack"
+				class="reorderable-stack dotted-pattern"
 				role="presentation"
-				animate:flip={{ duration: 150 }}
+				animate:flip={{ duration: draggingStack ? 200 : 0 }}
 				onmousedown={onReorderMouseDown}
 				ondragstart={(e) => {
 					if (!stack.id) return;
@@ -270,6 +270,8 @@
 				{/if}
 			{/snippet}
 		</MultiStackOfflaneDropzone>
+
+		<div class="dotted-pattern"></div>
 	</div>
 
 	{#if lanesScrollableEl}
@@ -282,7 +284,7 @@
 		display: flex;
 		flex: 1;
 		height: 100%;
-		margin: 0 -1px;
+		margin-right: -1px; /* to hide vertical lane border gap */
 		overflow-x: auto;
 		overflow-y: hidden;
 	}
@@ -290,6 +292,12 @@
 	.lanes-scrollable {
 		display: flex;
 		position: relative;
+		min-width: fill-available;
+		height: 100%;
+	}
+
+	.dotted-pattern {
+		width: fill-available;
 		height: 100%;
 	}
 
@@ -303,13 +311,13 @@
 
 	.reorderable-stack {
 		display: flex;
+		z-index: var(--z-ground);
 		flex-shrink: 0;
 		flex-direction: column;
 		width: fit-content;
 		height: 100%;
-
-		&:first-child {
-			border-left: 1px solid var(--clr-border-2);
-		}
+		margin-left: -1px;
+		border-left: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
 	}
 </style>

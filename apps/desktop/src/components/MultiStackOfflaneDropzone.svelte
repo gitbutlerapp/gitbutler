@@ -46,7 +46,7 @@
 </script>
 
 <div
-	class="hidden-dropzone"
+	class="hidden-dropzone dotted-pattern"
 	data-testid={TestId.StackOfflaneDropzone}
 	use:focusable
 	use:intersectionObserver={{
@@ -144,12 +144,17 @@
 <style lang="postcss">
 	.hidden-dropzone {
 		display: flex;
+		z-index: var(--z-ground);
 		position: relative;
+		width: 100%;
 		min-width: 400px;
 		max-width: 400px;
 		height: 100%;
+		margin-left: -1px;
 		overflow: hidden;
 		border-right: 1px solid var(--clr-border-2);
+		border-left: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
 	}
 
 	.hidden-dropzone__lane {
