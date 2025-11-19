@@ -85,10 +85,29 @@
 	// If the user is making a commit to a different lane we dim this one.
 	const dimmed = $derived(action?.type === 'commit' && action?.stackId !== stableStackId);
 
-	// Get the default width from global state, but don't make it reactive during initialization
-	const defaultStackWidth = uiState.global.stackWidth.current;
+	// Resizer configuration for stack panels and details view
+	const RESIZER_CONFIG: {
+		panel1: { minWidth: number; maxWidth: number; defaultValue: number };
+		panel2: { minWidth: number; maxWidth: number; defaultValue: number };
+	} = {
+		panel1: {
+			minWidth: 20,
+			maxWidth: 64,
+			defaultValue: 23
+		},
+		panel2: {
+			minWidth: 20,
+			maxWidth: 64,
+			defaultValue: 32
+		}
+	};
+
 	const persistedStackWidth = $derived(
-		persistWithExpiration(defaultStackWidth, `ui-stack-width-${stableStackId}`, 1440)
+		persistWithExpiration(
+			RESIZER_CONFIG.panel1.defaultValue,
+			`ui-stack-width-${stableStackId}`,
+			1440
+		)
 	);
 
 	const branchesQuery = $derived(stackService.branches(stableProjectId, stableStackId));
@@ -143,20 +162,6 @@
 
 	const defaultBranchQuery = $derived(stackService.defaultBranch(stableProjectId, stableStackId));
 	const defaultBranch = $derived(defaultBranchQuery?.response);
-
-	// Resizer configuration for stack panels and details view
-	const RESIZER_CONFIG = {
-		panel1: {
-			minWidth: 20,
-			maxWidth: 64,
-			defaultValue: 23
-		},
-		panel2: {
-			minWidth: 20,
-			maxWidth: 64,
-			defaultValue: 32
-		}
-	} as const;
 
 	function checkSelectedFilesForCommit() {
 		const stackAssignments = stableStackId
@@ -619,14 +624,14 @@
 					<!-- RESIZE PANEL 1 -->
 					{#if stackViewEl}
 						<Resizer
-							persistId="resizer-panel1-${stableStackId}"
+							persistId="ui-stack-width-${stableStackId}"
 							viewport={stackViewEl}
 							zIndex="var(--z-lifted)"
 							direction="right"
 							showBorder={!isDetailsViewOpen}
 							minWidth={RESIZER_CONFIG.panel1.minWidth}
 							maxWidth={RESIZER_CONFIG.panel1.maxWidth}
-							defaultValue={RESIZER_CONFIG.panel1.defaultValue}
+							defaultValue={$persistedStackWidth ?? RESIZER_CONFIG.panel1.defaultValue}
 							syncName="panel1"
 							onWidth={(newWidth) => {
 								// Update the persisted stack width when panel1 resizer changes
