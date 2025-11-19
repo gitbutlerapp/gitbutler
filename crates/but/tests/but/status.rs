@@ -86,8 +86,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
     // Create a new file to ensure we have file assignments
     env.file("test-file.txt", "test content");
 
-    env
-        .but("--json status")
+    env.but("--json status")
         .env_remove("BUT_OUTPUT_FORMAT")
         .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
@@ -95,173 +94,93 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "stacks": [
-    [
-      null,
-      [
-        null,
-        [
-          {
-            "path": "test-file.txt",
-            "assignments": [
-              {
-                "id": "[UUID]",
-                "hunkHeader": {
-                  "oldStart": 1,
-                  "oldLines": 0,
-                  "newStart": 1,
-                  "newLines": 1
-                },
-                "path": "test-file.txt",
-                "pathBytes": [
-                  116,
-                  101,
-                  115,
-                  116,
-                  45,
-                  102,
-                  105,
-                  108,
-                  101,
-                  46,
-                  116,
-                  120,
-                  116
-                ],
-                "stackId": null,
-                "lineNumsAdded": [
-                  1
-                ],
-                "lineNumsRemoved": [],
-                "cliId": "xe"
-              }
-            ]
-          }
-        ]
-      ]
-    ],
-    [
-      "[UUID]",
-      [
-        {
-          "derivedName": "A",
-          "pushStatus": "completelyUnpushed",
-          "branchDetails": [
-            {
-              "name": "A",
-              "linkedWorktreeId": null,
-              "remoteTrackingBranch": null,
-              "description": null,
-              "prNumber": null,
-              "reviewId": null,
-              "tip": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56",
-              "baseCommit": "0dc37334a458df421bf67ea806103bf5004845dd",
-              "pushStatus": "completelyUnpushed",
-              "lastUpdatedAt": [TIMESTAMP],
-              "authors": [
-                {
-                  "name": "author",
-                  "email": "author@example.com",
-                  "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
-                }
-              ],
-              "isConflicted": false,
-              "commits": [
-                {
-                  "id": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56",
-                  "parentIds": [
-                    "0dc37334a458df421bf67ea806103bf5004845dd"
-                  ],
-                  "message": "add A/n",
-                  "hasConflicts": false,
-                  "state": {
-                    "type": "LocalOnly"
-                  },
-                  "createdAt": 946684800000,
-                  "author": {
-                    "name": "author",
-                    "email": "author@example.com",
-                    "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
-                  },
-                  "gerritReviewUrl": null,
-                  "cliId": "94"
-                }
-              ],
-              "upstreamCommits": [],
-              "isRemoteHead": false,
-              "cliId": "l3"
-            }
-          ],
-          "isConflicted": false
-        },
-        []
-      ]
-    ],
-    [
-      "[UUID]",
-      [
-        {
-          "derivedName": "B",
-          "pushStatus": "completelyUnpushed",
-          "branchDetails": [
-            {
-              "name": "B",
-              "linkedWorktreeId": null,
-              "remoteTrackingBranch": null,
-              "description": null,
-              "prNumber": null,
-              "reviewId": null,
-              "tip": "d3e2ba36c529fbdce8de90593e22aceae21f9b17",
-              "baseCommit": "0dc37334a458df421bf67ea806103bf5004845dd",
-              "pushStatus": "completelyUnpushed",
-              "lastUpdatedAt": [TIMESTAMP],
-              "authors": [
-                {
-                  "name": "author",
-                  "email": "author@example.com",
-                  "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
-                }
-              ],
-              "isConflicted": false,
-              "commits": [
-                {
-                  "id": "d3e2ba36c529fbdce8de90593e22aceae21f9b17",
-                  "parentIds": [
-                    "0dc37334a458df421bf67ea806103bf5004845dd"
-                  ],
-                  "message": "add B/n",
-                  "hasConflicts": false,
-                  "state": {
-                    "type": "LocalOnly"
-                  },
-                  "createdAt": 946684800000,
-                  "author": {
-                    "name": "author",
-                    "email": "author@example.com",
-                    "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
-                  },
-                  "gerritReviewUrl": null,
-                  "cliId": "d3"
-                }
-              ],
-              "upstreamCommits": [],
-              "isRemoteHead": false,
-              "cliId": "m3"
-            }
-          ],
-          "isConflicted": false
-        },
-        []
-      ]
-    ]
+  "unassignedChanges": [
+    {
+      "cliId": "xe",
+      "filePath": "test-file.txt",
+      "changeType": "added"
+    }
   ],
-  "common_merge_base": {
-    "target_name": "origin/main",
-    "common_merge_base": "0dc3733",
+  "stacks": [
+    {
+      "cliId": "l3",
+      "assignedChanges": [],
+      "branches": [
+        {
+          "cliId": "l3",
+          "name": "A",
+          "commits": [
+            {
+              "cliId": "94",
+              "commitId": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56",
+              "createdAt": "[RFC_TIMESTAMP]",
+              "message": "add A/n",
+              "authorName": "author",
+              "authorEmail": "author@example.com",
+              "conflicted": false,
+              "reviewId": null,
+              "changes": null
+            }
+          ],
+          "upstreamCommits": [],
+          "branchStatus": "completelyUnpushed",
+          "reviewId": null
+        }
+      ]
+    },
+    {
+      "cliId": "m3",
+      "assignedChanges": [],
+      "branches": [
+        {
+          "cliId": "m3",
+          "name": "B",
+          "commits": [
+            {
+              "cliId": "d3",
+              "commitId": "d3e2ba36c529fbdce8de90593e22aceae21f9b17",
+              "createdAt": "[RFC_TIMESTAMP]",
+              "message": "add B/n",
+              "authorName": "author",
+              "authorEmail": "author@example.com",
+              "conflicted": false,
+              "reviewId": null,
+              "changes": null
+            }
+          ],
+          "upstreamCommits": [],
+          "branchStatus": "completelyUnpushed",
+          "reviewId": null
+        }
+      ]
+    }
+  ],
+  "mergeBase": {
+    "cliId": "0d",
+    "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
+    "createdAt": "[RFC_TIMESTAMP]",
     "message": "add M ",
-    "commit_date": "2000-01-02"
+    "authorName": "author",
+    "authorEmail": "author@example.com",
+    "conflicted": null,
+    "reviewId": null,
+    "changes": null
   },
-  "upstream_state": null
+  "upstreamState": {
+    "behind": 0,
+    "latestCommit": {
+      "cliId": "0d",
+      "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
+      "createdAt": "[RFC_TIMESTAMP]",
+      "message": "add M ",
+      "authorName": "author",
+      "authorEmail": "author@example.com",
+      "conflicted": null,
+      "reviewId": null,
+      "changes": null
+    },
+    "lastFetched": null
+  }
 }
 
 "#]]);

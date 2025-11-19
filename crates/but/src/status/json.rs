@@ -305,3 +305,154 @@ pub(crate) fn i128_to_rfc3339(ts_millis: i128) -> String {
         .map(|dt| dt.to_rfc3339())
         .unwrap_or_default()
 }
+
+/// Convert file assignments to JSON FileChange objects
+fn convert_file_assignments(
+    assignments: &[super::assignment::FileAssignment],
+    worktree_changes: &[but_core::ui::TreeChange],
+) -> Vec<FileChange> {
+    assignments
+        .iter()
+        .filter_map(|fa| {
+            let cli_id = fa.assignments[0].cli_id.to_string();
+            let change = worktree_changes.iter().find(|c| c.path_bytes == fa.path)?;
+            Some(FileChange::from_tree_change(cli_id, change.clone()))
+        })
+        .collect()
+}
+
+/// Convert a BranchDetails to the JSON Branch type
+fn convert_branch_to_json(
+    branch: &but_workspace::ui::BranchDetails,
+    review: bool,
+    show_files: bool,
+    project_id: gitbutler_project::ProjectId,
+    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+) -> anyhow::Result<Branch> {
+    let cli_id = crate::id::CliId::branch(&branch.name.to_string()).to_string();
+
+    let review_id = if review {
+        crate::forge::review::get_review_numbers(
+            &branch.name.to_string(),
+            &branch.pr_number,
+            review_map,
+        )
+        .split_whitespace()
+        .next()
+        .map(|s| s.to_string())
+    } else {
+        None
+    };
+
+    Branch::from_branch_details(cli_id, branch.clone(), review_id, show_files, project_id)
+}
+
+/// Build the complete WorkspaceStatus JSON structure
+#[expect(clippy::too_many_arguments)]
+pub(super) fn build_workspace_status_json(
+    original_stack_details: &[(
+        Option<gitbutler_stack::StackId>,
+        Option<but_workspace::ui::StackDetails>,
+    )],
+    stack_details: &[super::StackEntry],
+    worktree_changes: &[but_core::ui::TreeChange],
+    common_merge_base: &super::CommonMergeBase,
+    upstream_state: &Option<super::UpstreamState>,
+    last_fetched_ms: Option<u128>,
+    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    show_files: bool,
+    review: bool,
+    project_id: gitbutler_project::ProjectId,
+    repo: &gix::Repository,
+) -> anyhow::Result<WorkspaceStatus> {
+    let mut json_stacks = Vec::new();
+    let mut json_unassigned_changes = Vec::new();
+
+    for (idx, (stack_id, original_details)) in original_stack_details.iter().enumerate() {
+        let (_, (_, assignments)) = &stack_details[idx];
+
+        if stack_id.is_none() {
+            json_unassigned_changes = convert_file_assignments(assignments, worktree_changes);
+        } else if let Some(details) = original_details {
+            let stack_cli_id = details
+                .branch_details
+                .first()
+                .map(|b| crate::id::CliId::branch(&b.name.to_string()).to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+
+            let json_assigned_changes = convert_file_assignments(assignments, worktree_changes);
+
+            let json_branches = details
+                .branch_details
+                .iter()
+                .map(|branch| {
+                    convert_branch_to_json(branch, review, show_files, project_id, review_map)
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+
+            let stack = Stack::new(stack_cli_id, json_assigned_changes, json_branches);
+            json_stacks.push(stack);
+        }
+    }
+
+    // Create a Commit object for the merge base
+    // We use the author signature from the commit we decoded earlier
+    let base_commit = repo.find_commit(common_merge_base.commit_id)?;
+    let base_commit_decoded = base_commit.decode()?;
+    let author: but_workspace::ui::Author = base_commit_decoded.author().into();
+
+    let cli_id = crate::id::CliId::commit(common_merge_base.commit_id).to_string();
+    let merge_base_commit = Commit::from_upstream_commit(
+        cli_id,
+        but_workspace::ui::UpstreamCommit {
+            id: common_merge_base.commit_id,
+            created_at: common_merge_base.created_at,
+            message: common_merge_base.message.clone().into(),
+            author,
+        },
+        None,
+    );
+
+    let upstream_state_json = if let Some(upstream) = upstream_state {
+        // Create a Commit object for the latest upstream commit
+        let upstream_commit = repo.find_commit(upstream.commit_id)?;
+        let upstream_commit_decoded = upstream_commit.decode()?;
+        let upstream_author: but_workspace::ui::Author = upstream_commit_decoded.author().into();
+
+        let cli_id = crate::id::CliId::commit(upstream.commit_id).to_string();
+        let latest_commit = Commit::from_upstream_commit(
+            cli_id,
+            but_workspace::ui::UpstreamCommit {
+                id: upstream.commit_id,
+                created_at: upstream.created_at,
+                message: upstream.message.clone().into(),
+                author: upstream_author,
+            },
+            None,
+        );
+
+        let last_fetched = last_fetched_ms.map(|ts| i128_to_rfc3339(ts as i128));
+
+        UpstreamState {
+            behind: upstream.behind_count,
+            latest_commit,
+            last_fetched,
+        }
+    } else {
+        // When up to date, use the merge base as the latest commit
+        let last_fetched = last_fetched_ms.map(|ts| i128_to_rfc3339(ts as i128));
+
+        UpstreamState {
+            behind: 0,
+            latest_commit: merge_base_commit.clone(),
+            last_fetched,
+        }
+    };
+
+    Ok(WorkspaceStatus::new(
+        json_unassigned_changes,
+        json_stacks,
+        merge_base_commit,
+        upstream_state_json,
+    ))
+}
