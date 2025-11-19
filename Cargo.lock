@@ -1036,11 +1036,9 @@ name = "but-feedback"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-ctx",
  "but-graph",
- "but-settings",
  "chrono",
- "gitbutler-command-context",
- "gitbutler-project",
  "tempfile",
  "walkdir",
  "zip",

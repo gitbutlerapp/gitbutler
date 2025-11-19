@@ -12,7 +12,7 @@ doctest = false
 [dependencies]
 but-db.workspace = true
 but-settings.workspace = true
-but-meta.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
 but-graph.workspace = true
 
 gitbutler-project.workspace = true
