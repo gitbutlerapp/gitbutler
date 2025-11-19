@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::GraphExt;
+use but_rebase::graph_rebase::{GraphExt, testing::TestingDot as _};
 use but_testsupport::{graph_tree, visualize_commit_graph_all};
 
 use crate::utils::{fixture, standard_options};

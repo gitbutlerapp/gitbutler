@@ -3,15 +3,26 @@
 
 use petgraph::dot::{Config, Dot};
 
-use crate::graph_rebase::{Editor, Step};
+use crate::graph_rebase::{Editor, Step, StepGraph};
 
-impl Editor {
+/// An extension trait that adds debugging output for graphs
+pub trait TestingDot {
     /// Creates a dot graph with labels
-    pub fn steps_dot(&self) -> String {
+    fn steps_dot(&self) -> String;
+}
+
+impl TestingDot for Editor {
+    fn steps_dot(&self) -> String {
+        self.graph.steps_dot()
+    }
+}
+
+impl TestingDot for StepGraph {
+    fn steps_dot(&self) -> String {
         format!(
             "{:?}",
             Dot::with_attr_getters(
-                &self.graph,
+                &self,
                 &[Config::EdgeNoLabel, Config::NodeNoLabel],
                 &|_, v| format!("label=\"order: {}\"", v.weight().order),
                 &|_, (_, step)| {
