@@ -6,8 +6,7 @@ use command_group::AsyncCommandGroup;
 use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::Subcommands;
-use crate::utils::ResultMetricsExt;
+use crate::{args::Subcommands, utils::ResultMetricsExt};
 
 /// All we need to emit metrics.
 pub struct MetricsContext {
@@ -28,10 +27,10 @@ mod subcommands_impl {
     use but_settings::AppSettings;
 
     use crate::{
+        args::{Subcommands, claude, cursor},
         base, branch, forge,
         forge::review,
         metrics::MetricsContext,
-        subcommands::{Subcommands, claude, cursor},
     };
 
     impl Subcommands {
@@ -115,8 +114,12 @@ pub enum EventKind {
 
 impl Subcommands {
     pub fn to_metrics_command(&self) -> CommandName {
-        use crate::{base, branch, forge, subcommands::{claude, cursor}};
         use CommandName::*;
+
+        use crate::{
+            args::{claude, cursor},
+            base, branch, forge,
+        };
         match self {
             Subcommands::Status { .. } => Status,
             Subcommands::Stf { .. } => Stf,

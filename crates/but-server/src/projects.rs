@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
-use crate::Extra;
 use anyhow::{Context as _, Result};
 use but_api::json::ToJsonError;
-use but_claude::Claude;
-use but_claude::broadcaster::FrontendEvent;
+use but_claude::{Claude, broadcaster::FrontendEvent};
 use but_db::poll::DBWatcherHandle;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_command_context::CommandContext;
@@ -12,6 +10,8 @@ use gitbutler_project::{Project, ProjectId};
 use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
 use serde_json::json;
+
+use crate::Extra;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

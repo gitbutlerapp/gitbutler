@@ -12,8 +12,7 @@ use axum::{
     routing::{any, get},
 };
 use but_api::{github, json, legacy};
-use but_claude::Broadcaster;
-use but_claude::Claude;
+use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
 use gitbutler_project::ProjectId;

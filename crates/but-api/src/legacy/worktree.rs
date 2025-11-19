@@ -1,7 +1,7 @@
-use but_api_macros::api_cmd_tauri;
-use but_settings::AppSettings;
 // Re-export for use in other crates
 use anyhow::Result;
+use but_api_macros::api_cmd_tauri;
+use but_settings::AppSettings;
 pub use but_worktrees::integrate::WorktreeIntegrationStatus as IntegrationStatus;
 use but_worktrees::{
     WorktreeId, destroy::DestroyWorktreeOutcome, integrate::WorktreeIntegrationStatus,

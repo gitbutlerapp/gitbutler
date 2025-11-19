@@ -18,8 +18,10 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
 pub(crate) mod assignment;
 
-use crate::id::{CliId, IdDb};
-use crate::utils::OutputChannel;
+use crate::{
+    id::{CliId, IdDb},
+    utils::OutputChannel,
+};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -177,7 +177,9 @@ fn test_command_with_subcommands_mdx_generation() {
 
     // Check frontmatter
     assert!(mdx.contains("title: \"`but git`\""));
-    assert!(mdx.contains("description: \"Git is a free and open source distributed version control system\""));
+    assert!(mdx.contains(
+        "description: \"Git is a free and open source distributed version control system\""
+    ));
 
     // Check long description
     assert!(mdx.contains("Git is a free and open source distributed version control system"));
@@ -261,7 +263,8 @@ fn test_real_but_command_structure() {
     let cmd = but::get_command();
 
     // Get a non-hidden subcommand
-    let status_cmd = cmd.get_subcommands()
+    let status_cmd = cmd
+        .get_subcommands()
         .find(|sub| sub.get_name() == "status" && !sub.is_hide_set())
         .expect("status subcommand should exist and not be hidden");
 

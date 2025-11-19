@@ -27,7 +27,9 @@ pub(crate) fn handle_changes(
 impl From<crate::subcommands::actions::Handler> for but_action::ActionHandler {
     fn from(val: crate::subcommands::actions::Handler) -> Self {
         match val {
-            crate::subcommands::actions::Handler::Simple => but_action::ActionHandler::HandleChangesSimple,
+            crate::subcommands::actions::Handler::Simple => {
+                but_action::ActionHandler::HandleChangesSimple
+            }
         }
     }
 }

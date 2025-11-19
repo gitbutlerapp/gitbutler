@@ -3,8 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use but_api_macros::api_cmd_tauri;
 use but_core::RepositoryExt;
 use but_graph::petgraph::Direction;

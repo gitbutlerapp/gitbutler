@@ -1,12 +1,11 @@
 use anyhow::bail;
+pub use branch::{Platform, Subcommands};
 use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
 
-use crate::{LegacyProject, utils::OutputChannel, subcommands::branch};
-
-pub use branch::{Platform, Subcommands};
+use crate::{LegacyProject, args::branch, utils::OutputChannel};
 
 mod apply;
 mod list;

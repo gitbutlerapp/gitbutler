@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use but_api_macros::api_cmd_tauri;
 use but_claude::{
-    ClaudeCheckResult, ClaudeMessage, ClaudeUserParams, Transcript,
+    Claude, ClaudeCheckResult, ClaudeMessage, ClaudeUserParams, Transcript,
     claude_mcp::{ClaudeMcpConfig, McpConfig},
     claude_settings::ClaudeSettings,
     prompt_templates,
@@ -16,8 +15,6 @@ use gitbutler_project::ProjectId;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 use tracing::instrument;
-
-use but_claude::Claude;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -60,8 +60,9 @@ impl FrontendEvent {
 }
 
 pub(super) mod types {
-    use super::FrontendEvent;
     use std::collections::HashMap;
+
+    use super::FrontendEvent;
 
     #[derive(Default)]
     pub struct Broadcaster {

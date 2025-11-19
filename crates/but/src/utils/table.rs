@@ -1,6 +1,7 @@
-use crate::utils::table::types::Table;
 use terminal_size::Width;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
+use crate::utils::table::types::Table;
 
 /// Avoid paths like `table::Table` when importing.
 pub(super) mod types {

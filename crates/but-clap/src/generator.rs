@@ -63,32 +63,32 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
                 for arg in args {
                     output.push_str(&generate_argument_doc(arg));
                 }
-                output.push_str("\n");
+                output.push('\n');
             }
 
             // Add subcommand options/flags
-            let opts: Vec<_> = subcmd
-                .get_opts()
-                .filter(|arg| !arg.is_hide_set())
-                .collect();
+            let opts: Vec<_> = subcmd.get_opts().filter(|arg| !arg.is_hide_set()).collect();
             if !opts.is_empty() {
                 output.push_str("**Options:**\n\n");
                 for opt in opts {
                     output.push_str(&generate_option_doc(opt));
                 }
-                output.push_str("\n");
+                output.push('\n');
             }
         }
     }
 
     // Add arguments for the main command (if it has no subcommands or also accepts args)
-    let args: Vec<_> = cmd.get_positionals().filter(|arg| !arg.is_hide_set()).collect();
+    let args: Vec<_> = cmd
+        .get_positionals()
+        .filter(|arg| !arg.is_hide_set())
+        .collect();
     if !args.is_empty() && subcommands.is_empty() {
         output.push_str("## Arguments\n\n");
         for arg in args {
             output.push_str(&generate_argument_doc(arg));
         }
-        output.push_str("\n");
+        output.push('\n');
     }
 
     // Add options/flags for the main command
@@ -98,7 +98,7 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
         for opt in opts {
             output.push_str(&generate_option_doc(opt));
         }
-        output.push_str("\n");
+        output.push('\n');
     }
 
     output
@@ -190,7 +190,7 @@ fn generate_argument_doc(arg: &Arg) -> String {
         doc.push_str(" (required)");
     }
 
-    doc.push_str("\n");
+    doc.push('\n');
     doc
 }
 
@@ -242,6 +242,6 @@ fn generate_option_doc(opt: &Arg) -> String {
         doc.push_str(" (required)");
     }
 
-    doc.push_str("\n");
+    doc.push('\n');
     doc
 }

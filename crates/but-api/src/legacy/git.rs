@@ -1,6 +1,5 @@
 //! In place of commands.rs
-use anyhow::Result;
-use anyhow::{Context, anyhow};
+use anyhow::{Context, Result, anyhow};
 use but_api_macros::api_cmd_tauri;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
