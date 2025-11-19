@@ -685,7 +685,7 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
 
 pub mod utils {
     use anyhow::Result;
-    use but_graph::VirtualBranchesTomlMetadata;
+    use but_meta::VirtualBranchesTomlMetadata;
     use but_rebase::RebaseOutput;
     use but_testsupport::gix_testtools;
     use gix::{ObjectId, prelude::ObjectIdExt};

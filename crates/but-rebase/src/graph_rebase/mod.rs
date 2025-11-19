@@ -7,6 +7,7 @@
 use petgraph::graph::NodeIndex;
 
 mod creation;
+pub mod rebase;
 pub use creation::GraphExt;
 
 /// Utilities for testing
@@ -41,8 +42,8 @@ struct Edge {
     order: usize,
 }
 
-type StepGraphIndex = petgraph::stable_graph::DefaultIx;
-type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge, StepGraphIndex>;
+type StepGraphIndex = petgraph::stable_graph::NodeIndex;
+type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
 
 /// Points to a step in the rebase editor.
 #[derive(Debug, Clone)]
@@ -58,4 +59,5 @@ pub struct Editor {
     /// Initial references. This is used to track any references that might need
     /// deleted.
     initial_references: Vec<gix::refs::FullName>,
+    heads: Vec<StepGraphIndex>,
 }
