@@ -283,11 +283,11 @@ fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Ve
     let mut all_files = Vec::new();
 
     // First, get files assigned to branches (they appear first in status display)
-    let stacks = crate::log::stacks(ctx)?;
+    let stacks = crate::utils::commits::stacks(ctx)?;
     for stack in stacks {
         if let Some((_stack_id, details_result)) = stack
             .id
-            .map(|id| (stack.id, crate::log::stack_details(ctx, id)))
+            .map(|id| (stack.id, crate::utils::commits::stack_details(ctx, id)))
             && let Ok(details) = details_result
         {
             for _branch in &details.branch_details {

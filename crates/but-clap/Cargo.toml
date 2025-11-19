@@ -6,6 +6,10 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
 
+[lib]
+name = "but_clap"
+path = "src/lib.rs"
+
 [[bin]]
 name = "but-clap"
 path = "src/main.rs"

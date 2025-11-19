@@ -22,10 +22,10 @@ pub(crate) fn stack_id_by_commit_id(
     ctx: &CommandContext,
     oid: &ObjectId,
 ) -> anyhow::Result<StackId> {
-    let stacks = crate::log::stacks(ctx)?
+    let stacks = crate::utils::commits::stacks(ctx)?
         .iter()
         .filter_map(|s| {
-            s.id.map(|id| crate::log::stack_details(ctx, id).map(|d| (id, d)))
+            s.id.map(|id| crate::utils::commits::stack_details(ctx, id).map(|d| (id, d)))
         })
         .filter_map(Result::ok)
         .collect::<Vec<_>>();

@@ -4,6 +4,7 @@ use crate::{args::Args, metrics::MetricsContext};
 use colored::Colorize;
 use minus::ExitStrategy;
 
+pub mod commits;
 pub mod table;
 pub use table::types::Table;
 

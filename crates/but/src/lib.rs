@@ -32,7 +32,6 @@ mod forge;
 mod gui;
 mod id;
 mod init;
-mod log;
 mod mark;
 mod mcp;
 mod mcp_internal;
