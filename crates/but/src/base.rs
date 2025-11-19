@@ -5,22 +5,9 @@ use gitbutler_branch_actions::upstream_integration::{
     StackStatuses::{UpToDate, UpdatesRequired},
 };
 
-use crate::{LegacyProject, utils::OutputChannel};
+use crate::{LegacyProject, utils::OutputChannel, subcommands::base};
 
-#[derive(Debug, clap::Parser)]
-pub struct Platform {
-    #[clap(subcommand)]
-    pub cmd: Subcommands,
-}
-
-#[derive(Debug, clap::Subcommand)]
-pub enum Subcommands {
-    /// Fetches remotes from the remote and checks the mergeability of the branches in the workspace.
-    /// - more info
-    Check,
-    /// Updates the workspace (with all applied branches) to include the latest changes from the base branch.
-    Update,
-}
+pub use base::{Platform, Subcommands};
 
 pub async fn handle(
     cmd: Subcommands,

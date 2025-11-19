@@ -1,4 +1,4 @@
-use crate::{base, branch, forge, metrics::CommandName};
+use crate::{forge, metrics::CommandName};
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
@@ -251,6 +251,105 @@ pub mod cursor {
         Stop {
             #[clap(long, default_value = "false")]
             nightly: bool,
+        },
+    }
+}
+
+pub mod base {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Subcommands,
+    }
+
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        /// Fetches remotes from the remote and checks the mergeability of the branches in the workspace.
+        /// - more info
+        Check,
+        /// Updates the workspace (with all applied branches) to include the latest changes from the base branch.
+        Update,
+    }
+}
+
+pub mod branch {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Option<Subcommands>,
+    }
+
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        /// Creates a new branch in the workspace
+        New {
+            /// Name of the new branch
+            branch_name: Option<String>,
+            /// Anchor point - either a commit ID or branch name to create the new branch from
+            #[clap(long, short = 'a')]
+            anchor: Option<String>,
+        },
+        /// Deletes a branch from the workspace
+        #[clap(short_flag = 'd')]
+        Delete {
+            /// Name of the branch to delete
+            branch_name: String,
+            /// Force deletion without confirmation
+            #[clap(long, short = 'f')]
+            force: bool,
+        },
+        /// List the branches in the repository
+        List {
+            /// Filter branches by name (case-insensitive substring match)
+            filter: Option<String>,
+            /// Show only local branches
+            #[clap(long, short = 'l', conflicts_with = "remote")]
+            local: bool,
+            /// Show only remote branches
+            #[clap(long, short = 'r', conflicts_with = "local")]
+            remote: bool,
+            /// Show all branches (not just active + 20 most recent)
+            #[clap(long, short = 'a')]
+            all: bool,
+            /// Don't calculate and show number of commits ahead of base (faster)
+            #[clap(long)]
+            no_ahead: bool,
+            /// Fetch and display review information (PRs, MRs, etc.)
+            #[clap(long)]
+            review: bool,
+            /// Don't check if each branch merges cleanly into upstream
+            #[clap(long)]
+            no_check: bool,
+        },
+        /// Show commits ahead of base for a specific branch
+        Show {
+            /// CLI ID or name of the branch to show
+            branch_id: String,
+            /// Fetch and display review information
+            #[clap(short, long)]
+            review: bool,
+            /// Show files modified in each commit with line counts
+            #[clap(short, long)]
+            files: bool,
+            /// Generate AI summary of the branch changes
+            #[clap(long)]
+            ai: bool,
+            /// Check if the branch merges cleanly into upstream and identify conflicting commits
+            #[clap(long)]
+            check: bool,
+        },
+        /// Apply a branch to the workspace
+        Apply {
+            /// Name of the branch to apply
+            branch_name: String,
+        },
+        /// Unapply a branch from the workspace
+        Unapply {
+            /// Name of the branch to unapply
+            branch_name: String,
+            /// Force unapply without confirmation
+            #[clap(long, short = 'f')]
+            force: bool,
         },
     }
 }
