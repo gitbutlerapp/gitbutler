@@ -6,10 +6,10 @@
 </script>
 
 <script lang="ts">
+	import BranchNameTextbox from '$components/BranchNameTextbox.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, Textbox, TestId } from '@gitbutler/ui';
-	import { slugify } from '@gitbutler/ui/utils/string';
+	import { Button, Modal, TestId } from '@gitbutler/ui';
 
 	const { projectId, stackId }: AddDependentBranchModalProps = $props();
 
@@ -18,9 +18,7 @@
 
 	let modal = $state<Modal>();
 	let branchName = $state<string>();
-
-	const slugifiedRefName = $derived(branchName && slugify(branchName));
-	const generatedNameDiverges = $derived(!!branchName && slugifiedRefName !== branchName);
+	let slugifiedRefName: string | undefined = $state();
 
 	async function handleAddDependentBranch(close: () => void) {
 		if (!slugifiedRefName) return;
@@ -50,11 +48,11 @@
 	onSubmit={handleAddDependentBranch}
 >
 	<div class="content-wrap">
-		<Textbox
+		<BranchNameTextbox
 			placeholder="Branch name"
 			bind:value={branchName}
 			autofocus
-			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
+			onslugifiedvalue={(value) => (slugifiedRefName = value)}
 		/>
 	</div>
 	{#snippet controls(close)}

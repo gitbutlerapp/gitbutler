@@ -1,5 +1,6 @@
 <!-- This is a V3 replacement for `FileContextMenu.svelte` -->
 <script lang="ts">
+	import BranchNameTextbox from '$components/BranchNameTextbox.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
@@ -28,10 +29,8 @@
 		ContextMenuSection,
 		FileListItem,
 		Modal,
-		Textbox,
 		chipToasts
 	} from '@gitbutler/ui';
-	import { slugify } from '@gitbutler/ui/utils/string';
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -147,7 +146,7 @@
 	}
 
 	let stashBranchName = $state<string>();
-	const slugifiedRefName = $derived(stashBranchName && slugify(stashBranchName));
+	let slugifiedRefName: string | undefined = $state();
 
 	async function confirmStashIntoBranch(item: ChangedFilesItem, branchName: string | undefined) {
 		if (!branchName) {
@@ -588,20 +587,17 @@
 	type="info"
 	title="Stash changes into a new branch"
 	bind:this={stashConfirmationModal}
-	onSubmit={(_, item) => isChangedFilesItem(item) && confirmStashIntoBranch(item, stashBranchName)}
+	onSubmit={(_, item) => isChangedFilesItem(item) && confirmStashIntoBranch(item, slugifiedRefName)}
 >
 	{#snippet children(item)}
 		<div class="content-wrap">
-			<Textbox
+			<BranchNameTextbox
 				id="stashBranchName"
 				placeholder="Enter your branch name..."
 				bind:value={stashBranchName}
 				autofocus
-				helperText={slugifiedRefName && slugifiedRefName !== stashBranchName
-					? `Will be created as '${slugifiedRefName}'`
-					: undefined}
+				onslugifiedvalue={(value) => (slugifiedRefName = value)}
 			/>
-
 			<div class="explanation">
 				<p class="primary-text">
 					{#if isChangedFolderItem(item)}
@@ -626,9 +622,9 @@
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
 		<AsyncButton
 			style="pop"
-			disabled={!stashBranchName}
+			disabled={!slugifiedRefName}
 			type="submit"
-			action={async () => await confirmStashIntoBranch(item, stashBranchName)}
+			action={async () => await confirmStashIntoBranch(item, slugifiedRefName)}
 		>
 			Stash into branch
 		</AsyncButton>
