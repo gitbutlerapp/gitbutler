@@ -192,7 +192,7 @@
 				bind:this={stackElements[stack.id || 'branchless']}
 				class="reorderable-stack dotted-pattern"
 				role="presentation"
-				animate:flip={{ duration: 150 }}
+				animate:flip={{ duration: draggingStack ? 200 : 0 }}
 				onmousedown={onReorderMouseDown}
 				ondragstart={(e) => {
 					if (!stack.id) return;
