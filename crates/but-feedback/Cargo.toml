@@ -12,10 +12,7 @@ doctest = false
 
 [dependencies]
 but-graph.workspace = true
-but-settings.workspace = true
-
-gitbutler-command-context.workspace = true
-gitbutler-project.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 
 anyhow.workspace = true
 # Version must match the one in `tauri plugin updater` to avoid duplication.
