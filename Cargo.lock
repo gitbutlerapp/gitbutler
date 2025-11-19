@@ -1249,6 +1249,7 @@ dependencies = [
  "but-error",
  "but-gerrit",
  "but-graph",
+ "but-meta",
  "but-oxidize",
  "but-testsupport",
  "gix",

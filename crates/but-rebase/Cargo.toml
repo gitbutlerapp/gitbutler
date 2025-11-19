@@ -29,3 +29,4 @@ petgraph.workspace = true
 but-testsupport.workspace = true
 insta = "1.44.3"
 but-core = { workspace = true, features = ["testing"] }
+but-meta.workspace = true

@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use anyhow::Result;
-use but_graph::{Commit, Graph, Segment};
-use petgraph::{Direction, graph::NodeIndex};
+use but_graph::{Commit, CommitFlags, Graph, Segment};
+use petgraph::Direction;
 
 use crate::graph_rebase::{Edge, Editor, Step, StepGraph, StepGraphIndex};
 
@@ -15,6 +15,8 @@ pub trait GraphExt {
 impl GraphExt for Graph {
     /// Creates an editor out of the segment graph.
     fn create_editor(&self) -> Result<Editor> {
+        // TODO(CTO): Look into traversing "in workspace" segments that are not reachable from the entrypoint
+        // TODO(CTO): Look into stopping at the common base
         let entrypoint = self.lookup_entrypoint()?;
 
         // Commits in this list are ordred such that iterating in reverse will
@@ -27,6 +29,7 @@ impl GraphExt for Graph {
             entrypoint.segment_index,
             Direction::Outgoing,
             |segment| {
+                // Make a note to create a reference for named segments
                 if let Some(refname) = segment.ref_name()
                     && let Some(commit) = find_nearest_commit(self, segment)
                 {
@@ -36,8 +39,10 @@ impl GraphExt for Graph {
                         .or_insert_with(|| vec![refname.to_owned()]);
                 }
 
+                // Make a note to create a references that sit on commits
                 for commit in &segment.commits {
                     if !commit.refs.is_empty() {
+                        commit.flags.contains(CommitFlags::InWorkspace);
                         let refs = commit
                             .refs
                             .iter()
@@ -59,10 +64,10 @@ impl GraphExt for Graph {
 
         // When adding child-nodes, this lookup tells us where to find the
         // relevant "parent" to point to.
-        let mut steps_for_commits: BTreeMap<gix::ObjectId, NodeIndex<StepGraphIndex>> =
-            BTreeMap::new();
+        let mut steps_for_commits: BTreeMap<gix::ObjectId, StepGraphIndex> = BTreeMap::new();
         let mut graph = StepGraph::new();
 
+        let mut last_inserted = None;
         while let Some(c) = commits.pop() {
             let mut ni = graph.add_node(Step::Pick { id: c.id });
 
@@ -82,12 +87,14 @@ impl GraphExt for Graph {
                 }
             }
 
+            last_inserted = Some(ni.clone());
             steps_for_commits.insert(c.id, ni);
         }
 
         Ok(Editor {
             graph,
             initial_references: references.values().flatten().cloned().collect(),
+            heads: last_inserted.into_iter().collect(),
         })
     }
 }
