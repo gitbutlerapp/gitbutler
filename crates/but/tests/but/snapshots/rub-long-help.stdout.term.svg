@@ -1,4 +1,4 @@
-<svg width="835px" height="650px" xmlns="http://www.w3.org/2000/svg">
+<svg width="835px" height="902px" xmlns="http://www.w3.org/2000/svg">
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
@@ -54,39 +54,67 @@
 </tspan>
     <tspan x="10px" y="334px">
 </tspan>
-    <tspan x="10px" y="352px">
+    <tspan x="10px" y="352px"><tspan class="underline bold">Examples</tspan>
 </tspan>
-    <tspan x="10px" y="370px"><tspan class="underline bold">Usage:</tspan><tspan> </tspan><tspan class="bold">but rub</tspan><tspan> [OPTIONS] &lt;SOURCE&gt; &lt;TARGET&gt;</tspan>
+    <tspan x="10px" y="370px">
 </tspan>
-    <tspan x="10px" y="388px">
+    <tspan x="10px" y="388px"><tspan>Squashing two commits into one (combining the commit messages):</tspan>
 </tspan>
-    <tspan x="10px" y="406px"><tspan class="underline bold">Arguments:</tspan>
+    <tspan x="10px" y="406px">
 </tspan>
-    <tspan x="10px" y="424px"><tspan>  &lt;SOURCE&gt;</tspan>
+    <tspan x="10px" y="424px"><tspan>  </tspan><tspan class="bold">but rub 3868155 abe3f53f</tspan>
 </tspan>
-    <tspan x="10px" y="442px"><tspan>          The source entity to combine</tspan>
+    <tspan x="10px" y="442px">
 </tspan>
-    <tspan x="10px" y="460px">
+    <tspan x="10px" y="460px"><tspan>Amending a commit with the contents of a modified file:</tspan>
 </tspan>
-    <tspan x="10px" y="478px"><tspan>  &lt;TARGET&gt;</tspan>
+    <tspan x="10px" y="478px">
 </tspan>
-    <tspan x="10px" y="496px"><tspan>          The target entity to combine with the source</tspan>
+    <tspan x="10px" y="496px"><tspan>  </tspan><tspan class="bold">but rub README.md abe3f53f</tspan>
 </tspan>
     <tspan x="10px" y="514px">
 </tspan>
-    <tspan x="10px" y="532px"><tspan class="underline bold">Options:</tspan>
+    <tspan x="10px" y="532px"><tspan>Moving a commit from one branch to another:</tspan>
 </tspan>
-    <tspan x="10px" y="550px"><tspan>  </tspan><tspan class="bold">-j</tspan><tspan>, </tspan><tspan class="bold">--json</tspan>
+    <tspan x="10px" y="550px">
 </tspan>
-    <tspan x="10px" y="568px"><tspan>          Whether to use JSON output format</tspan>
+    <tspan x="10px" y="568px"><tspan>  </tspan><tspan class="bold">but rub 3868155 feature-branch</tspan>
 </tspan>
     <tspan x="10px" y="586px">
 </tspan>
-    <tspan x="10px" y="604px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+    <tspan x="10px" y="604px">
 </tspan>
-    <tspan x="10px" y="622px"><tspan>          Print help (see a summary with '-h')</tspan>
+    <tspan x="10px" y="622px"><tspan class="underline bold">Usage:</tspan><tspan> </tspan><tspan class="bold">but rub</tspan><tspan> [OPTIONS] &lt;SOURCE&gt; &lt;TARGET&gt;</tspan>
 </tspan>
     <tspan x="10px" y="640px">
+</tspan>
+    <tspan x="10px" y="658px"><tspan class="underline bold">Arguments:</tspan>
+</tspan>
+    <tspan x="10px" y="676px"><tspan>  &lt;SOURCE&gt;</tspan>
+</tspan>
+    <tspan x="10px" y="694px"><tspan>          The source entity to combine</tspan>
+</tspan>
+    <tspan x="10px" y="712px">
+</tspan>
+    <tspan x="10px" y="730px"><tspan>  &lt;TARGET&gt;</tspan>
+</tspan>
+    <tspan x="10px" y="748px"><tspan>          The target entity to combine with the source</tspan>
+</tspan>
+    <tspan x="10px" y="766px">
+</tspan>
+    <tspan x="10px" y="784px"><tspan class="underline bold">Options:</tspan>
+</tspan>
+    <tspan x="10px" y="802px"><tspan>  </tspan><tspan class="bold">-j</tspan><tspan>, </tspan><tspan class="bold">--json</tspan>
+</tspan>
+    <tspan x="10px" y="820px"><tspan>          Whether to use JSON output format</tspan>
+</tspan>
+    <tspan x="10px" y="838px">
+</tspan>
+    <tspan x="10px" y="856px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+</tspan>
+    <tspan x="10px" y="874px"><tspan>          Print help (see a summary with '-h')</tspan>
+</tspan>
+    <tspan x="10px" y="892px">
 </tspan>
   </text>
 
