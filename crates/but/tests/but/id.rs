@@ -68,6 +68,7 @@ fn branch_avoid_hexdigit() -> anyhow::Result<()> {
 
     env.but("branch new 0ax").assert().success();
 
+    // TODO: put special handling of branch CliId naming rules into more unit-level tests of `IdDb` directly.
     env.but("status")
         .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
@@ -102,6 +103,8 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
         .success()
         .stdout_eq(snapbox::str![
             "...
+[..]tp[..]substring[..]
+...
 [..]up[..]supersubstring[..]
 ..."
         ]);

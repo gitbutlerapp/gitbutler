@@ -15,17 +15,22 @@ impl IdDb {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         let stacks = crate::utils::commits::stacks(ctx)?;
         let mut pairs_to_count: HashMap<u16, u8> = HashMap::new();
+        fn u8_pair_to_u16(two: [u8; 2]) -> u16 {
+            two[0] as u16 * 256 + two[1] as u16
+        }
         for stack in &stacks {
             for head in &stack.heads {
                 for pair in head.name.windows(2) {
+                    let pair: [u8; 2] = pair.try_into()?;
                     if !pair[0].is_ascii_alphanumeric() || !pair[1].is_ascii_alphanumeric() {
                         continue;
                     }
-                    if pair[0].is_ascii_hexdigit() && pair[1].is_ascii_hexdigit() {
-                        // Avoid confusion with commits
+                    let could_collide_with_commits =
+                        pair[0].is_ascii_hexdigit() && pair[1].is_ascii_hexdigit();
+                    if could_collide_with_commits {
                         continue;
                     }
-                    let u16pair = pair[0] as u16 * 256 + pair[1] as u16;
+                    let u16pair = u8_pair_to_u16(pair);
                     pairs_to_count
                         .entry(u16pair)
                         .and_modify(|count| *count = count.saturating_add(1))
@@ -42,10 +47,13 @@ impl IdDb {
             'head: for head in &stack.heads {
                 // Find first non-conflicting pair and use it as CliId.
                 for pair in head.name.windows(2) {
-                    let u16pair = pair[0] as u16 * 256 + pair[1] as u16;
+                    let pair: [u8; 2] = pair.try_into()?;
+                    let u16pair = u8_pair_to_u16(pair);
                     if let Some(1) = pairs_to_count.get(&u16pair) {
                         let name = head.name.to_string();
-                        let id = str::from_utf8(pair).unwrap().to_owned();
+                        let id = str::from_utf8(&pair)
+                            .expect("if we stored it, it's ascii-alphanum")
+                            .to_owned();
                         branch_name_to_cli_id.insert(name.clone(), CliId::Branch { name, id });
                         continue 'head;
                     }
