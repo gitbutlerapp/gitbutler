@@ -3,6 +3,7 @@
 /release/
 generated-archives/
 generated-do-not-edit/
+/cli-docs/
 
 # editors
 .idea
