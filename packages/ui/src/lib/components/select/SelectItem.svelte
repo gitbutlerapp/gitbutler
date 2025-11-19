@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$components/Icon.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { Snippet } from 'svelte';
 
@@ -28,15 +29,19 @@
 		onClick,
 		children
 	}: Props = $props();
+
+	let self = $state<HTMLButtonElement>();
 </script>
 
 <button
+	bind:this={self}
 	data-testid={testId}
 	type="button"
 	{disabled}
 	class="select-button"
 	class:selected
 	class:highlighted
+	use:focusable={{ button: true, onAction: () => self?.click() }}
 	onclick={() => onClick?.(value)}
 >
 	{#if iconSnippet}

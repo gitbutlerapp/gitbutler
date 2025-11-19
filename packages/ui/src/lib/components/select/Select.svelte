@@ -182,7 +182,7 @@
 		}
 	}
 
-	function toggleList() {
+	export function toggleList() {
 		getInputBoundingRect();
 
 		if (listOpen) {
@@ -334,7 +334,7 @@
 			bind:this={selectTriggerEl}
 			role="presentation"
 			class="select__custom-button"
-			onmousedown={toggleList}
+			onclick={toggleList}
 			onkeydown={(ev: KeyboardEvent) => handleKeyDown(ev)}
 		>
 			{@render customSelectButton()}
@@ -399,7 +399,7 @@
 										class="option"
 										tabindex="-1"
 										role="none"
-										onmousedown={(event) => handleSelect(item, event)}
+										onclick={(event) => handleSelect(item, event)}
 									>
 										{@render itemSnippet({
 											item,
