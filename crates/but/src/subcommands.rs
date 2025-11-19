@@ -2,10 +2,6 @@ use crate::{base, branch, forge, metrics::CommandName};
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Show commits on active branches in your workspace.
-    #[clap(hide = true)]
-    Log,
-
     /// Overview of the project workspace state.
     ///
     /// This shows unassigned files, files assigned to stacks, all applied

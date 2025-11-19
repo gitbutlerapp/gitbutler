@@ -39,7 +39,6 @@ mod subcommands_impl {
         pub fn to_metrics_context(&self, settings: &AppSettings) -> Option<MetricsContext> {
             use crate::metrics::CommandName::*;
             let cmd = match self {
-                Subcommands::Log => Log,
                 Subcommands::Status { .. } => Status,
                 Subcommands::Stf { .. } => Stf,
                 Subcommands::Rub { .. } => Rub,
@@ -117,7 +116,6 @@ pub enum EventKind {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display)]
 #[serde(rename_all = "camelCase")]
 pub enum Command {
-    Log,
     Init,
     Status,
     Stf,
@@ -161,7 +159,6 @@ impl Subcommands {
         use crate::{base, branch, forge, subcommands::{claude, cursor}};
         use CommandName::*;
         match self {
-            Subcommands::Log => Log,
             Subcommands::Status { .. } => Status,
             Subcommands::Stf { .. } => Stf,
             Subcommands::Rub { .. } => Rub,
@@ -221,7 +218,6 @@ impl Subcommands {
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum CommandName {
-    Log,
     Init,
     Absorb,
     Status,
@@ -265,7 +261,6 @@ pub enum CommandName {
 impl From<CommandName> for EventKind {
     fn from(command_name: CommandName) -> Self {
         match command_name {
-            CommandName::Log => EventKind::Cli(Command::Log),
             CommandName::Status => EventKind::Cli(Command::Status),
             CommandName::Stf => EventKind::Cli(Command::Stf),
             CommandName::Rub => EventKind::Cli(Command::Rub),

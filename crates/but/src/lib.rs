@@ -260,10 +260,6 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
-        Subcommands::Log => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            log::commit_graph(&project, out).emit_metrics(metrics_ctx)
-        }
         Subcommands::Status {
             show_files,
             verbose,
