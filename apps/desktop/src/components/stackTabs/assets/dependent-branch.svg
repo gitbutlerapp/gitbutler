@@ -1,21 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="113" height="58" viewBox="0 0 113 58" fill="none">
-  <path
-    d="M1 9C1 4.58172 4.58172 1 9 1H104C108.418 1 112 4.58172 112 9V19C112 23.4183 108.418 27 104 27H9C4.58172 27 1 23.4183 1 19V9Z"
-    fill="var(--image-accent-bg)" stroke="var(--image-accent-outline)" stroke-width="1.2" />
-  <circle cx="17" cy="14" r="5" fill="var(--image-accent-outline)" />
-  <path d="M17 15V32" stroke="var(--image-accent-outline)" stroke-width="2" />
-  <text fill="var(--image-accent-outline)" xml:space="preserve" style="white-space: pre"
-    font-family="Inter" font-size="11" font-weight="600" letter-spacing="0em">
-    <tspan x="31" y="17.5">Branch A</tspan>
-  </text>
-  <path d="M1 40C1 35.5817 4.58172 32 9 32H104C108.418 32 112 35.5817 112 40V58H1V40Z"
-    fill="var(--clr-bg-1)" />
-  <path d="M112 58V40C112 35.5817 108.418 32 104 32H9C4.58172 32 1 35.5817 1 40V58"
-    stroke="var(--image-outline)" stroke-width="1.2" />
-  <circle cx="17" cy="46" r="5" transform="rotate(-180 17 46)" fill="var(--image-outline)" />
-  <path d="M17 42L17 32.5" stroke="var(--image-outline)" stroke-width="2" />
-  <text fill="var(--image-outline)" xml:space="preserve" style="white-space: pre"
-    font-family="Inter" font-size="11" font-weight="600" letter-spacing="0em">
-    <tspan x="31" y="48.5">Branch B</tspan>
-  </text>
+<svg xmlns="http://www.w3.org/2000/svg" width="139" height="72" viewBox="0 0 139 72" fill="none">
+  <g>
+    <g>
+      <path
+        d="M0.6 10.6C0.6 5.07715 5.07715 0.599998 10.6 0.599998H127.6C133.123 0.599998 137.6 5.07715 137.6 10.6V21.6C137.6 27.1228 133.123 31.6 127.6 31.6H10.6C5.07715 31.6 0.6 27.1228 0.6 21.6V10.6Z"
+        fill="var(--image-accent-bg)" stroke="var(--image-accent-outline)" stroke-width="1.2" />
+      <text fill="var(--image-accent-outline)" xml:space="preserve" style="white-space: pre"
+        font-family="Inter" font-size="12" font-weight="600" letter-spacing="0em">
+        <tspan x="28.6" y="19.9636">Branch A</tspan>
+      </text>
+      <circle cx="15.6" cy="15.1" r="5" fill="var(--image-accent-outline)" />
+      <path d="M15.6 15.1V38.1" stroke="var(--image-accent-outline)" stroke-width="2" />
+    </g>
+    <g>
+      <path
+        d="M0.6 48.1C0.6 42.5772 5.07715 38.1 10.6 38.1H127.6C133.123 38.1 137.6 42.5772 137.6 48.1V71.1H0.6V48.1Z"
+        fill="var(--clr-bg-1)" />
+      <path
+        d="M137.6 71.1V48.1C137.6 42.5772 133.123 38.1 127.6 38.1H10.6C5.07715 38.1 0.6 42.5772 0.6 48.1V71.1"
+        stroke="var(--image-outline)" stroke-width="1.2" />
+      <text fill="var(--image-outline)" xml:space="preserve" style="white-space: pre"
+        font-family="Inter"
+        font-size="12" font-weight="600" letter-spacing="0em">
+        <tspan x="28.6" y="59.9636">Branch B</tspan>
+      </text>
+      <path d="M15.6 38.1V57.1" stroke="var(--image-outline)" stroke-width="2" />
+      <circle cx="15.6" cy="56.1" r="5" fill="var(--image-outline)" />
+    </g>
+  </g>
 </svg>
