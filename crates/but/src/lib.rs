@@ -501,3 +501,9 @@ mod trace {
         Ok(())
     }
 }
+
+/// Get the clap Command for documentation generation
+pub fn get_command() -> clap::Command {
+    use clap::CommandFactory;
+    Args::command()
+}

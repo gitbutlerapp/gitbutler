@@ -1,0 +1,20 @@
+[package]
+name = "but-clap"
+version = "0.1.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+
+[[bin]]
+name = "but-clap"
+path = "src/main.rs"
+doctest = false
+
+[dependencies]
+but.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+snapbox.workspace = true
