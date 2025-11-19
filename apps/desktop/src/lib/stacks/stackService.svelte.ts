@@ -200,29 +200,11 @@ export class StackService {
 		);
 	}
 
-	allStacks(projectId: string) {
-		return this.api.endpoints.allStacks.useQuery(
-			{ projectId },
-			{
-				transform: (stacks) => stackSelectors.selectAll(stacks)
-			}
-		);
-	}
-
-	allStackAt(projectId: string, index: number) {
-		return this.api.endpoints.allStacks.useQuery(
-			{ projectId },
-			{
-				transform: (stacks) => stackSelectors.selectNth(stacks, index)
-			}
-		);
-	}
-
 	allStackById(projectId: string, id: string) {
-		return this.api.endpoints.allStacks.useQuery(
-			{ projectId },
+		return this.api.endpoints.stacks.useQuery(
+			{ projectId, all: true },
 			{
-				transform: (stacks) => stackSelectors.selectById(stacks, id)
+				transform: (stacks) => stackSelectors.selectById(stacks, id) ?? null
 			}
 		);
 	}
@@ -958,9 +940,12 @@ function transformStacksResponse(response: Stack[]) {
 function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			stacks: build.query<EntityState<Stack, string>, { projectId: string }>({
+			stacks: build.query<EntityState<Stack, string>, { projectId: string; all?: boolean }>({
 				extraOptions: { command: 'stacks' },
-				query: (args) => args,
+				query: (args) => {
+					const filter = args.all ? 'All' : undefined;
+					return { projectId: args.projectId, filter };
+				},
 				providesTags: [providesList(ReduxTag.Stacks)],
 				async onCacheEntryAdded(arg, lifecycleApi) {
 					if (!hasBackendExtra(lifecycleApi.extra)) {
@@ -981,12 +966,6 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				transformResponse(response: Stack[], _) {
 					return transformStacksResponse(response);
 				}
-			}),
-			allStacks: build.query<EntityState<Stack, string>, { projectId: string }>({
-				extraOptions: { command: 'stacks' },
-				query: ({ projectId }) => ({ projectId, filter: 'All' }),
-				providesTags: [providesList(ReduxTag.Stacks)],
-				transformResponse: transformStacksResponse
 			}),
 			createStack: build.mutation<Stack, { projectId: string; branch: BranchParams }>({
 				extraOptions: {

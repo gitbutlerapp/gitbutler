@@ -20,8 +20,12 @@
 
 <ReduxResult result={stackQuery.result} {projectId} {stackId} {onerror}>
 	{#snippet children(stack, { stackId, projectId })}
-		{#each getStackBranchNames(stack) as branchName, idx}
-			<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} {onerror} />
-		{/each}
+		{#if stack === null}
+			<p>Stack not found.</p>
+		{:else}
+			{#each getStackBranchNames(stack) as branchName, idx}
+				<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} {onerror} />
+			{/each}
+		{/if}
 	{/snippet}
 </ReduxResult>
