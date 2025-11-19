@@ -259,8 +259,10 @@ fn test_command_with_hidden_options_mdx_generation() {
 
 #[test]
 fn test_real_but_command_structure() {
+    use clap::CommandFactory;
+
     // Test with actual but command to ensure it generates valid MDX
-    let cmd = but::get_command();
+    let cmd = but::args::Args::command();
 
     // Get a non-hidden subcommand
     let status_cmd = cmd

@@ -4,12 +4,14 @@ use anyhow::{Context, Result};
 use but_clap::generator;
 
 fn main() -> Result<()> {
+    use clap::CommandFactory;
+
     // Create the cli-docs directory if it doesn't exist
     let docs_dir = Path::new("cli-docs");
     fs::create_dir_all(docs_dir).context("Failed to create cli-docs directory")?;
 
     // Get the main Args command
-    let app = but::get_command();
+    let app = but::args::Args::command();
 
     // Generate documentation for each non-hidden subcommand
     for subcommand in app.get_subcommands() {

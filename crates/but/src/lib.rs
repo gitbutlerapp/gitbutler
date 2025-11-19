@@ -4,7 +4,7 @@ use std::{ffi::OsString, path::Path};
 
 use anyhow::{Context, Result};
 
-mod args;
+pub mod args;
 use args::{Args, Subcommands, actions, claude, cursor};
 use but_claude::hooks::OutputAsJson;
 use but_settings::AppSettings;
@@ -494,10 +494,4 @@ mod trace {
         }
         Ok(())
     }
-}
-
-/// Get the clap Command for documentation generation
-pub fn get_command() -> clap::Command {
-    use clap::CommandFactory;
-    Args::command()
 }

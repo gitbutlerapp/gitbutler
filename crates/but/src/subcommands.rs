@@ -9,6 +9,20 @@ pub enum Subcommands {
     /// upstream commits that are unintegrated, commit status (pushed or local),
     /// and base branch information.
     ///
+    /// ## Examples
+    ///
+    /// Normal usage:
+    ///
+    /// ```
+    /// $ but status
+    /// ```
+    ///
+    /// Shorthand with listing files modified   
+    ///
+    /// ```
+    /// $ but status -f
+    /// ```
+    ///
     #[clap(alias = "st")]
     Status {
         /// Determines whether the committed files should be shown as well.
@@ -63,6 +77,7 @@ pub enum Subcommands {
         /// The target entity to combine with the source
         target: String,
     },
+
     /// Initializes a GitButler project from a git repository in the current directory.
     Init {
         /// Also initializes a git repository in the current directory if one does not exist.
