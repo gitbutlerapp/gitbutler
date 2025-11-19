@@ -908,6 +908,7 @@ dependencies = [
  "anyhow",
  "but",
  "clap",
+ "snapbox",
 ]
 
 [[package]]

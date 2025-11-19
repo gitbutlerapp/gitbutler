@@ -3,6 +3,8 @@ use std::{fs, path::Path};
 use anyhow::{Context, Result};
 use clap::{Arg, Command};
 
+pub mod generator;
+
 fn main() -> Result<()> {
     // Create the cli-docs directory if it doesn't exist
     let docs_dir = Path::new("cli-docs");
@@ -20,7 +22,7 @@ fn main() -> Result<()> {
         let subcommand_name = subcommand.get_name();
         let file_path = docs_dir.join(format!("but-{}.mdx", subcommand_name));
 
-        let mdx_content = generate_command_mdx(subcommand);
+        let mdx_content = generator::generate_command_mdx(subcommand);
         fs::write(&file_path, mdx_content).with_context(|| {
             format!(
                 "Failed to write subcommand documentation to {:?}",
@@ -33,8 +35,6 @@ fn main() -> Result<()> {
     println!("\nDocumentation generation complete!");
     Ok(())
 }
-
-fn generate_command_mdx(cmd: &Command) -> String {
     let mut output = String::new();
 
     // Generate frontmatter

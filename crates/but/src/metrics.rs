@@ -110,48 +110,7 @@ pub enum EventKind {
     Mcp,
     McpInternal,
     #[strum(serialize = "Cli")]
-    Cli(Command),
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display)]
-#[serde(rename_all = "camelCase")]
-pub enum Command {
-    Init,
-    Status,
-    Stf,
-    Rub,
-    Commit,
-    Push,
-    New,
-    Describe,
-    Oplog,
-    Restore,
-    Undo,
-    Snapshot,
-    Gui,
-    BaseCheck,
-    BaseUpdate,
-    BranchNew,
-    BranchDelete,
-    BranchList,
-    BranchShow,
-    BranchApply,
-    BranchUnapply,
-    ClaudePreTool,
-    ClaudePostTool,
-    ClaudeStop,
-    CursorAfterEdit,
-    CursorStop,
-    Worktree,
-    Mark,
-    Unmark,
-    ForgeAuth,
-    ForgeListUsers,
-    ForgeForget,
-    PublishReview,
-    Completions,
-    Absorb,
-    Unknown,
+    Cli(CommandName),
 }
 
 impl Subcommands {
@@ -216,7 +175,8 @@ impl Subcommands {
     }
 }
 
-#[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display, clap::ValueEnum, Default)]
+#[serde(rename_all = "camelCase")]
 pub enum CommandName {
     Init,
     Absorb,
@@ -260,45 +220,7 @@ pub enum CommandName {
 
 impl From<CommandName> for EventKind {
     fn from(command_name: CommandName) -> Self {
-        match command_name {
-            CommandName::Status => EventKind::Cli(Command::Status),
-            CommandName::Stf => EventKind::Cli(Command::Stf),
-            CommandName::Rub => EventKind::Cli(Command::Rub),
-            CommandName::Commit => EventKind::Cli(Command::Commit),
-            CommandName::Push => EventKind::Cli(Command::Push),
-            CommandName::New => EventKind::Cli(Command::New),
-            CommandName::Describe => EventKind::Cli(Command::Describe),
-            CommandName::Oplog => EventKind::Cli(Command::Oplog),
-            CommandName::Restore => EventKind::Cli(Command::Restore),
-            CommandName::Undo => EventKind::Cli(Command::Undo),
-            CommandName::Snapshot => EventKind::Cli(Command::Snapshot),
-            CommandName::Gui => EventKind::Cli(Command::Gui),
-            CommandName::BaseCheck => EventKind::Cli(Command::BaseCheck),
-            CommandName::BaseUpdate => EventKind::Cli(Command::BaseUpdate),
-            CommandName::BranchNew => EventKind::Cli(Command::BranchNew),
-            CommandName::BranchDelete => EventKind::Cli(Command::BranchDelete),
-            CommandName::BranchList => EventKind::Cli(Command::BranchList),
-            CommandName::BranchShow => EventKind::Cli(Command::BranchList),
-            CommandName::BranchApply => EventKind::Cli(Command::BranchApply),
-            CommandName::BranchUnapply => EventKind::Cli(Command::BranchUnapply),
-            CommandName::ClaudePreTool => EventKind::Cli(Command::ClaudePreTool),
-            CommandName::ClaudePostTool => EventKind::Cli(Command::ClaudePostTool),
-            CommandName::ClaudeStop => EventKind::Cli(Command::ClaudeStop),
-            CommandName::CursorAfterEdit => EventKind::Cli(Command::CursorAfterEdit),
-            CommandName::CursorStop => EventKind::Cli(Command::CursorStop),
-            CommandName::Worktree => EventKind::Cli(Command::Worktree),
-            CommandName::Mark => EventKind::Cli(Command::Mark),
-            CommandName::Unmark => EventKind::Cli(Command::Unmark),
-            CommandName::ForgeAuth => EventKind::Cli(Command::ForgeAuth),
-            CommandName::ForgeListUsers => EventKind::Cli(Command::ForgeListUsers),
-            CommandName::ForgeForget => EventKind::Cli(Command::ForgeForget),
-            CommandName::PublishReview => EventKind::Cli(Command::PublishReview),
-            CommandName::ReviewTemplate => EventKind::Cli(Command::PublishReview),
-            CommandName::Completions => EventKind::Cli(Command::Completions),
-            CommandName::Absorb => EventKind::Cli(Command::Absorb),
-            CommandName::Init => EventKind::Cli(Command::Init),
-            CommandName::Unknown => EventKind::Cli(Command::Unknown),
-        }
+        EventKind::Cli(command_name)
     }
 }
 
