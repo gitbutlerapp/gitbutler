@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use crate::utils::OutputChannel;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_project::Project;
+
+use crate::utils::OutputChannel;
 
 /// Generate a 2-character CLI ID from an index
 fn generate_cli_id(index: usize) -> String {

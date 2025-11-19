@@ -18,8 +18,10 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
 pub(crate) mod assignment;
 
-use crate::id::{CliId, IdDb};
-use crate::utils::OutputChannel;
+use crate::{
+    id::{CliId, IdDb},
+    utils::OutputChannel,
+};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -626,7 +628,7 @@ pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> 
 }
 
 pub(crate) fn all_branches(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
-    let stacks = crate::log::stacks(ctx)?;
+    let stacks = crate::utils::commits::stacks(ctx)?;
     let mut branches = Vec::new();
     for stack in stacks {
         for head in stack.heads {

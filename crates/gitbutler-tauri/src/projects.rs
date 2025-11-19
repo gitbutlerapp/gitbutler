@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::{Context, bail};
+use but_api::json;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
@@ -12,7 +13,6 @@ use tauri::{State, Window};
 use tracing::instrument;
 
 use crate::{WindowState, window, window::state::ProjectAccessMode};
-use but_api::json;
 
 #[tauri::command(async)]
 #[instrument(skip(window_state), err(Debug))]

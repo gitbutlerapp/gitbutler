@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{base, branch, forge, utils::OutputFormat};
+use crate::{forge, metrics::CommandName, utils::OutputFormat};
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("GIX_VERSION"))]
@@ -39,10 +39,27 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Show commits on active branches in your workspace.
-    #[clap(hide = true)]
-    Log,
-    /// Overview of the uncommitted changes in the repository.
+    /// Overview of the project workspace state.
+    ///
+    /// This shows unassigned files, files assigned to stacks, all applied
+    /// branches (stacked or parallel), commits on each of those branches,
+    /// upstream commits that are unintegrated, commit status (pushed or local),
+    /// and base branch information.
+    ///
+    /// ## Examples
+    ///
+    /// Normal usage:
+    ///
+    /// ```text
+    /// $ but status
+    /// ```
+    ///
+    /// Shorthand with listing files modified
+    ///
+    /// ```text
+    /// $ but status -f
+    /// ```
+    ///
     #[clap(alias = "st")]
     Status {
         /// Determines whether the committed files should be shown as well.
@@ -55,8 +72,11 @@ pub enum Subcommands {
         #[clap(short = 'r', long = "review", default_value_t = false)]
         review: bool,
     },
+
     /// Overview of the uncommitted changes in the repository with files shown.
+    ///
     /// Equivalent to `but status --files`.
+    ///
     #[clap(hide = true)]
     Stf {
         /// Show verbose output with commit author and timestamp.
@@ -68,26 +88,33 @@ pub enum Subcommands {
     },
 
     /// Combines two entities together to perform an operation.
-    #[clap(
-        about = "Combines two entities together to perform an operation",
-        long_about = "Combines two entities together to perform an operation.
-
-Non-exhaustive list of operations:
-      │Source     │Target
-──────┼───────────┼──────
-Amend │File,Branch│Commit
-Squash│Commit     │Commit
-Assign│File,Branch│Branch
-Move  │Commit     │Branch
-
-For examples see `but rub --help`."
-    )]
+    ///
+    /// The `rub` command is a simple verb that helps you do a number of editing
+    /// operations by doing combinations of two things.
+    ///
+    /// For example, you can "rub" a file onto a branch to assign that file to
+    /// the branch. You can also "rub" a commit onto another commit to squash
+    /// them together. You can rub a commit onto a branch to move that commit.
+    /// You can rub a file from one commit to another.
+    ///
+    /// Non-exhaustive list of operations:
+    ///
+    /// ```text
+    ///       │Source     │Target
+    /// ──────┼───────────┼──────
+    /// Amend │File,Branch│Commit
+    /// Squash│Commit     │Commit
+    /// Assign│File,Branch│Branch
+    /// Move  │Commit     │Branch
+    /// ```
+    ///
     Rub {
         /// The source entity to combine
         source: String,
         /// The target entity to combine with the source
         target: String,
     },
+
     /// Initializes a GitButler project from a git repository in the current directory.
     Init {
         /// Also initializes a git repository in the current directory if one does not exist.
@@ -209,111 +236,6 @@ For examples see `but rub --help`."
     },
 }
 
-impl Subcommands {
-    pub fn to_metrics_command(&self) -> CommandName {
-        use CommandName::*;
-        match self {
-            Subcommands::Log => Log,
-            Subcommands::Status { .. } => Status,
-            Subcommands::Stf { .. } => Stf,
-            Subcommands::Rub { .. } => Rub,
-            Subcommands::Base(base::Platform { cmd }) => match cmd {
-                base::Subcommands::Update => BaseUpdate,
-                base::Subcommands::Check => BaseCheck,
-            },
-            Subcommands::Branch(branch::Platform { cmd }) => match cmd {
-                None | Some(branch::Subcommands::List { .. }) => BranchList,
-                Some(branch::Subcommands::New { .. }) => BranchNew,
-                Some(branch::Subcommands::Delete { .. }) => BranchDelete,
-                Some(branch::Subcommands::Unapply { .. }) => BranchUnapply,
-                Some(branch::Subcommands::Apply { .. }) => BranchApply,
-                Some(branch::Subcommands::Show { .. }) => BranchShow,
-            },
-            Subcommands::Worktree(crate::worktree::Platform { cmd: _ }) => Worktree,
-            Subcommands::Mark { .. } => Mark,
-            Subcommands::Unmark => Unmark,
-            Subcommands::Gui => Gui,
-            Subcommands::Commit { .. } => Commit,
-            Subcommands::Push(_) => Push,
-            Subcommands::New { .. } => New,
-            Subcommands::Describe { .. } => Describe,
-            Subcommands::Oplog { .. } => Oplog,
-            Subcommands::Restore { .. } => Restore,
-            Subcommands::Undo => Undo,
-            Subcommands::Snapshot { .. } => Snapshot,
-            Subcommands::Claude(claude::Platform { cmd }) => match cmd {
-                claude::Subcommands::PreTool => ClaudePreTool,
-                claude::Subcommands::PostTool => ClaudePostTool,
-                claude::Subcommands::Stop => ClaudeStop,
-                claude::Subcommands::Last { .. }
-                | claude::Subcommands::PermissionPromptMcp { .. } => Unknown,
-            },
-            Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
-                cursor::Subcommands::AfterEdit => CursorAfterEdit,
-                cursor::Subcommands::Stop { .. } => CursorStop,
-            },
-            Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
-                forge::integration::Subcommands::Auth => ForgeAuth,
-                forge::integration::Subcommands::Forget { .. } => ForgeForget,
-                forge::integration::Subcommands::ListUsers => ForgeListUsers,
-            },
-            Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
-                forge::review::Subcommands::Publish { .. } => PublishReview,
-                forge::review::Subcommands::Template { .. } => ReviewTemplate,
-            },
-            Subcommands::Completions { .. } => Completions,
-            Subcommands::Absorb { .. } => Absorb,
-            Subcommands::Metrics { .. }
-            | Subcommands::Actions(_)
-            | Subcommands::Mcp { .. }
-            | Subcommands::Init { .. } => Unknown,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
-pub enum CommandName {
-    Log,
-    Init,
-    Absorb,
-    Status,
-    Stf,
-    Rub,
-    Commit,
-    Push,
-    New,
-    Describe,
-    Oplog,
-    Restore,
-    Undo,
-    Snapshot,
-    Gui,
-    BaseCheck,
-    BaseUpdate,
-    BranchNew,
-    BranchDelete,
-    BranchList,
-    BranchShow,
-    BranchUnapply,
-    BranchApply,
-    ClaudePreTool,
-    ClaudePostTool,
-    ClaudeStop,
-    CursorAfterEdit,
-    CursorStop,
-    Worktree,
-    Mark,
-    Unmark,
-    ForgeAuth,
-    ForgeListUsers,
-    ForgeForget,
-    PublishReview,
-    ReviewTemplate,
-    Completions,
-    #[default]
-    Unknown,
-}
-
 pub mod actions {
     #[derive(Debug, clap::Parser)]
     pub struct Platform {
@@ -381,6 +303,105 @@ pub mod cursor {
         Stop {
             #[clap(long, default_value = "false")]
             nightly: bool,
+        },
+    }
+}
+
+pub mod base {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Subcommands,
+    }
+
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        /// Fetches remotes from the remote and checks the mergeability of the branches in the workspace.
+        /// - more info
+        Check,
+        /// Updates the workspace (with all applied branches) to include the latest changes from the base branch.
+        Update,
+    }
+}
+
+pub mod branch {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Option<Subcommands>,
+    }
+
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        /// Creates a new branch in the workspace
+        New {
+            /// Name of the new branch
+            branch_name: Option<String>,
+            /// Anchor point - either a commit ID or branch name to create the new branch from
+            #[clap(long, short = 'a')]
+            anchor: Option<String>,
+        },
+        /// Deletes a branch from the workspace
+        #[clap(short_flag = 'd')]
+        Delete {
+            /// Name of the branch to delete
+            branch_name: String,
+            /// Force deletion without confirmation
+            #[clap(long, short = 'f')]
+            force: bool,
+        },
+        /// List the branches in the repository
+        List {
+            /// Filter branches by name (case-insensitive substring match)
+            filter: Option<String>,
+            /// Show only local branches
+            #[clap(long, short = 'l', conflicts_with = "remote")]
+            local: bool,
+            /// Show only remote branches
+            #[clap(long, short = 'r', conflicts_with = "local")]
+            remote: bool,
+            /// Show all branches (not just active + 20 most recent)
+            #[clap(long, short = 'a')]
+            all: bool,
+            /// Don't calculate and show number of commits ahead of base (faster)
+            #[clap(long)]
+            no_ahead: bool,
+            /// Fetch and display review information (PRs, MRs, etc.)
+            #[clap(long)]
+            review: bool,
+            /// Don't check if each branch merges cleanly into upstream
+            #[clap(long)]
+            no_check: bool,
+        },
+        /// Show commits ahead of base for a specific branch
+        Show {
+            /// CLI ID or name of the branch to show
+            branch_id: String,
+            /// Fetch and display review information
+            #[clap(short, long)]
+            review: bool,
+            /// Show files modified in each commit with line counts
+            #[clap(short, long)]
+            files: bool,
+            /// Generate AI summary of the branch changes
+            #[clap(long)]
+            ai: bool,
+            /// Check if the branch merges cleanly into upstream and identify conflicting commits
+            #[clap(long)]
+            check: bool,
+        },
+        /// Apply a branch to the workspace
+        Apply {
+            /// Name of the branch to apply
+            branch_name: String,
+        },
+        /// Unapply a branch from the workspace
+        Unapply {
+            /// Name of the branch to unapply
+            branch_name: String,
+            /// Force unapply without confirmation
+            #[clap(long, short = 'f')]
+            force: bool,
         },
     }
 }

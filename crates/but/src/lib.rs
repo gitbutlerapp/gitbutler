@@ -4,7 +4,7 @@ use std::{ffi::OsString, path::Path};
 
 use anyhow::{Context, Result};
 
-mod args;
+pub mod args;
 use args::{Args, Subcommands, actions, claude, cursor};
 use but_claude::hooks::OutputAsJson;
 use but_settings::AppSettings;
@@ -13,8 +13,7 @@ use gix::date::time::CustomFormat;
 use metrics::{Event, Metrics, Props};
 
 use crate::{
-    args::CommandName,
-    metrics::MetricsContext,
+    metrics::{CommandName, MetricsContext},
     utils::{
         OutputChannel, OutputFormat, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
         print_grouped_help,
@@ -33,7 +32,6 @@ mod forge;
 mod gui;
 mod id;
 mod init;
-mod log;
 mod mark;
 mod mcp;
 mod mcp_internal;
@@ -260,10 +258,6 @@ async fn match_subcommand(
             worktree::handle(cmd, &project, out)
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        Subcommands::Log => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            log::commit_graph(&project, out).emit_metrics(metrics_ctx)
         }
         Subcommands::Status {
             show_files,

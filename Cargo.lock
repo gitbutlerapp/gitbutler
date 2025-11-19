@@ -902,6 +902,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-clap"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "but",
+ "clap",
+ "snapbox",
+]
+
+[[package]]
 name = "but-claude"
 version = "0.0.0"
 dependencies = [
@@ -1744,8 +1754,10 @@ version = "4.5.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a0b5487afeab2deb2ff4e03a807ad1a03ac532ff5a2cee5d86884440c7f7671"
 dependencies = [
+ "anstyle",
  "heck 0.5.0",
  "proc-macro2",
+ "pulldown-cmark",
  "quote",
  "syn 2.0.110",
 ]
@@ -8180,6 +8192,17 @@ checksum = "6f42ea446cab60335f76979ec15e12619a2165b5ae2c12166bef27d283a9fadf"
 dependencies = [
  "idna",
  "psl-types",
+]
+
+[[package]]
+name = "pulldown-cmark"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e8bbe1a966bd2f362681a44f6edce3c2310ac21e4d5067a6e7ec396297a6ea0"
+dependencies = [
+ "bitflags 2.10.0",
+ "memchr",
+ "unicase",
 ]
 
 [[package]]

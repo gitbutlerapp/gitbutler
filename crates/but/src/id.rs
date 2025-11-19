@@ -12,7 +12,7 @@ pub struct IdDb {
 impl IdDb {
     pub fn new(ctx: &CommandContext) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
-        let stacks = crate::log::stacks(ctx)?;
+        let stacks = crate::utils::commits::stacks(ctx)?;
         for stack in stacks {
             for head in &stack.heads {
                 for field in head.name.fields_with(|c| c != '0') {
@@ -90,7 +90,7 @@ impl CliId {
     }
 
     fn find_branches_by_name(ctx: &CommandContext, name: &str) -> anyhow::Result<Vec<Self>> {
-        let stacks = crate::log::stacks(ctx)?;
+        let stacks = crate::utils::commits::stacks(ctx)?;
         let mut matches = Vec::new();
 
         for stack in stacks {
@@ -111,7 +111,7 @@ impl CliId {
 
         // Only try SHA matching if the input looks like a hex string
         if sha_prefix.chars().all(|c| c.is_ascii_hexdigit()) && sha_prefix.len() >= 4 {
-            let all_commits = crate::log::all_commits(ctx)?;
+            let all_commits = crate::utils::commits::all_commits(ctx)?;
             for commit_id in all_commits {
                 if let CliId::Commit { oid } = &commit_id {
                     let sha_string = oid.to_string();
@@ -182,7 +182,7 @@ impl CliId {
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::log::all_commits(ctx)?
+            crate::utils::commits::all_commits(ctx)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
@@ -205,7 +205,7 @@ impl CliId {
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::log::all_commits(ctx)?
+            crate::utils::commits::all_commits(ctx)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));

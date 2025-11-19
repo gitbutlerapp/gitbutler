@@ -120,7 +120,7 @@ async-openai = { version = "0.30.1", default-features = false, features = [
 ] }
 open = "5.3.2"
 regex = { version = "1.11.3", default-features = false, features = ["std", "unicode" ] }
-clap = { version = "4.5.51", default-features = false, features = ["derive", "std", "help"]}
+clap = { version = "4.5.51", default-features = false, features = ["derive", "std", "help", "unstable-markdown"]}
 tracing-forest = { version = "0.3.0" }
 sysinfo = { version = "0.37.2", default-features = false }
 

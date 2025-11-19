@@ -299,7 +299,7 @@ fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Res
 }
 
 fn get_available_branch_names(ctx: &CommandContext) -> anyhow::Result<Vec<String>> {
-    let stacks = crate::log::stacks(ctx)?;
+    let stacks = crate::utils::commits::stacks(ctx)?;
     let mut branch_names = Vec::new();
 
     for stack in stacks {

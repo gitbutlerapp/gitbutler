@@ -28,8 +28,9 @@ pub mod permissions;
 pub mod prompt_templates;
 mod rules;
 
-use crate::bridge::Claudes;
 pub use permissions::Permission;
+
+use crate::bridge::Claudes;
 
 pub mod broadcaster;
 use broadcaster::FrontendEvent;

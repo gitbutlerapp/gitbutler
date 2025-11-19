@@ -1,9 +1,11 @@
 use std::io::Write;
 
-use crate::{args::Args, metrics::MetricsContext};
 use colored::Colorize;
 use minus::ExitStrategy;
 
+use crate::{args::Args, metrics::MetricsContext};
+
+pub mod commits;
 pub mod table;
 pub use table::types::Table;
 

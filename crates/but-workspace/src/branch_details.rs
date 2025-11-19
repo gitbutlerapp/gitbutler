@@ -1,10 +1,5 @@
 use std::collections::HashSet;
 
-use crate::{
-    ref_info::function::workspace_data_of_default_workspace_branch,
-    ui,
-    ui::{CommitState, PushStatus, UpstreamCommit},
-};
 use anyhow::Context;
 use but_core::RefMetadata;
 use but_oxidize::{ObjectIdExt as _, OidExt};
@@ -12,6 +7,12 @@ use gix::{
     date::parse::TimeBuf, prelude::ObjectIdExt as _, reference::Category, remote::Direction,
 };
 use itertools::Itertools;
+
+use crate::{
+    ref_info::function::workspace_data_of_default_workspace_branch,
+    ui,
+    ui::{CommitState, PushStatus, UpstreamCommit},
+};
 
 /// Returns information about the current state of a branch identified by its `name`.
 /// This branch is assumed to not be in the workspace, but it will still be assumed to want to integrate with the workspace target
