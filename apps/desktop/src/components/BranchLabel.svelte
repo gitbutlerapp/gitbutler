@@ -133,7 +133,6 @@
 	autocorrect="off"
 	spellcheck="false"
 	data-remove-from-panning
-	data-no-drag
 	use:clickOutside={{
 		handler: () => inputEl?.blur()
 	}}

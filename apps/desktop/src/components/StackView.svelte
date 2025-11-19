@@ -537,7 +537,7 @@
 		>
 			<ReduxResult projectId={stableProjectId} result={branchesQuery.result}>
 				{#snippet children(branches)}
-					<div class="stack-v">
+					<div class="stack-v" data-fade-on-reorder>
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
 						<StackDragHandle stackId={stableStackId} {projectId} disabled={isCommitting} />
 
@@ -773,7 +773,6 @@
 		flex-shrink: 0;
 		height: 100%;
 		overflow: hidden;
-		/* border-right: 1px solid var(--clr-border-2); */
 		transition: opacity 0.15s;
 
 		&.dimmed {
