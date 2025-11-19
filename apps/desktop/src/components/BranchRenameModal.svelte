@@ -12,6 +12,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, ElementId, Modal, TestId, Textbox } from '@gitbutler/ui';
+	import { slugify } from '@gitbutler/ui/utils/string';
 
 	const { projectId, stackId, laneId, branchName, isPushed }: BranchRenameModalProps = $props();
 	const stackService = inject(STACK_SERVICE);
@@ -20,6 +21,8 @@
 
 	let newName: string | undefined = $state();
 	let modal: Modal | undefined = $state();
+
+	const slugifiedRefName = $derived(newName && slugify(newName));
 
 	export function show() {
 		newName = branchName;
@@ -45,6 +48,9 @@
 		id={ElementId.NewBranchNameInput}
 		bind:value={newName}
 		autofocus
+		helperText={slugifiedRefName && slugifiedRefName !== newName
+			? `Branch name will be: ${slugifiedRefName}`
+			: undefined}
 	/>
 
 	{#if isPushed}
