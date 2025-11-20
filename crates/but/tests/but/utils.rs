@@ -157,6 +157,16 @@ impl Sandbox {
         redactions
             .insert("[TIMESTAMP]", regex::Regex::new(r#"[1-9]\d{12}"#).unwrap())
             .unwrap();
+        // Match RFC3339 timestamps like "2025-11-18T22:27:14+00:00" or "2025-10-31T13:01:58.072+00:00"
+        redactions
+            .insert(
+                "[RFC_TIMESTAMP]",
+                regex::Regex::new(
+                    r#"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?\+\d{2}:\d{2}"#,
+                )
+                .unwrap(),
+            )
+            .unwrap();
         Assert::new()
             .action_env("SNAPSHOTS")
             .redact_with(redactions)

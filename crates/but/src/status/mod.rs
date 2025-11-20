@@ -6,7 +6,7 @@ use but_core::ui::{TreeChange, TreeStatus};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
-use but_workspace::ui::{Author, BranchDetails, Commit, PushStatus, StackDetails, UpstreamCommit};
+use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gix::date::time::CustomFormat;
@@ -17,137 +17,14 @@ use crate::CLI_DATE;
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
 pub(crate) mod assignment;
+pub(crate) mod json;
 
 use crate::{
     id::{CliId, IdDb},
     utils::OutputChannel,
 };
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CLICommit {
-    #[serde(flatten)]
-    pub inner: Commit,
-    /// The CLI ID representation of this commit
-    pub cli_id: String,
-}
-
-impl From<Commit> for CLICommit {
-    fn from(inner: Commit) -> Self {
-        let cli_id = CliId::commit(inner.id).to_string();
-        Self { inner, cli_id }
-    }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CLIBranchDetails {
-    /// The name of the branch.
-    #[serde(with = "but_serde::bstring_lossy")]
-    pub name: BString,
-    /// The id of the linked worktree that has the reference of `name` checked out.
-    /// Note that we don't list the main worktree here.
-    #[serde(with = "but_serde::bstring_opt_lossy")]
-    pub linked_worktree_id: Option<BString>,
-    /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
-    #[serde(with = "but_serde::bstring_opt_lossy")]
-    pub remote_tracking_branch: Option<BString>,
-    /// Description of the branch.
-    /// Can include arbitrary utf8 data, e.g. markdown etc.
-    pub description: Option<String>,
-    /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
-    pub pr_number: Option<usize>,
-    /// A unique identifier for the GitButler review associated with the branch, if any.
-    pub review_id: Option<String>,
-    /// This is the last commit in the branch, aka the tip of the branch.
-    /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
-    #[serde(with = "but_serde::object_id")]
-    pub tip: gix::ObjectId,
-    /// This is the base commit from the perspective of this branch.
-    /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
-    /// If this branch is at the bottom of the stack, this is the merge base of the stack.
-    #[serde(with = "but_serde::object_id")]
-    pub base_commit: gix::ObjectId,
-    /// The pushable status for the branch.
-    pub push_status: PushStatus,
-    /// Last time, the branch was updated in Epoch milliseconds.
-    pub last_updated_at: Option<i128>,
-    /// All authors of the commits in the branch.
-    pub authors: Vec<Author>,
-    /// Whether the branch is conflicted.
-    pub is_conflicted: bool,
-    /// The commits contained in the branch, excluding the upstream commits.
-    pub commits: Vec<CLICommit>,
-    /// The commits that are only at the remote.
-    pub upstream_commits: Vec<UpstreamCommit>,
-    /// Whether it's representing a remote head
-    pub is_remote_head: bool,
-    /// The CLI ID representation of this branch
-    pub cli_id: String,
-}
-
-impl CLIBranchDetails {
-    fn from_branch_details(id_db: &mut IdDb, inner: BranchDetails) -> Self {
-        let cli_id = id_db.branch(&inner.name.to_string()).to_string();
-        let commits = inner
-            .commits
-            .into_iter()
-            .map(CLICommit::from)
-            .collect::<Vec<_>>();
-
-        Self {
-            name: inner.name,
-            linked_worktree_id: inner.linked_worktree_id,
-            remote_tracking_branch: inner.remote_tracking_branch,
-            description: inner.description,
-            pr_number: inner.pr_number,
-            review_id: inner.review_id,
-            tip: inner.tip,
-            base_commit: inner.base_commit,
-            push_status: inner.push_status,
-            last_updated_at: inner.last_updated_at,
-            authors: inner.authors,
-            is_conflicted: inner.is_conflicted,
-            commits,
-            upstream_commits: inner.upstream_commits,
-            is_remote_head: inner.is_remote_head,
-            cli_id,
-        }
-    }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CLIStackDetails {
-    /// This is the name of the top-most branch, provided by the API for convenience
-    pub derived_name: String,
-    /// The pushable status for the stack
-    pub push_status: PushStatus,
-    /// The details about the contained branches
-    pub branch_details: Vec<CLIBranchDetails>,
-    /// Whether the stack is conflicted.
-    pub is_conflicted: bool,
-}
-
-impl CLIStackDetails {
-    fn from_stack_details(id_db: &mut IdDb, inner: StackDetails) -> Self {
-        let branch_details = inner
-            .branch_details
-            .into_iter()
-            .map(|cli_branch_details| {
-                CLIBranchDetails::from_branch_details(id_db, cli_branch_details)
-            })
-            .collect();
-        Self {
-            derived_name: inner.derived_name,
-            push_status: inner.push_status,
-            branch_details,
-            is_conflicted: inner.is_conflicted,
-        }
-    }
-}
-
-type StackDetail = (Option<CLIStackDetails>, Vec<FileAssignment>);
+type StackDetail = (Option<StackDetails>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
 
 #[derive(Serialize)]
@@ -156,6 +33,10 @@ struct CommonMergeBase {
     common_merge_base: String,
     message: String,
     commit_date: String,
+    commit_id: gix::ObjectId,
+    created_at: i128,
+    author_name: String,
+    author_email: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -166,13 +47,10 @@ struct UpstreamState {
     message: String,
     commit_date: String,
     last_fetched_ms: Option<u128>,
-}
-
-#[derive(Serialize)]
-struct WorktreeStatus {
-    stacks: Vec<StackEntry>,
-    common_merge_base: CommonMergeBase,
-    upstream_state: Option<UpstreamState>,
+    commit_id: gix::ObjectId,
+    created_at: i128,
+    author_name: String,
+    author_email: String,
 }
 
 pub(crate) async fn worktree(
@@ -227,16 +105,16 @@ pub(crate) async fn worktree(
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
     let mut id_db = IdDb::new(&legacy_ctx)?;
+
+    // For JSON output, we'll need the original StackDetails to avoid redundant conversions
+    let mut original_stack_details: Vec<(Option<gitbutler_stack::StackId>, Option<StackDetails>)> =
+        vec![(None, None)];
+
     for stack in stacks {
         let details = but_api::legacy::workspace::stack_details(project.id, stack.id)?;
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
-        stack_details.push((
-            stack.id,
-            (
-                Some(CLIStackDetails::from_stack_details(&mut id_db, details)),
-                assignments,
-            ),
-        ));
+        original_stack_details.push((stack.id, Some(details.clone())));
+        stack_details.push((stack.id, (Some(details), assignments)));
     }
 
     // Calculate common_merge_base data
@@ -245,20 +123,28 @@ pub(crate) async fn worktree(
     let target_name = format!("{}/{}", target.branch.remote(), target.branch.branch());
     let repo = legacy_ctx.gix_repo()?;
     let base_commit = repo.find_commit(target.sha.to_gix())?;
-    let base_commit = base_commit.decode()?;
-    let message = base_commit
+    let base_commit_decoded = base_commit.decode()?;
+    let message = base_commit_decoded
         .message
         .to_string()
         .replace('\n', " ")
         .chars()
         .take(50)
         .collect::<String>();
-    let formatted_date = base_commit.committer().time()?.format_or_unix(DATE_ONLY);
+    let formatted_date = base_commit_decoded
+        .committer()
+        .time()?
+        .format_or_unix(DATE_ONLY);
+    let author = base_commit_decoded.author();
     let common_merge_base_data = CommonMergeBase {
         target_name: target_name.clone(),
         common_merge_base: target.sha.to_string()[..7].to_string(),
         message: message.clone(),
         commit_date: formatted_date,
+        commit_id: target.sha.to_gix(),
+        created_at: base_commit_decoded.committer().time()?.seconds as i128 * 1000,
+        author_name: author.name.to_string(),
+        author_email: author.email.to_string(),
     };
 
     // Get cached upstream state information (without fetching)
@@ -286,6 +172,8 @@ pub(crate) async fn worktree(
                             let formatted_date =
                                 commit.committer().time().ok()?.format_or_unix(DATE_ONLY);
 
+                            let author = commit.author();
+
                             Some(UpstreamState {
                                 target_name: base_branch.branch_name.clone(),
                                 behind_count: base_branch.behind,
@@ -293,6 +181,10 @@ pub(crate) async fn worktree(
                                 message: commit_message,
                                 commit_date: formatted_date,
                                 last_fetched_ms: last_fetched,
+                                commit_id: commit_id.to_gix(),
+                                created_at: commit.committer().time().ok()?.seconds as i128 * 1000,
+                                author_name: author.name.to_string(),
+                                author_email: author.email.to_string(),
                             })
                         })
                 } else {
@@ -303,12 +195,21 @@ pub(crate) async fn worktree(
             .unwrap_or((None, None));
 
     if let Some(out) = out.for_json() {
-        let worktree_status = WorktreeStatus {
-            stacks: stack_details,
-            common_merge_base: common_merge_base_data,
-            upstream_state: upstream_state.clone(),
-        };
-        out.write_value(worktree_status)?;
+        let workspace_status = json::build_workspace_status_json(
+            &original_stack_details,
+            &stack_details,
+            &worktree_changes.worktree_changes.changes,
+            &common_merge_base_data,
+            &upstream_state,
+            last_fetched_ms,
+            &review_map,
+            show_files,
+            review,
+            project.id,
+            &repo,
+            &mut id_db,
+        )?;
+        out.write_value(workspace_status)?;
         return Ok(());
     }
 
@@ -340,6 +241,7 @@ pub(crate) async fn worktree(
             i == 0,
             &review_map,
             out,
+            &mut id_db,
         )?;
     }
     // Format the last fetched time as relative time
@@ -464,7 +366,7 @@ fn print_assignments(
 #[expect(clippy::too_many_arguments)]
 pub fn print_group(
     project: &gitbutler_project::Project,
-    group: Option<CLIStackDetails>,
+    group: Option<StackDetails>,
     assignments: Vec<FileAssignment>,
     changes: &[TreeChange],
     show_files: bool,
@@ -476,12 +378,17 @@ pub fn print_group(
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     out: &mut dyn std::fmt::Write,
+    id_db: &mut IdDb,
 ) -> anyhow::Result<()> {
     let repo = project.open_isolated()?;
     if let Some(group) = &group {
         let mut first = true;
         for branch in &group.branch_details {
-            let id = branch.cli_id.underline().blue();
+            let id = id_db
+                .branch(branch.name.to_str()?)
+                .to_string()
+                .underline()
+                .blue();
             let notch = if first { "╭" } else { "├" };
             if !first {
                 writeln!(out, "┊│")?;
@@ -544,7 +451,7 @@ pub fn print_group(
                 )?;
             }
             for cli_commit in &branch.commits {
-                let commit = &cli_commit.inner;
+                let commit = &cli_commit;
                 let marked =
                     crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
                 let dot = match commit.state {
