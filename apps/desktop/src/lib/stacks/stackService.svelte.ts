@@ -929,8 +929,18 @@ export class StackService {
 			])
 		);
 	}
+
 	invalidateStacks() {
 		this.dispatch(this.api.util.invalidateTags([invalidatesList(ReduxTag.Stacks)]));
+	}
+
+	invalidateStacksAndDetails() {
+		this.dispatch(
+			this.api.util.invalidateTags([
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.StackDetails)
+			])
+		);
 	}
 
 	templates(projectId: string, forgeName: string) {
