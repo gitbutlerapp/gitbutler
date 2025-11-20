@@ -328,6 +328,7 @@
 								icon="ai-small"
 								style="neutral"
 								size="tag"
+								tooltip="New Codegen Session"
 								onclick={async () => {
 									if (!stackId) return;
 									laneState?.selection.set({ branchName, codegen: true, previewOpen: true });
