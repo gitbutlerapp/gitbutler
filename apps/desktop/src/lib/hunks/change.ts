@@ -92,6 +92,23 @@ export function isExecutableStatus(status: Status): boolean {
 	}
 }
 
+export function isSubmoduleStatus(status: Status): boolean {
+	switch (status.type) {
+		case 'Addition':
+			return status.subject.state.kind === 'Commit';
+		case 'Deletion':
+			return status.subject.previousState.kind === 'Commit';
+		case 'Modification':
+			return (
+				status.subject.state.kind === 'Commit' || status.subject.previousState.kind === 'Commit'
+			);
+		case 'Rename':
+			return (
+				status.subject.state.kind === 'Commit' || status.subject.previousState.kind === 'Commit'
+			);
+	}
+}
+
 function isChangeStatus(something: unknown): something is Status {
 	return (
 		typeof something === 'object' &&
@@ -141,7 +158,7 @@ export type Rename = {
  */
 type ChangeState = {
 	readonly id: string;
-	readonly kind: string;
+	readonly kind: 'Tree' | 'Blob' | 'BlobExecutable' | 'Link' | 'Commit';
 };
 
 /** A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.*/

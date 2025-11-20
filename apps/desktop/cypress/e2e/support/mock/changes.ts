@@ -39,7 +39,7 @@ export const MOCK_TREE_CHANGE_A: TreeChange = {
 		subject: {
 			state: {
 				id: 'addition-id',
-				kind: 'addition'
+				kind: 'Blob'
 			},
 			isUntracked: true
 		}
@@ -188,7 +188,7 @@ export const MOCK_TREE_CHANGE_ADDITION: TreeChange = {
 	status: {
 		type: 'Addition',
 		subject: {
-			state: { id: 'addition-id', kind: 'addition' },
+			state: { id: 'addition-id', kind: 'Blob' },
 			isUntracked: false
 		}
 	}
@@ -211,7 +211,7 @@ export const MOCK_TREE_CHANGE_DELETION: TreeChange = {
 	status: {
 		type: 'Deletion',
 		subject: {
-			previousState: { id: 'deletion-prev-id', kind: 'deletion' }
+			previousState: { id: 'deletion-prev-id', kind: 'Blob' }
 		}
 	}
 };
@@ -233,8 +233,8 @@ export const MOCK_TREE_CHANGE_MODIFICATION: TreeChange = {
 	status: {
 		type: 'Modification',
 		subject: {
-			previousState: { id: 'mod-prev-id', kind: 'mod-prev' },
-			state: { id: 'mod-id', kind: 'mod' },
+			previousState: { id: 'mod-prev-id', kind: 'Blob' },
+			state: { id: 'mod-id', kind: 'Blob' },
 			flags: null
 		}
 	}
@@ -259,8 +259,8 @@ export const MOCK_TREE_CHANGE_RENAME: TreeChange = {
 		subject: {
 			previousPath: '/mock/oldname.txt',
 			previousPathBytes: strToBytes('/mock/oldname.txt'),
-			previousState: { id: 'rename-prev-id', kind: 'rename-prev' },
-			state: { id: 'rename-id', kind: 'rename' },
+			previousState: { id: 'rename-prev-id', kind: 'Blob' },
+			state: { id: 'rename-id', kind: 'Blob' },
 			flags: null
 		}
 	}
