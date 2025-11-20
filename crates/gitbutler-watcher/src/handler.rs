@@ -6,7 +6,9 @@ use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
-use gitbutler_filemonitor::InternalEvent;
+use gitbutler_filemonitor::{
+    FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
+};
 use gitbutler_operating_modes::operating_mode;
 use gitbutler_project::ProjectId;
 use tracing::instrument;
@@ -131,21 +133,33 @@ impl Handler {
     }
 
     pub fn git_files_change(&self, paths: Vec<PathBuf>, ctx: &mut CommandContext) -> Result<()> {
+        let (head_ref_name, head_sha) = head_info(ctx)?;
+
         for path in paths {
             let Some(file_name) = path.to_str() else {
                 continue;
             };
             match file_name {
-                "FETCH_HEAD" => {
+                FETCH_HEAD => {
                     self.emit_app_event(Change::GitFetch(ctx.project().id))?;
                 }
-                "logs/HEAD" => {
-                    self.emit_app_event(Change::GitActivity(ctx.project().id))?;
+                // Watch all local branches. Only emit activity if the HEAD points to that ref.
+                _ if file_name.starts_with(LOCAL_REFS_DIR) && file_name == head_ref_name => {
+                    self.emit_app_event(Change::GitActivity {
+                        project_id: ctx.project().id,
+                        head_sha: head_sha.clone(),
+                    })?;
                 }
-                "index" => {
+                HEAD_ACTIVITY => {
+                    self.emit_app_event(Change::GitActivity {
+                        project_id: ctx.project().id,
+                        head_sha: head_sha.clone(),
+                    })?;
+                }
+                INDEX => {
                     let _ = self.emit_worktree_changes(ctx);
                 }
-                "HEAD" => {
+                HEAD => {
                     let head_ref = ctx.repo().head().context("failed to get head")?;
                     if let Some(head) = head_ref.name() {
                         self.emit_app_event(Change::GitHead {
@@ -155,11 +169,23 @@ impl Handler {
                         })?;
                     }
                 }
-                _ => {}
+                _ => { /* Ignore other files */ }
             }
         }
         Ok(())
     }
+}
+
+fn head_info(ctx: &mut CommandContext) -> Result<(String, String)> {
+    let repo = ctx.repo();
+    let head_ref = repo.head().context("failed to get head")?;
+    let head_name = head_ref.name().map(|s| s.to_string()).unwrap_or_default();
+    let head_sha = head_ref
+        .peel_to_commit()
+        .context("failed to get head commit")?
+        .id()
+        .to_string();
+    Ok((head_name, head_sha))
 }
 
 fn assignments_and_errors(

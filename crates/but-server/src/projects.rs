@@ -65,9 +65,14 @@ impl ActiveProjects {
                         name: format!("project://{project_id}/git/head"),
                         payload: serde_json::json!({ "head": head, "operatingMode": operating_mode }),
                     },
-                    Change::GitActivity(project_id) => FrontendEvent {
+                    Change::GitActivity {
+                        project_id,
+                        head_sha,
+                    } => FrontendEvent {
                         name: format!("project://{project_id}/git/activity"),
-                        payload: serde_json::json!({}),
+                        payload: serde_json::json!({
+                            "headSha": head_sha,
+                        }),
                     },
                     Change::WorktreeChanges {
                         project_id,

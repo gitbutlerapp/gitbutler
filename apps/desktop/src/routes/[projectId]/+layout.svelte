@@ -82,15 +82,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const worktreeService = inject(WORKTREE_SERVICE);
 
-	const modeQuery = $derived(modeService.mode({ projectId }));
-	const mode = $derived(modeQuery.response);
-
-	// Invalidate stacks when switching branches outside workspace
-	$effect(() => {
-		if (mode?.type === 'OutsideWorkspace' && mode.subject.branchName) {
-			stackService.invalidateStacks();
-		}
-	});
+	const modeQuery = $derived(modeService.mode(projectId));
 
 	// =============================================================================
 	// FORGE INTEGRATION (GitHub & GitLab)
@@ -210,9 +202,14 @@
 	// FEED & UPDATES MANAGEMENT
 	// =============================================================================
 
-	// Listen for stack details updates
+	const headResponse = $derived(modeService.head(projectId));
+	const head = $derived(headResponse.response);
+
+	// If the head changes, invalidate stacks and details
 	$effect(() => {
-		stackService.stackDetailsUpdateListener(projectId);
+		if (head) {
+			stackService.invalidateStacksAndDetails();
+		}
 	});
 
 	// =============================================================================

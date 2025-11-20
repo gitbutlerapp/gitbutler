@@ -103,7 +103,7 @@ function injectEndpoints(api: BackendApi) {
 				invalidatesTags: () => [
 					invalidatesList(ReduxTag.WorkspaceRules),
 					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.Stacks)
+					invalidatesList(ReduxTag.Stacks) // Probably this is still needed??
 				]
 			}),
 			deleteWorkspaceRule: build.mutation<void, { projectId: string; id: WorkspaceRuleId }>({
@@ -129,7 +129,7 @@ function injectEndpoints(api: BackendApi) {
 								invalidatesItem(ReduxTag.WorkspaceRules, result.id),
 								invalidatesList(ReduxTag.WorkspaceRules),
 								invalidatesList(ReduxTag.WorktreeChanges),
-								invalidatesList(ReduxTag.Stacks)
+								invalidatesList(ReduxTag.Stacks) // Probably this is still needed??
 							]
 						: []
 			}),

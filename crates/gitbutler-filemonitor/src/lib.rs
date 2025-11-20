@@ -7,3 +7,4 @@ mod events;
 pub use events::InternalEvent;
 mod file_monitor;
 pub use file_monitor::spawn;
+pub use file_monitor::{FETCH_HEAD, GB_FLUSH, HEAD, HEAD_ACTIVITY, INDEX, LOCAL_REFS_DIR};

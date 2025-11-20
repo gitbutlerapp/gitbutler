@@ -42,9 +42,14 @@ pub(crate) mod state {
                         payload: serde_json::json!({ "head": head, "operatingMode": operating_mode }),
                         project_id,
                     },
-                    Change::GitActivity(project_id) => ChangeForFrontend {
+                    Change::GitActivity {
+                        project_id,
+                        head_sha,
+                    } => ChangeForFrontend {
                         name: format!("project://{project_id}/git/activity"),
-                        payload: serde_json::json!({}),
+                        payload: serde_json::json!({
+                            "headSha": head_sha,
+                        }),
                         project_id,
                     },
                     Change::WorktreeChanges {

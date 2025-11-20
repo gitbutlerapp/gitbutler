@@ -25,7 +25,7 @@
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
 	const modeService = inject(MODE_SERVICE);
-	const mode = $derived(modeService.mode({ projectId }));
+	const mode = $derived(modeService.mode(projectId));
 
 	const worktreeService = inject(WORKTREE_SERVICE);
 	const changes = $derived(worktreeService.treeChanges(projectId));

@@ -251,6 +251,13 @@ fn is_interesting_kind(kind: notify::EventKind) -> bool {
     )
 }
 
+pub const LOCAL_REFS_DIR: &str = "refs/heads/";
+pub const FETCH_HEAD: &str = "FETCH_HEAD";
+pub const HEAD: &str = "HEAD";
+pub const HEAD_ACTIVITY: &str = "logs/HEAD";
+pub const INDEX: &str = "index";
+pub const GB_FLUSH: &str = "GB_FLUSH";
+
 /// A classification for a changed file.
 #[derive(Debug, Eq, PartialEq)]
 enum FileKind {
@@ -266,11 +273,12 @@ enum FileKind {
 
 fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
     if let Ok(check_file_path) = file_path.strip_prefix(git_dir) {
-        if check_file_path == Path::new("FETCH_HEAD")
-            || check_file_path == Path::new("logs/HEAD")
-            || check_file_path == Path::new("HEAD")
-            || check_file_path == Path::new("GB_FLUSH")
-            || check_file_path == Path::new("index")
+        if check_file_path == Path::new(FETCH_HEAD)
+            || check_file_path == Path::new(HEAD_ACTIVITY)
+            || check_file_path == Path::new(HEAD)
+            || check_file_path == Path::new(GB_FLUSH)
+            || check_file_path == Path::new(INDEX)
+            || check_file_path.starts_with(LOCAL_REFS_DIR)
         {
             FileKind::Git
         } else {

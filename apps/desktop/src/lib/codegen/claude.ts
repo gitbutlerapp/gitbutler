@@ -186,9 +186,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						async (event) => {
 							const { payload } = event.payload;
 							if (payload.source === 'gitButler' && payload.type === 'commitCreated') {
-								lifecycleApi.dispatch(
-									api.util.invalidateTags([invalidatesItem(ReduxTag.StackDetails, arg.stackId)])
-								);
+								lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.HeadSha)]));
 							}
 							lifecycleApi.updateCachedData((events) => {
 								events.push(event.payload);

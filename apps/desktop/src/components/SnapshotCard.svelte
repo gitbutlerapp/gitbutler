@@ -168,7 +168,7 @@
 	const operation = mapOperation(entry.details);
 
 	const modeService = inject(MODE_SERVICE);
-	const mode = $derived(modeService.mode({ projectId }));
+	const mode = $derived(modeService.mode(projectId));
 
 	const historyService = inject(HISTORY_SERVICE);
 	const snapshotDiff = $derived(historyService.snapshotDiff({ projectId, snapshotId: entry.id }));
