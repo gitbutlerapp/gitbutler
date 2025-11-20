@@ -1,6 +1,6 @@
 import { FModeManager } from '$lib/focus/fModeManager';
 import { getNavigationAction, isInputElement, getElementDescription } from '$lib/focus/focusUtils';
-import { focusNextTabIndex } from '$lib/focus/tabbable';
+import { focusNextTabIndex, getFocusableElements } from '$lib/focus/tabbable';
 import { isContentEditable, removeFromArray, scrollIntoViewIfNeeded } from '$lib/focus/utils';
 import { parseHotkey, matchesHotkey } from '$lib/utils/hotkeySymbols';
 import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
@@ -64,7 +64,10 @@ export class FocusManager {
 	}
 
 	private processKeyboardEvent(event: KeyboardEvent): boolean {
-		if (this.shouldSkipEvent(event)) return false;
+		// Allow Tab and Escape through even in input elements for focus trap handling
+		const isTabOrEscape = event.key === 'Tab' || event.key === 'Escape';
+		if (!isTabOrEscape && this.shouldSkipEvent(event)) return false;
+
 		if (this.handleFModeInput(event)) return true;
 		if (this.handleHotkeyPress(event)) return true;
 
@@ -355,6 +358,16 @@ export class FocusManager {
 
 	private updateCurrentNode(event: KeyboardEvent): FocusableNode | undefined {
 		if (this.currentNode) return this.currentNode;
+
+		// For Tab key, find the trap container if we're inside one
+		if (event.key === 'Tab' && event.target instanceof HTMLElement) {
+			const nearestNode = this.findNearestFocusableElement(event.target);
+			if (nearestNode?.options.trap) {
+				this.currentNode = nearestNode;
+				return nearestNode;
+			}
+		}
+
 		// We don't want to go from no current to picking nearest navigable
 		// descendant when modifier keys are pressed.
 		if (['Tab', 'Shift', 'Ctrl', 'Meta'].includes(event.key)) return;
@@ -393,19 +406,54 @@ export class FocusManager {
 	private handleTabKey(navigationContext: NavigationContext, event: KeyboardEvent): boolean {
 		if (navigationContext.action !== 'tab') return false;
 
-		if (navigationContext.trap || this._outline) {
+		// For focus traps, let browser handle intra-modal tab order, but capture wrap-around
+		if (navigationContext.trap) {
+			const container = this.currentNode!.element;
+			const forward = !navigationContext.shiftKey;
+			const focusableElements = getFocusableElements(container);
+
+			if (focusableElements.length === 0) {
+				event.preventDefault();
+				this.focusElement(container, true);
+				return true;
+			}
+
+			const activeElement =
+				document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+			const currentIndex = activeElement ? focusableElements.indexOf(activeElement) : -1;
+			const atBoundary = forward
+				? currentIndex === focusableElements.length - 1 || currentIndex === -1
+				: currentIndex === 0 || currentIndex === -1;
+
+			if (!atBoundary) {
+				return false;
+			}
+
+			event.preventDefault();
+			const handled = focusNextTabIndex({
+				container,
+				forward,
+				trap: true
+			});
+			if (!handled) {
+				this.focusElement(container, true);
+			}
+			return true;
+		}
+
+		// Handle outline mode
+		if (this._outline) {
 			focusNextTabIndex({
 				container: this.currentNode!.element,
 				forward: !navigationContext.shiftKey,
-				trap: navigationContext.trap
+				trap: false
 			});
 			this.setOutline(false);
-			if (!navigationContext.trap) {
-				// Only clear current node if were tabbing inside of a trap
-				this.clearCurrent();
-			}
+			this.clearCurrent();
 			event.preventDefault();
+			return true;
 		}
+
 		return false;
 	}
 
