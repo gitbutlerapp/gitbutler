@@ -101,11 +101,9 @@ export class UncommittedService {
 	}
 
 	findHunkDiff(changeDiff: UnifiedDiff, hunk: HunkHeader): DiffHunk | undefined {
-		const file = changeDiff;
+		if (changeDiff?.type !== 'Patch') return undefined;
 
-		if (file?.type !== 'Patch') return undefined;
-
-		const hunkDiff = file.subject.hunks.find(
+		const hunkDiff = changeDiff.subject.hunks.find(
 			(hunkDiff) =>
 				hunkDiff.oldStart === hunk.oldStart &&
 				hunkDiff.oldLines === hunk.oldLines &&
@@ -119,10 +117,8 @@ export class UncommittedService {
 	 * Check whether the given hunks represent a completely selected file.
 	 */
 	isCompletelySelectedFile(changeDiff: UnifiedDiff, hunkHeaders: HunkHeader[]): boolean {
-		const file = changeDiff;
-
-		if (file?.type !== 'Patch') return false;
-		const fileHunks = file.subject.hunks;
+		if (changeDiff?.type !== 'Patch') return false;
+		const fileHunks = changeDiff.subject.hunks;
 
 		if (fileHunks.length !== hunkHeaders.length) {
 			return false;
@@ -161,6 +157,7 @@ export class UncommittedService {
 				return [];
 			}
 		}
+
 		for (const preprocessedHeader of preprocessedHeaders) {
 			switch (preprocessedHeader.type) {
 				case 'complete': {
@@ -218,6 +215,20 @@ export class UncommittedService {
 		for (const [path, selection] of Object.entries(pathGroups)) {
 			const preprocessedHeaders: PreprocessedHunkHeader[] = [];
 			const change = uncommittedSelectors.treeChanges.selectById(state.treeChanges, path)!;
+
+			const status = change.status;
+			const previousPathBytes = status.type === 'Rename' ? status.subject.previousPathBytes : null;
+
+			if (selection.length === 0) {
+				// No seleciton means the whole file is selected.
+				worktreeChanges.push({
+					pathBytes: change.pathBytes,
+					previousPathBytes,
+					hunkHeaders: []
+				});
+				continue;
+			}
+
 			const changeDiff = await this.getUnifiedDiff(projectId, path);
 			for (const { lines, assignmentId } of selection) {
 				// We want to use `null` to commit from unassigned changes if new stack was created.
@@ -240,23 +251,23 @@ export class UncommittedService {
 							hunkDiff
 						});
 						continue;
-					} else {
+					}
+
+					if (hunkDiff)
 						// Only some lines withing the hunk are selected.
 						preprocessedHeaders.push({
 							type: 'partial',
 							selectedLines: lines,
 							hunkDiff
 						});
-						continue;
-					}
+					continue;
 				}
 			}
 
-			const status = change.status;
 			worktreeChanges.push({
 				pathBytes: change.pathBytes,
-				previousPathBytes: status.type === 'Rename' ? status.subject.previousPathBytes : null,
-				hunkHeaders: this.processHunkHeaders(changeDiff, preprocessedHeaders)
+				previousPathBytes,
+				hunkHeaders: await this.processHunkHeaders(changeDiff, preprocessedHeaders)
 			});
 		}
 
