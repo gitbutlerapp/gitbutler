@@ -21,7 +21,6 @@
 			autocorrect: true,
 			autocomplete: true,
 			autofocus: false,
-			selectall: false,
 			label: '',
 			helperText: '',
 			error: '',
@@ -104,7 +103,6 @@
 				autocorrect={args.autocorrect}
 				autocomplete={args.autocomplete}
 				autofocus={args.autofocus}
-				selectall={args.selectall}
 				label={args.label}
 				helperText={args.helperText}
 				iconLeft={args.iconLeft}

@@ -6,6 +6,7 @@
 	import GeneralSettings from '$components/profileSettings/GeneralSettings.svelte';
 	import GitSettings from '$components/profileSettings/GitSettings.svelte';
 	import IntegrationsSettings from '$components/profileSettings/IntegrationsSettings.svelte';
+	import LanesAndBranchesSettings from '$components/profileSettings/LanesAndBranchesSettings.svelte';
 	import OrganisationSettings from '$components/profileSettings/OrganisationSettings.svelte';
 	import TelemetrySettings from '$components/profileSettings/TelemetrySettings.svelte';
 	import AppearanceSettings from '$components/projectSettings/AppearanceSettings.svelte';
@@ -36,6 +37,11 @@
 			id: 'appearance',
 			label: 'Appearance',
 			icon: 'appearance' as keyof typeof iconsJson
+		},
+		{
+			id: 'lanes-and-branches',
+			label: 'Lanes & branches',
+			icon: 'lanes' as keyof typeof iconsJson
 		},
 		{
 			id: 'git',
@@ -90,6 +96,8 @@
 				<GeneralSettings />
 			{:else if currentPage.id === 'appearance'}
 				<AppearanceSettings />
+			{:else if currentPage.id === 'lanes-and-branches'}
+				<LanesAndBranchesSettings />
 			{:else if currentPage.id === 'git'}
 				<GitSettings />
 			{:else if currentPage.id === 'integrations'}

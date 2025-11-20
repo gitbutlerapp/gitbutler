@@ -8,6 +8,7 @@
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { changesToDiffSpec } from '$lib/commits/utils';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
+	import { autoSelectBranchCreationFeature } from '$lib/config/uiFeatureFlags';
 	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { vscodePath } from '$lib/project/project';
@@ -19,7 +20,6 @@
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
-
 	import {
 		AsyncButton,
 		Button,
@@ -31,6 +31,7 @@
 		Modal,
 		chipToasts
 	} from '@gitbutler/ui';
+
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -147,6 +148,7 @@
 
 	let stashBranchName = $state<string>();
 	let slugifiedRefName: string | undefined = $state();
+	let stashBranchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
 
 	async function confirmStashIntoBranch(item: ChangedFilesItem, branchName: string | undefined) {
 		if (!branchName) {
@@ -350,11 +352,13 @@
 						<ContextMenuItem
 							label="Stash into branch…"
 							icon="stash"
-							onclick={() => {
-								stackService.fetchNewBranchName(projectId).then((name) => {
-									stashBranchName = name || '';
-								});
+							onclick={async () => {
 								stashConfirmationModal?.show(item);
+								stashBranchName = await stackService.fetchNewBranchName(projectId);
+								// Select text after async value is loaded and DOM is updated
+								if ($autoSelectBranchCreationFeature) {
+									await stashBranchNameInput?.selectAll();
+								}
 								contextMenu.close();
 							}}
 						/>
@@ -592,6 +596,7 @@
 	{#snippet children(item)}
 		<div class="content-wrap">
 			<BranchNameTextbox
+				bind:this={stashBranchNameInput}
 				id="stashBranchName"
 				placeholder="Enter your branch name..."
 				bind:value={stashBranchName}

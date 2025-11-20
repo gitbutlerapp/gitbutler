@@ -9,7 +9,15 @@
 		[key: string]: any;
 	};
 
-	let { value = $bindable(), helperText, onslugifiedvalue, ...restProps }: Props = $props();
+	let {
+		value = $bindable(),
+		helperText,
+
+		onslugifiedvalue,
+		...restProps
+	}: Props = $props();
+
+	let textbox = $state<ReturnType<typeof Textbox>>();
 
 	const slugifiedName = $derived(value && slugify(value));
 	const namesDiverge = $derived(!!value && slugifiedName !== value);
@@ -20,6 +28,10 @@
 	$effect(() => {
 		onslugifiedvalue?.(slugifiedName);
 	});
+
+	export async function selectAll() {
+		await textbox?.selectAll();
+	}
 </script>
 
-<Textbox bind:value helperText={computedHelperText} {...restProps} />
+<Textbox bind:this={textbox} bind:value helperText={computedHelperText} {...restProps} />

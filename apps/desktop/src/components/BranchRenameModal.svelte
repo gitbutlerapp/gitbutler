@@ -23,9 +23,13 @@
 	let slugifiedRefName: string | undefined = $state();
 	let modal: Modal | undefined = $state();
 
-	export function show() {
+	let branchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
+
+	export async function show() {
 		newName = branchName;
 		modal?.show();
+		// Select text after async value is set
+		await branchNameInput?.selectAll();
 	}
 </script>
 
@@ -43,6 +47,7 @@
 	}}
 >
 	<BranchNameTextbox
+		bind:this={branchNameInput}
 		placeholder="New name"
 		id={ElementId.NewBranchNameInput}
 		bind:value={newName}

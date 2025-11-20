@@ -1,10 +1,6 @@
 <script lang="ts">
 	import ThemeSelector from '$components/ThemeSelector.svelte';
-	import {
-		autoSelectBranchNameFeature,
-		stagingBehaviorFeature,
-		type StagingBehavior
-	} from '$lib/config/uiFeatureFlags';
+	import { stagingBehaviorFeature, type StagingBehavior } from '$lib/config/uiFeatureFlags';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/core/context';
 	import {
@@ -341,22 +337,6 @@
 		{/snippet}
 	</SectionCard>
 </form>
-
-<SectionCard labelFor="branchLaneContents" orientation="row">
-	{#snippet title()}
-		Auto-select text on branch/lane rename
-	{/snippet}
-	{#snippet caption()}
-		Enable this option to automatically select the text when the input is focused.
-	{/snippet}
-	{#snippet actions()}
-		<Toggle
-			id="branchLaneContents"
-			checked={$autoSelectBranchNameFeature}
-			onclick={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
-		/>
-	{/snippet}
-</SectionCard>
 
 <form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
 	<SectionCard roundedBottom={false} orientation="row" labelFor="stage-all">
