@@ -1,4 +1,5 @@
 use gix::refs::FullNameRef;
+use ts_rs::TS;
 
 use crate::Id;
 
@@ -281,8 +282,12 @@ impl Workspace {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
+#[derive(serde::Serialize, Clone, Eq, PartialEq, Default, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./core/refMetadata/Branch.ts")
+)]
 pub struct Branch {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -346,12 +351,18 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 ///
 /// It allows keeping track of when it changed, but also if we created it initially, a useful
 /// bit of information.
-#[derive(serde::Serialize, Default, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, Default, Clone, Eq, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./core/refMetadata/RefInfo.ts")
+)]
 pub struct RefInfo {
     /// The time of creation, *if we created the reference*.
+    #[ts(type = "number | null")]
     pub created_at: Option<gix::date::Time>,
     /// The time at which the reference was last modified if we modified it.
+    #[ts(type = "number | null")]
     pub updated_at: Option<gix::date::Time>,
 }
 
@@ -491,8 +502,12 @@ impl WorkspaceStack {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
+#[derive(serde::Serialize, Clone, Eq, PartialEq, Default, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./core/refMetadata/Review.ts")
+)]
 pub struct Review {
     /// The number for the PR that was associated with this branch.
     pub pull_request: Option<usize>,

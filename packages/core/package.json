@@ -6,6 +6,8 @@
 	"scripts": {
 		"check": "tsc --noEmit",
 		"build": "tsc -p tsconfig.json",
+		"format": "prettier --write .",
+		"generate-types": "TS_RS_EXPORT_DIR=\"$PNPM_SCRIPT_SRC_DIR/src/generated\" cargo test --features export-ts export_bindings && pnpm format",
 		"package": "tsc -p tsconfig.json"
 	},
 	"exports": {

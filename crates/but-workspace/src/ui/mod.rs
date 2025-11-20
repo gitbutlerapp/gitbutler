@@ -11,6 +11,7 @@ pub use ref_info::inner::RefInfo;
 /// This code is a fork of [`gitbutler_branch_actions::author`] to avoid depending on the `gitbutler_branch_actions` crate.
 mod author;
 pub use author::Author;
+use ts_rs::TS;
 
 use crate::{
     ref_info::{LocalCommit, LocalCommitRelation},
@@ -18,8 +19,12 @@ use crate::{
 };
 
 /// Represents the state a commit could be in.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(tag = "type", content = "subject")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./workspace/CommitState.ts")
+)]
 pub enum CommitState {
     /// The commit is only local
     LocalOnly,
@@ -31,7 +36,7 @@ pub enum CommitState {
     /// This variant carries the remote commit id.
     /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased or updated in another way.
     #[serde(with = "but_serde::object_id")]
-    LocalAndRemote(gix::ObjectId),
+    LocalAndRemote(#[ts(type = "string")] gix::ObjectId),
     /// The commit is considered integrated.
     /// This should happen when this commit or the contents of this commit is already part of the base.
     Integrated,
@@ -54,17 +59,21 @@ impl CommitState {
 }
 
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/Commit.ts"))]
 pub struct Commit {
     /// The OID of the commit.
     #[serde(with = "but_serde::object_id")]
+    #[ts(type = "string")]
     pub id: gix::ObjectId,
     /// The parent OIDs of the commit.
     #[serde(with = "but_serde::object_id_vec")]
+    #[ts(type = "string[]")]
     pub parent_ids: Vec<gix::ObjectId>,
     /// The message of the commit.
     #[serde(with = "but_serde::bstring_lossy")]
+    #[ts(type = "string")]
     pub message: BString,
     /// Whether the commit is in a conflicted state.
     /// The Conflicted state of a commit is a GitButler concept.
@@ -114,14 +123,20 @@ impl std::fmt::Debug for Commit {
 
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./workspace/UpstreamCommit.ts")
+)]
 pub struct UpstreamCommit {
     /// The OID of the commit.
     #[serde(with = "but_serde::object_id")]
+    #[ts(type = "string")]
     pub id: gix::ObjectId,
     /// The message of the commit.
     #[serde(with = "but_serde::bstring_lossy")]
+    #[ts(type = "string")]
     pub message: BString,
     /// Commit creation time in Epoch milliseconds.
     pub created_at: i128,
@@ -141,8 +156,12 @@ impl std::fmt::Debug for UpstreamCommit {
 }
 
 /// Represents the pushable status for the current stack.
-#[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./workspace/PushStatus.ts")
+)]
 pub enum PushStatus {
     /// Can push, but there are no changes to be pushed
     NothingToPush,
