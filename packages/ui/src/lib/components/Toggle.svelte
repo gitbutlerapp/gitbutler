@@ -32,6 +32,15 @@
 		onclick?.(e);
 	}}
 	onchange={(e) => onchange?.(e.currentTarget.checked)}
+	onkeydown={(e) => {
+		// Prevent Enter key from submitting forms, but manually toggle the checkbox
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			const target = e.currentTarget;
+			target.checked = !target.checked;
+			onchange?.(target.checked);
+		}
+	}}
 	type="checkbox"
 	class="toggle"
 	class:small
