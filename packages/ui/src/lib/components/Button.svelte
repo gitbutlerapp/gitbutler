@@ -468,8 +468,4 @@
 			text-overflow: ellipsis;
 		}
 	}
-	/* See `tabbable.ts` for more on this class. */
-	:global(.focus-visible) {
-		outline: 2px solid var(--clr-theme-pop-element-hover);
-	}
 </style>
