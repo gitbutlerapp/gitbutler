@@ -1,5 +1,5 @@
 import { sortLikeFileTree } from '$lib/files/filetreeV3';
-import { type TreeChange } from '$lib/hunks/change';
+import { isSubmoduleStatus, type TreeChange } from '$lib/hunks/change';
 import {
 	diffToHunkHeaders,
 	hunkHeaderEquals,
@@ -88,12 +88,8 @@ export class UncommittedService {
 		this.dispatch(uncommittedActions.clearHunkSelection({ stackId: stackId || null }));
 	}
 
-	async getUnifiedDiff(projectId: string, filePath: string): Promise<UnifiedDiff> {
-		const treeChange = await this.worktreeService.fetchTreeChange(projectId, filePath);
-		if (treeChange === undefined) {
-			throw new Error('Failed to fetch change');
-		}
-		const changeDiff = await this.diffService.fetchDiff(projectId, treeChange);
+	async getUnifiedDiff(projectId: string, change: TreeChange): Promise<UnifiedDiff> {
+		const changeDiff = await this.diffService.fetchDiff(projectId, change);
 		if (!changeDiff) {
 			throw new Error('Failed to fetch diff');
 		}
@@ -220,7 +216,6 @@ export class UncommittedService {
 			const previousPathBytes = status.type === 'Rename' ? status.subject.previousPathBytes : null;
 
 			if (selection.length === 0) {
-				// No seleciton means the whole file is selected.
 				worktreeChanges.push({
 					pathBytes: change.pathBytes,
 					previousPathBytes,
@@ -229,7 +224,17 @@ export class UncommittedService {
 				continue;
 			}
 
-			const changeDiff = await this.getUnifiedDiff(projectId, path);
+			if (isSubmoduleStatus(status)) {
+				// Submodules are always committed as complete changes.
+				worktreeChanges.push({
+					pathBytes: change.pathBytes,
+					previousPathBytes,
+					hunkHeaders: []
+				});
+				continue;
+			}
+
+			const changeDiff = await this.getUnifiedDiff(projectId, change);
 			for (const { lines, assignmentId } of selection) {
 				// We want to use `null` to commit from unassigned changes if new stack was created.
 				const assignment = uncommittedSelectors.hunkAssignments.selectById(
