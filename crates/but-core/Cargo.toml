@@ -13,6 +13,7 @@ doctest = false
 [features]
 # Set when building in test-mode to enable features that help with generating repeatable tests.
 testing = []
+export-ts = []
 
 [dependencies]
 but-error.workspace = true
@@ -44,6 +45,7 @@ uuid.workspace = true
 # for `sync`
 fslock = "0.2.1"
 parking_lot = { workspace = true, features = ["arc_lock"] }
+ts-rs.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true

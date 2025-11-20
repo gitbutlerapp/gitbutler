@@ -60,8 +60,23 @@ jobs:
       - uses: ./.github/actions/init-env-node
       - run: pnpm prettier
 
-  lint-node:
+  generate-ts-definitions:
     needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm generate-ts-definitions
+
+  lint-node:
+    needs: generate-ts-definitions
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -72,7 +87,7 @@ jobs:
       - run: pnpm lint
 
   check-node:
-    needs: changes
+    needs: generate-ts-definitions
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -83,7 +98,7 @@ jobs:
       - run: pnpm check
 
   unittest-node:
-    needs: changes
+    needs: generate-ts-definitions
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:

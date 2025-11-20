@@ -37,7 +37,8 @@
 		"prepare": "pnpm --filter @gitbutler/desktop run prepare",
 		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml",
 		"isgood": "pnpm check && pnpm lint",
-		"begood": "pnpm format && pnpm fix"
+		"begood": "pnpm format && pnpm fix",
+		"generate-ts-definitions": "pnpm --filter @gitbutler/core generate-ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "9.33.0",

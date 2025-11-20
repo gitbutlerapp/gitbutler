@@ -2,6 +2,7 @@ use anyhow::{Context, bail};
 use bstr::{BString, ByteSlice};
 use but_core::{ref_metadata, ref_metadata::StackId};
 use gix::refs::Category;
+use ts_rs::TS;
 
 use crate::{
     ref_info::{LocalCommit, LocalCommitRelation},
@@ -10,10 +11,15 @@ use crate::{
 };
 
 /// A reference in `refs/heads`.
-#[derive(serde::Serialize, Debug, Clone)]
+#[derive(serde::Serialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./workspace/refInfo/BranchReference.ts")
+)]
 pub struct BranchReference {
     /// The full ref name, like `refs/heads/feat`, for usage with the backend.
+    #[ts(type = "number[]")]
     pub full_name_bytes: BString,
     /// The short version of `full_name_bytes` for display.
     pub display_name: String,
@@ -29,10 +35,15 @@ impl From<gix::refs::FullName> for BranchReference {
 }
 
 /// A reference in `refs/remotes`.
-#[derive(serde::Serialize, Debug, Clone)]
+#[derive(serde::Serialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./workspace/refInfo/RemoteTrackingReference.ts")
+)]
 pub struct RemoteTrackingReference {
     /// The full ref name, like `refs/remotes/origin/on-remote`, for usage with the backend.
+    #[ts(type = "number[]")]
     pub full_name_bytes: BString,
     /// The short version of `full_name_bytes` for display, like `on-remote`, without the remote name.
     pub display_name: String,
@@ -84,8 +95,12 @@ impl RemoteTrackingReference {
 }
 
 /// Information about the target reference, the one we want to integrate with.
-#[derive(serde::Serialize, Debug, Clone)]
+#[derive(serde::Serialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./workspace/refInfo/Target.ts")
+)]
 pub struct Target {
     /// The remote tracking branch of the traget to integrate with, like `refs/remotes/origin/main`.
     pub remote_tracking_ref: RemoteTrackingReference,
@@ -110,12 +125,18 @@ impl Target {
 }
 
 pub(crate) mod inner {
+    use ts_rs::TS;
+
     use crate::ui::ref_info::{BranchReference, Stack, Target};
 
     /// The UI-clone of [`crate::RefInfo`].
     /// TODO: should also include base-branch data, see `get_base_branch_data()`.
-    #[derive(serde::Serialize, Debug, Clone)]
+    #[derive(serde::Serialize, Debug, Clone, TS)]
     #[serde(rename_all = "camelCase")]
+    #[cfg_attr(
+        feature = "export-ts",
+        ts(export, export_to = "./workspace/refInfo/RefInfo.ts")
+    )]
     pub struct RefInfo {
         /// The name of the ref that points to a workspace commit,
         /// *or* the name of the first stack segment.
@@ -199,17 +220,22 @@ impl inner::RefInfo {
 }
 
 /// The UI-clone of [`branch::Stack`].
-#[derive(serde::Serialize, Debug, Clone)]
+#[derive(serde::Serialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./workspace/refInfo/Stack.ts")
+)]
 pub struct Stack {
-    /// If the stack belongs to a managed workspace, the `id` will be set and persist.
     /// Otherwise, it is `None`.
+    #[ts(type = "string | null")]
     pub id: Option<StackId>,
     /// If there is an integration branch, we know a base commit shared with the integration branch from
     /// which we branched off.
     /// Otherwise, it's the merge-base of all stacks in the current workspace.
     /// It is `None` if this is a stack derived from a branch without relation to any other branch.
     #[serde(with = "but_serde::object_id_opt")]
+    #[ts(type = "string | null")]
     pub base: Option<gix::ObjectId>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
@@ -230,10 +256,13 @@ impl Stack {
 }
 
 /// A segment of a commit graph, representing a set of commits exclusively.
-#[derive(serde::Serialize, Debug, Clone)]
+#[derive(serde::Serialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./workspace/refInfo/Segment.ts")
+)]
 pub struct Segment {
-    /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit.
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
     /// a commit anymore that was reached by our rev-walk.
@@ -280,6 +309,7 @@ pub struct Segment {
     /// It is `None` if the stack segment contains the first commit in the history, an orphan without ancestry,
     /// or if the history traversal was stopped early.
     #[serde(with = "but_serde::object_id_opt")]
+    #[ts(type = "string | null")]
     pub base: Option<gix::ObjectId>,
 }
 

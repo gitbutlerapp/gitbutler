@@ -23,6 +23,7 @@ but-rules.workspace = true
 but-settings.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
+but-workspace.workspace = true
 serde-error = "0.1.3"
 gix.workspace = true
 but-oxidize.workspace = true

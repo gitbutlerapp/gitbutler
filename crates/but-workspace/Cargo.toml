@@ -19,6 +19,7 @@ legacy = [
     "dep:gitbutler-commit",
     "dep:gitbutler-repo",
 ]
+export-ts = []
 
 [dependencies]
 but-core.workspace = true
@@ -49,6 +50,7 @@ tracing.workspace = true
 # For SPMC channel
 flume = "0.11.1"
 tempfile.workspace = true
+ts-rs.workspace = true
 
 [dev-dependencies]
 # We just want to test everything, with the goal that 'legacy' can one day go away.
