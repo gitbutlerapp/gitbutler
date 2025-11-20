@@ -139,7 +139,7 @@
 			onslugifiedvalue={(value) => (slugifiedRefName = value)}
 		/>
 
-		<div class="options-wrap">
+		<div class="options-wrap" role="radiogroup" aria-label="Branch type selection">
 			<!-- Option 1 -->
 			<label for="new-stack" class="radio-label" class:radio-selected={createRefType === 'stack'}>
 				<div class="radio-btn">

@@ -60,7 +60,7 @@
 </script>
 
 <label
-	class="profile-pic-wrapper focus-state {className || ''}"
+	class="profile-pic-wrapper {className || ''}"
 	for="profile-picture-upload"
 	style="width: {size}rem; height: {size}rem;"
 >

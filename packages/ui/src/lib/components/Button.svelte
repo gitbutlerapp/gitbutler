@@ -8,6 +8,7 @@
 		activated?: boolean;
 		tabindex?: number | undefined;
 		type?: 'submit' | 'reset' | 'button' | undefined;
+		autofocus?: boolean;
 		// Layout props
 		shrinkable?: boolean;
 		reversedDirection?: boolean;
@@ -51,6 +52,7 @@
 	import { focusable } from '$lib/focus/focusable';
 	import { formatHotkeyForPlatform } from '$lib/utils/hotkeySymbols';
 	import { pxToRem } from '$lib/utils/pxToRem';
+	import { onMount, tick } from 'svelte';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';
@@ -63,6 +65,7 @@
 		activated = false,
 		tabindex,
 		type = 'button',
+		autofocus = false,
 		shrinkable = false,
 		reversedDirection = false,
 		width,
@@ -110,6 +113,14 @@
 		tooltipInstance?.dismiss();
 		onmousedownExternal?.(e);
 	}
+
+	onMount(() => {
+		if (autofocus) {
+			tick().then(() => {
+				el?.focus();
+			});
+		}
+	});
 </script>
 
 <Tooltip
@@ -131,7 +142,7 @@
 			}
 		}}
 		class={[
-			'btn focus-state',
+			'btn',
 			style,
 			kind,
 			size && `${size}-size`,
@@ -303,6 +314,8 @@
 			--theme-solid-text: var(--clr-theme-ntrl-on-element);
 			--theme-solid-bg: var(--clr-theme-ntrl-element);
 			--theme-solid-bg-hover: var(--clr-theme-ntrl-element-hover);
+			--theme-focus-color: var(--clr-theme-pop-element);
+			--theme-focus-mix-ratio: 100%;
 		}
 
 		:where(&.pop) {
@@ -312,6 +325,7 @@
 			--theme-solid-text: var(--clr-theme-pop-on-element);
 			--theme-solid-bg: var(--clr-theme-pop-element);
 			--theme-solid-bg-hover: var(--clr-theme-pop-element-hover);
+			--theme-focus-color: var(--clr-theme-pop-element);
 		}
 
 		:where(&.success) {
@@ -321,6 +335,7 @@
 			--theme-solid-text: var(--clr-theme-succ-on-element);
 			--theme-solid-bg: var(--clr-theme-succ-element);
 			--theme-solid-bg-hover: var(--clr-theme-succ-element-hover);
+			--theme-focus-color: var(--clr-theme-succ-element);
 		}
 
 		:where(&.error) {
@@ -330,6 +345,7 @@
 			--theme-solid-text: var(--clr-theme-err-on-element);
 			--theme-solid-bg: var(--clr-theme-err-element);
 			--theme-solid-bg-hover: var(--clr-theme-err-element-hover);
+			--theme-focus-color: var(--clr-theme-err-element);
 		}
 
 		:where(&.warning) {
@@ -339,6 +355,7 @@
 			--theme-solid-text: var(--clr-theme-warn-on-element);
 			--theme-solid-bg: var(--clr-theme-warn-element);
 			--theme-solid-bg-hover: var(--clr-theme-warn-element-hover);
+			--theme-focus-color: var(--clr-theme-warn-element);
 		}
 
 		:where(&.purple) {
@@ -348,6 +365,24 @@
 			--theme-solid-text: var(--clr-theme-purp-on-element);
 			--theme-solid-bg: var(--clr-theme-purp-element);
 			--theme-solid-bg-hover: var(--clr-theme-purp-element-hover);
+			--theme-focus-color: var(--clr-theme-purp-element);
+		}
+
+		/* Focus styles for all themed buttons */
+		:where(&.outline:focus-visible),
+		:where(&.ghost:focus-visible) {
+			outline: 2px solid var(--theme-focus-color);
+			outline-offset: -2px;
+		}
+
+		:where(&.solid:focus-visible) {
+			outline: 2px solid
+				color-mix(
+					in srgb,
+					var(--theme-focus-color) var(--theme-focus-mix-ratio, 60%),
+					var(--clr-text-1)
+				);
+			outline-offset: -2px;
 		}
 
 		/* Apply patterns using consolidated theme variables */
@@ -467,9 +502,5 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 		}
-	}
-	/* See `tabbable.ts` for more on this class. */
-	:global(.focus-visible) {
-		outline: 2px solid var(--clr-theme-pop-element-hover);
 	}
 </style>

@@ -24,13 +24,14 @@
 
 <input
 	type="radio"
-	class="focus-state radio {className}"
+	class="radio {className}"
 	class:small
 	{id}
 	{value}
 	{name}
 	{disabled}
 	{checked}
+	tabindex={disabled ? -1 : 0}
 	{onchange}
 	onkeydown={(e) => {
 		if (e.key === 'Enter') {
@@ -67,6 +68,10 @@
 			}
 		}
 
+		&:not(:disabled):not(:checked):focus-visible {
+			outline: 2px solid var(--clr-theme-pop-element);
+			outline-offset: -2px;
+		}
 		&:disabled {
 			background-color: var(--clr-scale-ntrl-70);
 			cursor: not-allowed;
@@ -85,7 +90,10 @@
 			}
 		}
 
-		/* tick element */
+		&:checked:focus-visible {
+			outline: 2px solid color-mix(in srgb, var(--clr-theme-pop-element) 60%, var(--clr-text-1));
+			outline-offset: -2px;
+		} /* tick element */
 		&::after {
 			position: absolute;
 			top: 4px;
