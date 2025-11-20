@@ -13,3 +13,5 @@
 	defaultBranch = main
 [commit]
 	gpgsign = false
+[protocol "file"]
+	allow = always

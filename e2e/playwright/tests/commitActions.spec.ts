@@ -195,6 +195,80 @@ test('should be able to commit a binary file', async ({ page, context }, testInf
 	const committedFile = stackPreview.getByTestId('file-list-item').filter({ hasText: 'lesh0.jpg' });
 	await expect(committedFile).toBeVisible();
 });
+
+test('should be able to commit a git submodule', async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be only one stack
+	const stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+
+	// Add a git submodule to the working directory
+	await gitbutler.runScript('project-with-remote-branches__add-submodule.sh');
+
+	// The submodule files should appear in the uncommitted changes
+	const gitmodulesFile = getByTestId(page, 'file-list-item').filter({ hasText: '.gitmodules' });
+	const submoduleDir = getByTestId(page, 'file-list-item').filter({ hasText: 'my-submodule' });
+	await expect(gitmodulesFile).toBeVisible();
+	await expect(submoduleDir).toBeVisible();
+
+	// Start committing the submodule
+	await clickByTestId(page, 'start-commit-button');
+
+	await verifyCommitPlaceholderPosition(page);
+	await unstageAllFiles(page);
+
+	// Stage the .gitmodules file and submodule directory
+	const gitmodulesCheckbox = gitmodulesFile.locator('input[type="checkbox"]');
+	await expect(gitmodulesCheckbox).toBeVisible();
+	await gitmodulesCheckbox.click();
+
+	const submoduleCheckbox = submoduleDir.locator('input[type="checkbox"]');
+	await expect(submoduleCheckbox).toBeVisible();
+	await submoduleCheckbox.click();
+
+	const commitTitle = 'Add git submodule';
+	const commitMessage = 'Adding my-submodule to the repository';
+
+	// Fill the commit message
+	await verifyCommitMessageEditor(page, '', '');
+	await updateCommitMessage(page, commitTitle, commitMessage);
+
+	// Submit the commit
+	await clickByTestId(page, 'commit-drawer-action-button');
+
+	// Commit with title should be visible in the commit list
+	const commitRow = getByTestId(page, 'commit-row').filter({ hasText: commitTitle });
+	await expect(commitRow).toBeVisible();
+
+	// Open the commit drawer to verify the submodule was committed
+	const commitDrawer = await openCommitDrawer(page, commitTitle);
+	await verifyCommitDrawerContent(commitDrawer, commitTitle, commitMessage);
+
+	const stackPreview = getByTestId(page, 'stack-preview');
+	// Verify the .gitmodules file is listed in the commit
+	const committedGitmodules = stackPreview
+		.getByTestId('file-list-item')
+		.filter({ hasText: '.gitmodules' });
+	await expect(committedGitmodules).toBeVisible();
+
+	// Verify the submodule directory is listed in the commit
+	const committedSubmodule = stackPreview
+		.getByTestId('file-list-item')
+		.filter({ hasText: 'my-submodule' });
+	await expect(committedSubmodule).toBeVisible();
+});
+
 /**
  * Commit multiple times in a row.
  *
