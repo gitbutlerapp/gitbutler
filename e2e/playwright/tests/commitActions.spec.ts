@@ -18,7 +18,8 @@ import {
 	waitForTestIdToNotExist
 } from '../src/util.ts';
 import { expect, Page, test } from '@playwright/test';
-import { writeFileSync } from 'fs';
+import { copyFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
 
 let gitbutler: GitButler;
 
@@ -29,6 +30,8 @@ test.use({
 test.afterEach(async () => {
 	await gitbutler.destroy();
 });
+
+const FIXTURE_IMAGE_PATH = join(import.meta.dirname, '../fixtures/lesh0.jpg');
 
 test('should be able to amend a file to a commit', async ({ page, context }, testInfo) => {
 	const workdir = testInfo.outputPath('workdir');
@@ -133,6 +136,65 @@ test('should be able to commit a bunch of times in a row and edit their message'
 	await startCommittingAndCancel(page, TIMES);
 });
 
+test('should be able to commit a binary file', async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+
+	// Copy the binary image file from fixtures to the working directory
+	const targetImagePath = gitbutler.pathInWorkdir('local-clone/lesh0.jpg');
+	copyFileSync(FIXTURE_IMAGE_PATH, targetImagePath);
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be only one stack
+	const stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+
+	// The binary file should appear in the uncommitted changes
+	const fileLocator = getByTestId(page, 'file-list-item').filter({ hasText: 'lesh0.jpg' });
+	await expect(fileLocator).toBeVisible();
+
+	// Start committing the binary file
+	await clickByTestId(page, 'start-commit-button');
+
+	await verifyCommitPlaceholderPosition(page);
+	await unstageAllFiles(page);
+
+	// Stage the binary file
+	const imageFileCheckbox = fileLocator.locator('input[type="checkbox"]');
+	await expect(imageFileCheckbox).toBeVisible();
+	await imageFileCheckbox.click();
+
+	const commitTitle = 'Add binary image file';
+	const commitMessage = 'Adding lesh0.jpg to the repository';
+
+	// Fill the commit message
+	await verifyCommitMessageEditor(page, '', '');
+	await updateCommitMessage(page, commitTitle, commitMessage);
+
+	// Submit the commit
+	await clickByTestId(page, 'commit-drawer-action-button');
+
+	// Commit with title should be visible in the commit list
+	const commitRow = getByTestId(page, 'commit-row').filter({ hasText: commitTitle });
+	await expect(commitRow).toBeVisible();
+
+	// Open the commit drawer to verify the binary file was committed
+	const commitDrawer = await openCommitDrawer(page, commitTitle);
+	await verifyCommitDrawerContent(commitDrawer, commitTitle, commitMessage);
+
+	const stackPreview = getByTestId(page, 'stack-preview');
+	// Verify the binary file is listed in the commit
+	const committedFile = stackPreview.getByTestId('file-list-item').filter({ hasText: 'lesh0.jpg' });
+	await expect(committedFile).toBeVisible();
+});
 /**
  * Commit multiple times in a row.
  *

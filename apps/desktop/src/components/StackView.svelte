@@ -654,6 +654,7 @@
 			data-details={stableStackId}
 			style:right="{DETAILS_RIGHT_PADDING_REM}rem"
 			use:focusable={{ vertical: true }}
+			data-testid={TestId.StackPreview}
 		>
 			{#if stableStackId && selection?.branchName && selection?.codegen}
 				<CodegenMessages
