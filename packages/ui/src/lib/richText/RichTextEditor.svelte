@@ -5,7 +5,7 @@
 	import { standardTheme } from '$lib/richText/config/theme';
 	import { INLINE_CODE_TRANSFORMER, PARAGRAPH_TRANSFORMER } from '$lib/richText/customTransforers';
 	import { getCurrentText } from '$lib/richText/getText';
-	import CodeBlockTypeAhead from '$lib/richText/plugins/CodeBlockTypeAhead.svelte';
+	// import CodeBlockTypeAhead from '$lib/richText/plugins/CodeBlockTypeAhead.svelte';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import PlainTextIndentPlugin from '$lib/richText/plugins/PlainTextIndentPlugin.svelte';
 	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition';
@@ -320,7 +320,7 @@
 		{#if plaintext}
 			<PlainTextPlugin />
 			<PlainTextIndentPlugin />
-			<CodeBlockTypeAhead />
+			<!-- <CodeBlockTypeAhead /> -->
 			<MarkdownShortcutPlugin transformers={[INLINE_CODE_TRANSFORMER, PARAGRAPH_TRANSFORMER]} />
 		{:else}
 			<AutoLinkPlugin />
