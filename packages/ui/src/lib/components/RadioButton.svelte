@@ -31,6 +31,7 @@
 	{name}
 	{disabled}
 	{checked}
+	tabindex={disabled ? -1 : 0}
 	{onchange}
 	onkeydown={(e) => {
 		if (e.key === 'Enter') {
