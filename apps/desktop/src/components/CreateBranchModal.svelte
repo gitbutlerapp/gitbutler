@@ -3,6 +3,7 @@
 	import dependentBranchSvg from '$components/stackTabs/assets/dependent-branch.svg?raw';
 	import newStackLefttSvg from '$components/stackTabs/assets/new-stack-left.svg?raw';
 	import newStackRightSvg from '$components/stackTabs/assets/new-stack-right.svg?raw';
+	import { autoSelectBranchCreationFeature } from '$lib/config/uiFeatureFlags';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -20,6 +21,7 @@
 		Toggle
 	} from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
+	import { tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -35,6 +37,7 @@
 	let createRefName = $state<string>();
 	let createRefType = $state<'stack' | 'dependent'>('stack');
 	let selectedStackId = $state<string>();
+	let branchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
 
 	// Persisted preference for branch placement
 	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
@@ -118,6 +121,13 @@
 	export async function show(initialType?: 'stack' | 'dependent') {
 		createRefModal?.show();
 		createRefName = await stackService.fetchNewBranchName(projectId);
+
+		// Select text after async value is loaded and DOM is updated
+		if ($autoSelectBranchCreationFeature) {
+			// Wait for Svelte to update the DOM with the new value
+			await tick();
+			branchNameInput?.selectAll();
+		}
 		// Reset selected stack to default
 		selectedStackId = undefined;
 		// Set branch type - default to 'stack' unless explicitly provided
@@ -132,9 +142,10 @@
 <Modal bind:this={createRefModal} width={500} testId={TestId.CreateNewBranchModal}>
 	<div class="content-wrap">
 		<BranchNameTextbox
+			bind:this={branchNameInput}
 			label="New branch"
 			id={ElementId.NewBranchNameInput}
-			bind:value={createRefName}
+			value={createRefName}
 			autofocus
 			onslugifiedvalue={(value) => (slugifiedRefName = value)}
 		/>

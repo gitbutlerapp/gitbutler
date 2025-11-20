@@ -31,7 +31,6 @@
 		disabled?: boolean;
 		readonly?: boolean;
 		required?: boolean;
-		selectall?: boolean;
 		spellcheck?: boolean;
 		autocorrect?: boolean;
 		autocomplete?: boolean;
@@ -68,7 +67,6 @@
 		disabled,
 		readonly,
 		required,
-		selectall,
 		spellcheck,
 		autocorrect,
 		autocomplete,
@@ -109,13 +107,22 @@
 		| 'time';
 
 	onMount(() => {
-		if (selectall) htmlInput.select();
-		else if (autofocus) {
+		if (autofocus) {
 			tick().then(() => {
 				htmlInput.focus();
 			});
 		}
 	});
+
+	function handleBlur(e: FocusEvent & { currentTarget: EventTarget & HTMLInputElement }) {
+		onblur?.(e);
+	}
+
+	export function selectAll() {
+		if (htmlInput && value) {
+			htmlInput.select();
+		}
+	}
 
 	function handleKeydown(e: KeyboardEvent & { currentTarget: EventTarget & HTMLInputElement }) {
 		// Handle cmd+a (Mac) or ctrl+a (Windows/Linux) to select all text
@@ -194,7 +201,7 @@
 			bind:value
 			bind:this={htmlInput}
 			use:focusable={{ button: true }}
-			{onblur}
+			onblur={handleBlur}
 			{onclick}
 			{onmousedown}
 			oninput={(e) => {
