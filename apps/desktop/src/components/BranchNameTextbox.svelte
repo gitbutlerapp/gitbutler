@@ -29,8 +29,8 @@
 		onslugifiedvalue?.(slugifiedName);
 	});
 
-	export function selectAll() {
-		textbox?.selectAll();
+	export async function selectAll() {
+		await textbox?.selectAll();
 	}
 </script>
 

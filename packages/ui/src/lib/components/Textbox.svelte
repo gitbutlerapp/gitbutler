@@ -109,7 +109,9 @@
 	onMount(() => {
 		if (autofocus) {
 			tick().then(() => {
-				htmlInput.focus();
+				if (htmlInput && !htmlInput.disabled) {
+					htmlInput.focus();
+				}
 			});
 		}
 	});
@@ -118,8 +120,13 @@
 		onblur?.(e);
 	}
 
-	export function selectAll() {
-		if (htmlInput && value) {
+	export async function selectAll() {
+		await tick();
+
+		if (htmlInput && !htmlInput.disabled) {
+			if (htmlInput !== htmlInput.ownerDocument?.activeElement) {
+				htmlInput.focus();
+			}
 			htmlInput.select();
 		}
 	}

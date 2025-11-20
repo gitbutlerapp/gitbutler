@@ -31,7 +31,6 @@
 		Modal,
 		chipToasts
 	} from '@gitbutler/ui';
-	import { tick } from 'svelte';
 
 	import type { SelectionId } from '$lib/selection/key';
 
@@ -356,11 +355,9 @@
 							onclick={async () => {
 								stashConfirmationModal?.show(item);
 								stashBranchName = await stackService.fetchNewBranchName(projectId);
-								// Wait for Svelte to update the DOM with the new value
-								await tick();
 								// Select text after async value is loaded and DOM is updated
 								if ($autoSelectBranchCreationFeature) {
-									stashBranchNameInput?.selectAll();
+									await stashBranchNameInput?.selectAll();
 								}
 								contextMenu.close();
 							}}

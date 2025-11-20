@@ -21,7 +21,6 @@
 		TestId
 	} from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -125,9 +124,7 @@
 
 		// Select text after async value is loaded and DOM is updated
 		if ($autoSelectBranchCreationFeature) {
-			// Wait for Svelte to update the DOM with the new value
-			await tick();
-			branchNameInput?.selectAll();
+			await branchNameInput?.selectAll();
 		}
 		// Reset selected stack to default
 		selectedStackId = undefined;
