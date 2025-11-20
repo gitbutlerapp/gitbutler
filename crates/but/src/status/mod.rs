@@ -207,6 +207,7 @@ pub(crate) async fn worktree(
             review,
             project.id,
             &repo,
+            &mut id_db,
         )?;
         out.write_value(workspace_status)?;
         return Ok(());
@@ -240,6 +241,7 @@ pub(crate) async fn worktree(
             i == 0,
             &review_map,
             out,
+            &mut id_db,
         )?;
     }
     // Format the last fetched time as relative time
@@ -376,12 +378,14 @@ pub fn print_group(
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     out: &mut dyn std::fmt::Write,
+    id_db: &mut IdDb,
 ) -> anyhow::Result<()> {
     let repo = project.open_isolated()?;
     if let Some(group) = &group {
         let mut first = true;
         for branch in &group.branch_details {
-            let id = CliId::branch(branch.name.to_str()?)
+            let id = id_db
+                .branch(branch.name.to_str()?)
                 .to_string()
                 .underline()
                 .blue();

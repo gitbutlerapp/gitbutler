@@ -328,8 +328,9 @@ fn convert_branch_to_json(
     show_files: bool,
     project_id: gitbutler_project::ProjectId,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    id_db: &mut crate::id::IdDb,
 ) -> anyhow::Result<Branch> {
-    let cli_id = crate::id::CliId::branch(&branch.name.to_string()).to_string();
+    let cli_id = id_db.branch(&branch.name.to_string()).to_string();
 
     let review_id = if review {
         crate::forge::review::get_review_numbers(
@@ -364,6 +365,7 @@ pub(super) fn build_workspace_status_json(
     review: bool,
     project_id: gitbutler_project::ProjectId,
     repo: &gix::Repository,
+    id_db: &mut crate::id::IdDb,
 ) -> anyhow::Result<WorkspaceStatus> {
     let mut json_stacks = Vec::new();
     let mut json_unassigned_changes = Vec::new();
@@ -377,7 +379,7 @@ pub(super) fn build_workspace_status_json(
             let stack_cli_id = details
                 .branch_details
                 .first()
-                .map(|b| crate::id::CliId::branch(&b.name.to_string()).to_string())
+                .map(|b| id_db.branch(&b.name.to_string()).to_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
             let json_assigned_changes = convert_file_assignments(assignments, worktree_changes);
@@ -386,7 +388,9 @@ pub(super) fn build_workspace_status_json(
                 .branch_details
                 .iter()
                 .map(|branch| {
-                    convert_branch_to_json(branch, review, show_files, project_id, review_map)
+                    convert_branch_to_json(
+                        branch, review, show_files, project_id, review_map, id_db,
+                    )
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
 
