@@ -76,7 +76,7 @@
 		<button
 			type="button"
 			aria-label="Toggle folder"
-			class="folder-list-item__arrow focus-state"
+			class="folder-list-item__arrow"
 			class:expanded={isFolderExpanded}
 			onclick={(e) => {
 				e.stopPropagation();

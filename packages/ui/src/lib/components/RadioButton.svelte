@@ -24,7 +24,7 @@
 
 <input
 	type="radio"
-	class="focus-state radio {className}"
+	class="radio {className}"
 	class:small
 	{id}
 	{value}

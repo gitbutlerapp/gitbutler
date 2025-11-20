@@ -128,7 +128,7 @@
 					{#if !disabled && !readonly}
 						<button
 							type="button"
-							class="tag-remove focus-state"
+							class="tag-remove"
 							onclick={(e) => {
 								e.stopPropagation();
 								removeTag(tag.id);

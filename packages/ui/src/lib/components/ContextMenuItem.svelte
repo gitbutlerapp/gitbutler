@@ -64,7 +64,7 @@
 	<button
 		data-testid={testId}
 		type="button"
-		class="menu-item focus-state no-select"
+		class="menu-item no-select"
 		style:--item-height={caption ? 'auto' : '1.625rem'}
 		class:disabled
 		{disabled}

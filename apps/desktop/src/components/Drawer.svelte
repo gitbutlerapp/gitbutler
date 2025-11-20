@@ -76,7 +76,7 @@
 		{#snippet content()}
 			<button
 				type="button"
-				class="chevron-btn focus-state"
+				class="chevron-btn"
 				class:expanded={!$collapsed}
 				onclick={(e) => {
 					e.stopPropagation();

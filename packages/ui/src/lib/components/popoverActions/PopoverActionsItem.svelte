@@ -40,7 +40,7 @@
 		type="button"
 		bind:this={el}
 		data-clickable="true"
-		class="overflow-actions-btn focus-state"
+		class="overflow-actions-btn"
 		{disabled}
 		class:thin
 		class:activated

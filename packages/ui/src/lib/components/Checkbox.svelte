@@ -87,7 +87,7 @@
 			}
 		}}
 		type="checkbox"
-		class="focus-state checkbox-input"
+		class="checkbox-input"
 		{value}
 		id={name}
 		{name}

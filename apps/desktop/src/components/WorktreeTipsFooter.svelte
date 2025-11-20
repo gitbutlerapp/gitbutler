@@ -26,11 +26,7 @@
 {#snippet GbLink(props: { label: string; href: string; icon: keyof typeof iconsJson })}
 	{@const { label, href, icon } = props}
 	<Tooltip text={label} position="top">
-		<a
-			type="button"
-			{href}
-			target="_blank"
-			class="focus-state text-13 text-semibold text-body tip-footer__link"
+		<a type="button" {href} target="_blank" class="text-13 text-semibold text-body tip-footer__link"
 			><Icon name={icon} />
 		</a>
 	</Tooltip>

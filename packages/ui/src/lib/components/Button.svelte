@@ -131,7 +131,7 @@
 			}
 		}}
 		class={[
-			'btn focus-state',
+			'btn',
 			style,
 			kind,
 			size && `${size}-size`,
