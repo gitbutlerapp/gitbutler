@@ -8,6 +8,7 @@
 		activated?: boolean;
 		tabindex?: number | undefined;
 		type?: 'submit' | 'reset' | 'button' | undefined;
+		autofocus?: boolean;
 		// Layout props
 		shrinkable?: boolean;
 		reversedDirection?: boolean;
@@ -51,6 +52,7 @@
 	import { focusable } from '$lib/focus/focusable';
 	import { formatHotkeyForPlatform } from '$lib/utils/hotkeySymbols';
 	import { pxToRem } from '$lib/utils/pxToRem';
+	import { onMount, tick } from 'svelte';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';
@@ -63,6 +65,7 @@
 		activated = false,
 		tabindex,
 		type = 'button',
+		autofocus = false,
 		shrinkable = false,
 		reversedDirection = false,
 		width,
@@ -110,6 +113,14 @@
 		tooltipInstance?.dismiss();
 		onmousedownExternal?.(e);
 	}
+
+	onMount(() => {
+		if (autofocus) {
+			tick().then(() => {
+				el?.focus();
+			});
+		}
+	});
 </script>
 
 <Tooltip
