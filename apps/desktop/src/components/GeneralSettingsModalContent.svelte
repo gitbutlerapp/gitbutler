@@ -40,8 +40,8 @@
 		},
 		{
 			id: 'lanes-and-branches',
-			label: 'Lanes & Branches',
-			icon: 'branch' as keyof typeof iconsJson
+			label: 'Lanes & branches',
+			icon: 'lanes' as keyof typeof iconsJson
 		},
 		{
 			id: 'git',

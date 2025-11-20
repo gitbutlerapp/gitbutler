@@ -4,6 +4,7 @@
 	import newStackLefttSvg from '$components/stackTabs/assets/new-stack-left.svg?raw';
 	import newStackRightSvg from '$components/stackTabs/assets/new-stack-right.svg?raw';
 	import { autoSelectBranchCreationFeature } from '$lib/config/uiFeatureFlags';
+	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -17,8 +18,7 @@
 		RadioButton,
 		Select,
 		SelectItem,
-		TestId,
-		Toggle
+		TestId
 	} from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
@@ -32,6 +32,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
+	const { openGeneralSettings } = useSettingsModal();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
@@ -212,16 +213,21 @@
 		</div>
 
 		{#if createRefType === 'stack'}
-			<label for="add-leftmost" class="placement-toggle">
-				<div class="flex items-center gap-8">
-					<p class="text-13 text-semibold full-width">Place new branch on the left side</p>
-					<Toggle id="add-leftmost" small bind:checked={$addToLeftmost} />
-				</div>
-
-				<p class="text-12 text-body clr-text-3">
-					By default, new branches are added to the rightmost position.
+			<div class="settings-link-container">
+				<p class="text-12 text-body clr-text-2">
+					Configure branch placement and other preferences in
+					<button
+						type="button"
+						class="settings-link underline-dotted"
+						onclick={() => {
+							createRefModal?.close();
+							openGeneralSettings('lanes-and-branches');
+						}}
+					>
+						Settings → Lanes & Branches
+					</button>
 				</p>
-			</label>
+			</div>
 		{/if}
 
 		{#if createRefType === 'dependent'}
@@ -297,13 +303,24 @@
 		gap: 8px;
 	}
 
-	.placement-toggle {
+	.settings-link-container {
 		display: flex;
-		flex-direction: column;
 		padding: 12px;
-		gap: 5px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
+	}
+
+	.settings-link {
+		padding: 0;
+		border: none;
+		background: none;
+		color: var(--clr-link);
+		font: inherit;
+		cursor: pointer;
+
+		&:hover {
+			color: var(--clr-link-hover);
+		}
 	}
 
 	.radio-label {
