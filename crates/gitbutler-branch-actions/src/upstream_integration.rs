@@ -190,7 +190,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
             &*meta,
             Options {
                 expensive_commit_info: true,
-                traversal: meta.to_graph_options(),
+                traversal: but_graph::init::Options::limited(),
             },
         )?;
 

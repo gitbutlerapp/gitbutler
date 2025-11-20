@@ -188,7 +188,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	{/if}
 
 	<div
-		class="main-section view-wrapper dotted-pattern"
+		class="main-section"
 		style:min-width={middleMinWidth + 'rem'}
 		style:margin-right={right ? '0' : ''}
 	>
@@ -292,10 +292,10 @@ the window, then enlarge it and retain the original widths of the layout.
 	}
 
 	.main-section {
+		display: flex;
 		position: relative;
 		flex-grow: 1;
 		flex-shrink: 1;
-		flex-direction: column;
 		height: 100%;
 		margin-left: 8px;
 		overflow-x: hidden;

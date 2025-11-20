@@ -145,8 +145,8 @@
 		justify-content: center;
 		width: 18px;
 		height: 10px;
-		padding: 2px;
-		border-radius: 3px;
+		padding: 3px;
+		border-radius: var(--radius-s);
 		background-color: var(--clr-bg-2);
 		color: var(--clr-text-3);
 		pointer-events: none;

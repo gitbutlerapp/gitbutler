@@ -108,7 +108,7 @@ pub(crate) fn branch_name_to_stack_id(
     branch_name: Option<&str>,
 ) -> anyhow::Result<Option<StackId>> {
     let stack_id = if let Some(branch_name) = branch_name {
-        crate::log::stacks(ctx)?
+        crate::utils::commits::stacks(ctx)?
             .iter()
             .find(|s| s.heads.iter().any(|h| h.name == branch_name))
             .and_then(|s| s.id)

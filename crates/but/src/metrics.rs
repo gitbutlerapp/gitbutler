@@ -6,7 +6,7 @@ use command_group::AsyncCommandGroup;
 use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::{args::CommandName, utils::ResultMetricsExt};
+use crate::{args::Subcommands, utils::ResultMetricsExt};
 
 /// All we need to emit metrics.
 pub struct MetricsContext {
@@ -36,9 +36,8 @@ mod subcommands_impl {
     impl Subcommands {
         /// Create all context that is needed to emit metrics for `self` once, if `settings` permit.
         pub fn to_metrics_context(&self, settings: &AppSettings) -> Option<MetricsContext> {
-            use crate::args::CommandName::*;
+            use crate::metrics::CommandName::*;
             let cmd = match self {
-                Subcommands::Log => Log,
                 Subcommands::Status { .. } => Status,
                 Subcommands::Stf { .. } => Stf,
                 Subcommands::Rub { .. } => Rub,
@@ -110,14 +109,80 @@ pub enum EventKind {
     Mcp,
     McpInternal,
     #[strum(serialize = "Cli")]
-    Cli(Command),
+    Cli(CommandName),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display)]
+impl Subcommands {
+    pub fn to_metrics_command(&self) -> CommandName {
+        use CommandName::*;
+
+        use crate::{
+            args::{claude, cursor},
+            base, branch, forge,
+        };
+        match self {
+            Subcommands::Status { .. } => Status,
+            Subcommands::Stf { .. } => Stf,
+            Subcommands::Rub { .. } => Rub,
+            Subcommands::Base(base::Platform { cmd }) => match cmd {
+                base::Subcommands::Update => BaseUpdate,
+                base::Subcommands::Check => BaseCheck,
+            },
+            Subcommands::Branch(branch::Platform { cmd }) => match cmd {
+                None | Some(branch::Subcommands::List { .. }) => BranchList,
+                Some(branch::Subcommands::New { .. }) => BranchNew,
+                Some(branch::Subcommands::Delete { .. }) => BranchDelete,
+                Some(branch::Subcommands::Unapply { .. }) => BranchUnapply,
+                Some(branch::Subcommands::Apply { .. }) => BranchApply,
+                Some(branch::Subcommands::Show { .. }) => BranchShow,
+            },
+            Subcommands::Worktree(crate::worktree::Platform { cmd: _ }) => Worktree,
+            Subcommands::Mark { .. } => Mark,
+            Subcommands::Unmark => Unmark,
+            Subcommands::Gui => Gui,
+            Subcommands::Commit { .. } => Commit,
+            Subcommands::Push(_) => Push,
+            Subcommands::New { .. } => New,
+            Subcommands::Describe { .. } => Describe,
+            Subcommands::Oplog { .. } => Oplog,
+            Subcommands::Restore { .. } => Restore,
+            Subcommands::Undo => Undo,
+            Subcommands::Snapshot { .. } => Snapshot,
+            Subcommands::Claude(claude::Platform { cmd }) => match cmd {
+                claude::Subcommands::PreTool => ClaudePreTool,
+                claude::Subcommands::PostTool => ClaudePostTool,
+                claude::Subcommands::Stop => ClaudeStop,
+                claude::Subcommands::Last { .. }
+                | claude::Subcommands::PermissionPromptMcp { .. } => Unknown,
+            },
+            Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
+                cursor::Subcommands::AfterEdit => CursorAfterEdit,
+                cursor::Subcommands::Stop { .. } => CursorStop,
+            },
+            Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
+                forge::integration::Subcommands::Auth => ForgeAuth,
+                forge::integration::Subcommands::Forget { .. } => ForgeForget,
+                forge::integration::Subcommands::ListUsers => ForgeListUsers,
+            },
+            Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
+                forge::review::Subcommands::Publish { .. } => PublishReview,
+                forge::review::Subcommands::Template { .. } => ReviewTemplate,
+            },
+            Subcommands::Completions { .. } => Completions,
+            Subcommands::Absorb { .. } => Absorb,
+            Subcommands::Metrics { .. }
+            | Subcommands::Actions(_)
+            | Subcommands::Mcp { .. }
+            | Subcommands::Init { .. } => Unknown,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display, clap::ValueEnum, Default)]
 #[serde(rename_all = "camelCase")]
-pub enum Command {
-    Log,
+pub enum CommandName {
     Init,
+    Absorb,
     Status,
     Stf,
     Rub,
@@ -136,8 +201,8 @@ pub enum Command {
     BranchDelete,
     BranchList,
     BranchShow,
-    BranchApply,
     BranchUnapply,
+    BranchApply,
     ClaudePreTool,
     ClaudePostTool,
     ClaudeStop,
@@ -150,53 +215,15 @@ pub enum Command {
     ForgeListUsers,
     ForgeForget,
     PublishReview,
+    ReviewTemplate,
     Completions,
-    Absorb,
+    #[default]
     Unknown,
 }
 
 impl From<CommandName> for EventKind {
     fn from(command_name: CommandName) -> Self {
-        match command_name {
-            CommandName::Log => EventKind::Cli(Command::Log),
-            CommandName::Status => EventKind::Cli(Command::Status),
-            CommandName::Stf => EventKind::Cli(Command::Stf),
-            CommandName::Rub => EventKind::Cli(Command::Rub),
-            CommandName::Commit => EventKind::Cli(Command::Commit),
-            CommandName::Push => EventKind::Cli(Command::Push),
-            CommandName::New => EventKind::Cli(Command::New),
-            CommandName::Describe => EventKind::Cli(Command::Describe),
-            CommandName::Oplog => EventKind::Cli(Command::Oplog),
-            CommandName::Restore => EventKind::Cli(Command::Restore),
-            CommandName::Undo => EventKind::Cli(Command::Undo),
-            CommandName::Snapshot => EventKind::Cli(Command::Snapshot),
-            CommandName::Gui => EventKind::Cli(Command::Gui),
-            CommandName::BaseCheck => EventKind::Cli(Command::BaseCheck),
-            CommandName::BaseUpdate => EventKind::Cli(Command::BaseUpdate),
-            CommandName::BranchNew => EventKind::Cli(Command::BranchNew),
-            CommandName::BranchDelete => EventKind::Cli(Command::BranchDelete),
-            CommandName::BranchList => EventKind::Cli(Command::BranchList),
-            CommandName::BranchShow => EventKind::Cli(Command::BranchList),
-            CommandName::BranchApply => EventKind::Cli(Command::BranchApply),
-            CommandName::BranchUnapply => EventKind::Cli(Command::BranchUnapply),
-            CommandName::ClaudePreTool => EventKind::Cli(Command::ClaudePreTool),
-            CommandName::ClaudePostTool => EventKind::Cli(Command::ClaudePostTool),
-            CommandName::ClaudeStop => EventKind::Cli(Command::ClaudeStop),
-            CommandName::CursorAfterEdit => EventKind::Cli(Command::CursorAfterEdit),
-            CommandName::CursorStop => EventKind::Cli(Command::CursorStop),
-            CommandName::Worktree => EventKind::Cli(Command::Worktree),
-            CommandName::Mark => EventKind::Cli(Command::Mark),
-            CommandName::Unmark => EventKind::Cli(Command::Unmark),
-            CommandName::ForgeAuth => EventKind::Cli(Command::ForgeAuth),
-            CommandName::ForgeListUsers => EventKind::Cli(Command::ForgeListUsers),
-            CommandName::ForgeForget => EventKind::Cli(Command::ForgeForget),
-            CommandName::PublishReview => EventKind::Cli(Command::PublishReview),
-            CommandName::ReviewTemplate => EventKind::Cli(Command::PublishReview),
-            CommandName::Completions => EventKind::Cli(Command::Completions),
-            CommandName::Absorb => EventKind::Cli(Command::Absorb),
-            CommandName::Init => EventKind::Cli(Command::Init),
-            CommandName::Unknown => EventKind::Cli(Command::Unknown),
-        }
+        EventKind::Cli(command_name)
     }
 }
 

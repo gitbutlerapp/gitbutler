@@ -19,8 +19,10 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 pub(crate) mod assignment;
 pub(crate) mod json;
 
-use crate::id::{CliId, IdDb};
-use crate::utils::OutputChannel;
+use crate::{
+    id::{CliId, IdDb},
+    utils::OutputChannel,
+};
 
 type StackDetail = (Option<StackDetails>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
@@ -102,6 +104,7 @@ pub(crate) async fn worktree(
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
+    let mut id_db = IdDb::new(&legacy_ctx)?;
 
     // For JSON output, we'll need the original StackDetails to avoid redundant conversions
     let mut original_stack_details: Vec<(Option<gitbutler_stack::StackId>, Option<StackDetails>)> =
@@ -537,11 +540,12 @@ pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> 
 }
 
 pub(crate) fn all_branches(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
-    let stacks = crate::log::stacks(ctx)?;
+    let mut id_db = IdDb::new(ctx)?;
+    let stacks = crate::utils::commits::stacks(ctx)?;
     let mut branches = Vec::new();
     for stack in stacks {
         for head in stack.heads {
-            branches.push(CliId::branch(&head.name.to_string()));
+            branches.push(id_db.branch(&head.name.to_string()).clone());
         }
     }
     Ok(branches)

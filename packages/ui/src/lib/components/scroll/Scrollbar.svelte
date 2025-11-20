@@ -300,6 +300,7 @@
 	bind:this={track}
 	data-remove-from-panning
 	data-no-drag
+	data-drag-clone-ignore
 	class="scrollbar-track"
 	class:horz
 	class:vert

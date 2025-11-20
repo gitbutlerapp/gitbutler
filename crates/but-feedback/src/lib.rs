@@ -3,8 +3,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use but_settings::AppSettings;
-use gitbutler_project::ProjectId;
+use but_ctx::LegacyProjectId;
 
 /// A utility to keep important paths to make archival/zip-file creation easier later.
 pub struct Archival {
@@ -21,36 +20,29 @@ fn filesafe_date_time() -> String {
 
 impl Archival {
     /// Create an archive of the entire repository behind `project_id`.
-    pub fn zip_entire_repository(&self, project_id: ProjectId) -> Result<PathBuf> {
-        let project = gitbutler_project::get(project_id)?;
+    pub fn zip_entire_repository(&self, project_id: LegacyProjectId) -> Result<PathBuf> {
+        let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
         let output_file = self
             .cache_dir
             .join(format!("project-{date}.zip", date = filesafe_date_time()));
-        create_zip_file_from_dir(
-            project.worktree_dir().unwrap_or(project.git_dir()),
-            output_file,
-        )
+        create_zip_file_from_dir(ctx.workdir_or_gitdir(), output_file)
     }
 
     /// Create an archive commit graph behind `project_id` such that it doesn't reveal PII.
-    pub fn zip_anonymous_graph(&self, project_id: ProjectId) -> Result<PathBuf> {
-        let project = gitbutler_project::get(project_id)?;
-        let ctx = gitbutler_command_context::CommandContext::open(
-            &project,
-            AppSettings::load_from_default_path_creating()?,
-        )?;
-        let guard = project.shared_worktree_access();
-        let repo = ctx.gix_repo()?;
-        let meta = ctx.meta(guard.read_permission())?;
-        let mut graph = but_graph::Graph::from_head(&repo, &*meta, meta.to_graph_options())
-            .or_else(|_| {
+    pub fn zip_anonymous_graph(&self, project_id: LegacyProjectId) -> Result<PathBuf> {
+        let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
+        let guard = ctx.shared_worktree_access();
+        let repo = &ctx.repo;
+        let meta = ctx.legacy_meta(guard.read_permission())?;
+        let mut graph =
+            but_graph::Graph::from_head(repo, &meta, Default::default()).or_else(|_| {
                 but_graph::Graph::from_head(
-                    &repo,
-                    &*meta,
+                    repo,
+                    &meta,
                     but_graph::init::Options {
                         // Assume it fails because of post-processing, try again without.
                         dangerously_skip_postprocessing_for_debugging: true,
-                        ..meta.to_graph_options()
+                        ..Default::default()
                     },
                 )
             })?;

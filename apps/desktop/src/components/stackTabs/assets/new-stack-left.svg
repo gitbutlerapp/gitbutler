@@ -9,7 +9,7 @@
     <text fill="var(--image-outline)" xml:space="preserve" style="white-space: pre"
       font-family="Inter"
       font-size="12" font-weight="600" letter-spacing="0em">
-        <tspan x="81.6" y="27.4636">Br #1</tspan>
+        <tspan x="81.6" y="27.4636">Br #2</tspan>
       </text>
     <path
       d="M120.6 71.6V57.6C120.6 54.2863 117.914 51.6 114.6 51.6H78.6C75.2863 51.6 72.6 54.2863 72.6 57.6V71.6"
@@ -47,7 +47,7 @@
     <text fill="var(--image-outline)" xml:space="preserve" style="white-space: pre"
       font-family="Inter"
       font-size="12" font-weight="600" letter-spacing="0em">
-        <tspan x="143.6" y="27.4636">Br #2</tspan>
+        <tspan x="143.6" y="27.4636">Br #1</tspan>
       </text>
   </g>
 

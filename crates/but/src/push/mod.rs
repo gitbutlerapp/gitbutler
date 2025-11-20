@@ -270,7 +270,7 @@ fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Res
         let branch_names: Vec<String> = cli_ids
             .iter()
             .filter_map(|id| match id {
-                crate::id::CliId::Branch { name } => Some(name.clone()),
+                crate::id::CliId::Branch { name, .. } => Some(name.clone()),
                 _ => None,
             })
             .collect();
@@ -290,7 +290,7 @@ fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Res
     }
 
     match &cli_ids[0] {
-        crate::id::CliId::Branch { name } => Ok(name.clone()),
+        crate::id::CliId::Branch { name, .. } => Ok(name.clone()),
         _ => Err(anyhow::anyhow!(
             "Expected branch identifier, got {}. Please use a branch name or branch CLI ID.",
             cli_ids[0].kind()
@@ -299,7 +299,7 @@ fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Res
 }
 
 fn get_available_branch_names(ctx: &CommandContext) -> anyhow::Result<Vec<String>> {
-    let stacks = crate::log::stacks(ctx)?;
+    let stacks = crate::utils::commits::stacks(ctx)?;
     let mut branch_names = Vec::new();
 
     for stack in stacks {

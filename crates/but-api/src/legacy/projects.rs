@@ -1,10 +1,9 @@
 use std::path::PathBuf;
 
+use anyhow::Result;
 use but_api_macros::api_cmd_tauri;
 use gitbutler_project::{self as projects, ProjectId};
 use tracing::instrument;
-
-use anyhow::Result;
 
 #[api_cmd_tauri]
 #[instrument(err(Debug))]

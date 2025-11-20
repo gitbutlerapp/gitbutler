@@ -167,9 +167,7 @@ export class FocusManager {
 		this.resolvePendingRelationships();
 		this.handlePendingRegistration(element, parentNode, options);
 
-		if (this.fModeManager.active) {
-			this.fModeManager.addElement(element, newNode);
-		}
+		this.fModeManager.addElement(element, newNode);
 
 		if (options.activate) {
 			this.setActiveNode(newNode, true);

@@ -196,26 +196,5 @@ Error: Could not find a git repository in '.' or in any of its parents[..]
 
 "#]]);
 
-    // Test with log command as well
-    // Before subcommand
-    env.but("--json log")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
-
-"#]]);
-
-    // After subcommand
-    env.but("log --json")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
-
-"#]]);
-
     Ok(())
 }

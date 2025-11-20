@@ -1,3 +1,4 @@
+use anyhow::Result;
 use but_api_macros::api_cmd_tauri;
 use but_cherry_apply::CherryApplyStatus;
 use but_settings::AppSettings;
@@ -5,8 +6,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use tracing::instrument;
-
-use anyhow::Result;
 
 #[api_cmd_tauri]
 #[instrument(err(Debug))]

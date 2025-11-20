@@ -225,7 +225,7 @@ pub fn stacks_v3(
 
     let options = ref_info::Options {
         expensive_commit_info: false,
-        traversal: meta.to_graph_options(),
+        traversal: but_graph::init::Options::limited(),
     };
     let info = match ref_name_override {
         None => head_info(repo, meta, options),
@@ -461,7 +461,7 @@ pub fn stack_details_v3(
     let mut ref_info_options = ref_info::Options {
         // TODO(perf): make this so it can be enabled for a specific stack-id.
         expensive_commit_info: true,
-        traversal: meta.to_graph_options(),
+        traversal: but_graph::init::Options::limited(),
     };
     let mut stack = match stack_id {
         None => {

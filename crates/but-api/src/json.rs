@@ -1,7 +1,6 @@
 pub use error::{Error, ToJsonError, UnmarkedError};
 use gix::refs::Target;
-use schemars;
-use schemars::JsonSchema;
+use schemars::{self, JsonSchema};
 use serde::Serialize;
 
 mod hex_hash {
@@ -55,9 +54,10 @@ mod hex_hash {
     }
 
     mod stringy {
+        use std::str::FromStr;
+
         use schemars::JsonSchema;
         use serde::{Deserialize, Deserializer, Serialize, Serializer};
-        use std::str::FromStr;
 
         /// A type that deserializes a hexadecimal hash into a string, unchanged.
         /// This is to workaround `schemars` which doesn't (always) work with transformations.

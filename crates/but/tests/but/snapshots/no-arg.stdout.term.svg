@@ -43,7 +43,7 @@
 </tspan>
     <tspan x="10px" y="226px"><tspan class="fg-yellow">Inspection</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="244px"><tspan>  </tspan><tspan class="fg-green">status       </tspan><tspan>Overview of the uncommitted changes in the repository</tspan>
+    <tspan x="10px" y="244px"><tspan>  </tspan><tspan class="fg-green">status       </tspan><tspan>Overview of the project workspace state</tspan>
 </tspan>
     <tspan x="10px" y="262px">
 </tspan>
@@ -55,19 +55,19 @@
 </tspan>
     <tspan x="10px" y="334px"><tspan>  </tspan><tspan class="fg-green">branch       </tspan><tspan>Commands for managing branches</tspan>
 </tspan>
-    <tspan x="10px" y="352px"><tspan>  </tspan><tspan class="fg-green">base         </tspan><tspan>Commands for managing the base</tspan>
+    <tspan x="10px" y="352px"><tspan>  </tspan><tspan class="fg-green">base         </tspan><tspan>Commands for managing the base target branch</tspan>
 </tspan>
-    <tspan x="10px" y="370px"><tspan>  </tspan><tspan class="fg-green">mark         </tspan><tspan>Creates or removes a rule for auto-assigning or auto-comitting</tspan>
+    <tspan x="10px" y="370px"><tspan>  </tspan><tspan class="fg-green">mark         </tspan><tspan>Mark a commit or branch for auto-assign or auto-commit</tspan>
 </tspan>
-    <tspan x="10px" y="388px"><tspan>  </tspan><tspan class="fg-green">unmark       </tspan><tspan>Removes all marks from the workspace</tspan>
+    <tspan x="10px" y="388px"><tspan>  </tspan><tspan class="fg-green">unmark       </tspan><tspan>Removes any marks from the workspace</tspan>
 </tspan>
     <tspan x="10px" y="406px">
 </tspan>
     <tspan x="10px" y="424px"><tspan class="fg-yellow">Server Interactions</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="442px"><tspan>  </tspan><tspan class="fg-green">push         </tspan><tspan>Push a branch/stack to remote</tspan>
+    <tspan x="10px" y="442px"><tspan>  </tspan><tspan class="fg-green">push         </tspan><tspan>Push changes in a branch to remote</tspan>
 </tspan>
-    <tspan x="10px" y="460px"><tspan>  </tspan><tspan class="fg-green">review       </tspan><tspan>Command for creating and publishing code reviews to a forge</tspan>
+    <tspan x="10px" y="460px"><tspan>  </tspan><tspan class="fg-green">review       </tspan><tspan>Commands for creating and publishing code reviews to a forge</tspan>
 </tspan>
     <tspan x="10px" y="478px"><tspan>  </tspan><tspan class="fg-green">forge        </tspan><tspan>Commands for interacting with forges like GitHub, GitLab (comin…</tspan>
 </tspan>
@@ -79,13 +79,13 @@
 </tspan>
     <tspan x="10px" y="550px"><tspan>  </tspan><tspan class="fg-green">describe     </tspan><tspan>Edit the commit message of the specified commit</tspan>
 </tspan>
-    <tspan x="10px" y="568px"><tspan>  </tspan><tspan class="fg-green">absorb       </tspan><tspan>Automatically absorb uncomitted changes to an existing commit</tspan>
+    <tspan x="10px" y="568px"><tspan>  </tspan><tspan class="fg-green">absorb       </tspan><tspan>Amends changes into the appropriate commits where they belong</tspan>
 </tspan>
     <tspan x="10px" y="586px">
 </tspan>
     <tspan x="10px" y="604px"><tspan class="fg-yellow">Operation History</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="622px"><tspan>  </tspan><tspan class="fg-green">oplog        </tspan><tspan>Show operation history (last 20 entries)</tspan>
+    <tspan x="10px" y="622px"><tspan>  </tspan><tspan class="fg-green">oplog        </tspan><tspan>Show operation history</tspan>
 </tspan>
     <tspan x="10px" y="640px"><tspan>  </tspan><tspan class="fg-green">undo         </tspan><tspan>Undo the last operation by reverting to the previous snapshot</tspan>
 </tspan>

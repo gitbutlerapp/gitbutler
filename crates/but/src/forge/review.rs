@@ -1,11 +1,5 @@
 use std::collections::BTreeMap;
 
-use crate::{
-    editor::get_text_from_editor_no_comments,
-    id::CliId,
-    ui::{SimpleBranch, SimpleStack},
-    utils::OutputChannel,
-};
 use anyhow::Context;
 use bstr::ByteSlice;
 use but_core::ref_metadata::StackId;
@@ -18,6 +12,13 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+
+use crate::{
+    editor::get_text_from_editor_no_comments,
+    id::CliId,
+    ui::{SimpleBranch, SimpleStack},
+    utils::OutputChannel,
+};
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -136,7 +137,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
     let branch_ids = CliId::from_str(&mut ctx, branch_id)?
         .iter()
         .filter_map(|clid| match clid {
-            CliId::Branch { name } => Some(name.clone()),
+            CliId::Branch { name, .. } => Some(name.clone()),
             _ => None,
         })
         .collect::<Vec<_>>();
