@@ -151,8 +151,8 @@ function injectEndpoints(api: BackendApi) {
 				invalidatesTags: [
 					// No need to invalidate base branch, we should be listening
 					// for all FETCH events, and refreshing manually.
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
+					invalidatesList(ReduxTag.StackDetails), // Probably this is still needed??
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
 				]
 			}),
@@ -164,8 +164,8 @@ function injectEndpoints(api: BackendApi) {
 				query: (args) => args,
 				invalidatesTags: [
 					invalidatesType(ReduxTag.BaseBranchData),
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackDetails)
+					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
+					invalidatesList(ReduxTag.StackDetails) // Probably this is still needed??
 				]
 			}),
 			push: build.mutation<void, { projectId: string; withForce?: boolean }>({

@@ -112,7 +112,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				invalidatesTags: [
 					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.HeadMetadata)
 				]
 			}),

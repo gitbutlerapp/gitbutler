@@ -48,8 +48,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				query: (args) => args,
 				invalidatesTags: [
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
@@ -60,8 +59,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				query: (args) => args,
 				invalidatesTags: [
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
@@ -72,8 +70,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				query: (args) => args,
 				invalidatesTags: [
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
@@ -87,8 +84,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				query: (args) => args,
 				invalidatesTags: [
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
@@ -102,8 +98,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				query: (args) => args,
 				invalidatesTags: [
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			})

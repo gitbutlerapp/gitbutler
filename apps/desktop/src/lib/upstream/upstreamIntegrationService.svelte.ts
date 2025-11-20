@@ -98,8 +98,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				query: (args) => args,
 				invalidatesTags: [
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.BranchListing)
 				],
 				transformResponse: (response: IntegrationOutcome, _, { projectId }) => {
