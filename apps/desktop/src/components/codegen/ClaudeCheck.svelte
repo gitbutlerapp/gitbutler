@@ -82,7 +82,8 @@
 	const isClaudeNotAvailable = $derived(
 		recheckedAvailability === 'recheck-failed' ||
 			(recheckedAvailability === undefined &&
-				availabilityQuery.response?.status === 'not_available')
+				(availabilityQuery.response?.status === 'not_available' ||
+					availabilityQuery.response?.status === 'execution_failed'))
 	);
 </script>
 
@@ -110,6 +111,28 @@
 			? "Couldn't connect. Check the path and try again"
 			: undefined}
 	/>
+
+	{#if recheckedAvailability === 'recheck-failed'}
+		<p class="text-13">Claude exited with a non 0 code.</p>
+		{#if availabilityQuery.response?.status === 'execution_failed'}
+			{#if availabilityQuery.response.stdout}
+				<div class="log-output">
+					<p class="text-12">Stdout</p>
+					<code class="text-12">
+						{availabilityQuery.response.stdout}
+					</code>
+				</div>
+			{/if}
+			{#if availabilityQuery.response.stderr}
+				<div class="log-output">
+					<p class="text-12">Stderr</p>
+					<code class="text-12">
+						{availabilityQuery.response.stderr}
+					</code>
+				</div>
+			{/if}
+		{/if}
+	{/if}
 
 	{#if showSuccess}
 		<div
@@ -153,6 +176,18 @@
 		&.success {
 			background-color: var(--clr-theme-succ-soft);
 			color: var(--clr-theme-succ-on-soft);
+		}
+	}
+
+	.log-output {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+
+		> code {
+			padding: 4px;
+			border-radius: var(--radius-s);
+			background-color: var(--clr-bg-2);
 		}
 	}
 </style>

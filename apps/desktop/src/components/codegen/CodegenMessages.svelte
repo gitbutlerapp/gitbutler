@@ -353,7 +353,7 @@
 			<CodegenTodoAccordion {todos} />
 		{/if}
 
-		{#if claudeAvailable.response?.status === 'not_available' && formattedMessages.length === 0}
+		{#if claudeAvailable.response?.status !== 'available' && formattedMessages.length === 0}
 			<div class="no-agent-placeholder">
 				<div class="no-agent-placeholder__content">
 					{@html noClaudeCodeSvg}
@@ -435,7 +435,7 @@
 
 	{#snippet input()}
 		<div class="dialog-wrapper">
-			{#if claudeAvailable.response?.status === 'not_available'}
+			{#if claudeAvailable.response?.status !== 'available'}
 				{#if formattedMessages.length > 0}
 					<CodegenChatClaudeNotAvaliableBanner
 						onSettingsBtnClick={() => {
