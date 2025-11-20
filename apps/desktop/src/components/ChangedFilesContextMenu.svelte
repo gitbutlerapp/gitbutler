@@ -596,6 +596,7 @@
 				placeholder="Enter your branch name..."
 				bind:value={stashBranchName}
 				autofocus
+				selectall
 				onslugifiedvalue={(value) => (slugifiedRefName = value)}
 			/>
 			<div class="explanation">
