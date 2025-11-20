@@ -15,6 +15,7 @@ export type PromptAttachment =
  */
 export type ClaudeCheckResult =
 	| { status: 'available'; version: string }
+	| { status: 'execution_failed'; stdout: string; stderr: string }
 	| { status: 'not_available' };
 
 /**
