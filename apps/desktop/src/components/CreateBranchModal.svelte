@@ -136,6 +136,7 @@
 			id={ElementId.NewBranchNameInput}
 			bind:value={createRefName}
 			autofocus
+			selectall
 			onslugifiedvalue={(value) => (slugifiedRefName = value)}
 		/>
 
