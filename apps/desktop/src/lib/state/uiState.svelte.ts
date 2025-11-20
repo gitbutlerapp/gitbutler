@@ -77,7 +77,6 @@ export type ExclusiveAction =
 export type ProjectUiState = {
 	exclusiveAction: ExclusiveAction | undefined;
 	branchesSelection: BranchesSelection;
-	showActions: boolean;
 	branchesToPoll: string[];
 	selectedClaudeSession: { stackId: string; head: string } | undefined;
 	thinkingLevel: ThinkingLevel;
@@ -170,7 +169,6 @@ export class UiState {
 	readonly project = this.buildScopedProps<ProjectUiState>(this.scopesCache.projects, {
 		exclusiveAction: undefined,
 		branchesSelection: {},
-		showActions: false,
 		branchesToPoll: [],
 		selectedClaudeSession: undefined,
 		thinkingLevel: 'normal',

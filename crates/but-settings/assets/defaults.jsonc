@@ -26,10 +26,6 @@
 		"ws3": true,
 		/// Enable undo/redo support.
 		"undo": false,
-		/// Enable the usage of GitButler Actions.
-		"actions": false,
-		/// Enable the usage of the butbot chat.
-		"butbot": false,
 		/// Enable processing of workspace rules.
 		"rules": false,
 		/// Enable single branch mode.

@@ -18,22 +18,6 @@
 </p>
 
 <div class="experimental-settings__toggles">
-	<SectionCard labelFor="gitbutler-actions" roundedTop roundedBottom={false} orientation="row">
-		{#snippet title()}
-			GitButler Actions
-		{/snippet}
-		{#snippet caption()}
-			Enable the GitButler Actions log
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="gitbutler-actions"
-				checked={$settingsStore?.featureFlags.actions}
-				onclick={() =>
-					settingsService.updateFeatureFlags({ actions: !$settingsStore?.featureFlags.actions })}
-			/>
-		{/snippet}
-	</SectionCard>
 	<SectionCard labelFor="ws3" roundedTop={false} roundedBottom={false} orientation="row">
 		{#snippet title()}
 			New workspace backend
@@ -102,24 +86,6 @@
 
 	{#if $user?.role === 'admin'}
 		<Spacer margin={20} />
-		{#if $settingsStore?.featureFlags.actions}
-			<SectionCard labelFor="butbot" roundedTop roundedBottom={false} orientation="row">
-				{#snippet title()}
-					butbot
-				{/snippet}
-				{#snippet caption()}
-					Enable the butbot chat.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="butbot"
-						checked={$settingsStore?.featureFlags.butbot}
-						onclick={() =>
-							settingsService.updateFeatureFlags({ butbot: !$settingsStore?.featureFlags.butbot })}
-					/>
-				{/snippet}
-			</SectionCard>
-		{/if}
 
 		<SectionCard
 			labelFor="single-branch"
