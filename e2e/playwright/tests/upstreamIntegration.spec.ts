@@ -1,3 +1,4 @@
+import { createNewBranch } from '../src/branch.ts';
 import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
 import { clickByTestId, getByTestId, waitForTestId, waitForTestIdToNotExist } from '../src/util.ts';
 import { expect, test } from '@playwright/test';
@@ -185,12 +186,7 @@ test('should handle the update of an empty branch gracefully', async ({
 	await expect(stacks).toHaveCount(0);
 
 	// Create a new branch
-	await clickByTestId(page, 'chrome-header-create-branch-button');
-	const modal = await waitForTestId(page, 'create-new-branch-modal');
-
-	const input = modal.locator('#new-branch-name-input');
-	await input.fill('new-branch');
-	await clickByTestId(page, 'confirm-submit');
+	await createNewBranch(page, 'new-branch');
 
 	// There should be no stacks
 	stacks = getByTestId(page, 'stack');
