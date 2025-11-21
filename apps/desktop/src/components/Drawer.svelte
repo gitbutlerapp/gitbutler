@@ -25,7 +25,7 @@
 		defaultCollapsed?: boolean;
 		notScrollable?: boolean;
 		childrenWrapHeight?: string;
-		childrenWrapDisplay?: 'block' | 'content' | 'flex';
+		childrenWrapDisplay?: 'block' | 'contents' | 'flex';
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};

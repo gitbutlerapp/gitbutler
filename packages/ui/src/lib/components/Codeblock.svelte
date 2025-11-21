@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { Icon } from '@gitbutler/ui';
-	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
+	import Icon from '$components/Icon.svelte';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 
 	interface Props {
 		label?: string;
 		content: string;
 		marginBottom?: string;
+		maxHeight?: string;
 	}
 
-	let { label, content, marginBottom }: Props = $props();
+	let { label, content, marginBottom, maxHeight = '20lh' }: Props = $props();
 	let copied = $state(false);
 
 	function handleCopy() {
@@ -25,7 +26,7 @@
 		<Icon name={copied ? 'tick' : 'copy-small'} />
 	</button>
 
-	<div class="codeblock scrollbar">
+	<div class="codeblock scrollbar" style="max-height: {maxHeight}">
 		{#if label}
 			<div class="codeblock-label">
 				{label}
@@ -50,7 +51,6 @@
 	.codeblock {
 		display: flex;
 		flex-direction: column;
-		max-height: 20lh;
 		padding: 12px;
 		overflow: auto;
 		gap: 8px;

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Codeblock from '$components/codegen/Codeblock.svelte';
 	import { type ToolCall } from '$lib/codegen/messages';
 	import { formatToolCall, getToolIcon } from '$lib/utils/codegenTools';
+	import { Codeblock } from '@gitbutler/ui';
 	import {
 		DropdownButton,
 		ContextMenuItem,

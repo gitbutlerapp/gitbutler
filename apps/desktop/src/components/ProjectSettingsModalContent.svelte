@@ -35,8 +35,8 @@
 		},
 		{
 			id: 'agent',
-			label: 'Agent settings',
-			icon: 'mixer' as keyof typeof iconsJson,
+			label: 'Agent',
+			icon: 'ai-agent' as keyof typeof iconsJson,
 			requireCodegen: true
 		},
 		{

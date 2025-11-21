@@ -24,7 +24,7 @@
 		viewport?: HTMLDivElement;
 		viewportHeight?: number;
 		childrenWrapHeight?: string;
-		childrenWrapDisplay?: 'block' | 'content' | 'flex'; // 'content' is used for virtual lists to avoid unnecessary height calculations
+		childrenWrapDisplay?: 'block' | 'contents' | 'flex'; // 'contents' is used for virtual lists to avoid unnecessary height calculations
 	}
 </script>
 

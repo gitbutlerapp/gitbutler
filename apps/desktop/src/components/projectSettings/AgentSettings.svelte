@@ -52,7 +52,16 @@
 	}
 </script>
 
-<ClaudeCheck showTitle />
+<SectionCard>
+	<ClaudeCheck showTitle />
+</SectionCard>
+
+<p class="text-13 text-body clr-text-2">
+	Get the full guide to Agents in GitButler in <Link
+		href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
+		>our documentation
+	</Link>
+</p>
 
 <Spacer margin={10} dotted />
 
@@ -150,15 +159,6 @@
 		/>
 	{/snippet}
 </SectionCard>
-
-<Spacer margin={10} dotted />
-
-<p class="text-13 text-body clr-text-2">
-	Get the full guide to Agents in GitButler in <Link
-		href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
-		>our documentation
-	</Link>
-</p>
 
 <style lang="postcss">
 </style>

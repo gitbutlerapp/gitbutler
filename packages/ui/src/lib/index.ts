@@ -4,6 +4,7 @@ export { default as AsyncButton } from '$components/AsyncButton.svelte';
 export { default as Badge } from '$components/Badge.svelte';
 export { default as Button, type Props as ButtonProps } from '$components/Button.svelte';
 export { default as Checkbox } from '$components/Checkbox.svelte';
+export { default as Codeblock } from '$components/Codeblock.svelte';
 export {
 	default as CommitStatusBadge,
 	type CommitStatusType
