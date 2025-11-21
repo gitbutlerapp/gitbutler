@@ -125,7 +125,7 @@
 									{#snippet actions()}
 										<RadioButton
 											name="stackSelection"
-											value={stack.id}
+											value={stack.id ?? undefined}
 											id="stack-{stack.id}"
 											checked={selectedStackId === stack.id}
 											disabled={isDisabled}

@@ -171,7 +171,10 @@ describe('Review', () => {
 			const prDescription = 'Test PR Description' + stack.id;
 
 			// The branch should be applied. Click it.
-			cy.getByTestId('branch-header', stack.id).scrollIntoView().should('be.visible').click();
+			cy.getByTestId('branch-header', stack.id ?? undefined)
+				.scrollIntoView()
+				.should('be.visible')
+				.click();
 			cy.get(`[data-id="${stack.id}"]`).within(() => {
 				// The Create Branch Review button should be visible.
 				// Click it.
@@ -295,7 +298,9 @@ describe('Review', () => {
 						.click();
 
 					// Click branch header to reveal pull request card.
-					cy.getByTestId('branch-header', stack.id).should('be.visible').click();
+					cy.getByTestId('branch-header', stack.id ?? undefined)
+						.should('be.visible')
+						.click();
 				});
 			cy.get(`[data-details="${stack.id}"]`).within(() => {
 				// The PR card should be visible.
@@ -392,7 +397,9 @@ describe('Review', () => {
 						.click();
 
 					// Click branch header to reveal pull request card.
-					cy.getByTestId('branch-header', stack.id).should('be.visible').click();
+					cy.getByTestId('branch-header', stack.id ?? undefined)
+						.should('be.visible')
+						.click();
 				});
 			cy.get(`[data-details="${stack.id}"]`).within(() => {
 				// The PR card should be visible.

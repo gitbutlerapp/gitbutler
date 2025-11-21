@@ -134,7 +134,8 @@ export default class MockBackend {
 			heads: [
 				{
 					name,
-					tip: 'werwer'
+					tip: 'werwer',
+					isCheckedOut: true
 				}
 			],
 			id: name
@@ -342,7 +343,7 @@ export default class MockBackend {
 				...MOCK_COMMIT,
 				message,
 				parentIds,
-				createdAt: Date.now(),
+				createdAt: BigInt(Date.now()),
 				id: newCommitId
 			},
 			...branch.commits

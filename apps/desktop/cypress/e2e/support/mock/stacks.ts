@@ -1,93 +1,101 @@
-import type { Author, Commit, CommitState, UpstreamCommit } from '$lib/branches/v3';
 import type { HunkHeader } from '$lib/hunks/hunk';
-import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
+import type { Workspace, WorkspaceLegacy } from '@gitbutler/core/api';
 
 export const MOCK_STACK_A_ID = '1234-123';
 
-export const MOCK_STACK_A: Stack = {
+export const MOCK_STACK_A: WorkspaceLegacy.StackEntry = {
 	order: 0,
 	id: MOCK_STACK_A_ID,
 	heads: [
 		{
 			name: 'branch-a',
-			tip: '1234123'
+			tip: '1234123',
+			isCheckedOut: true
 		}
 	],
-	tip: '1234123'
+	tip: '1234123',
+	isCheckedOut: true
 };
 
 export const MOCK_BRAND_NEW_BRANCH_NAME = 'super-cool-branch-name';
 
 export const MOCK_STACK_BRAND_NEW_ID = 'empty-stack';
 
-export const MOCK_STACK_BRAND_NEW: Stack = {
+export const MOCK_STACK_BRAND_NEW: WorkspaceLegacy.StackEntry = {
 	order: 1,
 	id: MOCK_STACK_BRAND_NEW_ID,
 	heads: [
 		{
 			name: MOCK_BRAND_NEW_BRANCH_NAME,
-			tip: '1234123'
+			tip: '1234123',
+			isCheckedOut: false
 		}
 	],
-	tip: '1234123'
+	tip: '1234123',
+	isCheckedOut: false
 };
 
-export function createMockStack(override: Partial<Stack>): Stack {
+export function createMockStack(
+	override: Partial<WorkspaceLegacy.StackEntry>
+): WorkspaceLegacy.StackEntry {
 	return {
 		...MOCK_STACK_A,
 		...override
 	};
 }
 
-export const MOCK_STACKS: Stack[] = [MOCK_STACK_A];
+export const MOCK_STACKS: WorkspaceLegacy.StackEntry[] = [MOCK_STACK_A];
 
-export const MOCK_AUTHOR: Author = {
+export const MOCK_AUTHOR: Workspace.Author = {
 	name: 'Test Author',
 	email: 'author@example.com',
 	gravatarUrl: 'https://avatars.githubusercontent.com/u/35891811?v=4'
 };
 
-export const MOCK_COMMIT_STATE_LOCAL: CommitState = { type: 'LocalOnly' };
-export const MOCK_COMMIT_STATE_INTEGRATED: CommitState = { type: 'Integrated' };
-export const MOCK_COMMIT_STATE_LOCAL_AND_REMOTE_DIVERGED: CommitState = {
+export const MOCK_COMMIT_STATE_LOCAL: Workspace.CommitState = { type: 'LocalOnly' };
+export const MOCK_COMMIT_STATE_INTEGRATED: Workspace.CommitState = { type: 'Integrated' };
+export const MOCK_COMMIT_STATE_LOCAL_AND_REMOTE_DIVERGED: Workspace.CommitState = {
 	type: 'LocalAndRemote',
 	subject: 'remote-commit'
 };
 
-export const MOCK_COMMIT: Commit = {
+export const MOCK_COMMIT: Workspace.Commit = {
 	id: '1234123',
 	parentIds: ['parent-sha'],
 	message: 'Initial commit',
 	hasConflicts: false,
 	state: MOCK_COMMIT_STATE_LOCAL,
-	createdAt: 1714000000000,
+	createdAt: BigInt(1714000000000),
 	author: MOCK_AUTHOR,
-	gerritReviewUrl: undefined
+	gerritReviewUrl: null
 };
 
-export function createMockCommit(override: Partial<Commit>): Commit {
+export function createMockCommit(override: Partial<Workspace.Commit>): Workspace.Commit {
 	return {
 		...MOCK_COMMIT,
 		...override
 	};
 }
 
-export const MOCK_UPSTREAM_COMMIT: UpstreamCommit = {
+export const MOCK_UPSTREAM_COMMIT: Workspace.UpstreamCommit = {
 	id: 'upstream-sha',
 	message: 'Upstream commit',
-	createdAt: 1714000000001,
+	createdAt: BigInt(1714000000001),
 	author: MOCK_AUTHOR
 };
 
-export function createMockUpstreamCommit(override: Partial<UpstreamCommit>): UpstreamCommit {
+export function createMockUpstreamCommit(
+	override: Partial<Workspace.UpstreamCommit>
+): Workspace.UpstreamCommit {
 	return {
 		...MOCK_UPSTREAM_COMMIT,
 		...override
 	};
 }
 
-export const MOCK_BRANCH_DETAILS: BranchDetails = {
+export const MOCK_BRANCH_DETAILS: Workspace.BranchDetails = {
 	name: 'branch-a',
+	linkedWorktreeId: null,
 	remoteTrackingBranch: null,
 	description: null,
 	prNumber: null,
@@ -95,7 +103,7 @@ export const MOCK_BRANCH_DETAILS: BranchDetails = {
 	tip: '1234123',
 	baseCommit: 'base-sha',
 	pushStatus: 'completelyUnpushed',
-	lastUpdatedAt: Date.now(),
+	lastUpdatedAt: BigInt(Date.now()),
 	authors: [MOCK_AUTHOR],
 	isConflicted: false,
 	commits: [MOCK_COMMIT],
@@ -103,16 +111,17 @@ export const MOCK_BRANCH_DETAILS: BranchDetails = {
 	isRemoteHead: false
 };
 
-export const MOCK_BRANCH_DETAILS_BRAND_NEW: BranchDetails = {
+export const MOCK_BRANCH_DETAILS_BRAND_NEW: Workspace.BranchDetails = {
 	name: MOCK_BRAND_NEW_BRANCH_NAME,
 	remoteTrackingBranch: null,
+	linkedWorktreeId: null,
 	description: null,
 	prNumber: null,
 	reviewId: null,
 	tip: '1234123',
 	baseCommit: 'base-sha',
 	pushStatus: 'completelyUnpushed',
-	lastUpdatedAt: Date.now(),
+	lastUpdatedAt: BigInt(Date.now()),
 	authors: [],
 	isConflicted: false,
 	commits: [],
@@ -120,28 +129,32 @@ export const MOCK_BRANCH_DETAILS_BRAND_NEW: BranchDetails = {
 	isRemoteHead: false
 };
 
-export function createMockBranchDetails(overrides: Partial<BranchDetails> = {}): BranchDetails {
+export function createMockBranchDetails(
+	overrides: Partial<Workspace.BranchDetails> = {}
+): Workspace.BranchDetails {
 	return {
 		...MOCK_BRANCH_DETAILS,
 		...overrides
 	};
 }
 
-export const MOCK_STACK_DETAILS_BRAND_NEW: StackDetails = {
+export const MOCK_STACK_DETAILS_BRAND_NEW: Workspace.StackDetails = {
 	derivedName: MOCK_BRAND_NEW_BRANCH_NAME,
 	pushStatus: 'completelyUnpushed',
 	branchDetails: [MOCK_BRANCH_DETAILS_BRAND_NEW],
 	isConflicted: false
 };
 
-export const MOCK_STACK_DETAILS: StackDetails = {
+export const MOCK_STACK_DETAILS: Workspace.StackDetails = {
 	derivedName: 'branch-a',
 	pushStatus: 'completelyUnpushed',
 	branchDetails: [MOCK_BRANCH_DETAILS],
 	isConflicted: false
 };
 
-export function createMockStackDetails(overrides: Partial<StackDetails> = {}): StackDetails {
+export function createMockStackDetails(
+	overrides: Partial<Workspace.StackDetails> = {}
+): Workspace.StackDetails {
 	return {
 		...MOCK_STACK_DETAILS,
 		...overrides

@@ -16,22 +16,22 @@ const MOCK_COMMIT_A: Commit = {
 	message: 'Initial commit message',
 	hasConflicts: false,
 	state: { type: 'LocalOnly' },
-	createdAt: 1672531200000, // Example timestamp
+	createdAt: BigInt(1672531200000), // Example timestamp
 	author: MOCK_AUTHOR_A,
-	gerritReviewUrl: undefined
+	gerritReviewUrl: null
 };
 
 const MOCK_UPSTREAM_COMMIT_A: UpstreamCommit = {
 	id: 'upstream-commit-a-id',
 	message: 'Upstream commit message',
-	createdAt: 1672531200000, // Example timestamp
+	createdAt: BigInt(1672531200000), // Example timestamp
 	author: MOCK_AUTHOR_A
 };
 
 const BRANCH_DETAILS_A: BranchDetails = {
 	name: 'branch-a',
 	pushStatus: 'nothingToPush',
-	lastUpdatedAt: 1672531200000, // Example timestamp
+	lastUpdatedAt: BigInt(1672531200000), // Example timestamp
 	authors: [MOCK_AUTHOR_A],
 	isConflicted: false,
 	commits: [MOCK_COMMIT_A],
@@ -42,7 +42,8 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	reviewId: null,
 	tip: 'tip-commit-a',
 	baseCommit: 'base-commit-a',
-	isRemoteHead: false
+	isRemoteHead: false,
+	linkedWorktreeId: null
 };
 
 export function getStackServiceMock() {

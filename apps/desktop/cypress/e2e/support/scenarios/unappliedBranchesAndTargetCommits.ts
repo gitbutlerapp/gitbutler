@@ -38,7 +38,7 @@ export default class UnappliedBranchesAndTargetCommits extends MockBackend {
 			createMockCommit({
 				id: `target-commit-${index}`,
 				message,
-				createdAt: Date.now() - index * 1000
+				createdAt: BigInt(Date.now() - index * 1000)
 			})
 		);
 	}

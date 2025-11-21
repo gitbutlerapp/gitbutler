@@ -7,16 +7,17 @@ import {
 import { createMockBranchDetails, createMockCommit, createMockStackDetails } from '../mock/stacks';
 import type { TreeChange } from '$lib/hunks/change';
 import type { DiffHunk } from '$lib/hunks/hunk';
-import type { Stack } from '$lib/stacks/stack';
+import type { WorkspaceLegacy } from '@gitbutler/core/api';
 
 const MOCK_STACK_A_ID = 'stack-a-id';
 const MOCK_STACK_B_ID = 'stack-b-id';
 
-const MOCK_STACK_A: Stack = {
+const MOCK_STACK_A: WorkspaceLegacy.StackEntry = {
 	id: MOCK_STACK_A_ID,
-	heads: [{ name: MOCK_STACK_A_ID, tip: '1234123' }],
+	heads: [{ name: MOCK_STACK_A_ID, tip: '1234123', isCheckedOut: true }],
 	tip: '1234123',
-	order: 0
+	order: 0,
+	isCheckedOut: true
 };
 
 const MOCK_BRANCH_A_CHANGES: TreeChange[] = [
@@ -38,11 +39,12 @@ const MOCK_STACK_DETAILS_A = createMockStackDetails({
 	]
 });
 
-const MOCK_STACK_B: Stack = {
+const MOCK_STACK_B: WorkspaceLegacy.StackEntry = {
 	id: MOCK_STACK_B_ID,
-	heads: [{ name: MOCK_STACK_B_ID, tip: '1234123' }],
+	heads: [{ name: MOCK_STACK_B_ID, tip: '1234123', isCheckedOut: true }],
 	tip: '1234123',
-	order: 0
+	order: 0,
+	isCheckedOut: true
 };
 
 const MOCK_FILE_D = 'stackService.svelte.ts';

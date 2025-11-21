@@ -12,22 +12,22 @@ import {
 	createMockUpstreamCommit,
 	isIntegrateUpstreamCommitsParams
 } from '../mock/stacks';
-import type { UpstreamCommit } from '$lib/branches/v3';
 import type { DiffDependency } from '$lib/dependencies/dependencies';
 import type { TreeChange } from '$lib/hunks/change';
 import type { DiffHunk } from '$lib/hunks/hunk';
-import type { Stack } from '$lib/stacks/stack';
+import type { Workspace, WorkspaceLegacy } from '@gitbutler/core/api';
 import type { InvokeArgs } from '@tauri-apps/api/core';
 
 const MOCK_STACK_A_ID = 'stack-a-id';
 const MOCK_STACK_B_ID = 'stack-b-id';
 const MOCK_STACK_C_ID = 'stack-c-id';
 
-const MOCK_STACK_A: Stack = {
+const MOCK_STACK_A: WorkspaceLegacy.StackEntry = {
 	order: 0,
 	id: MOCK_STACK_A_ID,
-	heads: [{ name: MOCK_STACK_A_ID, tip: '1234123' }],
-	tip: '1234123'
+	heads: [{ name: MOCK_STACK_A_ID, tip: '1234123', isCheckedOut: true }],
+	tip: '1234123',
+	isCheckedOut: true
 };
 
 const MOCK_BRANCH_A_CHANGES: TreeChange[] = [
@@ -36,7 +36,7 @@ const MOCK_BRANCH_A_CHANGES: TreeChange[] = [
 	createMockDeletionTreeChange({ path: 'fileC.txt' })
 ];
 
-const MOCK_BRANCH_A_UPSTREAM_COMMITS: UpstreamCommit[] = [
+const MOCK_BRANCH_A_UPSTREAM_COMMITS: Workspace.UpstreamCommit[] = [
 	createMockUpstreamCommit({ id: 'upstream-commit-4', message: 'Upstream commit 4' }),
 	createMockUpstreamCommit({ id: 'upstream-commit-3', message: 'Upstream commit 3' }),
 	createMockUpstreamCommit({ id: 'upstream-commit-2', message: 'Upstream commit 2' }),
@@ -60,11 +60,12 @@ const MOCK_STACK_DETAILS_A = createMockStackDetails({
 	]
 });
 
-const MOCK_STACK_B: Stack = {
+const MOCK_STACK_B: WorkspaceLegacy.StackEntry = {
 	order: 1,
 	id: MOCK_STACK_B_ID,
-	heads: [{ name: MOCK_STACK_B_ID, tip: '1234123' }],
-	tip: '1234123'
+	heads: [{ name: MOCK_STACK_B_ID, tip: '1234123', isCheckedOut: true }],
+	tip: '1234123',
+	isCheckedOut: true
 };
 
 const MOCK_FILE_D = 'fileD.txt';
@@ -85,11 +86,12 @@ const MOCK_STACK_DETAILS_B = createMockStackDetails({
 	]
 });
 
-const MOCK_STACK_C: Stack = {
+const MOCK_STACK_C: WorkspaceLegacy.StackEntry = {
 	order: 2,
 	id: MOCK_STACK_C_ID,
-	heads: [{ name: MOCK_STACK_C_ID, tip: '1234123' }],
-	tip: '1234123'
+	heads: [{ name: MOCK_STACK_C_ID, tip: '1234123', isCheckedOut: true }],
+	tip: '1234123',
+	isCheckedOut: true
 };
 
 const MOCK_BRANCH_C_CHANGES: TreeChange[] = [

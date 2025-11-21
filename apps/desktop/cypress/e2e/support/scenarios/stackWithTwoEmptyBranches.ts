@@ -1,18 +1,19 @@
 import MockBackend from '../mock/backend';
 import { createMockBranchDetails, createMockStackDetails } from '../mock/stacks';
-import type { Stack } from '$lib/stacks/stack';
+import type { WorkspaceLegacy } from '@gitbutler/core/api';
 
 const MOCK_STACK_A_ID = 'stack-a-id';
 const OTHER_HEADER_NAME = 'other-header-name';
 
-const MOCK_STACK_A: Stack = {
+const MOCK_STACK_A: WorkspaceLegacy.StackEntry = {
 	order: 0,
 	id: MOCK_STACK_A_ID,
 	heads: [
-		{ name: MOCK_STACK_A_ID, tip: '1234123' },
-		{ name: OTHER_HEADER_NAME, tip: '1234134' }
+		{ name: MOCK_STACK_A_ID, tip: '1234123', isCheckedOut: true },
+		{ name: OTHER_HEADER_NAME, tip: '1234134', isCheckedOut: true }
 	],
-	tip: '1234123'
+	tip: '1234123',
+	isCheckedOut: true
 };
 
 const MOCK_STACK_A_DETAILS = createMockStackDetails({

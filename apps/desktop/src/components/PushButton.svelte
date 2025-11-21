@@ -2,6 +2,7 @@
 	import GerritPushModal from '$components/GerritPushModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
+	import { commitCreatedAtDate } from '$lib/branches/v3';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -269,7 +270,7 @@
 							<SimpleCommitRow
 								title={splitMessage(commit.message).title ?? ''}
 								sha={commit.id}
-								date={new Date(commit.createdAt)}
+								date={commitCreatedAtDate(commit)}
 								author={commit.author.name}
 								url={commitUrl}
 								onOpen={(url) => urlService.openExternalUrl(url)}

@@ -19,6 +19,77 @@ export type Author = {
 };
 
 /**
+ * Information about the current state of a branch.
+ */
+export type BranchDetails = {
+	/**
+	 * The name of the branch.
+	 */
+	name: string;
+	/**
+	 * The id of the linked worktree that has the reference of `name` checked out.
+	 * Note that we don't list the main worktree here.
+	 */
+	linkedWorktreeId: string | null;
+	/**
+	 * Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
+	 */
+	remoteTrackingBranch: string | null;
+	/**
+	 * Description of the branch.
+	 * Can include arbitrary utf8 data, eg. markdown etc.
+	 */
+	description: string | null;
+	/**
+	 * The pull(merge) request associated with the branch, or None if no such entity has not been created.
+	 */
+	prNumber: number | null;
+	/**
+	 * A unique identifier for the GitButler review associated with the branch, if any.
+	 */
+	reviewId: string | null;
+	/**
+	 * This is the last commit in the branch, aka the tip of the branch.
+	 * If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
+	 */
+	tip: string;
+	/**
+	 * This is the base commit from the perspective of this branch.
+	 * If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
+	 * If this branch is at the bottom of the stack, this is the merge base of the stack.
+	 */
+	baseCommit: string;
+	/**
+	 * The pushable status for the branch.
+	 */
+	pushStatus: PushStatus;
+	/**
+	 * Last time, the branch was updated in Epoch milliseconds.
+	 */
+	lastUpdatedAt: bigint | null;
+	/**
+	 * All authors of the commits in the branch.
+	 */
+	authors: Array<Author>;
+	/**
+	 * Whether the branch is conflicted.
+	 */
+	isConflicted: boolean;
+	/**
+	 * The commits contained in the branch, excluding the upstream commits.
+	 */
+	commits: Array<Commit>;
+	/**
+	 * The commits that are only at the remote.
+	 */
+	upstreamCommits: Array<UpstreamCommit>;
+	/**
+	 * Whether it's representing a remote head
+	 */
+	isRemoteHead: boolean;
+};
+
+/**
  * Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
  */
 export type Commit = {
@@ -79,6 +150,28 @@ export type PushStatus =
 	| 'unpushedCommitsRequiringForce'
 	| 'completelyUnpushed'
 	| 'integrated';
+
+/**
+ * Information about the current state of a stack
+ */
+export type StackDetails = {
+	/**
+	 * This is the name of the top-most branch, provided by the API for convenience
+	 */
+	derivedName: string;
+	/**
+	 * The pushable status for the stack
+	 */
+	pushStatus: PushStatus;
+	/**
+	 * The details about the contained branches
+	 */
+	branchDetails: Array<BranchDetails>;
+	/**
+	 * Whether the stack is conflicted.
+	 */
+	isConflicted: boolean;
+};
 
 /**
  * Commit that is only at the remote.

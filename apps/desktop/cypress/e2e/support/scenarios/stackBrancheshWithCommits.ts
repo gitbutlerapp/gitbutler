@@ -36,8 +36,8 @@ const MOCK_STACK_DETAILS_A = createMockStackDetails({
 const MOCK_STACK_A = createMockStack({
 	id: MOCK_STACK_A_ID,
 	heads: [
-		{ name: MOCK_STACK_A_ID, tip: MOCK_COMMIT_IN_BRANCH_A.id },
-		{ name: MOCK_SECOND_BRANCH_NAME, tip: MOCK_COMMIT_IN_SECOND_BRANCH.id }
+		{ name: MOCK_STACK_A_ID, tip: MOCK_COMMIT_IN_BRANCH_A.id, isCheckedOut: true },
+		{ name: MOCK_SECOND_BRANCH_NAME, tip: MOCK_COMMIT_IN_SECOND_BRANCH.id, isCheckedOut: true }
 	],
 	tip: MOCK_COMMIT_IN_BRANCH_A.id
 });

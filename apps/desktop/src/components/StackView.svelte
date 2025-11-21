@@ -46,7 +46,7 @@
 
 	type Props = {
 		projectId: string;
-		stackId?: string;
+		stackId: string | undefined;
 		laneId: string;
 		topBranchName?: string;
 		onVisible: (visible: boolean) => void;
