@@ -5,6 +5,7 @@ use but_core::TreeChange;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_filemonitor::{
     FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
@@ -14,6 +15,11 @@ use gitbutler_project::ProjectId;
 use tracing::instrument;
 
 use crate::Change;
+
+enum RefInfoUpdate {
+    Unchanged,
+    Updated(but_workspace::ui::RefInfo),
+}
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
 /// may trigger [Changes](Change)
@@ -27,6 +33,7 @@ pub struct Handler {
     // need extra protection.
     /// A function to send events - decoupled from app-handle for testing purposes.
     send_event: Arc<dyn Fn(Change) -> Result<()> + Send + Sync + 'static>,
+    last_ref_info: Option<but_workspace::ui::RefInfo>,
 }
 
 impl Handler {
@@ -34,13 +41,14 @@ impl Handler {
     pub fn new(send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static) -> Self {
         Handler {
             send_event: Arc::new(send_event),
+            last_ref_info: None,
         }
     }
 
     /// Handle the events that come in from the filesystem, or the public API.
     #[instrument(skip(self, app_settings), fields(event = %event), err(Debug))]
     pub(super) fn handle(
-        &self,
+        &mut self,
         event: InternalEvent,
         app_settings: AppSettingsWithDiskSync,
     ) -> Result<()> {
@@ -54,6 +62,25 @@ impl Handler {
             InternalEvent::GitFilesChange(project_id, paths) => {
                 let ctx =
                     &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
+
+                let repo = ctx.gix_repo()?;
+                let project = ctx.project();
+                let meta = VirtualBranchesTomlMetadata::from_path(
+                    project.gb_dir().join("virtual_branches.toml"),
+                )?;
+
+                // If there were git file changes, check whether the ref info changed.
+                match self.probe_ref_info(&repo, &meta)? {
+                    RefInfoUpdate::Unchanged => { /* No-op */ }
+                    RefInfoUpdate::Updated(ref_info) => {
+                        self.last_ref_info = Some(ref_info.clone());
+                        let _ = self.emit_app_event(Change::RefInfo {
+                            project_id: project.id,
+                            ref_info,
+                        });
+                    }
+                }
+
                 self.git_files_change(paths, ctx)
                     .context("failed to handle git file change event")
             }
@@ -62,6 +89,30 @@ impl Handler {
 
     fn emit_app_event(&self, event: Change) -> Result<()> {
         (self.send_event)(event).context("failed to send event")
+    }
+
+    fn probe_ref_info(
+        &self,
+        repo: &gix::Repository,
+        meta: &impl but_core::RefMetadata,
+    ) -> Result<RefInfoUpdate> {
+        let ref_info = but_workspace::head_info(
+            repo,
+            meta,
+            but_workspace::ref_info::Options {
+                traversal: but_graph::init::Options::limited(),
+                expensive_commit_info: true,
+            },
+        )
+        .and_then(|info| {
+            but_workspace::ui::RefInfo::for_ui(info, repo)
+                .map(|ref_info| ref_info.pruned_to_entrypoint())
+        })?;
+
+        match &self.last_ref_info {
+            Some(last) if &ref_info != last => Ok(RefInfoUpdate::Updated(ref_info)),
+            Some(_) | None => Ok(RefInfoUpdate::Unchanged),
+        }
     }
 
     fn open_command_context(

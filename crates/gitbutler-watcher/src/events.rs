@@ -5,6 +5,10 @@ use gitbutler_project::ProjectId;
 #[derive(Debug, Clone)]
 #[expect(missing_docs)]
 pub enum Change {
+    RefInfo {
+        project_id: ProjectId,
+        ref_info: but_workspace::ui::RefInfo,
+    },
     GitFetch(ProjectId),
     GitHead {
         project_id: ProjectId,

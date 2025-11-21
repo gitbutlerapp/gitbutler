@@ -81,6 +81,13 @@ impl ActiveProjects {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
                     },
+                    Change::RefInfo {
+                        project_id,
+                        ref_info,
+                    } => FrontendEvent {
+                        name: format!("project://{project_id}/ref_info"),
+                        payload: serde_json::json!(&ref_info),
+                    },
                 };
 
                 println!("Sending event");

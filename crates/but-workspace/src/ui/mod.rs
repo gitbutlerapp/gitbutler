@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// Represents the state a commit could be in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, TS)]
 #[serde(tag = "type", content = "subject")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub enum CommitState {
@@ -56,7 +56,7 @@ impl CommitState {
 }
 
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
-#[derive(Clone, Serialize, TS)]
+#[derive(Clone, Serialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct Commit {
@@ -120,7 +120,7 @@ impl std::fmt::Debug for Commit {
 
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
-#[derive(Clone, Serialize, TS)]
+#[derive(Clone, Serialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct UpstreamCommit {

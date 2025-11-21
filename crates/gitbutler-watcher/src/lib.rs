@@ -82,7 +82,7 @@ pub fn watch_in_background(
     };
     let handle_event =
         move |event: InternalEvent, app_settings: AppSettingsWithDiskSync| -> Result<()> {
-            let handler = handler.clone();
+            let mut handler = handler.clone();
             // NOTE: Traditional parallelization (blocking) is required as `tokio::spawn()` on
             //       the `handler.handle()` future isn't `Send` as it keeps non-Send things
             //       across await points. Further, there is a fair share of `sync` IO happening

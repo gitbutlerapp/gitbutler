@@ -11,7 +11,7 @@ use crate::{
 };
 
 /// A reference in `refs/heads`.
-#[derive(serde::Serialize, Debug, Clone, TS)]
+#[derive(serde::Serialize, Debug, Clone, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -35,7 +35,7 @@ impl From<gix::refs::FullName> for BranchReference {
 }
 
 /// A reference in `refs/remotes`.
-#[derive(serde::Serialize, Debug, Clone, TS)]
+#[derive(serde::Serialize, Debug, Clone, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -95,7 +95,7 @@ impl RemoteTrackingReference {
 }
 
 /// Information about the target reference, the one we want to integrate with.
-#[derive(serde::Serialize, Debug, Clone, TS)]
+#[derive(serde::Serialize, Debug, Clone, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -131,7 +131,7 @@ pub(crate) mod inner {
 
     /// The UI-clone of [`crate::RefInfo`].
     /// TODO: should also include base-branch data, see `get_base_branch_data()`.
-    #[derive(serde::Serialize, Debug, Clone, TS)]
+    #[derive(serde::Serialize, Debug, Clone, PartialEq, Eq, TS)]
     #[serde(rename_all = "camelCase")]
     #[cfg_attr(
         feature = "export-ts",
@@ -220,7 +220,7 @@ impl inner::RefInfo {
 }
 
 /// The UI-clone of [`branch::Stack`].
-#[derive(serde::Serialize, Debug, Clone, TS)]
+#[derive(serde::Serialize, Debug, Clone, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -256,7 +256,7 @@ impl Stack {
 }
 
 /// A segment of a commit graph, representing a set of commits exclusively.
-#[derive(serde::Serialize, Debug, Clone, TS)]
+#[derive(serde::Serialize, Debug, Clone, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
