@@ -1,4 +1,4 @@
-import { createNewBranch, deleteBranch } from '../src/branch.ts';
+import { createNewBranch, deleteBranch, unapplyStack } from '../src/branch.ts';
 import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
 import {
 	clickByTestId,
@@ -709,5 +709,38 @@ test('should be able to delete an empty local branch', async ({ page, context },
 	await expect(stacks).toHaveCount(0);
 
 	const branchHeaders = getByTestId(page, 'branch-header');
+	await expect(branchHeaders).toHaveCount(0);
+});
+
+test('should be able to unapply a stack', async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be one stack applied
+	let stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+	let branchHeaders = getByTestId(page, 'branch-header').filter({ hasText: 'branch1' });
+	await expect(branchHeaders).toBeVisible();
+
+	// Unapply the stack
+	await unapplyStack(page, 'branch1');
+
+	// Should be back in the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be no stacks
+	stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(0);
+
+	branchHeaders = getByTestId(page, 'branch-header').filter({ hasText: 'branch1' });
 	await expect(branchHeaders).toHaveCount(0);
 });

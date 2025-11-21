@@ -16,6 +16,7 @@ export enum TestId {
 	BranchHeaderContextMenu_Delete = 'branch-header-context-menu-delete',
 	BranchHeaderContextMenu_OpenPRInBrowser = 'branch-header-context-menu-open-pr-in-browser',
 	BranchHeaderContextMenu_CopyPRLink = 'branch-header-context-menu-copy-pr-link',
+	BranchHeaderContextMenu_UnapplyBranch = 'branch-header-context-menu-unapply-branch',
 	BranchHeaderRenameModal = 'branch-header-rename-modal',
 	BranchHeaderRenameModal_Warning = 'branch-header-rename-modal-warning',
 	BranchHeaderRenameModal_ActionButton = 'branch-header-rename-modal-action-button',
