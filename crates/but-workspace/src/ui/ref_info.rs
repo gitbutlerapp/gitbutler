@@ -15,7 +15,7 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/BranchReference.ts")
+    ts(export, export_to = "./workspace/refInfo/index.ts")
 )]
 pub struct BranchReference {
     /// The full ref name, like `refs/heads/feat`, for usage with the backend.
@@ -39,7 +39,7 @@ impl From<gix::refs::FullName> for BranchReference {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/RemoteTrackingReference.ts")
+    ts(export, export_to = "./workspace/refInfo/index.ts")
 )]
 pub struct RemoteTrackingReference {
     /// The full ref name, like `refs/remotes/origin/on-remote`, for usage with the backend.
@@ -99,7 +99,7 @@ impl RemoteTrackingReference {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/Target.ts")
+    ts(export, export_to = "./workspace/refInfo/index.ts")
 )]
 pub struct Target {
     /// The remote tracking branch of the traget to integrate with, like `refs/remotes/origin/main`.
@@ -135,7 +135,7 @@ pub(crate) mod inner {
     #[serde(rename_all = "camelCase")]
     #[cfg_attr(
         feature = "export-ts",
-        ts(export, export_to = "./workspace/refInfo/RefInfo.ts")
+        ts(export, export_to = "./workspace/refInfo/index.ts")
     )]
     pub struct RefInfo {
         /// The name of the ref that points to a workspace commit,
@@ -224,7 +224,7 @@ impl inner::RefInfo {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/Stack.ts")
+    ts(export, export_to = "./workspace/refInfo/index.ts")
 )]
 pub struct Stack {
     /// Otherwise, it is `None`.
@@ -260,7 +260,7 @@ impl Stack {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/Segment.ts")
+    ts(export, export_to = "./workspace/refInfo/index.ts")
 )]
 pub struct Segment {
     ///

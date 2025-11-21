@@ -225,7 +225,7 @@
 					<StackView
 						{projectId}
 						laneId={stack.id || 'banana'}
-						stackId={stack.id}
+						stackId={stack.id ?? undefined}
 						topBranchName={stack.heads.at(0)?.name}
 						bind:clientWidth={laneWidths[i]}
 						bind:clientHeight={lineHights[i]}

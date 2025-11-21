@@ -3,6 +3,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import {
+		commitCreatedAtDate,
 		extractUpstreamCommitId,
 		isCommit,
 		type Commit,
@@ -276,7 +277,7 @@
 	<div class="branch-integration__commit-content">
 		<SimpleCommitRow
 			author={commit.author.name}
-			date={new Date(commit.createdAt)}
+			date={commitCreatedAtDate(commit)}
 			title={commit.message}
 			sha={commit.id}
 			{upstreamSha}

@@ -5,41 +5,44 @@ import {
 	MOCK_BRANCH_DETAILS,
 	MOCK_COMMIT_STATE_INTEGRATED
 } from '../mock/stacks';
-import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { BranchStatusesResponse } from '$lib/upstream/types';
+import type { Workspace, WorkspaceLegacy } from '@gitbutler/core/api';
 
 const MOCK_STACK_A_ID = 'stack-a-id';
 const MOCK_STACK_B_ID = 'stack-b-id';
 const MOCK_STACK_C_ID = 'stack-c-id';
 
-const MOCK_STACK_A: Stack = {
+const MOCK_STACK_A: WorkspaceLegacy.StackEntry = {
 	order: 0,
 	id: MOCK_STACK_A_ID,
-	heads: [{ name: MOCK_STACK_A_ID, tip: '1234123' }],
-	tip: '1234123'
+	heads: [{ name: MOCK_STACK_A_ID, tip: '1234123', isCheckedOut: true }],
+	tip: '1234123',
+	isCheckedOut: true
 };
 
-const MOCK_STACK_B: Stack = {
+const MOCK_STACK_B: WorkspaceLegacy.StackEntry = {
 	order: 1,
 	id: MOCK_STACK_B_ID,
 	heads: [
-		{ name: MOCK_STACK_B_ID, tip: '1234123' },
-		{ name: 'branch-d', tip: '456456456' }
+		{ name: MOCK_STACK_B_ID, tip: '1234123', isCheckedOut: true },
+		{ name: 'branch-d', tip: '456456456', isCheckedOut: true }
 	],
-	tip: '1234123'
+	tip: '1234123',
+	isCheckedOut: true
 };
 
-const MOCK_STACK_C: Stack = {
+const MOCK_STACK_C: WorkspaceLegacy.StackEntry = {
 	order: 2,
 	id: MOCK_STACK_C_ID,
 	heads: [
-		{ name: MOCK_STACK_C_ID, tip: '1234123' },
-		{ name: 'branch-e', tip: '456456456' }
+		{ name: MOCK_STACK_C_ID, tip: '1234123', isCheckedOut: true },
+		{ name: 'branch-e', tip: '456456456', isCheckedOut: true }
 	],
-	tip: '1234123'
+	tip: '1234123',
+	isCheckedOut: true
 };
 
-const MOCK_BRANCH_DETAILS_A: BranchDetails = {
+const MOCK_BRANCH_DETAILS_A: Workspace.BranchDetails = {
 	...MOCK_BRANCH_DETAILS,
 	name: MOCK_STACK_A_ID,
 	tip: '1234123',
@@ -60,14 +63,14 @@ const MOCK_BRANCH_DETAILS_A: BranchDetails = {
 	]
 };
 
-const MOCK_STACK_DETAILS_A: StackDetails = {
+const MOCK_STACK_DETAILS_A: Workspace.StackDetails = {
 	derivedName: MOCK_STACK_A_ID,
 	pushStatus: 'unpushedCommits',
 	branchDetails: [MOCK_BRANCH_DETAILS_A],
 	isConflicted: false
 };
 
-const MOCK_BRANCH_DETAILS_B: BranchDetails = {
+const MOCK_BRANCH_DETAILS_B: Workspace.BranchDetails = {
 	...MOCK_BRANCH_DETAILS,
 	name: MOCK_STACK_B_ID,
 	tip: '1234123',
@@ -87,7 +90,7 @@ const MOCK_BRANCH_DETAILS_B: BranchDetails = {
 	]
 };
 
-const MOCK_BRANCH_DETAILS_B_D: BranchDetails = {
+const MOCK_BRANCH_DETAILS_B_D: Workspace.BranchDetails = {
 	...MOCK_BRANCH_DETAILS,
 	name: 'branch-d',
 	tip: '456456456',
@@ -102,14 +105,14 @@ const MOCK_BRANCH_DETAILS_B_D: BranchDetails = {
 	]
 };
 
-const MOCK_STACK_DETAILS_B: StackDetails = {
+const MOCK_STACK_DETAILS_B: Workspace.StackDetails = {
 	derivedName: MOCK_STACK_B_ID,
 	pushStatus: 'integrated',
 	branchDetails: [MOCK_BRANCH_DETAILS_B, MOCK_BRANCH_DETAILS_B_D],
 	isConflicted: false
 };
 
-const MOCK_BRANCH_DETAILS_C: BranchDetails = {
+const MOCK_BRANCH_DETAILS_C: Workspace.BranchDetails = {
 	...MOCK_BRANCH_DETAILS,
 	name: MOCK_STACK_C_ID,
 	tip: '1234123',
@@ -129,7 +132,7 @@ const MOCK_BRANCH_DETAILS_C: BranchDetails = {
 	]
 };
 
-const MOCK_STACK_DETAILS_C: StackDetails = {
+const MOCK_STACK_DETAILS_C: Workspace.StackDetails = {
 	derivedName: MOCK_STACK_C_ID,
 	pushStatus: 'unpushedCommits',
 	branchDetails: [MOCK_BRANCH_DETAILS_C],
@@ -182,7 +185,7 @@ export default class PartiallyIntegratedBranches extends MockBackend {
 		super();
 		this.stacks = [MOCK_STACK_A, MOCK_STACK_B, MOCK_STACK_C];
 		this.stackId = MOCK_STACK_A_ID;
-		this.stackDetails = new Map<string, StackDetails>();
+		this.stackDetails = new Map<string, Workspace.StackDetails>();
 		this.stackDetails.set(MOCK_STACK_A_ID, MOCK_STACK_DETAILS_A);
 		this.stackDetails.set(MOCK_STACK_B_ID, MOCK_STACK_DETAILS_B);
 		this.stackDetails.set(MOCK_STACK_C_ID, MOCK_STACK_DETAILS_C);

@@ -4,6 +4,7 @@
 	import CherryApplyModal from '$components/CherryApplyModal.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import { commitCreatedAt } from '$lib/branches/v3';
 	import { getColorFromPushStatus, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -91,7 +92,7 @@
 						type="Remote"
 						active
 						commitMessage={commit.message}
-						createdAt={commit.createdAt}
+						createdAt={commitCreatedAt(commit)}
 						commitId={commit.id}
 						branchName={branch.name}
 						selected={commit.id === branchesState?.current.commitId}
@@ -119,8 +120,8 @@
 						type={branch.commits.at(0)?.state.type || 'LocalOnly'}
 						diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
 						commitMessage={commit.message}
-						gerritReviewUrl={commit.gerritReviewUrl}
-						createdAt={commit.createdAt}
+						gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
+						createdAt={commitCreatedAt(commit)}
 						commitId={commit.id}
 						branchName={branch.name}
 						selected={commit.id === branchesState?.current.commitId}

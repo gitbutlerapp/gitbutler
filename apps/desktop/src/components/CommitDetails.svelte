@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { type Commit, type UpstreamCommit } from '$lib/branches/v3';
+	import { commitCreatedAtDate, type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { USER_SERVICE } from '$lib/user/userService';
@@ -63,7 +63,7 @@
 			srcUrl={getGravatarUrl(commit.author.email, commit.author.gravatarUrl)}
 		/>
 		<span class="divider">•</span>
-		<TimeAgo date={new Date(commit.createdAt)} />
+		<TimeAgo date={commitCreatedAtDate(commit)} />
 		<span class="divider">•</span>
 		<Tooltip text="Copy commit SHA">
 			<button

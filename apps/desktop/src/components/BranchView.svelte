@@ -9,6 +9,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
+	import { commitCreatedAt, commitStateSubject } from '$lib/branches/v3';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -154,11 +155,11 @@
 										{branchName}
 										commitId={commit.id}
 										commitMessage={commit.message}
-										gerritReviewUrl={commit.gerritReviewUrl}
-										createdAt={commit.createdAt}
+										gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
+										createdAt={commitCreatedAt(commit)}
 										hasConflicts={true}
 										disableCommitActions={true}
-										diverged={isLocalAndRemote && commit.id !== commit.state.subject}
+										diverged={isLocalAndRemote && commit.id !== commitStateSubject(commit)}
 										active
 										onclick={() => {
 											// Open commit preview by setting selection

@@ -3,6 +3,7 @@
 	import CommitRow from '$components/CommitRow.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { commitCreatedAt, type Commit } from '$lib/branches/v3';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -12,7 +13,6 @@
 	import VirtualList from '@gitbutler/ui/components/VirtualList.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { onMount } from 'svelte';
-	import type { Commit } from '$lib/branches/v3';
 
 	type Props = {
 		projectId: string;
@@ -111,8 +111,8 @@
 						commitId={commit.id}
 						branchName={baseBranch.branchName}
 						commitMessage={commit.message}
-						gerritReviewUrl={commit.gerritReviewUrl}
-						createdAt={commit.createdAt}
+						gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
+						createdAt={commitCreatedAt(commit)}
 						author={commit.author}
 						onclick={() => {
 							branchesState.set({

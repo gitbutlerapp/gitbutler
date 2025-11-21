@@ -71,7 +71,7 @@
 					projectId,
 					branch: { name: finalBranchName, order: 0 }
 				});
-				finalStackId = stack.id;
+				finalStackId = stack.id ?? undefined;
 				finalBranchName = stack.heads[0]?.name; // Updated to access the name property
 				uiState.global.draftBranchName.set(undefined);
 			}

@@ -11,6 +11,10 @@
 		"package": "tsc -p tsconfig.json"
 	},
 	"exports": {
+		"./api": {
+			"import": "./dist/generated/index.js",
+			"types": "./dist/generated/index.d.ts"
+		},
 		"./*": {
 			"import": "./dist/*.js",
 			"types": "./dist/*.d.ts"

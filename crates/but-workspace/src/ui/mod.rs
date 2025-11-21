@@ -21,10 +21,7 @@ use crate::{
 /// Represents the state a commit could be in.
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(tag = "type", content = "subject")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/CommitState.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub enum CommitState {
     /// The commit is only local
     LocalOnly,
@@ -61,7 +58,7 @@ impl CommitState {
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
 #[derive(Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/Commit.ts"))]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct Commit {
     /// The OID of the commit.
     #[serde(with = "but_serde::object_id")]
@@ -125,10 +122,7 @@ impl std::fmt::Debug for Commit {
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
 #[derive(Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/UpstreamCommit.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct UpstreamCommit {
     /// The OID of the commit.
     #[serde(with = "but_serde::object_id")]
@@ -158,10 +152,7 @@ impl std::fmt::Debug for UpstreamCommit {
 /// Represents the pushable status for the current stack.
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/PushStatus.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub enum PushStatus {
     /// Can push, but there are no changes to be pushed
     NothingToPush,
@@ -176,18 +167,22 @@ pub enum PushStatus {
 }
 
 /// Information about the current state of a branch.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct BranchDetails {
     /// The name of the branch.
     #[serde(with = "but_serde::bstring_lossy")]
+    #[ts(type = "string")]
     pub name: BString,
     /// The id of the linked worktree that has the reference of `name` checked out.
     /// Note that we don't list the main worktree here.
     #[serde(with = "but_serde::bstring_opt_lossy")]
+    #[ts(type = "string | null")]
     pub linked_worktree_id: Option<BString>,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
     #[serde(with = "but_serde::bstring_opt_lossy")]
+    #[ts(type = "string | null")]
     pub remote_tracking_branch: Option<BString>,
     /// Description of the branch.
     /// Can include arbitrary utf8 data, eg. markdown etc.
@@ -199,11 +194,13 @@ pub struct BranchDetails {
     /// This is the last commit in the branch, aka the tip of the branch.
     /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
     #[serde(with = "but_serde::object_id")]
+    #[ts(type = "string")]
     pub tip: gix::ObjectId,
     /// This is the base commit from the perspective of this branch.
     /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
     /// If this branch is at the bottom of the stack, this is the merge base of the stack.
     #[serde(with = "but_serde::object_id")]
+    #[ts(type = "string")]
     pub base_commit: gix::ObjectId,
     /// The pushable status for the branch.
     pub push_status: PushStatus,
@@ -222,8 +219,9 @@ pub struct BranchDetails {
 }
 
 /// Information about the current state of a stack
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct StackDetails {
     /// This is the name of the top-most branch, provided by the API for convenience
     pub derived_name: String,

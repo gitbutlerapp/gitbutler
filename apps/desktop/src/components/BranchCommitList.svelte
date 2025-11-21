@@ -10,6 +10,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UpstreamCommitsAction from '$components/UpstreamCommitsAction.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
+	import { commitCreatedAt } from '$lib/branches/v3';
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import {
 		AmendCommitWithChangeDzHandler,
@@ -240,7 +241,7 @@
 								{stackId}
 								{commitId}
 								commitMessage={commit.message}
-								createdAt={commit.createdAt}
+								createdAt={commitCreatedAt(commit)}
 								tooltip="Upstream"
 								{branchName}
 								{first}
@@ -345,7 +346,7 @@
 								disabled: false,
 								label: commit.message.split('\n')[0],
 								sha: commit.id.slice(0, 7),
-								date: getTimeAgo(commit.createdAt),
+								date: getTimeAgo(commitCreatedAt(commit)),
 								authorImgUrl: undefined,
 								commitType: commit.state.type,
 								data: stackId
@@ -374,8 +375,8 @@
 								hasConflicts={commit.hasConflicts}
 								diverged={commit.state.type === 'LocalAndRemote' &&
 									commit.id !== commit.state.subject}
-								createdAt={commit.createdAt}
-								gerritReviewUrl={commit.gerritReviewUrl}
+								createdAt={commitCreatedAt(commit)}
+								gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
 								{stackId}
 								{branchName}
 								{first}
