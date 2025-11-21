@@ -202,10 +202,3 @@
 		{/snippet}
 	</SectionCard>
 </div>
-
-<style lang="postcss">
-	.notification-settings {
-		display: flex;
-		flex-direction: column;
-	}
-</style>

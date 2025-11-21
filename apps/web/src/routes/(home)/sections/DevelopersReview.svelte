@@ -142,15 +142,15 @@
 		}
 	}
 
-	.reviews-column {
-		display: flex;
-		flex-direction: column;
-		gap: 20px;
+	// .reviews-column {
+	// 	display: flex;
+	// 	flex-direction: column;
+	// 	gap: 20px;
 
-		@media (max-width: 1100px) {
-			flex-direction: row;
-			align-items: flex-start;
-			min-width: 600px;
-		}
-	}
+	// 	@media (max-width: 1100px) {
+	// 		flex-direction: row;
+	// 		align-items: flex-start;
+	// 		min-width: 600px;
+	// 	}
+	// }
 </style>

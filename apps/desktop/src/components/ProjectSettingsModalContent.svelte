@@ -48,7 +48,7 @@
 
 	const pages = $derived(allPages.filter((page) => !page.requireCodegen || !$codegenDisabled));
 
-	let currentSelectedId = $state(data.selectedId || pages[0]!.id);
+	let currentSelectedId = $derived(data.selectedId || pages.at(0)?.id);
 
 	function selectPage(pageId: string) {
 		currentSelectedId = pageId;

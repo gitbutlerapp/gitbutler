@@ -190,13 +190,6 @@
 		animation: row-wiggle 5s ease-in-out infinite;
 	}
 
-	.codegen-row__icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 16px;
-	}
-
 	.codegen-row__title {
 		flex: 1;
 		color: var(--clr-theme-purp-on-soft);

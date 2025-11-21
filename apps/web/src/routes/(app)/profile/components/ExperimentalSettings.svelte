@@ -43,9 +43,3 @@
 		{/snippet}
 	</SectionCard>
 </div>
-
-<style lang="postcss">
-	.section-title {
-		margin-top: 24px;
-	}
-</style>
