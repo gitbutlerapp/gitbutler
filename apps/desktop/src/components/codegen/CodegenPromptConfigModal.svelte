@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Codeblock from '$components/codegen/Codeblock.svelte';
+	import { Codeblock } from '@gitbutler/ui';
 	import { Modal, Segment, SegmentControl, Button } from '@gitbutler/ui';
 	import type { PromptDir } from '$lib/codegen/types';
 

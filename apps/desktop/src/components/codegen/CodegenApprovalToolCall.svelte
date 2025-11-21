@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Codeblock from '$components/codegen/Codeblock.svelte';
+	import { Codeblock } from '@gitbutler/ui';
 	import { type ToolCall } from '$lib/codegen/messages';
 	import { formatToolCall, getToolIcon } from '$lib/utils/codegenTools';
 	import {
