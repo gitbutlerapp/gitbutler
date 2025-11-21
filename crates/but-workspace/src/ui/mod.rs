@@ -21,10 +21,7 @@ use crate::{
 /// Represents the state a commit could be in.
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(tag = "type", content = "subject")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/CommitState.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub enum CommitState {
     /// The commit is only local
     LocalOnly,
@@ -61,7 +58,7 @@ impl CommitState {
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
 #[derive(Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/Commit.ts"))]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct Commit {
     /// The OID of the commit.
     #[serde(with = "but_serde::object_id")]
@@ -125,10 +122,7 @@ impl std::fmt::Debug for Commit {
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
 #[derive(Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/UpstreamCommit.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct UpstreamCommit {
     /// The OID of the commit.
     #[serde(with = "but_serde::object_id")]
@@ -158,10 +152,7 @@ impl std::fmt::Debug for UpstreamCommit {
 /// Represents the pushable status for the current stack.
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/PushStatus.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub enum PushStatus {
     /// Can push, but there are no changes to be pushed
     NothingToPush,

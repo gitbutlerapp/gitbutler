@@ -5,7 +5,7 @@ use ts_rs::TS;
 /// Represents the author of a commit.
 #[derive(Serialize, Hash, Clone, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/Author.ts"))]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct Author {
     /// The name from the git commit signature
     pub name: String,

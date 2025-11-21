@@ -286,7 +286,7 @@ impl Workspace {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
-    ts(export, export_to = "./core/refMetadata/Branch.ts")
+    ts(export, export_to = "./core/refMetadata/index.ts")
 )]
 pub struct Branch {
     /// Standard data we want to know about any ref.
@@ -355,7 +355,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
-    ts(export, export_to = "./core/refMetadata/RefInfo.ts")
+    ts(export, export_to = "./core/refMetadata/index.ts")
 )]
 pub struct RefInfo {
     /// The time of creation, *if we created the reference*.
@@ -506,7 +506,7 @@ impl WorkspaceStack {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
-    ts(export, export_to = "./core/refMetadata/Review.ts")
+    ts(export, export_to = "./core/refMetadata/index.ts")
 )]
 pub struct Review {
     /// The number for the PR that was associated with this branch.

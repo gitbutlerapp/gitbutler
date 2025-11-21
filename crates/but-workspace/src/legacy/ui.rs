@@ -10,7 +10,7 @@ use ts_rs::TS;
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
-    ts(export, export_to = "./workspace/legacy/StackHeadInfo.ts")
+    ts(export, export_to = "./workspace/legacy/index.ts")
 )]
 pub struct StackHeadInfo {
     /// The name of the branch.
@@ -44,7 +44,7 @@ impl StackHeadInfo {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
-    ts(export, export_to = "./workspace/legacy/StackEntry.ts")
+    ts(export, export_to = "./workspace/legacy/index.ts")
 )]
 pub struct StackEntry {
     /// The ID of the stack.
