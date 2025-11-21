@@ -54,7 +54,7 @@ impl Outcome {
 pub(super) mod function {
     use std::collections::BTreeSet;
 
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use bstr::{BString, ByteSlice};
     use gix::{diff::index::Change, object::tree::EntryKind};
     use tracing::instrument;

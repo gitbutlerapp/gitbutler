@@ -28,7 +28,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use but_core::ref_metadata::StackId;
-use gitbutler_command_context::CommandContext;
+use but_ctx::{Context, ThreadSafeContext};
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::bstr::ByteSlice;
 use serde::Serialize;
@@ -73,8 +73,8 @@ impl Claudes {
 
     pub async fn send_message(
         &self,
-        ctx: Arc<Mutex<CommandContext>>,
-        broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
+        ctx: ThreadSafeContext,
+        broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
         user_params: ClaudeUserParams,
     ) -> Result<()> {
@@ -93,8 +93,8 @@ impl Claudes {
 
     pub async fn compact_history(
         &self,
-        ctx: Arc<Mutex<CommandContext>>,
-        broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
+        ctx: ThreadSafeContext,
+        broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
     ) -> Result<()> {
         if self.requests.lock().await.contains_key(&stack_id) {
@@ -108,11 +108,7 @@ impl Claudes {
         Ok(())
     }
 
-    pub fn get_messages(
-        &self,
-        ctx: &mut CommandContext,
-        stack_id: StackId,
-    ) -> Result<Vec<ClaudeMessage>> {
+    pub fn get_messages(&self, ctx: &mut Context, stack_id: StackId) -> Result<Vec<ClaudeMessage>> {
         let rule = list_claude_assignment_rules(ctx)?
             .into_iter()
             .find(|rule| rule.stack_id == stack_id);
@@ -147,25 +143,27 @@ impl Claudes {
 
     async fn spawn_claude(
         &self,
-        ctx: Arc<Mutex<CommandContext>>,
-        broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
+        sync_ctx: ThreadSafeContext,
+        broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
         user_params: ClaudeUserParams,
     ) -> () {
         let res = self
-            .spawn_claude_inner(ctx.clone(), broadcaster.clone(), stack_id, user_params)
+            .spawn_claude_inner(sync_ctx.clone(), broadcaster.clone(), stack_id, user_params)
             .await;
         if let Err(res) = res {
-            let mut ctx = ctx.lock().await;
             self.requests.lock().await.remove(&stack_id);
 
-            let rule = list_claude_assignment_rules(&mut ctx)
-                .ok()
-                .and_then(|rules| rules.into_iter().find(|rule| rule.stack_id == stack_id));
+            let rule = {
+                let mut ctx = sync_ctx.clone().into_thread_local();
+                list_claude_assignment_rules(&mut ctx)
+                    .ok()
+                    .and_then(|rules| rules.into_iter().find(|rule| rule.stack_id == stack_id))
+            };
 
             if let Some(rule) = rule {
                 let _ = send_claude_message(
-                    &mut ctx,
+                    sync_ctx,
                     broadcaster.clone(),
                     rule.session_id,
                     stack_id,
@@ -180,8 +178,8 @@ impl Claudes {
 
     async fn spawn_claude_inner(
         &self,
-        ctx: Arc<Mutex<CommandContext>>,
-        broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
+        sync_ctx: ThreadSafeContext,
+        broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
         user_params: ClaudeUserParams,
     ) -> Result<()> {
@@ -200,23 +198,21 @@ impl Claudes {
         //
         // https://github.com/anthropics/claude-code/issues/5161 could
         // simplify this
-        let rule = {
-            let mut ctx = ctx.lock().await;
-            list_claude_assignment_rules(&mut ctx)?
-                .into_iter()
-                .find(|rule| rule.stack_id == stack_id)
-        };
+        let (summary_to_resume, session_id, session) = {
+            let mut ctx = sync_ctx.clone().into_thread_local();
+            let rule = {
+                list_claude_assignment_rules(&mut ctx)?
+                    .into_iter()
+                    .find(|rule| rule.stack_id == stack_id)
+            };
 
-        let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
+            let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
 
-        let broadcaster = broadcaster.clone();
-
-        let session = upsert_session(ctx.clone(), session_id, stack_id).await?;
-        let summary_to_resume = {
-            let mut ctx = ctx.lock().await;
+            let session = upsert_session(&mut ctx, session_id, stack_id)?;
+            let mut ctx = sync_ctx.clone().into_thread_local();
             let messages = list_messages_by_session(&mut ctx, session.id)?;
 
-            if let Some(ClaudeMessage { payload, .. }) = messages.last() {
+            let summary = if let Some(ClaudeMessage { payload, .. }) = messages.last() {
                 match payload {
                     MessagePayload::System(SystemMessage::CompactFinished { summary }) => {
                         Some(summary.clone())
@@ -225,28 +221,27 @@ impl Claudes {
                 }
             } else {
                 None
-            }
+            };
+            (summary, session_id, session)
         };
 
-        {
-            let mut ctx = ctx.lock().await;
-            // Store the original message for UI display (without inlined file content)
-            // while Claude gets the enhanced message with file content inlined
-            send_claude_message(
-                &mut ctx,
-                broadcaster.clone(),
-                session_id,
-                stack_id,
-                MessagePayload::User(UserInput {
-                    message: user_params.message.clone(), // Original user message for display
-                    attachments: user_params.attachments.clone(),
-                }),
-            )
-            .await?;
-        }
+        // Store the original message for UI display (without inlined file content)
+        // while Claude gets the enhanced message with file content inlined
+        send_claude_message(
+            sync_ctx.clone(),
+            broadcaster.clone(),
+            session_id,
+            stack_id,
+            MessagePayload::User(UserInput {
+                message: user_params.message.clone(), // Original user message for display
+                attachments: user_params.attachments.clone(),
+            }),
+        )
+        .await?;
+
         let (read_stdout, writer) = std::io::pipe()?;
         let response_streamer = spawn_response_streaming(
-            ctx.clone(),
+            sync_ctx.clone(),
             broadcaster.clone(),
             read_stdout,
             session_id,
@@ -255,13 +250,13 @@ impl Claudes {
 
         let (read_stderr, write_stderr) = std::io::pipe()?;
         // Clone so the reference to ctx can be immediatly dropped
-        let project = ctx.lock().await.project().clone();
+        let project_workdir = sync_ctx.legacy_project.worktree_dir()?.to_owned();
         let mut handle = spawn_command(
             writer,
             write_stderr,
             session,
-            project.worktree_dir()?.to_owned(),
-            ctx.clone(),
+            project_workdir,
+            sync_ctx.clone(),
             user_params,
             summary_to_resume,
             stack_id,
@@ -277,7 +272,7 @@ impl Claudes {
         self.requests.lock().await.remove(&stack_id);
 
         handle_exit(
-            ctx.clone(),
+            sync_ctx.clone(),
             broadcaster.clone(),
             stack_id,
             session_id,
@@ -289,33 +284,30 @@ impl Claudes {
 
         // Broadcast system any messages created during this Claude session
         // (e.g., commit created notification from the Stop hook)
-        {
-            let mut ctx_guard = ctx.lock().await;
-            if let Ok(all_messages) = db::list_messages_by_session(&mut ctx_guard, session_id) {
-                let new_messages: Vec<_> = all_messages
-                    .into_iter()
-                    .filter(|msg| matches!(msg.payload, MessagePayload::GitButler(_)))
-                    .filter(|msg| msg.created_at > session_start_time)
-                    .collect();
+        let project_id = sync_ctx.legacy_project.id;
+        let all_messages = {
+            let mut ctx = sync_ctx.clone().into_thread_local();
+            db::list_messages_by_session(&mut ctx, session_id)
+        };
+        if let Ok(all_messages) = all_messages {
+            let new_messages: Vec<_> = all_messages
+                .into_iter()
+                .filter(|msg| matches!(msg.payload, MessagePayload::GitButler(_)))
+                .filter(|msg| msg.created_at > session_start_time)
+                .collect();
 
-                let project_id = ctx_guard.project().id;
-
-                // Broadcast each new message
-                for message in new_messages {
-                    broadcaster.lock().await.send(FrontendEvent {
-                        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
-                        payload: serde_json::json!(message),
-                    });
-                }
+            // Broadcast each new message
+            for message in new_messages {
+                broadcaster.lock().await.send(FrontendEvent {
+                    name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+                    payload: serde_json::json!(message),
+                });
             }
         }
 
         // Send completion notification
-        {
-            let app_settings = ctx.lock().await.app_settings().clone();
-            if let Err(e) = crate::notifications::notify_completion(&app_settings) {
-                tracing::warn!("Failed to send completion notification: {}", e);
-            }
+        if let Err(e) = crate::notifications::notify_completion(&sync_ctx.settings) {
+            tracing::warn!("Failed to send completion notification: {}", e);
         }
 
         Ok(())
@@ -323,7 +315,7 @@ impl Claudes {
 }
 
 async fn handle_exit(
-    ctx: Arc<Mutex<CommandContext>>,
+    ctx: ThreadSafeContext,
     broadcaster: Arc<Mutex<Broadcaster>>,
     stack_id: StackId,
     session_id: uuid::Uuid,
@@ -336,9 +328,8 @@ async fn handle_exit(
             let exit_status = exit_status?;
             let mut buf = String::new();
             read_stderr.read_to_string(&mut buf)?;
-            let mut ctx = ctx.lock().await;
             send_claude_message(
-                &mut ctx,
+                ctx,
                 broadcaster.clone(),
                 session_id,
                 stack_id,
@@ -368,9 +359,8 @@ async fn handle_exit(
             {
                 handle.kill().await?;
             }
-            let mut ctx = ctx.lock().await;
             send_claude_message(
-                &mut ctx,
+                ctx,
                 broadcaster.clone(),
                 session_id,
                 stack_id,
@@ -394,7 +384,7 @@ async fn spawn_command(
     write_stderr: std::io::PipeWriter,
     session: crate::ClaudeSession,
     project_path: std::path::PathBuf,
-    ctx: Arc<Mutex<CommandContext>>,
+    sync_ctx: ThreadSafeContext,
     user_params: ClaudeUserParams,
     summary_to_resume: Option<String>,
     stack_id: StackId,
@@ -402,8 +392,7 @@ async fn spawn_command(
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
 
-    let app_settings = ctx.lock().await.app_settings().clone();
-    let claude_executable = app_settings.claude.executable.clone();
+    let claude_executable = sync_ctx.settings.claude.executable.clone();
     let cc_settings = ClaudeSettings::open(&project_path).await;
 
     // Determine what session ID Claude will use - needed for MCP server configuration
@@ -462,13 +451,18 @@ async fn spawn_command(
     command.args(["--output-format", "stream-json"]);
 
     // Only add --model if useConfiguredModel is false
-    if !app_settings.claude.use_configured_model {
+    if !sync_ctx.settings.clone().claude.use_configured_model {
         command.args(["--model", user_params.model.to_cli_string()]);
     }
 
     command.args(["--verbose"]);
 
-    if app_settings.claude.dangerously_allow_all_permissions {
+    if sync_ctx
+        .settings
+        .clone()
+        .claude
+        .dangerously_allow_all_permissions
+    {
         command.arg("--dangerously-skip-permissions");
     } else {
         command.args([
@@ -508,7 +502,7 @@ async fn spawn_command(
 
     // Format branch information for the system prompt
     let branch_info = {
-        let mut ctx = ctx.lock().await;
+        let mut ctx = sync_ctx.clone().into_thread_local();
         format_branch_info(&mut ctx, stack_id)
     };
     let system_prompt = format!("{}\n\n{}", SYSTEM_PROMPT, branch_info);
@@ -579,7 +573,7 @@ Sorry, this project is managed by GitButler so you must integrate upstream upstr
 </git-usage>";
 
 /// Formats branch information for the system prompt
-fn format_branch_info(ctx: &mut CommandContext, stack_id: StackId) -> String {
+fn format_branch_info(ctx: &mut Context, stack_id: StackId) -> String {
     let mut output = String::from(
         "<branch-info>\n\
         This repository uses GitButler for branch management. While git shows you are on\n\
@@ -602,8 +596,8 @@ fn format_branch_info(ctx: &mut CommandContext, stack_id: StackId) -> String {
 }
 
 /// Appends target branch (upstream) information to the output
-fn append_target_branch_info(output: &mut String, ctx: &CommandContext) {
-    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+fn append_target_branch_info(output: &mut String, ctx: &Context) {
+    let state = VirtualBranchesHandle::new(ctx.project_data_dir());
     match state.get_default_target() {
         Ok(target) => {
             output.push_str(&format!(
@@ -619,7 +613,7 @@ fn append_target_branch_info(output: &mut String, ctx: &CommandContext) {
 }
 
 /// Appends information about branches in the stack
-fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &mut CommandContext) {
+fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &mut Context) {
     match but_workspace::legacy::stack_branches(stack_id, ctx) {
         Ok(branches) if !branches.is_empty() => {
             if let Some(first_branch) = branches.first() {
@@ -657,7 +651,7 @@ fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &mut 
 }
 
 /// Appends information about files assigned to this stack
-fn append_assigned_files_info(output: &mut String, stack_id: StackId, ctx: &mut CommandContext) {
+fn append_assigned_files_info(output: &mut String, stack_id: StackId, ctx: &mut Context) {
     let assignments = match but_hunk_assignment::assignments_with_fallback(
         ctx,
         false,
@@ -772,18 +766,17 @@ fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
 
 /// If a session exists, it just returns it, otherwise it creates a new session
 /// and makes a cooresponding rule
-async fn upsert_session(
-    ctx: Arc<Mutex<CommandContext>>,
+fn upsert_session(
+    ctx: &mut Context,
     session_id: uuid::Uuid,
     stack_id: StackId,
 ) -> Result<crate::ClaudeSession> {
-    let mut ctx = ctx.lock().await;
-    let session = if let Some(session) = db::get_session_by_id(&mut ctx, session_id)? {
-        db::set_session_in_gui(&mut ctx, session_id, true)?;
+    let session = if let Some(session) = db::get_session_by_id(ctx, session_id)? {
+        db::set_session_in_gui(ctx, session_id, true)?;
         session
     } else {
-        let session = db::save_new_session_with_gui_flag(&mut ctx, session_id, true)?;
-        create_claude_assignment_rule(&mut ctx, session_id, stack_id)?;
+        let session = db::save_new_session_with_gui_flag(ctx, session_id, true)?;
+        create_claude_assignment_rule(ctx, session_id, stack_id)?;
         session
     };
     Ok(session)
@@ -792,7 +785,7 @@ async fn upsert_session(
 /// Spawns the thread that manages reading the CC stdout and saves the events to
 /// the db and streams them to the client.
 fn spawn_response_streaming(
-    ctx: Arc<Mutex<CommandContext>>,
+    sync_ctx: ThreadSafeContext,
     broadcaster: Arc<Mutex<Broadcaster>>,
     read_stdout: PipeReader,
     session_id: uuid::Uuid,
@@ -813,27 +806,29 @@ fn spawn_response_streaming(
 
         let mut first = true;
         while let Some(line) = rx.recv().await {
-            let mut ctx = ctx.lock().await;
             let parsed_event: serde_json::Value = serde_json::from_str(&line).unwrap();
 
-            if first {
-                let current_session_id = parsed_event["session_id"]
-                    .as_str()
-                    .unwrap()
-                    .parse()
-                    .unwrap();
-                let session = db::get_session_by_id(&mut ctx, session_id).unwrap();
-                if session.is_some() {
-                    db::add_session_id(&mut ctx, session_id, current_session_id).unwrap();
+            {
+                let mut ctx = sync_ctx.clone().into_thread_local();
+                if first {
+                    let current_session_id = parsed_event["session_id"]
+                        .as_str()
+                        .unwrap()
+                        .parse()
+                        .unwrap();
+                    let session = db::get_session_by_id(&mut ctx, session_id).unwrap();
+                    if session.is_some() {
+                        db::add_session_id(&mut ctx, session_id, current_session_id).unwrap();
+                    }
+                    first = false;
                 }
-                first = false;
             }
 
             let message_content = MessagePayload::Claude(ClaudeOutput {
                 data: parsed_event.clone(),
             });
             send_claude_message(
-                &mut ctx,
+                sync_ctx.clone(),
                 broadcaster.clone(),
                 session_id,
                 stack_id,

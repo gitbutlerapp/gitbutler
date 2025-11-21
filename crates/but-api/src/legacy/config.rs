@@ -11,7 +11,7 @@ use tracing::instrument;
 #[instrument(err(Debug))]
 pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings> {
     gitbutler_project::get(project_id)?
-        .open()?
+        .open_repo()?
         .git_settings()
         .map(Into::into)
 }
@@ -20,7 +20,7 @@ pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings> {
 #[instrument(err(Debug))]
 pub fn set_gb_config(project_id: ProjectId, config: GitConfigSettings) -> Result<()> {
     gitbutler_project::get(project_id)?
-        .open()?
+        .open_repo()?
         .set_git_settings(&config.into())
 }
 
@@ -31,7 +31,7 @@ pub fn store_author_globally_if_unset(
     name: String,
     email: String,
 ) -> Result<()> {
-    let repo = gitbutler_project::get(project_id)?.open()?;
+    let repo = gitbutler_project::get(project_id)?.open_repo()?;
     but_rebase::commit::save_author_if_unset_in_repo(
         &repo,
         gix::config::Source::User,
@@ -56,7 +56,7 @@ pub struct AuthorInfo {
 #[instrument(err(Debug))]
 /// Return the Git author information as the project repository would see it.
 pub fn get_author_info(project_id: ProjectId) -> Result<AuthorInfo> {
-    let repo = gitbutler_project::get(project_id)?.open()?;
+    let repo = gitbutler_project::get(project_id)?.open_repo()?;
     let (name, email) = repo
         .author()
         .transpose()

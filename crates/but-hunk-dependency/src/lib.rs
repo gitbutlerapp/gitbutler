@@ -127,7 +127,7 @@
 //! so in that case it should be fine to fallback to using the first parent.
 mod input;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use but_core::{TreeChange, UnifiedPatch};
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt};

@@ -1,5 +1,5 @@
+use but_ctx::Context;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
-use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 
 pub mod db;
@@ -186,10 +186,7 @@ pub struct CreateRuleRequest {
 }
 
 /// Creates a new workspace rule
-pub fn create_rule(
-    ctx: &mut CommandContext,
-    req: CreateRuleRequest,
-) -> anyhow::Result<WorkspaceRule> {
+pub fn create_rule(ctx: &mut Context, req: CreateRuleRequest) -> anyhow::Result<WorkspaceRule> {
     let rule = WorkspaceRule {
         id: uuid::Uuid::new_v4().to_string(),
         created_at: chrono::Local::now().naive_local(),
@@ -199,7 +196,8 @@ pub fn create_rule(
         action: req.action,
     };
 
-    ctx.db()?
+    ctx.db
+        .get_mut()?
         .workspace_rules()
         .insert(rule.clone().try_into()?)
         .map_err(|e| anyhow::anyhow!("Failed to insert workspace rule: {}", e))?;
@@ -208,8 +206,9 @@ pub fn create_rule(
 }
 
 /// Deletes an existing workspace rule by its ID.
-pub fn delete_rule(ctx: &mut CommandContext, id: &str) -> anyhow::Result<()> {
-    ctx.db()?
+pub fn delete_rule(ctx: &mut Context, id: &str) -> anyhow::Result<()> {
+    ctx.db
+        .get_mut()?
         .workspace_rules()
         .delete(id)
         .map_err(|e| anyhow::anyhow!("Failed to delete workspace rule: {}", e))?;
@@ -245,12 +244,10 @@ impl From<WorkspaceRule> for UpdateRuleRequest {
 }
 
 /// Updates an existing workspace rule with the provided request data.
-pub fn update_rule(
-    ctx: &mut CommandContext,
-    req: UpdateRuleRequest,
-) -> anyhow::Result<WorkspaceRule> {
+pub fn update_rule(ctx: &mut Context, req: UpdateRuleRequest) -> anyhow::Result<WorkspaceRule> {
     let mut rule: WorkspaceRule = ctx
-        .db()?
+        .db
+        .get_mut()?
         .workspace_rules()
         .get(&req.id)?
         .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", req.id))?
@@ -269,7 +266,8 @@ pub fn update_rule(
         rule.action = action;
     }
 
-    ctx.db()?
+    ctx.db
+        .get_mut()?
         .workspace_rules()
         .update(&req.id, rule.clone().try_into()?)
         .map_err(|e| anyhow::anyhow!("Failed to update workspace rule: {}", e))?;
@@ -278,9 +276,10 @@ pub fn update_rule(
 }
 
 /// Retrieves a workspace rule by its ID.
-pub fn get_rule(ctx: &mut CommandContext, id: &str) -> anyhow::Result<WorkspaceRule> {
+pub fn get_rule(ctx: &mut Context, id: &str) -> anyhow::Result<WorkspaceRule> {
     let rule = ctx
-        .db()?
+        .db
+        .get_mut()?
         .workspace_rules()
         .get(id)?
         .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", id))?
@@ -289,9 +288,10 @@ pub fn get_rule(ctx: &mut CommandContext, id: &str) -> anyhow::Result<WorkspaceR
 }
 
 /// Lists all workspace rules in the database.
-pub fn list_rules(ctx: &mut CommandContext) -> anyhow::Result<Vec<WorkspaceRule>> {
+pub fn list_rules(ctx: &mut Context) -> anyhow::Result<Vec<WorkspaceRule>> {
     let rules = ctx
-        .db()?
+        .db
+        .get_mut()?
         .workspace_rules()
         .list()?
         .into_iter()
@@ -300,13 +300,11 @@ pub fn list_rules(ctx: &mut CommandContext) -> anyhow::Result<Vec<WorkspaceRule>
     Ok(rules)
 }
 
-pub fn process_rules(ctx: &mut CommandContext) -> anyhow::Result<()> {
-    let wt_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
+pub fn process_rules(ctx: &mut Context) -> anyhow::Result<()> {
+    let wt_changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?;
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
         ctx,
-        ctx.project().worktree_dir()?,
-        &ctx.project().gb_dir(),
         Some(wt_changes.changes.clone()),
     )?;
 

@@ -1,7 +1,7 @@
 use std::path::Path;
 
+use but_ctx::Context;
 use but_oxidize::OidExt;
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
@@ -52,18 +52,18 @@ pub fn common_merge_base_with_target_branch(gb_dir: &Path) -> anyhow::Result<gix
 /// The `Commit` type is the same as that of the other workspace endpoints - for that reason,
 /// the fields `has_conflicts` and `state` are somewhat meaningless.
 pub fn log_target_first_parent(
-    ctx: &CommandContext,
+    ctx: &Context,
     last_commit_id: Option<gix::ObjectId>,
     limit: usize,
 ) -> anyhow::Result<Vec<crate::ui::Commit>> {
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let traversal_root_id = match last_commit_id {
         Some(id) => {
             let commit = repo.find_commit(id)?;
             commit.parent_ids().next()
         }
         None => {
-            let state = state_handle(&ctx.project().gb_dir());
+            let state = state_handle(&ctx.project_data_dir());
             let default_target = state.get_default_target()?;
             Some(
                 repo.find_reference(&default_target.branch.to_string())?

@@ -1,9 +1,9 @@
 use anyhow::Result;
 use but_core::Reference;
+use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{Rebase, RebaseStep, ReferenceSpec};
 use gitbutler_cherry_pick::GixRepositoryExt;
-use gitbutler_command_context::CommandContext;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::{CommitOrChangeId, StackBranch, StackId, VirtualBranchesHandle};
 
@@ -29,15 +29,15 @@ use crate::legacy::{
 /// 3. Remove all but the specified changes from the new branch.
 /// 4. Create a stack from out of the new branch.
 pub fn split_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: &[String],
     context_lines: u32,
 ) -> Result<(ReferenceSpec, MoveChangesResult)> {
-    let repository = ctx.gix_repo()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repository = ctx.repo.get()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
@@ -80,7 +80,8 @@ pub fn split_branch(
 
     // Remove all but the specified changes from the new branch
     let new_branch_commits =
-        ctx.repo()
+        ctx.git2_repo
+            .get()?
             .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
 
     // Branch as rebase steps
@@ -141,15 +142,15 @@ pub fn split_branch(
 /// 4. Insert the new branch as a dependent branch in the stack.
 /// 5. Update the stack
 pub fn split_into_dependent_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: &[String],
     context_lines: u32,
 ) -> Result<MoveChangesResult> {
-    let repository = ctx.gix_repo()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repository = ctx.repo.get()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
@@ -173,7 +174,8 @@ pub fn split_into_dependent_branch(
 
     // Remove all but the specified changes from the new branch
     let new_branch_commits =
-        ctx.repo()
+        ctx.git2_repo
+            .get()?
             .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
 
     // Branch as rebase steps
@@ -256,7 +258,7 @@ pub fn split_into_dependent_branch(
 ///
 /// All commits that end up empty after removing the specified file changes will be dropped.
 fn filter_file_changes_in_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     repository: &gix::Repository,
     file_changes_to_split_off: &[String],
     source_stack: gitbutler_stack::Stack,
@@ -287,7 +289,7 @@ fn filter_file_changes_in_branch(
 }
 
 fn construct_source_steps(
-    ctx: &CommandContext,
+    ctx: &Context,
     repository: &gix::Repository,
     file_changes_to_split_off: &[String],
     source_stack: &gitbutler_stack::Stack,

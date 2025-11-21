@@ -47,7 +47,6 @@ gitbutler-sync = { path = "crates/gitbutler-sync" }
 gitbutler-oplog = { path = "crates/gitbutler-oplog" }
 gitbutler-repo = { path = "crates/gitbutler-repo" }
 gitbutler-repo-actions = { path = "crates/gitbutler-repo-actions" }
-gitbutler-command-context = { path = "crates/gitbutler-command-context" }
 gitbutler-project = { path = "crates/gitbutler-project" }
 gitbutler-user = { path = "crates/gitbutler-user" }
 gitbutler-branch = { path = "crates/gitbutler-branch" }

@@ -1,11 +1,11 @@
 use std::{path::PathBuf, sync::Arc};
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_core::TreeChange;
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
-use gitbutler_command_context::CommandContext;
 use gitbutler_filemonitor::{
     FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
 };
@@ -68,25 +68,26 @@ impl Handler {
         &self,
         project_id: ProjectId,
         app_settings: AppSettings,
-    ) -> Result<CommandContext> {
+    ) -> Result<Context> {
         let project = gitbutler_project::get(project_id).context("failed to get project")?;
-        CommandContext::open(&project, app_settings).context("Failed to create a command context")
+        Ok(Context::new_from_legacy_project_and_settings(
+            &project,
+            app_settings,
+        ))
     }
 
     #[instrument(skip(self, paths, ctx), fields(paths = paths.len()))]
-    fn project_files_change(&self, paths: Vec<PathBuf>, ctx: &mut CommandContext) -> Result<()> {
+    fn project_files_change(&self, paths: Vec<PathBuf>, ctx: &mut Context) -> Result<()> {
         let _ = self.emit_worktree_changes(ctx);
 
         Ok(())
     }
 
-    fn emit_worktree_changes(&self, ctx: &mut CommandContext) -> Result<()> {
-        let wt_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
+    fn emit_worktree_changes(&self, ctx: &mut Context) -> Result<()> {
+        let wt_changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?;
 
         let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
             ctx,
-            ctx.project().worktree_dir()?,
-            &ctx.project().gb_dir(),
             Some(wt_changes.changes.clone()),
         );
 
@@ -103,7 +104,7 @@ impl Handler {
                 .err()
                 .map(|err| serde_error::Error::new(&**err)),
         };
-        if ctx.app_settings().feature_flags.rules
+        if ctx.settings().feature_flags.rules
             && let Ok(update_count) = but_rules::handler::process_workspace_rules(
                 ctx,
                 &assignments,
@@ -126,13 +127,13 @@ impl Handler {
             };
         }
         let _ = self.emit_app_event(Change::WorktreeChanges {
-            project_id: ctx.project().id,
+            project_id: ctx.legacy_project.id,
             changes,
         });
         Ok(())
     }
 
-    pub fn git_files_change(&self, paths: Vec<PathBuf>, ctx: &mut CommandContext) -> Result<()> {
+    pub fn git_files_change(&self, paths: Vec<PathBuf>, ctx: &mut Context) -> Result<()> {
         let (head_ref_name, head_sha) = head_info(ctx)?;
 
         for path in paths {
@@ -141,18 +142,18 @@ impl Handler {
             };
             match file_name {
                 FETCH_HEAD => {
-                    self.emit_app_event(Change::GitFetch(ctx.project().id))?;
+                    self.emit_app_event(Change::GitFetch(ctx.legacy_project.id))?;
                 }
                 // Watch all local branches. Only emit activity if the HEAD points to that ref.
                 _ if file_name.starts_with(LOCAL_REFS_DIR) && file_name == head_ref_name => {
                     self.emit_app_event(Change::GitActivity {
-                        project_id: ctx.project().id,
+                        project_id: ctx.legacy_project.id,
                         head_sha: head_sha.clone(),
                     })?;
                 }
                 HEAD_ACTIVITY => {
                     self.emit_app_event(Change::GitActivity {
-                        project_id: ctx.project().id,
+                        project_id: ctx.legacy_project.id,
                         head_sha: head_sha.clone(),
                     })?;
                 }
@@ -160,10 +161,11 @@ impl Handler {
                     let _ = self.emit_worktree_changes(ctx);
                 }
                 HEAD => {
-                    let head_ref = ctx.repo().head().context("failed to get head")?;
+                    let git2_repo = ctx.git2_repo.get()?;
+                    let head_ref = git2_repo.head().context("failed to get head")?;
                     if let Some(head) = head_ref.name() {
                         self.emit_app_event(Change::GitHead {
-                            project_id: ctx.project().id,
+                            project_id: ctx.legacy_project.id,
                             head: head.to_string(),
                             operating_mode: operating_mode(ctx),
                         })?;
@@ -176,8 +178,8 @@ impl Handler {
     }
 }
 
-fn head_info(ctx: &mut CommandContext) -> Result<(String, String)> {
-    let repo = ctx.repo();
+fn head_info(ctx: &mut Context) -> Result<(String, String)> {
+    let repo = &*ctx.git2_repo.get()?;
     let head_ref = repo.head().context("failed to get head")?;
     let head_name = head_ref.name().map(|s| s.to_string()).unwrap_or_default();
     let head_sha = head_ref
@@ -189,7 +191,7 @@ fn head_info(ctx: &mut CommandContext) -> Result<(String, String)> {
 }
 
 fn assignments_and_errors(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     tree_changes: Vec<TreeChange>,
     dependencies: &Result<but_hunk_dependency::ui::HunkDependencies>,
 ) -> Result<(Vec<HunkAssignment>, Option<serde_error::Error>)> {

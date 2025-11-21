@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, io::Read, path::PathBuf};
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gix::{
     dir::{entry, walk::EmissionMode},

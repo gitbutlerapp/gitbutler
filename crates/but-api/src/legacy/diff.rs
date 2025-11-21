@@ -1,16 +1,16 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_api_macros::api_cmd_tauri;
 use but_core::{
     Commit,
     ref_metadata::StackId,
     ui::{TreeChange, TreeChanges},
 };
+use but_ctx::Context;
 use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeChanges};
 use but_hunk_dependency::ui::{
     HunkDependencies, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
 use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::Refname;
 use gix::refs::Category;
@@ -29,7 +29,7 @@ pub fn tree_change_diffs(
     let change: but_core::TreeChange = change.into();
     let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
-    let repo = project.open()?;
+    let repo = project.open_repo()?;
     change.unified_patch(&repo, app_settings.context_lines)
 }
 
@@ -54,7 +54,7 @@ pub fn commit_details(
     commit_id: HexHash,
 ) -> anyhow::Result<json::CommitDetails> {
     let project = gitbutler_project::get(project_id)?;
-    let repo = project.open()?;
+    let repo = project.open_repo()?;
     let commit = repo
         .find_commit(commit_id)
         .context("Failed for find commit")?;
@@ -80,14 +80,14 @@ pub fn changes_in_branch(
     _stack_id: Option<StackId>,
     branch: Refname,
 ) -> anyhow::Result<TreeChanges> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     changes_in_branch_inner(ctx, branch)
 }
 
-fn changes_in_branch_inner(ctx: CommandContext, branch: Refname) -> anyhow::Result<TreeChanges> {
-    let guard = ctx.project().shared_worktree_access();
-    let (repo, _meta, graph) = ctx.graph_and_meta(ctx.gix_repo()?, guard.read_permission())?;
+fn changes_in_branch_inner(ctx: Context, branch: Refname) -> anyhow::Result<TreeChanges> {
+    let guard = ctx.shared_worktree_access();
+    let (repo, _meta, graph) =
+        ctx.graph_and_meta_and_repo_from_head(ctx.repo.get()?.clone(), guard.read_permission())?;
     let name = match branch {
         Refname::Virtual(virtual_refname) => {
             Category::LocalBranch.to_full_name(virtual_refname.branch())?
@@ -115,15 +115,11 @@ fn changes_in_branch_inner(ctx: CommandContext, branch: Refname) -> anyhow::Resu
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChanges> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
+    let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?;
 
-    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-        ctx,
-        ctx.project().worktree_dir()?,
-        &ctx.project().gb_dir(),
-        Some(changes.changes.clone()),
-    );
+    let dependencies =
+        hunk_dependencies_for_workspace_changes_by_worktree_dir(ctx, Some(changes.changes.clone()));
 
     // If the dependencies calculation failed, we still want to try to get assignments
     // so we pass an empty HunkDependencies in that case.
@@ -142,7 +138,7 @@ pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChan
         )?,
     };
 
-    if ctx.app_settings().feature_flags.rules {
+    if ctx.settings().feature_flags.rules {
         but_rules::handler::process_workspace_rules(
             ctx,
             &assignments,
@@ -170,7 +166,7 @@ pub fn assign_hunk(
     assignments: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<Vec<AssignmentRejection>> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let rejections = but_hunk_assignment::assign(ctx, assignments, None)?;
     Ok(rejections)
 }

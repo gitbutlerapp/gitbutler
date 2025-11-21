@@ -13,9 +13,9 @@ use crate::util::{IntoString, test_ctx};
 fn test_create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.open_repo()?;
 
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
@@ -93,9 +93,9 @@ fn test_create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
 fn test_causes_conflicts_above() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.open_repo()?;
 
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
@@ -177,9 +177,9 @@ fn test_causes_conflicts_above() -> anyhow::Result<()> {
 fn test_causes_workdir_conflicts_simple() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    let path = ctx.project().worktree_dir()?.to_owned();
+    let path = ctx.legacy_project.worktree_dir()?.to_owned();
 
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
 
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
     let b = worktree_new(&mut ctx, guard.read_permission(), feature_b_name.as_ref())?;
@@ -233,9 +233,9 @@ fn test_causes_workdir_conflicts_simple() -> anyhow::Result<()> {
 fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    let path = ctx.project().worktree_dir()?.to_owned();
+    let path = ctx.legacy_project.worktree_dir()?.to_owned();
 
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
@@ -305,7 +305,7 @@ fn test_causes_workspace_conflict() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-and-parallel")?;
     let mut ctx = test_ctx.ctx;
 
-    let guard = ctx.project().exclusive_worktree_access();
+    let guard = ctx.exclusive_worktree_access();
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;

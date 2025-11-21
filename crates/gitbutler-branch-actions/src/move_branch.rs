@@ -1,12 +1,12 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_meta::virtual_branches_legacy_types::CommitOrChangeId;
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_cherry_pick::GixRepositoryExt;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
@@ -26,7 +26,7 @@ pub struct MoveBranchResult {
 }
 
 pub(crate) fn move_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     target_stack_id: StackId,
     target_branch_name: &str,
     source_stack_id: StackId,
@@ -34,8 +34,8 @@ pub(crate) fn move_branch(
     perm: &mut WorktreeWritePermission,
 ) -> Result<MoveBranchResult> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let repository = ctx.gix_repo()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repo = ctx.repo.get()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
     let source_merge_base = source_stack.merge_base(ctx)?;
@@ -53,7 +53,7 @@ pub(crate) fn move_branch(
         ctx,
         source_stack_id,
         subject_branch_name,
-        &repository,
+        &repo,
         &vb_state,
         source_stack,
         source_merge_base,
@@ -64,7 +64,7 @@ pub(crate) fn move_branch(
         ctx,
         target_branch_name,
         subject_branch_name,
-        repository,
+        &repo,
         &vb_state,
         destination_stack,
         destination_merge_base,
@@ -85,14 +85,14 @@ pub(crate) fn move_branch(
 
 /// Tears off a branch from the source stack, creating a new stack for it.
 pub(crate) fn tear_off_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     source_stack_id: StackId,
     subject_branch_name: &str,
     perm: &mut WorktreeWritePermission,
 ) -> Result<MoveBranchResult> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let repository = ctx.gix_repo()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repository = ctx.repo.get()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
     let source_merge_base = source_stack.merge_base(ctx)?;
@@ -151,10 +151,10 @@ pub(crate) fn tear_off_branch(
 #[expect(clippy::too_many_arguments)]
 /// Injects the extracted branch steps into the destination stack and rebases it.
 fn inject_branch_steps_into_destination(
-    ctx: &CommandContext,
+    ctx: &Context,
     target_branch_name: &str,
     subject_branch_name: &str,
-    repository: gix::Repository,
+    repo: &gix::Repository,
     vb_state: &VirtualBranchesHandle,
     destination_stack: gitbutler_stack::Stack,
     destination_merge_base: gix::ObjectId,
@@ -163,17 +163,17 @@ fn inject_branch_steps_into_destination(
 ) -> Result<(), anyhow::Error> {
     let new_destination_steps = inject_branch_steps(
         ctx,
-        &repository,
+        repo,
         &destination_stack,
         target_branch_name,
         subject_branch_steps,
     )?;
 
-    let mut destination_stack_rebase = Rebase::new(&repository, destination_merge_base, None)?;
+    let mut destination_stack_rebase = Rebase::new(repo, destination_merge_base, None)?;
     destination_stack_rebase.steps(new_destination_steps)?;
     destination_stack_rebase.rebase_noops(false);
     let destination_rebase_result = destination_stack_rebase.rebase()?;
-    let new_destination_head = repository.find_commit(destination_rebase_result.top_commit)?;
+    let new_destination_head = repo.find_commit(destination_rebase_result.top_commit)?;
     let mut destination_stack = destination_stack;
 
     let target_branch_reference = destination_rebase_result
@@ -189,7 +189,7 @@ fn inject_branch_steps_into_destination(
         CommitOrChangeId::CommitId(target_branch_head.to_string()),
         subject_branch_name.to_string(),
         None,
-        &repository,
+        repo,
     )?;
 
     new_head.pr_number = subject_branch_pr_number;
@@ -198,11 +198,10 @@ fn inject_branch_steps_into_destination(
 
     destination_stack.set_stack_head(
         vb_state,
-        &repository,
+        repo,
         new_destination_head.id().to_git2(),
         Some(
-            repository
-                .find_real_tree(&new_destination_head.id(), Default::default())?
+            repo.find_real_tree(&new_destination_head.id(), Default::default())?
                 .to_git2(),
         ),
     )?;
@@ -214,7 +213,7 @@ fn inject_branch_steps_into_destination(
 
 /// Extracts the steps corresponding to the branch to move, and rebases the source stack without those steps.
 fn extract_and_rebase_source_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     source_stack_id: StackId,
     subject_branch_name: &str,
     repository: &gix::Repository,
@@ -258,7 +257,7 @@ fn extract_and_rebase_source_branch(
 }
 
 fn extract_branch_steps(
-    ctx: &CommandContext,
+    ctx: &Context,
     repository: &gix::Repository,
     source_stack: &gitbutler_stack::Stack,
     subject_branch_name: &str,
@@ -310,7 +309,7 @@ fn extract_branch_steps(
 }
 
 fn inject_branch_steps(
-    ctx: &CommandContext,
+    ctx: &Context,
     repository: &gix::Repository,
     destination_stack: &gitbutler_stack::Stack,
     destination_branch_name: &str,

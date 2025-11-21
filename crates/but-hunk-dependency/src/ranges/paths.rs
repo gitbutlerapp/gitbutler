@@ -3,7 +3,7 @@ use std::{
     vec,
 };
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use but_core::{TreeStatusKind, ref_metadata::StackId};
 
 use crate::{HunkRange, InputDiffHunk, utils::PaniclessSubtraction};

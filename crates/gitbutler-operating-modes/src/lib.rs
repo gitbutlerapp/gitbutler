@@ -1,10 +1,10 @@
 use std::{fs, path::PathBuf};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use bstr::BString;
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_serde::BStringForFrontend;
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
@@ -24,12 +24,12 @@ pub const OPEN_WORKSPACE_REFS: [&str; 2] = [INTEGRATION_BRANCH_REF, WORKSPACE_BR
 /// The reference the app will checkout when in edit mode
 pub const EDIT_BRANCH_REF: &str = "refs/heads/gitbutler/edit";
 
-fn edit_mode_metadata_path(ctx: &CommandContext) -> PathBuf {
-    ctx.project().gb_dir().join("edit_mode_metadata.toml")
+fn edit_mode_metadata_path(ctx: &Context) -> PathBuf {
+    ctx.project_data_dir().join("edit_mode_metadata.toml")
 }
 
 #[doc(hidden)]
-pub fn read_edit_mode_metadata(ctx: &CommandContext) -> Result<EditModeMetadata> {
+pub fn read_edit_mode_metadata(ctx: &Context) -> Result<EditModeMetadata> {
     let edit_mode_metadata = fs::read_to_string(edit_mode_metadata_path(ctx).as_path())
         .context("Failed to read edit mode metadata")?;
 
@@ -38,7 +38,7 @@ pub fn read_edit_mode_metadata(ctx: &CommandContext) -> Result<EditModeMetadata>
 
 #[doc(hidden)]
 pub fn write_edit_mode_metadata(
-    ctx: &CommandContext,
+    ctx: &Context,
     edit_mode_metadata: &EditModeMetadata,
 ) -> Result<()> {
     let serialized_edit_mode_metadata =
@@ -84,8 +84,9 @@ pub enum OperatingMode {
     Edit(EditModeMetadata),
 }
 
-pub fn operating_mode(ctx: &CommandContext) -> OperatingMode {
-    let Ok(head_ref) = ctx.repo().head() else {
+pub fn operating_mode(ctx: &Context) -> OperatingMode {
+    let repo = ctx.git2_repo.get().unwrap();
+    let Ok(head_ref) = repo.head() else {
         return OperatingMode::OutsideWorkspace(
             outside_workspace_metadata(ctx).unwrap_or_default(),
         );
@@ -117,16 +118,16 @@ pub fn operating_mode(ctx: &CommandContext) -> OperatingMode {
     }
 }
 
-fn outside_workspace_metadata(ctx: &CommandContext) -> Result<OutsideWorkspaceMetadata> {
+fn outside_workspace_metadata(ctx: &Context) -> Result<OutsideWorkspaceMetadata> {
     // We do a virtual-merge, extracting conflicts.
-    let gix_repo = ctx.gix_repo_for_merging_non_persisting()?;
+    let gix_repo = ctx.open_repo_for_merging_non_persisting()?;
 
     let head = gix_repo.head()?;
     let branch_name = head
         .referent_name()
         .map(|r| r.as_partial_name().as_bstr().to_owned());
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let applied_stacks = vb_state.list_stacks_in_workspace()?;
 
     if vb_state.maybe_get_default_target()?.is_none() || applied_stacks.is_empty() {
@@ -152,11 +153,11 @@ fn outside_workspace_metadata(ctx: &CommandContext) -> Result<OutsideWorkspaceMe
     })
 }
 
-pub fn in_open_workspace_mode(ctx: &CommandContext) -> bool {
+pub fn in_open_workspace_mode(ctx: &Context) -> bool {
     operating_mode(ctx) == OperatingMode::OpenWorkspace
 }
 
-pub fn ensure_open_workspace_mode(ctx: &CommandContext) -> Result<()> {
+pub fn ensure_open_workspace_mode(ctx: &Context) -> Result<()> {
     if in_open_workspace_mode(ctx) {
         Ok(())
     } else {
@@ -164,22 +165,22 @@ pub fn ensure_open_workspace_mode(ctx: &CommandContext) -> Result<()> {
     }
 }
 
-pub fn in_edit_mode(ctx: &CommandContext) -> bool {
+pub fn in_edit_mode(ctx: &Context) -> bool {
     matches!(operating_mode(ctx), OperatingMode::Edit(_))
 }
 
-pub fn ensure_edit_mode(ctx: &CommandContext) -> Result<EditModeMetadata> {
+pub fn ensure_edit_mode(ctx: &Context) -> Result<EditModeMetadata> {
     match operating_mode(ctx) {
         OperatingMode::Edit(edit_mode_metadata) => Ok(edit_mode_metadata),
         _ => bail!("Expected to be in edit mode"),
     }
 }
 
-pub fn in_outside_workspace_mode(ctx: &CommandContext) -> bool {
+pub fn in_outside_workspace_mode(ctx: &Context) -> bool {
     matches!(operating_mode(ctx), OperatingMode::OutsideWorkspace(_))
 }
 
-pub fn ensure_outside_workspace_mode(ctx: &CommandContext) -> Result<()> {
+pub fn ensure_outside_workspace_mode(ctx: &Context) -> Result<()> {
     if in_outside_workspace_mode(ctx) {
         Ok(())
     } else {

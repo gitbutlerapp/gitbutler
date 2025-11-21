@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use but_api::json::Error;
 use but_error::Code;
 use but_settings::AppSettingsWithDiskSync;

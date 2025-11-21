@@ -2,8 +2,8 @@ use std::{io::Write, path::PathBuf, process::Stdio};
 
 use anyhow::Result;
 use bstr::ByteSlice;
+use but_ctx::Context;
 use git2_hooks::{self, HookResult as H};
-use gitbutler_command_context::CommandContext;
 use gitbutler_diff::GitHunk;
 use serde::Serialize;
 
@@ -41,9 +41,10 @@ pub enum MessageHookResult {
     Failure(ErrorData),
 }
 
-pub fn commit_msg(ctx: &CommandContext, mut message: String) -> Result<MessageHookResult> {
+pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResult> {
     let original_message = message.clone();
-    match git2_hooks::hooks_commit_msg(ctx.repo(), Some(&["../.husky"]), &mut message)? {
+    match git2_hooks::hooks_commit_msg(&*ctx.git2_repo.get()?, Some(&["../.husky"]), &mut message)?
+    {
         H::Ok { hook: _ } => match message == original_message {
             true => Ok(MessageHookResult::Success),
             false => Ok(MessageHookResult::Message(MessageData { message })),
@@ -61,11 +62,8 @@ pub fn commit_msg(ctx: &CommandContext, mut message: String) -> Result<MessageHo
     }
 }
 
-pub fn pre_commit(
-    ctx: &CommandContext,
-    selected_hunks: &[(PathBuf, Vec<GitHunk>)],
-) -> Result<HookResult> {
-    let repo = ctx.repo();
+pub fn pre_commit(ctx: &Context, selected_hunks: &[(PathBuf, Vec<GitHunk>)]) -> Result<HookResult> {
+    let repo = &*ctx.git2_repo.get()?;
     let original_tree = repo.index()?.write_tree()?;
 
     // Scope guard that resets the index at the end, even under panic.
@@ -78,7 +76,7 @@ pub fn pre_commit(
 
     staging::stage(ctx, selected_hunks)?;
     Ok(
-        match git2_hooks::hooks_pre_commit(ctx.repo(), Some(&["../.husky"]))? {
+        match git2_hooks::hooks_pre_commit(&*ctx.git2_repo.get()?, Some(&["../.husky"]))? {
             H::Ok { hook: _ } => HookResult::Success,
             H::NoHookFound => HookResult::NotConfigured,
             H::RunNotSuccessful {
@@ -94,8 +92,8 @@ pub fn pre_commit(
     )
 }
 
-pub fn pre_commit_with_tree(ctx: &CommandContext, tree_id: git2::Oid) -> Result<HookResult> {
-    let repo = ctx.repo();
+pub fn pre_commit_with_tree(ctx: &Context, tree_id: git2::Oid) -> Result<HookResult> {
+    let repo = &*ctx.git2_repo.get()?;
     let original_tree = repo.index()?.write_tree()?;
 
     // Scope guard that resets the index at the end, even under panic.
@@ -111,7 +109,7 @@ pub fn pre_commit_with_tree(ctx: &CommandContext, tree_id: git2::Oid) -> Result<
     index.write()?;
 
     Ok(
-        match git2_hooks::hooks_pre_commit(ctx.repo(), Some(&["../.husky"]))? {
+        match git2_hooks::hooks_pre_commit(&*ctx.git2_repo.get()?, Some(&["../.husky"]))? {
             H::Ok { hook: _ } => HookResult::Success,
             H::NoHookFound => HookResult::NotConfigured,
             H::RunNotSuccessful {
@@ -127,8 +125,8 @@ pub fn pre_commit_with_tree(ctx: &CommandContext, tree_id: git2::Oid) -> Result<
     )
 }
 
-pub fn post_commit(ctx: &CommandContext) -> Result<HookResult> {
-    match git2_hooks::hooks_post_commit(ctx.repo(), Some(&["../.husky"]))? {
+pub fn post_commit(ctx: &Context) -> Result<HookResult> {
+    match git2_hooks::hooks_post_commit(&*ctx.git2_repo.get()?, Some(&["../.husky"]))? {
         H::Ok { hook: _ } => Ok(HookResult::Success),
         H::NoHookFound => Ok(HookResult::NotConfigured),
         H::RunNotSuccessful {

@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_rules::{CreateRuleRequest, UpdateRuleRequest};
-use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -48,7 +48,7 @@ impl TryFrom<but_rules::WorkspaceRule> for ClaudeSessionAssignmentRule {
 
 /// Lists all Claude session assignment rules in the workspace.
 pub(crate) fn list_claude_assignment_rules(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
 ) -> anyhow::Result<Vec<ClaudeSessionAssignmentRule>> {
     let rules = but_rules::list_rules(ctx)?
         .iter()
@@ -60,7 +60,7 @@ pub(crate) fn list_claude_assignment_rules(
 
 /// Updates the target stack ID of an existing Claude session assignment rule.
 pub(crate) fn update_claude_assignment_rule_target(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     rule_id: String,
     stack_id: StackId,
 ) -> anyhow::Result<ClaudeSessionAssignmentRule> {
@@ -81,7 +81,7 @@ pub(crate) fn update_claude_assignment_rule_target(
 /// Errors out if there is another rule with a ClaudeCodeHook trigger referencing the same stack ID in the action.
 /// Errors out if there is another rule referencing the same session ID in a filter.
 pub(crate) fn create_claude_assignment_rule(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: Uuid,
     stack_id: StackId,
 ) -> anyhow::Result<ClaudeSessionAssignmentRule> {

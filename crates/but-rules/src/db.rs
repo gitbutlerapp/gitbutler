@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 
 impl TryFrom<but_db::WorkspaceRule> for crate::WorkspaceRule {
     type Error = anyhow::Error;
@@ -29,9 +29,10 @@ impl TryFrom<crate::WorkspaceRule> for but_db::WorkspaceRule {
     }
 }
 
-pub fn workspace_rules(ctx: &mut CommandContext) -> Result<Vec<crate::WorkspaceRule>> {
+pub fn workspace_rules(ctx: &mut Context) -> Result<Vec<crate::WorkspaceRule>> {
     let rules = ctx
-        .db()?
+        .db
+        .get_mut()?
         .workspace_rules()
         .list()?
         .into_iter()

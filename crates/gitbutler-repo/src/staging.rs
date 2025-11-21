@@ -1,15 +1,12 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::{Result, anyhow};
+use but_ctx::Context;
 use git2::{ApplyLocation, ApplyOptions, Repository};
-use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{ChangeType, FileDiff, GitHunk, Hunk};
 
-fn stage_tracked_changes(
-    ctx: &CommandContext,
-    changes: &Vec<&(PathBuf, Vec<GitHunk>)>,
-) -> Result<()> {
-    let repo = ctx.repo();
+fn stage_tracked_changes(ctx: &Context, changes: &Vec<&(PathBuf, Vec<GitHunk>)>) -> Result<()> {
+    let repo = &*ctx.git2_repo.get()?;
     for (path, hunks) in changes {
         let mut apply_opts = ApplyOptions::new();
         apply_opts.hunk_callback(|cb_hunk| {
@@ -30,8 +27,8 @@ fn stage_tracked_changes(
     Ok(())
 }
 
-fn stage_untracked_files(ctx: &CommandContext, paths: &Vec<&PathBuf>) -> Result<()> {
-    let repo = ctx.repo();
+fn stage_untracked_files(ctx: &Context, paths: &Vec<&PathBuf>) -> Result<()> {
+    let repo = &*ctx.git2_repo.get()?;
     let mut index = repo.index()?;
     for path in paths {
         index.add_path(path)?;
@@ -40,7 +37,7 @@ fn stage_untracked_files(ctx: &CommandContext, paths: &Vec<&PathBuf>) -> Result<
     Ok(())
 }
 
-pub fn stage(ctx: &CommandContext, changes: &[(PathBuf, Vec<GitHunk>)]) -> Result<()> {
+pub fn stage(ctx: &Context, changes: &[(PathBuf, Vec<GitHunk>)]) -> Result<()> {
     let (untracked_changes, tracked_changes): (Vec<_>, Vec<_>) = changes
         .iter()
         .partition(|(_path, hunks)| hunks.iter().any(|h| h.change_type == ChangeType::Untracked));

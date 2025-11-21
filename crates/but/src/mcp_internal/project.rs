@@ -9,7 +9,7 @@ pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
 
 pub fn project_repo(path: &Path) -> anyhow::Result<gix::Repository> {
     let project = project_from_path(path)?;
-    configured_repo(project.open()?, RepositoryOpenMode::General)
+    configured_repo(project.open_repo()?, RepositoryOpenMode::General)
 }
 pub enum RepositoryOpenMode {
     // We'll need this later for the commit command

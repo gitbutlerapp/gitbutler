@@ -1,9 +1,9 @@
 use anyhow::Result;
+use but_ctx::Context;
+use but_ctx::access::{WorktreeReadPermission, WorktreeWritePermission};
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_cherry_pick::RepositoryExt;
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 
@@ -19,9 +19,9 @@ pub struct WorkspaceState {
 }
 
 impl WorkspaceState {
-    pub fn create(ctx: &CommandContext, perm: &WorktreeReadPermission) -> Result<Self> {
-        let repo = ctx.repo();
-        let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    pub fn create(ctx: &Context, perm: &WorktreeReadPermission) -> Result<Self> {
+        let repo = &*ctx.git2_repo.get()?;
+        let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
         let heads = vb_state
             .list_stacks_in_workspace()?
@@ -44,11 +44,11 @@ impl WorkspaceState {
     }
 
     pub fn create_from_heads(
-        ctx: &CommandContext,
+        ctx: &Context,
         perm: &WorktreeReadPermission,
         heads: &[gix::ObjectId],
     ) -> Result<Self> {
-        let repo = ctx.repo();
+        let repo = &*ctx.git2_repo.get()?;
 
         let base = workspace_base_from_heads(ctx, perm, heads)?;
 
@@ -73,13 +73,13 @@ impl WorkspaceState {
 /// Update the uncommited changes from one snapshot of the workspace and rebase
 /// them on top of the new snapshot.
 pub fn update_uncommited_changes(
-    ctx: &CommandContext,
+    ctx: &Context,
     old: WorkspaceState,
     new: WorkspaceState,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let repo = ctx.repo();
-    let uncommited_changes = (!ctx.app_settings().feature_flags.cv3)
+    let repo = &*ctx.git2_repo.get()?;
+    let uncommited_changes = (!ctx.settings().feature_flags.cv3)
         .then(|| repo.create_wd_tree(0).map(|tree| tree.id()))
         .transpose()?;
 
@@ -88,14 +88,14 @@ pub fn update_uncommited_changes(
 
 /// `old_uncommitted_changes` is `None` if the `safe_checkout` feature is toggled on in `ctx`
 pub fn update_uncommited_changes_with_tree(
-    ctx: &CommandContext,
+    ctx: &Context,
     old: WorkspaceState,
     new: WorkspaceState,
     old_uncommitted_changes: Option<git2::Oid>,
     always_checkout: Option<bool>,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let repo = ctx.repo();
+    let repo = &*ctx.git2_repo.get()?;
     if let Some(worktree_id) = old_uncommitted_changes {
         let mut new_uncommited_changes = move_tree_between_workspaces(repo, worktree_id, old, new)?;
 
@@ -119,7 +119,7 @@ pub fn update_uncommited_changes_with_tree(
     } else {
         let old_tree_id = merge_workspace(repo, old)?.to_gix();
         let new_tree_id = merge_workspace(repo, new)?.to_gix();
-        let gix_repo = ctx.gix_repo_for_merging()?;
+        let gix_repo = ctx.open_repo_for_merging()?;
         but_core::worktree::safe_checkout(
             old_tree_id,
             new_tree_id,
@@ -212,7 +212,7 @@ pub fn compute_updated_branch_head(
     gix_repo: &gix::Repository,
     stack: &Stack,
     new_head: git2::Oid,
-    ctx: &CommandContext,
+    ctx: &Context,
 ) -> Result<BranchHeadAndTree> {
     #[expect(deprecated)]
     compute_updated_branch_head_for_commits(

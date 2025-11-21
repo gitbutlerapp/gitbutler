@@ -5,20 +5,20 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use but_action::{
     ActionHandler, OpenAiProvider, Source, rename_branch::RenameBranchParams, reword::CommitEvent,
 };
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_meta::VirtualBranchesTomlMetadata;
-use but_settings::AppSettings;
 use but_workspace::{
     legacy::{StacksFilter, ui::StackEntry},
     ui::StackDetails,
 };
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::{Project, access::WorktreeWritePermission};
+use gitbutler_project::Project;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
@@ -126,7 +126,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     let summary = transcript.summary().unwrap_or_default();
     let prompt = transcript.prompt().unwrap_or_default();
 
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let session_id = original_session_id(ctx, input.session_id.clone())?;
 
     if should_exit_early(ctx, &input.session_id)? {
@@ -143,7 +143,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         file_path: None,
     };
 
-    if !defer.ctx.app_settings().claude.auto_commit_after_completion {
+    if !defer.ctx.settings().claude.auto_commit_after_completion {
         return Ok(ClaudeHookOutput {
             do_continue: true,
             stop_reason: "No after-hook behaviour required.".to_string(),
@@ -151,7 +151,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         });
     }
 
-    let vb_state = &VirtualBranchesHandle::new(defer.ctx.project().gb_dir());
+    let vb_state = &VirtualBranchesHandle::new(defer.ctx.project_data_dir());
 
     let stacks = list_stacks(defer.ctx)?;
 
@@ -190,7 +190,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
                         branch_name: branch.branch_name.clone(),
                         commit_id,
                         project: project.clone(),
-                        app_settings: defer.ctx.app_settings().clone(),
+                        app_settings: defer.ctx.settings().clone(),
                         trigger: id,
                     };
                     let reword_result = but_action::reword::commit(&openai_client, commit_event)
@@ -288,7 +288,7 @@ pub enum RenameEligibility {
 /// is only performed if necessary.
 /// This is determined by first checking if the newly added commits are only one and the branch tip matches the commit ID.
 pub fn is_branch_eligible_for_rename(
-    ctx: &CommandContext,
+    ctx: &Context,
     stacks: &[but_workspace::legacy::ui::StackEntry],
     branch: &but_action::UpdatedBranch,
 ) -> Result<RenameEligibility, anyhow::Error> {
@@ -366,7 +366,7 @@ pub fn handle_pre_tool_call() -> anyhow::Result<ClaudeHookOutput> {
         .to_string();
     input.tool_input.file_path = relative_file_path;
 
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let session_id = original_session_id(ctx, input.session_id.clone())?;
 
     if should_exit_early(ctx, &input.session_id)? {
@@ -412,7 +412,7 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
         .to_string();
     input.tool_response.file_path = relative_file_path.clone();
 
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
 
     if should_exit_early(ctx, &input.session_id)? {
         return Ok(ClaudeHookOutput {
@@ -432,7 +432,7 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
 
     let stacks = list_stacks(defer.ctx)?;
 
-    let vb_state = &VirtualBranchesHandle::new(defer.ctx.project().gb_dir());
+    let vb_state = &VirtualBranchesHandle::new(defer.ctx.project_data_dir());
 
     let stack_id = get_or_create_session(defer.ctx, &session_id, stacks, vb_state)?;
 
@@ -481,7 +481,7 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
     })
 }
 
-fn original_session_id(ctx: &mut CommandContext, current_id: String) -> Result<String> {
+fn original_session_id(ctx: &mut Context, current_id: String) -> Result<String> {
     let original_session_id =
         crate::db::get_session_by_current_id(ctx, Uuid::parse_str(&current_id)?)?;
     if let Some(session) = original_session_id {
@@ -492,12 +492,12 @@ fn original_session_id(ctx: &mut CommandContext, current_id: String) -> Result<S
 }
 
 pub fn get_or_create_session(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: &str,
     stacks: Vec<but_workspace::legacy::ui::StackEntry>,
     vb_state: &VirtualBranchesHandle,
 ) -> Result<StackId, anyhow::Error> {
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
     if crate::db::get_session_by_id(ctx, Uuid::parse_str(session_id)?)?.is_none() {
@@ -535,13 +535,13 @@ fn stdin() -> anyhow::Result<String> {
 }
 
 fn create_stack(
-    ctx: &CommandContext,
+    ctx: &Context,
     vb_state: &VirtualBranchesHandle,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<StackId> {
-    let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
+    let template = gitbutler_stack::canned_branch_name(&*ctx.git2_repo.get()?)?;
     let branch_name =
-        gitbutler_stack::Stack::next_available_name(&ctx.gix_repo()?, vb_state, template, false)?;
+        gitbutler_stack::Stack::next_available_name(&*ctx.repo.get()?, vb_state, template, false)?;
     let create_req = BranchCreateRequest {
         name: Some(branch_name),
         ownership: None,
@@ -562,7 +562,7 @@ pub struct ClaudeHookOutput {
 }
 
 pub(crate) struct ClearLocksGuard<'a> {
-    pub ctx: &'a mut CommandContext,
+    pub ctx: &'a mut Context,
     session_id: String,
     file_path: Option<String>,
 }
@@ -595,32 +595,32 @@ impl OutputAsJson for Result<ClaudeHookOutput> {
     }
 }
 
-fn stack_details(ctx: &CommandContext, stack_id: StackId) -> anyhow::Result<StackDetails> {
-    if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
+fn stack_details(ctx: &Context, stack_id: StackId) -> anyhow::Result<StackDetails> {
+    if ctx.settings().feature_flags.ws3 {
+        let repo = ctx.open_repo_for_merging_non_persisting()?;
         let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
+            ctx.project_data_dir().join("virtual_branches.toml"),
         )?;
         but_workspace::legacy::stack_details_v3(Some(stack_id), &repo, &meta)
     } else {
-        but_workspace::legacy::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+        but_workspace::legacy::stack_details(&ctx.project_data_dir(), stack_id, ctx)
     }
 }
 
-fn list_stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
-    let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    if ctx.app_settings().feature_flags.ws3 {
+fn list_stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    if ctx.settings().feature_flags.ws3 {
         let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
+            ctx.project_data_dir().join("virtual_branches.toml"),
         )?;
         but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
     } else {
-        but_workspace::legacy::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+        but_workspace::legacy::stacks(ctx, &ctx.project_data_dir(), &repo, StacksFilter::default())
     }
 }
 
 /// Returns true if the session has `is_gui` set to true, and `GUTBUTLER_IN_GUI` is unset
-fn should_exit_early(ctx: &mut CommandContext, session_id: &str) -> anyhow::Result<bool> {
+fn should_exit_early(ctx: &mut Context, session_id: &str) -> anyhow::Result<bool> {
     let in_gui = std::env::var("GITBUTLER_IN_GUI").unwrap_or("0".into()) == "1";
     if in_gui {
         return Ok(false);

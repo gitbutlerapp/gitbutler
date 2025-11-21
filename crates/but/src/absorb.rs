@@ -6,11 +6,10 @@ use but_api::{
     legacy::{diff, virtual_branches},
 };
 use but_core::DiffSpec;
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::HunkDependencies;
-use but_settings::AppSettings;
 use colored::Colorize;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
 use crate::{id::CliId, rub::parse_sources, utils::OutputChannel};
@@ -33,7 +32,7 @@ pub(crate) fn handle(
     out: &mut OutputChannel,
     source: Option<&str>,
 ) -> anyhow::Result<()> {
-    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let source: Option<CliId> = source
         .and_then(|s| parse_sources(ctx, s).ok())
         .and_then(|s| {

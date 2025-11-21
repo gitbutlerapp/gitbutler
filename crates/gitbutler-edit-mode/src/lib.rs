@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_core::{TreeChange, ref_metadata::StackId};
+use but_ctx::Context;
+use but_ctx::access::{WorktreeReadPermission, WorktreeWritePermission};
 use but_oxidize::{
     GixRepositoryExt, ObjectIdExt, OidExt, RepoExt, git2_to_gix_object_id, gix_to_git2_index,
 };
@@ -10,7 +12,6 @@ use but_workspace::legacy::stack_ext::StackExt;
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
-use gitbutler_command_context::{CommandContext, gix_repo_for_merging};
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
@@ -19,7 +20,6 @@ use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF, operating_mode,
     read_edit_mode_metadata, write_edit_mode_metadata,
 };
-use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_repo::{RepositoryExt, SignaturePurpose, signature};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes_with_tree};
@@ -29,10 +29,10 @@ pub mod commands;
 
 const UNCOMMITTED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommitted-changes";
 
-/// Returns an index of the the tree of `commit` if it is unconflicted, *or* produce a merged tree
+/// Returns an index of the tree of `commit` if it is unconflicted, *or* produce a merged tree
 /// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
 /// during the merge.
-fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Result<git2::Index> {
+fn get_commit_index(ctx: &Context, commit: &git2::Commit) -> Result<git2::Index> {
     let commit_tree = commit.tree().context("Failed to get commit's tree")?;
     // Checkout the commit as unstaged changes
     if commit.is_conflicted() {
@@ -49,7 +49,7 @@ fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Res
             .context("Failed to get base")?
             .id();
 
-        let gix_repo = gix_repo_for_merging(repository.path())?;
+        let gix_repo = ctx.open_repo_for_merging()?;
         // Merge without favoring a side this time to get a tree containing the actual conflicts.
         let mut merge_result = gix_repo.merge_trees(
             git2_to_gix_object_id(base),
@@ -126,15 +126,15 @@ fn find_or_create_base_commit<'a>(
     Ok(repository.find_commit(base)?)
 }
 
-fn commit_uncommited_changes(ctx: &CommandContext) -> Result<()> {
-    let repository = ctx.repo();
+fn commit_uncommited_changes(ctx: &Context) -> Result<()> {
+    let repository = &*ctx.git2_repo.get()?;
     let uncommited_changes = repository.create_wd_tree(0)?;
     repository.reference(UNCOMMITTED_CHANGES_REF, uncommited_changes.id(), true, "")?;
     Ok(())
 }
 
-fn get_uncommited_changes(ctx: &CommandContext) -> Result<git2::Oid> {
-    let repository = ctx.repo();
+fn get_uncommited_changes(ctx: &Context) -> Result<git2::Oid> {
+    let repository = &*ctx.git2_repo.get()?;
     let uncommited_changes = repository
         .find_reference(UNCOMMITTED_CHANGES_REF)?
         .peel_to_tree()?
@@ -142,8 +142,8 @@ fn get_uncommited_changes(ctx: &CommandContext) -> Result<git2::Oid> {
     Ok(uncommited_changes)
 }
 
-fn checkout_edit_branch(ctx: &CommandContext, commit: git2::Commit) -> Result<()> {
-    let repository = ctx.repo();
+fn checkout_edit_branch(ctx: &Context, commit: git2::Commit) -> Result<()> {
+    let repository = &*ctx.git2_repo.get()?;
 
     // Checkout commits's parent
     let commit_parent = find_or_create_base_commit(repository, &commit)?;
@@ -152,7 +152,7 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: git2::Commit) -> Result<()
     repository.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
 
     // Checkout the commit as unstaged changes
-    let mut index = get_commit_index(repository, &commit)?;
+    let mut index = get_commit_index(ctx, &commit)?;
 
     repository.checkout_index(
         Some(&mut index),
@@ -168,7 +168,7 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: git2::Commit) -> Result<()
 }
 
 pub(crate) fn enter_edit_mode(
-    ctx: &CommandContext,
+    ctx: &Context,
     commit: git2::Commit,
     stack_id: StackId,
     _perm: &mut WorktreeWritePermission,
@@ -178,7 +178,7 @@ pub(crate) fn enter_edit_mode(
         stack_id,
     };
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     // Validate the stack_id
     vb_state.get_stack_in_workspace(stack_id)?;
 
@@ -190,10 +190,10 @@ pub(crate) fn enter_edit_mode(
 }
 
 pub(crate) fn abort_and_return_to_workspace(
-    ctx: &CommandContext,
+    ctx: &Context,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let repository = ctx.repo();
+    let repository = &*ctx.git2_repo.get()?;
 
     // Checkout gitbutler workspace branch
     repository
@@ -212,12 +212,12 @@ pub(crate) fn abort_and_return_to_workspace(
 }
 
 pub(crate) fn save_and_return_to_workspace(
-    ctx: &CommandContext,
+    ctx: &Context,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
-    let repository = ctx.repo();
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repository = &*ctx.git2_repo.get()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
 
@@ -244,7 +244,8 @@ pub(crate) fn save_and_return_to_workspace(
             ..commit_headers
         });
     let new_commit_oid = ctx
-        .repo()
+        .git2_repo
+        .get()?
         .commit_with_signature(
             None,
             &commit.author(),
@@ -313,14 +314,14 @@ pub struct ConflictEntryPresence {
 }
 
 pub(crate) fn starting_index_state(
-    ctx: &CommandContext,
+    ctx: &Context,
     _perm: &WorktreeReadPermission,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
     let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let repository = ctx.repo();
+    let repository = &*ctx.git2_repo.get()?;
 
     let commit = repository.find_commit(metadata.commit_oid)?;
     let commit_parent_tree = if commit.is_conflicted() {
@@ -329,7 +330,7 @@ pub(crate) fn starting_index_state(
         commit.parent(0)?.tree()?
     };
 
-    let index = get_commit_index(repository, &commit)?;
+    let index = get_commit_index(ctx, &commit)?;
 
     let conflicts = index
         .conflicts()?
@@ -356,7 +357,7 @@ pub(crate) fn starting_index_state(
         })
         .collect::<HashMap<BString, ConflictEntryPresence>>();
 
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
 
     let (tree_changes, _) = but_core::diff::tree_changes(
         &gix_repo,
@@ -376,14 +377,14 @@ pub(crate) fn starting_index_state(
 }
 
 pub(crate) fn changes_from_initial(
-    ctx: &CommandContext,
+    ctx: &Context,
     _perm: &WorktreeReadPermission,
 ) -> Result<Vec<TreeChange>> {
     let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let repository = ctx.repo();
+    let repository = &*ctx.git2_repo.get()?;
     let commit = repository.find_commit(metadata.commit_oid)?;
     let base = repository
         .find_real_tree(&commit, Default::default())?
@@ -391,7 +392,7 @@ pub(crate) fn changes_from_initial(
         .to_gix();
     let head = repository.create_wd_tree(0)?.id().to_gix();
 
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
     let (tree_changes, _) = but_core::diff::tree_changes(&gix_repo, Some(base), head)?;
     Ok(tree_changes)
 }

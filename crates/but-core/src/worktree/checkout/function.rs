@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::ByteSlice;
 use but_oxidize::ObjectIdExt;
 use gix::{

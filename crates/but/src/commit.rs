@@ -7,9 +7,8 @@ use but_api::{
     legacy::{diff, virtual_branches, workspace},
 };
 use but_core::{DiffSpec, ui::TreeChange};
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
 use crate::{
@@ -22,7 +21,7 @@ pub(crate) fn insert_blank_commit(
     out: &mut OutputChannel,
     target: &str,
 ) -> Result<()> {
-    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
 
     // Resolve the target ID
     let cli_ids = CliId::from_str(&mut ctx, target)?;
@@ -151,7 +150,7 @@ pub(crate) fn commit(
     only: bool,
     create_branch: bool,
 ) -> anyhow::Result<()> {
-    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
 
     // Get all stacks using but-api
     let project_id = project.id;
@@ -335,7 +334,7 @@ fn create_independent_branch(
 }
 
 fn select_stack(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     project: &Project,
     stacks: &[(
         but_core::ref_metadata::StackId,
@@ -396,7 +395,7 @@ fn select_stack(
 }
 
 fn find_stack_by_hint(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     stacks: &[(
         but_core::ref_metadata::StackId,
         but_workspace::ui::StackDetails,

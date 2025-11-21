@@ -15,10 +15,10 @@ mod state;
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
 use but_core::{HunkHeader, UnifiedPatch, ref_metadata::StackId};
+use but_ctx::Context;
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use itertools::Itertools;
 use reconcile::MultipleOverlapping;
@@ -237,11 +237,11 @@ impl HunkAssignment {
 ///
 /// The provided hunk dependnecies should be computed for all workspace changes.
 pub fn assign(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     requests: Vec<HunkAssignmentRequest>,
     deps: Option<&HunkDependencies>,
 ) -> Result<Vec<AssignmentRejection>> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let applied_stacks = vb_state
         .list_stacks_in_workspace()?
         .iter()
@@ -251,20 +251,15 @@ pub fn assign(
     let deps = if let Some(deps) = deps {
         deps
     } else {
-        &hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            ctx,
-            ctx.project().worktree_dir()?,
-            &ctx.project().gb_dir(),
-            None,
-        )?
+        &hunk_dependencies_for_workspace_changes_by_worktree_dir(ctx, None)?
     };
 
-    let repo = &ctx.gix_repo()?;
+    let repo = &*ctx.repo.get()?;
     let worktree_changes: Vec<but_core::TreeChange> =
         but_core::diff::worktree_changes(repo)?.changes;
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
-        let diff = change.unified_patch(repo, ctx.app_settings().context_lines);
+        let diff = change.unified_patch(repo, ctx.settings().context_lines);
         worktree_assignments.extend(diff_to_assignments(
             diff.ok().flatten(),
             change.path.clone(),
@@ -272,7 +267,8 @@ pub fn assign(
     }
 
     // Reconcile worktree with the persisted assignments
-    let persisted_assignments = state::assignments(ctx)?;
+    let db = &mut *ctx.db.get_mut()?;
+    let persisted_assignments = state::assignments(db)?;
     let with_worktree = reconcile::assignments(
         &worktree_assignments,
         &persisted_assignments,
@@ -300,7 +296,7 @@ pub fn assign(
         false,
     )?;
 
-    state::set_assignments(ctx, with_locks.clone())?;
+    state::set_assignments(db, with_locks.clone())?;
 
     // Request where the stack_id is different from the outcome are considered rejections - this is due to locking
     // Collect all the rejected requests together with the locks that caused the rejection
@@ -328,23 +324,21 @@ pub fn assign(
 ///
 /// The fallback can of course also fail, in which case the tauri operation will error out.
 pub fn assignments_with_fallback(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     deps: Option<&HunkDependencies>,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
-    let repo = &ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
         Some(wtc) => wtc.into_iter().map(Into::into).collect(),
-        None => but_core::diff::worktree_changes(repo)?.changes,
+        None => but_core::diff::worktree_changes(&repo)?.changes,
     };
     let deps = if let Some(deps) = deps {
         deps
     } else {
         &hunk_dependencies_for_workspace_changes_by_worktree_dir(
             ctx,
-            ctx.project().worktree_dir()?,
-            &ctx.project().gb_dir(),
             Some(worktree_changes.clone()),
         )?
     };
@@ -354,12 +348,13 @@ pub fn assignments_with_fallback(
     }
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
-        let diff = change.unified_patch(repo, ctx.app_settings().context_lines);
+        let diff = change.unified_patch(&repo, ctx.settings().context_lines);
         worktree_assignments.extend(diff_to_assignments(
             diff.ok().flatten(),
             change.path.clone(),
         ));
     }
+    drop(repo);
     let reconciled = reconcile_with_worktree_and_locks(
         ctx,
         set_assignment_from_locks,
@@ -369,7 +364,8 @@ pub fn assignments_with_fallback(
     .map(|a| (a, None))
     .unwrap_or_else(|e| (worktree_assignments, Some(e)));
 
-    state::set_assignments(ctx, reconciled.0.clone())?;
+    let db = &mut *ctx.db.get_mut()?;
+    state::set_assignments(db, reconciled.0.clone())?;
     Ok(reconciled)
 }
 
@@ -394,19 +390,20 @@ pub fn assignments_with_fallback(
 /// If `worktree_changes` is `None`, they will be fetched automatically.
 #[instrument(skip(ctx, worktree_assignments, deps), err(Debug))]
 fn reconcile_with_worktree_and_locks(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     set_assignment_from_locks: bool,
     worktree_assignments: &[HunkAssignment],
     deps: &HunkDependencies,
 ) -> Result<Vec<HunkAssignment>> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let applied_stacks = vb_state
         .list_stacks_in_workspace()?
         .iter()
         .map(|s| s.id)
         .collect::<Vec<_>>();
 
-    let persisted_assignments = state::assignments(ctx)?;
+    let db = &mut *ctx.db.get_mut()?;
+    let persisted_assignments = state::assignments(db)?;
     let with_worktree = reconcile::assignments(
         worktree_assignments,
         &persisted_assignments,

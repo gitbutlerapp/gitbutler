@@ -1,11 +1,11 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
 use but_tools::{
     emit::Emitter,
     workspace::{FileChange, SimpleCommit, amend_toolset},
 };
-use gitbutler_command_context::CommandContext;
 use gix::hashtable::hash_map::HashMap;
 
 use crate::OpenAiProvider;
@@ -28,11 +28,11 @@ use crate::OpenAiProvider;
 ///
 pub fn absorb(
     emitter: std::sync::Arc<Emitter>,
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     openai: &OpenAiProvider,
     changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<()> {
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.open_repo()?;
 
     let paths = changes
         .iter()
@@ -127,7 +127,7 @@ struct AbsorbGroup {
 /// - Changes that are locked to multiple commits (i.e. Different hunks are are locked to different commits).
 fn absorb_locked_changes(
     emitter: std::sync::Arc<Emitter>,
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     project_status: &but_tools::workspace::ProjectStatus,
 ) -> anyhow::Result<()> {
     let mut absorb_groups: std::collections::HashMap<gix::ObjectId, AbsorbGroup> =
@@ -251,7 +251,7 @@ fn find_mapped_commit_id(
 /// TODO: Do we need to recompute the commit message?
 fn absorb_file_changes_into_commit(
     emitter: std::sync::Arc<Emitter>,
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     stack_id: &StackId,
     commit_id: &gix::ObjectId,
     commit: &SimpleCommit,

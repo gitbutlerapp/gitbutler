@@ -27,7 +27,7 @@ but-hunk-dependency.workspace = true
 but-tools.workspace = true
 but-oxidize.workspace = true
 
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-branch-actions.workspace = true

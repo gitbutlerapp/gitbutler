@@ -11,7 +11,7 @@ fn unapply_with_data() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -20,14 +20,14 @@ fn unapply_with_data() -> anyhow::Result<()> {
     let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
 
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.project().worktree_dir()?.to_owned(),
+        ctx.legacy_project.worktree_dir()?.to_owned(),
     )
     .unwrap()
     .changes;
@@ -68,14 +68,14 @@ fn delete_if_empty() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
     gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

@@ -1,8 +1,7 @@
 use but_action::OpenAiProvider;
 use but_api::json::Error;
 use but_core::ui::TreeChange;
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use gitbutler_project::ProjectId;
 use tauri::Emitter;
 use tracing::instrument;
@@ -15,7 +14,7 @@ pub fn list_actions(
     limit: i64,
 ) -> anyhow::Result<but_action::ActionListing, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     but_action::list_actions(ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
 
@@ -27,7 +26,7 @@ pub fn handle_changes(
     handler: but_action::ActionHandler,
 ) -> anyhow::Result<but_action::Outcome, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     but_action::handle_changes(
         ctx,
         &change_summary,
@@ -48,7 +47,7 @@ pub fn list_workflows(
     limit: i64,
 ) -> anyhow::Result<but_action::WorkflowList, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     but_action::list_workflows(ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
 
@@ -62,7 +61,7 @@ pub fn auto_commit(
     let project = gitbutler_project::get(project_id)?;
     let changes: Vec<but_core::TreeChange> =
         changes.into_iter().map(|change| change.into()).collect();
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
@@ -90,7 +89,7 @@ pub fn auto_branch_changes(
     let project = gitbutler_project::get(project_id)?;
     let changes: Vec<but_core::TreeChange> =
         changes.into_iter().map(|change| change.into()).collect();
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
@@ -118,7 +117,7 @@ pub fn absorb(
     let project = gitbutler_project::get(project_id)?;
     let changes: Vec<but_core::TreeChange> =
         changes.into_iter().map(|change| change.into()).collect();
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
@@ -146,7 +145,7 @@ pub fn freestyle(
     model: Option<String>,
 ) -> anyhow::Result<String, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
         app_handle.emit(name, payload).unwrap_or_else(|e| {

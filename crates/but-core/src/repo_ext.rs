@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use but_error::Code;
 use gix::prelude::ObjectIdExt;
 

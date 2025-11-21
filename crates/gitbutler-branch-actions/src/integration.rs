@@ -1,15 +1,15 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use bstr::ByteSlice;
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     RepositoryExt, SignaturePurpose,
     logging::{LogUntil, RepositoryExt as _},
@@ -53,14 +53,14 @@ fn write_workspace_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
 #[instrument(level = tracing::Level::DEBUG, skip(vb_state, ctx), err(Debug))]
 pub fn update_workspace_commit(
     vb_state: &VirtualBranchesHandle,
-    ctx: &CommandContext,
+    ctx: &Context,
     checkout_new_worktree: bool,
 ) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
 
-    let repo: &git2::Repository = ctx.repo();
+    let repo: &git2::Repository = &*ctx.git2_repo.get()?;
     let gix_repo = repo.to_gix()?;
 
     // get current repo head for reference
@@ -80,7 +80,7 @@ pub fn update_workspace_commit(
     }
     let prev_head_id = head_ref.target();
 
-    let vb_state = ctx.project().virtual_branches();
+    let vb_state = ctx.legacy_project.virtual_branches();
 
     // get all virtual branches, we need to try to update them all
     let virtual_branches: Vec<Stack> = vb_state
@@ -192,7 +192,7 @@ pub fn update_workspace_commit(
     Ok(final_commit)
 }
 
-pub fn verify_branch(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -> Result<()> {
+pub fn verify_branch(ctx: &Context, perm: &mut WorktreeWritePermission) -> Result<()> {
     verify_current_branch_name(ctx)
         .and_then(verify_head_is_set)
         .and_then(|()| verify_head_is_clean(ctx, perm))
@@ -200,8 +200,14 @@ pub fn verify_branch(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -
     Ok(())
 }
 
-fn verify_head_is_set(ctx: &CommandContext) -> Result<()> {
-    match ctx.repo().head().context("failed to get head")?.name() {
+fn verify_head_is_set(ctx: &Context) -> Result<()> {
+    match ctx
+        .git2_repo
+        .get()?
+        .head()
+        .context("failed to get head")?
+        .name()
+    {
         Some(refname) if OPEN_WORKSPACE_REFS.contains(&refname) => Ok(()),
         Some(head_name) => Err(invalid_head_err(head_name)),
         None => Err(anyhow!(
@@ -212,8 +218,8 @@ fn verify_head_is_set(ctx: &CommandContext) -> Result<()> {
 }
 
 // Returns an error if repo head is not pointing to the workspace branch.
-fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
-    match ctx.repo().head()?.name() {
+fn verify_current_branch_name(ctx: &Context) -> Result<&Context> {
+    match ctx.git2_repo.get()?.head()?.name() {
         Some(head) => {
             let head_name = head.to_string();
             if !OPEN_WORKSPACE_REFS.contains(&head_name.as_str()) {
@@ -226,21 +232,20 @@ fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
 }
 
 // TODO(ST): Probably there should not be an implicit vbranch creation here.
-fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -> Result<()> {
-    let head_commit = ctx
-        .repo()
+fn verify_head_is_clean(ctx: &Context, perm: &mut WorktreeWritePermission) -> Result<()> {
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let head_commit = git2_repo
         .head()
         .context("failed to get head")?
         .peel_to_commit()
         .context("failed to peel to commit")?;
 
-    let vb_handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_handle
         .get_default_target()
         .context("failed to get default target")?;
 
-    let commits = ctx
-        .repo()
+    let commits = git2_repo
         .log(
             head_commit.id(),
             LogUntil::Commit(default_target.sha),
@@ -266,7 +271,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         return Ok(());
     }
 
-    ctx.repo()
+    git2_repo
         .reset(workspace_commit.as_object(), git2::ResetType::Soft, None)
         .context("failed to reset to workspace commit")?;
 
@@ -284,16 +289,14 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
-    let gix_repo = ctx.repo().to_gix()?;
+    let gix_repo = git2_repo.to_gix()?;
     let mut head = new_branch.head_oid(&gix_repo)?.to_git2();
     for commit in extra_commits {
-        let new_branch_head = ctx
-            .repo()
+        let new_branch_head = git2_repo
             .find_commit(head)
             .context("failed to find new branch head")?;
 
-        let rebased_commit_oid = ctx
-            .repo()
+        let rebased_commit_oid = git2_repo
             .commit_with_signature(
                 None,
                 &commit.author(),
@@ -308,7 +311,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
                 commit.id()
             ))?;
 
-        let rebased_commit = ctx.repo().find_commit(rebased_commit_oid).context(format!(
+        let rebased_commit = git2_repo.find_commit(rebased_commit_oid).context(format!(
             "failed to find rebased commit {rebased_commit_oid}"
         ))?;
 

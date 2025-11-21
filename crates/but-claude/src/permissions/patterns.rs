@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use gix::glob::wildmatch::Mode;
 use serde::{Deserialize, Serialize};
 

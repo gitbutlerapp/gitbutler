@@ -8,9 +8,8 @@ fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
 }
 
 pub mod workspace {
-    use but_settings::AppSettings;
+    use but_ctx::Context;
     use gitbutler_branch_actions::upstream_integration;
-    use gitbutler_command_context::CommandContext;
     use gitbutler_project::Project;
 
     use crate::args::UpdateMode;
@@ -22,7 +21,7 @@ pub mod workspace {
             UpdateMode::Unapply => upstream_integration::ResolutionApproach::Unapply,
             UpdateMode::Delete => upstream_integration::ResolutionApproach::Delete,
         };
-        let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+        let ctx = Context::new_from_legacy_project(project.clone())?;
         let resolutions: Vec<_> = super::vbranch::stacks(&ctx)?
             .into_iter()
             .map(|(id, _details)| upstream_integration::Resolution {

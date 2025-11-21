@@ -13,7 +13,7 @@ pub struct Options {
 }
 
 pub(crate) mod function {
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use but_core::RefMetadata;
     use but_graph::Graph;
     use gix::refs::transaction::PreviousValue;

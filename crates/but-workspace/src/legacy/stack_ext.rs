@@ -1,12 +1,12 @@
+use but_ctx::Context;
 use but_rebase::RebaseStep;
-use gitbutler_command_context::CommandContext;
 
 /// Extension trait for `gitbutler_stack::Stack`.
 pub trait StackExt {
     /// Return the stack as a series of rebase steps in the order the steps should be applied.
     fn as_rebase_steps(
         &self,
-        ctx: &CommandContext,
+        ctx: &Context,
         repo: &gix::Repository,
     ) -> anyhow::Result<Vec<RebaseStep>>;
     /// Return the stack as a series of rebase steps in reverse order, i.e. in the order they were generated.
@@ -15,7 +15,7 @@ pub trait StackExt {
     /// This is useful for operations that need to process the stack in reverse order.
     fn as_rebase_steps_rev(
         &self,
-        ctx: &CommandContext,
+        ctx: &Context,
         repo: &gix::Repository,
     ) -> anyhow::Result<Vec<RebaseStep>>;
 }
@@ -23,7 +23,7 @@ pub trait StackExt {
 impl StackExt for gitbutler_stack::Stack {
     fn as_rebase_steps(
         &self,
-        ctx: &CommandContext,
+        ctx: &Context,
         repo: &gix::Repository,
     ) -> anyhow::Result<Vec<RebaseStep>> {
         self.as_rebase_steps_rev(ctx, repo).map(|mut steps| {
@@ -34,7 +34,7 @@ impl StackExt for gitbutler_stack::Stack {
 
     fn as_rebase_steps_rev(
         &self,
-        ctx: &CommandContext,
+        ctx: &Context,
         repo: &gix::Repository,
     ) -> anyhow::Result<Vec<RebaseStep>> {
         let mut steps: Vec<RebaseStep> = Vec::new();

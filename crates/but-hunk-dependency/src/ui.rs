@@ -1,22 +1,19 @@
-use std::path::Path;
-
 use but_core::{UnifiedPatch, unified_diff::DiffHunk};
+use but_ctx::Context;
 use but_oxidize::OidExt;
-use gitbutler_command_context::{CommandContext, gix_repo_for_merging};
 use gitbutler_stack::StackId;
 use serde::{Deserialize, Serialize};
 
 /// Compute the hunk dependencies of a set of tree changes.
 pub fn hunk_dependencies_for_changes(
-    ctx: &CommandContext,
-    worktree_dir: &Path,
-    gitbutler_dir: &Path,
+    ctx: &Context,
     changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<HunkDependencies> {
     // accelerate tree-tree-diffs
-    let repo = gix_repo_for_merging(worktree_dir)?.with_object_memory();
-    let stacks = but_workspace::legacy::stacks(ctx, gitbutler_dir, &repo, Default::default())?;
-    let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(gitbutler_dir)
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let project_data_dir = &ctx.project_data_dir();
+    let stacks = but_workspace::legacy::stacks(ctx, project_data_dir, &repo, Default::default())?;
+    let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(project_data_dir)
         .get_default_target()?
         .sha;
     let input_stacks =
@@ -28,16 +25,14 @@ pub fn hunk_dependencies_for_changes(
 /// Compute hunk-dependencies for the UI knowing the `worktree_dir` for changes
 /// and `gitbutler_dir` for obtaining stack information.
 pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
-    ctx: &CommandContext,
-    worktree_dir: &Path,
-    gitbutler_dir: &Path,
+    ctx: &Context,
     worktree_changes: Option<Vec<but_core::TreeChange>>,
 ) -> anyhow::Result<HunkDependencies> {
-    let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
     let worktree_changes = worktree_changes
         .map(Ok)
         .unwrap_or_else(|| but_core::diff::worktree_changes(&repo).map(|wtc| wtc.changes))?;
-    hunk_dependencies_for_changes(ctx, worktree_dir, gitbutler_dir, worktree_changes)
+    hunk_dependencies_for_changes(ctx, worktree_changes)
 }
 
 /// A way to represent all hunk dependencies that would make it possible to know what can be applied, and were.

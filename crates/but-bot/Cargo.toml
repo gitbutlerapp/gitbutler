@@ -19,5 +19,5 @@ uuid.workspace = true
 gix.workspace = true
 but-tools.workspace = true
 but-action.workspace = true
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-project.workspace = true

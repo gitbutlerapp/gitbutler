@@ -891,14 +891,14 @@ mod util {
         let ctx = gitbutler_testsupport::read_only::fixture(script_name, name)?;
         let stacks = but_workspace::legacy::stacks(
             &ctx,
-            &ctx.project().gb_dir(),
-            &ctx.gix_repo()?,
+            &ctx.project_data_dir(),
+            &*ctx.repo.get()?,
             Default::default(),
         )?;
-        let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
+        let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
 
         Ok(TestContext {
-            repo: ctx.project().open_isolated()?,
+            repo: ctx.legacy_project.open_isolated_repo()?,
             stacks_entries: stacks,
             common_merge_base: handle.get_default_target()?.sha.to_gix(),
         })

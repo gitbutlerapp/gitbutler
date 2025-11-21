@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use gitbutler_stack::{StackId, VirtualBranchesState};
 use gix::{prelude::ObjectIdExt, revision::walk::Sorting};
 

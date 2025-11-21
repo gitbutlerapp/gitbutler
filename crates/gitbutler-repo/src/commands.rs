@@ -1,6 +1,6 @@
 use std::{path::Path, sync::Mutex};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use base64::engine::Engine as _;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use git2::Oid;

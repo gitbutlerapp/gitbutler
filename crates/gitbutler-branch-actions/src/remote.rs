@@ -1,10 +1,10 @@
 use std::path::Path;
 
 use anyhow::Result;
+use but_ctx::Context;
 use but_serde::BStringForFrontend;
 use git2::BranchType;
 use gitbutler_branch::ReferenceExt;
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt};
@@ -48,8 +48,8 @@ pub struct RemoteCommit {
 /// # Previous notes
 /// For legacy purposes, this is still named "remote" branches, but it's actually
 /// a list of all the normal (non-gitbutler) git branches.
-pub fn find_git_branches(ctx: &CommandContext, branch_name: &str) -> Result<Vec<RemoteBranchData>> {
-    let repo = ctx.repo();
+pub fn find_git_branches(ctx: &Context, branch_name: &str) -> Result<Vec<RemoteBranchData>> {
+    let repo = &*ctx.git2_repo.get()?;
     let remotes_raw = repo.remotes()?;
     let remotes: Vec<_> = remotes_raw.iter().flatten().collect();
 
@@ -75,7 +75,7 @@ pub fn find_git_branches(ctx: &CommandContext, branch_name: &str) -> Result<Vec<
         all_branches.push(local_branch);
     }
 
-    let target_branch = &default_target(&ctx.project().gb_dir())?.branch;
+    let target_branch = &default_target(&ctx.project_data_dir())?.branch;
     Ok(all_branches
         .into_iter()
         .filter(|branch| {
@@ -88,11 +88,9 @@ pub fn find_git_branches(ctx: &CommandContext, branch_name: &str) -> Result<Vec<
         .collect())
 }
 
-pub(crate) fn get_commit_data(
-    ctx: &CommandContext,
-    sha: git2::Oid,
-) -> Result<Option<RemoteCommit>> {
-    let commit = match ctx.repo().find_commit(sha) {
+pub(crate) fn get_commit_data(ctx: &Context, sha: git2::Oid) -> Result<Option<RemoteCommit>> {
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let commit = match git2_repo.find_commit(sha) {
         Ok(commit) => commit,
         Err(error) => {
             if error.code() == git2::ErrorCode::NotFound {
@@ -106,7 +104,7 @@ pub(crate) fn get_commit_data(
 }
 
 pub(crate) fn branch_to_remote_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     branch: &git2::Branch<'_>,
     remotes: &[&str],
 ) -> Result<RemoteBranchData> {
@@ -118,8 +116,9 @@ pub(crate) fn branch_to_remote_branch(
     let sha = commit.id();
     let is_remote = reference.is_remote();
 
-    let base = default_target(&ctx.project().gb_dir())?.remote_head(ctx.repo())?;
-    let ahead = ctx.repo().log(sha, LogUntil::Commit(base), false)?;
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let base = default_target(&ctx.project_data_dir())?.remote_head(git2_repo)?;
+    let ahead = git2_repo.log(sha, LogUntil::Commit(base), false)?;
     let fork_point = ahead.last().and_then(|c| c.parent(0).ok()).map(|c| c.id());
     let behind = ctx.distance(base, sha)?;
 

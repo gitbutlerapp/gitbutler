@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice};
 use but_core::{ref_metadata, ref_metadata::StackId};
 use gix::refs::Category;

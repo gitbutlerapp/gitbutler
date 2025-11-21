@@ -4,14 +4,14 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedPatch, ref_metadata::StackId};
+use but_ctx::Context;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id};
 use but_workspace::legacy::{CommmitSplitOutcome, ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
-use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
     entry::{OperationKind, SnapshotDetails},
@@ -28,7 +28,7 @@ use crate::{
 
 /// Creates a toolset for any kind of workspace operations.
 pub fn workspace_toolset(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: std::sync::Arc<crate::emit::Emitter>,
     message_id: String,
 ) -> WorkspaceToolset<'_> {
@@ -50,7 +50,7 @@ pub fn workspace_toolset(
 
 /// Creates a toolset for workspace-related operations.
 pub fn commit_toolset(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: std::sync::Arc<crate::emit::Emitter>,
 ) -> WorkspaceToolset<'_> {
     let mut toolset = WorkspaceToolset::new(ctx, emitter, None);
@@ -63,7 +63,7 @@ pub fn commit_toolset(
 
 /// Creates a toolset for amend operations.
 pub fn amend_toolset(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: std::sync::Arc<crate::emit::Emitter>,
 ) -> WorkspaceToolset<'_> {
     let mut toolset = WorkspaceToolset::new(ctx, emitter, None);
@@ -182,7 +182,7 @@ impl Tool for Commit {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         emitter: Arc<Emitter>,
         _: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -195,14 +195,14 @@ impl Tool for Commit {
 }
 
 pub fn create_commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: Arc<Emitter>,
     params: CommitParameters,
 ) -> Result<but_workspace::commit_engine::ui::CreateCommitOutcome, anyhow::Error> {
-    let repo = ctx.gix_repo()?;
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
+    let mut guard = ctx.exclusive_worktree_access();
     let worktree = but_core::diff::worktree_changes(&repo)?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let file_changes: Vec<but_core::DiffSpec> = worktree
         .changes
@@ -272,7 +272,7 @@ pub fn create_commit(
     });
 
     // If there's an app handle provided, emit an event to update the stack details in the UI.
-    let project_id = ctx.project().id;
+    let project_id = ctx.legacy_project.id;
     let stack_update = StackUpdate {
         project_id,
         stack_id,
@@ -343,7 +343,7 @@ impl Tool for CreateBranch {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         emitter: Arc<Emitter>,
         _: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -356,13 +356,13 @@ impl Tool for CreateBranch {
 }
 
 pub fn create_branch(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: Arc<Emitter>,
     params: CreateBranchParameters,
 ) -> Result<StackEntryNoOpt, anyhow::Error> {
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let name = params.branch_name;
     let description = params.branch_description;
@@ -386,7 +386,7 @@ pub fn create_branch(
     )?;
 
     // Emit an event to update the stack details in the UI.
-    let project_id = ctx.project().id;
+    let project_id = ctx.legacy_project.id;
     let stack_update = StackUpdate {
         project_id,
         stack_id: stack_entry.id,
@@ -500,7 +500,7 @@ impl Tool for Amend {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -513,7 +513,7 @@ impl Tool for Amend {
 }
 
 pub fn amend_commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: Arc<Emitter>,
     params: AmendParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
@@ -531,15 +531,15 @@ pub fn amend_commit(
 }
 
 pub fn amend_commit_inner(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: Arc<Emitter>,
     params: AmendParameters,
     commit_mapping: Option<&HashMap<gix::ObjectId, gix::ObjectId>>,
 ) -> anyhow::Result<but_workspace::commit_engine::CreateCommitOutcome> {
-    let repo = ctx.gix_repo()?;
-    let project = ctx.project();
-    let settings = ctx.app_settings();
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
+    let project = &ctx.legacy_project;
+    let settings = ctx.settings();
+    let mut guard = ctx.exclusive_worktree_access();
     let worktree = but_core::diff::worktree_changes(&repo)?;
 
     let file_changes: Vec<but_core::DiffSpec> = worktree
@@ -577,7 +577,7 @@ pub fn amend_commit_inner(
     );
 
     // Emit an event to update the stack details in the UI.
-    let project_id = ctx.project().id;
+    let project_id = ctx.legacy_project.id;
     let stack_update = StackUpdate {
         project_id,
         stack_id,
@@ -630,11 +630,11 @@ impl Tool for GetProjectStatus {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         _emitter: Arc<Emitter>,
         _commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let repo = ctx.gix_repo()?;
+        let repo = ctx.open_repo()?;
         let params: GetProjectStatusParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
@@ -732,7 +732,7 @@ impl Tool for CreateBlankCommit {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -746,7 +746,7 @@ impl Tool for CreateBlankCommit {
 }
 
 pub fn create_blank_commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: Arc<Emitter>,
     params: CreateBlankCommitParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
@@ -771,7 +771,7 @@ pub fn create_blank_commit(
     )?;
 
     // Emit an event to update the stack details in the UI.
-    let project_id = ctx.project().id;
+    let project_id = ctx.legacy_project.id;
     let stack_update = StackUpdate {
         project_id,
         stack_id,
@@ -882,7 +882,7 @@ impl Tool for MoveFileChanges {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -897,7 +897,7 @@ impl Tool for MoveFileChanges {
 }
 
 pub fn move_file_changes(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: Arc<Emitter>,
     params: MoveFileChangesParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
@@ -926,14 +926,14 @@ pub fn move_file_changes(
         destination_stack_id,
         destination_commit_id,
         changes,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)?;
 
     // Emit an event to update the stack details in the UI.
-    let project_id = ctx.project().id;
+    let project_id = ctx.legacy_project.id;
     let stack_update = StackUpdate {
         project_id,
         stack_id: source_stack_id,
@@ -1003,7 +1003,7 @@ impl Tool for GetCommitDetails {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         _emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -1017,11 +1017,11 @@ impl Tool for GetCommitDetails {
 }
 
 pub fn commit_details(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     params: GetCommitDetailsParameters,
     commit_mapping: &HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> anyhow::Result<Vec<FileChange>> {
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let commit_id = gix::ObjectId::from_str(&params.commit_id)
         .map(|id| find_the_right_commit_id(id, commit_mapping))?;
 
@@ -1032,7 +1032,7 @@ pub fn commit_details(
         .map(|change| change.into())
         .collect();
 
-    let diff = unified_diff_for_changes(&repo, changes, ctx.app_settings().context_lines)?;
+    let diff = unified_diff_for_changes(&repo, changes, ctx.settings().context_lines)?;
     let file_changes = get_file_changes(&diff, vec![]);
 
     Ok(file_changes)
@@ -1083,7 +1083,7 @@ impl Tool for GetBranchChanges {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         _emitter: Arc<Emitter>,
         _commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -1097,10 +1097,10 @@ impl Tool for GetBranchChanges {
 }
 
 pub fn branch_changes(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     params: GetBranchChangesParameters,
 ) -> anyhow::Result<Vec<FileChangeSimple>> {
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let stacks = stacks(ctx, &repo)?;
     let stack_id = stacks
         .iter()
@@ -1218,7 +1218,7 @@ impl Tool for SquashCommits {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -1232,7 +1232,7 @@ impl Tool for SquashCommits {
 }
 
 pub fn squash_commits(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: Arc<Emitter>,
     params: SquashCommitsParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
@@ -1269,7 +1269,7 @@ pub fn squash_commits(
         message.as_str(),
     )?;
 
-    let project_id = ctx.project().id;
+    let project_id = ctx.legacy_project.id;
     let stack_update = StackUpdate {
         project_id,
         stack_id,
@@ -1356,7 +1356,7 @@ impl Tool for SplitBranch {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -1368,15 +1368,14 @@ impl Tool for SplitBranch {
 }
 
 pub fn split_branch(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     emitter: Arc<Emitter>,
     params: SplitBranchParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<StackId, anyhow::Error> {
-    let project = ctx.project();
-    let repo = ctx.gix_repo()?;
-    let mut guard = project.exclusive_worktree_access();
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repo = ctx.repo.get()?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let stacks = stacks(ctx, &repo)?;
     let source_stack_id = stacks
@@ -1401,7 +1400,7 @@ pub fn split_branch(
         params.source_branch_name,
         params.new_branch_name.clone(),
         &params.files_to_split_off,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
     )?;
 
     update_workspace_commit(&vb_state, ctx, false)?;
@@ -1417,7 +1416,7 @@ pub fn split_branch(
     )?;
 
     // Emit an event to update the stack details in the UI.
-    let project_id = ctx.project().id;
+    let project_id = ctx.legacy_project.id;
     let stack_update = StackUpdate {
         project_id,
         stack_id,
@@ -1506,7 +1505,7 @@ impl Tool for SplitCommit {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
@@ -1518,7 +1517,7 @@ impl Tool for SplitCommit {
     }
 }
 pub fn split_commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     params: SplitCommitParameters,
     emitter: Arc<Emitter>,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
@@ -1538,7 +1537,7 @@ pub fn split_commit(
         source_stack_id,
         source_commit_id,
         &pieces,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
     )?;
 
     let CommmitSplitOutcome {
@@ -1547,7 +1546,7 @@ pub fn split_commit(
     } = outcome;
 
     // Emit a stack update for the frontend.
-    let project_id = ctx.project().id;
+    let project_id = ctx.legacy_project.id;
     let stack_update = StackUpdate {
         project_id,
         stack_id: source_stack_id,
@@ -1763,7 +1762,7 @@ impl ToolResult for Result<ProjectStatus, anyhow::Error> {
 }
 
 pub fn get_project_status(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     repo: &gix::Repository,
     filter_changes: Option<Vec<BString>>,
 ) -> anyhow::Result<ProjectStatus> {
@@ -1786,7 +1785,7 @@ pub fn get_project_status(
 }
 
 pub fn get_filtered_changes(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     repo: &gix::Repository,
     filter_changes: Option<Vec<BString>>,
 ) -> Result<Vec<FileChange>, anyhow::Error> {
@@ -1800,7 +1799,7 @@ pub fn get_filtered_changes(
     } else {
         worktree.changes.clone()
     };
-    let diff = unified_diff_for_changes(repo, changes, ctx.app_settings().context_lines)?;
+    let diff = unified_diff_for_changes(repo, changes, ctx.settings().context_lines)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
         false,
@@ -1814,11 +1813,11 @@ pub fn get_filtered_changes(
 
 fn entries_to_simple_stacks(
     entries: &[StackEntryNoOpt],
-    ctx: &mut CommandContext,
+    ctx: &Context,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<SimpleStack>> {
     let mut stacks = vec![];
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     for entry in entries {
         let stack = vb_state.get_stack(entry.id)?;
         let branches = stack.branches();
@@ -1930,19 +1929,20 @@ fn unified_diff_for_changes(
 }
 
 fn changes_in_branch_inner(
-    ctx: &CommandContext,
+    ctx: &Context,
     branch_name: String,
     stack_id: Option<StackId>,
 ) -> anyhow::Result<but_core::ui::TreeChanges> {
-    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let repo = ctx.gix_repo()?;
+    let state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let repo = ctx.repo.get()?;
     let (start_commit_id, base_commit_id) = if let Some(stack_id) = stack_id {
         commit_and_base_from_stack(ctx, &state, stack_id, branch_name.clone())
     } else {
         let start_commit_id = repo.find_reference(&branch_name)?.peel_to_commit()?.id;
         let target = state.get_default_target()?;
         let merge_base = ctx
-            .repo()
+            .git2_repo
+            .get()?
             .merge_base(start_commit_id.to_git2(), target.sha)?;
         Ok((start_commit_id, merge_base.to_gix()))
     }?;
@@ -1951,7 +1951,7 @@ fn changes_in_branch_inner(
 }
 
 fn commit_and_base_from_stack(
-    ctx: &CommandContext,
+    ctx: &Context,
     state: &VirtualBranchesHandle,
     stack_id: StackId,
     branch_name: String,
@@ -1972,7 +1972,7 @@ fn commit_and_base_from_stack(
                 (start, end)
             }
         });
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
 
     // Find the head that matches the branch name - the commit contained is our commit_id
     let start_commit_id = repo
@@ -2044,12 +2044,11 @@ fn find_the_right_commit_id(
 }
 
 fn stacks(
-    ctx: &CommandContext,
+    ctx: &Context,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    let project = ctx.project();
-    if ctx.app_settings().feature_flags.ws3 {
-        let meta = ref_metadata_toml(ctx.project())?;
+    if ctx.settings().feature_flags.ws3 {
+        let meta = ref_metadata_toml(&ctx.legacy_project)?;
         but_workspace::legacy::stacks_v3(
             repo,
             &meta,
@@ -2059,7 +2058,7 @@ fn stacks(
     } else {
         but_workspace::legacy::stacks(
             ctx,
-            &project.gb_dir(),
+            &ctx.project_data_dir(),
             repo,
             but_workspace::legacy::StacksFilter::InWorkspace,
         )

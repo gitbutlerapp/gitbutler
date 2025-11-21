@@ -5,10 +5,14 @@
 use but_settings::AppSettings;
 use std::path::{Path, PathBuf};
 
+/// Legacy types that shouldn't be used.
 #[cfg(feature = "legacy")]
-mod legacy;
+pub mod legacy;
 #[cfg(feature = "legacy")]
 pub use legacy::types::{LegacyProject, LegacyProjectId};
+
+/// Utilities to control access to the project directory of the context.
+pub mod access;
 
 /// A self-describing handle to the path of the project on disk, typically the `.git` directory of a Git repository.
 ///
@@ -19,69 +23,174 @@ pub type ProjectHandle = String;
 /// A context specific to a repository, along with commonly used information to make higher-level functions
 /// more convenient to implement.
 /// This type is *not* thread-safe, and cheap to clone. That way it may own per-thread caches.
+///
 /// It's fine for it to one day receive thread-safe shared state, as needed, similar to [`gix::Repository`].
-#[derive(Debug, Clone)]
+///
+/// ### Why Interior Mutability?
+///
+/// This is for ergonomics, to avoid having to set the context as `mut` for all uses effectively as it
+/// would need to mutate itself to keep a cache.
+/// As all items that it caches are more akin to 'connections' that have no inherent notion of mutability,
+/// we provide mutable versions of these as well for maximum usability.
+///
+/// The idea is to only call into plumbing functions which *do care* about mutability, using standard ownership semantics.
+///
+/// ### Why everything pub?
+///
+/// Because we trust that you keep the invariant alive that everything in the Context is tied to `gitdir`, for that
+/// extra-bit of convenience.
 pub struct Context {
     /// The application context, here for convenience and as feature toggles and flags are needed.
     pub settings: AppSettings,
+    /// The repository `.git` directory, and always the best paths to identify an actual repository
+    /// (or repository associated with a submodule or worktree).
+    pub gitdir: PathBuf,
+    /// The most recently opened repository of the project, which also provides access to the `git_dir`.
+    pub repo: OnDemand<gix::Repository>,
+    /// The most recently opened `git2` repository of the project.
+    pub git2_repo: OnDemand<git2::Repository>,
+    /// An open handle to the database. It's initialized lazily upon first access.
+    /// It is also what makes this type non-Clone, which is fair.
+    pub db: OnDemand<but_db::DbHandle>,
     /// The legacy implementation, for all the old code.
     #[cfg(feature = "legacy")]
     pub legacy_project: LegacyProject,
-    /// The repository of the project, which also provides access to the `git_dir`.
-    pub repo: gix::Repository,
+}
+
+/// A structure that can be passed across thread boundaries.
+// TODO: make fields non-pub once `CommandContext` is gone.
+#[derive(Clone)]
+pub struct ThreadSafeContext {
+    /// The application context, here for convenience and as feature toggles and flags are needed.
+    pub settings: AppSettings,
+    /// The directory at which the repository itself is located.
+    pub gitdir: PathBuf,
+    /// The most recently opened repository of the project, which also provides access to the `git_dir`.
+    pub repo: Option<gix::ThreadSafeRepository>,
+    /// The legacy implementation, for all the old code.
+    #[cfg(feature = "legacy")]
+    pub legacy_project: LegacyProject,
+}
+
+impl From<ThreadSafeContext> for Context {
+    fn from(value: ThreadSafeContext) -> Self {
+        let ThreadSafeContext {
+            settings,
+            gitdir,
+            repo,
+            #[cfg(feature = "legacy")]
+            legacy_project,
+        } = value;
+        let mut ondemand = new_ondemand_repo(gitdir.clone());
+        if let Some(repo) = repo {
+            ondemand.assign(repo.to_thread_local());
+        }
+        Context {
+            settings,
+            repo: ondemand,
+            git2_repo: new_ondemand_git2_repo(gitdir.clone()),
+            db: new_ondemand_db(gitdir.clone()),
+            gitdir,
+            #[cfg(feature = "legacy")]
+            legacy_project,
+        }
+    }
+}
+
+impl std::fmt::Debug for Context {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Context")
+            .field("git_dir", &self.gitdir)
+            .finish()
+    }
 }
 
 /// Lifecycle
 impl Context {
+    /// Create a new instance from just the `gitdir` of the repository we should provide context for.
+    pub fn new(gitdir: impl Into<PathBuf>) -> anyhow::Result<Context> {
+        let gitdir = gitdir.into();
+        let settings = AppSettings::load_from_default_path_creating()?;
+        #[cfg(not(feature = "legacy"))]
+        {
+            Ok(Context {
+                gitdir: gitdir.clone(),
+                settings,
+                repo: new_ondemand_repo(gitdir.clone()),
+                git2_repo: new_ondemand_git2_repo(gitdir.clone()),
+                db: new_ondemand_db(gitdir),
+            })
+        }
+        #[cfg(feature = "legacy")]
+        {
+            use anyhow::Context as _;
+            let repo = gix::open(&gitdir)?;
+            let worktree_dir = repo
+                .workdir()
+                .context("Bare repositories aren't yet supported.")?;
+            let project = LegacyProject::find_by_worktree_dir(worktree_dir)?;
+            Ok(Context {
+                settings,
+                gitdir: gitdir.clone(),
+                legacy_project: project,
+                repo: new_ondemand_repo(gitdir.clone()),
+                git2_repo: new_ondemand_git2_repo(gitdir.clone()),
+                db: new_ondemand_db(gitdir),
+            }
+            .with_repo(repo))
+        }
+    }
+
     /// Discover the Git repository in `directory` and return it as context.
     pub fn discover(directory: impl AsRef<Path>) -> anyhow::Result<Context> {
         let directory = directory.as_ref();
         let repo = gix::discover(directory)?;
         #[cfg(feature = "legacy")]
         {
-            use anyhow::Context;
+            use anyhow::Context as _;
             let worktree_dir = repo
                 .workdir()
                 .context("Bare repositories aren't yet supported.")?;
             let project = LegacyProject::find_by_worktree_dir(worktree_dir)?;
-            Ok(crate::Context {
+            let gitdir = repo.git_dir().to_owned();
+            Ok(Context {
                 settings: AppSettings::load_from_default_path_creating()?,
+                gitdir: gitdir.clone(),
                 legacy_project: project,
-                repo,
-            })
+                repo: new_ondemand_repo(gitdir.clone()),
+                git2_repo: new_ondemand_git2_repo(gitdir.clone()),
+                db: new_ondemand_db(gitdir),
+            }
+            .with_repo(repo))
         }
 
         #[cfg(not(feature = "legacy"))]
         {
+            let gitdir = repo.git_dir().to_owned();
             Ok(crate::Context {
+                gitdir: gitdir.clone(),
                 settings: AppSettings::load_from_default_path_creating()?,
-                repo,
+                repo: new_ondemand_repo(gitdir.clone()),
+                git2_repo: new_ondemand_git2_repo(gitdir.clone()),
+                db: new_ondemand_db(gitdir),
             })
         }
     }
-}
 
-/// Locking utilities to protect against concurrency on the same repo.
-impl Context {
-    /// Return a guard for exclusive (read+write) worktree access, blocking while waiting for someone else,
-    /// in the same process only, to release it, or for all readers to disappear.
-    /// Locking is fair.
-    ///
-    /// Note that this in-process locking works only under the assumption that no two instances of
-    /// GitButler are able to read or write the same repository.
-    pub fn exclusive_worktree_access(&self) -> but_core::sync::WorkspaceWriteGuard {
-        but_core::sync::exclusive_worktree_access(self.gitdir())
+    /// Use `git2_repo` instead of the default repository that would be opened on first query.
+    pub fn with_git2_repo(mut self, git2_repo: git2::Repository) -> Self {
+        self.git2_repo.assign(git2_repo);
+        self
     }
 
-    /// Return a guard for shared (read) worktree access, and block while waiting for writers to disappear.
-    /// There can be multiple readers, but only a single writer. Waiting writers will be handled with priority,
-    /// thus block readers to prevent writer starvation.
-    pub fn shared_worktree_access(&self) -> but_core::sync::WorkspaceReadGuard {
-        but_core::sync::shared_worktree_access(self.gitdir())
+    /// Use `repo` instead of the default repository that would be opened on first query.
+    pub fn with_repo(mut self, repo: gix::Repository) -> Self {
+        self.repo.assign(repo);
+        self
     }
 }
 
-/// Utilities for calling into plumbing functions.
+/// Utilities
 impl Context {
     /// Return a wrapper for metadata that only supports read-only access when presented with the project wide permission
     /// to read data.
@@ -92,10 +201,48 @@ impl Context {
     pub fn meta(
         &self,
         _read_only: &but_core::sync::WorktreeReadPermission,
-    ) -> anyhow::Result<impl but_core::RefMetadata> {
+    ) -> anyhow::Result<impl but_core::RefMetadata + 'static> {
         but_meta::VirtualBranchesTomlMetadata::from_path(
             self.project_data_dir().join("virtual_branches.toml"),
         )
+    }
+
+    /// Copy all copyable values into an instance to pass across thread boundaries.
+    pub fn to_sync(&self) -> ThreadSafeContext {
+        ThreadSafeContext {
+            settings: self.settings.clone(),
+            gitdir: self.gitdir.clone(),
+            repo: self.repo.get_opt().clone().map(|r| r.into_sync()),
+            #[cfg(feature = "legacy")]
+            legacy_project: self.legacy_project.clone(),
+        }
+    }
+
+    /// Take all copyable values and place them in an instance that can pass across thread boundaries.
+    pub fn into_sync(self) -> ThreadSafeContext {
+        let Context {
+            settings,
+            gitdir,
+            mut repo,
+            git2_repo: _,
+            db: _,
+            #[cfg(feature = "legacy")]
+            legacy_project,
+        } = self;
+        ThreadSafeContext {
+            settings,
+            gitdir,
+            repo: repo.take().map(|r| r.into_sync()),
+            #[cfg(feature = "legacy")]
+            legacy_project,
+        }
+    }
+}
+
+impl ThreadSafeContext {
+    /// Turn this instance back into a thread-local version, possibly keeping previously cached values.
+    pub fn into_thread_local(self) -> Context {
+        self.into()
     }
 }
 
@@ -103,46 +250,89 @@ impl Context {
 impl Context {
     /// The location where project-specific data can be stored that is owned by the application.
     pub fn project_data_dir(&self) -> PathBuf {
-        self.gitdir().join("gitbutler")
+        project_data_dir(&self.gitdir)
     }
 
     /// The path to the worktree directory or the `.git` directory if there is no worktree directory.
-    pub fn workdir_or_gitdir(&self) -> &Path {
-        self.repo.workdir().unwrap_or(self.repo.git_dir())
+    /// Fallible as it may need to open a repository.
+    pub fn workdir_or_gitdir(&self) -> anyhow::Result<PathBuf> {
+        let repo = self.repo.get()?;
+        Ok(repo.workdir().unwrap_or(repo.git_dir()).to_owned())
     }
 }
 
-/// Repository helpers, for when you need something more specific than [Self::repo].
+/// Accessors
 impl Context {
-    /// Open an isolated repository, one that didn't read options beyond `.git/config` and
-    /// knows no environment variables.
+    /// Return a shared references to the application settings.
     ///
-    /// Use it for fastest-possible access, when incomplete configuration is acceptable.
-    pub fn open_isolated_repo(&self) -> anyhow::Result<gix::Repository> {
-        Ok(gix::open_opts(
-            self.gitdir(),
-            gix::open::Options::isolated(),
-        )?)
+    pub fn settings(&self) -> &AppSettings {
+        &self.settings
     }
+}
 
+/// *Repository* helpers, for when you need something more specific than [Self::repo].
+impl Context {
     /// Open a standard Git repository at the project directory, just like a real user would.
     ///
     /// This repository is good for standard tasks, like checking refs and traversing the commit graph,
     /// and for reading objects as well.
     ///
     /// Diffing and merging is better done with [`Self::open_repo_for_merging()`].
+    ///
+    /// Note that this repository isn't cached!
     pub fn open_repo(&self) -> anyhow::Result<gix::Repository> {
-        Ok(gix::open(self.gitdir())?)
+        Ok(gix::open(&self.gitdir)?)
     }
 
-    /// Calls [`but_core::open_repo_for_merging()`]
+    /// Open an isolated repository, one that didn't read options beyond `.git/config` and
+    /// knows no environment variables.
+    ///
+    /// Use it for fastest-possible access, when incomplete configuration is acceptable.
+    pub fn open_isolated_repo(&self) -> anyhow::Result<gix::Repository> {
+        Ok(gix::open_opts(
+            &self.gitdir,
+            gix::open::Options::isolated(),
+        )?)
+    }
+
+    /// Return a newly opened `gitoxide` repository, with all configuration available
+    /// to correctly figure out author and committer names (i.e. with most global configuration loaded),
+    /// *and* which will perform diffs quickly thanks to an adequate object cache, *and*
+    /// which **writes all objects into memory**.
     pub fn open_repo_for_merging(&self) -> anyhow::Result<gix::Repository> {
-        but_core::open_repo_for_merging(self.gitdir())
+        but_core::open_repo_for_merging(&self.gitdir)
     }
 
-    /// The repository `.git` directory, and always the best paths to identify an actual repository
-    /// (or repository associated with a submodule or worktree).
-    fn gitdir(&self) -> &Path {
-        self.repo.git_dir()
+    /// Return a newly opened `gitoxide` repository, with all configuration available
+    /// to correctly figure out author and committer names (i.e. with most global configuration loaded),
+    /// *and* which will perform diffs quickly thanks to an adequate object cache, *and*
+    /// which **writes all objects into memory**.
+    ///
+    /// This means *changes are non-persisting*.
+    pub fn open_repo_for_merging_non_persisting(&self) -> anyhow::Result<gix::Repository> {
+        self.open_repo_for_merging()
+            .map(|repo| repo.with_object_memory())
     }
 }
+
+fn project_data_dir(gitdir: &Path) -> PathBuf {
+    gitdir.join("gitbutler")
+}
+
+fn new_ondemand_repo(gitdir: PathBuf) -> OnDemand<gix::Repository> {
+    OnDemand::new(move || gix::open(&gitdir).map_err(Into::into))
+}
+
+fn new_ondemand_git2_repo(gitdir: PathBuf) -> OnDemand<git2::Repository> {
+    OnDemand::new({
+        let gitdir = gitdir.clone();
+        move || git2::Repository::open(&gitdir).map_err(Into::into)
+    })
+}
+
+fn new_ondemand_db(gitdir: PathBuf) -> OnDemand<but_db::DbHandle> {
+    OnDemand::new(move || but_db::DbHandle::new_in_directory(project_data_dir(&gitdir)))
+}
+
+mod ondemand;
+pub use ondemand::OnDemand;

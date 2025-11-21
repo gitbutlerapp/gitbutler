@@ -1,12 +1,12 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
+use but_ctx::Context;
 use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch::{BranchUpdateRequest, dedup};
 use gitbutler_cherry_pick::RepositoryExt as _;
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_diff::GitHunk;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
@@ -63,8 +63,8 @@ impl From<but_workspace::ui::Author> for crate::author::Author {
     }
 }
 
-pub fn update_stack(ctx: &CommandContext, update: &BranchUpdateRequest) -> Result<Stack> {
-    let vb_state = ctx.project().virtual_branches();
+pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack> {
+    let vb_state = ctx.legacy_project.virtual_branches();
     let mut stack = vb_state.get_stack_in_workspace(update.id.context("BUG(opt-stack-id)")?)?;
 
     if let Some(ownership) = update.ownership.clone() {
@@ -197,14 +197,14 @@ pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
 pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 
 pub fn commit(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     message: &str,
     ownership: Option<&BranchOwnershipClaims>,
 ) -> Result<git2::Oid> {
     // get the files to commit
     let diffs = gitbutler_diff::workdir(
-        ctx.repo(),
+        &*ctx.git2_repo.get()?,
         but_workspace::legacy::remerged_workspace_commit_v2(ctx)?,
     )?;
     let statuses = get_applied_status_cached(ctx, None, &diffs)
@@ -216,7 +216,7 @@ pub fn commit(
         .find(|(stack, _)| stack.id == stack_id)
         .with_context(|| format!("stack {stack_id} not found"))?;
 
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
 
     let tree_oid = if let Some(ownership) = ownership {
         let files = files.into_iter().filter_map(|file| {
@@ -252,7 +252,7 @@ pub fn commit(
         gitbutler_diff::write::hunks_onto_commit(ctx, branch.head_oid(&gix_repo)?.to_git2(), files)?
     };
 
-    let git_repo = ctx.repo();
+    let git_repo = &*ctx.git2_repo.get()?;
     let parent_commit = git_repo
         .find_commit(branch.head_oid(&gix_repo)?.to_git2())
         .context(format!(
@@ -265,7 +265,7 @@ pub fn commit(
 
     let commit_oid = ctx.commit(message, &tree, &[&parent_commit], None)?;
 
-    let vb_state = ctx.project().virtual_branches();
+    let vb_state = ctx.legacy_project.virtual_branches();
     branch.set_stack_head(&vb_state, &gix_repo, commit_oid, Some(tree_oid))?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx, false)
@@ -291,21 +291,20 @@ pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
 
 impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
     pub(crate) fn new(
-        ctx: &'repo CommandContext,
+        ctx: &'repo Context,
         target: &Target,
         gix_repo: &'repo gix::Repository,
         graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     ) -> anyhow::Result<Self> {
-        let remote_branch = ctx
-            .repo()
+        let git2_repo = &*ctx.git2_repo.get()?;
+        let remote_branch = git2_repo
             .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("failed to get branch"))?;
         let remote_head = remote_branch.get().peel_to_commit()?;
-        let upstream_tree_id = ctx.repo().find_commit(remote_head.id())?.tree_id();
+        let upstream_tree_id = git2_repo.find_commit(remote_head.id())?.tree_id();
 
         let upstream_commits =
-            ctx.repo()
-                .log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
+            git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
         let upstream_change_ids = upstream_commits
             .iter()
             .filter_map(|commit| commit.change_id())
@@ -391,34 +390,29 @@ impl IsCommitIntegrated<'_, '_, '_> {
     }
 }
 
-pub fn is_remote_branch_mergeable(
-    ctx: &CommandContext,
-    branch_name: &RemoteRefname,
-) -> Result<bool> {
-    let vb_state = ctx.project().virtual_branches();
+pub fn is_remote_branch_mergeable(ctx: &Context, branch_name: &RemoteRefname) -> Result<bool> {
+    let vb_state = ctx.legacy_project.virtual_branches();
 
     let default_target = vb_state.get_default_target()?;
-    let target_commit = ctx
-        .repo()
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let target_commit = git2_repo
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
-    let branch = ctx
-        .repo()
+    let branch = git2_repo
         .maybe_find_branch_by_refname(&branch_name.into())?
         .ok_or(anyhow!("branch not found"))?;
     let branch_oid = branch.get().target().context("detatched head")?;
-    let branch_commit = ctx
-        .repo()
+    let branch_commit = git2_repo
         .find_commit(branch_oid)
         .context("failed to find branch commit")?;
 
-    let base_tree = find_base_tree(ctx.repo(), &branch_commit, &target_commit)?;
+    let base_tree = find_base_tree(git2_repo, &branch_commit, &target_commit)?;
 
-    let wd_tree = ctx.repo().create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
+    let wd_tree = git2_repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
-    let gix_repo_in_memory = ctx.gix_repo_for_merging()?.with_object_memory();
+    let gix_repo_in_memory = ctx.open_repo_for_merging()?.with_object_memory();
     let (merge_options_fail_fast, conflict_kind) =
         gix_repo_in_memory.merge_options_no_rewrites_fail_fast()?;
     let mergeable = !gix_repo_in_memory
@@ -439,18 +433,18 @@ pub fn is_remote_branch_mergeable(
 // if offset is positive, insert below, if negative, insert above
 // return map of the updated commit ids
 pub(crate) fn insert_blank_commit(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     commit_oid: git2::Oid,
     offset: i32,
     message: Option<&str>,
 ) -> Result<(gix::ObjectId, Vec<(gix::ObjectId, gix::ObjectId)>)> {
-    let vb_state = ctx.project().virtual_branches();
+    let vb_state = ctx.legacy_project.virtual_branches();
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     // find the commit to offset from
-    let mut commit = ctx
-        .repo()
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let mut commit = git2_repo
         .find_commit(commit_oid)
         .context("failed to find commit")?;
 
@@ -458,7 +452,7 @@ pub(crate) fn insert_blank_commit(
         commit = commit.parent(0).context("failed to find parent")?;
     }
 
-    let repo = ctx.repo();
+    let repo = git2_repo;
     let message = message.unwrap_or_default();
 
     let commit_tree = repo.find_real_tree(&commit, Default::default()).unwrap();
@@ -466,7 +460,7 @@ pub(crate) fn insert_blank_commit(
         ctx.commit(message, &commit_tree, &[&commit], Some(Default::default()))?;
 
     let merge_base = stack.merge_base(ctx)?;
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let steps = stack.as_rebase_steps(ctx, &repo)?;
     let mut updated_steps = vec![];
     for step in steps.iter() {
@@ -523,7 +517,7 @@ pub(crate) fn insert_blank_commit(
 
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful
 pub(crate) fn update_commit_message(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     commit_id: git2::Oid,
     message: &str,
@@ -531,12 +525,12 @@ pub(crate) fn update_commit_message(
     if message.is_empty() {
         bail!("commit message can not be empty");
     }
-    let vb_state = ctx.project().virtual_branches();
+    let vb_state = ctx.legacy_project.virtual_branches();
     let default_target = vb_state.get_default_target()?;
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let branch_commit_oids = ctx.repo().l(
+    let branch_commit_oids = ctx.git2_repo.get()?.l(
         stack.head_oid(&gix_repo)?.to_git2(),
         LogUntil::Commit(default_target.sha),
         false,
@@ -549,7 +543,8 @@ pub(crate) fn update_commit_message(
     let pushed_commit_oids = stack.upstream_head.map_or_else(
         || Ok(vec![]),
         |upstream_head| {
-            ctx.repo()
+            ctx.git2_repo
+                .get()?
                 .l(upstream_head, LogUntil::Commit(default_target.sha), false)
         },
     )?;

@@ -15,7 +15,10 @@ fn works_on_integration_branch() -> anyhow::Result<()> {
     )?;
 
     // Check that we are on the old `gitbutler/integration` branch.
-    assert_eq!(ctx.repo().head()?.name(), Some(INTEGRATION_BRANCH_REF));
+    assert_eq!(
+        ctx.git2_repo.get()?.head()?.name(),
+        Some(INTEGRATION_BRANCH_REF)
+    );
 
     // Should not throw verification error until migration is complete.
     let result = ensure_open_workspace_mode(&ctx);
@@ -23,10 +26,13 @@ fn works_on_integration_branch() -> anyhow::Result<()> {
 
     // Updating workspace commit should put us on the workspace branch.
     update_workspace_commit(
-        &VirtualBranchesHandle::new(ctx.project().gb_dir()),
+        &VirtualBranchesHandle::new(ctx.project_data_dir()),
         &ctx,
         false,
     )?;
-    assert_eq!(ctx.repo().head()?.name(), Some(WORKSPACE_BRANCH_REF));
+    assert_eq!(
+        ctx.git2_repo.get()?.head()?.name(),
+        Some(WORKSPACE_BRANCH_REF)
+    );
     Ok(())
 }

@@ -1,7 +1,7 @@
 use std::{path::PathBuf, str};
 
+use but_ctx::Context;
 use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_repo::credentials::{Credential, SshCredential, help};
 use gitbutler_testsupport::test_repository;
@@ -31,9 +31,10 @@ impl TestCase<'_> {
             repo.workdir().unwrap().to_path_buf(),
             self.preferred_key.clone(),
         );
-        let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
 
-        let flow = help(&ctx, "origin").unwrap();
+        let git2_repo = &*ctx.git2_repo.get().unwrap();
+        let flow = help(git2_repo, &ctx.legacy_project, "origin").unwrap();
         flow.into_iter()
             .map(|(remote, credentials)| (remote.url().as_ref().unwrap().to_string(), credentials))
             .collect::<Vec<_>>()

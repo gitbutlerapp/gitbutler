@@ -1,8 +1,8 @@
 use std::path::Path;
 
+use but_ctx::Context;
 use but_hunk_dependency::ui::HunkDependencies;
 use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gix::bstr::BString;
 use itertools::Itertools;
 
@@ -75,13 +75,13 @@ fn handle_normal_diff(worktree: but_core::WorktreeChanges, use_json: bool) -> an
 
 pub fn locks(current_dir: &Path, simple: bool, use_json: bool) -> anyhow::Result<()> {
     let project = project_from_path(current_dir)?;
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
-    let repo = project.open()?;
+    let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+    let repo = project.open_repo()?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
     let input_stacks = but_hunk_dependency::workspace_stacks_to_input_stacks(
         &repo,
-        &but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?,
-        but_workspace::legacy::common_merge_base_with_target_branch(&project.gb_dir())?,
+        &but_workspace::legacy::stacks(&ctx, &ctx.project_data_dir(), &repo, Default::default())?,
+        but_workspace::legacy::common_merge_base_with_target_branch(&ctx.project_data_dir())?,
     )?;
     let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
 

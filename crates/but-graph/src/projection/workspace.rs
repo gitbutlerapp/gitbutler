@@ -4,7 +4,7 @@ use std::{
     fmt::Formatter,
 };
 
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::{BStr, ByteSlice};
 use but_core::{
     ref_metadata,

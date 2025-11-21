@@ -1,9 +1,9 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
 use git2::Oid;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{Stack, StackId};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use itertools::Itertools;
@@ -23,19 +23,19 @@ use crate::VirtualBranchesExt;
 /// - The number of commits in the reorder request must match the number of commits in the stack
 /// - The commit ids in the reorder request must be in the stack
 pub fn reorder_stack(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     new_order: StackOrder,
     perm: &mut WorktreeWritePermission,
 ) -> Result<RebaseOutput> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let state = ctx.project().virtual_branches();
-    let repo = ctx.repo();
+    let state = ctx.legacy_project.virtual_branches();
+    let repo = &*ctx.git2_repo.get()?;
     let mut stack = state.get_stack(stack_id)?;
     let current_order = commits_order(ctx, &stack)?;
     new_order.validate(current_order.clone())?;
 
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
     let default_target = state.get_default_target()?;
     let default_target_commit = repo
         .find_reference(&default_target.branch.to_string())?
@@ -177,7 +177,8 @@ impl StackOrder {
     }
 }
 
-pub fn commits_order(ctx: &CommandContext, stack: &Stack) -> Result<StackOrder> {
+pub fn commits_order(ctx: &Context, stack: &Stack) -> Result<StackOrder> {
+    let git2_repo = &*ctx.git2_repo.get()?;
     let order: Result<Vec<SeriesOrder>> = stack
         .branches()
         .iter()
@@ -187,7 +188,7 @@ pub fn commits_order(ctx: &CommandContext, stack: &Stack) -> Result<StackOrder> 
             Ok(SeriesOrder {
                 name: b.name().to_owned(),
                 commit_ids: b
-                    .commits(ctx, stack)?
+                    .commits(git2_repo, &ctx.legacy_project, stack)?
                     .local_commits
                     .iter()
                     .rev()

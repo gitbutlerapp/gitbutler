@@ -19,7 +19,7 @@ but-fs = {workspace = true, features = ["legacy"]}
 
 gitbutler-branch-actions = { path = "../gitbutler-branch-actions" }
 gitbutler-repo = { path = "../gitbutler-repo" }
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-project.workspace = true
 gitbutler-user.workspace = true
 gitbutler-reference.workspace = true

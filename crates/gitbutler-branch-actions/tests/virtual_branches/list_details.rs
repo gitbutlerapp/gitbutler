@@ -83,12 +83,12 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
 }
 
 mod util {
+    use but_ctx::Context;
     use gitbutler_branch::BranchIdentity;
     use gitbutler_branch_actions::{Author, BranchListingDetails};
-    use gitbutler_command_context::CommandContext;
 
     pub fn branch_details(
-        ctx: &CommandContext,
+        ctx: &Context,
         branch_names: impl IntoIterator<Item = impl TryInto<BranchIdentity>>,
     ) -> anyhow::Result<Vec<BranchListingDetails>> {
         let mut details = gitbutler_branch_actions::get_branch_listing_details(ctx, branch_names)?;
@@ -104,7 +104,7 @@ mod util {
         }
     }
 
-    pub fn project_ctx(name: &str) -> anyhow::Result<CommandContext> {
+    pub fn project_ctx(name: &str) -> anyhow::Result<Context> {
         gitbutler_testsupport::read_only::fixture("for-details.sh", name)
     }
 }

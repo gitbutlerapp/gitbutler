@@ -2,7 +2,7 @@
 
 use std::{ffi::OsString, path::Path};
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 
 pub mod args;
 use args::{Args, Subcommands, actions, claude, cursor};
@@ -183,10 +183,10 @@ async fn match_subcommand(
             }
             claude::Subcommands::Last { offset } => {
                 let project = get_or_init_legacy_non_bare_project(&args)?;
-                let mut ctx = gitbutler_command_context::CommandContext::open(
+                let mut ctx = but_ctx::Context::new_from_legacy_project_and_settings(
                     &project,
                     app_settings.clone(),
-                )?;
+                );
                 let message = but_claude::db::get_user_message(&mut ctx, Some(offset as i64))?;
                 match message {
                     Some(msg) => {
@@ -248,8 +248,8 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
-            let ctx = get_or_init_context_with_legacy_support(&args)?;
-            branch::handle(cmd, &ctx, out)
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            branch::handle(cmd, &project, out)
                 .await
                 .emit_metrics(metrics_ctx)
         }
@@ -264,13 +264,13 @@ async fn match_subcommand(
             verbose,
             review,
         } => {
-            let project = get_or_init_context_with_legacy_support(&args)?;
+            let project = get_or_init_legacy_non_bare_project(&args)?;
             status::worktree(&project, out, show_files, verbose, review)
                 .await
                 .emit_metrics(metrics_ctx)
         }
         Subcommands::Stf { verbose, review } => {
-            let project = get_or_init_context_with_legacy_support(&args)?;
+            let project = get_or_init_legacy_non_bare_project(&args)?;
             status::worktree(&project, out, true, verbose, review)
                 .await
                 .emit_metrics(metrics_ctx)
@@ -429,11 +429,7 @@ pub fn get_or_init_context_with_legacy_support(args: &Args) -> anyhow::Result<bu
             )
             .and_then(|()| LegacyProject::find_by_worktree_dir(directory))
         })?;
-    Ok(but_ctx::Context {
-        settings: AppSettings::load_from_default_path_creating()?,
-        legacy_project: project,
-        repo,
-    })
+    Ok(but_ctx::Context::new_from_legacy_project(project)?.with_repo(repo))
 }
 
 /// Discover the Git repository in `directory` and return it,
@@ -446,11 +442,7 @@ pub fn get_context_with_legacy_support(
         .workdir()
         .context("Bare repositories are not yet supported.")?;
     let project = LegacyProject::find_by_worktree_dir(worktree_dir)?;
-    Ok(but_ctx::Context {
-        settings: AppSettings::load_from_default_path_creating()?,
-        legacy_project: project,
-        repo,
-    })
+    Ok(but_ctx::Context::new_from_legacy_project(project)?.with_repo(repo))
 }
 
 mod utils;

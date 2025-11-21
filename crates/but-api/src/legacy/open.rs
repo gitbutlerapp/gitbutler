@@ -1,7 +1,7 @@
 //! In place of commands.rs
 use std::env;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use but_api_macros::api_cmd_tauri;
 use tracing::instrument;
 use url::Url;

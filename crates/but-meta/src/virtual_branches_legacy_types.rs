@@ -26,7 +26,7 @@ pub struct VirtualBranches {
 mod stack {
     use std::{fmt, fmt::Display, path, str::FromStr};
 
-    use anyhow::{Context, anyhow};
+    use anyhow::{Context as _, anyhow};
     use but_core::ref_metadata::StackId;
     use gitbutler_reference::{Refname, RemoteRefname};
     use serde::{Deserialize, Serialize, Serializer};

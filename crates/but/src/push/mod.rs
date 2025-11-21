@@ -1,7 +1,6 @@
 use but_core::{RepositoryExt, ref_metadata::StackId};
-use but_settings::AppSettings;
+use but_ctx::Context;
 use gitbutler_branch_actions::internal::PushResult;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
 use crate::utils::OutputChannel;
@@ -109,14 +108,13 @@ fn get_gerrit_flags(
 }
 
 pub fn handle(args: Args, project: &Project, out: &mut OutputChannel) -> anyhow::Result<()> {
-    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
 
     // Check gerrit mode early
-    let gerrit_mode = ctx
-        .gix_repo()?
-        .git_settings()?
-        .gitbutler_gerrit_mode
-        .unwrap_or(false);
+    let gerrit_mode = {
+        let repo = ctx.repo.get()?;
+        repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false)
+    };
 
     // Resolve branch_id to actual branch name
     let branch_name = resolve_branch_name(&mut ctx, &args.branch_id)?;
@@ -249,7 +247,7 @@ fn is_gerrit_enabled_for_help() -> bool {
     false
 }
 
-fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Result<String> {
+fn resolve_branch_name(ctx: &mut Context, branch_id: &str) -> anyhow::Result<String> {
     // Try to resolve as CliId first
     let cli_ids = crate::id::CliId::from_str(ctx, branch_id)?;
 
@@ -298,7 +296,7 @@ fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Res
     }
 }
 
-fn get_available_branch_names(ctx: &CommandContext) -> anyhow::Result<Vec<String>> {
+fn get_available_branch_names(ctx: &Context) -> anyhow::Result<Vec<String>> {
     let stacks = crate::utils::commits::stacks(ctx)?;
     let mut branch_names = Vec::new();
 

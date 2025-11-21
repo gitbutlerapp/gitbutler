@@ -18,7 +18,7 @@ but-meta = { workspace = true, features = ["legacy"] }
 but-workspace = { workspace = true, features = ["legacy"] }
 but-hunk-dependency.workspace = true
 
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-branch-actions.workspace = true

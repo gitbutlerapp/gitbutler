@@ -1,12 +1,12 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
+use but_ctx::Context;
+use but_ctx::access::{WorktreeReadPermission, WorktreeWritePermission};
 use but_oxidize::{GixRepositoryExt as _, ObjectIdExt};
 use but_rebase::{Rebase, RebaseOutput, RebaseStep};
 use but_status::create_wd_tree;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch_actions::update_workspace_commit;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{
     WorkspaceState, merge_workspace, move_tree, update_uncommited_changes,
@@ -44,7 +44,7 @@ pub enum WorktreeIntegrationStatus {
 /// This function makes use of older APIs because there is not yet an
 /// alternative to the rebase engine.
 pub fn worktree_integration_status(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     perm: &WorktreeReadPermission,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
@@ -57,7 +57,7 @@ pub fn worktree_integration_status(
 /// This function makes use of older APIs because there is not yet an
 /// alternative to the rebase engine.
 pub fn worktree_integrate(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     perm: &mut WorktreeWritePermission,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
@@ -74,10 +74,10 @@ pub fn worktree_integrate(
         .set_heads_from_rebase_output(ctx, status.rebase_output.references)?;
     let after = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommited_changes(ctx, before, after, perm)?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
-    git_worktree_remove(&ctx.project().common_git_dir()?, id, true)?;
+    git_worktree_remove(&ctx.legacy_project.common_git_dir()?, id, true)?;
 
     Ok(())
 }
@@ -90,12 +90,12 @@ struct IntegrationResult {
 /// Performs the workspace integration operations in memory, returning the
 /// status, and output if it's integratable
 fn worktree_integration_inner(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     perm: &WorktreeReadPermission,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<(WorktreeIntegrationStatus, Option<IntegrationResult>)> {
-    let repo = ctx.gix_repo_for_merging()?;
+    let repo = ctx.open_repo_for_merging()?;
 
     let target_ref = repo.find_reference(target)?;
 
@@ -149,7 +149,7 @@ fn worktree_integration_inner(
     };
     let commit_id = repo.write_object(commit)?;
 
-    let vb_handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks = vb_handle.list_stacks_in_workspace()?;
     let stack = stacks
         .iter()
@@ -244,7 +244,7 @@ fn worktree_integration_inner(
             .map(|s| s.head_oid(&repo))
             .collect::<Result<Vec<_>>>()?;
         let before = WorkspaceState::create_from_heads(ctx, perm, &before_heads)?;
-        let before = merge_workspace(ctx.repo(), before)?;
+        let before = merge_workspace(&*ctx.git2_repo.get()?, before)?;
         let mut after_heads = stacks
             .iter()
             .filter(|s| s.id != stack.id)
@@ -252,8 +252,8 @@ fn worktree_integration_inner(
             .collect::<Result<Vec<_>>>()?;
         after_heads.push(output.top_commit);
         let after = WorkspaceState::create_from_heads(ctx, perm, &after_heads)?;
-        let after = merge_workspace(ctx.repo(), after)?;
-        let index = move_tree(ctx.repo(), wd_tree.to_git2(), before, after)?;
+        let after = merge_workspace(&*ctx.git2_repo.get()?, after)?;
+        let index = move_tree(&*ctx.git2_repo.get()?, wd_tree.to_git2(), before, after)?;
 
         index.has_conflicts()
     };

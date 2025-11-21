@@ -1,12 +1,12 @@
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
 use colored::Colorize;
-use gitbutler_command_context::CommandContext;
 
 use crate::utils::OutputChannel;
 
 pub(crate) fn assign_file_to_branch(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     path: &str,
     branch_name: &str,
     out: &mut OutputChannel,
@@ -25,7 +25,7 @@ pub(crate) fn assign_file_to_branch(
 }
 
 pub(crate) fn unassign_file(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     path: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
@@ -38,7 +38,7 @@ pub(crate) fn unassign_file(
 }
 
 pub(crate) fn assign_all(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     from_branch: Option<&str>,
     to_branch: Option<&str>,
     out: &mut OutputChannel,
@@ -47,9 +47,10 @@ pub(crate) fn assign_all(
     let to_stack_id = branch_name_to_stack_id(ctx, to_branch)?;
 
     // Get all assignment requests from the from_stack_id
-    let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
-            .changes;
+    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
+        ctx.legacy_project.worktree_dir()?.into(),
+    )?
+    .changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
 
@@ -90,7 +91,7 @@ pub(crate) fn assign_all(
 }
 
 fn do_assignments(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     reqs: Vec<HunkAssignmentRequest>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
@@ -104,7 +105,7 @@ fn do_assignments(
 }
 
 pub(crate) fn branch_name_to_stack_id(
-    ctx: &CommandContext,
+    ctx: &Context,
     branch_name: Option<&str>,
 ) -> anyhow::Result<Option<StackId>> {
     let stack_id = if let Some(branch_name) = branch_name {
@@ -119,15 +120,16 @@ pub(crate) fn branch_name_to_stack_id(
 }
 
 fn to_assignment_request(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     path: &str,
     branch_name: Option<&str>,
 ) -> anyhow::Result<Vec<HunkAssignmentRequest>> {
     let stack_id = branch_name_to_stack_id(ctx, branch_name)?;
 
-    let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
-            .changes;
+    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
+        ctx.legacy_project.worktree_dir()?.into(),
+    )?
+    .changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
     let mut reqs = Vec::new();

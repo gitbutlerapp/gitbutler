@@ -1,6 +1,5 @@
-use but_settings::AppSettings;
+use but_ctx::Context;
 use colored::Colorize;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use tracing::instrument;
 
@@ -121,9 +120,10 @@ fn check_merge_conflicts(
 ) -> Result<MergeCheck, anyhow::Error> {
     use but_oxidize::GixRepositoryExt;
 
-    let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.repo();
-    let gix_repo = ctx.gix_repo()?.for_tree_diffing()?.with_object_memory();
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.open_repo()?;
+    let gix_repo = repo.for_tree_diffing()?.with_object_memory();
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
@@ -138,11 +138,11 @@ fn check_merge_conflicts(
     let target_commit = match gix_repo.find_reference(&target_ref_name) {
         Ok(reference) => {
             let target_oid = reference.id();
-            repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
+            git2_repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
         }
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
-            repo.find_commit(target.sha)?
+            git2_repo.find_commit(target.sha)?
         }
     };
 
@@ -153,11 +153,11 @@ fn check_merge_conflicts(
         .find(|b| b.name.to_string() == branch_name)
         .ok_or_else(|| anyhow::anyhow!("Branch '{}' not found", branch_name))?;
 
-    let branch_commit = repo.find_commit(branch.head)?;
+    let branch_commit = git2_repo.find_commit(branch.head)?;
 
     // Find merge base
-    let merge_base = repo.merge_base(target_commit.id(), branch_commit.id())?;
-    let merge_base_commit = repo.find_commit(merge_base)?;
+    let merge_base = git2_repo.merge_base(target_commit.id(), branch_commit.id())?;
+    let merge_base_commit = git2_repo.find_commit(merge_base)?;
 
     // Check if branch merges cleanly into target
     let merges_cleanly = gix_repo.merges_cleanly_compat(
@@ -181,10 +181,10 @@ fn check_merge_conflicts(
         // For each conflicting file, find which commits on both sides modified it
         for path in conflict_paths {
             let branch_commits =
-                find_commits_modifying_file(repo, &path, merge_base, branch_commit.id())?;
+                find_commits_modifying_file(git2_repo, &path, merge_base, branch_commit.id())?;
 
             let upstream_commits =
-                find_commits_modifying_file(repo, &path, merge_base, target_commit.id())?;
+                find_commits_modifying_file(git2_repo, &path, merge_base, target_commit.id())?;
 
             conflicting_files.push(ConflictingFile {
                 path,
@@ -303,11 +303,10 @@ fn get_commits_ahead(
     branch_name: &str,
     show_files: bool,
 ) -> Result<Vec<CommitInfo>, anyhow::Error> {
-    use but_settings::AppSettings;
-    use gitbutler_command_context::CommandContext;
+    use but_ctx::Context;
 
-    let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.repo();
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let repo = &*ctx.git2_repo.get()?;
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
@@ -319,7 +318,7 @@ fn get_commits_ahead(
         target.branch.remote(),
         target.branch.branch()
     );
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
     let target_commit = match gix_repo.find_reference(&target_ref_name) {
         Ok(reference) => {
             let target_oid = reference.id();

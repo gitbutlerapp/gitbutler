@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 use but_core::{DiffSpec, ref_metadata::StackId};
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_oxidize::OidExt;
-use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 use uuid::Uuid;
 
@@ -26,16 +26,16 @@ use crate::{Outcome, Source, default_target_setting_if_none};
 ///   - Create an oplog snapshot entry _after_ the automation is executed
 ///   - Create a separate persisted entry recording the request context and IDs for the two oplog snapshots
 pub fn handle_changes(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     change_summary: &str,
     external_prompt: Option<String>,
     source: Source,
     exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<(Uuid, Outcome)> {
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
-    let vb_state = &VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
     default_target_setting_if_none(ctx, vb_state)?; // Create a default target if none exists.
 
     let snapshot_before = ctx
@@ -76,7 +76,7 @@ pub fn handle_changes(
 }
 
 fn handle_changes_simple_inner(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     change_summary: &str,
     external_prompt: Option<String>,
     vb_state: &VirtualBranchesHandle,
@@ -98,8 +98,6 @@ fn handle_changes_simple_inner(
         }
     }
 
-    let repo = ctx.gix_repo()?;
-
     // Get any assignments that may have been made, which also includes any hunk locks. Assignments should be updated according to locks where applicable.
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
@@ -108,6 +106,7 @@ fn handle_changes_simple_inner(
         None,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;
+    let repo = ctx.repo.get()?;
     if assignments.is_empty() {
         return Ok(Outcome {
             updated_branches: vec![],

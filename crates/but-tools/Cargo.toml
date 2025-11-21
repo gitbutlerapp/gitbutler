@@ -19,7 +19,7 @@ but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
 but-oxidize.workspace = true
 
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true

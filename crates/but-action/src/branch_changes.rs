@@ -1,16 +1,16 @@
-use anyhow::Context;
+use anyhow::Context as _;
+use but_ctx::Context;
 use but_tools::{emit::Emitter, workspace::commit_toolset};
-use gitbutler_command_context::CommandContext;
 
 use crate::OpenAiProvider;
 
 pub fn branch_changes(
     emitter: std::sync::Arc<Emitter>,
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     openai: &OpenAiProvider,
     changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<()> {
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.open_repo()?;
 
     let paths = changes
         .iter()

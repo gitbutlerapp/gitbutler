@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display, ops::Deref, sync::Arc};
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use async_openai::{
     Client,
     config::OpenAIConfig,

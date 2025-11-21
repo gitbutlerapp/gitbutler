@@ -4,9 +4,8 @@ use std::{
 };
 
 use anyhow::Result;
+use but_ctx::Context;
 use but_db::poll::ItemKind;
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use rmcp::{
     ServerHandler, ServiceExt,
@@ -29,8 +28,7 @@ pub async fn start(repo_path: &Path, session_id_str: &str) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Invalid session ID '{}': {}", session_id_str, e))?;
 
     // Look up the session by current_id to get the stable session ID
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = &mut CommandContext::open(&project, app_settings)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let session = crate::db::get_session_by_current_id(ctx, current_session_id)?
         .ok_or_else(|| anyhow::anyhow!("Session not found in database: {}", current_session_id))?;
 
@@ -103,8 +101,7 @@ impl Mcp {
         req: crate::ClaudePermissionRequest,
         timeout: std::time::Duration,
     ) -> anyhow::Result<bool> {
-        let app_settings = AppSettings::load_from_default_path_creating()?;
-        let ctx = &mut CommandContext::open(&self.project, app_settings)?;
+        let ctx = &mut Context::new_from_legacy_project(self.project.clone())?;
 
         // Load session permissions from database (using stable session ID)
         let session = crate::db::get_session_by_id(ctx, self.session_id)?
@@ -127,17 +124,18 @@ impl Mcp {
 
         // Send notification for permission request
         if let Err(e) =
-            crate::notifications::notify_permission_request(ctx.app_settings(), &req.tool_name)
+            crate::notifications::notify_permission_request(ctx.settings(), &req.tool_name)
         {
             tracing::warn!("Failed to send permission request notification: {}", e);
         }
 
         // Create a record that will be seen by the user in the UI
-        ctx.db()?
+        ctx.db
+            .get_mut()?
             .claude_permission_requests()
             .insert(req.clone().try_into()?)?;
         // Poll for user approval
-        let rx = ctx.db()?.poll_changes(
+        let rx = ctx.db.get_mut()?.poll_changes(
             ItemKind::Actions
                 | ItemKind::Workflows
                 | ItemKind::Assignments
@@ -155,7 +153,12 @@ impl Mcp {
             }
             match item {
                 Ok(ItemKind::ClaudePermissionRequests) => {
-                    if let Some(updated) = ctx.db()?.claude_permission_requests().get(&req.id)? {
+                    let updated = ctx
+                        .db
+                        .get_mut()?
+                        .claude_permission_requests()
+                        .get(&req.id)?;
+                    if let Some(updated) = updated {
                         if let Some(decision_str) = updated.decision.clone() {
                             let decision: crate::PermissionDecision =
                                 serde_json::from_str(&decision_str)?;

@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
+use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, RepoExt};
-use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::{
     HunkDependencyOptions, InputCommit, InputDiff, InputFile, InputStack,
     calculate_hunk_dependencies, locks::HunkDependencyResult,
@@ -11,12 +11,12 @@ use gitbutler_stack::{Stack, StackId};
 use crate::{BranchStatus, file::list_virtual_commit_files};
 
 pub fn compute_workspace_dependencies(
-    ctx: &CommandContext,
+    ctx: &Context,
     target_sha: &git2::Oid,
     base_diffs: &BranchStatus,
     stacks: &Vec<Stack>,
 ) -> Result<HunkDependencyResult> {
-    let repo = ctx.repo();
+    let repo = &*ctx.git2_repo.get()?;
     let gix_repo = repo.to_gix()?;
 
     let mut stacks_input: Vec<InputStack> = vec![];

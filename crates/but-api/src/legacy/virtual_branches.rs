@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::api_cmd_tauri;
 use but_core::DiffSpec;
+use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
-use but_settings::AppSettings;
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
@@ -16,7 +16,6 @@ use gitbutler_branch_actions::{
         StackStatuses,
     },
 };
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::{FetchResult, ProjectId};
 use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name as normalize_name};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -38,11 +37,10 @@ pub fn create_virtual_branch(
     project_id: ProjectId,
     branch: BranchCreateRequest,
 ) -> Result<StackEntryNoOpt> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let ws3_enabled = ctx.app_settings().feature_flags.ws3;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let ws3_enabled = ctx.settings().feature_flags.ws3;
     let stack_entry = if ws3_enabled {
-        let mut guard = project.exclusive_worktree_access();
+        let mut guard = ctx.exclusive_worktree_access();
         let (repo, mut meta, graph) =
             ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
         let ws = graph.to_workspace()?;
@@ -61,7 +59,7 @@ pub fn create_virtual_branch(
             None,
             &repo,
             &ws,
-            &mut *meta,
+            &mut meta,
             |_| StackId::generate(),
             branch.order,
         )?;
@@ -92,7 +90,7 @@ pub fn create_virtual_branch(
         gitbutler_branch_actions::create_virtual_branch(
             &ctx,
             &branch,
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )?
     };
     Ok(stack_entry)
@@ -105,8 +103,7 @@ pub fn delete_local_branch(
     refname: Refname,
     given_name: String,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::delete_local_branch(&ctx, &refname, given_name)?;
     Ok(())
 }
@@ -119,8 +116,7 @@ pub fn create_virtual_branch_from_branch(
     remote: Option<RemoteRefname>,
     pr_number: Option<usize>,
 ) -> Result<gitbutler_branch_actions::CreateBranchFromBranchOutcome> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let outcome = gitbutler_branch_actions::create_virtual_branch_from_branch(
         &ctx, &branch, remote, pr_number,
     )?;
@@ -135,8 +131,7 @@ pub fn integrate_upstream_commits(
     series_name: String,
     integration_strategy: Option<IntegrationStrategy>,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::integrate_upstream_commits(
         &ctx,
         stack_id,
@@ -156,8 +151,7 @@ pub fn get_initial_integration_steps_for_branch(
     Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
     Error,
 > {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let steps = gitbutler_branch_actions::branch_upstream_integration::get_initial_integration_steps_for_branch(
         &ctx,
         stack_id,
@@ -174,16 +168,14 @@ pub fn integrate_branch_with_steps(
     branch_name: String,
     steps: Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::integrate_branch_with_steps(&ctx, stack_id, branch_name, steps)
 }
 
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     if let Ok(base_branch) = gitbutler_branch_actions::base::get_base_branch_data(&ctx) {
         Ok(Some(base_branch))
     } else {
@@ -199,14 +191,14 @@ pub fn set_base_branch(
     push_remote: Option<String>,
 ) -> Result<BaseBranch> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let branch_name = format!("refs/remotes/{branch}")
         .parse()
         .context("Invalid branch name")?;
     let base_branch = gitbutler_branch_actions::set_base_branch(
         &ctx,
         &branch_name,
-        ctx.project().exclusive_worktree_access().write_permission(),
+        ctx.exclusive_worktree_access().write_permission(),
     )?;
 
     // if they also sent a different push remote, set that too
@@ -221,8 +213,7 @@ pub fn set_base_branch(
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn push_base_branch(project_id: ProjectId, with_force: bool) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::push_base_branch(&ctx, with_force)?;
     Ok(())
 }
@@ -230,8 +221,7 @@ pub fn push_base_branch(project_id: ProjectId, with_force: bool) -> Result<()> {
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn update_stack_order(project_id: ProjectId, stacks: Vec<BranchUpdateRequest>) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::update_stack_order(&ctx, stacks)?;
     Ok(())
 }
@@ -240,7 +230,7 @@ pub fn update_stack_order(project_id: ProjectId, stacks: Vec<BranchUpdateRequest
 #[instrument(err(Debug))]
 pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
         false,
@@ -264,8 +254,7 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn can_apply_remote_branch(project_id: ProjectId, branch: RemoteRefname) -> Result<bool> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::can_apply_remote_branch(&ctx, &branch)
 }
 
@@ -275,8 +264,7 @@ pub fn list_commit_files(
     project_id: ProjectId,
     commit_id: String,
 ) -> Result<Vec<RemoteBranchFile>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::list_commit_files(&ctx, commit_id)
 }
@@ -289,8 +277,7 @@ pub fn amend_virtual_branch(
     commit_id: String,
     worktree_changes: Vec<DiffSpec>,
 ) -> Result<String> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     let oid = gitbutler_branch_actions::amend(&ctx, stack_id, commit_id, worktree_changes)?;
     Ok(oid.to_string())
@@ -299,8 +286,7 @@ pub fn amend_virtual_branch(
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn undo_commit(project_id: ProjectId, stack_id: StackId, commit_id: String) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::undo_commit(&ctx, stack_id, commit_id)?;
     Ok(())
@@ -314,14 +300,13 @@ pub fn insert_blank_commit(
     commit_id: Option<String>,
     offset: i32,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let commit_id = match commit_id {
         Some(oid) => git2::Oid::from_str(&oid).map_err(|e| anyhow!(e))?,
         None => {
-            let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+            let state = VirtualBranchesHandle::new(ctx.project_data_dir());
             let stack = state.get_stack(stack_id)?;
-            let gix_repo = ctx.gix_repo()?;
+            let gix_repo = ctx.repo.get()?;
             stack.head_oid(&gix_repo)?.to_git2()
         }
     };
@@ -336,8 +321,7 @@ pub fn reorder_stack(
     stack_id: StackId,
     stack_order: StackOrder,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::reorder_stack(&ctx, stack_id, stack_order)?;
     Ok(())
 }
@@ -348,8 +332,7 @@ pub fn find_git_branches(
     project_id: ProjectId,
     branch_name: String,
 ) -> Result<Vec<RemoteBranchData>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let branches = gitbutler_branch_actions::find_git_branches(&ctx, &branch_name)?;
     Ok(branches)
 }
@@ -360,8 +343,7 @@ pub fn list_branches(
     project_id: ProjectId,
     filter: Option<BranchListingFilter>,
 ) -> Result<Vec<BranchListing>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let branches = gitbutler_branch_actions::list_branches(&ctx, filter, None)?;
     Ok(branches)
 }
@@ -372,8 +354,7 @@ pub fn get_branch_listing_details(
     project_id: ProjectId,
     branch_names: Vec<String>,
 ) -> Result<Vec<BranchListingDetails>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let branches = gitbutler_branch_actions::get_branch_listing_details(&ctx, branch_names)?;
     Ok(branches)
 }
@@ -386,8 +367,7 @@ pub fn squash_commits(
     source_commit_ids: Vec<String>,
     target_commit_id: String,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let source_commit_ids: Vec<git2::Oid> = source_commit_ids
         .into_iter()
         .map(|oid| git2::Oid::from_str(&oid))
@@ -406,8 +386,7 @@ pub fn squash_commits(
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn fetch_from_remotes(project_id: ProjectId, action: Option<String>) -> Result<BaseBranch> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
 
     let project_data_last_fetched = gitbutler_branch_actions::fetch_from_remotes(
         &ctx,
@@ -419,7 +398,7 @@ pub fn fetch_from_remotes(project_id: ProjectId, action: Option<String>) -> Resu
     // TODO: This cross dependency likely indicates that last_fetched is stored in the wrong place - value is coupled with virtual branches state
     gitbutler_project::update(gitbutler_project::UpdateRequest {
         project_data_last_fetched: Some(project_data_last_fetched.clone()),
-        ..gitbutler_project::UpdateRequest::default_with_id(project.id)
+        ..gitbutler_project::UpdateRequest::default_with_id(ctx.legacy_project.id)
     })
     .context("failed to update project with last fetched timestamp")?;
 
@@ -439,8 +418,7 @@ pub fn move_commit(
     target_stack_id: StackId,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::move_commit(&ctx, target_stack_id, commit_id, source_stack_id)
 }
@@ -454,8 +432,7 @@ pub fn move_branch(
     source_stack_id: StackId,
     subject_branch_name: String,
 ) -> Result<MoveBranchResult> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::move_branch(
         &ctx,
         target_stack_id,
@@ -472,8 +449,7 @@ pub fn tear_off_branch(
     source_stack_id: StackId,
     subject_branch_name: String,
 ) -> Result<MoveBranchResult> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::tear_off_branch(&ctx, source_stack_id, subject_branch_name.as_str())
 }
 
@@ -485,8 +461,7 @@ pub fn update_commit_message(
     commit_id: String,
     message: String,
 ) -> Result<String> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     let new_commit_id =
         gitbutler_branch_actions::update_commit_message(&ctx, stack_id, commit_id, &message)?;
@@ -496,8 +471,7 @@ pub fn update_commit_message(
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn find_commit(project_id: ProjectId, commit_id: String) -> Result<Option<RemoteCommit>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::find_commit(&ctx, commit_id)
 }
@@ -509,15 +483,22 @@ pub async fn upstream_integration_statuses(
     target_commit_id: Option<String>,
 ) -> Result<StackStatuses> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let commit_id = target_commit_id
-        .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
-        .transpose()?;
+    let (base_branch, commit_id, sync_ctx) = {
+        let ctx = Context::new_from_legacy_project(project.clone())?;
+        let commit_id = target_commit_id
+            .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
+            .transpose()?;
 
-    // Get all the actively applied reviews
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        // Get all the actively applied reviews
+        (
+            gitbutler_branch_actions::base::get_base_branch_data(&ctx)?,
+            commit_id,
+            ctx.into_sync(),
+        )
+    };
+
     let resolved_reviews = resolve_review_map(project, &base_branch).await?;
-
+    let ctx = sync_ctx.into_thread_local();
     gitbutler_branch_actions::upstream_integration_statuses(&ctx, commit_id, &resolved_reviews)
 }
 
@@ -529,9 +510,13 @@ pub async fn integrate_upstream(
     base_branch_resolution: Option<BaseBranchResolution>,
 ) -> Result<IntegrationOutcome> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let (base_branch, sync_ctx) = {
+        let ctx = Context::new_from_legacy_project(project.clone())?;
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        (base_branch, ctx.into_sync())
+    };
     let resolved_reviews = resolve_review_map(project, &base_branch).await?;
+    let ctx = sync_ctx.into_thread_local();
     let outcome = gitbutler_branch_actions::integrate_upstream(
         &ctx,
         &resolutions,
@@ -549,10 +534,14 @@ pub async fn resolve_upstream_integration(
     resolution_approach: BaseBranchResolutionApproach,
 ) -> Result<String> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let (base_branch, sync_ctx) = {
+        let ctx = Context::new_from_legacy_project(project.clone())?;
 
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        (base_branch, ctx.into_sync())
+    };
     let resolved_reviews = resolve_review_map(project, &base_branch).await?;
+    let ctx = sync_ctx.into_thread_local();
     let new_target_id = gitbutler_branch_actions::resolve_upstream_integration(
         &ctx,
         resolution_approach,

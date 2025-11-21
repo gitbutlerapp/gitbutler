@@ -4,7 +4,7 @@ use std::{
     ops::Deref,
 };
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
 use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
 use petgraph::Direction;

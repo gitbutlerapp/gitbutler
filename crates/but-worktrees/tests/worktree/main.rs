@@ -2,13 +2,13 @@ mod integrate;
 
 /// Tests for worktree creation and management
 mod util {
-    use gitbutler_command_context::CommandContext;
+    use but_ctx::Context;
     use gitbutler_stack::VirtualBranchesHandle;
     use gix_testtools::tempfile::TempDir;
 
     pub fn test_ctx(name: &str) -> anyhow::Result<TestContext> {
         let (ctx, tmpdir) = gitbutler_testsupport::writable::but_fixture("worktree.sh", name)?;
-        let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
+        let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
 
         Ok(TestContext {
             ctx,
@@ -19,7 +19,7 @@ mod util {
 
     #[allow(unused)]
     pub struct TestContext {
-        pub ctx: CommandContext,
+        pub ctx: Context,
         pub handle: VirtualBranchesHandle,
         pub tmpdir: TempDir,
     }
@@ -37,7 +37,7 @@ mod util {
 }
 
 mod worktree_new {
-    use anyhow::Context;
+    use anyhow::Context as _;
     use but_meta::VirtualBranchesTomlMetadata;
     use but_workspace::legacy::{StacksFilter, stacks_v3};
     use but_worktrees::new::worktree_new;
@@ -50,12 +50,12 @@ mod worktree_new {
         let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
         let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
-        let guard = test_ctx.ctx.project().exclusive_worktree_access();
-        let repo = test_ctx.ctx.gix_repo_for_merging()?;
+        let guard = test_ctx.ctx.exclusive_worktree_access();
+        let repo = test_ctx.ctx.open_repo_for_merging()?;
         let meta = VirtualBranchesTomlMetadata::from_path(
             test_ctx
                 .ctx
-                .project()
+                .legacy_project
                 .gb_dir()
                 .join("virtual_branches.toml"),
         )?;
@@ -98,12 +98,12 @@ mod worktree_new {
         let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
         let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
-        let guard = test_ctx.ctx.project().exclusive_worktree_access();
-        let repo = test_ctx.ctx.gix_repo_for_merging()?;
+        let guard = test_ctx.ctx.exclusive_worktree_access();
+        let repo = test_ctx.ctx.open_repo_for_merging()?;
         let meta = VirtualBranchesTomlMetadata::from_path(
             test_ctx
                 .ctx
-                .project()
+                .legacy_project
                 .gb_dir()
                 .join("virtual_branches.toml"),
         )?;
@@ -146,12 +146,12 @@ mod worktree_new {
         let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
         let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
-        let guard = test_ctx.ctx.project().exclusive_worktree_access();
-        let repo = test_ctx.ctx.gix_repo_for_merging()?;
+        let guard = test_ctx.ctx.exclusive_worktree_access();
+        let repo = test_ctx.ctx.open_repo_for_merging()?;
         let meta = VirtualBranchesTomlMetadata::from_path(
             test_ctx
                 .ctx
-                .project()
+                .legacy_project
                 .gb_dir()
                 .join("virtual_branches.toml"),
         )?;
@@ -201,7 +201,7 @@ mod worktree_list {
         let test_ctx = test_ctx("stacked-and-parallel")?;
         let mut ctx = test_ctx.ctx;
 
-        let guard = ctx.project().exclusive_worktree_access();
+        let guard = ctx.exclusive_worktree_access();
 
         let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
         let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
@@ -240,7 +240,7 @@ mod worktree_destroy {
         let test_ctx = test_ctx("stacked-and-parallel")?;
         let mut ctx = test_ctx.ctx;
 
-        let mut guard = ctx.project().exclusive_worktree_access();
+        let mut guard = ctx.exclusive_worktree_access();
 
         let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
         let outcome = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
@@ -269,7 +269,7 @@ mod worktree_destroy {
         let test_ctx = test_ctx("stacked-and-parallel")?;
         let mut ctx = test_ctx.ctx;
 
-        let mut guard = ctx.project().exclusive_worktree_access();
+        let mut guard = ctx.exclusive_worktree_access();
 
         let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
         let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
@@ -312,7 +312,7 @@ mod worktree_destroy {
         let test_ctx = test_ctx("stacked-and-parallel")?;
         let mut ctx = test_ctx.ctx;
 
-        let mut guard = ctx.project().exclusive_worktree_access();
+        let mut guard = ctx.exclusive_worktree_access();
 
         let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
         let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;

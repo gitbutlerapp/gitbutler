@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::ByteSlice as _;
 use but_core::{ChangeState, DiffSpec, HunkHeader};
 use but_rebase::{RebaseOutput, RebaseStep};

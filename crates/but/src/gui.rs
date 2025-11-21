@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_path::AppChannel;
 
 /// Open the GitButler GUI application for `possibly_project_dir`.

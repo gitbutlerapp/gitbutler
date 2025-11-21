@@ -1,6 +1,6 @@
 use std::path::{Component, Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use but_error::Code;
 
 use super::{Project, ProjectId, storage, storage::UpdateRequest};
@@ -228,7 +228,7 @@ impl Controller {
         // BACKWARD-COMPATIBLE MIGRATION
         project.migrate()?;
         if validate {
-            let repo = project.open_isolated();
+            let repo = project.open_isolated_repo();
             if repo.is_err() {
                 let suffix = if !project.worktree_dir.exists() {
                     " as it does not exist"
@@ -289,7 +289,7 @@ impl Controller {
 
         // Delete references in the gitbutler namespace
         if let Err(err) = project
-            .open_isolated()
+            .open_isolated_repo()
             .and_then(|repo| delete_gitbutler_references(&repo))
         {
             tracing::error!(project_id = %project.id, ?err, "failed to delete gitbutler references");

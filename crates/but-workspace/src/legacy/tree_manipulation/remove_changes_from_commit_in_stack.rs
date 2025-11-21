@@ -1,7 +1,7 @@
 use anyhow::{Result, bail};
 use but_core::{DiffSpec, TreeChange};
+use but_ctx::Context;
 use but_rebase::{Rebase, replace_commit_tree};
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gix::ObjectId;
 
@@ -31,15 +31,15 @@ use crate::legacy::{
 /// other stacks may end up referring to stale commits and potentially cause
 /// a merge conflict when combining them in the workspace.
 pub fn remove_changes_from_commit_in_stack(
-    ctx: &CommandContext,
+    ctx: &Context,
     source_stack_id: StackId,
     source_commit_id: gix::ObjectId,
     changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
 ) -> Result<MoveChangesResult> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let source_stack = vb_state.get_stack(source_stack_id)?;
-    let repository = ctx.gix_repo()?;
+    let repository = ctx.repo.get()?;
 
     let rewritten_source_commit =
         remove_changes_from_commit(ctx, source_commit_id, changes, context_lines)?;
@@ -67,12 +67,12 @@ pub fn remove_changes_from_commit_in_stack(
 /// This function does not update the stack or the workspace commit. Only generates a new commit
 /// that has the specified changes removed.
 pub fn remove_changes_from_commit(
-    ctx: &CommandContext,
+    ctx: &Context,
     source_commit_id: gix::ObjectId,
     changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
 ) -> Result<ObjectId> {
-    let repository = ctx.gix_repo()?;
+    let repository = ctx.repo.get()?;
 
     let (source_tree_without_changes, rejected_specs) = create_tree_without_diff(
         &repository,
@@ -94,13 +94,13 @@ pub fn remove_changes_from_commit(
 
 /// Keeps only the specified file changes in a commit, removing all others.
 pub fn keep_only_file_changes_in_commit(
-    ctx: &CommandContext,
+    ctx: &Context,
     source_commit_id: gix::ObjectId,
     file_changes_to_keep: &[String],
     context_lines: u32,
     skip_if_empty: bool,
 ) -> Result<Option<gix::ObjectId>> {
-    let repository = ctx.gix_repo()?;
+    let repository = ctx.repo.get()?;
     let commit_changes =
         but_core::diff::ui::commit_changes_by_worktree_dir(&repository, source_commit_id)?;
     let changes_to_remove: Vec<TreeChange> = commit_changes
@@ -124,13 +124,13 @@ pub fn keep_only_file_changes_in_commit(
 }
 
 pub fn remove_file_changes_from_commit(
-    ctx: &CommandContext,
+    ctx: &Context,
     source_commit_id: gix::ObjectId,
     file_changes_to_split_off: &[String],
     context_lines: u32,
     skip_if_empty: bool,
 ) -> Result<Option<gix::ObjectId>> {
-    let repository = ctx.gix_repo()?;
+    let repository = ctx.repo.get()?;
     let commit_changes =
         but_core::diff::ui::commit_changes_by_worktree_dir(&repository, source_commit_id)?;
     let changes_to_remove: Vec<TreeChange> = commit_changes

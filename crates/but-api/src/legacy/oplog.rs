@@ -16,11 +16,10 @@
 //! Depending on the snapshot operation kind, there may be a payload (body) with additional details about the operation (e.g. commit message).
 //! Refer to `gitbutler_oplog::entry::Snapshot` and `gitbutler_oplog::entry::SnapshotDetails` for the metadata stored.
 //!
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_api_macros::api_cmd_tauri;
+use but_ctx::Context;
 use but_oxidize::OidExt;
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, Snapshot, SnapshotDetails},
@@ -47,8 +46,7 @@ pub fn list_snapshots(
     sha: Option<String>,
     exclude_kind: Option<Vec<OperationKind>>,
 ) -> Result<Vec<Snapshot>> {
-    let project = gitbutler_project::get(project_id).context("failed to get project")?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let snapshots = ctx.list_snapshots(
         limit,
         sha.map(|hex| hex.parse().map_err(anyhow::Error::from))
@@ -70,8 +68,7 @@ pub fn list_snapshots(
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn get_snapshot(project_id: ProjectId, sha: String) -> Result<Snapshot> {
-    let project = gitbutler_project::get(project_id).context("failed to get project")?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let snapshot = ctx.get_snapshot(sha.parse().map_err(anyhow::Error::from)?)?;
     Ok(snapshot)
 }
@@ -89,8 +86,8 @@ pub fn get_snapshot(project_id: ProjectId, sha: String) -> Result<Snapshot> {
 #[instrument(err(Debug))]
 pub fn create_snapshot(project_id: ProjectId, message: Option<String>) -> Result<gix::ObjectId> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let mut guard = ctx.exclusive_worktree_access();
     let mut details = SnapshotDetails::new(OperationKind::OnDemandSnapshot);
     details.body = message;
     let oid = ctx.create_snapshot(details, guard.write_permission())?;
@@ -113,8 +110,8 @@ pub fn create_snapshot(project_id: ProjectId, message: Option<String>) -> Result
 #[instrument(err(Debug))]
 pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<()> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let mut guard = ctx.exclusive_worktree_access();
     ctx.restore_snapshot(
         sha.parse().map_err(anyhow::Error::from)?,
         guard.write_permission(),
@@ -137,7 +134,7 @@ pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<()> {
 #[instrument(err(Debug))]
 pub fn snapshot_diff(project_id: ProjectId, sha: String) -> Result<Vec<but_core::ui::TreeChange>> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     let diff = ctx.snapshot_diff(sha.parse().map_err(anyhow::Error::from)?)?;
     let diff: Vec<but_core::ui::TreeChange> = diff.into_iter().map(Into::into).collect();
     Ok(diff)

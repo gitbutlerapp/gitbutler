@@ -3,9 +3,9 @@ use std::{
     time,
 };
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
+use but_ctx::Context;
 use but_error::Code;
-use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::OplogExt;
 use gitbutler_project as projects;
 use gitbutler_project::{CodePushState, ProjectId};
@@ -16,8 +16,8 @@ use gitbutler_user as users;
 use itertools::Itertools;
 
 /// Pushes the repository to the GitButler remote
-pub fn push_repo(ctx: &CommandContext, user: &users::User) -> Result<()> {
-    let project = ctx.project();
+pub fn push_repo(ctx: &Context, user: &users::User) -> Result<()> {
+    let project = &ctx.legacy_project;
     let vb_state = VirtualBranchesHandle::new(project.gb_dir());
     let default_target = vb_state.get_default_target()?;
     let gb_code_last_commit = project
@@ -42,7 +42,7 @@ pub fn push_repo(ctx: &CommandContext, user: &users::User) -> Result<()> {
 }
 
 /// Pushes the Oplog head to GitButler server
-pub fn push_oplog(ctx: &CommandContext, user: &users::User) -> Result<()> {
+pub fn push_oplog(ctx: &Context, user: &users::User) -> Result<()> {
     // Push Oplog head
     let oplog_refspec = ctx
         .oplog_head()?
@@ -53,22 +53,27 @@ pub fn push_oplog(ctx: &CommandContext, user: &users::User) -> Result<()> {
             ctx,
             Some(user),
             &[&oplog_refspec],
-            remote(ctx, RemoteKind::Oplog)?,
+            remote(
+                &ctx.legacy_project,
+                &*ctx.git2_repo.get()?,
+                RemoteKind::Oplog,
+            )?,
         )?;
     }
     Ok(())
 }
 
 fn push_target(
-    ctx: &CommandContext,
+    ctx: &Context,
     default_target: &Target,
     gb_code_last_commit: Option<git2::Oid>,
     project_id: ProjectId,
     user: &users::User,
     batch_size: usize,
 ) -> Result<()> {
+    let git2_repo = ctx.git2_repo.get()?;
     let ids = batch_rev_walk(
-        ctx.repo(),
+        &git2_repo,
         batch_size,
         default_target.sha,
         gb_code_last_commit,
@@ -80,7 +85,7 @@ fn push_target(
         "batches left to push",
     );
 
-    let remote = remote(ctx, RemoteKind::Code)?;
+    let remote = remote(&ctx.legacy_project, &git2_repo, RemoteKind::Code)?;
     let id_count = ids.len();
     for (idx, id) in ids.iter().enumerate().rev() {
         let refspec = format!("+{id}:refs/push-tmp/{project_id}");
@@ -137,9 +142,10 @@ fn batch_rev_walk(
     Ok(oids)
 }
 
-fn collect_refs(ctx: &CommandContext) -> anyhow::Result<Vec<Refname>> {
+fn collect_refs(ctx: &Context) -> anyhow::Result<Vec<Refname>> {
     Ok(ctx
-        .repo()
+        .git2_repo
+        .get()?
         .references_glob("refs/*")?
         .flatten()
         .filter_map(|r| {
@@ -149,7 +155,7 @@ fn collect_refs(ctx: &CommandContext) -> anyhow::Result<Vec<Refname>> {
         .collect::<Vec<_>>())
 }
 
-fn push_all_refs(ctx: &CommandContext, user: &users::User, project_id: ProjectId) -> Result<()> {
+fn push_all_refs(ctx: &Context, user: &users::User, project_id: ProjectId) -> Result<()> {
     let gb_references = collect_refs(ctx)?;
     let all_refs: Vec<_> = gb_references
         .iter()
@@ -164,8 +170,16 @@ fn push_all_refs(ctx: &CommandContext, user: &users::User, project_id: ProjectId
 
     let all_refs: Vec<_> = all_refs.iter().map(String::as_str).collect();
 
-    let anything_pushed =
-        push_to_gitbutler_server(ctx, Some(user), &all_refs, remote(ctx, RemoteKind::Code)?)?;
+    let anything_pushed = push_to_gitbutler_server(
+        ctx,
+        Some(user),
+        &all_refs,
+        remote(
+            &ctx.legacy_project,
+            &*ctx.git2_repo.get()?,
+            RemoteKind::Code,
+        )?,
+    )?;
     if anything_pushed {
         tracing::info!(
             %project_id,
@@ -187,12 +201,12 @@ fn update_project(project_id: ProjectId, id: git2::Oid) -> Result<()> {
 }
 
 pub(crate) fn push_to_gitbutler_server(
-    ctx: &CommandContext,
+    ctx: &Context,
     user: Option<&users::User>,
     ref_specs: &[&str],
     mut remote: git2::Remote,
 ) -> Result<bool> {
-    let project = ctx.project();
+    let project = &ctx.legacy_project;
 
     let user = user
         .context("need user to push to gitbutler")
@@ -250,8 +264,12 @@ pub(crate) enum RemoteKind {
     Code,
     Oplog,
 }
-pub(crate) fn remote(ctx: &CommandContext, kind: RemoteKind) -> Result<git2::Remote<'_>> {
-    let api_project = ctx.project().api.as_ref().context("api not set")?;
+pub(crate) fn remote<'a>(
+    project: &gitbutler_project::Project,
+    git2_repo: &'a git2::Repository,
+    kind: RemoteKind,
+) -> Result<git2::Remote<'a>> {
+    let api_project = project.api.as_ref().context("api not set")?;
     let url = match kind {
         RemoteKind::Code => {
             let url = api_project
@@ -262,7 +280,7 @@ pub(crate) fn remote(ctx: &CommandContext, kind: RemoteKind) -> Result<git2::Rem
         }
         RemoteKind::Oplog => api_project.git_url.as_str().parse::<Url>(),
     }?;
-    ctx.repo()
+    git2_repo
         .remote_anonymous(&url.to_string())
         .map_err(Into::into)
 }

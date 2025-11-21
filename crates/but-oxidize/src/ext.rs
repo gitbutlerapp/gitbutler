@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use gix::merge::tree::{Options, TreatAsUnresolved};
 
 use crate::git2_to_gix_object_id;
@@ -6,6 +6,7 @@ use crate::git2_to_gix_object_id;
 pub trait GixRepositoryExt: Sized {
     /// Configure the repository for diff operations between trees.
     /// This means it needs an object cache relative to the amount of files in the repository.
+    // TODO(st): make it non-consuming
     fn for_tree_diffing(self) -> Result<Self>;
 
     /// Returns `true` if the merge between `our_tree` and `their_tree` is free of conflicts.

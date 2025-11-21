@@ -7,8 +7,8 @@ use std::{
 mod event;
 use anyhow::Result;
 use but_action::{ActionHandler, Outcome, Source, reword::CommitEvent};
+use but_ctx::Context;
 use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use rmcp::{
     ServerHandler, ServiceExt,
@@ -130,8 +130,7 @@ impl Mcp {
         let project = Project::from_path(&repo_path).expect("Failed to create project from path");
         let settings = AppSettings::load_from_default_path_creating()
             .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-        let ctx = &mut CommandContext::open(&project, settings)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
+        let ctx = &mut Context::new_from_legacy_project_and_settings(&project, settings);
 
         let (id, outcome) = but_action::handle_changes(
             ctx,

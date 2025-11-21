@@ -91,7 +91,7 @@ impl Sandbox {
             projects_root: Some(project),
             app_root: Some(tempfile::TempDir::new()?),
         };
-        let repo = sandbox.repo()?;
+        let repo = sandbox.open_repo()?;
 
         // This can fail on unborn repos, let it, see if we can handle unborn.
         if let Ok(commit_id) = repo.rev_parse_single("origin/main") {
@@ -183,7 +183,7 @@ impl Sandbox {
     }
 
     /// Open a repository on the projects-directory.
-    pub fn repo(&self) -> anyhow::Result<gix::Repository> {
+    pub fn open_repo(&self) -> anyhow::Result<gix::Repository> {
         Ok(gix::open_opts(
             self.projects_root(),
             gix::open::Options::isolated(),
@@ -206,7 +206,7 @@ impl Sandbox {
         gix::Repository,
         impl but_core::RefMetadata,
     )> {
-        let repo = self.repo()?;
+        let repo = self.open_repo()?;
         let meta = self.meta()?;
         let graph = but_graph::Graph::from_head(&repo, &meta, Default::default())?;
         Ok((graph, repo, meta))
@@ -221,7 +221,7 @@ impl Sandbox {
 
     /// Show the `git status` as string.
     pub fn git_status(&self) -> anyhow::Result<String> {
-        let repo = self.repo()?;
+        let repo = self.open_repo()?;
         Ok(but_testsupport::git_status(&repo)?)
     }
 

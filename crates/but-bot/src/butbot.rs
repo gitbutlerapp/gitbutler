@@ -1,6 +1,6 @@
 use but_action::OpenAiProvider;
+use but_ctx::Context;
 use but_tools::emit::Emittable;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 
 use crate::{
@@ -91,7 +91,7 @@ You can also perform more advanced operations, such as:
 
 pub struct ButBot<'a> {
     state: AgentState,
-    ctx: &'a mut CommandContext,
+    ctx: &'a mut Context,
     emitter: std::sync::Arc<but_tools::emit::Emitter>,
     message_id: String,
     project_id: ProjectId,
@@ -102,7 +102,7 @@ pub struct ButBot<'a> {
 
 impl<'a> ButBot<'a> {
     pub fn new(
-        ctx: &'a mut CommandContext,
+        ctx: &'a mut Context,
         emitter: std::sync::Arc<but_tools::emit::Emitter>,
         message_id: String,
         project_id: ProjectId,
@@ -160,7 +160,7 @@ Take a look at the conversation, specifically, the last user request below, and 
     /// Based on the provided chat messages and the project status, this function will
     /// update the agent's internal todo list.
     pub fn update_state(&mut self) -> anyhow::Result<()> {
-        let repo = self.ctx.gix_repo()?;
+        let repo = self.ctx.open_repo()?;
         let project_status = but_tools::workspace::get_project_status(self.ctx, &repo, None)?;
         let serialized_status = serde_json::to_string_pretty(&project_status)
             .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
@@ -214,7 +214,7 @@ Reference relevant resources from the project status (e.g. branches, commits, fi
     /// Will take a look a the conversation and the project status, and update the status of the todo item.
     /// This also updates the todo list, adding new todos if necessary.
     pub fn update_todo_status(&mut self, todo: &Todo) -> anyhow::Result<()> {
-        let repo = self.ctx.gix_repo()?;
+        let repo = self.ctx.open_repo()?;
         let project_status = but_tools::workspace::get_project_status(self.ctx, &repo, None)?;
         let serialized_status = serde_json::to_string_pretty(&project_status)
             .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
@@ -267,7 +267,7 @@ Based on the conversation below and the project status, please update the status
 
     /// This is the workspace loop. This handles the main workspace actions.
     fn workspace_loop(&mut self) -> anyhow::Result<String> {
-        let repo = self.ctx.gix_repo()?;
+        let repo = self.ctx.open_repo()?;
         let project_status = but_tools::workspace::get_project_status(self.ctx, &repo, None)?;
         let serialized_status = serde_json::to_string_pretty(&project_status)
             .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
@@ -335,7 +335,7 @@ Based on the conversation below and the project status, please update the status
         &mut self,
         todo: &Todo,
     ) -> anyhow::Result<(String, Vec<but_action::ChatMessage>)> {
-        let repo = self.ctx.gix_repo()?;
+        let repo = self.ctx.open_repo()?;
         let project_status = but_tools::workspace::get_project_status(self.ctx, &repo, None)?;
         let serialized_status = serde_json::to_string_pretty(&project_status)
             .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;

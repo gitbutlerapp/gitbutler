@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use anyhow::{Context as _, Result};
 use but_api::json::ToJsonError;
 use but_claude::{Claude, broadcaster::FrontendEvent};
+use but_ctx::Context;
 use but_db::poll::DBWatcherHandle;
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
@@ -40,7 +40,7 @@ impl ActiveProjects {
     pub fn set_active(
         &mut self,
         project: &Project,
-        ctx: &Claude,
+        claude: &Claude,
         app_settings_sync: AppSettingsWithDiskSync,
     ) -> Result<()> {
         if self.projects.contains_key(&project.id) {
@@ -49,7 +49,7 @@ impl ActiveProjects {
 
         // Set up file watcher for worktree changes
         let handler = gitbutler_watcher::Handler::new({
-            let broadcaster = ctx.broadcaster.clone();
+            let broadcaster = claude.broadcaster.clone();
 
             move |value| {
                 let frontend_event = match value {
@@ -98,21 +98,23 @@ impl ActiveProjects {
         )?;
 
         // Set up database watcher for database changes
-        let settings = app_settings_sync.get()?.clone();
-        let mut command_ctx = CommandContext::open(project, settings)?;
-        let db = command_ctx.db()?;
-        let db_watcher = but_db::poll::watch_in_background(db, {
-            let broadcaster = ctx.broadcaster.clone();
-            let project_id = project.id;
-            move |item| {
-                let event = FrontendEvent::from_db_item(project_id, item);
-                let broadcaster = broadcaster.clone();
-                tokio::task::spawn(async move {
-                    broadcaster.lock().await.send(event);
-                });
-                Ok(())
-            }
-        })?;
+        let db_watcher = {
+            let settings = app_settings_sync.get()?.clone();
+            let mut ctx = Context::new_from_legacy_project_and_settings(project, settings);
+            let db = &mut *ctx.db.get_mut()?;
+            but_db::poll::watch_in_background(db, {
+                let broadcaster = claude.broadcaster.clone();
+                let project_id = project.id;
+                move |item| {
+                    let event = FrontendEvent::from_db_item(project_id, item);
+                    let broadcaster = broadcaster.clone();
+                    tokio::task::spawn(async move {
+                        broadcaster.lock().await.send(event);
+                    });
+                    Ok(())
+                }
+            })?
+        };
 
         self.projects.insert(
             project.id,

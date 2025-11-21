@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use but_core::ref_metadata::StackId;
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use gix::ObjectId;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -202,8 +202,9 @@ impl Workflow {
         }
     }
 
-    pub(crate) fn persist(self, ctx: &mut CommandContext) -> anyhow::Result<()> {
-        ctx.db()?
+    pub(crate) fn persist(self, ctx: &mut Context) -> anyhow::Result<()> {
+        ctx.db
+            .get_mut()?
             .workflows()
             .insert(self.try_into()?)
             .map_err(|e| anyhow::anyhow!("Failed to persist workflow: {}", e))?;
@@ -211,13 +212,10 @@ impl Workflow {
     }
 }
 
-pub fn list_workflows(
-    ctx: &mut CommandContext,
-    offset: i64,
-    limit: i64,
-) -> anyhow::Result<WorkflowList> {
+pub fn list_workflows(ctx: &mut Context, offset: i64, limit: i64) -> anyhow::Result<WorkflowList> {
     let (total, workflows) = ctx
-        .db()?
+        .db
+        .get_mut()?
         .workflows()
         .list(offset, limit)
         .map_err(|e| anyhow::anyhow!("Failed to list workflows: {}", e))?;

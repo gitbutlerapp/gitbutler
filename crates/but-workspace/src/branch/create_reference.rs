@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use anyhow::Context;
+use anyhow::Context as _;
 
 /// For use in [`Anchor`].
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
@@ -109,7 +109,7 @@ pub(super) mod function {
 
     use std::borrow::{Borrow, Cow};
 
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use but_core::{
         RefMetadata, ref_metadata,
         ref_metadata::{

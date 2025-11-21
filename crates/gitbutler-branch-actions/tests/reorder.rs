@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
+use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, RepoExt};
 use git2::Oid;
 use gitbutler_branch_actions::{SeriesOrder, StackOrder, reorder_stack};
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
@@ -318,7 +318,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // MB:       a    : MB:        a    :
 
     let (ctx, _temp_dir) = command_ctx("overlapping-commits")?;
-    let repo = ctx.repo();
+    let repo = &*ctx.git2_repo.get()?;
     let test = test_ctx(&ctx)?;
 
     // There is a stack of 2:
@@ -436,7 +436,7 @@ impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
 }
 
 /// Commits from list_virtual_branches
-fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
+fn vb_commits(ctx: &Context) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
     let details = gitbutler_testsupport::stack_details(ctx);
     let (_, my_stack) = details
         .iter()
@@ -459,8 +459,8 @@ fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>>
     out
 }
 
-fn file(ctx: &CommandContext, commit_id: gix::ObjectId) -> String {
-    let repo = ctx.repo();
+fn file(ctx: &Context, commit_id: gix::ObjectId) -> String {
+    let repo = &*ctx.git2_repo.get().unwrap();
     let commit = repo.find_commit(commit_id.to_git2()).unwrap();
     let tree = commit.tree().unwrap();
     let entry = tree.get_name("file").unwrap();
@@ -468,26 +468,28 @@ fn file(ctx: &CommandContext, commit_id: gix::ObjectId) -> String {
     String::from_utf8(blob.content().to_vec()).unwrap()
 }
 
-fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
+fn command_ctx(name: &str) -> Result<(Context, TempDir)> {
     gitbutler_testsupport::writable::fixture_with_settings("reorder.sh", name, |settings| {
         settings.feature_flags.ws3 = false
     })
 }
 
-fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
-    let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
+fn test_ctx(ctx: &Context) -> Result<TestContext> {
+    let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks = handle.list_all_stacks()?;
     let stack = stacks.iter().find(|b| b.name == "my_stack").unwrap();
 
     let branches = stack.branches();
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let project = &ctx.legacy_project;
     let top_commits: HashMap<String, git2::Oid> = branches[1]
-        .commits(ctx, stack)?
+        .commits(git2_repo, project, stack)?
         .local_commits
         .iter()
         .map(|c| (c.message().unwrap().to_string(), c.id()))
         .collect();
     let bottom_commits: HashMap<String, git2::Oid> = branches[0]
-        .commits(ctx, stack)?
+        .commits(git2_repo, project, stack)?
         .local_commits
         .iter()
         .map(|c| (c.message().unwrap().to_string(), c.id()))

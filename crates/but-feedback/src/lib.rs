@@ -25,19 +25,19 @@ impl Archival {
         let output_file = self
             .cache_dir
             .join(format!("project-{date}.zip", date = filesafe_date_time()));
-        create_zip_file_from_dir(ctx.workdir_or_gitdir(), output_file)
+        create_zip_file_from_dir(ctx.workdir_or_gitdir()?, output_file)
     }
 
     /// Create an archive commit graph behind `project_id` such that it doesn't reveal PII.
     pub fn zip_anonymous_graph(&self, project_id: LegacyProjectId) -> Result<PathBuf> {
         let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
         let guard = ctx.shared_worktree_access();
-        let repo = &ctx.repo;
+        let repo = ctx.repo.get()?;
         let meta = ctx.legacy_meta(guard.read_permission())?;
         let mut graph =
-            but_graph::Graph::from_head(repo, &meta, Default::default()).or_else(|_| {
+            but_graph::Graph::from_head(&repo, &meta, Default::default()).or_else(|_| {
                 but_graph::Graph::from_head(
-                    repo,
+                    &repo,
                     &meta,
                     but_graph::init::Options {
                         // Assume it fails because of post-processing, try again without.

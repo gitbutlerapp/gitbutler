@@ -2,9 +2,8 @@ use std::str::FromStr;
 
 use anyhow::bail;
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_rules::Operation;
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::Project;
 
@@ -16,7 +15,7 @@ pub(crate) fn handle(
     target_str: &str,
     delete: bool,
 ) -> anyhow::Result<()> {
-    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let target_result = crate::id::CliId::from_str(ctx, target_str)?;
     if target_result.len() != 1 {
         return Err(anyhow::anyhow!(
@@ -37,7 +36,7 @@ pub(crate) fn handle(
 }
 
 fn mark_commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     oid: gix::ObjectId,
     delete: bool,
     out: &mut OutputChannel,
@@ -54,18 +53,20 @@ fn mark_commit(
         }
         return Ok(());
     }
-    let repo = ctx.gix_repo()?;
-    let commit = repo.find_commit(oid)?;
-    let change_id = commit.change_id().ok_or_else(|| {
-        anyhow::anyhow!("Commit {} does not have a Change-Id, cannot mark it", oid)
-    })?;
-    let action = but_rules::Action::Explicit(Operation::Amend { change_id });
-    let req = but_rules::CreateRuleRequest {
-        trigger: but_rules::Trigger::FileSytemChange,
-        filters: vec![but_rules::Filter::PathMatchesRegex(regex::Regex::new(
-            ".*",
-        )?)],
-        action,
+    let req = {
+        let repo = ctx.repo.get()?;
+        let commit = repo.find_commit(oid)?;
+        let change_id = commit.change_id().ok_or_else(|| {
+            anyhow::anyhow!("Commit {} does not have a Change-Id, cannot mark it", oid)
+        })?;
+        let action = but_rules::Action::Explicit(Operation::Amend { change_id });
+        but_rules::CreateRuleRequest {
+            trigger: but_rules::Trigger::FileSytemChange,
+            filters: vec![but_rules::Filter::PathMatchesRegex(regex::Regex::new(
+                ".*",
+            )?)],
+            action,
+        }
     };
     but_rules::create_rule(ctx, req)?;
     if let Some(out) = out.for_human() {
@@ -79,7 +80,7 @@ fn mark_commit(
 }
 
 fn mark_branch(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     branch_name: String,
     delete: bool,
     out: &mut OutputChannel,
@@ -116,22 +117,24 @@ fn mark_branch(
     Ok(())
 }
 
-pub(crate) fn stack_marked(ctx: &mut CommandContext, stack_id: StackId) -> anyhow::Result<bool> {
+pub(crate) fn stack_marked(ctx: &mut Context, stack_id: StackId) -> anyhow::Result<bool> {
     let rules = but_rules::list_rules(ctx)?
         .iter()
         .any(|r| r.target_stack_id() == Some(stack_id.to_string()) && r.session_id().is_none());
     Ok(rules)
 }
 
-pub(crate) fn commit_marked(ctx: &mut CommandContext, commit_id: String) -> anyhow::Result<bool> {
-    let repo = ctx.gix_repo()?;
-    let commit = repo.find_commit(gix::ObjectId::from_str(&commit_id)?)?;
-    let change_id = commit.change_id().ok_or_else(|| {
-        anyhow::anyhow!(
-            "Commit {} does not have a Change-Id, cannot mark it",
-            commit_id
-        )
-    })?;
+pub(crate) fn commit_marked(ctx: &mut Context, commit_id: String) -> anyhow::Result<bool> {
+    let change_id = {
+        let repo = ctx.repo.get()?;
+        let commit = repo.find_commit(gix::ObjectId::from_str(&commit_id)?)?;
+        commit.change_id().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Commit {} does not have a Change-Id, cannot mark it",
+                commit_id
+            )
+        })?
+    };
     let rules = but_rules::list_rules(ctx)?
         .iter()
         .any(|r| r.target_commit_id() == Some(change_id.clone()));
@@ -139,7 +142,7 @@ pub(crate) fn commit_marked(ctx: &mut CommandContext, commit_id: String) -> anyh
 }
 
 pub(crate) fn unmark(project: &Project, out: &mut OutputChannel) -> anyhow::Result<()> {
-    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
 
     let rules = but_rules::list_rules(ctx)?;
     let rule_count = rules.len();

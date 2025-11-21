@@ -1,7 +1,6 @@
 use anyhow::{Result, bail};
+use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
 use crate::{editor::get_text_from_editor_no_comments, id::CliId, utils::OutputChannel};
@@ -11,7 +10,7 @@ pub(crate) fn describe_target(
     out: &mut OutputChannel,
     target: &str,
 ) -> Result<()> {
-    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
 
     // Resolve the commit ID
     let cli_ids = CliId::from_str(&mut ctx, target)?;
@@ -46,7 +45,7 @@ pub(crate) fn describe_target(
 }
 
 fn edit_branch_name(
-    _ctx: &CommandContext,
+    _ctx: &Context,
     project: &Project,
     branch_name: &str,
     out: &mut OutputChannel,
@@ -81,7 +80,7 @@ fn edit_branch_name(
 }
 
 fn edit_commit_message_by_id(
-    ctx: &CommandContext,
+    ctx: &Context,
     project: &Project,
     commit_oid: gix::ObjectId,
     out: &mut OutputChannel,

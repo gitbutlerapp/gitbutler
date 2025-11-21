@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::Context;
+use anyhow::Context as _;
 
 use crate::utils::OutputChannel;
 

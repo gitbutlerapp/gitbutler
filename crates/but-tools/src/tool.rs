@@ -4,15 +4,15 @@ use std::{
 };
 
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_workspace::legacy::ui::{StackEntry, StackEntryNoOpt};
-use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
 use serde_json::json;
 
 use crate::emit::{Emittable, Emitter, ToolCall};
 
 pub struct WorkspaceToolset<'a> {
-    ctx: &'a mut CommandContext,
+    ctx: &'a mut Context,
     emitter: std::sync::Arc<crate::emit::Emitter>,
     message_id: Option<String>,
     tools: BTreeMap<String, Arc<dyn Tool>>,
@@ -28,7 +28,7 @@ pub trait Toolset {
 
 impl<'a> WorkspaceToolset<'a> {
     pub fn new(
-        ctx: &'a mut CommandContext,
+        ctx: &'a mut Context,
         emitter: std::sync::Arc<crate::emit::Emitter>,
         message_id: Option<String>,
     ) -> Self {
@@ -82,7 +82,7 @@ impl Toolset for WorkspaceToolset<'_> {
 
         // Emit the tool call event if a message ID is provided
         if let Some(message_id) = &self.message_id {
-            let project_id = self.ctx.project().id;
+            let project_id = self.ctx.legacy_project.id;
             let tool_call = ToolCall {
                 project_id,
                 message_id: message_id.to_owned(),
@@ -105,7 +105,7 @@ pub trait Tool: 'static + Send + Sync {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
+        ctx: &mut Context,
         emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<ObjectId, ObjectId>,
     ) -> anyhow::Result<serde_json::Value>;

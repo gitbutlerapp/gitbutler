@@ -5,7 +5,6 @@ use bstr::{BString, ByteSlice};
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, RepoExt};
 use git2::Commit;
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gix::refs::{
@@ -379,9 +378,15 @@ impl StackBranch {
     }
 
     /// Returns the commits that are part of the branch.
-    pub fn commits<'a>(&self, ctx: &'a CommandContext, stack: &Stack) -> Result<BranchCommits<'a>> {
-        let repo = ctx.repo();
-        let merge_base = stack.merge_base(ctx)?.to_git2();
+    pub fn commits<'a>(
+        &self,
+        repo: &'a git2::Repository,
+        project: &gitbutler_project::Project,
+        stack: &Stack,
+    ) -> Result<BranchCommits<'a>> {
+        let merge_base = stack
+            .merge_base_plumbing(project, &project.open_repo()?)?
+            .to_git2();
 
         let gix_repo = repo.to_gix()?;
         let head_commit = gix_repo.find_commit(self.head_oid(&gix_repo)?);
@@ -416,7 +421,7 @@ impl StackBranch {
             .rev()
             .collect_vec();
 
-        let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+        let virtual_branch_state = VirtualBranchesHandle::new(project.gb_dir());
         let default_target = virtual_branch_state.get_default_target()?;
         let mut remote_patches: Vec<Commit<'_>> = vec![];
 

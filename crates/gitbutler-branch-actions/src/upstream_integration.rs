@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::ByteSlice;
 use but_core::Reference;
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_serde::BStringForFrontend;
 use but_workspace::{legacy::stack_ext::StackDetailsExt, ref_info::Options};
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     RepositoryExt as _,
     logging::{LogUntil, RepositoryExt as _},
@@ -166,51 +166,51 @@ enum IntegrationResult {
 
 pub struct UpstreamIntegrationContext<'a> {
     _permission: Option<&'a mut WorktreeWritePermission>,
-    repo: &'a git2::Repository,
+    ctx: &'a Context,
     stacks_in_workspace: Vec<but_workspace::legacy::ui::StackEntry>,
-    new_target: git2::Commit<'a>,
+    new_target: git2::Oid,
     target: Target,
-    ctx: &'a CommandContext,
     gix_repo: &'a gix::Repository,
     review_map: &'a HashMap<String, but_forge::ForgeReview>,
 }
 
 impl<'a> UpstreamIntegrationContext<'a> {
     pub(crate) fn open(
-        ctx: &'a CommandContext,
+        ctx: &'a Context,
         target_commit_oid: Option<git2::Oid>,
         permission: &'a mut WorktreeWritePermission,
         gix_repo: &'a gix::Repository,
         review_map: &'a HashMap<String, but_forge::ForgeReview>,
     ) -> Result<Self> {
         let meta = ctx.meta(permission.read_permission())?;
-        let repo = ctx.gix_repo()?;
+        let repo = ctx.repo.get()?;
+        let git2_repo = &*ctx.git2_repo.get()?;
         let _ref_info = but_workspace::head_info(
             &repo,
-            &*meta,
+            &meta,
             Options {
                 expensive_commit_info: true,
                 traversal: but_graph::init::Options::limited(),
             },
         )?;
 
-        let virtual_branches_handle = ctx.project().virtual_branches();
+        let virtual_branches_handle = ctx.legacy_project.virtual_branches();
         let target = virtual_branches_handle.get_default_target()?;
-        let repo = ctx.repo();
-        let target_branch = repo
+        let target_branch = git2_repo
             .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("Branch not found"))?;
 
-        let new_target = target_commit_oid.map_or_else(
-            || target_branch.get().peel_to_commit(),
-            |oid| repo.find_commit(oid),
-        )?;
+        let new_target = target_commit_oid
+            .map_or_else(
+                || target_branch.get().peel_to_commit(),
+                |oid| git2_repo.find_commit(oid),
+            )?
+            .id();
 
         let stacks_in_workspace = stacks(ctx, gix_repo)?;
 
         Ok(Self {
             _permission: Some(permission),
-            repo,
             new_target,
             target: target.clone(),
             stacks_in_workspace,
@@ -222,11 +222,11 @@ impl<'a> UpstreamIntegrationContext<'a> {
 }
 
 fn stacks(
-    ctx: &CommandContext,
+    ctx: &Context,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    let project = ctx.project();
-    if ctx.app_settings().feature_flags.ws3 {
+    let project = &ctx.legacy_project;
+    if ctx.settings().feature_flags.ws3 {
         let meta =
             VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
         but_workspace::legacy::stacks_v3(
@@ -246,20 +246,20 @@ fn stacks(
 }
 
 fn stack_details(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: Option<StackId>,
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
-    if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    if ctx.settings().feature_flags.ws3 {
+        let repo = ctx.open_repo_for_merging_non_persisting()?;
         let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
+            ctx.project_data_dir().join("virtual_branches.toml"),
         )?;
         but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
     } else {
         let Some(stack_id) = stack_id else {
             bail!("Failed to get stack details: stack ID not provided");
         };
-        but_workspace::legacy::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+        but_workspace::legacy::stack_details(&ctx.project_data_dir(), stack_id, ctx)
     }
 }
 
@@ -271,7 +271,7 @@ fn get_stack_status(
     new_target_commit_id: gix::ObjectId,
     stack_id: Option<StackId>,
     review_map: &HashMap<String, but_forge::ForgeReview>,
-    ctx: &CommandContext,
+    ctx: &Context,
 ) -> Result<StackStatus> {
     let mut last_head: git2::Oid = gix_to_git2_oid(new_target_commit_id);
 
@@ -365,23 +365,24 @@ pub fn upstream_integration_statuses(
     context: &UpstreamIntegrationContext,
 ) -> Result<StackStatuses> {
     let UpstreamIntegrationContext {
-        repo,
         new_target,
         target,
         stacks_in_workspace,
         review_map,
+        ctx,
         ..
     } = context;
-    let old_target = repo.find_commit(target.sha)?;
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let old_target = git2_repo.find_commit(target.sha)?;
 
-    let gix_repo = gitbutler_command_context::gix_repo_for_merging(repo.path())?;
+    let gix_repo = context.ctx.open_repo_for_merging()?;
     let gix_repo_in_memory = gix_repo.clone().with_object_memory();
 
-    if new_target.id() == old_target.id() {
+    if *new_target == old_target.id() {
         return Ok(StackStatuses::UpToDate);
     };
 
-    let new_target_id = new_target.id().to_gix();
+    let new_target_id = new_target.to_gix();
 
     let heads = stacks_in_workspace
         .iter()
@@ -399,13 +400,14 @@ pub fn upstream_integration_statuses(
     // The working directory tree
     let workdir_tree = context
         .ctx
-        .repo()
+        .git2_repo
+        .get()?
         .create_wd_tree(gitbutler_project::AUTO_TRACK_LIMIT_BYTES)?
         .id()
         .to_gix();
 
     // The target tree
-    let target_tree = gix_repo.find_commit(new_target.id().to_gix())?.tree_id()?;
+    let target_tree = gix_repo.find_commit(new_target.to_gix())?.tree_id()?;
 
     let (merge_options_fail_fast, _conflict_kind) =
         gix_repo.merge_options_no_rewrites_fail_fast()?;
@@ -446,7 +448,7 @@ pub fn upstream_integration_statuses(
                 stack.id,
                 get_stack_status(
                     &gix_repo_in_memory,
-                    git2_to_gix_object_id(new_target.id()),
+                    git2_to_gix_object_id(*new_target),
                     stack.id,
                     review_map,
                     context.ctx,
@@ -462,7 +464,7 @@ pub fn upstream_integration_statuses(
 }
 
 pub(crate) fn integrate_upstream(
-    ctx: &CommandContext,
+    ctx: &Context,
     resolutions: &[Resolution],
     base_branch_resolution: Option<BaseBranchResolution>,
     review_map: &HashMap<String, but_forge::ForgeReview>,
@@ -474,7 +476,7 @@ pub(crate) fn integrate_upstream(
         .map(|r| (Some(r.target_commit_oid), Some(r.approach)))
         .unwrap_or((None, None));
 
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
     let context = UpstreamIntegrationContext::open(
         ctx,
         target_commit_oid,
@@ -482,7 +484,7 @@ pub(crate) fn integrate_upstream(
         &gix_repo,
         review_map,
     )?;
-    let virtual_branches_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let virtual_branches_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = virtual_branches_state.get_default_target()?;
 
     let mut deleted_branches = vec![];
@@ -591,14 +593,14 @@ pub(crate) fn integrate_upstream(
                 permission,
                 false,
                 Vec::new(),
-                ctx.app_settings().feature_flags.cv3,
+                ctx.settings().feature_flags.cv3,
             )?;
         }
 
         let mut stacks = virtual_branches_state.list_stacks_in_workspace()?;
 
         virtual_branches_state.set_default_target(Target {
-            sha: context.new_target.id(),
+            sha: context.new_target,
             ..default_target
         })?;
 
@@ -666,15 +668,15 @@ pub(crate) fn integrate_upstream(
 }
 
 pub(crate) fn resolve_upstream_integration(
-    ctx: &CommandContext,
+    ctx: &Context,
     resolution_approach: BaseBranchResolutionApproach,
     review_map: &HashMap<String, but_forge::ForgeReview>,
     permission: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
     let context = UpstreamIntegrationContext::open(ctx, None, permission, &gix_repo, review_map)?;
-    let repo = ctx.repo();
-    let new_target_id = context.new_target.id();
+    let repo = &*ctx.git2_repo.get()?;
+    let new_target_id = context.new_target;
     let old_target_id = context.target.sha;
     let fork_point = repo.merge_base(old_target_id, new_target_id)?;
 
@@ -686,7 +688,7 @@ pub(crate) fn resolve_upstream_integration(
             let new_head = gitbutler_merge_commits(
                 repo,
                 old_target,
-                context.new_target,
+                repo.find_commit(context.new_target)?,
                 &branch_name,
                 &branch_name,
             )?;
@@ -720,13 +722,14 @@ fn compute_resolutions(
     base_branch_resolution_approach: Option<BaseBranchResolutionApproach>,
 ) -> Result<Vec<(Option<StackId>, IntegrationResult)>> {
     let UpstreamIntegrationContext {
-        repo,
         new_target,
         target,
         stacks_in_workspace,
+        ctx,
         ..
     } = context;
 
+    let repo = &*ctx.git2_repo.get()?;
     let results = resolutions
         .iter()
         .map(|resolution| {
@@ -754,7 +757,7 @@ fn compute_resolutions(
                     let new_head = gitbutler_merge_commits(
                         repo,
                         target_commit,
-                        new_target.clone(),
+                        repo.find_commit(*new_target)?,
                         target_branch_name,
                         &incoming_branch_name,
                     )?;
@@ -778,7 +781,7 @@ fn compute_resolutions(
                     let lower_bound = if base_branch_resolution_approach.is_some() {
                         target.sha
                     } else {
-                        new_target.id()
+                        *new_target
                     };
 
                     let details = stack_details(context.ctx, stack.id)?;

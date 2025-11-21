@@ -17,7 +17,7 @@ but-meta = { workspace = true, features = ["legacy"] }
 but-oxidize.workspace = true
 
 gitbutler-branch-actions.workspace = true
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-workspace.workspace = true
 gitbutler-project.workspace = true

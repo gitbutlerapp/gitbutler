@@ -11,15 +11,17 @@ autotests = false
 doctest = false
 
 [dependencies]
+but-serde = { workspace = true, features = ["legacy"] }
+but-ctx = { workspace = true, features = ["legacy"] }
+
+gitbutler-cherry-pick.workspace = true
+
 git2.workspace = true
 bstr.workspace = true
 md5.workspace = true
 anyhow.workspace = true
 hex = "0.4.3"
 tracing.workspace = true
-but-serde = { workspace = true, features = ["legacy"] }
-gitbutler-command-context.workspace = true
-gitbutler-cherry-pick.workspace = true
 diffy = "0.4.0"
 serde.workspace = true
 

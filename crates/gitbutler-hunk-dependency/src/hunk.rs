@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use gitbutler_stack::StackId;
 
 use crate::utils::PaniclessSubtraction;

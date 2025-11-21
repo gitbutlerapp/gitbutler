@@ -1,9 +1,9 @@
 use anyhow::Result;
 use bstr::ByteSlice;
+use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
 use but_workspace::ui::Commit;
 use gitbutler_branch_actions::squash_commits;
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use itertools::Itertools;
 use tempfile::TempDir;
@@ -25,12 +25,7 @@ use tempfile::TempDir;
 fn squash_without_affecting_stack() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &ctx,
-        test.stack.id,
-        vec![test.commit_3.id()],
-        test.commit_2.id(),
-    )?;
+    squash_commits(&ctx, test.stack.id, vec![test.commit_3], test.commit_2)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -42,7 +37,7 @@ fn squash_without_affecting_stack() -> Result<()> {
     assert_eq!(branches.b2.patches[0].message, "commit 4");
     assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 3");
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
 
@@ -70,12 +65,7 @@ fn squash_without_affecting_stack() -> Result<()> {
 fn squash_below() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &ctx,
-        test.stack.id,
-        vec![test.commit_4.id()],
-        test.commit_2.id(),
-    )?;
+    squash_commits(&ctx, test.stack.id, vec![test.commit_4], test.commit_2)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -87,11 +77,11 @@ fn squash_below() -> Result<()> {
     assert_eq!(branches.b2.patches[0].message, "commit 3");
     assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 4");
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change2\n"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file4")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file4")?,
         "change4\n"
     );
 
@@ -121,12 +111,7 @@ fn squash_below() -> Result<()> {
 fn squash_above() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &ctx,
-        test.stack.id,
-        vec![test.commit_1.id()],
-        test.commit_3.id(),
-    )?;
+    squash_commits(&ctx, test.stack.id, vec![test.commit_1], test.commit_3)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -137,11 +122,11 @@ fn squash_above() -> Result<()> {
     assert_eq!(branches.b2.patches[0].message, "commit 4");
     assert_eq!(branches.b2.patches[1].message, "commit 3\ncommit 1");
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file1")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file1")?,
         "change1\n"
     );
     assert_eq!(branches.b2.patches[2].message, "commit 2");
@@ -170,12 +155,7 @@ fn squash_above() -> Result<()> {
 fn squash_upwards_works() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &ctx,
-        test.stack.id,
-        vec![test.commit_2.id()],
-        test.commit_3.id(),
-    )?;
+    squash_commits(&ctx, test.stack.id, vec![test.commit_2], test.commit_3)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -187,7 +167,7 @@ fn squash_upwards_works() -> Result<()> {
     assert_eq!(branches.b2.patches[0].message, "commit 4");
     assert_eq!(branches.b2.patches[1].message, "commit 3\ncommit 2");
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
 
@@ -216,12 +196,7 @@ fn squash_upwards_works() -> Result<()> {
 fn squash_down_with_overlap_ok() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &ctx,
-        test.stack.id,
-        vec![test.commit_3.id()],
-        test.commit_2.id(),
-    )?;
+    squash_commits(&ctx, test.stack.id, vec![test.commit_3], test.commit_2)?;
     let branches = list_branches(&ctx)?;
 
     // branch 1
@@ -233,7 +208,7 @@ fn squash_down_with_overlap_ok() -> Result<()> {
     assert_eq!(branches.b2.patches[0].message, "commit 4");
     assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 3");
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
 
@@ -260,23 +235,18 @@ fn squash_down_with_overlap_ok() -> Result<()> {
 fn squash_below_into_stack_head() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &ctx,
-        test.stack.id,
-        vec![test.commit_4.id()],
-        test.commit_1.id(),
-    )?;
+    squash_commits(&ctx, test.stack.id, vec![test.commit_4], test.commit_1)?;
     let branches = list_branches(&ctx)?;
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
     assert_eq!(branches.b1.patches[0].message, "commit 1\ncommit 4");
     assert_eq!(
-        blob_content(ctx.repo(), branches.b1.patches[0].id, "file4")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file4")?,
         "change4\n"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b1.patches[0].id, "file1")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file1")?,
         "change1\n"
     );
 
@@ -311,8 +281,8 @@ fn squash_multiple() -> Result<()> {
     squash_commits(
         &ctx,
         test.stack.id,
-        vec![test.commit_4.id(), test.commit_2.id()],
-        test.commit_1.id(),
+        vec![test.commit_4, test.commit_2],
+        test.commit_1,
     )?;
     let branches = list_branches(&ctx)?;
 
@@ -323,15 +293,15 @@ fn squash_multiple() -> Result<()> {
         "commit 1\ncommit 4\ncommit 2"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b1.patches[0].id, "file4")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file4")?,
         "change4\n"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b1.patches[0].id, "file2_3")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file2_3")?,
         "change2\n"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b1.patches[0].id, "file1")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file1")?,
         "change1\n"
     );
 
@@ -365,8 +335,8 @@ fn squash_multiple_from_heads() -> Result<()> {
     squash_commits(
         &ctx,
         test.stack.id,
-        vec![test.commit_5.id(), test.commit_4.id()],
-        test.commit_2.id(),
+        vec![test.commit_5, test.commit_4],
+        test.commit_2,
     )?;
     let branches = list_branches(&ctx)?;
 
@@ -382,15 +352,15 @@ fn squash_multiple_from_heads() -> Result<()> {
         "commit 2\ncommit 5\ncommit 4"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file5")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file5")?,
         "change5\n"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file4")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file4")?,
         "change4\n"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change2\n"
     );
 
@@ -420,8 +390,8 @@ fn squash_multiple_above_and_below() -> Result<()> {
     squash_commits(
         &ctx,
         test.stack.id,
-        vec![test.commit_5.id(), test.commit_1.id()],
-        test.commit_3.id(),
+        vec![test.commit_5, test.commit_1],
+        test.commit_3,
     )?;
     let branches = list_branches(&ctx)?;
 
@@ -436,15 +406,15 @@ fn squash_multiple_above_and_below() -> Result<()> {
         "commit 3\ncommit 5\ncommit 1"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file5")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file5")?,
         "change5\n"
     );
     assert_eq!(
-        blob_content(ctx.repo(), branches.b2.patches[1].id, "file1")?,
+        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file1")?,
         "change1\n"
     );
     assert_eq!(branches.b2.patches[2].message, "commit 2");
@@ -454,33 +424,35 @@ fn squash_multiple_above_and_below() -> Result<()> {
     Ok(())
 }
 
-fn command_ctx() -> Result<(CommandContext, TempDir)> {
+fn command_ctx() -> Result<(Context, TempDir)> {
     gitbutler_testsupport::writable::fixture("squash.sh", "multiple-commits")
 }
 
-fn test_ctx(ctx: &CommandContext) -> Result<TestContext<'_>> {
-    let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
+fn test_ctx(ctx: &Context) -> Result<TestContext> {
+    let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks = handle.list_all_stacks()?;
     let stack = stacks.iter().find(|b| b.name == "my_stack").unwrap();
     let branches = stack.branches();
     let branch_1 = branches.iter().find(|b| b.name() == "my_stack").unwrap();
-    let commit_1 = branch_1.commits(ctx, stack)?.local_commits[0].clone();
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let project = &ctx.legacy_project;
+    let commit_1 = branch_1.commits(git2_repo, project, stack)?.local_commits[0].clone();
     let branch_2 = branches.iter().find(|b| b.name() == "a-branch-2").unwrap();
-    let commit_2 = branch_2.commits(ctx, stack)?.local_commits[0].clone();
-    let commit_3 = branch_2.commits(ctx, stack)?.local_commits[1].clone();
-    let commit_4 = branch_2.commits(ctx, stack)?.local_commits[2].clone();
+    let commit_2 = branch_2.commits(git2_repo, project, stack)?.local_commits[0].clone();
+    let commit_3 = branch_2.commits(git2_repo, project, stack)?.local_commits[1].clone();
+    let commit_4 = branch_2.commits(git2_repo, project, stack)?.local_commits[2].clone();
     let branch_3 = branches.iter().find(|b| b.name() == "a-branch-3").unwrap();
-    let commit_5 = branch_3.commits(ctx, stack)?.local_commits[0].clone();
+    let commit_5 = branch_3.commits(git2_repo, project, stack)?.local_commits[0].clone();
     Ok(TestContext {
         stack: stack.clone(),
         branch_1: branch_1.clone(),
         branch_2: branch_2.clone(),
         branch_3: branch_3.clone(),
-        commit_1,
-        commit_2,
-        commit_3,
-        commit_4,
-        commit_5,
+        commit_1: commit_1.id(),
+        commit_2: commit_2.id(),
+        commit_3: commit_3.id(),
+        commit_4: commit_4.id(),
+        commit_5: commit_5.id(),
     })
 }
 
@@ -491,16 +463,16 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext<'_>> {
 // - commit 2
 // - commit 1 (a-branch-1)
 #[expect(unused)]
-struct TestContext<'a> {
+struct TestContext {
     stack: gitbutler_stack::Stack,
     branch_1: StackBranch,
     branch_2: StackBranch,
     branch_3: StackBranch,
-    commit_1: git2::Commit<'a>,
-    commit_2: git2::Commit<'a>,
-    commit_3: git2::Commit<'a>,
-    commit_4: git2::Commit<'a>,
-    commit_5: git2::Commit<'a>,
+    commit_1: git2::Oid,
+    commit_2: git2::Oid,
+    commit_3: git2::Oid,
+    commit_4: git2::Oid,
+    commit_5: git2::Oid,
 }
 
 /// Stack branches, but from the list API
@@ -518,7 +490,7 @@ struct Branch {
 }
 
 /// Stack branches from the API
-fn list_branches(ctx: &CommandContext) -> Result<TestBranchListing> {
+fn list_branches(ctx: &Context) -> Result<TestBranchListing> {
     let details = gitbutler_testsupport::stack_details(ctx);
     let (_, details) = details.first().unwrap();
     let branches: Vec<Branch> = details

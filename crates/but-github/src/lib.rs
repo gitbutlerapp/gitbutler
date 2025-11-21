@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_secret::Sensitive;
 use but_settings::AppSettings;
 use serde::{Deserialize, Serialize};

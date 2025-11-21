@@ -25,7 +25,7 @@ but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
 but-meta = { workspace = true, features = ["legacy"] }
 
-gitbutler-command-context.workspace = true
+but-ctx.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-project.workspace = true
 gitbutler-filemonitor.workspace = true

@@ -1,6 +1,6 @@
 use std::fmt::Formatter;
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bitflags::bitflags;
 use but_core::{ref_metadata, ref_metadata::StackId};
 use petgraph::Direction;

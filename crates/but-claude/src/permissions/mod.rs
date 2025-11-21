@@ -2,7 +2,7 @@ mod bash;
 mod patterns;
 mod settings;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use bash::split_bash_commands;
 pub use patterns::SerializationContext;
 use patterns::*;

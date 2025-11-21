@@ -1,11 +1,11 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a [reference frame](ReferenceFrame).
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::BString;
 use but_core::{DiffSpec, ref_metadata::StackId, tree::create_tree::RejectionReason};
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use but_rebase::merge::ConflictErrorContext;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
 
@@ -36,7 +36,7 @@ pub struct ReferenceFrame {
 
 /// Less pure but a simpler version of [`create_commit_and_update_refs_with_project`]
 pub fn create_commit_simple(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     parent_id: Option<gix::ObjectId>,
     worktree_changes: Vec<DiffSpec>,
@@ -44,12 +44,12 @@ pub fn create_commit_simple(
     stack_branch_name: String,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let repo = ctx.project().open_for_merging()?;
+    let repo = ctx.legacy_project.open_repo_for_merging()?;
     // If parent_id was not set but a stack branch name was provided, pick the current head of that branch as parent.
     let parent_commit_id: Option<gix::ObjectId> = match parent_id {
         Some(id) => Some(id),
         None => {
-            let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+            let state = VirtualBranchesHandle::new(ctx.project_data_dir());
             let stack = state.get_stack(stack_id)?;
             if !stack.heads(true).contains(&stack_branch_name) {
                 return Err(anyhow::anyhow!(
@@ -68,7 +68,7 @@ pub fn create_commit_simple(
     };
     let outcome = create_commit_and_update_refs_with_project(
         &repo,
-        ctx.project(),
+        &ctx.legacy_project,
         Some(stack_id),
         Destination::NewCommit {
             parent_commit_id,
@@ -81,7 +81,7 @@ pub fn create_commit_simple(
             }),
         },
         worktree_changes,
-        ctx.app_settings().context_lines,
+        ctx.settings().context_lines,
         perm,
     );
 

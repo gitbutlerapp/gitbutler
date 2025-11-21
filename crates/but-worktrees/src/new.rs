@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::{Project, access::WorktreeReadPermission};
+use but_ctx::Context;
+use but_ctx::access::WorktreeReadPermission;
+use gitbutler_project::Project;
 use serde::Serialize;
 
 use crate::{Worktree, WorktreeId, WorktreeMeta, db::save_worktree_meta, git::git_worktree_add};
@@ -16,13 +17,13 @@ pub struct NewWorktreeOutcome {
 
 /// Creates a new worktree off of a branches given name.
 pub fn worktree_new(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     perm: &WorktreeReadPermission,
     refname: &gix::refs::FullNameRef,
 ) -> Result<NewWorktreeOutcome> {
-    let repo = ctx.gix_repo_for_merging()?;
+    let repo = ctx.open_repo_for_merging()?;
 
-    let (repo, _, graph) = ctx.graph_and_meta(repo, perm)?;
+    let (repo, _, graph) = ctx.graph_and_meta_and_repo_from_head(repo, perm)?;
     let ws = graph.to_workspace()?;
     if ws.find_segment_and_stack_by_refname(refname).is_none() {
         bail!("Branch not found in workspace");
@@ -33,12 +34,12 @@ pub fn worktree_new(
     // Generate a new worktree ID
     let id = WorktreeId::new();
 
-    let path = worktree_path(ctx.project(), &id);
+    let path = worktree_path(&ctx.legacy_project, &id);
     let branch_name =
         gix::refs::PartialName::try_from(format!("gitbutler/worktree/{}", id.as_str()))?;
 
     git_worktree_add(
-        &ctx.project().common_git_dir()?,
+        &ctx.legacy_project.common_git_dir()?,
         &path,
         branch_name.as_ref(),
         to_checkout.detach(),

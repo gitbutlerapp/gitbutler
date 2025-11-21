@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::BTreeSet};
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use bstr::{BStr, ByteSlice};
 use gix::refs::Category;
 use itertools::Itertools;

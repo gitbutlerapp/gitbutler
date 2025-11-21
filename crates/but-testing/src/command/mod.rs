@@ -1,6 +1,6 @@
 use std::{borrow::Cow, mem::ManuallyDrop, path::Path};
 
-use anyhow::{Context, anyhow, bail};
+use anyhow::{Context as _, anyhow, bail};
 use but_core::{
     DiffSpec, HunkHeader, UnifiedPatch, ref_metadata::StackId,
     worktree::checkout::UncommitedWorktreeChanges,
@@ -28,7 +28,7 @@ pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
 
 pub fn project_repo(path: &Path) -> anyhow::Result<gix::Repository> {
     let project = project_from_path(path)?;
-    configured_repo(project.open()?, RepositoryOpenMode::General)
+    configured_repo(project.open_repo()?, RepositoryOpenMode::General)
 }
 
 pub enum RepositoryOpenMode {
@@ -106,9 +106,9 @@ pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, an
 }
 
 mod commit;
+use but_ctx::Context;
 pub use commit::commit;
 use gitbutler_branch_actions::BranchListingFilter;
-use gitbutler_command_context::CommandContext;
 
 use crate::command::discard_change::IndicesOrHeaders;
 
@@ -118,15 +118,16 @@ pub mod project;
 pub mod assignment {
     use std::path::Path;
 
+    use but_ctx::Context;
     use but_hunk_assignment::HunkAssignmentRequest;
     use but_settings::AppSettings;
-    use gitbutler_command_context::CommandContext;
 
     use crate::command::{debug_print, project_from_path};
 
     pub fn hunk_assignments(current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
-        let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+        let ctx =
+            &mut Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
             ctx,
             false,
@@ -148,7 +149,8 @@ pub mod assignment {
         assignment: HunkAssignmentRequest,
     ) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
-        let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+        let ctx =
+            &mut Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         let rejections = but_hunk_assignment::assign(ctx, vec![assignment], None)?;
         if use_json {
             let json = serde_json::to_string_pretty(&rejections)?;
@@ -163,10 +165,10 @@ pub mod assignment {
 pub mod stacks {
     use std::{path::Path, str::FromStr};
 
-    use anyhow::Context;
+    use anyhow::Context as _;
+    use but_ctx::Context;
     use but_settings::AppSettings;
     use but_workspace::legacy::{StacksFilter, stack_branches, ui};
-    use gitbutler_command_context::CommandContext;
     use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_stack::StackId;
     use gix::{bstr::ByteSlice, refs::Category};
@@ -180,18 +182,18 @@ pub mod stacks {
         in_workspace: bool,
     ) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
-        let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let repo = ctx.open_repo_for_merging_non_persisting()?;
         let filter = if in_workspace {
             StacksFilter::InWorkspace
         } else {
             StacksFilter::All
         };
         let stacks = if v3 {
-            let meta = ref_metadata_toml(ctx.project())?;
+            let meta = ref_metadata_toml(&ctx.legacy_project)?;
             but_workspace::legacy::stacks_v3(&repo, &meta, filter, None)
         } else {
-            but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, filter)
+            but_workspace::legacy::stacks(&ctx, &ctx.project_data_dir(), &repo, filter)
         }?;
         if use_json {
             let json = serde_json::to_string_pretty(&stacks)?;
@@ -204,14 +206,14 @@ pub mod stacks {
 
     pub fn details(id: Option<StackId>, current_dir: &Path, v3: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
-        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         let details = if v3 {
-            let meta = ref_metadata_toml(ctx.project())?;
-            let repo = ctx.gix_repo_for_merging_non_persisting()?;
+            let meta = ref_metadata_toml(&ctx.legacy_project)?;
+            let repo = ctx.open_repo_for_merging_non_persisting()?;
             but_workspace::legacy::stack_details_v3(id, &repo, &meta)
         } else {
             but_workspace::legacy::stack_details(
-                &project.gb_dir(),
+                &ctx.project_data_dir(),
                 id.context("a StackID is needed for the old implementation")?,
                 &ctx,
             )
@@ -221,9 +223,9 @@ pub mod stacks {
 
     pub fn branch_details(ref_name: &str, current_dir: &Path, v3: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
-        let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let meta = ref_metadata_toml(ctx.project())?;
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let meta = ref_metadata_toml(&ctx.legacy_project)?;
+        let repo = ctx.open_repo_for_merging_non_persisting()?;
         let ref_name = repo.find_reference(ref_name)?.name().to_owned();
 
         let details = if v3 {
@@ -244,14 +246,14 @@ pub mod stacks {
             } else {
                 (shortname.to_str().unwrap(), None)
             };
-            but_workspace::legacy::branch_details(&project.gb_dir(), short_name, remote, &ctx)
+            but_workspace::legacy::branch_details(&ctx.project_data_dir(), short_name, remote, &ctx)
         }?;
         debug_print(details)
     }
 
     pub fn branches(id: StackId, current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
-        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         let branches = stack_branches(id, &ctx)?;
         if use_json {
             let json = serde_json::to_string_pretty(&branches)?;
@@ -264,13 +266,12 @@ pub mod stacks {
 
     /// Create a new stack containing only a branch with the given name.
     fn create_stack_with_branch(
-        ctx: &CommandContext,
-        project: gitbutler_project::Project,
+        ctx: &Context,
         name: &str,
         remote: bool,
         description: Option<&str>,
     ) -> anyhow::Result<ui::StackEntry> {
-        let repo = ctx.gix_repo()?;
+        let repo = ctx.repo.get()?;
         let remotes = repo.remote_names();
         if remote {
             let remote_name = remotes
@@ -288,8 +289,12 @@ pub mod stacks {
                 None,
             )?;
 
-            let stack_entries =
-                but_workspace::legacy::stacks(ctx, &project.gb_dir(), &repo, Default::default())?;
+            let stack_entries = but_workspace::legacy::stacks(
+                ctx,
+                &ctx.project_data_dir(),
+                &repo,
+                Default::default(),
+            )?;
             let stack_entry = stack_entries
                 .into_iter()
                 .find(|entry| entry.id == Some(stack_id))
@@ -306,7 +311,7 @@ pub mod stacks {
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &creation_request,
-            ctx.project().exclusive_worktree_access().write_permission(),
+            ctx.exclusive_worktree_access().write_permission(),
         )?;
 
         if description.is_some() {
@@ -323,11 +328,10 @@ pub mod stacks {
 
     /// Add a branch to an existing stack.
     fn add_branch_to_stack(
-        ctx: &CommandContext,
+        ctx: &Context,
         stack_id: StackId,
         name: &str,
         description: Option<&str>,
-        project: gitbutler_project::Project,
         repo: &gix::Repository,
     ) -> anyhow::Result<ui::StackEntry> {
         let creation_request = gitbutler_branch_actions::stack::CreateSeriesRequest {
@@ -339,7 +343,7 @@ pub mod stacks {
 
         gitbutler_branch_actions::stack::create_branch(ctx, stack_id, creation_request)?;
         let stack_entries =
-            but_workspace::legacy::stacks(ctx, &project.gb_dir(), repo, Default::default())?;
+            but_workspace::legacy::stacks(ctx, &ctx.project_data_dir(), repo, Default::default())?;
 
         let stack_entry = stack_entries
             .into_iter()
@@ -378,11 +382,15 @@ pub mod stacks {
             ..AppSettings::default()
         };
 
-        let ctx = CommandContext::open(&project, app_settings)?;
-        let repo = ctx.gix_repo()?;
+        let ctx = Context::new_from_legacy_project_and_settings(&project, app_settings);
+        let repo = ctx.repo.get()?;
 
-        let stacks =
-            but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?;
+        let stacks = but_workspace::legacy::stacks(
+            &ctx,
+            &ctx.project_data_dir(),
+            &repo,
+            Default::default(),
+        )?;
         let subject_stack = stacks
             .clone()
             .into_iter()
@@ -438,12 +446,12 @@ pub mod stacks {
             ..AppSettings::default()
         };
 
-        let ctx = CommandContext::open(&project, app_settings)?;
-        let repo = ctx.gix_repo()?;
+        let ctx = Context::new_from_legacy_project_and_settings(&project, app_settings);
+        let repo = ctx.repo.get()?;
 
         let stack_entry = match id {
-            Some(id) => add_branch_to_stack(&ctx, id, name, description, project.clone(), &repo)?,
-            None => create_stack_with_branch(&ctx, project.clone(), name, remote, description)?,
+            Some(id) => add_branch_to_stack(&ctx, id, name, description, &repo)?,
+            None => create_stack_with_branch(&ctx, name, remote, description)?,
         };
 
         if use_json {
@@ -517,8 +525,8 @@ pub async fn watch(args: &super::Args) -> anyhow::Result<()> {
 pub fn watch_db(args: &super::Args) -> anyhow::Result<()> {
     let (_repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
     let project = project.context("Couldn't find GitButler project in directory, needed here")?;
-    let mut ctx = CommandContext::open(&project, AppSettings::default())?;
-    let db = ctx.db()?;
+    let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+    let db = ctx.db.get()?;
     let rx = db.poll_changes(
         ItemKind::Actions | ItemKind::Assignments | ItemKind::Workflows,
         std::time::Duration::from_millis(500),
@@ -534,7 +542,7 @@ pub fn watch_db(args: &super::Args) -> anyhow::Result<()> {
 pub fn operating_mode(args: &super::Args) -> anyhow::Result<()> {
     let (_repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
     let project = project.context("Couldn't find GitButler project in directory")?;
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
 
     debug_print(gitbutler_operating_modes::operating_mode(&ctx))
 }
@@ -731,7 +739,7 @@ fn path_to_rela_path(path: &Path) -> anyhow::Result<BString> {
 
 pub fn branch_list(project: Option<Project>) -> anyhow::Result<()> {
     let project = project.context("legacy code needs project")?;
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
     debug_print(gitbutler_branch_actions::list_branches(
         &ctx,
         Some(BranchListingFilter {

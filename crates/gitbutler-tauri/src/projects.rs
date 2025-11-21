@@ -3,10 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use but_api::json;
-use but_settings::{AppSettings, AppSettingsWithDiskSync};
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
+use but_settings::AppSettingsWithDiskSync;
 use gitbutler_project::ProjectId;
 use gix::bstr::ByteSlice;
 use tauri::{State, Window};
@@ -65,17 +65,13 @@ pub fn set_project_active(
                 err
             }
         })?;
-    let ctx = &mut CommandContext::open_from(
-        &project,
-        AppSettings::load_from_default_path_creating()?,
-        repo,
-    )?;
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?.with_git2_repo(repo);
     // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
 
     but_api::legacy::fixup::reconcile_in_workspace_state_of_vb_toml(ctx);
 
     let db_error = assure_database_valid(project.gb_dir())?;
-    let filter_error = warn_about_filters_and_git_lfs(ctx.gix_repo_local_only()?)?;
+    let filter_error = warn_about_filters_and_git_lfs(ctx.open_isolated_repo()?)?;
     for err in [&db_error, &filter_error] {
         if let Some(err) = &err {
             tracing::error!("{err}");

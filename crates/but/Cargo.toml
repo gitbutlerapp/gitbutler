@@ -46,7 +46,6 @@ gitbutler-commit.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
-gitbutler-command-context.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-oplog.workspace = true
 

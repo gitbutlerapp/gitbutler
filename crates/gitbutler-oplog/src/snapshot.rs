@@ -1,9 +1,9 @@
 use std::vec;
 
 use anyhow::Result;
+use but_ctx::Context;
+use but_ctx::access::WorktreeWritePermission;
 use gitbutler_branch::BranchUpdateRequest;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::ReferenceName;
 use gitbutler_stack::Stack;
 
@@ -80,7 +80,7 @@ pub trait SnapshotExt {
 }
 
 /// Snapshot functionality
-impl SnapshotExt for CommandContext {
+impl SnapshotExt for Context {
     fn snapshot_branch_unapplied(
         &self,
         snapshot_tree: git2::Oid,

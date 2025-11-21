@@ -241,7 +241,7 @@ impl Drop for DBWatcherHandle {
 }
 
 pub fn watch_in_background(
-    db: &mut DbHandle,
+    db: &DbHandle,
     send_event: impl Fn(ItemKind) -> anyhow::Result<()> + Send + Sync + 'static,
 ) -> anyhow::Result<DBWatcherHandle, anyhow::Error> {
     let mut rx = db.poll_changes_async(

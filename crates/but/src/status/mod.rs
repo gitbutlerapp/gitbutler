@@ -1,18 +1,17 @@
 use std::collections::BTreeMap;
 
+use crate::CLI_DATE;
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
 use but_ctx::Context;
+use but_ctx::LegacyProject;
 use but_hunk_assignment::HunkAssignment;
 use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
-use gitbutler_command_context::CommandContext;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
-
-use crate::CLI_DATE;
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
@@ -54,21 +53,21 @@ struct UpstreamState {
 }
 
 pub(crate) async fn worktree(
-    ctx: &Context,
+    project: &LegacyProject,
     out: &mut OutputChannel,
     show_files: bool,
     verbose: bool,
     review: bool,
 ) -> anyhow::Result<()> {
-    let mut legacy_ctx = ctx.legacy_ctx()?;
-    but_rules::process_rules(&mut legacy_ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
+    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
+    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
     let guard = ctx.shared_worktree_access();
     let meta = ctx.meta(guard.read_permission())?;
 
     // TODO: use this for status information instead.
     let _head_info = but_workspace::head_info(
-        &ctx.repo,
+        &*ctx.repo.get()?,
         &meta,
         but_workspace::ref_info::Options {
             expensive_commit_info: true,
@@ -76,7 +75,6 @@ pub(crate) async fn worktree(
         },
     )?;
 
-    let project = &ctx.legacy_project;
     let review_map = if review {
         crate::forge::review::get_review_map(project).await?
     } else {
@@ -104,7 +102,7 @@ pub(crate) async fn worktree(
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
-    let mut id_db = IdDb::new(&legacy_ctx)?;
+    let mut id_db = IdDb::new(ctx)?;
 
     // For JSON output, we'll need the original StackDetails to avoid redundant conversions
     let mut original_stack_details: Vec<(Option<gitbutler_stack::StackId>, Option<StackDetails>)> =
@@ -118,10 +116,10 @@ pub(crate) async fn worktree(
     }
 
     // Calculate common_merge_base data
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(legacy_ctx.project().gb_dir());
+    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = stack.get_default_target()?;
     let target_name = format!("{}/{}", target.branch.remote(), target.branch.branch());
-    let repo = legacy_ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let base_commit = repo.find_commit(target.sha.to_gix())?;
     let base_commit_decoded = base_commit.decode()?;
     let message = base_commit_decoded
@@ -217,10 +215,13 @@ pub(crate) async fn worktree(
         return Ok(());
     };
 
+    drop(base_commit_decoded);
+    drop(base_commit);
+    drop(repo);
     let stack_details_len = stack_details.len();
     for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
         let mut stack_mark = stack_id.and_then(|stack_id| {
-            if crate::mark::stack_marked(&mut legacy_ctx, stack_id).unwrap_or_default() {
+            if crate::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
                 Some("◀ Marked ▶".red().bold())
             } else {
                 None
@@ -236,7 +237,7 @@ pub(crate) async fn worktree(
             verbose,
             review,
             &mut stack_mark,
-            &mut legacy_ctx,
+            ctx,
             i == stack_details_len - 1,
             i == 0,
             &review_map,
@@ -373,14 +374,14 @@ pub fn print_group(
     verbose: bool,
     show_url: bool,
     stack_mark: &mut Option<ColoredString>,
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     _last: bool,
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     out: &mut dyn std::fmt::Write,
     id_db: &mut IdDb,
 ) -> anyhow::Result<()> {
-    let repo = project.open_isolated()?;
+    let repo = project.open_isolated_repo()?;
     if let Some(group) = &group {
         let mut first = true;
         for branch in &group.branch_details {
@@ -504,10 +505,15 @@ pub fn print_group(
 // TODO: we have the commit information, but the caller uses a degenerated structure that loses TZ information.
 //       Use the original data (which would also fix frontend display).
 fn created_at_of_commit(
-    ctx: &CommandContext,
+    ctx: &Context,
     commit_id: gix::ObjectId,
 ) -> anyhow::Result<gix::date::Time> {
-    Ok(ctx.repo().find_commit(commit_id.to_git2())?.time().to_gix())
+    Ok(ctx
+        .git2_repo
+        .get()?
+        .find_commit(commit_id.to_git2())?
+        .time()
+        .to_gix())
 }
 
 fn status_letter(status: &TreeStatus) -> char {
@@ -528,10 +534,11 @@ fn path_with_color(status: &TreeStatus, path: String) -> ColoredString {
     }
 }
 
-pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
-    let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
-            .changes;
+pub(crate) fn all_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
+    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
+        ctx.legacy_project.worktree_dir()?.into(),
+    )?
+    .changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
     let out = assignments
@@ -543,7 +550,7 @@ pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> 
     Ok(out)
 }
 
-pub(crate) fn all_branches(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn all_branches(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
     let mut id_db = IdDb::new(ctx)?;
     let stacks = crate::utils::commits::stacks(ctx)?;
     let mut branches = Vec::new();
@@ -565,15 +572,15 @@ fn status_from_changes(changes: &[TreeChange], path: BString) -> Option<TreeStat
     })
 }
 
-pub(crate) fn all_committed_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn all_committed_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
     let mut committed_files = Vec::new();
-    let stacks = but_api::legacy::workspace::stacks(ctx.project().id, None)?;
+    let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
     for stack in stacks {
-        let details = but_api::legacy::workspace::stack_details(ctx.project().id, stack.id)?;
+        let details = but_api::legacy::workspace::stack_details(ctx.legacy_project.id, stack.id)?;
         for branch in details.branch_details {
             for commit in branch.commits {
                 let commit_details =
-                    but_api::legacy::diff::commit_details(ctx.project().id, commit.id.into())?;
+                    but_api::legacy::diff::commit_details(ctx.legacy_project.id, commit.id.into())?;
                 for change in &commit_details.changes.changes {
                     let cid = CliId::committed_file(&change.path.to_string(), commit.id);
                     committed_files.push(cid);

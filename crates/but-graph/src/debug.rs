@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice, ByteVec};
 use gix::reference::Category;
 use petgraph::{prelude::EdgeRef, stable_graph::EdgeReference, visit::IntoEdgeReferences};

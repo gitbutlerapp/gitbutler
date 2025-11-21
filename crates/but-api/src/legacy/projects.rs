@@ -77,7 +77,7 @@ pub fn delete_project(project_id: ProjectId) -> Result<()> {
 #[instrument(err(Debug))]
 pub fn is_gerrit(project_id: ProjectId) -> Result<bool> {
     let project = gitbutler_project::get_raw(project_id)?;
-    let repo = project.open()?;
+    let repo = project.open_repo()?;
     gitbutler_project::gerrit::is_used_by_default_remote(&repo)
 }
 

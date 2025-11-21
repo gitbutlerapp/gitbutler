@@ -2,7 +2,7 @@ use std::vec;
 
 use async_openai::{Client, config::OpenAIConfig};
 use but_core::ref_metadata::StackId;
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 
 use crate::workflow::{self, Workflow};
 
@@ -14,7 +14,7 @@ pub struct RenameBranchParams {
 }
 
 pub async fn rename_branch(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     client: &Client<OpenAIConfig>,
     parameters: RenameBranchParams,
     trigger_id: uuid::Uuid,
@@ -26,7 +26,7 @@ pub async fn rename_branch(
         current_branch_name,
     } = parameters;
 
-    let repo = &ctx.gix_repo_for_merging_non_persisting()?;
+    let repo = &ctx.open_repo_for_merging_non_persisting()?;
     let stacks = crate::stacks(ctx, repo)?;
     let existing_branch_names = stacks
         .iter()
@@ -34,7 +34,7 @@ pub async fn rename_branch(
         .collect::<Vec<_>>();
     let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id)?;
     let diff = changes
-        .try_to_unidiff(repo, ctx.app_settings().context_lines)?
+        .try_to_unidiff(repo, ctx.settings().context_lines)?
         .to_string();
     let diffs = vec![diff];
 
