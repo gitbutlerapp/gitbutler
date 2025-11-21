@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
@@ -21,7 +21,7 @@ fn branch_names(ctx: &Context) -> anyhow::Result<Vec<BString>> {
 }
 
 pub struct IdDb {
-    branch_name_to_cli_id: HashMap<String, CliId>,
+    branch_name_to_cli_id: HashMap<BString, CliId>,
     unassigned: CliId,
 }
 
@@ -55,8 +55,8 @@ impl IdDb {
             }
         }
 
-        let mut branch_name_to_cli_id: HashMap<String, CliId> = HashMap::new();
-        'branch_name: for branch_name in &branch_names {
+        let mut branch_name_to_cli_id: HashMap<BString, CliId> = HashMap::new();
+        'branch_name: for branch_name in branch_names {
             // Find first non-conflicting pair and use it as CliId.
             for pair in branch_name.windows(2) {
                 let pair: [u8; 2] = pair.try_into()?;
@@ -66,7 +66,7 @@ impl IdDb {
                     let id = str::from_utf8(&pair)
                         .expect("if we stored it, it's ascii-alphanum")
                         .to_owned();
-                    branch_name_to_cli_id.insert(name.clone(), CliId::Branch { name, id });
+                    branch_name_to_cli_id.insert(branch_name, CliId::Branch { name, id });
                     continue 'branch_name;
                 }
             }
@@ -79,15 +79,14 @@ impl IdDb {
         })
     }
 
-    fn find_branches_by_name(&mut self, ctx: &Context, name: &str) -> anyhow::Result<Vec<CliId>> {
+    fn find_branches_by_name(&mut self, ctx: &Context, name: &BStr) -> anyhow::Result<Vec<CliId>> {
         let branch_names = branch_names(ctx)?;
         let mut matches = Vec::new();
 
         for branch_name in branch_names {
-            let branch_name = branch_name.to_string();
-            // Exact match or partial match
-            if branch_name == name || branch_name.contains(name) {
-                matches.push(self.branch(&branch_name).clone())
+            // Partial match is fine
+            if branch_name.contains_str(name) {
+                matches.push(self.branch(branch_name.as_ref()).clone())
             }
         }
 
@@ -96,12 +95,13 @@ impl IdDb {
 
     /// Returns the ID for a branch of the given name. If no such ID exists,
     /// generate one.
-    pub fn branch(&mut self, name: &str) -> &CliId {
+    pub fn branch(&mut self, name: &BStr) -> &CliId {
         self.branch_name_to_cli_id
             .entry(name.to_owned())
-            .or_insert_with(|| CliId::Branch {
-                name: name.to_owned(),
-                id: hash(name),
+            .or_insert_with(|| {
+                let name = name.to_string();
+                let id = hash(&name);
+                CliId::Branch { name, id }
             })
     }
 
@@ -213,7 +213,7 @@ impl CliId {
         let mut matches = Vec::new();
 
         // First, try exact branch name match
-        if let Ok(branch_matches) = id_db.find_branches_by_name(ctx, s) {
+        if let Ok(branch_matches) = id_db.find_branches_by_name(ctx, s.into()) {
             matches.extend(branch_matches);
         }
 
