@@ -11,7 +11,7 @@
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
+	import { ircPath, isWorkspacePath, projectPath } from '$lib/routes/routes.svelte';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { useCreateAiStack } from '$lib/stacks/createAiStack.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -101,6 +101,8 @@
 
 	const stacks = $derived(stackService.stacks(projectId));
 	const hasNoBranches = $derived(stacks.response?.length === 0);
+
+	const isOnWorkspacePage = $derived(!!isWorkspacePath());
 
 	function openModal() {
 		modal?.show();
@@ -264,25 +266,27 @@
 				}}
 			/>
 		{/if}
-		<Button
-			testId={TestId.ChromeHeaderCreateBranchButton}
-			kind={hasNoBranches ? 'solid' : 'outline'}
-			icon="plus-small"
-			hotkey="⌘B"
-			reversedDirection
-			onclick={() => createBranchModal?.show()}
-		>
-			Create branch
-		</Button>
-		<Button
-			testId={TestId.ChromeHeaderCreateCodegenSessionButton}
-			kind="outline"
-			tooltip="New Codegen Session"
-			icon="ai-new-session"
-			onclick={() => {
-				createAiStack();
-			}}
-		/>
+		{#if isOnWorkspacePage}
+			<Button
+				testId={TestId.ChromeHeaderCreateBranchButton}
+				kind={hasNoBranches ? 'solid' : 'outline'}
+				icon="plus-small"
+				hotkey="⌘B"
+				reversedDirection
+				onclick={() => createBranchModal?.show()}
+			>
+				Create branch
+			</Button>
+			<Button
+				testId={TestId.ChromeHeaderCreateCodegenSessionButton}
+				kind="outline"
+				tooltip="New Codegen Session"
+				icon="ai-new-session"
+				onclick={() => {
+					createAiStack();
+				}}
+			/>
+		{/if}
 	</div>
 </div>
 
