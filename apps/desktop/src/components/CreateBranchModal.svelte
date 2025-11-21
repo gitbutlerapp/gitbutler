@@ -209,24 +209,6 @@
 			</label>
 		</div>
 
-		{#if createRefType === 'stack'}
-			<div class="settings-link-container">
-				<p class="text-12 text-body clr-text-2">
-					Configure branch placement and other preferences in
-					<button
-						type="button"
-						class="settings-link underline-dotted"
-						onclick={() => {
-							createRefModal?.close();
-							openGeneralSettings('lanes-and-branches');
-						}}
-					>
-						Settings → Lanes & Branches
-					</button>
-				</p>
-			</div>
-		{/if}
-
 		{#if createRefType === 'dependent'}
 			<Select
 				options={stackOptions}
@@ -250,6 +232,18 @@
 			<p>
 				{#if createRefType === 'stack'}
 					The new branch will be applied in parallel with other stacks in the workspace.
+					<br />
+					Adjust branch placement and preferences in
+					<button
+						type="button"
+						class="settings-link underline-dotted"
+						onclick={() => {
+							createRefModal?.close();
+							openGeneralSettings('lanes-and-branches');
+						}}
+					>
+						Settings → Lanes & branches
+					</button>
 				{:else}
 					Creates a branch that depends on a selected stack.
 					<br />
