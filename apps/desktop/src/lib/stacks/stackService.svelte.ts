@@ -1394,7 +1394,10 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Remove Branch'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, _args) => [
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesList(ReduxTag.Stacks), // Removing a branch can remove a stack
+					// Removing a branch won't change the sha if the branch is empty
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.BranchListing)
 				]
