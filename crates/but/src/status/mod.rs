@@ -104,7 +104,7 @@ pub(crate) async fn worktree(
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
-    let mut id_db = IdDb::new(&legacy_ctx)?;
+    let mut id_db = IdDb::new(ctx)?;
 
     // For JSON output, we'll need the original StackDetails to avoid redundant conversions
     let mut original_stack_details: Vec<(Option<gitbutler_stack::StackId>, Option<StackDetails>)> =
@@ -236,7 +236,7 @@ pub(crate) async fn worktree(
             verbose,
             review,
             &mut stack_mark,
-            &mut legacy_ctx,
+            ctx,
             i == stack_details_len - 1,
             i == 0,
             &review_map,
@@ -373,7 +373,7 @@ pub fn print_group(
     verbose: bool,
     show_url: bool,
     stack_mark: &mut Option<ColoredString>,
-    ctx: &mut CommandContext,
+    ctx: &Context,
     _last: bool,
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
@@ -385,7 +385,7 @@ pub fn print_group(
         let mut first = true;
         for branch in &group.branch_details {
             let id = id_db
-                .branch(branch.name.to_str()?)
+                .branch(branch.name.as_ref())
                 .to_string()
                 .underline()
                 .blue();
@@ -436,7 +436,7 @@ pub fn print_group(
                 let dot = "●".yellow();
                 print_commit(
                     commit.id,
-                    created_at_of_commit(ctx, commit.id)?,
+                    created_at_of_commit(&ctx.legacy_ctx()?, commit.id)?,
                     commit.message.to_string(),
                     commit.author.name.clone(),
                     dot,
@@ -453,7 +453,8 @@ pub fn print_group(
             for cli_commit in &branch.commits {
                 let commit = &cli_commit;
                 let marked =
-                    crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
+                    crate::mark::commit_marked(&mut ctx.legacy_ctx()?, commit.id.to_string())
+                        .unwrap_or_default();
                 let dot = match commit.state {
                     but_workspace::ui::CommitState::LocalOnly => "●".normal(),
                     but_workspace::ui::CommitState::LocalAndRemote(object_id) => {
@@ -467,7 +468,7 @@ pub fn print_group(
                 };
                 print_commit(
                     commit.id,
-                    created_at_of_commit(ctx, commit.id)?,
+                    created_at_of_commit(&ctx.legacy_ctx()?, commit.id)?,
                     commit.message.to_string(),
                     commit.author.name.clone(),
                     dot,
@@ -543,13 +544,13 @@ pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> 
     Ok(out)
 }
 
-pub(crate) fn all_branches(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn all_branches(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
     let mut id_db = IdDb::new(ctx)?;
-    let stacks = crate::utils::commits::stacks(ctx)?;
+    let stacks = crate::utils::commits::stacks(&ctx.legacy_ctx()?)?;
     let mut branches = Vec::new();
     for stack in stacks {
         for head in stack.heads {
-            branches.push(id_db.branch(&head.name.to_string()).clone());
+            branches.push(id_db.branch(head.name.as_ref()).clone());
         }
     }
     Ok(branches)

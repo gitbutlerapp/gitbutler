@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::ByteSlice;
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
 use but_workspace::ui::Commit;
@@ -102,7 +103,7 @@ pub fn set_review_template(
 
 /// Publish reviews for active branches in the workspace.
 pub async fn publish_reviews(
-    project: &Project,
+    ctx: &Context,
     branch: Option<String>,
     skip_force_push_protection: bool,
     with_force: bool,
@@ -110,13 +111,14 @@ pub async fn publish_reviews(
     default: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
+    let project = &ctx.legacy_project;
     let review_map = get_review_map(project).await?;
     let applied_stacks = but_api::legacy::workspace::stacks(
         project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
     let maybe_branch_names = branch
-        .map(|branch_id| get_branch_names(project, &branch_id))
+        .map(|branch_id| get_branch_names(ctx, &branch_id))
         .transpose()?;
     handle_multiple_branches_in_workspace(
         project,
@@ -132,9 +134,8 @@ pub async fn publish_reviews(
     .await
 }
 
-fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
-    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-    let branch_ids = CliId::from_str(&mut ctx, branch_id)?
+fn get_branch_names(ctx: &Context, branch_id: &str) -> anyhow::Result<Vec<String>> {
+    let branch_ids = CliId::from_str(ctx, branch_id)?
         .iter()
         .filter_map(|clid| match clid {
             CliId::Branch { name, .. } => Some(name.clone()),

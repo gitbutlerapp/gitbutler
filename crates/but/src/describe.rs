@@ -1,20 +1,16 @@
 use anyhow::{Result, bail};
+use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
-use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
 use crate::{editor::get_text_from_editor_no_comments, id::CliId, utils::OutputChannel};
 
-pub(crate) fn describe_target(
-    project: &Project,
-    out: &mut OutputChannel,
-    target: &str,
-) -> Result<()> {
-    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+pub(crate) fn describe_target(ctx: &Context, out: &mut OutputChannel, target: &str) -> Result<()> {
+    let project = &ctx.legacy_project;
 
     // Resolve the commit ID
-    let cli_ids = CliId::from_str(&mut ctx, target)?;
+    let cli_ids = CliId::from_str(ctx, target)?;
 
     if cli_ids.is_empty() {
         bail!("ID '{}' not found", target);
@@ -32,10 +28,10 @@ pub(crate) fn describe_target(
 
     match cli_id {
         CliId::Branch { name, .. } => {
-            edit_branch_name(&ctx, project, name, out)?;
+            edit_branch_name(project, name, out)?;
         }
         CliId::Commit { oid } => {
-            edit_commit_message_by_id(&ctx, project, *oid, out)?;
+            edit_commit_message_by_id(&ctx.legacy_ctx()?, project, *oid, out)?;
         }
         _ => {
             bail!("Target must be a commit ID, not {}", cli_id.kind());
@@ -45,12 +41,7 @@ pub(crate) fn describe_target(
     Ok(())
 }
 
-fn edit_branch_name(
-    _ctx: &CommandContext,
-    project: &Project,
-    branch_name: &str,
-    out: &mut OutputChannel,
-) -> Result<()> {
+fn edit_branch_name(project: &Project, branch_name: &str, out: &mut OutputChannel) -> Result<()> {
     // Find which stack this branch belongs to
     let stacks = but_api::legacy::workspace::stacks(
         project.id,

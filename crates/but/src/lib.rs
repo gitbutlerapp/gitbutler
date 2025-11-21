@@ -98,8 +98,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 .target
                 .as_ref()
                 .expect("target is checked to be Some in match guard");
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            rub::handle(&project, &mut out, source, target)
+            let ctx = get_or_init_context_with_legacy_support(&args)?;
+            rub::handle(&ctx, &mut out, source, target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(MetricsContext::new_if_enabled(
                     &app_settings,
@@ -276,15 +276,15 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         Subcommands::Rub { source, target } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            rub::handle(&project, out, &source, &target)
+            let ctx = get_or_init_context_with_legacy_support(&args)?;
+            rub::handle(&ctx, out, &source, &target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         Subcommands::Mark { target, delete } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            mark::handle(&project, out, &target, delete)
+            let ctx = get_or_init_context_with_legacy_support(&args)?;
+            mark::handle(&ctx, out, &target, delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
@@ -303,9 +303,9 @@ async fn match_subcommand(
             create,
             only,
         } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
+            let ctx = get_or_init_context_with_legacy_support(&args)?;
             commit::commit(
-                &project,
+                &ctx,
                 out,
                 message.as_deref(),
                 branch.as_deref(),
@@ -315,16 +315,16 @@ async fn match_subcommand(
             .emit_metrics(metrics_ctx)
         }
         Subcommands::Push(push_args) => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            push::handle(push_args, &project, out).emit_metrics(metrics_ctx)
+            let ctx = get_or_init_context_with_legacy_support(&args)?;
+            push::handle(push_args, &ctx, out).emit_metrics(metrics_ctx)
         }
         Subcommands::New { target } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            commit::insert_blank_commit(&project, out, &target).emit_metrics(metrics_ctx)
+            let ctx = get_or_init_context_with_legacy_support(&args)?;
+            commit::insert_blank_commit(&ctx, out, &target).emit_metrics(metrics_ctx)
         }
         Subcommands::Describe { target } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            describe::describe_target(&project, out, &target).emit_metrics(metrics_ctx)
+            let ctx = get_or_init_context_with_legacy_support(&args)?;
+            describe::describe_target(&ctx, out, &target).emit_metrics(metrics_ctx)
         }
         Subcommands::Oplog { since } => {
             let project = get_or_init_legacy_non_bare_project(&args)?;
@@ -343,8 +343,8 @@ async fn match_subcommand(
             oplog::create_snapshot(&project, out, message.as_deref()).emit_metrics(metrics_ctx)
         }
         Subcommands::Absorb { source } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            absorb::handle(&project, out, source.as_deref()).emit_metrics(metrics_ctx)
+            let ctx = get_or_init_context_with_legacy_support(&args)?;
+            absorb::handle(&ctx, out, source.as_deref()).emit_metrics(metrics_ctx)
         }
         Subcommands::Init { repo } => init::repo(&args.current_dir, out, repo)
             .context("Failed to initialize GitButler project.")
@@ -363,9 +363,9 @@ async fn match_subcommand(
                 run_hooks,
                 default,
             } => {
-                let project = get_or_init_legacy_non_bare_project(&args)?;
+                let ctx = get_or_init_context_with_legacy_support(&args)?;
                 forge::review::publish_reviews(
-                    &project,
+                    &ctx,
                     branch,
                     skip_force_push_protection,
                     with_force,

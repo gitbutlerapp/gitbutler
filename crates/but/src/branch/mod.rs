@@ -1,9 +1,7 @@
 use anyhow::bail;
 pub use branch::{Platform, Subcommands};
 use but_core::ref_metadata::StackId;
-use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
-use gitbutler_command_context::CommandContext;
 
 use crate::{LegacyProject, args::branch, utils::OutputChannel};
 
@@ -151,10 +149,6 @@ pub async fn handle(
             branch_name,
             anchor,
         }) => {
-            let ctx = CommandContext::open(
-                legacy_project,
-                AppSettings::load_from_default_path_creating()?,
-            )?;
             // Get branch name or use canned name
             let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
                 but_api::legacy::workspace::canned_branch_name(legacy_project.id)
@@ -165,10 +159,9 @@ pub async fn handle(
 
             let anchor = if let Some(anchor_str) = anchor {
                 // Use the new create_reference API when anchor is provided
-                let mut ctx = ctx; // Make mutable for CliId resolution
 
                 // Resolve the anchor string to a CliId
-                let anchor_ids = crate::id::CliId::from_str(&mut ctx, &anchor_str)?;
+                let anchor_ids = crate::id::CliId::from_str(ctx, &anchor_str)?;
                 if anchor_ids.is_empty() {
                     return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
                 }

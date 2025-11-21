@@ -1,62 +1,74 @@
 use std::{collections::HashMap, fmt::Display};
 
-use bstr::ByteSlice;
+use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use gitbutler_command_context::CommandContext;
 
+fn branch_names(ctx: &Context) -> anyhow::Result<Vec<BString>> {
+    let guard = ctx.shared_worktree_access();
+    let meta = ctx.meta(guard.read_permission())?;
+    let head_info = but_workspace::head_info(&ctx.repo, &meta, Default::default())?;
+    let mut branch_names: Vec<BString> = Vec::new();
+    for stack in head_info.stacks {
+        for segment in stack.segments {
+            if let Some(ref_info) = segment.ref_info {
+                branch_names.push(ref_info.ref_name.shorten().to_owned());
+            }
+        }
+    }
+    Ok(branch_names)
+}
+
 pub struct IdDb {
-    branch_name_to_cli_id: HashMap<String, CliId>,
+    branch_name_to_cli_id: HashMap<BString, CliId>,
     unassigned: CliId,
 }
 
 impl IdDb {
-    pub fn new(ctx: &CommandContext) -> anyhow::Result<Self> {
+    pub fn new(ctx: &Context) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
-        let stacks = crate::utils::commits::stacks(ctx)?;
+        let branch_names = branch_names(ctx)?;
         let mut pairs_to_count: HashMap<u16, u8> = HashMap::new();
         fn u8_pair_to_u16(two: [u8; 2]) -> u16 {
             two[0] as u16 * 256 + two[1] as u16
         }
-        for stack in &stacks {
-            for head in &stack.heads {
-                for pair in head.name.windows(2) {
-                    let pair: [u8; 2] = pair.try_into()?;
-                    if !pair[0].is_ascii_alphanumeric() || !pair[1].is_ascii_alphanumeric() {
-                        continue;
-                    }
-                    let could_collide_with_commits =
-                        pair[0].is_ascii_hexdigit() && pair[1].is_ascii_hexdigit();
-                    if could_collide_with_commits {
-                        continue;
-                    }
-                    let u16pair = u8_pair_to_u16(pair);
-                    pairs_to_count
-                        .entry(u16pair)
-                        .and_modify(|count| *count = count.saturating_add(1))
-                        .or_insert(1);
+        for branch_name in &branch_names {
+            for pair in branch_name.windows(2) {
+                let pair: [u8; 2] = pair.try_into()?;
+                if !pair[0].is_ascii_alphanumeric() || !pair[1].is_ascii_alphanumeric() {
+                    continue;
                 }
-                for field in head.name.fields_with(|c| c != '0') {
-                    max_zero_count = std::cmp::max(field.len(), max_zero_count);
+                let could_collide_with_commits =
+                    pair[0].is_ascii_hexdigit() && pair[1].is_ascii_hexdigit();
+                if could_collide_with_commits {
+                    continue;
                 }
+                let u16pair = u8_pair_to_u16(pair);
+                pairs_to_count
+                    .entry(u16pair)
+                    .and_modify(|count| *count = count.saturating_add(1))
+                    .or_insert(1);
+            }
+            for field in branch_name.fields_with(|c| c != '0') {
+                max_zero_count = std::cmp::max(field.len(), max_zero_count);
             }
         }
 
-        let mut branch_name_to_cli_id: HashMap<String, CliId> = HashMap::new();
-        for stack in stacks {
-            'head: for head in &stack.heads {
-                // Find first non-conflicting pair and use it as CliId.
-                for pair in head.name.windows(2) {
-                    let pair: [u8; 2] = pair.try_into()?;
-                    let u16pair = u8_pair_to_u16(pair);
-                    if let Some(1) = pairs_to_count.get(&u16pair) {
-                        let name = head.name.to_string();
-                        let id = str::from_utf8(&pair)
-                            .expect("if we stored it, it's ascii-alphanum")
-                            .to_owned();
-                        branch_name_to_cli_id.insert(name.clone(), CliId::Branch { name, id });
-                        continue 'head;
-                    }
+        let mut branch_name_to_cli_id: HashMap<BString, CliId> = HashMap::new();
+        'branch_name: for branch_name in branch_names {
+            // Find first non-conflicting pair and use it as CliId.
+            for pair in branch_name.windows(2) {
+                let pair: [u8; 2] = pair.try_into()?;
+                let u16pair = u8_pair_to_u16(pair);
+                if let Some(1) = pairs_to_count.get(&u16pair) {
+                    let name = branch_name.to_string();
+                    let id = str::from_utf8(&pair)
+                        .expect("if we stored it, it's ascii-alphanum")
+                        .to_owned();
+                    branch_name_to_cli_id.insert(branch_name, CliId::Branch { name, id });
+                    continue 'branch_name;
                 }
             }
         }
@@ -68,21 +80,14 @@ impl IdDb {
         })
     }
 
-    fn find_branches_by_name(
-        &mut self,
-        ctx: &CommandContext,
-        name: &str,
-    ) -> anyhow::Result<Vec<CliId>> {
-        let stacks = crate::utils::commits::stacks(ctx)?;
+    fn find_branches_by_name(&mut self, ctx: &Context, name: &BStr) -> anyhow::Result<Vec<CliId>> {
+        let branch_names = branch_names(ctx)?;
         let mut matches = Vec::new();
 
-        for stack in stacks {
-            for head in &stack.heads {
-                let branch_name = head.name.to_string();
-                // Exact match or partial match
-                if branch_name == name || branch_name.contains(name) {
-                    matches.push(self.branch(&branch_name).clone())
-                }
+        for branch_name in branch_names {
+            // Partial match is fine
+            if branch_name.contains_str(name) {
+                matches.push(self.branch(branch_name.as_ref()).clone())
             }
         }
 
@@ -91,12 +96,13 @@ impl IdDb {
 
     /// Returns the ID for a branch of the given name. If no such ID exists,
     /// generate one.
-    pub fn branch(&mut self, name: &str) -> &CliId {
+    pub fn branch(&mut self, name: &BStr) -> &CliId {
         self.branch_name_to_cli_id
             .entry(name.to_owned())
-            .or_insert_with(|| CliId::Branch {
-                name: name.to_owned(),
-                id: hash(name),
+            .or_insert_with(|| {
+                let name = name.to_string();
+                let id = hash(&name);
+                CliId::Branch { name, id }
             })
     }
 
@@ -194,7 +200,7 @@ impl CliId {
         }
     }
 
-    pub fn from_str(ctx: &mut CommandContext, s: &str) -> anyhow::Result<Vec<Self>> {
+    pub fn from_str(ctx: &Context, s: &str) -> anyhow::Result<Vec<Self>> {
         if s.len() < 2 {
             return Err(anyhow::anyhow!(
                 "Id needs to be at least 2 characters long: {}",
@@ -208,12 +214,12 @@ impl CliId {
         let mut matches = Vec::new();
 
         // First, try exact branch name match
-        if let Ok(branch_matches) = id_db.find_branches_by_name(ctx, s) {
+        if let Ok(branch_matches) = id_db.find_branches_by_name(ctx, s.into()) {
             matches.extend(branch_matches);
         }
 
         // Then try partial SHA matches (for commits)
-        if let Ok(commit_matches) = Self::find_commits_by_sha(ctx, s) {
+        if let Ok(commit_matches) = Self::find_commits_by_sha(&ctx.legacy_ctx()?, s) {
             matches.extend(commit_matches);
         }
 
@@ -221,11 +227,11 @@ impl CliId {
         if s.len() > 2 {
             // For longer strings, try prefix matching on CliIds
             let mut cli_matches = Vec::new();
-            crate::status::all_files(ctx)?
+            crate::status::all_files(&mut ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::status::all_committed_files(ctx)?
+            crate::status::all_committed_files(&mut ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
@@ -233,7 +239,7 @@ impl CliId {
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::utils::commits::all_commits(ctx)?
+            crate::utils::commits::all_commits(&ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
@@ -244,11 +250,11 @@ impl CliId {
         } else {
             // For 2-character strings, try exact CliId matching
             let mut cli_matches = Vec::new();
-            crate::status::all_files(ctx)?
+            crate::status::all_files(&mut ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::status::all_committed_files(ctx)?
+            crate::status::all_committed_files(&mut ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
@@ -256,7 +262,7 @@ impl CliId {
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::utils::commits::all_commits(ctx)?
+            crate::utils::commits::all_commits(&ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
