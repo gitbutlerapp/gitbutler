@@ -1,5 +1,5 @@
 use anyhow::bail;
-use but_settings::AppSettings;
+use but_ctx::Context;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -18,13 +18,14 @@ use gitbutler_oplog::{
 use crate::{id::CliId, utils::OutputChannel};
 
 pub(crate) fn handle(
-    project: &Project,
+    ctx: &Context,
     out: &mut OutputChannel,
     source_str: &str,
     target_str: &str,
 ) -> anyhow::Result<()> {
-    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let project = &ctx.legacy_project;
     let (sources, target) = ids(ctx, source_str, target_str)?;
+    let ctx = &mut ctx.legacy_ctx()?;
 
     for source in sources {
         match (&source, &target) {
@@ -132,11 +133,7 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
     )
 }
 
-fn ids(
-    ctx: &mut CommandContext,
-    source: &str,
-    target: &str,
-) -> anyhow::Result<(Vec<CliId>, CliId)> {
+fn ids(ctx: &Context, source: &str, target: &str) -> anyhow::Result<(Vec<CliId>, CliId)> {
     let sources = parse_sources(ctx, source)?;
     let target_result = crate::id::CliId::from_str(ctx, target)?;
     if target_result.len() != 1 {
@@ -166,7 +163,7 @@ fn ids(
     Ok((sources, target_result[0].clone()))
 }
 
-pub(crate) fn parse_sources(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn parse_sources(ctx: &Context, source: &str) -> anyhow::Result<Vec<CliId>> {
     // Check if it's a range (contains '-')
     if source.contains('-') {
         parse_range(ctx, source)
@@ -206,7 +203,7 @@ pub(crate) fn parse_sources(ctx: &mut CommandContext, source: &str) -> anyhow::R
     }
 }
 
-fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_range(ctx: &Context, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split('-').collect();
     if parts.len() != 2 {
         return Err(anyhow::anyhow!(
@@ -239,7 +236,7 @@ fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<Cli
     let end_id = &end_matches[0];
 
     // Get all files in display order (same order as shown in status)
-    let all_files_in_order = get_all_files_in_display_order(ctx)?;
+    let all_files_in_order = get_all_files_in_display_order(&mut ctx.legacy_ctx()?)?;
 
     // Find the positions of start and end in the ordered file list
     let start_pos = all_files_in_order.iter().position(|id| id == start_id);
@@ -322,7 +319,7 @@ fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Ve
     Ok(all_files)
 }
 
-fn parse_list(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_list(ctx: &Context, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split(',').collect();
     let mut result = Vec::new();
 

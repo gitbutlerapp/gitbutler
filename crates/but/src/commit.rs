@@ -7,9 +7,8 @@ use but_api::{
     legacy::{diff, virtual_branches, workspace},
 };
 use but_core::{DiffSpec, ui::TreeChange};
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
 use crate::{
@@ -18,14 +17,14 @@ use crate::{
 };
 
 pub(crate) fn insert_blank_commit(
-    project: &Project,
+    ctx: &Context,
     out: &mut OutputChannel,
     target: &str,
 ) -> Result<()> {
-    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let project = &ctx.legacy_project;
 
     // Resolve the target ID
-    let cli_ids = CliId::from_str(&mut ctx, target)?;
+    let cli_ids = CliId::from_str(ctx, target)?;
 
     if cli_ids.is_empty() {
         bail!("Target '{}' not found", target);
@@ -144,14 +143,14 @@ fn find_stack_containing_commit(
 }
 
 pub(crate) fn commit(
-    project: &Project,
+    ctx: &Context,
     out: &mut OutputChannel,
     message: Option<&str>,
     branch_hint: Option<&str>,
     only: bool,
     create_branch: bool,
 ) -> anyhow::Result<()> {
-    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let project = &ctx.legacy_project;
 
     // Get all stacks using but-api
     let project_id = project.id;
@@ -171,7 +170,7 @@ pub(crate) fn commit(
         .collect();
 
     let (target_stack_id, target_stack) =
-        select_stack(&mut ctx, project, &stacks, branch_hint, create_branch, out)?;
+        select_stack(ctx, project, &stacks, branch_hint, create_branch, out)?;
 
     // Get changes and assignments using but-api
     let worktree_changes = diff::changes_in_worktree(project_id)?;
@@ -236,7 +235,7 @@ pub(crate) fn commit(
             .find(|branch| branch.name == hint)
             .or_else(|| {
                 // If no exact match, try to parse as CLI ID and match
-                if let Ok(cli_ids) = crate::id::CliId::from_str(&mut ctx, hint) {
+                if let Ok(cli_ids) = crate::id::CliId::from_str(ctx, hint) {
                     for cli_id in cli_ids {
                         if let crate::id::CliId::Branch { name, .. } = cli_id
                             && let Some(branch) =
@@ -335,7 +334,7 @@ fn create_independent_branch(
 }
 
 fn select_stack(
-    ctx: &mut CommandContext,
+    ctx: &Context,
     project: &Project,
     stacks: &[(
         but_core::ref_metadata::StackId,
@@ -396,7 +395,7 @@ fn select_stack(
 }
 
 fn find_stack_by_hint(
-    ctx: &mut CommandContext,
+    ctx: &Context,
     stacks: &[(
         but_core::ref_metadata::StackId,
         but_workspace::ui::StackDetails,

@@ -1,5 +1,5 @@
 use but_core::{RepositoryExt, ref_metadata::StackId};
-use but_settings::AppSettings;
+use but_ctx::Context;
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -108,18 +108,17 @@ fn get_gerrit_flags(
     Ok(flags)
 }
 
-pub fn handle(args: Args, project: &Project, out: &mut OutputChannel) -> anyhow::Result<()> {
-    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
-
+pub fn handle(args: Args, ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    let project = &ctx.legacy_project;
     // Check gerrit mode early
     let gerrit_mode = ctx
-        .gix_repo()?
+        .repo
         .git_settings()?
         .gitbutler_gerrit_mode
         .unwrap_or(false);
 
     // Resolve branch_id to actual branch name
-    let branch_name = resolve_branch_name(&mut ctx, &args.branch_id)?;
+    let branch_name = resolve_branch_name(ctx, &args.branch_id)?;
 
     // Find stack_id from branch name
     let stack_id = find_stack_id_by_branch_name(project, &branch_name)?;
@@ -249,13 +248,13 @@ fn is_gerrit_enabled_for_help() -> bool {
     false
 }
 
-fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Result<String> {
+fn resolve_branch_name(ctx: &Context, branch_id: &str) -> anyhow::Result<String> {
     // Try to resolve as CliId first
     let cli_ids = crate::id::CliId::from_str(ctx, branch_id)?;
 
     if cli_ids.is_empty() {
         // If no CliId matches, treat as literal branch name but validate it exists
-        let available_branches = get_available_branch_names(ctx)?;
+        let available_branches = get_available_branch_names(&ctx.legacy_ctx()?)?;
         if !available_branches.contains(&branch_id.to_string()) {
             return Err(anyhow::anyhow!(
                 "Branch '{}' not found. Available branches:\n{}",

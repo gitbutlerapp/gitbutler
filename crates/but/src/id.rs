@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Display};
 
 use bstr::ByteSlice;
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use gitbutler_command_context::CommandContext;
 
@@ -194,7 +195,7 @@ impl CliId {
         }
     }
 
-    pub fn from_str(ctx: &mut CommandContext, s: &str) -> anyhow::Result<Vec<Self>> {
+    pub fn from_str(ctx: &Context, s: &str) -> anyhow::Result<Vec<Self>> {
         if s.len() < 2 {
             return Err(anyhow::anyhow!(
                 "Id needs to be at least 2 characters long: {}",
@@ -203,17 +204,17 @@ impl CliId {
         }
 
         // TODO: make callers of this function pass IdDb instead
-        let mut id_db = IdDb::new(ctx)?;
+        let mut id_db = IdDb::new(&ctx.legacy_ctx()?)?;
 
         let mut matches = Vec::new();
 
         // First, try exact branch name match
-        if let Ok(branch_matches) = id_db.find_branches_by_name(ctx, s) {
+        if let Ok(branch_matches) = id_db.find_branches_by_name(&ctx.legacy_ctx()?, s) {
             matches.extend(branch_matches);
         }
 
         // Then try partial SHA matches (for commits)
-        if let Ok(commit_matches) = Self::find_commits_by_sha(ctx, s) {
+        if let Ok(commit_matches) = Self::find_commits_by_sha(&ctx.legacy_ctx()?, s) {
             matches.extend(commit_matches);
         }
 
@@ -221,19 +222,19 @@ impl CliId {
         if s.len() > 2 {
             // For longer strings, try prefix matching on CliIds
             let mut cli_matches = Vec::new();
-            crate::status::all_files(ctx)?
+            crate::status::all_files(&mut ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::status::all_committed_files(ctx)?
+            crate::status::all_committed_files(&mut ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::status::all_branches(ctx)?
+            crate::status::all_branches(&ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::utils::commits::all_commits(ctx)?
+            crate::utils::commits::all_commits(&ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
@@ -244,19 +245,19 @@ impl CliId {
         } else {
             // For 2-character strings, try exact CliId matching
             let mut cli_matches = Vec::new();
-            crate::status::all_files(ctx)?
+            crate::status::all_files(&mut ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::status::all_committed_files(ctx)?
+            crate::status::all_committed_files(&mut ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::status::all_branches(ctx)?
+            crate::status::all_branches(&ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::utils::commits::all_commits(ctx)?
+            crate::utils::commits::all_commits(&ctx.legacy_ctx()?)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));

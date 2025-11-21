@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use anyhow::bail;
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_rules::Operation;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
@@ -11,13 +12,13 @@ use gitbutler_project::Project;
 use crate::{rub::branch_name_to_stack_id, utils::OutputChannel};
 
 pub(crate) fn handle(
-    project: &Project,
+    ctx: &Context,
     out: &mut OutputChannel,
     target_str: &str,
     delete: bool,
 ) -> anyhow::Result<()> {
-    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     let target_result = crate::id::CliId::from_str(ctx, target_str)?;
+    let ctx = &mut ctx.legacy_ctx()?;
     if target_result.len() != 1 {
         return Err(anyhow::anyhow!(
             "Target {} is ambiguous: {:?}",
