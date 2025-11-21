@@ -1,5 +1,5 @@
 import { hasBackendExtra } from '$lib/state/backendQuery';
-import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
+import { invalidatesItem, invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/core/context';
 import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import type { TreeChange } from '$lib/hunks/change';
@@ -110,9 +110,9 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			saveEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
 				extraOptions: { command: 'save_edit_and_return_to_workspace' },
 				query: (args) => args,
-				invalidatesTags: [
+				invalidatesTags: (_result, _err, { projectId }) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.HeadSha),
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.HeadMetadata)
 				]
 			}),

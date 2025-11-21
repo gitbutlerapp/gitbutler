@@ -45,6 +45,7 @@ import type {
 	GerritPushFlag
 } from '$lib/stacks/stack';
 import type { ReduxError } from '$lib/state/reduxError';
+import type { RefInfo } from '$lib/workspace/refInfo';
 
 type BranchParams = {
 	name?: string;
@@ -893,15 +894,6 @@ export class StackService {
 		return this.api.endpoints.splitBranchIntoDependentBranch.useMutation();
 	}
 
-	invalidateStacksAndDetails() {
-		this.dispatch(
-			this.api.util.invalidateTags([
-				invalidatesList(ReduxTag.Stacks),
-				invalidatesList(ReduxTag.StackDetails)
-			])
-		);
-	}
-
 	templates(projectId: string, forgeName: string) {
 		return this.api.endpoints.templates.useQuery({ projectId, forge: forgeName });
 	}
@@ -942,7 +934,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					const filter = args.all ? 'All' : undefined;
 					return { projectId: args.projectId, filter };
 				},
-				providesTags: [providesList(ReduxTag.Stacks)],
+				providesTags: (_result, _err, { projectId }) => [
+					...providesItem(ReduxTag.RefInfo, projectId)
+				],
 				async onCacheEntryAdded(arg, lifecycleApi) {
 					if (!hasBackendExtra(lifecycleApi.extra)) {
 						throw new Error('Redux dependency Tauri not found!');
@@ -952,7 +946,10 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					const unsubscribe = lifecycleApi.extra.backend.listen(
 						`project://${arg.projectId}/hunk-assignment-update`,
 						() => {
-							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Stacks)]));
+							// Invalidate the ref info
+							lifecycleApi.dispatch(
+								api.util.invalidateTags([invalidatesItem(ReduxTag.RefInfo, arg.projectId)])
+							);
 						}
 					);
 					// The `cacheEntryRemoved` promise resolves when the result is removed
@@ -969,9 +966,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Create Stack'
 				},
 				query: (args) => args,
-				invalidatesTags: (result, _error) => [
-					invalidatesItem(ReduxTag.StackDetails, result?.id || 'undefined'),
-					invalidatesList(ReduxTag.Stacks),
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.RefInfo, args.projectId),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesList(ReduxTag.BranchListing)
 				]
@@ -1003,8 +999,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 			>({
 				extraOptions: { command: 'stack_details' },
 				query: (args) => args,
-				providesTags: (_result, _error, { stackId }) => [
-					...providesItem(ReduxTag.StackDetails, stackId || 'undefined')
+				providesTags: (_result, _error, { projectId }) => [
+					...providesItem(ReduxTag.RefInfo, projectId)
 				],
 				transformResponse(response: StackDetails, _, { stackId }) {
 					if (stackId) {
@@ -1040,6 +1036,31 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					};
 				}
 			}),
+
+			refInfo: build.query<RefInfo, { projectId: string }>({
+				extraOptions: { command: 'head_info' },
+				query: (args) => args,
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency backend not found!');
+					}
+					// The `cacheDataLoaded` promise resolves when the result is first loaded.
+					await lifecycleApi.cacheDataLoaded;
+					const unsubscribe = lifecycleApi.extra.backend.listen<RefInfo>(
+						`project://${arg.projectId}/ref_info`,
+						(event) => {
+							lifecycleApi.updateCachedData(() => event.payload);
+						}
+					);
+					// The `cacheEntryRemoved` promise resolves when the result is removed
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				},
+				providesTags: (_result, _err, { projectId }) => [
+					...providesItem(ReduxTag.RefInfo, projectId)
+				]
+			}),
+
 			/**
 			 * Note: This is specifically for looking up branches outside of
 			 * a stacking context. You almost certainly want `stackDetails`
@@ -1102,10 +1123,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					const invalidations = [
 						invalidatesList(ReduxTag.Checks),
 						invalidatesItem(ReduxTag.PullRequests, args.stackId),
-						invalidatesItem(ReduxTag.StackDetails, args.stackId), // Is this still needed?
+						invalidatesItem(ReduxTag.RefInfo, args.projectId),
 						invalidatesList(ReduxTag.BranchListing)
 					];
-
 					if (!result) return invalidations;
 
 					const upstreamBranchNames = result.branchToRemote
@@ -1129,10 +1149,10 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Commit'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, _args) => [
+				invalidatesTags: (_result, _error, { projectId }) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
-					invalidatesList(ReduxTag.HeadSha)
+					invalidatesItem(ReduxTag.RefInfo, projectId)
 				]
 			}),
 			commitDetails: build.query<
@@ -1190,7 +1210,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Update Commit Message'
 				},
 				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.HeadSha)]
+				invalidatesTags: (_result, _err, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId)
+				]
 			}),
 			newBranch: build.mutation<
 				void,
@@ -1201,8 +1223,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Create Branch'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, _args) => [
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _error, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -1212,9 +1234,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Uncommit'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, _args) => [
+				invalidatesTags: (_result, _error, { projectId }) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.HeadSha)
+					invalidatesItem(ReduxTag.RefInfo, projectId)
 				]
 			}),
 			amendCommit: build.mutation<
@@ -1234,7 +1256,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.BranchChanges, args.stackId),
-					invalidatesList(ReduxTag.HeadSha)
+					invalidatesItem(ReduxTag.RefInfo, args.projectId)
 				]
 			}),
 			insertBlankCommit: build.mutation<
@@ -1246,7 +1268,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Insert Blank Commit'
 				},
 				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.HeadSha)]
+				invalidatesTags: (_result, _err, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId)
+				]
 			}),
 			discardChanges: build.mutation<
 				DiffSpec[],
@@ -1281,7 +1305,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 						.filter(isDefined)
 						.map((id) => invalidatesItem(ReduxTag.CommitChanges, id));
 					return [
-						invalidatesList(ReduxTag.HeadSha),
+						invalidatesItem(ReduxTag.RefInfo, arg.projectId),
 						invalidatesList(ReduxTag.WorktreeChanges),
 						...commitChangesTags
 					];
@@ -1305,7 +1329,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				invalidatesTags(_result, _error, arg) {
 					return [
 						invalidatesItem(ReduxTag.BranchChanges, arg.stackId),
-						invalidatesList(ReduxTag.HeadSha),
+						invalidatesItem(ReduxTag.RefInfo, arg.projectId),
 						invalidatesList(ReduxTag.WorktreeChanges)
 					];
 				}
@@ -1330,9 +1354,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Unapply Stack'
 				},
 				query: (args) => args,
-				invalidatesTags: () => [
+				invalidatesTags: (_result, _err, { projectId }) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.HeadSha),
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -1352,7 +1376,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				},
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.StackDetails, args.stackId), // This probably is still needed
+					invalidatesItem(ReduxTag.RefInfo, args.stackId), // This probably is still needed
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -1371,9 +1395,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Update Branch Name'
 				},
 				query: (args) => args,
-				invalidatesTags: (_r, _e, args) => [
-					invalidatesList(ReduxTag.Stacks), // Probably still needed
-					invalidatesItem(ReduxTag.StackDetails, args.stackId), // This probably is still needed as well
+				invalidatesTags: (_r, _e, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -1390,11 +1413,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Remove Branch'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.Stacks), // Removing a branch can remove a stack
-					// Removing a branch won't change the sha if the branch is empty
-					invalidatesItem(ReduxTag.StackDetails, args.stackId),
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _error, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -1407,8 +1427,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Update Branch Description'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.StackDetails, args.stackId), // This is probably still needed
+				invalidatesTags: (_result, _error, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -1421,8 +1441,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Reorder Stack'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.StackDetails, args.stackId) // This is probably still needed
+				invalidatesTags: (_result, _error, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId)
 				]
 			}),
 			moveCommit: build.mutation<
@@ -1434,8 +1454,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Move Commit'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, _args) => [
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _error, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.WorktreeChanges) // Moving commits can cause conflicts
 				]
 			}),
@@ -1454,9 +1474,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Move Branch'
 				},
 				query: (args) => args,
-				invalidatesTags: () => {
+				invalidatesTags: (_result, _err, { projectId }) => {
 					return [
-						invalidatesList(ReduxTag.HeadSha),
+						invalidatesItem(ReduxTag.RefInfo, projectId),
 						invalidatesList(ReduxTag.WorktreeChanges) // Moving commits can cause conflicts
 					];
 				}
@@ -1474,9 +1494,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Tear Off Branch'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, _args) => {
+				invalidatesTags: (_result, _error, { projectId }) => {
 					return [
-						invalidatesList(ReduxTag.HeadSha),
+						invalidatesItem(ReduxTag.RefInfo, projectId),
 						invalidatesList(ReduxTag.WorktreeChanges) // Moving commits can cause conflicts
 					];
 				}
@@ -1495,8 +1515,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Integrate Upstream Commits'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, _args) => [
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _error, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
@@ -1524,7 +1544,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				},
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.HeadSha),
+					invalidatesItem(ReduxTag.RefInfo, args.projectId),
 					invalidatesItem(ReduxTag.IntegrationSteps, args.stackId + args.branchName),
 					invalidatesItem(ReduxTag.BranchDetails, args.branchName)
 				]
@@ -1538,8 +1558,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Create Virtual Branch From Branch'
 				},
 				query: (args) => args,
-				invalidatesTags: [
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _err, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
@@ -1566,8 +1586,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Squash Commits'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, _args) => [
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _error, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.WorktreeChanges) // Could cause conflicts
 				]
 			}),
@@ -1617,7 +1637,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				},
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.HeadSha),
+					invalidatesItem(ReduxTag.RefInfo, args.projectId),
 					invalidatesItem(ReduxTag.BranchChanges, args.sourceStackId)
 				]
 			}),
@@ -1636,7 +1656,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				},
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.HeadSha),
+					invalidatesItem(ReduxTag.RefInfo, args.projectId),
 					invalidatesItem(ReduxTag.BranchChanges, args.sourceStackId)
 				]
 			}),
@@ -1656,7 +1676,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					return { projectId: args.projectId, request: args.request };
 				},
 				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.StackDetails, args.stackId) // This is probably still needed. Adding a ref won't change the workspace commit, right?
+					invalidatesItem(ReduxTag.RefInfo, args.projectId)
 				]
 			}),
 			templates: build.query<string[], { projectId: string; forge: string }>({

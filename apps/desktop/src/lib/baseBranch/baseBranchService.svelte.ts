@@ -2,7 +2,13 @@ import { BaseBranch, type RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 import { Code } from '$lib/error/knownErrors';
 import { showError } from '$lib/notifications/toasts';
 import { isReduxError } from '$lib/state/reduxError';
-import { invalidatesList, invalidatesType, providesType, ReduxTag } from '$lib/state/tags';
+import {
+	invalidatesItem,
+	invalidatesList,
+	invalidatesType,
+	providesType,
+	ReduxTag
+} from '$lib/state/tags';
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { InjectionToken } from '@gitbutler/core/context';
 import { plainToInstance } from 'class-transformer';
@@ -148,11 +154,10 @@ function injectEndpoints(api: BackendApi) {
 					projectId,
 					action: action ?? 'auto'
 				}),
-				invalidatesTags: [
+				invalidatesTags: (_result, _err, { projectId }) => [
 					// No need to invalidate base branch, we should be listening
 					// for all FETCH events, and refreshing manually.
-					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
-					invalidatesList(ReduxTag.StackDetails), // Probably this is still needed??
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
 				]
 			}),
@@ -162,10 +167,9 @@ function injectEndpoints(api: BackendApi) {
 			>({
 				extraOptions: { command: 'set_base_branch' },
 				query: (args) => args,
-				invalidatesTags: [
+				invalidatesTags: (_result, _err, { projectId }) => [
 					invalidatesType(ReduxTag.BaseBranchData),
-					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
-					invalidatesList(ReduxTag.StackDetails) // Probably this is still needed??
+					invalidatesItem(ReduxTag.RefInfo, projectId)
 				]
 			}),
 			push: build.mutation<void, { projectId: string; withForce?: boolean }>({

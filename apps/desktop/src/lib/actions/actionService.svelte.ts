@@ -1,4 +1,4 @@
-import { invalidatesList, ReduxTag } from '$lib/state/tags';
+import { invalidatesItem, invalidatesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/core/context';
 import type { TreeChange } from '$lib/hunks/change';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
@@ -47,8 +47,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Figure out where to commit the given changes'
 				},
 				query: (args) => args,
-				invalidatesTags: [
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _err, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
@@ -58,8 +58,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Create a branch for the given changes'
 				},
 				query: (args) => args,
-				invalidatesTags: [
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _err, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
@@ -69,8 +69,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Absorb changes into the best matching branch and commit'
 				},
 				query: (args) => args,
-				invalidatesTags: [
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _err, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
@@ -83,8 +83,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Perform a freestyle action based on the given prompt'
 				},
 				query: (args) => args,
-				invalidatesTags: [
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _err, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
@@ -97,8 +97,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'but bot action'
 				},
 				query: (args) => args,
-				invalidatesTags: [
-					invalidatesList(ReduxTag.HeadSha),
+				invalidatesTags: (_result, _err, { projectId }) => [
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			})

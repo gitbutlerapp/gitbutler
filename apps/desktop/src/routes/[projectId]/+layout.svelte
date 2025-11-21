@@ -26,7 +26,6 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { debounce } from '$lib/utils/debounce';
@@ -79,7 +78,6 @@
 	// =============================================================================
 
 	const modeService = inject(MODE_SERVICE);
-	const stackService = inject(STACK_SERVICE);
 	const worktreeService = inject(WORKTREE_SERVICE);
 
 	const modeQuery = $derived(modeService.mode(projectId));
@@ -196,20 +194,6 @@
 				backend.setWindowTitle(baseTitle);
 			}
 		};
-	});
-
-	// =============================================================================
-	// FEED & UPDATES MANAGEMENT
-	// =============================================================================
-
-	const headResponse = $derived(modeService.head(projectId));
-	const head = $derived(headResponse.response);
-
-	// If the head changes, invalidate stacks and details
-	$effect(() => {
-		if (head) {
-			stackService.invalidateStacksAndDetails();
-		}
 	});
 
 	// =============================================================================

@@ -1,4 +1,4 @@
-import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
+import { invalidatesItem, invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { updateStaleBranchSelectionInBranchesView, type UiState } from '$lib/state/uiState.svelte';
 import { InjectionToken } from '@gitbutler/core/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -96,9 +96,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Integrate Upstream'
 				},
 				query: (args) => args,
-				invalidatesTags: [
+				invalidatesTags: (_result, _err, { projectId }) => [
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
-					invalidatesList(ReduxTag.HeadSha),
+					invalidatesItem(ReduxTag.RefInfo, projectId),
 					invalidatesList(ReduxTag.BranchListing)
 				],
 				transformResponse: (response: IntegrationOutcome, _, { projectId }) => {
