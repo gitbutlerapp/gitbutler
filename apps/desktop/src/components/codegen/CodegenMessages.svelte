@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import AddedDirectories from '$components/codegen/AddedDirectories.svelte';
 	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
@@ -354,33 +355,33 @@
 		{/if}
 
 		{#if claudeAvailable.response?.status !== 'available' && formattedMessages.length === 0}
-			<div class="no-agent-placeholder">
-				<div class="no-agent-placeholder__content">
-					{@html noClaudeCodeSvg}
-					<h2 class="text-serif-42">Connect Claude Code</h2>
-					<p class="text-13 text-body clr-text-2">
-						If you haven't installed Claude Code, check our <Link
-							class="clr-text-1"
-							href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
-							>installation guide</Link
-						>.
-						<br />
-						Click the button below to check if Claude Code is now available.
-					</p>
+			<ConfigurableScrollableContainer childrenWrapDisplay="contents">
+				<div class="no-agent-placeholder">
+					<div class="no-agent-placeholder__content">
+						{@html noClaudeCodeSvg}
+						<h2 class="text-serif-42">Connect Claude Code</h2>
+						<p class="text-13 text-body clr-text-2">
+							If you haven't installed Claude Code, check our <Link
+								class="clr-text-1"
+								href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
+								>installation guide</Link
+							>.
+							<br />
+							Click the button below to check if Claude Code is now available.
+						</p>
 
-					<div>
 						<ClaudeCheck />
 					</div>
-				</div>
 
-				<p class="text-12 text-body clr-text-2">
-					Having trouble connecting?
-					<br />
-					Check the <Link href="https://docs.claude.com/en/docs/claude-code/troubleshooting"
-						>troubleshooting guide</Link
-					> for common issues and solutions.
-				</p>
-			</div>
+					<p class="text-12 text-body clr-text-2">
+						Having trouble connecting?
+						<br />
+						Check the <Link href="https://docs.claude.com/en/docs/claude-code/troubleshooting"
+							>troubleshooting guide</Link
+						> for common issues and solutions.
+					</p>
+				</div></ConfigurableScrollableContainer
+			>
 		{:else if !isStackActive && formattedMessages.length === 0}
 			<div class="chat-view__placeholder">
 				<EmptyStatePlaceholder image={laneNewSvg} width={320} topBottomPadding={0} bottomMargin={0}>
@@ -434,24 +435,24 @@
 	{/snippet}
 
 	{#snippet input()}
-		<div class="dialog-wrapper">
-			{#if claudeAvailable.response?.status !== 'available'}
-				{#if formattedMessages.length > 0}
-					<CodegenChatClaudeNotAvaliableBanner
-						onSettingsBtnClick={() => {
-							uiState.global.modal.set({
-								type: 'project-settings',
-								projectId,
-								selectedId: 'agent'
-							});
-						}}
-					/>
-				{/if}
-			{:else}
-				{@const status = currentStatus(events, isStackActive)}
-				{@const laneState = uiState.lane(laneId)}
-				{@const addedDirs = laneState.addedDirs.current}
+		{#if claudeAvailable.response?.status !== 'available'}
+			{#if formattedMessages.length > 0}
+				<CodegenChatClaudeNotAvaliableBanner
+					onSettingsBtnClick={() => {
+						uiState.global.modal.set({
+							type: 'project-settings',
+							projectId,
+							selectedId: 'agent'
+						});
+					}}
+				/>
+			{/if}
+		{:else}
+			{@const status = currentStatus(events, isStackActive)}
+			{@const laneState = uiState.lane(laneId)}
+			{@const addedDirs = laneState.addedDirs.current}
 
+			<div class="dialog-wrapper">
 				<AddedDirectories
 					{addedDirs}
 					onRemoveDir={(dir) => {
@@ -527,8 +528,8 @@
 						{/if}
 					{/snippet}
 				</CodegenInput>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	{/snippet}
 </CodegenChatLayout>
 
@@ -671,7 +672,8 @@
 		flex-direction: column;
 		justify-content: space-between;
 		height: 100%;
-		padding: 40px;
+		margin: 40px 0;
+		padding: 0 40px;
 	}
 
 	.no-agent-placeholder__content {

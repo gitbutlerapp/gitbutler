@@ -2,7 +2,7 @@
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { inject } from '@gitbutler/core/context';
-	import { Icon, Textbox, AsyncButton } from '@gitbutler/ui';
+	import { Icon, Textbox, AsyncButton, Codeblock } from '@gitbutler/ui';
 	import { fromStore } from 'svelte/store';
 
 	type Props = {
@@ -108,30 +108,19 @@
 		placeholder="Path to the Claude Code executable"
 		onchange={updateClaudeExecutable}
 		error={recheckedAvailability === 'recheck-failed'
-			? "Couldn't connect. Check the path and try again"
+			? 'Claude exited with a non 0 code'
 			: undefined}
 	/>
 
-	{#if recheckedAvailability === 'recheck-failed'}
-		<p class="text-13">Claude exited with a non 0 code.</p>
-		{#if availabilityQuery.response?.status === 'execution_failed'}
+	{#if availabilityQuery.response?.status === 'execution_failed' && (availabilityQuery.response.stdout || availabilityQuery.response.stderr)}
+		<div class="stack-v gap-8">
 			{#if availabilityQuery.response.stdout}
-				<div class="log-output">
-					<p class="text-12">Stdout</p>
-					<code class="text-12">
-						{availabilityQuery.response.stdout}
-					</code>
-				</div>
+				<Codeblock label="Stdout" content={availabilityQuery.response.stdout} />
 			{/if}
 			{#if availabilityQuery.response.stderr}
-				<div class="log-output">
-					<p class="text-12">Stderr</p>
-					<code class="text-12">
-						{availabilityQuery.response.stderr}
-					</code>
-				</div>
+				<Codeblock label="Stderr" content={availabilityQuery.response.stderr} />
 			{/if}
-		{/if}
+		</div>
 	{/if}
 
 	{#if showSuccess}
@@ -176,18 +165,6 @@
 		&.success {
 			background-color: var(--clr-theme-succ-soft);
 			color: var(--clr-theme-succ-on-soft);
-		}
-	}
-
-	.log-output {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-
-		> code {
-			padding: 4px;
-			border-radius: var(--radius-s);
-			background-color: var(--clr-bg-2);
 		}
 	}
 </style>
