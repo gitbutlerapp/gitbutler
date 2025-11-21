@@ -339,6 +339,7 @@
 					<ContextMenuItem
 						label="Unapply Stack"
 						icon="eject"
+						testId={TestId.BranchHeaderContextMenu_UnapplyBranch}
 						disabled={isReadOnly}
 						onclick={async () => {
 							await stackService.unapply({ projectId, stackId });
