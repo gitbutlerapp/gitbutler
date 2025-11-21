@@ -95,6 +95,9 @@ pub enum Subcommands {
         review: bool,
     },
 
+    /// Launch the experimental Lazy TUI interface.
+    Lazy,
+
     /// Combines two entities together to perform an operation.
     ///
     /// The `rub` command is a simple verb that helps you do a number of editing

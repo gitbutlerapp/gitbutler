@@ -87,6 +87,7 @@ mod subcommands_impl {
                 },
                 Subcommands::Completions { .. } => Completions,
                 Subcommands::Absorb { .. } => Absorb,
+                Subcommands::Lazy => Lazy,
                 Subcommands::Init { .. } => Init,
                 Subcommands::Metrics { .. } | Subcommands::Actions(_) | Subcommands::Mcp { .. } => {
                     Unknown
@@ -170,6 +171,7 @@ impl Subcommands {
             },
             Subcommands::Completions { .. } => Completions,
             Subcommands::Absorb { .. } => Absorb,
+            Subcommands::Lazy => Lazy,
             Subcommands::Metrics { .. }
             | Subcommands::Actions(_)
             | Subcommands::Mcp { .. }
@@ -217,6 +219,7 @@ pub enum CommandName {
     PublishReview,
     ReviewTemplate,
     Completions,
+    Lazy,
     #[default]
     Unknown,
 }
