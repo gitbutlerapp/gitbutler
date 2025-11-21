@@ -156,8 +156,4 @@
 		overflow: hidden;
 		gap: 8px;
 	}
-
-	.separator {
-		color: var(--clr-text-3);
-	}
 </style>

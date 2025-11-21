@@ -122,25 +122,6 @@
 		}
 	}
 
-	.close-button {
-		display: flex;
-		position: absolute;
-		top: -35px;
-		right: -35px;
-		align-items: center;
-		justify-content: center;
-		padding: 8px;
-		border: none;
-		background: none;
-		color: white;
-		cursor: pointer;
-		transition: opacity 0.2s ease;
-
-		&:hover {
-			opacity: 0.7;
-		}
-	}
-
 	iframe {
 		width: 100%;
 		height: 100%;
@@ -151,10 +132,6 @@
 	@media (--mobile-viewport) {
 		.video-container {
 			width: 95%;
-		}
-
-		.close-button {
-			top: -40px;
 		}
 	}
 </style>
