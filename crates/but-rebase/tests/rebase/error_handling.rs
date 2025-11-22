@@ -11,7 +11,7 @@ fn non_existing_commit() -> gix::ObjectId {
 
 #[test]
 fn base_non_existing() -> anyhow::Result<()> {
-    let repo = fixture("four-commits")?;
+    let (repo, _) = fixture("four-commits")?;
     let result = Rebase::new(&repo, non_existing_commit(), None);
     assert_eq!(
         result.unwrap_err().to_string(),
