@@ -32,6 +32,7 @@ mod forge;
 mod gui;
 mod id;
 mod init;
+mod lazy;
 mod mark;
 mod mcp;
 mod mcp_internal;
@@ -345,6 +346,10 @@ async fn match_subcommand(
         Subcommands::Absorb { source } => {
             let project = get_or_init_legacy_non_bare_project(&args)?;
             absorb::handle(&project, out, source.as_deref()).emit_metrics(metrics_ctx)
+        }
+        Subcommands::Lazy => {
+            let project = get_or_init_legacy_non_bare_project(&args)?;
+            lazy::run(&project).emit_metrics(metrics_ctx)
         }
         Subcommands::Init { repo } => init::repo(&args.current_dir, out, repo)
             .context("Failed to initialize GitButler project.")
