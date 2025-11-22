@@ -130,7 +130,7 @@
 							</h4>
 						{/if}
 						{#if description}
-							<p class="hidden-dropzone__label text-13 text-body hide-when-empty">
+							<p class="hidden-dropzone__label text-13 hide-when-empty">
 								{@render description(activated)}
 							</p>
 						{/if}
@@ -261,6 +261,7 @@
 
 	.hidden-dropzone__label {
 		color: var(--clr-text-3);
+		line-height: 1.7;
 		text-align: center;
 	}
 
