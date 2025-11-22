@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CollapsedLane from '$components/CollapsedLane.svelte';
+	import CreateBranchModal from '$components/CreateBranchModal.svelte';
 	import MultiStackOfflaneDropzone from '$components/MultiStackOfflaneDropzone.svelte';
 	import MultiStackPagination, { scrollToLane } from '$components/MultiStackPagination.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
@@ -58,6 +59,8 @@
 
 	/** Used to offset content shift from opening an unassigned change preview. */
 	let lastWidth = $state<number>();
+
+	let createBranchModal = $state<CreateBranchModal>();
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -257,12 +260,20 @@
 				{#if stacks.length === 0}
 					Drop files to start a branch,
 					<br />
-					or apply from the
+					apply from the
 					<a
-						class="pointer-events underline"
+						class="pointer-events underline-dotted clr-text-2 link-hover-2"
 						aria-label="Branches view"
-						href={branchesPath(projectId)}>Branches view</a
+						href={branchesPath(projectId)}>branches view</a
 					>
+					↗
+					<br />
+					or
+					<button
+						type="button"
+						class="underline-dotted pointer-events clr-text-2 link-hover-2"
+						onclick={() => createBranchModal?.show()}>create a new branch</button
+					> +
 				{:else}
 					Drag changes here to
 					<br />
@@ -278,6 +289,8 @@
 		<Scrollbar viewport={lanesScrollableEl} horz />
 	{/if}
 </div>
+
+<CreateBranchModal bind:this={createBranchModal} {projectId} />
 
 <style lang="postcss">
 	.scrollbar-container {
