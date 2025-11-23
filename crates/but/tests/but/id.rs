@@ -1,3 +1,4 @@
+// TODO: turn these into integration-level tests of the `IdDb` type directly, don't invoke it indirectly.
 use crate::utils::{Sandbox, setup_metadata};
 
 #[test]
@@ -68,7 +69,6 @@ fn branch_avoid_hexdigit() -> anyhow::Result<()> {
 
     env.but("branch new 0ax").assert().success();
 
-    // TODO: put special handling of branch CliId naming rules into more unit-level tests of `IdDb` directly.
     env.but("status")
         .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()

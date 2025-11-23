@@ -8,7 +8,7 @@ use but_workspace::{
 
 use crate::id::CliId;
 
-pub(crate) fn all_commits(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
+pub fn all_commits(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
     let stacks = stacks(ctx)?
         .iter()
         .filter_map(|s| s.id.map(|id| stack_details(ctx, id)))
@@ -28,7 +28,7 @@ pub(crate) fn all_commits(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
     Ok(matches)
 }
 
-pub(crate) fn stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
+pub fn stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
     let repo = ctx.open_repo_for_merging_non_persisting()?;
     if ctx.settings().feature_flags.ws3 {
         let meta = VirtualBranchesTomlMetadata::from_path(
@@ -40,7 +40,7 @@ pub(crate) fn stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
     }
 }
 
-pub(crate) fn stack_details(ctx: &Context, stack_id: StackId) -> anyhow::Result<StackDetails> {
+pub fn stack_details(ctx: &Context, stack_id: StackId) -> anyhow::Result<StackDetails> {
     if ctx.settings().feature_flags.ws3 {
         let repo = ctx.open_repo_for_merging_non_persisting()?;
         let meta = VirtualBranchesTomlMetadata::from_path(

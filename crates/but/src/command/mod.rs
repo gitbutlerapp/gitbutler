@@ -1,0 +1,20 @@
+//! A place for each command, i.e. `but foo` as `pub mod foo` here.
+pub mod absorb;
+pub mod actions;
+pub mod base;
+pub mod branch;
+pub mod commit;
+pub mod completions;
+pub mod describe;
+pub mod forge;
+pub mod gui;
+pub mod help;
+pub mod init;
+pub mod mark;
+pub mod mcp;
+pub mod mcp_internal;
+pub mod oplog;
+pub mod push;
+pub mod rub;
+pub mod status;
+pub mod worktree;

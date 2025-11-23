@@ -1,36 +1,7 @@
+//! Tests for various nice user-journeys, from different starting points, performing multiple common steps in sequence.
 use snapbox::{file, str};
 
 use crate::utils::{Sandbox, setup_metadata};
-
-#[test]
-fn nice_help() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
-    env.but(None)
-        .assert()
-        .success()
-        .stdout_eq(file!["snapshots/no-arg.stdout.term.svg"]);
-
-    env.but("-h")
-        .assert()
-        .success()
-        .stdout_eq(file!["snapshots/no-arg.stdout.term.svg"]);
-
-    env.but("--help")
-        .assert()
-        .success()
-        .stdout_eq(file!["snapshots/no-arg.stdout.term.svg"]);
-
-    // The help should be nice, as it's a complex command.
-    env.but("rub --help")
-        .assert()
-        .success()
-        .stdout_eq(file!["snapshots/rub-long-help.stdout.term.svg"]);
-    env.but("rub -h")
-        .assert()
-        .success()
-        .stdout_eq(file!["snapshots/rub-short-help.stdout.term.svg"]);
-    Ok(())
-}
 
 #[test]
 fn from_scratch_needs_work() -> anyhow::Result<()> {
@@ -161,40 +132,5 @@ fn from_workspace() -> anyhow::Result<()> {
         .stdout_eq(file!["snapshots/from-workspace/branch01.stdout.term.svg"]);
 
     // TODO: more operations on the repository!
-    Ok(())
-}
-
-#[test]
-fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {
-    // TODO: use an actual repository here, but single-branch mode isn't really supported yet
-    //       so everything fails anyway.
-    let env = Sandbox::empty()?;
-
-    // Test that --json flag works in both positions with help command (doesn't need a valid repo)
-    env.but("--json completions --help").assert().success();
-
-    env.but("completions --help --json").assert().success();
-
-    // Test with actual commands that need a repo (they'll fail but should accept the flag)
-    // Before subcommand
-    env.but("--json status")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
-
-"#]]);
-
-    // After subcommand
-    env.but("status --json")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
-
-"#]]);
-
     Ok(())
 }

@@ -1,7 +1,4 @@
-mod branch;
-mod commit;
+mod command;
 mod id;
 mod journey;
-mod rub;
-mod status;
 pub mod utils;

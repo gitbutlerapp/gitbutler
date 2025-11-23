@@ -217,15 +217,15 @@ impl CliId {
         if s.len() > 2 {
             // For longer strings, try prefix matching on CliIds
             let mut cli_matches = Vec::new();
-            crate::status::all_files(ctx)?
+            crate::command::status::all_files(ctx)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::status::all_committed_files(ctx)?
+            crate::command::status::all_committed_files(ctx)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::status::all_branches(ctx)?
+            crate::command::status::all_branches(ctx)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
@@ -240,15 +240,15 @@ impl CliId {
         } else {
             // For 2-character strings, try exact CliId matching
             let mut cli_matches = Vec::new();
-            crate::status::all_files(ctx)?
+            crate::command::status::all_files(ctx)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::status::all_committed_files(ctx)?
+            crate::command::status::all_committed_files(ctx)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::status::all_branches(ctx)?
+            crate::command::status::all_branches(ctx)?
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
