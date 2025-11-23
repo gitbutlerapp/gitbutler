@@ -11,13 +11,15 @@ doctest = false
 test = false
 
 [dependencies]
+but-tools.workspace = true
+but-action.workspace = true
+but-ctx.workspace = true
+
+gitbutler-project.workspace = true
+
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 uuid.workspace = true
 gix.workspace = true
-but-tools.workspace = true
-but-action.workspace = true
-but-ctx.workspace = true
-gitbutler-project.workspace = true

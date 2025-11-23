@@ -19,11 +19,11 @@ but-settings.workspace = true
 but-hunk-assignment.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-path.workspace = true
+but-ctx.workspace = true
 
 gitbutler-branch.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-project.workspace = true
-but-ctx.workspace = true
 gitbutler-branch-actions.workspace = true
 
 anyhow.workspace = true

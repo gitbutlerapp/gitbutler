@@ -21,6 +21,7 @@ but-core.workspace = true
 but-graph.workspace = true
 but-oxidize.workspace = true
 but-forge.workspace = true
+but-ctx.workspace = true
 
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
@@ -36,7 +37,6 @@ gitbutler-cherry-pick.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-hunk-dependency.workspace = true
 gitbutler-workspace.workspace = true
-but-ctx.workspace = true
 gitbutler-project.workspace = true
 
 tracing.workspace = true

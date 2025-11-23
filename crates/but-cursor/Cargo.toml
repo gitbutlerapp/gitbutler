@@ -12,14 +12,13 @@ doctest = false
 [dependencies]
 but-workspace = {workspace = true, features = ["legacy"] }
 but-claude.workspace = true # Move out get_or_create_session and remove this dependency
-but-settings.workspace = true
 but-meta = { workspace = true, features = ["legacy"] }
 but-action.workspace = true
 but-hunk-assignment.workspace = true
 but-core.workspace = true
+but-ctx.workspace = true
 
 gitbutler-project.workspace = true
-but-ctx.workspace = true
 gitbutler-stack.workspace = true
 
 anyhow.workspace = true

@@ -17,8 +17,8 @@ but-meta.workspace = true
 but-error.workspace = true
 but-oxidize.workspace = true
 but-fs.workspace = true
-
 but-ctx.workspace = true
+
 gitbutler-repo.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-reference.workspace = true

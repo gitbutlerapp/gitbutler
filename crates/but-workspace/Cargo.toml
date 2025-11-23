@@ -28,10 +28,10 @@ but-rebase.workspace = true
 but-error.workspace = true
 but-serde.workspace = true
 but-oxidize.workspace = true
-
 but-meta = { workspace = true, features = ["legacy"], optional = true}
-gitbutler-stack = { workspace = true, optional = true}
 but-ctx = { workspace = true, optional = true}
+
+gitbutler-stack = { workspace = true, optional = true}
 gitbutler-cherry-pick = { workspace = true, optional = true}
 gitbutler-project = { workspace = true, optional = true}
 gitbutler-commit = { workspace = true, optional = true}

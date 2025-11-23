@@ -13,8 +13,8 @@ doctest = false
 but-core.workspace = true
 but-hunk-dependency.workspace = true
 but-db.workspace = true
-
 but-ctx.workspace = true
+
 gitbutler-stack.workspace = true
 
 anyhow.workspace = true

@@ -9,7 +9,7 @@ use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_stack::VirtualBranchesHandle;
 
 use crate::{
-    command::rub::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id},
+    command::legacy::rub::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id},
     utils::OutputChannel,
 };
 

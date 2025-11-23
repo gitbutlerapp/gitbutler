@@ -6,7 +6,7 @@ use but_workspace::{
     ui::StackDetails,
 };
 
-use crate::id::CliId;
+use crate::legacy::id::CliId;
 
 pub fn all_commits(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
     let stacks = stacks(ctx)?

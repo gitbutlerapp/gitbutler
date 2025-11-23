@@ -44,7 +44,7 @@ pub async fn show(
 
     // Get review information if requested
     let reviews = if review {
-        crate::command::forge::review::get_review_map(project)
+        crate::command::legacy::forge::review::get_review_map(project)
             .await?
             .get(&branch_name)
             .cloned()

@@ -64,13 +64,13 @@ but-db.workspace = true
 but-rules.workspace = true
 but-oxidize.workspace = true
 but-forge.workspace = true
+but-ctx = {workspace = true, optional = true}
 
 gitbutler-user = {workspace = true, optional = true}
 gitbutler-project = {workspace = true, optional = true}
 gitbutler-branch = {workspace = true, optional = true}
 gitbutler-branch-actions = {workspace = true, optional = true}
 gitbutler-commit = {workspace = true, optional = true}
-but-ctx = {workspace = true, optional = true}
 gitbutler-reference = {workspace = true, optional = true}
 gitbutler-stack = {workspace = true, optional = true}
 gitbutler-repo = {workspace = true, optional = true}

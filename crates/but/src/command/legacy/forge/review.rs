@@ -13,7 +13,7 @@ use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::{id::CliId, tui, utils::OutputChannel};
+use crate::{legacy::id::CliId, tui, utils::OutputChannel};
 
 /// Set the review template for the given project.
 pub fn set_review_template(

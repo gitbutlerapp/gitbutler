@@ -11,7 +11,10 @@ use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use gitbutler_project::Project;
 
-use crate::{command::status::assignment::FileAssignment, id::CliId, tui, utils::OutputChannel};
+use crate::{
+    command::legacy::status::assignment::FileAssignment, legacy::id::CliId, tui,
+    utils::OutputChannel,
+};
 
 pub(crate) fn insert_blank_commit(
     project: &Project,
@@ -196,7 +199,7 @@ pub(crate) fn commit(
 
     if !only {
         // Add unassigned files (unless --only flag is used)
-        let unassigned = crate::command::status::assignment::filter_by_stack_id(
+        let unassigned = crate::command::legacy::status::assignment::filter_by_stack_id(
             assignments_by_file.values(),
             &None,
         );
@@ -204,7 +207,7 @@ pub(crate) fn commit(
     }
 
     // Add files assigned to target stack
-    let stack_assigned = crate::command::status::assignment::filter_by_stack_id(
+    let stack_assigned = crate::command::legacy::status::assignment::filter_by_stack_id(
         assignments_by_file.values(),
         &Some(target_stack_id),
     );
@@ -234,9 +237,9 @@ pub(crate) fn commit(
             .find(|branch| branch.name == hint)
             .or_else(|| {
                 // If no exact match, try to parse as CLI ID and match
-                if let Ok(cli_ids) = crate::id::CliId::from_str(&mut ctx, hint) {
+                if let Ok(cli_ids) = crate::legacy::id::CliId::from_str(&mut ctx, hint) {
                     for cli_id in cli_ids {
-                        if let crate::id::CliId::Branch { name, .. } = cli_id
+                        if let crate::legacy::id::CliId::Branch { name, .. } = cli_id
                             && let Some(branch) =
                                 target_stack.branch_details.iter().find(|b| b.name == name)
                         {

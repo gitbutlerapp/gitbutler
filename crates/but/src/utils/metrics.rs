@@ -58,13 +58,18 @@ impl Subcommands {
 
         use crate::args::{base, branch, claude, cursor, forge, worktree};
         match self {
+            #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
+            #[cfg(feature = "legacy")]
             Subcommands::Stf { .. } => Stf,
+            #[cfg(feature = "legacy")]
             Subcommands::Rub { .. } => Rub,
+            #[cfg(feature = "legacy")]
             Subcommands::Base(base::Platform { cmd }) => match cmd {
                 base::Subcommands::Update => BaseUpdate,
                 base::Subcommands::Check => BaseCheck,
             },
+            #[cfg(feature = "legacy")]
             Subcommands::Branch(branch::Platform { cmd }) => match cmd {
                 None | Some(branch::Subcommands::List { .. }) => BranchList,
                 Some(branch::Subcommands::New { .. }) => BranchNew,
@@ -73,18 +78,30 @@ impl Subcommands {
                 Some(branch::Subcommands::Apply { .. }) => BranchApply,
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
             },
+            #[cfg(feature = "legacy")]
             Subcommands::Worktree(worktree::Platform { cmd: _ }) => Worktree,
+            #[cfg(feature = "legacy")]
             Subcommands::Mark { .. } => Mark,
+            #[cfg(feature = "legacy")]
             Subcommands::Unmark => Unmark,
             Subcommands::Gui => Gui,
+            #[cfg(feature = "legacy")]
             Subcommands::Commit { .. } => Commit,
+            #[cfg(feature = "legacy")]
             Subcommands::Push(_) => Push,
+            #[cfg(feature = "legacy")]
             Subcommands::New { .. } => New,
+            #[cfg(feature = "legacy")]
             Subcommands::Describe { .. } => Describe,
+            #[cfg(feature = "legacy")]
             Subcommands::Oplog { .. } => Oplog,
+            #[cfg(feature = "legacy")]
             Subcommands::Restore { .. } => Restore,
+            #[cfg(feature = "legacy")]
             Subcommands::Undo => Undo,
+            #[cfg(feature = "legacy")]
             Subcommands::Snapshot { .. } => Snapshot,
+            #[cfg(feature = "legacy")]
             Subcommands::Claude(claude::Platform { cmd }) => match cmd {
                 claude::Subcommands::PreTool => ClaudePreTool,
                 claude::Subcommands::PostTool => ClaudePostTool,
@@ -92,25 +109,27 @@ impl Subcommands {
                 claude::Subcommands::Last { .. }
                 | claude::Subcommands::PermissionPromptMcp { .. } => Unknown,
             },
+            #[cfg(feature = "legacy")]
             Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
                 cursor::Subcommands::AfterEdit => CursorAfterEdit,
                 cursor::Subcommands::Stop { .. } => CursorStop,
             },
+            #[cfg(feature = "legacy")]
+            Subcommands::Absorb { .. } => Absorb,
+            #[cfg(feature = "legacy")]
+            Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
+                forge::review::Subcommands::Publish { .. } => PublishReview,
+                forge::review::Subcommands::Template { .. } => ReviewTemplate,
+            },
+            #[cfg(feature = "legacy")]
+            Subcommands::Actions(_) | Subcommands::Mcp { .. } | Subcommands::Init { .. } => Unknown,
             Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
                 forge::integration::Subcommands::Auth => ForgeAuth,
                 forge::integration::Subcommands::Forget { .. } => ForgeForget,
                 forge::integration::Subcommands::ListUsers => ForgeListUsers,
             },
-            Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
-                forge::review::Subcommands::Publish { .. } => PublishReview,
-                forge::review::Subcommands::Template { .. } => ReviewTemplate,
-            },
             Subcommands::Completions { .. } => Completions,
-            Subcommands::Absorb { .. } => Absorb,
-            Subcommands::Metrics { .. }
-            | Subcommands::Actions(_)
-            | Subcommands::Mcp { .. }
-            | Subcommands::Init { .. } => Unknown,
+            Subcommands::Metrics { .. } => Unknown,
         }
     }
 }

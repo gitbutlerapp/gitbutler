@@ -81,6 +81,7 @@ pub enum Subcommands {
     /// but status -f
     /// ```
     ///
+    #[cfg(feature = "legacy")]
     #[clap(alias = "st")]
     Status {
         /// Determines whether the committed files should be shown as well.
@@ -98,6 +99,7 @@ pub enum Subcommands {
     ///
     /// Equivalent to `but status --files`.
     ///
+    #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     Stf {
         /// Show verbose output with commit author and timestamp.
@@ -149,6 +151,7 @@ pub enum Subcommands {
     /// but rub 3868155 feature-branch
     /// ```
     ///
+    #[cfg(feature = "legacy")]
     Rub {
         /// The source entity to combine
         source: String,
@@ -171,6 +174,7 @@ pub enum Subcommands {
     ///
     /// We are working on removing this limitation, but for now this is something
     /// to be aware of.
+    #[cfg(feature = "legacy")]
     Init {
         /// Also initializes a git repository in the current directory if one does not exist.
         #[clap(long, short = 'r')]
@@ -194,6 +198,7 @@ pub enum Subcommands {
     /// can be cleanly merged into the base branch without conflicts and see
     /// what work is upstream an not yet integrated into your branches.
     ///
+    #[cfg(feature = "legacy")]
     Base(base::Platform),
 
     /// Commands for managing branches.
@@ -203,6 +208,7 @@ pub enum Subcommands {
     ///
     /// By default without a subcommand, it will list the branches.
     ///
+    #[cfg(feature = "legacy")]
     Branch(branch::Platform),
 
     /// Commands for managing worktrees.
@@ -214,6 +220,7 @@ pub enum Subcommands {
     /// This can be useful for working on multiple versions of a branch at
     /// the same time, or for isolating changes in different workspaces.
     ///
+    #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     Worktree(worktree::Platform),
 
@@ -228,6 +235,7 @@ pub enum Subcommands {
     /// If you mark a commit, new uncommitted changes will automatically be
     /// amended into the marked commit.
     ///
+    #[cfg(feature = "legacy")]
     Mark {
         /// The target entity that will be marked
         target: String,
@@ -240,6 +248,7 @@ pub enum Subcommands {
     ///
     /// This will unmark anything that has been marked by the `but mark` command.
     ///
+    #[cfg(feature = "legacy")]
     Unmark,
 
     /// Open the GitButler GUI for the current project.
@@ -271,6 +280,7 @@ pub enum Subcommands {
     ///
     /// It will not commit changes assigned to other branches.
     ///
+    #[cfg(feature = "legacy")]
     Commit {
         /// Commit message
         #[clap(short = 'm', long = "message")]
@@ -299,6 +309,7 @@ pub enum Subcommands {
     /// the target remote (for example, a fork of an open source project), you
     /// can set it in the GitButler project settings. (Currently only via the GUI.)
     ///
+    #[cfg(feature = "legacy")]
     Push(push::Command),
 
     /// Insert a blank commit before the specified commit, or at the top of a stack.
@@ -313,6 +324,7 @@ pub enum Subcommands {
     /// for auto-commit, and then just work on your changes. Write the commit
     /// message whenever you prefer.
     ///
+    #[cfg(feature = "legacy")]
     New {
         /// Commit ID to insert before, or branch ID to insert at top of stack
         target: String,
@@ -329,6 +341,7 @@ pub enum Subcommands {
     ///
     /// You can also use `but describe <branch-id>` to rename the branch.
     ///
+    #[cfg(feature = "legacy")]
     #[clap(alias = "desc")]
     Describe {
         /// Commit ID to edit the message for, or branch ID to rename
@@ -345,6 +358,7 @@ pub enum Subcommands {
     ///
     /// You can use `but restore <oplog-sha>` to restore to a specific state.
     ///
+    #[cfg(feature = "legacy")]
     Oplog {
         /// Start from this oplog SHA instead of the head
         #[clap(long)]
@@ -359,6 +373,7 @@ pub enum Subcommands {
     /// You need to provide the SHA of the oplog entry you want to restore to,
     /// which you can find by running `but oplog`.
     ///
+    #[cfg(feature = "legacy")]
     Restore {
         /// Oplog SHA to restore to
         oplog_sha: String,
@@ -372,6 +387,7 @@ pub enum Subcommands {
     /// This is a shorthand for restoring to the last oplog entry before the
     /// current one. It allows you to quickly undo the most recent operation.
     ///
+    #[cfg(feature = "legacy")]
     Undo,
 
     /// Create an on-demand snapshot with optional message.
@@ -381,6 +397,7 @@ pub enum Subcommands {
     ///
     /// You can provide an optional message to describe the snapshot.
     ///
+    #[cfg(feature = "legacy")]
     Snapshot {
         /// Message to include with the snapshot
         #[clap(short = 'm', long = "message")]
@@ -402,6 +419,7 @@ pub enum Subcommands {
     /// - If a Branch (stack) id is provided, absorb will be performed for all changes assigned to that stack
     /// - If no source is provided, absorb is performed for all uncommitted changes
     ///
+    #[cfg(feature = "legacy")]
     Absorb {
         /// If the Source is an uncommitted change - the change will be absorbed.
         /// If the Source is a stack - anything assigned to the stack will be absorbed accordingly.
@@ -431,6 +449,7 @@ pub enum Subcommands {
     /// the `but review` commands to create pull requests (or merge requests) on
     /// the remote repository for your branches.
     ///
+    #[cfg(feature = "legacy")]
     Review(forge::review::Platform),
 
     /// AI: Starts up the MCP server.
@@ -445,6 +464,7 @@ pub enum Subcommands {
     /// more granular tools, allowing you to ask your agent to do more specific
     /// tasks.
     ///
+    #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
@@ -458,6 +478,7 @@ pub enum Subcommands {
     ///
     /// See: https://docs.gitbutler.com/features/ai-integration/claude-code-hooks
     ///
+    #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     Claude(claude::Platform),
 
@@ -467,10 +488,12 @@ pub enum Subcommands {
     ///
     /// See: https://docs.gitbutler.com/features/ai-integration/cursor-hooks
     ///
+    #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     Cursor(cursor::Platform),
 
     /// INTERNAL: GitButler Actions are automated tasks (like macros) that can be peformed on a repository.
+    #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     Actions(actions::Platform),
 

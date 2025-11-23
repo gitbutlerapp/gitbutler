@@ -12,7 +12,7 @@ use but_hunk_dependency::ui::HunkDependencies;
 use colored::Colorize;
 use gitbutler_project::Project;
 
-use crate::{command::rub::parse_sources, id::CliId, utils::OutputChannel};
+use crate::{command::legacy::rub::parse_sources, legacy::id::CliId, utils::OutputChannel};
 
 /// Amends changes into the appropriate commits where they belong.
 ///

@@ -10,23 +10,22 @@ test = false
 doctest = false
 
 [dependencies]
-anyhow.workspace = true
-tokio = { workspace = true, features = ["macros", "sync"] }
-tokio-util = "0.7.16"
-tracing.workspace = true
 but-ctx.workspace = true
-gitbutler-filemonitor.workspace = true
-gitbutler-operating-modes.workspace = true
-gitbutler-project.workspace = true
 but-core.workspace = true
 but-rules.workspace = true
 but-settings.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
-but-workspace.workspace = true
+
+gitbutler-filemonitor.workspace = true
+gitbutler-operating-modes.workspace = true
+gitbutler-project.workspace = true
+
+anyhow.workspace = true
+tokio = { workspace = true, features = ["macros", "sync"] }
+tokio-util = "0.7.16"
+tracing.workspace = true
 serde-error = "0.1.3"
-gix.workspace = true
-but-oxidize.workspace = true
 
 [lints.clippy]
 all = "deny"

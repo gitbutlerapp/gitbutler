@@ -13,9 +13,9 @@ test = false
 [dependencies]
 but-core.workspace = true
 but-db.workspace = true
+but-ctx.workspace = true
 
 gitbutler-commit.workspace = true
-but-ctx.workspace = true
 
 sha-1 = "0.10.1"
 uuid.workspace = true
