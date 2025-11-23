@@ -64,7 +64,7 @@ pub async fn list(
     };
 
     let branch_review_map = if review {
-        crate::command::forge::review::get_review_map(project).await?
+        crate::command::legacy::forge::review::get_review_map(project).await?
     } else {
         HashMap::new()
     };
@@ -257,7 +257,7 @@ fn output_json(
     use but_ctx::Context;
     use but_oxidize::gix_to_git2_oid;
 
-    use crate::command::branch::json::*;
+    use crate::command::legacy::branch::json::*;
 
     // Open repo to get commit information
     let ctx = Context::new_from_legacy_project(project.clone())?;

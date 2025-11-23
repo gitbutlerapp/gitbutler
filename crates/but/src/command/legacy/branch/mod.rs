@@ -95,7 +95,7 @@ pub async fn handle(
                 let mut ctx = ctx; // Make mutable for CliId resolution
 
                 // Resolve the anchor string to a CliId
-                let anchor_ids = crate::id::CliId::from_str(&mut ctx, &anchor_str)?;
+                let anchor_ids = crate::legacy::id::CliId::from_str(&mut ctx, &anchor_str)?;
                 if anchor_ids.is_empty() {
                     return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
                 }
@@ -110,13 +110,13 @@ pub async fn handle(
                 // Create the anchor for create_reference
                 // as dependent branch
                 match anchor_id {
-                    crate::id::CliId::Commit { oid } => {
+                    crate::legacy::id::CliId::Commit { oid } => {
                         Some(but_api::legacy::stack::create_reference::Anchor::AtCommit {
                             commit_id: (*oid).into(),
                             position: but_workspace::branch::create_reference::Position::Above,
                         })
                     }
-                    crate::id::CliId::Branch { name, .. } => Some(
+                    crate::legacy::id::CliId::Branch { name, .. } => Some(
                         but_api::legacy::stack::create_reference::Anchor::AtReference {
                             short_name: name.clone(),
                             position: but_workspace::branch::create_reference::Position::Above,

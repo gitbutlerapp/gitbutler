@@ -16,8 +16,8 @@ but-status.workspace = true
 but-rebase.workspace = true
 but-core.workspace = true
 but-oxidize.workspace = true
-
 but-ctx.workspace = true
+
 gitbutler-project.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-workspace.workspace = true

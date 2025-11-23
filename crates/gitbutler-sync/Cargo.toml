@@ -12,9 +12,9 @@ doctest = false
 [dependencies]
 but-error.workspace = true
 but-oxidize.workspace = true
+but-ctx.workspace = true
 
 gitbutler-oplog.workspace = true
-but-ctx.workspace = true
 gitbutler-project.workspace = true
 gitbutler-user.workspace = true
 gitbutler-reference.workspace = true

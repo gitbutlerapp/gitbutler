@@ -572,11 +572,11 @@ impl Drop for ClearLocksGuard<'_> {
     }
 }
 
-pub trait OutputAsJson {
+pub trait OutputClaudeJson {
     fn output_claude_json(self) -> Self;
 }
 
-impl OutputAsJson for Result<ClaudeHookOutput> {
+impl OutputClaudeJson for Result<ClaudeHookOutput> {
     fn output_claude_json(self) -> Self {
         match &self {
             Ok(output) => println!("{}", serde_json::to_string(output).unwrap_or_default()),

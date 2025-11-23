@@ -2,7 +2,7 @@ use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
 
-use crate::id::CliId;
+use crate::legacy::id::CliId;
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,7 +48,7 @@ impl FileAssignment {
             .map(|a| a.inner.id.unwrap_or_default().to_string())
             .collect::<Vec<_>>()
             .join("-");
-        crate::id::hash(&format!("{},{}", &self.path.to_string(), &combined_ids))
+        crate::legacy::id::hash(&format!("{},{}", &self.path.to_string(), &combined_ids))
     }
 }
 

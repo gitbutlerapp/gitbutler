@@ -1,12 +1,12 @@
 use std::io::Write;
 
-pub mod commits;
-
 mod output_channel;
 pub use output_channel::OutputChannel;
 
 pub mod metrics;
-pub use metrics::types::{BackgroundMetrics, OneshotMetricsContext};
+#[cfg(feature = "legacy")]
+pub use metrics::types::BackgroundMetrics;
+pub use metrics::types::OneshotMetricsContext;
 
 /// Utilities attached to `anyhow::Result<impl serde::Serialize>`.
 pub trait ResultJsonExt {

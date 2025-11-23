@@ -1,26 +1,43 @@
+//! ### Organisation
+//!
+//! * `args`
+//!     - `clap` argument structure where the CLI parser is defined.
+//! * `command`
+//!     - implementations of everything that is ultimately called.
+//! * `tui`
+//!     - interactive and static components for terminals
+//! * `*legacy/`
+//!     - code that depends on `gitbutler-*` crates or `but-*` crates with `legacy` feature enabled.
+//!
+//! ### Testing
+//!
+//! #### Legacy builds
+//!
+//! Run `cargo test -p but`, legacy features are the default.
+//!
+//! #### Non-Legacy builds
+//!
+//! Tests aren't available in this mode yet, but one can compile it with `cargo check -p but --no-default-features`.
+//!
 #![deny(unsafe_code)]
+#![cfg_attr(not(feature = "legacy"), expect(unused))]
 
 use std::{ffi::OsString, path::Path};
 
 use anyhow::{Context as _, Result};
 
 pub mod args;
-use args::{
-    Args, OutputFormat, Subcommands, actions, base, branch, claude, cursor, forge, metrics,
-    worktree,
-};
-use but_claude::hooks::OutputAsJson;
+use args::{Args, OutputFormat, Subcommands, forge, metrics};
+use args::{actions, base, branch, claude, cursor, worktree};
 use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
 
-use crate::utils::{
-    OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
-};
+use crate::utils::ResultJsonExt;
+use crate::utils::{OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultMetricsExt};
 
 /// A place for all command implementations.
 pub(crate) mod command;
-mod id;
 mod tui;
 
 const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
@@ -45,7 +62,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
     {
         let mut out = OutputChannel::new_with_pager(OutputFormat::Human);
-        command::push::print_help(&mut out)?;
+        command::push::help::print(&mut out)?;
         return Ok(());
     }
 
@@ -78,14 +95,19 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 .target
                 .as_ref()
                 .expect("target is checked to be Some in match guard");
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::rub::handle(&project, &mut out, source, target)
-                .context("Rubbed the wrong way.")
-                .emit_metrics(OneshotMetricsContext::new_if_enabled(
-                    &app_settings,
-                    metrics::CommandName::Rub,
-                ))
-                .show_root_cause_error_then_exit_without_destructors(out)
+            #[cfg(feature = "legacy")]
+            {
+                let project = legacy::get_or_init_non_bare_project(&args)?;
+                command::legacy::rub::handle(&project, &mut out, source, target)
+                    .context("Rubbed the wrong way.")
+                    .emit_metrics(OneshotMetricsContext::new_if_enabled(
+                        &app_settings,
+                        metrics::CommandName::Rub,
+                    ))
+                    .show_root_cause_error_then_exit_without_destructors(out)
+            }
+            #[cfg(not(feature = "legacy"))]
+            todo!("Non-legacy rub isn't implemented yet")
         }
         None if args.source_or_path.is_some() && args.target.is_none() => {
             // If only one argument is provided without a subcommand, check if this is a valid path.
@@ -116,26 +138,6 @@ async fn match_subcommand(
     let metrics_ctx = cmd.to_metrics_context(&app_settings);
 
     match cmd {
-        Subcommands::Mcp { internal } => {
-            if internal {
-                command::mcp_internal::start(app_settings).await
-            } else {
-                command::mcp::start(app_settings).await
-            }
-        }
-        Subcommands::Actions(actions::Platform { cmd }) => match cmd {
-            Some(actions::Subcommands::HandleChanges {
-                description,
-                handler,
-            }) => {
-                let project = get_or_init_legacy_non_bare_project(&args)?;
-                command::actions::handle_changes(&project, out, handler, &description)
-            }
-            None => {
-                let project = get_or_init_legacy_non_bare_project(&args)?;
-                command::actions::list_actions(&project, out, 0, 10)
-            }
-        },
         Subcommands::Metrics {
             command_name,
             props,
@@ -147,70 +149,107 @@ async fn match_subcommand(
             utils::metrics::capture_event_blocking(&app_settings, event).await;
             Ok(())
         }
-        Subcommands::Claude(claude::Platform { cmd }) => match cmd {
-            claude::Subcommands::PreTool => but_claude::hooks::handle_pre_tool_call()
-                .output_claude_json()
-                .emit_metrics(metrics_ctx),
-            claude::Subcommands::PostTool => but_claude::hooks::handle_post_tool_call()
-                .output_claude_json()
-                .emit_metrics(metrics_ctx),
-            claude::Subcommands::Stop => but_claude::hooks::handle_stop()
+        Subcommands::Forge(forge::integration::Platform { cmd }) => {
+            command::forge::integration::handle(cmd, out)
                 .await
-                .output_claude_json()
-                .emit_metrics(metrics_ctx),
-            claude::Subcommands::PermissionPromptMcp { session_id } => {
-                but_claude::mcp::start(&args.current_dir, &session_id).await
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        Subcommands::Gui => command::gui::open(&args.current_dir).emit_metrics(metrics_ctx),
+        Subcommands::Completions { shell } => {
+            command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Mcp { internal } => {
+            if internal {
+                command::legacy::mcp_internal::start(app_settings).await
+            } else {
+                command::legacy::mcp::start(app_settings).await
             }
-            claude::Subcommands::Last { offset } => {
-                let project = get_or_init_legacy_non_bare_project(&args)?;
-                let mut ctx = but_ctx::Context::new_from_legacy_project_and_settings(
-                    &project,
-                    app_settings.clone(),
-                );
-                let message = but_claude::db::get_user_message(&mut ctx, Some(offset as i64))?;
-                match message {
-                    Some(msg) => {
-                        if args.json {
-                            // For JSON output, include timestamp and message
-                            let output = serde_json::json!({
-                                "timestamp": msg.created_at().format("%Y-%m-%d %H:%M:%S").to_string(),
-                                "message": match msg.content() {
-                                    but_claude::MessagePayload::User(input) => &input.message,
-                                    _ => "",
-                                }
-                            });
-                            println!("{}", serde_json::to_string_pretty(&output)?);
-                        } else {
-                            // For human-readable output, show timestamp and message
-                            println!(
-                                "{} {}",
-                                "Timestamp:".bold(),
-                                msg.created_at()
-                                    .format("%Y-%m-%d %H:%M:%S")
-                                    .to_string()
-                                    .cyan()
-                            );
-                            match msg.content() {
-                                but_claude::MessagePayload::User(input) => {
-                                    println!("{}", input.message);
-                                }
-                                _ => {
-                                    println!("{}", "Not a user input message".red());
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Actions(actions::Platform { cmd }) => match cmd {
+            Some(actions::Subcommands::HandleChanges {
+                description,
+                handler,
+            }) => {
+                let project = legacy::get_or_init_non_bare_project(&args)?;
+                command::legacy::actions::handle_changes(&project, out, handler, &description)
+            }
+            None => {
+                let project = legacy::get_or_init_non_bare_project(&args)?;
+                command::legacy::actions::list_actions(&project, out, 0, 10)
+            }
+        },
+        #[cfg(feature = "legacy")]
+        Subcommands::Claude(claude::Platform { cmd }) => {
+            use but_claude::hooks::OutputClaudeJson;
+            match cmd {
+                claude::Subcommands::PreTool => but_claude::hooks::handle_pre_tool_call()
+                    .output_claude_json()
+                    .emit_metrics(metrics_ctx),
+                claude::Subcommands::PostTool => but_claude::hooks::handle_post_tool_call()
+                    .output_claude_json()
+                    .emit_metrics(metrics_ctx),
+                claude::Subcommands::Stop => but_claude::hooks::handle_stop()
+                    .await
+                    .output_claude_json()
+                    .emit_metrics(metrics_ctx),
+                claude::Subcommands::PermissionPromptMcp { session_id } => {
+                    but_claude::mcp::start(&args.current_dir, &session_id).await
+                }
+                claude::Subcommands::Last { offset } => {
+                    let project = legacy::get_or_init_non_bare_project(&args)?;
+                    let mut ctx = but_ctx::Context::new_from_legacy_project_and_settings(
+                        &project,
+                        app_settings.clone(),
+                    );
+                    let message = but_claude::db::get_user_message(&mut ctx, Some(offset as i64))?;
+                    match message {
+                        Some(msg) => {
+                            if args.json {
+                                // For JSON output, include timestamp and message
+                                let output = serde_json::json!({
+                                    "timestamp": msg.created_at().format("%Y-%m-%d %H:%M:%S").to_string(),
+                                    "message": match msg.content() {
+                                        but_claude::MessagePayload::User(input) => &input.message,
+                                        _ => "",
+                                    }
+                                });
+                                println!("{}", serde_json::to_string_pretty(&output)?);
+                            } else {
+                                // For human-readable output, show timestamp and message
+                                println!(
+                                    "{} {}",
+                                    "Timestamp:".bold(),
+                                    msg.created_at()
+                                        .format("%Y-%m-%d %H:%M:%S")
+                                        .to_string()
+                                        .cyan()
+                                );
+                                match msg.content() {
+                                    but_claude::MessagePayload::User(input) => {
+                                        println!("{}", input.message);
+                                    }
+                                    _ => {
+                                        println!("{}", "Not a user input message".red());
+                                    }
                                 }
                             }
                         }
-                    }
-                    None => {
-                        if args.json {
-                            println!("null");
-                        } else {
-                            println!("No user message found at offset {}", offset);
+                        None => {
+                            if args.json {
+                                println!("null");
+                            } else {
+                                println!("No user message found at offset {}", offset);
+                            }
                         }
                     }
+                    Ok(())
                 }
-                Ok(())
             }
-        },
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
             cursor::Subcommands::AfterEdit => but_cursor::handle_after_edit()
                 .await
@@ -221,70 +260,78 @@ async fn match_subcommand(
                 .output_json(true)
                 .emit_metrics(metrics_ctx),
         },
+        #[cfg(feature = "legacy")]
         Subcommands::Base(base::Platform { cmd }) => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::base::handle(cmd, &project, out)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::base::handle(cmd, &project, out)
                 .await
                 .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Branch(branch::Platform { cmd }) => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::branch::handle(cmd, &project, out)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::branch::handle(cmd, &project, out)
                 .await
                 .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::worktree::handle(cmd, &project, out)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::worktree::handle(cmd, &project, out)
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Status {
             show_files,
             verbose,
             review,
         } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::status::worktree(&project, out, show_files, verbose, review)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::status::worktree(&project, out, show_files, verbose, review)
                 .await
                 .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Stf { verbose, review } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::status::worktree(&project, out, true, verbose, review)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::status::worktree(&project, out, true, verbose, review)
                 .await
                 .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Rub { source, target } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::rub::handle(&project, out, &source, &target)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::rub::handle(&project, out, &source, &target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Mark { target, delete } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::mark::handle(&project, out, &target, delete)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::mark::handle(&project, out, &target, delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Unmark => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::mark::unmark(&project, out)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::mark::unmark(&project, out)
                 .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
-        Subcommands::Gui => command::gui::open(&args.current_dir).emit_metrics(metrics_ctx),
+        #[cfg(feature = "legacy")]
         Subcommands::Commit {
             message,
             branch,
             create,
             only,
         } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::commit::commit(
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::commit::commit(
                 &project,
                 out,
                 message.as_deref(),
@@ -294,49 +341,57 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::push::handle(push_args, &project, out).emit_metrics(metrics_ctx)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::push::handle(push_args, &project, out).emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::New { target } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::commit::insert_blank_commit(&project, out, &target).emit_metrics(metrics_ctx)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::commit::insert_blank_commit(&project, out, &target)
+                .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Describe { target } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::describe::describe_target(&project, out, &target).emit_metrics(metrics_ctx)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::describe::describe_target(&project, out, &target)
+                .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Oplog { since } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::oplog::show_oplog(&project, out, since.as_deref()).emit_metrics(metrics_ctx)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::oplog::show_oplog(&project, out, since.as_deref())
+                .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Restore { oplog_sha, force } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::oplog::restore_to_oplog(&project, out, &oplog_sha, force)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::oplog::restore_to_oplog(&project, out, &oplog_sha, force)
                 .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Undo => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::oplog::undo_last_operation(&project, out).emit_metrics(metrics_ctx)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::oplog::undo_last_operation(&project, out).emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Snapshot { message } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::oplog::create_snapshot(&project, out, message.as_deref())
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::oplog::create_snapshot(&project, out, message.as_deref())
                 .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Absorb { source } => {
-            let project = get_or_init_legacy_non_bare_project(&args)?;
-            command::absorb::handle(&project, out, source.as_deref()).emit_metrics(metrics_ctx)
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            command::legacy::absorb::handle(&project, out, source.as_deref())
+                .emit_metrics(metrics_ctx)
         }
-        Subcommands::Init { repo } => command::init::repo(&args.current_dir, out, repo)
+        #[cfg(feature = "legacy")]
+        Subcommands::Init { repo } => command::legacy::init::repo(&args.current_dir, out, repo)
             .context("Failed to initialize GitButler project.")
             .emit_metrics(metrics_ctx),
-        Subcommands::Forge(forge::integration::Platform { cmd }) => {
-            command::forge::integration::handle(cmd, out)
-                .await
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
+        #[cfg(feature = "legacy")]
         Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
             forge::review::Subcommands::Publish {
                 branch,
@@ -345,8 +400,8 @@ async fn match_subcommand(
                 run_hooks,
                 default,
             } => {
-                let project = get_or_init_legacy_non_bare_project(&args)?;
-                command::forge::review::publish_reviews(
+                let project = legacy::get_or_init_non_bare_project(&args)?;
+                command::legacy::forge::review::publish_reviews(
                     &project,
                     branch,
                     skip_force_push_protection,
@@ -360,37 +415,17 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
             }
             forge::review::Subcommands::Template { template_path } => {
-                let project = get_or_init_legacy_non_bare_project(&args)?;
-                command::forge::review::set_review_template(&project, template_path, out)
+                let project = legacy::get_or_init_non_bare_project(&args)?;
+                command::legacy::forge::review::set_review_template(&project, template_path, out)
                     .context("Failed to set review template.")
                     .emit_metrics(metrics_ctx)
             }
         },
-        Subcommands::Completions { shell } => {
-            command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
-        }
     }
 }
 
-fn get_or_init_legacy_non_bare_project(args: &Args) -> anyhow::Result<LegacyProject> {
-    let repo = gix::discover(&args.current_dir)?;
-    if let Some(path) = repo.workdir() {
-        let project = match LegacyProject::find_by_worktree_dir(path) {
-            Ok(p) => Ok(p),
-            Err(_e) => {
-                command::init::repo(
-                    path,
-                    &mut OutputChannel::new_without_pager_non_json(args.format),
-                    false,
-                )?;
-                LegacyProject::find_by_worktree_dir(path)
-            }
-        }?;
-        Ok(project)
-    } else {
-        anyhow::bail!("Bare repositories are not supported.");
-    }
-}
+#[cfg(feature = "legacy")]
+mod legacy;
 
 /// Legacy - none of this should be kept.
 /// Turn this instance into a project, which knows about the Git repository discovered from `directory`
@@ -404,12 +439,17 @@ pub fn get_or_init_context_with_legacy_support(args: &Args) -> anyhow::Result<bu
     let project = LegacyProject::find_by_worktree_dir_opt(worktree_dir)?
         .map(anyhow::Ok)
         .unwrap_or_else(|| {
-            command::init::repo(
-                directory,
-                &mut OutputChannel::new_without_pager_non_json(args.format),
-                false,
-            )
-            .and_then(|()| LegacyProject::find_by_worktree_dir(directory))
+            #[cfg(feature = "legacy")]
+            return {
+                command::legacy::init::repo(
+                    directory,
+                    &mut OutputChannel::new_without_pager_non_json(args.format),
+                    false,
+                )
+                .and_then(|()| LegacyProject::find_by_worktree_dir(directory))
+            };
+            #[cfg(not(feature = "legacy"))]
+            panic!("Cannot initialise a project in non-legacy mode as all this is done on the fly")
         })?;
     Ok(but_ctx::Context::new_from_legacy_project(project)?.with_repo(repo))
 }
@@ -427,45 +467,5 @@ pub fn get_context_with_legacy_support(
     Ok(but_ctx::Context::new_from_legacy_project(project)?.with_repo(repo))
 }
 
+mod trace;
 mod utils;
-
-mod trace {
-    use tracing::metadata::LevelFilter;
-    use tracing_subscriber::{
-        Layer, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
-    };
-
-    pub fn init(level: u8) -> anyhow::Result<()> {
-        let filter = match level {
-            1 => LevelFilter::INFO,
-            2 => LevelFilter::DEBUG,
-            _ => LevelFilter::TRACE,
-        };
-        if level >= 4 {
-            tracing_subscriber::registry()
-                .with(
-                    tracing_subscriber::fmt::layer()
-                        .compact()
-                        .with_span_events(FmtSpan::CLOSE)
-                        .with_writer(std::io::stderr),
-                )
-                .with(
-                    tracing_forest::ForestLayer::from(
-                        tracing_forest::printer::PrettyPrinter::new().writer(std::io::stderr),
-                    )
-                    .with_filter(filter),
-                )
-                .init()
-        } else {
-            tracing_subscriber::registry()
-                .with(
-                    tracing_forest::ForestLayer::from(
-                        tracing_forest::printer::PrettyPrinter::new().writer(std::io::stderr),
-                    )
-                    .with_filter(filter),
-                )
-                .init();
-        }
-        Ok(())
-    }
-}

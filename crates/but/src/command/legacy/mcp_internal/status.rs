@@ -2,7 +2,7 @@ use std::path::Path;
 
 use but_ctx::Context;
 
-use crate::command::mcp_internal::project;
+use crate::command::legacy::mcp_internal::project;
 
 pub fn project_status(project_dir: &Path) -> anyhow::Result<but_tools::workspace::ProjectStatus> {
     let repo = project::project_repo(project_dir)?;

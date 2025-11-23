@@ -19,7 +19,7 @@ pub(crate) mod assignment;
 pub(crate) mod json;
 
 use crate::{
-    id::{CliId, IdDb},
+    legacy::id::{CliId, IdDb},
     utils::OutputChannel,
 };
 
@@ -76,7 +76,7 @@ pub(crate) async fn worktree(
     )?;
 
     let review_map = if review {
-        crate::command::forge::review::get_review_map(project).await?
+        crate::command::legacy::forge::review::get_review_map(project).await?
     } else {
         std::collections::HashMap::new()
     };
@@ -221,7 +221,7 @@ pub(crate) async fn worktree(
     let stack_details_len = stack_details.len();
     for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
         let mut stack_mark = stack_id.and_then(|stack_id| {
-            if crate::command::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
+            if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
                 Some("◀ Marked ▶".red().bold())
             } else {
                 None
@@ -403,7 +403,7 @@ pub fn print_group(
             .dimmed()
             .italic();
 
-            let reviews = crate::command::forge::review::get_review_numbers(
+            let reviews = crate::command::legacy::forge::review::get_review_numbers(
                 &branch.name.to_string(),
                 &branch.pr_number,
                 review_map,
@@ -453,8 +453,9 @@ pub fn print_group(
             }
             for cli_commit in &branch.commits {
                 let commit = &cli_commit;
-                let marked = crate::command::mark::commit_marked(ctx, commit.id.to_string())
-                    .unwrap_or_default();
+                let marked =
+                    crate::command::legacy::mark::commit_marked(ctx, commit.id.to_string())
+                        .unwrap_or_default();
                 let dot = match commit.state {
                     but_workspace::ui::CommitState::LocalOnly => "●".normal(),
                     but_workspace::ui::CommitState::LocalAndRemote(object_id) => {
@@ -552,7 +553,7 @@ pub(crate) fn all_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
 
 pub(crate) fn all_branches(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
     let mut id_db = IdDb::new(ctx)?;
-    let stacks = crate::utils::commits::stacks(ctx)?;
+    let stacks = crate::legacy::commits::stacks(ctx)?;
     let mut branches = Vec::new();
     for stack in stacks {
         for head in stack.heads {

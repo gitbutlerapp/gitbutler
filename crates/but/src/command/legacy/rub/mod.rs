@@ -14,7 +14,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 
-use crate::{id::CliId, utils::OutputChannel};
+use crate::{legacy::id::CliId, utils::OutputChannel};
 
 pub(crate) fn handle(
     project: &Project,
@@ -133,7 +133,7 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
 
 fn ids(ctx: &mut Context, source: &str, target: &str) -> anyhow::Result<(Vec<CliId>, CliId)> {
     let sources = parse_sources(ctx, source)?;
-    let target_result = crate::id::CliId::from_str(ctx, target)?;
+    let target_result = crate::legacy::id::CliId::from_str(ctx, target)?;
     if target_result.len() != 1 {
         if target_result.is_empty() {
             return Err(anyhow::anyhow!(
@@ -172,7 +172,7 @@ pub(crate) fn parse_sources(ctx: &mut Context, source: &str) -> anyhow::Result<V
     }
     // Single source
     else {
-        let source_result = crate::id::CliId::from_str(ctx, source)?;
+        let source_result = crate::legacy::id::CliId::from_str(ctx, source)?;
         if source_result.len() != 1 {
             if source_result.is_empty() {
                 return Err(anyhow::anyhow!(
@@ -214,8 +214,8 @@ fn parse_range(ctx: &mut Context, source: &str) -> anyhow::Result<Vec<CliId>> {
     let end_str = parts[1];
 
     // Get the start and end IDs
-    let start_matches = crate::id::CliId::from_str(ctx, start_str)?;
-    let end_matches = crate::id::CliId::from_str(ctx, end_str)?;
+    let start_matches = crate::legacy::id::CliId::from_str(ctx, start_str)?;
+    let end_matches = crate::legacy::id::CliId::from_str(ctx, end_str)?;
 
     if start_matches.len() != 1 {
         return Err(anyhow::anyhow!(
@@ -279,11 +279,11 @@ fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId
     let mut all_files = Vec::new();
 
     // First, get files assigned to branches (they appear first in status display)
-    let stacks = crate::utils::commits::stacks(ctx)?;
+    let stacks = crate::legacy::commits::stacks(ctx)?;
     for stack in stacks {
         if let Some((_stack_id, details_result)) = stack
             .id
-            .map(|id| (stack.id, crate::utils::commits::stack_details(ctx, id)))
+            .map(|id| (stack.id, crate::legacy::commits::stack_details(ctx, id)))
             && let Ok(details) = details_result
         {
             for _branch in &details.branch_details {
@@ -324,7 +324,7 @@ fn parse_list(ctx: &mut Context, source: &str) -> anyhow::Result<Vec<CliId>> {
 
     for part in parts {
         let part = part.trim();
-        let matches = crate::id::CliId::from_str(ctx, part)?;
+        let matches = crate::legacy::id::CliId::from_str(ctx, part)?;
         if matches.len() != 1 {
             if matches.is_empty() {
                 return Err(anyhow::anyhow!(

@@ -14,12 +14,11 @@ doctest = false
 but-oxidize.workspace = true
 but-core.workspace = true
 but-rebase.workspace = true
+but-ctx.workspace = true
 
 gitbutler-stack.workspace = true
 gitbutler-repo.workspace = true
-gitbutler-project.workspace = true
 gitbutler-commit.workspace = true
-but-ctx.workspace = true
 gitbutler-cherry-pick.workspace = true
 
 anyhow.workspace = true

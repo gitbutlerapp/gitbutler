@@ -5,7 +5,7 @@ use but_workspace::commit_engine::StackSegmentId;
 use rmcp::schemars;
 use serde::{Deserialize, Serialize};
 
-use crate::command::mcp_internal::project;
+use crate::command::legacy::mcp_internal::project;
 
 /// Commit changes to the repository.
 pub fn commit(

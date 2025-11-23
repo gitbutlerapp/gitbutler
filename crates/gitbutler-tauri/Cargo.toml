@@ -30,10 +30,10 @@ but-action.workspace = true
 but-bot.workspace = true
 but-api = { workspace = true, features = ["tauri", "path-bytes", "legacy"] }
 but-claude.workspace = true
-
-gitbutler-watcher.workspace = true
-gitbutler-repo-actions.workspace = true
 but-ctx.workspace = true
+
+gitbutler-repo-actions.workspace = true
+gitbutler-watcher.workspace = true
 gitbutler-project.workspace = true
 
 tauri = { version = "^2.9.2", features = ["unstable"] }

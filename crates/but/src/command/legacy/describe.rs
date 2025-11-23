@@ -3,7 +3,7 @@ use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::Project;
 
-use crate::{id::CliId, tui, utils::OutputChannel};
+use crate::{legacy::id::CliId, tui, utils::OutputChannel};
 
 pub(crate) fn describe_target(
     project: &Project,
