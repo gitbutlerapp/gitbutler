@@ -27,11 +27,18 @@
 
 	let currentSelectedId = $state(selectedId || pages[0]?.id || '');
 	const currentPage = $derived(pages.find((p) => p.id === currentSelectedId));
+	let scrollableContainer: ConfigurableScrollableContainer;
 
 	function selectPage(pageId: string) {
 		currentSelectedId = pageId;
 		onSelectPage(pageId);
 	}
+
+	$effect(() => {
+		if (currentSelectedId) {
+			scrollableContainer?.scrollToTop();
+		}
+	});
 </script>
 
 <div class="modal-settings-wrapper">
@@ -64,7 +71,7 @@
 	</div>
 
 	<section class="page-view" use:focusable={{ vertical: true }}>
-		<ConfigurableScrollableContainer>
+		<ConfigurableScrollableContainer bind:this={scrollableContainer}>
 			<div class="page-view__content">
 				{@render content({ currentPage })}
 			</div>
