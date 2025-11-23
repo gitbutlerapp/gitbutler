@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
-use but_ctx::Context;
-use but_ctx::access::WorktreeReadPermission;
+use but_ctx::{Context, access::WorktreeReadPermission};
 use gitbutler_project::Project;
 use serde::Serialize;
 

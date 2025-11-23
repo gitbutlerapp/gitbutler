@@ -2,8 +2,9 @@ use anyhow::bail;
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 
-use crate::args::forge::integration::Subcommands;
-use crate::{command::forge::auth::auth_github, utils::OutputChannel};
+use crate::{
+    args::forge::integration::Subcommands, command::forge::auth::auth_github, utils::OutputChannel,
+};
 
 pub async fn handle(cmd: Subcommands, out: &mut OutputChannel) -> anyhow::Result<()> {
     match cmd {

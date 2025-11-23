@@ -1,5 +1,6 @@
-use crate::utils::Sandbox;
 use snapbox::str;
+
+use crate::utils::Sandbox;
 
 #[test]
 fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {

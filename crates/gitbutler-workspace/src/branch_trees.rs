@@ -1,6 +1,8 @@
 use anyhow::Result;
-use but_ctx::Context;
-use but_ctx::access::{WorktreeReadPermission, WorktreeWritePermission};
+use but_ctx::{
+    Context,
+    access::{WorktreeReadPermission, WorktreeWritePermission},
+};
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_commit::commit_ext::CommitExt as _;

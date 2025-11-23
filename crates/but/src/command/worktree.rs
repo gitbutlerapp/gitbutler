@@ -1,11 +1,10 @@
 use std::path::PathBuf;
 
-use crate::args::worktree::Subcommands;
 use anyhow::{Context as _, Result};
 use but_api::legacy::worktree::IntegrationStatus;
 use but_worktrees::WorktreeId;
 
-use crate::utils::OutputChannel;
+use crate::{args::worktree::Subcommands, utils::OutputChannel};
 /// Parse a worktree identifier which can be either:
 /// - A full path to the worktree
 /// - Just the worktree name

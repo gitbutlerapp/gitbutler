@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 use but_core::{DiffSpec, ref_metadata::StackId};
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_oxidize::OidExt;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::{

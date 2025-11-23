@@ -1,6 +1,5 @@
 use anyhow::Result;
-use but_ctx::Context;
-use but_ctx::access::WorktreeReadPermission;
+use but_ctx::{Context, access::WorktreeReadPermission};
 use serde::Serialize;
 
 use crate::{Worktree, WorktreeId, db::list_worktree_meta};

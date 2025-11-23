@@ -1,17 +1,17 @@
 use std::collections::BTreeMap;
 
-use crate::CLI_DATE;
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
-use but_ctx::Context;
-use but_ctx::LegacyProject;
+use but_ctx::{Context, LegacyProject};
 use but_hunk_assignment::HunkAssignment;
 use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gix::date::time::CustomFormat;
 use serde::Serialize;
+
+use crate::CLI_DATE;
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 

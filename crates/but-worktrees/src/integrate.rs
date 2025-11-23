@@ -1,7 +1,9 @@
 use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
-use but_ctx::Context;
-use but_ctx::access::{WorktreeReadPermission, WorktreeWritePermission};
+use but_ctx::{
+    Context,
+    access::{WorktreeReadPermission, WorktreeWritePermission},
+};
 use but_oxidize::{GixRepositoryExt as _, ObjectIdExt};
 use but_rebase::{Rebase, RebaseOutput, RebaseStep};
 use but_status::create_wd_tree;

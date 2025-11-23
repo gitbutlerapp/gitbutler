@@ -1,6 +1,5 @@
 use but_core::{DiffSpec, ref_metadata::StackId};
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::commit_engine::{self, CreateCommitOutcome};
 use colored::Colorize;

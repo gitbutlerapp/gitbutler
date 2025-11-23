@@ -1,6 +1,7 @@
-use crate::{Context, LegacyProjectId, new_ondemand_db, new_ondemand_git2_repo, new_ondemand_repo};
 use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
 use but_settings::AppSettings;
+
+use crate::{Context, LegacyProjectId, new_ondemand_db, new_ondemand_git2_repo, new_ondemand_repo};
 
 pub(crate) mod types {
     /// A UUID based project ID which is associated with metadata via `<app-dir>/projects.json`

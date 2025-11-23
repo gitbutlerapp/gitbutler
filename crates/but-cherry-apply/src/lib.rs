@@ -24,8 +24,10 @@
 
 use anyhow::{Context as _, Result, bail};
 use but_core::ref_metadata::StackId;
-use but_ctx::Context;
-use but_ctx::access::{WorktreeReadPermission, WorktreeWritePermission};
+use but_ctx::{
+    Context,
+    access::{WorktreeReadPermission, WorktreeWritePermission},
+};
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::GixRepositoryExt;
 use but_rebase::Rebase;

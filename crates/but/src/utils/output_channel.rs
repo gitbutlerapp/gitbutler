@@ -1,7 +1,8 @@
-use crate::args::OutputFormat;
-use crate::utils::json_pretty_to_stdout;
-use minus::ExitStrategy;
 use std::io::Write;
+
+use minus::ExitStrategy;
+
+use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 
 /// A utility `std::io::Write` implementation that can always be used to generate output for humans or for scripts.
 pub struct OutputChannel {

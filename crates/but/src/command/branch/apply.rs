@@ -1,13 +1,13 @@
 use std::{ops::Deref, str::FromStr};
 
-use crate::utils::OutputChannel;
 use anyhow::bail;
 use bstr::ByteSlice;
-use but_ctx::Context;
-use but_ctx::LegacyProject;
+use but_ctx::{Context, LegacyProject};
 use but_settings::AppSettings;
 use gitbutler_reference::RemoteRefname;
 use gix::reference::Category;
+
+use crate::utils::OutputChannel;
 
 /// Apply a branch to the workspace, and return the full ref name to it.
 ///

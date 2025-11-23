@@ -1,5 +1,6 @@
-use crate::args::Args;
 use colored::Colorize;
+
+use crate::args::Args;
 
 pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
     use std::collections::HashSet;

@@ -1,7 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::DiffSpec;
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{commit_engine, stack_heads_info, ui};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};

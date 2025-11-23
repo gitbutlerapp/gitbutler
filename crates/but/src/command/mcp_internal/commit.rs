@@ -1,10 +1,11 @@
 use std::path::Path;
 
-use crate::command::mcp_internal::project;
 use bstr::BString;
 use but_workspace::commit_engine::StackSegmentId;
 use rmcp::schemars;
 use serde::{Deserialize, Serialize};
+
+use crate::command::mcp_internal::project;
 
 /// Commit changes to the repository.
 pub fn commit(

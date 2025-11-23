@@ -6,12 +6,13 @@ use command_group::AsyncCommandGroup;
 use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::args::metrics::CommandName;
-use crate::{args::Subcommands, utils::ResultMetricsExt};
+use crate::{
+    args::{Subcommands, metrics::CommandName},
+    utils::ResultMetricsExt,
+};
 
 pub(super) mod types {
-    use crate::args::metrics::CommandName;
-    use crate::utils::metrics::Event;
+    use crate::{args::metrics::CommandName, utils::metrics::Event};
 
     /// All we need to emit metrics as part of a command invocation, in the background, as spun-off process.
     pub struct OneshotMetricsContext {

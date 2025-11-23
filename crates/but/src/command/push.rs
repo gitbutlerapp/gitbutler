@@ -1,10 +1,12 @@
-use crate::args::push;
-use crate::args::push::get_gerrit_flags;
-use crate::utils::OutputChannel;
 use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::Context;
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_project::Project;
+
+use crate::{
+    args::{push, push::get_gerrit_flags},
+    utils::OutputChannel,
+};
 
 pub fn handle(
     args: push::Command,

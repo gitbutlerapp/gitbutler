@@ -1,6 +1,5 @@
 use anyhow::Result;
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use serde::Serialize;
 
 use crate::{WorktreeId, git::git_worktree_remove, list::worktree_list};

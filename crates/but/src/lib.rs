@@ -14,9 +14,8 @@ use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
 
-use crate::{
-    utils::OneshotMetricsContext,
-    utils::{OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt},
+use crate::utils::{
+    OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
 };
 
 /// A place for all command implementations.

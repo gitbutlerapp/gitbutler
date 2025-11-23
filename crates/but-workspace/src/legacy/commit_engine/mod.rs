@@ -3,8 +3,7 @@
 use anyhow::{Context as _, bail};
 use bstr::BString;
 use but_core::{DiffSpec, ref_metadata::StackId, tree::create_tree::RejectionReason};
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_rebase::merge::ConflictErrorContext;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
