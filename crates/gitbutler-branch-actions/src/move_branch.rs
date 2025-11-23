@@ -1,7 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::ref_metadata::StackId;
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_meta::virtual_branches_legacy_types::CommitOrChangeId;
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};

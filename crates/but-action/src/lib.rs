@@ -7,8 +7,7 @@ use std::{
 };
 
 use but_core::TreeChange;
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_oxidize::ObjectIdExt;
 use but_tools::emit::{Emittable, Emitter, TokenUpdate};
 use but_workspace::legacy::ui::StackEntry;

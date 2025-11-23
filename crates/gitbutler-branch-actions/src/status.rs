@@ -1,8 +1,7 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
 use anyhow::{Context as _, Result, bail};
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_oxidize::ObjectIdExt;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_diff::{Hunk, diff_files_into_hunks};

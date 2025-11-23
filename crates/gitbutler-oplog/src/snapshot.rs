@@ -1,8 +1,7 @@
 use std::vec;
 
 use anyhow::Result;
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_reference::ReferenceName;
 use gitbutler_stack::Stack;

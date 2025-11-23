@@ -1,6 +1,5 @@
 use anyhow::{Context as _, Result, bail};
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;

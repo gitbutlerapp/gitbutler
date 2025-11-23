@@ -1,6 +1,4 @@
-use std::cell;
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::{cell, cell::RefCell, rc::Rc};
 
 /// A utility to keep a cached value and initialize it on the fly.
 ///

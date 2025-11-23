@@ -5,17 +5,13 @@ use std::{
     time::Duration,
 };
 
-use super::{
-    entry::{OperationKind, Snapshot, SnapshotDetails, Trailer},
-    reflog::set_reference_to_oplog,
-    state::OplogHandle,
-};
-use crate::{entry::Version, reflog::ReflogCommits};
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::{TreeChange, diff::tree_changes};
-use but_ctx::Context;
-use but_ctx::access::{WorktreeReadPermission, WorktreeWritePermission};
-use but_ctx::legacy::RepositoryExtLite;
+use but_ctx::{
+    Context,
+    access::{WorktreeReadPermission, WorktreeWritePermission},
+    legacy::RepositoryExtLite,
+};
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{
     GixRepositoryExt, ObjectIdExt as _, OidExt, RepoExt, git2_to_gix_object_id, gix_time_to_git2,
@@ -23,11 +19,17 @@ use but_oxidize::{
 };
 use git2::FileMode;
 use gitbutler_project::{AUTO_TRACK_LIMIT_BYTES, Project};
-
 use gitbutler_repo::{RepositoryExt, SignaturePurpose};
 use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
 use gix::{ObjectId, bstr::ByteSlice, prelude::ObjectIdExt};
 use tracing::instrument;
+
+use super::{
+    entry::{OperationKind, Snapshot, SnapshotDetails, Trailer},
+    reflog::set_reference_to_oplog,
+    state::OplogHandle,
+};
+use crate::{entry::Version, reflog::ReflogCommits};
 
 /// The Oplog allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
 /// Snapshots include the state of the working directory as well as all additional GitButler state (e.g. virtual branches, conflict state).

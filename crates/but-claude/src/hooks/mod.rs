@@ -9,8 +9,7 @@ use anyhow::{Context as _, Result, anyhow};
 use but_action::{
     ActionHandler, OpenAiProvider, Source, rename_branch::RenameBranchParams, reword::CommitEvent,
 };
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::{

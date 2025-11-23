@@ -1,6 +1,5 @@
 use anyhow::{Result, bail};
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};

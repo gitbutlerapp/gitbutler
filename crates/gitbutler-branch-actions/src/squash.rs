@@ -1,6 +1,5 @@
 use anyhow::{Context as _, Ok, Result, bail};
-use but_ctx::Context;
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::{Context, access::WorktreeWritePermission};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};

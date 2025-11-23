@@ -1,0 +1,42 @@
+use crate::utils::Sandbox;
+
+#[test]
+fn looks_good_and_can_be_invoked_in_various_ways() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+    env.but(None)
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file!["snapshots/help/no-arg.stdout.term.svg"]);
+
+    env.but("-h")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file!["snapshots/help/no-arg.stdout.term.svg"]);
+
+    env.but("--help")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file!["snapshots/help/no-arg.stdout.term.svg"]);
+
+    Ok(())
+}
+
+#[test]
+fn rub_looks_good() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+
+    // The help should be nice, as it's a complex command.
+    env.but("rub --help")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/help/rub-long-help.stdout.term.svg"
+        ]);
+    env.but("rub -h")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/help/rub-short-help.stdout.term.svg"
+        ]);
+    Ok(())
+}
