@@ -27,11 +27,11 @@ jobs:
       VITE_BUTLER_HOST: 'localhost'
       VITE_BUILD_TARGET: 'web'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
         if: ${{ github.event_name != 'workflow_dispatch' }}
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
           persist-credentials: false
