@@ -62,14 +62,14 @@
 					height="10"
 					rx="3.5"
 					stroke="var(--file-dot-color)"
-					stroke-width="1.2"
+					stroke-width="1.5"
 				/>
 				{#if status === 'addition'}
-					<path d="M9 5.5H2M5.5 2V9" />
+					<path d="M8.5 5.5H2.5M5.5 2.5V8.5" />
 				{:else if status === 'modification'}
 					<path d="M7.2626 3.73755L3.7374 7.26276" />
 				{:else if status === 'deletion'}
-					<path d="M8.5 5.5H2.5" />
+					<path d="M8 5.5H3" />
 				{:else if status === 'rename'}
 					<path d="M7.5 5.5H0.5M7.5 5.5L4.5 2.5M7.5 5.5L4.5 8.5" />
 				{/if}
