@@ -49,7 +49,7 @@
 		}
 	}}
 >
-	<span class="capitalize-first">
+	<span class="capitalize">
 		{#if loading}
 			Fetching...
 		{:else if lastFetched}
@@ -72,14 +72,6 @@
 </Button>
 
 <style lang="postcss">
-	.capitalize-first {
-		display: block;
-	}
-
-	.capitalize-first::first-letter {
-		text-transform: uppercase;
-	}
-
 	.target-branch {
 		display: inline-flex;
 		align-items: center;

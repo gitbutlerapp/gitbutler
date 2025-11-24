@@ -116,7 +116,6 @@
 	.commit-failed__wrapper {
 		display: flex;
 		flex-direction: column;
-		/* max-height: 620px; */
 		overflow: hidden;
 	}
 

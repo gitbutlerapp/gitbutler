@@ -143,7 +143,7 @@
 		border: 1px solid var(--clr-scale-pop-60);
 		border-radius: var(--radius-xl);
 		background-color: var(--clr-theme-pop-soft);
-		color: var(--clr-theme-pop-on-soft);
+		color: var(--clr-scale-pop-10);
 		transition:
 			transform 0.15s ease-out,
 			color 0.15s ease,
