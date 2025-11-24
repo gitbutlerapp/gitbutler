@@ -25,12 +25,12 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
         if: ${{ github.event_name != 'workflow_dispatch' }}
         name: Checkout
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         name: Checkout (specific commit from manual dispatch)
         if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
