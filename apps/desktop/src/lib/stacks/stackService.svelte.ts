@@ -4,7 +4,6 @@ import { showToast } from '$lib/notifications/toasts';
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
 import { createSelectByIds, createSelectNth } from '$lib/state/customSelectors';
-import { mapResult } from '$lib/state/helpers';
 import {
 	invalidatesItem,
 	invalidatesList,
@@ -363,11 +362,8 @@ export class StackService {
 
 	allLocalCommits(projectId: string) {
 		const stacks = $derived(this.stacks(projectId));
-		const stackIds = $derived(
-			mapResult(stacks.result, (stacks) => stacks.map((s) => s.id).filter(isDefined))
-		);
-		const stackIdsData = $derived(stackIds.data ?? []);
-		const args = $derived(stackIdsData.map((stackId) => ({ projectId, stackId })));
+		const stackIds = $derived(stacks.response?.map((s) => s.id).filter(isDefined) || []);
+		const args = $derived(stackIds?.map((stackId) => ({ projectId, stackId })));
 		const details = $derived(
 			this.api.endpoints.stackDetails.useQueries(args, {
 				transform: ({ commits, stackInfo }) => ({
@@ -386,7 +382,7 @@ export class StackService {
 			updateStaleProjectState(
 				this.uiState,
 				projectId,
-				stackIdsData,
+				stackIds,
 				allBranches,
 				allCommits.map((c) => c.id),
 				allBaseCommitShas
