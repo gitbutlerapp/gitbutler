@@ -134,14 +134,6 @@
 	<FileName {filePath} hideFilePath={listMode === 'tree'} />
 
 	<div class="file-list-item__details">
-		{#if locked}
-			<Tooltip text={lockText}>
-				<div class="locked">
-					<Icon name="locked-small" color="warning" />
-				</div>
-			</Tooltip>
-		{/if}
-
 		{#if executable}
 			<ExecutableLabel />
 		{/if}
@@ -154,6 +146,14 @@
 			</Tooltip>
 		{:else if fileStatus}
 			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style={fileStatusStyle} />
+		{/if}
+
+		{#if locked}
+			<Tooltip text={lockText}>
+				<div class="locked">
+					<Icon name="locked" />
+				</div>
+			</Tooltip>
 		{/if}
 
 		{#if onresolveclick}
@@ -261,10 +261,13 @@
 		display: flex;
 		flex-grow: 1;
 		align-items: center;
-		gap: 6px;
+		gap: 4px;
 
 		& .locked {
 			display: flex;
+			/* border-radius: var(--radius-l);
+			background-color: var(--clr-theme-warn-soft); */
+			color: var(--clr-scale-warn-60);
 		}
 	}
 </style>

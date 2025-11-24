@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Badge from '$components/Badge.svelte';
+	import Icon from '$components/Icon.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
 	import type { FileStatus } from '$components/file/types';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
@@ -54,7 +55,17 @@
 			class:deleted={status === 'deletion'}
 			class:renamed={status === 'rename'}
 		>
-			<svg viewBox="0 0 11 11" fill="none" class="status-dot">
+			{#if status === 'addition'}
+				<Icon name="file-added" />
+			{:else if status === 'modification'}
+				<Icon name="file-modified" />
+			{:else if status === 'deletion'}
+				<Icon name="file-deleted" />
+			{:else if status === 'rename'}
+				<Icon name="file-moved" />
+			{/if}
+
+			<!-- <svg viewBox="0 0 11 11" fill="none" class="status-dot">
 				<rect
 					x="0.5"
 					y="0.5"
@@ -73,7 +84,7 @@
 				{:else if status === 'rename'}
 					<path d="M7.5 5.5H0.5M7.5 5.5L4.5 2.5M7.5 5.5L4.5 8.5" />
 				{/if}
-			</svg>
+			</svg> -->
 		</div>
 	</Tooltip>
 {:else if style === 'full'}
@@ -93,16 +104,9 @@
 		align-items: center;
 		justify-content: center;
 		width: fit-content;
-	}
-
-	.status-dot {
-		width: 11px;
-		height: 11px;
-	}
-
-	.status-dot path {
-		stroke: var(--file-dot-color);
-		stroke-width: 1.5;
+		width: 16px;
+		height: 16px;
+		color: var(--file-dot-color);
 	}
 
 	/* MODIFIERS */
