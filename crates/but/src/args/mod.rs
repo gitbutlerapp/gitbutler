@@ -9,7 +9,7 @@
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Parser)]
-#[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("GIX_VERSION"))]
+#[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("VERSION").unwrap_or("dev"))]
 pub struct Args {
     /// Enable tracing for debug and performance information printed to stderr.
     #[clap(short = 't', long, action = clap::ArgAction::Count, hide = true, env = "BUT_TRACE")]
