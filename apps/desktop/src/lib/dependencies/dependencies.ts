@@ -162,3 +162,57 @@ export function aggregateFileDependencies(
 
 	return [filePaths, fileDependencies];
 }
+
+/**
+ * Checks if a file has any locked dependencies.
+ *
+ * @param filePath - The path of the file to check.
+ * @param fileDependencies - Array of file dependencies to search through.
+ * @returns `true` if the file has any locks, `false` otherwise.
+ */
+export function isFileLocked(filePath: string, fileDependencies: FileDependencies[]): boolean {
+	const deps = fileDependencies.find((dep) => dep.path === filePath);
+	return deps ? deps.dependencies.some((dep) => dep.locks.length > 0) : false;
+}
+
+/**
+ * Extracts unique commit IDs from a file's dependencies.
+ *
+ * @param filePath - The path of the file to get commit IDs for.
+ * @param fileDependencies - Array of file dependencies to search through.
+ * @returns Array of unique commit IDs that the file depends on.
+ */
+export function getLockedCommitIds(
+	filePath: string,
+	fileDependencies: FileDependencies[]
+): string[] {
+	const deps = fileDependencies.find((dep) => dep.path === filePath);
+	if (!deps) return [];
+
+	const commitIds = new Set<string>();
+	deps.dependencies.forEach((dep) => {
+		dep.locks.forEach((lock) => commitIds.add(lock.commitId));
+	});
+	return Array.from(commitIds);
+}
+
+/**
+ * Extracts unique stack IDs from a file's dependencies.
+ *
+ * @param filePath - The path of the file to get stack IDs for.
+ * @param fileDependencies - Array of file dependencies to search through.
+ * @returns Array of unique stack IDs that the file depends on.
+ */
+export function getLockedStackIds(
+	filePath: string,
+	fileDependencies: FileDependencies[]
+): string[] {
+	const deps = fileDependencies.find((dep) => dep.path === filePath);
+	if (!deps) return [];
+
+	const stackIds = new Set<string>();
+	deps.dependencies.forEach((dep) => {
+		dep.locks.forEach((lock) => stackIds.add(lock.stackId));
+	});
+	return Array.from(stackIds);
+}

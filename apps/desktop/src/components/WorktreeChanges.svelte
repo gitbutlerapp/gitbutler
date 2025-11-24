@@ -103,8 +103,8 @@
 			{projectId}
 			{listMode}
 			{stackId}
-			hideLastFileBorder={mode !== 'unassigned'}
 			{onselect}
+			showLockedIndicator={mode === 'unassigned'}
 		/>
 	</div>
 {/snippet}

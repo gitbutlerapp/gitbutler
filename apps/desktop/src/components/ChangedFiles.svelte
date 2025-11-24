@@ -105,7 +105,6 @@
 				{draggableFiles}
 				{ancestorMostConflictedCommitId}
 				{allowUnselect}
-				hideLastFileBorder={false}
 			/>
 		{:else}
 			<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>

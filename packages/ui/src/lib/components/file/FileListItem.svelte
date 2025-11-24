@@ -47,6 +47,8 @@
 		onresolveclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
+		onlockhover?: () => void;
+		onlockunhover?: () => void;
 	}
 
 	let {
@@ -79,7 +81,9 @@
 		ondblclick,
 		onresolveclick,
 		onkeydown,
-		oncontextmenu
+		oncontextmenu,
+		onlockhover,
+		onlockunhover
 	}: Props = $props();
 
 	const showIndent = $derived(depth && depth > 0);
@@ -134,14 +138,6 @@
 	<FileName {filePath} hideFilePath={listMode === 'tree'} />
 
 	<div class="file-list-item__details">
-		{#if locked}
-			<Tooltip text={lockText}>
-				<div class="locked">
-					<Icon name="locked-small" color="warning" />
-				</div>
-			</Tooltip>
-		{/if}
-
 		{#if executable}
 			<ExecutableLabel />
 		{/if}
@@ -156,6 +152,19 @@
 			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style={fileStatusStyle} />
 		{/if}
 
+		{#if locked}
+			<Tooltip text={lockText}>
+				<div
+					class="locked"
+					role="img"
+					aria-label="File is locked due to dependencies"
+					onmouseenter={() => onlockhover?.()}
+					onmouseleave={() => onlockunhover?.()}
+				>
+					<Icon name="locked" />
+				</div>
+			</Tooltip>
+		{/if}
 		{#if onresolveclick}
 			{#if !conflicted}
 				<Tooltip text="Conflict resolved">
@@ -261,10 +270,13 @@
 		display: flex;
 		flex-grow: 1;
 		align-items: center;
-		gap: 6px;
+		gap: 4px;
 
 		& .locked {
 			display: flex;
+			/* border-radius: var(--radius-l);
+			background-color: var(--clr-theme-warn-soft); */
+			color: var(--clr-scale-warn-60);
 		}
 	}
 </style>

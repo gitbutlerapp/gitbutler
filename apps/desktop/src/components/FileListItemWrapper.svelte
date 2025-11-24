@@ -10,6 +10,8 @@
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { getStackName } from '$lib/stacks/stack';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/core/context';
 	import { FileListItem, FileViewHeader, TestId } from '@gitbutler/ui';
@@ -39,6 +41,9 @@
 		transparent?: boolean;
 		sticky?: boolean;
 		active?: boolean;
+		locked?: boolean;
+		lockedCommitIds?: string[];
+		lockedStackIds?: string[];
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
@@ -64,17 +69,20 @@
 		transparent,
 		focusableOpts,
 		active,
+		locked,
+		lockedCommitIds = [],
+		lockedStackIds = [],
 		onclick,
 		onkeydown,
 		onCloseClick,
 		hideBorder,
 		scrollContainer
 	}: Props = $props();
-
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
+	const stackService = inject(STACK_SERVICE);
 
 	let contextMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
@@ -119,6 +127,35 @@
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
 	const draggableDisabled = $derived(!draggable || showCheckbox);
+
+	const lockText = $derived.by(() => {
+		if (!locked || lockedStackIds.length === 0) return undefined;
+
+		const stacks = stackService.stacks(projectId).result.data ?? [];
+		const stackNames = stacks
+			.filter((stack) => stack.id && lockedStackIds.includes(stack.id))
+			.map(getStackName);
+
+		return stackNames.length === 1
+			? `Depends on changes in:\n '${stackNames[0]}'`
+			: `Depends on changes in:\n ${stackNames.join(', ')}`;
+	});
+
+	function handleLockHover() {
+		lockedCommitIds.forEach((commitId) => {
+			const commitRows = document.querySelectorAll(`[data-commit-id="${commitId}"]`);
+			commitRows.forEach((row) => {
+				row.classList.add('dependency-highlighted');
+			});
+		});
+	}
+
+	function handleLockUnhover() {
+		const highlighted = document.querySelectorAll('.dependency-highlighted');
+		highlighted.forEach((row) => {
+			row.classList.remove('dependency-highlighted');
+		});
+	}
 </script>
 
 <div
@@ -188,7 +225,10 @@
 			draggable={!draggableDisabled}
 			{onkeydown}
 			{hideBorder}
-			locked={false}
+			locked={locked || false}
+			{lockText}
+			onlockhover={handleLockHover}
+			onlockunhover={handleLockUnhover}
 			conflicted={!!conflict}
 			conflictHint={conflict ? conflictEntryHint(conflict) : undefined}
 			{onclick}
