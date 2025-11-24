@@ -27,7 +27,7 @@ pub fn run(stacks: Vec<TuiStack>) -> Result<Vec<String>> {
 #[derive(Debug, Default)]
 pub struct TuiCommit {
     /// The commit title.
-    // TODO: the dead-code here was probbaly meant to be used some day to show commit information, it's just not implemented.
+    // TODO: the dead-code here was probably meant to be used some day to show commit information, it's just not implemented.
     #[expect(dead_code)]
     title: String,
     /// The short SHA of the commit.

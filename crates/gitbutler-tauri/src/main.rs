@@ -170,10 +170,10 @@ fn main() -> anyhow::Result<()> {
                     broadcaster: broadcaster.clone(),
                     instance_by_stack: Default::default(),
                 };
-                let archival = Arc::new(but_feedback::Archival {
+                let archival = but_feedback::Archival {
                     cache_dir: app_cache_dir.clone(),
                     logs_dir: app_log_dir.clone(),
-                });
+                };
                 app_handle.manage(archival);
                 app_handle.manage(app_settings);
                 app_handle.manage(claude);

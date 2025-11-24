@@ -354,9 +354,15 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
 /// Queue the `parent_ids` of the current commit, whose additional information like `current_kind` and `current_index`
 /// are used.
 /// `limit` is used to determine if the tip is NOT supposed to be dropped, with `0` meaning it's depleted.
+/// TODO(1.0): remove `no_duplicate_parents` once no old code is running anymore.
+/// `no_duplicate_parents` is used to avoid 'broken' merge commits that have multiple parents - our own (probably old) code
+/// seems to do that which breaks invariants. Admittedly, this code runs for all merge commits, not just our workspace commits,
+/// but as a matter of fact under many situations we already miss such duplicate connection due to the way the traversal is run,
+/// so this at least makes this apply to the whole graph uniformly.
 #[must_use]
 pub fn queue_parents(
     next: &mut Queue,
+    no_duplicate_parents: &mut gix::hashtable::HashSet,
     parent_ids: &[gix::ObjectId],
     flags: CommitFlags,
     current_sidx: SegmentIndex,
@@ -371,8 +377,12 @@ pub fn queue_parents(
             parent_above: current_sidx,
             at_commit: current_cidx,
         };
+        no_duplicate_parents.clear();
         let limit_per_parent = limit.per_parent(parent_ids.len());
         for pid in parent_ids {
+            if !no_duplicate_parents.insert(*pid) {
+                continue;
+            };
             if next.push_back_exhausted((*pid, flags, instruction, limit_per_parent)) {
                 return true;
             }
