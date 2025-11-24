@@ -254,6 +254,9 @@ export function parserFromExtension(extension: string): Parser | undefined {
 			return javascript({ typescript: true }).language.parser;
 		case 'tsx':
 			return javascript({ typescript: true, jsx: true }).language.parser;
+		case 'jsonc':
+		case 'json5':
+			return javascript().language.parser;
 
 		case 'ahk':
 			return StreamLanguage.define(powerShell).parser;
@@ -307,6 +310,7 @@ export function parserFromExtension(extension: string): Parser | undefined {
 			return StreamLanguage.define(kotlin).parser;
 
 		case 'json':
+		case 'jsonl':
 			return json().language.parser;
 
 		case 'lisp':
