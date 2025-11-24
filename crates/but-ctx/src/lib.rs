@@ -19,7 +19,9 @@ pub mod access;
 ///
 /// With it, all project data and metadata can be accessed.
 /// Further, this ID is URL-safe, but it is *not* for human consumption.
-pub type ProjectHandle = String;
+// TODO: needs actual implementation to make it usable in the `Context` API.
+//       Needs implementation to turn it into a `PathBuf`, and to create it from a `Path`.
+pub struct ProjectHandle(#[expect(dead_code)] String);
 
 /// A context specific to a repository, along with commonly used information to make higher-level functions
 /// more convenient to implement.
