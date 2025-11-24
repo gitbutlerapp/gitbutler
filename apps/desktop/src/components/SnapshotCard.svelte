@@ -234,7 +234,6 @@
 								stackId={undefined}
 								changes={files}
 								listMode="list"
-								hideLastFileBorder={false}
 								onselect={(change) => onDiffClick(change.path)}
 								allowUnselect={false}
 							/>

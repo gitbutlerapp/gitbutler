@@ -249,6 +249,7 @@
 		{listMode}
 		{depth}
 		{active}
+		hideBorder={idx === visibleFiles.length - 1}
 		hideBorder={hideLastFileBorder && idx === visibleFiles.length - 1}
 		draggable={draggableFiles}
 		executable={isExecutable}
