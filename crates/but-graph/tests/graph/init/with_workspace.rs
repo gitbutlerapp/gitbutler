@@ -7,6 +7,7 @@ use but_testsupport::{
     InMemoryRefMetadata, graph_tree, graph_workspace, visualize_commit_graph_all,
 };
 
+use crate::init::utils::add_stack;
 use crate::init::{
     StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev,
     read_only_in_memory_scenario, standard_options,
@@ -5515,6 +5516,143 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
         └── :5:B[📁wt-B-inside]
             └── ·3e01e28 (🏘️)
     ");
+    Ok(())
+}
+
+#[test]
+fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_target()
+-> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/duplicate-workspace-connection-no-target")?;
+    // Note that HEAD isn't actually pointing at origin/main, but twice at main
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f18d244 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\
+    * fafd9d0 (origin/main, main, B, A) init
+    ");
+
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    // Our graph is incapable of showing these two connections due to traversal
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   └── ·f18d244 (⌂|🏘|1)
+    │       └── 📙►:3[1]:A
+    │           └── ►:2[2]:main <> origin/main →:1:
+    │               └── ·fafd9d0 (⌂|🏘|✓|11) ►B
+    └── ►:1[0]:origin/main →:2:
+        └── →:2: (main →:1:)
+    ");
+
+    // Branch should be visible in workspace once.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡📙:3:A on fafd9d0 {1}
+        └── 📙:3:A
+    ");
+
+    // 'create' a new branch by metadata
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
+    ├── ≡📙:4:B on fafd9d0 {2}
+    │   └── 📙:4:B
+    └── ≡📙:3:A on fafd9d0 {1}
+        └── 📙:3:A
+    ");
+
+    // Now pretend it's stacked.
+    meta.data_mut().branches.clear();
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡📙:3:A on fafd9d0 {1}
+        ├── 📙:3:A
+        └── 📙:4:B
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/duplicate-workspace-connection")?;
+    // Note that HEAD isn't actually pointing at origin/main, but twice at main
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f18d244 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\
+    | * 12b42b0 (origin/main) RM
+    |/  
+    * fafd9d0 (main, B, A) init
+    ");
+
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   └── ·f18d244 (⌂|🏘|1)
+    │       └── 📙►:2[1]:A
+    │           └── ►:3[2]:anon:
+    │               └── ·fafd9d0 (⌂|🏘|✓|11) ►B, ►main
+    └── ►:1[0]:origin/main
+        └── 🟣12b42b0 (✓)
+            └── →:2: (A)
+    ");
+
+    // Branch should be visible in workspace once.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
+    └── ≡📙:2:A on fafd9d0 {1}
+        └── 📙:2:A
+    ");
+
+    // 'create' a new branch by metadata
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?;
+    // TODO: make it show both branches, of course.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0");
+
+    // Now pretend it's stacked.
+    meta.data_mut().branches.clear();
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?;
+    // TODO: make it show the stack.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0");
+
+    // With extra-target these cases work as well
+    meta.data_mut().branches.clear();
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, "main"),
+    )?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
+    ├── ≡📙:4:B on fafd9d0 {2}
+    │   └── 📙:4:B
+    └── ≡📙:3:A on fafd9d0 {1}
+        └── 📙:3:A
+    ");
+
+    meta.data_mut().branches.clear();
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, "main"),
+    )?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
+    └── ≡📙:3:A on fafd9d0 {1}
+        ├── 📙:3:A
+        └── 📙:4:B
+    ");
+
     Ok(())
 }
 

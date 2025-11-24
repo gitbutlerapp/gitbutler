@@ -214,6 +214,35 @@ git init special-branches
 
 mkdir ws
 (cd ws
+  git init duplicate-workspace-connection
+  (cd duplicate-workspace-connection
+    # this repo is for reproducing a real double-connection, which isn't always happening but causes issues downstream.
+    commit init
+    git branch A
+    git branch B
+    setup_target_to_match_main
+    create_workspace_commit_once main
+    commit_with_duplicate_parents=$(git cat-file -p  @ | sed '/parent/ { p; }' | git hash-object -t commit --stdin -w)
+    git update-ref refs/heads/gitbutler/workspace "${commit_with_duplicate_parents}"
+
+    git checkout -b soon-origin-main main
+      commit RM
+    git checkout gitbutler/workspace
+    mv .git/refs/heads/soon-origin-main .git/refs/remotes/origin/main
+  )
+
+  git init duplicate-workspace-connection-no-target
+  (cd duplicate-workspace-connection-no-target
+    # like above, but don't let the target be advanced.
+    commit init
+    git branch A
+    git branch B
+    setup_target_to_match_main
+    create_workspace_commit_once main
+    commit_with_duplicate_parents=$(git cat-file -p  @ | sed '/parent/ { p; }' | git hash-object -t commit --stdin -w)
+    git update-ref refs/heads/gitbutler/workspace "${commit_with_duplicate_parents}"
+  )
+
   git init ambiguous-worktrees
   (cd ambiguous-worktrees
     commit M1
