@@ -1201,8 +1201,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Create Branch'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, _args) => [
+				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.HeadSha),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
