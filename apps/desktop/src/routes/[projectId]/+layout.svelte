@@ -206,9 +206,14 @@
 	const head = $derived(headResponse.response);
 
 	// If the head changes, invalidate stacks and details
+	// We need to track the previous head value to avoid infinite loops
+	let previousHead = $state<string | undefined>(undefined);
 	$effect(() => {
-		if (head) {
-			stackService.invalidateStacksAndDetails();
+		if (head && head !== previousHead) {
+			untrack(() => {
+				previousHead = head;
+				stackService.invalidateStacksAndDetails();
+			});
 		}
 	});
 
