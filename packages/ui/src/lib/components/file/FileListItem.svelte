@@ -47,6 +47,8 @@
 		onresolveclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
+		onlockhover?: () => void;
+		onlockunhover?: () => void;
 	}
 
 	let {
@@ -79,7 +81,9 @@
 		ondblclick,
 		onresolveclick,
 		onkeydown,
-		oncontextmenu
+		oncontextmenu,
+		onlockhover,
+		onlockunhover
 	}: Props = $props();
 
 	const showIndent = $derived(depth && depth > 0);
@@ -150,12 +154,17 @@
 
 		{#if locked}
 			<Tooltip text={lockText}>
-				<div class="locked">
+				<div
+					class="locked"
+					role="img"
+					aria-label="File is locked due to dependencies"
+					onmouseenter={() => onlockhover?.()}
+					onmouseleave={() => onlockunhover?.()}
+				>
 					<Icon name="locked" />
 				</div>
 			</Tooltip>
 		{/if}
-
 		{#if onresolveclick}
 			{#if !conflicted}
 				<Tooltip text="Conflict resolved">

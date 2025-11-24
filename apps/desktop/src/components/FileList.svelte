@@ -8,6 +8,12 @@
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
+	import {
+		getLockedCommitIds,
+		getLockedStackIds,
+		isFileLocked
+	} from '$lib/dependencies/dependencies';
+	import { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
 	import { type TreeChange, isExecutableStatus } from '$lib/hunks/change';
@@ -35,9 +41,9 @@
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
 		ancestorMostConflictedCommitId?: string;
-		hideLastFileBorder?: boolean;
 		onselect?: (change: TreeChange) => void;
 		allowUnselect?: boolean;
+		showLockedIndicator?: boolean;
 	};
 
 	const {
@@ -50,9 +56,9 @@
 		conflictEntries,
 		draggableFiles,
 		ancestorMostConflictedCommitId,
-		hideLastFileBorder = true,
 		onselect,
-		allowUnselect = true
+		allowUnselect = true,
+		showLockedIndicator = false
 	}: Props = $props();
 
 	const focusManager = inject(FOCUS_MANAGER);
@@ -60,6 +66,7 @@
 	const aiService = inject(AI_SERVICE);
 	const actionService = inject(ACTION_SERVICE);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
+	const dependencyService = inject(DEPENDENCY_SERVICE);
 
 	const [autoCommit] = actionService.autoCommit;
 	const [branchChanges] = actionService.branchChanges;
@@ -67,6 +74,12 @@
 
 	let editPatchModal: EditPatchConfirmModal | undefined = $state();
 	let selectedFilePath = $state('');
+
+	const filePaths = $derived(changes.map((change) => change.path));
+	const fileDependenciesQuery = $derived(
+		showLockedIndicator ? dependencyService.filesDependencies(projectId, filePaths) : null
+	);
+	const fileDependencies = $derived(fileDependenciesQuery?.result.data || []);
 
 	function showEditPatchConfirmation(filePath: string) {
 		selectedFilePath = filePath;
@@ -240,6 +253,13 @@
 {#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
 	{@const isExecutable = isExecutableStatus(change.status)}
 	{@const selected = idSelection.has(change.path, selectionId)}
+	{@const locked = showLockedIndicator && isFileLocked(change.path, fileDependencies)}
+	{@const lockedCommitIds = showLockedIndicator
+		? getLockedCommitIds(change.path, fileDependencies)
+		: []}
+	{@const lockedStackIds = showLockedIndicator
+		? getLockedStackIds(change.path, fileDependencies)
+		: []}
 	<FileListItemWrapper
 		{selectionId}
 		{change}
@@ -249,8 +269,10 @@
 		{listMode}
 		{depth}
 		{active}
+		{locked}
+		{lockedCommitIds}
+		{lockedStackIds}
 		hideBorder={idx === visibleFiles.length - 1}
-		hideBorder={hideLastFileBorder && idx === visibleFiles.length - 1}
 		draggable={draggableFiles}
 		executable={isExecutable}
 		showCheckbox={showCheckboxes}

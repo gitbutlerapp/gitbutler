@@ -106,6 +106,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <div
 	data-testid={TestId.CommitRow}
+	data-commit-id={args.disableCommitActions ? undefined : args.commitId}
 	bind:this={container}
 	role="button"
 	tabindex="0"
@@ -239,6 +240,24 @@
 			.commit-name {
 				color: var(--clr-theme-err-element);
 			}
+		}
+
+		&:global(.dependency-highlighted) {
+			animation: dependency-pulse 4s ease forwards;
+			transition: background-color var(--transition-fast);
+		}
+	}
+
+	@keyframes dependency-pulse {
+		0% {
+			background-color: transparent;
+		}
+		5% {
+			background-color: var(--clr-scale-warn-80);
+		}
+		80%,
+		100% {
+			background-color: var(--clr-scale-warn-90);
 		}
 	}
 
