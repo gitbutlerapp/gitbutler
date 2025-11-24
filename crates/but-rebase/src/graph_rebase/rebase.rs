@@ -4,11 +4,11 @@ use std::collections::{HashSet, VecDeque};
 
 use crate::{
     ReferenceSpec,
-    graph_rebase::{Editor, StepGraph, StepGraphIndex},
+    graph_rebase::{Editor, Step, StepGraph, StepGraphIndex},
 };
 use anyhow::Result;
 use gix::hashtable::HashMap;
-use petgraph::visit::EdgeRef;
+use petgraph::visit::{EdgeRef, IntoEdgesDirected};
 
 /// Represents the rebase output and the varying degrees of success it had.
 pub struct RebaseResult {
@@ -27,11 +27,66 @@ impl Editor {
 
         let steps_to_pick = order_steps_picking(&self.graph, &self.heads);
 
+        for step in steps_to_pick {
+            // Do the frikkin rebase man!
+        }
+
         todo!()
     }
 }
 
+/// Find the parents of a given node that are commit - in correct parent
+/// ordering.
+///
+/// We do this via a pruned depth first search.
+fn collect_ordered_parents(graph: &StepGraph, target: StepGraphIndex) -> Vec<StepGraphIndex> {
+    let mut potential_parent_edges = graph
+        .edges_directed(target, petgraph::Direction::Outgoing)
+        .collect::<Vec<_>>();
+    potential_parent_edges.sort_by_key(|e| e.weight().order);
+    potential_parent_edges.reverse();
+
+    let mut seen = potential_parent_edges
+        .iter()
+        .map(|e| e.target())
+        .collect::<HashSet<_>>();
+
+    let mut parents = vec![];
+
+    while let Some(candidate) = potential_parent_edges.pop() {
+        if let Step::Pick { .. } = graph[candidate.target()] {
+            parents.push(candidate.target());
+            // Don't persue the children
+            continue;
+        };
+
+        let mut outgoings = graph
+            .edges_directed(candidate.target(), petgraph::Direction::Outgoing)
+            .collect::<Vec<_>>();
+        outgoings.sort_by_key(|e| e.weight().order);
+        outgoings.reverse();
+
+        for edge in outgoings {
+            if seen.insert(edge.target()) {
+                potential_parent_edges.push(edge);
+            }
+        }
+    }
+
+    parents
+}
+
 /// Creates a list of step indicies ordered in the dependency order.
+///
+/// We do this by first doing a breadth-first traversal down from the heads
+/// (which would usually be the `gitbutler/workspace` reference step) in order
+/// to determine which steps are reachable, and what the bottom most steps are.
+///
+/// Then, we do a second traversal up from those bottom most
+/// steps.
+///
+/// This second traversal ensures that all the parents of any given node have
+/// been seen, before traversing it.
 fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<StepGraphIndex> {
     let mut seen = heads.iter().cloned().collect::<HashSet<StepGraphIndex>>();
     let mut heads = heads.to_vec();
@@ -78,6 +133,98 @@ fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<
 
 #[cfg(test)]
 mod test {
+    mod collect_ordered_parents {
+        use std::str::FromStr as _;
+
+        use anyhow::Result;
+
+        use crate::graph_rebase::{Edge, Step, StepGraph, rebase::collect_ordered_parents};
+
+        #[test]
+        fn basic_scenario() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::Pick {
+                id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
+            });
+            // First parent
+            let b = graph.add_node(Step::Pick {
+                id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
+            });
+            // Second parent - is a reference
+            let c = graph.add_node(Step::Reference {
+                refname: "refs/heads/foobar".try_into()?,
+            });
+            // Second parent's first child
+            let d = graph.add_node(Step::Pick {
+                id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
+            });
+            // Second parent's second child
+            let e = graph.add_node(Step::Pick {
+                id: gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
+            });
+            // Third parent
+            let f = graph.add_node(Step::Pick {
+                id: gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
+            });
+
+            // A's parents
+            graph.add_edge(a, b, Edge { order: 0 });
+            graph.add_edge(a, c, Edge { order: 1 });
+            graph.add_edge(a, f, Edge { order: 2 });
+
+            // C's parents
+            graph.add_edge(c, d, Edge { order: 0 });
+            graph.add_edge(c, e, Edge { order: 1 });
+
+            let parents = collect_ordered_parents(&graph, a);
+            assert_eq!(&parents, &[b, d, e, f]);
+
+            Ok(())
+        }
+
+        #[test]
+        fn insertion_order_is_irrelivant() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::Pick {
+                id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
+            });
+            // First parent
+            let b = graph.add_node(Step::Pick {
+                id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
+            });
+            // Second parent - is a reference
+            let c = graph.add_node(Step::Reference {
+                refname: "refs/heads/foobar".try_into()?,
+            });
+            // Second parent's second child
+            let d = graph.add_node(Step::Pick {
+                id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
+            });
+            // Second parent's first child
+            let e = graph.add_node(Step::Pick {
+                id: gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
+            });
+            // Third parent
+            let f = graph.add_node(Step::Pick {
+                id: gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
+            });
+
+            // A's parents
+            graph.add_edge(a, f, Edge { order: 2 });
+            graph.add_edge(a, c, Edge { order: 1 });
+            graph.add_edge(a, b, Edge { order: 0 });
+
+            // C's parents
+            graph.add_edge(c, d, Edge { order: 1 });
+            graph.add_edge(c, e, Edge { order: 0 });
+
+            let parents = collect_ordered_parents(&graph, a);
+            assert_eq!(&parents, &[b, e, d, f]);
+
+            Ok(())
+        }
+    }
+
     mod order_steps_picking {
         use anyhow::Result;
         use std::str::FromStr;
