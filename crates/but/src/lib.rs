@@ -48,6 +48,13 @@ type LegacyProject = gitbutler_project::Project;
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let args: Vec<_> = args.collect();
 
+    // Check if version is requested
+    if args.iter().any(|arg| arg == "--version" || arg == "-V") {
+        let version = option_env!("VERSION").unwrap_or("dev");
+        println!("but {}", version);
+        return Ok(());
+    }
+
     // Check if help is requested with no subcommand
     if args.len() == 1 || args.iter().any(|arg| arg == "--help" || arg == "-h") && args.len() == 2 {
         let mut out = OutputChannel::new_with_pager(OutputFormat::Human);
