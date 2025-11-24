@@ -19,6 +19,7 @@
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
+	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import {
 		createBranchSelection,
@@ -29,7 +30,7 @@
 	} from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { mapResult } from '$lib/state/helpers';
+	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 
 	import { createBranchRef } from '$lib/utils/branch';
@@ -319,6 +320,7 @@
 
 	// Codegen related services and state
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+	const rulesService = inject(RULES_SERVICE);
 	const attachmentService = inject(ATTACHMENT_SERVICE);
 
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
@@ -327,6 +329,7 @@
 	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
 	const isStackActive = $derived(isStackActiveQuery?.response || false);
 	const events = $derived(claudeCodeService.messages({ projectId, stackId }));
+	const hasRulesToClear = $derived(rulesService.hasRulesToClear(projectId, stackId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const attachments = $derived(attachmentService.getByBranch(branchName));
 
@@ -423,12 +426,8 @@
 
 {#snippet commitChangedFiles(commitId: string)}
 	{@const changesQuery = stackService.commitChanges(stableProjectId, commitId)}
-	<ReduxResult
-		projectId={stableProjectId}
-		stackId={stableStackId}
-		result={mapResult(changesQuery.result, (changes) => ({ changes, commitId }))}
-	>
-		{#snippet children({ changes, commitId }, { projectId, stackId })}
+	<ReduxResult projectId={stableProjectId} stackId={stableStackId} result={changesQuery.result}>
+		{#snippet children(changesResult, { projectId, stackId })}
 			{@const commitsQuery = branchName
 				? stackService.commits(projectId, stackId, branchName)
 				: undefined}
@@ -444,11 +443,11 @@
 				noshrink={!!previewKey}
 				grow={!previewKey}
 				persistId={`commit-${commitId}`}
-				changes={changes.changes.filter(
-					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
+				changes={changesResult.changes.filter(
+					(change) => !(change.path in (changesResult.conflictEntries?.entries ?? {}))
 				)}
-				stats={changes.stats}
-				conflictEntries={changes.conflictEntries}
+				stats={changesResult.stats}
+				conflictEntries={changesResult.conflictEntries}
 				{ancestorMostConflictedCommitId}
 				resizer={previewKey
 					? {
@@ -473,7 +472,7 @@
 		branch: createBranchRef(branchName, undefined)
 	})}
 	<ReduxResult projectId={stableProjectId} stackId={stableStackId} result={changesQuery.result}>
-		{#snippet children(changes, { projectId, stackId })}
+		{#snippet children(changesResult, { projectId, stackId })}
 			<ChangedFiles
 				title="Combined Changes"
 				{projectId}
@@ -484,8 +483,8 @@
 				noshrink={!!previewKey}
 				grow={!previewKey}
 				persistId={`branch-${branchName}`}
-				changes={changes.changes}
-				stats={changes.stats}
+				changes={changesResult.changes}
+				stats={changesResult.stats}
 				resizer={previewKey
 					? {
 							persistId: `changed-files-${stackId}`,
@@ -532,16 +531,19 @@
 		}
 	}}
 >
-	<ConfigurableScrollableContainer childrenWrapHeight="100%">
-		<div
-			class="stack-view"
-			class:details-open={isDetailsViewOpen}
-			style:width="{$persistedStackWidth}rem"
-			use:focusable={{ vertical: true, onActive: (value) => (active = value) }}
-			bind:this={stackViewEl}
-		>
-			<ReduxResult projectId={stableProjectId} result={branchesQuery.result}>
-				{#snippet children(branches)}
+	<ReduxResult
+		projectId={stableProjectId}
+		result={combineResults(branchesQuery.result, hasRulesToClear.result)}
+	>
+		{#snippet children([branches, hasRulesToClear])}
+			<ConfigurableScrollableContainer childrenWrapHeight="100%">
+				<div
+					class="stack-view"
+					class:details-open={isDetailsViewOpen}
+					style:width="{$persistedStackWidth}rem"
+					use:focusable={{ vertical: true, onActive: (value) => (active = value) }}
+					bind:this={stackViewEl}
+				>
 					<div class="stack-v" data-fade-on-reorder>
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
 						<StackDragHandle stackId={stableStackId} {projectId} disabled={isCommitting} />
@@ -639,116 +641,117 @@
 							}}
 						/>
 					{/if}
-				{/snippet}
-			</ReduxResult>
-		</div>
-	</ConfigurableScrollableContainer>
+				</div>
+			</ConfigurableScrollableContainer>
 
-	<!-- PREVIEW -->
-	{#if isDetailsViewOpen}
-		{@const selection = laneState.selection.current}
-		<div
-			in:fly={{ y: 20, duration: 200 }}
-			class="details-view deep-shadow"
-			bind:this={compactDiv}
-			data-details={stableStackId}
-			style:right="{DETAILS_RIGHT_PADDING_REM}rem"
-			use:focusable={{ vertical: true }}
-			data-testid={TestId.StackPreview}
-		>
-			{#if stableStackId && selection?.branchName && selection?.codegen}
-				<CodegenMessages
-					projectId={stableProjectId}
-					stackId={stableStackId}
-					{laneId}
-					branchName={selection.branchName}
-					onclose={onclosePreview}
-					onMcpSettings={() => {
-						mcpConfigModal?.open();
-					}}
-					{onAbort}
-					{initialPrompt}
-					events={events.response || []}
-					permissionRequests={permissionRequests.response || []}
-					onSubmit={sendMessage}
-					onChange={(prompt) => messageSender?.setPrompt(prompt)}
-					{isStackActive}
-				/>
-			{:else}
-				<div class="details-view__inner">
-					<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
-					{#if branchName && commitId}
-						{@render commitView(branchName, commitId)}
-					{:else if branchName}
-						{@render branchView(branchName)}
-					{/if}
+			<!-- PREVIEW -->
+			{#if isDetailsViewOpen}
+				{@const selection = laneState.selection.current}
+				<div
+					in:fly={{ y: 20, duration: 200 }}
+					class="details-view deep-shadow"
+					bind:this={compactDiv}
+					data-details={stableStackId}
+					style:right="{DETAILS_RIGHT_PADDING_REM}rem"
+					use:focusable={{ vertical: true }}
+					data-testid={TestId.StackPreview}
+				>
+					{#if stableStackId && selection?.branchName && selection?.codegen}
+						<CodegenMessages
+							projectId={stableProjectId}
+							stackId={stableStackId}
+							{laneId}
+							branchName={selection.branchName}
+							onclose={onclosePreview}
+							onMcpSettings={() => {
+								mcpConfigModal?.open();
+							}}
+							{onAbort}
+							{initialPrompt}
+							events={events.response || []}
+							permissionRequests={permissionRequests.response || []}
+							onSubmit={sendMessage}
+							onChange={(prompt) => messageSender?.setPrompt(prompt)}
+							{isStackActive}
+							{hasRulesToClear}
+						/>
+					{:else}
+						<div class="details-view__inner">
+							<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
+							{#if branchName && commitId}
+								{@render commitView(branchName, commitId)}
+							{:else if branchName}
+								{@render branchView(branchName)}
+							{/if}
 
-					<!-- MIDDLE SECTION: Changed Files (with resizer) -->
-					<div class="changed-files-section" class:expand={!(assignedStackId || selectedFile)}>
-						{#if branchName && commitId}
-							{@render commitChangedFiles(commitId)}
-						{:else if branchName}
-							{@render branchChangedFiles(branchName)}
-						{/if}
-					</div>
+							<!-- MIDDLE SECTION: Changed Files (with resizer) -->
+							<div class="changed-files-section" class:expand={!(assignedStackId || selectedFile)}>
+								{#if branchName && commitId}
+									{@render commitChangedFiles(commitId)}
+								{:else if branchName}
+									{@render branchChangedFiles(branchName)}
+								{/if}
+							</div>
 
-					<!-- BOTTOM SECTION: File Preview (no resizer) -->
-					{#if assignedStackId || selectedFile}
-						<ReduxResult projectId={stableProjectId} result={previewChangeQuery?.result}>
-							{#snippet children(previewChange)}
-								{@const diffQuery = diffService.getDiff(stableProjectId, previewChange)}
-								{@const diffData = diffQuery.response}
+							<!-- BOTTOM SECTION: File Preview (no resizer) -->
+							{#if assignedStackId || selectedFile}
+								<ReduxResult projectId={stableProjectId} result={previewChangeQuery?.result}>
+									{#snippet children(previewChange)}
+										{@const diffQuery = diffService.getDiff(stableProjectId, previewChange)}
+										{@const diffData = diffQuery.response}
 
-								<div class="file-preview-section">
-									{#if assignedStackId}
-										<ConfigurableScrollableContainer
-											zIndex="var(--z-lifted)"
-											bind:viewport={selectionPreviewScrollContainer}
-										>
-											{@render assignedChangePreview(assignedStackId)}
-										</ConfigurableScrollableContainer>
-									{:else if selectedFile}
-										<Drawer persistId="file-preview-drawer-{stableStackId}">
-											{#snippet header()}
-												<FileViewHeader
-													noPaddings
-													transparent
-													filePath={previewChange.path}
-													fileStatus={computeChangeStatus(previewChange)}
-													linesAdded={diffData?.type === 'Patch'
-														? diffData.subject.linesAdded
-														: undefined}
-													linesRemoved={diffData?.type === 'Patch'
-														? diffData.subject.linesRemoved
-														: undefined}
-												/>
-											{/snippet}
-											{@render otherChangePreview(selectedFile)}
-										</Drawer>
-									{/if}
-								</div>
-							{/snippet}
-						</ReduxResult>
+										<div class="file-preview-section">
+											{#if assignedStackId}
+												<ConfigurableScrollableContainer
+													zIndex="var(--z-lifted)"
+													bind:viewport={selectionPreviewScrollContainer}
+												>
+													{@render assignedChangePreview(assignedStackId)}
+												</ConfigurableScrollableContainer>
+											{:else if selectedFile}
+												<Drawer persistId="file-preview-drawer-{stableStackId}">
+													{#snippet header()}
+														<FileViewHeader
+															noPaddings
+															transparent
+															filePath={previewChange.path}
+															fileStatus={computeChangeStatus(previewChange)}
+															linesAdded={diffData?.type === 'Patch'
+																? diffData.subject.linesAdded
+																: undefined}
+															linesRemoved={diffData?.type === 'Patch'
+																? diffData.subject.linesRemoved
+																: undefined}
+														/>
+													{/snippet}
+													{@render otherChangePreview(selectedFile)}
+												</Drawer>
+											{/if}
+										</div>
+									{/snippet}
+								</ReduxResult>
+							{/if}
+						</div>
 					{/if}
 				</div>
-			{/if}
-		</div>
 
-		<!-- DETAILS VIEW WIDTH RESIZER - Only show when details view is open -->
-		{#if compactDiv}
-			<Resizer
-				viewport={compactDiv}
-				persistId="resizer-panel2-${stableStackId}"
-				direction="right"
-				showBorder
-				minWidth={RESIZER_CONFIG.panel2.minWidth}
-				maxWidth={RESIZER_CONFIG.panel2.maxWidth}
-				defaultValue={RESIZER_CONFIG.panel2.defaultValue}
-				syncName="panel2"
-				onWidth={updateDetailsViewWidth}
-			/>
-		{/if}
-	{/if}
+				<!-- DETAILS VIEW WIDTH RESIZER - Only show when details view is open -->
+				{#if compactDiv}
+					<Resizer
+						viewport={compactDiv}
+						persistId="resizer-panel2-${stableStackId}"
+						direction="right"
+						showBorder
+						minWidth={RESIZER_CONFIG.panel2.minWidth}
+						maxWidth={RESIZER_CONFIG.panel2.maxWidth}
+						defaultValue={RESIZER_CONFIG.panel2.defaultValue}
+						syncName="panel2"
+						onWidth={updateDetailsViewWidth}
+					/>
+				{/if}
+			{/if}
+		{/snippet}
+	</ReduxResult>
 </div>
 
 <ReduxResult result={mcpConfigQuery.result} {projectId} {stackId} hideError>

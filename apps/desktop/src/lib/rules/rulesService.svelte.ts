@@ -1,6 +1,5 @@
 import {
 	isAiRule,
-	type AiRule,
 	type CreateRuleRequest,
 	type UpdateRuleRequest,
 	type WorkspaceRule,
@@ -48,36 +47,15 @@ export default class RulesService {
 		);
 	}
 
-	aiRules({ projectId }: { projectId: string }) {
+	hasRulesToClear(projectId: string, stackId?: string) {
 		return this.api.endpoints.listWorkspaceRules.useQuery(
 			{ projectId },
 			{
-				transform: (result): AiRule[] => {
+				transform: (result) => {
 					const allRules = workspaceRulesSelectors.selectAll(result);
-					const rules = allRules.filter(isAiRule);
-					return rules;
-				}
-			}
-		);
-	}
-
-	/**
-	 * Finds all the Codegen rules for a given stack id and returns just the first one.
-	 *
-	 * Currently we only have one session per branch, but we _could_ have more in
-	 * the future.
-	 */
-	aiRuleForStack({ projectId, stackId }: { projectId: string; stackId: string }) {
-		return this.api.endpoints.listWorkspaceRules.useQuery(
-			{ projectId },
-			{
-				transform: (result): AiRule | null => {
-					const allRules = workspaceRulesSelectors.selectAll(result);
-
-					const rules = allRules.filter(
-						(r): r is AiRule => isAiRule(r) && r.action.subject.subject.target.subject === stackId
+					return allRules.some(
+						(r) => isAiRule(r) && r.action.subject.subject.target.subject === stackId
 					);
-					return rules[0] || null;
 				}
 			}
 		);
