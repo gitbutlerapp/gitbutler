@@ -16,7 +16,7 @@
 </script>
 
 <footer class="footer">
-	<div class="banner">
+	<div class="banner" class:no-downloads={!showDownloadLinks}>
 		{#if showDownloadLinks}
 			<div class="banner-content-downloads">
 				<div class="stack-v">
@@ -429,6 +429,10 @@
 
 		.banner {
 			padding: 24px;
+
+			&.no-downloads {
+				display: none;
+			}
 		}
 
 		.banner-title {

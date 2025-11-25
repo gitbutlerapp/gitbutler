@@ -2,6 +2,7 @@
 	import Footer from '$lib/components/marketing/Footer.svelte';
 	import Header from '$lib/components/marketing/Header.svelte';
 	import osIcons from '$lib/data/os-icons.json';
+	import { Icon } from '@gitbutler/ui';
 	import type { Release } from '$lib/types/releases';
 	import type { LatestReleaseBuilds } from '$lib/utils/releaseUtils';
 
@@ -51,6 +52,15 @@
 								hour12: false
 							})}
 						</span>
+						<span> • </span>
+						<a
+							href="https://github.com/gitbutlerapp/gitbutler/commit/{latestNightly.sha}"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="sha-link"
+						>
+							{latestNightly.sha.substring(0, 7)}
+						</a>
 					</div>
 					<p class="nightly-hero__description">
 						Experience GitButler's newest features before anyone else. Nightly builds are
@@ -196,19 +206,39 @@
 					class:expanded={expandedRelease === release.version}
 					onclick={() => toggleRelease(release.version)}
 				>
-					<span class="release-row__version">{release.version}</span>
-					<span class="release-row__date">
-						{new Date(release.released_at).toLocaleDateString('en-GB', {
-							day: 'numeric',
-							month: 'short',
-							year: 'numeric'
-						})},
-						{new Date(release.released_at).toLocaleTimeString('en-GB', {
-							hour: '2-digit',
-							minute: '2-digit',
-							hour12: false
-						})}
-					</span>
+					<div class="release-row__chevron" class:expanded={expandedRelease === release.version}>
+						<Icon name="chevron-right" />
+					</div>
+					<div class="release-row__content">
+						<span class="release-row__version">{release.version}</span>
+						<div class="release-row__info">
+							<span class="release-row__date">
+								{new Date(release.released_at).toLocaleDateString('en-GB', {
+									day: 'numeric',
+									month: 'short',
+									year: 'numeric'
+								})},
+								{new Date(release.released_at).toLocaleTimeString('en-GB', {
+									hour: '2-digit',
+									minute: '2-digit',
+									hour12: false
+								})},
+							</span>
+							<div class="flex items-center gap-2">
+								<span class="release-row__separator">#</span>
+								<a
+									href="https://github.com/gitbutlerapp/gitbutler/commit/{release.sha}"
+									target="_blank"
+									rel="noopener noreferrer"
+									title="View Commit on GitHub"
+									class="sha-link"
+									onclick={(e) => e.stopPropagation()}
+								>
+									{release.sha.substring(0, 7)}
+								</a>
+							</div>
+						</div>
+					</div>
 				</button>
 
 				{#if expandedRelease === release.version}
@@ -436,6 +466,7 @@
 		& h3 {
 			padding: 16px 24px 12px;
 			font-size: 40px;
+			line-height: 1.2;
 			font-family: var(--font-accent);
 		}
 	}
@@ -464,13 +495,59 @@
 		}
 	}
 
+	.release-row__chevron {
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		margin-right: 8px;
+		color: var(--clr-text-3);
+		transition: transform 0.15s ease;
+
+		&.expanded {
+			transform: rotate(90deg);
+		}
+	}
+
+	.release-row__content {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		justify-content: space-between;
+	}
+
 	.release-row__version {
 		font-size: 18px;
+	}
+
+	.release-row__info {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
 	}
 
 	.release-row__date {
 		color: var(--clr-text-2);
 		font-size: 14px;
+	}
+
+	.release-row__separator {
+		color: var(--clr-text-3);
+		font-size: 14px;
+	}
+
+	.sha-link {
+		color: var(--clr-text-3);
+		font-size: 14px;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+		transition: all 0.1s ease;
+
+		&:hover {
+			color: var(--clr-theme-pop-element);
+			text-decoration: underline wavy;
+			text-decoration-color: var(--clr-theme-pop-element);
+		}
 	}
 
 	.release-row__links {
@@ -542,7 +619,18 @@
 		}
 
 		.release-row__button {
+			align-items: flex-start;
 			padding: 12px 16px;
+		}
+
+		.release-row__chevron {
+			margin-top: 4px;
+		}
+
+		.release-row__content {
+			flex-direction: column;
+			align-items: flex-start;
+			width: 100%;
 		}
 
 		.release-row__version {
