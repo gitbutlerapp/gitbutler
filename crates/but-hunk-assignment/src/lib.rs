@@ -287,7 +287,7 @@ pub fn assign(
     );
 
     // Reconcile with hunk locks
-    let lock_assignments = hunk_dependency_assignments(deps)?;
+    let lock_assignments = hunk_dependency_assignments(deps);
     let with_locks = reconcile::assignments(
         &with_requests,
         &lock_assignments,
@@ -412,7 +412,7 @@ fn reconcile_with_worktree_and_locks(
         true,
     );
 
-    let lock_assignments = hunk_dependency_assignments(deps)?;
+    let lock_assignments = hunk_dependency_assignments(deps);
     let with_locks = reconcile::assignments(
         &with_worktree,
         &lock_assignments,
@@ -424,7 +424,7 @@ fn reconcile_with_worktree_and_locks(
     Ok(with_locks)
 }
 
-fn hunk_dependency_assignments(deps: &HunkDependencies) -> Result<Vec<HunkAssignment>> {
+fn hunk_dependency_assignments(deps: &HunkDependencies) -> Vec<HunkAssignment> {
     let mut assignments = vec![];
     for (path, hunk, locks) in &deps.diffs {
         // If there are locks towards more than one stack, this means double locking and the assignment None - the user can resolve this by partial committing.
@@ -451,7 +451,7 @@ fn hunk_dependency_assignments(deps: &HunkDependencies) -> Result<Vec<HunkAssign
         };
         assignments.push(assignment);
     }
-    Ok(assignments)
+    assignments
 }
 
 /// This also generates a UUID for the assignment
