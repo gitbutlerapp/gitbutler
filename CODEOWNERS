@@ -1,3 +1,3 @@
 /CODEOWNERS @krlvi @schacon
-/crates/but-core @krlvi @Byron
-/crates/gitbutler-edit-mode @krlvi @Caleb-T-Owens
+# /crates/but-core @krlvi @Byron
+/crates/gitbutler-edit-mode @krlvi @Byron @Caleb-T-Owens
