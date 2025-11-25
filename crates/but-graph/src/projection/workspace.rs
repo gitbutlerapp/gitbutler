@@ -49,11 +49,17 @@ pub struct Workspace<'graph> {
     pub lower_bound: Option<gix::ObjectId>,
     /// If `lower_bound` is set, this is the segment owning the commit.
     pub lower_bound_segment_id: Option<SegmentIndex>,
-    /// The target to integrate workspace stacks into.
+    /// The target, as identified by a remote tracking branch, to integrate workspace stacks into.
     ///
-    /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
-    /// This happens when there is a local branch checked out without a remote tracking branch.
-    pub target: Option<Target>,
+    /// If `None`, and if `target_commit` is `None`, this is a local workspace that doesn't know when
+    /// possibly pushed branches are considered integrated. This happens when there is a local branch
+    /// checked out without a remote tracking branch.
+    pub target_ref: Option<TargetRef>,
+    /// A commit reachable by [`Self::TargetRef`] which we chose to keep as base. That way we can extend the workspace
+    /// past its computed lower bound.
+    ///
+    /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
+    pub target_commit: Option<TargetCommit>,
     /// The segment index of the extra target as provided for traversal,
     /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
     /// otherwise would be.
@@ -80,7 +86,7 @@ impl Workspace<'_> {
         &self,
         name: &gix::refs::FullNameRef,
     ) -> bool {
-        let Some(t) = self.target.as_ref() else {
+        let Some(t) = self.target_ref.as_ref() else {
             return false;
         };
 
@@ -313,17 +319,41 @@ impl WorkspaceKind {
 
 /// Information about the target reference.
 #[derive(Debug, Clone)]
-pub struct Target {
+pub struct TargetRef {
     /// The name of the target branch, i.e. the branch that all [Stacks](Stack) want to get merged into.
     /// Typically, this is `refs/remotes/origin/main`.
     pub ref_name: gix::refs::FullName,
-    /// The index to the respective segment in the graph.
+    /// The index to the respective segment in the graph, it's the segment with [`Self::ref_name`] as name.
     pub segment_index: SegmentIndex,
-    /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
+    /// The amount of commits that aren't included in any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
 }
 
-impl Target {
+/// Information about the target commit.
+#[derive(Debug, Clone)]
+pub struct TargetCommit {
+    /// The hash of the commit that was once included in the [target ref](TargetRef), and that we remember to expand
+    /// the reach of the workspace.
+    pub commit_id: gix::ObjectId,
+    /// The index to the respective segment in the graph for which [`Self::commit_id`] is the first commit.
+    pub segment_index: SegmentIndex,
+}
+
+impl TargetCommit {
+    /// Find `target_commit_id` in the `graph` and store its segment in this instance, or return `None` if not found.
+    fn from_commit(target_commit_id: gix::ObjectId, graph: &Graph) -> Option<Self> {
+        graph.node_weights().find_map(|s| {
+            s.commits.first().and_then(|c| {
+                (c.id == target_commit_id).then_some(TargetCommit {
+                    commit_id: target_commit_id,
+                    segment_index: s.id,
+                })
+            })
+        })
+    }
+}
+
+impl TargetRef {
     /// Return `None` if `ref_name` wasn't found as segment in `graph`.
     /// This can happen if a reference is configured, but not actually present as reference.
     /// Note that `commits_ahead` isn't set yet, see [`Self::compute_and_set_commits_ahead()`].
@@ -331,13 +361,13 @@ impl Target {
         ref_name: &gix::refs::FullName,
         graph: &Graph,
     ) -> Option<Self> {
-        let target_segment = graph.inner.node_indices().find_map(|n| {
+        let target_segment_sidx = graph.inner.node_indices().find_map(|n| {
             let s = &graph[n];
-            (s.ref_name() == Some(ref_name.as_ref())).then_some(s)
+            (s.ref_name() == Some(ref_name.as_ref())).then_some(s.id)
         })?;
-        Some(Target {
+        Some(TargetRef {
             ref_name: ref_name.to_owned(),
-            segment_index: target_segment.id,
+            segment_index: target_segment_sidx,
             commits_ahead: 0,
         })
     }
@@ -356,7 +386,7 @@ impl Target {
 }
 
 /// Utilities
-impl Target {
+impl TargetRef {
     /// Visit all segments whose commits would be considered 'upstream', or part of the target branch
     /// whose tip is identified with `target_segment`. The `lower_bound_segment_and_generation` is another way
     /// to stop the traversal.
@@ -402,6 +432,7 @@ impl Graph {
     /// only do so on the ones that the user can interact with.
     ///
     /// The [`extra_target`](crate::init::Options::extra_target) options extends the workspace to include that target as base.
+    /// The same is true for (target commit ids)[but_core::ref_metadata::Workspace::target_commit_id].
     /// This affects what we consider to be the part of the workspace.
     /// Typically, that's a previous location of the target segment.
     #[instrument(level = tracing::Level::TRACE, skip(self), err(Debug))]
@@ -465,9 +496,13 @@ impl Graph {
             id: ws_tip_segment.id,
             kind,
             stacks: vec![],
-            target: metadata.as_ref().and_then(|md| {
-                Target::from_ref_name_without_commits_ahead(md.target_ref.as_ref()?, self)
+            target_ref: metadata.as_ref().and_then(|md| {
+                TargetRef::from_ref_name_without_commits_ahead(md.target_ref.as_ref()?, self)
             }),
+            target_commit: metadata
+                .as_ref()
+                .and_then(|md| md.target_commit_id)
+                .and_then(|target_commit_id| TargetCommit::from_commit(target_commit_id, self)),
             extra_target: self.extra_target,
             metadata,
             lower_bound_segment_id: None,
@@ -475,23 +510,28 @@ impl Graph {
         };
 
         let ws_lower_bound = if ws.kind.has_managed_ref() {
-            self.compute_lowest_base(ws.id, ws.target.as_ref(), self.extra_target)
-                .or_else(|| {
-                    // target not available? Try the base of the workspace itself
-                    if self
-                        .inner
+            self.compute_lowest_base(
+                ws.id,
+                ws.target_ref.as_ref(),
+                ws.target_commit.as_ref(),
+                self.extra_target,
+            )
+            .or_else(|| {
+                // target not available? Try the base of the workspace itself
+                if self
+                    .inner
+                    .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)
+                    .count()
+                    == 1
+                {
+                    None
+                } else {
+                    self.inner
                         .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)
-                        .count()
-                        == 1
-                    {
-                        None
-                    } else {
-                        self.inner
-                            .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)
-                            .reduce(|a, b| self.first_merge_base(a, b).unwrap_or(a))
-                            .and_then(|base| self[base].commits.first().map(|c| (c.id, base)))
-                    }
-                })
+                        .reduce(|a, b| self.first_merge_base(a, b).unwrap_or(a))
+                        .and_then(|base| self[base].commits.first().map(|c| (c.id, base)))
+                }
+            })
         } else {
             None
         };
@@ -522,7 +562,8 @@ impl Graph {
                 id,
                 kind: head,
                 stacks: _,
-                target,
+                target_ref,
+                target_commit,
                 metadata,
                 extra_target: _,
                 lower_bound,
@@ -530,7 +571,8 @@ impl Graph {
             } = &mut ws;
             *id = ep_sidx;
             *head = WorkspaceKind::AdHoc;
-            *target = None;
+            *target_ref = None;
+            *target_commit = None;
             *metadata = None;
             ws_tip_segment = &self[ep_sidx];
             *lower_bound = None;
@@ -657,7 +699,7 @@ impl Graph {
             );
         }
 
-        if let Some(target) = ws.target.as_mut() {
+        if let Some(target) = ws.target_ref.as_mut() {
             target.compute_and_set_commits_ahead(self, ws.lower_bound_segment_id);
         }
 
@@ -681,7 +723,8 @@ impl Graph {
     fn compute_lowest_base(
         &self,
         ws_tip: SegmentIndex,
-        target: Option<&Target>,
+        target_ref: Option<&TargetRef>,
+        target_commit: Option<&TargetCommit>,
         additional: impl IntoIterator<Item = SegmentIndex>,
     ) -> Option<(gix::ObjectId, SegmentIndex)> {
         // It's important to not start from the tip, but instead find paths to the merge-base from each stack individually.
@@ -689,7 +732,8 @@ impl Graph {
         let stacks = self.inner.neighbors_directed(ws_tip, Direction::Outgoing);
         let mut count = 0;
         let base = stacks
-            .chain(target.map(|t| t.segment_index))
+            .chain(target_ref.map(|t| t.segment_index))
+            .chain(target_commit.map(|t| t.segment_index))
             .chain(additional)
             .inspect(|_| count += 1)
             .reduce(|a, b| self.first_merge_base(a, b).unwrap_or(a))?;
@@ -1144,7 +1188,7 @@ impl Workspace<'_> {
                 "⌂",
             ),
         };
-        let target = self.target.as_ref().map_or_else(
+        let target = self.target_ref.as_ref().map_or_else(
             || "!".to_string(),
             |t| {
                 format!(
@@ -1177,7 +1221,7 @@ impl std::fmt::Debug for Workspace<'_> {
             .field("kind", &self.kind)
             .field("stacks", &self.stacks)
             .field("metadata", &self.metadata)
-            .field("target", &self.target)
+            .field("target_ref", &self.target_ref)
             .field("extra_target", &self.extra_target)
             .finish()
     }

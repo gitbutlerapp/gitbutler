@@ -57,6 +57,11 @@ mod with_workspace {
         insta::assert_snapshot!(graph_workspace(&ws), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43");
 
         // …we chose to work with an open-ended workspace just to struggle more.
+        meta.data_mut()
+            .default_target
+            .as_mut()
+            .expect("always set to have workspace")
+            .sha = gix::hash::Kind::Sha1.null();
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"

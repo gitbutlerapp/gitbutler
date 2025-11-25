@@ -441,7 +441,8 @@ pub(crate) mod function {
             id,
             kind,
             stacks,
-            target,
+            target_ref,
+            target_commit,
             extra_target,
             metadata,
             lower_bound: _,
@@ -471,7 +472,8 @@ pub(crate) mod function {
                 .rev()
                 .map(|stack| branch::Stack::try_from_graph_stack(stack, repo))
                 .collect::<anyhow::Result<_>>()?,
-            target,
+            target_ref,
+            target_commit,
             is_managed_ref: metadata.is_some(),
             is_managed_commit,
             ancestor_workspace_commit,

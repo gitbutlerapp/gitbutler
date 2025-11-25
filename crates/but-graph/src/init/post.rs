@@ -6,6 +6,7 @@ use but_core::{
     ref_metadata::StackKind::{Applied, AppliedAndUnapplied},
 };
 use gix::{ObjectId, prelude::ObjectIdExt, reference::Category};
+use itertools::Itertools;
 use petgraph::{Direction, graph::NodeIndex, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
 
@@ -465,7 +466,9 @@ impl Graph {
     fn candidates_for_independent_branches_in_workspace(
         &self,
         ws_sidx: SegmentIndex,
-        target: Option<&crate::projection::Target>,
+        target_ref: Option<SegmentIndex>,
+        target_commit_sidx: Option<SegmentIndex>,
+        ws_low_bound: Option<SegmentIndex>,
         ws_stacks: &[crate::projection::Stack],
         repo: &OverlayRepo<'_>,
     ) -> anyhow::Result<Vec<SegmentIndex>> {
@@ -486,7 +489,7 @@ impl Graph {
                     .filter_map(|s| {
                         // This rule means that if there is no target, we'd want to put new independent stacks
                         // onto segments which then are ambiguous so they get pulled out.
-                        if target.is_some() {
+                        if target_ref.is_some() {
                             return None;
                         }
                         // It's a very specialised filter… will that lead to strange behaviour later?
@@ -506,9 +509,15 @@ impl Graph {
         out.dedup_by_key(|t| t.1.id);
 
         let mut out: Vec<_> = out.into_iter().map(|t| t.0).collect();
-        if let Some(extra_target) = self.extra_target {
+        for extra_sidx in self
+            .extra_target
+            .into_iter()
+            .chain(target_commit_sidx)
+            .chain(ws_low_bound)
+            .dedup()
+        {
             out.extend(
-                self.first_commit_or_find_along_first_parent(extra_target)
+                self.first_commit_or_find_along_first_parent(extra_sidx)
                     .and_then(|(c, sidx)| {
                         (!out.contains(&sidx) && c.flags.contains(CommitFlags::InWorkspace))
                             .then_some(sidx)
@@ -516,7 +525,7 @@ impl Graph {
             );
         }
 
-        match target {
+        match target_ref {
             None => {
                 let Some(commit_with_refs) =
                     self[ws_sidx].commits.first().filter(|c| !c.refs.is_empty())
@@ -543,8 +552,8 @@ impl Graph {
                      - this shouldn't be possible"
                 )
             }
-            Some(target) => {
-                let target_rtb = &self[target.segment_index];
+            Some(target_sidx) => {
+                let target_rtb = &self[target_sidx];
                 out.extend(
                     self.first_commit_or_find_along_first_parent(target_rtb.id)
                         .and_then(|(c, sidx)| {
@@ -571,7 +580,15 @@ impl Graph {
         refs_by_id: &RefsById,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
-        let Some((ws_sidx, ws_stacks, ws_data, ws_target, ws_low_bound_sidx)) = self
+        let Some((
+            ws_sidx,
+            ws_stacks,
+            ws_data,
+            ws_target_ref,
+            ws_target_commit,
+            ws_low_bound_in_ws_sidx,
+            ws_low_bound,
+        )) = self
             .to_workspace_inner(workspace::Downgrade::Disallow)
             .ok()
             .and_then(|mut ws| {
@@ -583,7 +600,15 @@ impl Graph {
                             .flat_map(|s| s.segments.iter().map(|s| s.id))
                             .any(|sid| sid == *lb_sidx)
                     });
-                    (ws.id, ws.stacks, md, ws.target, lower_bound_if_in_workspace)
+                    (
+                        ws.id,
+                        ws.stacks,
+                        md,
+                        ws.target_ref,
+                        ws.target_commit,
+                        lower_bound_if_in_workspace,
+                        ws.lower_bound_segment_id,
+                    )
                 })
             })
         else {
@@ -593,7 +618,9 @@ impl Graph {
         // Setup independent stacks, first by looking at potential bases.
         let candidates = self.candidates_for_independent_branches_in_workspace(
             ws_sidx,
-            ws_target.as_ref(),
+            ws_target_ref.as_ref().map(|t| t.segment_index),
+            ws_target_commit.as_ref().map(|t| t.segment_index),
+            ws_low_bound,
             &ws_stacks,
             repo,
         )?;
@@ -872,7 +899,7 @@ impl Graph {
         // What this really does is to pass ownership of the base commit from a named segment to an unnamed one,
         // as all algorithms kind of rely on it.
         // So if this ever becomes a problem, we can also try to adjust said algorithms downstream.
-        if let Some(low_bound_segment_id) = ws_low_bound_sidx
+        if let Some(low_bound_segment_id) = ws_low_bound_in_ws_sidx
             && self[low_bound_segment_id].ref_info.is_some()
         {
             self.split_segment(

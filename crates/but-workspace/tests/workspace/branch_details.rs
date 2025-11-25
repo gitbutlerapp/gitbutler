@@ -265,15 +265,16 @@ mod with_workspace {
     #[derive(Default)]
     struct WorkspaceRefMetadataStore {
         workspace: Workspace,
-        branches: Vec<(FullName, but_core::ref_metadata::Branch)>,
+        branches: Vec<(FullName, Branch)>,
     }
 
     impl WorkspaceRefMetadataStore {
         pub fn with_target(mut self, short_name: &str) -> Self {
-            self.workspace = but_core::ref_metadata::Workspace {
+            self.workspace = Workspace {
                 ref_info: Default::default(),
                 stacks: vec![],
                 target_ref: Some(refname(short_name)),
+                target_commit_id: None,
                 push_remote: None,
             };
             self

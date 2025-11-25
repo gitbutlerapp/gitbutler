@@ -638,6 +638,8 @@ EOF
   git init gitlab-case2
   (cd gitlab-case2
     commit M1
+      git branch A
+      git branch B
     # short link to the workspace, connects to 'main'
     git checkout -b main-to-workspace
       commit Ws1

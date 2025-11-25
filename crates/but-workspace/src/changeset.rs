@@ -59,7 +59,7 @@ impl RefInfo {
         expensive: bool,
     ) -> anyhow::Result<()> {
         let topmost_target_sidx = self
-            .target
+            .target_ref
             .as_ref()
             .map(|t| t.segment_index)
             .or(self.extra_target);

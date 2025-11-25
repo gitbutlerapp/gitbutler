@@ -164,20 +164,6 @@ impl VirtualBranchesTomlMetadata {
     }
 }
 
-/// Utilities
-// TODO: remove this once `Target` in `but_core::ref_metadata` has a optional field for the head position to use.
-impl VirtualBranchesTomlMetadata {
-    /// Return default options that limit single-branch commits to a sane amount (instead of traversing the whole graph),
-    /// and configure other values that require our meta-data to guide the traversal.
-    #[cfg(feature = "legacy")]
-    pub fn to_graph_options(&self) -> but_graph::init::Options {
-        but_graph::init::Options {
-            extra_target_commit_id: self.data().default_target.as_ref().map(|t| t.sha),
-            ..but_graph::init::Options::limited()
-        }
-    }
-}
-
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
 impl Drop for VirtualBranchesTomlMetadata {
     fn drop(&mut self) {
@@ -564,12 +550,13 @@ fn branch_from_ref_name(ref_name: &FullNameRef) -> anyhow::Result<RemoteRefname>
 
 impl VirtualBranchesTomlMetadata {
     fn workspace_from_data(data: &VirtualBranches) -> Workspace {
-        let (target_branch, push_remote) = data
+        let (target_branch, target_commit_id, push_remote) = data
             .default_target
             .as_ref()
             .map(|target| {
                 (
                     gix::refs::FullName::try_from(target.branch.to_string()).ok(),
+                    (!target.sha.is_null()).then_some(target.sha),
                     target.push_remote_name.clone(),
                 )
             })
@@ -608,6 +595,7 @@ impl VirtualBranchesTomlMetadata {
                 })
                 .collect(),
             target_ref: target_branch,
+            target_commit_id,
             push_remote,
         }
     }

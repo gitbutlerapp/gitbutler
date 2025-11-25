@@ -7,7 +7,7 @@ use but_testsupport::{
     InMemoryRefMetadata, graph_tree, graph_workspace, visualize_commit_graph_all,
 };
 
-use crate::init::utils::add_stack;
+use crate::init::utils::{add_stack, add_workspace_with_target};
 use crate::init::{
     StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev,
     read_only_in_memory_scenario, standard_options,
@@ -2040,6 +2040,19 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
                         └── →:6: (A)
     ");
 
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:DETACHED <> ✓!
+    └── ≡:0:anon:
+        ├── :0:anon:
+        │   ├── ·d0df794 (✓)
+        │   ├── ·09c6e08 (✓)
+        │   └── ·7b9f260 (✓)
+        └── :5:main
+            ├── ·4b3e5a8 (🏘️|✓)
+            ├── ·34d0715 (🏘️|✓)
+            └── ·eb5f731 (🏘️|✓)
+    ");
+
     // However, when choosing an initially unknown branch, it will get the extra target tip settings.
     let graph = Graph::from_commit_traversal(
         id,
@@ -2082,6 +2095,19 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
                     └── ·7b9f260 (⌂|✓|1)
                         ├── →:6: (main)
                         └── →:5: (A)
+    ");
+
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:DETACHED <> ✓!
+    └── ≡:0:anon:
+        ├── :0:anon:
+        │   ├── ·d0df794 (✓)
+        │   ├── ·09c6e08 (✓)
+        │   └── ·7b9f260 (✓)
+        └── :6:main
+            ├── ·4b3e5a8 (🏘️|✓)
+            ├── ·34d0715 (🏘️|✓)
+            └── ·eb5f731 (🏘️|✓)
     ");
 
     Ok(())
@@ -2944,7 +2970,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     | * bce0c5e (main) M2
     * | 1126587 (main-to-workspace) Ws1
     |/  
-    * 3183e43 M1
+    * 3183e43 (B, A) M1
     ");
 
     add_workspace(&mut meta);
@@ -2960,7 +2986,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     │               ├── ►:4[4]:main-to-workspace
     │               │   └── ·1126587 (⌂|🏘|✓)
     │               │       └── ►:6[6]:anon:
-    │               │           └── ·3183e43 (⌂|🏘|✓|1)
+    │               │           └── ·3183e43 (⌂|🏘|✓|1) ►A, ►B
     │               └── ►:5[4]:long-main-to-workspace
     │                   ├── ·b39c7ec (⌂|🏘|✓)
     │                   ├── ·2983a97 (⌂|🏘|✓)
@@ -2999,7 +3025,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     └── ≡:0:main
         └── :0:main
             ├── ·bce0c5e (🏘️|✓)
-            └── ·3183e43 (🏘️|✓)
+            └── ·3183e43 (🏘️|✓) ►A, ►B
     ");
 
     // Now the target looks for the entrypoint, which is the workspace, something it can do more easily.
@@ -3013,7 +3039,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     │               ├── ►:3[4]:main-to-workspace
     │               │   └── ·1126587 (⌂|🏘|✓|1)
     │               │       └── ►:6[6]:anon:
-    │               │           └── ·3183e43 (⌂|🏘|✓|1)
+    │               │           └── ·3183e43 (⌂|🏘|✓|1) ►A, ►B
     │               └── ►:4[4]:long-main-to-workspace
     │                   ├── ·b39c7ec (⌂|🏘|✓|1)
     │                   ├── ·2983a97 (⌂|🏘|✓|1)
@@ -3048,6 +3074,54 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     ");
     // Everything is integrated.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣17 on c9120f1");
+
+    // With a lower base for the target, we see more.
+    let target_commit_id = repo.rev_parse_single("3183e43")?.detach();
+    add_workspace_with_target(&mut meta, target_commit_id);
+
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣17 on 3183e43
+    └── ≡:3:workspace on 3183e43
+        ├── :3:workspace
+        │   └── ·c9120f1 (🏘️|✓)
+        └── :4:main-to-workspace
+            └── ·1126587 (🏘️|✓)
+    ");
+
+    // We can also add independent virtual branches to that new base.
+    add_stack(&mut meta, 3, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 4, "B", StackState::InWorkspace);
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣17 on 3183e43
+    ├── ≡📙:11:B on 3183e43 {4}
+    │   └── 📙:11:B
+    ├── ≡📙:10:A on 3183e43 {3}
+    │   └── 📙:10:A
+    └── ≡:3:workspace on 3183e43
+        ├── :3:workspace
+        │   └── ·c9120f1 (🏘️|✓)
+        └── :4:main-to-workspace
+            └── ·1126587 (🏘️|✓)
+    ");
+
+    // We can also add stacked virtual branches to that new base.
+    meta.data_mut().branches.clear();
+    add_workspace_with_target(&mut meta, target_commit_id);
+    add_stack_with_segments(&mut meta, 3, "A", StackState::InWorkspace, &["B"]);
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣17 on 3183e43
+    ├── ≡📙:10:A on 3183e43 {3}
+    │   ├── 📙:10:A
+    │   └── 📙:11:B
+    └── ≡:3:workspace on 3183e43
+        ├── :3:workspace
+        │   └── ·c9120f1 (🏘️|✓)
+        └── :4:main-to-workspace
+            └── ·1126587 (🏘️|✓)
+    ");
     Ok(())
 }
 
@@ -5253,8 +5327,8 @@ fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
     .validated()?;
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 1ee1e34
-    └── ≡📙:3:A <> origin/A →:4:⇣1 on 1ee1e34 {1}
-        └── 📙:3:A <> origin/A →:4:⇣1
+    └── ≡📙:8:A <> origin/A →:4:⇣1 on 1ee1e34 {1}
+        └── 📙:8:A <> origin/A →:4:⇣1
             └── 🟣2181501
     ");
 
@@ -5284,8 +5358,8 @@ fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<(
     .validated()?;
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 081bae9
-    └── ≡📙:3:A <> origin/A →:4:⇣1 on 081bae9 {1}
-        └── 📙:3:A <> origin/A →:4:⇣1
+    └── ≡📙:5:A <> origin/A →:4:⇣1 on 081bae9 {1}
+        └── 📙:5:A <> origin/A →:4:⇣1
             └── 🟣197ddce
     ");
 
@@ -5594,33 +5668,42 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
     │   └── ·f18d244 (⌂|🏘|1)
-    │       └── 📙►:2[1]:A
-    │           └── ►:3[2]:anon:
-    │               └── ·fafd9d0 (⌂|🏘|✓|11) ►B, ►main
-    └── ►:1[0]:origin/main
+    │       └── 📙►:3[1]:A
+    │           └── ►:2[2]:main <> origin/main →:1:
+    │               └── ·fafd9d0 (⌂|🏘|✓|11) ►B
+    └── ►:1[0]:origin/main →:2:
         └── 🟣12b42b0 (✓)
-            └── →:2: (A)
+            └── →:2: (main →:1:)
     ");
 
     // Branch should be visible in workspace once.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-    └── ≡📙:2:A on fafd9d0 {1}
-        └── 📙:2:A
+    └── ≡📙:3:A on fafd9d0 {1}
+        └── 📙:3:A
     ");
 
     // 'create' a new branch by metadata
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?;
-    // TODO: make it show both branches, of course.
-    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
+    ├── ≡📙:4:B on fafd9d0 {2}
+    │   └── 📙:4:B
+    └── ≡📙:3:A on fafd9d0 {1}
+        └── 📙:3:A
+    ");
 
     // Now pretend it's stacked.
     meta.data_mut().branches.clear();
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
     let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?;
-    // TODO: make it show the stack.
-    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
+    └── ≡📙:3:A on fafd9d0 {1}
+        ├── 📙:3:A
+        └── 📙:4:B
+    ");
 
     // With extra-target these cases work as well
     meta.data_mut().branches.clear();

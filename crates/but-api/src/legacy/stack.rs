@@ -39,7 +39,6 @@ pub mod create_reference {
     }
 }
 
-// TODO: make this non-legacy as soon as `project_id` is a `&but-ctx::Context`.
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn create_reference(

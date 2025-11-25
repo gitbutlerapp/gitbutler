@@ -110,11 +110,11 @@ pub struct Target {
 
 impl Target {
     fn for_ui(
-        but_graph::projection::Target {
+        but_graph::projection::TargetRef {
             ref_name,
             segment_index: _,
             commits_ahead,
-        }: but_graph::projection::Target,
+        }: but_graph::projection::TargetRef,
         remote_names: &gix::remote::Names,
     ) -> anyhow::Result<Self> {
         Ok(Target {
@@ -191,7 +191,8 @@ impl inner::RefInfo {
         crate::RefInfo {
             workspace_ref_info,
             stacks,
-            target,
+            target_ref,
+            target_commit: _,
             extra_target: _,
             lower_bound: _,
             is_managed_ref,
@@ -209,7 +210,7 @@ impl inner::RefInfo {
         Ok(inner::RefInfo {
             workspace_ref: workspace_ref_info.map(|ri| ri.ref_name.into()),
             stacks,
-            target: target
+            target: target_ref
                 .map(|t| Target::for_ui(t, &remote_names))
                 .transpose()?,
             is_managed_ref,

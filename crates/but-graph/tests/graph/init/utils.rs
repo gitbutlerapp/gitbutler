@@ -55,6 +55,23 @@ pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
     );
 }
 
+pub fn add_workspace_with_target(
+    meta: &mut VirtualBranchesTomlMetadata,
+    target_commit: impl Into<gix::ObjectId>,
+) {
+    add_stack(
+        meta,
+        usize::MAX,
+        "definitely-outside-of-the-workspace-just-to-have-it",
+        StackState::Inactive,
+    );
+    meta.data_mut()
+        .default_target
+        .as_mut()
+        .expect("set in prior call")
+        .sha = target_commit.into();
+}
+
 pub fn remove_target(meta: &mut VirtualBranchesTomlMetadata) {
     let mut ws_md = meta
         .workspace(
@@ -116,12 +133,14 @@ pub fn add_stack_with_segments(
     stack.id = stack_id;
     meta.data_mut().branches.insert(stack_id, stack);
     // Assure we have a target set.
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "does not matter".to_string(),
-        sha: gix::hash::Kind::Sha1.null(),
-        push_remote_name: None,
-    });
+    if meta.data_mut().default_target.is_none() {
+        meta.data_mut().default_target = Some(Target {
+            branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+            remote_url: "does not matter".to_string(),
+            sha: gix::hash::Kind::Sha1.null(),
+            push_remote_name: None,
+        });
+    }
     stack_id
 }
 
