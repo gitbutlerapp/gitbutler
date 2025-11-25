@@ -58,6 +58,7 @@ pub use ref_info::function::{head_info, ref_info};
 mod branch_details;
 pub use branch_details::{branch_details, local_commits_for_branch};
 use but_graph::SegmentIndex;
+use but_graph::projection::TargetCommit;
 
 /// Information about refs, as seen from within or outsie of a workspace.
 ///
@@ -79,7 +80,12 @@ pub struct RefInfo {
     ///
     /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
     /// This happens when there is a local branch checked out without a remote tracking branch.
-    pub target: Option<but_graph::projection::TargetRef>,
+    pub target_ref: Option<but_graph::projection::TargetRef>,
+    /// A commit reachable by [`Self::TargetRef`] which we chose to keep as base. That way we can extend the workspace
+    /// past its computed lower bound.
+    ///
+    /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
+    pub target_commit: Option<TargetCommit>,
     /// The segment index of the extra target as provided for traversal,
     /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
     /// otherwise would be.

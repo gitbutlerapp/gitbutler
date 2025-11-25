@@ -1170,7 +1170,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             },
         ],
         target_ref: "refs/remotes/origin/sub-name/main",
-        target_commit_id: Sha1(0000000000000000000000000000000000000000),
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -1208,7 +1208,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             },
         ],
         target_ref: "refs/remotes/origin/sub-name/main",
-        target_commit_id: Sha1(0000000000000000000000000000000000000000),
+        target_commit_id: None,
         push_remote: None,
     }
     "#);

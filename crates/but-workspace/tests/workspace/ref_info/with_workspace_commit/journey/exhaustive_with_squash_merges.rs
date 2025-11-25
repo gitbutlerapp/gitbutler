@@ -52,7 +52,8 @@ fn j01_unborn() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: None,
+            target_ref: None,
+            target_commit: None,
             extra_target: None,
             lower_bound: None,
             is_managed_ref: false,
@@ -106,7 +107,8 @@ fn j02_first_commit() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: None,
+            target_ref: None,
+            target_commit: None,
             extra_target: None,
             lower_bound: None,
             is_managed_ref: false,
@@ -164,7 +166,8 @@ However, without an official workspace it still won't be acting as a target.
                     ],
                 },
             ],
-            target: None,
+            target_ref: None,
+            target_commit: None,
             extra_target: None,
             lower_bound: None,
             is_managed_ref: false,
@@ -216,7 +219,8 @@ However, without an official workspace it still won't be acting as a target.
                     ],
                 },
             ],
-            target: None,
+            target_ref: None,
+            target_commit: None,
             extra_target: Some(
                 NodeIndex(0),
             ),
@@ -257,13 +261,19 @@ fn j04_create_workspace() -> anyhow::Result<()> {
                 },
             ),
             stacks: [],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -329,13 +339,19 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -400,13 +416,19 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -461,13 +483,19 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -534,13 +562,19 @@ fn j07_push_commit() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -613,13 +647,19 @@ Create a new local commit right after the previous pushed one
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -690,13 +730,19 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -774,13 +820,19 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 2,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -871,13 +923,19 @@ The remote was re-used and merged once more with more changes.
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 5,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(adc9f0cd07bd0a09363ac6536291bf821ca845c4),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -1007,13 +1065,19 @@ A new multi-segment stack is created without remote and squash merged locally.
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 7,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(8965172e9a9c1649a2f87e645ae42ffb7f11680c),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,

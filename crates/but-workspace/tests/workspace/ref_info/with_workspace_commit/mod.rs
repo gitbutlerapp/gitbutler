@@ -79,13 +79,19 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -143,13 +149,19 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -211,13 +223,19 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -304,13 +322,19 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -412,13 +436,19 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -506,13 +536,19 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -596,13 +632,19 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(a455fe761e758d0b6c0aa8966d91f2de32fa7bfc),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -677,13 +719,19 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -766,13 +814,19 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -841,13 +895,19 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -928,13 +988,19 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -1055,13 +1121,19 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1210,13 +1282,19 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -1353,13 +1431,19 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -1453,13 +1537,19 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1529,13 +1619,19 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1624,13 +1720,19 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1706,13 +1808,19 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1810,13 +1918,19 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1901,13 +2015,19 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1996,13 +2116,19 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -2093,13 +2219,19 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -2191,13 +2323,19 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -2272,13 +2410,19 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -2376,13 +2520,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -2458,13 +2608,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -2539,13 +2695,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(0),
             },
         ),
         extra_target: Some(
@@ -2626,13 +2788,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -2697,7 +2865,8 @@ fn disjoint() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: None,
+        target_ref: None,
+        target_commit: None,
         extra_target: Some(
             NodeIndex(1),
         ),
@@ -2821,13 +2990,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -2934,13 +3109,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -3047,13 +3228,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -3161,13 +3348,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -3234,13 +3427,19 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -3293,13 +3492,19 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(0),
             },
         ),
         extra_target: Some(
@@ -3333,13 +3538,19 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
             },
         ),
         stacks: [],
-        target: Some(
+        target_ref: Some(
             TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -3389,7 +3600,8 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: None,
+        target_ref: None,
+        target_commit: None,
         extra_target: Some(
             NodeIndex(2),
         ),

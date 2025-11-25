@@ -65,13 +65,19 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -141,13 +147,19 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 2,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -221,13 +233,19 @@ fn remote_diverged() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -307,13 +325,19 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 2,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(085089cbf8a35fa549a5d50bd74930a7fddf970d),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: Some(
@@ -381,13 +405,19 @@ fn remote_behind() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -462,13 +492,19 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 1,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(a670cd571f1a6946a1a87d107e909445aa0fe90d),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: Some(
@@ -538,13 +574,19 @@ fn remote_ahead() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -614,13 +656,19 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
+            target_ref: Some(
                 TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 1,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(a62b0de7d50898e05c6cfa5b56d268aa5be17087),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: Some(
