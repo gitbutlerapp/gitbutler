@@ -75,7 +75,7 @@
 </tspan>
     <tspan x="10px" y="514px"><tspan class="fg-yellow">Editing Commits</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="532px"><tspan>  </tspan><tspan class="fg-green">rub          </tspan><tspan>Combines two entities together to perform an operation</tspan>
+    <tspan x="10px" y="532px"><tspan>  </tspan><tspan class="fg-green">rub          </tspan><tspan>Combines two entities together to perform an operation like ame…</tspan>
 </tspan>
     <tspan x="10px" y="550px"><tspan>  </tspan><tspan class="fg-green">describe     </tspan><tspan>Edit the commit message of the specified commit</tspan>
 </tspan>

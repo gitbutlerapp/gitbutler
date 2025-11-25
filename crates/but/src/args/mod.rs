@@ -110,7 +110,7 @@ pub enum Subcommands {
         review: bool,
     },
 
-    /// Combines two entities together to perform an operation.
+    /// Combines two entities together to perform an operation like amend, squash, assign, or move.
     ///
     /// The `rub` command is a simple verb that helps you do a number of editing
     /// operations by doing combinations of two things.

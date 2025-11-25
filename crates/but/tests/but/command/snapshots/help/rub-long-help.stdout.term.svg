@@ -18,7 +18,7 @@
   <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
 
   <text xml:space="preserve" class="container fg">
-    <tspan x="10px" y="28px"><tspan>Combines two entities together to perform an operation.</tspan>
+    <tspan x="10px" y="28px"><tspan>Combines two entities together to perform an operation like amend, squash, assign, or move.</tspan>
 </tspan>
     <tspan x="10px" y="46px">
 </tspan>
