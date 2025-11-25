@@ -164,20 +164,6 @@ impl VirtualBranchesTomlMetadata {
     }
 }
 
-/// Utilities
-// TODO: remove this once `Target` in `but_core::ref_metadata` has a optional field for the head position to use.
-impl VirtualBranchesTomlMetadata {
-    /// Return default options that limit single-branch commits to a sane amount (instead of traversing the whole graph),
-    /// and configure other values that require our meta-data to guide the traversal.
-    #[cfg(feature = "legacy")]
-    pub fn to_graph_options(&self) -> but_graph::init::Options {
-        but_graph::init::Options {
-            extra_target_commit_id: self.data().default_target.as_ref().map(|t| t.sha),
-            ..but_graph::init::Options::limited()
-        }
-    }
-}
-
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
 impl Drop for VirtualBranchesTomlMetadata {
     fn drop(&mut self) {
