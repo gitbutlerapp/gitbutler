@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import MainViewport from '$components/MainViewport.svelte';
 	import MultiStackView from '$components/MultiStackView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -64,7 +65,7 @@
 	{#snippet middle()}
 		<ReduxResult {projectId} result={stacksQuery?.result}>
 			{#snippet loading()}
-				<div class="stacks-view-skeleton"></div>
+				<FullviewLoading />
 			{/snippet}
 			{#snippet children(stacks, { projectId })}
 				<MultiStackView {projectId} {stacks} {selectionId} {scrollToStackId} {onScrollComplete} />
@@ -72,12 +73,3 @@
 		</ReduxResult>
 	{/snippet}
 </MainViewport>
-
-<style>
-	.stacks-view-skeleton {
-		width: 100%;
-		height: 100%;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
-	}
-</style>
