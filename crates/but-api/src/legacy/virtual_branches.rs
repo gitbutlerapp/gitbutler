@@ -205,7 +205,14 @@ pub fn set_base_branch(
     if let Some(push_remote) = push_remote {
         gitbutler_branch_actions::set_target_push_remote(&ctx, &push_remote)?;
     }
-    crate::legacy::fixup::reconcile_in_workspace_state_of_vb_toml(&mut ctx);
+    {
+        let mut guard = ctx.exclusive_worktree_access();
+        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(
+            &mut ctx,
+            guard.write_permission(),
+        )
+        .ok();
+    }
 
     Ok(base_branch)
 }

@@ -151,12 +151,25 @@ impl Context {
     //       For a correct implementation, this would also have to hold on to `_read_only`.
     pub fn legacy_meta(
         &self,
-        _read_only: &but_core::sync::WorktreeReadPermission,
+        _read_only: &WorktreeReadPermission,
     ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
         self.meta_inner()
     }
 
-    fn meta_inner(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
+    /// Return a wrapper for metadata for read and write access when presented with the project wide permission
+    /// to write data.
+    /// This is helping to prevent races with mutable instances.
+    // TODO: remove _exclusive as we don't need it anymore with a DB based implementation as long as the instances
+    //       starts a transaction to isolate reads.
+    //       For a correct implementation, this would also have to hold on to `_exclusive`.
+    pub fn legacy_meta_mut(
+        &mut self,
+        _exclusive: &WorktreeWritePermission,
+    ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
+        self.meta_inner()
+    }
+
+    pub(super) fn meta_inner(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
         but_meta::VirtualBranchesTomlMetadata::from_path(
             self.project_data_dir().join("virtual_branches.toml"),
         )
