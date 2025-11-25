@@ -258,7 +258,7 @@ fn j04_create_workspace() -> anyhow::Result<()> {
             ),
             stacks: [],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -330,7 +330,7 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -401,7 +401,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -462,7 +462,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -535,7 +535,7 @@ fn j07_push_commit() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -614,7 +614,7 @@ Create a new local commit right after the previous pushed one
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -691,7 +691,7 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -775,7 +775,7 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -872,7 +872,7 @@ The remote was re-used and merged once more with more changes.
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -1008,7 +1008,7 @@ A new multi-segment stack is created without remote and squash merged locally.
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),

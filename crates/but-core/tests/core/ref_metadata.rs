@@ -51,6 +51,7 @@ mod workspace {
             ref_info: RefInfo { created_at: None, updated_at: None },
             stacks: [],
             target_ref: None,
+            target_commit_id: None,
             push_remote: None,
         }
         ");
@@ -119,6 +120,7 @@ mod workspace {
                 },
             ],
             target_ref: None,
+            target_commit_id: None,
             push_remote: None,
         }
         "#);
@@ -133,6 +135,7 @@ mod workspace {
             ref_info: RefInfo { created_at: None, updated_at: None },
             stacks: [],
             target_ref: None,
+            target_commit_id: None,
             push_remote: None,
         }
         ");

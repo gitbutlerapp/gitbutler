@@ -33,6 +33,14 @@ pub struct Workspace {
     /// If there is no target name, this is a local workspace (and if no global target is set).
     /// Note that even though this is per workspace, the implementation can fill in global information at will.
     pub target_ref: Option<gix::refs::FullName>,
+
+    /// The commit id of a commit that was reachable by [`Self::target_ref`] and that should be included in the workspace.
+    /// This is useful to make workspaces appear stable in relationship to the target reference, which may be updated each
+    /// time a `git fetch` is performed.
+    ///
+    /// This commit id has the same effect as the commit that the [`Self::target_ref`] is pointing to, and they are cumulative,
+    /// to include up to two commits of the target in the workspace.
+    pub target_commit_id: Option<gix::ObjectId>,
     /// The symbolic name of the remote to push branches to.
     ///
     /// This is useful when there are no push permissions for the remote behind `target_ref`.
@@ -46,6 +54,7 @@ impl std::fmt::Debug for Workspace {
             stacks,
             target_ref,
             push_remote,
+            target_commit_id,
         } = self;
         f.debug_struct("Workspace")
             .field("ref_info", ref_info)
@@ -54,6 +63,7 @@ impl std::fmt::Debug for Workspace {
                 "target_ref",
                 &MaybeDebug(&target_ref.as_ref().map(|rn| rn.as_bstr())),
             )
+            .field("target_commit_id", &MaybeDebug(target_commit_id))
             .field("push_remote", &MaybeDebug(push_remote))
             .finish()
     }

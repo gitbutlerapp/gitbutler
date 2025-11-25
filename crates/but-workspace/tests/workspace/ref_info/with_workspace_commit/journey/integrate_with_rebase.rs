@@ -67,7 +67,7 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -150,7 +150,7 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -230,7 +230,7 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -313,7 +313,7 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),

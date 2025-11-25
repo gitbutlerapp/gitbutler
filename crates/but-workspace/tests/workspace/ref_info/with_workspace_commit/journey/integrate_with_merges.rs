@@ -66,7 +66,7 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -142,7 +142,7 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -222,7 +222,7 @@ fn remote_diverged() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -308,7 +308,7 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -382,7 +382,7 @@ fn remote_behind() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -463,7 +463,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -539,7 +539,7 @@ fn remote_ahead() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
@@ -615,7 +615,7 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                 },
             ],
             target: Some(
-                Target {
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),

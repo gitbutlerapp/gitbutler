@@ -13,9 +13,9 @@ use gix::refs::{Category, FullName, PartialName};
 #[derive(Debug, Default)]
 pub struct InMemoryRefMetadata {
     /// All the workspaces that should be available. Manipulate directly.
-    pub workspaces: Vec<(gix::refs::FullName, ref_metadata::Workspace)>,
+    pub workspaces: Vec<(gix::refs::FullName, Workspace)>,
     /// All the branches that should be available. Manipulate directly.
-    pub branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
+    pub branches: Vec<(gix::refs::FullName, Branch)>,
 }
 
 /// The handle used in the [InMemoryRefMetadata] implementation.

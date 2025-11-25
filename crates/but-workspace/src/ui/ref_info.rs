@@ -110,11 +110,11 @@ pub struct Target {
 
 impl Target {
     fn for_ui(
-        but_graph::projection::Target {
+        but_graph::projection::TargetRef {
             ref_name,
             segment_index: _,
             commits_ahead,
-        }: but_graph::projection::Target,
+        }: but_graph::projection::TargetRef,
         remote_names: &gix::remote::Names,
     ) -> anyhow::Result<Self> {
         Ok(Target {

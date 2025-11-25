@@ -376,6 +376,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
         ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
         stacks: [],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -429,6 +430,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
             },
         ],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -464,6 +466,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
             },
         ],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -500,6 +503,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
             },
         ],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -550,6 +554,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
             },
         ],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -923,6 +928,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
         stacks: [],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -1164,6 +1170,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             },
         ],
         target_ref: "refs/remotes/origin/sub-name/main",
+        target_commit_id: Sha1(0000000000000000000000000000000000000000),
         push_remote: None,
     }
     "#);
@@ -1201,6 +1208,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             },
         ],
         target_ref: "refs/remotes/origin/sub-name/main",
+        target_commit_id: Sha1(0000000000000000000000000000000000000000),
         push_remote: None,
     }
     "#);

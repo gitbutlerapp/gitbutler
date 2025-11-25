@@ -385,7 +385,11 @@ impl Graph {
             ));
         }
 
+        let target_limit = max_limit
+            .with_indirect_goal(tip, &mut goals)
+            .without_allowance();
         let (mut ws_tips, mut ws_metas) = (Vec::new(), Vec::new());
+        let mut additional_target_commits = Vec::new();
         for (ws_tip, ws_ref, ws_meta) in workspaces {
             ws_tips.push(ws_tip);
             ws_metas.push(ws_meta.clone());
@@ -424,6 +428,8 @@ impl Graph {
                 None,
                 &ctx.worktree_by_branch,
             )?;
+
+            additional_target_commits.extend(ws_meta.target_commit_id);
             // The limits for the target ref and the worktree ref are synced so they can always find each other,
             // while being able to stop when the entrypoint is included.
             ws_segment.metadata = Some(SegmentMetadata::Workspace(ws_meta));
@@ -483,9 +489,7 @@ impl Graph {
                             target_local_tip,
                             CommitFlags::NotInRemote | goal,
                             Instruction::CollectCommit { into: local_sidx },
-                            max_limit
-                                .with_indirect_goal(tip, &mut goals)
-                                .without_allowance(),
+                            target_limit,
                         ));
                         next.add_goal_to(tip, goal);
                         (has_sibling_link.then_some(local_sidx), goal)
@@ -500,43 +504,34 @@ impl Graph {
                     },
                     // Once the goal was found, be done immediately,
                     // we are not interested in these.
-                    max_limit
-                        .with_indirect_goal(tip, &mut goals)
-                        .additional_goal(local_goal)
-                        .without_allowance(),
+                    target_limit.additional_goal(local_goal),
                 ));
                 graph[target_segment].sibling_segment_id = local_sidx;
             }
         }
 
         if let Some(extra_target) = extra_target_commit_id {
-            let sidx = if let Some(existing_segment) =
-                next.iter().find_map(|(tip_id, _, instruction, _)| {
-                    (tip_id == &extra_target).then_some(instruction.segment_idx())
-                }) {
-                // For now just assume the settings are good/similar enough so we don't
-                // have to adjust the existing queue item.
-                existing_segment
-            } else {
-                let extra_target_sidx = graph.insert_segment(branch_segment_from_name_and_meta(
-                    None,
-                    meta,
-                    Some((&ctx.refs_by_id, extra_target)),
-                    &ctx.worktree_by_branch,
-                )?);
-                _ = next.push_front_exhausted((
-                    extra_target,
-                    CommitFlags::Integrated,
-                    Instruction::CollectCommit {
-                        into: extra_target_sidx,
-                    },
-                    max_limit
-                        .with_indirect_goal(tip, &mut goals)
-                        .without_allowance(),
-                ));
-                extra_target_sidx
-            };
+            let sidx = add_extra_target(
+                &mut graph,
+                &mut next,
+                extra_target,
+                meta,
+                &ctx,
+                target_limit,
+            )?;
             graph.extra_target = Some(sidx);
+        }
+        for target_commit in additional_target_commits {
+            // We don't really have a place to store the segment index of the segment owning the target commit
+            // so we will re-acquire it later when building the workspace projection.
+            let _sidx_to_be_reobtained_later = add_extra_target(
+                &mut graph,
+                &mut next,
+                target_commit,
+                meta,
+                &ctx,
+                target_limit,
+            )?;
         }
 
         // At the very end, assure we see workspace references that possibly have advanced the workspace itself,
@@ -786,6 +781,41 @@ impl Graph {
         *self = new;
         self.to_workspace()
     }
+}
+
+fn add_extra_target<T: RefMetadata>(
+    graph: &mut Graph,
+    next: &mut Queue,
+    extra_target: gix::ObjectId,
+    meta: &OverlayMetadata<'_, T>,
+    ctx: &post::Context,
+    limit: Limit,
+) -> anyhow::Result<SegmentIndex> {
+    let sidx = if let Some(existing_segment) =
+        next.iter().find_map(|(tip_id, _, instruction, _)| {
+            (tip_id == &extra_target).then_some(instruction.segment_idx())
+        }) {
+        // For now just assume the settings are good/similar enough so we don't
+        // have to adjust the existing queue item.
+        existing_segment
+    } else {
+        let extra_target_sidx = graph.insert_segment(branch_segment_from_name_and_meta(
+            None,
+            meta,
+            Some((&ctx.refs_by_id, extra_target)),
+            &ctx.worktree_by_branch,
+        )?);
+        _ = next.push_front_exhausted((
+            extra_target,
+            CommitFlags::Integrated,
+            Instruction::CollectCommit {
+                into: extra_target_sidx,
+            },
+            limit,
+        ));
+        extra_target_sidx
+    };
+    Ok(sidx)
 }
 
 impl Graph {

@@ -15,7 +15,7 @@ pub fn changes_in_branch(
     } else {
         // TODO: this should be (kept) in sync with branch-listing!
         let tip = repo.find_reference(branch)?.peel_to_commit()?.id;
-        workspace.target.as_ref().and_then(|target| {
+        workspace.target_ref.as_ref().and_then(|target| {
             // NOTE: Can't do merge-base computation in graph as `branch` might not be contained in it.
             let base = workspace
                 .graph

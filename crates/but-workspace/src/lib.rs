@@ -79,7 +79,7 @@ pub struct RefInfo {
     ///
     /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
     /// This happens when there is a local branch checked out without a remote tracking branch.
-    pub target: Option<but_graph::projection::Target>,
+    pub target: Option<but_graph::projection::TargetRef>,
     /// The segment index of the extra target as provided for traversal,
     /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
     /// otherwise would be.
