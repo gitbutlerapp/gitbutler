@@ -1,12 +1,4 @@
-use std::{
-    any::Any,
-    cell::RefCell,
-    collections::HashSet,
-    ops::{Deref, DerefMut},
-    path::{Path, PathBuf},
-    time::Instant,
-};
-
+use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
 use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_core::{
@@ -24,15 +16,28 @@ use gix::{
     refs::{FullName, FullNameRef},
 };
 use itertools::Itertools;
+use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    any::Any,
+    cell::RefCell,
+    collections::HashSet,
+    ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
+    time::Instant,
+};
+use tracing::instrument;
 
-use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Snapshot {
     /// The time at which the `content` was changed, before it was written to disk.
     changed_at: Option<Instant>,
     content: VirtualBranches,
     path: PathBuf,
+}
+
+enum ReconcileWithWorkspace {
+    Allow,
+    Disallow,
 }
 
 impl Snapshot {
@@ -45,22 +50,49 @@ impl Snapshot {
         })
     }
 
-    fn write_if_changed(&mut self) -> anyhow::Result<()> {
+    fn write_if_changed(&mut self, reconcile: ReconcileWithWorkspace) -> anyhow::Result<()> {
         if self.changed_at.is_some() {
             if self.content == Default::default() {
                 std::fs::remove_file(&self.path)?;
             } else {
-                fs::write(&self.path, toml::to_string(&self.to_consistent_data())?)?;
+                fs::write(
+                    &self.path,
+                    toml::to_string(&self.to_consistent_data(reconcile))?,
+                )?;
             }
             self.changed_at.take();
         }
         Ok(())
     }
 
+    fn try_write_if_changed(&mut self, reconcile: ReconcileWithWorkspace) {
+        let res = self.write_if_changed(reconcile);
+        if let Err(err) = res {
+            tracing::error!(
+                "Could not write back changes to virtual branches toml file to '{}': {err}",
+                self.path.display()
+            );
+        }
+    }
+
+    /// Assure we don't think the content changed, so writing it if changed will do nothing.
+    fn claim_unchanged(&mut self) {
+        self.changed_at.take();
+    }
+
+    /// The vb.toml snapshot held internally is marked as changed so it will be written back to disk on drop.
+    pub fn set_changed_to_necessitate_write(&mut self) {
+        self.changed_at = Some(Instant::now());
+    }
+}
+
+/// Evil hacks to reconcile the workspace metadata with the workspace as new code sees it,
+/// so old code keeps up (it relies only on metadata).
+impl Snapshot {
     /// The fixes here aren't relevant for the ref-metadata, but important for storage.
     /// Instead of trying to maintain this, let's just fix it before writing.
-    fn to_consistent_data(&self) -> VirtualBranches {
-        let mut data = self.content.clone();
+    /// `reconcile` controls if the data should also be reconciled.
+    fn to_consistent_data(&self, reconcile: ReconcileWithWorkspace) -> VirtualBranches {
         // EVIL HACK: assure we fill-in the CommitIDs of heads or else everything breaks.
         //            this probably won't be needed once no old code is running, and by then
         //            we should move away from this anyway and have a DB backed implementation.
@@ -72,7 +104,14 @@ impl Snapshot {
                     CommitOrChangeId::CommitId(gix::hash::Kind::Sha1.null().to_string()),
                 )
             });
-        for stack in data.branches.values_mut() {
+        let mut clone = self.clone();
+        if let Some((repo, _)) = repo
+            .as_ref()
+            .filter(|_| matches!(reconcile, ReconcileWithWorkspace::Allow))
+        {
+            clone.reconcile_in_workspace_state_of_vb_toml(repo).ok();
+        }
+        for stack in clone.content.branches.values_mut() {
             if stack.name.is_empty() {
                 stack.name = stack
                     .heads
@@ -95,22 +134,135 @@ impl Snapshot {
                 }
             }
         }
-        data
+        clone.content
     }
 
-    fn try_write_if_changed(&mut self) {
-        let res = self.write_if_changed();
-        if let Err(err) = res {
-            tracing::error!(
-                "Could not write back changes to virtual branches toml file to '{}': {err}",
-                self.path.display()
-            );
+    #[instrument(level = tracing::Level::DEBUG, skip(repo))]
+    fn reconcile_in_workspace_state_of_vb_toml(
+        &mut self,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<()> {
+        fn make_heads_match(ws_stack: &but_graph::projection::Stack, vb_stack: &mut Stack) -> bool {
+            // Always leave extra segments.
+
+            // Add missing segments
+            let segments_to_add: Vec<_> = ws_stack
+                .segments
+                .iter()
+                .filter_map(|s| {
+                    s.ref_name().and_then(|rn| {
+                        let is_in_vb_stack_branches =
+                            vb_stack.heads.iter().any(|sb| sb.name == rn.shorten());
+                        (!is_in_vb_stack_branches).then_some((s, rn))
+                    })
+                })
+                .collect();
+
+            for (segment, segment_name) in segments_to_add {
+                vb_stack.heads.push(StackBranch {
+                    head: CommitOrChangeId::CommitId(
+                        segment
+                            .commits
+                            .first()
+                            .map_or(gix::hash::Kind::Sha1.null(), |c| c.id)
+                            .to_string(),
+                    ),
+                    name: segment_name.shorten().to_string(),
+                    description: None,
+                    pr_number: None,
+                    archived: false,
+                    review_id: None,
+                });
+            }
+
+            // finally, put them in order, for good measure.
+            let previous_heads = vb_stack.heads.clone();
+            let original_positions_by_name: BTreeMap<_, _> = vb_stack
+                .heads
+                .iter()
+                // Use our order
+                .rev()
+                .enumerate()
+                .map(|(idx, s)| (s.name.clone(), idx))
+                .collect();
+            vb_stack.heads.sort_by_key(|sb| {
+                ws_stack
+                    .segments
+                    .iter()
+                    .position(|s| s.ref_name().is_some_and(|rn| rn.shorten() == sb.name))
+                    .or_else(|| original_positions_by_name.get(&sb.name).copied())
+            });
+            // The ws_stack order is top to bottom, the other is bottom to top.
+            vb_stack.heads.reverse();
+            vb_stack.heads != previous_heads
         }
-    }
 
-    /// Assure we don't think the content changed, so writing it if changed will do nothing.
-    fn claim_unchanged(&mut self) {
-        self.changed_at.take();
+        let mut reference = repo.find_reference("refs/heads/gitbutler/workspace")?;
+        let commit_id = reference.peel_to_commit()?.id();
+        let sideeffect_free_meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata {
+            snapshot: Snapshot {
+                changed_at: None,
+                ..self.clone()
+            },
+        });
+        let graph = but_graph::Graph::from_commit_traversal(
+            commit_id,
+            reference.name().to_owned(),
+            &*sideeffect_free_meta,
+            but_graph::init::Options::limited(),
+        )?;
+
+        let ws = graph.to_workspace()?;
+        let mut seen = BTreeSet::new();
+        for (ws_stack, in_workspace_stack_id) in
+            ws.stacks.iter().filter_map(|s| s.id.map(|id| (s, id)))
+        {
+            seen.insert(in_workspace_stack_id);
+            let Some(vb_stack) = self.content.branches.get_mut(&in_workspace_stack_id) else {
+                tracing::warn!(
+                    "Didn't find stack with id {in_workspace_stack_id} in branches metadata, and it would have to be created or old code may fail"
+                );
+                continue;
+            };
+
+            let made_heads_match = make_heads_match(ws_stack, vb_stack);
+            if !vb_stack.in_workspace {
+                tracing::warn!(
+                    "Fixing stale metadata of stack {in_workspace_stack_id} to be considered inside the workspace",
+                );
+                vb_stack.in_workspace = true;
+                self.set_changed_to_necessitate_write();
+            }
+            if made_heads_match {
+                tracing::warn!(
+                    "Adjusted segments in stack {in_workspace_stack_id} to match what's actually there"
+                );
+                self.set_changed_to_necessitate_write();
+            }
+        }
+
+        let stack_ids_to_put_in_workspace: Vec<_> = sideeffect_free_meta
+            .data()
+            .branches
+            .keys()
+            .filter(|stack_id| !seen.contains(stack_id))
+            .copied()
+            .collect();
+        for stack_id_not_in_workspace in stack_ids_to_put_in_workspace {
+            let vb_stack = self
+                .content
+                .branches
+                .get_mut(&stack_id_not_in_workspace)
+                .expect("BUG: we just traversed this stack-id");
+            if vb_stack.in_workspace {
+                tracing::warn!(
+                    "Fixing stale metadata of stack {stack_id_not_in_workspace} to be considered outside the workspace",
+                );
+                vb_stack.in_workspace = false;
+                self.set_changed_to_necessitate_write();
+            }
+        }
+        Ok(())
     }
 }
 
@@ -144,6 +296,29 @@ impl VirtualBranchesTomlMetadata {
     }
 }
 
+impl VirtualBranchesTomlMetadata {
+    /// Validate and fix workspace stack `in_workspace` status of `virtual_branches.toml`
+    /// so they match what's actually in the workspace.
+    /// If there is a change, the data is written back once this instance is dropped.
+    ///
+    /// Errors are silently ignored to allow the application to continue loading even if
+    /// the migration fails - the workspace will still be functional, just potentially
+    /// with stale metadata that can confuse 'old' code.
+    ///
+    /// NOTE: This isn't needed for new code - it won't base any decisions on the metadata alone.
+    ///
+    /// `repo` is expected to be the repository this instance relates to.
+    /// Consume this instance to prevent double-reconciliation which also happens on drop.
+    pub fn write_reconciled(mut self, repo: &gix::Repository) -> anyhow::Result<()> {
+        // First possibly change our data…
+        self.snapshot
+            .reconcile_in_workspace_state_of_vb_toml(repo)?;
+        // Then write changes back.
+        self.snapshot
+            .write_if_changed(ReconcileWithWorkspace::Disallow)
+    }
+}
+
 /// Mostly used in testing, and it's fine as it's intermediate, and we are very practical here.
 impl VirtualBranchesTomlMetadata {
     /// Return a mutable snapshot of the underlying data. Useful for testing mainly.
@@ -151,11 +326,6 @@ impl VirtualBranchesTomlMetadata {
     /// Consider calling [Self::set_changed_to_necessitate_write()] to have the changes written back.
     pub fn data_mut(&mut self) -> &mut VirtualBranches {
         &mut self.snapshot.content
-    }
-
-    /// The vb.toml snapshot held internally is marked as changed so it will be written back to disk on drop.
-    pub fn set_changed_to_necessitate_write(&mut self) {
-        self.snapshot.changed_at = Some(Instant::now());
     }
 
     /// Return a snapshot of the underlying data. Useful for working around (intended) limitations of the RefMetadata trait.
@@ -167,7 +337,8 @@ impl VirtualBranchesTomlMetadata {
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
 impl Drop for VirtualBranchesTomlMetadata {
     fn drop(&mut self) {
-        self.snapshot.try_write_if_changed();
+        self.snapshot
+            .try_write_if_changed(ReconcileWithWorkspace::Allow);
     }
 }
 
@@ -440,7 +611,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         }
 
         if changed_target {
-            self.snapshot.changed_at = Some(Instant::now());
+            self.snapshot.set_changed_to_necessitate_write();
         }
         Ok(())
     }
@@ -497,7 +668,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 );
                 *value.stack_id.borrow_mut() = Some(stack.id);
                 self.data_mut().branches.insert(stack.id, stack);
-                self.snapshot.changed_at = Some(Instant::now());
+                self.snapshot.set_changed_to_necessitate_write();
                 Ok(())
             }
         }
@@ -629,7 +800,7 @@ impl VirtualBranchesTomlMetadata {
         if stack.heads.is_empty() {
             self.data_mut().branches.remove(&stack_id);
         }
-        self.snapshot.changed_at = Some(Instant::now());
+        self.snapshot.set_changed_to_necessitate_write();
         Ok(Some(removed))
     }
 }

@@ -68,7 +68,14 @@ pub fn set_project_active(
     let ctx = &mut Context::new_from_legacy_project(project.clone())?.with_git2_repo(repo);
     // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
 
-    but_api::legacy::fixup::reconcile_in_workspace_state_of_vb_toml(ctx);
+    {
+        let mut guard = ctx.exclusive_worktree_access();
+        but_api::legacy::meta::reconcile_in_workspace_state_of_vb_toml(
+            ctx,
+            guard.write_permission(),
+        )
+        .ok();
+    }
 
     let db_error = assure_database_valid(project.gb_dir())?;
     let filter_error = warn_about_filters_and_git_lfs(ctx.open_isolated_repo()?)?;
