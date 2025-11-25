@@ -121,11 +121,11 @@ export class MessageQueueProcessor {
 		$effect(() => {
 			for (const id of queueIds) {
 				const queue = $derived(messageQueueSelectors.selectById(this.clientState.messageQueue, id));
-				if (queue) {
-					$effect(() => {
+				$effect(() => {
+					if (queue) {
 						this.handleQueue(queue);
-					});
-				}
+					}
+				});
 			}
 		});
 	}
