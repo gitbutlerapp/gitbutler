@@ -25,14 +25,37 @@
 		persistedDismissedForgeIntegrationPrompt(projectId)
 	);
 
-	function configureIntegration(forge: AvailableForge): true {
+	// Delay showing the banner to prevent flickering when auth state changes rapidly
+	let canShowPrompt = $state(false);
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+	$effect(() => {
+		clearTimeout(timeoutId);
+
+		const shouldShow =
+			forgeFactory.determinedForgeType !== 'default' &&
+			!forgeFactory.current.isLoading &&
+			!forgeFactory.current.authenticated &&
+			forgeFactory.canSetupIntegration &&
+			!$dismissedTheIntegrationPrompt;
+
+		if (shouldShow) {
+			timeoutId = setTimeout(() => (canShowPrompt = true), 100);
+		} else {
+			canShowPrompt = false;
+		}
+
+		return () => clearTimeout(timeoutId);
+	});
+
+	function configureIntegration(forge: AvailableForge): void {
 		switch (forge) {
 			case 'github':
 				openGeneralSettings('integrations');
-				return true;
+				break;
 			case 'gitlab':
 				openProjectSettings(projectId);
-				return true;
+				break;
 		}
 	}
 
@@ -41,13 +64,12 @@
 	}
 </script>
 
-{#if forgeFactory.canSetupIntegration && !$dismissedTheIntegrationPrompt}
-	{@const forgeName = forgeFactory.canSetupIntegration}
+{#if canShowPrompt}
+	{@const forgeName = forgeFactory.canSetupIntegration!}
 	{@const forgeLabel = availableForgeLabel(forgeName)}
 	{@const forgeUnit = availableForgeReviewUnit(forgeName)}
 	{@const integrationDocs = availableForgeDocsLink(forgeName)}
 
-	<!-- <div class="forge-prompt__wrap" class:border-bottom={bottomBorder} class:border-top={topBorder}> -->
 	<div class="forge-prompt">
 		<div class="forge-prompt__logo">
 			{@html forgeName === 'github' ? githubLogoSvg : gitlabLogoSvg}
@@ -65,7 +87,6 @@
 			>
 		</div>
 	</div>
-	<!-- </div> -->
 {/if}
 
 <style lang="postcss">
