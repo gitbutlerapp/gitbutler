@@ -275,7 +275,7 @@ pub fn assign(
         &applied_stacks,
         MultipleOverlapping::SetMostLines,
         true,
-    )?;
+    );
 
     // Reconcile with the requested changes
     let with_requests = reconcile::assignments(
@@ -284,7 +284,7 @@ pub fn assign(
         &applied_stacks,
         MultipleOverlapping::SetMostLines,
         true,
-    )?;
+    );
 
     // Reconcile with hunk locks
     let lock_assignments = hunk_dependency_assignments(deps)?;
@@ -294,7 +294,7 @@ pub fn assign(
         &applied_stacks,
         MultipleOverlapping::SetNone,
         false,
-    )?;
+    );
 
     state::set_assignments(db, with_locks.clone())?;
 
@@ -410,7 +410,7 @@ fn reconcile_with_worktree_and_locks(
         &applied_stacks,
         MultipleOverlapping::SetMostLines,
         true,
-    )?;
+    );
 
     let lock_assignments = hunk_dependency_assignments(deps)?;
     let with_locks = reconcile::assignments(
@@ -419,7 +419,7 @@ fn reconcile_with_worktree_and_locks(
         &applied_stacks,
         MultipleOverlapping::SetNone,
         set_assignment_from_locks,
-    )?;
+    );
 
     Ok(with_locks)
 }
@@ -718,8 +718,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
         assert_eq(
             result,
             vec![
@@ -740,8 +739,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
         assert_eq(
             result,
             vec![HunkAssignment::new("foo.rs", 10, 5, None, Some(1))],
@@ -759,8 +757,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
         assert_eq(
             result,
             vec![HunkAssignment::new("foo.rs", 12, 7, Some(1), Some(1))],
@@ -781,8 +778,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
         assert_eq(
             result,
             vec![HunkAssignment::new("foo.rs", 5, 18, Some(2), Some(2))],
@@ -803,8 +799,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetNone,
             true,
-        )
-        .unwrap();
+        );
         assert_eq(
             result,
             vec![HunkAssignment::new("foo.rs", 5, 18, None, Some(2))],
@@ -822,8 +817,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             false,
-        )
-        .unwrap();
+        );
         // TODO: This is actually broken
         assert_eq!(
             result,
@@ -987,8 +981,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
 
         // Binary file should maintain its stack assignment
         assert_eq!(
@@ -1032,8 +1025,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
 
         assert_eq!(
             result[0].stack_id,
