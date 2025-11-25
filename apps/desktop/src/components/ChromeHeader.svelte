@@ -6,6 +6,7 @@
 	import { BACKEND } from '$lib/backend';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { projectDisableCodegen } from '$lib/config/config';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
@@ -50,6 +51,7 @@
 	const singleBranchMode = $derived($settingsStore?.featureFlags.singleBranch ?? false);
 	const useCustomTitleBar = $derived(!($settingsStore?.ui.useNativeTitleBar ?? false));
 	const backend = inject(BACKEND);
+	const codegenDisabled = $derived(projectDisableCodegen(projectId));
 
 	const mode = $derived(modeService.mode(projectId));
 	const currentMode = $derived(mode.response);
@@ -270,15 +272,17 @@
 			>
 				Create branch
 			</Button>
-			<Button
-				testId={TestId.ChromeHeaderCreateCodegenSessionButton}
-				kind="outline"
-				tooltip="New Codegen Session"
-				icon="ai-new-session"
-				onclick={() => {
-					createAiStack();
-				}}
-			/>
+			{#if !$codegenDisabled}
+				<Button
+					testId={TestId.ChromeHeaderCreateCodegenSessionButton}
+					kind="outline"
+					tooltip="New Codegen Session"
+					icon="ai-new-session"
+					onclick={() => {
+						createAiStack();
+					}}
+				/>
+			{/if}
 		{/if}
 	</div>
 </div>
