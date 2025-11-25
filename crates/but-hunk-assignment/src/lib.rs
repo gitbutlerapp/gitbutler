@@ -319,16 +319,29 @@ pub fn assign(
     Ok(rejections)
 }
 
-/// Same as the `reconcile_with_worktree_and_locks` function, but if the operation produces an error, it will create a fallback set of assignments from the worktree changes alone.
-/// An optional error is returned alongside the assignments, which will be `None` if the operation was successful and it will be set if the operation failed and a fallback was used.
-///
-/// The fallback can of course also fail, in which case the tauri operation will error out.
+/// Similar to the `reconcile_with_worktree_and_locks` function.
+/// TODO: figure out a better name for this function
 pub fn assignments_with_fallback(
     ctx: &mut Context,
     set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     deps: Option<&HunkDependencies>,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
+    let hunk_assignments = reconcile_worktree_changes_with_worktree_and_locks(
+        ctx,
+        set_assignment_from_locks,
+        worktree_changes,
+        deps,
+    )?;
+    Ok((hunk_assignments, None))
+}
+
+fn reconcile_worktree_changes_with_worktree_and_locks(
+    ctx: &mut Context,
+    set_assignment_from_locks: bool,
+    worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
+    deps: Option<&HunkDependencies>,
+) -> Result<Vec<HunkAssignment>> {
     let repo = ctx.repo.get()?;
     let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
         Some(wtc) => wtc.into_iter().map(Into::into).collect(),
@@ -344,7 +357,7 @@ pub fn assignments_with_fallback(
     };
 
     if worktree_changes.is_empty() {
-        return Ok((vec![], None));
+        return Ok(vec![]);
     }
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
@@ -360,12 +373,10 @@ pub fn assignments_with_fallback(
         set_assignment_from_locks,
         &worktree_assignments,
         deps,
-    )
-    .map(|a| (a, None))
-    .unwrap_or_else(|e| (worktree_assignments, Some(e)));
+    )?;
 
     let db = &mut *ctx.db.get_mut()?;
-    state::set_assignments(db, reconciled.0.clone())?;
+    state::set_assignments(db, reconciled.clone())?;
     Ok(reconciled)
 }
 
