@@ -386,6 +386,7 @@
 		flex-direction: column;
 		padding: 0;
 		overflow: hidden;
+		border-radius: var(--radius-m);
 		cursor: text;
 		transition: border-color var(--transition-fast);
 	}
