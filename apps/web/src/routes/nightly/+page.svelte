@@ -466,6 +466,7 @@
 		& h3 {
 			padding: 16px 24px 12px;
 			font-size: 40px;
+			line-height: 1.2;
 			font-family: var(--font-accent);
 		}
 	}
