@@ -3,7 +3,6 @@
 	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
 	import UnassignedViewForgePrompt from '$components/UnassignedViewForgePrompt.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
-	import WorktreeTipsFooter from '$components/WorktreeTipsFooter.svelte';
 	import { ActionEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -131,7 +130,6 @@
 							</p>
 						</div>
 						<UnassignedViewForgePrompt {projectId} />
-						<WorktreeTipsFooter />
 					</div>
 				{/snippet}
 			</WorktreeChanges>
