@@ -41,7 +41,8 @@
 		KebabButton,
 		Modal,
 		Tooltip,
-		Link
+		Link,
+		SkeletonBone
 	} from '@gitbutler/ui';
 
 	import VirtualList from '@gitbutler/ui/components/VirtualList.svelte';
@@ -265,8 +266,70 @@
 
 <div class="chat" use:focusable={{ vertical: true }}>
 	<ReduxResult result={claudeAvailable.result}>
+		{#snippet loading()}
+			<PreviewHeader {onclose}>
+				{#snippet content()}
+					<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
+				{/snippet}
+				{#snippet actions()}
+					<div class="flex gap-4 items-center">
+						<SkeletonBone width="2.5rem" height="1.2rem" />
+						<SkeletonBone width="1.5rem" height="1.2rem" />
+					</div>
+				{/snippet}
+			</PreviewHeader>
+
+			<div class="chat-skeleton">
+				<div class="chat-skeleton__user">
+					<SkeletonBone
+						width="80%"
+						height="3rem"
+						color="var(--clr-bg-3)"
+						opacity={0.4}
+						radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
+					/>
+				</div>
+				<div class="chat-skeleton__assistant">
+					<SkeletonBone width="100%" height="1rem" />
+					<SkeletonBone width="90%" height="1rem" />
+					<SkeletonBone width="95%" height="1rem" />
+				</div>
+				<div class="chat-skeleton__user">
+					<SkeletonBone
+						width="50%"
+						height="3rem"
+						color="var(--clr-bg-3)"
+						opacity={0.4}
+						radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
+					/>
+				</div>
+				<div class="chat-skeleton__assistant">
+					<SkeletonBone width="90%" height="1rem" />
+					<SkeletonBone width="70%" height="1rem" />
+				</div>
+			</div>
+
+			<div class="dialog-wrapper">
+				<div class="input-skeleton">
+					<div class="input-skeleton__text"><SkeletonBone width="60%" height="1rem" /></div>
+					<div class="input-skeleton__actions">
+						<SkeletonBone width="4rem" height="var(--size-button)" radius="var(--radius-btn)" />
+						<div class="flex gap-8">
+							<SkeletonBone width="4rem" height="var(--size-button)" radius="var(--radius-btn)" />
+							<SkeletonBone
+								width="calc(var(--size-button) + 0.188rem)"
+								height="var(--size-button)"
+								color="var(--clr-theme-pop-element)"
+								radius="var(--radius-btn)"
+							/>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/snippet}
 		{#snippet children(claudeAvailable)}
 			{@const todos = getTodos(events)}
+
 			<!-- TODO: remove this header when we move to the workspace layout -->
 			<PreviewHeader {onclose}>
 				{#snippet content()}
@@ -279,7 +342,7 @@
 
 					<div class="flex gap-10 items-center">
 						{#if stats.tokens > 0}
-							<Tooltip text="Tokens: {stats.tokens.toLocaleString()} / ${stats.cost.toFixed(2)} ">
+							<Tooltip text="Tokens: {stats.tokens.toLocaleString()} / ${stats.cost.toFixed(2)}">
 								<span class="text-12 clr-text-2">
 									{formatCompactNumber(stats.tokens)}
 								</span>
@@ -735,5 +798,49 @@
 			stroke-dashoffset: calc(3.14159 * 13 * (1 - var(--context-utilization) / 100));
 			transition: stroke-dashoffset 0.3s ease;
 		}
+	}
+
+	.chat-skeleton {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		padding: 20px;
+		gap: 20px;
+	}
+
+	.chat-skeleton__user {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		justify-content: center;
+	}
+
+	.chat-skeleton__assistant {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		max-width: 80%;
+		gap: 8px;
+	}
+
+	.input-skeleton {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		padding: 12px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+	}
+
+	.input-skeleton__text {
+		width: 100%;
+		padding-bottom: 30px;
+	}
+
+	.input-skeleton__actions {
+		display: flex;
+		justify-content: space-between;
+		padding-top: 12px;
+		border-top: 1px solid var(--clr-border-3);
 	}
 </style>
