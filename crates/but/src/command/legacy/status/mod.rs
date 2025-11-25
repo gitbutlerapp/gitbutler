@@ -386,7 +386,7 @@ pub fn print_group(
         let mut first = true;
         for branch in &group.branch_details {
             let id = id_db
-                .branch(branch.name.to_str()?)
+                .branch(branch.name.as_ref())
                 .to_string()
                 .underline()
                 .blue();
@@ -557,7 +557,7 @@ pub(crate) fn all_branches(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
     let mut branches = Vec::new();
     for stack in stacks {
         for head in stack.heads {
-            branches.push(id_db.branch(&head.name.to_string()).clone());
+            branches.push(id_db.branch(head.name.as_ref()).clone());
         }
     }
     Ok(branches)

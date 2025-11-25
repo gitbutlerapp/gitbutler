@@ -332,7 +332,7 @@ fn convert_branch_to_json(
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     id_db: &mut crate::legacy::id::IdDb,
 ) -> anyhow::Result<Branch> {
-    let cli_id = id_db.branch(&branch.name.to_string()).to_string();
+    let cli_id = id_db.branch(branch.name.as_ref()).to_string();
 
     let review_id = if review {
         crate::command::legacy::forge::review::get_review_numbers(
@@ -381,7 +381,7 @@ pub(super) fn build_workspace_status_json(
             let stack_cli_id = details
                 .branch_details
                 .first()
-                .map(|b| id_db.branch(&b.name.to_string()).to_string())
+                .map(|b| id_db.branch(b.name.as_ref()).to_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
             let json_assigned_changes = convert_file_assignments(assignments, worktree_changes);
