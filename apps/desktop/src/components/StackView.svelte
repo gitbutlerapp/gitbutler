@@ -5,6 +5,7 @@
 	import CommitView from '$components/CommitView.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Drawer from '$components/Drawer.svelte';
+	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import NewCommitView from '$components/NewCommitView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
@@ -535,6 +536,11 @@
 		projectId={stableProjectId}
 		result={combineResults(branchesQuery.result, hasRulesToClear.result)}
 	>
+		{#snippet loading()}
+			<div style:width="{$persistedStackWidth}rem" class="lane-skeleton">
+				<FullviewLoading />
+			</div>
+		{/snippet}
 		{#snippet children([branches, hasRulesToClear])}
 			<ConfigurableScrollableContainer childrenWrapHeight="100%">
 				<div
