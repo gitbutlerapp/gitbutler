@@ -1,10 +1,15 @@
 import { gitlab } from '$lib/forge/gitlab/gitlabClient.svelte';
 import { mrToInstance } from '$lib/forge/gitlab/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
-import { providesList, ReduxTag } from '$lib/state/tags';
+import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { toSerializable } from '@gitbutler/shared/network/types';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
+import {
+	createEntityAdapter,
+	type EntityState,
+	type ThunkDispatch,
+	type UnknownAction
+} from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { PullRequest } from '$lib/forge/interface/types';
 import type { GitLabApi } from '$lib/state/clientState.svelte';
@@ -12,7 +17,10 @@ import type { GitLabApi } from '$lib/state/clientState.svelte';
 export class GitLabListingService implements ForgeListingService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(gitLabApi: GitLabApi) {
+	constructor(
+		gitLabApi: GitLabApi,
+		private readonly dispatch: ThunkDispatch<any, any, UnknownAction>
+	) {
 		this.api = injectEndpoints(gitLabApi);
 	}
 
@@ -44,8 +52,8 @@ export class GitLabListingService implements ForgeListingService {
 		return results.filter(isDefined) ?? [];
 	}
 
-	async refresh(projectId: string): Promise<void> {
-		await this.api.endpoints.listPrs.fetch(projectId, { forceRefetch: true });
+	async refresh(_projectId: string): Promise<void> {
+		this.dispatch(this.api.util.invalidateTags([invalidatesList(ReduxTag.PullRequests)]));
 	}
 }
 

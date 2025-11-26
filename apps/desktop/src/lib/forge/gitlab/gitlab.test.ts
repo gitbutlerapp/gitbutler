@@ -30,7 +30,8 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo: baseRepo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {}
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -49,7 +50,8 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {}
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -68,7 +70,8 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {}
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -87,7 +90,8 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {}
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -106,7 +110,8 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {}
 		});
 
 		const branch = gitlab.branch('feature-branch');
@@ -126,7 +131,8 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {}
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -145,7 +151,8 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {}
 		});
 
 		const branch = gitlab.branch('feature-branch');
@@ -165,7 +172,8 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {}
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -186,7 +194,8 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {}
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(

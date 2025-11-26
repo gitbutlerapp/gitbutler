@@ -22,6 +22,7 @@ export class BranchService {
 	}
 
 	async refresh(): Promise<void> {
+		// TODO: This doesn't do anything... should it??
 		this.api.util.invalidateTags([invalidatesList(ReduxTag.BranchListing)]);
 	}
 }
