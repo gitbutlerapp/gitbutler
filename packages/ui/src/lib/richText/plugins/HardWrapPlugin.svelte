@@ -11,7 +11,7 @@ a few rows down we do not update the cursor position to correctly.
 -->
 <script lang="ts">
 	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
-	import { wrapAll, wrapIfNecssary } from '$lib/richText/linewrap';
+	import { wrapAll, wrapIfNecessary } from '$lib/richText/linewrap';
 	import {
 		$isTextNode as isTextNode,
 		TextNode,
@@ -80,7 +80,7 @@ a few rows down we do not update the cursor position to correctly.
 						if (!isTextNode(node)) {
 							continue;
 						}
-						wrapIfNecssary({ node, maxLength });
+						wrapIfNecessary({ node, maxLength });
 					}
 				}
 			},

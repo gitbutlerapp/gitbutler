@@ -31,19 +31,28 @@ export function wrapLine({ line, maxLength, remainder = '', indent = '', bullet 
 	newLine: string;
 	newRemainder: string;
 } {
-	const parts = Array.from(line.substring(indent.length).match(/([ \t]+|\S+)/g) || []);
+	// When we have a bullet, skip the bullet prefix to get the actual text parts
+	const prefixLength = bullet ? bullet.prefix.length : indent.length;
+	const parts = Array.from(line.substring(prefixLength).match(/([ \t]+|\S+)/g) || []);
 	let acc = remainder.length > 0 ? indent + remainder + ' ' : bullet ? bullet.prefix : indent;
-	for (const word of parts) {
-		if (acc.length + word.length > maxLength) {
-			const newLine = acc ? acc : word;
-			const concatLine = remainder
-				? indent + remainder + ' ' + line.substring(indent.length)
-				: line;
-			const newRemainder = concatLine.slice(newLine.length).trim();
 
+	for (let i = 0; i < parts.length; i++) {
+		const word = parts[i];
+		if (acc.length + word.length > maxLength) {
+			// If acc is empty/just prefix, use the current word as newLine
+			// and start remainder from next word
+			if (!acc || acc === indent || acc === (bullet?.prefix ?? '')) {
+				const remainingParts = parts.slice(i + 1);
+				return {
+					newLine: word,
+					newRemainder: remainingParts.join('').trim()
+				};
+			}
+			// Otherwise, acc becomes newLine and remainder starts from current word
+			const remainingParts = parts.slice(i);
 			return {
-				newLine,
-				newRemainder
+				newLine: acc,
+				newRemainder: remainingParts.join('').trim()
 			};
 		}
 		acc += word;
@@ -85,7 +94,7 @@ export function parseBullet(text: string): Bullet | undefined {
 	return { prefix, indent, number };
 }
 
-export function wrapIfNecssary({ node, maxLength }: { node: TextNode; maxLength: number }) {
+export function wrapIfNecessary({ node, maxLength }: { node: TextNode; maxLength: number }) {
 	const line = node.getTextContent();
 	if (line.length <= maxLength) {
 		return;
@@ -102,14 +111,14 @@ export function wrapIfNecssary({ node, maxLength }: { node: TextNode; maxLength:
 	const paragraph = node.getParent();
 
 	if (!$isParagraphNode(paragraph)) {
-		console.warn('[wrapIfNecssary] Node parent is not a paragraph:', paragraph?.getType());
+		console.warn('[wrapIfNecessary] Node parent is not a paragraph:', paragraph?.getType());
 		return;
 	}
 
 	const selection = getSelection();
 	const selectionOffset = isRangeSelection(selection) ? selection.focus.offset : 0;
 
-	// Wrap the current line
+	// Wrap only the current line - don't collect other paragraphs
 	const { newLine, newRemainder } = wrapLine({
 		line,
 		maxLength,
@@ -120,48 +129,23 @@ export function wrapIfNecssary({ node, maxLength }: { node: TextNode; maxLength:
 	// Update current text node
 	node.setTextContent(newLine);
 
-	// If there's a remainder, we need to create new paragraphs or reuse related ones
+	// If there's a remainder, create new paragraphs for it
 	if (newRemainder) {
 		let remainder = newRemainder;
 		let lastParagraph = paragraph;
 
-		// Get related paragraphs (paragraphs with same indentation following this one)
-		const relatedParagraphs = getRelatedParagraphs(paragraph, indent);
-
-		// Process the remainder with related paragraphs
-		for (const relatedPara of relatedParagraphs) {
-			if (!remainder) break;
-
-			const relatedText = relatedPara.getTextContent();
-
-			// Combine remainder with related paragraph text
-			const combinedText = remainder + ' ' + relatedText;
-			const { newLine: wrappedLine, newRemainder: newRem } = wrapLine({
-				line: combinedText,
-				maxLength,
-				indent
-			});
-
-			// Update the related paragraph
-			const textNode = relatedPara.getFirstChild();
-			if (isTextNode(textNode)) {
-				textNode.setTextContent(wrappedLine);
-			}
-
-			remainder = newRem;
-			lastParagraph = relatedPara;
-		}
-
-		// Create new paragraphs for any remaining text
+		// Create new paragraphs for the wrapped text
 		while (remainder && remainder.length > 0) {
+			// Prepend indent to the remainder before wrapping it
+			const indentedLine = indent + remainder;
 			const { newLine: finalLine, newRemainder: finalRem } = wrapLine({
-				line: remainder,
+				line: indentedLine,
 				maxLength,
 				indent
 			});
 
 			const newParagraph = new ParagraphNode();
-			const newTextNode = new TextNode(indent + finalLine);
+			const newTextNode = new TextNode(finalLine);
 			newParagraph.append(newTextNode);
 			lastParagraph.insertAfter(newParagraph);
 
@@ -170,83 +154,57 @@ export function wrapIfNecssary({ node, maxLength }: { node: TextNode; maxLength:
 		}
 
 		// Try to maintain cursor position
-		if (selectionOffset > newLine.length) {
-			// Cursor was after the wrap point
-			// Try to find which paragraph it should be in now
-			let targetPara = paragraph;
-			let accumulatedLength = newLine.length;
+		// Calculate which paragraph the cursor should end up in
+		let remainingOffset = selectionOffset;
 
-			// Walk through paragraphs to find where cursor should land
-			let nextPara = paragraph.getNextSibling();
-			while (nextPara && $isParagraphNode(nextPara)) {
-				const nextText = nextPara.getFirstChild();
-				if (!isTextNode(nextText)) break;
+		// If cursor was in the first line
+		if (remainingOffset <= newLine.length) {
+			// Keep cursor in the current paragraph at the same position
+			node.select(remainingOffset, remainingOffset);
+		} else {
+			// Cursor should be in one of the wrapped paragraphs
+			remainingOffset -= newLine.length + 1; // Account for the line and space
 
-				const paraLength = nextText.getTextContentSize();
+			// Walk through the created paragraphs to find where cursor belongs
+			let currentPara: ParagraphNode | null = paragraph.getNextSibling() as ParagraphNode | null;
+			let tempRemainder = newRemainder;
 
-				// Check if cursor should be in this paragraph
-				if (selectionOffset <= accumulatedLength + paraLength) {
-					const offset = Math.min(selectionOffset - accumulatedLength, paraLength);
-					nextText.select(offset, offset);
-					return;
-				}
+			// Calculate all the wrapped lines to find cursor position
+			while (tempRemainder && tempRemainder.length > 0) {
+				const indentedLine = indent + tempRemainder;
+				const { newLine: tempLine, newRemainder: tempRem } = wrapLine({
+					line: indentedLine,
+					maxLength,
+					indent
+				});
 
-				accumulatedLength += paraLength;
-				targetPara = nextPara;
-				nextPara = nextPara.getNextSibling();
-
-				// Stop at non-related paragraphs
-				const text = targetPara.getTextContent();
-				const paraIndent = parseIndent(text);
-				if (paraIndent !== indent || parseBullet(text)) {
+				// tempLine now includes the indent, so just check against its length
+				if (remainingOffset <= tempLine.length) {
+					// Cursor belongs in this line
 					break;
 				}
+				remainingOffset -= tempLine.length + 1; // +1 for space between lines
+				tempRemainder = tempRem;
+				currentPara = currentPara?.getNextSibling() as ParagraphNode | null;
 			}
 
-			// If we didn't find a place, put cursor at end of last paragraph
-			if (targetPara) {
-				const lastText = targetPara.getFirstChild();
-				if (isTextNode(lastText)) {
-					lastText.selectEnd();
+			// Set cursor in the appropriate paragraph
+			if (currentPara && $isParagraphNode(currentPara)) {
+				const textNode = currentPara.getFirstChild();
+				if (isTextNode(textNode)) {
+					textNode.select(Math.max(0, remainingOffset), Math.max(0, remainingOffset));
+				}
+			} else {
+				// Fallback: put cursor at end of last created paragraph
+				if (lastParagraph) {
+					const textNode = lastParagraph.getFirstChild();
+					if (isTextNode(textNode)) {
+						textNode.selectEnd();
+					}
 				}
 			}
 		}
 	}
-}
-
-/**
- * Returns paragraphs that follow the given paragraph that are considered part of the same
- * logical paragraph. This enables us to re-wrap a paragraph when edited in the middle.
- *
- * In the multi-paragraph structure, "related paragraphs" are those with the same
- * indentation and no bullet points, representing continuation of the same text block.
- */
-function getRelatedParagraphs(paragraph: ParagraphNode, indent: string): ParagraphNode[] {
-	const collectedParagraphs: ParagraphNode[] = [];
-	let next = paragraph.getNextSibling();
-
-	while (next && $isParagraphNode(next)) {
-		const text = next.getTextContent();
-
-		// Empty paragraphs break the chain
-		if (text.trimStart() === '') {
-			break;
-		}
-
-		// We don't consider altered indentations or new bullet points to be
-		// part of the same logical paragraph.
-		const bullet = parseBullet(text);
-		const lineIndent = parseIndent(text);
-
-		if (indent !== lineIndent || bullet) {
-			break;
-		}
-
-		collectedParagraphs.push(next);
-		next = next.getNextSibling();
-	}
-
-	return collectedParagraphs;
 }
 
 export function wrapAll(editor: LexicalEditor, maxLength: number) {
@@ -259,7 +217,7 @@ export function wrapAll(editor: LexicalEditor, maxLength: number) {
 				if ($isParagraphNode(child)) {
 					const textNode = child.getFirstChild();
 					if (isTextNode(textNode)) {
-						wrapIfNecssary({ node: textNode, maxLength });
+						wrapIfNecessary({ node: textNode, maxLength });
 					}
 				}
 			}
