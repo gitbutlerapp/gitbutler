@@ -636,7 +636,7 @@ fn unrelated_additions_are_fine_even_with_conflicts_in_index() -> anyhow::Result
 
 #[test]
 fn forced_changes_with_snapshot_and_directory_to_file() -> anyhow::Result<()> {
-    if but_testsupport::gix_testtools::is_ci::cached() || cfg!(target_os = "linux") {
+    if cfg!(target_os = "linux") {
         // Fails on checkout on Linux as it tries to get null from the ODB for some reason.
         // Too strange, usually related to the index somehow.
         eprintln!("SKIPPING TEST KNOWN TO FAIL ON CI ONLY");
