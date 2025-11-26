@@ -31,13 +31,16 @@
 	class="bubble-wrap"
 	class:editing
 	class:bubble-wrap_user={role === MessageRole.User}
-	class:bubble-wrap_assistant={role === MessageRole.Assistant}
+	class:bubble-wrap_assistant={role === MessageRole.Assistant || role === MessageRole.System}
 >
 	<div class="bubble">
 		<div class="bubble__header text-13 text-bold">
 			{#if role === MessageRole.User}
 				<Icon name="profile" />
 				<span>User</span>
+			{:else if role === MessageRole.System}
+				<Icon name="robot" />
+				<span>System</span>
 			{:else}
 				<Icon name="robot" />
 				<span>Assistant</span>
@@ -93,7 +96,6 @@
 	.bubble {
 		width: 100%;
 		max-width: 90%;
-		/* overflow: hidden; */
 	}
 
 	.bubble-wrap_user {
@@ -119,8 +121,6 @@
 		align-items: center;
 		padding: 12px;
 		gap: 8px;
-		/* border: 1px solid var(--clr-border-2); */
-
 		border-bottom: none;
 		border-radius: var(--radius-l) var(--radius-l) 0 0;
 	}
@@ -129,8 +129,6 @@
 		padding: 12px;
 		overflow-x: auto;
 		border-top: 1px solid var(--clr-border-2);
-		/* border: 1px solid var(--clr-border-2); */
-
 		border-radius: 0 0 var(--radius-l) var(--radius-l);
 		color: var(--clr-text-1);
 	}
@@ -145,6 +143,7 @@
 
 	.textarea {
 		width: 100%;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: 0 0 var(--radius-l) var(--radius-l);
 		background-color: var(--clr-bg-1);
