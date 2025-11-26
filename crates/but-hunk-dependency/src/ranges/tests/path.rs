@@ -142,7 +142,7 @@ a
                 commit_id: commit_a_id,
                 start: 1,
                 lines: 3,
-                line_shift: 7
+                line_shift: 3
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -150,7 +150,7 @@ a
                 commit_id: commit_b_id,
                 start: 4,
                 lines: 1,
-                line_shift: 0
+                line_shift: 1
             },
             HunkRange {
                 change_type: TreeStatusKind::Addition,
@@ -158,7 +158,7 @@ a
                 commit_id: commit_a_id,
                 start: 5,
                 lines: 3,
-                line_shift: 7
+                line_shift: 3
             }
         ]
     );
@@ -694,7 +694,7 @@ a
                 commit_id: commit3_id,
                 start: 1,
                 lines: 1,
-                line_shift: -1
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -725,7 +725,7 @@ a
                 commit_id: commit3_id,
                 start: 1,
                 lines: 1,
-                line_shift: -1
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -764,7 +764,7 @@ a
                 commit_id: commit3_id,
                 start: 1,
                 lines: 1,
-                line_shift: -1
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -772,7 +772,7 @@ a
                 commit_id: commit5_id,
                 start: 2,
                 lines: 3,
-                line_shift: 1
+                line_shift: 3
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -780,7 +780,7 @@ a
                 commit_id: commit4_id,
                 start: 5,
                 lines: 1,
-                line_shift: 2
+                line_shift: 1
             }
         ]
     );
@@ -810,7 +810,7 @@ a
                 commit_id: commit5_id,
                 start: 1,
                 lines: 3,
-                line_shift: 1
+                line_shift: 3
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -818,7 +818,7 @@ a
                 commit_id: commit4_id,
                 start: 4,
                 lines: 1,
-                line_shift: 2
+                line_shift: 1
             }
         ]
     );
@@ -1100,7 +1100,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
                 commit_id: commit1_id,
                 start: 1,
                 lines: 6,
-                line_shift: 9
+                line_shift: 6
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -1108,7 +1108,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
                 commit_id: commit2_id,
                 start: 7,
                 lines: 0,
-                line_shift: -3
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Addition,
@@ -1116,7 +1116,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
                 commit_id: commit1_id,
                 start: 7,
                 lines: 0,
-                line_shift: 9
+                line_shift: 0
             }
         ]
     );
@@ -1143,7 +1143,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
                 commit_id: commit3_id,
                 start: 1,
                 lines: 1,
-                line_shift: 0
+                line_shift: 1
             },
             HunkRange {
                 change_type: TreeStatusKind::Addition,
@@ -1151,7 +1151,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
                 commit_id: commit1_id,
                 start: 2,
                 lines: 5,
-                line_shift: 0
+                line_shift: 5
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -1159,7 +1159,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
                 commit_id: commit2_id,
                 start: 7,
                 lines: 0,
-                line_shift: -3
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Addition,
@@ -1167,7 +1167,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
                 commit_id: commit1_id,
                 start: 7,
                 lines: 0,
-                line_shift: 9
+                line_shift: 0
             }
         ]
     );
@@ -1452,7 +1452,7 @@ fn removing_line_updates_range() -> anyhow::Result<()> {
                 commit_id: commit1_id,
                 start: 2,
                 lines: 0,
-                line_shift: 1
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -1460,7 +1460,7 @@ fn removing_line_updates_range() -> anyhow::Result<()> {
                 commit_id: commit2_id,
                 start: 2,
                 lines: 0,
-                line_shift: -1
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -1468,7 +1468,7 @@ fn removing_line_updates_range() -> anyhow::Result<()> {
                 commit_id: commit1_id,
                 start: 2,
                 lines: 2,
-                line_shift: 1
+                line_shift: 0
             }
         ]
     );
@@ -1703,7 +1703,7 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
                 commit_id: commit1_id,
                 start: 1,
                 lines: 2,
-                line_shift: 10
+                line_shift: 2
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -1711,7 +1711,7 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
                 commit_id: commit2_id,
                 start: 3,
                 lines: 4,
-                line_shift: 3
+                line_shift: 4
             },
             HunkRange {
                 change_type: TreeStatusKind::Addition,
@@ -1719,7 +1719,7 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
                 commit_id: commit1_id,
                 start: 7,
                 lines: 0,
-                line_shift: 10
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -1727,7 +1727,7 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
                 commit_id: commit2_id,
                 start: 7,
                 lines: 0,
-                line_shift: -1
+                line_shift: 0,
             },
             HunkRange {
                 change_type: TreeStatusKind::Addition,
@@ -1735,7 +1735,7 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
                 commit_id: commit1_id,
                 start: 7,
                 lines: 2,
-                line_shift: 10
+                line_shift: 2,
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -1743,7 +1743,7 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
                 commit_id: commit2_id,
                 start: 9,
                 lines: 2,
-                line_shift: 1
+                line_shift: 2
             },
             HunkRange {
                 change_type: TreeStatusKind::Addition,
@@ -1751,7 +1751,7 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
                 commit_id: commit1_id,
                 start: 11,
                 lines: 3,
-                line_shift: 10
+                line_shift: 3
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
