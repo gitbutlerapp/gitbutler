@@ -8,7 +8,7 @@
 
 	type Props = {
 		projectId: string;
-		promptUse: 'commits' | 'branches';
+		promptUse: 'commits' | 'branches' | 'pullRequests';
 	};
 
 	const { projectId, promptUse }: Props = $props();
@@ -21,9 +21,12 @@
 	if (promptUse === 'commits') {
 		prompts = promptService.commitPrompts;
 		selectedPromptId = promptService.selectedCommitPromptId(projectId);
-	} else {
+	} else if (promptUse === 'branches') {
 		prompts = promptService.branchPrompts;
 		selectedPromptId = promptService.selectedBranchPromptId(projectId);
+	} else {
+		prompts = promptService.prPrompts;
+		selectedPromptId = promptService.selectedPrPromptId(projectId);
 	}
 
 	let userPrompts = prompts.userPrompts;
@@ -52,7 +55,11 @@
 <Select
 	value={$selectedPromptId}
 	options={allPrompts.map((p) => ({ label: p.name, value: p.id }))}
-	label={promptUse === 'commits' ? 'Commit message' : 'Branch name'}
+	label={promptUse === 'commits'
+		? 'Commit message'
+		: promptUse === 'branches'
+			? 'Branch name'
+			: 'PR message'}
 	wide={true}
 	searchable
 	disabled={allPrompts.length === 1}
