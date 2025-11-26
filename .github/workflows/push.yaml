@@ -184,6 +184,8 @@ jobs:
         env:
           GITBUTLER_TESTS_NO_CLEANUP: '1'
         name: cargo test
+      # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
+      - run: cargo test -p but --no-default-features
 
   rust-test-tauri:
     needs: changes

@@ -1,5 +1,16 @@
 use crate::utils::Sandbox;
 
+#[cfg(not(feature = "legacy"))]
+#[test]
+fn looks_good_and_can_be_invoked_in_various_ways_non_legacy() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+    env.but(None).assert().success().stdout_eq(snapbox::file![
+        "snapshots/help/no-arg-no-legacy.stdout.term.svg"
+    ]);
+    Ok(())
+}
+
+#[cfg(feature = "legacy")]
 #[test]
 fn looks_good_and_can_be_invoked_in_various_ways() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
@@ -21,6 +32,7 @@ fn looks_good_and_can_be_invoked_in_various_ways() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "legacy")]
 #[test]
 fn rub_looks_good() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;

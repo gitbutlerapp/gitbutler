@@ -19,6 +19,3 @@ doctest = false
 but.workspace = true
 clap.workspace = true
 anyhow.workspace = true
-
-[dev-dependencies]
-snapbox.workspace = true
