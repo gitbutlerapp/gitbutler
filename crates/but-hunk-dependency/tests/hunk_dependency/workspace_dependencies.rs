@@ -332,7 +332,7 @@ fn delete_and_recreate_file_multi_stack() -> anyhow::Result<()> {
                         commit_id: Sha1(925d483a4608e3588d24d8c28c3b626c6d946a93),
                         start: 1,
                         lines: 1,
-                        line_shift: 1,
+                        line_shift: 0,
                     },
                 ],
             ),
@@ -359,7 +359,6 @@ fn delete_and_recreate_file_multi_stack() -> anyhow::Result<()> {
 #[test]
 fn complex_file_manipulation() -> anyhow::Result<()> {
     let actual = worktree_ranges_digest_for_workspace_named("complex-file-manipulation")?;
-    // TODO: why are there additions with 0 lines?
     insta::assert_debug_snapshot!(actual, @r#"
     WorkspaceDigest {
         ranges_by_path: [
@@ -370,7 +369,7 @@ fn complex_file_manipulation() -> anyhow::Result<()> {
                         change_type: Addition,
                         commit_id: Sha1(3113ca08b2b23d7646cdb9c9b88ffde8d1c7784a),
                         start: 1,
-                        lines: 0,
+                        lines: 1,
                         line_shift: 0,
                     },
                     StableHunkRange {
@@ -383,9 +382,9 @@ fn complex_file_manipulation() -> anyhow::Result<()> {
                     StableHunkRange {
                         change_type: Addition,
                         commit_id: Sha1(3113ca08b2b23d7646cdb9c9b88ffde8d1c7784a),
-                        start: 3,
-                        lines: 6,
-                        line_shift: 6,
+                        start: 4,
+                        lines: 5,
+                        line_shift: 5,
                     },
                     StableHunkRange {
                         change_type: Modification,
@@ -393,13 +392,6 @@ fn complex_file_manipulation() -> anyhow::Result<()> {
                         start: 9,
                         lines: 3,
                         line_shift: 3,
-                    },
-                    StableHunkRange {
-                        change_type: Addition,
-                        commit_id: Sha1(3113ca08b2b23d7646cdb9c9b88ffde8d1c7784a),
-                        start: 12,
-                        lines: 0,
-                        line_shift: 0,
                     },
                 ],
             ),
@@ -459,7 +451,7 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                         change_type: Addition,
                         commit_id: Sha1(3113ca08b2b23d7646cdb9c9b88ffde8d1c7784a),
                         start: 1,
-                        lines: 0,
+                        lines: 1,
                         line_shift: 0,
                     },
                     StableHunkRange {
@@ -472,9 +464,9 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                     StableHunkRange {
                         change_type: Addition,
                         commit_id: Sha1(3113ca08b2b23d7646cdb9c9b88ffde8d1c7784a),
-                        start: 3,
-                        lines: 6,
-                        line_shift: 6,
+                        start: 4,
+                        lines: 5,
+                        line_shift: 5,
                     },
                     StableHunkRange {
                         change_type: Modification,
@@ -482,13 +474,6 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                         start: 9,
                         lines: 3,
                         line_shift: 3,
-                    },
-                    StableHunkRange {
-                        change_type: Addition,
-                        commit_id: Sha1(3113ca08b2b23d7646cdb9c9b88ffde8d1c7784a),
-                        start: 12,
-                        lines: 0,
-                        line_shift: 0,
                     },
                 ],
             ),
@@ -551,9 +536,9 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                             StableHunkRange {
                                 change_type: Addition,
                                 commit_id: Sha1(3113ca08b2b23d7646cdb9c9b88ffde8d1c7784a),
-                                start: 3,
-                                lines: 6,
-                                line_shift: 6,
+                                start: 4,
+                                lines: 5,
+                                line_shift: 5,
                             },
                         ],
                     },
@@ -600,7 +585,7 @@ fn complex_file_manipulation_multiple_hunks() -> anyhow::Result<()> {
                         change_type: Modification,
                         commit_id: Sha1(375e35becbf67fe2b246b120bc76bf070e3e41d8),
                         start: 1,
-                        lines: 0,
+                        lines: 1,
                         line_shift: 0,
                     },
                     StableHunkRange {
@@ -613,8 +598,8 @@ fn complex_file_manipulation_multiple_hunks() -> anyhow::Result<()> {
                     StableHunkRange {
                         change_type: Modification,
                         commit_id: Sha1(375e35becbf67fe2b246b120bc76bf070e3e41d8),
-                        start: 2,
-                        lines: 2,
+                        start: 3,
+                        lines: 1,
                         line_shift: 1,
                     },
                     StableHunkRange {
@@ -640,13 +625,6 @@ fn complex_file_manipulation_multiple_hunks() -> anyhow::Result<()> {
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(e954269ca7be71d09da50ec389b13f268a779c27),
-                        start: 7,
-                        lines: 0,
-                        line_shift: 0,
-                    },
-                    StableHunkRange {
-                        change_type: Modification,
                         commit_id: Sha1(fba21e9ecacde86f327537add23f96775064a486),
                         start: 7,
                         lines: 1,
@@ -663,15 +641,15 @@ fn complex_file_manipulation_multiple_hunks() -> anyhow::Result<()> {
                         change_type: Modification,
                         commit_id: Sha1(375e35becbf67fe2b246b120bc76bf070e3e41d8),
                         start: 9,
-                        lines: 1,
-                        line_shift: 1,
+                        lines: 2,
+                        line_shift: 2,
                     },
                     StableHunkRange {
                         change_type: Modification,
                         commit_id: Sha1(fba21e9ecacde86f327537add23f96775064a486),
                         start: 10,
                         lines: 1,
-                        line_shift: 2,
+                        line_shift: 1,
                     },
                 ],
             ),
@@ -705,8 +683,8 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                             StableHunkRange {
                                 change_type: Modification,
                                 commit_id: Sha1(375e35becbf67fe2b246b120bc76bf070e3e41d8),
-                                start: 2,
-                                lines: 2,
+                                start: 3,
+                                lines: 1,
                                 line_shift: 1,
                             },
                         ],
@@ -718,13 +696,6 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                         +aaaaa
                         "),
                         commit_intersections: [
-                            StableHunkRange {
-                                change_type: Modification,
-                                commit_id: Sha1(e954269ca7be71d09da50ec389b13f268a779c27),
-                                start: 7,
-                                lines: 0,
-                                line_shift: 0,
-                            },
                             StableHunkRange {
                                 change_type: Modification,
                                 commit_id: Sha1(fba21e9ecacde86f327537add23f96775064a486),
@@ -750,10 +721,17 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
+                                commit_id: Sha1(375e35becbf67fe2b246b120bc76bf070e3e41d8),
+                                start: 9,
+                                lines: 2,
+                                line_shift: 2,
+                            },
+                            StableHunkRange {
+                                change_type: Modification,
                                 commit_id: Sha1(fba21e9ecacde86f327537add23f96775064a486),
                                 start: 10,
                                 lines: 1,
-                                line_shift: 2,
+                                line_shift: 1,
                             },
                         ],
                     },
