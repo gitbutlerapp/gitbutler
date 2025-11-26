@@ -1,4 +1,4 @@
-import { wrapIfNecssary } from '$lib/richText/linewrap';
+import { wrapIfNecessary } from '$lib/richText/linewrap';
 import { createEditor, type LexicalEditor } from 'lexical';
 import {
 	$createParagraphNode as createParagraphNode,
@@ -32,7 +32,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			root.append(paragraph);
 
 			// Trigger wrapping with maxLength of 20
-			wrapIfNecssary({ node: textNode, maxLength: 20 });
+			wrapIfNecessary({ node: textNode, maxLength: 20 });
 		});
 
 		editor.read(() => {
@@ -52,7 +52,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			paragraph.append(textNode);
 			root.append(paragraph);
 
-			wrapIfNecssary({ node: textNode, maxLength: 20 });
+			wrapIfNecessary({ node: textNode, maxLength: 20 });
 		});
 
 		editor.read(() => {
@@ -78,7 +78,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			paragraph.append(textNode);
 			root.append(paragraph);
 
-			wrapIfNecssary({ node: textNode, maxLength: 25 });
+			wrapIfNecessary({ node: textNode, maxLength: 25 });
 		});
 
 		editor.read(() => {
@@ -105,7 +105,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			paragraph.append(textNode);
 			root.append(paragraph);
 
-			wrapIfNecssary({ node: textNode, maxLength: 10 });
+			wrapIfNecessary({ node: textNode, maxLength: 10 });
 		});
 
 		editor.read(() => {
@@ -126,7 +126,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			paragraph.append(textNode);
 			root.append(paragraph);
 
-			wrapIfNecssary({ node: textNode, maxLength: 50 });
+			wrapIfNecessary({ node: textNode, maxLength: 50 });
 		});
 
 		editor.read(() => {
@@ -147,7 +147,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			paragraph.append(textNode);
 			root.append(paragraph);
 
-			wrapIfNecssary({ node: textNode, maxLength: 10 });
+			wrapIfNecessary({ node: textNode, maxLength: 10 });
 		});
 
 		editor.read(() => {
@@ -177,7 +177,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 			editor.update(() => {
 				const node = getNodeByKey(textNodeKey) as TextNode;
-				wrapIfNecssary({ node, maxLength: 20 });
+				wrapIfNecessary({ node, maxLength: 20 });
 			});
 
 			editor.read(() => {
@@ -210,7 +210,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 			editor.update(() => {
 				const node = getNodeByKey(textNodeKey) as TextNode;
-				wrapIfNecssary({ node, maxLength: 25 });
+				wrapIfNecessary({ node, maxLength: 25 });
 			});
 
 			editor.read(() => {
@@ -244,7 +244,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 			editor.update(() => {
 				const node = getNodeByKey(textNodeKey) as TextNode;
-				wrapIfNecssary({ node, maxLength: 20 });
+				wrapIfNecessary({ node, maxLength: 20 });
 			});
 
 			editor.read(() => {
@@ -286,7 +286,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				textNode.setTextContent('This is the first line that has been made much longer');
 
 				// Trigger rewrap
-				wrapIfNecssary({ node: textNode, maxLength: 20 });
+				wrapIfNecessary({ node: textNode, maxLength: 20 });
 			});
 
 			editor.read(() => {
@@ -329,7 +329,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 					'This is a very long line that has not been wrapped yet and definitely needs to be wrapped now'
 				);
 
-				wrapIfNecssary({ node, maxLength: 25 });
+				wrapIfNecessary({ node, maxLength: 25 });
 			});
 
 			editor.read(() => {
@@ -371,7 +371,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 				// Trigger wrap on first paragraph
 				const textNode = para1.getFirstChild() as TextNode;
-				wrapIfNecssary({ node: textNode, maxLength: 20 });
+				wrapIfNecessary({ node: textNode, maxLength: 20 });
 			});
 
 			editor.read(() => {
@@ -402,7 +402,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 				// Trigger wrap on first paragraph
 				const textNode = para1.getFirstChild() as TextNode;
-				wrapIfNecssary({ node: textNode, maxLength: 20 });
+				wrapIfNecessary({ node: textNode, maxLength: 20 });
 			});
 
 			editor.read(() => {
@@ -436,7 +436,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 				// Trigger wrap on first paragraph
 				const textNode = para1.getFirstChild() as TextNode;
-				wrapIfNecssary({ node: textNode, maxLength: 20 });
+				wrapIfNecessary({ node: textNode, maxLength: 20 });
 			});
 
 			editor.read(() => {

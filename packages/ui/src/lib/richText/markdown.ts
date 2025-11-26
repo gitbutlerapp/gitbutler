@@ -1,9 +1,5 @@
-import { PARAGRAPH_TRANSFORMER } from '$lib/richText/customTransforers';
 import { isWrappingExempt, parseBullet, parseIndent, wrapLine } from '$lib/richText/linewrap';
-import {
-	$convertFromMarkdownString as convertFromMarkdownString,
-	$convertToMarkdownString as convertToMarkdownString
-} from '@lexical/markdown';
+import { $convertToMarkdownString as convertToMarkdownString } from '@lexical/markdown';
 import {
 	$getRoot as getRoot,
 	type LexicalEditor,
@@ -15,19 +11,25 @@ import { ALL_TRANSFORMERS } from 'svelte-lexical';
 export function updateEditorToRichText(editor: LexicalEditor | undefined) {
 	editor?.update(() => {
 		const text = getRoot().getTextContent();
-		convertFromMarkdownString(text, ALL_TRANSFORMERS, undefined, false, true);
+
+		// Clear the editor
+		getRoot().clear();
+
+		// Split text into lines and create a paragraph for each line
+		// This preserves blank lines unlike markdown conversion
+		const lines = text.split('\n');
+
+		for (const line of lines) {
+			const paragraph = createParagraphNode();
+			const textNode = createTextNode(line);
+			paragraph.append(textNode);
+			getRoot().append(paragraph);
+		}
 	});
 }
 
-/**
- * TODO: We should not call this on _every_ change to the document, see `OnChange.svelte`.
- */
 export function getMarkdownString(maxLength?: number): string {
-	const markdown = convertToMarkdownString(
-		[PARAGRAPH_TRANSFORMER, ...ALL_TRANSFORMERS],
-		undefined,
-		true
-	);
+	const markdown = convertToMarkdownString(ALL_TRANSFORMERS, undefined, true);
 	return maxLength ? wrapIfNecessary(markdown, maxLength) : markdown;
 }
 
