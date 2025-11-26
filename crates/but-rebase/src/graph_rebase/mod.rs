@@ -9,6 +9,7 @@ use petgraph::graph::NodeIndex;
 mod creation;
 pub mod rebase;
 pub use creation::GraphExt;
+pub mod cherry_pick;
 
 /// Utilities for testing
 pub mod testing;

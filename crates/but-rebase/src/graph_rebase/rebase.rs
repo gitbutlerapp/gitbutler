@@ -1,14 +1,16 @@
 //! Perform the actual rebase operations
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::{
     ReferenceSpec,
+    cherry_pick::EmptyCommit,
+    cherry_pick_one,
     graph_rebase::{Editor, Step, StepGraph, StepGraphIndex},
+    to_commit,
 };
-use anyhow::Result;
-use gix::hashtable::HashMap;
-use petgraph::visit::{EdgeRef, IntoEdgesDirected};
+use anyhow::{Context, Result};
+use petgraph::visit::EdgeRef;
 
 /// Represents the rebase output and the varying degrees of success it had.
 pub struct RebaseResult {
@@ -25,10 +27,56 @@ impl Editor {
         // the reference step for `gitbutler/workspace`, but there could be
         // multiple.
 
+        let pick_mode = crate::cherry_pick::PickMode::SkipIfNoop;
+
         let steps_to_pick = order_steps_picking(&self.graph, &self.heads);
 
-        for step in steps_to_pick {
+        // A 1 to 1 mapping between the incoming graph and hte output graph
+        let mut graph_mapping: HashMap<StepGraphIndex, StepGraphIndex> = HashMap::new();
+        // The step graph with updated commit oids
+        let mut output_graph = StepGraph::new();
+
+        for step_idx in steps_to_pick {
             // Do the frikkin rebase man!
+            let step = self.graph[step_idx].clone();
+            match step {
+                Step::Pick { id } => {
+                    let commit = to_commit(repo, id)?;
+                    let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+
+                    match (commit.parents.len(), graph_parents.len()) {
+                        (0, 0) => {
+                            let new_idx = output_graph.add_node(step);
+                            graph_mapping.insert(step_idx, new_idx);
+                        }
+                        (1, 0) => {
+                            todo!("1 to 0 cherry pick is not implemented yet");
+                        }
+                        (0, 1) => {
+                            todo!("0 to 1 cherry pick is not implemented yet");
+                        }
+                        (1, 1) => {
+                            let (_, parent_id) = graph_parents.first().expect("Impossible");
+
+                            let new_commit = cherry_pick_one(
+                                repo,
+                                *parent_id,
+                                id,
+                                pick_mode,
+                                EmptyCommit::Keep,
+                            )?;
+
+                            let new_idx = output_graph.add_node(Step::Pick { id: new_commit });
+                            graph_mapping.insert(step_idx, new_idx);
+                        }
+                        (_, _) => {
+                            todo!("N to >2 parents & >2 parents to N is not implemented yet");
+                        }
+                    };
+                }
+                Step::Reference { refname } => {}
+                Step::None => {}
+            };
         }
 
         todo!()
@@ -39,7 +87,10 @@ impl Editor {
 /// ordering.
 ///
 /// We do this via a pruned depth first search.
-fn collect_ordered_parents(graph: &StepGraph, target: StepGraphIndex) -> Vec<StepGraphIndex> {
+fn collect_ordered_parents(
+    graph: &StepGraph,
+    target: StepGraphIndex,
+) -> Vec<(StepGraphIndex, gix::ObjectId)> {
     let mut potential_parent_edges = graph
         .edges_directed(target, petgraph::Direction::Outgoing)
         .collect::<Vec<_>>();
@@ -54,8 +105,8 @@ fn collect_ordered_parents(graph: &StepGraph, target: StepGraphIndex) -> Vec<Ste
     let mut parents = vec![];
 
     while let Some(candidate) = potential_parent_edges.pop() {
-        if let Step::Pick { .. } = graph[candidate.target()] {
-            parents.push(candidate.target());
+        if let Step::Pick { id } = graph[candidate.target()] {
+            parents.push((candidate.target(), id));
             // Don't persue the children
             continue;
         };
@@ -143,29 +194,24 @@ mod test {
         #[test]
         fn basic_scenario() -> Result<()> {
             let mut graph = StepGraph::new();
-            let a = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
-            });
+            let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
+            let a = graph.add_node(Step::Pick { id: a_id });
             // First parent
-            let b = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
-            });
+            let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
+            let b = graph.add_node(Step::Pick { id: b_id });
             // Second parent - is a reference
             let c = graph.add_node(Step::Reference {
                 refname: "refs/heads/foobar".try_into()?,
             });
             // Second parent's first child
-            let d = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
-            });
+            let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
+            let d = graph.add_node(Step::Pick { id: d_id });
             // Second parent's second child
-            let e = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
-            });
+            let e_id = gix::ObjectId::from_str("4000000000000000000000000000000000000000")?;
+            let e = graph.add_node(Step::Pick { id: e_id });
             // Third parent
-            let f = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
-            });
+            let f_id = gix::ObjectId::from_str("5000000000000000000000000000000000000000")?;
+            let f = graph.add_node(Step::Pick { id: f_id });
 
             // A's parents
             graph.add_edge(a, b, Edge { order: 0 });
@@ -177,7 +223,7 @@ mod test {
             graph.add_edge(c, e, Edge { order: 1 });
 
             let parents = collect_ordered_parents(&graph, a);
-            assert_eq!(&parents, &[b, d, e, f]);
+            assert_eq!(&parents, &[(b, b_id), (d, d_id), (e, e_id), (f, f_id)]);
 
             Ok(())
         }
@@ -185,29 +231,24 @@ mod test {
         #[test]
         fn insertion_order_is_irrelivant() -> Result<()> {
             let mut graph = StepGraph::new();
-            let a = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
-            });
+            let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
+            let a = graph.add_node(Step::Pick { id: a_id });
             // First parent
-            let b = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
-            });
+            let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
+            let b = graph.add_node(Step::Pick { id: b_id });
             // Second parent - is a reference
             let c = graph.add_node(Step::Reference {
                 refname: "refs/heads/foobar".try_into()?,
             });
             // Second parent's second child
-            let d = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
-            });
+            let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
+            let d = graph.add_node(Step::Pick { id: d_id });
             // Second parent's first child
-            let e = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
-            });
+            let e_id = gix::ObjectId::from_str("4000000000000000000000000000000000000000")?;
+            let e = graph.add_node(Step::Pick { id: e_id });
             // Third parent
-            let f = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
-            });
+            let f_id = gix::ObjectId::from_str("5000000000000000000000000000000000000000")?;
+            let f = graph.add_node(Step::Pick { id: f_id });
 
             // A's parents
             graph.add_edge(a, f, Edge { order: 2 });
@@ -219,7 +260,7 @@ mod test {
             graph.add_edge(c, e, Edge { order: 0 });
 
             let parents = collect_ordered_parents(&graph, a);
-            assert_eq!(&parents, &[b, e, d, f]);
+            assert_eq!(&parents, &[(b, b_id), (e, e_id), (d, d_id), (f, f_id)]);
 
             Ok(())
         }
