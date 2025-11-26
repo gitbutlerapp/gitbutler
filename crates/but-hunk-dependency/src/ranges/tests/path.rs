@@ -1110,14 +1110,6 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
                 lines: 0,
                 line_shift: 0
             },
-            HunkRange {
-                change_type: TreeStatusKind::Addition,
-                stack_id,
-                commit_id: commit1_id,
-                start: 7,
-                lines: 0,
-                line_shift: 0
-            }
         ]
     );
 
@@ -1161,14 +1153,6 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
                 lines: 0,
                 line_shift: 0
             },
-            HunkRange {
-                change_type: TreeStatusKind::Addition,
-                stack_id,
-                commit_id: commit1_id,
-                start: 7,
-                lines: 0,
-                line_shift: 0
-            }
         ]
     );
 
@@ -1451,7 +1435,7 @@ fn removing_line_updates_range() -> anyhow::Result<()> {
                 stack_id,
                 commit_id: commit1_id,
                 start: 2,
-                lines: 0,
+                lines: 1,
                 line_shift: 0
             },
             HunkRange {
@@ -1466,8 +1450,8 @@ fn removing_line_updates_range() -> anyhow::Result<()> {
                 change_type: TreeStatusKind::Modification,
                 stack_id,
                 commit_id: commit1_id,
-                start: 2,
-                lines: 2,
+                start: 3,
+                lines: 1,
                 line_shift: 0
             }
         ]
@@ -1718,8 +1702,8 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
                 stack_id,
                 commit_id: commit1_id,
                 start: 7,
-                lines: 0,
-                line_shift: 0
+                lines: 1,
+                line_shift: 1
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
@@ -1733,9 +1717,9 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
                 change_type: TreeStatusKind::Addition,
                 stack_id,
                 commit_id: commit1_id,
-                start: 7,
-                lines: 2,
-                line_shift: 2,
+                start: 8,
+                lines: 1,
+                line_shift: 1,
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
