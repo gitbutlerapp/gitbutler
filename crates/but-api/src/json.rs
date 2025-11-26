@@ -1,3 +1,4 @@
+//! JSON types and utilities to produce decent JSON from API types.
 pub use error::{Error, ToJsonError, UnmarkedError};
 use gix::refs::Target;
 use schemars::{self, JsonSchema};
@@ -195,7 +196,9 @@ mod error {
         }
     }
 
+    /// A utility to convert any `Result<T, impl std::error::Error>` into a [JSON-Error](Error).
     pub trait ToJsonError<T> {
+        /// Convert this instance into a Result<T, [JSON-Error](Error)>.
         fn to_json_error(self) -> Result<T, Error>;
     }
 

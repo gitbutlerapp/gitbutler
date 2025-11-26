@@ -22,12 +22,13 @@ tauri = ["dep:tauri"]
 path-bytes = ["dep:bstr"]
 ## Make legacy functionality available.
 legacy = [
+    "but-ctx/legacy",
+    "but-workspace/legacy",
     "dep:gitbutler-user",
     "dep:gitbutler-project",
     "dep:gitbutler-branch",
     "dep:gitbutler-branch-actions",
     "dep:gitbutler-commit",
-    "dep:but-ctx",
     "dep:gitbutler-reference",
     "dep:gitbutler-stack",
     "dep:gitbutler-repo",
@@ -36,35 +37,50 @@ legacy = [
     "dep:gitbutler-operating-modes",
     "dep:gitbutler-sync",
     "dep:gitbutler-oplog",
+    "dep:but-action",
+    "dep:but-hunk-assignment",
+    "dep:but-hunk-dependency",
+    "dep:but-claude",
+    "dep:but-rules",
+    "dep:but-gerrit",
+    "dep:but-worktrees",
 ]
 
 
 [dependencies]
-but-settings.workspace = true
-but-github = { workspace = true, features = ["legacy"] }
-but-secret.workspace = true
-but-workspace = { workspace = true, features = ["legacy"] }
-but-worktrees.workspace = true
-but-core.workspace = true
-but-gerrit.workspace = true
-but-hunk-assignment.workspace = true
-but-action.workspace = true
-but-api-macros.workspace = true
-but-rebase.workspace = true
 but-serde.workspace = true
-but-graph.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
-but-claude.workspace = true
-but-cherry-apply.workspace = true
-but-hunk-dependency.workspace = true
 but-path.workspace = true
-but-forge-storage.workspace = true
-but-error.workspace = true
-but-db.workspace = true
-but-rules.workspace = true
+but-api-macros.workspace = true
 but-oxidize.workspace = true
+but-error.workspace = true
+but-core.workspace = true
+but-graph.workspace = true
+but-ctx.workspace = true
+but-workspace.workspace = true
+but-settings.workspace = true
+but-secret.workspace = true
+but-rebase.workspace = true
+but-cherry-apply.workspace = true
+but-db.workspace = true
 but-forge.workspace = true
-but-ctx = {workspace = true, optional = true}
+but-forge-storage.workspace = true
+# needs `gitbutler_user::User`, which can probably be ported over.
+but-github = { workspace = true, features = ["legacy"] }
+# 'legacy' is needed while we only have `virtual-branches.toml`
+but-meta = { workspace = true, features = ["legacy"] }
+# 'legacy' is needed while this is only a sketch of what the oplog could be.
+# For single-branch testing, we also want the oplog and just take it as it is.
+but-oplog = { workspace = true, features = ["legacy"] }
+
+# What follows is *basically* newly written crates that are built on top of legacy,
+# so need some refactoring/rethinking to become usable.
+but-action = { workspace = true, optional = true }
+but-hunk-assignment = { workspace = true, optional = true }
+but-hunk-dependency = { workspace = true, optional = true }
+but-claude = { workspace = true, optional = true }
+but-rules = { workspace = true, optional = true }
+but-gerrit = { workspace = true, optional = true }
+but-worktrees = { workspace = true, optional = true }
 
 gitbutler-user = {workspace = true, optional = true}
 gitbutler-project = {workspace = true, optional = true}

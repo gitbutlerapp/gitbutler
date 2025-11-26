@@ -32,6 +32,27 @@ impl Outcome<'_> {
     }
 }
 
+impl<'a> Outcome<'a> {
+    /// Convert this instance into a fully-owned one.
+    pub fn into_owned(self) -> Outcome<'static> {
+        let Outcome {
+            graph,
+            applied_branches,
+            workspace_ref_created,
+            workspace_merge,
+            conflicting_stack_ids,
+        } = self;
+
+        Outcome {
+            graph: Cow::Owned(graph.into_owned()),
+            applied_branches,
+            workspace_ref_created,
+            workspace_merge,
+            conflicting_stack_ids,
+        }
+    }
+}
+
 impl std::fmt::Debug for Outcome<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Outcome {
@@ -137,6 +158,7 @@ pub(crate) mod function {
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.
+    /// The changed workspace will be checked out.
     /// If `branch` is a remote tracking branch, we will instead apply the local tracking branch if it exists or fail otherwise.
     /// Otherwise, add it to the existing `workspace`, and update its metadata accordingly.
     /// **This means that the contents of `branch` is observable from the new state of `repo`**.

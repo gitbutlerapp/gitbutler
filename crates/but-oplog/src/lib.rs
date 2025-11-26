@@ -51,6 +51,7 @@
 //! with the restore point.
 //!
 //! Non-legacy commands can use the [`UnmaterializedOplogSnapshot`] utility to insert the snapshot into the log on successful effects.
+#![forbid(unsafe_code, missing_docs)]
 
 /// This is just a sketch for an in-memory snapshot that isn't observable through the on-disk repository.
 /// It will be committed only if the main effect of a function was successfully applied.
@@ -61,8 +62,15 @@ pub struct UnmaterializedOplogSnapshot {
     /// The tree containing all snapshot information.
     #[cfg(feature = "legacy")]
     tree_id: gix::ObjectId,
+    /// Details to pass when committing the snapshot.
     #[cfg(feature = "legacy")]
     details: gitbutler_oplog::entry::SnapshotDetails,
+}
+
+/// legacy types for easy of use, all provided by `gitbutler-oplog`.
+#[cfg(feature = "legacy")]
+pub mod legacy {
+    pub use gitbutler_oplog::entry::{OperationKind, SnapshotDetails, Trailer};
 }
 
 #[cfg(feature = "legacy")]

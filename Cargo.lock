@@ -818,6 +818,7 @@ dependencies = [
  "but-hunk-assignment",
  "but-hunk-dependency",
  "but-meta",
+ "but-oplog",
  "but-oxidize",
  "but-path",
  "but-rebase",
