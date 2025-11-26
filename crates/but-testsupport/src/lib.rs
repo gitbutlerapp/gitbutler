@@ -306,8 +306,14 @@ pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree:
     fn normalize_mode(mode: u32) -> u32 {
         match mode {
             0o40777 => 0o40755,
+            0o40775 => 0o40755,
+            0o10664 => 0o10644,
+            0o10666 => 0o10644,
+            0o100664 => 0o100644,
             0o100666 => 0o100644,
+            0o100775 => 0o100755,
             0o100777 => 0o100755,
+            0o120775 => 0o120755,
             0o120777 => 0o120755,
             other => other,
         }
