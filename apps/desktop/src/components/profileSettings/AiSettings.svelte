@@ -463,14 +463,16 @@
 		Custom AI prompts
 	{/snippet}
 	{#snippet description()}
-		GitButler's AI assistant generates commit messages and branch names. Use default prompts or
-		create your own. Assign prompts in the project settings.
+		GitButler's AI assistant generates commit messages, branch names, and PR messages. Use default
+		prompts or create your own. Assign prompts in the project settings.
 	{/snippet}
 
 	<div class="prompt-groups">
 		<AIPromptEdit promptUse="commits" />
 		<Spacer margin={12} />
 		<AIPromptEdit promptUse="branches" />
+		<Spacer margin={12} />
+		<AIPromptEdit promptUse="pullRequests" />
 	</div>
 </Section>
 
