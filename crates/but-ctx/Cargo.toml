@@ -18,6 +18,7 @@ legacy = ["dep:gitbutler-project", "dep:tracing"]
 [dependencies]
 but-core.workspace = true
 but-settings.workspace = true
+# Legacy is needed here for our only RefMetadata implementation that adapts `virtual-branches.toml`.
 but-meta = { workspace = true, features = ["legacy"] }
 but-db.workspace = true
 but-graph.workspace = true

@@ -60,7 +60,7 @@ pub(crate) async fn worktree(
     review: bool,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
+    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
     let guard = ctx.shared_worktree_access();
     let meta = ctx.meta(guard.read_permission())?;

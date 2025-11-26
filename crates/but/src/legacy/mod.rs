@@ -1,6 +1,7 @@
 use crate::args::Args;
+use crate::command;
 use crate::utils::OutputChannel;
-use crate::{LegacyProject, command};
+use but_ctx::LegacyProject;
 
 pub mod commits;
 pub mod id;

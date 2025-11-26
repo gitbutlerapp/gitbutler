@@ -1,8 +1,3 @@
-use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-};
-
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::Reference;
 pub use but_core::ref_metadata::StackId;
@@ -19,6 +14,11 @@ use gitbutler_repo::{
 use gix::{utils::str::decompose, validate::reference::name_partial};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
 use crate::{
     StackBranch, VirtualBranchesHandle,
@@ -333,7 +333,7 @@ impl Stack {
     pub fn commits(&self, ctx: &Context) -> Result<Vec<git2::Oid>> {
         let repo = &*ctx.git2_repo.get()?;
         let stack_commits = repo.l(
-            self.head_oid(&repo.to_gix()?)?.to_git2(),
+            self.head_oid(&repo.to_gix_repo()?)?.to_git2(),
             LogUntil::Commit(self.merge_base(ctx)?.to_git2()),
             false,
         )?;
@@ -362,15 +362,15 @@ impl Stack {
     /// - If a target is not set for the project
     /// - If the head commit of the stack is not found
     pub fn merge_base(&self, ctx: &Context) -> Result<gix::ObjectId> {
-        self.merge_base_plumbing(&ctx.legacy_project, &*ctx.repo.get()?)
+        self.merge_base_plumbing(&ctx.project_data_dir(), &*ctx.repo.get()?)
     }
 
     pub fn merge_base_plumbing(
         &self,
-        project: &gitbutler_project::Project,
+        project_data_dir: &Path,
         gix_repo: &gix::Repository,
     ) -> Result<gix::ObjectId> {
-        let virtual_branch_state = VirtualBranchesHandle::new(project.gb_dir());
+        let virtual_branch_state = VirtualBranchesHandle::new(project_data_dir);
         let target = virtual_branch_state.get_default_target()?;
         let merge_base = gix_repo.merge_base(self.head_oid(gix_repo)?, target.sha.to_gix())?;
         Ok(merge_base.detach())
@@ -747,10 +747,10 @@ impl Stack {
     fn set_all_heads(
         &mut self,
         gix_repo: &gix::Repository,
-        project: &gitbutler_project::Project,
+        project_data_dir: &Path,
         new_heads: HashMap<String, Commit<'_>>,
     ) -> Result<()> {
-        let state = branch_state_project(project);
+        let state = branch_state_from_project_data_dir(project_data_dir);
 
         // same heads, just differente commits
         if self
@@ -785,7 +785,7 @@ impl Stack {
             new_heads.insert(spec.reference.to_string(), commit);
         }
 
-        self.set_all_heads(&*ctx.repo.get()?, &ctx.legacy_project, new_heads)
+        self.set_all_heads(&*ctx.repo.get()?, &ctx.project_data_dir(), new_heads)
     }
 
     /// Migrates all change IDs in stack heads to commit IDs.
@@ -971,12 +971,12 @@ fn validate_name(name: &str, state: &VirtualBranchesHandle) -> Result<()> {
     Ok(())
 }
 
-fn branch_state_project(project: &gitbutler_project::Project) -> VirtualBranchesHandle {
-    VirtualBranchesHandle::new(project.gb_dir())
+fn branch_state_from_project_data_dir(project_data_dir: &Path) -> VirtualBranchesHandle {
+    VirtualBranchesHandle::new(project_data_dir)
 }
 
 fn branch_state(ctx: &Context) -> VirtualBranchesHandle {
-    VirtualBranchesHandle::new(ctx.project_data_dir())
+    branch_state_from_project_data_dir(&ctx.project_data_dir())
 }
 
 fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<bool> {

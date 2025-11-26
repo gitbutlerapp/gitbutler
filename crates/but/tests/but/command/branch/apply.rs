@@ -1,9 +1,12 @@
 use crate::utils::{Sandbox, setup_metadata};
 use snapbox::str;
 
+use crate::command::branch::apply::utils::create_local_branch_with_commit_with_message;
+use utils::create_local_branch_with_commit;
+
 #[test]
 fn local_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
@@ -51,7 +54,7 @@ refs/heads/feature-branch
 
 #[test]
 fn local_branch_with_json_output() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
@@ -93,7 +96,7 @@ fn local_branch_with_json_output() -> anyhow::Result<()> {
 
 #[test]
 fn remote_branch_creates_local_tracking_branch_automatically() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
@@ -112,8 +115,8 @@ fn remote_branch_creates_local_tracking_branch_automatically() -> anyhow::Result
 "#,
     );
 
-    // Apply the remote branch
-    env.but("branch apply remote-feature")
+    // Apply the remote branch, by its shortest name only.
+    env.but("branch apply origin/remote-feature")
         .assert()
         .success()
         .stderr_eq(str![])
@@ -137,14 +140,14 @@ Applied remote branch 'origin/remote-feature' to workspace
 
 #[test]
 fn nonexistent_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
 
     // Try to apply a branch that doesn't exist
     env.but("branch apply nonexistent-branch")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not find branch 'nonexistent-branch' in local repository
+Error: The reference 'nonexistent-branch' did not exist
 
 "#]])
         .stdout_eq(str![""]);
@@ -154,7 +157,7 @@ Error: Could not find branch 'nonexistent-branch' in local repository
 
 #[test]
 fn nonexistent_branch_with_json() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
 
     // Try to apply a branch that doesn't exist with JSON output
     env.but("--json branch apply nonexistent-branch")
@@ -162,7 +165,7 @@ fn nonexistent_branch_with_json() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not find branch 'nonexistent-branch' in local repository
+Error: The reference 'nonexistent-branch' did not exist
 
 "#]]);
     // Note: Currently the apply function doesn't output anything with JSON when branch not found
@@ -173,7 +176,7 @@ Error: Could not find branch 'nonexistent-branch' in local repository
 
 #[test]
 fn multiple_branches_sequentially() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
@@ -242,5 +245,3 @@ mod utils {
         ));
     }
 }
-use crate::command::branch::apply::utils::create_local_branch_with_commit_with_message;
-use utils::create_local_branch_with_commit;

@@ -689,7 +689,7 @@ fn upstream_only_commits(
     current_local_and_remote_commits: Option<&Vec<ui::Commit>>,
 ) -> anyhow::Result<Vec<ui::UpstreamCommit>> {
     let git2_repo = ctx.git2_repo.get()?;
-    let branch_commits = stack_branch.commits(&git2_repo, &ctx.legacy_project, stack)?;
+    let branch_commits = stack_branch.commits(&git2_repo, ctx, stack)?;
 
     let local_and_remote = if let Some(current_local_and_remote) = current_local_and_remote_commits
     {
@@ -738,7 +738,7 @@ pub fn local_and_remote_commits(
     let git2_repo = ctx.git2_repo.get()?;
     let mut check_commit = IsCommitIntegrated::new(repo, &git2_repo, &default_target, &mut graph)?;
 
-    let branch_commits = stack_branch.commits(&git2_repo, &ctx.legacy_project, stack)?;
+    let branch_commits = stack_branch.commits(&git2_repo, ctx, stack)?;
     let mut local_and_remote: Vec<ui::Commit> = vec![];
     let mut is_integrated = false;
 

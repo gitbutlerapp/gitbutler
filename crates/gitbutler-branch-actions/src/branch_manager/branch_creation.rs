@@ -342,7 +342,7 @@ impl BranchManager<'_> {
         }
         branch.set_stack_head(
             &vb_state,
-            &(&*repo).to_gix()?,
+            &(&*repo).to_gix_repo()?,
             head_commit.id(),
             Some(head_commit_tree.id()),
         )?;
@@ -383,7 +383,7 @@ impl BranchManager<'_> {
         // calculate the merge base and make sure it's the same as the target commit
         // if not, we need to merge or rebase the branch to get it up to date
 
-        let gix_repo = repo.to_gix()?;
+        let gix_repo = repo.to_gix_repo()?;
         let merge_base = repo
             .merge_base(default_target.sha, stack.head_oid(&gix_repo)?.to_git2())
             .context(format!(

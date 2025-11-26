@@ -3,8 +3,8 @@ use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_workspace::branch::OnWorkspaceMergeConflict;
 use but_workspace::branch::apply::{WorkspaceMerge, WorkspaceReferenceNaming};
 
-/// Just like [apply_without_oplog()] but runs application-specific side effects, typically undo-queue and oplog settings.
-pub fn apply_without_oplog(
+/// Just like [apply()], but without updating the oplog.
+pub fn apply_only(
     ctx: &but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
 ) -> anyhow::Result<but_workspace::branch::apply::Outcome<'static>> {
@@ -48,7 +48,7 @@ pub fn apply(
     )
     .ok();
 
-    let res = apply_without_oplog(ctx, existing_branch);
+    let res = apply_only(ctx, existing_branch);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
         snapshot.commit(ctx).ok();
     }

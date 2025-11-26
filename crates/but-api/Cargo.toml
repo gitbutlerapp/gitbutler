@@ -44,6 +44,7 @@ legacy = [
     "dep:but-rules",
     "dep:but-gerrit",
     "dep:but-worktrees",
+    "dep:but-cherry-apply",
 ]
 
 
@@ -60,7 +61,6 @@ but-workspace.workspace = true
 but-settings.workspace = true
 but-secret.workspace = true
 but-rebase.workspace = true
-but-cherry-apply.workspace = true
 but-db.workspace = true
 but-forge.workspace = true
 but-forge-storage.workspace = true
@@ -74,6 +74,7 @@ but-oplog = { workspace = true, features = ["legacy"] }
 
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
+but-cherry-apply = { workspace = true, optional = true }
 but-action = { workspace = true, optional = true }
 but-hunk-assignment = { workspace = true, optional = true }
 but-hunk-dependency = { workspace = true, optional = true }

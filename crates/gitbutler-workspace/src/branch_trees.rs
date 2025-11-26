@@ -29,7 +29,7 @@ impl WorkspaceState {
             .list_stacks_in_workspace()?
             .iter()
             .map(|stack| -> Result<git2::Oid> {
-                let head = stack.head_oid(&repo.to_gix()?)?.to_git2();
+                let head = stack.head_oid(&repo.to_gix_repo()?)?.to_git2();
                 let commit = repo.find_commit(head)?;
                 let tree = repo.find_real_tree(&commit, Default::default())?;
                 Ok(tree.id())
@@ -220,7 +220,7 @@ pub fn compute_updated_branch_head(
     compute_updated_branch_head_for_commits(
         repo,
         gix_repo,
-        stack.head_oid(&repo.to_gix()?)?.to_git2(),
+        stack.head_oid(&repo.to_gix_repo()?)?.to_git2(),
         stack.tree(ctx)?,
         new_head,
     )

@@ -15,6 +15,7 @@ pub enum Subcommands {
     /// which can be either a commit ID or an existing branch name to create
     /// the new branch from. This allows you to create stacked branches.
     ///
+    #[cfg(feature = "legacy")]
     New {
         /// Name of the new branch
         branch_name: Option<String>,
@@ -29,6 +30,7 @@ pub enum Subcommands {
     /// If the branch has unpushed commits, you will be prompted for confirmation
     /// unless the `--force` flag is used.
     ///
+    #[cfg(feature = "legacy")]
     #[clap(short_flag = 'd')]
     Delete {
         /// Name of the branch to delete
@@ -60,6 +62,7 @@ pub enum Subcommands {
     /// of the base branch. You can disable this with `--no-ahead` to
     /// make the command faster.
     ///
+    #[cfg(feature = "legacy")]
     List {
         /// Filter branches by name (case-insensitive substring match)
         filter: Option<String>,
@@ -93,6 +96,7 @@ pub enum Subcommands {
     /// an AI summary of the branch changes, and check if the branch
     /// merges cleanly into upstream.
     ///
+    #[cfg(feature = "legacy")]
     Show {
         /// CLI ID or name of the branch to show
         branch_id: String,
@@ -133,6 +137,7 @@ pub enum Subcommands {
     /// directory and you can re-apply it later when needed. You will then
     /// see the branch as unapplied in `but branch list`.
     ///
+    #[cfg(feature = "legacy")]
     Unapply {
         /// Name of the branch to unapply
         branch_name: String,

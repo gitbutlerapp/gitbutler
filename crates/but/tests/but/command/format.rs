@@ -11,7 +11,6 @@ fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {
 
     env.but("completions --help --json").assert().success();
 
-    // Without legacy
     #[cfg(feature = "legacy")]
     {
         use snapbox::str;

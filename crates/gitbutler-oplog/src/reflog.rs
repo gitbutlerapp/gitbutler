@@ -3,7 +3,6 @@ use std::path::Path;
 use anyhow::Result;
 use but_fs::write;
 use but_oxidize::OidExt as _;
-use gitbutler_project::Project;
 use gitbutler_repo::{GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME};
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::{config::tree::Key, date::parse::TimeBuf};
@@ -22,11 +21,11 @@ pub struct ReflogCommits {
 
 impl ReflogCommits {
     /// Collect the current state of all relevant commits that we want to protect in the reflog to prevent them from being GC'd.
-    pub fn new(project: &Project) -> Result<Self> {
-        let vb_state = VirtualBranchesHandle::new(project.gb_dir());
+    pub fn new(project_data_dir: &Path) -> Result<Self> {
+        let vb_state = VirtualBranchesHandle::new(project_data_dir);
         let target = vb_state.get_default_target()?.sha.to_gix();
         let last_pushed_base = vb_state.last_pushed_base()?;
-        let oplog_state = OplogHandle::new(&project.gb_dir());
+        let oplog_state = OplogHandle::new(project_data_dir);
         let oplog = oplog_state.oplog_head()?.map(|commit| commit.to_gix());
 
         Ok(ReflogCommits {

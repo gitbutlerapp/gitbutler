@@ -69,13 +69,18 @@ impl Subcommands {
                 base::Subcommands::Update => BaseUpdate,
                 base::Subcommands::Check => BaseCheck,
             },
-            #[cfg(feature = "legacy")]
             Subcommands::Branch(branch::Platform { cmd }) => match cmd {
-                None | Some(branch::Subcommands::List { .. }) => BranchList,
+                None => BranchList,
+                #[cfg(feature = "legacy")]
+                Some(branch::Subcommands::List { .. }) => BranchList,
+                #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::New { .. }) => BranchNew,
+                #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Delete { .. }) => BranchDelete,
+                #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Unapply { .. }) => BranchUnapply,
                 Some(branch::Subcommands::Apply { .. }) => BranchApply,
+                #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
             },
             #[cfg(feature = "legacy")]

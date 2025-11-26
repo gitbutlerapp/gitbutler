@@ -327,7 +327,7 @@ impl VirtualBranchesHandle {
             .filter(|b| !b.in_workspace)
             .collect_vec();
         let mut to_remove: Vec<StackId> = vec![];
-        let gix_repo = repo.to_gix()?;
+        let gix_repo = repo.to_gix_repo()?;
         for branch in stacks_not_in_workspace {
             if branch.not_in_workspace_wip_change_id.is_some() {
                 continue; // Skip branches that have a WIP commit

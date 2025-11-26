@@ -12,7 +12,7 @@ doctest = false
 
 [dependencies]
 but-serde = { workspace = true, features = ["legacy"] }
-but-ctx = { workspace = true, features = ["legacy"] }
+but-ctx.workspace = true
 
 gitbutler-cherry-pick.workspace = true
 

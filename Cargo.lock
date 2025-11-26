@@ -720,6 +720,7 @@ dependencies = [
  "but-tools",
  "but-workspace",
  "but-worktrees",
+ "cfg-if",
  "chrono",
  "clap",
  "clap_complete",
@@ -3578,6 +3579,7 @@ dependencies = [
  "git2",
  "gitbutler-commit",
  "gix",
+ "tracing",
 ]
 
 [[package]]
@@ -3648,7 +3650,6 @@ dependencies = [
  "gitbutler-commit",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
- "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-stack",
  "gitbutler-testsupport",
@@ -3757,7 +3758,7 @@ dependencies = [
  "but-serde",
  "git2",
  "gitbutler-branch",
- "gitbutler-project",
+ "gitbutler-cherry-pick",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
@@ -3886,7 +3887,6 @@ dependencies = [
  "git2",
  "gitbutler-commit",
  "gitbutler-diff",
- "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-repo-actions",

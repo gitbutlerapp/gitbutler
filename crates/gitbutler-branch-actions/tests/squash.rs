@@ -435,14 +435,13 @@ fn test_ctx(ctx: &Context) -> Result<TestContext> {
     let branches = stack.branches();
     let branch_1 = branches.iter().find(|b| b.name() == "my_stack").unwrap();
     let git2_repo = &*ctx.git2_repo.get()?;
-    let project = &ctx.legacy_project;
-    let commit_1 = branch_1.commits(git2_repo, project, stack)?.local_commits[0].clone();
+    let commit_1 = branch_1.commits(git2_repo, ctx, stack)?.local_commits[0].clone();
     let branch_2 = branches.iter().find(|b| b.name() == "a-branch-2").unwrap();
-    let commit_2 = branch_2.commits(git2_repo, project, stack)?.local_commits[0].clone();
-    let commit_3 = branch_2.commits(git2_repo, project, stack)?.local_commits[1].clone();
-    let commit_4 = branch_2.commits(git2_repo, project, stack)?.local_commits[2].clone();
+    let commit_2 = branch_2.commits(git2_repo, ctx, stack)?.local_commits[0].clone();
+    let commit_3 = branch_2.commits(git2_repo, ctx, stack)?.local_commits[1].clone();
+    let commit_4 = branch_2.commits(git2_repo, ctx, stack)?.local_commits[2].clone();
     let branch_3 = branches.iter().find(|b| b.name() == "a-branch-3").unwrap();
-    let commit_5 = branch_3.commits(git2_repo, project, stack)?.local_commits[0].clone();
+    let commit_5 = branch_3.commits(git2_repo, ctx, stack)?.local_commits[0].clone();
     Ok(TestContext {
         stack: stack.clone(),
         branch_1: branch_1.clone(),

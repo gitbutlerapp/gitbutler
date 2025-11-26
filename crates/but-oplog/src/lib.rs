@@ -37,7 +37,7 @@
 //!
 //! ### Mode of operation: Side Effect
 //!
-//! When applying a mutation the repository, the oplog runs as side . The *effect* itself changes state, and is expected to either fully succeed,
+//! When applying a mutation to the repository, the oplog runs as a side effect. The *effect* itself changes state, and is expected to either fully succeed,
 //! or leave no trace of ever running.
 //!
 //! This means that snapshots have to be recorded in such a way that they can't be observed until they are committed, which happens only when the
@@ -45,7 +45,7 @@
 //!
 //! ### Status of the implementation
 //!
-//! Right now it's merely a letter of intend with an API sketch that is sufficient to 'record but not persist unless command is successful'.
+//! Right now it's merely a letter of intent with an API sketch that is sufficient to 'record but not persist unless command is successful'.
 //! Note that the `gitbutler-oplog` is still the backbone of this implementation, but modified to the extent necessary.
 //! Legacy commands will always see their restore point created as their failure might leave partial changes that might still be undoable
 //! with the restore point.

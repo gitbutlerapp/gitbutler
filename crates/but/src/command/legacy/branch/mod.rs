@@ -1,11 +1,11 @@
 use anyhow::bail;
 use branch::Subcommands;
 use but_core::ref_metadata::StackId;
-use but_ctx::Context;
+use but_ctx::{Context, LegacyProject};
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 
-use crate::{LegacyProject, args::branch, utils::OutputChannel};
+use crate::{args::branch, utils::OutputChannel};
 
 mod apply;
 mod json;
@@ -19,25 +19,20 @@ pub async fn handle(
 ) -> anyhow::Result<()> {
     match cmd {
         None => {
-            let local = false;
-            let remote = false;
-            let all = false;
-            let ahead = true; // Calculate ahead by default
-            let review = false; // Don't fetch reviews by default
-            let check = true; // Check merge by default
-            list::list(
+            Box::pin(handle(
+                Some(Subcommands::List {
+                    filter: None,
+                    local: false,
+                    remote: false,
+                    all: false,
+                    no_ahead: false,
+                    review: false,
+                    no_check: false,
+                }),
                 legacy_project,
-                local,
-                remote,
-                all,
-                ahead,
-                review,
-                None,
                 out,
-                check,
-            )
-            .await?;
-            Ok(())
+            ))
+            .await
         }
         Some(Subcommands::List {
             filter,

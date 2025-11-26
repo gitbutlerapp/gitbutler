@@ -332,7 +332,10 @@ fn conflicting_reorder_stack() -> Result<()> {
     // Verify the initial order
     assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]);
     assert_eq!(commits[1].conflicted(), vec![false, false]); // no conflicts
-    assert_eq!(file(&ctx, test.stack.head_oid(&repo.to_gix()?)?), "y\n"); // y is the last version
+    assert_eq!(
+        file(&ctx, test.stack.head_oid(&repo.to_gix_repo()?)?),
+        "y\n"
+    ); // y is the last version
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     // Reorder the stack in a way that will cause a conflict
@@ -350,7 +353,10 @@ fn conflicting_reorder_stack() -> Result<()> {
     // Verify that the commits are now in the updated order
     assert_eq!(commits[1].msgs(), vec!["commit 1", "commit 2"]); // swapped
     assert_eq!(commits[1].conflicted(), vec![false, true]); // bottom commit is now conflicted
-    assert_eq!(file(&ctx, test.stack.head_oid(&repo.to_gix()?)?), "x\n"); // x is the last version
+    assert_eq!(
+        file(&ctx, test.stack.head_oid(&repo.to_gix_repo()?)?),
+        "x\n"
+    ); // x is the last version
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     let commit_1_prime = repo.find_commit(commits[1].ids()[0])?;
@@ -384,7 +390,10 @@ fn conflicting_reorder_stack() -> Result<()> {
     // Verify that the commits are now in the updated order
     assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]); // swapped
     assert_eq!(commits[1].conflicted(), vec![false, false]); // conflicts are gone
-    assert_eq!(file(&ctx, test.stack.head_oid(&repo.to_gix()?)?), "y\n"); // y is the last version again
+    assert_eq!(
+        file(&ctx, test.stack.head_oid(&repo.to_gix_repo()?)?),
+        "y\n"
+    ); // y is the last version again
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     let commit_2_prime_prime = repo.find_commit(commits[1].ids()[0])?;
@@ -481,15 +490,14 @@ fn test_ctx(ctx: &Context) -> Result<TestContext> {
 
     let branches = stack.branches();
     let git2_repo = &*ctx.git2_repo.get()?;
-    let project = &ctx.legacy_project;
     let top_commits: HashMap<String, git2::Oid> = branches[1]
-        .commits(git2_repo, project, stack)?
+        .commits(git2_repo, ctx, stack)?
         .local_commits
         .iter()
         .map(|c| (c.message().unwrap().to_string(), c.id()))
         .collect();
     let bottom_commits: HashMap<String, git2::Oid> = branches[0]
-        .commits(git2_repo, project, stack)?
+        .commits(git2_repo, ctx, stack)?
         .local_commits
         .iter()
         .map(|c| (c.message().unwrap().to_string(), c.id()))

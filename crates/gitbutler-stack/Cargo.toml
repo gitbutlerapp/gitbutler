@@ -24,7 +24,6 @@ gitbutler-commit.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-time.workspace = true
 gitbutler-diff.workspace = true
-gitbutler-project.workspace = true
 
 git2.workspace = true
 gix = { workspace = true, features = [] }

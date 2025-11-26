@@ -294,7 +294,7 @@ fn amend_with_commit_engine(
 
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &*ctx.repo.get()?,
-        &ctx.legacy_project,
+        &ctx.project_data_dir(),
         Some(stack_id),
         but_workspace::commit_engine::Destination::AmendCommit {
             commit_id: commit_oid.to_gix(),

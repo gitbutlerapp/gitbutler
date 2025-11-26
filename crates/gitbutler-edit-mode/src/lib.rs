@@ -257,7 +257,7 @@ pub(crate) fn save_and_return_to_workspace(
         )
         .context("Failed to commit new commit")?;
 
-    let gix_repo = repository.to_gix()?;
+    let gix_repo = repository.to_gix_repo()?;
 
     let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
     // swap out the old commit with the new, updated one

@@ -1,4 +1,5 @@
 use base::Subcommands;
+use but_ctx::LegacyProject;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
     BranchStatus::{Conflicted, Empty, Integrated, SaflyUpdatable},
@@ -6,7 +7,7 @@ use gitbutler_branch_actions::upstream_integration::{
     StackStatuses::{UpToDate, UpdatesRequired},
 };
 
-use crate::{LegacyProject, args::base, utils::OutputChannel};
+use crate::{args::base, utils::OutputChannel};
 
 pub async fn handle(
     cmd: Subcommands,

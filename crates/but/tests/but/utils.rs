@@ -50,6 +50,20 @@ impl Sandbox {
         })
     }
 
+    /// A utility to init a scenario if the legacy feature is set, or open a repo otherwise.
+    pub fn open_or_init_scenario_with_target_and_default_settings(
+        name: &str,
+    ) -> anyhow::Result<Sandbox> {
+        let mode = if cfg!(feature = "legacy") {
+            // Needs init, as it's not single-branch compatible, must have legacy project that needs initialisation.
+            Mode::Init
+        } else {
+            // New code does everything lazily and can open any repository without extra step.
+            Mode::Open
+        };
+        Self::open_or_init_scenario_with_target_inner(name, Creation::CopyFromReadOnly, mode)
+    }
+
     /// Provide a scenario with `name` for writing, and `but init` already invoked to add the project,
     /// with a target added.
     ///
@@ -81,14 +95,14 @@ impl Sandbox {
         script_creation: Creation,
         mode: Mode,
     ) -> anyhow::Result<Sandbox> {
-        let project = but_testsupport::gix_testtools::scripted_fixture_writable_with_args(
+        let repo_dir = but_testsupport::gix_testtools::scripted_fixture_writable_with_args(
             format!("scenario/{name}.sh"),
             None::<String>,
             script_creation,
         )
         .map_err(anyhow::Error::from_boxed)?;
         let sandbox = Sandbox {
-            projects_root: Some(project),
+            projects_root: Some(repo_dir),
             app_root: Some(tempfile::TempDir::new()?),
         };
         let repo = sandbox.open_repo()?;

@@ -7,6 +7,7 @@ use but_ctx::{Context, access::WorktreeWritePermission};
 use but_rebase::merge::ConflictErrorContext;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
+use std::path::Path;
 
 use crate::{
     WorkspaceCommit,
@@ -43,7 +44,7 @@ pub fn create_commit_simple(
     stack_branch_name: String,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let repo = ctx.legacy_project.open_repo_for_merging()?;
+    let repo = ctx.open_repo_for_merging()?;
     // If parent_id was not set but a stack branch name was provided, pick the current head of that branch as parent.
     let parent_commit_id: Option<gix::ObjectId> = match parent_id {
         Some(id) => Some(id),
@@ -67,7 +68,7 @@ pub fn create_commit_simple(
     };
     let outcome = create_commit_and_update_refs_with_project(
         &repo,
-        &ctx.legacy_project,
+        &ctx.project_data_dir(),
         Some(stack_id),
         Destination::NewCommit {
             parent_commit_id,
@@ -401,14 +402,14 @@ pub fn create_commit_and_update_refs(
 /// an exclusive workspace lock as well.
 pub fn create_commit_and_update_refs_with_project(
     repo: &gix::Repository,
-    project: &gitbutler_project::Project,
+    project_data_dir: &Path,
     maybe_stackid: Option<StackId>,
     destination: Destination,
     changes: Vec<DiffSpec>,
     context_lines: u32,
     _perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let vbh = VirtualBranchesHandle::new(project.gb_dir());
+    let vbh = VirtualBranchesHandle::new(project_data_dir);
     let mut vb = vbh.read_file()?;
     let frame = match maybe_stackid {
         None => {

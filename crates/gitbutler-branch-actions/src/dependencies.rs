@@ -17,7 +17,7 @@ pub fn compute_workspace_dependencies(
     stacks: &Vec<Stack>,
 ) -> Result<HunkDependencyResult> {
     let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = repo.to_gix()?;
+    let gix_repo = repo.to_gix_repo()?;
 
     let mut stacks_input: Vec<InputStack> = vec![];
     for stack in stacks {

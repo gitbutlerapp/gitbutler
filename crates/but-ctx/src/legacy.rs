@@ -14,9 +14,6 @@ pub(crate) mod types {
     pub type LegacyProject = gitbutler_project::Project;
 }
 
-mod repository_ext;
-pub use repository_ext::RepositoryExtLite;
-
 /// Legacy Lifecycle
 impl Context {
     /// Open the repository identified by `legacy_project` and `settings`.
@@ -97,48 +94,6 @@ impl Context {
         )?;
         Ok((repo.clone(), meta, graph))
     }
-
-    /// Open the repository with standard options and create a new Graph traversal from the current HEAD,
-    /// along with a new metadata instance, and the graph itself.
-    ///
-    /// The write-permission is required to obtain a mutable metadata instance. Note that it must be held
-    /// for until the end of the operation for the protection to be effective.
-    ///
-    /// Use [`Self::graph_and_meta_and_repo_from_head()`] if control over the repository configuration is needed.
-    // TODO: make this non-legacy once we don't need the legacy refmetadata implementation anymore.
-    pub fn graph_and_meta_mut_and_repo_from_head(
-        &self,
-        _write: &mut WorktreeWritePermission,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        impl but_core::RefMetadata + 'static,
-        but_graph::Graph,
-    )> {
-        let repo = self.repo.get()?;
-        let meta = self.meta_inner()?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
-        Ok((repo.clone(), meta, graph))
-    }
-
-    /// Create a new Graph traversal from the current HEAD, using (and returning) the given `repo` (configured by the caller),
-    /// along with a new metadata instance, and the graph itself.
-    ///
-    /// The read-permission is required to obtain a shared metadata instance. Note that it must be held
-    /// for until the end of the operation for the protection to be effective.
-    // TODO: make this non-legacy once we don't need the legacy refmetadata implementation anymore.
-    pub fn graph_and_meta_and_repo_from_head(
-        &self,
-        repo: gix::Repository,
-        _read_only: &WorktreeReadPermission,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        impl but_core::RefMetadata + 'static,
-        but_graph::Graph,
-    )> {
-        let meta = self.meta_inner()?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
-        Ok((repo, meta, graph))
-    }
 }
 
 /// Legacy - none of this should be kept.
@@ -167,11 +122,5 @@ impl Context {
         _exclusive: &WorktreeWritePermission,
     ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
         self.meta_inner()
-    }
-
-    pub(super) fn meta_inner(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
-        but_meta::VirtualBranchesTomlMetadata::from_path(
-            self.project_data_dir().join("virtual_branches.toml"),
-        )
     }
 }
