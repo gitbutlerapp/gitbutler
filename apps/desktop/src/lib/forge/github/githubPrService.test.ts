@@ -28,7 +28,8 @@ describe('GitHubPrService', () => {
 			api: gitHubApi,
 			authenticated: true,
 			isLoading: false,
-			client: gitHubClient
+			client: gitHubClient,
+			dispatch: () => {}
 		});
 		service = gh.prService;
 	});

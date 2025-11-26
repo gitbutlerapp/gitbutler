@@ -141,9 +141,10 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		};
 
 		if (forgeType === 'github') {
-			const { gitHubClient, gitHubApi, posthog, backendApi } = this.params;
+			const { gitHubClient, gitHubApi, posthog, backendApi, dispatch } = this.params;
 			return new GitHub({
 				...baseParams,
+				dispatch,
 				api: gitHubApi,
 				backendApi,
 				client: gitHubClient,
@@ -153,13 +154,14 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			});
 		}
 		if (forgeType === 'gitlab') {
-			const { gitLabClient, gitLabApi, posthog } = this.params;
+			const { gitLabClient, gitLabApi, posthog, dispatch } = this.params;
 			return new GitLab({
 				...baseParams,
 				api: gitLabApi,
 				client: gitLabClient,
 				posthog: posthog,
-				authenticated: !!gitlabAuthenticated
+				authenticated: !!gitlabAuthenticated,
+				dispatch
 			});
 		}
 		if (forgeType === 'bitbucket') {
