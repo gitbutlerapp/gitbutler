@@ -282,8 +282,8 @@ impl Sandbox {
     }
 
     /// Invoke the given `script` in `bash` in this sandbox
-    pub fn invoke_bash(&self, script: &str) -> &Self {
-        but_testsupport::invoke_bash_at_dir(script, self.projects_root());
+    pub fn invoke_bash(&self, script: impl AsRef<str>) -> &Self {
+        but_testsupport::invoke_bash_at_dir(script.as_ref(), self.projects_root());
         self
     }
 }
