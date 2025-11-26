@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 
-use anyhow::Result;
 use but_core::ref_metadata::StackId;
 use itertools::Itertools;
 
@@ -57,7 +56,7 @@ pub(crate) fn assignments(
     applied_stack_ids: &[StackId],
     multiple_overlapping_resolution: MultipleOverlapping,
     update_unassigned: bool,
-) -> Result<Vec<HunkAssignment>> {
+) -> Vec<HunkAssignment> {
     let mut reconciled = vec![];
     for new_assignment in new {
         let mut new_assignment = new_assignment.clone();
@@ -93,5 +92,5 @@ pub(crate) fn assignments(
         }
         reconciled.push(new_assignment);
     }
-    Ok(reconciled)
+    reconciled
 }

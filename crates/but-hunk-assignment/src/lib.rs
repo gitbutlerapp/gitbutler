@@ -275,7 +275,7 @@ pub fn assign(
         &applied_stacks,
         MultipleOverlapping::SetMostLines,
         true,
-    )?;
+    );
 
     // Reconcile with the requested changes
     let with_requests = reconcile::assignments(
@@ -284,17 +284,17 @@ pub fn assign(
         &applied_stacks,
         MultipleOverlapping::SetMostLines,
         true,
-    )?;
+    );
 
     // Reconcile with hunk locks
-    let lock_assignments = hunk_dependency_assignments(deps)?;
+    let lock_assignments = hunk_dependency_assignments(deps);
     let with_locks = reconcile::assignments(
         &with_requests,
         &lock_assignments,
         &applied_stacks,
         MultipleOverlapping::SetNone,
         false,
-    )?;
+    );
 
     state::set_assignments(db, with_locks.clone())?;
 
@@ -319,16 +319,29 @@ pub fn assign(
     Ok(rejections)
 }
 
-/// Same as the `reconcile_with_worktree_and_locks` function, but if the operation produces an error, it will create a fallback set of assignments from the worktree changes alone.
-/// An optional error is returned alongside the assignments, which will be `None` if the operation was successful and it will be set if the operation failed and a fallback was used.
-///
-/// The fallback can of course also fail, in which case the tauri operation will error out.
+/// Similar to the `reconcile_with_worktree_and_locks` function.
+/// TODO: figure out a better name for this function
 pub fn assignments_with_fallback(
     ctx: &mut Context,
     set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     deps: Option<&HunkDependencies>,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
+    let hunk_assignments = reconcile_worktree_changes_with_worktree_and_locks(
+        ctx,
+        set_assignment_from_locks,
+        worktree_changes,
+        deps,
+    )?;
+    Ok((hunk_assignments, None))
+}
+
+fn reconcile_worktree_changes_with_worktree_and_locks(
+    ctx: &mut Context,
+    set_assignment_from_locks: bool,
+    worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
+    deps: Option<&HunkDependencies>,
+) -> Result<Vec<HunkAssignment>> {
     let repo = ctx.repo.get()?;
     let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
         Some(wtc) => wtc.into_iter().map(Into::into).collect(),
@@ -344,7 +357,7 @@ pub fn assignments_with_fallback(
     };
 
     if worktree_changes.is_empty() {
-        return Ok((vec![], None));
+        return Ok(vec![]);
     }
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
@@ -360,12 +373,10 @@ pub fn assignments_with_fallback(
         set_assignment_from_locks,
         &worktree_assignments,
         deps,
-    )
-    .map(|a| (a, None))
-    .unwrap_or_else(|e| (worktree_assignments, Some(e)));
+    )?;
 
     let db = &mut *ctx.db.get_mut()?;
-    state::set_assignments(db, reconciled.0.clone())?;
+    state::set_assignments(db, reconciled.clone())?;
     Ok(reconciled)
 }
 
@@ -410,21 +421,21 @@ fn reconcile_with_worktree_and_locks(
         &applied_stacks,
         MultipleOverlapping::SetMostLines,
         true,
-    )?;
+    );
 
-    let lock_assignments = hunk_dependency_assignments(deps)?;
+    let lock_assignments = hunk_dependency_assignments(deps);
     let with_locks = reconcile::assignments(
         &with_worktree,
         &lock_assignments,
         &applied_stacks,
         MultipleOverlapping::SetNone,
         set_assignment_from_locks,
-    )?;
+    );
 
     Ok(with_locks)
 }
 
-fn hunk_dependency_assignments(deps: &HunkDependencies) -> Result<Vec<HunkAssignment>> {
+fn hunk_dependency_assignments(deps: &HunkDependencies) -> Vec<HunkAssignment> {
     let mut assignments = vec![];
     for (path, hunk, locks) in &deps.diffs {
         // If there are locks towards more than one stack, this means double locking and the assignment None - the user can resolve this by partial committing.
@@ -451,7 +462,7 @@ fn hunk_dependency_assignments(deps: &HunkDependencies) -> Result<Vec<HunkAssign
         };
         assignments.push(assignment);
     }
-    Ok(assignments)
+    assignments
 }
 
 /// This also generates a UUID for the assignment
@@ -718,8 +729,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
         assert_eq(
             result,
             vec![
@@ -740,8 +750,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
         assert_eq(
             result,
             vec![HunkAssignment::new("foo.rs", 10, 5, None, Some(1))],
@@ -759,8 +768,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
         assert_eq(
             result,
             vec![HunkAssignment::new("foo.rs", 12, 7, Some(1), Some(1))],
@@ -781,8 +789,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
         assert_eq(
             result,
             vec![HunkAssignment::new("foo.rs", 5, 18, Some(2), Some(2))],
@@ -803,8 +810,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetNone,
             true,
-        )
-        .unwrap();
+        );
         assert_eq(
             result,
             vec![HunkAssignment::new("foo.rs", 5, 18, None, Some(2))],
@@ -822,8 +828,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             false,
-        )
-        .unwrap();
+        );
         // TODO: This is actually broken
         assert_eq!(
             result,
@@ -987,8 +992,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
 
         // Binary file should maintain its stack assignment
         assert_eq!(
@@ -1032,8 +1036,7 @@ mod tests {
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
             true,
-        )
-        .unwrap();
+        );
 
         assert_eq!(
             result[0].stack_id,
