@@ -31,13 +31,16 @@
 	class="bubble-wrap"
 	class:editing
 	class:bubble-wrap_user={role === MessageRole.User}
-	class:bubble-wrap_assistant={role === MessageRole.Assistant}
+	class:bubble-wrap_assistant={role === MessageRole.Assistant || role === MessageRole.System}
 >
 	<div class="bubble">
 		<div class="bubble__header text-13 text-bold">
 			{#if role === MessageRole.User}
 				<Icon name="profile" />
 				<span>User</span>
+			{:else if role === MessageRole.System}
+				<Icon name="robot" />
+				<span>System</span>
 			{:else}
 				<Icon name="robot" />
 				<span>Assistant</span>
