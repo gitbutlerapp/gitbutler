@@ -81,7 +81,6 @@
 
 		<AiPromptSelect {projectId} promptUse="commits" />
 		<AiPromptSelect {projectId} promptUse="branches" />
-		<AiPromptSelect {projectId} promptUse="pullRequests" />
 
 		<Spacer margin={8} />
 

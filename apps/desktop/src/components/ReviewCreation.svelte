@@ -13,7 +13,6 @@
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
 	import MessageEditor from '$components/editor/MessageEditor.svelte';
 	import MessageEditorInput from '$components/editor/MessageEditorInput.svelte';
-	import { PROMPT_SERVICE } from '$lib/ai/promptService';
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { type Commit } from '$lib/branches/v3';
@@ -60,7 +59,6 @@
 	const prService = $derived(forge.current.prService);
 	const stackService = inject(STACK_SERVICE);
 	const aiService = inject(AI_SERVICE);
-	const promptService = inject(PROMPT_SERVICE);
 	const remotesService = inject(REMOTES_SERVICE);
 	const uiState = inject(UI_STATE);
 	const settingsService = inject(SETTINGS_SERVICE);
@@ -354,13 +352,11 @@
 		let firstToken = true;
 
 		try {
-			const prTemplate = promptService.selectedPrPrompt(projectId);
 			const description = await aiService?.describePR({
 				title: $prTitle,
 				body: $prBody,
 				commitMessages: commits.map((c) => c.message),
 				prBodyTemplate: prBody.default,
-				prTemplate,
 				onToken: (token) => {
 					if (firstToken) {
 						prBody.reset();

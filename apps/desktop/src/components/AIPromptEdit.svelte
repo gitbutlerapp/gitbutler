@@ -7,7 +7,7 @@
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 
 	interface Props {
-		promptUse: 'commits' | 'branches' | 'pullRequests';
+		promptUse: 'commits' | 'branches';
 	}
 
 	const { promptUse }: Props = $props();
@@ -18,10 +18,8 @@
 
 	if (promptUse === 'commits') {
 		prompts = promptService.commitPrompts;
-	} else if (promptUse === 'branches') {
-		prompts = promptService.branchPrompts;
 	} else {
-		prompts = promptService.prPrompts;
+		prompts = promptService.branchPrompts;
 	}
 
 	const userPrompts = $derived(prompts.userPrompts);
@@ -44,11 +42,7 @@
 {#if prompts && $userPrompts}
 	<div class="prompt-item__title">
 		<h3 class="text-15 text-bold">
-			{promptUse === 'commits'
-				? 'Commit message'
-				: promptUse === 'branches'
-					? 'Branch name'
-					: 'PR message'}
+			{promptUse === 'commits' ? 'Commit message' : 'Branch name'}
 		</h3>
 		<Button kind="outline" icon="plus-small" onclick={createNewPrompt}>New prompt</Button>
 	</div>

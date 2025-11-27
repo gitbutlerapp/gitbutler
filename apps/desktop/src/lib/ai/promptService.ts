@@ -2,8 +2,7 @@ import {
 	LONG_DEFAULT_BRANCH_TEMPLATE,
 	SHORT_DEFAULT_BRANCH_TEMPLATE,
 	LONG_DEFAULT_COMMIT_TEMPLATE,
-	SHORT_DEFAULT_COMMIT_TEMPLATE,
-	SHORT_DEFAULT_PR_TEMPLATE
+	SHORT_DEFAULT_COMMIT_TEMPLATE
 } from '$lib/ai/prompts';
 import { InjectionToken } from '@gitbutler/core/context';
 import { persisted, type Persisted } from '@gitbutler/shared/persisted';
@@ -12,8 +11,7 @@ import type { Prompt, Prompts, UserPrompt } from '$lib/ai/types';
 
 enum PromptPersistedKey {
 	Branch = 'aiBranchPrompts',
-	Commit = 'aiCommitPrompts',
-	PullRequest = 'aiPullRequestPrompts'
+	Commit = 'aiCommitPrompts'
 }
 
 export const PROMPT_SERVICE = new InjectionToken<PromptService>('PromptService');
@@ -30,13 +28,6 @@ export class PromptService {
 		return {
 			defaultPrompt: LONG_DEFAULT_COMMIT_TEMPLATE,
 			userPrompts: persisted<UserPrompt[]>([], PromptPersistedKey.Commit)
-		};
-	}
-
-	get prPrompts(): Prompts {
-		return {
-			defaultPrompt: SHORT_DEFAULT_PR_TEMPLATE,
-			userPrompts: persisted<UserPrompt[]>([], PromptPersistedKey.PullRequest)
 		};
 	}
 
@@ -62,21 +53,6 @@ export class PromptService {
 		if (!id) return;
 
 		return this.findPrompt(get(this.commitPrompts.userPrompts), id);
-	}
-
-	selectedPrPromptId(projectId: string): Persisted<string | undefined> {
-		return persisted<string | undefined>(
-			undefined,
-			`${PromptPersistedKey.PullRequest}-${projectId}`
-		);
-	}
-
-	selectedPrPrompt(projectId: string): Prompt | undefined {
-		const id = get(this.selectedPrPromptId(projectId));
-
-		if (!id) return;
-
-		return this.findPrompt(get(this.prPrompts.userPrompts), id);
 	}
 
 	findPrompt(prompts: UserPrompt[], promptId: string) {
@@ -113,16 +89,11 @@ export class PromptService {
 		return false;
 	}
 
-	createDefaultUserPrompt(type: 'commits' | 'branches' | 'pullRequests'): UserPrompt {
+	createDefaultUserPrompt(type: 'commits' | 'branches'): UserPrompt {
 		return {
 			id: crypto.randomUUID(),
 			name: 'My prompt',
-			prompt:
-				type === 'branches'
-					? SHORT_DEFAULT_BRANCH_TEMPLATE
-					: type === 'commits'
-						? SHORT_DEFAULT_COMMIT_TEMPLATE
-						: SHORT_DEFAULT_PR_TEMPLATE
+			prompt: type === 'branches' ? SHORT_DEFAULT_BRANCH_TEMPLATE : SHORT_DEFAULT_COMMIT_TEMPLATE
 		};
 	}
 }
