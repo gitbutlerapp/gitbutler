@@ -8,6 +8,7 @@ use crate::utils::{
     assure_nonconflicting, conflicted, fixture_writable, four_commits_writable, visualize_tree,
 };
 
+mod cherry_pick;
 mod editor_creation;
 mod error_handling;
 
