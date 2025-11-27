@@ -408,10 +408,6 @@
 			</PreviewHeader>
 
 			<div class="chat-container">
-				{#if todos.length > 0}
-					<CodegenTodoAccordion {todos} />
-				{/if}
-
 				{#if claudeAvailable.status !== 'available' && formattedMessages.length === 0}
 					<ConfigurableScrollableContainer childrenWrapDisplay="contents">
 						<div class="no-agent-placeholder">
@@ -494,6 +490,9 @@
 							{/if}
 						{/if}
 					</VirtualList>
+				{/if}
+				{#if todos.length > 0}
+					<CodegenTodoAccordion {todos} />
 				{/if}
 			</div>
 			{#if claudeAvailable.status !== 'available'}

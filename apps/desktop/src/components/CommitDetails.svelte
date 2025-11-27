@@ -92,6 +92,7 @@
 				: 'var(--font-mono)'}
 			bind:clientWidth={messageWidth}
 			data-testid={TestId.CommitDrawerDescription}
+			data-remove-from-panning
 		>
 			{#if expanded}
 				{description}
@@ -147,6 +148,7 @@
 		line-height: var(--text-lineheight-body);
 		font-family: var(--commit-message-font);
 		white-space: pre-line;
+		user-select: text;
 	}
 
 	.readmore {
