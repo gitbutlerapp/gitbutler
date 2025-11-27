@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.gitbutler.gitbutler</id>
+
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>LicenseRef-FSL-1.1-MIT=https://github.com/gitbutlerapp/gitbutler/blob/master/LICENSE.md</project_license>
+
+  <name>GitButler</name>
+  <summary>Git, finally designed for humans</summary>
+
+  <developer id="com.gitbutler">
+    <name>GitButler Inc.</name>
+  </developer>
+
+  <description>
+    <p>
+      GitButler is the Git-backed change management tool for modern, AI coding workflows.
+      Parallel and stacked branches, unlimited undo, agent integrations, and more. It's Git, refined.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">com.gitbutler.gitbutler.desktop</launchable>
+
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-info">mild</content_attribute>
+  </content_rating>
+
+  <url type="bugtracker">https://github.com/gitbutlerapp/gitbutler/issues</url>
+  <url type="homepage">https://gitbutler.com</url>
+  <url type="contact">https://docs.gitbutler.com/community/contact-us</url>
+  <url type="vcs-browser">https://github.com/gitbutlerapp/gitbutler</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://gitbutler.com/images/app-preview-light.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.18.0" date="2025-11-20"/>
+    <release version="0.13.8" date="2024-10-30"/>
+    <release version="0.13.7" date="2024-10-25"/>
+    <release version="0.13.6" date="2024-10-23"/>
+    <release version="0.13.5" date="2024-10-22"/>
+    <release version="0.13.4" date="2024-10-21"/>
+    <release version="0.13.2" date="2024-10-17"/>
+    <release version="0.13.1" date="2024-10-15"/>
+    <release version="0.13.0" date="2024-10-10"/>
+    <release version="0.12.27" date="2024-10-01"/>
+    <release version="0.12.26" date="2024-09-24"/>
+    <release version="0.12.25" date="2024-09-12"/>
+    <release version="0.12.24" date="2024-09-05"/>
+    <release version="0.12.23" date="2024-09-04"/>
+    <release version="0.12.22" date="2024-09-02"/>
+    <release version="0.12.21" date="2024-08-27"/>
+    <release version="0.12.20" date="2024-08-15"/>
+    <release version="0.12.19" date="2024-08-11"/>
+    <release version="0.12.18" date="2024-08-10"/>
+    <release version="0.12.17" date="2024-08-08"/>
+    <release version="0.12.16" date="2024-07-30"/>
+    <release version="0.12.15" date="2024-07-24"/>
+    <release version="0.12.14" date="2024-07-22"/>
+    <release version="0.12.13" date="2024-07-21"/>
+    <release version="0.12.12" date="2024-07-16"/>
+    <release version="0.12.10" date="2024-07-15"/>
+    <release version="0.12.9" date="2024-07-10"/>
+    <release version="0.12.7" date="2024-06-28"/>
+    <release version="0.12.6" date="2024-06-25"/>
+    <release version="0.12.5" date="2024-06-17"/>
+    <release version="0.12.4" date="2024-06-12"/>
+    <release version="0.12.3" date="2024-06-10"/>
+    <release version="0.12.2" date="2024-06-06"/>
+    <release version="0.12.1" date="2024-06-04"/>
+    <release version="0.12.0" date="2024-06-01"/>
+    <release version="0.11.7" date="2024-05-07"/>
+    <release version="0.11.6" date="2024-05-03"/>
+    <release version="0.11.5" date="2024-04-27"/>
+    <release version="0.11.4" date="2024-04-23"/>
+    <release version="0.11.3" date="2024-04-19"/>
+    <release version="0.11.2" date="2024-04-17"/>
+    <release version="0.11.1" date="2024-04-11"/>
+    <release version="0.11.0" date="2024-04-10"/>
+    <release version="0.10.29" date="2024-04-03"/>
+    <release version="0.10.28" date="2024-03-26"/>
+    <release version="0.10.27" date="2024-03-21"/>
+    <release version="0.10.26" date="2024-03-20"/>
+    <release version="0.10.25" date="2024-03-20"/>
+    <release version="0.10.24" date="2024-03-12"/>
+    <release version="0.10.23" date="2024-03-10"/>
+    <release version="0.10.22" date="2024-03-05"/>
+    <release version="0.10.21" date="2024-03-03"/>
+    <release version="0.10.20" date="2024-03-03"/>
+    <release version="0.10.19" date="2024-02-29"/>
+    <release version="0.10.18" date="2024-02-28"/>
+    <release version="0.10.17" date="2024-02-25">
+      <description>
+        <p>Improves the performance of virtual branch operations (quicker response and lower CPU usage)</p>
+        <p>Large numbers of hunks for a file will only be rendered in the UI after confirmation</p>
+      </description>
+    </release>
+    <release version="0.10.16" date="2024-02-23">
+      <description>
+        <p>Updated user setting design</p>
+        <p>Improved error messages on push / fetch failure</p>
+        <p>Fixes a bug where if a push fails due to remote rejecting the change no error is shown</p>
+      </description>
+    </release>
+    <release version="0.10.15" date="2024-02-22">
+      <description>
+        <p>Improves (even more) the error handling of pull request creation</p>
+        <p>Fixes a bug where failed PR creation is reported multiple times</p>
+        <p>Fixes a bug where PR creation can fail due to error reporting</p>
+      </description>
+    </release>
+    <release version="0.10.14" date="2024-02-22">
+      <description>
+        <p>Improved error handling for errors related to Pull Requests</p>
+        <p>If a branch has a single commit, use the message from it for PR title &amp; description</p>
+        <p>Improved error handling when a repository with no commits is being added</p>
+        <p>Fixes a bug where the application does not terminate correctly under Linux</p>
+      </description>
+    </release>
+    <release version="0.10.13" date="2024-02-20">
+      <description>
+        <p>Add support for moving of commits between virtual branches</p>
+        <p>Fixes an issue where if gitignored files are changing frequently it may prevent changes to non-ignored files to show up in gb</p>
+        <p>Adds an option to copy PR urls to clipboard</p>
+        <p>Fixes wrapping of URLs in commit bodies</p>
+      </description>
+    </release>
+    <release version="0.10.12" date="2024-02-20">
+      <description>
+        <p>Adds the ability to discard entire files from virtual branch lanes</p>
+        <p>Fixes a UI bug with the position of the resizer</p>
+        <p>Minor UI style/color updates to cards</p>
+        <p>Fixes an issue where closing / hiding the window works incorrectly</p>
+        <p>Fixes a bug where links inside PR descriptions don’t open correctly</p>
+        <p>Confirmation of branch deletion will no longer be shown if branch is empty</p>
+        <p>Adds the ability to delete a project while away from gitbutler/integraion branch</p>
+        <p>Fixes an error occurring just after deleting a project</p>
+        <p>Removes the app tray menu as it doesn’t provide sufficient value</p>
+        <p>Adds the ability to show full commit messages on existing commits</p>
+        <p>Removes background fetches for non-active projects</p>
+      </description>
+    </release>
+    <release version="0.10.11" date="2024-02-18">
+      <description>
+        <p>Move comments to a rust FMT approved location</p>
+      </description>
+    </release>
+    <release version="0.10.10" date="2024-02-17">
+      <description>
+        <p>fix: dont send the content of large text files to the UI as it cant handle it</p>
+      </description>
+    </release>
+  </releases>
+</component>
