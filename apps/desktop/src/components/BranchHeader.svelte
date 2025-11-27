@@ -168,7 +168,7 @@
 				</div>
 			</div>
 
-			{#if !isEmpty}
+			{#if isEmpty}
 				<p class="text-12 text-body branch-header__empty-state">
 					{@render emptyState?.()}
 				</p>
@@ -179,7 +179,6 @@
 			{/if}
 		</div>
 	</div>
-
 	{#if showCommitGoesHere}
 		<CommitGoesHere
 			{commitId}

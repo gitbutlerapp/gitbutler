@@ -53,7 +53,8 @@
 
 		&.hovered {
 			& .indicator {
-				width: 70%;
+				width: calc(100% - 70px);
+				width: 100%;
 			}
 		}
 
@@ -68,7 +69,7 @@
 		position: absolute;
 		top: 50%;
 		left: 50%;
-		width: 45%;
+		width: 60%;
 		height: 3px;
 		transform: translate(-50%, -50%);
 		border-radius: var(--radius-m);
@@ -76,7 +77,7 @@
 		background-color: var(--clr-theme-pop-element);
 
 		transition:
-			width 0.1s ease-out,
-			opacity var(--transition-medium);
+			width 0.08s ease,
+			opacity 0.2s ease;
 	}
 </style>
