@@ -61,6 +61,24 @@ export default class RulesService {
 		);
 	}
 
+	aiSessionId(projectId: string, stackId?: string) {
+		return this.api.endpoints.listWorkspaceRules.useQuery(
+			{ projectId },
+			{
+				transform: (result) => {
+					const allRules = workspaceRulesSelectors.selectAll(result);
+					const rule = allRules.find(
+						(r) => isAiRule(r) && r.action.subject.subject.target.subject === stackId
+					);
+					const sessionId = rule?.filters.at(0)?.subject;
+					if (typeof sessionId === 'string') {
+						return sessionId;
+					}
+				}
+			}
+		);
+	}
+
 	async fetchListWorkspaceRules(projectId: string) {
 		return await this.api.endpoints.listWorkspaceRules.fetch(
 			{ projectId },
