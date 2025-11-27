@@ -289,8 +289,6 @@ pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
     visualize_tree(tree_id.object().unwrap().peel_to_tree().unwrap().id(), None).unwrap()
 }
 
-const FILETYPE_MASK: u32 = 0o170000;
-
 /// Visualize a tree on disk with mode information.
 /// For convenience, skip `.git` and don't display the root.
 ///
@@ -306,20 +304,11 @@ const FILETYPE_MASK: u32 = 0o170000;
 pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree::Tree<String>> {
     use std::os::unix::fs::MetadataExt;
     fn normalize_mode(mode: u32) -> u32 {
-        let normalize_permission_bits = |mode: u32| if mode & 0o100 == 0 { 0o644 } else { 0o755 };
-
-        match mode & FILETYPE_MASK {
-            // File types Git cares about
-            directory @ 0o40000 => directory | normalize_permission_bits(mode),
-            symlink @ 0o120000 => symlink | normalize_permission_bits(mode),
-            regular_file @ 0o100000 => regular_file | normalize_permission_bits(mode),
-
-            // File types Git does not care about. These may still appear in the worktree.
-            // Note: Add more file types here if needed (e.g. socket, block device, etc)
-            fifo @ 0o10000 => fifo | normalize_permission_bits(mode),
-
-            _ => panic!("Unhandled file mode {mode}"),
-        }
+        let filetype_bits = 0o170000 & mode;
+        // Git only cares about the permission bits for regular files, but we normalize everything the same way for the
+        // sake of simplicity.
+        let normalized_permission_bits = if mode & 0o100 == 0 { 0o644 } else { 0o755 };
+        filetype_bits | normalized_permission_bits
     }
 
     fn label(p: &Path, md: &std::fs::Metadata) -> String {
