@@ -330,6 +330,7 @@
 	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
 	const isStackActive = $derived(isStackActiveQuery?.response || false);
 	const events = $derived(claudeCodeService.messages({ projectId, stackId }));
+	const sessionId = $derived(rulesService.aiSessionId(projectId, stackId));
 	const hasRulesToClear = $derived(rulesService.hasRulesToClear(projectId, stackId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const attachments = $derived(attachmentService.getByBranch(branchName));
@@ -678,6 +679,7 @@
 							permissionRequests={permissionRequests.response || []}
 							onSubmit={sendMessage}
 							onChange={(prompt) => messageSender?.setPrompt(prompt)}
+							sessionId={sessionId.response}
 							{isStackActive}
 							{hasRulesToClear}
 						/>
