@@ -27,6 +27,7 @@ use std::{
 };
 
 use anyhow::{Result, bail};
+use but_action::cli::get_cli_path;
 use but_core::ref_metadata::StackId;
 use but_ctx::{Context, ThreadSafeContext};
 use gitbutler_stack::VirtualBranchesHandle;
@@ -505,7 +506,7 @@ async fn spawn_command(
         let mut ctx = sync_ctx.clone().into_thread_local();
         format_branch_info(&mut ctx, stack_id)
     };
-    let system_prompt = format!("{}\n\n{}", SYSTEM_PROMPT, branch_info);
+    let system_prompt = format!("{}\n\n{}", system_prompt(), branch_info);
     command.args(["--append-system-prompt", &system_prompt]);
 
     if !user_params.add_dirs.is_empty() {
@@ -538,18 +539,44 @@ async fn spawn_command(
     Ok(command.spawn()?)
 }
 
-const SYSTEM_PROMPT: &str = "<git-usage>
-You are working on a project that is managed by GitButler.
+fn system_prompt() -> String {
+    let but_path = get_cli_path()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| "but".to_string());
 
-This means that you MUST NOT run git commands that checkout branches or update heads.
+    format!(
+        "<git-usage>
+CRITICAL: You are working on a project that is managed by GitButler.
 
-For example you MUST NOT run the following git commands:
-- git commit
+## PROHIBITED Git Commands
+
+You MUST NOT run the following git commands:
+- git status (file change info is provided in <branch-info> below)
+- git commit (use `{0}` instead)
 - git checkout
+- git squash
 - git rebase
 - git cherry-pick
 
-You MAY run git commands that give you information about the current git state.
+These commands modify branches or provide information already available to you.
+
+## What You CAN Do
+
+- Run git commands that give read-only information about the repository (git log, git diff, etc.)
+- Use the GitButler CLI (`{0}`) to perform disallowed actions
+- Reference file changes and uncommitted changes from the <branch-info> section provided below
+
+## Using the GitButler CLI
+
+Disallowed actions can instead be performed using `{0}`.
+For help with available commands, consult `{0} --help`.
+
+Common commands:
+- `{0} status` - View changes assigned to this branch
+- `{0} commit -m \"message\"` - Commit changes to this branch
+- `{0} rub <source> <target>` - Amend, squash, assign files, etc.
+
+## Communication Guidelines
 
 DO NOT mention GitButler unless the user asks you to perform a disallowed git action.
 
@@ -570,7 +597,25 @@ Can you pull in the latest changes
 Sorry, this project is managed by GitButler so you must integrate upstream upstream changes through the GitButler interface.
 </response>
 </example>
-</git-usage>";
+
+<example>
+<user>
+What files have changed?
+</user>
+<response>
+Based on the branch-info provided, the following files have been modified in this branch:
+
+Committed changes (in branch commits):
+[Lists files that were changed in the commits shown in the branch]
+
+Uncommitted changes (assigned to this stack):
+[Lists files from the uncommitted files section]
+</response>
+</example>
+</git-usage>",
+        but_path
+    )
+}
 
 /// Formats branch information for the system prompt
 fn format_branch_info(ctx: &mut Context, stack_id: StackId) -> String {
@@ -584,7 +629,9 @@ fn format_branch_info(ctx: &mut Context, stack_id: StackId) -> String {
         branch listed below, not the workspace branch itself.\n\n\
         Changes and diffs should be understood relative to the target branch (upstream), as that\n\
         represents the integration point for this work.\n\n\
-        When asked about uncommitted changes you must only consider changes assigned to the stack.\n\n",
+        IMPORTANT: This section includes both COMMITTED changes (in branch commits below) and\n\
+        UNCOMMITTED changes (in the assigned files section). When asked about file changes,\n\
+        consider both committed and uncommitted changes.\n\n",
     );
 
     append_target_branch_info(&mut output, ctx);
@@ -673,7 +720,7 @@ fn append_assigned_files_info(output: &mut String, stack_id: StackId, ctx: &mut 
     let mut file_paths: Vec<_> = file_assignments.keys().copied().collect();
     file_paths.sort();
 
-    output.push_str("\nFiles currently assigned to this stack:\n");
+    output.push_str("\nUncommitted files assigned to this stack:\n");
     for file_path in file_paths {
         format_file_with_line_ranges(output, file_path, &file_assignments[file_path]);
     }
