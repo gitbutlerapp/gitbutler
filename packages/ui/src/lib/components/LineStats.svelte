@@ -9,7 +9,7 @@
 </script>
 
 {#if linesAdded > 0 || linesRemoved > 0}
-	<Tooltip text="Lines added/removed" delay={1200}>
+	<Tooltip text="Lines added/removed">
 		<div class="line-stats text-11 text-semibold">
 			{#if linesAdded > 0}
 				<span class="added">+{linesAdded}</span>
