@@ -102,6 +102,171 @@ export function parseBullet(text: string): Bullet | undefined {
 	return { prefix, indent, number };
 }
 
+/**
+ * Checks if a paragraph is the start of a new logical paragraph.
+ * A new logical paragraph begins when:
+ * - The line is empty
+ * - The line starts with a bullet point
+ * - The line has different indentation
+ * - The line is wrapping-exempt (code blocks, headings, etc.)
+ */
+function isLogicalParagraphBoundary(para: ParagraphNode, previousIndent: string): boolean {
+	const text = para.getTextContent();
+
+	if (!text.trim()) return true; // Empty line
+	if (parseBullet(text)) return true; // Bullet point
+	if (isWrappingExempt(text)) return true; // Code blocks, headings, etc.
+	if (parseIndent(text) !== previousIndent) return true; // Different indentation
+
+	return false;
+}
+
+/**
+ * Collects all paragraphs that belong to the same logical paragraph.
+ */
+function collectLogicalParagraph(paragraph: ParagraphNode, indent: string): ParagraphNode[] {
+	const paragraphs: ParagraphNode[] = [paragraph];
+	let nextSibling = paragraph.getNextSibling();
+
+	while (nextSibling && $isParagraphNode(nextSibling)) {
+		if (isLogicalParagraphBoundary(nextSibling, indent)) break;
+		paragraphs.push(nextSibling);
+		nextSibling = nextSibling.getNextSibling();
+	}
+
+	return paragraphs;
+}
+
+/**
+ * Combines text from all paragraphs in a logical paragraph.
+ */
+function combineLogicalParagraphText(
+	paragraphs: ParagraphNode[],
+	indent: string,
+	firstLineText: string
+): string {
+	let combined = firstLineText;
+
+	for (let i = 1; i < paragraphs.length; i++) {
+		const text = paragraphs[i].getTextContent();
+		const textWithoutIndent = text.startsWith(indent) ? text.substring(indent.length) : text;
+		combined += ' ' + textWithoutIndent;
+	}
+
+	return combined;
+}
+
+/**
+ * Wraps combined text into multiple lines respecting maxLength.
+ */
+function wrapCombinedText(
+	combinedText: string,
+	maxLength: number,
+	indent: string,
+	bullet: Bullet | undefined
+): string[] {
+	const wrappedLines: string[] = [];
+	let remainder = combinedText;
+	let isFirstLine = true;
+
+	while (remainder.length > 0) {
+		const lineToWrap = isFirstLine ? remainder : indent + remainder;
+		const { newLine, newRemainder } = wrapLine({
+			line: lineToWrap,
+			maxLength,
+			indent: isFirstLine ? '' : indent,
+			bullet: isFirstLine ? bullet : undefined
+		});
+
+		wrappedLines.push(newLine);
+		remainder = newRemainder;
+		isFirstLine = false;
+	}
+
+	return wrappedLines;
+}
+
+/**
+ * Updates the DOM by replacing old paragraphs with wrapped lines.
+ */
+function updateParagraphsWithWrappedLines(
+	paragraph: ParagraphNode,
+	paragraphsToRemove: ParagraphNode[],
+	wrappedLines: string[]
+): void {
+	// Remove old continuation paragraphs
+	for (let i = 1; i < paragraphsToRemove.length; i++) {
+		paragraphsToRemove[i].remove();
+	}
+
+	// Update the first paragraph with the first wrapped line
+	const children = paragraph.getChildren();
+	const firstTextNode = children.find((child) => isTextNode(child)) as TextNode | undefined;
+
+	if (firstTextNode) {
+		firstTextNode.setTextContent(wrappedLines[0]);
+		// Remove all other children
+		children.forEach((child) => {
+			if (child !== firstTextNode) child.remove();
+		});
+	} else {
+		// Fallback: no text nodes found, create one
+		paragraph.append(new TextNode(wrappedLines[0]));
+	}
+
+	// Create new paragraphs for additional wrapped lines
+	let lastParagraph = paragraph;
+	for (let i = 1; i < wrappedLines.length; i++) {
+		const newParagraph = new ParagraphNode();
+		newParagraph.append(new TextNode(wrappedLines[i]));
+		lastParagraph.insertAfter(newParagraph);
+		lastParagraph = newParagraph;
+	}
+}
+
+/**
+ * Repositions the cursor to the appropriate location after wrapping.
+ */
+function repositionCursor(
+	paragraph: ParagraphNode,
+	wrappedLines: string[],
+	selectionOffset: number
+): void {
+	const firstTextNode = paragraph.getFirstChild();
+	if (!isTextNode(firstTextNode)) return;
+
+	let remainingOffset = selectionOffset;
+	let targetLineIndex = 0;
+
+	// Find which line the cursor should be on
+	for (let i = 0; i < wrappedLines.length; i++) {
+		if (remainingOffset <= wrappedLines[i].length) {
+			targetLineIndex = i;
+			break;
+		}
+		remainingOffset -= wrappedLines[i].length + 1; // +1 for space between lines
+	}
+
+	// Set cursor in the appropriate paragraph
+	if (targetLineIndex === 0) {
+		firstTextNode.select(Math.max(0, remainingOffset), Math.max(0, remainingOffset));
+		return;
+	}
+
+	// Navigate to the target paragraph
+	let currentPara: ParagraphNode | null = paragraph.getNextSibling() as ParagraphNode | null;
+	for (let i = 1; i < targetLineIndex && currentPara; i++) {
+		currentPara = currentPara.getNextSibling() as ParagraphNode | null;
+	}
+
+	if (currentPara && $isParagraphNode(currentPara)) {
+		const textNode = currentPara.getFirstChild();
+		if (isTextNode(textNode)) {
+			textNode.select(Math.max(0, remainingOffset), Math.max(0, remainingOffset));
+		}
+	}
+}
+
 export function wrapIfNecessary({ node, maxLength }: { node: TextNode; maxLength: number }) {
 	const paragraph = node.getParent();
 
@@ -110,133 +275,28 @@ export function wrapIfNecessary({ node, maxLength }: { node: TextNode; maxLength
 		return;
 	}
 
-	// Get the full text content from the paragraph, not just the mutated text node
-	// This is important when typing in the middle of text, as Lexical may split text nodes
 	const line = paragraph.getTextContent();
 
-	if (line.length <= maxLength) {
+	// Early returns for cases where wrapping isn't needed
+	if (line.length <= maxLength || !line.includes(' ') || isWrappingExempt(line)) {
 		return;
-	}
-	if (line.indexOf(' ') === -1) {
-		return; // No spaces to wrap at
-	}
-	if (isWrappingExempt(line)) {
-		return; // Line contains text that should not be wrapped.
 	}
 
 	const bullet = parseBullet(line);
 	const indent = bullet ? bullet.indent : parseIndent(line);
-
 	const selection = getSelection();
 	const selectionOffset = isRangeSelection(selection) ? selection.focus.offset : 0;
 
-	// Wrap only the current line - don't collect other paragraphs
-	const { newLine, newRemainder } = wrapLine({
-		line,
-		maxLength,
-		indent,
-		bullet
-	});
+	// Collect, combine, and wrap the logical paragraph
+	const paragraphsToRewrap = collectLogicalParagraph(paragraph, indent);
+	const combinedText = combineLogicalParagraphText(paragraphsToRewrap, indent, line);
+	const wrappedLines = wrapCombinedText(combinedText, maxLength, indent, bullet);
 
-	// Replace all text nodes in the paragraph with a single text node containing the wrapped text
-	// This is important because Lexical may have split the text into multiple nodes during typing
-	const children = paragraph.getChildren();
-	const firstTextNode = children.find((child) => isTextNode(child)) as TextNode | undefined;
+	// Update the DOM with wrapped lines
+	updateParagraphsWithWrappedLines(paragraph, paragraphsToRewrap, wrappedLines);
 
-	if (firstTextNode) {
-		// Update the first text node with the new content
-		firstTextNode.setTextContent(newLine);
-		// Remove all other children
-		for (const child of children) {
-			if (child !== firstTextNode) {
-				child.remove();
-			}
-		}
-	} else {
-		// Fallback: no text nodes found, create one
-		const newTextNode = new TextNode(newLine);
-		paragraph.append(newTextNode);
-	}
-
-	// Get reference to the text node we'll use for cursor positioning
-	const currentTextNode = firstTextNode || (paragraph.getFirstChild() as TextNode);
-
-	// If there's a remainder, create new paragraphs for it
-	if (newRemainder) {
-		let remainder = newRemainder;
-		let lastParagraph = paragraph;
-
-		// Create new paragraphs for the wrapped text
-		while (remainder && remainder.length > 0) {
-			// Prepend indent to the remainder before wrapping it
-			const indentedLine = indent + remainder;
-			const { newLine: finalLine, newRemainder: finalRem } = wrapLine({
-				line: indentedLine,
-				maxLength,
-				indent
-			});
-
-			const newParagraph = new ParagraphNode();
-			const newTextNode = new TextNode(finalLine);
-			newParagraph.append(newTextNode);
-			lastParagraph.insertAfter(newParagraph);
-
-			lastParagraph = newParagraph;
-			remainder = finalRem;
-		}
-
-		// Try to maintain cursor position
-		// Calculate which paragraph the cursor should end up in
-		let remainingOffset = selectionOffset;
-
-		// If cursor was in the first line
-		if (remainingOffset <= newLine.length) {
-			// Keep cursor in the current paragraph at the same position
-			currentTextNode.select(remainingOffset, remainingOffset);
-		} else {
-			// Cursor should be in one of the wrapped paragraphs
-			remainingOffset -= newLine.length + 1; // Account for the line and space
-
-			// Walk through the created paragraphs to find where cursor belongs
-			let currentPara: ParagraphNode | null = paragraph.getNextSibling() as ParagraphNode | null;
-			let tempRemainder = newRemainder;
-
-			// Calculate all the wrapped lines to find cursor position
-			while (tempRemainder && tempRemainder.length > 0) {
-				const indentedLine = indent + tempRemainder;
-				const { newLine: tempLine, newRemainder: tempRem } = wrapLine({
-					line: indentedLine,
-					maxLength,
-					indent
-				});
-
-				// tempLine now includes the indent, so just check against its length
-				if (remainingOffset <= tempLine.length) {
-					// Cursor belongs in this line
-					break;
-				}
-				remainingOffset -= tempLine.length + 1; // +1 for space between lines
-				tempRemainder = tempRem;
-				currentPara = currentPara?.getNextSibling() as ParagraphNode | null;
-			}
-
-			// Set cursor in the appropriate paragraph
-			if (currentPara && $isParagraphNode(currentPara)) {
-				const textNode = currentPara.getFirstChild();
-				if (isTextNode(textNode)) {
-					textNode.select(Math.max(0, remainingOffset), Math.max(0, remainingOffset));
-				}
-			} else {
-				// Fallback: put cursor at end of last created paragraph
-				if (lastParagraph) {
-					const textNode = lastParagraph.getFirstChild();
-					if (isTextNode(textNode)) {
-						textNode.selectEnd();
-					}
-				}
-			}
-		}
-	}
+	// Restore cursor position
+	repositionCursor(paragraph, wrappedLines, selectionOffset);
 }
 
 export function wrapAll(editor: LexicalEditor, maxLength: number) {
