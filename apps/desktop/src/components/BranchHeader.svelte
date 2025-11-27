@@ -15,10 +15,8 @@
 	import { BranchDropData } from '$lib/branches/dropHandler';
 	import { draggableBranch, type DraggableConfig } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
-
 	import { inject } from '@gitbutler/core/context';
-	import { Badge } from '@gitbutler/ui';
-	import { TestId } from '@gitbutler/ui';
+	import { Badge, TestId, Icon } from '@gitbutler/ui';
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide } from 'svelte/transition';
@@ -147,7 +145,7 @@
 
 		<div class="branch-header__content">
 			<div class="branch-header__title text-14 text-bold">
-				<div class="branch-header__title-content flex gap-6">
+				<div class="branch-header__title-content">
 					<BranchHeaderIcon color={lineColor} {iconName} />
 					<BranchLabel
 						name={branchName}
@@ -164,9 +162,13 @@
 						<Badge style="error">Conflicts</Badge>
 					</div>
 				{/if}
+
+				<div class="branch-header__drag-handle" data-no-drag>
+					<Icon name="draggable-narrow" />
+				</div>
 			</div>
 
-			{#if isEmpty}
+			{#if !isEmpty}
 				<p class="text-12 text-body branch-header__empty-state">
 					{@render emptyState?.()}
 				</p>
@@ -228,14 +230,13 @@
 	.branch-header {
 		--branch-selected-bg: var(--clr-bg-1);
 		--branch-selected-element-bg: var(--clr-selected-not-in-focus-element);
+		--branch-side-padding: 12px;
 		display: flex;
-
 		position: relative;
 		flex-direction: column;
 		align-items: center;
 		justify-content: flex-start;
-		padding-right: 12px;
-		padding-left: 12px;
+		padding-left: var(--branch-side-padding);
 		overflow: hidden;
 		border-bottom: none;
 		background-color: var(--branch-selected-bg);
@@ -243,6 +244,11 @@
 		/* Selected but NOT in focus */
 		&:hover {
 			--branch-selected-bg: var(--clr-bg-1-muted);
+
+			& .branch-header__drag-handle {
+				width: 16px;
+				opacity: 0.4;
+			}
 		}
 
 		&:focus-within,
@@ -260,6 +266,7 @@
 	.branch-header__details {
 		display: flex;
 		align-items: center;
+		padding-right: var(--branch-side-padding);
 		overflow: hidden;
 		gap: 6px;
 		color: var(--clr-text-2);
@@ -290,18 +297,22 @@
 		align-items: center;
 		justify-content: space-between;
 		min-width: 0;
-		gap: 4px;
+		/* margin-right: 12px; */
+		/* gap: 4px; */
 	}
 
 	.branch-header__title-content {
+		display: flex;
 		flex-grow: 1;
 		align-items: center;
 		min-width: 0;
+		gap: 6px;
 	}
 
 	.branch-header__top-badges {
 		display: flex;
 		align-items: center;
+		margin-left: 6px;
 		gap: 4px;
 		transform: translateY(-2px);
 	}
@@ -317,7 +328,23 @@
 		text-overflow: ellipsis;
 	}
 
+	.branch-header__drag-handle {
+		display: flex;
+		position: relative;
+		align-items: center;
+		justify-content: flex-end;
+		width: 10px;
+		margin-top: -20px;
+		margin-right: 3px;
+		color: var(--clr-text-1);
+		opacity: 0;
+		transition:
+			width var(--transition-fast),
+			opacity var(--transition-fast);
+	}
+
 	.branch-header__empty-state {
+		padding-right: var(--branch-side-padding);
 		color: var(--clr-text-2);
 		opacity: 0.8;
 	}
