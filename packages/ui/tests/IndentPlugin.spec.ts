@@ -1,95 +1,82 @@
-import PlainTextIndentPluginTestWrapper from './PlainTextIndentPluginTestWrapper.svelte';
+import IndentPluginTestWrapper from './IndentPluginTestWrapper.svelte';
+import { getTextContent, waitForTextContent, doAndWaitForIdle, waitUntilIdle } from './test-utils';
 import { test, expect } from '@playwright/experimental-ct-svelte';
 
-/**
- * Helper to get text content
- */
-async function getTextContent(component: any): Promise<string> {
-	return (await component.getByTestId('text-content').textContent()) || '';
-}
-
-test.describe('PlainTextIndentPlugin with linebreaks', () => {
+test.describe('IndentPlugin', () => {
 	test('should preserve indentation when pressing Enter', async ({ mount, page }) => {
-		// Capture browser console logs
-		const component = await mount(PlainTextIndentPluginTestWrapper, {
+		const component = await mount(IndentPluginTestWrapper, {
 			props: {
 				initialText: 'Start text'
 			}
 		});
 
-		// Wait for editor to fully initialize
-		await page.waitForTimeout(1000);
+		// Wait for editor to fully initialize with content
+		await waitForTextContent(component, 'Start');
 
-		// Verify editor loaded
-		const initialText = await getTextContent(component);
-		expect(initialText).toContain('Start');
+		// Wait for browser to be idle before starting interactions
+		await waitUntilIdle(page);
 
 		// Focus editor
 		await component.getByTestId('focus-button').click();
-		await page.waitForTimeout(200);
 
-		// Clear and type indented content
-		await page.keyboard.press('Meta+A');
-		await page.keyboard.press('Backspace');
-		await page.waitForTimeout(200);
+		// Clear and type indented content with idle detection
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.press('Meta+A');
+			await page.keyboard.press('Backspace');
+		});
 
 		// Type indented line
-		await page.keyboard.type('    Indented line');
-		await page.waitForTimeout(200);
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.type('    Indented line');
+		});
 
-		// Take a screenshot before pressing Enter
-		await page.screenshot({ path: 'test-results/before-enter.png' });
-
-		// Press Enter (not Shift+Enter) - should preserve indentation
-		await page.keyboard.press('Enter');
-		await page.waitForTimeout(500);
+		// Press Enter - should preserve indentation
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.press('Enter');
+		});
 
 		// Type new text on the new line
-		await page.keyboard.type('New line');
-		await page.waitForTimeout(200);
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.type('New line');
+		});
 
-		// Take a screenshot after pressing Enter
-		await page.screenshot({ path: 'test-results/after-enter.png' });
-
-		// Get state after Enter
 		const textAfter = await getTextContent(component);
 
 		// Verify indentation is preserved on new line
-		// In rich text mode, pressing Enter creates a new paragraph
 		expect(textAfter).toContain('Indented line');
 		expect(textAfter).toContain('New line');
 
-		// In rich text mode, paragraphs are separated by blank lines
-		// Note: Lexical's default behavior doesn't preserve indentation across paragraphs
-		// This is expected for rich text mode
 		const lines = textAfter.split('\n');
 		expect(lines.length).toBeGreaterThanOrEqual(2);
 	});
 
 	test('should increment numbered bullets when pressing Enter', async ({ mount, page }) => {
-		const component = await mount(PlainTextIndentPluginTestWrapper, {
+		const component = await mount(IndentPluginTestWrapper, {
 			props: {
 				initialText: ''
 			}
 		});
 
-		await page.waitForTimeout(1000);
+		// Wait for initial idle state
+		await waitUntilIdle(page);
 
 		// Focus editor
 		await component.getByTestId('focus-button').click();
-		await page.waitForTimeout(200);
 
-		// Type numbered bullet
-		await page.keyboard.type('1. First item');
-		await page.waitForTimeout(200);
+		// Type numbered bullet with idle detection
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.type('1. First item');
+		});
 
 		// Press Enter - should create "2. "
-		await page.keyboard.press('Enter');
-		await page.waitForTimeout(500);
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.press('Enter');
+		});
 
 		// Type second item
-		await page.keyboard.type('Second item');
-		await page.waitForTimeout(200);
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.type('Second item');
+		});
 
 		const textAfter = await getTextContent(component);
 
@@ -99,29 +86,32 @@ test.describe('PlainTextIndentPlugin with linebreaks', () => {
 	});
 
 	test('should remove empty bullet when pressing Enter', async ({ mount, page }) => {
-		const component = await mount(PlainTextIndentPluginTestWrapper, {
+		const component = await mount(IndentPluginTestWrapper, {
 			props: {
 				initialText: ''
 			}
 		});
 
-		await page.waitForTimeout(1000);
+		// Wait for initial idle state
+		await waitUntilIdle(page);
 
 		// Focus editor
 		await component.getByTestId('focus-button').click();
-		await page.waitForTimeout(200);
 
-		// Type bullet
-		await page.keyboard.type('- ');
-		await page.waitForTimeout(200);
+		// Type bullet with idle detection
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.type('- ');
+		});
 
 		// Press Enter on empty bullet - should remove it
-		await page.keyboard.press('Enter');
-		await page.waitForTimeout(500);
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.press('Enter');
+		});
 
 		// Type new text
-		await page.keyboard.type('Normal text');
-		await page.waitForTimeout(200);
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.type('Normal text');
+		});
 
 		const textAfter = await getTextContent(component);
 
@@ -153,13 +143,17 @@ test.describe('PlainTextIndentPlugin with linebreaks', () => {
 
 Final normal paragraph`;
 
-		const component = await mount(PlainTextIndentPluginTestWrapper, {
+		const component = await mount(IndentPluginTestWrapper, {
 			props: {
 				initialText
 			}
 		});
 
-		await page.waitForTimeout(1000);
+		// Wait for content to load
+		await waitForTextContent(component, 'Normal paragraph');
+
+		// Wait for browser to be idle after initial load
+		await waitUntilIdle(page);
 
 		// Get the text content immediately after loading
 		const loadedText = await getTextContent(component);
@@ -169,11 +163,11 @@ Final normal paragraph`;
 
 		// Focus editor to ensure it's active
 		await component.getByTestId('focus-button').click();
-		await page.waitForTimeout(200);
 
-		// Blur the editor to trigger any save operations
-		await page.keyboard.press('Escape');
-		await page.waitForTimeout(500);
+		// Blur the editor to trigger any save operations with idle detection
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.press('Escape');
+		});
 
 		// Get the text content after blur
 		const savedText = await getTextContent(component);

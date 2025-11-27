@@ -4,11 +4,9 @@
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
 	import { INLINE_CODE_TRANSFORMER } from '$lib/richText/customTransforers';
-	import { getCurrentText } from '$lib/richText/getText';
 	// import CodeBlockTypeAhead from '$lib/richText/plugins/CodeBlockTypeAhead.svelte';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
-	import PlainTextIndentPlugin from '$lib/richText/plugins/PlainTextIndentPlugin.svelte';
-	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition';
+	import IndentPlugin from '$lib/richText/plugins/IndentPlugin.svelte';
 	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
 	import OnInput, { type OnInputCallback } from '$lib/richText/plugins/onInput.svelte';
 	import { insertTextAtCaret, setEditorText } from '$lib/richText/selection';
@@ -26,25 +24,14 @@
 		Composer,
 		ContentEditable,
 		RichTextPlugin,
-		ListPlugin,
-		CheckListPlugin,
 		AutoFocusPlugin,
 		PlaceHolder,
-		HashtagPlugin,
-		PlainTextPlugin,
-		AutoLinkPlugin,
-		FloatingLinkEditorPlugin,
-		CodeHighlightPlugin,
-		CodeActionMenuPlugin,
 		MarkdownShortcutPlugin,
-		ALL_TRANSFORMERS,
-		LinkPlugin,
 		HistoryPlugin
 	} from 'svelte-lexical';
 
 	interface Props {
 		namespace: string;
-		plaintext: boolean;
 		onError: (error: unknown) => void;
 		styleContext: 'client-editor' | 'chat-input';
 		plugins?: Snippet;
@@ -59,7 +46,6 @@
 		onKeyDown?: (event: KeyboardEvent | null) => boolean;
 		initialText?: string;
 		disabled?: boolean;
-		wrapCountValue?: number;
 		useMonospaceFont?: boolean;
 		monospaceFont?: string;
 		tabSize?: number;
@@ -70,7 +56,6 @@
 	let {
 		disabled,
 		namespace,
-		plaintext,
 		onError,
 		minHeight,
 		maxHeight,
@@ -84,7 +69,6 @@
 		onInput,
 		onKeyDown,
 		initialText,
-		wrapCountValue,
 		useMonospaceFont,
 		monospaceFont,
 		tabSize,
@@ -109,9 +93,6 @@
 	let editorDiv: HTMLDivElement | undefined = $state();
 	let emojiPlugin = $state<ReturnType<typeof EmojiPlugin>>();
 
-	// TODO: Change this plugin in favor of a toggle button.
-	const markdownTransitionPlugin = new MarkdownTransitionPlugin(wrapCountValue);
-
 	const isDisabled = $derived(disabled ?? false);
 
 	$effect(() => {
@@ -128,24 +109,7 @@
 	$effect(() => {
 		if (composer) {
 			const editor = composer.getEditor();
-			markdownTransitionPlugin.setEditor(editor);
-		}
-	});
-
-	$effect(() => {
-		markdownTransitionPlugin.setMarkdown(!plaintext);
-	});
-
-	$effect(() => {
-		if (wrapCountValue) {
-			markdownTransitionPlugin.setMaxLength(wrapCountValue);
-		}
-	});
-
-	$effect(() => {
-		if (composer) {
-			const editor = composer.getEditor();
-			const unregidterKeyDown = editor.registerCommand<KeyboardEvent | null>(
+			const unregisterKeyDown = editor.registerCommand<KeyboardEvent | null>(
 				KEY_DOWN_COMMAND,
 				(e) => {
 					if (emojiPlugin?.isBusy()) {
@@ -173,7 +137,7 @@
 			);
 
 			return () => {
-				unregidterKeyDown();
+				unregisterKeyDown();
 				unregisterFocus();
 				unregisterBlur();
 			};
@@ -187,6 +151,9 @@
 	});
 
 	async function updateInitialtext(initialText: string | undefined) {
+		if (!composer) return;
+
+		// Set initial text if provided and editor is empty
 		if (initialText) {
 			const currentText = await getPlaintext();
 			if (currentText?.trim() === '') {
@@ -197,13 +164,20 @@
 
 	export function getPlaintext(): Promise<string | undefined> {
 		return new Promise((resolve) => {
-			if (composer) {
-				const editor = composer.getEditor();
-				editor?.read(() => {
-					const text = getCurrentText(!plaintext, wrapCountValue);
-					resolve(text);
-				});
+			if (!composer) {
+				resolve(undefined);
+				return;
 			}
+			const editor = composer.getEditor();
+			editor.read(() => {
+				// Using `root.getTextContent()` adds extra blank lines between paragraphs, since
+				// normally paragraphs have a bottom margin (that we removed).
+				const root = getRoot();
+				const children = root.getChildren();
+				const paragraphTexts = children.map((child) => child.getTextContent());
+				const text = paragraphTexts.join('\n');
+				resolve(text);
+			});
 		});
 	}
 
@@ -213,7 +187,8 @@
 				resolve(0);
 				return;
 			}
-			composer.getEditor()?.read(() => {
+			const editor = composer.getEditor();
+			editor.read(() => {
 				const root = getRoot();
 				const count = root.getChildren().filter(isParagraphNode).length;
 				resolve(count);
@@ -226,7 +201,7 @@
 			return;
 		}
 		const editor = composer.getEditor();
-		editor?.update(() => {
+		editor.update(() => {
 			const root = getRoot();
 			root.clear();
 		});
@@ -239,7 +214,8 @@
 		const editor = composer.getEditor();
 		// We should be able to use `editor.focus()` here, but for some reason
 		// it only works after the input has already been focused.
-		editor.getRootElement()?.focus();
+		const rootElement = editor.getRootElement();
+		rootElement?.focus();
 	}
 
 	export function wrapAll() {
@@ -282,7 +258,6 @@
 		class="lexical-container lexical-{styleContext} scrollbar"
 		bind:this={editorDiv}
 		use:focusable={{ button: true }}
-		class:plain-text={plaintext}
 		class:disabled={isDisabled}
 		style:min-height={minHeight}
 		style:max-height={maxHeight}
@@ -305,35 +280,20 @@
 		<EmojiPlugin bind:this={emojiPlugin} />
 
 		<OnChangePlugin
-			markdown={!plaintext}
 			onChange={(newValue, changeUpToAnchor, textAfterAnchor) => {
 				value = newValue;
 				onChange?.(newValue, changeUpToAnchor, textAfterAnchor);
 			}}
-			maxLength={wrapCountValue}
 		/>
 
 		{#if onInput}
-			<OnInput markdown={!plaintext} {onInput} maxLength={wrapCountValue} />
+			<OnInput {onInput} />
 		{/if}
 
-		{#if plaintext}
-			<PlainTextPlugin />
-			<PlainTextIndentPlugin />
-			<!-- <CodeBlockTypeAhead /> -->
-			<MarkdownShortcutPlugin transformers={[INLINE_CODE_TRANSFORMER]} />
-		{:else}
-			<AutoLinkPlugin />
-			<CheckListPlugin />
-			<CodeActionMenuPlugin anchorElem={editorDiv} />
-			<CodeHighlightPlugin />
-			<FloatingLinkEditorPlugin anchorElem={editorDiv} />
-			<HashtagPlugin />
-			<ListPlugin />
-			<LinkPlugin />
-			<MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
-			<RichTextPlugin />
-		{/if}
+		<RichTextPlugin />
+		<IndentPlugin />
+		<MarkdownShortcutPlugin transformers={[INLINE_CODE_TRANSFORMER]} />
+
 		{#if autoFocus}
 			<AutoFocusPlugin />
 		{/if}
@@ -353,19 +313,6 @@
 		flex-grow: 1;
 		overflow: auto;
 		background-color: var(--clr-bg-1);
-	}
-
-	.editor-scroller {
-		display: flex;
-		z-index: 0;
-		position: relative;
-		flex-direction: column;
-		height: 100%;
-		overflow: auto;
-		border: 0;
-		outline: 0;
-		/* It's unclear why the resizer is on by default on this element. */
-		resize: none;
 	}
 
 	.editor {

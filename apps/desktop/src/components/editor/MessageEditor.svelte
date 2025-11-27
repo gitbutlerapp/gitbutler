@@ -329,13 +329,11 @@
 					namespace="CommitMessageEditor"
 					{placeholder}
 					bind:this={composer}
-					plaintext={true}
 					onError={(e) => console.warn('Editor error', e)}
 					initialText={initialValue}
 					onChange={handleChange}
 					onKeyDown={handleKeyDown}
 					{disabled}
-					{wrapCountValue}
 					useMonospaceFont={useRuler && !forceSansFont}
 					monospaceFont={$userSettings.diffFont}
 					tabSize={$userSettings.tabSize}

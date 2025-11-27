@@ -60,10 +60,8 @@
 			bind:this={editor}
 			bind:value
 			namespace="test-hardwrap"
-			plaintext={true}
 			onError={(error) => console.error('Editor error:', error)}
 			styleContext="client-editor"
-			wrapCountValue={maxLength}
 			{initialText}
 			minHeight="100px"
 		>
