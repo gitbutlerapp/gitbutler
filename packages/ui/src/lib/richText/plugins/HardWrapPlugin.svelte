@@ -4,10 +4,6 @@ Lexical plugin that wraps a line exceeding given max length.
 
 The implementation of the wrapping is handled by a lib file since it needs
 to be shared with e.g. wrapping rich text converted into markdown.
-
-A known shortcoming is when you have a pasted paragraph in the editor, which
-gets wrapped when edited, so if your cursor is on a  line that gets wrapped
-a few rows down we do not update the cursor position to correctly.
 -->
 <script lang="ts">
 	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
@@ -31,8 +27,6 @@ a few rows down we do not update the cursor position to correctly.
 
 	const editor = getEditor();
 
-	let lastCheckedLine: undefined | string = undefined;
-	let lastCheckedResult = false;
 	let hasInitialized = false;
 
 	// Auto-wrap content on mount if enabled
@@ -66,22 +60,12 @@ a few rows down we do not update the cursor position to correctly.
 		editor.update(
 			() => {
 				for (const [key, type] of nodes.entries()) {
-					const node = getNodeByKey(key)!;
+					if (type !== 'updated' || !maxLength) continue;
 
-					if (!node) {
-						continue;
-					}
+					const node = getNodeByKey(key);
+					if (!node || !isTextNode(node) || isInCodeBlock(node)) continue;
 
-					if (type === 'updated' && maxLength) {
-						const inCodeBlock = isInCodeBlock(key);
-						if (inCodeBlock) {
-							continue;
-						}
-						if (!isTextNode(node)) {
-							continue;
-						}
-						wrapIfNecessary({ node, maxLength });
-					}
+					wrapIfNecessary({ node, maxLength });
 				}
 			},
 			{
@@ -92,43 +76,28 @@ a few rows down we do not update the cursor position to correctly.
 	}
 
 	/**
-	 * Checks if given node id is contained within a code block.
+	 * Checks if given node is contained within a code block.
 	 * In the new multi-paragraph structure, code blocks are CodeNodes within paragraphs.
 	 */
-	function isInCodeBlock(nodeId: string): boolean {
-		if (lastCheckedLine === nodeId) {
-			return lastCheckedResult;
-		}
-
-		const node = getNodeByKey(nodeId);
-		if (!node) {
-			lastCheckedLine = nodeId;
-			lastCheckedResult = false;
-			return false;
-		}
-
-		// Check if this node or any parent is a CodeNode
-		let current: any = node;
+	function isInCodeBlock(node: any): boolean {
+		let current = node;
 		let depth = 0;
+
 		while (current) {
-			if (current.getType && current.getType() === 'code') {
-				lastCheckedLine = nodeId;
-				lastCheckedResult = true;
+			if (current.getType?.() === 'code') {
 				return true;
 			}
-			current = current.getParent ? current.getParent() : null;
+			current = current.getParent?.();
 			depth++;
 
 			if (depth > 10) {
 				console.warn(
 					'[HardWrap] Parent chain depth exceeded 10, stopping to prevent infinite loop'
 				);
-				break;
+				return false;
 			}
 		}
 
-		lastCheckedLine = nodeId;
-		lastCheckedResult = false;
 		return false;
 	}
 </script>

@@ -448,5 +448,199 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				expect(lastPara.getTextContent()).toBe('Another paragraph');
 			});
 		});
+
+		it('should cascade rewrap when typing in middle causes overflow', () => {
+			let textNodeKey = '';
+
+			editor.update(() => {
+				const root = getRoot();
+				const paragraph = createParagraphNode();
+				// Start with a line at exactly the limit
+				const textNode = createTextNode('This is exactly at');
+				paragraph.append(textNode);
+				root.append(paragraph);
+				textNodeKey = textNode.getKey();
+
+				// Set cursor in the middle (after "This ")
+				textNode.select(5, 5);
+			});
+
+			editor.update(() => {
+				const node = getNodeByKey(textNodeKey) as TextNode;
+				// Simulate typing " a word" in the middle, making it overflow
+				node.setTextContent('This a word is exactly at');
+
+				wrapIfNecessary({ node, maxLength: 20 });
+			});
+
+			editor.read(() => {
+				const root = getRoot();
+				const children = root.getChildren();
+
+				// Should have wrapped into 2 lines
+				expect(children.length).toBeGreaterThanOrEqual(2);
+
+				// First line should be within limit
+				const firstLine = children[0].getTextContent();
+				expect(firstLine.length).toBeLessThanOrEqual(20);
+
+				// If there's a second line, it should also be within limit
+				if (children.length > 1) {
+					const secondLine = children[1].getTextContent();
+					expect(secondLine.length).toBeLessThanOrEqual(20);
+				}
+
+				// The overflow word should have moved to the next line, not the word after cursor
+				expect(firstLine).toMatch(/^This a word is$/);
+				expect(children[1].getTextContent()).toBe('exactly at');
+			});
+		});
+
+		it('should cascade rewrap through multiple existing paragraphs', () => {
+			editor.update(() => {
+				const root = getRoot();
+
+				// Simulate previously wrapped paragraphs
+				const para1 = createParagraphNode();
+				para1.append(createTextNode('First line text'));
+				root.append(para1);
+
+				const para2 = createParagraphNode();
+				para2.append(createTextNode('second line'));
+				root.append(para2);
+
+				const para3 = createParagraphNode();
+				para3.append(createTextNode('third line'));
+				root.append(para3);
+
+				// Now edit the first paragraph to add more content
+				const textNode = para1.getFirstChild() as TextNode;
+				textNode.setTextContent('First line text that has been extended');
+
+				// Trigger rewrap
+				wrapIfNecessary({ node: textNode, maxLength: 20 });
+			});
+
+			editor.read(() => {
+				const root = getRoot();
+				const children = root.getChildren();
+
+				// All paragraphs should be within the limit
+				children.forEach((child) => {
+					const text = child.getTextContent();
+					expect(text.length).toBeLessThanOrEqual(20);
+				});
+
+				// Should have collected and rewrapped all three original paragraphs
+				// The total content should be preserved
+				const allText = children.map((c) => c.getTextContent()).join(' ');
+				expect(allText).toContain('First line text that has been extended');
+				expect(allText).toContain('second line');
+				expect(allText).toContain('third line');
+			});
+		});
+
+		it('should use greedy line breaking when typing in middle of bullet list item', () => {
+			let textNodeKey = '';
+
+			editor.update(() => {
+				const root = getRoot();
+				const paragraph = createParagraphNode();
+				// Start with a bullet at exactly the limit
+				const textNode = createTextNode('- First second third');
+				paragraph.append(textNode);
+				root.append(paragraph);
+				textNodeKey = textNode.getKey();
+
+				// Set cursor after "First " (position 8)
+				textNode.select(8, 8);
+			});
+
+			editor.update(() => {
+				const node = getNodeByKey(textNodeKey) as TextNode;
+				// Simulate typing "inserted " in the middle, making it overflow
+				node.setTextContent('- First inserted second third');
+
+				wrapIfNecessary({ node, maxLength: 20 });
+			});
+
+			editor.read(() => {
+				const root = getRoot();
+				const children = root.getChildren();
+
+				// Should have wrapped into at least 2 lines
+				expect(children.length).toBeGreaterThanOrEqual(2);
+
+				// First line should have the bullet and fit within maxLength
+				const firstLine = children[0].getTextContent();
+				expect(firstLine).toMatch(/^- /);
+				expect(firstLine.length).toBeLessThanOrEqual(20);
+
+				// The overflowing word(s) should move to the next line, not the word after cursor
+				// Greedy algorithm should keep as many words as possible on first line
+				expect(firstLine).toBe('- First inserted');
+
+				// Second line should be indented and contain the overflow
+				const secondLine = children[1].getTextContent();
+				expect(secondLine).toMatch(/^ {2}/); // Two-space indent for bullets
+				expect(secondLine.length).toBeLessThanOrEqual(20);
+				expect(secondLine).toBe('  second third');
+			});
+		});
+
+		it('should cascade rewrap through multiple bullet list continuation lines', () => {
+			editor.update(() => {
+				const root = getRoot();
+
+				// Simulate a wrapped bullet list item
+				const para1 = createParagraphNode();
+				para1.append(createTextNode('- Short bullet'));
+				root.append(para1);
+
+				const para2 = createParagraphNode();
+				para2.append(createTextNode('  continuation'));
+				root.append(para2);
+
+				const para3 = createParagraphNode();
+				para3.append(createTextNode('  more text'));
+				root.append(para3);
+
+				// Now edit the first line to make it much longer
+				const textNode = para1.getFirstChild() as TextNode;
+				textNode.setTextContent('- Short bullet that has been made significantly longer');
+
+				// Trigger rewrap
+				wrapIfNecessary({ node: textNode, maxLength: 25 });
+			});
+
+			editor.read(() => {
+				const root = getRoot();
+				const children = root.getChildren();
+
+				// First line should start with bullet
+				expect(children[0].getTextContent()).toMatch(/^- /);
+
+				// All lines should respect maxLength
+				children.forEach((child) => {
+					const text = child.getTextContent();
+					expect(text.length).toBeLessThanOrEqual(25);
+				});
+
+				// All continuation lines (after first) should have proper indentation
+				for (let i = 1; i < children.length; i++) {
+					const text = children[i].getTextContent();
+					expect(text).toMatch(/^ {2}/); // Two-space indent
+				}
+
+				// All content should be preserved (strip indentation before checking)
+				const allText = children
+					.map((c) => c.getTextContent().replace(/^- /, '').replace(/^ {2}/, ''))
+					.join(' ');
+				expect(allText).toContain('Short bullet');
+				expect(allText).toContain('made significantly longer');
+				expect(allText).toContain('continuation');
+				expect(allText).toContain('more text');
+			});
+		});
 	});
 });
