@@ -84,17 +84,17 @@ export function createTimeAgoStore(
  * Formats a date into an absolute timestamp using browser locale
  * Example: "January 15, 2024 at 3:45 PM" (US) or "15 January 2024 at 15:45" (UK)
  */
-export function getAbsoluteTimestamp(input: Date | number | undefined): string {
+export function getAbsoluteTimestamp(input: Date | number | undefined, locale?: string): string {
 	if (!input) return '';
 	const date = typeof input === 'number' ? new Date(input) : input;
 
-	// Format the date and time using browser locale
-	const dateStr = date.toLocaleDateString(undefined, {
+	// Format the date and time using specified locale or browser locale
+	const dateStr = date.toLocaleDateString(locale, {
 		year: 'numeric',
 		month: 'long',
 		day: 'numeric'
 	});
-	const timeStr = date.toLocaleTimeString(undefined, {
+	const timeStr = date.toLocaleTimeString(locale, {
 		hour: '2-digit',
 		minute: '2-digit'
 	});
