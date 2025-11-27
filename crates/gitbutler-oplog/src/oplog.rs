@@ -372,7 +372,10 @@ fn get_workdir_tree(
     }
 }
 
-fn prepare_snapshot(ctx: &Context, _shared_access: &WorktreeReadPermission) -> Result<git2::Oid> {
+pub fn prepare_snapshot(
+    ctx: &Context,
+    _shared_access: &WorktreeReadPermission,
+) -> Result<git2::Oid> {
     let repo = ctx.legacy_project.open_git2()?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());

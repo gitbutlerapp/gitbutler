@@ -1196,6 +1196,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-oplog"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-ctx",
+ "but-oxidize",
+ "gitbutler-oplog",
+ "gix",
+]
+
+[[package]]
 name = "but-oxidize"
 version = "0.0.0"
 dependencies = [

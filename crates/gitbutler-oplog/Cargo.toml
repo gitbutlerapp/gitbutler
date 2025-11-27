@@ -5,7 +5,6 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
-autotests = false
 
 [lib]
 doctest = false
@@ -32,10 +31,6 @@ strum = { version = "0.27", features = ["derive"] }
 tracing.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 toml.workspace = true
-
-[[test]]
-name = "oplog"
-path = "tests/mod.rs"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
