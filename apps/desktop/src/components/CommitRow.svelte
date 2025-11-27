@@ -201,7 +201,8 @@
 		overflow: hidden;
 		outline: none;
 		background-color: var(--clr-bg-1);
-		transition: background-color var(--transition-fast);
+		/* Incompatible with virtual scroll, scroll thumb becomes laggy. */
+		/* transition: background-color var(--transition-fast); */
 
 		&:hover,
 		&.menu-shown {

@@ -1,9 +1,10 @@
 <!-- This is a V3 replacement for `BranchFileList.svelte` -->
 <script lang="ts">
+	import ConfigurableVirtualList from '$components/ConfigurableVirtualList.svelte';
 	import EditPatchConfirmModal from '$components/EditPatchConfirmModal.svelte';
 	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
-	import FileTreeNode from '$components/FileTreeNode.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import TreeListFolder from '$components/TreeListFolder.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -15,7 +16,13 @@
 	} from '$lib/dependencies/dependencies';
 	import { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
-	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
+	import {
+		abbreviateFolders,
+		changesToFileTree,
+		flattenTree,
+		nodePath,
+		type TreeNode
+	} from '$lib/files/filetreeV3';
 	import { type TreeChange, isExecutableStatus } from '$lib/hunks/change';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
@@ -75,6 +82,9 @@
 	let editPatchModal: EditPatchConfirmModal | undefined = $state();
 	let selectedFilePath = $state('');
 
+	// Track which folders are expanded in tree mode
+	let expandedFolders = $state<Set<string>>(new Set());
+
 	const filePaths = $derived(changes.map((change) => change.path));
 	const fileDependenciesQuery = $derived(
 		showLockedIndicator ? dependencyService.filesDependencies(projectId, filePaths) : null
@@ -105,6 +115,44 @@
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
 	let aiConfigurationValid = $state(false);
 	let active = $state(false);
+
+	// Compute flattened tree structure for tree mode
+	const treeNode = $derived(
+		listMode === 'tree' ? abbreviateFolders(changesToFileTree(changes)) : null
+	);
+	const flattenedItems = $derived(treeNode ? flattenTree(treeNode, expandedFolders) : []);
+
+	function toggleFolder(nodeId: string) {
+		const newSet = new Set(expandedFolders);
+		if (newSet.has(nodeId)) {
+			newSet.delete(nodeId);
+		} else {
+			newSet.add(nodeId);
+		}
+		expandedFolders = newSet;
+	}
+
+	// Initialize all folders as expanded
+	function collectAllFolderIds(node: TreeNode): string[] {
+		const ids: string[] = [];
+		for (const child of node.children) {
+			if (child.kind === 'dir') {
+				const nodeId = nodePath(child);
+				if (nodeId) {
+					ids.push(nodeId);
+					ids.push(...collectAllFolderIds(child));
+				}
+			}
+		}
+		return ids;
+	}
+
+	$effect(() => {
+		if (treeNode && listMode === 'tree') {
+			const folderIds = collectAllFolderIds(treeNode);
+			expandedFolders = new Set(folderIds);
+		}
+	});
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 
@@ -347,35 +395,42 @@
 	</div>
 
 	<!-- Other changes -->
-	{#if visibleFiles.length > 0}
-		{#if listMode === 'tree'}
-			<!-- We need to use sortedChanges here because otherwise we will end up
-		with incorrect indexes -->
-			{@const node = abbreviateFolders(changesToFileTree(changes))}
-			<FileTreeNode
-				isRoot
-				{projectId}
-				{selectionId}
-				{stackId}
-				{node}
-				{showCheckboxes}
-				{draggableFiles}
-				{changes}
-				{fileTemplate}
-			/>
-		{:else}
-			<LazyloadContainer
-				minTriggerCount={80}
-				ontrigger={() => {
-					loadMore();
-				}}
-				role="listbox"
-			>
-				{#each visibleFiles as change, idx}
-					{@render fileTemplate(change, idx)}
+	{#if listMode === 'tree' && flattenedItems.length > 0}
+		<ConfigurableVirtualList items={flattenedItems} batchSize={20} defaultHeight={32} grow={false}>
+			{#snippet chunkTemplate(chunk)}
+				{#each chunk as item}
+					{#if item.type === 'folder'}
+						{@const dirNode = item.node as TreeNode & { kind: 'dir' }}
+						<TreeListFolder
+							{projectId}
+							{stackId}
+							{selectionId}
+							testId={TestId.FileListTreeFolder}
+							depth={item.depth}
+							isExpanded={item.isExpanded}
+							showCheckbox={showCheckboxes}
+							draggable={draggableFiles}
+							node={dirNode}
+							ontoggle={() => toggleFolder(item.nodeId)}
+						/>
+					{:else}
+						{@render fileTemplate(item.change, item.index, item.depth)}
+					{/if}
 				{/each}
-			</LazyloadContainer>
-		{/if}
+			{/snippet}
+		</ConfigurableVirtualList>
+	{:else if listMode === 'list' && visibleFiles.length > 0}
+		<LazyloadContainer
+			minTriggerCount={80}
+			ontrigger={() => {
+				loadMore();
+			}}
+			role="listbox"
+		>
+			{#each visibleFiles as change, idx}
+				{@render fileTemplate(change, idx)}
+			{/each}
+		</LazyloadContainer>
 	{/if}
 </div>
 
