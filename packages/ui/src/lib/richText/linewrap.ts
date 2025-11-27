@@ -123,12 +123,18 @@ function isLogicalParagraphBoundary(para: ParagraphNode, previousIndent: string)
 
 /**
  * Collects all paragraphs that belong to the same logical paragraph.
+ * NOTE: This function only collects paragraphs FORWARD (nextSibling), never backward.
+ * Empty paragraphs are never collected as they are considered logical boundaries.
  */
 function collectLogicalParagraph(paragraph: ParagraphNode, indent: string): ParagraphNode[] {
 	const paragraphs: ParagraphNode[] = [paragraph];
 	let nextSibling = paragraph.getNextSibling();
 
 	while (nextSibling && $isParagraphNode(nextSibling)) {
+		// Extra defensive check: never collect empty paragraphs
+		const siblingText = nextSibling.getTextContent();
+		if (siblingText.trim() === '') break;
+
 		if (isLogicalParagraphBoundary(nextSibling, indent)) break;
 		paragraphs.push(nextSibling);
 		nextSibling = nextSibling.getNextSibling();

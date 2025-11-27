@@ -1,5 +1,5 @@
 import { wrapIfNecessary } from '$lib/richText/linewrap';
-import { createEditor, type LexicalEditor } from 'lexical';
+import { createEditor, ParagraphNode, type LexicalEditor } from 'lexical';
 import {
 	$createParagraphNode as createParagraphNode,
 	$createTextNode as createTextNode,
@@ -640,6 +640,179 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				expect(allText).toContain('made significantly longer');
 				expect(allText).toContain('continuation');
 				expect(allText).toContain('more text');
+			});
+		});
+	});
+
+	describe('multiple newlines at end', () => {
+		it('should preserve multiple newlines at the end of text', () => {
+			editor.update(() => {
+				const root = getRoot();
+
+				// Create a paragraph with text
+				const para1 = createParagraphNode();
+				para1.append(createTextNode('Some text'));
+				root.append(para1);
+
+				// Add empty paragraphs at the end
+				const emptyPara1 = createParagraphNode();
+				emptyPara1.append(createTextNode(''));
+				root.append(emptyPara1);
+
+				const emptyPara2 = createParagraphNode();
+				emptyPara2.append(createTextNode(''));
+				root.append(emptyPara2);
+
+				// Trigger wrap on the first paragraph (should not affect empty paragraphs)
+				const textNode = para1.getFirstChild() as TextNode;
+				wrapIfNecessary({ node: textNode, maxLength: 72 });
+			});
+
+			editor.read(() => {
+				const root = getRoot();
+				const children = root.getChildren();
+
+				// Should have 3 paragraphs total
+				expect(children.length).toBe(3);
+
+				// First paragraph should have text
+				expect(children[0].getTextContent()).toBe('Some text');
+
+				// Second and third paragraphs should be empty
+				expect(children[1].getTextContent()).toBe('');
+				expect(children[2].getTextContent()).toBe('');
+			});
+		});
+
+		it('should allow adding multiple newlines at the end by typing', () => {
+			editor.update(() => {
+				const root = getRoot();
+				const paragraph = createParagraphNode();
+				const textNode = createTextNode('Some text');
+				paragraph.append(textNode);
+				root.append(paragraph);
+				// Set cursor at the end
+				textNode.select(9, 9);
+			});
+
+			// Add an empty paragraph at the end
+			editor.update(() => {
+				const root = getRoot();
+				const emptyPara = createParagraphNode();
+				emptyPara.append(createTextNode(''));
+				root.append(emptyPara);
+			});
+
+			// Add another empty paragraph at the end
+			editor.update(() => {
+				const root = getRoot();
+				const emptyPara = createParagraphNode();
+				emptyPara.append(createTextNode(''));
+				root.append(emptyPara);
+			});
+
+			// Now trigger wrapping on an empty paragraph (simulating typing in the empty area)
+			editor.update(() => {
+				const root = getRoot();
+				const children = root.getChildren();
+				const lastPara = children[children.length - 1] as ParagraphNode;
+				const textNode = lastPara.getFirstChild() as TextNode;
+				if (textNode) {
+					wrapIfNecessary({ node: textNode, maxLength: 72 });
+				}
+			});
+
+			editor.read(() => {
+				const root = getRoot();
+				const children = root.getChildren();
+
+				// Should still have all paragraphs
+				expect(children.length).toBe(3);
+
+				// First paragraph should have text
+				expect(children[0].getTextContent()).toBe('Some text');
+
+				// Last two paragraphs should be empty
+				expect(children[1].getTextContent()).toBe('');
+				expect(children[2].getTextContent()).toBe('');
+			});
+		});
+
+		it('should not remove trailing empty paragraphs when typing in the last one', () => {
+			editor.update(() => {
+				const root = getRoot();
+
+				// Create initial structure with text followed by empty paragraphs
+				const para1 = createParagraphNode();
+				para1.append(createTextNode('Some text'));
+				root.append(para1);
+
+				const emptyPara1 = createParagraphNode();
+				emptyPara1.append(createTextNode(''));
+				root.append(emptyPara1);
+
+				const emptyPara2 = createParagraphNode();
+				emptyPara2.append(createTextNode(''));
+				root.append(emptyPara2);
+
+				// Now type something in the last empty paragraph
+				const lastTextNode = emptyPara2.getFirstChild() as TextNode;
+				lastTextNode.setTextContent('x');
+
+				// Trigger wrapping on the last paragraph (this simulates what happens when typing)
+				wrapIfNecessary({ node: lastTextNode, maxLength: 72 });
+			});
+
+			editor.read(() => {
+				const root = getRoot();
+				const children = root.getChildren();
+
+				// Should preserve all paragraphs
+				expect(children.length).toBe(3);
+
+				// Check contents
+				expect(children[0].getTextContent()).toBe('Some text');
+				expect(children[1].getTextContent()).toBe('');
+				expect(children[2].getTextContent()).toBe('x');
+			});
+		});
+
+		it('should not remove trailing empty paragraphs when typing in the first paragraph', () => {
+			editor.update(() => {
+				const root = getRoot();
+
+				// Create initial structure with text followed by empty paragraphs
+				const para1 = createParagraphNode();
+				para1.append(createTextNode('Some text'));
+				root.append(para1);
+
+				const emptyPara1 = createParagraphNode();
+				emptyPara1.append(createTextNode(''));
+				root.append(emptyPara1);
+
+				const emptyPara2 = createParagraphNode();
+				emptyPara2.append(createTextNode(''));
+				root.append(emptyPara2);
+
+				// Now add more text to the first paragraph
+				const firstTextNode = para1.getFirstChild() as TextNode;
+				firstTextNode.setTextContent('Some text with more content added');
+
+				// Trigger wrapping on the first paragraph (this simulates what happens when typing)
+				wrapIfNecessary({ node: firstTextNode, maxLength: 72 });
+			});
+
+			editor.read(() => {
+				const root = getRoot();
+				const children = root.getChildren();
+
+				// Should preserve all paragraphs - the empty ones should NOT be collected!
+				expect(children.length).toBe(3);
+
+				// Check contents
+				expect(children[0].getTextContent()).toBe('Some text with more content added');
+				expect(children[1].getTextContent()).toBe('');
+				expect(children[2].getTextContent()).toBe('');
 			});
 		});
 	});
