@@ -1,6 +1,10 @@
 <script lang="ts" module>
 	export type TooltipPosition = 'top' | 'bottom';
 	export type TooltipAlign = 'start' | 'center' | 'end';
+
+	// Global state to track if any tooltip is currently shown
+	let anyTooltipShown = $state(false);
+	let tooltipHideTimeout: ReturnType<typeof setTimeout> | undefined;
 </script>
 
 <script lang="ts">
@@ -44,6 +48,7 @@
 	let position = $state(requestedPosition);
 	let show = $state(false);
 	let timeoutId: undefined | ReturnType<typeof setTimeout> = $state();
+	let isInstant = $state(false);
 
 	const isTextEmpty = $derived(!text || text === '');
 
@@ -68,14 +73,31 @@
 
 	function handleMouseEnter() {
 		if (disabled) return;
-		timeoutId = setTimeout(() => {
+
+		// If any tooltip is already shown, show this one instantly
+		if (anyTooltipShown) {
+			isInstant = true;
 			show = true;
-		}, delay);
+			clearTimeout(tooltipHideTimeout);
+		} else {
+			isInstant = false;
+			timeoutId = setTimeout(() => {
+				show = true;
+				anyTooltipShown = true;
+			}, delay);
+		}
 	}
 
 	function handleMouseLeave() {
 		clearTimeout(timeoutId);
 		show = false;
+
+		// Reset the global state after a short delay
+		// This allows for smooth transitions between tooltips
+		clearTimeout(tooltipHideTimeout);
+		tooltipHideTimeout = setTimeout(() => {
+			anyTooltipShown = false;
+		}, 100);
 	}
 
 	function handleClick(e: MouseEvent) {
@@ -112,8 +134,10 @@
 				use:portal={'body'}
 				class="tooltip-container text-11 text-body"
 				style:max-width="{pxToRem(maxWidth)}rem"
+				data-instant={isInstant ? true : undefined}
 				transition:flyScale={{
-					position: position
+					position: position,
+					duration: 150
 				}}
 			>
 				<span>{text}</span>
