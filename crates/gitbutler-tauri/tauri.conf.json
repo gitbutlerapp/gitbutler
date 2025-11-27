@@ -32,7 +32,10 @@
 				}
 			},
 			"deb": {
-				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+				"files": {
+					"/usr/share/metainfo/com.gitbutler.gitbutler.metainfo.xml": "com.gitbutler.gitbutler.metainfo.xml"
+				}
 			}
 		}
 	},
