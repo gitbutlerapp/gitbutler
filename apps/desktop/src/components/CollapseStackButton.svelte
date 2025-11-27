@@ -30,7 +30,7 @@
 	}
 </script>
 
-<Tooltip text={isFolded ? 'Expand stack' : 'Collapse stack'} delay={800}>
+<Tooltip text={isFolded ? 'Expand stack' : 'Collapse stack'}>
 	<button
 		class="collapse-button"
 		class:isFolded
