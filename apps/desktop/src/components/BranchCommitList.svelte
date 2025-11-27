@@ -3,10 +3,10 @@
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import CommitContextMenu from '$components/CommitContextMenu.svelte';
 	import CommitGoesHere from '$components/CommitGoesHere.svelte';
+	import CommitLineOverlay from '$components/CommitLineOverlay.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 
-	import LineOverlay from '$components/LineOverlay.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UpstreamCommitsAction from '$components/UpstreamCommitsAction.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
@@ -206,7 +206,7 @@
 	{#if !isCommitting}
 		<Dropzone handlers={[dropzone]}>
 			{#snippet overlay({ hovered, activated })}
-				<LineOverlay {hovered} {activated} />
+				<CommitLineOverlay {hovered} {activated} />
 			{/snippet}
 		</Dropzone>
 	{/if}

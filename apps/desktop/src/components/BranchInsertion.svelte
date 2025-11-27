@@ -1,0 +1,74 @@
+<script lang="ts">
+	import BranchDividerLine from '$components/BranchDividerLine.svelte';
+	import BranchLineOverlay from '$components/BranchLineOverlay.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
+	import { MoveBranchDzHandler } from '$lib/branches/dropHandler';
+	import type { ForgePrService } from '$lib/forge/interface/forgePrService';
+	import type { StackService } from '$lib/stacks/stackService.svelte';
+
+	interface Props {
+		projectId: string;
+		stackId: string;
+		branchName: string;
+		lineColor: string;
+		isCommitting: boolean;
+		baseBranchName: string | undefined;
+		stackService: StackService;
+		prService: ForgePrService | undefined;
+		isFirst?: boolean;
+	}
+
+	const {
+		projectId,
+		stackId,
+		branchName,
+		lineColor,
+		isCommitting,
+		baseBranchName,
+		stackService,
+		prService,
+		isFirst = false
+	}: Props = $props();
+</script>
+
+{#if !isFirst}
+	{#if !isCommitting && baseBranchName}
+		{@const moveBranchHandler = new MoveBranchDzHandler(
+			stackService,
+			prService,
+			projectId,
+			stackId,
+			branchName,
+			baseBranchName
+		)}
+		<Dropzone handlers={[moveBranchHandler]}>
+			{#snippet overlay({ hovered, activated })}
+				<div data-testid="BranchListInsertionDropzone" class="dropzone-target">
+					<BranchDividerLine {lineColor} />
+					{#if activated}
+						<BranchLineOverlay {hovered} />
+						<BranchDividerLine {lineColor} />
+					{/if}
+				</div>
+			{/snippet}
+		</Dropzone>
+	{/if}
+{:else if !isCommitting && baseBranchName}
+	{@const moveBranchHandler = new MoveBranchDzHandler(
+		stackService,
+		prService,
+		projectId,
+		stackId,
+		branchName,
+		baseBranchName
+	)}
+	<Dropzone handlers={[moveBranchHandler]}>
+		{#snippet overlay({ hovered, activated })}
+			{#if activated}
+				<div data-testid="BranchListInsertionDropzone" class="stack-v p-b-10 dropzone-target">
+					<BranchLineOverlay {hovered} />
+				</div>
+			{/if}
+		{/snippet}
+	</Dropzone>
+{/if}

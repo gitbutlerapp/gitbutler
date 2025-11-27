@@ -149,10 +149,6 @@
 	}
 </script>
 
-{#if ((args.type === 'stack-branch' && !args.first) || (args.type === 'normal-branch' && !args.first)) && lineColor}
-	<BranchDividerLine {lineColor} />
-{/if}
-
 <div
 	class="branch-card"
 	class:selected

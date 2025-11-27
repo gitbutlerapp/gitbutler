@@ -14,6 +14,7 @@
 		height: 12px;
 		margin: 0 21px;
 		background-color: var(--commit-color);
+		pointer-events: none;
 
 		&.short {
 			height: 6px;
