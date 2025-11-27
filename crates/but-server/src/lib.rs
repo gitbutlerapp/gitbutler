@@ -351,6 +351,7 @@ async fn handle_command(
         "message_hook" => legacy::repo::message_hook_cmd(request.params),
         // Stack management commands
         "create_branch" => legacy::stack::create_branch_cmd(request.params),
+        "create_reference" => legacy::stack::create_reference_cmd(request.params),
         "remove_branch" => legacy::stack::remove_branch_cmd(request.params),
         "update_branch_name" => legacy::stack::update_branch_name_cmd(request.params),
         "update_branch_description" => legacy::stack::update_branch_description_cmd(request.params),

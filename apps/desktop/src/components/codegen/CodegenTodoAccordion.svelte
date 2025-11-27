@@ -59,7 +59,7 @@
 	.todos-container {
 		display: flex;
 		flex-direction: column;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.todo-header {
