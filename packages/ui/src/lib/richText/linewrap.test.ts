@@ -7,7 +7,7 @@ describe('wrapline', () => {
 			line: 'hello world',
 			maxLength: 8
 		});
-		expect(newLine).toEqual('hello ');
+		expect(newLine).toEqual('hello');
 		expect(remainder).toEqual('world');
 	});
 
@@ -34,7 +34,8 @@ describe('wrapline', () => {
 			line: ' ',
 			maxLength: 5
 		});
-		expect(newLine).toEqual(' ');
+		// Whitespace-only lines get trimmed to empty
+		expect(newLine).toEqual('');
 		expect(remainder).toEqual('');
 	});
 
@@ -53,7 +54,7 @@ describe('wrapline', () => {
 			remainder: 'longer',
 			maxLength: 5
 		});
-		expect(newLine).toEqual('longer ');
+		expect(newLine).toEqual('longer');
 		expect(remainder).toEqual('short');
 	});
 
@@ -73,7 +74,7 @@ describe('wrapline', () => {
 			remainder: '',
 			maxLength: 10
 		});
-		expect(newLine).toEqual(' leading ');
+		expect(newLine).toEqual(' leading');
 		expect(remainder).toEqual('space');
 	});
 
@@ -95,7 +96,7 @@ describe('wrapline', () => {
 			bullet: { indent: '  ', prefix: '- ' },
 			maxLength: 10
 		});
-		expect(newLine).toEqual('- hello ');
+		expect(newLine).toEqual('- hello');
 		expect(remainder).toEqual('world');
 	});
 

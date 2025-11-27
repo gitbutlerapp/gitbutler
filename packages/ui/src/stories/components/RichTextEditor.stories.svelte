@@ -10,7 +10,6 @@
 		args: {
 			styleContext: 'client-editor',
 			namespace: 'commit-message',
-			plaintext: true,
 			onError: (error: unknown) => console.error(error),
 			placeholder: 'Type your message here…'
 		}
@@ -27,11 +26,9 @@
 			<div class="text-input">
 				<RichTextEditor
 					namespace={args.namespace || 'commit-message'}
-					plaintext={args.plaintext ?? true}
 					onError={args.onError || console.error}
 					styleContext={args.styleContext || 'client-editor'}
 					placeholder={args.placeholder || 'Type your message here…'}
-					wrapCountValue={args.wrapCountValue}
 					initialText={args.initialText}
 				>
 					{#snippet plugins()}

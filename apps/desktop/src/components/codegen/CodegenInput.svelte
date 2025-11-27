@@ -249,7 +249,6 @@
 				bind:this={editorRef}
 				bind:value
 				namespace="codegen-input"
-				plaintext={true}
 				styleContext="chat-input"
 				placeholder="Use @ to reference files, ↓ and ↑ for prompt history"
 				minHeight="4rem"

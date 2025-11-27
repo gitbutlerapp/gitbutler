@@ -276,7 +276,6 @@
 				styleContext="chat-input"
 				placeholder="Write your message"
 				bind:this={richText.richTextEditor}
-				plaintext={true}
 				namespace="ChatInput"
 				onError={console.error}
 				onInput={(text) => messageHandler.update(text)}

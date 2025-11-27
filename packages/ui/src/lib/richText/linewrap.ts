@@ -38,10 +38,18 @@ export function wrapLine({ line, maxLength, remainder = '', indent = '', bullet 
 
 	for (let i = 0; i < parts.length; i++) {
 		const word = parts[i];
-		if (acc.length + word.length > maxLength) {
+		const nextAcc = acc + word;
+		// Check if adding this word (including trailing spaces in acc) would exceed maxLength
+		// We need to check the trimmed length to avoid counting trailing spaces
+		if (nextAcc.trimEnd().length > maxLength) {
 			// If acc is empty/just prefix, use the current word as newLine
 			// and start remainder from next word
-			if (!acc || acc === indent || acc === (bullet?.prefix ?? '')) {
+			const accTrimmed = acc.trimEnd();
+			if (
+				!accTrimmed ||
+				accTrimmed === indent.trimEnd() ||
+				accTrimmed === (bullet?.prefix.trimEnd() ?? '')
+			) {
 				const remainingParts = parts.slice(i + 1);
 				return {
 					newLine: word,
@@ -51,14 +59,14 @@ export function wrapLine({ line, maxLength, remainder = '', indent = '', bullet 
 			// Otherwise, acc becomes newLine and remainder starts from current word
 			const remainingParts = parts.slice(i);
 			return {
-				newLine: acc,
+				newLine: accTrimmed,
 				newRemainder: remainingParts.join('').trim()
 			};
 		}
-		acc += word;
+		acc = nextAcc;
 	}
 
-	return { newLine: acc, newRemainder: '' };
+	return { newLine: acc.trimEnd(), newRemainder: '' };
 }
 
 export const WRAP_EXEMPTIONS = {
@@ -95,7 +103,17 @@ export function parseBullet(text: string): Bullet | undefined {
 }
 
 export function wrapIfNecessary({ node, maxLength }: { node: TextNode; maxLength: number }) {
-	const line = node.getTextContent();
+	const paragraph = node.getParent();
+
+	if (!$isParagraphNode(paragraph)) {
+		console.warn('[wrapIfNecessary] Node parent is not a paragraph:', paragraph?.getType());
+		return;
+	}
+
+	// Get the full text content from the paragraph, not just the mutated text node
+	// This is important when typing in the middle of text, as Lexical may split text nodes
+	const line = paragraph.getTextContent();
+
 	if (line.length <= maxLength) {
 		return;
 	}
@@ -108,12 +126,6 @@ export function wrapIfNecessary({ node, maxLength }: { node: TextNode; maxLength
 
 	const bullet = parseBullet(line);
 	const indent = bullet ? bullet.indent : parseIndent(line);
-	const paragraph = node.getParent();
-
-	if (!$isParagraphNode(paragraph)) {
-		console.warn('[wrapIfNecessary] Node parent is not a paragraph:', paragraph?.getType());
-		return;
-	}
 
 	const selection = getSelection();
 	const selectionOffset = isRangeSelection(selection) ? selection.focus.offset : 0;
@@ -126,8 +138,28 @@ export function wrapIfNecessary({ node, maxLength }: { node: TextNode; maxLength
 		bullet
 	});
 
-	// Update current text node
-	node.setTextContent(newLine);
+	// Replace all text nodes in the paragraph with a single text node containing the wrapped text
+	// This is important because Lexical may have split the text into multiple nodes during typing
+	const children = paragraph.getChildren();
+	const firstTextNode = children.find((child) => isTextNode(child)) as TextNode | undefined;
+
+	if (firstTextNode) {
+		// Update the first text node with the new content
+		firstTextNode.setTextContent(newLine);
+		// Remove all other children
+		for (const child of children) {
+			if (child !== firstTextNode) {
+				child.remove();
+			}
+		}
+	} else {
+		// Fallback: no text nodes found, create one
+		const newTextNode = new TextNode(newLine);
+		paragraph.append(newTextNode);
+	}
+
+	// Get reference to the text node we'll use for cursor positioning
+	const currentTextNode = firstTextNode || (paragraph.getFirstChild() as TextNode);
 
 	// If there's a remainder, create new paragraphs for it
 	if (newRemainder) {
@@ -160,7 +192,7 @@ export function wrapIfNecessary({ node, maxLength }: { node: TextNode; maxLength
 		// If cursor was in the first line
 		if (remainingOffset <= newLine.length) {
 			// Keep cursor in the current paragraph at the same position
-			node.select(remainingOffset, remainingOffset);
+			currentTextNode.select(remainingOffset, remainingOffset);
 		} else {
 			// Cursor should be in one of the wrapped paragraphs
 			remainingOffset -= newLine.length + 1; // Account for the line and space

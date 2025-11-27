@@ -1,5 +1,6 @@
 <script lang="ts">
 	import RichTextEditor from '$lib/richText/RichTextEditor.svelte';
+	import IndentPlugin from '$lib/richText/plugins/IndentPlugin.svelte';
 
 	type Props = {
 		initialText?: string;
@@ -43,12 +44,15 @@
 			bind:this={editor}
 			bind:value
 			namespace="test-plaintext-indent"
-			plaintext={false}
 			onError={(error) => console.error('Editor error:', error)}
 			styleContext="client-editor"
 			{initialText}
 			minHeight="100px"
-		/>
+		>
+			{#snippet plugins()}
+				<IndentPlugin />
+			{/snippet}
+		</RichTextEditor>
 	</div>
 
 	<div class="controls">

@@ -283,7 +283,6 @@
 							<div class="summary-wrapper">
 								<RichTextEditor
 									namespace="review-description"
-									plaintext={true}
 									onError={console.error}
 									styleContext="chat-input"
 									initialText={branch.description}
