@@ -1,39 +1,65 @@
+<script lang="ts" module>
+	// Global state to track the currently hovered overlay
+	let currentHoveredId: symbol | null = $state(null);
+</script>
+
 <script lang="ts">
 	interface Props {
 		hovered: boolean;
-		activated: boolean;
 	}
 
-	const { hovered, activated }: Props = $props();
+	const { hovered }: Props = $props();
+
+	// Unique ID for this overlay instance
+	const overlayId = Symbol('overlay');
+
+	// Update global state when this overlay is hovered
+	$effect(() => {
+		if (hovered) {
+			currentHoveredId = overlayId;
+		} else {
+			// Always clear if this was the hovered one, or if no hover state
+			if (currentHoveredId === overlayId) {
+				currentHoveredId = null;
+			}
+		}
+	});
+
+	// Ensure cleanup on unmount
+	$effect(() => {
+		return () => {
+			if (currentHoveredId === overlayId) {
+				currentHoveredId = null;
+			}
+		};
+	});
+
+	// Check if other overlays are dimmed (another overlay is hovered, not this one)
+	const isDimmed = $derived(currentHoveredId !== null && currentHoveredId !== overlayId);
 </script>
 
-<div data-testid="BranchListInsertionDropzone" class="container" class:activated class:hovered>
+<div class="container" class:hovered class:dimmed={isDimmed}>
 	<div class="indicator"></div>
 </div>
 
 <style lang="postcss">
 	.container {
-		display: none;
 		z-index: var(--z-floating);
 		position: relative;
 		top: var(--y-offset);
 		align-items: center;
 		width: 100%;
-
-		/* It is very important that all children are pointer-events: none */
-		/* https://stackoverflow.com/questions/7110353/html5-dragleave-fired-when-hovering-a-child-element */
 		pointer-events: none;
-		&.activated {
-			display: flex;
-		}
 
 		&.hovered {
 			& .indicator {
-				width: 65%;
-				/* height: 4px; */
-				/* transform: translate(-50%, -50%); */
-				/* background-color: var(--clr-scale-pop-60); */
-				/* box-shadow: 0 0 8px var(--clr-scale-pop-70); */
+				width: 70%;
+			}
+		}
+
+		&.dimmed {
+			& .indicator {
+				opacity: 0.4;
 			}
 		}
 	}
@@ -49,6 +75,8 @@
 		background-color: transparent;
 		background-color: var(--clr-theme-pop-element);
 
-		transition: width 0.1s ease;
+		transition:
+			width 0.1s ease-out,
+			opacity var(--transition-medium);
 	}
 </style>
