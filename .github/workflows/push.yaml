@@ -83,7 +83,7 @@ jobs:
 
   lint-node:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -94,7 +94,7 @@ jobs:
 
   check-node:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
