@@ -134,6 +134,8 @@
 	const LOAD_MORE_THRESHOLD = 200;
 	/** Debounce delay (ms) for onloadmore to prevent rapid firing. */
 	const DEBOUNCE_DELAY = 50;
+	/** Duration (ms) to lock row height when it comes into view. */
+	const HEIGHT_LOCK_DURATION = 1000;
 
 	// Debounce load more callback to prevent rapid consecutive triggers
 	const debouncedLoadMore = $derived(debounce(() => onloadmore?.(), DEBOUNCE_DELAY));
@@ -145,6 +147,14 @@
 	let visibleRowElements = $state<HTMLCollectionOf<Element>>();
 	/** Observes size changes of visible rows. */
 	let itemObserver: ResizeObserver | null = null;
+	/** Array of element references for observed chunks. */
+	let observedElements: (Element | undefined)[] = [];
+	/** Cache of measured heights for each chunk. */
+	let heightMap: number[] = $state([]);
+	/** Array of locked heights for chunks (prevents layout shift during async loads). */
+	let lockedHeights = $state<number[]>([]);
+	/** Array of unlock timeouts for chunks. */
+	let heightUnlockTimeouts: number[] = [];
 	/** Current height of the viewport. */
 	let viewportHeight = $state(0);
 	/** Previous viewport height to detect resize. */
@@ -159,8 +169,6 @@
 		start: stickToBottom ? Infinity : 0,
 		end: stickToBottom ? Infinity : 0
 	});
-	/** Cache of measured heights for each chunk. */
-	let heightMap: number[] = $state([]);
 	/** Top and bottom padding to simulate off-screen content. */
 	let offset = $state({ top: 0, bottom: 0 });
 	/** Distance from bottom during last calculation (used for sticky scroll). */
@@ -207,12 +215,6 @@
 		return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
 	}
 
-	function saveDistanceFromBottom(): void {
-		if (viewport) {
-			previousDistance = getDistanceFromBottom();
-		}
-	}
-
 	function shouldTriggerLoadMore(): boolean {
 		if (!viewport) return false;
 		if (viewport.scrollHeight <= viewport.clientHeight) return true;
@@ -222,6 +224,31 @@
 
 	function wasNearBottom(): boolean {
 		return previousDistance < STICKY_DISTANCE;
+	}
+
+	/**
+	 * Locks a row height based on cached value and schedules unlock.
+	 * This prevents layout shifts when async content loads.
+	 */
+	function lockRowHeight(index: number): void {
+		const cachedHeight = heightMap[index];
+		if (!cachedHeight) return;
+
+		lockedHeights[index] = cachedHeight;
+
+		// Clear any existing timeout for this index
+		const existingTimeout = heightUnlockTimeouts[index];
+		if (existingTimeout) {
+			clearTimeout(existingTimeout);
+		}
+
+		// Schedule removal of locked height
+		const timeoutId = window.setTimeout(() => {
+			delete lockedHeights[index];
+			delete heightUnlockTimeouts[index];
+		}, HEIGHT_LOCK_DURATION);
+
+		heightUnlockTimeouts[index] = timeoutId;
 	}
 
 	// ============================================================================
@@ -239,7 +266,8 @@
 		let accumulatedHeight = 0;
 		for (let i = 0; i < itemChunks.length; i++) {
 			const rowHeight = visibleRowElements?.[i - visibleRange.start]?.clientHeight;
-			accumulatedHeight += rowHeight || heightMap[i] || defaultHeight;
+			const heightToUse = rowHeight || heightMap[i] || defaultHeight;
+			accumulatedHeight += heightToUse;
 			if (accumulatedHeight > viewport.scrollTop) {
 				return i;
 			}
@@ -296,7 +324,7 @@
 			visibleRange.end = i + 1;
 			await tick();
 			const element = visibleRowElements?.item(i);
-			if (element?.clientHeight) {
+			if (element) {
 				heightMap[i] = element.clientHeight;
 			}
 			if (calculateHeightSum(0, i + 1) > viewport.clientHeight) {
@@ -334,6 +362,31 @@
 	}
 
 	/**
+	 * Calculates which chunk indices are newly visible after a range change.
+	 * Compares old and new ranges to find chunks entering the viewport.
+	 */
+	function getNewlyVisibleIndices(
+		oldStart: number,
+		oldEnd: number,
+		newStart: number,
+		newEnd: number
+	): number[] {
+		const newIndices: number[] = [];
+
+		// New chunks at the start (scrolling up)
+		for (let i = newStart; i < Math.min(oldStart, newEnd); i++) {
+			newIndices.push(i);
+		}
+
+		// New chunks at the end (scrolling down)
+		for (let i = Math.max(oldEnd, newStart); i < newEnd; i++) {
+			newIndices.push(i);
+		}
+
+		return newIndices;
+	}
+
+	/**
 	 * Updates the visible range based on current scroll position.
 	 * Recalculates which chunks should be rendered and updates offsets.
 	 */
@@ -367,13 +420,31 @@
 		if (!isTailInitialized) {
 			if (stickToBottom) {
 				await initializeTail();
-				scrollTop = viewport!.scrollHeight;
+				scrollTop = viewport.scrollHeight;
 				scrollToBottom();
 			} else {
 				await initialize();
 			}
 		} else {
+			// Capture old range before updating
+			const oldStart = visibleRange.start;
+			const oldEnd = visibleRange.end;
+
+			// Update visible range based on scroll position
 			updateRange();
+
+			// Find and lock heights for chunks entering viewport
+			const newIndices = getNewlyVisibleIndices(
+				oldStart,
+				oldEnd,
+				visibleRange.start,
+				visibleRange.end
+			);
+			for (const index of newIndices) {
+				if (heightMap[index]) {
+					lockRowHeight(index);
+				}
+			}
 		}
 
 		// Content, sizes, and scroll are affected by this tick.
@@ -400,14 +471,28 @@
 			debouncedLoadMore();
 		}
 
+		// Unobserve elements that are no longer in the visible range
+		for (let i = 0; i < observedElements.length; i++) {
+			const element = observedElements[i];
+			if (element && (i < visibleRange.start || i >= visibleRange.end)) {
+				itemObserver?.unobserve(element);
+				observedElements[i] = undefined;
+			}
+		}
+
+		// Observe new visible elements
 		for (const rowElement of visibleRowElements) {
-			// It seems unnecessary to track duplicates and removals, so
-			// not doing it to keep things concise.
-			itemObserver?.observe(rowElement);
+			const indexStr = rowElement.getAttribute('data-index');
+			const index = indexStr ? parseInt(indexStr, 10) : undefined;
+
+			if (index !== undefined && !observedElements[index]) {
+				itemObserver?.observe(rowElement);
+				observedElements[index] = rowElement;
+			}
 		}
 
 		// Saved distance is necessary when sticking to bottom.
-		saveDistanceFromBottom();
+		previousDistance = getDistanceFromBottom();
 		isRecalculating = false;
 	}
 
@@ -423,6 +508,20 @@
 		if (!viewport) return;
 
 		visibleRowElements = viewport.getElementsByClassName('list-row');
+
+		// Clean up previous observer if it exists
+		if (itemObserver) {
+			itemObserver.disconnect();
+			observedElements = [];
+
+			// Clear all pending height unlock timeouts
+			for (const timeoutId of heightUnlockTimeouts) {
+				if (timeoutId) clearTimeout(timeoutId);
+			}
+			heightUnlockTimeouts = [];
+			lockedHeights = [];
+		}
+
 		itemObserver = new ResizeObserver((entries) =>
 			untrack(() => {
 				let shouldRecalculate = false;
@@ -434,6 +533,7 @@
 					const index = indexStr ? parseInt(indexStr, 10) : undefined;
 					if (index !== undefined) {
 						const firstRender = !(index in heightMap);
+
 						if (heightMap[index] !== target.clientHeight) {
 							heightMap[index] = target.clientHeight;
 						}
@@ -451,8 +551,7 @@
 								scrollToBottom();
 							}
 						}
-					}
-					if (index !== undefined) {
+
 						shouldRecalculate = true;
 					}
 				}
@@ -543,7 +642,13 @@
 		style:padding-bottom={offset.bottom + 'px'}
 	>
 		{#each visibleChunks as chunk, i (chunk.id)}
-			<div class="list-row" data-index={i + visibleRange.start}>
+			<div
+				class="list-row"
+				data-index={i + visibleRange.start}
+				style:height={lockedHeights[i + visibleRange.start]
+					? `${lockedHeights[i + visibleRange.start]}px`
+					: undefined}
+			>
 				{@render chunkTemplate(chunk.data)}
 			</div>
 		{/each}
