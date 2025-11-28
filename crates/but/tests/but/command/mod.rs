@@ -3,6 +3,8 @@
 mod branch;
 #[cfg(feature = "legacy")]
 mod commit;
+#[cfg(feature = "legacy")]
+mod describe;
 mod format;
 mod help;
 #[cfg(feature = "legacy")]
