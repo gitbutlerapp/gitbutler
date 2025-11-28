@@ -77,9 +77,9 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       # Node is needed for the formatting of typescript files.
       - uses: ./.github/actions/init-env-node
-      - run: |
-          sudo apt install libdbus-1-dev pkg-config
-          ./scripts/generate-ts-definitions-from-rust.sh
+      - name: Dependencies for 'keyring'
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      - run: ./scripts/generate-ts-definitions-from-rust.sh
 
   lint-node:
     if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
@@ -179,9 +179,7 @@ jobs:
           shared-key: cargo-test-no-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
-        run: |
-          sudo apt update
-          sudo apt install -y libdbus-1-dev pkg-config
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - run: |
           cargo test --workspace --exclude gitbutler-tauri --exclude but-server
         env:
