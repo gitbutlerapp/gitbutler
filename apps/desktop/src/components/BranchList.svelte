@@ -5,15 +5,13 @@
 	import BranchCard from '$components/BranchCard.svelte';
 	import BranchCommitList from '$components/BranchCommitList.svelte';
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
+	import BranchInsertion from '$components/BranchInsertion.svelte';
 	import CodegenRow from '$components/CodegenRow.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
-	import LineOverlay from '$components/LineOverlay.svelte';
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { MoveBranchDzHandler } from '$lib/branches/dropHandler';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { focusClaudeInput } from '$lib/codegen/focusClaudeInput';
 	import { currentStatus } from '$lib/codegen/messages';
@@ -29,7 +27,6 @@
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { ensureValue } from '$lib/utils/validation';
 	import { inject } from '@gitbutler/core/context';
-
 	import { Button, Modal, TestId } from '@gitbutler/ui';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
@@ -50,7 +47,6 @@
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const prService = $derived(forge.current.prService);
 	const urlService = inject(URL_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
@@ -139,26 +135,6 @@
 	const baseBranchName = $derived(baseBranchNameResponse.response);
 </script>
 
-{#snippet branchInsertionDz(branchName: string)}
-	{#if !isCommitting && stackId}
-		{@const moveBranchHandler = new MoveBranchDzHandler(
-			stackService,
-			prService,
-			projectId,
-			stackId,
-			branchName,
-			baseBranchName
-		)}
-		<Dropzone handlers={[moveBranchHandler]}>
-			{#snippet overlay({ hovered, activated })}
-				<div data-testid={TestId.BranchListInsertionDropzone}>
-					<LineOverlay advertize {hovered} {activated} />
-				</div>
-			{/snippet}
-		</Dropzone>
-	{/if}
-{/snippet}
-
 <div class="branches-wrapper">
 	{#each branches as branch, i}
 		{@const branchName = branch.name}
@@ -208,11 +184,23 @@
 				{@const codegenSelected =
 					selection?.current?.branchName === branchName &&
 					selection?.current.commitId === undefined &&
-					!!selection?.current.codegen}
+					selection?.current.codegen}
 				{@const codegenQuery = stackId
 					? claudeCodeService.messages({ projectId, stackId })
 					: undefined}
-				{@render branchInsertionDz(branchName)}
+				{#if stackId}
+					<BranchInsertion
+						{projectId}
+						{stackId}
+						{branchName}
+						{lineColor}
+						{isCommitting}
+						{baseBranchName}
+						{stackService}
+						prService={forge.current.prService}
+						isFirst={firstBranch}
+					/>
+				{/if}
 				<BranchCard
 					type="stack-branch"
 					{projectId}

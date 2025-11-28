@@ -131,7 +131,7 @@
 	<ImagineCanvas />
 </a>
 
-<style lang="scss">
+<style lang="postcss">
 	.download-btn {
 		display: flex;
 		position: relative;

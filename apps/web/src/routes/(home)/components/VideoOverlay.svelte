@@ -77,7 +77,7 @@
 	</div>
 </div>
 
-<style lang="scss">
+<style lang="postcss">
 	.overlay {
 		display: flex;
 		z-index: 9999;

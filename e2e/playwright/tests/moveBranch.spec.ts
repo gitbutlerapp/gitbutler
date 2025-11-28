@@ -38,11 +38,14 @@ test('move branch to top of other stack and tear it off', async ({ page, context
 	const branch1Locator = branchHeaders.filter({ hasText: 'branch1' });
 	const branch2Locator = branchHeaders.filter({ hasText: 'branch2' });
 
-	// We need to modify the position a bit in order to drop it in the right dropzone
+	// Drag branch1 to the top of branch2's stack
+	// The dropzone above branch2 (isFirst=true) activates on hover during drag
+	// We drag to branch2 with a position offset to hit the dropzone area above it
 	await dragAndDropByLocator(page, branch1Locator, branch2Locator, {
+		force: true,
 		position: {
 			x: 120,
-			y: 0
+			y: -10
 		}
 	});
 
@@ -100,10 +103,12 @@ test('move branch to the middle of other stack', async ({ page, context }, testI
 	const branch2Locator = branchHeaders.filter({ hasText: 'branch2' });
 
 	// Move branch 2 on top of branch 1
+	// Drag to branch1 with position offset to hit the dropzone above it
 	await dragAndDropByLocator(page, branch2Locator, branch1Locator, {
+		force: true,
 		position: {
 			x: 120,
-			y: 0
+			y: -10
 		}
 	});
 	stacks = page.getByTestId('stack');
@@ -116,11 +121,14 @@ test('move branch to the middle of other stack', async ({ page, context }, testI
 	// Move branch3 on top of branch 1 (which is now in the middle of stack)
 	const branch3Locator = branchHeaders.filter({ hasText: 'branch3' });
 	branch1Locator = branchHeaders.filter({ hasText: 'branch1' });
+
+	// After merge, there's one stack with branch2 on top and branch1 below
+	// Drag to branch1 with position offset to hit the dropzone above it
 	await dragAndDropByLocator(page, branch3Locator, branch1Locator, {
 		force: true,
 		position: {
 			x: 120,
-			y: -4
+			y: -10
 		}
 	});
 

@@ -114,7 +114,7 @@
 		z-index: 3;
 		position: relative;
 		min-width: 50px;
-		max-width: 250px;
+		max-width: 240px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
@@ -234,7 +234,7 @@
 		position: absolute;
 		align-items: center;
 		min-width: 50px;
-		max-width: 250px;
+		max-width: 220px;
 		height: 36px;
 		padding: 0 10px;
 		overflow: hidden;
@@ -250,7 +250,7 @@
 		position: absolute;
 		align-items: center;
 		min-width: 50px;
-		max-width: 250px;
+		max-width: 240px;
 		height: 36px;
 		padding: 0 10px;
 		overflow: hidden;

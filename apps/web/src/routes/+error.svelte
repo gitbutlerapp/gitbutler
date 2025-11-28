@@ -12,7 +12,7 @@
 
 <Footer />
 
-<style lang="scss">
+<style lang="postcss">
 	.wrapper {
 		display: flex;
 		flex-direction: column;
@@ -29,7 +29,7 @@
 		@media (max-width: 700px) {
 			margin-bottom: 30px;
 			font-size: 16cqw;
-			// margin-top: 20px;
+			/* margin-top: 20px; */
 		}
 	}
 	.subtitle {

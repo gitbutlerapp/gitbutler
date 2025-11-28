@@ -70,7 +70,7 @@
 	<VideoOverlay videoUrl={heroContent.demo} onClose={closeVideoOverlay} />
 {/if}
 
-<style lang="scss">
+<style lang="postcss">
 	.hero {
 		display: grid;
 		grid-template-columns: subgrid;
