@@ -2,84 +2,187 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::{
-    ReferenceSpec,
-    cherry_pick::EmptyCommit,
-    cherry_pick_one,
-    graph_rebase::{Editor, Step, StepGraph, StepGraphIndex},
-    to_commit,
+use crate::graph_rebase::{
+    Editor, Step, StepGraph, StepGraphIndex,
+    cherry_pick::{CherryPickOutcome, cherry_pick},
 };
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
+use gix::refs::{
+    Target,
+    transaction::{Change, LogChange, PreviousValue, RefEdit},
+};
 use petgraph::visit::EdgeRef;
 
+/// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
+#[allow(unused)]
+#[derive(Debug, Clone)]
+pub struct SuccessfulRebase {
+    /// A mapping of any commits that were rewritten as part of the rebase
+    pub(crate) commit_mapping: HashMap<gix::ObjectId, gix::ObjectId>,
+    /// A mapping between the origional step graph and the new one
+    pub(crate) graph_mapping: HashMap<StepGraphIndex, StepGraphIndex>,
+    /// Any reference edits that need to be commited as a result of the history
+    /// rewrite
+    pub(crate) ref_edits: Vec<RefEdit>,
+    /// The new step graph
+    pub(crate) graph: StepGraph,
+}
+
 /// Represents the rebase output and the varying degrees of success it had.
-pub struct RebaseResult {
-    references: Vec<ReferenceSpec>,
-    commit_map: HashMap<gix::ObjectId, gix::ObjectId>,
+#[derive(Debug, Clone)]
+pub enum RebaseOutcome {
+    /// The rebase
+    Success(SuccessfulRebase),
+    /// The graph rebase failed because we encountered a situation where we
+    /// couldn't merge bases.
+    ///
+    /// Holds the gix::ObjectId of the commit it failed to pick
+    MergePickFailed(gix::ObjectId),
+    /// Symbolic reference was encountered. We should never be given these, and
+    /// the sematics of how to work with them are currently unclear, so the
+    /// rebase will be rejected if one is encountered.
+    SymbolicRefEncountered(gix::refs::FullName),
 }
 
 impl Editor {
     /// Perform the rebase
-    pub fn rebase(&self, repo: &gix::Repository) -> Result<RebaseResult> {
+    pub fn rebase(&self, repo: &gix::Repository) -> Result<RebaseOutcome> {
         // First we want to get a list of nodes that can be reached by
         // traversing downwards from the heads that we care about.
         // Usually there would be just one "head" which is an index to access
         // the reference step for `gitbutler/workspace`, but there could be
         // multiple.
 
-        let pick_mode = crate::cherry_pick::PickMode::SkipIfNoop;
-
+        let mut ref_edits = vec![];
         let steps_to_pick = order_steps_picking(&self.graph, &self.heads);
 
         // A 1 to 1 mapping between the incoming graph and hte output graph
         let mut graph_mapping: HashMap<StepGraphIndex, StepGraphIndex> = HashMap::new();
         // The step graph with updated commit oids
         let mut output_graph = StepGraph::new();
+        let mut commit_mapping = HashMap::new();
 
         for step_idx in steps_to_pick {
             // Do the frikkin rebase man!
             let step = self.graph[step_idx].clone();
             match step {
                 Step::Pick { id } => {
-                    let commit = to_commit(repo, id)?;
                     let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+                    let ontos = graph_parents
+                        .iter()
+                        .map(|idx| {
+                            let Some(new_idx) = graph_mapping.get(idx) else {
+                                bail!("A matching parent can't be found in the output graph");
+                            };
 
-                    match (commit.parents.len(), graph_parents.len()) {
-                        (0, 0) => {
-                            let new_idx = output_graph.add_node(step);
+                            match output_graph[*new_idx] {
+                                Step::Pick { id } => Ok(id),
+                                _ => bail!("A parent in the output graph is not a pick"),
+                            }
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+
+                    let outcome = cherry_pick(repo, id, &ontos)?;
+
+                    match outcome {
+                        CherryPickOutcome::Commit(new_id)
+                        | CherryPickOutcome::ConflictedCommit(new_id)
+                        | CherryPickOutcome::Identity(new_id) => {
+                            let new_idx = output_graph.add_node(Step::Pick { id: new_id });
                             graph_mapping.insert(step_idx, new_idx);
+                            if id != new_id {
+                                commit_mapping.insert(id, new_id);
+                            }
                         }
-                        (1, 0) => {
-                            todo!("1 to 0 cherry pick is not implemented yet");
-                        }
-                        (0, 1) => {
-                            todo!("0 to 1 cherry pick is not implemented yet");
-                        }
-                        (1, 1) => {
-                            let (_, parent_id) = graph_parents.first().expect("Impossible");
-
-                            let new_commit = cherry_pick_one(
-                                repo,
-                                *parent_id,
-                                id,
-                                pick_mode,
-                                EmptyCommit::Keep,
-                            )?;
-
-                            let new_idx = output_graph.add_node(Step::Pick { id: new_commit });
-                            graph_mapping.insert(step_idx, new_idx);
-                        }
-                        (_, _) => {
-                            todo!("N to >2 parents & >2 parents to N is not implemented yet");
+                        CherryPickOutcome::FailedToMergeBases => {
+                            // Exit early - the rebase failed because it encountered a commit it couldn't pick
+                            return Ok(RebaseOutcome::MergePickFailed(id));
                         }
                     };
                 }
-                Step::Reference { refname } => {}
-                Step::None => {}
+                Step::Reference { refname } => {
+                    let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+                    let first_parent_idx = graph_parents
+                        .first()
+                        .context("References should have at least one parent")?;
+                    let Some(new_idx) = graph_mapping.get(first_parent_idx) else {
+                        bail!("A matching parent can't be found in the output graph");
+                    };
+
+                    let to_reference = match output_graph[*new_idx] {
+                        Step::Pick { id } => id,
+                        _ => bail!("A parent in the output graph is not a pick"),
+                    };
+
+                    let reference = repo.try_find_reference(&refname)?;
+
+                    if let Some(reference) = reference {
+                        let target = reference.target();
+                        match target {
+                            gix::refs::TargetRef::Object(id) => {
+                                if id != to_reference {
+                                    ref_edits.push(RefEdit {
+                                        name: refname.clone(),
+                                        change: Change::Update {
+                                            log: LogChange::default(),
+                                            expected: PreviousValue::MustExistAndMatch(
+                                                target.into(),
+                                            ),
+                                            new: Target::Object(to_reference),
+                                        },
+                                        deref: false,
+                                    });
+                                }
+                            }
+                            gix::refs::TargetRef::Symbolic(name) => {
+                                return Ok(RebaseOutcome::SymbolicRefEncountered(name.to_owned()));
+                            }
+                        }
+                    } else {
+                        ref_edits.push(RefEdit {
+                            name: refname.clone(),
+                            change: Change::Update {
+                                log: LogChange::default(),
+                                expected: PreviousValue::MustNotExist,
+                                new: Target::Object(to_reference),
+                            },
+                            deref: false,
+                        });
+                    };
+
+                    let new_idx = output_graph.add_node(Step::Reference { refname });
+                    graph_mapping.insert(step_idx, new_idx);
+                }
+                Step::None => {
+                    let new_idx = output_graph.add_node(Step::None);
+                    graph_mapping.insert(step_idx, new_idx);
+                }
             };
+
+            // Find deleted references
+            for reference in self.initial_references.iter() {
+                if !ref_edits
+                    .iter()
+                    .any(|e| e.name.as_ref() == reference.as_ref())
+                {
+                    ref_edits.push(RefEdit {
+                        name: reference.clone(),
+                        change: Change::Delete {
+                            log: gix::refs::transaction::RefLog::AndReference,
+                            expected: PreviousValue::MustExist,
+                        },
+                        deref: false,
+                    });
+                }
+            }
         }
 
-        todo!()
+        Ok(RebaseOutcome::Success(SuccessfulRebase {
+            ref_edits,
+            commit_mapping,
+            graph_mapping,
+            graph: output_graph,
+        }))
     }
 }
 
@@ -87,10 +190,7 @@ impl Editor {
 /// ordering.
 ///
 /// We do this via a pruned depth first search.
-fn collect_ordered_parents(
-    graph: &StepGraph,
-    target: StepGraphIndex,
-) -> Vec<(StepGraphIndex, gix::ObjectId)> {
+fn collect_ordered_parents(graph: &StepGraph, target: StepGraphIndex) -> Vec<StepGraphIndex> {
     let mut potential_parent_edges = graph
         .edges_directed(target, petgraph::Direction::Outgoing)
         .collect::<Vec<_>>();
@@ -105,8 +205,8 @@ fn collect_ordered_parents(
     let mut parents = vec![];
 
     while let Some(candidate) = potential_parent_edges.pop() {
-        if let Step::Pick { id } = graph[candidate.target()] {
-            parents.push((candidate.target(), id));
+        if let Step::Pick { .. } = graph[candidate.target()] {
+            parents.push(candidate.target());
             // Don't persue the children
             continue;
         };
@@ -223,7 +323,7 @@ mod test {
             graph.add_edge(c, e, Edge { order: 1 });
 
             let parents = collect_ordered_parents(&graph, a);
-            assert_eq!(&parents, &[(b, b_id), (d, d_id), (e, e_id), (f, f_id)]);
+            assert_eq!(&parents, &[b, d, e, f]);
 
             Ok(())
         }
@@ -260,7 +360,7 @@ mod test {
             graph.add_edge(c, e, Edge { order: 0 });
 
             let parents = collect_ordered_parents(&graph, a);
-            assert_eq!(&parents, &[(b, b_id), (e, e_id), (d, d_id), (f, f_id)]);
+            assert_eq!(&parents, &[b, e, d, f]);
 
             Ok(())
         }
