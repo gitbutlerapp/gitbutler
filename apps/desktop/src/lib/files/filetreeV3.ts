@@ -1,8 +1,8 @@
 /**
  * It's easier to understand a hierarchical structure than a flat list.
  *
- * This module provides support for tranforming a list of files into a
- * hirerarchical structure for easy rendering.
+ * This module provides support for transforming a list of files into a
+ * hierarchical structure for easy rendering.
  */
 
 import type { TreeChange } from '$lib/hunks/change';
