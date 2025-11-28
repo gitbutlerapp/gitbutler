@@ -51,13 +51,16 @@ pub fn hunks_onto_tree<T>(
 where
     T: Into<GitHunk> + Clone,
 {
-    let git_repository = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.git2_repo.get()?;
+    let workdir = repo
+        .workdir()
+        .context("BUG: this codepath can only deal with non-bare repositories")?;
     let mut builder = git2::build::TreeUpdateBuilder::new();
     // now update the index with content in the working directory for each file
     for (rel_path, hunks) in files {
         let rel_path = rel_path.borrow();
         let hunks: Vec<GitHunk> = hunks.borrow().iter().map(|h| h.clone().into()).collect();
-        let full_path = ctx.legacy_project.worktree_dir()?.join(rel_path);
+        let full_path = workdir.join(rel_path);
 
         let is_submodule = full_path.is_dir()
             && hunks.len() == 1
@@ -117,11 +120,9 @@ where
                 let link_target = std::fs::read_link(&full_path)?;
 
                 // if the link target is inside the project repository, make it relative
-                let link_target = link_target
-                    .strip_prefix(ctx.legacy_project.worktree_dir()?)
-                    .unwrap_or(&link_target);
+                let link_target = link_target.strip_prefix(workdir).unwrap_or(&link_target);
 
-                let blob_oid = git_repository.blob(
+                let blob_oid = repo.blob(
                     link_target
                         .to_str()
                         .ok_or_else(|| {
@@ -143,7 +144,7 @@ where
                 } else {
                     // blob from tree_entry
                     let blob = tree_entry
-                        .to_object(git_repository)
+                        .to_object(repo)
                         .unwrap()
                         .peel_to_blob()
                         .context("failed to get blob")?;
@@ -167,7 +168,7 @@ where
                     match blob_contents {
                         Ok(blob_contents) => {
                             // create a blob
-                            let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
+                            let new_blob_oid = repo.blob(blob_contents.as_bytes())?;
                             // upsert into the builder
                             builder.upsert(rel_path, new_blob_oid, filemode);
                         }
@@ -191,7 +192,7 @@ where
                     .context(format!("failed to apply {all_diffs}"))?;
 
                 // create a blob
-                let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
+                let new_blob_oid = repo.blob(blob_contents.as_bytes())?;
                 // upsert into the builder
                 builder.upsert(rel_path, new_blob_oid, filemode);
             } else if !full_path_exists
@@ -209,11 +210,11 @@ where
                 let blob_contents =
                     apply([], &patch).context(format!("failed to apply {all_diffs}"))?;
 
-                let new_blob_oid = git_repository.blob(&blob_contents)?;
+                let new_blob_oid = repo.blob(&blob_contents)?;
                 builder.upsert(rel_path, new_blob_oid, filemode);
             } else {
                 // create a git blob from a file on disk
-                let blob_oid = git_repository
+                let blob_oid = repo
                     .blob_path(&full_path)
                     .context(format!("failed to create blob from path {:?}", &full_path))?;
                 builder.upsert(rel_path, blob_oid, filemode);

@@ -1,4 +1,4 @@
-use std::{io::Write, path::Path, time::Duration};
+use std::{io::Write, path::Path};
 
 use but_oxidize::ObjectIdExt;
 use gitbutler_branch::BranchCreateRequest;
@@ -48,8 +48,6 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             round + 1,
             "each round creates a new file, and it persists"
         );
-        // TODO: Reimplement auto snapshotting now that we dont use list_virtual_branches anymore for getting the uncommitted changes
-        // assert_eq!(ctx.should_auto_snapshot(Duration::ZERO)?, line_count > 20);
     }
     let _empty = gitbutler_branch_actions::create_virtual_branch(
         ctx,
@@ -80,10 +78,6 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
     assert_eq!(
         current_files, previous_files_count,
         "we only removed an empty vbranch, no worktree change"
-    );
-    assert!(
-        !ctx.should_auto_snapshot(Duration::ZERO)?,
-        "not enough lines changed"
     );
     Ok(())
 }
@@ -228,7 +222,8 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     {
         let mut guard = ctx.exclusive_worktree_access();
-        ctx.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
+        // The ctx stores the `git2` repo
+        ctx.restore_snapshot(snapshots[1].commit_id, guard.write_permission())?;
     }
 
     // test missing commits are recreated
@@ -242,10 +237,6 @@ fn basic_oplog() -> anyhow::Result<()> {
     let file_lines = std::fs::read_to_string(file_path)?;
     assert_eq!(file_lines, "content");
 
-    assert!(
-        !ctx.should_auto_snapshot(Duration::ZERO)?,
-        "not enough lines changed"
-    );
     Ok(())
 }
 

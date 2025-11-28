@@ -75,14 +75,6 @@ impl OplogHandle {
         Ok(oplog.head_sha)
     }
 
-    /// Gets the time when the last snapshot was created.
-    ///
-    /// Errors if the file cannot be read or written.
-    pub fn modified_at(&self) -> Result<SystemTime> {
-        let oplog = self.read_file()?;
-        Ok(oplog.modified_at)
-    }
-
     /// Reads and parses the state file.
     ///
     /// If the file does not exist, it will be created.

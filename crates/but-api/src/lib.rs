@@ -6,11 +6,15 @@
 //! on this level.
 //! Lower-level crates like `but-workspace` won't use filesystem-based locking beyond what Git offers natively.
 #![forbid(unsafe_code)]
+#![deny(missing_docs)]
 
 #[cfg(feature = "legacy")]
 pub mod legacy;
 
 pub mod github;
+
+/// Functions that take a branch as input.
+pub mod branch;
 
 /// Types meant to be serialised to JSON, without degenerating information despite the need to be UTF-8 encodable.
 /// EXPERIMENTAL

@@ -57,11 +57,11 @@ impl ObjectIdExt for gix::Id<'_> {
 }
 
 pub trait RepoExt {
-    fn to_gix(&self) -> anyhow::Result<gix::Repository>;
+    fn to_gix_repo(&self) -> anyhow::Result<gix::Repository>;
 }
 
 impl RepoExt for &git2::Repository {
-    fn to_gix(&self) -> anyhow::Result<gix::Repository> {
+    fn to_gix_repo(&self) -> anyhow::Result<gix::Repository> {
         let repo = gix::open(self.path())?;
         Ok(repo)
     }

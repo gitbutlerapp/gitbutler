@@ -137,3 +137,4 @@ at the [DEVELOPMENT.md](DEVELOPMENT.md) file.
 <a href="https://github.com/gitbutlerapp/gitbutler/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=gitbutlerapp/gitbutler" />
 </a>
+hi

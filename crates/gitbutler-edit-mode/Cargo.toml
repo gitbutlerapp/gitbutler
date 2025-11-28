@@ -14,12 +14,11 @@ but-workspace.workspace = true
 but-rebase.workspace = true
 but-core.workspace = true
 but-oxidize.workspace = true
+but-ctx.workspace = true
 
 gitbutler-commit.workspace = true
 gitbutler-repo.workspace = true
-but-ctx.workspace = true
 gitbutler-operating-modes.workspace = true
-gitbutler-project.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-stack.workspace = true

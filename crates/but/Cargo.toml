@@ -20,6 +20,7 @@ default = ["legacy"]
 legacy = [
     "but-workspace/legacy",
     "but-api/legacy",
+    "but-ctx/legacy",
     "dep:but-action",
     "dep:but-hunk-assignment",
     "dep:but-hunk-dependency",
@@ -30,6 +31,13 @@ legacy = [
     "dep:but-gerrit",
     "dep:but-worktrees",
     "dep:but-worktrees",
+    "dep:gitbutler-project",
+    "dep:gitbutler-commit",
+    "dep:gitbutler-stack",
+    "dep:gitbutler-branch-actions",
+    "dep:gitbutler-branch",
+    "dep:gitbutler-reference",
+    "dep:gitbutler-oplog",
 ]
 
 [dependencies]
@@ -40,9 +48,7 @@ but-serde.workspace = true
 but-secret.workspace = true
 but-oxidize.workspace = true
 but-path.workspace = true
-# NOTE: "legacy" is needed even for non-legacy while we have the `Project` type.
-#        Goal is to migrate this data to be project-local.
-but-ctx = { workspace = true, features = ["legacy"] }
+but-ctx.workspace = true
 # NOTE: "legacy" is needed as long as virtual-branches.toml is around.
 but-meta = { workspace = true, features = ["legacy"] }
 # NOTE: close to mostly 'proper', but depends on `gitbutler-user`
@@ -64,13 +70,13 @@ but-rules = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }
 
-gitbutler-project.workspace = true
-gitbutler-commit.workspace = true
-gitbutler-stack.workspace = true
-gitbutler-branch-actions.workspace = true
-gitbutler-branch.workspace = true
-gitbutler-reference.workspace = true
-gitbutler-oplog.workspace = true
+gitbutler-project = { workspace = true, optional = true }
+gitbutler-commit = { workspace = true, optional = true }
+gitbutler-stack = { workspace = true, optional = true }
+gitbutler-branch-actions = { workspace = true, optional = true }
+gitbutler-branch = { workspace = true, optional = true }
+gitbutler-reference = { workspace = true, optional = true }
+gitbutler-oplog = { workspace = true, optional = true }
 
 git2.workspace = true
 async-openai.workspace = true
@@ -112,6 +118,7 @@ minus = { version = "5.6.1", default-features = false, features = [
     "search",
 ] }
 unicode-width = "0.1"
+cfg-if = "1.0.4"
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }

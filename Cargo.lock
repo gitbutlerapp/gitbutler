@@ -720,6 +720,7 @@ dependencies = [
  "but-tools",
  "but-workspace",
  "but-worktrees",
+ "cfg-if",
  "chrono",
  "clap",
  "clap_complete",
@@ -818,6 +819,7 @@ dependencies = [
  "but-hunk-assignment",
  "but-hunk-dependency",
  "but-meta",
+ "but-oplog",
  "but-oxidize",
  "but-path",
  "but-rebase",
@@ -906,7 +908,6 @@ dependencies = [
  "anyhow",
  "but",
  "clap",
- "snapbox",
 ]
 
 [[package]]
@@ -1194,6 +1195,17 @@ dependencies = [
  "serde",
  "toml 0.9.8",
  "tracing",
+]
+
+[[package]]
+name = "but-oplog"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-ctx",
+ "but-oxidize",
+ "gitbutler-oplog",
+ "gix",
 ]
 
 [[package]]
@@ -3567,6 +3579,7 @@ dependencies = [
  "git2",
  "gitbutler-commit",
  "gix",
+ "tracing",
 ]
 
 [[package]]
@@ -3637,7 +3650,6 @@ dependencies = [
  "gitbutler-commit",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
- "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-stack",
  "gitbutler-testsupport",
@@ -3746,7 +3758,7 @@ dependencies = [
  "but-serde",
  "git2",
  "gitbutler-branch",
- "gitbutler-project",
+ "gitbutler-cherry-pick",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
@@ -3875,7 +3887,6 @@ dependencies = [
  "git2",
  "gitbutler-commit",
  "gitbutler-diff",
- "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-repo-actions",

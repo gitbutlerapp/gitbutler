@@ -1,3 +1,4 @@
+//! NOTE: This module is here because it's convenient, dependency-wise, not because it's the best place necessarily.
 use anyhow::{Context as _, Result};
 use gix::bstr::{BString, ByteVec};
 use tracing::instrument;

@@ -22,27 +22,25 @@
 #![deny(unsafe_code)]
 #![cfg_attr(not(feature = "legacy"), expect(unused))]
 
-use std::{ffi::OsString, path::Path};
+use std::ffi::OsString;
 
 use anyhow::{Context as _, Result};
+use cfg_if::cfg_if;
 
 pub mod args;
+use crate::utils::ResultJsonExt;
+use crate::utils::{OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultMetricsExt};
 use args::{Args, OutputFormat, Subcommands, forge, metrics};
 use args::{actions, base, branch, claude, cursor, worktree};
 use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
 
-use crate::utils::ResultJsonExt;
-use crate::utils::{OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultMetricsExt};
-
 /// A place for all command implementations.
 pub(crate) mod command;
 mod tui;
 
 const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
-/// A utility to clearly mark the old project type to get away from.
-type LegacyProject = gitbutler_project::Project;
 
 /// Handle `args` which must be what's passed by `std::env::args_os()`.
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
@@ -166,6 +164,19 @@ async fn match_subcommand(
         Subcommands::Completions { shell } => {
             command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
         }
+        Subcommands::Branch(branch::Platform { cmd }) => {
+            cfg_if! {
+                if #[cfg(feature = "legacy")]  {
+                    let project = legacy::get_or_init_non_bare_project(&args)?;
+                    command::legacy::branch::handle(cmd, &project, out)
+                        .await
+                        .emit_metrics(metrics_ctx)
+                } else {
+                    let ctx = but_ctx::Context::discover(&args.current_dir)?;
+                    command::branch::handle(cmd, ctx, out)
+                }
+            }
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Mcp { internal } => {
             if internal {
@@ -271,13 +282,6 @@ async fn match_subcommand(
         Subcommands::Base(base::Platform { cmd }) => {
             let project = legacy::get_or_init_non_bare_project(&args)?;
             command::legacy::base::handle(cmd, &project, out)
-                .await
-                .emit_metrics(metrics_ctx)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Branch(branch::Platform { cmd }) => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::branch::handle(cmd, &project, out)
                 .await
                 .emit_metrics(metrics_ctx)
         }
@@ -433,46 +437,6 @@ async fn match_subcommand(
 
 #[cfg(feature = "legacy")]
 mod legacy;
-
-/// Legacy - none of this should be kept.
-/// Turn this instance into a project, which knows about the Git repository discovered from `directory`
-/// and which can derive all other information from there.
-pub fn get_or_init_context_with_legacy_support(args: &Args) -> anyhow::Result<but_ctx::Context> {
-    let directory = &args.current_dir;
-    let repo = gix::discover(directory)?;
-    let worktree_dir = repo
-        .workdir()
-        .context("Bare repositories are not yet supported.")?;
-    let project = LegacyProject::find_by_worktree_dir_opt(worktree_dir)?
-        .map(anyhow::Ok)
-        .unwrap_or_else(|| {
-            #[cfg(feature = "legacy")]
-            return {
-                command::legacy::init::repo(
-                    directory,
-                    &mut OutputChannel::new_without_pager_non_json(args.format),
-                    false,
-                )
-                .and_then(|()| LegacyProject::find_by_worktree_dir(directory))
-            };
-            #[cfg(not(feature = "legacy"))]
-            panic!("Cannot initialise a project in non-legacy mode as all this is done on the fly")
-        })?;
-    Ok(but_ctx::Context::new_from_legacy_project(project)?.with_repo(repo))
-}
-
-/// Discover the Git repository in `directory` and return it,
-pub fn get_context_with_legacy_support(
-    directory: impl AsRef<Path>,
-) -> anyhow::Result<but_ctx::Context> {
-    let directory = directory.as_ref();
-    let repo = gix::discover(directory)?;
-    let worktree_dir = repo
-        .workdir()
-        .context("Bare repositories are not yet supported.")?;
-    let project = LegacyProject::find_by_worktree_dir(worktree_dir)?;
-    Ok(but_ctx::Context::new_from_legacy_project(project)?.with_repo(repo))
-}
 
 mod trace;
 mod utils;

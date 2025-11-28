@@ -36,7 +36,7 @@ pub fn push_stack_to_review(
     };
     set_reference_to_oplog(
         ctx.legacy_project.git_dir(),
-        ReflogCommits::new(&ctx.legacy_project)?,
+        ReflogCommits::new(&ctx.project_data_dir())?,
     )?;
 
     let target_commit_id = vb_state.get_default_target()?.sha.to_gix();

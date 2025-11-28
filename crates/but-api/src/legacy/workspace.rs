@@ -327,7 +327,7 @@ pub fn amend_commit_from_worktree_changes(
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        &project,
+        &project.gb_dir(),
         Some(stack_id),
         commit_engine::Destination::AmendCommit {
             commit_id: commit_id.into(),
@@ -620,7 +620,7 @@ pub fn stash_into_branch(
 
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        &ctx.legacy_project,
+        &ctx.project_data_dir(),
         Some(stack.id),
         commit_engine::Destination::NewCommit {
             parent_commit_id: Some(parent_commit_id),

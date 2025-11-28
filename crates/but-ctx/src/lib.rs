@@ -2,9 +2,9 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
-use std::path::{Path, PathBuf};
-
+use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
 use but_settings::AppSettings;
+use std::path::{Path, PathBuf};
 
 /// Legacy types that shouldn't be used.
 #[cfg(feature = "legacy")]
@@ -190,6 +190,55 @@ impl Context {
     pub fn with_repo(mut self, repo: gix::Repository) -> Self {
         self.repo.assign(repo);
         self
+    }
+}
+
+/// Trampolines that create new uncached instances of major types.
+impl Context {
+    /// Open the repository with standard options and create a new Graph traversal from the current HEAD,
+    /// along with a new metadata instance, and the graph itself.
+    ///
+    /// The write-permission is required to obtain a mutable metadata instance. Note that it must be held
+    /// for until the end of the operation for the protection to be effective.
+    ///
+    /// Use [`Self::graph_and_meta_and_repo_from_head()`] if control over the repository configuration is needed.
+    pub fn graph_and_meta_mut_and_repo_from_head(
+        &self,
+        _write: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<(
+        gix::Repository,
+        impl but_core::RefMetadata + 'static,
+        but_graph::Graph,
+    )> {
+        let repo = self.repo.get()?;
+        let meta = self.meta_inner()?;
+        let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
+        Ok((repo.clone(), meta, graph))
+    }
+
+    /// Create a new Graph traversal from the current HEAD, using (and returning) the given `repo` (configured by the caller),
+    /// along with a new metadata instance, and the graph itself.
+    ///
+    /// The read-permission is required to obtain a shared metadata instance. Note that it must be held
+    /// for until the end of the operation for the protection to be effective.
+    pub fn graph_and_meta_and_repo_from_head(
+        &self,
+        repo: gix::Repository,
+        _read_only: &WorktreeReadPermission,
+    ) -> anyhow::Result<(
+        gix::Repository,
+        impl but_core::RefMetadata + 'static,
+        but_graph::Graph,
+    )> {
+        let meta = self.meta_inner()?;
+        let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
+        Ok((repo, meta, graph))
+    }
+
+    fn meta_inner(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
+        but_meta::VirtualBranchesTomlMetadata::from_path(
+            self.project_data_dir().join("virtual_branches.toml"),
+        )
     }
 }
 

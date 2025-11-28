@@ -537,7 +537,6 @@ pub fn amend_commit_inner(
     commit_mapping: Option<&HashMap<gix::ObjectId, gix::ObjectId>>,
 ) -> anyhow::Result<but_workspace::commit_engine::CreateCommitOutcome> {
     let repo = ctx.repo.get()?;
-    let project = &ctx.legacy_project;
     let settings = ctx.settings();
     let mut guard = ctx.exclusive_worktree_access();
     let worktree = but_core::diff::worktree_changes(&repo)?;
@@ -565,7 +564,7 @@ pub fn amend_commit_inner(
 
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        project,
+        &ctx.project_data_dir(),
         Some(stack_id),
         but_workspace::commit_engine::Destination::AmendCommit {
             commit_id,

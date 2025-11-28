@@ -506,7 +506,7 @@ fn list_series_default_head() -> Result<()> {
     let git2_repo = ctx.git2_repo.get()?;
     assert_eq!(
         branches[0]
-            .commits(&git2_repo, &ctx.legacy_project, &test_ctx.stack)?
+            .commits(&git2_repo, &ctx, &test_ctx.stack)?
             .local_commits
             .iter()
             .map(|c| c.id())
@@ -538,7 +538,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     let git2_repo = ctx.git2_repo.get()?;
     assert_eq!(
         branches[0]
-            .commits(&git2_repo, &ctx.legacy_project, &test_ctx.stack)?
+            .commits(&git2_repo, &ctx, &test_ctx.stack)?
             .local_commits
             .iter()
             .map(|c| c.id())
@@ -549,7 +549,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     let git2_repo = ctx.git2_repo.get()?;
     assert_eq!(
         branches[1]
-            .commits(&git2_repo, &ctx.legacy_project, &test_ctx.stack)?
+            .commits(&git2_repo, &ctx, &test_ctx.stack)?
             .local_commits
             .iter()
             .map(|c| c.id())
@@ -581,7 +581,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     let git2_repo = ctx.git2_repo.get()?;
     assert_eq!(
         branches[0]
-            .commits(&git2_repo, &ctx.legacy_project, &test_ctx.stack)?
+            .commits(&git2_repo, &ctx, &test_ctx.stack)?
             .local_commits
             .iter()
             .map(|c| c.id())
@@ -593,7 +593,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     let git2_repo = ctx.git2_repo.get()?;
     assert_eq!(
         branches[1]
-            .commits(&git2_repo, &ctx.legacy_project, &test_ctx.stack)?
+            .commits(&git2_repo, &ctx, &test_ctx.stack)?
             .local_commits
             .iter()
             .map(|c| c.id())

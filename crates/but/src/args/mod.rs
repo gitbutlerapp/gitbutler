@@ -208,7 +208,6 @@ pub enum Subcommands {
     ///
     /// By default without a subcommand, it will list the branches.
     ///
-    #[cfg(feature = "legacy")]
     Branch(branch::Platform),
 
     /// Commands for managing worktrees.

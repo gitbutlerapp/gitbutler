@@ -301,7 +301,7 @@ fn validate(
     let remote_commits = stack
         .branches()
         .iter()
-        .flat_map(|b| b.commits(git2_repo, &ctx.legacy_project, stack))
+        .flat_map(|b| b.commits(git2_repo, ctx, stack))
         .flat_map(|c| c.remote_commits)
         .map(|c| c.id())
         .collect_vec();

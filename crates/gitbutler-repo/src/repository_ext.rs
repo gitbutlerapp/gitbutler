@@ -1,21 +1,21 @@
 use std::str;
 
+use crate::{Config, SignaturePurpose};
 use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::BString;
 use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix};
 use but_error::Code;
 use but_oxidize::{
-    ObjectIdExt as _, RepoExt, git2_signature_to_gix_signature, git2_to_gix_object_id,
-    gix_to_git2_oid, gix_to_git2_signature,
+    ObjectIdExt as _, git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid,
+    gix_to_git2_signature,
 };
+use but_rebase::commit::sign_buffer;
 use but_status::create_wd_tree;
 use git2::Tree;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::objs::WriteTo;
 use tracing::instrument;
-
-use crate::{Config, SignaturePurpose};
 
 /// Extension trait for `git2::Repository`.
 ///
@@ -150,7 +150,7 @@ impl RepositoryExt for git2::Repository {
         parents: &[&git2::Commit<'_>],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let repo = self.to_gix()?;
+        let repo = gix::open(self.path())?;
         let mut commit = gix::objs::Commit {
             message: message.into(),
             tree: git2_to_gix_object_id(tree.id()),
@@ -167,7 +167,7 @@ impl RepositoryExt for git2::Repository {
         if repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false) {
             let mut buf = Vec::new();
             commit.write_to(&mut buf)?;
-            let signature = self.sign_buffer(&buf);
+            let signature = sign_buffer(&repo, &buf);
             match signature {
                 Ok(signature) => {
                     commit.extra_headers.push(("gpgsig".into(), signature));

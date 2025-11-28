@@ -145,7 +145,7 @@ fn commit_with_project(
     let mut guard = but_core::sync::exclusive_worktree_access(project.git_dir());
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         repo,
-        project,
+        &project.gb_dir(),
         None,
         destination,
         changes,

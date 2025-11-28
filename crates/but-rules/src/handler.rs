@@ -81,9 +81,8 @@ fn handle_amend(
     change_id: String,
 ) -> anyhow::Result<()> {
     let changes: Vec<DiffSpec> = assignments.into_iter().map(|a| a.into()).collect();
-    let project = &ctx.legacy_project;
     let mut guard = ctx.exclusive_worktree_access();
-    let repo = project.open_repo_for_merging()?;
+    let repo = ctx.open_repo_for_merging()?;
 
     let meta = VirtualBranchesTomlMetadata::from_path(
         ctx.project_data_dir().join("virtual_branches.toml"),
@@ -114,7 +113,7 @@ fn handle_amend(
 
     commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        project,
+        &ctx.project_data_dir(),
         None,
         but_workspace::commit_engine::Destination::AmendCommit {
             commit_id,

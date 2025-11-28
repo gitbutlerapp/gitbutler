@@ -60,7 +60,7 @@ pub fn update_workspace_commit(
         .context("failed to get target")?;
 
     let repo: &git2::Repository = &*ctx.git2_repo.get()?;
-    let gix_repo = repo.to_gix()?;
+    let gix_repo = repo.to_gix_repo()?;
 
     // get current repo head for reference
     let head_ref = repo.head()?;
@@ -288,7 +288,7 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut WorktreeWritePermission) -> Re
         .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
-    let gix_repo = git2_repo.to_gix()?;
+    let gix_repo = git2_repo.to_gix_repo()?;
     let mut head = new_branch.head_oid(&gix_repo)?.to_git2();
     for commit in extra_commits {
         let new_branch_head = git2_repo

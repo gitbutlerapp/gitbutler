@@ -4,6 +4,9 @@ use anyhow::{Context as _, Result};
 use but_oxidize::git2_to_gix_object_id;
 use gitbutler_commit::commit_ext::CommitExt;
 
+mod repository_ext;
+pub use repository_ext::RepositoryExtLite;
+
 #[derive(Default)]
 pub enum ConflictedTreeKey {
     /// The commit we're rebasing onto "head"

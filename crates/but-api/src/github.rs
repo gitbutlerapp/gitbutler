@@ -1,4 +1,5 @@
-//! In place of commands.rs
+// TODO: everything should be fully documented.
+#![allow(missing_docs)]
 use anyhow::Result;
 use but_api_macros::api_cmd_tauri;
 use but_github::{AuthStatusResponse, AuthenticatedUser, Verification};

@@ -21,7 +21,7 @@ but-core.workspace = true
 but-graph.workspace = true
 but-oxidize.workspace = true
 but-forge.workspace = true
-but-ctx.workspace = true
+but-ctx = { workspace = true, features = ["legacy"]}
 
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true

@@ -55,7 +55,9 @@ pub fn apply(
         )?;
         reference
     } else {
-        bail!("Could not find branch '{branch_name}' in local repository");
+        // NOTE: this is aligned with the 'modern' version for now which doesn't handle this specifically.
+        //       Once there is only one impl, this can be adjusted more easily.
+        bail!("The reference '{branch_name}' did not exist");
     };
 
     if let Some(out) = out.for_human() {

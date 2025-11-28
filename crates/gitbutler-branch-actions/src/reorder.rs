@@ -187,7 +187,7 @@ pub fn commits_order(ctx: &Context, stack: &Stack) -> Result<StackOrder> {
             Ok(SeriesOrder {
                 name: b.name().to_owned(),
                 commit_ids: b
-                    .commits(git2_repo, &ctx.legacy_project, stack)?
+                    .commits(git2_repo, ctx, stack)?
                     .local_commits
                     .iter()
                     .rev()

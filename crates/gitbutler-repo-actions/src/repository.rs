@@ -198,7 +198,7 @@ impl RepoActionsExt for Context {
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
         if use_git_executable {
-            let path = self.legacy_project.git_dir().to_owned();
+            let path = self.gitdir.clone();
             let remote = branch.remote().to_string();
             match std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
