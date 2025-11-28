@@ -64,8 +64,9 @@ export function formatToolCall(toolCall: ToolCall): string {
 			return input['file_path'];
 
 		case 'Bash':
-			// Show description if available, otherwise truncate command
-			return truncate(input['command'], 128);
+			// Even if they are long, we don't want to truncate commands since
+			// any part of a command could perform dangerous actions.
+			return input['command'];
 
 		case 'Grep':
 			return `"${input['pattern']}"${input['path'] ? ` in ${input['path']}` : ''}`;
