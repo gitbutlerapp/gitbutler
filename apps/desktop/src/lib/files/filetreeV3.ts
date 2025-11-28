@@ -23,26 +23,45 @@ export type TreeNode = {
 	  }
 );
 
-function createNode(acc: TreeNode, pathParts: string[]) {
-	if (pathParts.length === 0) {
+/**
+ * Internal node type used during tree construction for O(1) child lookups.
+ * The childrenMap is stripped after construction is complete.
+ */
+type BuildTreeNode = TreeNode & {
+	childrenMap?: Map<string, BuildTreeNode>;
+};
+
+function createNode(acc: BuildTreeNode, pathParts: string[], partIndex: number): BuildTreeNode {
+	if (partIndex >= pathParts.length) {
 		acc.kind = 'file';
 		return acc;
 	}
 
-	const node = acc.children?.find((f) => f.name === pathParts[0]);
+	const partName = pathParts[partIndex]!;
+	const node = acc.childrenMap?.get(partName);
 	if (node) {
-		return createNode(node, pathParts.slice(1));
+		return createNode(node, pathParts, partIndex + 1);
 	}
 
-	const newDir: TreeNode = {
+	const newDir: BuildTreeNode = {
 		kind: 'dir',
-		name: pathParts[0] ? pathParts[0] : '',
+		name: partName || '',
 		children: [],
+		childrenMap: new Map(),
 		parent: acc
 	};
 	acc.children.push(newDir);
+	acc.childrenMap?.set(partName, newDir);
 
-	return createNode(newDir, pathParts.slice(1));
+	return createNode(newDir, pathParts, partIndex + 1);
+}
+
+function stripChildrenMaps(node: BuildTreeNode): TreeNode {
+	delete node.childrenMap;
+	for (const child of node.children) {
+		stripChildrenMaps(child as BuildTreeNode);
+	}
+	return node;
 }
 
 export function sortChildren(node: TreeNode) {
@@ -61,15 +80,18 @@ export function sortChildren(node: TreeNode) {
 }
 
 export function changesToFileTree(files: TreeChange[]): TreeNode {
-	const acc: TreeNode = { kind: 'dir', name: 'root', children: [] };
-	files.forEach((f, index) => {
+	const acc: BuildTreeNode = { kind: 'dir', name: 'root', children: [], childrenMap: new Map() };
+	for (let index = 0; index < files.length; index++) {
+		const f = files[index]!;
 		const pathParts = f.path.split('/');
-		const node = createNode(acc, pathParts);
+		const node = createNode(acc, pathParts, 0);
 		if (node.kind === 'file') {
 			node.change = f;
 			node.index = index;
 		}
-	});
+	}
+	// Clean up the temporary childrenMap properties before returning
+	stripChildrenMaps(acc);
 	sortChildren(acc);
 	return acc;
 }
