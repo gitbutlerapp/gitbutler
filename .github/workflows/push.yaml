@@ -82,6 +82,7 @@ jobs:
           ./scripts/generate-ts-definitions-from-rust.sh
 
   lint-node:
+    needs: changes
     if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -92,6 +93,7 @@ jobs:
       - run: pnpm lint
 
   check-node:
+    needs: changes
     if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -102,6 +104,7 @@ jobs:
       - run: pnpm check
 
   unittest-node:
+    needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
