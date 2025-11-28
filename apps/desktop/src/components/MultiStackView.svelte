@@ -305,12 +305,12 @@
 	.lanes-scrollable {
 		display: flex;
 		position: relative;
-		min-width: fill-available;
+		min-width: stretch;
 		height: 100%;
 	}
 
 	.dotted-pattern {
-		width: fill-available;
+		width: stretch;
 		height: 100%;
 	}
 

@@ -294,13 +294,6 @@
 		gap: 8px;
 	}
 
-	.settings-link-container {
-		display: flex;
-		padding: 12px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-	}
-
 	.settings-link {
 		padding: 0;
 		border: none;
