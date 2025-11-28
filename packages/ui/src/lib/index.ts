@@ -146,6 +146,7 @@ export { default as Formatter } from '$lib/richText/plugins/Formatter.svelte';
 export { default as GhostTextPlugin } from '$lib/richText/plugins/GhostText.svelte';
 export { default as HardWrapPlugin } from '$lib/richText/plugins/HardWrapPlugin.svelte';
 export { default as FilePlugin } from '$lib/richText/plugins/FilePlugin.svelte';
+export { default as PlainTextPastePlugin } from '$lib/richText/plugins/PlainTextPastePlugin.svelte';
 export { default as UpDownPlugin } from '$lib/richText/plugins/UpDownPlugin.svelte';
 export {
 	default as Mention,
