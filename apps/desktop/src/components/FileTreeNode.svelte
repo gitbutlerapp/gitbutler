@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Self from '$components/FileTreeNode.svelte';
+	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import TreeListFolder from '$components/TreeListFolder.svelte';
+	import { chunk } from '$lib/utils/array';
 	import { TestId } from '@gitbutler/ui';
 	import type { TreeNode } from '$lib/files/filetreeV3';
 	import type { TreeChange } from '$lib/hunks/change';
@@ -42,6 +44,18 @@
 	// Local state to track whether the folder is expanded
 	let isExpanded = $state<boolean>(defaultExpanded);
 
+	// For root nodes, use chunking to lazily load children for better performance
+	let currentDisplayIndex = $state(0);
+	const childChunks = $derived(isRoot ? chunk(node.children, 100) : []);
+	const visibleChildren = $derived(
+		isRoot ? childChunks.slice(0, currentDisplayIndex + 1).flat() : node.children
+	);
+
+	function loadMore() {
+		if (currentDisplayIndex + 1 >= childChunks.length) return;
+		currentDisplayIndex += 1;
+	}
+
 	// Handler for toggling the folder
 	function handleToggle() {
 		isExpanded = !isExpanded;
@@ -49,21 +63,28 @@
 </script>
 
 {#if isRoot}
-	<!-- Node is a root and should only render children! -->
-	{#each node.children as childNode (childNode.name)}
-		<Self
-			{projectId}
-			{stackId}
-			{selectionId}
-			{depth}
-			node={childNode}
-			{showCheckboxes}
-			{draggableFiles}
-			{changes}
-			{defaultExpanded}
-			{fileTemplate}
-		/>
-	{/each}
+	<!-- Node is a root and should only render children with lazy loading! -->
+	<LazyloadContainer
+		minTriggerCount={80}
+		ontrigger={() => {
+			loadMore();
+		}}
+	>
+		{#each visibleChildren as childNode (childNode.name)}
+			<Self
+				{projectId}
+				{stackId}
+				{selectionId}
+				{depth}
+				node={childNode}
+				{showCheckboxes}
+				{draggableFiles}
+				{changes}
+				{defaultExpanded}
+				{fileTemplate}
+			/>
+		{/each}
+	</LazyloadContainer>
 {:else if node.kind === 'file'}
 	{@render fileTemplate(node.change, node.index, depth)}
 {:else}
