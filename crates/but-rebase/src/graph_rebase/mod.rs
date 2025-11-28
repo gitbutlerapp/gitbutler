@@ -33,7 +33,7 @@ pub enum Step {
 
 /// Used to represent a connection between a given commit.
 #[derive(Debug, Clone)]
-struct Edge {
+pub(crate) struct Edge {
     /// Represents in which order the `parent` fields should be written out
     ///
     /// A child commit should have edges that all have unique orders. In order

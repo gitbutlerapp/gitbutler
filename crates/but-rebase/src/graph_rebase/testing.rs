@@ -3,7 +3,7 @@
 
 use petgraph::dot::{Config, Dot};
 
-use crate::graph_rebase::{Editor, Step, StepGraph};
+use crate::graph_rebase::{Editor, Step, StepGraph, rebase::SuccessfulRebase};
 
 /// An extension trait that adds debugging output for graphs
 pub trait TestingDot {
@@ -12,6 +12,12 @@ pub trait TestingDot {
 }
 
 impl TestingDot for Editor {
+    fn steps_dot(&self) -> String {
+        self.graph.steps_dot()
+    }
+}
+
+impl TestingDot for SuccessfulRebase {
     fn steps_dot(&self) -> String {
         self.graph.steps_dot()
     }
