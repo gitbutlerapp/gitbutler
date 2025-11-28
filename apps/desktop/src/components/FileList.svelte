@@ -369,7 +369,6 @@
 		{:else}
 			<LazyloadContainer
 				minTriggerCount={80}
-				itemCount={visibleFiles.length}
 				ontrigger={() => {
 					loadMore();
 				}}

@@ -8,48 +8,28 @@
 		role?: AriaRole | undefined | null;
 		ontrigger: (lastChild: Element) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
-		/**
-		 * Number of items currently rendered. When provided, the component uses this
-		 * instead of querying the DOM for child count, avoiding expensive operations
-		 * with `display: contents`.
-		 */
-		itemCount?: number;
 	}
 
-	const { children, minTriggerCount, role, ontrigger, onkeydown, itemCount }: Props = $props();
+	const { children, minTriggerCount, role, ontrigger, onkeydown }: Props = $props();
 
-	let sentinelEl = $state<HTMLDivElement>();
 	let lazyContainerEl = $state<HTMLDivElement>();
 
-	const intersectionObserver = new IntersectionObserver((entries) => {
-		entries.forEach((entry) => {
-			if (entry.isIntersecting) {
-				ontrigger(entry.target);
-				// Unobserve to prevent multiple triggers for the same intersection
-				// The $effect will re-observe the sentinel when itemCount changes
-				intersectionObserver.unobserve(entry.target);
-			}
-		});
-	});
-
-	// When itemCount is provided, use it directly (fast path)
-	// Otherwise, fall back to MutationObserver (legacy behavior)
+	const mutuationObserver = new MutationObserver(attachIntersectionObserver);
 	$effect(() => {
-		if (itemCount !== undefined) {
-			// Fast path: use prop-based count
-			intersectionObserver.disconnect();
-			if (sentinelEl && itemCount >= minTriggerCount) {
-				intersectionObserver.observe(sentinelEl);
-			}
-		} else if (lazyContainerEl) {
-			// Legacy path: use MutationObserver
+		if (lazyContainerEl) {
 			mutuationObserver.disconnect();
 			mutuationObserver.observe(lazyContainerEl, { childList: true });
 			attachIntersectionObserver();
 		}
 	});
-
-	const mutuationObserver = new MutationObserver(attachIntersectionObserver);
+	const intersectionObserver = new IntersectionObserver((entries) => {
+		entries.forEach((entry) => {
+			if (entry.isIntersecting) {
+				ontrigger(entry.target);
+				intersectionObserver.unobserve(entry.target);
+			}
+		});
+	});
 
 	function attachIntersectionObserver() {
 		// unattach all intersection observers
@@ -82,18 +62,10 @@
 
 <div class="lazy-container" {role} bind:this={lazyContainerEl} {onkeydown}>
 	{@render children()}
-	{#if itemCount !== undefined}
-		<div class="lazy-sentinel" bind:this={sentinelEl}></div>
-	{/if}
 </div>
 
 <style>
 	.lazy-container {
 		display: contents;
-	}
-
-	.lazy-sentinel {
-		height: 1px;
-		width: 100%;
 	}
 </style>
