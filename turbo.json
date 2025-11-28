@@ -22,7 +22,9 @@
 			"cache": false,
 			"persistent": true
 		},
-		"check": {},
+		"check": {
+			"dependsOn": ["package"]
+		},
 		"playwright:install": {},
 		"test": {
 			"dependsOn": ["package", "playwright:install"]
