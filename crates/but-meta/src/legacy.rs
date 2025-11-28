@@ -55,6 +55,9 @@ impl Snapshot {
             if self.content == Default::default() {
                 std::fs::remove_file(&self.path)?;
             } else {
+                if let Some(dir) = self.path.parent() {
+                    std::fs::create_dir_all(dir)?;
+                }
                 fs::write(
                     &self.path,
                     toml::to_string(&self.to_consistent_data(reconcile))?,

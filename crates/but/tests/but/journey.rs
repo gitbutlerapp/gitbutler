@@ -1,10 +1,29 @@
 //! Tests for various nice user-journeys, from different starting points, performing multiple common steps in sequence.
-use snapbox::{file, str};
+use crate::utils::Sandbox;
+use snapbox::str;
 
-use crate::utils::{Sandbox, setup_metadata};
-
+#[cfg(not(feature = "legacy"))]
 #[test]
-fn from_scratch_needs_work() -> anyhow::Result<()> {
+fn from_unborn() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("unborn")?;
+    insta::assert_snapshot!(env.git_log()?, @r"");
+
+    env.but("branch apply main")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: The reference 'main' did not exist
+
+"#]]);
+
+    // TODO: we should be able to use the CLI to create a commit
+    Ok(())
+}
+
+// TODO: maybe this should be a non-legacy journey only as we start out without workspace?
+#[cfg(feature = "legacy")]
+#[test]
+fn from_empty() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 
     env.but("status").assert().failure().stderr_eq(str![[r#"
@@ -94,8 +113,11 @@ Error: workspace at refs/heads/main is missing a base
     Ok(())
 }
 
+#[cfg(feature = "legacy")]
 #[test]
 fn from_workspace() -> anyhow::Result<()> {
+    use crate::utils::setup_metadata;
+    use snapbox::file;
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit

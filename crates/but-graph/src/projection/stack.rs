@@ -95,7 +95,10 @@ impl Stack {
 
 impl Stack {
     /// A one-line string representing the stack itself, without its contents.
-    pub fn debug_string(&self) -> String {
+    ///
+    /// Use `id_override` to have it use this (usually controlled) id instead of what otherwise
+    /// would be a generated one.
+    pub fn debug_string(&self, id_override: Option<StackId>) -> String {
         let mut dbg = self
             .segments
             .first()
@@ -105,7 +108,7 @@ impl Stack {
             dbg.push_str(&base.to_hex_with_len(7).to_string());
         }
         dbg.insert(0, '≡');
-        if let Some(id) = self.id {
+        if let Some(id) = id_override.or(self.id) {
             let id_string = id.to_string().replace("0", "").replace("-", "");
             dbg.push_str(&format!(
                 " {{{}}}",
@@ -122,7 +125,7 @@ impl Stack {
 
 impl std::fmt::Debug for Stack {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut s = f.debug_struct(&format!("Stack({})", self.debug_string()));
+        let mut s = f.debug_struct(&format!("Stack({})", self.debug_string(None)));
         s.field("segments", &self.segments);
         if let Some(stack_id) = self.id {
             s.field("id", &stack_id);
