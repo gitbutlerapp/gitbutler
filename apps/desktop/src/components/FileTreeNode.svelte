@@ -17,7 +17,11 @@
 		draggableFiles?: boolean;
 		changes: TreeChange[];
 		depth?: number;
-		initiallyExpanded?: boolean;
+		/**
+		 * Whether folders should be expanded by default.
+		 * Set to false when there are 100+ files to avoid rendering performance issues.
+		 */
+		defaultExpanded?: boolean;
 		fileTemplate: Snippet<[TreeChange, number, number]>;
 	};
 
@@ -31,11 +35,12 @@
 		draggableFiles,
 		changes,
 		depth = 0,
+		defaultExpanded = true,
 		fileTemplate
 	}: Props = $props();
 
 	// Local state to track whether the folder is expanded
-	let isExpanded = $state<boolean>(true);
+	let isExpanded = $state<boolean>(defaultExpanded);
 
 	// Handler for toggling the folder
 	function handleToggle() {
@@ -55,6 +60,7 @@
 			{showCheckboxes}
 			{draggableFiles}
 			{changes}
+			{defaultExpanded}
 			{fileTemplate}
 		/>
 	{/each}
@@ -85,6 +91,7 @@
 				{showCheckboxes}
 				{draggableFiles}
 				{changes}
+				{defaultExpanded}
 				{fileTemplate}
 			/>
 		{/each}

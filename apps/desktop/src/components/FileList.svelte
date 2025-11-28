@@ -352,6 +352,8 @@
 			<!-- We need to use sortedChanges here because otherwise we will end up
 		with incorrect indexes -->
 			{@const node = abbreviateFolders(changesToFileTree(changes))}
+			<!-- Collapse folders by default when there are many files to avoid rendering performance issues -->
+			{@const defaultExpanded = changes.length < 100}
 			<FileTreeNode
 				isRoot
 				{projectId}
@@ -361,6 +363,7 @@
 				{showCheckboxes}
 				{draggableFiles}
 				{changes}
+				{defaultExpanded}
 				{fileTemplate}
 			/>
 		{:else}
