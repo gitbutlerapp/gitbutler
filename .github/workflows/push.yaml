@@ -64,19 +64,24 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
+        with:
+          shared-key: ts-def-gen
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      # Node is needed for the formatting of typescript files.
       - uses: ./.github/actions/init-env-node
-      - run: pnpm generate-ts-definitions
+      - run: |
+          sudo apt install libdbus-1-dev pkg-config
+          ./scripts/generate-ts-definitions-from-rust.sh
 
   lint-node:
-    needs: generate-ts-definitions
     if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -87,7 +92,6 @@ jobs:
       - run: pnpm lint
 
   check-node:
-    needs: generate-ts-definitions
     if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -98,7 +102,6 @@ jobs:
       - run: pnpm check
 
   unittest-node:
-    needs: generate-ts-definitions
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:

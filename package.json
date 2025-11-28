@@ -38,7 +38,7 @@
 		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml",
 		"isgood": "pnpm check && pnpm lint",
 		"begood": "pnpm format && pnpm fix",
-		"generate-ts-definitions": "pnpm --filter @gitbutler/core generate-ts"
+		"generate-ts-definitions": "scripts/generate-ts-definitions-from-rust.sh"
 	},
 	"devDependencies": {
 		"@eslint/js": "9.33.0",
