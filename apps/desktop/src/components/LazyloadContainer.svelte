@@ -14,20 +14,7 @@
 
 	let lazyContainerEl = $state<HTMLDivElement>();
 
-	// Debounce timeout for attachIntersectionObserver to avoid expensive DOM access on every mutation
-	let debounceTimeout: ReturnType<typeof setTimeout> | undefined;
-
-	function debouncedAttachIntersectionObserver() {
-		if (debounceTimeout) {
-			clearTimeout(debounceTimeout);
-		}
-		debounceTimeout = setTimeout(() => {
-			attachIntersectionObserver();
-			debounceTimeout = undefined;
-		}, 16); // ~1 frame at 60fps
-	}
-
-	const mutuationObserver = new MutationObserver(debouncedAttachIntersectionObserver);
+	const mutuationObserver = new MutationObserver(attachIntersectionObserver);
 	$effect(() => {
 		if (lazyContainerEl) {
 			mutuationObserver.disconnect();
@@ -60,9 +47,6 @@
 
 	onMount(() => {
 		return () => {
-			if (debounceTimeout) {
-				clearTimeout(debounceTimeout);
-			}
 			intersectionObserver.disconnect();
 			mutuationObserver.disconnect();
 		};
