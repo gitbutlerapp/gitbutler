@@ -29,7 +29,7 @@
 		@media (max-width: 700px) {
 			margin-bottom: 30px;
 			font-size: 16cqw;
-			// margin-top: 20px;
+			/* margin-top: 20px; */
 		}
 	}
 	.subtitle {

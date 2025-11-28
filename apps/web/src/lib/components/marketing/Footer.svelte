@@ -315,7 +315,7 @@
 		}
 	}
 
-	// links section
+	/* links section */
 	.links {
 		display: flex;
 		flex: 1;
