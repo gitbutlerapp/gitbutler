@@ -1,5 +1,14 @@
 import { wrapIfNecessary } from '$lib/richText/linewrap';
-import { createEditor, ParagraphNode, type LexicalEditor } from 'lexical';
+import { handleEnter } from '$lib/richText/plugins/IndentPlugin.svelte';
+import {
+	createEditor,
+	TextNode,
+	type LexicalEditor,
+	COMMAND_PRIORITY_CRITICAL,
+	KEY_ENTER_COMMAND,
+	type NodeKey,
+	type NodeMutation
+} from 'lexical';
 import {
 	$createParagraphNode as createParagraphNode,
 	$createTextNode as createTextNode,
@@ -7,7 +16,8 @@ import {
 	$getNodeByKey as getNodeByKey,
 	$getSelection as getSelection,
 	$isRangeSelection as isRangeSelection,
-	type TextNode
+	$isTextNode as isTextNode,
+	type TextNode as LexicalTextNode
 } from 'lexical';
 import { describe, it, expect, beforeEach } from 'vitest';
 
@@ -176,7 +186,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			});
 
 			editor.update(() => {
-				const node = getNodeByKey(textNodeKey) as TextNode;
+				const node = getNodeByKey(textNodeKey) as LexicalTextNode;
 				wrapIfNecessary({ node, maxLength: 20 });
 			});
 
@@ -209,7 +219,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			});
 
 			editor.update(() => {
-				const node = getNodeByKey(textNodeKey) as TextNode;
+				const node = getNodeByKey(textNodeKey) as LexicalTextNode;
 				wrapIfNecessary({ node, maxLength: 25 });
 			});
 
@@ -243,7 +253,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			});
 
 			editor.update(() => {
-				const node = getNodeByKey(textNodeKey) as TextNode;
+				const node = getNodeByKey(textNodeKey) as LexicalTextNode;
 				wrapIfNecessary({ node, maxLength: 20 });
 			});
 
@@ -282,7 +292,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				root.append(para3);
 
 				// Now edit the first paragraph to make it longer
-				const textNode = para1.getFirstChild() as TextNode;
+				const textNode = para1.getFirstChild() as LexicalTextNode;
 				textNode.setTextContent('This is the first line that has been made much longer');
 
 				// Trigger rewrap
@@ -323,7 +333,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			});
 
 			editor.update(() => {
-				const node = getNodeByKey(textNodeKey) as TextNode;
+				const node = getNodeByKey(textNodeKey) as LexicalTextNode;
 				// Simulate adding text by modifying the content
 				node.setTextContent(
 					'This is a very long line that has not been wrapped yet and definitely needs to be wrapped now'
@@ -370,7 +380,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				root.append(para2);
 
 				// Trigger wrap on first paragraph
-				const textNode = para1.getFirstChild() as TextNode;
+				const textNode = para1.getFirstChild() as LexicalTextNode;
 				wrapIfNecessary({ node: textNode, maxLength: 20 });
 			});
 
@@ -401,7 +411,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				root.append(para2);
 
 				// Trigger wrap on first paragraph
-				const textNode = para1.getFirstChild() as TextNode;
+				const textNode = para1.getFirstChild() as LexicalTextNode;
 				wrapIfNecessary({ node: textNode, maxLength: 20 });
 			});
 
@@ -435,7 +445,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				root.append(para3);
 
 				// Trigger wrap on first paragraph
-				const textNode = para1.getFirstChild() as TextNode;
+				const textNode = para1.getFirstChild() as LexicalTextNode;
 				wrapIfNecessary({ node: textNode, maxLength: 20 });
 			});
 
@@ -466,7 +476,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			});
 
 			editor.update(() => {
-				const node = getNodeByKey(textNodeKey) as TextNode;
+				const node = getNodeByKey(textNodeKey) as LexicalTextNode;
 				// Simulate typing " a word" in the middle, making it overflow
 				node.setTextContent('This a word is exactly at');
 
@@ -514,7 +524,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				root.append(para3);
 
 				// Now edit the first paragraph to add more content
-				const textNode = para1.getFirstChild() as TextNode;
+				const textNode = para1.getFirstChild() as LexicalTextNode;
 				textNode.setTextContent('First line text that has been extended');
 
 				// Trigger rewrap
@@ -557,7 +567,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			});
 
 			editor.update(() => {
-				const node = getNodeByKey(textNodeKey) as TextNode;
+				const node = getNodeByKey(textNodeKey) as LexicalTextNode;
 				// Simulate typing "inserted " in the middle, making it overflow
 				node.setTextContent('- First inserted second third');
 
@@ -606,7 +616,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				root.append(para3);
 
 				// Now edit the first line to make it much longer
-				const textNode = para1.getFirstChild() as TextNode;
+				const textNode = para1.getFirstChild() as LexicalTextNode;
 				textNode.setTextContent('- Short bullet that has been made significantly longer');
 
 				// Trigger rewrap
@@ -664,7 +674,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				root.append(emptyPara2);
 
 				// Trigger wrap on the first paragraph (should not affect empty paragraphs)
-				const textNode = para1.getFirstChild() as TextNode;
+				const textNode = para1.getFirstChild() as LexicalTextNode;
 				wrapIfNecessary({ node: textNode, maxLength: 72 });
 			});
 
@@ -685,6 +695,31 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 		});
 
 		it('should allow adding multiple newlines at the end by typing', () => {
+			const maxLength = 72;
+
+			// Register the IndentPlugin's Enter handler (simulating real editor behavior)
+			editor.registerCommand(KEY_ENTER_COMMAND, handleEnter, COMMAND_PRIORITY_CRITICAL);
+
+			// Register the HardWrapPlugin's mutation listener (simulating the plugin being active)
+			editor.registerMutationListener(TextNode, (nodes: Map<NodeKey, NodeMutation>) => {
+				editor.update(
+					() => {
+						for (const [key, type] of nodes.entries()) {
+							if (type !== 'updated') continue;
+
+							const node = getNodeByKey(key);
+							if (!node || !isTextNode(node)) continue;
+
+							wrapIfNecessary({ node, maxLength });
+						}
+					},
+					{
+						tag: 'history-merge'
+					}
+				);
+			});
+
+			// Set up initial state
 			editor.update(() => {
 				const root = getRoot();
 				const paragraph = createParagraphNode();
@@ -695,38 +730,22 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				textNode.select(9, 9);
 			});
 
-			// Add an empty paragraph at the end
+			// Simulate pressing Enter (like a user would)
 			editor.update(() => {
-				const root = getRoot();
-				const emptyPara = createParagraphNode();
-				emptyPara.append(createTextNode(''));
-				root.append(emptyPara);
+				editor.dispatchCommand(KEY_ENTER_COMMAND, null);
 			});
 
-			// Add another empty paragraph at the end
+			// Press Enter again
 			editor.update(() => {
-				const root = getRoot();
-				const emptyPara = createParagraphNode();
-				emptyPara.append(createTextNode(''));
-				root.append(emptyPara);
+				editor.dispatchCommand(KEY_ENTER_COMMAND, null);
 			});
 
-			// Now trigger wrapping on an empty paragraph (simulating typing in the empty area)
-			editor.update(() => {
-				const root = getRoot();
-				const children = root.getChildren();
-				const lastPara = children[children.length - 1] as ParagraphNode;
-				const textNode = lastPara.getFirstChild() as TextNode;
-				if (textNode) {
-					wrapIfNecessary({ node: textNode, maxLength: 72 });
-				}
-			});
-
+			// Verify the result
 			editor.read(() => {
 				const root = getRoot();
 				const children = root.getChildren();
 
-				// Should still have all paragraphs
+				// Should have 3 paragraphs total
 				expect(children.length).toBe(3);
 
 				// First paragraph should have text
@@ -756,7 +775,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				root.append(emptyPara2);
 
 				// Now type something in the last empty paragraph
-				const lastTextNode = emptyPara2.getFirstChild() as TextNode;
+				const lastTextNode = emptyPara2.getFirstChild() as LexicalTextNode;
 				lastTextNode.setTextContent('x');
 
 				// Trigger wrapping on the last paragraph (this simulates what happens when typing)
@@ -795,7 +814,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				root.append(emptyPara2);
 
 				// Now add more text to the first paragraph
-				const firstTextNode = para1.getFirstChild() as TextNode;
+				const firstTextNode = para1.getFirstChild() as LexicalTextNode;
 				firstTextNode.setTextContent('Some text with more content added');
 
 				// Trigger wrapping on the first paragraph (this simulates what happens when typing)

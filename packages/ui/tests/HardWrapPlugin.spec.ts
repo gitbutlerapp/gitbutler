@@ -287,4 +287,52 @@ test.describe('HardWrapPlugin', () => {
 		const paragraphCount = await getParagraphCount(component);
 		expect(paragraphCount).toBeGreaterThan(1);
 	});
+
+	test('should allow adding multiple newlines at the end by pressing Enter', async ({
+		mount,
+		page
+	}) => {
+		const component = await mount(HardWrapPluginTestWrapper, {
+			props: {
+				maxLength: 72,
+				enabled: true,
+				initialText: 'Some text'
+			}
+		});
+
+		// Wait for initial render
+		await waitForTextContent(component, 'Some text');
+		await waitForParagraphCount(component, 1);
+
+		// Focus the editor
+		await component.getByTestId('focus-button').click();
+
+		// Click at the end of the text
+		const editorWrapper = component.getByTestId('editor-wrapper');
+		const contentEditable = editorWrapper.locator('[contenteditable="true"]').first();
+		await contentEditable.click();
+
+		// Move cursor to end
+		await page.keyboard.press('End');
+
+		// Press Enter to create first empty paragraph
+		await page.keyboard.press('Enter');
+
+		// Wait for paragraph count to increase
+		await waitForParagraphCount(component, 2);
+
+		// Press Enter again to create second empty paragraph
+		await page.keyboard.press('Enter');
+
+		// Wait for paragraph count to increase
+		await waitForParagraphCount(component, 3);
+
+		// Verify we have 3 paragraphs
+		const paragraphCount = await getParagraphCount(component);
+		expect(paragraphCount).toBe(3);
+
+		// Verify the first paragraph still has text
+		const text = await getTextContent(component);
+		expect(text).toContain('Some text');
+	});
 });
