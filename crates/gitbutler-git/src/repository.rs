@@ -95,23 +95,56 @@ where
     #[cfg(feature = "test-askpass-path")]
     let current_exe = current_exe.parent().unwrap();
 
-    let askpath_path = current_exe
-        .with_file_name({
-            #[cfg(unix)]
+    let mut bin_dir = current_exe.parent().unwrap().to_path_buf();
+
+    let askpass_name = {
+        #[cfg(unix)]
+        {
+            "gitbutler-git-askpass"
+        }
+        #[cfg(windows)]
+        {
+            "gitbutler-git-askpass.exe"
+        }
+    };
+
+    // Only in dev mode, check that we're in the right dir.
+    // When running from tauri CARGO_TARGET_DIR=target/tauri, the tauri binary is in target/tauri/debug
+    // but auxiliary binaries are in target/debug. Detect this and use the correct directory.
+    #[cfg(debug_assertions)]
+    {
+        let candidate_dirs = [
+            bin_dir.to_path_buf(),
+            bin_dir
+                .parent()
+                .and_then(|p| p.parent())
+                .map(|p| p.join("debug").to_path_buf())
+                .unwrap_or_else(|| bin_dir.to_path_buf()),
+        ];
+
+        for candidate_dir in candidate_dirs.iter() {
+            let candidate_path = candidate_dir.join(askpass_name);
+            if executor
+                .stat(&candidate_path.to_string_lossy().into_owned())
+                .await
+                .is_ok()
             {
-                "gitbutler-git-askpass"
+                bin_dir = candidate_dir.clone();
+                break;
             }
-            #[cfg(windows)]
-            {
-                "gitbutler-git-askpass.exe"
-            }
-        })
-        .to_string_lossy()
-        .into_owned();
+        }
+        tracing::info!(
+            "Using askpass binary directory: {:?} after checking candidates: {:?}",
+            bin_dir,
+            candidate_dirs
+        );
+    }
+
+    let askpath_path = bin_dir.join(askpass_name).to_string_lossy().into_owned();
 
     #[cfg(unix)]
-    let setsid_path = current_exe
-        .with_file_name("gitbutler-git-setsid")
+    let setsid_path = bin_dir
+        .join("gitbutler-git-setsid")
         .to_string_lossy()
         .into_owned();
 
