@@ -139,7 +139,7 @@
 	</div>
 </section>
 
-<style lang="scss">
+<style lang="postcss">
 	.blog-highlights {
 		display: grid;
 		grid-template-columns: subgrid;

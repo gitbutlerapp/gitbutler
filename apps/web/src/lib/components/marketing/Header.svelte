@@ -75,7 +75,7 @@
 	<MobileMenu />
 </header>
 
-<style lang="scss">
+<style lang="postcss">
 	.header {
 		display: flex;
 		grid-column: narrow-start / off-center;

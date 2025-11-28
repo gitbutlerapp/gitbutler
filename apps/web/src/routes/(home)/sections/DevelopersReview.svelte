@@ -84,7 +84,7 @@
 	</section>
 </section>
 
-<style lang="scss">
+<style lang="postcss">
 	.reviews-wrapper {
 		display: flex;
 		flex-direction: column;

@@ -12,7 +12,7 @@
 
 <Footer />
 
-<style lang="scss">
+<style lang="postcss">
 	.wrapper {
 		display: flex;
 		flex-direction: column;

@@ -46,7 +46,7 @@
 	></video>
 </a>
 
-<style lang="scss">
+<style lang="postcss">
 	.yt-preview {
 		display: flex;
 		position: relative;

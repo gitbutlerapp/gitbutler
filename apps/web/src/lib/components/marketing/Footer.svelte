@@ -173,7 +173,7 @@
 	</div>
 </footer>
 
-<style lang="scss">
+<style lang="postcss">
 	.footer {
 		display: flex;
 		grid-column: full-start / full-end;
