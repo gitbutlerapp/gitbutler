@@ -60,35 +60,35 @@
 		background-color: var(--clr-black);
 		transition: transform 0.2s ease-in-out;
 
-		&__btn {
-			z-index: 2;
-			position: absolute;
-			top: 50%;
-			left: 50%;
-			height: 40px;
-			transform: translate(-50%, -50%);
-		}
-
-		&__overlay-patttern {
-			z-index: 1;
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			background: url('/images/video-thumb/overlay-pattern.svg') repeat;
-			background-size: 4px;
-			opacity: 0.3;
-		}
-
-		&__video {
-			z-index: 0;
-			width: calc(100% + 4px);
-			object-fit: cover;
-		}
-
 		@media (min-width: 500px) {
 			display: none;
 		}
+	}
+
+	.yt-preview__btn {
+		z-index: 2;
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		height: 40px;
+		transform: translate(-50%, -50%);
+	}
+
+	.yt-preview__overlay-patttern {
+		z-index: 1;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: url('/images/video-thumb/overlay-pattern.svg') repeat;
+		background-size: 4px;
+		opacity: 0.3;
+	}
+
+	.yt-preview__video {
+		z-index: 0;
+		width: calc(100% + 4px);
+		object-fit: cover;
 	}
 </style>

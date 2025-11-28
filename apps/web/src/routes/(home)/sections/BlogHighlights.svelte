@@ -178,48 +178,45 @@
 		transition:
 			transform 0.1s ease-in-out,
 			background-color 0.1s ease-in-out;
+	}
 
-		&:hover {
-			.blog-post__image {
-				transform: scale(1.05);
-			}
+	.blog-post:hover .blog-post__image {
+		transform: scale(1.05);
+	}
 
-			.blog-post__title {
-				text-decoration: underline wavy;
-				text-decoration-color: var(--clr-theme-pop-element);
-				text-decoration-thickness: 2px;
-				text-underline-offset: 4px;
-			}
-		}
+	.blog-post:hover .blog-post__title {
+		text-decoration: underline wavy;
+		text-decoration-color: var(--clr-theme-pop-element);
+		text-decoration-thickness: 2px;
+		text-underline-offset: 4px;
+	}
 
-		&--featured {
-			display: flex;
-			flex: 3;
-			flex-direction: column;
-			overflow: hidden;
-			gap: 24px;
-			border: 1px solid var(--clr-gray);
+	.blog-post--featured {
+		display: flex;
+		flex: 3;
+		flex-direction: column;
+		gap: 24px;
+		border: 1px solid var(--clr-gray);
+	}
 
-			&:hover {
-				background-color: color-mix(in srgb, var(--clr-gray), var(--clr-white) 70%);
-			}
+	.blog-post--featured:hover {
+		background-color: color-mix(in srgb, var(--clr-gray), var(--clr-white) 70%);
+	}
 
-			.blog-post__image-container {
-				height: 300px;
-			}
-		}
+	.blog-post--featured .blog-post__image-container {
+		height: 300px;
+	}
 
-		&--secondary {
-			display: flex;
-			overflow: hidden;
-			gap: 32px;
+	.blog-post--secondary {
+		display: flex;
+		overflow: hidden;
+		gap: 32px;
+	}
 
-			.blog-post__image-container {
-				align-self: flex-start;
-				aspect-ratio: 4 / 3;
-				max-width: 280px;
-			}
-		}
+	.blog-post--secondary .blog-post__image-container {
+		align-self: flex-start;
+		aspect-ratio: 4 / 3;
+		max-width: 280px;
 	}
 
 	.blog-post__content {
@@ -253,7 +250,7 @@
 			flex-direction: column;
 			gap: 16px;
 
-			.blog-post__image-container {
+			& .blog-post__image-container {
 				aspect-ratio: auto;
 				width: 100%;
 				max-width: none;
@@ -275,7 +272,7 @@
 		}
 
 		.blog-post--featured {
-			.blog-post__image-container {
+			& .blog-post__image-container {
 				height: 250px;
 			}
 		}
@@ -284,7 +281,7 @@
 			flex: 1;
 			gap: 16px;
 
-			.blog-post__image-container {
+			& .blog-post__image-container {
 				height: 150px;
 			}
 		}
@@ -296,7 +293,7 @@
 
 	@media (--mobile-viewport) {
 		.blog-post--featured {
-			.blog-post__image-container {
+			& .blog-post__image-container {
 				height: 200px;
 			}
 		}
@@ -307,7 +304,7 @@
 		}
 
 		.blog-post--secondary {
-			.blog-post__image-container {
+			& .blog-post__image-container {
 				height: 200px;
 			}
 		}
