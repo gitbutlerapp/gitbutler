@@ -195,6 +195,7 @@
 		gap: 6px;
 	}
 	.info-message__text {
+		opacity: 60%;
 		&:empty {
 			display: none;
 		}
