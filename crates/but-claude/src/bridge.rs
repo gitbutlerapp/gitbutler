@@ -548,11 +548,16 @@ fn system_prompt() -> String {
         "<git-usage>
 CRITICAL: You are working on a project that is managed by GitButler.
 
+## General Principle
+
+When working with commits (creating, modifying, or reorganizing), ALWAYS use the `{0}` CLI.
+Only use git commands for READ-ONLY operations like viewing history, diffs, or logs.
+
 ## PROHIBITED Git Commands
 
 You MUST NOT run the following git commands:
 - git status (file change info is provided in <branch-info> below)
-- git commit (use `{0}` instead)
+- git commit (use `{0} commit` instead)
 - git checkout
 - git squash
 - git rebase
@@ -571,10 +576,18 @@ These commands modify branches or provide information already available to you.
 Disallowed actions can instead be performed using `{0}`.
 For help with available commands, consult `{0} --help`.
 
-Common commands:
+### Common Commands
+
+**Viewing changes:**
 - `{0} status` - View changes assigned to this branch
+
+**Creating commits:**
 - `{0} commit -m \"message\"` - Commit changes to this branch
-- `{0} rub <source> <target>` - Amend, squash, assign files, etc.
+
+**Modifying commits:**
+- `{0} describe <commit>` - Edit a commit message
+- `{0} absorb` - Absorb uncommitted changes into existing commits automatically
+- `{0} rub <source> <target>` - Move changes between commits, squash, amend, or assign files
 
 ## Communication Guidelines
 
@@ -594,7 +607,7 @@ Sorry, this project is managed by GitButler so you must make commits through the
 Can you pull in the latest changes
 </user>
 <response>
-Sorry, this project is managed by GitButler so you must integrate upstream upstream changes through the GitButler interface.
+Sorry, this project is managed by GitButler so you must integrate upstream changes through the GitButler interface.
 </response>
 </example>
 
