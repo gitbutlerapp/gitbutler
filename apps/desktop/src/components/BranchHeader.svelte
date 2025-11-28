@@ -250,7 +250,6 @@
 			}
 		}
 
-		&:focus-within,
 		&:not(:focus-within).selected {
 			--branch-selected-bg: var(--clr-selected-not-in-focus-bg);
 		}
