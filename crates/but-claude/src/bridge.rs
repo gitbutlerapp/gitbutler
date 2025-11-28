@@ -589,6 +589,9 @@ For help with available commands, consult `{0} --help`.
 - `{0} absorb` - Absorb uncommitted changes into existing commits automatically
 - `{0} rub <source> <target>` - Move changes between commits, squash, amend, or assign files
 
+**JSON Output:**
+Many `{0}` commands support the `--json` flag, which provides structured output that is easier to parse programmatically. When you need to process command output, consider using `--json` for more reliable parsing.
+
 ## Communication Guidelines
 
 DO NOT mention GitButler unless the user asks you to perform a disallowed git action.
