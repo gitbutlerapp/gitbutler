@@ -180,13 +180,12 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      - run: |
-          cargo test --workspace --exclude gitbutler-tauri --exclude but-server
+      - run: cargo test --workspace --exclude gitbutler-tauri --exclude but-server
         env:
           GITBUTLER_TESTS_NO_CLEANUP: '1'
-        name: cargo test
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: cargo test -p but --no-default-features
+      - run: cargo test -p but-server
 
   rust-test-tauri:
     needs: changes
