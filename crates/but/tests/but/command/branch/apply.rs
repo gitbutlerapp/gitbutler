@@ -1,6 +1,60 @@
 use crate::utils::{Sandbox, setup_metadata};
 use snapbox::str;
 
+#[test]
+fn single_branch() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("one-fork")?;
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * bf53300 (A) add A
+    | * b1540e5 (HEAD -> main) M
+    |/  
+    | * 0e391b2 (origin/B) add B
+    |/  
+    * e31e6ca (origin/main, origin/HEAD) add init
+    ");
+
+    env.but("branch apply A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Applied branch 'A' to workspace
+
+"#]]);
+
+    // TODO: fix this: A should be in workspace. Also: where is our metadata?
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * bf53300 (A) add A
+    | * e97d217 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * b1540e5 (main) M
+    |/  
+    | * 0e391b2 (origin/B) add B
+    |/  
+    * e31e6ca (origin/main, origin/HEAD) add init
+    ");
+
+    // TODO: should be success and create a local tracking branch.
+    env.but("branch apply origin/B")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Unexpectedly failed to find anchor for refs/heads/gitbutler/workspace to make it a dependent branch
+
+"#]]);
+
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * bf53300 (A) add A
+    | * e97d217 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * b1540e5 (main) M
+    |/  
+    | * 0e391b2 (origin/B) add B
+    |/  
+    * e31e6ca (origin/main, origin/HEAD) add init
+    ");
+    Ok(())
+}
+
 use crate::command::branch::apply::utils::create_local_branch_with_commit_with_message;
 use utils::create_local_branch_with_commit;
 

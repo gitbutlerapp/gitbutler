@@ -34,10 +34,16 @@ impl Drop for Sandbox {
     }
 }
 
-//  TODO: prior init shouldn't be necessary
-enum Mode {
-    Init,
-    Open,
+///  TODO: prior init shouldn't be necessary once project data was migrated *into* the project-data-dir.
+enum InitProject {
+    Allow,
+    Disallow,
+}
+
+/// TODO: remove this once there is no old code anymore that needs target information
+enum InitMetadata {
+    Allow,
+    Disallow,
 }
 
 /// Lifecycle
@@ -56,12 +62,27 @@ impl Sandbox {
     ) -> anyhow::Result<Sandbox> {
         let mode = if cfg!(feature = "legacy") {
             // Needs init, as it's not single-branch compatible, must have legacy project that needs initialisation.
-            Mode::Init
+            InitProject::Allow
         } else {
             // New code does everything lazily and can open any repository without extra step.
-            Mode::Open
+            InitProject::Disallow
         };
-        Self::open_or_init_scenario_with_target_inner(name, Creation::CopyFromReadOnly, mode)
+        Self::open_or_init_scenario_with_target_inner(
+            name,
+            Creation::CopyFromReadOnly,
+            mode,
+            InitMetadata::Allow,
+        )
+    }
+
+    /// Open a repository without any additional setup and default application settings.
+    pub fn open_with_default_settings(name: &str) -> anyhow::Result<Sandbox> {
+        Self::open_or_init_scenario_with_target_inner(
+            name,
+            Creation::CopyFromReadOnly,
+            InitProject::Disallow,
+            InitMetadata::Disallow,
+        )
     }
 
     /// Provide a scenario with `name` for writing, and `but init` already invoked to add the project,
@@ -71,15 +92,22 @@ impl Sandbox {
     /// TODO: we shouldn't have to add the project for interaction - it's only useful for listing.
     /// TODO: there should be no need for the target.
     pub fn init_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
-        Self::open_or_init_scenario_with_target_inner(name, Creation::CopyFromReadOnly, Mode::Init)
+        Self::open_or_init_scenario_with_target_inner(
+            name,
+            Creation::CopyFromReadOnly,
+            InitProject::Allow,
+            InitMetadata::Allow,
+        )
     }
 
     /// Provide a scenario with `name` for writing, with target added.
-    ///
-    /// TODO: we shouldn't have to add the project for interaction - it's only useful for listing.
-    /// TODO: there should be no need for the target.
     pub fn open_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
-        Self::open_or_init_scenario_with_target_inner(name, Creation::CopyFromReadOnly, Mode::Open)
+        Self::open_or_init_scenario_with_target_inner(
+            name,
+            Creation::CopyFromReadOnly,
+            InitProject::Disallow,
+            InitMetadata::Allow,
+        )
     }
 
     /// Like [`Self::init_scenario_with_target_and_default_settings`], Execute the script at `name` instead of
@@ -87,13 +115,19 @@ impl Sandbox {
     pub fn init_scenario_with_target_and_default_settings_slow(
         name: &str,
     ) -> anyhow::Result<Sandbox> {
-        Self::open_or_init_scenario_with_target_inner(name, Creation::ExecuteScript, Mode::Init)
+        Self::open_or_init_scenario_with_target_inner(
+            name,
+            Creation::ExecuteScript,
+            InitProject::Allow,
+            InitMetadata::Allow,
+        )
     }
 
     fn open_or_init_scenario_with_target_inner(
         name: &str,
         script_creation: Creation,
-        mode: Mode,
+        init_mode: InitProject,
+        meta_mode: InitMetadata,
     ) -> anyhow::Result<Sandbox> {
         let repo_dir = but_testsupport::gix_testtools::scripted_fixture_writable_with_args(
             format!("scenario/{name}.sh"),
@@ -108,10 +142,11 @@ impl Sandbox {
         let repo = sandbox.open_repo()?;
 
         // This can fail on unborn repos, let it, see if we can handle unborn.
-        if let Ok(commit_id) = repo.rev_parse_single("origin/main") {
-            sandbox.file(
-                ".git/gitbutler/virtual_branches.toml",
-                r#"
+        if matches!(meta_mode, InitMetadata::Allow) {
+            if let Ok(commit_id) = repo.rev_parse_single("origin/main") {
+                sandbox.file(
+                    ".git/gitbutler/virtual_branches.toml",
+                    r#"
 [default_target]
 branchName = "main"
 remoteName = "origin"
@@ -123,15 +158,16 @@ pushRemoteName = "origin"
 
 [branches]
         "#
-                .replace("<EXTRA_TARGET>", &commit_id.to_string()),
-            );
+                    .replace("<EXTRA_TARGET>", &commit_id.to_string()),
+                );
+            }
         }
         sandbox.set_default_settings()?;
-        match mode {
-            Mode::Init => {
+        match init_mode {
+            InitProject::Allow => {
                 sandbox.but("init").assert().success();
             }
-            Mode::Open => {}
+            InitProject::Disallow => {}
         }
         Ok(sandbox)
     }
