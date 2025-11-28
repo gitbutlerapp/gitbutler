@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Self from '$components/FileTreeNode.svelte';
 	import TreeListFolder from '$components/TreeListFolder.svelte';
-	import { TestId } from '@gitbutler/ui';
+	import { TestId, Button } from '@gitbutler/ui';
 	import type { TreeNode } from '$lib/files/filetreeV3';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { SelectionId } from '$lib/selection/key';
@@ -42,6 +42,17 @@
 	// Local state to track whether the folder is expanded
 	let isExpanded = $state<boolean>(defaultExpanded);
 
+	// For root nodes with many children, use pagination to avoid rendering everything at once
+	const BATCH_SIZE = 100;
+	let visibleCount = $state(BATCH_SIZE);
+	const totalChildren = $derived(node.children.length);
+	const hasMore = $derived(isRoot && visibleCount < totalChildren);
+	const visibleChildren = $derived(isRoot ? node.children.slice(0, visibleCount) : node.children);
+
+	function showMore() {
+		visibleCount = Math.min(visibleCount + BATCH_SIZE, totalChildren);
+	}
+
 	// Handler for toggling the folder
 	function handleToggle() {
 		isExpanded = !isExpanded;
@@ -50,7 +61,7 @@
 
 {#if isRoot}
 	<!-- Node is a root and should only render children! -->
-	{#each node.children as childNode (childNode.name)}
+	{#each visibleChildren as childNode (childNode.name)}
 		<Self
 			{projectId}
 			{stackId}
@@ -64,6 +75,13 @@
 			{fileTemplate}
 		/>
 	{/each}
+	{#if hasMore}
+		<div class="show-more">
+			<Button kind="outline" onclick={showMore}>
+				Show more ({totalChildren - visibleCount} remaining)
+			</Button>
+		</div>
+	{/if}
 {:else if node.kind === 'file'}
 	{@render fileTemplate(node.change, node.index, depth)}
 {:else}
@@ -97,3 +115,11 @@
 		{/each}
 	{/if}
 {/if}
+
+<style>
+	.show-more {
+		display: flex;
+		justify-content: center;
+		padding: 8px;
+	}
+</style>
