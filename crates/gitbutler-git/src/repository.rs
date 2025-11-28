@@ -51,10 +51,8 @@ pub enum RepositoryError<
     AskpassDeviceMismatch,
     #[error("failed to perform askpass security check; executable mismatch")]
     AskpassExecutableMismatch,
-    #[error(
-        "askpass binary at '{path}' not found. Run `cargo build -p gitbutler-git` to get the binaries needed"
-    )]
-    AskpassExecutableNotFound { path: String },
+    #[error("Run `{prefix}cargo build -p gitbutler-git` to get the askpass binary at '{path}'")]
+    AskpassExecutableNotFound { path: String, prefix: String },
 }
 
 /// Higher level errors that can occur when interacting with the CLI.
@@ -95,29 +93,47 @@ where
     #[cfg(feature = "test-askpass-path")]
     let current_exe = current_exe.parent().unwrap();
 
-    let askpath_path = current_exe
-        .with_file_name({
-            #[cfg(unix)]
-            {
-                "gitbutler-git-askpass"
-            }
-            #[cfg(windows)]
-            {
-                "gitbutler-git-askpass.exe"
-            }
-        })
-        .to_string_lossy()
-        .into_owned();
+    let askpath_path = current_exe.with_file_name({
+        #[cfg(unix)]
+        {
+            "gitbutler-git-askpass"
+        }
+        #[cfg(windows)]
+        {
+            "gitbutler-git-askpass.exe"
+        }
+    });
 
     #[cfg(unix)]
-    let setsid_path = current_exe
-        .with_file_name("gitbutler-git-setsid")
-        .to_string_lossy()
-        .into_owned();
+    let setsid_path = current_exe.with_file_name("gitbutler-git-setsid");
 
     let res = executor.stat(&askpath_path).await.map_err(Error::<E>::Exec);
     if res.is_err() {
-        return Err(Error::<E>::AskpassExecutableNotFound { path: askpath_path });
+        let (path, prefix) = if let Some(workdir) = std::env::current_dir().ok().and_then(|cwd| {
+            gix::discover::upwards(&cwd)
+                .ok()
+                .and_then(|p| p.0.into_repository_and_work_tree_directories().1)
+        }) {
+            let prefix = std::env::var_os("CARGO_TARGET_DIR")
+                .map(std::path::PathBuf::from)
+                .map(|path| {
+                    format!(
+                        "CARGO_TARGET_DIR={path} ",
+                        path = path.strip_prefix(&workdir).unwrap_or(&path).display()
+                    )
+                })
+                .unwrap_or_default();
+            (
+                askpath_path.strip_prefix(&workdir).unwrap_or(&askpath_path),
+                prefix,
+            )
+        } else {
+            (askpath_path.as_path(), "".into())
+        };
+        return Err(Error::<E>::AskpassExecutableNotFound {
+            path: path.display().to_string(),
+            prefix,
+        });
     }
     let askpath_stat = res?;
 
@@ -145,7 +161,7 @@ where
     let mut envs = envs.unwrap_or_default();
     envs.insert("GITBUTLER_ASKPASS_PIPE".into(), sock_server.to_string());
     envs.insert("GITBUTLER_ASKPASS_SECRET".into(), secret.clone());
-    envs.insert("SSH_ASKPASS".into(), askpath_path);
+    envs.insert("SSH_ASKPASS".into(), askpath_path.display().to_string());
 
     // DISPLAY is required by SSH to check SSH_ASKPASS.
     // Please don't ask us why, it's unclear.
@@ -177,7 +193,7 @@ where
             {
                 #[cfg(unix)]
                 {
-                    format!("'{setsid_path}' ")
+                    format!("'{setsid_path}' ", setsid_path = setsid_path.display())
                 }
                 #[cfg(windows)]
                 {
