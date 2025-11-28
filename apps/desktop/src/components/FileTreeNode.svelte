@@ -66,6 +66,7 @@
 	<!-- Node is a root and should only render children with lazy loading! -->
 	<LazyloadContainer
 		minTriggerCount={80}
+		itemCount={visibleChildren.length}
 		ontrigger={() => {
 			loadMore();
 		}}
