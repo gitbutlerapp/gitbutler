@@ -65,10 +65,19 @@
 	<Dropzone handlers={[moveBranchHandler]}>
 		{#snippet overlay({ hovered, activated })}
 			{#if activated}
-				<div data-testid="BranchListInsertionDropzone" class="stack-v p-b-10 dropzone-target">
+				<div data-testid="BranchListInsertionDropzone" class="dropzone-target top-dropzone">
 					<BranchLineOverlay {hovered} />
 				</div>
 			{/if}
 		{/snippet}
 	</Dropzone>
 {/if}
+
+<style>
+	.top-dropzone {
+		display: flex;
+		flex-direction: column;
+		margin-top: -12px;
+		padding: 12px 0;
+	}
+</style>
