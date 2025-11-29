@@ -7,7 +7,6 @@
 
 	const userService = inject(USER_SERVICE);
 	const loading = userService.loading;
-	const user = userService.user;
 	const posthog = inject(POSTHOG_WRAPPER);
 
 	const aborted = writable(false);
