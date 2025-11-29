@@ -3,7 +3,7 @@
 	import { ircEnabled, ircServer, fModeEnabled } from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
-	import { SectionCard, Spacer, Textbox, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Textbox, Toggle } from '@gitbutler/ui';
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
@@ -17,8 +17,8 @@
 	Use at your own risk.
 </p>
 
-<div class="experimental-settings__toggles">
-	<SectionCard labelFor="ws3" roundedTop={false} roundedBottom={false} orientation="row">
+<CardGroup>
+	<CardGroup.Item labelFor="ws3">
 		{#snippet title()}
 			New workspace backend
 		{/snippet}
@@ -34,8 +34,8 @@
 					settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 })}
 			/>
 		{/snippet}
-	</SectionCard>
-	<SectionCard labelFor="apply3" roundedTop={false} roundedBottom={false} orientation="row">
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="apply3">
 		{#snippet title()}
 			New apply to workspace
 		{/snippet}
@@ -50,8 +50,8 @@
 					settingsService.updateFeatureFlags({ apply3: !$settingsStore?.featureFlags.apply3 })}
 			/>
 		{/snippet}
-	</SectionCard>
-	<SectionCard labelFor="rules" roundedTop={false} roundedBottom={false} orientation="row">
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="rules">
 		{#snippet title()}
 			Workspace Rules
 		{/snippet}
@@ -67,8 +67,8 @@
 					settingsService.updateFeatureFlags({ rules: !$settingsStore?.featureFlags.rules })}
 			/>
 		{/snippet}
-	</SectionCard>
-	<SectionCard labelFor="f-mode" roundedTop={false} orientation="row">
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="f-mode">
 		{#snippet title()}
 			F Mode Navigation
 		{/snippet}
@@ -82,17 +82,10 @@
 				onclick={() => fModeEnabled.set(!$fModeEnabled)}
 			/>
 		{/snippet}
-	</SectionCard>
+	</CardGroup.Item>
 
 	{#if $user?.role === 'admin'}
-		<Spacer margin={20} />
-
-		<SectionCard
-			labelFor="single-branch"
-			roundedTop={false}
-			roundedBottom={false}
-			orientation="row"
-		>
+		<CardGroup.Item labelFor="single-branch">
 			{#snippet title()}
 				Single-branch mode
 			{/snippet}
@@ -109,9 +102,9 @@
 						})}
 				/>
 			{/snippet}
-		</SectionCard>
+		</CardGroup.Item>
 
-		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
+		<CardGroup.Item labelFor="irc">
 			{#snippet title()}
 				IRC
 			{/snippet}
@@ -121,31 +114,24 @@
 			{#snippet actions()}
 				<Toggle id="irc" checked={$ircEnabled} onclick={() => ($ircEnabled = !$ircEnabled)} />
 			{/snippet}
-		</SectionCard>
+		</CardGroup.Item>
 		{#if $ircEnabled}
-			<SectionCard roundedTop={false} topDivider orientation="column">
-				{#snippet actions()}
-					<Textbox
-						value={$ircServer}
-						size="large"
-						label="Server"
-						placeholder="wss://irc.gitbutler.com:443"
-						onchange={(value) => ($ircServer = value)}
-					/>
-				{/snippet}
-			</SectionCard>
+			<CardGroup.Item>
+				<Textbox
+					value={$ircServer}
+					size="large"
+					label="Server"
+					placeholder="wss://irc.gitbutler.com:443"
+					onchange={(value) => ($ircServer = value)}
+				/>
+			</CardGroup.Item>
 		{/if}
 	{/if}
-</div>
+</CardGroup>
 
 <style>
 	.experimental-settings__text {
 		margin-bottom: 10px;
 		color: var(--clr-text-2);
-	}
-
-	.experimental-settings__toggles {
-		display: flex;
-		flex-direction: column;
 	}
 </style>

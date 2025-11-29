@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import Section from '$components/Section.svelte';
+	import SettingsSection from '$components/SettingsSection.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
 	import { GIT_SERVICE } from '$lib/git/gitService';
@@ -119,7 +119,7 @@
 </script>
 
 <h1 class="clone-title text-serif-42">Clone a <i>repository</i></h1>
-<Section>
+<SettingsSection>
 	<div class="clone__field repositoryUrl">
 		<div class="text-13 text-semibold clone__field--label">Clone URL</div>
 		<Textbox bind:value={repositoryUrl} />
@@ -129,7 +129,7 @@
 		<Textbox bind:value={targetDirPath} placeholder="/Users/tipsy/Documents" />
 		<Button kind="outline" disabled={loading} onclick={handleCloneTargetSelect}>Choose..</Button>
 	</div>
-</Section>
+</SettingsSection>
 
 <Spacer dotted margin={24} />
 

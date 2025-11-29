@@ -5,7 +5,7 @@
 	import GerritForm from '$components/GerritForm.svelte';
 	import RemoveProjectForm from '$components/RemoveProjectForm.svelte';
 	import { projectDisableCodegen } from '$lib/config/config';
-	import { SectionCard, Spacer, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -17,7 +17,7 @@
 <GerritForm {projectId} />
 <ForgeForm {projectId} />
 <!-- Maybe we could inline more settings here -->
-<SectionCard labelFor="disable-codegen" orientation="row">
+<CardGroup.Item standalone labelFor="disable-codegen">
 	{#snippet title()}
 		Disable codegen
 	{/snippet}
@@ -31,6 +31,6 @@
 			onclick={() => ($codegenDisabled = !$codegenDisabled)}
 		/>
 	{/snippet}
-</SectionCard>
+</CardGroup.Item>
 <Spacer />
 <RemoveProjectForm {projectId} />

@@ -3,7 +3,7 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { newlineOnEnter } from '$lib/config/uiFeatureFlags';
 	import { inject } from '@gitbutler/core/context';
-	import { Link, SectionCard, Spacer, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Link, Spacer, Toggle } from '@gitbutler/ui';
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
@@ -52,9 +52,9 @@
 	}
 </script>
 
-<SectionCard>
+<CardGroup.Item standalone>
 	<ClaudeCheck showTitle />
-</SectionCard>
+</CardGroup.Item>
 
 <p class="text-13 text-body clr-text-2">
 	Get the full guide to Agents in GitButler in <Link
@@ -65,7 +65,7 @@
 
 <Spacer margin={10} dotted />
 
-<SectionCard orientation="row" labelFor="autoCommitAfterCompletion">
+<CardGroup.Item standalone labelFor="autoCommitAfterCompletion">
 	{#snippet title()}
 		Auto-commit after completion
 	{/snippet}
@@ -80,9 +80,9 @@
 			onchange={updateAutoCommitAfterCompletion}
 		/>
 	{/snippet}
-</SectionCard>
+</CardGroup.Item>
 
-<SectionCard orientation="row" labelFor="useConfiguredModel">
+<CardGroup.Item standalone labelFor="useConfiguredModel">
 	{#snippet title()}
 		Use configured model
 	{/snippet}
@@ -96,9 +96,9 @@
 			onchange={updateUseConfiguredModel}
 		/>
 	{/snippet}
-</SectionCard>
+</CardGroup.Item>
 
-<SectionCard orientation="row" labelFor="newlineOnEnter">
+<CardGroup.Item standalone labelFor="newlineOnEnter">
 	{#snippet title()}
 		Newline on Enter
 	{/snippet}
@@ -112,10 +112,10 @@
 			onchange={() => newlineOnEnter.set(!$newlineOnEnter)}
 		/>
 	{/snippet}
-</SectionCard>
+</CardGroup.Item>
 
-<div class="stack-v">
-	<SectionCard orientation="row" labelFor="notifyOnCompletion" roundedBottom={false}>
+<CardGroup>
+	<CardGroup.Item labelFor="notifyOnCompletion">
 		{#snippet title()}
 			Notify when finishes
 		{/snippet}
@@ -126,8 +126,8 @@
 				onchange={updateNotifyOnCompletion}
 			/>
 		{/snippet}
-	</SectionCard>
-	<SectionCard orientation="row" labelFor="notifyOnPermissionRequest" roundedTop={false}>
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="notifyOnPermissionRequest">
 		{#snippet title()}
 			Notify when needs permission
 		{/snippet}
@@ -138,12 +138,12 @@
 				onchange={updateNotifyOnPermissionRequest}
 			/>
 		{/snippet}
-	</SectionCard>
-</div>
+	</CardGroup.Item>
+</CardGroup>
 
 <Spacer margin={10} dotted />
 
-<SectionCard orientation="row" labelFor="dangerouslyAllowAllPermissions">
+<CardGroup.Item standalone labelFor="dangerouslyAllowAllPermissions">
 	{#snippet title()}
 		⚠ Dangerously allow all permissions
 	{/snippet}
@@ -158,7 +158,4 @@
 			onchange={updateDangerouslyAllowAllPermissions}
 		/>
 	{/snippet}
-</SectionCard>
-
-<style lang="postcss">
-</style>
+</CardGroup.Item>

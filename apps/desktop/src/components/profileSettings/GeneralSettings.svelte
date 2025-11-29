@@ -12,9 +12,9 @@
 	import { inject } from '@gitbutler/core/context';
 	import {
 		Button,
+		CardGroup,
 		Modal,
 		ProfilePictureUpload,
-		SectionCard,
 		Select,
 		SelectItem,
 		Spacer,
@@ -131,7 +131,7 @@
 </script>
 
 {#if $user}
-	<SectionCard>
+	<CardGroup>
 		<form onsubmit={onSubmit} class="profile-form">
 			<ProfilePictureUpload
 				bind:picture={userPicture}
@@ -148,143 +148,157 @@
 				<Button type="submit" style="pop" loading={saving}>Update profile</Button>
 			</div>
 		</form>
-	</SectionCard>
+	</CardGroup>
 
-	<SectionCard orientation="row">
+	<CardGroup>
+		<CardGroup.Item>
+			{#snippet title()}
+				Signing out
+			{/snippet}
+			{#snippet caption()}
+				Ready to take a break? Click here to log out and unwind.
+			{/snippet}
+			{#snippet actions()}
+				<Button
+					kind="outline"
+					icon="signout"
+					onclick={async () => {
+						await userService.logout();
+					}}>Log out</Button
+				>
+			{/snippet}
+		</CardGroup.Item>
+	</CardGroup>
+{/if}
+
+<WelcomeSigninAction />
+
+<Spacer />
+
+<CardGroup>
+	<CardGroup.Item alignment="center">
 		{#snippet title()}
-			Signing out
+			Default code editor
+		{/snippet}
+		{#snippet actions()}
+			<Select
+				value={$userSettings.defaultCodeEditor.schemeIdentifer}
+				options={editorOptionsForSelect}
+				onselect={(value) => {
+					const selected = editorOptions.find((option) => option.schemeIdentifer === value);
+					if (selected) {
+						userSettings.update((s) => ({ ...s, defaultCodeEditor: selected }));
+					}
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem
+						selected={item.value === $userSettings.defaultCodeEditor.schemeIdentifer}
+						{highlighted}
+					>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		{/snippet}
+	</CardGroup.Item>
+</CardGroup>
+
+<CardGroup>
+	<CardGroup.Item labelFor="disable-auto-checks">
+		{#snippet title()}
+			Automatically check for updates
+		{/snippet}
+
+		{#snippet caption()}
+			Automatically check for updates. You can still check manually when needed.
+		{/snippet}
+
+		{#snippet actions()}
+			<Toggle
+				id="disable-auto-checks"
+				checked={!$disableAutoChecks}
+				onclick={() => ($disableAutoChecks = !$disableAutoChecks)}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+</CardGroup>
+
+<CardGroup>
+	<CardGroup.Item>
+		{#snippet title()}
+			Install the GitButler CLI (but)
+		{/snippet}
+
+		{#snippet caption()}
+			Installs the GitButler CLI (but) in your PATH, allowing you to use it from the terminal. This
+			action will request admin privileges. Alternatively, you could create a symlink manually.
+		{/snippet}
+
+		<div class="flex flex-col gap-16">
+			<div class="flex gap-8 justify-end">
+				<Button
+					style="pop"
+					icon="play"
+					onclick={async () => await instalCLI()}
+					loading={installingCLI.current.isLoading}
+				>
+					Install But CLI</Button
+				>
+				<Button
+					style="neutral"
+					kind="outline"
+					disabled={showSymlink}
+					onclick={() => (showSymlink = !showSymlink)}>Show symlink</Button
+				>
+			</div>
+		</div>
+
+		{#if showSymlink}
+			<CliSymLink class="m-t-14" />
+		{/if}
+	</CardGroup.Item>
+</CardGroup>
+
+<Spacer />
+
+<CardGroup>
+	<CardGroup.Item>
+		{#snippet title()}
+			Remove all projects
 		{/snippet}
 		{#snippet caption()}
-			Ready to take a break? Click here to log out and unwind.
+			You can delete all projects from the GitButler app.
+			<br />
+			Your code remains safe. it only clears the configuration.
 		{/snippet}
 
-		<Button
-			kind="outline"
-			icon="signout"
-			onclick={async () => {
-				await userService.logout();
-			}}>Log out</Button
-		>
-	</SectionCard>
-{:else}
-	<WelcomeSigninAction />
-{/if}
-
-<Spacer />
-
-<SectionCard orientation="row" centerAlign>
-	{#snippet title()}
-		Default code editor
-	{/snippet}
-	{#snippet actions()}
-		<Select
-			value={$userSettings.defaultCodeEditor.schemeIdentifer}
-			options={editorOptionsForSelect}
-			onselect={(value) => {
-				const selected = editorOptions.find((option) => option.schemeIdentifer === value);
-				if (selected) {
-					userSettings.update((s) => ({ ...s, defaultCodeEditor: selected }));
-				}
-			}}
-		>
-			{#snippet itemSnippet({ item, highlighted })}
-				<SelectItem
-					selected={item.value === $userSettings.defaultCodeEditor.schemeIdentifer}
-					{highlighted}
-				>
-					{item.label}
-				</SelectItem>
-			{/snippet}
-		</Select>
-	{/snippet}
-</SectionCard>
-
-<SectionCard labelFor="disable-auto-checks" orientation="row">
-	{#snippet title()}
-		Automatically check for updates
-	{/snippet}
-
-	{#snippet caption()}
-		Automatically check for updates. You can still check manually when needed.
-	{/snippet}
-
-	{#snippet actions()}
-		<Toggle
-			id="disable-auto-checks"
-			checked={!$disableAutoChecks}
-			onclick={() => ($disableAutoChecks = !$disableAutoChecks)}
-		/>
-	{/snippet}
-</SectionCard>
-
-<SectionCard orientation="column">
-	{#snippet title()}
-		Install the GitButler CLI (but)
-	{/snippet}
-
-	{#snippet caption()}
-		Installs the GitButler CLI (but) in your PATH, allowing you to use it from the terminal. This
-		action will request admin privileges. Alternatively, you could create a symlink manually.
-	{/snippet}
-
-	<div class="flex flex-col gap-16">
-		<div class="flex gap-8 justify-end">
-			<Button
-				style="pop"
-				icon="play"
-				onclick={async () => await instalCLI()}
-				loading={installingCLI.current.isLoading}
-			>
-				Install But CLI</Button
-			>
-			<Button
-				style="neutral"
-				kind="outline"
-				disabled={showSymlink}
-				onclick={() => (showSymlink = !showSymlink)}>Show symlink</Button
-			>
-		</div>
-	</div>
-</SectionCard>
-
-{#if showSymlink}
-	<CliSymLink class="m-t-14" />
-{/if}
-
-<Spacer />
-
-<SectionCard orientation="row">
-	{#snippet title()}
-		Remove all projects
-	{/snippet}
-	{#snippet caption()}
-		You can delete all projects from the GitButler app.
-		<br />
-		Your code remains safe. it only clears the configuration.
-	{/snippet}
-
-	<Button style="error" kind="outline" onclick={() => deleteConfirmationModal?.show()}>
-		Remove projects…
-	</Button>
-
-	<Modal
-		bind:this={deleteConfirmationModal}
-		width="small"
-		title="Remove all projects"
-		onSubmit={onDeleteClicked}
-	>
-		<p>Are you sure you want to remove all GitButler projects?</p>
-
-		{#snippet controls(close)}
-			<Button style="error" kind="outline" loading={isDeleting} type="submit">Remove</Button>
-			<Button style="pop" onclick={close}>Cancel</Button>
+		{#snippet actions()}
+			<Button style="error" kind="outline" onclick={() => deleteConfirmationModal?.show()}>
+				Remove projects…
+			</Button>
 		{/snippet}
-	</Modal>
-</SectionCard>
+	</CardGroup.Item>
+</CardGroup>
+
+<Modal
+	bind:this={deleteConfirmationModal}
+	width="small"
+	title="Remove all projects"
+	onSubmit={onDeleteClicked}
+>
+	<p>Are you sure you want to remove all GitButler projects?</p>
+
+	{#snippet controls(close)}
+		<Button style="error" kind="outline" loading={isDeleting} type="submit">Remove</Button>
+		<Button style="pop" onclick={close}>Cancel</Button>
+	{/snippet}
+</Modal>
 
 <style lang="postcss">
 	.profile-form {
 		display: flex;
+		padding: 16px;
 		gap: 24px;
 	}
 

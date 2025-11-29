@@ -7,7 +7,6 @@
 
 	const userService = inject(USER_SERVICE);
 	const loading = userService.loading;
-	const user = userService.user;
 	const posthog = inject(POSTHOG_WRAPPER);
 
 	const aborted = writable(false);
@@ -41,30 +40,28 @@
 	});
 </script>
 
-{#if !$user}
-	{#if !showAbort}
-		<Button
-			style="pop"
-			loading={$loading}
-			icon="signin"
-			onclick={async () => {
-				$aborted = false;
-				posthog.captureOnboarding(OnboardingEvent.LoginGitButler);
-				await userService.login(aborted);
-			}}
-		>
-			Sign up or Log in
-		</Button>
-	{:else}
-		<Button
-			kind="outline"
-			onclick={() => {
-				$aborted = true;
-				posthog.captureOnboarding(OnboardingEvent.CancelLoginGitButler);
-			}}
-			loading={$aborted}
-		>
-			Cancel login
-		</Button>
-	{/if}
+{#if !showAbort}
+	<Button
+		style="pop"
+		loading={$loading}
+		icon="signin"
+		onclick={async () => {
+			$aborted = false;
+			posthog.captureOnboarding(OnboardingEvent.LoginGitButler);
+			await userService.login(aborted);
+		}}
+	>
+		Sign up or Log in
+	</Button>
+{:else}
+	<Button
+		kind="outline"
+		onclick={() => {
+			$aborted = true;
+			posthog.captureOnboarding(OnboardingEvent.CancelLoginGitButler);
+		}}
+		loading={$aborted}
+	>
+		Cancel login
+	</Button>
 {/if}

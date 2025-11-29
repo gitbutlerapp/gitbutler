@@ -13,7 +13,7 @@
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
-	import { Button, chipToasts, Icon, Modal, SectionCard, Spacer } from '@gitbutler/ui';
+	import { Button, CardGroup, chipToasts, Icon, Modal, Spacer } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
 	const userService = inject(USER_SERVICE);
@@ -108,7 +108,7 @@
 			{/if}
 
 			{#if $user}
-				<SectionCard orientation="row">
+				<CardGroup.Item standalone>
 					{#snippet title()}
 						Signing out
 					{/snippet}
@@ -118,9 +118,9 @@
 					{#snippet actions()}
 						<Button kind="outline" icon="signout" onclick={logout}>Log out</Button>
 					{/snippet}
-				</SectionCard>
+				</CardGroup.Item>
 
-				<SectionCard orientation="row">
+				<CardGroup.Item standalone>
 					{#snippet title()}
 						Refresh access token
 					{/snippet}
@@ -132,17 +132,17 @@
 					{#snippet actions()}
 						<Button kind="outline" icon="update" onclick={refreshAccessToken}>Refresh</Button>
 					{/snippet}
-				</SectionCard>
+				</CardGroup.Item>
 
 				<Spacer />
 
-				<div class="stack-v">
-					<SectionCard orientation="row" roundedBottom={false}>
+				<CardGroup>
+					<CardGroup.Item>
 						{#snippet title()}
 							Danger zone
 						{/snippet}
-					</SectionCard>
-					<SectionCard orientation="row" roundedTop={false}>
+					</CardGroup.Item>
+					<CardGroup.Item>
 						{#snippet caption()}
 							Permanently delete your account and all data.
 							<br />
@@ -151,8 +151,8 @@
 						{#snippet actions()}
 							<Button style="error" onclick={initiateDeleteAccount}>Delete my account…</Button>
 						{/snippet}
-					</SectionCard>
-				</div>
+					</CardGroup.Item>
+				</CardGroup>
 			{/if}
 		</div>
 

@@ -2,7 +2,7 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { inject } from '@gitbutler/core/context';
-	import { Link, SectionCard, Toggle, Select, SelectItem } from '@gitbutler/ui';
+	import { CardGroup, Link, Select, SelectItem, Toggle } from '@gitbutler/ui';
 	import { onMount } from 'svelte';
 
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
@@ -48,7 +48,7 @@
 	});
 </script>
 
-<SectionCard labelFor="committerSigning" orientation="row">
+<CardGroup.Item standalone labelFor="committerSigning">
 	{#snippet title()}
 		Credit GitButler as the committer
 	{/snippet}
@@ -64,9 +64,9 @@
 	{#snippet actions()}
 		<Toggle id="committerSigning" checked={annotateCommits} onclick={toggleCommitterSigning} />
 	{/snippet}
-</SectionCard>
+</CardGroup.Item>
 
-<SectionCard labelFor="fetchFrequency" orientation="row" centerAlign>
+<CardGroup.Item standalone labelFor="fetchFrequency" alignment="center">
 	{#snippet title()}
 		Auto-fetch frequency
 	{/snippet}
@@ -84,4 +84,4 @@
 			{/snippet}
 		</Select>
 	{/snippet}
-</SectionCard>
+</CardGroup.Item>

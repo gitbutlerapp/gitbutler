@@ -1,12 +1,5 @@
 <script lang="ts">
-	import {
-		ProfilePictureUpload,
-		SectionCard,
-		Button,
-		Textbox,
-		Toggle,
-		Spacer
-	} from '@gitbutler/ui';
+	import { Button, CardGroup, ProfilePictureUpload, Spacer, Textbox, Toggle } from '@gitbutler/ui';
 	import type { User, UserService } from '$lib/user/userService';
 
 	interface Props {
@@ -76,100 +69,102 @@
 	}
 </script>
 
-<form onsubmit={updateAdditionalInfo}>
-	<SectionCard roundedBottom={false}>
-		<div class="profile-header">
-			<ProfilePictureUpload
-				picture={user.picture}
-				onFileSelect={onPictureChange}
-				onInvalidFileType={() => {
-					// TODO: Add toast notification for invalid file type
-				}}
-			/>
+<CardGroup>
+	<form onsubmit={updateAdditionalInfo}>
+		<CardGroup.Item>
+			<div class="profile-header">
+				<ProfilePictureUpload
+					picture={user.picture}
+					onFileSelect={onPictureChange}
+					onInvalidFileType={() => {
+						// TODO: Add toast notification for invalid file type
+					}}
+				/>
 
+				<div class="contact-info__fields">
+					<Textbox
+						id="full-name"
+						label="Full name"
+						type="text"
+						bind:value={nameValue}
+						readonly={updatingName}
+						onblur={updateName}
+						onkeydown={(e) => e.key === 'Enter' && updateName()}
+					/>
+					<Textbox id="email" label="Email" type="text" bind:value={emailValue} readonly={true} />
+				</div>
+			</div>
+		</CardGroup.Item>
+
+		<CardGroup.Item>
 			<div class="contact-info__fields">
 				<Textbox
-					id="full-name"
-					label="Full name"
+					id="website"
+					label="Website"
+					type="url"
+					placeholder="https://example.com"
+					bind:value={websiteValue}
+					readonly={updatingAdditionalInfo}
+				/>
+
+				<Textbox
+					id="twitter"
+					label="Twitter"
 					type="text"
-					bind:value={nameValue}
-					readonly={updatingName}
-					onblur={updateName}
-					onkeydown={(e) => e.key === 'Enter' && updateName()}
+					placeholder="@username"
+					bind:value={twitterValue}
+					readonly={updatingAdditionalInfo}
 				/>
-				<Textbox id="email" label="Email" type="text" bind:value={emailValue} readonly={true} />
+
+				<Textbox
+					id="bluesky"
+					label="Bluesky"
+					type="text"
+					placeholder="@handle.bsky.social"
+					bind:value={blueskyValue}
+					readonly={updatingAdditionalInfo}
+				/>
+
+				<Textbox
+					id="location"
+					label="Location"
+					type="text"
+					placeholder="City, Country"
+					bind:value={locationValue}
+					readonly={updatingAdditionalInfo}
+				/>
+
+				<Spacer dotted />
+
+				<label class="checkbox-section" for="email-share">
+					<div class="checkbox-section__label">
+						<h3 class="text-15 text-bold">Share my email</h3>
+						<p class="text-12 text-body clr-text-2">Allow other users to see your email address.</p>
+					</div>
+					<Toggle
+						id="email-share"
+						checked={emailShareValue}
+						disabled={updatingAdditionalInfo}
+						onclick={() => (emailShareValue = !emailShareValue)}
+					/>
+				</label>
 			</div>
-		</div>
-	</SectionCard>
+		</CardGroup.Item>
 
-	<SectionCard roundedBottom={false} roundedTop={false}>
-		<div class="contact-info__fields">
-			<Textbox
-				id="website"
-				label="Website"
-				type="url"
-				placeholder="https://example.com"
-				bind:value={websiteValue}
-				readonly={updatingAdditionalInfo}
-			/>
-
-			<Textbox
-				id="twitter"
-				label="Twitter"
-				type="text"
-				placeholder="@username"
-				bind:value={twitterValue}
-				readonly={updatingAdditionalInfo}
-			/>
-
-			<Textbox
-				id="bluesky"
-				label="Bluesky"
-				type="text"
-				placeholder="@handle.bsky.social"
-				bind:value={blueskyValue}
-				readonly={updatingAdditionalInfo}
-			/>
-
-			<Textbox
-				id="location"
-				label="Location"
-				type="text"
-				placeholder="City, Country"
-				bind:value={locationValue}
-				readonly={updatingAdditionalInfo}
-			/>
-
-			<Spacer dotted />
-
-			<label class="checkbox-section" for="email-share">
-				<div class="checkbox-section__label">
-					<h3 class="text-15 text-bold">Share my email</h3>
-					<p class="text-12 text-body clr-text-2">Allow other users to see your email address.</p>
-				</div>
-				<Toggle
-					id="email-share"
-					checked={emailShareValue}
+		<CardGroup.Item>
+			<div class="flex justify-end">
+				<Button
+					type="submit"
+					style="pop"
+					loading={updatingAdditionalInfo}
 					disabled={updatingAdditionalInfo}
-					onclick={() => (emailShareValue = !emailShareValue)}
-				/>
-			</label>
-		</div>
-	</SectionCard>
-
-	<SectionCard roundedTop={false}>
-		<div class="flex justify-end">
-			<Button
-				type="submit"
-				style="pop"
-				loading={updatingAdditionalInfo}
-				disabled={updatingAdditionalInfo}
-			>
-				{updatingAdditionalInfo ? 'Saving...' : 'Update profile'}
-			</Button>
-		</div>
-	</SectionCard>
-</form>
+				>
+					{updatingAdditionalInfo ? 'Saving...' : 'Update profile'}
+				</Button>
+			</div>
+		</CardGroup.Item>
+	</form>
+</CardGroup>
 
 <style lang="postcss">
 	.profile-header {
