@@ -6,9 +6,9 @@
 	import { inject } from '@gitbutler/core/context';
 	import {
 		Button,
+		CardGroup,
 		InfoMessage,
 		Link,
-		Section,
 		Select,
 		SelectItem,
 		Textbox,
@@ -96,8 +96,8 @@
 </script>
 
 <SettingsSection>
-	<Section>
-		<Section.Card labelFor="signCommits">
+	<CardGroup>
+		<CardGroup.Item labelFor="signCommits">
 			{#snippet title()}
 				Sign commits
 			{/snippet}
@@ -110,11 +110,11 @@
 			{#snippet actions()}
 				<Toggle id="signCommits" checked={signCommits} onclick={handleSignCommitsClick} />
 			{/snippet}
-		</Section.Card>
-	</Section>
+		</CardGroup.Item>
+	</CardGroup>
 	{#if signCommits}
-		<Section>
-			<Section.Card>
+		<CardGroup>
+			<CardGroup.Item>
 				<Select
 					value={signingFormat}
 					options={signingFormatOptions}
@@ -180,7 +180,7 @@
 						>Read more</Link
 					> about commit signing and verification.
 				</SectionCardDisclaimer>
-			</Section.Card>
-		</Section>
+			</CardGroup.Item>
+		</CardGroup>
 	{/if}
 </SettingsSection>

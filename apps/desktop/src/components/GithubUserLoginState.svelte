@@ -7,7 +7,7 @@
 		type GitHubAccountIdentifier
 	} from '$lib/forge/github/githubUserService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Avatar, Button, Section } from '@gitbutler/ui';
+	import { Avatar, Button, CardGroup } from '@gitbutler/ui';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 
 	type Props = {
@@ -26,7 +26,7 @@
 </script>
 
 {#snippet row(user: AuthenticatedUser | null)}
-	<Section.Card>
+	<CardGroup.Item>
 		{#snippet iconSide()}
 			<div class="avatar">
 				{#if isError || !user}
@@ -77,7 +77,7 @@
 				loading={forgetting.current.isLoading}>Forget</Button
 			>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 {/snippet}
 
 <ReduxResult result={ghUser.result}>

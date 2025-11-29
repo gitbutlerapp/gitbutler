@@ -6,7 +6,7 @@
 	import { BACKEND } from '$lib/backend';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
-	import { Section, Spacer, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
 	import type { Project } from '$lib/project/project';
 
 	const { projectId }: { projectId: string } = $props();
@@ -33,8 +33,8 @@
 	<Spacer />
 	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
-			<Section>
-				<Section.Card labelFor="allowForcePush">
+			<CardGroup>
+				<CardGroup.Item labelFor="allowForcePush">
 					{#snippet title()}
 						Allow force pushing
 					{/snippet}
@@ -49,8 +49,8 @@
 							onchange={(checked) => onForcePushClick(project, checked)}
 						/>
 					{/snippet}
-				</Section.Card>
-				<Section.Card labelFor="forcePushProtection">
+				</CardGroup.Item>
+				<CardGroup.Item labelFor="forcePushProtection">
 					{#snippet title()}
 						Force push protection
 					{/snippet}
@@ -65,8 +65,8 @@
 							onchange={(checked) => onForcePushProtectionClick(project, checked)}
 						/>
 					{/snippet}
-				</Section.Card>
-			</Section>
+				</CardGroup.Item>
+			</CardGroup>
 		{/snippet}
 	</ReduxResult>
 </SettingsSection>

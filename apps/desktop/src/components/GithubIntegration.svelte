@@ -10,11 +10,11 @@
 
 	import {
 		Button,
+		CardGroup,
 		ContextMenu,
 		ContextMenuItem,
 		ContextMenuSection,
 		Link,
-		Section,
 		Textbox,
 		chipToasts as toasts
 	} from '@gitbutler/ui';
@@ -148,11 +148,11 @@
 </script>
 
 <div class="stack-v gap-16">
-	<Section>
+	<CardGroup>
 		<ReduxResult result={accounts.result}>
 			<!-- IF ERRROR -->
 			{#snippet error()}
-				<Section.Card>
+				<CardGroup.Item>
 					{#snippet title()}
 						Failed to load GitHub accounts
 					{/snippet}
@@ -161,7 +161,7 @@
 						onclick={deleteAllGitHubAccounts}
 						loading={clearingAllResult.current.isLoading}>Try again</Button
 					>
-				</Section.Card>
+				</CardGroup.Item>
 			{/snippet}
 
 			<!-- ADD ACCOUNT(S) LIST -->
@@ -171,7 +171,7 @@
 					<GithubUserLoginState {account} />
 				{/each}
 
-				<Section.Card background={accounts.length > 0 ? 'var(--clr-bg-2)' : undefined}>
+				<CardGroup.Item background={accounts.length > 0 ? 'var(--clr-bg-2)' : undefined}>
 					{#snippet iconSide()}
 						<div class="icon-wrapper__logo">
 							{@html githubLogoSvg}
@@ -189,15 +189,15 @@
 					{#snippet actions()}
 						{@render addAccountButton(noAccounts)}
 					{/snippet}
-				</Section.Card>
+				</CardGroup.Item>
 			{/snippet}
 		</ReduxResult>
-	</Section>
+	</CardGroup>
 
 	<!-- AUTH FLOW -->
 	{#if showingFlow === 'oauthFlow'}
 		<div in:fade={{ duration: 100 }}>
-			<Section.Card standalone>
+			<CardGroup.Item standalone>
 				<div class="wrapper">
 					<div class="step-section">
 						<div class="step-line"></div>
@@ -269,13 +269,13 @@
 						</div>
 					{/if}
 				</div>
-			</Section.Card>
+			</CardGroup.Item>
 		</div>
 
 		<!-- PAT FLOW -->
 	{:else if showingFlow === 'pat'}
-		<Section>
-			<Section.Card>
+		<CardGroup>
+			<CardGroup.Item>
 				{#snippet title()}
 					Add Personal Access Token
 				{/snippet}
@@ -288,8 +288,8 @@
 					oninput={(value) => (patInput = value)}
 					error={patError}
 				/>
-			</Section.Card>
-			<Section.Card>
+			</CardGroup.Item>
+			<CardGroup.Item>
 				<div class="flex justify-end gap-6">
 					<Button style="neutral" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
 					<Button
@@ -301,11 +301,11 @@
 						Add account
 					</Button>
 				</div>
-			</Section.Card>
-		</Section>
+			</CardGroup.Item>
+		</CardGroup>
 	{:else if showingFlow === 'ghe'}
-		<Section>
-			<Section.Card>
+		<CardGroup>
+			<CardGroup.Item>
 				{#snippet title()}
 					Add GitHub Enterprise Account
 				{/snippet}
@@ -335,8 +335,8 @@
 					oninput={(value) => (ghePatInput = value)}
 					error={ghePatError}
 				/>
-			</Section.Card>
-			<Section.Card>
+			</CardGroup.Item>
+			<CardGroup.Item>
 				<div class="flex justify-end gap-6">
 					<Button style="neutral" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
 					<Button
@@ -348,8 +348,8 @@
 						Add account
 					</Button>
 				</div>
-			</Section.Card>
-		</Section>
+			</CardGroup.Item>
+		</CardGroup>
 	{/if}
 </div>
 

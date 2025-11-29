@@ -2,7 +2,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, InfoMessage, Section, Select, SelectItem } from '@gitbutler/ui';
+	import { Button, CardGroup, InfoMessage, Select, SelectItem } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -50,8 +50,8 @@
 {:else if remoteBranchesQuery.result.isSuccess}
 	{@const remoteBranches = remoteBranchesQuery.response}
 	{#if remoteBranches && remoteBranches.length > 0}
-		<Section>
-			<Section.Card>
+		<CardGroup>
+			<CardGroup.Item>
 				{#snippet title()}
 					Remote configuration
 				{/snippet}
@@ -120,8 +120,8 @@
 							: 'Update configuration'}
 					</Button>
 				{/if}
-			</Section.Card>
-		</Section>
+			</CardGroup.Item>
+		</CardGroup>
 	{/if}
 {:else if remoteBranchesQuery.result.isError}
 	<InfoMessage filled outlined={true} style="error" icon="error">

@@ -3,7 +3,7 @@
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
-	import { Section, Spacer, Textarea, Textbox, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Spacer, Textarea, Textbox, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -13,7 +13,7 @@
 	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 </script>
 
-<Section>
+<CardGroup>
 	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<div class="fields-wrapper">
@@ -44,12 +44,12 @@
 			</div>
 		{/snippet}
 	</ReduxResult>
-</Section>
+</CardGroup>
 
 <Spacer />
 
-<Section>
-	<Section.Card labelFor="runHooks">
+<CardGroup>
+	<CardGroup.Item labelFor="runHooks">
 		{#snippet title()}
 			Run Git hooks
 		{/snippet}
@@ -60,8 +60,8 @@
 		{#snippet actions()}
 			<Toggle id="runHooks" bind:checked={$runCommitHooks} />
 		{/snippet}
-	</Section.Card>
-</Section>
+	</CardGroup.Item>
+</CardGroup>
 
 <Spacer />
 

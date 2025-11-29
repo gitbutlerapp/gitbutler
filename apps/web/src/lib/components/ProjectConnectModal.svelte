@@ -8,7 +8,7 @@
 	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
 	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
 
-	import { Button, Modal, Section, chipToasts } from '@gitbutler/ui';
+	import { Button, CardGroup, Modal, chipToasts } from '@gitbutler/ui';
 	import type { Project } from '@gitbutler/shared/organizations/types';
 
 	type Props = {
@@ -147,11 +147,11 @@
 	{#if !selectedOrgSlug}
 		<!-- Organization Selection Step -->
 		{#if organizations.current && organizations.current.length > 0}
-			<Section>
+			<CardGroup>
 				{#each organizations.current as organization}
 					<Loading loadable={organization}>
 						{#snippet children(organization)}
-							<Section.Card>
+							<CardGroup.Item>
 								<div class="org-info">
 									<h5 class="text-15 text-bold">{organization.name || organization.slug}</h5>
 									{#if organization.description}
@@ -161,11 +161,11 @@
 								<Button style="pop" onclick={() => selectOrganization(organization.slug)}>
 									Select
 								</Button>
-							</Section.Card>
+							</CardGroup.Item>
 						{/snippet}
 					</Loading>
 				{/each}
-			</Section>
+			</CardGroup>
 		{:else}
 			<div class="empty-state">
 				<p>You don't belong to any organizations yet.</p>
@@ -185,11 +185,11 @@
 				<p>Loading projects...</p>
 			</div>
 		{:else}
-			<Section>
+			<CardGroup>
 				{#if organizationProjects.length > 0}
 					{#each organizationProjects as orgProject}
 						<div class={selectedProjectSlug === orgProject.slug ? 'selected' : ''}>
-							<Section.Card onclick={() => selectProject(orgProject.slug)}>
+							<CardGroup.Item onclick={() => selectProject(orgProject.slug)}>
 								<div class="project-info">
 									<h5 class="text-15 text-bold">{orgProject.name}</h5>
 									{#if orgProject.description}
@@ -205,14 +205,14 @@
 										onclick={() => selectProject(orgProject.slug)}
 									/>
 								</div>
-							</Section.Card>
+							</CardGroup.Item>
 						</div>
 					{/each}
 				{/if}
 
 				<!-- Create New Project Option -->
 				<div class={isCreatingNew ? 'selected create-new' : 'create-new'}>
-					<Section.Card onclick={toggleCreateNew}>
+					<CardGroup.Item onclick={toggleCreateNew}>
 						<div class="project-info">
 							<h5 class="text-15 text-bold">Create New Project</h5>
 							{#if isCreatingNew}
@@ -238,9 +238,9 @@
 								onclick={toggleCreateNew}
 							/>
 						</div>
-					</Section.Card>
+					</CardGroup.Item>
 				</div>
-			</Section>
+			</CardGroup>
 
 			<div class="action-buttons">
 				<Button style="pop" onclick={() => connectToOrganization(selectedOrgSlug || '')}>

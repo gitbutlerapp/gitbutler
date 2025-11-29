@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Section, Toggle, Spacer } from '@gitbutler/ui';
+	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
 	import type { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
 	import type { NotificationSettings as NotificationSettingsType } from '@gitbutler/shared/settings/types';
 
@@ -75,8 +75,8 @@
 	</p>
 </div>
 
-<Section>
-	<Section.Card labelFor="receive-chat-mention-emails">
+<CardGroup>
+	<CardGroup.Item labelFor="receive-chat-mention-emails">
 		{#snippet title()}
 			Chat message mention emails
 		{/snippet}
@@ -92,9 +92,9 @@
 					updateReceiveChatMentionEmails(!notificationSettings.receiveChatMentionEmails)}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="receive-chat-reply-emails">
+	<CardGroup.Item labelFor="receive-chat-reply-emails">
 		{#snippet title()}
 			Chat message reply emails
 		{/snippet}
@@ -109,9 +109,9 @@
 				onclick={() => updateReceiveChatReplyEmails(!notificationSettings.receiveChatReplyEmails)}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="receive-issue-creation-emails">
+	<CardGroup.Item labelFor="receive-issue-creation-emails">
 		{#snippet title()}
 			Issue creation emails
 		{/snippet}
@@ -127,9 +127,9 @@
 					updateReceiveIssueCreationEmails(!notificationSettings.receiveIssueCreationEmails)}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="receive-issue-resolution-emails">
+	<CardGroup.Item labelFor="receive-issue-resolution-emails">
 		{#snippet title()}
 			Issue status emails
 		{/snippet}
@@ -145,9 +145,9 @@
 					updateReceiveIssueResolutionEmails(!notificationSettings.receiveIssueResolutionEmails)}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="receive-review-branch-emails">
+	<CardGroup.Item labelFor="receive-review-branch-emails">
 		{#snippet title()}
 			Branch version update emails
 		{/snippet}
@@ -163,9 +163,9 @@
 					updateReceiveReviewBranchEmails(!notificationSettings.receiveReviewBranchEmails)}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="receive-sign-off-emails">
+	<CardGroup.Item labelFor="receive-sign-off-emails">
 		{#snippet title()}
 			Change status update emails
 		{/snippet}
@@ -180,5 +180,5 @@
 				onclick={() => updateReceiveSignOffEmails(!notificationSettings.receiveSignOffEmails)}
 			/>
 		{/snippet}
-	</Section.Card>
-</Section>
+	</CardGroup.Item>
+</CardGroup>

@@ -4,9 +4,9 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/core/context';
 	import {
+		CardGroup,
 		HunkDiff,
 		RadioButton,
-		Section,
 		Select,
 		SelectItem,
 		Textbox,
@@ -48,14 +48,14 @@
 	}
 </script>
 
-<Section.Card standalone>
+<CardGroup.Item standalone>
 	{#snippet title()}
 		Theme
 	{/snippet}
 	<ThemeSelector {userSettings} />
-</Section.Card>
+</CardGroup.Item>
 
-<Section.Card alignment="center" standalone>
+<CardGroup.Item alignment="center" standalone>
 	{#snippet title()}
 		Default file list mode
 	{/snippet}
@@ -84,10 +84,10 @@
 			{/snippet}
 		</Select>
 	{/snippet}
-</Section.Card>
+</CardGroup.Item>
 
-<Section>
-	<Section.Card alignment="center">
+<CardGroup>
+	<CardGroup.Item alignment="center">
 		{#snippet title()}
 			Diff preview
 		{/snippet}
@@ -103,9 +103,9 @@
 			inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 			hunkStr={diff}
 		/>
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card>
+	<CardGroup.Item>
 		{#snippet title()}
 			Font family
 		{/snippet}
@@ -124,9 +124,9 @@
 				}));
 			}}
 		/>
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="allowDiffLigatures">
+	<CardGroup.Item labelFor="allowDiffLigatures">
 		{#snippet title()}
 			Allow font ligatures
 		{/snippet}
@@ -142,9 +142,9 @@
 				}}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card alignment="center">
+	<CardGroup.Item alignment="center">
 		{#snippet title()}
 			Tab size
 		{/snippet}
@@ -170,9 +170,9 @@
 				placeholder={$userSettings.tabSize.toString()}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="wrapText">
+	<CardGroup.Item labelFor="wrapText">
 		{#snippet title()}
 			Soft wrap
 		{/snippet}
@@ -192,9 +192,9 @@
 				}}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card>
+	<CardGroup.Item>
 		{#snippet title()}
 			Lines contrast
 		{/snippet}
@@ -224,9 +224,9 @@
 				{/snippet}
 			</Select>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="colorBlindFriendly">
+	<CardGroup.Item labelFor="colorBlindFriendly">
 		{#snippet title()}
 			Color blind-friendly colors
 		{/snippet}
@@ -247,9 +247,9 @@
 				}}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="inlineUnifiedDiffs">
+	<CardGroup.Item labelFor="inlineUnifiedDiffs">
 		{#snippet title()}
 			Display word diffs inline
 		{/snippet}
@@ -269,12 +269,12 @@
 				}}
 			/>
 		{/snippet}
-	</Section.Card>
-</Section>
+	</CardGroup.Item>
+</CardGroup>
 
-<Section>
+<CardGroup>
 	<form class="stack-v" onchange={(e) => onScrollbarFormChange(e.currentTarget)}>
-		<Section.Card labelFor="scrollbar-on-scroll">
+		<CardGroup.Item labelFor="scrollbar-on-scroll">
 			{#snippet title()}
 				Scrollbar-On-Scroll
 			{/snippet}
@@ -289,9 +289,9 @@
 					checked={$userSettings.scrollbarVisibilityState === 'scroll'}
 				/>
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 
-		<Section.Card labelFor="scrollbar-on-hover">
+		<CardGroup.Item labelFor="scrollbar-on-hover">
 			{#snippet title()}
 				Scrollbar-On-Hover
 			{/snippet}
@@ -306,9 +306,9 @@
 					checked={$userSettings.scrollbarVisibilityState === 'hover'}
 				/>
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 
-		<Section.Card labelFor="scrollbar-always">
+		<CardGroup.Item labelFor="scrollbar-always">
 			{#snippet title()}
 				Always show scrollbar
 			{/snippet}
@@ -320,13 +320,13 @@
 					checked={$userSettings.scrollbarVisibilityState === 'always'}
 				/>
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 	</form>
-</Section>
+</CardGroup>
 
-<Section>
+<CardGroup>
 	<form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
-		<Section.Card labelFor="stage-all">
+		<CardGroup.Item labelFor="stage-all">
 			{#snippet title()}
 				Stage all files
 			{/snippet}
@@ -342,9 +342,9 @@
 					checked={$stagingBehaviorFeature === 'all'}
 				/>
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 
-		<Section.Card labelFor="stage-selection">
+		<CardGroup.Item labelFor="stage-selection">
 			{#snippet title()}
 				Stage selected files
 			{/snippet}
@@ -362,9 +362,9 @@
 					checked={$stagingBehaviorFeature === 'selection'}
 				/>
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 
-		<Section.Card labelFor="stage-none">
+		<CardGroup.Item labelFor="stage-none">
 			{#snippet title()}
 				Don't stage files automatically
 			{/snippet}
@@ -381,6 +381,6 @@
 					checked={$stagingBehaviorFeature === 'none'}
 				/>
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 	</form>
-</Section>
+</CardGroup>

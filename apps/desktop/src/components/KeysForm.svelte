@@ -9,7 +9,7 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
-	import { Link, RadioButton, Section, Textbox } from '@gitbutler/ui';
+	import { CardGroup, Link, RadioButton, Textbox } from '@gitbutler/ui';
 
 	import { onMount } from 'svelte';
 
@@ -105,7 +105,7 @@
 					Configure the authentication flow for GitButler when authenticating with your Git remote
 					provider.
 				{/snippet}
-				<Section>
+				<CardGroup>
 					<form
 						class="git-radio"
 						class:disabled
@@ -116,7 +116,7 @@
 							onFormChange(selectedType);
 						}}
 					>
-						<Section.Card labelFor="git-executable">
+						<CardGroup.Item labelFor="git-executable">
 							{#snippet title()}
 								Use a Git executable <span style="color: var(--clr-text-2)">(default)</span>
 							{/snippet}
@@ -130,9 +130,9 @@
 							{#snippet actions()}
 								<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
 							{/snippet}
-						</Section.Card>
+						</CardGroup.Item>
 
-						<Section.Card labelFor="credential-local">
+						<CardGroup.Item labelFor="credential-local">
 							{#snippet title()}
 								Use existing SSH key
 							{/snippet}
@@ -146,10 +146,10 @@
 									Add the path to an existing SSH key that GitButler can use.
 								{/if}
 							{/snippet}
-						</Section.Card>
+						</CardGroup.Item>
 
 						{#if selectedType === 'local'}
-							<Section.Card>
+							<CardGroup.Item>
 								<div class="inputs-group">
 									<Textbox
 										label="Path to private key"
@@ -160,10 +160,10 @@
 										}}
 									/>
 								</div>
-							</Section.Card>
+							</CardGroup.Item>
 						{/if}
 
-						<Section.Card labelFor="credential-helper">
+						<CardGroup.Item labelFor="credential-helper">
 							{#snippet title()}
 								Use a Git credentials helper
 							{/snippet}
@@ -182,9 +182,9 @@
 									id="credential-helper"
 								/>
 							{/snippet}
-						</Section.Card>
+						</CardGroup.Item>
 
-						<Section.Card>
+						<CardGroup.Item>
 							<CredentialCheck
 								bind:this={credentialCheck}
 								disabled={selectedType === 'local' && privateKeyPath.trim() === ''}
@@ -192,9 +192,9 @@
 								remoteName={remoteName || baseBranch?.remoteName}
 								branchName={branchName || baseBranch?.shortName}
 							/>
-						</Section.Card>
+						</CardGroup.Item>
 					</form>
-				</Section>
+				</CardGroup>
 			</SettingsSection>
 		{/snippet}
 	</ReduxResult>

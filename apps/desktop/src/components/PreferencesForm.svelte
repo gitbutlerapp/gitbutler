@@ -3,7 +3,7 @@
 	import SettingsSection from '$components/SettingsSection.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
-	import { Section, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 	const projectsService = inject(PROJECTS_SERVICE);
@@ -13,7 +13,7 @@
 <ReduxResult {projectId} result={projectQuery.result}>
 	{#snippet children(project)}
 		<SettingsSection gap={8}>
-			<Section.Card standalone labelFor="omitCertificateCheck">
+			<CardGroup.Item standalone labelFor="omitCertificateCheck">
 				{#snippet title()}
 					Ignore host certificate checks
 				{/snippet}
@@ -32,7 +32,7 @@
 						}}
 					/>
 				{/snippet}
-			</Section.Card>
+			</CardGroup.Item>
 		</SettingsSection>
 	{/snippet}
 </ReduxResult>

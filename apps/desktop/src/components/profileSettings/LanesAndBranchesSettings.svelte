@@ -4,12 +4,12 @@
 		autoSelectBranchCreationFeature
 	} from '$lib/config/uiFeatureFlags';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { Section, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Toggle } from '@gitbutler/ui';
 
 	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
 </script>
 
-<Section.Card standalone labelFor="add-leftmost">
+<CardGroup.Item standalone labelFor="add-leftmost">
 	{#snippet title()}
 		Place new lanes on the left side
 	{/snippet}
@@ -24,10 +24,10 @@
 			onclick={() => ($addToLeftmost = !$addToLeftmost)}
 		/>
 	{/snippet}
-</Section.Card>
+</CardGroup.Item>
 
-<Section>
-	<Section.Card labelFor="auto-select-creation">
+<CardGroup>
+	<CardGroup.Item labelFor="auto-select-creation">
 		{#snippet title()}
 			Auto-select text on branch creation
 		{/snippet}
@@ -42,8 +42,8 @@
 				onclick={() => ($autoSelectBranchCreationFeature = !$autoSelectBranchCreationFeature)}
 			/>
 		{/snippet}
-	</Section.Card>
-	<Section.Card labelFor="auto-select-rename">
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="auto-select-rename">
 		{#snippet title()}
 			Auto-select text on branch rename
 		{/snippet}
@@ -58,5 +58,5 @@
 				onclick={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
 			/>
 		{/snippet}
-	</Section.Card>
-</Section>
+	</CardGroup.Item>
+</CardGroup>

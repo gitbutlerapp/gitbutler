@@ -2,7 +2,7 @@
 	import signinSvg from '$lib/assets/signin.svg?raw';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, AsyncButton, Section } from '@gitbutler/ui';
+	import { AsyncButton, Button, CardGroup } from '@gitbutler/ui';
 
 	import { writable } from 'svelte/store';
 
@@ -16,7 +16,7 @@
 </script>
 
 {#if !$user}
-	<Section>
+	<CardGroup>
 		<section class="welcome-signin-action">
 			<div class="stack-v gap-8">
 				<h3 class="text-18 text-bold">Log in or Sign up</h3>
@@ -87,7 +87,7 @@
 				{@html signinSvg}
 			</div>
 		</section>
-	</Section>
+	</CardGroup>
 {/if}
 
 <style class="postcss">

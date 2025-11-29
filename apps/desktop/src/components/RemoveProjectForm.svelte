@@ -7,7 +7,7 @@
 	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Section, chipToasts } from '@gitbutler/ui';
+	import { CardGroup, chipToasts } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -35,7 +35,7 @@
 
 <ReduxResult {projectId} result={projectQuery.result}>
 	{#snippet children(project)}
-		<Section.Card standalone>
+		<CardGroup.Item standalone>
 			{#snippet title()}
 				Remove project
 			{/snippet}
@@ -46,6 +46,6 @@
 			<div>
 				<RemoveProjectButton projectTitle={project.title} {isDeleting} {onDeleteClicked} />
 			</div>
-		</Section.Card>
+		</CardGroup.Item>
 	{/snippet}
 </ReduxResult>

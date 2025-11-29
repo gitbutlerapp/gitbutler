@@ -2,12 +2,12 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import mcpLogoSvg from '$lib/assets/unsized-logos/mcp.svg?raw';
 	import {
+		CardGroup,
+		EmptyStatePlaceholder,
 		Link,
 		Modal,
 		ScrollableContainer,
-		Toggle,
-		Section,
-		EmptyStatePlaceholder
+		Toggle
 	} from '@gitbutler/ui';
 	import type { McpConfig, McpServer } from '$lib/codegen/types';
 
@@ -52,18 +52,18 @@
 						>Claude Code documentation</Link
 					>
 				</p>
-				<Section>
+				<CardGroup>
 					{#each Object.entries(mcpConfig.mcpServers) as [name, server]}
 						{@render mcpServer(name, server)}
 					{/each}
-				</Section>
+				</CardGroup>
 			{/if}
 		</div>
 	</ScrollableContainer>
 </Modal>
 
 {#snippet mcpServer(name: string, server: McpServer)}
-	<Section.Card labelFor={name}>
+	<CardGroup.Item labelFor={name}>
 		{#snippet iconSide()}
 			<div class="mcp-server__icon">
 				{@html mcpLogoSvg}
@@ -92,7 +92,7 @@
 				onclick={() => toggleServer(name)}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 {/snippet}
 
 <style lang="postcss">

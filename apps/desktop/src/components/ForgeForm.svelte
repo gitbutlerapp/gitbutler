@@ -10,7 +10,7 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { Link, Section, Select, SelectItem, Spacer, Textbox, InfoMessage } from '@gitbutler/ui';
+	import { CardGroup, InfoMessage, Link, Select, SelectItem, Spacer, Textbox } from '@gitbutler/ui';
 
 	import type { ForgeName } from '$lib/forge/interface/forge';
 	import type { Project } from '$lib/project/project';
@@ -70,8 +70,8 @@
 	}
 </script>
 
-<Section>
-	<Section.Card>
+<CardGroup>
+	<CardGroup.Item>
 		{#snippet title()}
 			Forge override
 		{/snippet}
@@ -109,10 +109,10 @@
 				{/snippet}
 			</Select>
 		{/if}
-	</Section.Card>
+	</CardGroup.Item>
 
 	{#if forge.current.name === 'gitlab'}
-		<Section.Card>
+		<CardGroup.Item>
 			{#snippet title()}
 				Configure GitLab integration
 			{/snippet}
@@ -156,11 +156,11 @@
 					href="https://docs.gitbutler.com/troubleshooting/custom-csp">docs</Link
 				>
 			</p>
-		</Section.Card>
+		</CardGroup.Item>
 	{/if}
 
 	{#if forge.current.name === 'github'}
-		<Section.Card>
+		<CardGroup.Item>
 			{#snippet title()}
 				Configure GitHub integration
 			{/snippet}
@@ -213,6 +213,6 @@
 					{/snippet}
 				</Select>
 			{/if}
-		</Section.Card>
+		</CardGroup.Item>
 	{/if}
-</Section>
+</CardGroup>

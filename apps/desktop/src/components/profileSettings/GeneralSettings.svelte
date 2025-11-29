@@ -12,6 +12,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import {
 		Button,
+		CardGroup,
 		Modal,
 		ProfilePictureUpload,
 		Select,
@@ -19,8 +20,7 @@
 		Spacer,
 		Textbox,
 		Toggle,
-		chipToasts,
-		Section
+		chipToasts
 	} from '@gitbutler/ui';
 	import type { User } from '$lib/user/user';
 
@@ -131,7 +131,7 @@
 </script>
 
 {#if $user}
-	<Section>
+	<CardGroup>
 		<form onsubmit={onSubmit} class="profile-form">
 			<ProfilePictureUpload
 				bind:picture={userPicture}
@@ -148,10 +148,10 @@
 				<Button type="submit" style="pop" loading={saving}>Update profile</Button>
 			</div>
 		</form>
-	</Section>
+	</CardGroup>
 
-	<Section>
-		<Section.Card>
+	<CardGroup>
+		<CardGroup.Item>
 			{#snippet title()}
 				Signing out
 			{/snippet}
@@ -167,16 +167,16 @@
 					}}>Log out</Button
 				>
 			{/snippet}
-		</Section.Card>
-	</Section>
+		</CardGroup.Item>
+	</CardGroup>
 {/if}
 
 <WelcomeSigninAction />
 
 <Spacer />
 
-<Section>
-	<Section.Card alignment="center">
+<CardGroup>
+	<CardGroup.Item alignment="center">
 		{#snippet title()}
 			Default code editor
 		{/snippet}
@@ -201,11 +201,11 @@
 				{/snippet}
 			</Select>
 		{/snippet}
-	</Section.Card>
-</Section>
+	</CardGroup.Item>
+</CardGroup>
 
-<Section>
-	<Section.Card labelFor="disable-auto-checks">
+<CardGroup>
+	<CardGroup.Item labelFor="disable-auto-checks">
 		{#snippet title()}
 			Automatically check for updates
 		{/snippet}
@@ -221,11 +221,11 @@
 				onclick={() => ($disableAutoChecks = !$disableAutoChecks)}
 			/>
 		{/snippet}
-	</Section.Card>
-</Section>
+	</CardGroup.Item>
+</CardGroup>
 
-<Section>
-	<Section.Card>
+<CardGroup>
+	<CardGroup.Item>
 		{#snippet title()}
 			Install the GitButler CLI (but)
 		{/snippet}
@@ -257,13 +257,13 @@
 		{#if showSymlink}
 			<CliSymLink class="m-t-14" />
 		{/if}
-	</Section.Card>
-</Section>
+	</CardGroup.Item>
+</CardGroup>
 
 <Spacer />
 
-<Section>
-	<Section.Card>
+<CardGroup>
+	<CardGroup.Item>
 		{#snippet title()}
 			Remove all projects
 		{/snippet}
@@ -278,8 +278,8 @@
 				Remove projects…
 			</Button>
 		{/snippet}
-	</Section.Card>
-</Section>
+	</CardGroup.Item>
+</CardGroup>
 
 <Modal
 	bind:this={deleteConfirmationModal}

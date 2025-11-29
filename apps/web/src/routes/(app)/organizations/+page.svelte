@@ -8,7 +8,7 @@
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { organizationTable } from '@gitbutler/shared/organizations/organizationsSlice';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { Button, EmptyStatePlaceholder, Icon, Section } from '@gitbutler/ui';
+	import { Button, CardGroup, EmptyStatePlaceholder, Icon } from '@gitbutler/ui';
 
 	const organizationService = inject(ORGANIZATION_SERVICE);
 	const appState = inject(APP_STATE);
@@ -60,11 +60,11 @@
 					>
 				</div>
 
-				<Section>
+				<CardGroup>
 					{#each organizations as organization}
 						<Loading loadable={organization}>
 							{#snippet children(organization)}
-								<Section.Card>
+								<CardGroup.Item>
 									<div class="organization-card">
 										<div
 											class="organization-avatar"
@@ -105,11 +105,11 @@
 											</Button>
 										</div>
 									{/snippet}
-								</Section.Card>
+								</CardGroup.Item>
 							{/snippet}
 						</Loading>
 					{/each}
-				</Section>
+				</CardGroup>
 			{:else}
 				<div class="empty-state-wrapper">
 					<EmptyStatePlaceholder>

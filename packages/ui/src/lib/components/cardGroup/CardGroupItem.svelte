@@ -39,7 +39,7 @@
 	this={element}
 	role="presentation"
 	for={labelFor || undefined}
-	class="section-card"
+	class="card-group-item"
 	class:clickable={labelFor !== '' || clickable}
 	class:disabled
 	class:standalone
@@ -50,20 +50,20 @@
 	{#if title || caption || iconSide || actions}
 		<div class="flex full-width gap-16 hide-when-empty" class:center-align={alignment === 'center'}>
 			{#if iconSide}
-				<div class="section-card__icon-side">
+				<div class="card-group-item__icon-side">
 					{@render iconSide?.()}
 				</div>
 			{/if}
 
 			{#if title || caption}
-				<div class="section-card__content">
+				<div class="card-group-item__content">
 					{#if title}
-						<h3 class="text-15 text-bold section-card__title">
+						<h3 class="text-15 text-bold card-group-item__title">
 							{@render title?.()}
 						</h3>
 					{/if}
 					{#if caption}
-						<p class="text-12 text-body section-card__text">
+						<p class="text-12 text-body card-group-item__text">
 							{@render caption?.()}
 						</p>
 					{/if}
@@ -71,7 +71,7 @@
 			{/if}
 
 			{#if actions}
-				<div class="section-card__actions">
+				<div class="card-group-item__actions">
 					{@render actions?.()}
 				</div>
 			{/if}
@@ -86,7 +86,7 @@
 </svelte:element>
 
 <style lang="postcss">
-	.section-card {
+	.card-group-item {
 		display: flex;
 		position: relative;
 		flex-direction: column;
@@ -112,7 +112,7 @@
 		background: var(--clr-bg-2);
 	}
 
-	.section-card__content {
+	.card-group-item__content {
 		display: flex;
 		flex: 1;
 		flex-direction: column;
@@ -120,11 +120,11 @@
 		user-select: text;
 	}
 
-	.section-card__title {
+	.card-group-item__title {
 		color: var(--clr-text-1);
 	}
 
-	.section-card__text {
+	.card-group-item__text {
 		color: var(--clr-text-2);
 
 		/* if empty hide the caption */
@@ -133,11 +133,11 @@
 		}
 	}
 
-	.section-card__actions {
+	.card-group-item__actions {
 		display: flex;
 	}
 
-	.section-card__icon-side {
+	.card-group-item__icon-side {
 		display: flex;
 	}
 

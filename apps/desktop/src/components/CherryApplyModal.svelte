@@ -7,7 +7,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, InfoMessage, Modal, RadioButton, Section } from '@gitbutler/ui';
+	import { Button, CardGroup, InfoMessage, Modal, RadioButton } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -103,12 +103,12 @@
 					</InfoMessage>
 
 					{#if canApply && stacks.length > 0}
-						<Section>
+						<CardGroup>
 							<form onchange={(e) => handleStackSelectionChange(e.currentTarget)}>
 								{#each stacks as stack}
 									{@const isDisabled = !canSelectStack && selectedStackId !== stack.id}
 
-									<Section.Card labelFor="stack-{stack.id}" disabled={isDisabled}>
+									<CardGroup.Item labelFor="stack-{stack.id}" disabled={isDisabled}>
 										{#snippet title()}
 											{getStackName(stack)}
 										{/snippet}
@@ -125,10 +125,10 @@
 												disabled={isDisabled}
 											/>
 										{/snippet}
-									</Section.Card>
+									</CardGroup.Item>
 								{/each}
 							</form>
-						</Section>
+						</CardGroup>
 					{/if}
 				</div>
 			{/snippet}

@@ -9,7 +9,7 @@
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { organizationTable } from '@gitbutler/shared/organizations/organizationsSlice';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { Button, Section } from '@gitbutler/ui';
+	import { Button, CardGroup } from '@gitbutler/ui';
 
 	const organizationService = inject(ORGANIZATION_SERVICE);
 	const appState = inject(APP_STATE);
@@ -31,9 +31,9 @@
 <JoinOrganizationModal />
 <Button onclick={() => createOrganizationModal?.show()}>Create an Organizaton</Button>
 
-<Section>
+<CardGroup>
 	{#each organizations as loadableOrganization}
-		<Section.Card alignment="center">
+		<CardGroup.Item alignment="center">
 			{#snippet title()}
 				<Loading loadable={loadableOrganization}>
 					{#snippet children(organization)}
@@ -50,9 +50,9 @@
 			{#snippet actions()}
 				<OrganizationModal slug={loadableOrganization.id} />
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 	{/each}
-</Section>
+</CardGroup>
 
 <style lang="postcss">
 	.inline {

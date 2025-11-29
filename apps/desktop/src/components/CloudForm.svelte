@@ -6,7 +6,7 @@
 	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Section, Spacer, Toggle } from '@gitbutler/ui';
+	import { Button, CardGroup, Spacer, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -32,8 +32,8 @@
 		<Spacer />
 	{/if}
 
-	<Section>
-		<Section.Card labelFor="aiGenEnabled">
+	<CardGroup>
+		<CardGroup.Item labelFor="aiGenEnabled">
 			{#snippet title()}
 				Enable branch and commit message generation
 			{/snippet}
@@ -50,12 +50,12 @@
 					}}
 				/>
 			{/snippet}
-		</Section.Card>
-	</Section>
+		</CardGroup.Item>
+	</CardGroup>
 
 	{#if $aiGenEnabled}
-		<Section>
-			<Section.Card labelFor="aiExperimental">
+		<CardGroup>
+			<CardGroup.Item labelFor="aiExperimental">
 				{#snippet title()}
 					Enable experimental AI features
 				{/snippet}
@@ -72,12 +72,12 @@
 						}}
 					/>
 				{/snippet}
-			</Section.Card>
-		</Section>
+			</CardGroup.Item>
+		</CardGroup>
 	{/if}
 
-	<Section>
-		<Section.Card>
+	<CardGroup>
+		<CardGroup.Item>
 			{#snippet title()}
 				Custom prompts
 			{/snippet}
@@ -94,8 +94,8 @@
 			<Button kind="outline" icon="edit" onclick={() => openGeneralSettings('ai')}
 				>Customize prompts</Button
 			>
-		</Section.Card>
-	</Section>
+		</CardGroup.Item>
+	</CardGroup>
 </SettingsSection>
 
 <style lang="postcss">

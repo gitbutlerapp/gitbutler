@@ -3,7 +3,7 @@
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
-	import { Section, Toggle, Link } from '@gitbutler/ui';
+	import { CardGroup, Link, Toggle } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -20,7 +20,7 @@
 <div class="stack-v">
 	<ReduxResult {projectId} result={isGerritProject.result}>
 		{#snippet children(itIsAGerritProject)}
-			<Section.Card standalone labelFor="gerritModeToggle">
+			<CardGroup.Item standalone labelFor="gerritModeToggle">
 				{#snippet title()}
 					Gerrit Configuration
 				{/snippet}
@@ -37,7 +37,7 @@
 						onclick={() => gbConfig.setGerritMode(projectId, !itIsAGerritProject)}
 					/>
 				{/snippet}
-			</Section.Card>
+			</CardGroup.Item>
 		{/snippet}
 	</ReduxResult>
 </div>

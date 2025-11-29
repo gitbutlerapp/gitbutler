@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { inject } from '@gitbutler/core/context';
-	import { Toggle, Link, TestId, Section } from '@gitbutler/ui';
+	import { CardGroup, Link, TestId, Toggle } from '@gitbutler/ui';
 
 	const appSettings = inject(APP_SETTINGS);
 	const errorReportingEnabled = appSettings.appErrorReportingEnabled;
@@ -26,8 +26,8 @@
 	</p>
 </div>
 
-<Section testId={TestId.OnboardingPageAnalyticsSettings}>
-	<Section.Card labelFor="errorReportingToggle">
+<CardGroup testId={TestId.OnboardingPageAnalyticsSettings}>
+	<CardGroup.Item labelFor="errorReportingToggle">
 		{#snippet title()}
 			Error reporting
 		{/snippet}
@@ -42,9 +42,9 @@
 				onclick={() => ($errorReportingEnabled = !$errorReportingEnabled)}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="metricsEnabledToggle">
+	<CardGroup.Item labelFor="metricsEnabledToggle">
 		{#snippet title()}
 			Usage metrics
 		{/snippet}
@@ -59,9 +59,9 @@
 				onclick={() => ($metricsEnabled = !$metricsEnabled)}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
-	<Section.Card labelFor="nonAnonMetricsEnabledToggle">
+	<CardGroup.Item labelFor="nonAnonMetricsEnabledToggle">
 		{#snippet title()}
 			Non-anonymous usage metrics
 		{/snippet}
@@ -76,8 +76,8 @@
 				onclick={() => ($nonAnonMetricsEnabled = !$nonAnonMetricsEnabled)}
 			/>
 		{/snippet}
-	</Section.Card>
-</Section>
+	</CardGroup.Item>
+</CardGroup>
 
 <style lang="postcss">
 	.analytics-settings__content {

@@ -38,8 +38,7 @@ export {
 } from '$components/ProfilePictureUpload.svelte';
 export { default as RadioButton } from '$components/RadioButton.svelte';
 export { default as ReviewBadge } from '$components/ReviewBadge.svelte';
-export { Section } from '$components/section';
-export { default as SectionCard } from '$components/SectionCard.svelte';
+export { CardGroup } from '$components/cardGroup';
 export { default as SeriesIcon } from '$components/SeriesIcon.svelte';
 export { default as SeriesLabelsRow } from '$components/SeriesLabelsRow.svelte';
 export { default as SidebarEntry } from '$components/SidebarEntry.svelte';

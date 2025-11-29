@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ProfilePictureUpload, Section, Button, Textbox, Toggle, Spacer } from '@gitbutler/ui';
+	import { Button, CardGroup, ProfilePictureUpload, Spacer, Textbox, Toggle } from '@gitbutler/ui';
 	import type { User, UserService } from '$lib/user/userService';
 
 	interface Props {
@@ -69,9 +69,9 @@
 	}
 </script>
 
-<Section>
+<CardGroup>
 	<form onsubmit={updateAdditionalInfo}>
-		<Section.Card>
+		<CardGroup.Item>
 			<div class="profile-header">
 				<ProfilePictureUpload
 					picture={user.picture}
@@ -94,9 +94,9 @@
 					<Textbox id="email" label="Email" type="text" bind:value={emailValue} readonly={true} />
 				</div>
 			</div>
-		</Section.Card>
+		</CardGroup.Item>
 
-		<Section.Card>
+		<CardGroup.Item>
 			<div class="contact-info__fields">
 				<Textbox
 					id="website"
@@ -149,9 +149,9 @@
 					/>
 				</label>
 			</div>
-		</Section.Card>
+		</CardGroup.Item>
 
-		<Section.Card>
+		<CardGroup.Item>
 			<div class="flex justify-end">
 				<Button
 					type="submit"
@@ -162,9 +162,9 @@
 					{updatingAdditionalInfo ? 'Saving...' : 'Update profile'}
 				</Button>
 			</div>
-		</Section.Card>
+		</CardGroup.Item>
 	</form>
-</Section>
+</CardGroup>
 
 <style lang="postcss">
 	.profile-header {

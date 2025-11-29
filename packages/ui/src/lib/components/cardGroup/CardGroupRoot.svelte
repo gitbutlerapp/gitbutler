@@ -9,12 +9,12 @@
 	let { testId, children }: Props = $props();
 </script>
 
-<section class="section" data-testid={testId}>
+<div class="card-group" data-testid={testId}>
 	{@render children()}
-</section>
+</div>
 
 <style lang="postcss">
-	.section {
+	.card-group {
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;

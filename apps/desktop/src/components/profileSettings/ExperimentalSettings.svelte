@@ -3,7 +3,7 @@
 	import { ircEnabled, ircServer, fModeEnabled } from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
-	import { Section, Textbox, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Textbox, Toggle } from '@gitbutler/ui';
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
@@ -17,8 +17,8 @@
 	Use at your own risk.
 </p>
 
-<Section>
-	<Section.Card labelFor="ws3">
+<CardGroup>
+	<CardGroup.Item labelFor="ws3">
 		{#snippet title()}
 			New workspace backend
 		{/snippet}
@@ -34,8 +34,8 @@
 					settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 })}
 			/>
 		{/snippet}
-	</Section.Card>
-	<Section.Card labelFor="apply3">
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="apply3">
 		{#snippet title()}
 			New apply to workspace
 		{/snippet}
@@ -50,8 +50,8 @@
 					settingsService.updateFeatureFlags({ apply3: !$settingsStore?.featureFlags.apply3 })}
 			/>
 		{/snippet}
-	</Section.Card>
-	<Section.Card labelFor="rules">
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="rules">
 		{#snippet title()}
 			Workspace Rules
 		{/snippet}
@@ -67,8 +67,8 @@
 					settingsService.updateFeatureFlags({ rules: !$settingsStore?.featureFlags.rules })}
 			/>
 		{/snippet}
-	</Section.Card>
-	<Section.Card labelFor="f-mode">
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="f-mode">
 		{#snippet title()}
 			F Mode Navigation
 		{/snippet}
@@ -82,10 +82,10 @@
 				onclick={() => fModeEnabled.set(!$fModeEnabled)}
 			/>
 		{/snippet}
-	</Section.Card>
+	</CardGroup.Item>
 
 	{#if $user?.role === 'admin'}
-		<Section.Card labelFor="single-branch">
+		<CardGroup.Item labelFor="single-branch">
 			{#snippet title()}
 				Single-branch mode
 			{/snippet}
@@ -102,9 +102,9 @@
 						})}
 				/>
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 
-		<Section.Card labelFor="irc">
+		<CardGroup.Item labelFor="irc">
 			{#snippet title()}
 				IRC
 			{/snippet}
@@ -114,9 +114,9 @@
 			{#snippet actions()}
 				<Toggle id="irc" checked={$ircEnabled} onclick={() => ($ircEnabled = !$ircEnabled)} />
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 		{#if $ircEnabled}
-			<Section.Card>
+			<CardGroup.Item>
 				<Textbox
 					value={$ircServer}
 					size="large"
@@ -124,10 +124,10 @@
 					placeholder="wss://irc.gitbutler.com:443"
 					onchange={(value) => ($ircServer = value)}
 				/>
-			</Section.Card>
+			</CardGroup.Item>
 		{/if}
 	{/if}
-</Section>
+</CardGroup>
 
 <style>
 	.experimental-settings__text {

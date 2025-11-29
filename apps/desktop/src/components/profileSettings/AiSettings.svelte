@@ -10,11 +10,11 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import {
+		CardGroup,
 		Icon,
 		InfoMessage,
 		Link,
 		RadioButton,
-		Section,
 		Select,
 		SelectItem,
 		Spacer,
@@ -208,18 +208,18 @@
 	local models through Ollama and LM Studio.
 </p>
 
-<Section>
+<CardGroup>
 	<form class="git-radio" bind:this={form} onchange={(e) => onFormChange(e.currentTarget)}>
-		<Section.Card labelFor="open-ai">
+		<CardGroup.Item labelFor="open-ai">
 			{#snippet title()}
 				Open AI
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 		{#if modelKind === ModelKind.OpenAI}
-			<Section.Card>
+			<CardGroup.Item>
 				<Select
 					value={openAIKeyOption}
 					options={keyOptions}
@@ -275,19 +275,19 @@
 						placeholder="https://api.openai.com/v1"
 					/>
 				{/if}
-			</Section.Card>
+			</CardGroup.Item>
 		{/if}
 
-		<Section.Card labelFor="anthropic">
+		<CardGroup.Item labelFor="anthropic">
 			{#snippet title()}
 				Anthropic
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 		{#if modelKind === ModelKind.Anthropic}
-			<Section.Card>
+			<CardGroup.Item>
 				<Select
 					value={anthropicKeyOption}
 					options={keyOptions}
@@ -338,19 +338,19 @@
 						{/snippet}
 					</Select>
 				{/if}
-			</Section.Card>
+			</CardGroup.Item>
 		{/if}
 
-		<Section.Card labelFor="ollama">
+		<CardGroup.Item labelFor="ollama">
 			{#snippet title()}
 				Ollama 🦙
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton name="modelKind" id="ollama" value={ModelKind.Ollama} />
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 		{#if modelKind === ModelKind.Ollama}
-			<Section.Card>
+			<CardGroup.Item>
 				<Textbox
 					label="Endpoint"
 					bind:value={ollamaEndpoint}
@@ -369,19 +369,19 @@
 						>
 					{/snippet}
 				</InfoMessage>
-			</Section.Card>
+			</CardGroup.Item>
 		{/if}
 
-		<Section.Card labelFor="lmstudio">
+		<CardGroup.Item labelFor="lmstudio">
 			{#snippet title()}
 				LM Studio
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton name="modelKind" id="lmstudio" value={ModelKind.LMStudio} />
 			{/snippet}
-		</Section.Card>
+		</CardGroup.Item>
 		{#if modelKind === ModelKind.LMStudio}
-			<Section.Card>
+			<CardGroup.Item>
 				<Textbox
 					label="Endpoint"
 					bind:value={lmStudioEndpoint}
@@ -414,18 +414,18 @@
 						</div>
 					{/snippet}
 				</InfoMessage>
-			</Section.Card>
+			</CardGroup.Item>
 		{/if}
 
-		<Section.Card>
+		<CardGroup.Item>
 			<AiCredentialCheck />
-		</Section.Card>
+		</CardGroup.Item>
 	</form>
-</Section>
+</CardGroup>
 
 <Spacer />
 
-<Section.Card standalone>
+<CardGroup.Item standalone>
 	{#snippet title()}
 		Amount of provided context
 	{/snippet}
@@ -445,7 +445,7 @@
 			placeholder="5000"
 		/>
 	{/snippet}
-</Section.Card>
+</CardGroup.Item>
 
 <Spacer />
 

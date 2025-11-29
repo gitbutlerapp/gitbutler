@@ -7,7 +7,7 @@
 	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
 	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { Button, Modal, Section } from '@gitbutler/ui';
+	import { Button, CardGroup, Modal } from '@gitbutler/ui';
 
 	type Props = {
 		organizationSlug: string;
@@ -65,11 +65,11 @@
 	<RegisterInterest interest={organizationInterest} />
 	<RegisterInterest interest={projectInterest} />
 
-	<Section>
+	<CardGroup>
 		{#each organizationProjects as { project: organizationProject, interest }}
 			<RegisterInterest {interest} />
 
-			<Section.Card>
+			<CardGroup.Item>
 				<Loading loadable={organizationProject}>
 					{#snippet children(organizationProject)}
 						<h5>{organizationProject.name}</h5>
@@ -77,9 +77,9 @@
 						<Button onclick={() => connectToOrganization(organizationProject.slug)}>Connect</Button>
 					{/snippet}
 				</Loading>
-			</Section.Card>
+			</CardGroup.Item>
 		{/each}
-	</Section>
+	</CardGroup>
 
 	<Button onclick={() => connectToOrganization()}>Create organization project</Button>
 </Modal>
