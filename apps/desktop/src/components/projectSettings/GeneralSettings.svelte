@@ -17,7 +17,7 @@
 <GerritForm {projectId} />
 <ForgeForm {projectId} />
 <!-- Maybe we could inline more settings here -->
-<CardGroup.Item labelFor="disable-codegen">
+<CardGroup.Item standalone labelFor="disable-codegen">
 	{#snippet title()}
 		Disable codegen
 	{/snippet}
