@@ -1,0 +1,37 @@
+---
+title: Rebasing and Conflicts
+---
+
+import ImageSection from "@/components/ImageSection"
+
+By default, GitButler rebases the work on your virtual branches when you update your target branch (upstream) work.
+
+Often this works just fine and the commits are simply rebased. Occasionally, you will have conflicts with upstream work. 
+
+In this case, GitButler will not do what Git normally does, which is to stop at each conflicted commit and make you fix it before moving on. Instead, it will apply the changes that it can and store the commit as a "conflicted" commit and continue the rebasing process.
+
+When you go to update from upstream, GitButler will show you all the branches that it will rebase and will let you know if any of them will have conflicts:
+
+<ImageSection
+  subtitle="One branch has a conflict with the upstream work"
+  src="/conflicts-incoming.png"
+  alt="Conflicts with commits"
+/>
+
+In this case, when you perform the rebase, that branch will then contain "conflicted" commits. They will be marked in the UI as conflicted and you can click on them to get a "resolve conflict" button to start the resolution process.
+
+<ImageSection
+  subtitle="Resolving a conflict"
+  src="/conflicts-conflicted.png"
+  alt="Conflicts with commits"
+/>
+
+When you click that, GitButler will remove the other virtual branches and other work from your working directory and check out just this commit with it's conflict markers. It will show you a special "edit mode" screen, where you are directly editing this commit.
+
+<ImageSection
+  subtitle="Resolving a conflict"
+  src="/conflicts-edit.png"
+  alt="Conflicts with commits"
+/>
+
+If you want to cancel this conflict resolution, you can just hit 'Cancel' and it will go back to your normal state. If you have fixed all the issues, you can click "Save and Exit" and it will commit the conflict resolution and if needed, rebase any further commits on that branch on top of your new work.
