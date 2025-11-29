@@ -10,6 +10,9 @@ use tracing::instrument;
 
 use crate::commit::DateMode;
 
+/// Tools for manipulating commits
+pub mod graph_rebase;
+
 /// Types for use with cherry-picking
 pub mod cherry_pick;
 pub use cherry_pick::function::cherry_pick_one;
