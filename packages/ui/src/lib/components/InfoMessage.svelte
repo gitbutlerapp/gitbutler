@@ -242,6 +242,7 @@
 	.info-message__error-block {
 		padding: 10px 10px 0;
 		overflow-x: scroll;
+		border: 1px solid var(--clr-scale-err-80);
 		border-radius: var(--radius-s);
 		background-color: var(--clr-scale-err-90);
 		color: var(--clr-scale-err-10);

@@ -7,7 +7,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, InfoMessage, Modal, RadioButton, SectionCard } from '@gitbutler/ui';
+	import { Button, InfoMessage, Modal, RadioButton, Section } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -96,44 +96,39 @@
 		<ReduxResult {projectId} result={combineResults(statusResult?.result, stacksResult.result)}>
 			{#snippet children([_status, stacks], { projectId: _projectId })}
 				<div class="cherry-apply-modal">
-					<InfoMessage style={messageStyle} outlined filled>
+					<InfoMessage style={messageStyle} outlined>
 						{#snippet content()}
 							{getStatusMessage()}
 						{/snippet}
 					</InfoMessage>
 
 					{#if canApply && stacks.length > 0}
-						<form onchange={(e) => handleStackSelectionChange(e.currentTarget)}>
-							{#each stacks as stack, idx (stack.id)}
-								{@const isFirst = idx === 0}
-								{@const isLast = idx === stacks.length - 1}
-								{@const isDisabled = !canSelectStack && selectedStackId !== stack.id}
-								<SectionCard
-									orientation="row"
-									roundedBottom={isLast}
-									roundedTop={isFirst}
-									labelFor="stack-{stack.id}"
-									disabled={isDisabled}
-								>
-									{#snippet title()}
-										{getStackName(stack)}
-									{/snippet}
-									{#snippet caption()}
-										{stack.heads.length}
-										{stack.heads.length === 1 ? 'branch' : 'branches'}
-									{/snippet}
-									{#snippet actions()}
-										<RadioButton
-											name="stackSelection"
-											value={stack.id ?? undefined}
-											id="stack-{stack.id}"
-											checked={selectedStackId === stack.id}
-											disabled={isDisabled}
-										/>
-									{/snippet}
-								</SectionCard>
-							{/each}
-						</form>
+						<Section>
+							<form onchange={(e) => handleStackSelectionChange(e.currentTarget)}>
+								{#each stacks as stack}
+									{@const isDisabled = !canSelectStack && selectedStackId !== stack.id}
+
+									<Section.Card labelFor="stack-{stack.id}" disabled={isDisabled}>
+										{#snippet title()}
+											{getStackName(stack)}
+										{/snippet}
+										{#snippet caption()}
+											{stack.heads.length}
+											{stack.heads.length === 1 ? 'branch' : 'branches'}
+										{/snippet}
+										{#snippet actions()}
+											<RadioButton
+												name="stackSelection"
+												value={stack.id ?? undefined}
+												id="stack-{stack.id}"
+												checked={selectedStackId === stack.id}
+												disabled={isDisabled}
+											/>
+										{/snippet}
+									</Section.Card>
+								{/each}
+							</form>
+						</Section>
 					{/if}
 				</div>
 			{/snippet}

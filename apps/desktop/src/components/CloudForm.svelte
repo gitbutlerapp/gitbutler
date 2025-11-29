@@ -1,12 +1,12 @@
 <script lang="ts">
 	import AiPromptSelect from '$components/AIPromptSelect.svelte';
-	import Section from '$components/Section.svelte';
+	import SettingsSection from '$components/SettingsSection.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
 	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, SectionCard, Spacer, Toggle } from '@gitbutler/ui';
+	import { Button, Section, Spacer, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -18,7 +18,7 @@
 	const experimentalAiGenEnabled = $derived(projectAiExperimentalFeaturesEnabled(projectId));
 </script>
 
-<Section>
+<SettingsSection>
 	{#snippet description()}
 		GitButler supports the use of OpenAI and Anthropic to provide commit message and branch name
 		generation. This works either through GitButler's API or in a bring your own key configuration
@@ -32,28 +32,30 @@
 		<Spacer />
 	{/if}
 
-	<SectionCard labelFor="aiGenEnabled" orientation="row">
-		{#snippet title()}
-			Enable branch and commit message generation
-		{/snippet}
-		{#snippet caption()}
-			If enabled, diffs will be sent to OpenAI or Anthropic's servers when pressing the "Generate
-			message" and "Generate branch name" button.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="aiGenEnabled"
-				checked={$aiGenEnabled}
-				onclick={() => {
-					$aiGenEnabled = !$aiGenEnabled;
-				}}
-			/>
-		{/snippet}
-	</SectionCard>
+	<Section>
+		<Section.Card labelFor="aiGenEnabled">
+			{#snippet title()}
+				Enable branch and commit message generation
+			{/snippet}
+			{#snippet caption()}
+				If enabled, diffs will be sent to OpenAI or Anthropic's servers when pressing the "Generate
+				message" and "Generate branch name" button.
+			{/snippet}
+			{#snippet actions()}
+				<Toggle
+					id="aiGenEnabled"
+					checked={$aiGenEnabled}
+					onclick={() => {
+						$aiGenEnabled = !$aiGenEnabled;
+					}}
+				/>
+			{/snippet}
+		</Section.Card>
+	</Section>
 
 	{#if $aiGenEnabled}
-		<div class="options">
-			<SectionCard labelFor="aiExperimental" orientation="row">
+		<Section>
+			<Section.Card labelFor="aiExperimental">
 				{#snippet title()}
 					Enable experimental AI features
 				{/snippet}
@@ -70,29 +72,31 @@
 						}}
 					/>
 				{/snippet}
-			</SectionCard>
-		</div>
+			</Section.Card>
+		</Section>
 	{/if}
 
-	<SectionCard>
-		{#snippet title()}
-			Custom prompts
-		{/snippet}
+	<Section>
+		<Section.Card>
+			{#snippet title()}
+				Custom prompts
+			{/snippet}
 
-		<AiPromptSelect {projectId} promptUse="commits" />
-		<AiPromptSelect {projectId} promptUse="branches" />
+			<AiPromptSelect {projectId} promptUse="commits" />
+			<AiPromptSelect {projectId} promptUse="branches" />
 
-		<Spacer margin={8} />
+			<Spacer margin={8} />
 
-		<p class="text-12 text-body">
-			You can apply your own custom prompts to the project. By default, the project uses GitButler
-			prompts, but you can create your own prompts in the general settings.
-		</p>
-		<Button kind="outline" icon="edit" onclick={() => openGeneralSettings('ai')}
-			>Customize prompts</Button
-		>
-	</SectionCard>
-</Section>
+			<p class="text-12 text-body">
+				You can apply your own custom prompts to the project. By default, the project uses GitButler
+				prompts, but you can create your own prompts in the general settings.
+			</p>
+			<Button kind="outline" icon="edit" onclick={() => openGeneralSettings('ai')}
+				>Customize prompts</Button
+			>
+		</Section.Card>
+	</Section>
+</SettingsSection>
 
 <style lang="postcss">
 	.options {

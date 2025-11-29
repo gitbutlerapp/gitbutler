@@ -14,7 +14,7 @@
 		ContextMenuItem,
 		ContextMenuSection,
 		Link,
-		SectionCard,
+		Section,
 		Textbox,
 		chipToasts as toasts
 	} from '@gitbutler/ui';
@@ -148,11 +148,11 @@
 </script>
 
 <div class="stack-v gap-16">
-	<div class="stack-v">
+	<Section>
 		<ReduxResult result={accounts.result}>
 			<!-- IF ERRROR -->
 			{#snippet error()}
-				<SectionCard orientation="row">
+				<Section.Card>
 					{#snippet title()}
 						Failed to load GitHub accounts
 					{/snippet}
@@ -161,21 +161,17 @@
 						onclick={deleteAllGitHubAccounts}
 						loading={clearingAllResult.current.isLoading}>Try again</Button
 					>
-				</SectionCard>
+				</Section.Card>
 			{/snippet}
 
 			<!-- ADD ACCOUNT(S) LIST -->
 			{#snippet children(accounts)}
 				{@const noAccounts = accounts.length === 0}
-				{#each accounts as account, index}
-					<GithubUserLoginState {account} isFirst={index === 0} />
+				{#each accounts as account}
+					<GithubUserLoginState {account} />
 				{/each}
 
-				<SectionCard
-					orientation="row"
-					background={accounts.length > 0 ? 'disabled' : undefined}
-					roundedTop={accounts.length === 0}
-				>
+				<Section.Card background={accounts.length > 0 ? 'var(--clr-bg-2)' : undefined}>
 					{#snippet iconSide()}
 						<div class="icon-wrapper__logo">
 							{@html githubLogoSvg}
@@ -190,16 +186,18 @@
 						Allows you to create Pull Requests
 					{/snippet}
 
-					{@render addAccountButton(noAccounts)}
-				</SectionCard>
+					{#snippet actions()}
+						{@render addAccountButton(noAccounts)}
+					{/snippet}
+				</Section.Card>
 			{/snippet}
 		</ReduxResult>
-	</div>
+	</Section>
 
 	<!-- AUTH FLOW -->
 	{#if showingFlow === 'oauthFlow'}
 		<div in:fade={{ duration: 100 }}>
-			<SectionCard orientation="row">
+			<Section.Card standalone>
 				<div class="wrapper">
 					<div class="step-section">
 						<div class="step-line"></div>
@@ -271,13 +269,13 @@
 						</div>
 					{/if}
 				</div>
-			</SectionCard>
+			</Section.Card>
 		</div>
 
 		<!-- PAT FLOW -->
 	{:else if showingFlow === 'pat'}
-		<div class="stack-v" in:fade={{ duration: 100 }}>
-			<SectionCard roundedBottom={false}>
+		<Section>
+			<Section.Card>
 				{#snippet title()}
 					Add Personal Access Token
 				{/snippet}
@@ -290,8 +288,8 @@
 					oninput={(value) => (patInput = value)}
 					error={patError}
 				/>
-			</SectionCard>
-			<SectionCard roundedTop={false}>
+			</Section.Card>
+			<Section.Card>
 				<div class="flex justify-end gap-6">
 					<Button style="neutral" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
 					<Button
@@ -303,11 +301,11 @@
 						Add account
 					</Button>
 				</div>
-			</SectionCard>
-		</div>
+			</Section.Card>
+		</Section>
 	{:else if showingFlow === 'ghe'}
-		<div in:fade={{ duration: 100 }}>
-			<SectionCard roundedBottom={false}>
+		<Section>
+			<Section.Card>
 				{#snippet title()}
 					Add GitHub Enterprise Account
 				{/snippet}
@@ -337,8 +335,8 @@
 					oninput={(value) => (ghePatInput = value)}
 					error={ghePatError}
 				/>
-			</SectionCard>
-			<SectionCard roundedTop={false}>
+			</Section.Card>
+			<Section.Card>
 				<div class="flex justify-end gap-6">
 					<Button style="neutral" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
 					<Button
@@ -350,8 +348,8 @@
 						Add account
 					</Button>
 				</div>
-			</SectionCard>
-		</div>
+			</Section.Card>
+		</Section>
 	{/if}
 </div>
 

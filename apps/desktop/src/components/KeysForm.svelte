@@ -2,14 +2,14 @@
 	import CredentialCheck from '$components/CredentialCheck.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import Section from '$components/Section.svelte';
+	import SettingsSection from '$components/SettingsSection.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { type AuthKey, type KeyType } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
-	import { Link, RadioButton, SectionCard, Textbox } from '@gitbutler/ui';
+	import { Link, RadioButton, Section, Textbox } from '@gitbutler/ui';
 
 	import { onMount } from 'svelte';
 
@@ -94,7 +94,7 @@
 <div>
 	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
-			<Section>
+			<SettingsSection>
 				{#snippet top()}
 					{#if showProjectName}<ProjectNameLabel projectName={project.title} />{/if}
 				{/snippet}
@@ -105,106 +105,97 @@
 					Configure the authentication flow for GitButler when authenticating with your Git remote
 					provider.
 				{/snippet}
-				<form
-					class="git-radio"
-					class:disabled
-					bind:this={form}
-					onchange={(e) => {
-						const data = new FormData(e.currentTarget);
-						selectedType = data.get('credentialType') as KeyType;
-						onFormChange(selectedType);
-					}}
-				>
-					<SectionCard roundedBottom={false} orientation="row" labelFor="git-executable">
-						{#snippet title()}
-							Use a Git executable <span style="color: var(--clr-text-2)">(default)</span>
-						{/snippet}
-
-						{#snippet caption()}
-							{#if selectedType === 'systemExecutable'}
-								Git executable must be present on your PATH
-							{/if}
-						{/snippet}
-
-						{#snippet actions()}
-							<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
-						{/snippet}
-					</SectionCard>
-
-					<SectionCard
-						roundedTop={false}
-						roundedBottom={false}
-						bottomBorder={selectedType !== 'local'}
-						orientation="row"
-						labelFor="credential-local"
+				<Section>
+					<form
+						class="git-radio"
+						class:disabled
+						bind:this={form}
+						onchange={(e) => {
+							const data = new FormData(e.currentTarget);
+							selectedType = data.get('credentialType') as KeyType;
+							onFormChange(selectedType);
+						}}
 					>
-						{#snippet title()}
-							Use existing SSH key
-						{/snippet}
+						<Section.Card labelFor="git-executable">
+							{#snippet title()}
+								Use a Git executable <span style="color: var(--clr-text-2)">(default)</span>
+							{/snippet}
 
-						{#snippet actions()}
-							<RadioButton name="credentialType" id="credential-local" value="local" />
-						{/snippet}
+							{#snippet caption()}
+								{#if selectedType === 'systemExecutable'}
+									Git executable must be present on your PATH
+								{/if}
+							{/snippet}
 
-						{#snippet caption()}
-							{#if selectedType === 'local'}
-								Add the path to an existing SSH key that GitButler can use.
-							{/if}
-						{/snippet}
-					</SectionCard>
+							{#snippet actions()}
+								<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
+							{/snippet}
+						</Section.Card>
 
-					{#if selectedType === 'local'}
-						<SectionCard topDivider roundedTop={false} roundedBottom={false} orientation="row">
-							<div class="inputs-group">
-								<Textbox
-									label="Path to private key"
-									placeholder="for example: ~/.ssh/id_rsa"
-									bind:value={privateKeyPath}
-									oninput={(value) => {
-										debouncedUpdateLocalKey(value);
-									}}
+						<Section.Card labelFor="credential-local">
+							{#snippet title()}
+								Use existing SSH key
+							{/snippet}
+
+							{#snippet actions()}
+								<RadioButton name="credentialType" id="credential-local" value="local" />
+							{/snippet}
+
+							{#snippet caption()}
+								{#if selectedType === 'local'}
+									Add the path to an existing SSH key that GitButler can use.
+								{/if}
+							{/snippet}
+						</Section.Card>
+
+						{#if selectedType === 'local'}
+							<Section.Card>
+								<div class="inputs-group">
+									<Textbox
+										label="Path to private key"
+										placeholder="for example: ~/.ssh/id_rsa"
+										bind:value={privateKeyPath}
+										oninput={(value) => {
+											debouncedUpdateLocalKey(value);
+										}}
+									/>
+								</div>
+							</Section.Card>
+						{/if}
+
+						<Section.Card labelFor="credential-helper">
+							{#snippet title()}
+								Use a Git credentials helper
+							{/snippet}
+
+							{#snippet caption()}
+								{#if selectedType === 'gitCredentialsHelper'}
+									GitButler will use the system's git credentials helper.
+									<Link href="https://git-scm.com/doc/credential-helpers">Learn more</Link>
+								{/if}
+							{/snippet}
+
+							{#snippet actions()}
+								<RadioButton
+									name="credentialType"
+									value="gitCredentialsHelper"
+									id="credential-helper"
 								/>
-							</div>
-						</SectionCard>
-					{/if}
+							{/snippet}
+						</Section.Card>
 
-					<SectionCard
-						roundedTop={false}
-						roundedBottom={false}
-						orientation="row"
-						labelFor="credential-helper"
-					>
-						{#snippet title()}
-							Use a Git credentials helper
-						{/snippet}
-
-						{#snippet caption()}
-							{#if selectedType === 'gitCredentialsHelper'}
-								GitButler will use the system's git credentials helper.
-								<Link href="https://git-scm.com/doc/credential-helpers">Learn more</Link>
-							{/if}
-						{/snippet}
-
-						{#snippet actions()}
-							<RadioButton
-								name="credentialType"
-								value="gitCredentialsHelper"
-								id="credential-helper"
+						<Section.Card>
+							<CredentialCheck
+								bind:this={credentialCheck}
+								disabled={selectedType === 'local' && privateKeyPath.trim() === ''}
+								projectId={project.id}
+								remoteName={remoteName || baseBranch?.remoteName}
+								branchName={branchName || baseBranch?.shortName}
 							/>
-						{/snippet}
-					</SectionCard>
-
-					<SectionCard roundedTop={false} orientation="row">
-						<CredentialCheck
-							bind:this={credentialCheck}
-							disabled={selectedType === 'local' && privateKeyPath.trim() === ''}
-							projectId={project.id}
-							remoteName={remoteName || baseBranch?.remoteName}
-							branchName={branchName || baseBranch?.shortName}
-						/>
-					</SectionCard>
-				</form>
-			</Section>
+						</Section.Card>
+					</form>
+				</Section>
+			</SettingsSection>
 		{/snippet}
 	</ReduxResult>
 </div>

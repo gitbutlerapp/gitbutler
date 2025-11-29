@@ -2,11 +2,11 @@
 	import CommitSigningForm from '$components/CommitSigningForm.svelte';
 	import KeysForm from '$components/KeysForm.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import Section from '$components/Section.svelte';
+	import SettingsSection from '$components/SettingsSection.svelte';
 	import { BACKEND } from '$lib/backend';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
-	import { SectionCard, Spacer, Toggle } from '@gitbutler/ui';
+	import { Section, Spacer, Toggle } from '@gitbutler/ui';
 	import type { Project } from '$lib/project/project';
 
 	const { projectId }: { projectId: string } = $props();
@@ -23,7 +23,7 @@
 	}
 </script>
 
-<Section>
+<SettingsSection>
 	<CommitSigningForm {projectId} />
 	{#if backend.platformName !== 'windows'}
 		<Spacer />
@@ -33,8 +33,8 @@
 	<Spacer />
 	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
-			<div class="stack-v">
-				<SectionCard orientation="row" labelFor="allowForcePush" roundedBottom={false}>
+			<Section>
+				<Section.Card labelFor="allowForcePush">
 					{#snippet title()}
 						Allow force pushing
 					{/snippet}
@@ -49,8 +49,8 @@
 							onchange={(checked) => onForcePushClick(project, checked)}
 						/>
 					{/snippet}
-				</SectionCard>
-				<SectionCard orientation="row" labelFor="forcePushProtection" roundedTop={false}>
+				</Section.Card>
+				<Section.Card labelFor="forcePushProtection">
 					{#snippet title()}
 						Force push protection
 					{/snippet}
@@ -65,8 +65,8 @@
 							onchange={(checked) => onForcePushProtectionClick(project, checked)}
 						/>
 					{/snippet}
-				</SectionCard>
-			</div>
+				</Section.Card>
+			</Section>
 		{/snippet}
 	</ReduxResult>
-</Section>
+</SettingsSection>

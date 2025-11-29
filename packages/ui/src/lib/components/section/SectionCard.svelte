@@ -3,10 +3,12 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		centerAlign?: boolean;
 		labelFor?: string;
 		disabled?: boolean;
+		background?: string;
+		standalone?: boolean;
 		clickable?: boolean;
+		alignment?: 'top' | 'center';
 		iconSide?: Snippet;
 		title?: Snippet;
 		caption?: Snippet;
@@ -16,10 +18,12 @@
 	}
 
 	let {
-		centerAlign = false,
 		labelFor = '',
 		disabled = false,
 		clickable = false,
+		alignment = 'top',
+		standalone = false,
+		background = 'var(--clr-bg-1)',
 		iconSide,
 		title,
 		caption,
@@ -36,43 +40,46 @@
 	role="presentation"
 	for={labelFor || undefined}
 	class="section-card"
-	class:center-align={centerAlign}
 	class:clickable={labelFor !== '' || clickable}
 	class:disabled
+	class:standalone
+	style:background
 	use:focusable
 	{onclick}
 >
-	<div class="flex full-width gap-16">
-		{#if iconSide}
-			<div class="section-card__icon-side">
-				{@render iconSide?.()}
-			</div>
-		{/if}
+	{#if title || caption || iconSide || actions}
+		<div class="flex full-width gap-16 hide-when-empty" class:center-align={alignment === 'center'}>
+			{#if iconSide}
+				<div class="section-card__icon-side">
+					{@render iconSide?.()}
+				</div>
+			{/if}
 
-		{#if title || caption}
-			<div class="section-card__content">
-				{#if title}
-					<h3 class="text-15 text-bold section-card__title">
-						{@render title?.()}
-					</h3>
-				{/if}
-				{#if caption}
-					<p class="text-12 text-body section-card__text">
-						{@render caption?.()}
-					</p>
-				{/if}
-			</div>
-		{/if}
+			{#if title || caption}
+				<div class="section-card__content">
+					{#if title}
+						<h3 class="text-15 text-bold section-card__title">
+							{@render title?.()}
+						</h3>
+					{/if}
+					{#if caption}
+						<p class="text-12 text-body section-card__text">
+							{@render caption?.()}
+						</p>
+					{/if}
+				</div>
+			{/if}
 
-		{#if actions}
-			<div class="section-card__actions">
-				{@render actions?.()}
-			</div>
-		{/if}
-	</div>
+			{#if actions}
+				<div class="section-card__actions">
+					{@render actions?.()}
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	{#if children}
-		<div>
+		<div class="stack-v gap-16 hide-when-empty">
 			{@render children?.()}
 		</div>
 	{/if}
@@ -86,11 +93,19 @@
 		padding: 16px;
 		gap: 16px;
 		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
 		text-align: left;
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
+
+		&:not(.standalone):last-child {
+			border-bottom: none;
+		}
+
+		&.standalone {
+			border: 1px solid var(--clr-border-2);
+			border-radius: var(--radius-m);
+		}
 	}
 
 	.disabled {

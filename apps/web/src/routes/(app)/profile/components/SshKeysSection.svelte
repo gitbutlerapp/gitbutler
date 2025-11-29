@@ -1,6 +1,6 @@
 <script lang="ts">
 	import AddSshKeyModal from '$lib/components/AddSshKeyModal.svelte';
-	import { SectionCard, Spacer } from '@gitbutler/ui';
+	import { Section, Spacer } from '@gitbutler/ui';
 	import type { SshKey, SshKeyService } from '$lib/sshKeyService';
 	import type { UserService } from '$lib/user/userService';
 
@@ -83,7 +83,7 @@
 
 <Spacer />
 
-<SectionCard>
+<Section.Card standalone>
 	<div class="ssh-keys">
 		{#if loadingSshKeys}
 			<div class="loading">Loading SSH keys...</div>
@@ -121,7 +121,7 @@
 			<span>{generatingSshToken ? 'Generating...' : 'Add Key via SSH'}</span>
 		</button>
 	</div>
-</SectionCard>
+</Section.Card>
 
 <AddSshKeyModal bind:this={addKeyModal} onClose={onAddKeyModalClose} />
 

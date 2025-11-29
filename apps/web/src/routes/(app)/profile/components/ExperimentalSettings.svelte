@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { featureShowOrganizations, featureShowProjectPage } from '$lib/featureFlags';
-	import { SectionCard, Toggle, Spacer } from '@gitbutler/ui';
+	import { Section, Toggle, Spacer } from '@gitbutler/ui';
 </script>
 
 <Spacer />
@@ -14,8 +14,8 @@
 	</p>
 </div>
 
-<div class="stack-v">
-	<SectionCard labelFor="showOrganizations" orientation="row" roundedBottom={false}>
+<Section>
+	<Section.Card labelFor="showOrganizations">
 		{#snippet title()}Organizations{/snippet}
 		{#snippet caption()}
 			Organizations are a way of linking together projects.
@@ -27,9 +27,9 @@
 				onclick={() => ($featureShowOrganizations = !$featureShowOrganizations)}
 			/>
 		{/snippet}
-	</SectionCard>
+	</Section.Card>
 
-	<SectionCard labelFor="showProjectPage" orientation="row" roundedTop={false}>
+	<Section.Card labelFor="showProjectPage">
 		{#snippet title()}User / Organization / Project Pages{/snippet}
 		{#snippet caption()}
 			This will show the stub landing pages for orgs, users and projects.
@@ -41,5 +41,5 @@
 				onclick={() => ($featureShowProjectPage = !$featureShowProjectPage)}
 			/>
 		{/snippet}
-	</SectionCard>
-</div>
+	</Section.Card>
+</Section>

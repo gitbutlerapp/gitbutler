@@ -6,7 +6,7 @@
 		Modal,
 		ScrollableContainer,
 		Toggle,
-		SectionCard,
+		Section,
 		EmptyStatePlaceholder
 	} from '@gitbutler/ui';
 	import type { McpConfig, McpServer } from '$lib/codegen/types';
@@ -52,42 +52,39 @@
 						>Claude Code documentation</Link
 					>
 				</p>
-				<div class="stack-v">
-					{#each Object.entries(mcpConfig.mcpServers) as [name, server], index}
-						{@render mcpServer(
-							name,
-							server,
-							index === 0,
-							index === Object.entries(mcpConfig.mcpServers).length - 1
-						)}
+				<Section>
+					{#each Object.entries(mcpConfig.mcpServers) as [name, server]}
+						{@render mcpServer(name, server)}
 					{/each}
-				</div>
+				</Section>
 			{/if}
 		</div>
 	</ScrollableContainer>
 </Modal>
 
-{#snippet mcpServer(name: string, server: McpServer, isFirst: boolean, isLast: boolean)}
-	<SectionCard orientation="row" labelFor={name} roundedTop={isFirst} roundedBottom={isLast}>
+{#snippet mcpServer(name: string, server: McpServer)}
+	<Section.Card labelFor={name}>
 		{#snippet iconSide()}
 			<div class="mcp-server__icon">
 				{@html mcpLogoSvg}
 			</div>
 		{/snippet}
-		<div class="mcp-server__body">
+
+		{#snippet title()}
 			<p class="text-14 text-bold">
 				{name}
 			</p>
+		{/snippet}
 
-			<p class="mcp-server__caption truncate">
-				{#if server.command}
-					<span>{server.command} {server.args?.join(' ')}</span>
-				{/if}
-				{#if server.url}
-					<span>{server.url}</span>
-				{/if}
-			</p>
-		</div>
+		{#snippet caption()}
+			{#if server.command}
+				<span>{server.command} {server.args?.join(' ')}</span>
+			{/if}
+			{#if server.url}
+				<span>{server.url}</span>
+			{/if}
+		{/snippet}
+
 		{#snippet actions()}
 			<Toggle
 				id={name}
@@ -95,7 +92,7 @@
 				onclick={() => toggleServer(name)}
 			/>
 		{/snippet}
-	</SectionCard>
+	</Section.Card>
 {/snippet}
 
 <style lang="postcss">
@@ -109,17 +106,5 @@
 		padding: 6px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-2);
-	}
-	.mcp-server__body {
-		display: flex;
-		flex-direction: column;
-		width: 100%;
-		overflow: hidden;
-		gap: 2px;
-	}
-	.mcp-server__caption {
-		color: var(--clr-text-2);
-		font-size: 11px;
-		font-family: var(--font-mono);
 	}
 </style>

@@ -7,16 +7,14 @@
 		type GitHubAccountIdentifier
 	} from '$lib/forge/github/githubUserService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Avatar, Button, SectionCard } from '@gitbutler/ui';
+	import { Avatar, Button, Section } from '@gitbutler/ui';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 
 	type Props = {
 		account: GitHubAccountIdentifier;
-		disabled?: boolean;
-		isFirst: boolean;
 	};
 
-	const { account, disabled, isFirst }: Props = $props();
+	const { account }: Props = $props();
 
 	const githubUserService = inject(GITHUB_USER_SERVICE);
 
@@ -28,7 +26,7 @@
 </script>
 
 {#snippet row(user: AuthenticatedUser | null)}
-	<SectionCard orientation="row" roundedBottom={false} roundedTop={isFirst}>
+	<Section.Card>
 		{#snippet iconSide()}
 			<div class="avatar">
 				{#if isError || !user}
@@ -71,14 +69,15 @@
 			{/if}
 		{/snippet}
 
-		<Button
-			kind="outline"
-			icon="bin-small"
-			{disabled}
-			onclick={() => forget(account)}
-			loading={forgetting.current.isLoading}>Forget</Button
-		>
-	</SectionCard>
+		{#snippet actions()}
+			<Button
+				kind="outline"
+				icon="bin-small"
+				onclick={() => forget(account)}
+				loading={forgetting.current.isLoading}>Forget</Button
+			>
+		{/snippet}
+	</Section.Card>
 {/snippet}
 
 <ReduxResult result={ghUser.result}>

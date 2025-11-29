@@ -9,16 +9,7 @@
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/core/context';
-	import {
-		Button,
-		Select,
-		SelectItem,
-		TestId,
-		Link,
-		Icon,
-		SectionCard,
-		Toggle
-	} from '@gitbutler/ui';
+	import { Button, Select, SelectItem, TestId, Link, Icon, Section, Toggle } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 
@@ -140,7 +131,7 @@
 			{/snippet}
 			{#snippet children([isGerrit])}
 				{#if isGerrit}
-					<SectionCard labelFor="gerritToggle" orientation="row">
+					<Section.Card standalone labelFor="gerritToggle">
 						{#snippet iconSide()}
 							{@html gerritLogoSvg}
 						{/snippet}
@@ -163,7 +154,7 @@
 								}}
 							/>
 						{/snippet}
-					</SectionCard>
+					</Section.Card>
 				{/if}
 			{/snippet}
 		</ReduxResult>

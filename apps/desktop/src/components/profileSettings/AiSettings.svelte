@@ -2,7 +2,7 @@
 	import AIPromptEdit from '$components/AIPromptEdit.svelte';
 	import AiCredentialCheck from '$components/AiCredentialCheck.svelte';
 	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
-	import Section from '$components/Section.svelte';
+	import SettingsSection from '$components/SettingsSection.svelte';
 	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
@@ -14,7 +14,7 @@
 		InfoMessage,
 		Link,
 		RadioButton,
-		SectionCard,
+		Section,
 		Select,
 		SelectItem,
 		Spacer,
@@ -204,239 +204,228 @@
 {/snippet}
 
 <p class="text-13 text-body ai-settings__about-text">
-	GitButler supports multiple AI providers: OpenAI and Anthropic (via API or your own key), plus
+	GitButler supasdports multiple AI providers: OpenAI and Anthropic (via API or your own key), plus
 	local models through Ollama and LM Studio.
 </p>
 
-<form class="git-radio" bind:this={form} onchange={(e) => onFormChange(e.currentTarget)}>
-	<SectionCard
-		roundedBottom={false}
-		orientation="row"
-		labelFor="open-ai"
-		bottomBorder={modelKind !== ModelKind.OpenAI}
-	>
-		{#snippet title()}
-			Open AI
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
-		{/snippet}
-	</SectionCard>
-	{#if modelKind === ModelKind.OpenAI}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
-			<Select
-				value={openAIKeyOption}
-				options={keyOptions}
-				wide
-				label="Do you want to provide your own key?"
-				onselect={(value) => {
-					openAIKeyOption = value as KeyOption;
-				}}
-			>
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === openAIKeyOption} {highlighted}>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-			</Select>
-
-			{#if openAIKeyOption === KeyOption.ButlerAPI}
-				{#if !$user}
-					<AuthorizationBanner message="Please sign in to use the GitButler API." />
-				{:else}
-					{@render shortNote('GitButler uses OpenAI API for commit messages and branch names.')}
-				{/if}
-			{/if}
-
-			{#if openAIKeyOption === KeyOption.BringYourOwn}
-				<Textbox
-					label="API key"
-					type="password"
-					bind:value={openAIKey}
-					required
-					placeholder="sk-..."
-				/>
-
+<Section>
+	<form class="git-radio" bind:this={form} onchange={(e) => onFormChange(e.currentTarget)}>
+		<Section.Card labelFor="open-ai">
+			{#snippet title()}
+				Open AI
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
+			{/snippet}
+		</Section.Card>
+		{#if modelKind === ModelKind.OpenAI}
+			<Section.Card>
 				<Select
-					value={openAIModelName}
-					options={openAIModelOptions}
-					label="Model version"
+					value={openAIKeyOption}
+					options={keyOptions}
 					wide
+					label="Do you want to provide your own key?"
 					onselect={(value) => {
-						openAIModelName = value as OpenAIModelName;
+						openAIKeyOption = value as KeyOption;
 					}}
 				>
 					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === openAIModelName} {highlighted}>
+						<SelectItem selected={item.value === openAIKeyOption} {highlighted}>
 							{item.label}
 						</SelectItem>
 					{/snippet}
 				</Select>
 
-				<Textbox
-					label="Custom endpoint"
-					bind:value={openAICustomEndpoint}
-					placeholder="https://api.openai.com/v1"
-				/>
-			{/if}
-		</SectionCard>
-	{/if}
-
-	<SectionCard
-		roundedTop={false}
-		roundedBottom={false}
-		orientation="row"
-		labelFor="anthropic"
-		bottomBorder={modelKind !== ModelKind.Anthropic}
-	>
-		{#snippet title()}
-			Anthropic
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
-		{/snippet}
-	</SectionCard>
-	{#if modelKind === ModelKind.Anthropic}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
-			<Select
-				value={anthropicKeyOption}
-				options={keyOptions}
-				wide
-				label="Do you want to provide your own key?"
-				onselect={(value) => {
-					anthropicKeyOption = value as KeyOption;
-				}}
-			>
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === anthropicKeyOption} {highlighted}>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-			</Select>
-
-			{#if anthropicKeyOption === KeyOption.ButlerAPI}
-				{#if !$user}
-					<AuthorizationBanner message="Please sign in to use the GitButler API." />
-				{:else}
-					{@render shortNote('GitButler uses Anthropic API for commit messages and branch names.')}
+				{#if openAIKeyOption === KeyOption.ButlerAPI}
+					{#if !$user}
+						<AuthorizationBanner message="Please sign in to use the GitButler API." />
+					{:else}
+						{@render shortNote('GitButler uses OpenAI API for commit messages and branch names.')}
+					{/if}
 				{/if}
-			{/if}
 
-			{#if anthropicKeyOption === KeyOption.BringYourOwn}
-				<Textbox
-					label="API key"
-					type="password"
-					bind:value={anthropicKey}
-					required
-					placeholder="sk-ant-api03-..."
-				/>
+				{#if openAIKeyOption === KeyOption.BringYourOwn}
+					<Textbox
+						label="API key"
+						type="password"
+						bind:value={openAIKey}
+						required
+						placeholder="sk-..."
+					/>
 
+					<Select
+						value={openAIModelName}
+						options={openAIModelOptions}
+						label="Model version"
+						wide
+						onselect={(value) => {
+							openAIModelName = value as OpenAIModelName;
+						}}
+					>
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === openAIModelName} {highlighted}>
+								{item.label}
+							</SelectItem>
+						{/snippet}
+					</Select>
+
+					<Textbox
+						label="Custom endpoint"
+						bind:value={openAICustomEndpoint}
+						placeholder="https://api.openai.com/v1"
+					/>
+				{/if}
+			</Section.Card>
+		{/if}
+
+		<Section.Card labelFor="anthropic">
+			{#snippet title()}
+				Anthropic
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
+			{/snippet}
+		</Section.Card>
+		{#if modelKind === ModelKind.Anthropic}
+			<Section.Card>
 				<Select
-					value={anthropicModelName}
-					options={anthropicModelOptions}
-					label="Model version"
+					value={anthropicKeyOption}
+					options={keyOptions}
+					wide
+					label="Do you want to provide your own key?"
 					onselect={(value) => {
-						anthropicModelName = value as AnthropicModelName;
+						anthropicKeyOption = value as KeyOption;
 					}}
 				>
 					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === anthropicModelName} {highlighted}>
+						<SelectItem selected={item.value === anthropicKeyOption} {highlighted}>
 							{item.label}
 						</SelectItem>
 					{/snippet}
 				</Select>
-			{/if}
-		</SectionCard>
-	{/if}
 
-	<SectionCard
-		roundedTop={false}
-		roundedBottom={false}
-		orientation="row"
-		labelFor="ollama"
-		bottomBorder={modelKind !== ModelKind.Ollama}
-	>
-		{#snippet title()}
-			Ollama 🦙
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton name="modelKind" id="ollama" value={ModelKind.Ollama} />
-		{/snippet}
-	</SectionCard>
-	{#if modelKind === ModelKind.Ollama}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
-			<Textbox label="Endpoint" bind:value={ollamaEndpoint} placeholder="http://127.0.0.1:11434" />
-			<Textbox label="Model" bind:value={ollamaModel} placeholder="llama3" />
-			<InfoMessage filled outlined={false}>
-				{#snippet title()}
-					Configuring Ollama
-				{/snippet}
-				{#snippet content()}
-					To connect to your Ollama endpoint, <b>allow-list it in the app’s CSP settings</b>.
-					<br />
-					See the <Link href="https://docs.gitbutler.com/troubleshooting/custom-csp"
-						>docs for details</Link
+				{#if anthropicKeyOption === KeyOption.ButlerAPI}
+					{#if !$user}
+						<AuthorizationBanner message="Please sign in to use the GitButler API." />
+					{:else}
+						{@render shortNote(
+							'GitButler uses Anthropic API for commit messages and branch names.'
+						)}
+					{/if}
+				{/if}
+
+				{#if anthropicKeyOption === KeyOption.BringYourOwn}
+					<Textbox
+						label="API key"
+						type="password"
+						bind:value={anthropicKey}
+						required
+						placeholder="sk-ant-api03-..."
+					/>
+
+					<Select
+						value={anthropicModelName}
+						options={anthropicModelOptions}
+						label="Model version"
+						onselect={(value) => {
+							anthropicModelName = value as AnthropicModelName;
+						}}
 					>
-				{/snippet}
-			</InfoMessage>
-		</SectionCard>
-	{/if}
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === anthropicModelName} {highlighted}>
+								{item.label}
+							</SelectItem>
+						{/snippet}
+					</Select>
+				{/if}
+			</Section.Card>
+		{/if}
 
-	<SectionCard
-		roundedTop={false}
-		roundedBottom={false}
-		orientation="row"
-		labelFor="lmstudio"
-		bottomBorder={modelKind !== ModelKind.LMStudio}
-	>
-		{#snippet title()}
-			LM Studio
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton name="modelKind" id="lmstudio" value={ModelKind.LMStudio} />
-		{/snippet}
-	</SectionCard>
-	{#if modelKind === ModelKind.LMStudio}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
-			<Textbox label="Endpoint" bind:value={lmStudioEndpoint} placeholder="http://127.0.0.1:1234" />
-			<Textbox label="Model" bind:value={lmStudioModel} placeholder="default" />
-			<InfoMessage filled outlined={false}>
-				{#snippet title()}
-					Configuring LM Studio
-				{/snippet}
-				{#snippet content()}
-					<div class="ai-settings__section-text-block">
-						<p>Connecting to your LM Studio endpoint requires that you do two things:</p>
+		<Section.Card labelFor="ollama">
+			{#snippet title()}
+				Ollama 🦙
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton name="modelKind" id="ollama" value={ModelKind.Ollama} />
+			{/snippet}
+		</Section.Card>
+		{#if modelKind === ModelKind.Ollama}
+			<Section.Card>
+				<Textbox
+					label="Endpoint"
+					bind:value={ollamaEndpoint}
+					placeholder="http://127.0.0.1:11434"
+				/>
+				<Textbox label="Model" bind:value={ollamaModel} placeholder="llama3" />
+				<InfoMessage filled outlined={false}>
+					{#snippet title()}
+						Configuring Ollama
+					{/snippet}
+					{#snippet content()}
+						To connect to your Ollama endpoint, <b>allow-list it in the app’s CSP settings</b>.
+						<br />
+						See the <Link href="https://docs.gitbutler.com/troubleshooting/custom-csp"
+							>docs for details</Link
+						>
+					{/snippet}
+				</InfoMessage>
+			</Section.Card>
+		{/if}
 
-						<p>
-							1. <span class="text-bold">Allow-list it in the CSP settings for the application</span
-							>. You can find more details on how to do that in the <Link
-								href="https://docs.gitbutler.com/troubleshooting/custom-csp">GitButler docs</Link
-							>.
-						</p>
+		<Section.Card labelFor="lmstudio">
+			{#snippet title()}
+				LM Studio
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton name="modelKind" id="lmstudio" value={ModelKind.LMStudio} />
+			{/snippet}
+		</Section.Card>
+		{#if modelKind === ModelKind.LMStudio}
+			<Section.Card>
+				<Textbox
+					label="Endpoint"
+					bind:value={lmStudioEndpoint}
+					placeholder="http://127.0.0.1:1234"
+				/>
+				<Textbox label="Model" bind:value={lmStudioModel} placeholder="default" />
+				<InfoMessage filled outlined={false}>
+					{#snippet title()}
+						Configuring LM Studio
+					{/snippet}
+					{#snippet content()}
+						<div class="ai-settings__section-text-block">
+							<p>Connecting to your LM Studio endpoint requires that you do two things:</p>
 
-						<p>
-							2. <span class="text-bold">Enable CORS support in LM Studio</span>. You can find more
-							details on how to do that in the <Link
-								href="https://lmstudio.ai/docs/cli/server-start#enable-cors-support"
-								>LM Studio docs</Link
-							>.
-						</p>
-					</div>
-				{/snippet}
-			</InfoMessage>
-		</SectionCard>
-	{/if}
+							<p>
+								1. <span class="text-bold"
+									>Allow-list it in the CSP settings for the application</span
+								>. You can find more details on how to do that in the <Link
+									href="https://docs.gitbutler.com/troubleshooting/custom-csp">GitButler docs</Link
+								>.
+							</p>
 
-	<!-- AI credential check -->
-	<SectionCard roundedTop={false}>
-		<AiCredentialCheck />
-	</SectionCard>
-</form>
+							<p>
+								2. <span class="text-bold">Enable CORS support in LM Studio</span>. You can find
+								more details on how to do that in the <Link
+									href="https://lmstudio.ai/docs/cli/server-start#enable-cors-support"
+									>LM Studio docs</Link
+								>.
+							</p>
+						</div>
+					{/snippet}
+				</InfoMessage>
+			</Section.Card>
+		{/if}
+
+		<Section.Card>
+			<AiCredentialCheck />
+		</Section.Card>
+	</form>
+</Section>
 
 <Spacer />
 
-<SectionCard orientation="row">
+<Section.Card standalone>
 	{#snippet title()}
 		Amount of provided context
 	{/snippet}
@@ -456,9 +445,11 @@
 			placeholder="5000"
 		/>
 	{/snippet}
-</SectionCard>
+</Section.Card>
+
 <Spacer />
-<Section>
+
+<SettingsSection>
 	{#snippet title()}
 		Custom AI prompts
 	{/snippet}
@@ -472,7 +463,7 @@
 		<Spacer margin={12} />
 		<AIPromptEdit promptUse="branches" />
 	</div>
-</Section>
+</SettingsSection>
 
 <style>
 	.ai-settings__about-text {

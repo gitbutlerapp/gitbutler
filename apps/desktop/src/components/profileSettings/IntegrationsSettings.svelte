@@ -2,7 +2,7 @@
 	import GithubIntegration from '$components/GithubIntegration.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { inject } from '@gitbutler/core/context';
-	import { SectionCard, Spacer, Toggle } from '@gitbutler/ui';
+	import { Section, Spacer, Toggle } from '@gitbutler/ui';
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = settingsService.appSettings;
@@ -18,7 +18,7 @@
 
 <Spacer />
 
-<SectionCard labelFor="autoFillPrDescription" orientation="row">
+<Section.Card labelFor="autoFillPrDescription">
 	{#snippet title()}
 		Auto-fill PR descriptions from commit
 	{/snippet}
@@ -33,4 +33,4 @@
 			onclick={toggleAutoFillPrDescription}
 		/>
 	{/snippet}
-</SectionCard>
+</Section.Card>

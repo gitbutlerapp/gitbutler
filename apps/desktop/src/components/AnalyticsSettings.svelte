@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { inject } from '@gitbutler/core/context';
-	import { SectionCard, Toggle, Link, TestId } from '@gitbutler/ui';
+	import { Toggle, Link, TestId, Section } from '@gitbutler/ui';
 
 	const appSettings = inject(APP_SETTINGS);
 	const errorReportingEnabled = appSettings.appErrorReportingEnabled;
@@ -26,8 +26,8 @@
 	</p>
 </div>
 
-<div class="analytics-settings__actions" data-testid={TestId.OnboardingPageAnalyticsSettings}>
-	<SectionCard labelFor="errorReportingToggle" orientation="row">
+<Section testId={TestId.OnboardingPageAnalyticsSettings}>
+	<Section.Card labelFor="errorReportingToggle">
 		{#snippet title()}
 			Error reporting
 		{/snippet}
@@ -42,9 +42,9 @@
 				onclick={() => ($errorReportingEnabled = !$errorReportingEnabled)}
 			/>
 		{/snippet}
-	</SectionCard>
+	</Section.Card>
 
-	<SectionCard labelFor="metricsEnabledToggle" orientation="row">
+	<Section.Card labelFor="metricsEnabledToggle">
 		{#snippet title()}
 			Usage metrics
 		{/snippet}
@@ -59,9 +59,9 @@
 				onclick={() => ($metricsEnabled = !$metricsEnabled)}
 			/>
 		{/snippet}
-	</SectionCard>
+	</Section.Card>
 
-	<SectionCard labelFor="nonAnonMetricsEnabledToggle" orientation="row">
+	<Section.Card labelFor="nonAnonMetricsEnabledToggle">
 		{#snippet title()}
 			Non-anonymous usage metrics
 		{/snippet}
@@ -76,8 +76,8 @@
 				onclick={() => ($nonAnonMetricsEnabled = !$nonAnonMetricsEnabled)}
 			/>
 		{/snippet}
-	</SectionCard>
-</div>
+	</Section.Card>
+</Section>
 
 <style lang="postcss">
 	.analytics-settings__content {
@@ -89,11 +89,5 @@
 	.analytics-settings__text {
 		margin-bottom: 10px;
 		color: var(--clr-text-2);
-	}
-
-	.analytics-settings__actions {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
 	}
 </style>

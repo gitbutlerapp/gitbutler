@@ -6,7 +6,7 @@
 	import {
 		HunkDiff,
 		RadioButton,
-		SectionCard,
+		Section,
 		Select,
 		SelectItem,
 		Textbox,
@@ -48,14 +48,14 @@
 	}
 </script>
 
-<SectionCard>
+<Section.Card standalone>
 	{#snippet title()}
 		Theme
 	{/snippet}
 	<ThemeSelector {userSettings} />
-</SectionCard>
+</Section.Card>
 
-<SectionCard orientation="row" centerAlign>
+<Section.Card alignment="center" standalone>
 	{#snippet title()}
 		Default file list mode
 	{/snippet}
@@ -84,10 +84,10 @@
 			{/snippet}
 		</Select>
 	{/snippet}
-</SectionCard>
+</Section.Card>
 
-<div class="stack-v">
-	<SectionCard centerAlign roundedBottom={false}>
+<Section>
+	<Section.Card alignment="center">
 		{#snippet title()}
 			Diff preview
 		{/snippet}
@@ -103,36 +103,30 @@
 			inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 			hunkStr={diff}
 		/>
-	</SectionCard>
+	</Section.Card>
 
-	<SectionCard orientation="column" roundedTop={false} roundedBottom={false}>
+	<Section.Card>
 		{#snippet title()}
 			Font family
 		{/snippet}
 		{#snippet caption()}
 			Sets the font for the diff view. The first font name is the default, others are fallbacks.
 		{/snippet}
-		{#snippet actions()}
-			<Textbox
-				wide
-				bind:value={$userSettings.diffFont}
-				required
-				onchange={(value: string) => {
-					userSettings.update((s) => ({
-						...s,
-						diffFont: value
-					}));
-				}}
-			/>
-		{/snippet}
-	</SectionCard>
 
-	<SectionCard
-		labelFor="allowDiffLigatures"
-		orientation="row"
-		roundedTop={false}
-		roundedBottom={false}
-	>
+		<Textbox
+			wide
+			bind:value={$userSettings.diffFont}
+			required
+			onchange={(value: string) => {
+				userSettings.update((s) => ({
+					...s,
+					diffFont: value
+				}));
+			}}
+		/>
+	</Section.Card>
+
+	<Section.Card labelFor="allowDiffLigatures">
 		{#snippet title()}
 			Allow font ligatures
 		{/snippet}
@@ -148,9 +142,9 @@
 				}}
 			/>
 		{/snippet}
-	</SectionCard>
+	</Section.Card>
 
-	<SectionCard orientation="row" centerAlign roundedTop={false} roundedBottom={false}>
+	<Section.Card alignment="center">
 		{#snippet title()}
 			Tab size
 		{/snippet}
@@ -176,9 +170,9 @@
 				placeholder={$userSettings.tabSize.toString()}
 			/>
 		{/snippet}
-	</SectionCard>
+	</Section.Card>
 
-	<SectionCard labelFor="wrapText" orientation="row" roundedTop={false} roundedBottom={false}>
+	<Section.Card labelFor="wrapText">
 		{#snippet title()}
 			Soft wrap
 		{/snippet}
@@ -198,9 +192,9 @@
 				}}
 			/>
 		{/snippet}
-	</SectionCard>
+	</Section.Card>
 
-	<SectionCard orientation="row" roundedTop={false} roundedBottom={false}>
+	<Section.Card>
 		{#snippet title()}
 			Lines contrast
 		{/snippet}
@@ -230,14 +224,9 @@
 				{/snippet}
 			</Select>
 		{/snippet}
-	</SectionCard>
+	</Section.Card>
 
-	<SectionCard
-		labelFor="colorBlindFriendly"
-		orientation="row"
-		roundedTop={false}
-		roundedBottom={false}
-	>
+	<Section.Card labelFor="colorBlindFriendly">
 		{#snippet title()}
 			Color blind-friendly colors
 		{/snippet}
@@ -258,9 +247,9 @@
 				}}
 			/>
 		{/snippet}
-	</SectionCard>
+	</Section.Card>
 
-	<SectionCard labelFor="inlineUnifiedDiffs" orientation="row" roundedTop={false}>
+	<Section.Card labelFor="inlineUnifiedDiffs">
 		{#snippet title()}
 			Display word diffs inline
 		{/snippet}
@@ -280,124 +269,118 @@
 				}}
 			/>
 		{/snippet}
-	</SectionCard>
-</div>
+	</Section.Card>
+</Section>
 
-<form class="stack-v" onchange={(e) => onScrollbarFormChange(e.currentTarget)}>
-	<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
-		{#snippet title()}
-			Scrollbar-On-Scroll
-		{/snippet}
-		{#snippet caption()}
-			Only show the scrollbar when you are scrolling.
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="scrollBarVisibilityType"
-				value="scroll"
-				id="scrollbar-on-scroll"
-				checked={$userSettings.scrollbarVisibilityState === 'scroll'}
-			/>
-		{/snippet}
-	</SectionCard>
+<Section>
+	<form class="stack-v" onchange={(e) => onScrollbarFormChange(e.currentTarget)}>
+		<Section.Card labelFor="scrollbar-on-scroll">
+			{#snippet title()}
+				Scrollbar-On-Scroll
+			{/snippet}
+			{#snippet caption()}
+				Only show the scrollbar when you are scrolling.
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="scroll"
+					id="scrollbar-on-scroll"
+					checked={$userSettings.scrollbarVisibilityState === 'scroll'}
+				/>
+			{/snippet}
+		</Section.Card>
 
-	<SectionCard
-		roundedTop={false}
-		roundedBottom={false}
-		orientation="row"
-		labelFor="scrollbar-on-hover"
-	>
-		{#snippet title()}
-			Scrollbar-On-Hover
-		{/snippet}
-		{#snippet caption()}
-			Show the scrollbar only when you hover over the scrollable area.
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="scrollBarVisibilityType"
-				value="hover"
-				id="scrollbar-on-hover"
-				checked={$userSettings.scrollbarVisibilityState === 'hover'}
-			/>
-		{/snippet}
-	</SectionCard>
+		<Section.Card labelFor="scrollbar-on-hover">
+			{#snippet title()}
+				Scrollbar-On-Hover
+			{/snippet}
+			{#snippet caption()}
+				Show the scrollbar only when you hover over the scrollable area.
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="hover"
+					id="scrollbar-on-hover"
+					checked={$userSettings.scrollbarVisibilityState === 'hover'}
+				/>
+			{/snippet}
+		</Section.Card>
 
-	<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always">
-		{#snippet title()}
-			Always show scrollbar
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="scrollBarVisibilityType"
-				value="always"
-				id="scrollbar-always"
-				checked={$userSettings.scrollbarVisibilityState === 'always'}
-			/>
-		{/snippet}
-	</SectionCard>
-</form>
+		<Section.Card labelFor="scrollbar-always">
+			{#snippet title()}
+				Always show scrollbar
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="always"
+					id="scrollbar-always"
+					checked={$userSettings.scrollbarVisibilityState === 'always'}
+				/>
+			{/snippet}
+		</Section.Card>
+	</form>
+</Section>
 
-<form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
-	<SectionCard roundedBottom={false} orientation="row" labelFor="stage-all">
-		{#snippet title()}
-			Stage all files
-		{/snippet}
-		{#snippet caption()}
-			Stage all files assigned to the stack on commit. If no files are staged, all unassinged files
-			will be staged.
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="stagingBehaviorType"
-				value="all"
-				id="stage-all"
-				checked={$stagingBehaviorFeature === 'all'}
-			/>
-		{/snippet}
-	</SectionCard>
+<Section>
+	<form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
+		<Section.Card labelFor="stage-all">
+			{#snippet title()}
+				Stage all files
+			{/snippet}
+			{#snippet caption()}
+				Stage all files assigned to the stack on commit. If no files are staged, all unassinged
+				files will be staged.
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="stagingBehaviorType"
+					value="all"
+					id="stage-all"
+					checked={$stagingBehaviorFeature === 'all'}
+				/>
+			{/snippet}
+		</Section.Card>
 
-	<SectionCard
-		roundedTop={false}
-		roundedBottom={false}
-		orientation="row"
-		labelFor="stage-selection"
-	>
-		{#snippet title()}
-			Stage selected files
-		{/snippet}
-		{#snippet caption()}
-			Stage the selected assigned files to the stack on commit. If no files are selected, stage all
-			files. If there are no assigned files, stage all selected unassigned files.
-			<br />
-			And if no files are selected, stage all unassigned files.
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="stagingBehaviorType"
-				value="selection"
-				id="stage-selection"
-				checked={$stagingBehaviorFeature === 'selection'}
-			/>
-		{/snippet}
-	</SectionCard>
+		<Section.Card labelFor="stage-selection">
+			{#snippet title()}
+				Stage selected files
+			{/snippet}
+			{#snippet caption()}
+				Stage the selected assigned files to the stack on commit. If no files are selected, stage
+				all files. If there are no assigned files, stage all selected unassigned files.
+				<br />
+				And if no files are selected, stage all unassigned files.
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="stagingBehaviorType"
+					value="selection"
+					id="stage-selection"
+					checked={$stagingBehaviorFeature === 'selection'}
+				/>
+			{/snippet}
+		</Section.Card>
 
-	<SectionCard roundedTop={false} orientation="row" labelFor="stage-none">
-		{#snippet title()}
-			Don't stage files automatically
-		{/snippet}
-		{#snippet caption()}
-			Do not stage any files automatically.
-			<br />
-			You're more of a DIY developer in that way.
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="stagingBehaviorType"
-				value="none"
-				id="stage-none"
-				checked={$stagingBehaviorFeature === 'none'}
-			/>
-		{/snippet}
-	</SectionCard>
-</form>
+		<Section.Card labelFor="stage-none">
+			{#snippet title()}
+				Don't stage files automatically
+			{/snippet}
+			{#snippet caption()}
+				Do not stage any files automatically.
+				<br />
+				You're more of a DIY developer in that way.
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="stagingBehaviorType"
+					value="none"
+					id="stage-none"
+					checked={$stagingBehaviorFeature === 'none'}
+				/>
+			{/snippet}
+		</Section.Card>
+	</form>
+</Section>

@@ -2,13 +2,14 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
+		testId?: string;
 		children: Snippet;
 	}
 
-	let { children }: Props = $props();
+	let { testId, children }: Props = $props();
 </script>
 
-<section class="section">
+<section class="section" data-testid={testId}>
 	{@render children()}
 </section>
 
@@ -19,5 +20,6 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
 	}
 </style>
