@@ -345,6 +345,9 @@ pub enum Subcommands {
     Describe {
         /// Commit ID to edit the message for, or branch ID to rename
         target: String,
+        /// The new commit message or branch name. If not provided, opens an editor.
+        #[clap(short = 'm', long = "message")]
+        message: Option<String>,
     },
 
     /// Show operation history.

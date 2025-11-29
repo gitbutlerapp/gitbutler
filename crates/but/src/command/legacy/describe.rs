@@ -9,6 +9,7 @@ pub(crate) fn describe_target(
     project: &Project,
     out: &mut OutputChannel,
     target: &str,
+    message: Option<&str>,
 ) -> Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
 
@@ -31,10 +32,10 @@ pub(crate) fn describe_target(
 
     match cli_id {
         CliId::Branch { name, .. } => {
-            edit_branch_name(&ctx, project, name, out)?;
+            edit_branch_name(&ctx, project, name, out, message)?;
         }
         CliId::Commit { oid } => {
-            edit_commit_message_by_id(&ctx, project, *oid, out)?;
+            edit_commit_message_by_id(&ctx, project, *oid, out, message)?;
         }
         _ => {
             bail!("Target must be a commit ID, not {}", cli_id.kind());
@@ -49,6 +50,7 @@ fn edit_branch_name(
     project: &Project,
     branch_name: &str,
     out: &mut OutputChannel,
+    message: Option<&str>,
 ) -> Result<()> {
     // Find which stack this branch belongs to
     let stacks = but_api::legacy::workspace::stacks(
@@ -62,7 +64,17 @@ fn edit_branch_name(
         }
 
         if let Some(sid) = stack_entry.id {
-            let new_name = get_branch_name_from_editor(branch_name)?;
+            let new_name = if let Some(msg) = message {
+                // Use provided message, trim and validate
+                let trimmed = msg.trim();
+                if trimmed.is_empty() {
+                    bail!("Aborting due to empty branch name");
+                }
+                trimmed.to_string()
+            } else {
+                // Fall back to editor
+                get_branch_name_from_editor(branch_name)?
+            };
             but_api::legacy::stack::update_branch_name(
                 project.id,
                 sid,
@@ -84,6 +96,7 @@ fn edit_commit_message_by_id(
     project: &Project,
     commit_oid: gix::ObjectId,
     out: &mut OutputChannel,
+    message: Option<&str>,
 ) -> Result<()> {
     // Find which stack this commit belongs to
     let stacks = but_api::legacy::workspace::stacks(project.id, None)?;
@@ -132,15 +145,25 @@ fn edit_commit_message_by_id(
     let stack_id = stack_id
         .ok_or_else(|| anyhow::anyhow!("Could not find stack for commit {}", commit_oid))?;
 
-    // Get the files changed in this commit using but_api
-    let commit_details = but_api::legacy::diff::commit_details(project.id, commit_oid.into())?;
-    let changed_files = get_changed_files_from_commit_details(&commit_details);
-
     // Get current commit message
     let current_message = commit_message.to_string();
 
-    // Open editor with current message and file list
-    let new_message = get_commit_message_from_editor(&current_message, &changed_files)?;
+    // Get new message from provided argument or editor
+    let new_message = if let Some(msg) = message {
+        // Use provided message, trim and validate
+        let trimmed = msg.trim();
+        if trimmed.is_empty() {
+            bail!("Aborting due to empty commit message");
+        }
+        trimmed.to_string()
+    } else {
+        // Get the files changed in this commit using but_api
+        let commit_details = but_api::legacy::diff::commit_details(project.id, commit_oid.into())?;
+        let changed_files = get_changed_files_from_commit_details(&commit_details);
+
+        // Open editor with current message and file list
+        get_commit_message_from_editor(&current_message, &changed_files)?
+    };
 
     if new_message.trim() == current_message.trim() {
         bail!("No changes to commit message.");

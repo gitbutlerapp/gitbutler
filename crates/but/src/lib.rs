@@ -364,9 +364,9 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Describe { target } => {
+        Subcommands::Describe { target, message } => {
             let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::describe::describe_target(&project, out, &target)
+            command::legacy::describe::describe_target(&project, out, &target, message.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
