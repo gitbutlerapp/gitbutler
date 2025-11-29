@@ -2,15 +2,15 @@
 	"name": "@gitbutler/e2e",
 	"type": "module",
 	"devDependencies": {
-		"@playwright/test": "1.56.1",
-		"@types/node": "^24.3.0",
-		"@wdio/cli": "^9.18.4",
+		"@playwright/test": "1.57.0",
+		"@types/node": "^22.19.1",
+		"@wdio/cli": "^9.20.1",
 		"@wdio/globals": "^9.17.0",
-		"@wdio/local-runner": "^9.18.4",
-		"@wdio/mocha-framework": "^9.18.0",
-		"@wdio/spec-reporter": "^9.18.0",
-		"@wdio/types": "^9.19.1",
-		"wdio-video-reporter": "^6.0.0"
+		"@wdio/local-runner": "^9.20.1",
+		"@wdio/mocha-framework": "^9.20.1",
+		"@wdio/spec-reporter": "^9.20.0",
+		"@wdio/types": "^9.20.0",
+		"wdio-video-reporter": "^6.2.0"
 	},
 	"scripts": {
 		"test:e2e": "pnpm test:e2e:not-tauri",
