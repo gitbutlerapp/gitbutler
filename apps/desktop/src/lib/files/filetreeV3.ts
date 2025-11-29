@@ -170,3 +170,80 @@ export function getAllChanges(node: TreeNode): TreeChange[] {
 	}
 	return node.children.reduce((prev, curr) => prev.concat(getAllChanges(curr)), [] as TreeChange[]);
 }
+
+/**
+ * Represents a flattened tree item that can be rendered in a virtual list.
+ */
+export type FlatTreeItem =
+	| {
+			type: 'folder';
+			name: string;
+			depth: number;
+			node: TreeNode;
+			nodeId: string;
+			isExpanded: boolean;
+	  }
+	| {
+			type: 'file';
+			name: string;
+			depth: number;
+			change: TreeChange;
+			index: number;
+			nodeId: string;
+	  };
+
+/**
+ * Generates a unique ID for a tree node based on its path.
+ */
+function getNodeId(node: TreeNode): string {
+	return nodePath(node) || 'root';
+}
+
+/**
+ * Flattens a tree structure into a linear array suitable for virtual scrolling.
+ * Only includes items that should be visible based on expanded state.
+ *
+ * @param node - The tree node to flatten
+ * @param expandedFolders - Set of folder IDs that are currently expanded
+ * @param depth - Current depth in the tree (for indentation)
+ * @returns Array of flattened items ready for rendering
+ */
+export function flattenTree(
+	node: TreeNode,
+	expandedFolders: Set<string>,
+	depth: number = 0
+): FlatTreeItem[] {
+	const items: FlatTreeItem[] = [];
+
+	for (const child of node.children) {
+		const nodeId = getNodeId(child);
+
+		if (child.kind === 'file') {
+			items.push({
+				type: 'file',
+				name: child.name,
+				depth,
+				change: child.change,
+				index: child.index,
+				nodeId
+			});
+		} else {
+			const isExpanded = expandedFolders.has(nodeId);
+			items.push({
+				type: 'folder',
+				name: child.name,
+				depth,
+				node: child,
+				nodeId,
+				isExpanded
+			});
+
+			// Only include children if this folder is expanded
+			if (isExpanded) {
+				items.push(...flattenTree(child, expandedFolders, depth + 1));
+			}
+		}
+	}
+
+	return items;
+}
