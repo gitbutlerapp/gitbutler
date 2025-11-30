@@ -21,7 +21,7 @@
 	}
 </script>
 
-<Tooltip text={getTitle()}>
+<Tooltip text={getTitle()} delay={1200}>
 	<h3
 		data-testid={TestId.CommitDrawerTitle}
 		class="{className} commit-title"

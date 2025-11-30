@@ -221,7 +221,7 @@
 		{@const hasRemoteCommits = upstreamOnlyCommits.length > 0}
 		{@const hasCommits = localAndRemoteCommits.length > 0}
 
-		{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
+		<!-- {@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))} -->
 
 		{#if hasCommits || hasRemoteCommits}
 			<div
@@ -263,6 +263,8 @@
 						{/snippet}
 					</UpstreamCommitsAction>
 				{/if}
+
+				{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
 
 				{#each localAndRemoteCommits as commit, i (commit.id)}
 					{@const first = i === 0}
