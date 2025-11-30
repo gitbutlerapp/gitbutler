@@ -24,7 +24,6 @@
 		draggableFiles?: boolean;
 		grow?: boolean;
 		noshrink?: boolean;
-		bottomBorder?: boolean;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		autoselect?: boolean;
 		ancestorMostConflictedCommitId?: string;
@@ -44,7 +43,6 @@
 		draggableFiles,
 		grow,
 		noshrink,
-		bottomBorder,
 		resizer,
 		autoselect,
 		ancestorMostConflictedCommitId,
@@ -75,7 +73,6 @@
 	{ontoggle}
 	{resizer}
 	{noshrink}
-	bottomBorder={changes.length > 0}
 	persistId={`changed-files-drawer-${projectId}-${stackId || 'default'}`}
 	childrenWrapHeight={changes.length > 0 ? 'auto' : '100%'}
 	childrenWrapDisplay={changes.length > 0 ? 'block' : 'flex'}
@@ -93,7 +90,7 @@
 		<FileListMode bind:mode={listMode} persistId={`changed-files-${persistId}`} />
 	{/snippet}
 
-	<div class="filelist-wrapper" class:bottom-border={bottomBorder}>
+	<div class="filelist-wrapper">
 		{#if changes.length > 0 || Object.entries(conflictEntries?.entries ?? {}).length > 0}
 			<FileList
 				{selectionId}
@@ -129,9 +126,5 @@
 		height: 100%;
 		margin-bottom: 16px;
 		background-color: var(--clr-bg-1);
-
-		&.bottom-border {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
 	}
 </style>

@@ -1,15 +1,13 @@
 <script lang="ts">
 	import { portal } from '@gitbutler/ui/utils/portal';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	interface Props {
 		hovered: boolean;
 		activated: boolean;
 		advertize?: boolean;
-		yOffsetPx?: number;
 	}
 
-	const { hovered, activated, advertize, yOffsetPx = 0 }: Props = $props();
+	const { hovered, activated, advertize }: Props = $props();
 
 	let containerElement = $state<HTMLDivElement>();
 	let indicatorElement = $state<HTMLDivElement>();
@@ -50,7 +48,6 @@
 	class:activated
 	class:advertize
 	class:hovered
-	style:--y-offset="{pxToRem(yOffsetPx)}rem"
 >
 	<div bind:this={indicatorElement} class="indicator-placeholder"></div>
 </div>

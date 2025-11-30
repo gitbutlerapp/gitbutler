@@ -275,9 +275,14 @@
 						onclick={() => createBranchModal?.show()}>create a new branch</button
 					> +
 				{:else}
-					Drag changes here to
+					Drop files to start a branch,
 					<br />
-					branch off your changes
+					or
+					<button
+						type="button"
+						class="underline-dotted pointer-events clr-text-2 link-hover-2"
+						onclick={() => createBranchModal?.show()}>create a new branch</button
+					> +
 				{/if}
 			{/snippet}
 		</MultiStackOfflaneDropzone>

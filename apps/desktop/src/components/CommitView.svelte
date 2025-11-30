@@ -159,7 +159,6 @@
 				cancelEdit();
 				onclose?.();
 			}}
-			bottomBorder
 			noshrink
 		>
 			{#snippet header()}
