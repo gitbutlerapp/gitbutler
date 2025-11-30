@@ -47,6 +47,7 @@
 			testId={TestId.UnappliedBranchDrawer}
 			persistId="unapplied-branch-drawer-{projectId}-{branch.name}"
 			{onclose}
+			noshrink
 		>
 			{#snippet header()}
 				<div class="branch__header">
