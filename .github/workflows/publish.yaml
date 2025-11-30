@@ -100,6 +100,10 @@ jobs:
             target: ''
           - platform: ubuntu-24.04-arm # [linux, ARM64]
             target: ''
+          - platform: ubuntu-22.04 # [linux, x64]
+            target: ''
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
+            target: ''
           - platform: windows-latest # [windows, x64]
             target: ''
 
@@ -351,6 +355,10 @@ jobs:
           - platform: ubuntu-24.04 # [linux, x64]
             target: ''
           - platform: ubuntu-24.04-arm # [linux, ARM64]
+            target: ''
+          - platform: ubuntu-22.04 # [linux, x64]
+            target: ''
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
             target: ''
           - platform: windows-latest # [windows, x64]
             target: ''
