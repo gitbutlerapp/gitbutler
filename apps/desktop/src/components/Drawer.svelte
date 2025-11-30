@@ -36,7 +36,7 @@
 		children,
 		testId,
 		persistId,
-		bottomBorder,
+		bottomBorder = true,
 		grow,
 		noshrink,
 		resizer,
@@ -68,7 +68,7 @@
 	bind:this={containerDiv}
 	bind:clientHeight
 	class:collapsed={$collapsed}
-	class:bottom-border={bottomBorder && !resizer}
+	class:bottom-border={bottomBorder && !$collapsed}
 	class:grow
 	class:noshrink
 >
@@ -126,7 +126,6 @@
 			passive={resizer.passive}
 			disabled={$collapsed}
 			direction="down"
-			showBorder
 			{...resizer}
 			{maxHeight}
 		/>
@@ -154,7 +153,6 @@
 		}
 		&.collapsed {
 			max-height: none;
-			margin-bottom: -1px;
 		}
 	}
 
