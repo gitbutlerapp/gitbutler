@@ -97,7 +97,7 @@ gitbutler-operating-modes = {workspace = true, optional = true}
 gitbutler-sync = {workspace = true, optional = true}
 gitbutler-oplog = {workspace = true, optional = true}
 
-tauri = { version = "^2.9.2", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
+tauri = { version = "^2.9.3", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
 
 bstr = { workspace = true, optional = true }
 schemars.workspace = true

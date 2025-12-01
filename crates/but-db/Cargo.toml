@@ -11,7 +11,7 @@ doctest = false
 test = false
 
 [dependencies]
-diesel = { version = "2.2.12", features = [
+diesel = { version = "2.3.4", features = [
     "sqlite",
     "returning_clauses_for_sqlite_3_35",
     "chrono",
@@ -21,7 +21,7 @@ libsqlite3-sys = { version = "0.29", features = ["bundled"] }
 bitflags.workspace = true
 serde.workspace = true
 anyhow.workspace = true
-diesel_migrations = { version = "2.3.0", features = ["sqlite"] }
+diesel_migrations = { version = "2.3.1", features = ["sqlite"] }
 chrono = { workspace = true, features = ["serde"] }
 # other things
 tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time", "sync", "macros"] }

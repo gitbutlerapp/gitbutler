@@ -29,5 +29,5 @@ but-testsupport.workspace = true
 gitbutler-reference.workspace = true
 
 gix-testtools.workspace = true
-insta = "1.43.2"
+insta = "1.44.3"
 

@@ -25,5 +25,5 @@ toml.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
-insta = "1.43.2"
+insta = "1.44.3"
 but-core = { workspace = true, features = ["testing"] }

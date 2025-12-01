@@ -47,5 +47,5 @@ hex = { version = "0.4.3", optional = true }
 but-meta = {workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
 
-insta = "1.43.2"
+insta = "1.44.3"
 
