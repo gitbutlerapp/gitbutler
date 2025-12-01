@@ -1,6 +1,19 @@
 //! Operations for mutation the editor
 
-use crate::graph_rebase::{Editor, Selector, Step};
+use petgraph::{Direction, visit::EdgeRef};
+
+use crate::graph_rebase::{Edge, Editor, Selector, Step};
+
+/// Describes where relative to the selector a step should be inserted
+#[derive(Debug, Clone, Copy)]
+pub enum InsertSide {
+    /// When inserting above, any nodes that point to the selector will now
+    /// point to the inserted node instead.
+    Above,
+    /// When inserting below, any nodes that the selector points to will now be
+    /// pointed to by the inserted node instead.
+    Below,
+}
 
 /// Operations for mutating the commit graph
 impl Editor {
@@ -37,5 +50,47 @@ impl Editor {
         let old = self.graph[target.id].clone();
         self.graph[target.id] = step;
         old
+    }
+
+    /// Inserts a new node relative to a selector
+    ///
+    ///
+    /// When inserting above, any nodes that point to the selector will now
+    /// point to the inserted node instead. When inserting below, any nodes
+    /// that the selector points to will now be pointed to by the inserted node
+    /// instead.
+    pub fn insert(&mut self, target: &Selector, step: Step, side: InsertSide) {
+        match side {
+            InsertSide::Above => {
+                let edges = self
+                    .graph
+                    .edges_directed(target.id, Direction::Incoming)
+                    .map(|e| (e.id(), e.weight().to_owned(), e.source()))
+                    .collect::<Vec<_>>();
+
+                let new_idx = self.graph.add_node(step);
+                self.graph.add_edge(new_idx, target.id, Edge { order: 0 });
+
+                for (edge_id, edge_weight, edge_source) in edges {
+                    self.graph.remove_edge(edge_id);
+                    self.graph.add_edge(edge_source, new_idx, edge_weight);
+                }
+            }
+            InsertSide::Below => {
+                let edges = self
+                    .graph
+                    .edges_directed(target.id, Direction::Outgoing)
+                    .map(|e| (e.id(), e.weight().to_owned(), e.target()))
+                    .collect::<Vec<_>>();
+
+                let new_idx = self.graph.add_node(step);
+                self.graph.add_edge(target.id, new_idx, Edge { order: 0 });
+
+                for (edge_id, edge_weight, edge_target) in edges {
+                    self.graph.remove_edge(edge_id);
+                    self.graph.add_edge(new_idx, edge_target, edge_weight);
+                }
+            }
+        }
     }
 }
