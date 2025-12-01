@@ -1,5 +1,6 @@
 mod cherry_pick;
 mod editor_creation;
+mod insert;
 mod rebase_identities;
 mod replace;
 
