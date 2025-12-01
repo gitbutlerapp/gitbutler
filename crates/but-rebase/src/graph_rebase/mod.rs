@@ -4,8 +4,6 @@
 //! one mess of git2 code to bring them all,
 //! and in the darknes bind them.
 
-use petgraph::graph::NodeIndex;
-
 mod creation;
 pub mod rebase;
 pub use creation::GraphExt;

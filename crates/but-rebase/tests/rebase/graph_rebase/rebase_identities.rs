@@ -21,7 +21,7 @@ fn four_commits() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.create_editor()?;
+    let editor = graph.to_editor()?;
     let outcome = editor.rebase(&repo)?;
     let RebaseOutcome::Success(outcome) = outcome else {
         bail!("Rebase failed");
@@ -50,7 +50,7 @@ fn merge_in_the_middle() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.create_editor()?;
+    let editor = graph.to_editor()?;
     let outcome = editor.rebase(&repo)?;
     let RebaseOutcome::Success(outcome) = outcome else {
         bail!("Rebase failed");
@@ -83,7 +83,7 @@ fn three_branches_merged() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.create_editor()?;
+    let editor = graph.to_editor()?;
     let outcome = editor.rebase(&repo)?;
     let RebaseOutcome::Success(outcome) = outcome else {
         bail!("Rebase failed");

@@ -8,8 +8,8 @@ use but_core::worktree::{
 
 impl SuccessfulRebase {
     /// Materializes a history rewrite
-    pub fn materialize(&self, repo: &gix::Repository) -> Result<()> {
-        for checkout in &self.checkouts {
+    pub fn materialize(self, repo: &gix::Repository) -> Result<()> {
+        for checkout in self.checkouts {
             // TODO(CTO): improve safe_checkout to allow for speculation
             safe_checkout(
                 checkout.old_head_id,

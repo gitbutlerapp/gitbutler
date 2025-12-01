@@ -9,12 +9,12 @@ use crate::graph_rebase::{Edge, Editor, Step, StepGraph, StepGraphIndex};
 /// Provides an extension for creating an Editor out of the segment graph
 pub trait GraphExt {
     /// Creates an editor.
-    fn create_editor(&self) -> Result<Editor>;
+    fn to_editor(&self) -> Result<Editor>;
 }
 
 impl GraphExt for Graph {
     /// Creates an editor out of the segment graph.
-    fn create_editor(&self) -> Result<Editor> {
+    fn to_editor(&self) -> Result<Editor> {
         // TODO(CTO): Look into traversing "in workspace" segments that are not reachable from the entrypoint
         // TODO(CTO): Look into stopping at the common base
         let entrypoint = self.lookup_entrypoint()?;

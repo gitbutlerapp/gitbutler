@@ -43,6 +43,8 @@ pub struct SuccessfulRebase {
 
 /// Represents the rebase output and the varying degrees of success it had.
 #[derive(Debug, Clone)]
+#[expect(clippy::large_enum_variant)]
+#[must_use = "Rebase does nothing to affect the commit graph unless materialized"]
 pub enum RebaseOutcome {
     /// The rebase
     Success(SuccessfulRebase),
@@ -51,15 +53,11 @@ pub enum RebaseOutcome {
     ///
     /// Holds the gix::ObjectId of the commit it failed to pick
     MergePickFailed(gix::ObjectId),
-    /// Symbolic reference was encountered. We should never be given these, and
-    /// the sematics of how to work with them are currently unclear, so the
-    /// rebase will be rejected if one is encountered.
-    SymbolicRefEncountered(gix::refs::FullName),
 }
 
 impl Editor {
     /// Perform the rebase
-    pub fn rebase(&self, repo: &gix::Repository) -> Result<RebaseOutcome> {
+    pub fn rebase(self, repo: &gix::Repository) -> Result<RebaseOutcome> {
         // First we want to get a list of nodes that can be reached by
         // traversing downwards from the heads that we care about.
         // Usually there would be just one "head" which is an index to access
@@ -166,7 +164,7 @@ impl Editor {
                                 }
                             }
                             gix::refs::TargetRef::Symbolic(name) => {
-                                return Ok(RebaseOutcome::SymbolicRefEncountered(name.to_owned()));
+                                bail!("Attempted to update the symbolic reference {}", name);
                             }
                         }
                     } else {
