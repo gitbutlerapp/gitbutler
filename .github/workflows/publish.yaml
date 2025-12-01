@@ -145,7 +145,7 @@ jobs:
       - name: Rust Cache ${{ matrix.target }}
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}
+          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}${{ matrix.platform }}
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 
