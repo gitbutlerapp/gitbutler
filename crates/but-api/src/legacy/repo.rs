@@ -14,8 +14,6 @@ use gitbutler_repo::{
 };
 use tracing::instrument;
 
-use crate::json::ToJsonError;
-
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn git_get_local_config(project_id: ProjectId, key: String) -> Result<Option<String>> {
@@ -42,13 +40,10 @@ pub fn check_signing_settings(project_id: ProjectId) -> Result<bool> {
 pub fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Result<()> {
     let should_interrupt = AtomicBool::new(false);
 
-    gix::prepare_clone(repository_url.as_str(), &target_dir)
-        .to_json_error()?
+    gix::prepare_clone(repository_url.as_str(), &target_dir)?
         .fetch_then_checkout(gix::progress::Discard, &should_interrupt)
-        .map(|(checkout, _outcome)| checkout)
-        .to_json_error()?
-        .main_worktree(gix::progress::Discard, &should_interrupt)
-        .to_json_error()?;
+        .map(|(checkout, _outcome)| checkout)?
+        .main_worktree(gix::progress::Discard, &should_interrupt)?;
     Ok(())
 }
 
