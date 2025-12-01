@@ -3,13 +3,7 @@ use but_rebase::graph_rebase::cherry_pick::{CherryPickOutcome, cherry_pick};
 use but_testsupport::visualize_tree;
 use gix::prelude::ObjectIdExt;
 
-use crate::utils::fixture_writable;
-
-fn set_var(key: &str, value: &str) {
-    unsafe {
-        std::env::set_var(key, value);
-    }
-}
+use crate::{graph_rebase::set_var, utils::fixture_writable};
 
 fn get_parents(id: &gix::Id) -> Result<Vec<gix::ObjectId>> {
     Ok(id
