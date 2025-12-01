@@ -11,6 +11,7 @@
 	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
 	import OnInput, { type OnInputCallback } from '$lib/richText/plugins/onInput.svelte';
 	import { insertTextAtCaret, setEditorText } from '$lib/richText/selection';
+	import { exportPlaintext } from '$lib/richText/utils/export';
 	import {
 		COMMAND_PRIORITY_CRITICAL,
 		$getRoot as getRoot,
@@ -173,11 +174,7 @@
 			editor.read(() => {
 				// Using `root.getTextContent()` adds extra blank lines between paragraphs, since
 				// normally paragraphs have a bottom margin (that we removed).
-				const root = getRoot();
-				const children = root.getChildren();
-				const paragraphTexts = children.map((child) => child.getTextContent());
-				const text = paragraphTexts.join('\n');
-				resolve(text);
+				resolve(exportPlaintext(getRoot()));
 			});
 		});
 	}
