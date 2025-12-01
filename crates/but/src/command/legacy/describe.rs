@@ -1,7 +1,8 @@
 use anyhow::{Result, bail};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::{ObjectIdExt as _, OidExt};
 use gitbutler_project::Project;
+use gix::prelude::ObjectIdExt;
 
 use crate::{legacy::id::CliId, tui, utils::OutputChannel};
 
@@ -64,17 +65,8 @@ fn edit_branch_name(
         }
 
         if let Some(sid) = stack_entry.id {
-            let new_name = if let Some(msg) = message {
-                // Use provided message, trim and validate
-                let trimmed = msg.trim();
-                if trimmed.is_empty() {
-                    bail!("Aborting due to empty branch name");
-                }
-                trimmed.to_string()
-            } else {
-                // Fall back to editor
-                get_branch_name_from_editor(branch_name)?
-            };
+            let new_name = prepare_provided_message(message, "branch name")
+                .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
             but_api::legacy::stack::update_branch_name(
                 project.id,
                 sid,
@@ -89,6 +81,16 @@ fn edit_branch_name(
     }
 
     bail!("Branch '{}' not found in any stack", branch_name)
+}
+
+fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<String>> {
+    msg.map(|msg| {
+        let trimmed = msg.trim();
+        if trimmed.is_empty() {
+            bail!("Aborting due to empty {entity}");
+        }
+        Ok(trimmed.to_string())
+    })
 }
 
 fn edit_commit_message_by_id(
@@ -149,24 +151,19 @@ fn edit_commit_message_by_id(
     let current_message = commit_message.to_string();
 
     // Get new message from provided argument or editor
-    let new_message = if let Some(msg) = message {
-        // Use provided message, trim and validate
-        let trimmed = msg.trim();
-        if trimmed.is_empty() {
-            bail!("Aborting due to empty commit message");
-        }
-        trimmed.to_string()
-    } else {
-        // Get the files changed in this commit using but_api
+    let new_message = prepare_provided_message(message, "commit message").unwrap_or_else(|| {
         let commit_details = but_api::legacy::diff::commit_details(project.id, commit_oid.into())?;
         let changed_files = get_changed_files_from_commit_details(&commit_details);
 
         // Open editor with current message and file list
-        get_commit_message_from_editor(&current_message, &changed_files)?
-    };
+        get_commit_message_from_editor(&current_message, &changed_files)
+    })?;
 
     if new_message.trim() == current_message.trim() {
-        bail!("No changes to commit message.");
+        if let Some(out) = out.for_human() {
+            writeln!(out, "No changes to commit message - nothing to be done")?;
+        }
+        return Ok(());
     }
 
     // Use gitbutler_branch_actions::update_commit_message instead of low-level primitives
@@ -179,11 +176,12 @@ fn edit_commit_message_by_id(
     )?;
 
     if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
         writeln!(
             out,
             "Updated commit message for {} (now {})",
-            commit_oid.to_hex_with_len(7),
-            new_commit_oid.to_gix().to_hex_with_len(7)
+            commit_oid.attach(&repo).shorten_or_id(),
+            new_commit_oid.to_gix().attach(&repo).shorten_or_id()
         )?;
     }
 
@@ -258,4 +256,34 @@ fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
     }
 
     Ok(branch_name)
+}
+
+#[cfg(test)]
+mod tests {
+
+    mod prepare_provided_message {
+        use super::super::*;
+
+        #[test]
+        fn empty_is_fails() {
+            assert_eq!(
+                prepare_provided_message(Some(""), "message")
+                    .unwrap()
+                    .unwrap_err()
+                    .to_string(),
+                "Aborting due to empty message"
+            );
+        }
+
+        #[test]
+        fn empty_is_after_trimming_fails() {
+            assert_eq!(
+                prepare_provided_message(Some("    "), "message")
+                    .unwrap()
+                    .unwrap_err()
+                    .to_string(),
+                "Aborting due to empty message"
+            );
+        }
+    }
 }
