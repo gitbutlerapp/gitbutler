@@ -854,7 +854,7 @@ impl Graph {
                 .flat_map(|s| s.commits_by_segment.iter().map(|(sidx, _)| *sidx))
         }) {
             // The workspace might be stale by now as we delete empty segments.
-            // Thus be careful, and ignore non-existing ones - after all our workspace
+            // Thus, be careful, and ignore non-existing ones - after all our workspace
             // is temporary, nothing to worry about.
             let Some(s) = self.inner.node_weight(sidx) else {
                 continue;

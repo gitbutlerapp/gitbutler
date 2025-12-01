@@ -238,6 +238,14 @@ impl StackSegment {
                     .flat_map(|c| c.refs.iter().map(|ri| ri.ref_name.as_ref())),
             )
     }
+
+    /// Return `true` if this segment *would* be anonymous if it wasn't for the out-of-workspace segment to be projected onto this one.
+    ///
+    /// This is signaled by its underlying graph segment being unnamed, with a sybling set.
+    pub fn is_projected_from_outside(&self, graph: &Graph) -> bool {
+        let segment = &graph[self.id];
+        segment.ref_info.is_none() && segment.sibling_segment_id.is_some()
+    }
 }
 
 impl std::fmt::Debug for StackSegment {
@@ -245,6 +253,7 @@ impl std::fmt::Debug for StackSegment {
         f.debug_struct(&format!("StackSegment({})", self.debug_string()))
             .field("commits", &self.commits)
             .field("commits_on_remote", &self.commits_on_remote)
+            .field("commits_outside", &self.commits_outside)
             .finish()
     }
 }
@@ -258,7 +267,7 @@ impl StackSegment {
     /// is an unambiguous ref pointing to a commit, or when it splits a segment by incoming connection.
     ///
     /// `graph` is used to look up the remote segment and find its commits.
-    pub fn from_graph_segments(
+    pub(crate) fn from_graph_segments(
         segments: &[&crate::Segment],
         graph: &Graph,
     ) -> anyhow::Result<Self> {
