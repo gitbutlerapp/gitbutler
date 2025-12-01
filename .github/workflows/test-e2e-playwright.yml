@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.inputs.sha }}
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.8.1
+        uses: Swatinem/rust-cache@v2.8.2
         with:
           shared-key: e2e-playwright-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
