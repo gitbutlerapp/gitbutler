@@ -10,6 +10,8 @@ mod creation;
 pub mod rebase;
 pub use creation::GraphExt;
 pub mod cherry_pick;
+pub mod materialize;
+pub mod mutate;
 
 /// Utilities for testing
 pub mod testing;
@@ -49,7 +51,7 @@ type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
 /// Points to a step in the rebase editor.
 #[derive(Debug, Clone)]
 pub struct Selector {
-    id: NodeIndex<StepGraphIndex>,
+    id: StepGraphIndex,
 }
 
 /// Used to manipulate a set of picks.

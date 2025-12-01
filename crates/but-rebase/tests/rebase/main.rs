@@ -8,9 +8,8 @@ use crate::utils::{
     assure_nonconflicting, conflicted, fixture_writable, four_commits_writable, visualize_tree,
 };
 
-mod cherry_pick;
-mod editor_creation;
 mod error_handling;
+mod graph_rebase;
 
 mod commit {
     mod store_author_globally_if_unset {
@@ -42,7 +41,7 @@ mod commit {
 
         #[test]
         fn keep_comments_and_customizations() -> anyhow::Result<()> {
-            let (repo, _tmp) = fixture_writable("four-commits")?;
+            let (repo, _tmp, _meta) = fixture_writable("four-commits")?;
             let local_config_path = repo.path().join("config");
             std::fs::write(
                 &local_config_path,
@@ -152,7 +151,7 @@ fn single_stack_journey() -> Result<()> {
 #[test]
 fn amended_commit() -> Result<()> {
     assure_stable_env();
-    let (repo, _tmp) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
     |\ \  
@@ -226,7 +225,7 @@ fn amended_commit() -> Result<()> {
 #[test]
 fn reorder_merge_in_reverse() -> Result<()> {
     assure_stable_env();
-    let (repo, _tmp) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmp, _meta) = fixture_writable("merge-in-the-middle")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "with-inner-merge")?, @r"
     * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
     *   2fc288c Merge branch 'B' into with-inner-merge
@@ -305,7 +304,7 @@ fn reorder_merge_in_reverse() -> Result<()> {
 #[test]
 fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     assure_stable_env();
-    let (repo, _tmp) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
     |\ \  
@@ -508,7 +507,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
 fn reversible_conflicts() -> anyhow::Result<()> {
     assure_stable_env();
     // If conflicts are created one way, putting them back the other way auto-resolves them.
-    let (repo, _tmp) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
 
     let mut builder = Rebase::new(&repo, repo.rev_parse_single("base")?.detach(), None)?;
     // Re-order commits with conflict, and trigger a re-merge.
@@ -713,13 +712,25 @@ pub mod utils {
     }
 
     /// Returns a fixture that may be written to.
-    pub fn fixture_writable(fixture_name: &str) -> Result<(gix::Repository, tempfile::TempDir)> {
+    pub fn fixture_writable(
+        fixture_name: &str,
+    ) -> Result<(
+        gix::Repository,
+        tempfile::TempDir,
+        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    )> {
         // TODO: remove the need for this, impl everything in `gitoxide`, allowing this to be in-memory entirely.
         let tmp = gix_testtools::scripted_fixture_writable("rebase.sh")
             .map_err(anyhow::Error::from_boxed)?;
         let worktree_root = tmp.path().join(fixture_name);
         let repo = but_testsupport::open_repo(&worktree_root)?;
-        Ok((repo, tmp))
+
+        let meta = VirtualBranchesTomlMetadata::from_path(
+            repo.path()
+                .join(".git")
+                .join("should-never-be-written.toml"),
+        )?;
+        Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
     }
 
     #[derive(Debug)]
@@ -757,7 +768,7 @@ pub mod utils {
     }
 
     pub fn four_commits_writable() -> Result<(gix::Repository, Commits, tempfile::TempDir)> {
-        let (repo, tmp) = fixture_writable("four-commits")?;
+        let (repo, tmp, _meta) = fixture_writable("four-commits")?;
         let commits: Vec<_> = repo
             .head_id()?
             .ancestors()
