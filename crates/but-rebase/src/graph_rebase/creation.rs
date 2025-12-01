@@ -87,7 +87,7 @@ impl GraphExt for Graph {
                 }
             }
 
-            last_inserted = Some(ni.clone());
+            last_inserted = Some(ni);
             steps_for_commits.insert(c.id, ni);
         }
 

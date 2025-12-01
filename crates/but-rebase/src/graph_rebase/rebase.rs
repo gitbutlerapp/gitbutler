@@ -13,6 +13,15 @@ use gix::refs::{
 };
 use petgraph::visit::EdgeRef;
 
+/// Represents somethign to be checked out - I'm not quite sure how
+/// `safe_checkout` knows what is the main checkout & what is a worktree - but
+/// that is some voodoo I'm not touching right now
+#[derive(Debug, Clone)]
+pub struct CheckoutSpec {
+    pub(crate) old_head_id: gix::ObjectId,
+    pub(crate) head_id: gix::ObjectId,
+}
+
 /// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
 #[allow(unused)]
 #[derive(Debug, Clone)]
@@ -26,6 +35,10 @@ pub struct SuccessfulRebase {
     pub(crate) ref_edits: Vec<RefEdit>,
     /// The new step graph
     pub(crate) graph: StepGraph,
+    /// Heads
+    pub(crate) heads: Vec<StepGraphIndex>,
+    /// To checkout
+    pub(crate) checkouts: Vec<CheckoutSpec>,
 }
 
 /// Represents the rebase output and the varying degrees of success it had.
@@ -61,11 +74,13 @@ impl Editor {
         // The step graph with updated commit oids
         let mut output_graph = StepGraph::new();
         let mut commit_mapping = HashMap::new();
+        let mut checkouts = vec![];
+        let mut unchanged_references = vec![];
 
         for step_idx in steps_to_pick {
             // Do the frikkin rebase man!
             let step = self.graph[step_idx].clone();
-            match step {
+            let new_idx = match step {
                 Step::Pick { id } => {
                     let graph_parents = collect_ordered_parents(&self.graph, step_idx);
                     let ontos = graph_parents
@@ -93,12 +108,14 @@ impl Editor {
                             if id != new_id {
                                 commit_mapping.insert(id, new_id);
                             }
+
+                            new_idx
                         }
                         CherryPickOutcome::FailedToMergeBases => {
                             // Exit early - the rebase failed because it encountered a commit it couldn't pick
                             return Ok(RebaseOutcome::MergePickFailed(id));
                         }
-                    };
+                    }
                 }
                 Step::Reference { refname } => {
                     let graph_parents = collect_ordered_parents(&self.graph, step_idx);
@@ -120,7 +137,9 @@ impl Editor {
                         let target = reference.target();
                         match target {
                             gix::refs::TargetRef::Object(id) => {
-                                if id != to_reference {
+                                if id == to_reference {
+                                    unchanged_references.push(refname.clone());
+                                } else {
                                     ref_edits.push(RefEdit {
                                         name: refname.clone(),
                                         change: Change::Update {
@@ -132,6 +151,18 @@ impl Editor {
                                         },
                                         deref: false,
                                     });
+
+                                    // TODO(CTO): This is FAR from the full set
+                                    // of capabilities needed here.  This ommits
+                                    // any consideration of the head commit
+                                    // being replaced. This really needs to do
+                                    // some other lookup of all the heads
+                                    if self.heads.contains(&step_idx) {
+                                        checkouts.push(CheckoutSpec {
+                                            old_head_id: id.into(),
+                                            head_id: to_reference,
+                                        });
+                                    }
                                 }
                             }
                             gix::refs::TargetRef::Symbolic(name) => {
@@ -150,38 +181,67 @@ impl Editor {
                         });
                     };
 
-                    let new_idx = output_graph.add_node(Step::Reference { refname });
-                    graph_mapping.insert(step_idx, new_idx);
+                    output_graph.add_node(Step::Reference { refname })
                 }
-                Step::None => {
-                    let new_idx = output_graph.add_node(Step::None);
-                    graph_mapping.insert(step_idx, new_idx);
-                }
+                Step::None => output_graph.add_node(Step::None),
             };
 
-            // Find deleted references
-            for reference in self.initial_references.iter() {
-                if !ref_edits
-                    .iter()
-                    .any(|e| e.name.as_ref() == reference.as_ref())
-                {
-                    ref_edits.push(RefEdit {
-                        name: reference.clone(),
-                        change: Change::Delete {
-                            log: gix::refs::transaction::RefLog::AndReference,
-                            expected: PreviousValue::MustExist,
-                        },
-                        deref: false,
-                    });
-                }
+            graph_mapping.insert(step_idx, new_idx);
+
+            let mut edges = self
+                .graph
+                .edges_directed(step_idx, petgraph::Direction::Outgoing)
+                .collect::<Vec<_>>();
+            edges.sort_by_key(|e| e.weight().order);
+            edges.reverse();
+
+            for e in edges {
+                let Some(new_parent) = graph_mapping.get(&e.target()) else {
+                    bail!("Failed to find cooresponding parent");
+                };
+
+                output_graph.add_edge(new_idx, *new_parent, e.weight().clone());
             }
         }
+
+        // Find deleted references
+        for reference in self.initial_references.iter() {
+            if !ref_edits
+                .iter()
+                .any(|e| e.name.as_ref() == reference.as_ref())
+                && !unchanged_references
+                    .iter()
+                    .any(|e| e.as_ref() == reference.as_ref())
+            {
+                ref_edits.push(RefEdit {
+                    name: reference.clone(),
+                    change: Change::Delete {
+                        log: gix::refs::transaction::RefLog::AndReference,
+                        expected: PreviousValue::MustExist,
+                    },
+                    deref: false,
+                });
+            }
+        }
+
+        let heads = self
+            .heads
+            .iter()
+            .map(|h| {
+                graph_mapping
+                    .get(h)
+                    .context("Failed to get new head")
+                    .cloned()
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(RebaseOutcome::Success(SuccessfulRebase {
             ref_edits,
             commit_mapping,
             graph_mapping,
             graph: output_graph,
+            heads,
+            checkouts,
         }))
     }
 }
