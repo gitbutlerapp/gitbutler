@@ -41,7 +41,7 @@ jobs:
         run: apt update && apt install -y webkit2gtk-driver ffmpeg xvfb
         if: ${{ github.ref != 'refs/heads/master' }}
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.8.1
+        uses: Swatinem/rust-cache@v2.8.2
         with:
           shared-key: e2e-blackbox-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
