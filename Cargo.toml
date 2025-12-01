@@ -96,7 +96,7 @@ notify-rust = "4.11.7"
 git2-hooks = { version = "0.5.0" }
 itertools = "0.14.0"
 dirs = "6.0.0"
-rmcp = { version = "0.8.3", default-features = false, features = [
+rmcp = { version = "0.9.1", default-features = false, features = [
     "base64",
     "server",
     "macros",
