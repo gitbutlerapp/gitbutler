@@ -1,7 +1,8 @@
 use anyhow::{Result, bail};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::{ObjectIdExt as _, OidExt};
 use gitbutler_project::Project;
+use gix::prelude::ObjectIdExt;
 
 use crate::{legacy::id::CliId, tui, utils::OutputChannel};
 
@@ -9,6 +10,7 @@ pub(crate) fn describe_target(
     project: &Project,
     out: &mut OutputChannel,
     target: &str,
+    message: Option<&str>,
 ) -> Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
 
@@ -31,10 +33,10 @@ pub(crate) fn describe_target(
 
     match cli_id {
         CliId::Branch { name, .. } => {
-            edit_branch_name(&ctx, project, name, out)?;
+            edit_branch_name(&ctx, project, name, out, message)?;
         }
         CliId::Commit { oid } => {
-            edit_commit_message_by_id(&ctx, project, *oid, out)?;
+            edit_commit_message_by_id(&ctx, project, *oid, out, message)?;
         }
         _ => {
             bail!("Target must be a commit ID, not {}", cli_id.kind());
@@ -49,6 +51,7 @@ fn edit_branch_name(
     project: &Project,
     branch_name: &str,
     out: &mut OutputChannel,
+    message: Option<&str>,
 ) -> Result<()> {
     // Find which stack this branch belongs to
     let stacks = but_api::legacy::workspace::stacks(
@@ -62,7 +65,8 @@ fn edit_branch_name(
         }
 
         if let Some(sid) = stack_entry.id {
-            let new_name = get_branch_name_from_editor(branch_name)?;
+            let new_name = prepare_provided_message(message, "branch name")
+                .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
             but_api::legacy::stack::update_branch_name(
                 project.id,
                 sid,
@@ -79,11 +83,22 @@ fn edit_branch_name(
     bail!("Branch '{}' not found in any stack", branch_name)
 }
 
+fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<String>> {
+    msg.map(|msg| {
+        let trimmed = msg.trim();
+        if trimmed.is_empty() {
+            bail!("Aborting due to empty {entity}");
+        }
+        Ok(trimmed.to_string())
+    })
+}
+
 fn edit_commit_message_by_id(
     ctx: &Context,
     project: &Project,
     commit_oid: gix::ObjectId,
     out: &mut OutputChannel,
+    message: Option<&str>,
 ) -> Result<()> {
     // Find which stack this commit belongs to
     let stacks = but_api::legacy::workspace::stacks(project.id, None)?;
@@ -132,18 +147,23 @@ fn edit_commit_message_by_id(
     let stack_id = stack_id
         .ok_or_else(|| anyhow::anyhow!("Could not find stack for commit {}", commit_oid))?;
 
-    // Get the files changed in this commit using but_api
-    let commit_details = but_api::legacy::diff::commit_details(project.id, commit_oid.into())?;
-    let changed_files = get_changed_files_from_commit_details(&commit_details);
-
     // Get current commit message
     let current_message = commit_message.to_string();
 
-    // Open editor with current message and file list
-    let new_message = get_commit_message_from_editor(&current_message, &changed_files)?;
+    // Get new message from provided argument or editor
+    let new_message = prepare_provided_message(message, "commit message").unwrap_or_else(|| {
+        let commit_details = but_api::legacy::diff::commit_details(project.id, commit_oid.into())?;
+        let changed_files = get_changed_files_from_commit_details(&commit_details);
+
+        // Open editor with current message and file list
+        get_commit_message_from_editor(&current_message, &changed_files)
+    })?;
 
     if new_message.trim() == current_message.trim() {
-        bail!("No changes to commit message.");
+        if let Some(out) = out.for_human() {
+            writeln!(out, "No changes to commit message - nothing to be done")?;
+        }
+        return Ok(());
     }
 
     // Use gitbutler_branch_actions::update_commit_message instead of low-level primitives
@@ -156,11 +176,12 @@ fn edit_commit_message_by_id(
     )?;
 
     if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
         writeln!(
             out,
             "Updated commit message for {} (now {})",
-            commit_oid.to_hex_with_len(7),
-            new_commit_oid.to_gix().to_hex_with_len(7)
+            commit_oid.attach(&repo).shorten_or_id(),
+            new_commit_oid.to_gix().attach(&repo).shorten_or_id()
         )?;
     }
 
@@ -235,4 +256,34 @@ fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
     }
 
     Ok(branch_name)
+}
+
+#[cfg(test)]
+mod tests {
+
+    mod prepare_provided_message {
+        use super::super::*;
+
+        #[test]
+        fn empty_is_fails() {
+            assert_eq!(
+                prepare_provided_message(Some(""), "message")
+                    .unwrap()
+                    .unwrap_err()
+                    .to_string(),
+                "Aborting due to empty message"
+            );
+        }
+
+        #[test]
+        fn empty_is_after_trimming_fails() {
+            assert_eq!(
+                prepare_provided_message(Some("    "), "message")
+                    .unwrap()
+                    .unwrap_err()
+                    .to_string(),
+                "Aborting due to empty message"
+            );
+        }
+    }
 }
