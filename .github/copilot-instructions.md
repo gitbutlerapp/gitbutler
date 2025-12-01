@@ -347,3 +347,4 @@ corepack prepare pnpm@10.17.0 --activate
 8. **Test on target platform** if making platform-specific changes
 9. **Security**: Check dependencies for vulnerabilities before adding them
 10. **Code marked for refactoring**: Be extra careful with crates in the "Code Hitlist" section
+11. **but CLI happy path testing only**: CLI tests are expensive and should be limited to what really matters.
