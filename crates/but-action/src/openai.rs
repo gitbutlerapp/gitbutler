@@ -4,7 +4,7 @@ use anyhow::{Context as _, Result};
 use async_openai::{
     Client,
     config::OpenAIConfig,
-    types::{
+    types::chat::{
         ChatCompletionRequestAssistantMessageContent, ChatCompletionRequestMessage,
         ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessageContent,
         CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
@@ -176,9 +176,9 @@ pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSche
 pub fn tool_calling_blocking(
     client: &OpenAiProvider,
     messages: Vec<ChatCompletionRequestMessage>,
-    tools: Vec<async_openai::types::ChatCompletionTool>,
+    tools: Vec<async_openai::types::chat::ChatCompletionTools>,
     model: Option<String>,
-) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
+) -> anyhow::Result<async_openai::types::chat::CreateChatCompletionResponse> {
     let client = client.client()?;
     let messages_owned = messages.clone();
     let tools_owned = tools.clone();
@@ -195,9 +195,9 @@ pub fn tool_calling_blocking(
 pub async fn tool_calling(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
-    tools: Vec<async_openai::types::ChatCompletionTool>,
+    tools: Vec<async_openai::types::chat::ChatCompletionTools>,
     model: Option<String>,
-) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
+) -> anyhow::Result<async_openai::types::chat::CreateChatCompletionResponse> {
     let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
     let request = CreateChatCompletionRequestArgs::default()
         .model(model)
@@ -221,7 +221,7 @@ type StreamToolCallResult = (Option<Vec<ToolCall>>, Option<String>);
 pub fn tool_calling_stream_blocking(
     client: &OpenAiProvider,
     messages: Vec<ChatCompletionRequestMessage>,
-    tools: Vec<async_openai::types::ChatCompletionTool>,
+    tools: Vec<async_openai::types::chat::ChatCompletionTools>,
     model: Option<String>,
     on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<StreamToolCallResult> {
@@ -247,7 +247,7 @@ pub fn tool_calling_stream_blocking(
 pub async fn tool_calling_stream(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
-    tools: Vec<async_openai::types::ChatCompletionTool>,
+    tools: Vec<async_openai::types::chat::ChatCompletionTools>,
     model: Option<String>,
     on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<StreamToolCallResult> {
@@ -302,7 +302,10 @@ pub async fn tool_calling_stream(
 
             // If finished streaming the tool calls, return them.
             if let Some(finish_reason) = &chat_choice.finish_reason
-                && matches!(finish_reason, async_openai::types::FinishReason::ToolCalls)
+                && matches!(
+                    finish_reason,
+                    async_openai::types::chat::FinishReason::ToolCalls
+                )
             {
                 let tool_call_states_clone = tool_call_states.clone();
 
@@ -369,31 +372,35 @@ impl From<ChatMessage> for ChatCompletionRequestMessage {
         match msg {
             ChatMessage::User(content) => ChatCompletionRequestMessage::User(content.into()),
             ChatMessage::Assistant(content) => ChatCompletionRequestMessage::Assistant(
-                async_openai::types::ChatCompletionRequestAssistantMessage {
+                async_openai::types::chat::ChatCompletionRequestAssistantMessage {
                     content: Some(content.into()),
                     ..Default::default()
                 },
             ),
             ChatMessage::ToolCall(content) => ChatCompletionRequestMessage::Assistant(
-                async_openai::types::ChatCompletionRequestAssistantMessage {
+                async_openai::types::chat::ChatCompletionRequestAssistantMessage {
                     content: None,
-                    tool_calls: Some(vec![async_openai::types::ChatCompletionMessageToolCall {
-                        id: content.id,
-                        r#type: async_openai::types::ChatCompletionToolType::Function,
-                        function: async_openai::types::FunctionCall {
-                            name: content.name,
-                            arguments: content.arguments,
-                        },
-                    }]),
+                    tool_calls: Some(vec![
+                        async_openai::types::chat::ChatCompletionMessageToolCalls::Function(
+                            async_openai::types::chat::ChatCompletionMessageToolCall {
+                                id: content.id,
+                                function: async_openai::types::chat::FunctionCall {
+                                    name: content.name,
+                                    arguments: content.arguments,
+                                },
+                            },
+                        ),
+                    ]),
                     ..Default::default()
                 },
             ),
             ChatMessage::ToolResponse(content) => ChatCompletionRequestMessage::Tool(
-                async_openai::types::ChatCompletionRequestToolMessage {
+                async_openai::types::chat::ChatCompletionRequestToolMessage {
                     tool_call_id: content.id,
-                    content: async_openai::types::ChatCompletionRequestToolMessageContent::Text(
-                        content.result,
-                    ),
+                    content:
+                        async_openai::types::chat::ChatCompletionRequestToolMessageContent::Text(
+                            content.result,
+                        ),
                 },
             ),
         }
@@ -413,11 +420,17 @@ fn from_openai_chat_messages(messages: Vec<ChatCompletionRequestMessage>) -> Vec
             ChatCompletionRequestMessage::Assistant(assistant_msg) => {
                 if let Some(tool_calls) = &assistant_msg.tool_calls {
                     for tool_call in tool_calls {
-                        chat_messages.push(ChatMessage::ToolCall(ToolCallContent {
-                            id: tool_call.id.clone(),
-                            name: tool_call.function.name.clone(),
-                            arguments: tool_call.function.arguments.clone(),
-                        }));
+                        // Extract function call from the enum
+                        if let async_openai::types::chat::ChatCompletionMessageToolCalls::Function(
+                            func_call,
+                        ) = tool_call
+                        {
+                            chat_messages.push(ChatMessage::ToolCall(ToolCallContent {
+                                id: func_call.id.clone(),
+                                name: func_call.function.name.clone(),
+                                arguments: func_call.function.arguments.clone(),
+                            }));
+                        }
                     }
                 }
 
@@ -428,8 +441,9 @@ fn from_openai_chat_messages(messages: Vec<ChatCompletionRequestMessage>) -> Vec
                 }
             }
             ChatCompletionRequestMessage::Tool(tool_msg) => {
-                if let async_openai::types::ChatCompletionRequestToolMessageContent::Text(text) =
-                    tool_msg.content
+                if let async_openai::types::chat::ChatCompletionRequestToolMessageContent::Text(
+                    text,
+                ) = tool_msg.content
                 {
                     chat_messages.push(ChatMessage::ToolResponse(ToolResponseContent {
                         id: tool_msg.tool_call_id.clone(),
@@ -514,7 +528,7 @@ pub fn tool_calling_loop(
         .list()
         .iter()
         .map(|t| t.deref().try_into())
-        .collect::<Result<Vec<async_openai::types::ChatCompletionTool>, _>>()?;
+        .collect::<Result<Vec<async_openai::types::chat::ChatCompletionTools>, _>>()?;
 
     let mut response = crate::openai::tool_calling_blocking(
         provider,
@@ -531,7 +545,7 @@ pub fn tool_calling_loop(
     {
         text_response_buffer.push(text_response.clone());
         messages.push(ChatCompletionRequestMessage::Assistant(
-            async_openai::types::ChatCompletionRequestAssistantMessage {
+            async_openai::types::chat::ChatCompletionRequestAssistantMessage {
                 content: Some(ChatCompletionRequestAssistantMessageContent::Text(
                     text_response,
                 )),
@@ -545,33 +559,48 @@ pub fn tool_calling_loop(
         .first()
         .and_then(|choice| choice.message.tool_calls.as_ref())
     {
-        let mut tool_calls_messages: Vec<async_openai::types::ChatCompletionMessageToolCall> =
-            vec![];
-        let mut tool_response_messages: Vec<async_openai::types::ChatCompletionRequestMessage> =
-            vec![];
+        let mut tool_calls_messages: Vec<
+            async_openai::types::chat::ChatCompletionMessageToolCalls,
+        > = vec![];
+        let mut tool_response_messages: Vec<
+            async_openai::types::chat::ChatCompletionRequestMessage,
+        > = vec![];
 
         for call in tool_calls {
-            let function_name = call.function.name.clone();
-            let function_args = call.function.arguments.clone();
+            // Extract function call from the enum
+            let (id, function_name, function_args) = match call {
+                async_openai::types::chat::ChatCompletionMessageToolCalls::Function(func_call) => (
+                    func_call.id.clone(),
+                    func_call.function.name.clone(),
+                    func_call.function.arguments.clone(),
+                ),
+                async_openai::types::chat::ChatCompletionMessageToolCalls::Custom(_) => {
+                    // Skip custom tool calls as we only handle function calls
+                    continue;
+                }
+            };
 
             let tool_response = tool_set.call_tool(&function_name, &function_args);
 
             let tool_response_str = serde_json::to_string(&tool_response)
                 .context("Failed to serialize tool response")?;
 
-            tool_calls_messages.push(async_openai::types::ChatCompletionMessageToolCall {
-                id: call.id.clone(),
-                r#type: async_openai::types::ChatCompletionToolType::Function,
-                function: async_openai::types::FunctionCall {
-                    name: function_name,
-                    arguments: function_args,
-                },
-            });
+            tool_calls_messages.push(
+                async_openai::types::chat::ChatCompletionMessageToolCalls::Function(
+                    async_openai::types::chat::ChatCompletionMessageToolCall {
+                        id: id.clone(),
+                        function: async_openai::types::chat::FunctionCall {
+                            name: function_name,
+                            arguments: function_args,
+                        },
+                    },
+                ),
+            );
 
-            tool_response_messages.push(async_openai::types::ChatCompletionRequestMessage::Tool(
-                async_openai::types::ChatCompletionRequestToolMessage {
-                    tool_call_id: call.id.clone(),
-                    content: async_openai::types::ChatCompletionRequestToolMessageContent::Text(
+            tool_response_messages.push(async_openai::types::chat::ChatCompletionRequestMessage::Tool(
+                async_openai::types::chat::ChatCompletionRequestToolMessage {
+                    tool_call_id: id.clone(),
+                    content: async_openai::types::chat::ChatCompletionRequestToolMessageContent::Text(
                         tool_response_str,
                     ),
                 },
@@ -579,8 +608,8 @@ pub fn tool_calling_loop(
         }
 
         messages.push(
-            async_openai::types::ChatCompletionRequestMessage::Assistant(
-                async_openai::types::ChatCompletionRequestAssistantMessage {
+            async_openai::types::chat::ChatCompletionRequestMessage::Assistant(
+                async_openai::types::chat::ChatCompletionRequestAssistantMessage {
                     tool_calls: Some(tool_calls_messages),
                     ..Default::default()
                 },
@@ -603,7 +632,7 @@ pub fn tool_calling_loop(
         {
             text_response_buffer.push(text_response.clone());
             messages.push(ChatCompletionRequestMessage::Assistant(
-                async_openai::types::ChatCompletionRequestAssistantMessage {
+                async_openai::types::chat::ChatCompletionRequestAssistantMessage {
                     content: Some(ChatCompletionRequestAssistantMessageContent::Text(
                         text_response,
                     )),
@@ -644,7 +673,7 @@ pub fn tool_calling_loop_stream(
         .list()
         .iter()
         .map(|t| t.deref().try_into())
-        .collect::<Result<Vec<async_openai::types::ChatCompletionTool>, _>>()?;
+        .collect::<Result<Vec<async_openai::types::chat::ChatCompletionTools>, _>>()?;
 
     let on_token_cb = {
         let on_token = on_token.clone();
@@ -663,7 +692,7 @@ pub fn tool_calling_loop_stream(
     if let Some(text_response) = response.1.clone() {
         text_response_buffer.push(text_response.clone());
         messages.push(ChatCompletionRequestMessage::Assistant(
-            async_openai::types::ChatCompletionRequestAssistantMessage {
+            async_openai::types::chat::ChatCompletionRequestAssistantMessage {
                 content: Some(ChatCompletionRequestAssistantMessageContent::Text(
                     text_response,
                 )),
@@ -673,10 +702,12 @@ pub fn tool_calling_loop_stream(
     }
 
     while let Some(tool_calls) = response.0 {
-        let mut tool_calls_messages: Vec<async_openai::types::ChatCompletionMessageToolCall> =
-            vec![];
-        let mut tool_response_messages: Vec<async_openai::types::ChatCompletionRequestMessage> =
-            vec![];
+        let mut tool_calls_messages: Vec<
+            async_openai::types::chat::ChatCompletionMessageToolCalls,
+        > = vec![];
+        let mut tool_response_messages: Vec<
+            async_openai::types::chat::ChatCompletionRequestMessage,
+        > = vec![];
 
         for call in tool_calls {
             let ToolCall {
@@ -690,19 +721,22 @@ pub fn tool_calling_loop_stream(
             let tool_response_str = serde_json::to_string(&tool_response)
                 .context("Failed to serialize tool response")?;
 
-            tool_calls_messages.push(async_openai::types::ChatCompletionMessageToolCall {
-                id: id.clone(),
-                r#type: async_openai::types::ChatCompletionToolType::Function,
-                function: async_openai::types::FunctionCall {
-                    name: function_name,
-                    arguments: function_args,
-                },
-            });
+            tool_calls_messages.push(
+                async_openai::types::chat::ChatCompletionMessageToolCalls::Function(
+                    async_openai::types::chat::ChatCompletionMessageToolCall {
+                        id: id.clone(),
+                        function: async_openai::types::chat::FunctionCall {
+                            name: function_name,
+                            arguments: function_args,
+                        },
+                    },
+                ),
+            );
 
-            tool_response_messages.push(async_openai::types::ChatCompletionRequestMessage::Tool(
-                async_openai::types::ChatCompletionRequestToolMessage {
+            tool_response_messages.push(async_openai::types::chat::ChatCompletionRequestMessage::Tool(
+                async_openai::types::chat::ChatCompletionRequestToolMessage {
                     tool_call_id: id.clone(),
-                    content: async_openai::types::ChatCompletionRequestToolMessageContent::Text(
+                    content: async_openai::types::chat::ChatCompletionRequestToolMessageContent::Text(
                         tool_response_str,
                     ),
                 },
@@ -710,8 +744,8 @@ pub fn tool_calling_loop_stream(
         }
 
         messages.push(
-            async_openai::types::ChatCompletionRequestMessage::Assistant(
-                async_openai::types::ChatCompletionRequestAssistantMessage {
+            async_openai::types::chat::ChatCompletionRequestMessage::Assistant(
+                async_openai::types::chat::ChatCompletionRequestAssistantMessage {
                     tool_calls: Some(tool_calls_messages),
                     ..Default::default()
                 },
@@ -736,7 +770,7 @@ pub fn tool_calling_loop_stream(
         if let Some(text_response) = response.1.clone() {
             text_response_buffer.push(text_response.clone());
             messages.push(ChatCompletionRequestMessage::Assistant(
-                async_openai::types::ChatCompletionRequestAssistantMessage {
+                async_openai::types::chat::ChatCompletionRequestAssistantMessage {
                     content: Some(ChatCompletionRequestAssistantMessageContent::Text(
                         text_response,
                     )),
