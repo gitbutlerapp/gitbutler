@@ -1,7 +1,7 @@
 use async_openai::{
     Client,
     config::OpenAIConfig,
-    types::{
+    types::chat::{
         ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage,
         CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
     },

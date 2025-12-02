@@ -521,7 +521,7 @@ async fn generate_branch_summary(
     branch_name: &str,
     commits: &[CommitInfo],
 ) -> anyhow::Result<String> {
-    use async_openai::types::{
+    use async_openai::types::chat::{
         ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessageArgs,
         CreateChatCompletionRequestArgs,
     };
