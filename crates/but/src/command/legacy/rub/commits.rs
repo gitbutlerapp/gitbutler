@@ -27,7 +27,7 @@ pub fn commited_file_to_another_commit(
     let source_commit = repo.find_commit(source_id)?;
     let source_commit_parent_id = source_commit.parent_ids().next().context("First parent")?;
 
-    let (tree_changes, _) = tree_changes(&repo, Some(source_commit_parent_id.detach()), source_id)?;
+    let tree_changes = tree_changes(&repo, Some(source_commit_parent_id.detach()), source_id)?;
     let relevant_changes = tree_changes
         .into_iter()
         .filter(|tc| tc.path.to_str_lossy() == path)
@@ -69,8 +69,7 @@ pub fn uncommit_file(
         let source_commit = repo.find_commit(source_id)?;
         let source_commit_parent_id = source_commit.parent_ids().next().context("First parent")?;
 
-        let (tree_changes, _) =
-            tree_changes(&repo, Some(source_commit_parent_id.detach()), source_id)?;
+        let tree_changes = tree_changes(&repo, Some(source_commit_parent_id.detach()), source_id)?;
         tree_changes
             .into_iter()
             .filter(|tc| tc.path.to_str_lossy() == path)

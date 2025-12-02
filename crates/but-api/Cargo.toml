@@ -16,7 +16,8 @@ doctest = false
 [features]
 default = []
 ## Provide Tauri commands automatically where possible, to avoid duplication.
-tauri = ["dep:tauri"]
+## Needs "legacy" as long as it needs `ProjectId` and is not switched to `ProjectHandle`.
+tauri = ["dep:tauri", "legacy"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.
 path-bytes = ["dep:bstr"]
@@ -101,6 +102,7 @@ gitbutler-git = {workspace = true, optional = true}
 
 tauri = { version = "^2.9.3", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
 
+boolean-enums = { version = "0.4.1", features = ["serde"] }
 bstr = { workspace = true, optional = true }
 schemars.workspace = true
 serde.workspace = true

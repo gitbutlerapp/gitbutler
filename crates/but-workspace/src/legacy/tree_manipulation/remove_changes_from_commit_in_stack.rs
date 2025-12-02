@@ -101,8 +101,10 @@ pub fn keep_only_file_changes_in_commit(
     skip_if_empty: bool,
 ) -> Result<Option<gix::ObjectId>> {
     let repository = ctx.repo.get()?;
-    let commit_changes =
-        but_core::diff::ui::commit_changes_by_worktree_dir(&repository, source_commit_id)?;
+    let commit_changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
+        &repository,
+        source_commit_id,
+    )?;
     let changes_to_remove: Vec<TreeChange> = commit_changes
         .changes
         .clone()
@@ -131,8 +133,10 @@ pub fn remove_file_changes_from_commit(
     skip_if_empty: bool,
 ) -> Result<Option<gix::ObjectId>> {
     let repository = ctx.repo.get()?;
-    let commit_changes =
-        but_core::diff::ui::commit_changes_by_worktree_dir(&repository, source_commit_id)?;
+    let commit_changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
+        &repository,
+        source_commit_id,
+    )?;
     let changes_to_remove: Vec<TreeChange> = commit_changes
         .changes
         .clone()

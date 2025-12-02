@@ -32,5 +32,5 @@ pub fn changes_in_branch(
     let Some((tip, base)) = commits else {
         return Ok(ui::TreeChanges::default());
     };
-    but_core::diff::ui::changes_in_range(repo, tip, base)
+    but_core::diff::ui::changes_with_line_stats_in_range(repo, tip, base)
 }

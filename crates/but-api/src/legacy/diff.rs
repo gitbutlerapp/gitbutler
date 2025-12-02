@@ -58,7 +58,10 @@ pub fn commit_details(
     let commit = repo
         .find_commit(commit_id)
         .context("Failed for find commit")?;
-    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(&repo, commit_id.into())?;
+    let changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
+        &repo,
+        commit_id.into(),
+    )?;
     let conflict_entries = Commit::from_id(commit.id())?.conflict_entries()?;
     Ok(json::CommitDetails {
         commit: commit.try_into()?,
