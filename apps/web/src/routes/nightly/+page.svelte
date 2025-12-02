@@ -568,32 +568,29 @@
 	/* GRAINY BG */
 	.grainy-bg {
 		position: absolute;
-		width: 1160px;
+		width: 1000px;
 		height: 950px;
 		transform: rotate(30deg);
-		background: url('/images/grainy-gr.png');
+		background-image: url('/images/grainy-gradient-light.png');
 		background-size: 100%;
 		background-repeat: no-repeat;
-		mix-blend-mode: screen;
-		filter: invert(100%);
-		opacity: 0.14;
+		opacity: 0.08;
 		pointer-events: none;
 	}
 
 	:global(.dark) .grainy-bg {
-		mix-blend-mode: multiply;
-		filter: invert(0%);
-		opacity: 0.12;
+		background-image: url('/images/grainy-gradient-dark.png');
+		opacity: 0.08;
 	}
 
 	.grainy-1 {
 		top: -40%;
-		right: -50%;
+		right: -45%;
 	}
 
 	.grainy-2 {
 		bottom: -80%;
-		left: -60%;
+		left: -70%;
 	}
 
 	@media (--mobile-viewport) {
