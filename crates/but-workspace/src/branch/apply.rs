@@ -388,9 +388,11 @@ pub(crate) mod function {
             .redo_traversal_with_overlay(repo, meta, overlay.clone())?;
 
         let workspace = graph.to_workspace()?;
-        let all_applied_branches_are_already_visible = branches_to_apply
-            .iter()
-            .all(|rn| workspace.refname_is_segment(rn));
+        let all_applied_branches_are_already_visible = branches_to_apply.iter().all(|rn| {
+            workspace
+                .find_segment_and_stack_by_refname(rn)
+                .is_some_and(|(_stack, segment)| !segment.is_projected_from_outside(&graph))
+        });
         let needs_ws_ref_creation = !ws_ref_exists;
         let local_tracking_config_and_ref_info = local_tracking_config_and_ref_info.zip(
             commit_to_create_branch_at.map(|commit| (branch, branch_orig, commit.attach(repo))),

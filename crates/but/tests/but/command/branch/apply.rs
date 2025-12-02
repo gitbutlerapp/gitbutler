@@ -1,6 +1,85 @@
 use crate::utils::{Sandbox, setup_metadata};
 use snapbox::str;
 
+#[cfg(not(feature = "legacy"))]
+#[test]
+fn single_branch() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("one-fork")?;
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * bf53300 (A) add A
+    | * b1540e5 (HEAD -> main) M
+    |/  
+    | * 0e391b2 (origin/B) add B
+    |/  
+    * e31e6ca (origin/main, origin/HEAD) add init
+    ");
+
+    env.but("branch apply A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Applied branch 'main' to workspace
+Applied branch 'A' to workspace
+
+"#]]);
+
+    insta::assert_snapshot!(env.workspace_debug_at_head()?, @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on e31e6ca
+    ├── ≡📙:2:A on e31e6ca {1}
+    │   └── 📙:2:A
+    │       └── ·bf53300 (🏘️)
+    └── ≡📙:1:main on e31e6ca {2}
+        └── 📙:1:main
+            └── ·b1540e5 (🏘️)
+    ");
+
+    insta::assert_snapshot!(env.git_log()?, @r"
+    *   d87b903 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * bf53300 (A) add A
+    * | b1540e5 (main) M
+    |/  
+    | * 0e391b2 (origin/B) add B
+    |/  
+    * e31e6ca (origin/main, origin/HEAD) add init
+    ");
+
+    env.but("branch apply origin/B")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Applied remote branch 'origin/B' to workspace
+
+"#]])
+        .stderr_eq(str![""]);
+    insta::assert_snapshot!(env.workspace_debug_at_head()?, @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on e31e6ca
+    ├── ≡📙:3:B <> origin/B →:4: on e31e6ca {1}
+    │   └── 📙:3:B <> origin/B →:4:
+    │       └── ❄️0e391b2 (🏘️)
+    ├── ≡📙:2:A on e31e6ca {2}
+    │   └── 📙:2:A
+    │       └── ·bf53300 (🏘️)
+    └── ≡📙:1:main on e31e6ca {3}
+        └── 📙:1:main
+            └── ·b1540e5 (🏘️)
+    ");
+
+    // TODO: should be success and create a local tracking branch.
+    insta::assert_snapshot!(env.git_log()?, @r"
+    *-.   7bcf528 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\ \  
+    | | * 0e391b2 (origin/B, B) add B
+    | * | bf53300 (A) add A
+    | |/  
+    * / b1540e5 (main) M
+    |/  
+    * e31e6ca (origin/main, origin/HEAD) add init
+    ");
+    Ok(())
+}
+
 use crate::command::branch::apply::utils::create_local_branch_with_commit_with_message;
 use utils::create_local_branch_with_commit;
 

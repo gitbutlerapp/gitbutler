@@ -237,7 +237,8 @@ pub struct Graph {
     hard_limit_hit: bool,
     /// The options used to create the graph, which allows it to regenerate itself after something
     /// possibly changed. This can also be used to simulate changes by injecting would-be information.
-    options: init::Options,
+    /// Public to be able to change it before calling [Graph::redo_traversal_with_overlay()].
+    pub options: init::Options,
 }
 
 /// A resolved entry point into the graph for easy access to the segment, commit,

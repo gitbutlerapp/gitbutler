@@ -14,10 +14,10 @@ fn unborn() -> anyhow::Result<()> {
             node_count: 1,
             edge_count: 0,
             node weights: {
-                0: StackSegment {
+                0: Segment {
                     id: NodeIndex(0),
                     generation: 0,
-                    ref_name: "►main[🌳]",
+                    ref_info: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     sibling_segment_id: "None",
                     commits: [],
@@ -89,10 +89,10 @@ fn detached() -> anyhow::Result<()> {
             edge_count: 1,
             edges: (0, 1),
             node weights: {
-                0: StackSegment {
+                0: Segment {
                     id: NodeIndex(0),
                     generation: 0,
-                    ref_name: "None",
+                    ref_info: "None",
                     remote_tracking_ref_name: "None",
                     sibling_segment_id: "None",
                     commits: [
@@ -100,10 +100,10 @@ fn detached() -> anyhow::Result<()> {
                     ],
                     metadata: "None",
                 },
-                1: StackSegment {
+                1: Segment {
                     id: NodeIndex(1),
                     generation: 1,
-                    ref_name: "►other",
+                    ref_info: "►other",
                     remote_tracking_ref_name: "None",
                     sibling_segment_id: "None",
                     commits: [

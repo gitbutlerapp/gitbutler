@@ -262,8 +262,13 @@ impl Graph {
         static SUFFIX: AtomicUsize = AtomicUsize::new(0);
         let suffix = SUFFIX.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let svg_name = format!("debug-graph-{suffix:02}.svg");
+        let svg_path = std::env::var_os("CARGO_MANIFEST_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_default()
+            .join(svg_name);
         let mut dot = std::process::Command::new("dot")
-            .args(["-Tsvg", "-o", &svg_name])
+            .args(["-Tsvg", "-o"])
+            .arg(&svg_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -284,11 +289,12 @@ impl Graph {
 
         assert!(
             std::process::Command::new("open")
-                .arg(&svg_name)
+                .arg(&svg_path)
                 .status()
                 .unwrap()
                 .success(),
-            "Opening of {svg_name} failed"
+            "Opening of {svg_path} failed",
+            svg_path = svg_path.display()
         );
     }
 

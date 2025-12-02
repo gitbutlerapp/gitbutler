@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use but_core::ref_metadata::StackId;
 use but_graph::{
     EntryPoint, Graph, SegmentIndex, SegmentMetadata, projection::StackCommitDebugFlags,
 };
@@ -9,6 +10,20 @@ type StringTree = Tree<String>;
 
 /// Visualize `graph` as a tree.
 pub fn graph_workspace(workspace: &but_graph::projection::Workspace<'_>) -> StringTree {
+    graph_workspace_inner(workspace, None)
+}
+
+/// Visualize `graph` as a tree, and remap random stack ids to something deterministic.
+pub fn graph_workspace_determinisitcally(
+    workspace: &but_graph::projection::Workspace<'_>,
+) -> StringTree {
+    graph_workspace_inner(workspace, Some(Default::default()))
+}
+
+fn graph_workspace_inner(
+    workspace: &but_graph::projection::Workspace<'_>,
+    mut stack_id_map: Option<BTreeMap<StackId, StackId>>,
+) -> StringTree {
     let commit_flags = if workspace.graph.hard_limit_hit() {
         StackCommitDebugFlags::HardLimitReached
     } else {
@@ -16,7 +31,7 @@ pub fn graph_workspace(workspace: &but_graph::projection::Workspace<'_>) -> Stri
     };
     let mut root = Tree::new(workspace.debug_string());
     for stack in &workspace.stacks {
-        root.push(tree_for_stack(stack, commit_flags));
+        root.push(tree_for_stack(stack, commit_flags, stack_id_map.as_mut()));
     }
     root
 }
@@ -24,8 +39,14 @@ pub fn graph_workspace(workspace: &but_graph::projection::Workspace<'_>) -> Stri
 fn tree_for_stack(
     stack: &but_graph::projection::Stack,
     commit_flags: StackCommitDebugFlags,
+    stack_id_map: Option<&mut BTreeMap<StackId, StackId>>,
 ) -> StringTree {
-    let mut root = Tree::new(stack.debug_string());
+    let mut root = Tree::new(
+        stack.debug_string(stack.id.zip(stack_id_map).map(|(id, map)| {
+            let next_id = StackId::from_number_for_testing((map.len() + 1) as u128);
+            *map.entry(id).or_insert(next_id)
+        })),
+    );
     for segment in &stack.segments {
         root.push(tree_for_stack_segment(segment, commit_flags));
     }

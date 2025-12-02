@@ -263,14 +263,14 @@ impl std::fmt::Debug for Segment {
                 sibling_segment_id,
                 metadata,
             } = self;
-            f.debug_struct("StackSegment")
+            f.debug_struct("Segment")
                 .field("id", id)
                 .field("generation", generation)
                 .field(
-                    "ref_name",
+                    "ref_info",
                     &match ref_info.as_ref() {
                         None => "None".to_string(),
-                        Some(name) => name.debug_string(),
+                        Some(info) => info.debug_string(),
                     },
                 )
                 .field(
