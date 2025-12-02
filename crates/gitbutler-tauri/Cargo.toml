@@ -36,7 +36,7 @@ gitbutler-repo-actions.workspace = true
 gitbutler-watcher.workspace = true
 gitbutler-project.workspace = true
 
-tauri = { version = "^2.9.2", features = ["unstable"] }
+tauri = { version = "^2.9.3", features = ["unstable"] }
 tauri-plugin-single-instance = { version = "2.3.6", features = ["deep-link"] }
 tauri-plugin-dialog = "2.4.2"
 tauri-plugin-fs = "2.4.2"
@@ -64,7 +64,7 @@ git2.workspace = true
 # The features here optimize for performance.
 tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot"] }
 tracing.workspace = true
-tracing-appender = "0.2.3"
+tracing-appender = "0.2.4"
 tracing-subscriber.workspace = true
 tracing-forest.workspace = true
 open.workspace = true

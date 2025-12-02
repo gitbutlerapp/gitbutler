@@ -31,13 +31,13 @@ gitbutler-project.workspace = true
 gitbutler-watcher.workspace = true
 
 serde.workspace = true
-axum = { version = "0.8.6", features = ["ws"] }
+axum = { version = "0.8.7", features = ["ws"] }
 futures-util = { version = "0.3", default-features = false, features = [
     "sink",
     "std",
 ] }
 tower = "0.5.2"
-tower-http = { version = "0.6.6", features = ["cors"] }
+tower-http = { version = "0.6.7", features = ["cors"] }
 tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
 serde_json.workspace = true

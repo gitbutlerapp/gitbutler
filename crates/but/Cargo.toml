@@ -92,7 +92,7 @@ clap = { workspace = true, features = [
     "usage",
     "suggestions",
 ] }
-clap_complete = "4.5.60"
+clap_complete = "4.5.61"
 chrono.workspace = true
 bstr.workspace = true
 regex.workspace = true

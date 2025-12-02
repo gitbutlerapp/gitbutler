@@ -57,7 +57,7 @@ ts-rs.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
-insta = { version = "1.43.2", features = ["json"] }
+insta = { version = "1.44.3", features = ["json"] }
 but-core = { workspace = true, features = ["testing"] }
 # for stable hashes in `gitbuter-` crates while we use them.
 # TODO: remove once `gitbutler-repo` isn't needed anymore.
