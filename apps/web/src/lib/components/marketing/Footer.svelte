@@ -130,11 +130,11 @@
 					>©{new Date().getFullYear()} GitButler. All rights reserved.</span
 				>
 				<span class="meta-links__legal">
-					<a href="/privacy">
+					<a href={jsonLinks.legal.privacyPolicy.url} target="_blank">
 						{jsonLinks.legal.privacyPolicy.label}
 					</a>
 					<span> | </span>
-					<a href={jsonLinks.legal.termsOfService.url}>
+					<a href={jsonLinks.legal.termsOfService.url} target="_blank">
 						{jsonLinks.legal.termsOfService.label}
 					</a>
 				</span>
