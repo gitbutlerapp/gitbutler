@@ -47,6 +47,7 @@ pub enum Context {
     Push { branch_id: Option<StackId> },
     Fetch { action: String },
     SignedCommit { branch_id: Option<StackId> },
+    Clone { url: String },
 }
 
 #[derive(Clone)]

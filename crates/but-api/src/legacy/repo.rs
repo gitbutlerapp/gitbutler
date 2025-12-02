@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::atomic::AtomicBool};
+use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
 use but_api_macros::api_cmd_tauri;
@@ -12,6 +12,7 @@ use gitbutler_repo::{
     FileInfo, RepoCommands,
     hooks::{HookResult, MessageHookResult},
 };
+use gitbutler_repo_actions::askpass;
 use tracing::instrument;
 
 #[api_cmd_tauri]
@@ -38,13 +39,29 @@ pub fn check_signing_settings(project_id: ProjectId) -> Result<bool> {
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Result<()> {
-    let should_interrupt = AtomicBool::new(false);
+    let url_for_context = repository_url.clone();
 
-    gix::prepare_clone(repository_url.as_str(), &target_dir)?
-        .fetch_then_checkout(gix::progress::Discard, &should_interrupt)
-        .map(|(checkout, _outcome)| checkout)?
-        .main_worktree(gix::progress::Discard, &should_interrupt)?;
-    Ok(())
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(gitbutler_git::clone(
+                &repository_url,
+                &target_dir,
+                gitbutler_git::tokio::TokioExecutor,
+                handle_git_prompt_clone,
+                url_for_context,
+            ))
+    })
+    .join()
+    .unwrap()
+    .map_err(|e| anyhow::anyhow!("{e}"))
+}
+
+async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> {
+    tracing::info!("received prompt for clone of {url}: {prompt:?}");
+    askpass::get_broker()
+        .submit_prompt(prompt, askpass::Context::Clone { url })
+        .await
 }
 
 #[api_cmd_tauri]
