@@ -350,22 +350,19 @@
 	/* GRAINY BG */
 	.grainy-bg {
 		position: absolute;
-		width: 1160px;
+		width: 1000px;
 		height: 950px;
 		transform: rotate(30deg);
-		background: url('/images/grainy-gr.png');
+		background-image: url('/images/grainy-gradient-dark.png');
 		background-size: 100%;
 		background-repeat: no-repeat;
-		mix-blend-mode: multiply;
-
 		opacity: 0.06;
 		pointer-events: none;
 	}
 
 	:global(.dark) .grainy-bg {
-		mix-blend-mode: screen;
-		filter: invert(100%);
-		opacity: 0.08;
+		background-image: url('/images/grainy-gradient-light.png');
+		opacity: 0.07;
 	}
 
 	.grainy-1 {

@@ -130,11 +130,11 @@
 					>©{new Date().getFullYear()} GitButler. All rights reserved.</span
 				>
 				<span class="meta-links__legal">
-					<a href="/privacy">
+					<a href={jsonLinks.legal.privacyPolicy.url} target="_blank">
 						{jsonLinks.legal.privacyPolicy.label}
 					</a>
 					<span> | </span>
-					<a href={jsonLinks.legal.termsOfService.url}>
+					<a href={jsonLinks.legal.termsOfService.url} target="_blank">
 						{jsonLinks.legal.termsOfService.label}
 					</a>
 				</span>
@@ -202,30 +202,28 @@
 
 	.banner-bg-grainy {
 		position: absolute;
-		width: 1100px;
-		height: 900px;
+		width: 900px;
+		height: 800px;
 		transform: rotate(26deg);
-		background: url('/images/grainy-gr.png');
+		background-image: url('/images/grainy-gradient-light.png');
 		background-size: 100%;
 		background-repeat: no-repeat;
-		mix-blend-mode: screen;
-		filter: invert(100%);
-		opacity: 0.5;
+		opacity: 0.4;
 		pointer-events: none;
 	}
 
 	.grainy-1 {
 		bottom: -130%;
-		left: -60%;
+		left: -50%;
 	}
 
 	.grainy-2 {
-		right: -50%;
+		right: -40%;
 		bottom: -70%;
 	}
 
 	:global(.dark) .banner-bg-grainy {
-		opacity: 0.24;
+		opacity: 0.2;
 	}
 
 	.banner-content-downloads {
