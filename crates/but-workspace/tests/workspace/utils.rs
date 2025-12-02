@@ -193,7 +193,7 @@ pub fn commit_from_outcome(
         .object()?
         .peel_to_commit()?
         .decode()?
-        .into())
+        .try_into()?)
 }
 
 pub fn visualize_commit(

@@ -190,14 +190,14 @@ fn upstream_commits_gix(
         let id = id?.to_gix().attach(upstream_id.repo);
         let commit = id.object()?.into_commit();
         let commit = commit.decode()?;
-        let author: ui::Author = commit.author().into();
-        let commiter: ui::Author = commit.committer().into();
+        let author: ui::Author = commit.author()?.into();
+        let commiter: ui::Author = commit.committer()?.into();
         authors.insert(author.clone());
         authors.insert(commiter);
         out.push(UpstreamCommit {
             id: id.detach(),
             message: commit.message.into(),
-            created_at: i128::from(commit.time().seconds) * 1000,
+            created_at: i128::from(commit.time()?.seconds) * 1000,
             author,
         });
     }

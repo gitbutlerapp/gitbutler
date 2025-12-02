@@ -333,10 +333,10 @@ fn branch_group_to_branch(
     let head_commit = head_commit.object()?.try_into_commit()?;
     let head_commit = head_commit.decode()?;
     let last_modified_ms = max(
-        (head_commit.time().seconds * 1000) as u128,
+        (head_commit.time()?.seconds * 1000) as u128,
         virtual_branch.map_or(0, |x| x.updated_timestamp_ms),
     );
-    let last_commiter = head_commit.author().into();
+    let last_commiter = head_commit.author()?.into();
 
     Ok(Some(BranchListing {
         name: identity.to_owned(),

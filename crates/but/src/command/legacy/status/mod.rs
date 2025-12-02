@@ -130,17 +130,17 @@ pub(crate) async fn worktree(
         .take(50)
         .collect::<String>();
     let formatted_date = base_commit_decoded
-        .committer()
+        .committer()?
         .time()?
         .format_or_unix(DATE_ONLY);
-    let author = base_commit_decoded.author();
+    let author = base_commit_decoded.author()?;
     let common_merge_base_data = CommonMergeBase {
         target_name: target_name.clone(),
         common_merge_base: target.sha.to_string()[..7].to_string(),
         message: message.clone(),
         commit_date: formatted_date,
         commit_id: target.sha.to_gix(),
-        created_at: base_commit_decoded.committer().time()?.seconds as i128 * 1000,
+        created_at: base_commit_decoded.committer()?.time()?.seconds as i128 * 1000,
         author_name: author.name.to_string(),
         author_email: author.email.to_string(),
     };
@@ -167,10 +167,14 @@ pub(crate) async fn worktree(
                                 .take(50)
                                 .collect::<String>();
 
-                            let formatted_date =
-                                commit.committer().time().ok()?.format_or_unix(DATE_ONLY);
+                            let formatted_date = commit
+                                .committer()
+                                .ok()?
+                                .time()
+                                .ok()?
+                                .format_or_unix(DATE_ONLY);
 
-                            let author = commit.author();
+                            let author = commit.author().ok()?;
 
                             Some(UpstreamState {
                                 target_name: base_branch.branch_name.clone(),
@@ -180,7 +184,8 @@ pub(crate) async fn worktree(
                                 commit_date: formatted_date,
                                 last_fetched_ms: last_fetched,
                                 commit_id: commit_id.to_gix(),
-                                created_at: commit.committer().time().ok()?.seconds as i128 * 1000,
+                                created_at: commit.committer().ok()?.time().ok()?.seconds as i128
+                                    * 1000,
                                 author_name: author.name.to_string(),
                                 author_email: author.email.to_string(),
                             })

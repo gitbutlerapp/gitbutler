@@ -20,7 +20,7 @@ impl ReferenceFrame {
         mode: InferenceMode,
     ) -> anyhow::Result<Self> {
         let head_id = repo.head_id()?;
-        let workspace_commit = head_id.object()?.into_commit().decode()?.to_owned();
+        let workspace_commit = head_id.object()?.into_commit().decode()?.to_owned()?;
 
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph = repo.revision_graph(cache.as_ref());

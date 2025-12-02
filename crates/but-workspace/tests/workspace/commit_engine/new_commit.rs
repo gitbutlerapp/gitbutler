@@ -1182,7 +1182,7 @@ fn signatures_are_redone() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario_with_ssh_key("two-signed-commits-with-line-offset");
 
     let head_id = repo.head_id()?;
-    let head_commit = head_id.object()?.into_commit().decode()?.to_owned();
+    let head_commit = head_id.object()?.into_commit().decode()?.to_owned()?;
     let head_id = head_id.detach();
     let previous_signature = head_commit
         .extra_headers()

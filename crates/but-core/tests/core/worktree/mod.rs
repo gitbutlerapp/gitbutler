@@ -18,7 +18,7 @@ mod utils {
                 tree: editor.write()?.detach(),
                 parents: [head_commit.id].into(),
                 message: message.into(),
-                ..head_commit.decode()?.to_owned()
+                ..head_commit.decode()?.to_owned()?
             })?
             .detach();
         Ok((head_commit, repo.find_commit(new_commit_id)?))

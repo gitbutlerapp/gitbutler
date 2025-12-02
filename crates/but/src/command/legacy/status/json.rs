@@ -405,7 +405,7 @@ pub(super) fn build_workspace_status_json(
     // We use the author signature from the commit we decoded earlier
     let base_commit = repo.find_commit(common_merge_base.commit_id)?;
     let base_commit_decoded = base_commit.decode()?;
-    let author: but_workspace::ui::Author = base_commit_decoded.author().into();
+    let author: but_workspace::ui::Author = base_commit_decoded.author()?.into();
 
     let cli_id = crate::legacy::id::CliId::commit(common_merge_base.commit_id).to_string();
     let merge_base_commit = Commit::from_upstream_commit(
@@ -423,7 +423,7 @@ pub(super) fn build_workspace_status_json(
         // Create a Commit object for the latest upstream commit
         let upstream_commit = repo.find_commit(upstream.commit_id)?;
         let upstream_commit_decoded = upstream_commit.decode()?;
-        let upstream_author: but_workspace::ui::Author = upstream_commit_decoded.author().into();
+        let upstream_author: but_workspace::ui::Author = upstream_commit_decoded.author()?.into();
 
         let cli_id = crate::legacy::id::CliId::commit(upstream.commit_id).to_string();
         let latest_commit = Commit::from_upstream_commit(
