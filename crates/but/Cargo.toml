@@ -117,7 +117,7 @@ minus = { version = "5.6.1", default-features = false, features = [
     "static_output",
     "search",
 ] }
-unicode-width = "0.1"
+unicode-width = "0.2"
 cfg-if = "1.0.4"
 
 [dev-dependencies]
