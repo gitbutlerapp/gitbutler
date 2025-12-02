@@ -138,7 +138,7 @@ fn format_stack_for_review(
         let commit = repo.find_commit(*commit_id)?;
         let decoded_commit = commit.decode()?;
         let mut message = CommitMessage::new(decoded_commit.clone());
-        let mut object: gix::objs::Commit = decoded_commit.into();
+        let mut object: gix::objs::Commit = decoded_commit.try_into()?;
 
         message
             .trailers

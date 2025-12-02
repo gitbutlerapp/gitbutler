@@ -315,7 +315,7 @@ fn rebase(
                 )?;
 
                 // Now, lets pretend the base didn't exist by swapping parent with the parent of the base
-                let mut new_commit = repo.find_commit(new_commit)?.decode()?.to_owned();
+                let mut new_commit = repo.find_commit(new_commit)?.decode()?.to_owned()?;
                 new_commit.parents = base_commit.parent_ids().map(|id| id.detach()).collect();
                 if let Some(new_message) = new_message {
                     new_commit.message = new_message;
@@ -350,7 +350,7 @@ fn to_commit(repo: &gix::Repository, commit_id: gix::ObjectId) -> Result<gix::ob
         .object()?
         .into_commit()
         .decode()?
-        .into())
+        .try_into()?)
 }
 
 fn reword_commit(
@@ -358,7 +358,7 @@ fn reword_commit(
     oid: gix::ObjectId,
     new_message: BString,
 ) -> Result<gix::ObjectId> {
-    let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned();
+    let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned()?;
     new_commit.message = new_message;
     Ok(commit::create(
         repo,
@@ -373,7 +373,7 @@ pub fn replace_commit_tree(
     oid: gix::ObjectId,
     new_tree: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
-    let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned();
+    let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned()?;
     new_commit.tree = new_tree;
     Ok(commit::create(
         repo,

@@ -65,7 +65,7 @@ gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 
 bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { version = "0.75.0", default-features = false, features = [] }
+gix = { version = "0.75.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }
 ts-rs = { version = "11.1.0", features = ["serde-compat", "no-serde-warnings"] }
 gix-testtools = "0.16.1"
 insta = "1.44.3"
