@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::Path, time::Duration};
 
 use futures::{FutureExt, select};
+use gix::{bstr::ByteSlice, config::tree::Key};
 use rand::Rng;
 
 use super::executor::{AskpassServer, GitExecutor, Pid, Socket};
@@ -62,9 +63,16 @@ pub type Error<E> = RepositoryError<
     <<<E as GitExecutor>::ServerHandle as AskpassServer>::SocketHandle as Socket>::Error,
 >;
 
+enum HarnessEnv<P: AsRef<Path>> {
+    /// The contained P is the repo's path
+    Repo(P),
+    /// The contained P is the path that the command should be executed in
+    Global(P),
+}
+
 #[cold]
 async fn execute_with_auth_harness<P, F, Fut, E, Extra>(
-    repo_path: P,
+    harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
     envs: Option<HashMap<String, String>>,
@@ -180,7 +188,7 @@ where
         .or_else(|| std::env::var("GIT_SSH").ok())
     {
         Some(v) => v,
-        None => get_core_sshcommand(&repo_path)
+        None => get_core_sshcommand(&harness_env)
             .ok()
             .flatten()
             .unwrap_or_else(|| "ssh".into()),
@@ -215,10 +223,13 @@ where
         ),
     );
 
+    let cwd = match harness_env {
+        HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
+    };
     let mut child_process = core::pin::pin! {
         async {
             executor
-                .execute(args, repo_path, Some(envs))
+                .execute(args, cwd, Some(envs))
                 .await
                 .map_err(Error::<E>::Exec)
         }.fuse()
@@ -324,8 +335,15 @@ where
     args.push(remote);
     args.push(&refspec);
 
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(repo_path, &executor, &args, None, on_prompt, extra).await?;
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Repo(repo_path),
+        &executor,
+        &args,
+        None,
+        on_prompt,
+        extra,
+    )
+    .await?;
 
     if status == 0 {
         Ok(())
@@ -399,8 +417,15 @@ where
         args.push(opt.as_str());
     }
 
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(repo_path, &executor, &args, None, on_prompt, extra).await?;
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Repo(repo_path),
+        &executor,
+        &args,
+        None,
+        on_prompt,
+        extra,
+    )
+    .await?;
 
     if status == 0 {
         return Ok(stderr);
@@ -498,8 +523,15 @@ where
         "--allow-empty",
         "--allow-empty-message",
     ];
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(&worktree_path, &executor, &args, None, on_prompt, extra).await?;
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Repo(&worktree_path),
+        &executor,
+        &args,
+        None,
+        on_prompt,
+        extra,
+    )
+    .await?;
     if status != 0 {
         return Err(Error::<E>::Failed {
             status,
@@ -549,9 +581,88 @@ where
     Ok(commit_hash)
 }
 
-fn get_core_sshcommand(cwd: impl AsRef<Path>) -> anyhow::Result<Option<String>> {
-    Ok(gix::open(cwd.as_ref())?
-        .config_snapshot()
-        .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
-        .map(|program| program.to_string_lossy().into_owned()))
+fn get_core_sshcommand<P>(harness_env: &HarnessEnv<P>) -> anyhow::Result<Option<String>>
+where
+    P: AsRef<Path>,
+{
+    match harness_env {
+        HarnessEnv::Repo(repo_path) => Ok(gix::open(repo_path.as_ref())?
+            .config_snapshot()
+            .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
+            .map(|program| program.to_string_lossy().into_owned())),
+        HarnessEnv::Global(_) => Ok(gix::config::File::from_globals()?
+            .string(gix::config::tree::Core::SSH_COMMAND.logical_name())
+            .map(|program| program.to_str_lossy().into_owned())),
+    }
+}
+
+/// Clones the given repository URL to the target directory.
+/// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
+/// which should return the user's response or `None` if the operation should be
+/// aborted, in which case an `Err` value is returned from this function.
+///
+/// Unlike fetch/push, this function always uses the Git CLI regardless of any
+/// backend selection, as it needs to work before a repository exists.
+pub async fn clone<P, F, Fut, E, Extra>(
+    repository_url: &str,
+    target_dir: P,
+    executor: E,
+    on_prompt: F,
+    extra: Extra,
+) -> Result<(), crate::Error<Error<E>>>
+where
+    P: AsRef<Path>,
+    E: GitExecutor,
+    F: FnMut(String, Extra) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+    Extra: Send + Clone,
+{
+    let target_dir = target_dir.as_ref();
+
+    // For clone, we run from the parent directory of the target
+    let work_dir = target_dir.parent().unwrap_or(Path::new("."));
+
+    let target_dir_str = target_dir.to_string_lossy();
+    let args = vec!["clone", "--", repository_url, &target_dir_str];
+
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Global(work_dir),
+        &executor,
+        &args,
+        None,
+        on_prompt,
+        extra,
+    )
+    .await?;
+
+    if status == 0 {
+        Ok(())
+    } else if stderr.to_lowercase().contains("permission denied") {
+        Err(crate::Error::AuthorizationFailed(Error::<E>::Failed {
+            status,
+            args: args.into_iter().map(Into::into).collect(),
+            stdout,
+            stderr,
+        }))?
+    } else if stderr
+        .to_lowercase()
+        .contains("already exists and is not an empty directory")
+    {
+        Err(crate::Error::RemoteExists(
+            target_dir.display().to_string(),
+            Error::<E>::Failed {
+                status,
+                args: args.into_iter().map(Into::into).collect(),
+                stdout,
+                stderr,
+            },
+        ))?
+    } else {
+        Err(Error::<E>::Failed {
+            status,
+            args: args.into_iter().map(Into::into).collect(),
+            stdout,
+            stderr,
+        })?
+    }
 }
