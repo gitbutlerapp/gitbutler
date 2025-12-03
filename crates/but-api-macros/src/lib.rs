@@ -20,11 +20,16 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = &sig.inputs;
     let output = &sig.output;
 
+    let is_result_option = is_result_option(match output {
+        syn::ReturnType::Type(_, ty) => ty.as_ref(),
+        syn::ReturnType::Default => panic!("function must return a type"),
+    });
+
     let opts = if attr.is_empty() {
         Options::default()
     } else {
         let meta = syn::parse_macro_input!(attr as syn::Meta);
-        match parse_attrs_to_options(meta, output) {
+        match parse_attrs_to_options(meta, is_result_option) {
             Ok(opts) => opts,
             Err(err) => return err.into_compile_error().into(),
         }
@@ -43,13 +48,14 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
             let pat = &pat_ty.pat;
             if let Pat::Ident(ident) = &**pat {
                 let name = &ident.ident;
-                let name_type_declaration =
-                    if let Some(json_type) = json_ty_by_name.get(&ident.ident.to_string()) {
-                        quote! { pub #name: #json_type }
-                    } else {
-                        let ty = &pat_ty.ty;
-                        quote! { pub #name: #ty }
-                    };
+                let name_type_declaration = if let Some((json_type, _from_mode)) =
+                    json_ty_by_name.get(&ident.ident.to_string())
+                {
+                    quote! { pub #name: #json_type }
+                } else {
+                    let ty = &pat_ty.ty;
+                    quote! { pub #name: #ty }
+                };
                 struct_fields_with_json_types.push(name_type_declaration);
                 param_field_names.push(name);
             }
@@ -87,10 +93,19 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
                     other => (syn::parse_quote! { #name }, other),
                 };
                 call_arg_idents.push(arg_ident);
-                let param = if let Some(json_type) = json_type_mapping {
+                let param = if let Some((json_type, from_mode)) = json_type_mapping {
                     // We control these conversions, and must just make them work to keep this simple.
-                    param_conversions.push(quote! {
-                        let #name = <#ty>::try_from(#name)?;
+                    param_conversions.push(match from_mode {
+                        FromMode::From => {
+                            quote! {
+                                let mut #name = <#ty>::from(#name);
+                            }
+                        }
+                        FromMode::TryFrom => {
+                            quote! {
+                                let mut #name = <#ty>::try_from(#name)?;
+                            }
+                        }
                     });
                     syn::parse_quote! { #name: #json_type }
                 } else {
@@ -126,13 +141,14 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
     let tauri_cmd_name = format_ident!("__cmd__{}", fn_json_name);
     let tauri_orig_cmd_name = format_ident!("__cmd__{}", fn_name);
 
-    let convert_to_json_result_type = if let Some(ResultConversion {
+    let (convert_to_json_result_type, json_ty) = if let Some(ResultConversion {
         mode,
         is_result_option,
         json_ty,
+        json_ty_rval,
     }) = opts.result_conversion
     {
-        match mode {
+        let convert = match mode {
             FromMode::From => {
                 if is_result_option {
                     quote! {
@@ -155,9 +171,14 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 }
             }
-        }
+        };
+        (convert, json_ty_rval)
     } else {
-        quote! {}
+        let return_type = match extract_ok_type(output) {
+            Ok(ty_path) => ty_path,
+            Err(err) => return err.to_compile_error().into(),
+        };
+        (quote! {}, return_type)
     };
 
     let legacy_cfg_if_json_mapping_is_used = if !json_ty_by_name.is_empty() {
@@ -196,12 +217,11 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
         #legacy_cfg_if_json_mapping_is_used
         #vis #asyncness fn #fn_json_name(
             #(#json_fn_input_params),*
-        ) -> Result<::serde_json::Value, crate::json::Error> {
-            use crate::json::ToJsonError;
+        ) -> Result<#json_ty, crate::json::Error> {
             #(#param_conversions);*
             let result = #call_fn_args?;
             #convert_to_json_result_type
-            ::serde_json::to_value(result).to_json_error()
+            Ok(result)
         }
 
         /// A dummy module just to make generated tauri functions available *and* working.
@@ -220,7 +240,7 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// to turn them into their respective non-json types.
 fn build_json_type_mapping<'a>(
     input: impl IntoIterator<Item = &'a syn::FnArg>,
-) -> Result<HashMap<String, syn::Path>, syn::Error> {
+) -> Result<HashMap<String, (syn::Path, FromMode)>, syn::Error> {
     let mut out = HashMap::new();
 
     for arg in input {
@@ -236,7 +256,7 @@ fn build_json_type_mapping<'a>(
             continue;
         };
 
-        if let syn::Type::Reference(r) = &**ty {
+        let (path, is_reference) = if let syn::Type::Reference(r) = &**ty {
             // Extract the referenced type
             let inner = &r.elem;
 
@@ -249,35 +269,100 @@ fn build_json_type_mapping<'a>(
             };
 
             // Path segments for matching
-            let segments = &tp.path.segments;
-            if segments.is_empty() {
-                return Err(syn::Error::new_spanned(
-                    tp,
-                    "Unexpected empty type path in reference",
-                ));
-            }
+            (&tp.path, true)
+        } else if let syn::Type::Path(ty_path) = &**ty {
+            (&ty_path.path, false)
+        } else {
+            continue;
+        };
 
-            let last = &segments.last().unwrap().ident;
+        let segments = &path.segments;
+        if segments.is_empty() {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "Unexpected empty type path in reference",
+            ));
+        }
 
-            let is_context =
-                last == "Context" && (segments.len() == 1 || segments[0].ident == "but_ctx");
-
-            if is_context {
-                // Map this parameter to ProjectId
-                let project_id_path: syn::Path =
-                    syn::parse_str("but_ctx::LegacyProjectId").unwrap();
-                out.insert(pat_ident.ident.to_string(), project_id_path);
-            } else {
-                return Err(syn::Error::new_spanned(
-                    tp,
-                    "Only `&Context` or `&but_ctx::Context` may be references",
-                ));
-            }
+        let last = &segments.last().unwrap().ident;
+        if last == "Context" && (segments.len() == 1 || segments[0].ident == "but_ctx") {
+            // Map this parameter to ProjectId
+            let project_id_path: syn::Path = syn::parse_str("but_ctx::LegacyProjectId").unwrap();
+            out.insert(
+                pat_ident.ident.to_string(),
+                (project_id_path, FromMode::TryFrom),
+            );
+        } else if last == "ObjectId" && (segments.len() == 1 || segments[0].ident == "gix") {
+            // Map this parameter to HexHash
+            let project_id_path: syn::Path = syn::parse_str("crate::json::HexHash").unwrap();
+            out.insert(
+                pat_ident.ident.to_string(),
+                (project_id_path, FromMode::From),
+            );
+        } else if is_reference {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "Only `&Context` or `&but_ctx::Context` may be references",
+            ));
         }
     }
 
     Ok(out)
 }
+
+fn extract_ok_type(output: &syn::ReturnType) -> syn::Result<syn::Type> {
+    let ty = match output {
+        syn::ReturnType::Type(_, ty) => ty.as_ref(),
+        _ => {
+            return Err(syn::Error::new_spanned(
+                output,
+                "function must return a type",
+            ));
+        }
+    };
+
+    let syn::Type::Path(tp) = ty else {
+        return Err(syn::Error::new_spanned(ty, "expected a type path"));
+    };
+
+    // Expect outer type: Result<...>
+    let last = tp
+        .path
+        .segments
+        .last()
+        .ok_or_else(|| syn::Error::new_spanned(tp, "unexpected empty type path"))?;
+
+    if last.ident != "Result" {
+        return Err(syn::Error::new_spanned(
+            last,
+            "expected Result<T> or Result<T, E>",
+        ));
+    }
+
+    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
+        return Err(syn::Error::new_spanned(
+            last,
+            "expected Result<T> or Result<T, E>",
+        ));
+    };
+
+    if args.args.is_empty() {
+        return Err(syn::Error::new_spanned(
+            args,
+            "Result must have at least one generic parameter",
+        ));
+    }
+
+    // First generic argument is T in Result<T, E>
+    match args.args.first().unwrap() {
+        syn::GenericArgument::Type(t) => Ok(t.clone()),
+        other => Err(syn::Error::new_spanned(
+            other,
+            "expected a type as first generic parameter",
+        )),
+    }
+}
+
 /// How to convert a result value/outcome to its serialised version.
 #[derive(Debug)]
 enum FromMode {
@@ -297,14 +382,13 @@ struct ResultConversion {
     mode: FromMode,
     /// If the function returns `Result<Option<T>>>`
     is_result_option: bool,
-    /// The path to the type to convert *to* for json.
-    json_ty: syn::Path,
+    /// The type to convert *to* for json.
+    json_ty: syn::Type,
+    /// The resulting JSON type after applying option wrapping.
+    json_ty_rval: syn::Type,
 }
 
-fn parse_attrs_to_options(
-    meta: syn::Meta,
-    output: &syn::ReturnType,
-) -> Result<Options, syn::Error> {
+fn parse_attrs_to_options(meta: syn::Meta, is_result_option: bool) -> Result<Options, syn::Error> {
     let path = match meta {
         syn::Meta::Path(path) => {
             // #[api_cmd_tauri(Foo)]
@@ -334,15 +418,24 @@ fn parse_attrs_to_options(
         }
     };
 
-    let is_result_option = is_result_option(match output {
-        syn::ReturnType::Type(_, ty) => ty.as_ref(),
-        syn::ReturnType::Default => panic!("function must return a type"),
-    });
+    let result_conversion = path.map(|(conv, p)| {
+        let base_ty = syn::Type::Path(syn::TypePath {
+            qself: None,
+            path: p.clone(),
+        });
 
-    let result_conversion = path.map(|(conv, p)| ResultConversion {
-        mode: conv,
-        is_result_option,
-        json_ty: p,
+        let rval_ty = if is_result_option {
+            syn::parse_quote! { Option<#base_ty> }
+        } else {
+            base_ty.clone()
+        };
+
+        ResultConversion {
+            mode: conv,
+            is_result_option,
+            json_ty: base_ty,
+            json_ty_rval: rval_ty,
+        }
     });
     Ok(Options { result_conversion })
 }

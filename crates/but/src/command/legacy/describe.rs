@@ -152,8 +152,7 @@ fn edit_commit_message_by_id(
 
     // Get new message from provided argument or editor
     let new_message = prepare_provided_message(message, "commit message").unwrap_or_else(|| {
-        let commit_details =
-            but_api::diff::commit_details_v2(ctx, commit_oid, ComputeLineStats::No)?;
+        let commit_details = but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
         let changed_files = get_changed_files_from_commit_details(&commit_details);
 
         // Open editor with current message and file list

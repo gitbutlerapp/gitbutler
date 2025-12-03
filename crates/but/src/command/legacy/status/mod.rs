@@ -605,7 +605,7 @@ pub(crate) fn all_committed_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId
         for branch in details.branch_details {
             for commit in branch.commits {
                 let commit_details =
-                    but_api::diff::commit_details_v2(ctx, commit.id, ComputeLineStats::No)?;
+                    but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
                 for change in &commit_details.diff_with_first_parent {
                     let cid = CliId::committed_file(&change.path.to_string(), commit.id);
                     committed_files.push(cid);
@@ -664,7 +664,7 @@ fn print_commit(
         message = "(no commit message)".to_string().dimmed().italic();
     }
 
-    let commit_details = but_api::diff::commit_details_v2(ctx, commit_id, ComputeLineStats::No)?;
+    let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
     let no_changes = if show_files && commit_details.diff_with_first_parent.is_empty() {
         "(no changes)".dimmed().italic()
     } else {

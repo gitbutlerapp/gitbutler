@@ -52,11 +52,23 @@ pub mod json {
 /// It's V2 because it supports the line-stats.
 #[but_api_macros::api_cmd_tauri(json::CommitDetails)]
 #[instrument(err(Debug))]
-pub fn commit_details_v2(
+pub fn commit_details(
     ctx: &Context,
     commit_id: gix::ObjectId,
     line_stats: ComputeLineStats,
 ) -> anyhow::Result<CommitDetails> {
     let repo = ctx.repo.get()?;
     CommitDetails::from_commit_id(commit_id.attach(&repo), line_stats.into())
+}
+
+/// This function just exists to make the frontend work with different parameter names, and without
+/// the need for line-stats to be enabled explicitly.
+// TODO: the frontend shouldn't have to care or be able to remap these names internally.
+#[but_api_macros::api_cmd_tauri(json::CommitDetails)]
+#[instrument(err(Debug))]
+pub fn commit_details_with_line_stats(
+    project_id: &Context,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<CommitDetails> {
+    commit_details(project_id, commit_id, ComputeLineStats::Yes)
 }

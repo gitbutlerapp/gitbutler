@@ -11,7 +11,7 @@ use axum::{
     response::IntoResponse,
     routing::{any, get},
 };
-use but_api::{github, json, legacy};
+use but_api::{diff, github, json, legacy};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
@@ -163,7 +163,7 @@ async fn handle_command(
         "git_get_global_config" => legacy::git::git_get_global_config_cmd(request.params),
         // Diff commands
         "tree_change_diffs" => legacy::diff::tree_change_diffs_cmd(request.params),
-        "commit_details" => legacy::diff::commit_details_cmd(request.params),
+        "commit_details" => diff::commit_details_cmd(request.params),
         "changes_in_branch" => legacy::diff::changes_in_branch_cmd(request.params),
         "changes_in_worktree" => legacy::diff::changes_in_worktree_cmd(request.params),
         "assign_hunk" => legacy::diff::assign_hunk_cmd(request.params),
