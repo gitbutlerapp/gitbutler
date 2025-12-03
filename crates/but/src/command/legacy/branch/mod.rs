@@ -5,7 +5,7 @@ use but_ctx::{Context, LegacyProject};
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 
-use crate::{args::branch, utils::OutputChannel};
+use crate::{args::branch, legacy::id::IdDb, utils::OutputChannel};
 
 mod apply;
 mod json;
@@ -77,6 +77,7 @@ pub async fn handle(
                 legacy_project,
                 AppSettings::load_from_default_path_creating()?,
             );
+            let id_db = IdDb::new(&ctx)?;
             // Get branch name or use canned name
             let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
                 but_api::legacy::workspace::canned_branch_name(legacy_project.id)
@@ -90,7 +91,7 @@ pub async fn handle(
                 let mut ctx = ctx; // Make mutable for CliId resolution
 
                 // Resolve the anchor string to a CliId
-                let anchor_ids = crate::legacy::id::CliId::from_str(&mut ctx, &anchor_str)?;
+                let anchor_ids = id_db.parse_str(&mut ctx, &anchor_str)?;
                 if anchor_ids.is_empty() {
                     return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
                 }

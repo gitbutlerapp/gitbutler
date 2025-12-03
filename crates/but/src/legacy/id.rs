@@ -30,7 +30,7 @@ fn context_info(ctx: &Context) -> anyhow::Result<ContextInfo> {
             }
             for commit in segment.commits {
                 let inner = commit.inner;
-                let (tree_changes, _stats) = but_core::diff::tree_changes(
+                let tree_changes = but_core::diff::tree_changes(
                     repo,
                     inner.parent_ids.first().copied(),
                     inner.id,
@@ -139,6 +139,89 @@ impl IdDb {
         }
 
         Ok(matches)
+    }
+
+    pub fn parse_str(&self, ctx: &mut Context, s: &str) -> anyhow::Result<Vec<CliId>> {
+        if s.len() < 2 {
+            return Err(anyhow::anyhow!(
+                "Id needs to be at least 2 characters long: {}",
+                s
+            ));
+        }
+
+        let mut matches = Vec::new();
+
+        // First, try exact branch name match
+        if let Ok(branch_matches) = self.find_branches_by_name(s.into()) {
+            matches.extend(branch_matches);
+        }
+
+        // Then try partial SHA matches (for commits)
+        if let Ok(commit_matches) = CliId::find_commits_by_sha(ctx, s) {
+            matches.extend(commit_matches);
+        }
+
+        // Then try CliId matching (both prefix and exact)
+        if s.len() > 2 {
+            // For longer strings, try prefix matching on CliIds
+            let mut cli_matches = Vec::new();
+            crate::command::legacy::status::all_files(ctx)?
+                .into_iter()
+                .filter(|id| id.matches_prefix(s))
+                .for_each(|id| cli_matches.push(id));
+            crate::command::legacy::status::all_branches(ctx)?
+                .into_iter()
+                .filter(|id| id.matches_prefix(s))
+                .for_each(|id| cli_matches.push(id));
+            crate::legacy::commits::all_commits(ctx)?
+                .into_iter()
+                .filter(|id| id.matches_prefix(s))
+                .for_each(|id| cli_matches.push(id));
+            if self.unassigned().matches_prefix(s) {
+                cli_matches.push(self.unassigned().clone());
+            }
+            matches.extend(cli_matches);
+        } else {
+            // For 2-character strings, try exact CliId matching
+            let mut cli_matches = Vec::new();
+            crate::command::legacy::status::all_files(ctx)?
+                .into_iter()
+                .filter(|id| id.matches(s))
+                .for_each(|id| cli_matches.push(id));
+            if let Ok(index) = self
+                .committed_files
+                .binary_search_by(|(_, _, id)| id.as_str().cmp(s))
+            {
+                let (commit_oid, path, id) = &self.committed_files[index];
+                cli_matches.push(CliId::CommittedFile {
+                    commit_oid: *commit_oid,
+                    path: path.to_owned(),
+                    id: id.to_string(),
+                });
+            }
+            crate::command::legacy::status::all_branches(ctx)?
+                .into_iter()
+                .filter(|id| id.matches(s))
+                .for_each(|id| cli_matches.push(id));
+            crate::legacy::commits::all_commits(ctx)?
+                .into_iter()
+                .filter(|id| id.matches(s))
+                .for_each(|id| cli_matches.push(id));
+            if self.unassigned().matches(s) {
+                cli_matches.push(self.unassigned().clone());
+            }
+            matches.extend(cli_matches);
+        }
+
+        // Remove duplicates while preserving order
+        let mut unique_matches = Vec::new();
+        for m in matches {
+            if !unique_matches.contains(&m) {
+                unique_matches.push(m);
+            }
+        }
+
+        Ok(unique_matches)
     }
 
     pub fn committed_file(&self, commit_oid: gix::ObjectId, path: &BStr) -> CliId {
@@ -265,92 +348,6 @@ impl CliId {
             CliId::Unassigned { .. } => s.find(|c: char| c != '0').is_none(),
             _ => self.to_string().starts_with(s),
         }
-    }
-
-    pub fn from_str(ctx: &mut Context, s: &str) -> anyhow::Result<Vec<Self>> {
-        if s.len() < 2 {
-            return Err(anyhow::anyhow!(
-                "Id needs to be at least 2 characters long: {}",
-                s
-            ));
-        }
-
-        // TODO: make callers of this function pass IdDb instead
-        let id_db = IdDb::new(ctx)?;
-
-        let mut matches = Vec::new();
-
-        // First, try exact branch name match
-        if let Ok(branch_matches) = id_db.find_branches_by_name(s.into()) {
-            matches.extend(branch_matches);
-        }
-
-        // Then try partial SHA matches (for commits)
-        if let Ok(commit_matches) = Self::find_commits_by_sha(ctx, s) {
-            matches.extend(commit_matches);
-        }
-
-        // Then try CliId matching (both prefix and exact)
-        if s.len() > 2 {
-            // For longer strings, try prefix matching on CliIds
-            let mut cli_matches = Vec::new();
-            crate::command::legacy::status::all_files(ctx)?
-                .into_iter()
-                .filter(|id| id.matches_prefix(s))
-                .for_each(|id| cli_matches.push(id));
-            crate::command::legacy::status::all_branches(ctx)?
-                .into_iter()
-                .filter(|id| id.matches_prefix(s))
-                .for_each(|id| cli_matches.push(id));
-            crate::legacy::commits::all_commits(ctx)?
-                .into_iter()
-                .filter(|id| id.matches_prefix(s))
-                .for_each(|id| cli_matches.push(id));
-            if id_db.unassigned().matches_prefix(s) {
-                cli_matches.push(id_db.unassigned().clone());
-            }
-            matches.extend(cli_matches);
-        } else {
-            // For 2-character strings, try exact CliId matching
-            let mut cli_matches = Vec::new();
-            crate::command::legacy::status::all_files(ctx)?
-                .into_iter()
-                .filter(|id| id.matches(s))
-                .for_each(|id| cli_matches.push(id));
-            if let Ok(index) = id_db
-                .committed_files
-                .binary_search_by(|(_, _, id)| id.as_str().cmp(s))
-            {
-                let (commit_oid, path, id) = &id_db.committed_files[index];
-                cli_matches.push(CliId::CommittedFile {
-                    commit_oid: *commit_oid,
-                    path: path.to_owned(),
-                    id: id.to_string(),
-                });
-            }
-            crate::command::legacy::status::all_branches(ctx)?
-                .into_iter()
-                .filter(|id| id.matches(s))
-                .for_each(|id| cli_matches.push(id));
-            crate::legacy::commits::all_commits(ctx)?
-                .into_iter()
-                .filter(|id| id.matches(s))
-                .for_each(|id| cli_matches.push(id));
-            if id_db.unassigned().matches(s) {
-                cli_matches.push(id_db.unassigned().clone());
-            }
-            matches.extend(cli_matches);
-        }
-
-        // Remove duplicates while preserving order
-        let mut unique_matches = Vec::new();
-        for m in matches {
-            if !unique_matches.contains(&m) {
-                unique_matches.push(m);
-            }
-        }
-
-        Ok(unique_matches)
     }
 }
 

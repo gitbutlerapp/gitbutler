@@ -693,7 +693,7 @@ fn print_commit(
         )?;
     }
     if show_files {
-        for change in &commit_details.changes.changes {
+        for change in &commit_details.diff_with_first_parent {
             let cid = id_db
                 .committed_file(commit_id, change.path.as_ref())
                 .to_string()

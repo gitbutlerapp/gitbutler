@@ -1,10 +1,15 @@
-use crate::{legacy::id::CliId, tui, utils::OutputChannel};
 use anyhow::{Result, bail};
 use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
 use but_oxidize::{ObjectIdExt as _, OidExt};
 use gitbutler_project::Project;
 use gix::prelude::ObjectIdExt;
+
+use crate::{
+    legacy::id::{CliId, IdDb},
+    tui,
+    utils::OutputChannel,
+};
 
 pub(crate) fn describe_target(
     project: &Project,
@@ -13,9 +18,10 @@ pub(crate) fn describe_target(
     message: Option<&str>,
 ) -> Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let id_db = IdDb::new(&ctx)?;
 
     // Resolve the commit ID
-    let cli_ids = CliId::from_str(&mut ctx, target)?;
+    let cli_ids = id_db.parse_str(&mut ctx, target)?;
 
     if cli_ids.is_empty() {
         bail!("ID '{}' not found", target);
