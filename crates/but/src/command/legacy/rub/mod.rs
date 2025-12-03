@@ -95,17 +95,38 @@ pub(crate) fn handle(
             (CliId::CommittedFile { .. }, CliId::CommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
-            (CliId::CommittedFile { path, commit_oid }, CliId::Branch { name, .. }) => {
+            (
+                CliId::CommittedFile {
+                    path, commit_oid, ..
+                },
+                CliId::Branch { name, .. },
+            ) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path, *commit_oid, Some(name), out)?;
+                commits::uncommit_file(ctx, path.as_ref(), *commit_oid, Some(name), out)?;
             }
-            (CliId::CommittedFile { path, commit_oid }, CliId::Commit { oid }) => {
+            (
+                CliId::CommittedFile {
+                    path, commit_oid, ..
+                },
+                CliId::Commit { oid },
+            ) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                commits::commited_file_to_another_commit(ctx, path, *commit_oid, *oid, out)?;
+                commits::commited_file_to_another_commit(
+                    ctx,
+                    path.as_ref(),
+                    *commit_oid,
+                    *oid,
+                    out,
+                )?;
             }
-            (CliId::CommittedFile { path, commit_oid }, CliId::Unassigned { .. }) => {
+            (
+                CliId::CommittedFile {
+                    path, commit_oid, ..
+                },
+                CliId::Unassigned { .. },
+            ) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path, *commit_oid, None, out)?;
+                commits::uncommit_file(ctx, path.as_ref(), *commit_oid, None, out)?;
             }
             (CliId::Branch { .. }, CliId::CommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
