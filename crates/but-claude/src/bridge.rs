@@ -427,7 +427,7 @@ async fn spawn_command(
     let mcp_config = serde_json::to_string(mcp_config)?;
     let mut command = Command::new(claude_executable);
 
-    /// Don't create a terminal window on windows.
+    // Don't create a terminal window on windows.
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -1039,7 +1039,7 @@ pub async fn check_claude_available(claude_executable: &str) -> ClaudeCheckResul
     let mut command = Command::new(claude_executable);
     command.arg("--version");
 
-    /// Don't create a terminal window on windows.
+    // Don't create a terminal window on windows.
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;

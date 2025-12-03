@@ -234,7 +234,7 @@ pub async fn generate_summary(
 
         let mut cmd = Command::new(claude_executable);
 
-        /// Don't create a terminal window on windows.
+        // Don't create a terminal window on windows.
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
