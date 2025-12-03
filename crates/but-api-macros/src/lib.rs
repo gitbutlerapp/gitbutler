@@ -10,7 +10,7 @@ use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 /// * `func_cmd` for calls from the frontend, taking `serde_json::Value` and returning `Result<serde_json::Value, Error>`
 /// * `func_tauri` for calls from the tauri, args and returning `Result<serde_json::Value, Error>`, with `tauri` support.
 #[proc_macro_attribute]
-pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
 
     let vis = &input_fn.vis;

@@ -1,5 +1,5 @@
 use anyhow::{Context as _, Result};
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_claude::{
     Claude, ClaudeCheckResult, ClaudeMessage, ClaudeUserParams, Transcript,
     claude_mcp::{ClaudeMcpConfig, McpConfig},
@@ -56,7 +56,7 @@ pub fn claude_get_messages(
     Ok(messages)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn claude_get_session_details(
     project_id: ProjectId,
@@ -90,7 +90,7 @@ pub async fn claude_get_session_details(
     }
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn claude_get_user_message(
     project_id: ProjectId,
@@ -101,7 +101,7 @@ pub fn claude_get_user_message(
     but_claude::db::get_user_message(&mut ctx, offset)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn claude_list_permission_requests(
     project_id: ProjectId,
@@ -110,7 +110,7 @@ pub fn claude_list_permission_requests(
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
     but_claude::db::list_all_permission_requests(&mut ctx)
 }
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn claude_update_permission_request(
     project_id: ProjectId,
@@ -138,7 +138,7 @@ pub async fn claude_cancel_session(claude: &Claude, params: CancelSessionParams)
     Ok(cancelled)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn claude_check_available() -> Result<ClaudeCheckResult> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
@@ -178,7 +178,7 @@ pub async fn claude_compact_history(claude: &Claude, params: CompactHistoryParam
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn claude_list_prompt_templates(
     project_id: ProjectId,
@@ -188,7 +188,7 @@ pub fn claude_list_prompt_templates(
     Ok(templates)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn claude_get_prompt_dirs(project_id: ProjectId) -> Result<Vec<prompt_templates::PromptDir>> {
     let project = gitbutler_project::get(project_id)?;
@@ -196,7 +196,7 @@ pub fn claude_get_prompt_dirs(project_id: ProjectId) -> Result<Vec<prompt_templa
     Ok(dirs)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn claude_maybe_create_prompt_dir(project_id: ProjectId, path: String) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
@@ -204,7 +204,7 @@ pub fn claude_maybe_create_prompt_dir(project_id: ProjectId, path: String) -> Re
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn claude_get_mcp_config(project_id: ProjectId) -> Result<McpConfig> {
     let project = gitbutler_project::get(project_id)?;
@@ -214,7 +214,7 @@ pub async fn claude_get_mcp_config(project_id: ProjectId) -> Result<McpConfig> {
     Ok(mcp_config.mcp_servers())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn claude_get_sub_agents(project_id: ProjectId) -> Result<Vec<but_claude::SubAgent>> {
     let project = gitbutler_project::get(project_id)?;
@@ -223,7 +223,7 @@ pub async fn claude_get_sub_agents(project_id: ProjectId) -> Result<Vec<but_clau
     Ok(sub_agents)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn claude_verify_path(project_id: ProjectId, path: String) -> Result<bool> {
     let project = gitbutler_project::get(project_id)?;

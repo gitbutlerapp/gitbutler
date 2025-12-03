@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, anyhow};
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_core::DiffSpec;
 use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
@@ -25,13 +25,13 @@ use tracing::instrument;
 use crate::{json::Error, legacy::workspace::canned_branch_name};
 // Parameter structs for all functions
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn normalize_branch_name(name: String) -> Result<String> {
     normalize_name(&name)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn create_virtual_branch(
     project_id: ProjectId,
@@ -96,7 +96,7 @@ pub fn create_virtual_branch(
     Ok(stack_entry)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn delete_local_branch(
     project_id: ProjectId,
@@ -108,7 +108,7 @@ pub fn delete_local_branch(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn create_virtual_branch_from_branch(
     project_id: ProjectId,
@@ -123,7 +123,7 @@ pub fn create_virtual_branch_from_branch(
     Ok(outcome.into())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn integrate_upstream_commits(
     project_id: ProjectId,
@@ -141,7 +141,7 @@ pub fn integrate_upstream_commits(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_initial_integration_steps_for_branch(
     project_id: ProjectId,
@@ -160,7 +160,7 @@ pub fn get_initial_integration_steps_for_branch(
     Ok(steps)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn integrate_branch_with_steps(
     project_id: ProjectId,
@@ -172,7 +172,7 @@ pub fn integrate_branch_with_steps(
     gitbutler_branch_actions::integrate_branch_with_steps(&ctx, stack_id, branch_name, steps)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -183,7 +183,7 @@ pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>>
     }
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn set_base_branch(
     project_id: ProjectId,
@@ -217,7 +217,7 @@ pub fn set_base_branch(
     Ok(base_branch)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn push_base_branch(project_id: ProjectId, with_force: bool) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -225,7 +225,7 @@ pub fn push_base_branch(project_id: ProjectId, with_force: bool) -> Result<()> {
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn update_stack_order(project_id: ProjectId, stacks: Vec<BranchUpdateRequest>) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -233,7 +233,7 @@ pub fn update_stack_order(project_id: ProjectId, stacks: Vec<BranchUpdateRequest
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
@@ -258,14 +258,14 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn can_apply_remote_branch(project_id: ProjectId, branch: RemoteRefname) -> Result<bool> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::can_apply_remote_branch(&ctx, &branch)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_commit_files(
     project_id: ProjectId,
@@ -276,7 +276,7 @@ pub fn list_commit_files(
     gitbutler_branch_actions::list_commit_files(&ctx, commit_id)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn amend_virtual_branch(
     project_id: ProjectId,
@@ -290,7 +290,7 @@ pub fn amend_virtual_branch(
     Ok(oid.to_string())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn undo_commit(project_id: ProjectId, stack_id: StackId, commit_id: String) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -299,7 +299,7 @@ pub fn undo_commit(project_id: ProjectId, stack_id: StackId, commit_id: String) 
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn insert_blank_commit(
     project_id: ProjectId,
@@ -321,7 +321,7 @@ pub fn insert_blank_commit(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn reorder_stack(
     project_id: ProjectId,
@@ -333,7 +333,7 @@ pub fn reorder_stack(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn find_git_branches(
     project_id: ProjectId,
@@ -344,7 +344,7 @@ pub fn find_git_branches(
     Ok(branches)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_branches(
     project_id: ProjectId,
@@ -355,7 +355,7 @@ pub fn list_branches(
     Ok(branches)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_branch_listing_details(
     project_id: ProjectId,
@@ -366,7 +366,7 @@ pub fn get_branch_listing_details(
     Ok(branches)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn squash_commits(
     project_id: ProjectId,
@@ -390,7 +390,7 @@ pub fn squash_commits(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn fetch_from_remotes(project_id: ProjectId, action: Option<String>) -> Result<BaseBranch> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -417,7 +417,7 @@ pub fn fetch_from_remotes(project_id: ProjectId, action: Option<String>) -> Resu
     Ok(base_branch)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn move_commit(
     project_id: ProjectId,
@@ -430,7 +430,7 @@ pub fn move_commit(
     gitbutler_branch_actions::move_commit(&ctx, target_stack_id, commit_id, source_stack_id)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn move_branch(
     project_id: ProjectId,
@@ -449,7 +449,7 @@ pub fn move_branch(
     )
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn tear_off_branch(
     project_id: ProjectId,
@@ -460,7 +460,7 @@ pub fn tear_off_branch(
     gitbutler_branch_actions::tear_off_branch(&ctx, source_stack_id, subject_branch_name.as_str())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn update_commit_message(
     project_id: ProjectId,
@@ -475,7 +475,7 @@ pub fn update_commit_message(
     Ok(new_commit_id.to_string())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn find_commit(project_id: ProjectId, commit_id: String) -> Result<Option<RemoteCommit>> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -483,7 +483,7 @@ pub fn find_commit(project_id: ProjectId, commit_id: String) -> Result<Option<Re
     gitbutler_branch_actions::find_commit(&ctx, commit_id)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn upstream_integration_statuses(
     project_id: ProjectId,
@@ -509,7 +509,7 @@ pub async fn upstream_integration_statuses(
     gitbutler_branch_actions::upstream_integration_statuses(&ctx, commit_id, &resolved_reviews)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn integrate_upstream(
     project_id: ProjectId,
@@ -534,7 +534,7 @@ pub async fn integrate_upstream(
     Ok(outcome)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn resolve_upstream_integration(
     project_id: ProjectId,

@@ -1,6 +1,6 @@
 //! In place of commands.rs
 use anyhow::{Context as _, Result, anyhow};
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_ctx::Context;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
@@ -8,7 +8,7 @@ use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt as _;
 use tracing::instrument;
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_remote_branches(project_id: ProjectId) -> Result<Vec<RemoteRefname>> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -16,7 +16,7 @@ pub fn git_remote_branches(project_id: ProjectId) -> Result<Vec<RemoteRefname>> 
     repo.remote_branches()
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_test_push(
     project_id: ProjectId,
@@ -28,7 +28,7 @@ pub fn git_test_push(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_test_fetch(
     project_id: ProjectId,
@@ -43,7 +43,7 @@ pub fn git_test_fetch(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_index_size(project_id: ProjectId) -> Result<usize> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -56,7 +56,7 @@ pub fn git_index_size(project_id: ProjectId) -> Result<usize> {
     Ok(size)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn delete_all_data() -> Result<()> {
     for project in gitbutler_project::dangerously_list_projects_without_migration()
@@ -68,7 +68,7 @@ pub fn delete_all_data() -> Result<()> {
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_set_global_config(key: String, value: String) -> Result<String> {
     let mut config = git2::Config::open_default()?;
@@ -76,7 +76,7 @@ pub fn git_set_global_config(key: String, value: String) -> Result<String> {
     Ok(value)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_remove_global_config(key: String) -> Result<()> {
     let mut config = git2::Config::open_default()?;
@@ -84,7 +84,7 @@ pub fn git_remove_global_config(key: String) -> Result<()> {
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_get_global_config(key: String) -> Result<Option<String>> {
     let config = git2::Config::open_default()?;

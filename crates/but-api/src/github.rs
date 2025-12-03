@@ -1,7 +1,7 @@
 // TODO: everything should be fully documented.
 #![allow(missing_docs)]
 use anyhow::Result;
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_github::{AuthStatusResponse, AuthenticatedUser, Verification};
 use but_secret::Sensitive;
 use tracing::instrument;
@@ -72,27 +72,27 @@ pub mod json {
     }
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn init_device_oauth() -> Result<Verification> {
     but_github::init_device_oauth().await
 }
 
-#[api_cmd_tauri(json::AuthStatusResponseSensitive)]
+#[but_api(json::AuthStatusResponseSensitive)]
 #[instrument(err(Debug))]
 pub async fn check_auth_status(device_code: String) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     but_github::check_auth_status(device_code, &storage).await
 }
 
-#[api_cmd_tauri(json::AuthStatusResponseSensitive)]
+#[but_api(json::AuthStatusResponseSensitive)]
 #[instrument(err(Debug))]
 pub async fn store_github_pat(access_token: Sensitive<String>) -> Result<AuthStatusResponse> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     but_github::store_pat(&access_token, &storage).await
 }
 
-#[api_cmd_tauri(json::AuthStatusResponseSensitive)]
+#[but_api(json::AuthStatusResponseSensitive)]
 #[instrument(err(Debug))]
 pub async fn store_github_enterprise_pat(
     access_token: Sensitive<String>,
@@ -102,7 +102,7 @@ pub async fn store_github_enterprise_pat(
     but_github::store_enterprise_pat(&host, &access_token, &storage).await
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Result<()> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -110,14 +110,14 @@ pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Re
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn clear_all_github_tokens() -> Result<()> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     but_github::clear_all_github_tokens(&storage)
 }
 
-#[api_cmd_tauri(json::AuthenticatedUserSensitive)]
+#[but_api(json::AuthenticatedUserSensitive)]
 #[instrument(err(Debug))]
 pub async fn get_gh_user(
     account: but_github::GithubAccountIdentifier,
@@ -126,7 +126,7 @@ pub async fn get_gh_user(
     but_github::get_gh_user(&account, &storage).await
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn list_known_github_accounts() -> Result<Vec<but_github::GithubAccountIdentifier>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);

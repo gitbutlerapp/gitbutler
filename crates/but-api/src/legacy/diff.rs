@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_core::{
     ref_metadata::StackId,
     ui::{TreeChange, TreeChanges},
@@ -17,7 +17,7 @@ use tracing::instrument;
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
     project_id: ProjectId,
@@ -36,7 +36,7 @@ pub fn tree_change_diffs(
 /// Otherwise, if stack_id is not provided, this will include all changes as compared to the target branch
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn changes_in_branch(
     project_id: ProjectId,
@@ -74,7 +74,7 @@ fn changes_in_branch_inner(ctx: Context, branch: Refname) -> anyhow::Result<Tree
 /// * conflicts are ignored
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChanges> {
     let project = gitbutler_project::get(project_id)?;
@@ -122,7 +122,7 @@ pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChan
     })
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn assign_hunk(
     project_id: ProjectId,

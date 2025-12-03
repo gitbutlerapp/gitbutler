@@ -1,6 +1,6 @@
 //! In place of commands.rs
 use anyhow::{Context as _, Result};
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_core::{ref_metadata::StackId, ui::TreeChange};
 use but_ctx::Context;
 use gitbutler_edit_mode::ConflictEntryPresence;
@@ -17,7 +17,7 @@ pub struct HeadAndMode {
     pub operating_mode: Option<OperatingMode>,
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn operating_mode(project_id: ProjectId) -> Result<HeadAndMode, Error> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -38,7 +38,7 @@ pub struct HeadSha {
     head_sha: String,
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn head_sha(project_id: ProjectId) -> Result<HeadSha, Error> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -53,7 +53,7 @@ pub fn head_sha(project_id: ProjectId) -> Result<HeadSha, Error> {
     Ok(HeadSha { head_sha })
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn enter_edit_mode(
     project_id: ProjectId,
@@ -66,7 +66,7 @@ pub fn enter_edit_mode(
     gitbutler_edit_mode::commands::enter_edit_mode(&ctx, commit, stack_id)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -76,7 +76,7 @@ pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -86,7 +86,7 @@ pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn edit_initial_index_state(
     project_id: ProjectId,
@@ -96,7 +96,7 @@ pub fn edit_initial_index_state(
     gitbutler_edit_mode::commands::starting_index_state(&ctx)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn edit_changes_from_initial(project_id: ProjectId) -> Result<Vec<TreeChange>> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;

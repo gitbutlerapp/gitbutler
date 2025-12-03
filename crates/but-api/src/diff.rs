@@ -1,3 +1,4 @@
+use but_api_macros::but_api;
 use but_ctx::Context;
 use gix::prelude::ObjectIdExt;
 use tracing::instrument;
@@ -50,7 +51,7 @@ pub mod json {
 
 /// Compute the tree-diff for `commit_id` with its first parent and optionally calculate `line_stats`.
 /// It's V2 because it supports the line-stats.
-#[but_api_macros::api_cmd_tauri(json::CommitDetails)]
+#[but_api(json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details(
     ctx: &Context,
@@ -64,7 +65,7 @@ pub fn commit_details(
 /// This function just exists to make the frontend work with different parameter names, and without
 /// the need for line-stats to be enabled explicitly.
 // TODO: the frontend shouldn't have to care or be able to remap these names internally.
-#[but_api_macros::api_cmd_tauri(json::CommitDetails)]
+#[but_api(json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details_with_line_stats(
     project_id: &Context,

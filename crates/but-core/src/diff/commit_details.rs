@@ -24,7 +24,7 @@ pub struct LineStats {
 
 /// Lifecycle
 impl CommitDetails {
-    ///Compute the tree-diff for `commit_id` with its first parent and optionally calculate `line_stats`.
+    /// Compute the tree-diff for `commit_id` with its first parent and optionally calculate `line_stats`.
     pub fn from_commit_id(commit_id: gix::Id, line_stats: bool) -> anyhow::Result<Self> {
         let repo = commit_id.repo;
         let commit = repo.find_commit(commit_id)?;
