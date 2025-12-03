@@ -19,81 +19,20 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = &sig.inputs;
     let output = &sig.output;
 
-    enum Conv {
-        From,
-        TryFrom,
-    }
-
-    let path = if attr.is_empty() {
-        None
+    let opts = if attr.is_empty() {
+        Options::default()
     } else {
         let meta = syn::parse_macro_input!(attr as syn::Meta);
-        match meta {
-            syn::Meta::Path(path) => {
-                // #[api_cmd_tauri(Foo)]
-                Some((Conv::From, path))
-            }
-            syn::Meta::NameValue(nv) => {
-                if let (Some(ident), Expr::Path(path)) = (&nv.path.get_ident(), &nv.value) {
-                    if *ident == "try_from" {
-                        // #[api_cmd_tauri(try_from = Foo)]
-                        Some((Conv::TryFrom, path.path.clone()))
-                    } else {
-                        return syn::Error::new_spanned(
-                            ident,
-                            "Need `try_from = path` to use try-from instead of from",
-                        )
-                        .to_compile_error()
-                        .into();
-                    }
-                } else {
-                    return syn::Error::new_spanned(
-                        nv,
-                        "Need `try_from = path` to use try-from instead of from",
-                    )
-                    .to_compile_error()
-                    .into();
-                }
-            }
-            syn::Meta::List(list) => {
-                // #[api_cmd_tauri(key, other, try_from = Foo)]
-                panic!("Currently unsupported: {list:?}")
-            }
+        match parse_attrs_to_options(meta, output) {
+            Ok(opts) => opts,
+            Err(err) => return err.into_compile_error().into(),
         }
     };
-
-    /// Detect `Result<Option<` type
-    fn is_result_option(ty: &syn::Type) -> bool {
-        if let syn::Type::Path(tp) = ty
-            && let Some(seg) = tp.path.segments.last()
-            && seg.ident == "Result"
-            && let syn::PathArguments::AngleBracketed(args) = &seg.arguments
-            && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
-            && let syn::Type::Path(tp) = inner
-            && let Some(first) = tp.path.segments.last()
-            && first.ident == "Option"
-        {
-            true
-        } else {
-            false
-        }
-    }
-
-    let outputs_result_option = path.map(|(conv, p)| {
-        (
-            conv,
-            p,
-            is_result_option(match &sig.output {
-                syn::ReturnType::Type(_, ty) => ty.as_ref(),
-                syn::ReturnType::Default => panic!("function must return a type"),
-            }),
-        )
-    });
 
     // Collect parameter names and types
     let mut fields = Vec::new();
     let mut param_names = Vec::new();
-    for arg in &sig.inputs {
+    for arg in input {
         if let FnArg::Typed(pat_type) = arg {
             let ty = &pat_type.ty;
             let pat = &pat_type.pat;
@@ -142,27 +81,32 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
     let tauri_cmd_name = format_ident!("__cmd__{}", json_name);
     let tauri_orig_cmd_name = format_ident!("__cmd__{}", fn_name);
 
-    let convert_json = if let Some((conv, path, is_result_opt)) = outputs_result_option {
-        match conv {
-            Conv::From => {
-                if is_result_opt {
+    let convert_json = if let Some(ResultConversion {
+        mode,
+        is_result_option,
+        json_ty,
+    }) = opts.result_conversion
+    {
+        match mode {
+            FromMode::From => {
+                if is_result_option {
                     quote! {
-                        let result: Option<#path> = result.map(Into::into);
+                        let result: Option<#json_ty> = result.map(Into::into);
                     }
                 } else {
                     quote! {
-                        let result: #path = result.into();
+                        let result: #json_ty = result.into();
                     }
                 }
             }
-            Conv::TryFrom => {
-                if is_result_opt {
+            FromMode::TryFrom => {
+                if is_result_option {
                     quote! {
-                        let result: Option<#path> = result.map(TryInto::try_into).transpose()?;
+                        let result: Option<#json_ty> = result.map(TryInto::try_into).transpose()?;
                     }
                 } else {
                     quote! {
-                        let result: #path = result.try_into()?;
+                        let result: #json_ty = result.try_into()?;
                     }
                 }
             }
@@ -217,4 +161,90 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     expanded.into()
+}
+
+/// How to convert a result value/outcome to its serialised version.
+#[derive(Debug)]
+enum FromMode {
+    From,
+    TryFrom,
+}
+
+#[derive(Default)]
+struct Options {
+    /// It's `None` if the result type converts to JSON naturally.
+    /// Otherwise, we convert to it.
+    result_conversion: Option<ResultConversion>,
+}
+
+struct ResultConversion {
+    /// If the result type conversion is fallbile.
+    mode: FromMode,
+    /// If the function returns `Result<Option<T>>>`
+    is_result_option: bool,
+    /// The path to the type to convert *to* for json.
+    json_ty: syn::Path,
+}
+
+fn parse_attrs_to_options(
+    meta: syn::Meta,
+    output: &syn::ReturnType,
+) -> Result<Options, syn::Error> {
+    let path = match meta {
+        syn::Meta::Path(path) => {
+            // #[api_cmd_tauri(Foo)]
+            Some((FromMode::From, path))
+        }
+        syn::Meta::NameValue(nv) => {
+            if let (Some(ident), Expr::Path(path)) = (&nv.path.get_ident(), &nv.value) {
+                if *ident == "try_from" {
+                    // #[api_cmd_tauri(try_from = Foo)]
+                    Some((FromMode::TryFrom, path.path.clone()))
+                } else {
+                    return Err(syn::Error::new_spanned(
+                        ident,
+                        "Need `try_from = path` to use try-from instead of from",
+                    ));
+                }
+            } else {
+                return Err(syn::Error::new_spanned(
+                    nv,
+                    "Need `try_from = path` to use try-from instead of from",
+                ));
+            }
+        }
+        syn::Meta::List(list) => {
+            // #[api_cmd_tauri(key, other, try_from = Foo)]
+            panic!("Currently unsupported: {list:?}")
+        }
+    };
+
+    let is_result_option = is_result_option(match output {
+        syn::ReturnType::Type(_, ty) => ty.as_ref(),
+        syn::ReturnType::Default => panic!("function must return a type"),
+    });
+
+    let result_conversion = path.map(|(conv, p)| ResultConversion {
+        mode: conv,
+        is_result_option,
+        json_ty: p,
+    });
+    Ok(Options { result_conversion })
+}
+
+/// Detect `Result<Option<` type
+fn is_result_option(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(tp) = ty
+        && let Some(seg) = tp.path.segments.last()
+        && seg.ident == "Result"
+        && let syn::PathArguments::AngleBracketed(args) = &seg.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+        && let syn::Type::Path(tp) = inner
+        && let Some(first) = tp.path.segments.last()
+        && first.ident == "Option"
+    {
+        true
+    } else {
+        false
+    }
 }

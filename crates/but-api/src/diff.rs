@@ -50,6 +50,7 @@ pub mod json {
 
 /// Compute the tree-diff for `commit_id` with its first parent and optionally calculate `line_stats`.
 /// It's V2 because it supports the line-stats.
+// #[but_api_macros::api_cmd_tauri]
 #[instrument(err(Debug))]
 pub fn commit_details_v2(
     ctx: &Context,
