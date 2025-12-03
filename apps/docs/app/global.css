@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "open-props/easings";
+@import "open-props/animations";
+
+:root {
+  --off-white: #f5f5f3;
+  --clr-bg: var(--off-white);
+  /* gray */
+  --clr-white: #ffffff;
+  --clr-black: #000000;
+  --clr-dark-gray: #707070;
+  --clr-gray: #d0cfcb;
+  --clr-light-gray: #f1f1ed;
+  /* accent */
+  --clr-accent: #97eae5;
+  --clr-err-50: #dc606b;
+  --clr-warn-50: #dc9b14;
+  --font-system: system-ui, sans-serif;
+}
+
+/* change selection */
+::selection {
+  background-color: var(--clr-accent);
+  color: var(--clr-black);
+}
+
+html:not(.dark) body {
+  background-color: var(--clr-bg);
+}
+
+body {
+  /* optimise font rendering */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-family: var(--font-sans);
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    /* Mostly for vertical scrollbars */
+    height: 8px;
+    /* Mostly for horizontal scrollbars */
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--clr-accent) 96%, var(--clr-black));
+  }
+}
+
+iframe[src*="youtube"] {
+  aspect-ratio: 16 / 9;
+  border-radius: 0.5rem;
+  @apply h-full w-full;
+}
