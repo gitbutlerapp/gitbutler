@@ -33,7 +33,7 @@ impl TestingDot for StepGraph {
                 &|_, v| format!("label=\"order: {}\"", v.weight().order),
                 &|_, (_, step)| {
                     match step {
-                        Step::Pick { id } => format!("label=\"pick: {}\"", id),
+                        Step::Pick { id, .. } => format!("label=\"pick: {}\"", id),
                         Step::Reference { refname } => {
                             format!("label=\"reference: {}\"", refname.as_bstr())
                         }
