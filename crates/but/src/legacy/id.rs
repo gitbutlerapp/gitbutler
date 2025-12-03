@@ -79,14 +79,13 @@ impl IdDb {
         })
     }
 
-    fn find_branches_by_name(&mut self, ctx: &Context, name: &BStr) -> anyhow::Result<Vec<CliId>> {
-        let branch_names = branch_names(ctx)?;
+    fn find_branches_by_name(&self, name: &BStr) -> anyhow::Result<Vec<CliId>> {
         let mut matches = Vec::new();
 
-        for branch_name in branch_names {
+        for (branch_name, cli_id) in self.branch_name_to_cli_id.iter() {
             // Partial match is fine
             if branch_name.contains_str(name) {
-                matches.push(self.branch(branch_name.as_ref()).clone())
+                matches.push(cli_id.clone());
             }
         }
 
@@ -208,12 +207,12 @@ impl CliId {
         }
 
         // TODO: make callers of this function pass IdDb instead
-        let mut id_db = IdDb::new(ctx)?;
+        let id_db = IdDb::new(ctx)?;
 
         let mut matches = Vec::new();
 
         // First, try exact branch name match
-        if let Ok(branch_matches) = id_db.find_branches_by_name(ctx, s.into()) {
+        if let Ok(branch_matches) = id_db.find_branches_by_name(s.into()) {
             matches.extend(branch_matches);
         }
 
