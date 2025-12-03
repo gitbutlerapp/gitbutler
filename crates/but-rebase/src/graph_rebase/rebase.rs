@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::graph_rebase::{
-    Editor, Step, StepGraph, StepGraphIndex,
+    Checkouts, Editor, Step, StepGraph, StepGraphIndex,
     cherry_pick::{CherryPickOutcome, cherry_pick},
 };
 use anyhow::{Context, Result, bail};
@@ -11,21 +11,13 @@ use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit},
 };
-use petgraph::visit::EdgeRef;
-
-/// Represents somethign to be checked out - I'm not quite sure how
-/// `safe_checkout` knows what is the main checkout & what is a worktree - but
-/// that is some voodoo I'm not touching right now
-#[derive(Debug, Clone)]
-pub struct CheckoutSpec {
-    pub(crate) old_head_id: gix::ObjectId,
-    pub(crate) head_id: gix::ObjectId,
-}
+use petgraph::{Direction, visit::EdgeRef};
 
 /// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
 #[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct SuccessfulRebase {
+    pub(crate) repo: gix::Repository,
     /// A mapping of any commits that were rewritten as part of the rebase
     pub(crate) commit_mapping: HashMap<gix::ObjectId, gix::ObjectId>,
     /// A mapping between the origional step graph and the new one
@@ -35,10 +27,8 @@ pub struct SuccessfulRebase {
     pub(crate) ref_edits: Vec<RefEdit>,
     /// The new step graph
     pub(crate) graph: StepGraph,
-    /// Heads
-    pub(crate) heads: Vec<StepGraphIndex>,
     /// To checkout
-    pub(crate) checkouts: Vec<CheckoutSpec>,
+    pub(crate) checkouts: Vec<Checkouts>,
 }
 
 /// Represents the rebase output and the varying degrees of success it had.
@@ -57,7 +47,7 @@ pub enum RebaseOutcome {
 
 impl Editor {
     /// Perform the rebase
-    pub fn rebase(self, repo: &gix::Repository) -> Result<RebaseOutcome> {
+    pub fn rebase(self) -> Result<RebaseOutcome> {
         // First we want to get a list of nodes that can be reached by
         // traversing downwards from the heads that we care about.
         // Usually there would be just one "head" which is an index to access
@@ -65,43 +55,57 @@ impl Editor {
         // multiple.
 
         let mut ref_edits = vec![];
-        let steps_to_pick = order_steps_picking(&self.graph, &self.heads);
+        let steps_to_pick = order_steps_picking(
+            &self.graph,
+            &self
+                .graph
+                .externals(Direction::Incoming)
+                .collect::<Vec<_>>(),
+        );
 
         // A 1 to 1 mapping between the incoming graph and hte output graph
         let mut graph_mapping: HashMap<StepGraphIndex, StepGraphIndex> = HashMap::new();
         // The step graph with updated commit oids
         let mut output_graph = StepGraph::new();
         let mut commit_mapping = HashMap::new();
-        let mut checkouts = vec![];
         let mut unchanged_references = vec![];
 
         for step_idx in steps_to_pick {
             // Do the frikkin rebase man!
             let step = self.graph[step_idx].clone();
             let new_idx = match step {
-                Step::Pick { id } => {
+                Step::Pick {
+                    id,
+                    preserved_parents,
+                } => {
                     let graph_parents = collect_ordered_parents(&self.graph, step_idx);
-                    let ontos = graph_parents
-                        .iter()
-                        .map(|idx| {
-                            let Some(new_idx) = graph_mapping.get(idx) else {
-                                bail!("A matching parent can't be found in the output graph");
-                            };
+                    let ontos = match preserved_parents.clone() {
+                        Some(ontos) => ontos,
+                        None => graph_parents
+                            .iter()
+                            .map(|idx| {
+                                let Some(new_idx) = graph_mapping.get(idx) else {
+                                    bail!("A matching parent can't be found in the output graph");
+                                };
 
-                            match output_graph[*new_idx] {
-                                Step::Pick { id } => Ok(id),
-                                _ => bail!("A parent in the output graph is not a pick"),
-                            }
-                        })
-                        .collect::<Result<Vec<_>>>()?;
+                                match output_graph[*new_idx] {
+                                    Step::Pick { id, .. } => Ok(id),
+                                    _ => bail!("A parent in the output graph is not a pick"),
+                                }
+                            })
+                            .collect::<Result<Vec<_>>>()?,
+                    };
 
-                    let outcome = cherry_pick(repo, id, &ontos)?;
+                    let outcome = cherry_pick(&self.repo, id, &ontos)?;
 
                     match outcome {
                         CherryPickOutcome::Commit(new_id)
                         | CherryPickOutcome::ConflictedCommit(new_id)
                         | CherryPickOutcome::Identity(new_id) => {
-                            let new_idx = output_graph.add_node(Step::Pick { id: new_id });
+                            let new_idx = output_graph.add_node(Step::Pick {
+                                id: new_id,
+                                preserved_parents,
+                            });
                             graph_mapping.insert(step_idx, new_idx);
                             if id != new_id {
                                 commit_mapping.insert(id, new_id);
@@ -125,11 +129,11 @@ impl Editor {
                     };
 
                     let to_reference = match output_graph[*new_idx] {
-                        Step::Pick { id } => id,
+                        Step::Pick { id, .. } => id,
                         _ => bail!("A parent in the output graph is not a pick"),
                     };
 
-                    let reference = repo.try_find_reference(&refname)?;
+                    let reference = self.repo.try_find_reference(&refname)?;
 
                     if let Some(reference) = reference {
                         let target = reference.target();
@@ -149,18 +153,6 @@ impl Editor {
                                         },
                                         deref: false,
                                     });
-
-                                    // TODO(CTO): This is FAR from the full set
-                                    // of capabilities needed here.  This ommits
-                                    // any consideration of the head commit
-                                    // being replaced. This really needs to do
-                                    // some other lookup of all the heads
-                                    if self.heads.contains(&step_idx) {
-                                        checkouts.push(CheckoutSpec {
-                                            old_head_id: id.into(),
-                                            head_id: to_reference,
-                                        });
-                                    }
                                 }
                             }
                             gix::refs::TargetRef::Symbolic(name) => {
@@ -222,24 +214,13 @@ impl Editor {
             }
         }
 
-        let heads = self
-            .heads
-            .iter()
-            .map(|h| {
-                graph_mapping
-                    .get(h)
-                    .context("Failed to get new head")
-                    .cloned()
-            })
-            .collect::<Result<Vec<_>>>()?;
-
         Ok(RebaseOutcome::Success(SuccessfulRebase {
+            repo: self.repo,
             ref_edits,
             commit_mapping,
             graph_mapping,
             graph: output_graph,
-            heads,
-            checkouts,
+            checkouts: self.checkouts.to_owned(),
         }))
     }
 }
@@ -297,8 +278,8 @@ fn collect_ordered_parents(graph: &StepGraph, target: StepGraphIndex) -> Vec<Ste
 /// This second traversal ensures that all the parents of any given node have
 /// been seen, before traversing it.
 fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<StepGraphIndex> {
-    let mut seen = heads.iter().cloned().collect::<HashSet<StepGraphIndex>>();
     let mut heads = heads.to_vec();
+    let mut seen = heads.iter().cloned().collect::<HashSet<StepGraphIndex>>();
     // Reachable nodes with no outgoing nodes.
     let mut bases = VecDeque::new();
 
@@ -353,23 +334,38 @@ mod test {
         fn basic_scenario() -> Result<()> {
             let mut graph = StepGraph::new();
             let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let a = graph.add_node(Step::Pick { id: a_id });
+            let a = graph.add_node(Step::Pick {
+                id: a_id,
+                preserved_parents: None,
+            });
             // First parent
             let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let b = graph.add_node(Step::Pick { id: b_id });
+            let b = graph.add_node(Step::Pick {
+                id: b_id,
+                preserved_parents: None,
+            });
             // Second parent - is a reference
             let c = graph.add_node(Step::Reference {
                 refname: "refs/heads/foobar".try_into()?,
             });
             // Second parent's first child
             let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
-            let d = graph.add_node(Step::Pick { id: d_id });
+            let d = graph.add_node(Step::Pick {
+                id: d_id,
+                preserved_parents: None,
+            });
             // Second parent's second child
             let e_id = gix::ObjectId::from_str("4000000000000000000000000000000000000000")?;
-            let e = graph.add_node(Step::Pick { id: e_id });
+            let e = graph.add_node(Step::Pick {
+                id: e_id,
+                preserved_parents: None,
+            });
             // Third parent
             let f_id = gix::ObjectId::from_str("5000000000000000000000000000000000000000")?;
-            let f = graph.add_node(Step::Pick { id: f_id });
+            let f = graph.add_node(Step::Pick {
+                id: f_id,
+                preserved_parents: None,
+            });
 
             // A's parents
             graph.add_edge(a, b, Edge { order: 0 });
@@ -390,23 +386,38 @@ mod test {
         fn insertion_order_is_irrelivant() -> Result<()> {
             let mut graph = StepGraph::new();
             let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let a = graph.add_node(Step::Pick { id: a_id });
+            let a = graph.add_node(Step::Pick {
+                id: a_id,
+                preserved_parents: None,
+            });
             // First parent
             let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let b = graph.add_node(Step::Pick { id: b_id });
+            let b = graph.add_node(Step::Pick {
+                id: b_id,
+                preserved_parents: None,
+            });
             // Second parent - is a reference
             let c = graph.add_node(Step::Reference {
                 refname: "refs/heads/foobar".try_into()?,
             });
             // Second parent's second child
             let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
-            let d = graph.add_node(Step::Pick { id: d_id });
+            let d = graph.add_node(Step::Pick {
+                id: d_id,
+                preserved_parents: None,
+            });
             // Second parent's first child
             let e_id = gix::ObjectId::from_str("4000000000000000000000000000000000000000")?;
-            let e = graph.add_node(Step::Pick { id: e_id });
+            let e = graph.add_node(Step::Pick {
+                id: e_id,
+                preserved_parents: None,
+            });
             // Third parent
             let f_id = gix::ObjectId::from_str("5000000000000000000000000000000000000000")?;
-            let f = graph.add_node(Step::Pick { id: f_id });
+            let f = graph.add_node(Step::Pick {
+                id: f_id,
+                preserved_parents: None,
+            });
 
             // A's parents
             graph.add_edge(a, f, Edge { order: 2 });
@@ -437,12 +448,15 @@ mod test {
             let mut graph = StepGraph::new();
             let a = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let b = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let c = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
 
             graph.add_edge(a, b, Edge { order: 0 });
@@ -473,33 +487,43 @@ mod test {
             let mut graph = StepGraph::new();
             let a = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let b = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let c = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let d = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let e = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let f = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("6000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let g = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("7000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let h = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("8000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let i = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("8000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let j = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("8000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
 
             graph.add_edge(a, b, Edge { order: 0 });
@@ -548,18 +572,23 @@ mod test {
             let mut graph = StepGraph::new();
             let a = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let b = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let c = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let d = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let e = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
 
             graph.add_edge(a, b, Edge { order: 0 });
@@ -595,18 +624,23 @@ mod test {
             let mut graph = StepGraph::new();
             let a = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let b = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let c = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let d = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
             let e = graph.add_node(Step::Pick {
                 id: gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
+                preserved_parents: None,
             });
 
             graph.add_edge(a, d, Edge { order: 0 });

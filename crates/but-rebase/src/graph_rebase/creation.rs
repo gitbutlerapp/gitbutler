@@ -1,20 +1,20 @@
 use std::collections::BTreeMap;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use but_graph::{Commit, CommitFlags, Graph, Segment};
 use petgraph::Direction;
 
-use crate::graph_rebase::{Edge, Editor, Step, StepGraph, StepGraphIndex};
+use crate::graph_rebase::{Checkouts, Edge, Editor, Step, StepGraph, StepGraphIndex};
 
 /// Provides an extension for creating an Editor out of the segment graph
 pub trait GraphExt {
     /// Creates an editor.
-    fn to_editor(&self) -> Result<Editor>;
+    fn to_editor(&self, repo: &gix::Repository) -> Result<Editor>;
 }
 
 impl GraphExt for Graph {
     /// Creates an editor out of the segment graph.
-    fn to_editor(&self) -> Result<Editor> {
+    fn to_editor(&self, repo: &gix::Repository) -> Result<Editor> {
         // TODO(CTO): Look into traversing "in workspace" segments that are not reachable from the entrypoint
         // TODO(CTO): Look into stopping at the common base
         let entrypoint = self.lookup_entrypoint()?;
@@ -67,14 +67,43 @@ impl GraphExt for Graph {
         let mut steps_for_commits: BTreeMap<gix::ObjectId, StepGraphIndex> = BTreeMap::new();
         let mut graph = StepGraph::new();
 
-        let mut last_inserted = None;
         while let Some(c) = commits.pop() {
-            let mut ni = graph.add_node(Step::Pick { id: c.id });
+            let parent_steps = c
+                .parent_ids
+                .iter()
+                .enumerate()
+                .filter_map(|(o, step)| Some((o, steps_for_commits.get(step)?)))
+                .collect::<Vec<_>>();
 
-            for (order, p) in c.parent_ids.iter().enumerate() {
-                if let Some(parent_ni) = steps_for_commits.get(p) {
-                    graph.add_edge(ni, *parent_ni, Edge { order });
-                }
+            let has_no_parents = c.parent_ids.is_empty();
+            let has_missing_parent_steps = parent_steps.len() != c.parent_ids.len();
+            let has_no_parent_steps = parent_steps.is_empty();
+
+            // If we are missing _some_ but not all parents, something has gone wrong.
+            if has_missing_parent_steps && !has_no_parent_steps {
+                bail!(
+                    "Rebase creation has failed. Expected {} parent steps, found {}",
+                    c.parent_ids.len(),
+                    parent_steps.len()
+                );
+            };
+
+            // If the commit has parents in the commit graph, but none of
+            // them are in the graph, this means but-graph did a partial
+            // traversal and we want to preserve the commit as it is.
+            let preserved_parents = if !has_no_parents && has_no_parent_steps {
+                Some(c.parent_ids)
+            } else {
+                None
+            };
+
+            let mut ni = graph.add_node(Step::Pick {
+                id: c.id,
+                preserved_parents,
+            });
+
+            for (order, parent_ni) in parent_steps {
+                graph.add_edge(ni, *parent_ni, Edge { order });
             }
 
             if let Some(refs) = references.get_mut(&c.id) {
@@ -87,14 +116,16 @@ impl GraphExt for Graph {
                 }
             }
 
-            last_inserted = Some(ni);
             steps_for_commits.insert(c.id, ni);
         }
 
         Ok(Editor {
             graph,
             initial_references: references.values().flatten().cloned().collect(),
-            heads: last_inserted.into_iter().collect(),
+            // TODO(CTO): We need to eventually list all worktrees that we own
+            // here so we can `safe_checkout` them too.
+            checkouts: vec![Checkouts::Head],
+            repo: repo.clone().with_object_memory(),
         })
     }
 }

@@ -30,7 +30,7 @@ fn reword_a_commit() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor()?;
+    let mut editor = graph.to_editor(&repo)?;
 
     // get the origional a
     let a = repo.rev_parse_single("A")?.detach();
@@ -46,13 +46,19 @@ fn reword_a_commit() -> Result<()> {
         .select_commit(a)
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.replace(&a_selector, Step::Pick { id: a_new });
+    editor.replace(
+        &a_selector,
+        Step::Pick {
+            id: a_new,
+            preserved_parents: None,
+        },
+    );
 
-    let outcome = editor.rebase(&repo)?;
+    let outcome = editor.rebase()?;
     let RebaseOutcome::Success(outcome) = outcome else {
         bail!("Rebase failed");
     };
-    outcome.materialize(&repo)?;
+    outcome.materialize()?;
 
     assert_eq!(head_tree, repo.head_tree()?.id);
 
@@ -98,7 +104,7 @@ fn ammend_a_commit() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor()?;
+    let mut editor = graph.to_editor(&repo)?;
 
     // get the origional a
     let a = repo.rev_parse_single("A")?;
@@ -124,13 +130,19 @@ fn ammend_a_commit() -> Result<()> {
         .select_commit(a.detach())
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.replace(&a_selector, Step::Pick { id: a_new });
+    editor.replace(
+        &a_selector,
+        Step::Pick {
+            id: a_new,
+            preserved_parents: None,
+        },
+    );
 
-    let outcome = editor.rebase(&repo)?;
+    let outcome = editor.rebase()?;
     let RebaseOutcome::Success(outcome) = outcome else {
         bail!("Rebase failed");
     };
-    outcome.materialize(&repo)?;
+    outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 4a8642c (HEAD -> with-inner-merge) on top of inner merge

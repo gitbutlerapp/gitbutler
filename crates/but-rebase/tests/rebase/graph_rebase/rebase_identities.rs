@@ -3,7 +3,7 @@
 use anyhow::{Result, bail};
 use but_graph::Graph;
 use but_rebase::graph_rebase::{GraphExt, rebase::RebaseOutcome};
-use but_testsupport::visualize_commit_graph_all;
+use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -21,12 +21,48 @@ fn four_commits() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor()?;
-    let outcome = editor.rebase(&repo)?;
+    let editor = graph.to_editor(&repo)?;
+    let outcome = editor.rebase()?;
     let RebaseOutcome::Success(outcome) = outcome else {
         bail!("Rebase failed");
     };
-    outcome.materialize(&repo)?;
+    outcome.materialize()?;
+
+    assert_eq!(visualize_commit_graph_all(&repo)?, before);
+
+    Ok(())
+}
+
+#[test]
+fn four_commits_with_short_traversal() -> Result<()> {
+    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+
+    let before = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(before, @r"
+    * 120e3a9 (HEAD -> main) c
+    * a96434e b
+    * d591dfe a
+    * 35b8235 base
+    ");
+
+    let options = standard_options().with_hard_limit(4);
+    let graph = Graph::from_head(&repo, &*meta, options)?.validated()?;
+    let workspace = graph.to_workspace()?;
+
+    insta::assert_snapshot!(graph_workspace(&workspace), @r"
+    ⌂:0:main[🌳] <> ✓!
+    └── ≡:0:main[🌳]
+        └── :0:main[🌳]
+            ├── ·120e3a9
+            └── ❌·a96434e
+    ");
+
+    let editor = graph.to_editor(&repo)?;
+    let outcome = editor.rebase()?;
+    let RebaseOutcome::Success(outcome) = outcome else {
+        bail!("Rebase failed");
+    };
+    outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
 
@@ -50,12 +86,12 @@ fn merge_in_the_middle() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor()?;
-    let outcome = editor.rebase(&repo)?;
+    let editor = graph.to_editor(&repo)?;
+    let outcome = editor.rebase()?;
     let RebaseOutcome::Success(outcome) = outcome else {
         bail!("Rebase failed");
     };
-    outcome.materialize(&repo)?;
+    outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
 
@@ -83,12 +119,12 @@ fn three_branches_merged() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor()?;
-    let outcome = editor.rebase(&repo)?;
+    let editor = graph.to_editor(&repo)?;
+    let outcome = editor.rebase()?;
     let RebaseOutcome::Success(outcome) = outcome else {
         bail!("Rebase failed");
     };
-    outcome.materialize(&repo)?;
+    outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
 

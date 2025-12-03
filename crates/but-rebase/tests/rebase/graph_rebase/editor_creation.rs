@@ -18,7 +18,7 @@ fn four_commits() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor()?;
+    let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_dot(), @r#"
     digraph {
@@ -53,7 +53,7 @@ fn merge_in_the_middle() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor()?;
+    let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_dot(), @r#"
     digraph {
@@ -103,7 +103,7 @@ fn three_branches_merged() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor()?;
+    let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_dot(), @r#"
     digraph {
@@ -161,7 +161,7 @@ fn many_references() -> Result<()> {
         └── ·35b8235 (⌂|1)
     ");
 
-    let editor = graph.to_editor()?;
+    let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_dot(), @r#"
     digraph {

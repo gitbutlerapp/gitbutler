@@ -29,7 +29,7 @@ fn insert_below_merge_commit() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor()?;
+    let mut editor = graph.to_editor(&repo)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
 
@@ -44,13 +44,20 @@ fn insert_below_merge_commit() -> Result<()> {
         .select_commit(merge_id.detach())
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.insert(&selector, Step::Pick { id: new_commit }, InsertSide::Below);
+    editor.insert(
+        &selector,
+        Step::Pick {
+            id: new_commit,
+            preserved_parents: None,
+        },
+        InsertSide::Below,
+    );
 
-    let outcome = editor.rebase(&repo)?;
+    let outcome = editor.rebase()?;
     let RebaseOutcome::Success(outcome) = outcome else {
         bail!("Rebase failed");
     };
-    outcome.materialize(&repo)?;
+    outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * bd07069 (HEAD -> with-inner-merge) on top of inner merge
@@ -88,7 +95,7 @@ fn insert_above_commit_with_two_children() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor()?;
+    let mut editor = graph.to_editor(&repo)?;
 
     let base_id = repo.rev_parse_single("base")?;
 
@@ -103,13 +110,20 @@ fn insert_above_commit_with_two_children() -> Result<()> {
         .select_commit(base_id.detach())
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.insert(&selector, Step::Pick { id: new_commit }, InsertSide::Above);
+    editor.insert(
+        &selector,
+        Step::Pick {
+            id: new_commit,
+            preserved_parents: None,
+        },
+        InsertSide::Above,
+    );
 
-    let outcome = editor.rebase(&repo)?;
+    let outcome = editor.rebase()?;
     let RebaseOutcome::Success(outcome) = outcome else {
         bail!("Rebase failed");
     };
-    outcome.materialize(&repo)?;
+    outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 64487d8 (HEAD -> with-inner-merge) on top of inner merge
