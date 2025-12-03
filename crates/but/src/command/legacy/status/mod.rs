@@ -4,7 +4,6 @@ use crate::CLI_DATE;
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
-use but_core::ui::TreeChange;
 use but_core::{TreeStatus, ui};
 use but_ctx::{Context, LegacyProject};
 use but_hunk_assignment::HunkAssignment;
@@ -324,7 +323,7 @@ pub(crate) async fn worktree(
 
 fn print_assignments(
     assignments: &Vec<FileAssignment>,
-    changes: &[TreeChange],
+    changes: &[ui::TreeChange],
     dotted: bool,
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
@@ -375,7 +374,7 @@ pub fn print_group(
     project: &gitbutler_project::Project,
     group: Option<StackDetails>,
     assignments: Vec<FileAssignment>,
-    changes: &[TreeChange],
+    changes: &[ui::TreeChange],
     show_files: bool,
     verbose: bool,
     show_url: bool,
