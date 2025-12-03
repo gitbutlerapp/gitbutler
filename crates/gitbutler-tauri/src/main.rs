@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use anyhow::bail;
-use but_api::{github, legacy};
+use but_api::{diff, github, legacy};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
@@ -214,6 +214,7 @@ fn main() -> anyhow::Result<()> {
                 github::tauri_forget_github_account::forget_github_account,
                 github::tauri_list_known_github_accounts::list_known_github_accounts,
                 github::tauri_clear_all_github_tokens::clear_all_github_tokens,
+                diff::tauri_commit_details_v2::commit_details_v2,
                 legacy::git::tauri_git_remote_branches::git_remote_branches,
                 legacy::git::tauri_delete_all_data::delete_all_data,
                 legacy::git::tauri_git_set_global_config::git_set_global_config,

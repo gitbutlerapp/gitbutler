@@ -1,6 +1,7 @@
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
+use std::collections::HashMap;
 use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 
 /// To be used on functions, so a function `func` will be turned into:
@@ -29,59 +30,103 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    let json_ty_by_name = match build_json_type_mapping(input.iter()) {
+        Ok(m) => m,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
     // Collect parameter names and types
-    let mut fields = Vec::new();
-    let mut param_names = Vec::new();
+    let mut struct_fields_with_json_types = Vec::new();
+    let mut param_field_names = Vec::new();
     for arg in input {
-        if let FnArg::Typed(pat_type) = arg {
-            let ty = &pat_type.ty;
-            let pat = &pat_type.pat;
+        if let FnArg::Typed(pat_ty) = arg {
+            let pat = &pat_ty.pat;
             if let Pat::Ident(ident) = &**pat {
                 let name = &ident.ident;
-                fields.push(quote! { pub #name: #ty });
-                param_names.push(name);
+                let name_type_declaration =
+                    if let Some(json_type) = json_ty_by_name.get(&ident.ident.to_string()) {
+                        quote! { pub #name: #json_type }
+                    } else {
+                        let ty = &pat_ty.ty;
+                        quote! { pub #name: #ty }
+                    };
+                struct_fields_with_json_types.push(name_type_declaration);
+                param_field_names.push(name);
             }
         }
     }
 
-    let arg_idents: Vec<_> = input
-        .iter()
-        .filter_map(|arg| match arg {
-            syn::FnArg::Typed(pat_ty) => Some(&pat_ty.pat),
-            syn::FnArg::Receiver(_) => None, // for &self / self
-        })
-        .collect();
+    // JSON-typed input parameters for the json function
+    let mut json_fn_input_params: Vec<FnArg> = Vec::new();
+    // Each JSON parameter gets a conversion to turn it into our desired type.
+    let mut param_conversions = Vec::new();
+    // The names of all of our parameters for the purpose of calling the inner function.
+    let mut call_arg_idents = Vec::new();
+    for arg in input {
+        match arg {
+            FnArg::Typed(pat_ty) => {
+                let pat = &pat_ty.pat;
+                let Pat::Ident(ident) = &**pat else {
+                    return syn::Error::new_spanned(pat_ty, "Cannot handle this identifier")
+                        .to_compile_error()
+                        .into();
+                };
 
-    let call_fn = if asyncness.is_some() {
-        quote! { #fn_name(#(params.#param_names),*).await }
-    } else {
-        quote! { #fn_name(#(params.#param_names),*) }
-    };
+                let name = &ident.ident;
+                let json_type_mapping = json_ty_by_name.get(&ident.ident.to_string());
+                let (arg_ident, ty) = match &*pat_ty.ty {
+                    syn::Type::Reference(r) if json_type_mapping.is_some() => {
+                        // Only if a remapping happens we want to change the argument identifier to use
+                        // when passing then converted arguments to the function, while always producing an owned
+                        // version.
+                        let and = &r.and_token;
+                        let mutability = &r.mutability;
+                        let arg_ident: syn::Type = syn::parse_quote! { #and #mutability #name };
+                        (arg_ident, &*r.elem)
+                    }
+                    other => (syn::parse_quote! { #name }, other),
+                };
+                call_arg_idents.push(arg_ident);
+                let param = if let Some(json_type) = json_type_mapping {
+                    // We control these conversions, and must just make them work to keep this simple.
+                    param_conversions.push(quote! {
+                        let #name = <#ty>::try_from(#name)?;
+                    });
+                    syn::parse_quote! { #name: #json_type }
+                } else {
+                    arg.clone()
+                };
+                json_fn_input_params.push(param);
+            }
+            FnArg::Receiver(r) => {
+                return syn::Error::new_spanned(r, "Cannot handle &self, &mut self or self")
+                    .to_compile_error()
+                    .into();
+            }
+        }
+    }
 
     let call_fn_args = if asyncness.is_some() {
-        quote! { #fn_name(#(#arg_idents),*).await }
+        quote! { #fn_name(#(#call_arg_idents),*).await }
     } else {
-        quote! { #fn_name(#(#arg_idents),*) }
+        quote! { #fn_name(#(#call_arg_idents),*) }
     };
 
     // Struct name: <FunctionName>Params (PascalCase)
-    let struct_name = format_ident!("{}Params", fn_name.to_string().to_case(Case::Pascal));
-
-    // Wrapper function name: <function_name>_params
-    let wrapper_name = format_ident!("{}_params", fn_name);
+    let param_struct_name = format_ident!("{}Params", fn_name.to_string().to_case(Case::Pascal));
 
     // Cmd function name: <function_name>_cmd
-    let cmd_name = format_ident!("{}_cmd", fn_name);
+    let fn_cmd_name = format_ident!("{}_cmd", fn_name);
 
     // Cmd function name: <function_name>_json
-    let json_name = format_ident!("{}_json", fn_name);
+    let fn_json_name = format_ident!("{}_json", fn_name);
 
     // Module name for tauri-renames, to keep the original function names.
     let tauri_mod_name = format_ident!("tauri_{}", fn_name);
-    let tauri_cmd_name = format_ident!("__cmd__{}", json_name);
+    let tauri_cmd_name = format_ident!("__cmd__{}", fn_json_name);
     let tauri_orig_cmd_name = format_ident!("__cmd__{}", fn_name);
 
-    let convert_json = if let Some(ResultConversion {
+    let convert_to_json_result_type = if let Some(ResultConversion {
         mode,
         is_result_option,
         json_ty,
@@ -115,46 +160,54 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    let legacy_cfg_if_json_mapping_is_used = if !json_ty_by_name.is_empty() {
+        quote! { #[cfg(feature = "legacy")] }
+    } else {
+        quote! {}
+    };
+
     let expanded = quote! {
+        // Generated struct
+        #[cfg(feature = "legacy")]
+        #[derive(::serde::Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct #param_struct_name {
+            #(#struct_fields_with_json_types,)*
+        }
+
         // Original function stays
         #input_fn
 
-        // Generated struct
-        #[derive(::serde::Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct #struct_name {
-            #(#fields,)*
-        }
-
-        // Wrapper function
-        #asyncness fn #wrapper_name(params: #struct_name) #output {
-            #call_fn
-        }
-
-        // Cmd function
-        #vis #asyncness fn #cmd_name(
+        /// Cmd function - this is legacy just while most of its functionality depend on `LegacyProjectId`.
+        /// parameter struct input via json value, json output.
+        #[cfg(feature = "legacy")]
+        #vis #asyncness fn #fn_cmd_name(
             params: ::serde_json::Value,
         ) -> anyhow::Result<::serde_json::Value> {
-            let params: #struct_name = ::serde_json::from_value(params)?;
-            let result = #call_fn?;
-            #convert_json
+            let #param_struct_name { #(#param_field_names),* } = ::serde_json::from_value(params)?;
+            #(#param_conversions);*
+            let result = #call_fn_args?;
+            #convert_to_json_result_type
             Ok(::serde_json::to_value(result)?)
         }
 
-        // tauri function
+        /// tauri function - json input, json output, by #fn_name
         #[cfg_attr(feature = "tauri", tauri::command(async))]
-        #vis #asyncness fn #json_name(
-            #input
+        #legacy_cfg_if_json_mapping_is_used
+        #vis #asyncness fn #fn_json_name(
+            #(#json_fn_input_params),*
         ) -> Result<::serde_json::Value, crate::json::Error> {
             use crate::json::ToJsonError;
+            #(#param_conversions);*
             let result = #call_fn_args?;
-            #convert_json
+            #convert_to_json_result_type
             ::serde_json::to_value(result).to_json_error()
         }
 
+        /// A dummy module just to make generated tauri functions available *and* working.
         #[cfg(feature = "tauri")]
         pub mod #tauri_mod_name {
-            pub use super::#json_name as #fn_name;
+            pub use super::#fn_json_name as #fn_name;
             pub use super::#tauri_cmd_name as #tauri_orig_cmd_name;
         }
 
@@ -163,6 +216,68 @@ pub fn api_cmd_tauri(attr: TokenStream, item: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+/// The mapping is from type name to their respective json types. We assume they have a `NonJson::try_from(json)` implementation
+/// to turn them into their respective non-json types.
+fn build_json_type_mapping<'a>(
+    input: impl IntoIterator<Item = &'a syn::FnArg>,
+) -> Result<HashMap<String, syn::Path>, syn::Error> {
+    let mut out = HashMap::new();
+
+    for arg in input {
+        let syn::FnArg::Typed(pat_ty) = arg else {
+            continue;
+        };
+
+        let pat = &pat_ty.pat;
+        let ty = &pat_ty.ty;
+
+        // We only accept patterns like `arg: &T` where `arg` is an ident.
+        let Pat::Ident(pat_ident) = &**pat else {
+            continue;
+        };
+
+        if let syn::Type::Reference(r) = &**ty {
+            // Extract the referenced type
+            let inner = &r.elem;
+
+            // Expect something like &Context or &but_ctx::Context
+            let syn::Type::Path(tp) = &**inner else {
+                return Err(syn::Error::new_spanned(
+                    inner,
+                    "Expected a type path inside reference",
+                ));
+            };
+
+            // Path segments for matching
+            let segments = &tp.path.segments;
+            if segments.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    tp,
+                    "Unexpected empty type path in reference",
+                ));
+            }
+
+            let last = &segments.last().unwrap().ident;
+
+            let is_context =
+                last == "Context" && (segments.len() == 1 || segments[0].ident == "but_ctx");
+
+            if is_context {
+                // Map this parameter to ProjectId
+                let project_id_path: syn::Path =
+                    syn::parse_str("but_ctx::LegacyProjectId").unwrap();
+                out.insert(pat_ident.ident.to_string(), project_id_path);
+            } else {
+                return Err(syn::Error::new_spanned(
+                    tp,
+                    "Only `&Context` or `&but_ctx::Context` may be references",
+                ));
+            }
+        }
+    }
+
+    Ok(out)
+}
 /// How to convert a result value/outcome to its serialised version.
 #[derive(Debug)]
 enum FromMode {

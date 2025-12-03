@@ -2,7 +2,7 @@ use but_ctx::Context;
 use gix::prelude::ObjectIdExt;
 use tracing::instrument;
 
-boolean_enums::gen_boolean_enum!(pub ComputeLineStats);
+boolean_enums::gen_boolean_enum!(pub serde ComputeLineStats);
 
 use but_core::diff::CommitDetails;
 
@@ -50,7 +50,7 @@ pub mod json {
 
 /// Compute the tree-diff for `commit_id` with its first parent and optionally calculate `line_stats`.
 /// It's V2 because it supports the line-stats.
-// #[but_api_macros::api_cmd_tauri]
+#[but_api_macros::api_cmd_tauri(json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details_v2(
     ctx: &Context,
@@ -59,20 +59,4 @@ pub fn commit_details_v2(
 ) -> anyhow::Result<CommitDetails> {
     let repo = ctx.repo.get()?;
     CommitDetails::from_commit_id(commit_id.attach(&repo), line_stats.into())
-}
-
-// TODO: update api_cmd macro to generate this boilerplate.
-// It's key to be able to switch to caching later.
-/// Like [`commit_details_v2`], but returns json types.
-// TODO: switch over from old API to be able to use tauri
-#[cfg(feature = "tauri")]
-#[tauri::command(async)]
-pub fn commit_details_v2_json(
-    project_id: but_ctx::LegacyProjectId,
-    commit_id: crate::json::HexHash,
-    line_stats: ComputeLineStats,
-) -> Result<json::CommitDetails, crate::json::Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = but_ctx::Context::new_from_legacy_project(project)?;
-    Ok(commit_details_v2(&ctx, commit_id.0, line_stats).map(Into::into)?)
 }
