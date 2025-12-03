@@ -219,7 +219,15 @@ else
 	BUNDLE_DIR=$(readlink -f "$PWD/../target/release/bundle")
 fi
 
+# The release dir determines a (significant portion of) the final S3 object key.
 RELEASE_DIR="$DIST/$OS/$ARCH"
+if [ "$OS" = "linux" ]; then
+  # We build for multiple linux distros and need distinct keys for them.
+  RELEASE_DIR="$DIST/$OS/$(lsb_release -cs)/$ARCH"
+fi
+
+echo "Resolved RELEASE_DIR=$RELEASE_DIR"
+
 mkdir -p "$RELEASE_DIR"
 
 if [ "$OS" = "macos" ]; then
