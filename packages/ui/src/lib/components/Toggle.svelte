@@ -90,7 +90,7 @@
 			background-color: var(--clr-theme-pop-element);
 
 			&:hover {
-				background-color: var(--clr-theme-pop-element-hover);
+				background-color: var(--clr-pop-hover);
 			}
 
 			&:focus-visible {

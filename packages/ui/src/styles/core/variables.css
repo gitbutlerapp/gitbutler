@@ -15,6 +15,13 @@
 	--focus-color: var(--clr-scale-pop-50);
 	--resizer-color: var(--clr-scale-pop-50);
 
+	/* THEME COLOR INTERACTIONS */
+	--clr-pop-hover: color-mix(
+		in srgb,
+		var(--clr-theme-pop-element),
+		var(--clr-core-ntrl-0) calc((var(--opacity-btn-solid-hover) * 100%))
+	);
+
 	/* LEXICAL */
 	--lexical-input-background: var(--clr-bg-1);
 	--lexical-input-client-padding: 12px;
