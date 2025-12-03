@@ -36,25 +36,19 @@ pub fn check_signing_settings(project_id: ProjectId) -> Result<bool> {
     project.check_signing_settings()
 }
 
+/// NOTE: this function currently needs a tokio runtime to work.
 #[api_cmd_tauri]
 #[instrument(err(Debug))]
-pub fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Result<()> {
-    let url_for_context = repository_url.clone();
-
-    std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(gitbutler_git::clone(
-                &repository_url,
-                &target_dir,
-                gitbutler_git::tokio::TokioExecutor,
-                handle_git_prompt_clone,
-                url_for_context,
-            ))
-    })
-    .join()
-    .unwrap()
-    .map_err(|e| anyhow::anyhow!("{e}"))
+pub async fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Result<()> {
+    gitbutler_git::clone(
+        &repository_url,
+        &target_dir,
+        gitbutler_git::tokio::TokioExecutor,
+        handle_git_prompt_clone,
+        repository_url.clone(),
+    )
+    .await?;
+    Ok(())
 }
 
 async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> {
