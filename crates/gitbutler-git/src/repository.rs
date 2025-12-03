@@ -87,7 +87,6 @@ where
 {
     let mut current_exe = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
     current_exe = current_exe.canonicalize().unwrap_or(current_exe);
-    tracing::trace!(?current_exe);
 
     // TODO(qix-): Get parent PID of connecting processes to make sure they're us.
     //let our_pid = std::process::id();
@@ -459,125 +458,6 @@ where
     }
 
     Err(base_error.into())
-}
-
-/// Signs the given commit-ish in the repository at the given path.
-/// Returns the newly signed commit SHA.
-///
-/// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
-/// which should return the user's response or `None` if the operation should be
-/// aborted, in which case an `Err` value is returned from this function.
-pub async fn sign_commit<P, E, F, Extra, Fut>(
-    repo_path: P,
-    executor: E,
-    base_commitish: String,
-    on_prompt: F,
-    extra: Extra,
-) -> Result<String, crate::Error<Error<E>>>
-where
-    P: AsRef<Path>,
-    E: GitExecutor,
-    F: FnMut(String, Extra) -> Fut,
-    Fut: std::future::Future<Output = Option<String>>,
-    Extra: Send + Clone,
-{
-    let repo_path = repo_path.as_ref();
-
-    // First, create a worktree to perform the commit.
-    let worktree_path = repo_path
-        .join(".git")
-        .join("gitbutler")
-        .join(".wt")
-        .join(uuid::Uuid::new_v4().to_string());
-    let args = [
-        "worktree",
-        "add",
-        "--detach",
-        "--no-checkout",
-        worktree_path.to_str().unwrap(),
-        base_commitish.as_str(),
-    ];
-    let (status, stdout, stderr) = executor
-        .execute(&args, repo_path, None)
-        .await
-        .map_err(Error::<E>::Exec)?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
-            status,
-            args: args.into_iter().map(Into::into).collect(),
-            stdout,
-            stderr,
-        })?;
-    }
-
-    // Now, perform the commit.
-    let args = [
-        "commit",
-        "--amend",
-        "-S",
-        "-o",
-        "--no-edit",
-        "--no-verify",
-        "--no-post-rewrite",
-        "--allow-empty",
-        "--allow-empty-message",
-    ];
-    let (status, stdout, stderr) = execute_with_auth_harness(
-        HarnessEnv::Repo(&worktree_path),
-        &executor,
-        &args,
-        None,
-        on_prompt,
-        extra,
-    )
-    .await?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
-            status,
-            args: args.into_iter().map(Into::into).collect(),
-            stdout,
-            stderr,
-        })?;
-    }
-
-    // Get the commit hash that was generated
-    let args = ["rev-parse", "--verify", "HEAD"];
-    let (status, stdout, stderr) = executor
-        .execute(&args, &worktree_path, None)
-        .await
-        .map_err(Error::<E>::Exec)?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
-            status,
-            args: args.into_iter().map(Into::into).collect(),
-            stdout,
-            stderr,
-        })?;
-    }
-
-    let commit_hash = stdout.trim().to_string();
-
-    // Finally, remove the worktree
-    let args = [
-        "worktree",
-        "remove",
-        "--force",
-        worktree_path.to_str().unwrap(),
-    ];
-    let (status, stdout, stderr) = executor
-        .execute(&args, repo_path, None)
-        .await
-        .map_err(Error::<E>::Exec)?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
-            status,
-            args: args.into_iter().map(Into::into).collect(),
-            stdout,
-            stderr,
-        })?;
-    }
-
-    Ok(commit_hash)
 }
 
 fn get_core_sshcommand<P>(harness_env: &HarnessEnv<P>) -> anyhow::Result<Option<String>>
