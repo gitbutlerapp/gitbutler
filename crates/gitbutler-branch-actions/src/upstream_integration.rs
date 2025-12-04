@@ -16,7 +16,7 @@ use gitbutler_repo::{
     rebase::gitbutler_merge_commits,
 };
 use gitbutler_stack::{StackId, Target, VirtualBranchesHandle};
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
 
@@ -654,7 +654,7 @@ pub(crate) fn integrate_upstream(
 
         {
             let new_workspace = WorkspaceState::create(ctx, permission.read_permission())?;
-            update_uncommited_changes(ctx, old_workspace, new_workspace, permission)?;
+            update_uncommitted_changes(ctx, old_workspace, new_workspace, permission)?;
         }
 
         crate::integration::update_workspace_commit(&virtual_branches_state, ctx, false)?;

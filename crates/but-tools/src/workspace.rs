@@ -479,15 +479,15 @@ impl Tool for Amend {
     fn description(&self) -> String {
         "
         <description>
-            Amend an existingg commit on a branch in the workspace.
+            Amend an existing commit on a branch in the workspace.
         </description>
 
         <important_notes>
             This tool allows you to amend a specific commit on a branch in the workspace.
             You can specify the new commit message, target branch name, commit id, and a list of file paths to include in the amended commit.
             Use this tool if:
-            - You want to add uncommitted changes to an existingg commit.
-            - You want to update the commit message of an existingg commit.
+            - You want to add uncommitted changes to an existing commit.
+            - You want to update the commit message of an existing commit.
         </important_notes>
         ".to_string()
     }
@@ -688,7 +688,7 @@ pub struct CreateBlankCommitParameters {
     </description>
 
     <important_notes>
-        The stack id should refer to an existingg stack in the workspace.
+        The stack id should refer to an existing stack in the workspace.
     </important_notes>
     ")]
     pub stack_id: String,
@@ -699,7 +699,7 @@ pub struct CreateBlankCommitParameters {
     </description>
 
     <important_notes>
-        This should be the ID of an existingf commit in the stack.
+        This should be the ID of an existing commit in the stack.
     </important_notes>
     ")]
     pub parent_id: String,
@@ -1134,7 +1134,7 @@ pub struct SquashCommitsParameters {
         </description>
 
         <important_notes>
-            The stack id should refer to an existingg stack in the workspace.
+            The stack id should refer to an existing stack in the workspace.
         </important_notes>
         ")]
     pub stack_id: String,
@@ -1159,7 +1159,7 @@ pub struct SquashCommitsParameters {
         </description>
 
         <important_notes>
-            This should be the id of an existingg commit in the stack.
+            This should be the id of an existing commit in the stack.
             The commit should be present in the stack specified by `stack_id`.
         </important_notes>
         ")]
@@ -1295,7 +1295,7 @@ pub struct SplitBranchParameters {
     </description>
 
     <important_notes>
-        This should be the name of an existingg branch in the workspace.
+        This should be the name of an existing branch in the workspace.
     </important_notes>
     ")]
     pub source_branch_name: String,
@@ -1337,7 +1337,7 @@ impl Tool for SplitBranch {
     fn description(&self) -> String {
         "
         <description>
-            Split off selected files from an existingg branch into a new branch.
+            Split off selected files from an existing branch into a new branch.
         </description>
 
         <important_notes>

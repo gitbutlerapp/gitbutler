@@ -1,5 +1,5 @@
 <script lang="ts">
-	import walkingSvg from '$lib/assets/splash-illustrations/walking.svg?raw';
+	import walkingSvg from '$lib/assets/splash-illustrations/walkin.svg?raw';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

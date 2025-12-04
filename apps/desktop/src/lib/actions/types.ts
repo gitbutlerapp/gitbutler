@@ -137,7 +137,7 @@ export type Trigger =
 export type Status =
 	| { readonly type: 'completed' }
 	| { readonly type: 'failed'; readonly subject: string }
-	| { readonly type: 'interupted'; readonly subject: string };
+	| { readonly type: 'interrupted'; readonly subject: string };
 
 /** Represents a workflow that was executed by GitButler. */
 export class Workflow {

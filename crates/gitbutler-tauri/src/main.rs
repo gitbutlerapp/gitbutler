@@ -237,7 +237,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::repo::tauri_git_set_local_config::git_set_local_config,
                 legacy::repo::tauri_check_signing_settings::check_signing_settings,
                 legacy::repo::tauri_git_clone_repository::git_clone_repository,
-                legacy::repo::tauri_get_uncommited_files::get_uncommited_files,
+                legacy::repo::tauri_get_uncommitted_files::get_uncommitted_files,
                 legacy::repo::tauri_get_commit_file::get_commit_file,
                 legacy::repo::tauri_get_workspace_file::get_workspace_file,
                 legacy::repo::tauri_find_files::find_files,

@@ -12,7 +12,7 @@ use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt},
 };
 use gitbutler_stack::StackId;
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use itertools::Itertools;
 
 use crate::{
@@ -263,7 +263,7 @@ fn do_squash_commits(
     stack.set_stack_head(&vb_state, &gix_repo, new_stack_head, None)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
