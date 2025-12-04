@@ -16,8 +16,6 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 	const prQuery = $derived(prService?.get(prNumber, { forceRefetch: true }));
-	const unitSymbol = $derived(prService?.unit.symbol ?? '');
-	const unitAbbr = $derived(prService?.unit.abbr ?? 'PR');
 </script>
 
 <ReduxResult result={prQuery?.result} {projectId} {onerror}>
@@ -25,7 +23,8 @@
 		<Drawer testId={TestId.PRBranchDrawer} persistId="pr-branch-drawer-{projectId}-{pr.number}">
 			{#snippet header()}
 				<h3 class="text-14 text-semibold truncate">
-					<span class="clr-text-2">{unitAbbr} {unitSymbol}{pr.number}:</span>
+					<span class="clr-text-2">{forge.reviewUnitAbbr} {forge.reviewUnitSymbol}{pr.number}:</span
+					>
 					<span> {pr.title}</span>
 				</h3>
 			{/snippet}

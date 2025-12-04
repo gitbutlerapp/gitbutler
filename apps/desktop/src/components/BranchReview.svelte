@@ -28,7 +28,6 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 	const reviewUnit = $derived(prService?.unit.abbr);
-	const reviewUnitName = $derived(prService?.unit.name ?? 'Pull request');
 
 	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
 
@@ -50,21 +49,21 @@
 	<Modal
 		width="small"
 		type="warning"
-		title="Create {reviewUnitName}"
+		title="Create {forge.reviewUnitName}"
 		bind:this={confirmCreatePrModal}
 		onSubmit={() => {
 			modal?.show();
 		}}
 	>
 		<p class="text-13 text-body helper-text">
-			It's strongly recommended to create {reviewUnitName.toLowerCase()}s starting with the branch
-			at the base of the stack.
+			It's strongly recommended to create {forge.reviewUnitName.toLowerCase()}s starting with the
+			branch at the base of the stack.
 			<br />
-			Do you still want to create this {reviewUnitName.toLowerCase()}?
+			Do you still want to create this {forge.reviewUnitName.toLowerCase()}?
 		</p>
 		{#snippet controls(close)}
 			<Button kind="outline" onclick={close}>Cancel</Button>
-			<Button style="warning" type="submit">Create {reviewUnitName}</Button>
+			<Button style="warning" type="submit">Create {forge.reviewUnitName}</Button>
 		{/snippet}
 	</Modal>
 

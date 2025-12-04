@@ -55,8 +55,6 @@
 	const aiService = inject(AI_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const prService = $derived(forge.current.prService);
-	const prUnit = $derived(prService?.unit);
 	const promptService = inject(PROMPT_SERVICE);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
@@ -305,11 +303,11 @@
 				<ReduxResult {projectId} {stackId} result={prQuery?.result}>
 					{#snippet children(pr)}
 						<ContextMenuSection>
-							<ContextMenuItemSubmenu label={prUnit?.name ?? 'Pull Request'} icon="pr">
+							<ContextMenuItemSubmenu label={forge.reviewUnitName} icon="pr">
 								{#snippet submenu({ close: closeSubmenu })}
 									<ContextMenuSection>
 										<ContextMenuItem
-											label="Open {prUnit?.abbr ?? 'PR'} in browser"
+											label="Open {forge.reviewUnitAbbr} in browser"
 											testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
 											onclick={() => {
 												urlService.openExternalUrl(pr.htmlUrl);
@@ -318,11 +316,11 @@
 											}}
 										/>
 										<ContextMenuItem
-											label="Copy {prUnit?.abbr ?? 'PR'} link"
+											label="Copy {forge.reviewUnitAbbr} link"
 											testId={TestId.BranchHeaderContextMenu_CopyPRLink}
 											onclick={() => {
 												clipboardService.write(pr.htmlUrl, {
-													message: `${prUnit?.abbr ?? 'PR'} link copied`
+													message: `${forge.reviewUnitAbbr} link copied`
 												});
 												closeSubmenu();
 												close();
