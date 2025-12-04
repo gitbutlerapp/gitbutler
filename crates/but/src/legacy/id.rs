@@ -21,7 +21,14 @@ fn context_info(ctx: &Context) -> anyhow::Result<ContextInfo> {
     let guard = ctx.shared_worktree_access();
     let meta = ctx.meta(guard.read_permission())?;
     let repo = &*ctx.repo.get()?;
-    let head_info = but_workspace::head_info(repo, &meta, Default::default())?;
+    let head_info = but_workspace::head_info(
+        repo,
+        &meta,
+        but_workspace::ref_info::Options {
+            expensive_commit_info: false,
+            ..Default::default()
+        },
+    )?;
     let mut branch_names: Vec<BString> = Vec::new();
     let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
     for stack in head_info.stacks {
@@ -72,7 +79,10 @@ pub struct IdDb {
     unassigned: CliId,
 }
 
+/// Lifecycle
 impl IdDb {
+    /// Initialise CLI IDs for all information in the `RefInfo` structure for `HEAD` via `ctx`.
+    // TODO: create an API that enforces re-use of `RefInfo` by its users.
     pub fn new(ctx: &Context) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         let context_info = context_info(ctx)?;
@@ -145,20 +155,10 @@ impl IdDb {
             },
         })
     }
+}
 
-    fn find_branches_by_name(&self, name: &BStr) -> anyhow::Result<Vec<CliId>> {
-        let mut matches = Vec::new();
-
-        for (branch_name, cli_id) in self.branch_name_to_cli_id.iter() {
-            // Partial match is fine
-            if branch_name.contains_str(name) {
-                matches.push(cli_id.clone());
-            }
-        }
-
-        Ok(matches)
-    }
-
+/// Cli ID generation
+impl IdDb {
     pub fn parse_str(&self, ctx: &mut Context, s: &str) -> anyhow::Result<Vec<CliId>> {
         if s.len() < 2 {
             return Err(anyhow::anyhow!(
@@ -275,6 +275,21 @@ impl IdDb {
     /// enough to disambiguate against any existing branch name.
     pub fn unassigned(&self) -> &CliId {
         &self.unassigned
+    }
+}
+
+impl IdDb {
+    fn find_branches_by_name(&self, name: &BStr) -> anyhow::Result<Vec<CliId>> {
+        let mut matches = Vec::new();
+
+        for (branch_name, cli_id) in self.branch_name_to_cli_id.iter() {
+            // Partial match is fine
+            if branch_name.contains_str(name) {
+                matches.push(cli_id.clone());
+            }
+        }
+
+        Ok(matches)
     }
 }
 
