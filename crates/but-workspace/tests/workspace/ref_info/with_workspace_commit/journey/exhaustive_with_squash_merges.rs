@@ -184,7 +184,7 @@ However, without an official workspace it still won't be acting as a target.
         standard_options_with_extra_target(&repo, "origin/main"),
     );
     // With an extra target, even in this situation we have a notion of upstream commits.
-    // Thus it's possible to compute the integation status.
+    // Thus it's possible to compute the integration status.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -853,9 +853,9 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
 fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
     let (repo, mut meta, description) = step("11-remote-only")?;
     insta::assert_snapshot!(description, @r"
-The remote was re-used and merged once more with more changes.
+The remote was reused and merged once more with more changes.
 
-  After S1 was squash-merged, someone else re-used the branch, pushed two commits
+  After S1 was squash-merged, someone else reused the branch, pushed two commits
   and squash-merged them into target again.
 
   Here we assure that these integrated remote commits don't mess with our logic.
@@ -870,7 +870,7 @@ The remote was re-used and merged once more with more changes.
     * 3234835 one
     | * 8965172 (origin/main) other remote file changed completely afterwards
     | * 9096eba squash origin/S1
-    | * ccaef5a avoid merge conflcit
+    | * ccaef5a avoid merge conflict
     | * adc9f0c (main) file changed completely afterwards
     | * d110262 squash S1
     |/  
@@ -978,7 +978,7 @@ A new multi-segment stack is created without remote and squash merged locally.
     | * ca783a4 squash local
     | * 8965172 (main) other remote file changed completely afterwards
     | * 9096eba squash origin/S1
-    | * ccaef5a avoid merge conflcit
+    | * ccaef5a avoid merge conflict
     | * adc9f0c file changed completely afterwards
     | * d110262 squash S1
     |/  

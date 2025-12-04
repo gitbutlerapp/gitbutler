@@ -92,7 +92,7 @@ pub struct SeriesOrder {
     /// Unique name of the series (branch). Must already exist in the stack.
     pub name: String,
     /// This is the desired commit order for the series. Because the commits will be rabased,
-    /// naturally, the the commit ids will be different afte updating.
+    /// naturally, the the commit ids will be different after updating.
     /// The changes are ordered from newest to oldest (most recent changes go first)
     #[serde(with = "but_serde::oid_vec")]
     pub commit_ids: Vec<Oid>,

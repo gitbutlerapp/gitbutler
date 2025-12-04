@@ -77,7 +77,7 @@ export class ButlerAction {
 	createdAt!: Date;
 	/** A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller. */
 	externalSummary!: string;
-	/** The prompt used that triggered this thingy stuff figgure it out yourself */
+	/** The prompt used that triggered this thingy stuff figure it out yourself */
 	externalPrompt!: string;
 	/** The handler / implementation that performed the action. */
 	handler!: ActionHandler;

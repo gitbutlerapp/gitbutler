@@ -233,7 +233,7 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
     let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
 
     // Trigger commit message generation for newly created commits
-    // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe
+    // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if available
     // Alternatively, and probably better - we could spawn a new process to do this
 
     if let Some(openai_client) =
@@ -242,7 +242,7 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
         for branch in &outcome.updated_branches {
             let mut commit_message_mapping = HashMap::new();
 
-            let elegibility =
+            let eligibility =
                 but_claude::hooks::is_branch_eligible_for_rename(ctx, &stacks, branch)?;
 
             for commit in &branch.new_commits {
@@ -268,7 +268,7 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
                 }
             }
 
-            match elegibility {
+            match eligibility {
                 but_claude::hooks::RenameEligibility::Eligible { commit_id } => {
                     let reword_result = commit_message_mapping.get(&commit_id).cloned();
 

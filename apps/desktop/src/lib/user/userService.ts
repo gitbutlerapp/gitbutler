@@ -138,7 +138,7 @@ export class UserService {
 			await sleep(pollingFrequency);
 		}
 
-		throw new Error('Login token expired. Please try loging in again');
+		throw new Error('Login token expired. Please try logging in again');
 	}
 
 	// TODO: Remove token from URL, we don't want that leaking into logs.

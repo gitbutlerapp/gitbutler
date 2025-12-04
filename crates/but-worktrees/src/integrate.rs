@@ -115,7 +115,7 @@ fn worktree_integration_inner(
     // Find the base which we will use for the "cherry pick".
     let wt_meta = get_worktree_meta(&repo, id)?;
     let base = {
-        // If we have worktree metadata and the base hasn't been dropped entirly
+        // If we have worktree metadata and the base hasn't been dropped entirely
         // from history, we will use that.
         if let Some(wt_meta) = wt_meta
             && repo.find_object(wt_meta.base).is_ok()

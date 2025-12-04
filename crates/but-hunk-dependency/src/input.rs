@@ -47,7 +47,7 @@ pub struct InputDiffHunk {
 }
 
 impl InputDiffHunk {
-    /// Compute the amount of lines that are left when substracting old-lines from new-lines.
+    /// Compute the amount of lines that are left when subtracting old-lines from new-lines.
     pub fn net_lines(&self) -> anyhow::Result<i32> {
         // TODO: use `checked_signed_diff` instead when stable.
         (self.new_lines as i64)

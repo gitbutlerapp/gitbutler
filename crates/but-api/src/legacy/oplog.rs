@@ -2,14 +2,14 @@
 //! The oplog records snapshots of the project state at the time when an operation was initiated.
 //!
 //! Using the oplog, it is possible to restore the project to a previous state by reverting to one of these snapshots.
-//! This includes the state of the working directory as well as commmit history and references.
+//! This includes the state of the working directory as well as commit history and references.
 //!
 //! This module provides commands to interact with the oplog, including listing snapshots, creating new snapshots,
 //! restoring to a snapshot, and viewing differences between snapshots.
 //!
 //! An example usage:
 //!   - A user squashes two commits together.
-//!   - Listing the shapshot will show a new snapshot with the operation kind `SquashCommit`.
+//!   - Listing the snapshot will show a new snapshot with the operation kind `SquashCommit`.
 //!   - Restoring to the snapshot will revert the project to the state before the squash.
 //!   - A new snapshot is created for the restore operation.
 //!
@@ -104,7 +104,7 @@ pub fn create_snapshot(project_id: ProjectId, message: Option<String>) -> Result
 ///
 /// # Side Effects
 /// This operation modifies the repository state, reverting it to the specified snapshot.
-/// This includes the state of the working directory as well as commmit history and references.
+/// This includes the state of the working directory as well as commit history and references.
 /// Additionally, a new snapshot is created in the oplog to record the restore action.
 #[but_api]
 #[instrument(err(Debug))]

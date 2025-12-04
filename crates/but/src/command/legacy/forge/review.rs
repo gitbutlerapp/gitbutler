@@ -286,7 +286,7 @@ async fn publish_reviews_for_branch_and_dependents(
         if let Some(out) = out.for_human() {
             writeln!(
                 out,
-                "Publishing review for branch '{}' targetting '{}",
+                "Publishing review for branch '{}' targeting '{}",
                 head.name, current_target_branch
             )?;
         }

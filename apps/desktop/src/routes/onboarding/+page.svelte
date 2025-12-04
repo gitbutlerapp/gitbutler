@@ -18,7 +18,7 @@
 	const projectsQuery = $derived(projectsService.projects());
 
 	// We don't want to have this guard in the layout, because we want to have
-	// `/onboarding/clone` accessable.
+	// `/onboarding/clone` accessible.
 	$effect(() => {
 		// Users should not be able to get here now that we load projects
 		// sensibly, but hey, let's be sure.

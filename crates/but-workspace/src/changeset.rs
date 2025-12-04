@@ -310,7 +310,7 @@ fn lookup_similar<'a>(
         .or_else(|| map.get(expensive?))
 }
 
-/// Returns the fully-loaded commits suitable to be passed to UI, to have better re-use.
+/// Returns the fully-loaded commits suitable to be passed to UI, to have better reuse.
 fn create_similarity_lut(
     repo: &gix::Repository,
     commits: impl Iterator<Item = impl Borrow<crate::ref_info::Commit>>,

@@ -374,7 +374,7 @@ fn conflicting_reorder_stack() -> Result<()> {
         ],
     );
 
-    // Reorded the commits back to the original order
+    // Reordered the commits back to the original order
     let new_order = order(vec![
         vec![],
         vec![

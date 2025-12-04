@@ -188,7 +188,7 @@ fn move_commit_to_destination_stack(
     let gix_repo = ctx.repo.get()?;
     let merge_base = destination_stack.merge_base(ctx)?;
     let mut steps = destination_stack.as_rebase_steps(ctx, &gix_repo)?;
-    // TODO: In the future we can make the API provide additional info for exacly where to place the commit on the destination stack
+    // TODO: In the future we can make the API provide additional info for exactly where to place the commit on the destination stack
     steps.insert(
         steps.len() - 1,
         RebaseStep::Pick {

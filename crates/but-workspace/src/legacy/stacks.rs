@@ -264,7 +264,7 @@ pub fn stacks_v3(
         let mut saw_checked_out = false;
         stacks
             .first_mut()
-            .context("BUG: we shoudl always have at least one stack")?
+            .context("BUG: we should always have at least one stack")?
             .heads
             .retain(|h| {
                 saw_checked_out |= h.is_checked_out;
@@ -411,7 +411,7 @@ pub fn stack_details(
         current_base = branch.head_oid(&repo)?;
     }
 
-    stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration
+    stack.migrate_change_ids(ctx).ok(); // If it fails that's ok - best effort migration
     branch_details.reverse();
 
     let push_status = stack_state.into();
@@ -645,12 +645,12 @@ pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui
         current_base = internal.head_oid(&repo)?;
         stack_branches.push(result);
     }
-    stack.migrate_change_ids(ctx).ok(); // If it fails thats ok - best effort migration
+    stack.migrate_change_ids(ctx).ok(); // If it fails that's ok - best effort migration
     stack_branches.reverse();
     Ok(stack_branches)
 }
 
-/// Returns a list of commits beloning to this branch. Ordered from newest to oldest (child-most to parent-most).
+/// Returns a list of commits belonging to this branch. Ordered from newest to oldest (child-most to parent-most).
 ///
 /// These are the commits that are currently part of the workspace (applied).
 /// Created from the local pseudo branch (head currently stored in the TOML file)
@@ -702,7 +702,7 @@ fn upstream_only_commits(
     let mut upstream_only = vec![];
     for commit in branch_commits.upstream_only.iter() {
         let matches_known_commit = local_and_remote.iter().any(|c| {
-            // If the id matches verbatim or if there is a known remote_id (in the case of LocalAndRemote) that matchies
+            // If the id matches verbatim or if there is a known remote_id (in the case of LocalAndRemote) that matches
             c.id == commit.id().to_gix() || matches!(&c.state, CommitState::LocalAndRemote(remote_id) if remote_id == &commit.id().to_gix())
         });
         // Ignore commits that strictly speaking are remote only, but they match a known local commit (rebase etc)
@@ -800,7 +800,7 @@ pub fn local_and_remote_commits(
     Ok(local_and_remote)
 }
 
-/// The commit-data we can use for comparison to see which remote-commit was used to craete
+/// The commit-data we can use for comparison to see which remote-commit was used to create
 /// a local commit from.
 /// Note that trees can't be used for comparison as these are typically rebased.
 #[derive(Debug, Hash, Eq, PartialEq)]

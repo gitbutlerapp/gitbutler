@@ -66,7 +66,7 @@ pub struct TuiBranch {
 #[derive(Debug, Default)]
 pub struct TuiStack {
     /// The branches in the stack.
-    /// Orderd from child to parent.
+    /// Ordered from child to parent.
     pub branches: Vec<TuiBranch>,
 }
 

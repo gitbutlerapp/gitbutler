@@ -112,7 +112,7 @@ pub enum TreeStatus {
 }
 
 /// Represents a semantic type of change that was inferred for the change.
-/// Typically this means a heuristic or an LLM determinded that a change represents a refactor, a new feature, a bug fix, or documentation update.
+/// Typically this means a heuristic or an LLM determined that a change represents a refactor, a new feature, a bug fix, or documentation update.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum SemanticType {
@@ -129,7 +129,7 @@ pub enum SemanticType {
 }
 
 /// Represents an action that can be taken based on the rule evaluation.
-/// An action can be either explicit, meaning the user defined something like "Assign in Lane A" or "Ammend into Commit X"
+/// An action can be either explicit, meaning the user defined something like "Assign in Lane A" or "Amend into Commit X"
 /// or it is implicit, meaning the action was determined by heuristics or AI, such as "Assign to appropriate branch" or "Absorb in dependent commit".
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]

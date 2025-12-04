@@ -28,7 +28,7 @@ use crate::{
 ///
 /// Optionally an identifier to an Uncommitted File or a Branch (stack) may be provided.
 ///
-/// If an Uncommitted File id is provided, absorb will be peformed for just that file
+/// If an Uncommitted File id is provided, absorb will be performed for just that file
 /// If a Branch (stack) id is provided, absorb will be performed for all changes assigned to that stack
 /// If no source is provided, absorb is performed for all uncommitted changes
 pub(crate) fn handle(

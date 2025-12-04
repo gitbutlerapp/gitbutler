@@ -102,7 +102,7 @@ impl RemoteTrackingReference {
     ts(export, export_to = "./workspace/refInfo/index.ts")
 )]
 pub struct Target {
-    /// The remote tracking branch of the traget to integrate with, like `refs/remotes/origin/main`.
+    /// The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`.
     pub remote_tracking_ref: RemoteTrackingReference,
     /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
     pub commits_ahead: usize,

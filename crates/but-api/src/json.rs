@@ -136,7 +136,7 @@ mod error {
     //!
     //! `tauri` serializes backend errors and makes these available as JSON objects to the frontend. The format
     //! is an implementation detail, but here it's implemented to turn each `Error` into a dict with `code`
-    //! and `messsage` fields.
+    //! and `message` fields.
     //!
     //! The values in these fields are controlled by attaching context, please [see the `error` docs](gitbutler_error::error))
     //! on how to do this.

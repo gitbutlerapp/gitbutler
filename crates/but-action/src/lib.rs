@@ -77,7 +77,7 @@ pub fn freestyle(
     Please, take a look at the provided prompt and the project status below, and perform the actions you think are necessary.
     In order to do that, please follow these steps:
         1. Take a look at the prompt and reflect on what the intention of the user is.
-        2. Take a look at the project status and see what changes are present in the project. It's important to understand what stacks and branche are present, and what the file changes are.
+        2. Take a look at the project status and see what changes are present in the project. It's important to understand what stacks and branch are present, and what the file changes are.
         3. Try to correlate the prompt with the project status and determine what actions you can take to help the user.
         4. Use the tools provided to you to perform the actions.
 
@@ -85,7 +85,7 @@ pub fn freestyle(
     You can generally perform the normal Git operations, such as creating branches and committing to them.
     You can also perform more advanced operations, such as:
     - `absorb`: Take a set of file changes and amend them into the existing commits in the project.
-      This requires you to figure out where the changes should go based on the locks, assingments and any other user provided information.
+      This requires you to figure out where the changes should go based on the locks, assignments and any other user provided information.
     - `split a commit`: Take an existing commit and split it into multiple commits based on the the user directive.
         This can be achieved by using the `split_commit` tool.
     - `split a branch`: Take an existing branch and split it into two branches. This basically takes a set of committed file changes and moves them to a new branch, removing them from the original branch.

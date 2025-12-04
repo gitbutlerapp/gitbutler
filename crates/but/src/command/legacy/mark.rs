@@ -102,7 +102,7 @@ fn mark_branch(
         return Ok(());
     }
     // TODO: if there are other marks of this kind, get rid of them
-    let stack_id = stack_id.expect("Cant find stack for this branch");
+    let stack_id = stack_id.expect("Cannot find stack for this branch");
     let action = but_rules::Action::Explicit(Operation::Assign {
         target: but_rules::StackTarget::StackId(stack_id.to_string()),
     });

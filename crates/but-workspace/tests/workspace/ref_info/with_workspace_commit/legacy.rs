@@ -263,29 +263,29 @@ mod stack_details {
     #[test]
     fn simple_fully_pushed() -> anyhow::Result<()> {
         let (repo, mut meta) = read_only_in_memory_scenario(
-            "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant",
+            "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
         )?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * cbc6713 (origin/advanced-lane, on-top-of-dependant, dependant, advanced-lane) change
+    * cbc6713 (origin/advanced-lane, on-top-of-dependent, dependent, advanced-lane) change
     * fafd9d0 (origin/main, main, lane) init
     ");
 
         let stack_id = add_stack_with_segments(
             &mut meta,
             1,
-            "dependant",
+            "dependent",
             StackState::InWorkspace,
             &["advanced-lane"],
         );
         let actual = stack_details_v3(stack_id.into(), &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
-            derived_name: "dependant",
+            derived_name: "dependent",
             push_status: CompletelyUnpushed,
             branch_details: [
                 BranchDetails {
-                    name: "dependant",
+                    name: "dependent",
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
                     description: None,

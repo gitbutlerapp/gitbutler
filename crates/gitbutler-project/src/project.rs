@@ -246,7 +246,7 @@ impl Project {
         let mut projects = crate::dangerously_list_projects_without_migration()?;
         // Sort projects by longest pathname to shortest.
         // We need to do this because users might have one gitbutler project
-        // nexted inside another via a gitignored folder.
+        // nested inside another via a gitignored folder.
         // We want to match on the longest project path.
         projects.sort_by(|a, b| {
             a.worktree_dir

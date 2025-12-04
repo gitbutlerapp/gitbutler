@@ -1,5 +1,5 @@
 <script lang="ts">
-	import walkininSvg from '$lib/assets/splash-illustrations/walkin.svg?raw';
+	import walkingSvg from '$lib/assets/splash-illustrations/walking.svg?raw';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -29,7 +29,7 @@
 		</div>
 
 		<div class="instruction-content__illustration">
-			{@html illustration ?? walkininSvg}
+			{@html illustration ?? walkingSvg}
 		</div>
 	</div>
 </div>

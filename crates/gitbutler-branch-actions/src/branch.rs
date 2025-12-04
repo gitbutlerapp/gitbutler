@@ -23,7 +23,7 @@ use tracing::instrument;
 use crate::{RemoteBranchFile, VirtualBranchesExt, gravatar::gravatar_url_from_email};
 
 #[instrument(level = tracing::Level::DEBUG, skip(ctx, _permission))]
-pub(crate) fn get_uncommited_files_raw(
+pub(crate) fn get_uncommitted_files_raw(
     ctx: &Context,
     _permission: &WorktreeReadPermission,
 ) -> Result<DiffByPathMap> {
@@ -31,14 +31,14 @@ pub(crate) fn get_uncommited_files_raw(
         &*ctx.git2_repo.get()?,
         ctx.git2_repo.get()?.head()?.peel_to_commit()?.id(),
     )
-    .context("Failed to list uncommited files")
+    .context("Failed to list uncommitted files")
 }
 
-pub(crate) fn get_uncommited_files(
+pub(crate) fn get_uncommitted_files(
     context: &Context,
     _permission: &WorktreeReadPermission,
 ) -> Result<Vec<RemoteBranchFile>> {
-    let files = get_uncommited_files_raw(context, _permission)?
+    let files = get_uncommitted_files_raw(context, _permission)?
         .into_values()
         .map(|file| file.into())
         .collect();
@@ -594,9 +594,9 @@ pub struct BranchListing {
     /// The branch may or may not have a virtual branch associated with it.
     pub stack: Option<StackReference>,
     /// Timestamp in milliseconds since the branch was last updated.
-    /// This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
+    /// This includes any commits, uncommitted changes or even updates to the branch metadata (e.g. renaming).
     pub updated_at: u128,
-    /// The person who commited the head commit.
+    /// The person who committed the head commit.
     pub last_commiter: Author,
     /// Whether there is a local branch under the name.
     pub has_local: bool,
@@ -870,13 +870,13 @@ pub struct BranchListingDetails {
     /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
     /// the value from the virtual branch (if present) takes the highest precedence,
     /// followed by the local branch and then the remote branches (taking the max if there are multiple).
-    /// If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
+    /// If this branch has a virtual branch, lines_added does NOT include the uncommitted lines.
     pub lines_added: usize,
     /// The number of lines removed within the branch
     /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
     /// the value from the virtual branch (if present) takes the highest precedence,
     /// followed by the local branch and then the remote branches (taking the max if there are multiple)
-    /// If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
+    /// If this branch has a virtual branch, lines_removed does NOT include the uncommitted lines.
     pub lines_removed: usize,
     /// The number of files that were modified within the branch
     /// Since the virtual branch, local branch and the remote one can have different number files modified,

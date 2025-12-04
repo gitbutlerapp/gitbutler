@@ -1,7 +1,7 @@
 //! Cherry Apply - Applying individual commits into the workspace.
 //!
-//! For now this doesn't consider the single branch mode, but it hopfully
-//! shouldn't be too much of a strech to adapt it to work.
+//! For now this doesn't consider the single branch mode, but it hopefully
+//! shouldn't be too much of a stretch to adapt it to work.
 //!
 //! We want to have two steps:
 //! - cherry_apply_status: Returns a list of stack IDs where a given commit can

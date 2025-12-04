@@ -74,7 +74,7 @@ fn do_squash_commits(
     let order = commits_order(ctx, &stack)?;
     let mut updated_order = commits_order(ctx, &stack)?;
 
-    // Source commits incude the destination commit
+    // Source commits include the destination commit
     let mut source_ids_in_order = Vec::new();
     // Remove source ids
     for branch in updated_order.series.iter_mut() {

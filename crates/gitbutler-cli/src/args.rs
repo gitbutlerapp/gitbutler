@@ -78,7 +78,7 @@ pub mod vbranch {
         Apply {
             /// Whether it's a branch that we're applying.
             ///
-            /// If a stack create from the given brach is not found a new stack is created.
+            /// If a stack create from the given branch is not found a new stack is created.
             #[clap(short = 'b', long, default_value_t = false)]
             branch: bool,
             /// The name of the stack to apply.
@@ -170,7 +170,7 @@ pub mod snapshot {
 
     #[derive(Debug, clap::Subcommand)]
     pub enum SubCommands {
-        /// Restores the state of the working direcory as well as virtual branches to a given snapshot.
+        /// Restores the state of the working directory as well as virtual branches to a given snapshot.
         Restore {
             /// The snapshot to restore
             snapshot_id: String,

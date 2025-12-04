@@ -149,7 +149,7 @@ pub mod git {
         /// Write our data back to the local `.git/config` file of the given `repo`.
         pub fn persist_to_local_config(&self, repo: &gix::Repository) -> Result<()> {
             // TODO: make this easier in `gix`. Could use config-snapshot-mut, but there is no way to
-            //       auto-reload it/assure it's uptodate.
+            //       auto-reload it/assure it's up-to-date.
             let mut config = repo.local_common_config_for_editing()?;
             if let Some(sign_commits) = self.gitbutler_sign_commits {
                 config.set_raw_value(

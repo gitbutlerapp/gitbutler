@@ -7,7 +7,7 @@ use crate::WorktreeId;
 
 /// Creates a git worktree.
 ///
-/// Git does not accept fully qualified branch names. The given parital ref will
+/// Git does not accept fully qualified branch names. The given partial ref will
 /// be written out under `refs/heads`
 ///
 /// Returns the full reference.

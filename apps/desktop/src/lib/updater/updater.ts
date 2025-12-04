@@ -42,7 +42,7 @@ export const UPDATE_INTERVAL_MS = 3600000; // Hourly
  * Note that the Tauri API `checkUpdate` hangs indefinitely in dev mode, build
  * a nightly if you want to test the updater manually.
  *
- * export TAURI_SIGNING_PRIVATE_KEY=doesnot
+ * export TAURI_SIGNING_PRIVATE_KEY=does not
  * export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=matter
  * ./scripts/release.sh --channel nightly --version "0.5.678"
  */

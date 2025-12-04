@@ -677,7 +677,7 @@ fn sort_events(events: Vec<DebouncedEvent>) -> Vec<DebouncedEvent> {
         let mut push_next = false;
 
         while events.front().is_some_and(|event| event.time <= min_time) {
-            // unwrap is safe beause `pop_front` mus return some in order to enter the loop
+            // unwrap is safe because `pop_front` mus return some in order to enter the loop
             let event = events.pop_front().unwrap();
             sorted.push(event);
             push_next = true;

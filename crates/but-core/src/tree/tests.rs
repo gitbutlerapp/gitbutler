@@ -3,7 +3,7 @@ mod to_additive_hunks {
 
     #[test]
     fn rejected() {
-        let wth = vec![hunk_header("-1,10", "+1,10")];
+        let with = vec![hunk_header("-1,10", "+1,10")];
         insta::assert_debug_snapshot!(to_additive_hunks(
             [
                 // rejected as old is out of bounds
@@ -13,8 +13,8 @@ mod to_additive_hunks {
                 // rejected as it doesn't match any anchor point, nor does it match hunks without context
                 hunk_header("-0,0", "+2,10")
             ],
-            &wth,
-            &wth,
+            &with,
+            &with,
         ).unwrap(), @r#"
         (
             [],
@@ -29,15 +29,15 @@ mod to_additive_hunks {
 
     #[test]
     fn only_selections() {
-        let wth = vec![hunk_header("-1,10", "+1,10")];
+        let with = vec![hunk_header("-1,10", "+1,10")];
         insta::assert_debug_snapshot!(to_additive_hunks(
             [
                 hunk_header("-1,1", "+0,0"),
                 hunk_header("-5,2", "+0,0"),
                 hunk_header("-10,1", "+0,0")
             ],
-            &wth,
-            &wth,
+            &with,
+            &with,
         ).unwrap(), @r#"
         (
             [
@@ -54,8 +54,8 @@ mod to_additive_hunks {
                 hunk_header("-0,0", "+5,2"),
                 hunk_header("-0,0", "+10,1")
             ],
-            &wth,
-            &wth,
+            &with,
+            &with,
         ).unwrap(), @r#"
         (
             [
@@ -72,8 +72,8 @@ mod to_additive_hunks {
                 hunk_header("-5,2", "+0,0"),
                 hunk_header("-0,0", "+10,1")
             ],
-            &wth,
-            &wth,
+            &with,
+            &with,
         ).unwrap(), @r#"
         (
             [
@@ -90,8 +90,8 @@ mod to_additive_hunks {
                 hunk_header("-0,0", "+5,2"),
                 hunk_header("-10,1", "+0,0")
             ],
-            &wth,
-            &wth,
+            &with,
+            &with,
         ).unwrap(), @r#"
         (
             [
@@ -106,7 +106,7 @@ mod to_additive_hunks {
 
     #[test]
     fn selections_and_full_hunks() {
-        let wth = vec![
+        let with = vec![
             hunk_header("-1,10", "+1,10"),
             hunk_header("-15,5", "+20,5"),
             hunk_header("-25,5", "+40,5"),
@@ -120,8 +120,8 @@ mod to_additive_hunks {
                 hunk_header("-0,0", "+22,3"),
                 // Last hunk isn't used
             ],
-            &wth,
-            &wth,
+            &with,
+            &with,
         ).unwrap(), @r#"
         (
             [
@@ -136,7 +136,7 @@ mod to_additive_hunks {
 
     #[test]
     fn only_full_hunks() {
-        let wth = vec![
+        let with = vec![
             hunk_header("-1,10", "+1,10"),
             hunk_header("-15,5", "+20,5"),
             hunk_header("-25,5", "+40,5"),
@@ -148,8 +148,8 @@ mod to_additive_hunks {
                 hunk_header("-15,5", "+20,5"),
                 // Last hunk isn't used
             ],
-            &wth,
-            &wth,
+            &with,
+            &with,
         ).unwrap(), @r#"
         (
             [
@@ -180,7 +180,7 @@ mod to_additive_hunks {
         //  99
         // -100
         // +119
-        let wth = vec![hunk_header("-93,8", "+93,10")];
+        let with = vec![hunk_header("-93,8", "+93,10")];
 
         // diff --git a/file b/file
         // index 190423f..b513cb5 100644
@@ -203,7 +203,7 @@ mod to_additive_hunks {
 
         insta::assert_debug_snapshot!(to_additive_hunks(
             [hunk_header("-96,1", "+0,0")],
-            &wth,
+            &with,
             &wth0,
         ).unwrap(), @r#"
         (
@@ -215,7 +215,7 @@ mod to_additive_hunks {
         "#);
         insta::assert_debug_snapshot!(to_additive_hunks(
             [hunk_header("-96,1", "+0,0"), hunk_header("-0,0", "+96,2")],
-            &wth,
+            &with,
             &wth0,
         ).unwrap(), @r#"
         (
@@ -228,7 +228,7 @@ mod to_additive_hunks {
         "#);
         insta::assert_debug_snapshot!(to_additive_hunks(
             [hunk_header("-0,0", "+96,2")],
-            &wth,
+            &with,
             &wth0,
         ).unwrap(), @r#"
         (
@@ -242,7 +242,7 @@ mod to_additive_hunks {
 
     #[test]
     fn real_world_issue() {
-        let wth = vec![hunk_header("-1,214", "+1,55")];
+        let with = vec![hunk_header("-1,214", "+1,55")];
         let wth0 = vec![
             hunk_header("-4,13", "+4,0"),
             hunk_header("-18,19", "+5,1"),
@@ -262,7 +262,7 @@ mod to_additive_hunks {
                 hunk_header("-207,1", "+0,0"),
                 hunk_header("-209,3", "+0,0"),
             ],
-            &wth,
+            &with,
             &wth0,
         )
         .unwrap();
@@ -287,7 +287,7 @@ mod to_additive_hunks {
                 hunk_header("-209,1", "+0,0"),
                 hunk_header("-211,1", "+0,0"),
             ],
-            &wth,
+            &with,
             &wth0,
         )
         .unwrap();
@@ -316,7 +316,7 @@ mod to_additive_hunks {
                 hunk_header("-0,0", "+30,2"),
                 hunk_header("-0,0", "+50,3"),
             ],
-            &wth,
+            &with,
             &wth0,
         )
         .unwrap();
@@ -337,7 +337,7 @@ mod to_additive_hunks {
 
     #[test]
     fn only_selections_workspace_example() {
-        let wth = vec![hunk_header("-1,10", "+1,10")];
+        let with = vec![hunk_header("-1,10", "+1,10")];
         let actual = to_additive_hunks(
             [
                 // commit NOT '2,3' of the old
@@ -355,8 +355,8 @@ mod to_additive_hunks {
                 // commit '19,20' of the new
                 hunk_header("-0,0", "+9,2"),
             ],
-            &wth,
-            &wth,
+            &with,
+            &with,
         )
         .unwrap();
         insta::assert_debug_snapshot!(actual, @r#"

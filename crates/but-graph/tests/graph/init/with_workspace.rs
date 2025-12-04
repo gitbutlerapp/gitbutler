@@ -260,7 +260,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
 
     // Now something similar but with two stacks.
     // As the actual topology is different, we can't really comply with that's desired.
-    // Instead, we re-use as many of the named segments as possible, even if they are from multiple branches.
+    // Instead, we reuse as many of the named segments as possible, even if they are from multiple branches.
     meta.data_mut().branches.clear();
     add_stack_with_segments(&mut meta, 0, "B-empty", StackState::InWorkspace, &["B"]);
     add_stack_with_segments(
@@ -2208,7 +2208,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     ");
 
     // When looking from an integrated branch within the workspace, and without limit
-    // the limit isn't respected, and we still konw the whole workspace.
+    // the limit isn't respected, and we still know the whole workspace.
     let (id, ref_name) = id_at(&repo, "A");
     let graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, standard_options())?
         .validated()?;
@@ -2476,14 +2476,14 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
 }
 
 #[test]
-fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependant()
+fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
 -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario(
-        "ws/three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant",
+        "ws/three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * cbc6713 (origin/advanced-lane, on-top-of-dependant, dependant, advanced-lane) change
+    * cbc6713 (origin/advanced-lane, on-top-of-dependent, dependent, advanced-lane) change
     * fafd9d0 (origin/main, main, lane) init
     ");
 
@@ -2493,7 +2493,7 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependant()
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
     │   └── ·f8f33a7 (⌂|🏘|1)
     │       └── ►:4[1]:advanced-lane <> origin/advanced-lane →:3:
-    │           └── ·cbc6713 (⌂|🏘|101) ►dependant, ►on-top-of-dependant
+    │           └── ·cbc6713 (⌂|🏘|101) ►dependent, ►on-top-of-dependent
     │               └── ►:2[2]:main <> origin/main →:1:
     │                   └── ·fafd9d0 (⌂|🏘|✓|111) ►lane
     ├── ►:1[0]:origin/main →:2:
@@ -2507,13 +2507,13 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependant()
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
     └── ≡:4:advanced-lane <> origin/advanced-lane →:3: on fafd9d0
         └── :4:advanced-lane <> origin/advanced-lane →:3:
-            └── ❄️cbc6713 (🏘️) ►dependant, ►on-top-of-dependant
+            └── ❄️cbc6713 (🏘️) ►dependent, ►on-top-of-dependent
     ");
 
     add_stack_with_segments(
         &mut meta,
         1,
-        "dependant",
+        "dependent",
         StackState::InWorkspace,
         &["advanced-lane"],
     );
@@ -2523,9 +2523,9 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependant()
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
     │   └── ·f8f33a7 (⌂|🏘|1)
-    │       └── 📙►:5[1]:dependant
+    │       └── 📙►:5[1]:dependent
     │           └── 📙►:6[2]:advanced-lane <> origin/advanced-lane →:4:
-    │               └── ·cbc6713 (⌂|🏘|101) ►on-top-of-dependant
+    │               └── ·cbc6713 (⌂|🏘|101) ►on-top-of-dependent
     │                   └── ►:2[3]:main <> origin/main →:1:
     │                       └── ·fafd9d0 (⌂|🏘|✓|111) ►lane
     ├── ►:1[0]:origin/main →:2:
@@ -2537,10 +2537,10 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependant()
     // When putting the dependent branch on top as empty segment, the frozen state is retained.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡📙:5:dependant on fafd9d0 {1}
-        ├── 📙:5:dependant
+    └── ≡📙:5:dependent on fafd9d0 {1}
+        ├── 📙:5:dependent
         └── 📙:6:advanced-lane <> origin/advanced-lane →:4:
-            └── ❄️cbc6713 (🏘️) ►on-top-of-dependant
+            └── ❄️cbc6713 (🏘️) ►on-top-of-dependent
     ");
     Ok(())
 }
@@ -3366,12 +3366,12 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
 #[test]
 fn dependent_branch_insertion() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario(
-        "ws/two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant",
+        "ws/two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent",
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * cbc6713 (origin/advanced-lane, dependant, advanced-lane) change
+    | * cbc6713 (origin/advanced-lane, dependent, advanced-lane) change
     |/  
     * fafd9d0 (origin/main, main, lane) init
     ");
@@ -3379,7 +3379,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     add_stack_with_segments(
         &mut meta,
         1,
-        "dependant",
+        "dependent",
         StackState::InWorkspace,
         &["advanced-lane"],
     );
@@ -3390,7 +3390,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     │   └── ·335d6f2 (⌂|🏘|1)
     │       ├── ►:2[3]:main <> origin/main →:1:
     │       │   └── ·fafd9d0 (⌂|🏘|✓|111) ►lane
-    │       └── 📙►:5[1]:dependant
+    │       └── 📙►:5[1]:dependent
     │           └── 📙►:6[2]:advanced-lane <> origin/advanced-lane →:4:
     │               └── ·cbc6713 (⌂|🏘|101)
     │                   └── →:2: (main →:1:)
@@ -3400,11 +3400,11 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         └── →:6: (advanced-lane →:4:)
     ");
 
-    // The dependant branch is empty and on top of the one with the remote
+    // The dependent branch is empty and on top of the one with the remote
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡📙:5:dependant on fafd9d0 {1}
-        ├── 📙:5:dependant
+    └── ≡📙:5:dependent on fafd9d0 {1}
+        ├── 📙:5:dependent
         └── 📙:6:advanced-lane <> origin/advanced-lane →:4:
             └── ❄️cbc6713 (🏘️)
     ");
@@ -3415,7 +3415,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         1,
         "advanced-lane",
         StackState::InWorkspace,
-        &["dependant"],
+        &["dependent"],
     );
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
@@ -3425,7 +3425,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     │       ├── ►:2[3]:main <> origin/main →:1:
     │       │   └── ·fafd9d0 (⌂|🏘|✓|111) ►lane
     │       └── 📙►:5[1]:advanced-lane <> origin/advanced-lane →:4:
-    │           └── 📙►:6[2]:dependant
+    │           └── 📙►:6[2]:dependent
     │               └── ·cbc6713 (⌂|🏘|101)
     │                   └── →:2: (main →:1:)
     ├── ►:1[0]:origin/main →:2:
@@ -3434,7 +3434,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         └── →:5: (advanced-lane →:4:)
     ");
 
-    // Having done something unusual, which is to put the dependant branch
+    // Having done something unusual, which is to put the dependent branch
     // underneath the other already pushed, it creates a different view of ownership.
     // It's probably OK to leave it like this for now, and instead allow users to reorder
     // these more easily.
@@ -3442,7 +3442,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
     └── ≡📙:5:advanced-lane <> origin/advanced-lane →:4: on fafd9d0 {1}
         ├── 📙:5:advanced-lane <> origin/advanced-lane →:4:
-        └── 📙:6:dependant
+        └── 📙:6:dependent
             └── ❄cbc6713 (🏘️)
     ");
 
@@ -3453,18 +3453,18 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     📕🏘️:1:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
     └── ≡👉📙:5:advanced-lane <> origin/advanced-lane →:4: on fafd9d0 {1}
         ├── 👉📙:5:advanced-lane <> origin/advanced-lane →:4:
-        └── 📙:6:dependant
+        └── 📙:6:dependent
             └── ❄cbc6713 (🏘️)
     ");
 
-    let (id, ref_name) = id_at(&repo, "dependant");
+    let (id, ref_name) = id_at(&repo, "dependent");
     let graph =
         Graph::from_commit_traversal(id, ref_name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:1:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
     └── ≡📙:5:advanced-lane <> origin/advanced-lane →:4: on fafd9d0 {1}
         ├── 📙:5:advanced-lane <> origin/advanced-lane →:4:
-        └── 👉📙:6:dependant
+        └── 👉📙:6:dependent
             └── ❄cbc6713 (🏘️)
     ");
     Ok(())

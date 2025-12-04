@@ -107,7 +107,7 @@ pub fn branch_details(
 }
 
 /// Traverse all commits that are reachable from the first parent of `upstream_id`, but not in `integration_branch_id` nor in `branch_id`.
-/// While at it, collect the commiter and author of each commit into `authors`.
+/// While at it, collect the committer and author of each commit into `authors`.
 fn upstream_commits(
     repository: &git2::Repository,
     upstream_id: git2::Oid,
@@ -125,9 +125,9 @@ fn upstream_commits(
         .filter_map(|oid| repository.find_commit(oid).ok())
         .map(|commit| {
             let author: ui::Author = commit.author().into();
-            let commiter: ui::Author = commit.committer().into();
+            let committer: ui::Author = commit.committer().into();
             authors.insert(author.clone());
-            authors.insert(commiter);
+            authors.insert(committer);
             UpstreamCommit {
                 id: commit.id().to_gix(),
                 message: commit.message().unwrap_or_default().into(),
@@ -156,9 +156,9 @@ fn local_commits(
         .filter_map(|oid| repository.find_commit(oid).ok())
         .map(|commit| {
             let author: ui::Author = commit.author().into();
-            let commiter: ui::Author = commit.committer().into();
+            let committer: ui::Author = commit.committer().into();
             authors.insert(author.clone());
-            authors.insert(commiter);
+            authors.insert(committer);
             ui::Commit {
                 id: commit.id().to_gix(),
                 parent_ids: commit.parent_ids().map(|id| id.to_gix()).collect(),

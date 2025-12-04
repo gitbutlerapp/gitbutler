@@ -331,7 +331,7 @@
 				Stage all files
 			{/snippet}
 			{#snippet caption()}
-				Stage all files assigned to the stack on commit. If no files are staged, all unassinged
+				Stage all files assigned to the stack on commit. If no files are staged, all unassigned
 				files will be staged.
 			{/snippet}
 			{#snippet actions()}

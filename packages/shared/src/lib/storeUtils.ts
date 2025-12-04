@@ -80,14 +80,14 @@ export async function guardReadableTrue(target: Readable<boolean>): Promise<bool
  * This function ensures eventual consistency with the state of the effect.
  *
  * It also ensures that a subscribe call is always followed by an unsubscribe,
- * and vise versa. As such, we can garuntee that the subscription counter
+ * and vice versa. As such, we can guarantee that the subscription counter
  * contained in the async fn is consistent.
  *
  * To manage this, track some important states:
  * - `inUse` tracks the state that the sync world wants us to be in.
  * - `subscribed` tracks whether we are actually subscribed or not.
  * - `working` tracks whether we are currently transitioning from subscribed
- *   to unsubscribed, or vise versa.
+ *   to unsubscribed, or vice versa.
  *
  * Whenever the sync world signals a state change, we call an internal
  * `resolveState` function, which checks to see if we're already changing states

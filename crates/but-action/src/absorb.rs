@@ -12,7 +12,7 @@ use crate::OpenAiProvider;
 
 /// Absorb file changes into existing commits in the project.
 ///
-/// This function will first try to get rid of the channges that are locked to one specific commit.
+/// This function will first try to get rid of the changes that are locked to one specific commit.
 /// After that, the tool calling loop will be used.
 ///
 /// TODO: This implementation has some clear disadvantage:
@@ -80,10 +80,10 @@ pub fn absorb(
         ### Determining where to put changes:
         In order to determine where to put the changes do this in order:
         1. Take a look at the existing dependency locks. If there are any locks pointing to a commit ID, that is the commit where the changes should be absorbed.
-        2. If there are no locks, look at the assingments. If there are any assignments pointing to a stack ID, that is the stack where the changes should be absorbed.
+        2. If there are no locks, look at the assignments. If there are any assignments pointing to a stack ID, that is the stack where the changes should be absorbed.
            Already knowing the stack ID, look at the commit messages inside the stack branches and try to find the commit that is related to the changes.
         3. If there are no assignments, look at the descriptions of the branches and commit messages. Try to find the branch and commit that most closely matches the changes.
-        4. If there are no branche or commits that match the change, don't do anything. The changes will be left unabsorbed.
+        4. If there are no branch or commits that match the change, don't do anything. The changes will be left unabsorbed.
 
         <important_note>
             Only absorb changes specified by the user
@@ -118,7 +118,7 @@ struct AbsorbGroup {
     files: Vec<FileChange>,
 }
 
-/// Absorb the chages that are already locked to a specific commit.
+/// Absorb the changes that are already locked to a specific commit.
 ///
 /// In this iteration, we will only amend complete file changes that are locked to exactly one commit.
 ///
@@ -143,7 +143,7 @@ fn absorb_locked_changes(
             }
 
             if hunks.dependency_locks.is_empty() {
-                // If ther are no locks in this hunk, we skip it.
+                // If there are no locks in this hunk, we skip it.
                 continue;
             }
 

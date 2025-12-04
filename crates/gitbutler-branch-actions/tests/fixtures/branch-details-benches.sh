@@ -3511,8 +3511,8 @@ git init big-repo
 100644 $empty_oid	app/assets/javascripts/notes/components/note_form.vue
 100644 $empty_oid	app/assets/javascripts/notes/components/note_header.vue
 100644 $empty_oid	app/assets/javascripts/notes/components/note_signed_out_widget.vue
-100644 $empty_oid	app/assets/javascripts/notes/components/noteable_discussion.vue
-100644 $empty_oid	app/assets/javascripts/notes/components/noteable_note.vue
+100644 $empty_oid	app/assets/javascripts/notes/components/notable_discussion.vue
+100644 $empty_oid	app/assets/javascripts/notes/components/notable_note.vue
 100644 $empty_oid	app/assets/javascripts/notes/components/notes_activity_header.vue
 100644 $empty_oid	app/assets/javascripts/notes/components/notes_app.vue
 100644 $empty_oid	app/assets/javascripts/notes/components/sidebar_subscription.vue
@@ -3527,7 +3527,7 @@ git init big-repo
 100644 $empty_oid	app/assets/javascripts/notes/mixins/diff_line_note_form.js
 100644 $empty_oid	app/assets/javascripts/notes/mixins/discussion_navigation.js
 100644 $empty_oid	app/assets/javascripts/notes/mixins/issuable_state.js
-100644 $empty_oid	app/assets/javascripts/notes/mixins/noteable.js
+100644 $empty_oid	app/assets/javascripts/notes/mixins/notable.js
 100644 $empty_oid	app/assets/javascripts/notes/mixins/resolvable.js
 100644 $empty_oid	app/assets/javascripts/notes/stores/actions.js
 100644 $empty_oid	app/assets/javascripts/notes/stores/collapse_utils.js
@@ -5545,7 +5545,7 @@ git init big-repo
 100644 $empty_oid	app/assets/javascripts/vue_shared/components/new_resource_dropdown/graphql/search_user_projects_with_merge_requests_enabled.query.graphql
 100644 $empty_oid	app/assets/javascripts/vue_shared/components/new_resource_dropdown/init_new_resource_dropdown.js
 100644 $empty_oid	app/assets/javascripts/vue_shared/components/new_resource_dropdown/new_resource_dropdown.vue
-100644 $empty_oid	app/assets/javascripts/vue_shared/components/notes/noteable_warning.vue
+100644 $empty_oid	app/assets/javascripts/vue_shared/components/notes/notable_warning.vue
 100644 $empty_oid	app/assets/javascripts/vue_shared/components/notes/placeholder_note.vue
 100644 $empty_oid	app/assets/javascripts/vue_shared/components/notes/placeholder_system_note.vue
 100644 $empty_oid	app/assets/javascripts/vue_shared/components/notes/skeleton_note.vue
@@ -6143,7 +6143,7 @@ git init big-repo
 100644 $empty_oid	app/channels/application_cable/connection.rb
 100644 $empty_oid	app/channels/application_cable/logging.rb
 100644 $empty_oid	app/channels/graphql_channel.rb
-100644 $empty_oid	app/channels/noteable/notes_channel.rb
+100644 $empty_oid	app/channels/notable/notes_channel.rb
 100644 $empty_oid	app/components/diffs/base_component.rb
 100644 $empty_oid	app/components/diffs/overflow_warning_component.html.haml
 100644 $empty_oid	app/components/diffs/overflow_warning_component.rb
@@ -7400,7 +7400,7 @@ git init big-repo
 100644 $empty_oid	app/graphql/resolvers/namespaces/work_item_state_counts_resolver.rb
 100644 $empty_oid	app/graphql/resolvers/namespaces/work_items_resolver.rb
 100644 $empty_oid	app/graphql/resolvers/nested_groups_resolver.rb
-100644 $empty_oid	app/graphql/resolvers/noteable/notes_resolver.rb
+100644 $empty_oid	app/graphql/resolvers/notable/notes_resolver.rb
 100644 $empty_oid	app/graphql/resolvers/notes/synthetic_note_resolver.rb
 100644 $empty_oid	app/graphql/resolvers/organizations/groups_resolver.rb
 100644 $empty_oid	app/graphql/resolvers/organizations/organization_resolver.rb
@@ -7819,7 +7819,7 @@ git init big-repo
 100644 $empty_oid	app/graphql/types/namespace_type.rb
 100644 $empty_oid	app/graphql/types/negated_milestone_wildcard_id_enum.rb
 100644 $empty_oid	app/graphql/types/nested_environment_type.rb
-100644 $empty_oid	app/graphql/types/noteable_type.rb
+100644 $empty_oid	app/graphql/types/notable_type.rb
 100644 $empty_oid	app/graphql/types/notes/deleted_note_type.rb
 100644 $empty_oid	app/graphql/types/notes/diff_image_position_input_type.rb
 100644 $empty_oid	app/graphql/types/notes/diff_position_base_input_type.rb
@@ -7827,7 +7827,7 @@ git init big-repo
 100644 $empty_oid	app/graphql/types/notes/diff_position_type.rb
 100644 $empty_oid	app/graphql/types/notes/discussion_type.rb
 100644 $empty_oid	app/graphql/types/notes/note_type.rb
-100644 $empty_oid	app/graphql/types/notes/noteable_interface.rb
+100644 $empty_oid	app/graphql/types/notes/notable_interface.rb
 100644 $empty_oid	app/graphql/types/notes/position_type_enum.rb
 100644 $empty_oid	app/graphql/types/notes/system_note_metadata_type.rb
 100644 $empty_oid	app/graphql/types/notes/update_diff_image_position_input_type.rb
@@ -8690,7 +8690,7 @@ git init big-repo
 100644 $empty_oid	app/models/concerns/milestoneish.rb
 100644 $empty_oid	app/models/concerns/mirror_authentication.rb
 100644 $empty_oid	app/models/concerns/note_on_diff.rb
-100644 $empty_oid	app/models/concerns/noteable.rb
+100644 $empty_oid	app/models/concerns/notable.rb
 100644 $empty_oid	app/models/concerns/notes/active_record.rb
 100644 $empty_oid	app/models/concerns/notes/discussion.rb
 100644 $empty_oid	app/models/concerns/notification_branch_selection.rb
@@ -9868,7 +9868,7 @@ git init big-repo
 100644 $empty_oid	app/serializers/merge_request_for_pipeline_entity.rb
 100644 $empty_oid	app/serializers/merge_request_metrics_entity.rb
 100644 $empty_oid	app/serializers/merge_request_metrics_helper.rb
-100644 $empty_oid	app/serializers/merge_request_noteable_entity.rb
+100644 $empty_oid	app/serializers/merge_request_notable_entity.rb
 100644 $empty_oid	app/serializers/merge_request_poll_cached_widget_entity.rb
 100644 $empty_oid	app/serializers/merge_request_poll_widget_entity.rb
 100644 $empty_oid	app/serializers/merge_request_serializer.rb

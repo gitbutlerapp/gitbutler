@@ -9,7 +9,7 @@ use crate::utils::PaniclessSubtraction;
 pub struct HunkRange {
     /// The kind of change that was performed on the path of the parent-diff.
     pub change_type: TreeStatusKind,
-    /// The stack that ownes `commit_id`.
+    /// The stack that owns `commit_id`.
     pub stack_id: StackId,
     /// The commit in the `stack_id`.
     pub commit_id: gix::ObjectId,

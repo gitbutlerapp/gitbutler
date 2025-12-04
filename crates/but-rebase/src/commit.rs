@@ -147,7 +147,7 @@ pub fn create(
     Ok(repo.write_object(&commit)?.detach())
 }
 
-/// Update the commiter of `commit` to be the current one.
+/// Update the committer of `commit` to be the current one.
 pub(crate) fn update_committer(
     repo: &gix::Repository,
     commit: &mut gix::objs::Commit,
@@ -321,7 +321,7 @@ fn signing_key(repo: &gix::Repository) -> anyhow::Result<BString> {
     if let Some(key) = repo.config_snapshot().string("user.signingkey") {
         return Ok(key.into_owned());
     }
-    tracing::info!("Falling back to commiter identity as user.signingKey isn't configured.");
+    tracing::info!("Falling back to committer identity as user.signingKey isn't configured.");
     let mut buf = Vec::<u8>::new();
     repo.committer()
         .transpose()?

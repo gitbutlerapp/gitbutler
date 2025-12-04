@@ -128,7 +128,7 @@ pub(crate) struct Commit {
     author_name: String,
     /// The email of the commit author
     author_email: String,
-    /// Wheter the commit is in a conflicted state. Only applicable to local commits (and not to upstream commits)
+    /// Whether the commit is in a conflicted state. Only applicable to local commits (and not to upstream commits)
     conflicted: Option<bool>,
     /// If but status was invoked with --review and if the commit has an associated review ID (eg. Gerrit review number), it will be present here
     review_id: Option<String>,

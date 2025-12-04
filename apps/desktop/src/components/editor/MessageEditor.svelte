@@ -543,7 +543,7 @@
 		padding: 2px 0;
 		text-align: center;
 
-		/* remove numver arrows */
+		/* remove number arrows */
 		&::-webkit-inner-spin-button,
 		&::-webkit-outer-spin-button {
 			-webkit-appearance: none;
