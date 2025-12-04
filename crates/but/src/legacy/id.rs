@@ -1,5 +1,6 @@
 use std::{
-    collections::{HashMap, HashSet},
+    borrow::Borrow,
+    collections::{BTreeSet, HashMap, HashSet},
     fmt::Display,
 };
 
@@ -48,12 +49,26 @@ fn context_info(ctx: &Context) -> anyhow::Result<ContextInfo> {
     })
 }
 
+/// a.cmp(b) == a.id.cmp(&b.id) for all a and b
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct CommittedFile {
+    commit_oid_path: (gix::ObjectId, BString),
+    id: String,
+}
+impl Borrow<(gix::ObjectId, BString)> for CommittedFile {
+    fn borrow(&self) -> &(gix::ObjectId, BString) {
+        &self.commit_oid_path
+    }
+}
+impl Borrow<str> for CommittedFile {
+    fn borrow(&self) -> &str {
+        &self.id
+    }
+}
+
 pub struct IdDb {
     branch_name_to_cli_id: HashMap<BString, CliId>,
-    /// Tuple of `commit_oid`, `path`, and `id`. Ordered by `(commit_oid, path)`
-    /// and at the same time, `id`. This means that a binary search can be
-    /// performed either on `(commit_oid, path)` or `id`.
-    committed_files: Vec<(gix::ObjectId, BString, String)>,
+    committed_files: BTreeSet<CommittedFile>,
     unassigned: CliId,
 }
 
@@ -106,9 +121,9 @@ impl IdDb {
             }
         }
 
-        let mut committed_files: Vec<(gix::ObjectId, BString, String)> = Vec::new();
+        let mut committed_files: BTreeSet<CommittedFile> = BTreeSet::new();
         let mut int_hash = 0u64;
-        for (commit_oid, path) in context_info.committed_files {
+        for commit_oid_path in context_info.committed_files {
             let id = loop {
                 let tentative_id = string_hash(int_hash);
                 int_hash += 1;
@@ -116,7 +131,10 @@ impl IdDb {
                     break tentative_id;
                 }
             };
-            committed_files.push((commit_oid, path, id));
+            committed_files.insert(CommittedFile {
+                commit_oid_path,
+                id,
+            });
         }
 
         Ok(Self {
@@ -188,15 +206,15 @@ impl IdDb {
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            if let Ok(index) = self
-                .committed_files
-                .binary_search_by(|(_, _, id)| id.as_str().cmp(s))
+            if let Some(CommittedFile {
+                commit_oid_path: (commit_oid, path),
+                ..
+            }) = self.committed_files.get(s)
             {
-                let (commit_oid, path, id) = &self.committed_files[index];
                 cli_matches.push(CliId::CommittedFile {
                     commit_oid: *commit_oid,
                     path: path.to_owned(),
-                    id: id.to_string(),
+                    id: s.to_string(),
                 });
             }
             crate::command::legacy::status::all_branches(ctx)?
@@ -225,28 +243,19 @@ impl IdDb {
     }
 
     pub fn committed_file(&self, commit_oid: gix::ObjectId, path: &BStr) -> CliId {
-        let sought_commit_oid = &commit_oid;
-        let sought_path = path;
-        match self
-            .committed_files
-            .binary_search_by(|(commit_oid, path, _)| {
-                commit_oid
-                    .cmp(sought_commit_oid)
-                    .then(AsRef::<BStr>::as_ref(path).cmp(sought_path))
-            }) {
-            Ok(index) => {
-                let (commit_oid, path, id) = &self.committed_files[index];
-                CliId::CommittedFile {
-                    commit_oid: *commit_oid,
-                    path: path.to_owned(),
-                    id: id.to_string(),
-                }
+        let sought = (commit_oid, path.to_owned());
+        if let Some(CommittedFile { id, .. }) = self.committed_files.get(&sought) {
+            CliId::CommittedFile {
+                commit_oid: sought.0,
+                path: sought.1,
+                id: id.to_string(),
             }
-            Err(_) => CliId::CommittedFile {
-                commit_oid,
-                path: path.to_owned(),
+        } else {
+            CliId::CommittedFile {
+                commit_oid: sought.0,
+                path: sought.1,
                 id: "00".to_string(),
-            },
+            }
         }
     }
 
