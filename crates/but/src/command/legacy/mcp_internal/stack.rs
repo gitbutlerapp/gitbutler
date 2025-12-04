@@ -181,9 +181,8 @@ fn parse_commits(
             let id = commit.id;
             let message = commit.message;
             let author = format!("{} <{}>", commit.author.name, commit.author.email);
-            let changes = but_core::diff::tree_changes(repo, Some(prev), commit.id)
-                .map(|(changes, _)| changes)
-                .unwrap_or_default();
+            let changes =
+                but_core::diff::tree_changes(repo, Some(prev), commit.id).unwrap_or_default();
 
             let files = changes
                 .into_iter()

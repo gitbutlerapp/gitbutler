@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_core::{RepositoryExt, settings::git::ui::GitConfigSettings};
 use but_serde::bstring_opt_lossy;
 use gitbutler_project::ProjectId;
@@ -7,7 +7,7 @@ use gix::bstr::BString;
 use serde::Serialize;
 use tracing::instrument;
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings> {
     gitbutler_project::get(project_id)?
@@ -16,7 +16,7 @@ pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings> {
         .map(Into::into)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn set_gb_config(project_id: ProjectId, config: GitConfigSettings) -> Result<()> {
     gitbutler_project::get(project_id)?
@@ -24,7 +24,7 @@ pub fn set_gb_config(project_id: ProjectId, config: GitConfigSettings) -> Result
         .set_git_settings(&config.into())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn store_author_globally_if_unset(
     project_id: ProjectId,
@@ -52,7 +52,7 @@ pub struct AuthorInfo {
     pub email: Option<BString>,
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 /// Return the Git author information as the project repository would see it.
 pub fn get_author_info(project_id: ProjectId) -> Result<AuthorInfo> {

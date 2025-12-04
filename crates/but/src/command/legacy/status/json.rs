@@ -9,6 +9,7 @@
 //! Non-goals:
 //! - Completeness: The output structures do not include all the data that the internal but-api has.
 
+use but_api::diff::ComputeLineStats;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
@@ -223,11 +224,12 @@ impl Commit {
         project_id: gitbutler_project::ProjectId,
     ) -> anyhow::Result<Self> {
         let changes = if show_files {
-            let commit_details =
-                but_api::legacy::diff::commit_details(project_id, commit.id.into())?;
+            // TODO: we should get the `ctx` as parameter.
+            let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
+            let commit_details: but_api::diff::json::CommitDetails =
+                but_api::diff::commit_details(&ctx, commit.id, ComputeLineStats::No)?.into();
             Some(
                 commit_details
-                    .changes
                     .changes
                     .into_iter()
                     .map(|change| {

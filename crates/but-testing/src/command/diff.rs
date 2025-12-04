@@ -19,7 +19,7 @@ pub fn commit_changes(
         .map(|revspec| repo.rev_parse_single(revspec))
         .transpose()?;
     let commit = repo.rev_parse_single(current_commit)?;
-    let (changes, _) =
+    let changes =
         but_core::diff::tree_changes(&repo, previous_commit.map(Into::into), commit.into())?;
 
     if unified_diff {

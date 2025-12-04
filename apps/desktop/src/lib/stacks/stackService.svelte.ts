@@ -1145,7 +1145,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				{ projectId: string; commitId: string }
 			>({
 				keepUnusedDataFor: 60, // Keep for 1 minute after last use
-				extraOptions: { command: 'commit_details' },
+				extraOptions: { command: 'commit_details_with_line_stats' },
 				query: (args) => args,
 				providesTags: (_result, _error, { commitId }) => [
 					...providesItem(ReduxTag.CommitChanges, commitId)

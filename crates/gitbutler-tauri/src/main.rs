@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use anyhow::bail;
-use but_api::{github, legacy};
+use but_api::{diff, github, legacy};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
@@ -214,6 +214,8 @@ fn main() -> anyhow::Result<()> {
                 github::tauri_forget_github_account::forget_github_account,
                 github::tauri_list_known_github_accounts::list_known_github_accounts,
                 github::tauri_clear_all_github_tokens::clear_all_github_tokens,
+                diff::tauri_commit_details::commit_details,
+                diff::tauri_commit_details_with_line_stats::commit_details_with_line_stats,
                 legacy::git::tauri_git_remote_branches::git_remote_branches,
                 legacy::git::tauri_delete_all_data::delete_all_data,
                 legacy::git::tauri_git_set_global_config::git_set_global_config,
@@ -333,7 +335,6 @@ fn main() -> anyhow::Result<()> {
                 legacy::workspace::tauri_split_branch::split_branch,
                 legacy::workspace::tauri_split_branch_into_dependent_branch::split_branch_into_dependent_branch,
                 legacy::diff::tauri_changes_in_worktree::changes_in_worktree,
-                legacy::diff::tauri_commit_details::commit_details,
                 legacy::diff::tauri_changes_in_branch::changes_in_branch,
                 legacy::diff::tauri_tree_change_diffs::tree_change_diffs,
                 legacy::diff::tauri_assign_hunk::assign_hunk,

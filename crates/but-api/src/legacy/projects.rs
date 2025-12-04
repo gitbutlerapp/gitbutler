@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use gitbutler_project::{self as projects, ProjectId};
 use tracing::instrument;
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn update_project(project: projects::UpdateRequest) -> Result<projects::api::Project> {
     Ok(gitbutler_project::update(project)?.into())
@@ -13,7 +13,7 @@ pub fn update_project(project: projects::UpdateRequest) -> Result<projects::api:
 
 /// Adds an existing git repository as a GitButler project.
 /// If the directory is not a git repository, an error is returned.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn add_project(path: PathBuf) -> Result<projects::AddProjectOutcome> {
     gitbutler_project::add(&path)
@@ -22,13 +22,13 @@ pub fn add_project(path: PathBuf) -> Result<projects::AddProjectOutcome> {
 /// Add a project by a given path.
 /// It will look for other existing projects and try to match the path
 /// to them, allowing to open projects from paths within the repository.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn add_project_best_effort(path: PathBuf) -> Result<projects::AddProjectOutcome> {
     gitbutler_project::add_with_best_effort(&path)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_project(
     project_id: ProjectId,
@@ -41,7 +41,7 @@ pub fn get_project(
     }
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_projects(opened_projects: Vec<ProjectId>) -> Result<Vec<ProjectForFrontend>> {
     gitbutler_project::assure_app_can_startup_or_fix_it(
@@ -67,13 +67,13 @@ pub fn list_projects(opened_projects: Vec<ProjectId>) -> Result<Vec<ProjectForFr
     })
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn delete_project(project_id: ProjectId) -> Result<()> {
     gitbutler_project::delete(project_id)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn is_gerrit(project_id: ProjectId) -> Result<bool> {
     let project = gitbutler_project::get_raw(project_id)?;

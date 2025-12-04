@@ -63,6 +63,15 @@ impl Context {
     }
 }
 
+impl TryFrom<LegacyProjectId> for Context {
+    type Error = anyhow::Error;
+
+    fn try_from(value: LegacyProjectId) -> Result<Self, Self::Error> {
+        let project = gitbutler_project::get(value)?;
+        Context::new_from_legacy_project(project)
+    }
+}
+
 /// Trampolines that create new uncached instances of major types.
 impl Context {
     /// Open the repository with standard options and create a new Graph traversal from the given `ref_name`,

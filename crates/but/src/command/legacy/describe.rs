@@ -1,10 +1,10 @@
+use crate::{legacy::id::CliId, tui, utils::OutputChannel};
 use anyhow::{Result, bail};
+use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
 use but_oxidize::{ObjectIdExt as _, OidExt};
 use gitbutler_project::Project;
 use gix::prelude::ObjectIdExt;
-
-use crate::{legacy::id::CliId, tui, utils::OutputChannel};
 
 pub(crate) fn describe_target(
     project: &Project,
@@ -152,7 +152,7 @@ fn edit_commit_message_by_id(
 
     // Get new message from provided argument or editor
     let new_message = prepare_provided_message(message, "commit message").unwrap_or_else(|| {
-        let commit_details = but_api::legacy::diff::commit_details(project.id, commit_oid.into())?;
+        let commit_details = but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
         let changed_files = get_changed_files_from_commit_details(&commit_details);
 
         // Open editor with current message and file list
@@ -189,16 +189,16 @@ fn edit_commit_message_by_id(
 }
 
 fn get_changed_files_from_commit_details(
-    commit_details: &but_api::legacy::diff::json::CommitDetails,
+    commit_details: &but_core::diff::CommitDetails,
 ) -> Vec<String> {
     let mut files = Vec::new();
 
-    for change in &commit_details.changes.changes {
+    for change in &commit_details.diff_with_first_parent {
         let status = match &change.status {
-            but_core::ui::TreeStatus::Addition { .. } => "new file:",
-            but_core::ui::TreeStatus::Deletion { .. } => "deleted:",
-            but_core::ui::TreeStatus::Modification { .. } => "modified:",
-            but_core::ui::TreeStatus::Rename { .. } => "modified:",
+            but_core::TreeStatus::Addition { .. } => "new file:",
+            but_core::TreeStatus::Deletion { .. } => "deleted:",
+            but_core::TreeStatus::Modification { .. } => "modified:",
+            but_core::TreeStatus::Rename { .. } => "modified:",
         };
 
         let file_path = change.path.to_string();

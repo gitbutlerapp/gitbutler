@@ -1,12 +1,12 @@
 use anyhow::Result;
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_cherry_apply::CherryApplyStatus;
 use but_ctx::Context;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use tracing::instrument;
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn cherry_apply_status(project_id: ProjectId, subject: String) -> Result<CherryApplyStatus> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -17,7 +17,7 @@ pub fn cherry_apply_status(project_id: ProjectId, subject: String) -> Result<Che
     but_cherry_apply::cherry_apply_status(&ctx, guard.read_permission(), subject_oid)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn cherry_apply(project_id: ProjectId, subject: String, target: StackId) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;

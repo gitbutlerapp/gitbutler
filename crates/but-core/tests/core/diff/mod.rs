@@ -2,7 +2,7 @@ use anyhow::Context as _;
 use bstr::{BString, ByteVec};
 use but_core::{TreeChange, UnifiedPatch};
 
-mod commit_changes;
+mod tree_changes;
 mod ui;
 pub(crate) mod worktree_changes;
 

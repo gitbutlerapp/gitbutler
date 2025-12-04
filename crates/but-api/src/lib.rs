@@ -16,6 +16,9 @@ pub mod github;
 /// Functions that take a branch as input.
 pub mod branch;
 
+/// Functions that show what changed in various Git entities, like trees, commits and the worktree.
+pub mod diff;
+
 /// Types meant to be serialised to JSON, without degenerating information despite the need to be UTF-8 encodable.
 /// EXPERIMENTAL
 pub mod json;

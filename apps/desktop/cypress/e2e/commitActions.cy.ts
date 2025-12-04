@@ -14,7 +14,7 @@ describe('Commit Actions', () => {
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
@@ -600,7 +600,7 @@ describe('Commit Actions with branches containing changes', () => {
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
@@ -696,7 +696,7 @@ describe('Commit Actions with no stacks', () => {
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
@@ -833,7 +833,7 @@ describe('Commit Actions with a stack of two empty branches', () => {
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);

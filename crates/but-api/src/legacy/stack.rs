@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use anyhow::{Context as _, Result, anyhow};
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_ctx::Context;
 use gitbutler_branch_actions::{internal::PushResult, stack::CreateSeriesRequest};
 use gitbutler_oplog::SnapshotExt;
@@ -39,7 +39,7 @@ pub mod create_reference {
     }
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn create_reference(
     project_id: ProjectId,
@@ -96,7 +96,7 @@ pub fn create_reference(
     Ok((stack_id, new_ref))
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn create_branch(
     project_id: ProjectId,
@@ -160,7 +160,7 @@ pub fn create_branch(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: String) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -193,7 +193,7 @@ pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: Stri
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn update_branch_name(
     project_id: ProjectId,
@@ -206,7 +206,7 @@ pub fn update_branch_name(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn update_branch_description(
     project_id: ProjectId,
@@ -224,7 +224,7 @@ pub fn update_branch_description(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn update_branch_pr_number(
     project_id: ProjectId,
@@ -242,7 +242,7 @@ pub fn update_branch_pr_number(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn push_stack(
     project_id: ProjectId,
@@ -266,7 +266,7 @@ pub fn push_stack(
     )
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn push_stack_to_review(
     project_id: ProjectId,

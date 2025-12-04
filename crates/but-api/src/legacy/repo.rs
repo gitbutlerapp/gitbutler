@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_core::DiffSpec;
 use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types::BranchOwnershipClaims;
@@ -15,21 +15,21 @@ use gitbutler_repo::{
 use gitbutler_repo_actions::askpass;
 use tracing::instrument;
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_get_local_config(project_id: ProjectId, key: String) -> Result<Option<String>> {
     let project = gitbutler_project::get(project_id)?;
     project.get_local_config(&key)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn git_set_local_config(project_id: ProjectId, key: String, value: String) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     project.set_local_config(&key, &value)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn check_signing_settings(project_id: ProjectId) -> Result<bool> {
     let project = gitbutler_project::get(project_id)?;
@@ -37,7 +37,7 @@ pub fn check_signing_settings(project_id: ProjectId) -> Result<bool> {
 }
 
 /// NOTE: this function currently needs a tokio runtime to work.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Result<()> {
     gitbutler_git::clone(
@@ -58,14 +58,14 @@ async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> 
         .await
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_uncommited_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFile>> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::get_uncommited_files(&ctx)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_commit_file(
     project_id: ProjectId,
@@ -77,14 +77,14 @@ pub fn get_commit_file(
     project.read_file_from_commit(commit_id, &relative_path)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_workspace_file(project_id: ProjectId, relative_path: PathBuf) -> Result<FileInfo> {
     let project = gitbutler_project::get(project_id)?;
     project.read_file_from_workspace(&relative_path)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn pre_commit_hook(
     project_id: ProjectId,
@@ -95,7 +95,7 @@ pub fn pre_commit_hook(
     hooks::pre_commit(&ctx, &claim)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn pre_commit_hook_diffspecs(
     project_id: ProjectId,
@@ -122,21 +122,21 @@ pub fn pre_commit_hook_diffspecs(
     hooks::pre_commit_with_tree(&ctx, new_tree.to_git2())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn post_commit_hook(project_id: ProjectId) -> Result<HookResult> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_repo::hooks::post_commit(&ctx)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn message_hook(project_id: ProjectId, message: String) -> Result<MessageHookResult> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_repo::hooks::commit_msg(&ctx, message)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn find_files(
     project_id: ProjectId,

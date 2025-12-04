@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use gitbutler_user::User;
 use tracing::instrument;
 
@@ -60,7 +60,7 @@ mod json {
     }
 }
 
-#[api_cmd_tauri(try_from = json::UserWithSecretsSensitive)]
+#[but_api(try_from = json::UserWithSecretsSensitive)]
 #[instrument(err(Debug))]
 pub fn get_user() -> Result<Option<User>> {
     match gitbutler_user::get_user()? {
@@ -75,13 +75,13 @@ pub fn get_user() -> Result<Option<User>> {
     }
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn set_user(user: User) -> Result<()> {
     gitbutler_user::set_user(&user)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn delete_user() -> Result<()> {
     gitbutler_user::delete_user()

@@ -1024,7 +1024,8 @@ pub fn commit_details(
     let commit_id = gix::ObjectId::from_str(&params.commit_id)
         .map(|id| find_the_right_commit_id(id, commit_mapping))?;
 
-    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(&repo, commit_id)?;
+    let changes =
+        but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(&repo, commit_id)?;
     let changes: Vec<but_core::TreeChange> = changes
         .changes
         .into_iter()
@@ -1946,7 +1947,7 @@ fn changes_in_branch_inner(
         Ok((start_commit_id, merge_base.to_gix()))
     }?;
 
-    but_core::diff::ui::changes_in_range(&repo, start_commit_id, base_commit_id)
+    but_core::diff::ui::changes_with_line_stats_in_range(&repo, start_commit_id, base_commit_id)
 }
 
 fn commit_and_base_from_stack(

@@ -27,7 +27,10 @@ pub async fn commit(
     let (diff, sync_ctx) = {
         let ctx = Context::new_from_legacy_project(event.project.clone())?;
         let repo = &ctx.open_repo_for_merging_non_persisting()?;
-        let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, event.commit_id)?;
+        let changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
+            repo,
+            event.commit_id,
+        )?;
         (
             changes
                 .try_to_unidiff(repo, ctx.settings().context_lines)?

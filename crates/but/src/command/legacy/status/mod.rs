@@ -1,8 +1,10 @@
 use std::collections::BTreeMap;
 
+use crate::CLI_DATE;
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
-use but_core::ui::{TreeChange, TreeStatus};
+use but_api::diff::ComputeLineStats;
+use but_core::{TreeStatus, ui};
 use but_ctx::{Context, LegacyProject};
 use but_hunk_assignment::HunkAssignment;
 use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
@@ -10,8 +12,6 @@ use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gix::date::time::CustomFormat;
 use serde::Serialize;
-
-use crate::CLI_DATE;
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
@@ -323,18 +323,18 @@ pub(crate) async fn worktree(
 
 fn print_assignments(
     assignments: &Vec<FileAssignment>,
-    changes: &[TreeChange],
+    changes: &[ui::TreeChange],
     dotted: bool,
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match &state {
-            Some(state) => path_with_color(state, fa.path.to_string()),
+            Some(state) => path_with_color_ui(state, fa.path.to_string()),
             None => fa.path.to_string().normal(),
         };
 
-        let status = state.as_ref().map(status_letter).unwrap_or_default();
+        let status = state.as_ref().map(status_letter_ui).unwrap_or_default();
 
         let id = fa.assignments[0].cli_id.underline().blue();
 
@@ -374,7 +374,7 @@ pub fn print_group(
     project: &gitbutler_project::Project,
     group: Option<StackDetails>,
     assignments: Vec<FileAssignment>,
-    changes: &[TreeChange],
+    changes: &[ui::TreeChange],
     show_files: bool,
     verbose: bool,
     show_url: bool,
@@ -441,12 +441,12 @@ pub fn print_group(
             for commit in &branch.upstream_commits {
                 let dot = "●".yellow();
                 print_commit(
+                    ctx,
                     commit.id,
                     created_at_of_commit(ctx, commit.id)?,
                     commit.message.to_string(),
                     commit.author.name.clone(),
                     dot,
-                    project.id,
                     false,
                     show_files,
                     verbose,
@@ -473,12 +473,12 @@ pub fn print_group(
                     but_workspace::ui::CommitState::Integrated => "●".purple(),
                 };
                 print_commit(
+                    ctx,
                     commit.id,
                     created_at_of_commit(ctx, commit.id)?,
                     commit.message.to_string(),
                     commit.author.name.clone(),
                     dot,
-                    project.id,
                     marked,
                     show_files,
                     verbose,
@@ -531,6 +531,24 @@ fn status_letter(status: &TreeStatus) -> char {
     }
 }
 
+fn status_letter_ui(status: &ui::TreeStatus) -> char {
+    match status {
+        ui::TreeStatus::Addition { .. } => 'A',
+        ui::TreeStatus::Deletion { .. } => 'D',
+        ui::TreeStatus::Modification { .. } => 'M',
+        ui::TreeStatus::Rename { .. } => 'R',
+    }
+}
+
+fn path_with_color_ui(status: &ui::TreeStatus, path: String) -> ColoredString {
+    match status {
+        ui::TreeStatus::Addition { .. } => path.green(),
+        ui::TreeStatus::Deletion { .. } => path.red(),
+        ui::TreeStatus::Modification { .. } => path.yellow(),
+        ui::TreeStatus::Rename { .. } => path.purple(),
+    }
+}
+
 fn path_with_color(status: &TreeStatus, path: String) -> ColoredString {
     match status {
         TreeStatus::Addition { .. } => path.green(),
@@ -568,7 +586,7 @@ pub(crate) fn all_branches(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
     Ok(branches)
 }
 
-fn status_from_changes(changes: &[TreeChange], path: BString) -> Option<TreeStatus> {
+fn status_from_changes(changes: &[ui::TreeChange], path: BString) -> Option<ui::TreeStatus> {
     changes.iter().find_map(|change| {
         if change.path_bytes == path {
             Some(change.status.clone())
@@ -586,8 +604,8 @@ pub(crate) fn all_committed_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId
         for branch in details.branch_details {
             for commit in branch.commits {
                 let commit_details =
-                    but_api::legacy::diff::commit_details(ctx.legacy_project.id, commit.id.into())?;
-                for change in &commit_details.changes.changes {
+                    but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
+                for change in &commit_details.diff_with_first_parent {
                     let cid = CliId::committed_file(&change.path.to_string(), commit.id);
                     committed_files.push(cid);
                 }
@@ -599,12 +617,12 @@ pub(crate) fn all_committed_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId
 
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
+    ctx: &Context,
     commit_id: gix::ObjectId,
     created_at: gix::date::Time,
     message: String,
     author_name: String,
     dot: ColoredString,
-    project_id: gitbutler_project::ProjectId,
     marked: bool,
     show_files: bool,
     verbose: bool,
@@ -645,8 +663,8 @@ fn print_commit(
         message = "(no commit message)".to_string().dimmed().italic();
     }
 
-    let commit_details = but_api::legacy::diff::commit_details(project_id, commit_id.into())?;
-    let no_changes = if show_files && commit_details.changes.changes.is_empty() {
+    let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
+    let no_changes = if show_files && commit_details.diff_with_first_parent.is_empty() {
         "(no changes)".dimmed().italic()
     } else {
         "".to_string().normal()
@@ -691,7 +709,7 @@ fn print_commit(
         )?;
     }
     if show_files {
-        for change in &commit_details.changes.changes {
+        for change in &commit_details.diff_with_first_parent {
             let cid = CliId::committed_file(&change.path.to_string(), commit_id)
                 .to_string()
                 .blue()

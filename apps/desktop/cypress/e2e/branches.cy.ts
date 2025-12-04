@@ -11,7 +11,7 @@ describe('Branches', () => {
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
