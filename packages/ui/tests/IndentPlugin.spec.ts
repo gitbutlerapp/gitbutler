@@ -120,6 +120,53 @@ test.describe('IndentPlugin', () => {
 		expect(textAfter).toContain('Normal text');
 	});
 
+	test('should insert newline with indentation but no bullet when pressing Shift+Enter', async ({
+		mount,
+		page
+	}) => {
+		const component = await mount(IndentPluginTestWrapper, {
+			props: {
+				initialText: ''
+			}
+		});
+
+		// Wait for initial idle state
+		await waitUntilIdle(page);
+
+		// Focus editor
+		await component.getByTestId('focus-button').click();
+
+		// Type bullet with idle detection
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.type('- First item');
+		});
+
+		// Press Shift+Enter - should create a new line with indentation but no bullet
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.press('Shift+Enter');
+		});
+
+		// Type continuation text
+		await doAndWaitForIdle(page, async () => {
+			await page.keyboard.type('Continuation line');
+		});
+
+		const textAfter = await getTextContent(component);
+
+		// Verify we have the bullet line and continuation line with indentation
+		expect(textAfter).toContain('- First item');
+		expect(textAfter).toContain('Continuation line');
+
+		// The continuation line should not have a bullet
+		expect(textAfter).not.toContain('- Continuation line');
+
+		const lines = textAfter.split('\n');
+		expect(lines.length).toBe(2);
+		expect(lines[0]).toBe('- First item');
+		// The second line should have indentation (spaces) but no bullet
+		expect(lines[1]).toMatch(/^\s+Continuation line$/);
+	});
+
 	test('should load and save text with indentation and bullets without changes', async ({
 		mount,
 		page

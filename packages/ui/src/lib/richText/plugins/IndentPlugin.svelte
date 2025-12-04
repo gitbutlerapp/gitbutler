@@ -15,6 +15,43 @@ This component overrides enter key command to handle indentation and bullets in 
 		const anchor = selection.anchor;
 		const node = anchor.getNode();
 
+		// If shift key is pressed, insert a plain newline with indentation but without bullet
+		if (event?.shiftKey) {
+			const textNode = isTextNode(node) ? node : node.getFirstChild();
+			const parent = isTextNode(node) ? node.getParent() : node;
+
+			if (!isParagraphNode(parent) || !textNode || !isTextNode(textNode)) return false;
+
+			const offset = anchor.offset;
+			const textContent = textNode.getTextContent();
+			const textAfterCursor = textContent.substring(offset);
+			const textBeforeCursor = textContent.substring(0, offset);
+
+			// Get the current line's indentation (without bullet)
+			const currentLineText = parent.getTextContent();
+			const bullet = parseBullet(currentLineText);
+			const indent = bullet ? bullet.indent : parseIndent(currentLineText);
+
+			// Update current node's text to everything before cursor
+			textNode.setTextContent(textBeforeCursor);
+
+			// Create new paragraph with indentation but no bullet
+			const newParagraph = createParagraphNode();
+			const newTextNode = createTextNode(indent + textAfterCursor);
+			newParagraph.append(newTextNode);
+
+			// Insert the new paragraph after the current one
+			parent.insertAfter(newParagraph);
+
+			// Set selection after the indentation in the new paragraph
+			const newSelection = createRangeSelection();
+			newSelection.anchor.set(newTextNode.getKey(), indent.length, 'text');
+			newSelection.focus.set(newTextNode.getKey(), indent.length, 'text');
+			setSelection(newSelection);
+
+			return true;
+		}
+
 		// Handle both text nodes and paragraph nodes (for empty paragraphs)
 		let parent;
 		let textNode;
