@@ -153,7 +153,11 @@ pub fn pre_push(
     local_commit: git2::Oid,
     remote_tracking_branch: &gitbutler_reference::RemoteRefname,
 ) -> Result<HookResult> {
-    let hooks_path = repo.path().join("hooks").join("pre-push");
+    let hooks_dir = repo
+        .config()
+        .and_then(|config| config.get_path("core.hooksPath"))
+        .unwrap_or_else(|_| repo.path().join("hooks"));
+    let hooks_path = hooks_dir.join("pre-push");
     let husky_path = repo
         .path()
         .parent()
