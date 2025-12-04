@@ -73,8 +73,16 @@ pub fn get_commit_file(
     commit_id: String,
 ) -> Result<FileInfo> {
     let project = gitbutler_project::get(project_id)?;
-    let commit_id = git2::Oid::from_str(&commit_id).map_err(anyhow::Error::from)?;
-    project.read_file_from_commit(commit_id, &relative_path)
+
+    let commit_oid = if let Ok(oid) = git2::Oid::from_str(&commit_id) {
+        oid
+    } else {
+        // Support refs like "HEAD" by resolving with gix
+        let repo = project.open_repo()?;
+        repo.rev_parse_single(commit_id.as_bytes())?.to_git2()
+    };
+
+    project.read_file_from_commit(commit_oid, &relative_path)
 }
 
 #[but_api]
@@ -82,6 +90,24 @@ pub fn get_commit_file(
 pub fn get_workspace_file(project_id: ProjectId, relative_path: PathBuf) -> Result<FileInfo> {
     let project = gitbutler_project::get(project_id)?;
     project.read_file_from_workspace(&relative_path)
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn get_blob_file(
+    project_id: ProjectId,
+    relative_path: PathBuf,
+    blob_id: String,
+) -> Result<FileInfo> {
+    let project = gitbutler_project::get(project_id)?;
+    let repo = project.open_repo()?;
+
+    let oid = gix::ObjectId::from_hex(blob_id.as_bytes()).context("Failed to parse blob ID")?;
+
+    let object = repo.find_object(oid).context("Failed to find blob")?;
+    let blob = object.try_into_blob()?;
+
+    Ok(FileInfo::from_content(&relative_path, &blob.data))
 }
 
 #[but_api]
