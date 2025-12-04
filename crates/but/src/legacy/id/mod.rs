@@ -9,6 +9,9 @@ use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 
+#[cfg(test)]
+mod tests;
+
 /// All information from [Context] needed for ID creation.
 struct ContextInfo {
     /// Branch names in unspecified order.
