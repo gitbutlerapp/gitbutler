@@ -2,8 +2,12 @@ import { logErrorToFile } from '$lib/backend';
 import { SilentError } from '$lib/error/error';
 import { parseError } from '$lib/error/parser';
 import { showError } from '$lib/notifications/toasts';
+import { polyfillAbortSignalTimeout } from '$lib/polyfills/abortSignal';
 import { captureException } from '@sentry/sveltekit';
 import type { HandleClientError } from '@sveltejs/kit';
+
+// Apply polyfills before any code runs
+polyfillAbortSignalTimeout();
 
 const E2E_MESSAGES_TO_IGNORE_DURING_E2E = [
 	'Unable to autolaunch a dbus-daemon without a $DISPLAY for X11'
