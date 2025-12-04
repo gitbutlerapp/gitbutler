@@ -57,6 +57,7 @@
 	const baseBranchName = $derived(baseBranch?.shortName);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
+	const prUnit = $derived(prService?.unit);
 	const stackService = inject(STACK_SERVICE);
 	const aiService = inject(AI_SERVICE);
 	const remotesService = inject(REMOTES_SERVICE);
@@ -423,7 +424,7 @@
 					onClose();
 				}
 			})}
-			placeholder="PR title"
+			placeholder="{prUnit?.abbr ?? 'PR'} title"
 			showCount={false}
 			oninput={imeHandler.handleInput((e: Event) => {
 				const target = e.target as HTMLInputElement;
@@ -439,8 +440,9 @@
 			initialValue={$prBody}
 			enableFileUpload
 			enableSmiles
-			placeholder="PR Description"
+			placeholder="{prUnit?.abbr ?? 'PR'} Description"
 			messageType="pr"
+			reviewUnitAbbr={prUnit?.abbr}
 			{onAiButtonClick}
 			{canUseAI}
 			{aiIsLoading}

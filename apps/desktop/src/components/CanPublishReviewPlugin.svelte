@@ -23,10 +23,11 @@
 	const prService = $derived(forge.current.prService);
 	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prQuery?.response);
+	const reviewUnitName = $derived(prService?.unit.name ?? 'Pull request');
 
 	const canPublishPR = $derived(forge.current.authenticated && !pr);
 
-	const ctaLabel = 'Create Pull Request…';
+	const ctaLabel = $derived(`Create ${reviewUnitName}…`);
 
 	export const imports = {
 		get allowedToPublishPR() {

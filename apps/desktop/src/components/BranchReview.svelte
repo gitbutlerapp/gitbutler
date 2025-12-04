@@ -28,6 +28,7 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 	const reviewUnit = $derived(prService?.unit.abbr);
+	const reviewUnitName = $derived(prService?.unit.name ?? 'Pull request');
 
 	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
 
@@ -49,21 +50,21 @@
 	<Modal
 		width="small"
 		type="warning"
-		title="Create Pull Request"
+		title="Create {reviewUnitName}"
 		bind:this={confirmCreatePrModal}
 		onSubmit={() => {
 			modal?.show();
 		}}
 	>
 		<p class="text-13 text-body helper-text">
-			It's strongly recommended to create pull requests starting with the branch at the base of the
-			stack.
+			It's strongly recommended to create {reviewUnitName.toLowerCase()}s starting with the branch
+			at the base of the stack.
 			<br />
-			Do you still want to create this pull request?
+			Do you still want to create this {reviewUnitName.toLowerCase()}?
 		</p>
 		{#snippet controls(close)}
 			<Button kind="outline" onclick={close}>Cancel</Button>
-			<Button style="warning" type="submit">Create Pull Request</Button>
+			<Button style="warning" type="submit">Create {reviewUnitName}</Button>
 		{/snippet}
 	</Modal>
 
