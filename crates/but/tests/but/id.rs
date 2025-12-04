@@ -111,3 +111,42 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn commits() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    // Must set metadata to match the scenario
+    setup_metadata(&env, &["A", "B"])?;
+
+    env.but("status")
+        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+[..]94[..]77ae7[..]add A[..]
+...
+[..]d3[..]e2ba3[..]add B[..]
+..."#]]);
+
+    // Exercise to ensure that we're interpreting commit CLI IDs correctly
+    env.but("94 d3")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Rubbed the wrong way. Cannot squash commits from different stacks
+
+"#]]);
+
+    // Longer CLI IDs also behave the same
+    env.but("947 d3e")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Rubbed the wrong way. Cannot squash commits from different stacks
+
+"#]]);
+
+    Ok(())
+}
