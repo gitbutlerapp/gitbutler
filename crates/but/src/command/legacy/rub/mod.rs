@@ -14,7 +14,10 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 
-use crate::{legacy::id::CliId, utils::OutputChannel};
+use crate::{
+    legacy::id::{CliId, IdDb},
+    utils::OutputChannel,
+};
 
 pub(crate) fn handle(
     project: &Project,
@@ -23,7 +26,8 @@ pub(crate) fn handle(
     target_str: &str,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let (sources, target) = ids(ctx, source_str, target_str)?;
+    let id_db = IdDb::new(ctx)?;
+    let (sources, target) = ids(ctx, &id_db, source_str, target_str)?;
 
     for source in sources {
         match (&source, &target) {
@@ -95,17 +99,38 @@ pub(crate) fn handle(
             (CliId::CommittedFile { .. }, CliId::CommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
-            (CliId::CommittedFile { path, commit_oid }, CliId::Branch { name, .. }) => {
+            (
+                CliId::CommittedFile {
+                    path, commit_oid, ..
+                },
+                CliId::Branch { name, .. },
+            ) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path, *commit_oid, Some(name), out)?;
+                commits::uncommit_file(ctx, path.as_ref(), *commit_oid, Some(name), out)?;
             }
-            (CliId::CommittedFile { path, commit_oid }, CliId::Commit { oid }) => {
+            (
+                CliId::CommittedFile {
+                    path, commit_oid, ..
+                },
+                CliId::Commit { oid },
+            ) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                commits::commited_file_to_another_commit(ctx, path, *commit_oid, *oid, out)?;
+                commits::commited_file_to_another_commit(
+                    ctx,
+                    path.as_ref(),
+                    *commit_oid,
+                    *oid,
+                    out,
+                )?;
             }
-            (CliId::CommittedFile { path, commit_oid }, CliId::Unassigned { .. }) => {
+            (
+                CliId::CommittedFile {
+                    path, commit_oid, ..
+                },
+                CliId::Unassigned { .. },
+            ) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path, *commit_oid, None, out)?;
+                commits::uncommit_file(ctx, path.as_ref(), *commit_oid, None, out)?;
             }
             (CliId::Branch { .. }, CliId::CommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
@@ -131,9 +156,14 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
     )
 }
 
-fn ids(ctx: &mut Context, source: &str, target: &str) -> anyhow::Result<(Vec<CliId>, CliId)> {
-    let sources = parse_sources(ctx, source)?;
-    let target_result = crate::legacy::id::CliId::from_str(ctx, target)?;
+fn ids(
+    ctx: &mut Context,
+    id_db: &IdDb,
+    source: &str,
+    target: &str,
+) -> anyhow::Result<(Vec<CliId>, CliId)> {
+    let sources = parse_sources(ctx, id_db, source)?;
+    let target_result = id_db.parse_str(ctx, target)?;
     if target_result.len() != 1 {
         if target_result.is_empty() {
             return Err(anyhow::anyhow!(
@@ -161,18 +191,22 @@ fn ids(ctx: &mut Context, source: &str, target: &str) -> anyhow::Result<(Vec<Cli
     Ok((sources, target_result[0].clone()))
 }
 
-pub(crate) fn parse_sources(ctx: &mut Context, source: &str) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn parse_sources(
+    ctx: &mut Context,
+    id_db: &IdDb,
+    source: &str,
+) -> anyhow::Result<Vec<CliId>> {
     // Check if it's a range (contains '-')
     if source.contains('-') {
-        parse_range(ctx, source)
+        parse_range(ctx, id_db, source)
     }
     // Check if it's a list (contains ',')
     else if source.contains(',') {
-        parse_list(ctx, source)
+        parse_list(ctx, id_db, source)
     }
     // Single source
     else {
-        let source_result = crate::legacy::id::CliId::from_str(ctx, source)?;
+        let source_result = id_db.parse_str(ctx, source)?;
         if source_result.len() != 1 {
             if source_result.is_empty() {
                 return Err(anyhow::anyhow!(
@@ -201,7 +235,7 @@ pub(crate) fn parse_sources(ctx: &mut Context, source: &str) -> anyhow::Result<V
     }
 }
 
-fn parse_range(ctx: &mut Context, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_range(ctx: &mut Context, id_db: &IdDb, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split('-').collect();
     if parts.len() != 2 {
         return Err(anyhow::anyhow!(
@@ -214,8 +248,8 @@ fn parse_range(ctx: &mut Context, source: &str) -> anyhow::Result<Vec<CliId>> {
     let end_str = parts[1];
 
     // Get the start and end IDs
-    let start_matches = crate::legacy::id::CliId::from_str(ctx, start_str)?;
-    let end_matches = crate::legacy::id::CliId::from_str(ctx, end_str)?;
+    let start_matches = id_db.parse_str(ctx, start_str)?;
+    let end_matches = id_db.parse_str(ctx, end_str)?;
 
     if start_matches.len() != 1 {
         return Err(anyhow::anyhow!(
@@ -318,13 +352,13 @@ fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId
     Ok(all_files)
 }
 
-fn parse_list(ctx: &mut Context, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_list(ctx: &mut Context, id_db: &IdDb, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split(',').collect();
     let mut result = Vec::new();
 
     for part in parts {
         let part = part.trim();
-        let matches = crate::legacy::id::CliId::from_str(ctx, part)?;
+        let matches = id_db.parse_str(ctx, part)?;
         if matches.len() != 1 {
             if matches.is_empty() {
                 return Err(anyhow::anyhow!(

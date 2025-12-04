@@ -7,7 +7,9 @@ use but_rules::Operation;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::Project;
 
-use crate::{command::legacy::rub::branch_name_to_stack_id, utils::OutputChannel};
+use crate::{
+    command::legacy::rub::branch_name_to_stack_id, legacy::id::IdDb, utils::OutputChannel,
+};
 
 pub(crate) fn handle(
     project: &Project,
@@ -16,7 +18,8 @@ pub(crate) fn handle(
     delete: bool,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let target_result = crate::legacy::id::CliId::from_str(ctx, target_str)?;
+    let id_db = IdDb::new(ctx)?;
+    let target_result = id_db.parse_str(ctx, target_str)?;
     if target_result.len() != 1 {
         return Err(anyhow::anyhow!(
             "Target {} is ambiguous: {:?}",

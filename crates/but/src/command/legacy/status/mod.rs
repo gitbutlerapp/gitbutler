@@ -453,6 +453,7 @@ pub fn print_group(
                     false,
                     show_url,
                     None,
+                    id_db,
                     out,
                 )?;
             }
@@ -485,6 +486,7 @@ pub fn print_group(
                     commit.has_conflicts,
                     show_url,
                     commit.gerrit_review_url.clone(),
+                    id_db,
                     out,
                 )?;
             }
@@ -596,25 +598,6 @@ fn status_from_changes(changes: &[ui::TreeChange], path: BString) -> Option<ui::
     })
 }
 
-pub(crate) fn all_committed_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
-    let mut committed_files = Vec::new();
-    let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
-    for stack in stacks {
-        let details = but_api::legacy::workspace::stack_details(ctx.legacy_project.id, stack.id)?;
-        for branch in details.branch_details {
-            for commit in branch.commits {
-                let commit_details =
-                    but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
-                for change in &commit_details.diff_with_first_parent {
-                    let cid = CliId::committed_file(&change.path.to_string(), commit.id);
-                    committed_files.push(cid);
-                }
-            }
-        }
-    }
-    Ok(committed_files)
-}
-
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
     ctx: &Context,
@@ -629,6 +612,7 @@ fn print_commit(
     has_conflicts: bool,
     show_url: bool,
     review_url: Option<String>,
+    id_db: &mut IdDb,
     out: &mut dyn std::fmt::Write,
 ) -> anyhow::Result<()> {
     let mark = if marked {
@@ -710,7 +694,8 @@ fn print_commit(
     }
     if show_files {
         for change in &commit_details.diff_with_first_parent {
-            let cid = CliId::committed_file(&change.path.to_string(), commit_id)
+            let cid = id_db
+                .committed_file(commit_id, change.path.as_ref())
                 .to_string()
                 .blue()
                 .underline();

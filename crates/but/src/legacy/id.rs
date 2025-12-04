@@ -1,39 +1,96 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    borrow::Borrow,
+    collections::{BTreeSet, HashMap, HashSet},
+    fmt::Display,
+};
 
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 
-fn branch_names(ctx: &Context) -> anyhow::Result<Vec<BString>> {
+/// All information from [Context] needed for ID creation.
+struct ContextInfo {
+    /// Branch names in unspecified order.
+    branch_names: Vec<BString>,
+    /// Committed files ordered by commit ID, then filename.
+    committed_files: Vec<(gix::ObjectId, BString)>,
+}
+
+fn context_info(ctx: &Context) -> anyhow::Result<ContextInfo> {
     let guard = ctx.shared_worktree_access();
     let meta = ctx.meta(guard.read_permission())?;
-    let head_info = but_workspace::head_info(&*ctx.repo.get()?, &meta, Default::default())?;
+    let repo = &*ctx.repo.get()?;
+    let head_info = but_workspace::head_info(
+        repo,
+        &meta,
+        but_workspace::ref_info::Options {
+            expensive_commit_info: false,
+            ..Default::default()
+        },
+    )?;
     let mut branch_names: Vec<BString> = Vec::new();
+    let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
     for stack in head_info.stacks {
         for segment in stack.segments {
             if let Some(ref_info) = segment.ref_info {
                 branch_names.push(ref_info.ref_name.shorten().to_owned());
             }
+            for commit in segment.commits {
+                let inner = commit.inner;
+                let tree_changes = but_core::diff::tree_changes(
+                    repo,
+                    inner.parent_ids.first().copied(),
+                    inner.id,
+                )?;
+                for tree_change in tree_changes {
+                    committed_files.push((inner.id, tree_change.path));
+                }
+            }
         }
     }
-    Ok(branch_names)
+    committed_files.sort();
+    Ok(ContextInfo {
+        branch_names,
+        committed_files,
+    })
+}
+
+/// a.cmp(b) == a.id.cmp(&b.id) for all a and b
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct CommittedFile {
+    commit_oid_path: (gix::ObjectId, BString),
+    id: String,
+}
+impl Borrow<(gix::ObjectId, BString)> for CommittedFile {
+    fn borrow(&self) -> &(gix::ObjectId, BString) {
+        &self.commit_oid_path
+    }
+}
+impl Borrow<str> for CommittedFile {
+    fn borrow(&self) -> &str {
+        &self.id
+    }
 }
 
 pub struct IdDb {
     branch_name_to_cli_id: HashMap<BString, CliId>,
+    committed_files: BTreeSet<CommittedFile>,
     unassigned: CliId,
 }
 
+/// Lifecycle
 impl IdDb {
+    /// Initialise CLI IDs for all information in the `RefInfo` structure for `HEAD` via `ctx`.
+    // TODO: create an API that enforces re-use of `RefInfo` by its users.
     pub fn new(ctx: &Context) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
-        let branch_names = branch_names(ctx)?;
+        let context_info = context_info(ctx)?;
         let mut pairs_to_count: HashMap<u16, u8> = HashMap::new();
         fn u8_pair_to_u16(two: [u8; 2]) -> u16 {
             two[0] as u16 * 256 + two[1] as u16
         }
-        for branch_name in &branch_names {
+        for branch_name in &context_info.branch_names {
             for pair in branch_name.windows(2) {
                 let pair: [u8; 2] = pair.try_into()?;
                 if !pair[0].is_ascii_alphanumeric() || !pair[1].is_ascii_alphanumeric() {
@@ -56,7 +113,8 @@ impl IdDb {
         }
 
         let mut branch_name_to_cli_id: HashMap<BString, CliId> = HashMap::new();
-        'branch_name: for branch_name in branch_names {
+        let mut ids_used: HashSet<String> = HashSet::new();
+        'branch_name: for branch_name in context_info.branch_names {
             // Find first non-conflicting pair and use it as CliId.
             for pair in branch_name.windows(2) {
                 let pair: [u8; 2] = pair.try_into()?;
@@ -66,31 +124,139 @@ impl IdDb {
                     let id = str::from_utf8(&pair)
                         .expect("if we stored it, it's ascii-alphanum")
                         .to_owned();
+                    ids_used.insert(id.clone());
                     branch_name_to_cli_id.insert(branch_name, CliId::Branch { name, id });
                     continue 'branch_name;
                 }
             }
         }
+
+        let mut committed_files: BTreeSet<CommittedFile> = BTreeSet::new();
+        let mut int_hash = 0u64;
+        for commit_oid_path in context_info.committed_files {
+            let id = loop {
+                let tentative_id = string_hash(int_hash);
+                int_hash += 1;
+                if !ids_used.contains(&tentative_id) {
+                    break tentative_id;
+                }
+            };
+            committed_files.insert(CommittedFile {
+                commit_oid_path,
+                id,
+            });
+        }
+
         Ok(Self {
             branch_name_to_cli_id,
+            committed_files,
             unassigned: CliId::Unassigned {
                 id: str::repeat("0", max_zero_count + 1),
             },
         })
     }
+}
 
-    fn find_branches_by_name(&mut self, ctx: &Context, name: &BStr) -> anyhow::Result<Vec<CliId>> {
-        let branch_names = branch_names(ctx)?;
+/// Cli ID generation
+impl IdDb {
+    pub fn parse_str(&self, ctx: &mut Context, s: &str) -> anyhow::Result<Vec<CliId>> {
+        if s.len() < 2 {
+            return Err(anyhow::anyhow!(
+                "Id needs to be at least 2 characters long: {}",
+                s
+            ));
+        }
+
         let mut matches = Vec::new();
 
-        for branch_name in branch_names {
-            // Partial match is fine
-            if branch_name.contains_str(name) {
-                matches.push(self.branch(branch_name.as_ref()).clone())
+        // First, try exact branch name match
+        if let Ok(branch_matches) = self.find_branches_by_name(s.into()) {
+            matches.extend(branch_matches);
+        }
+
+        // Then try partial SHA matches (for commits)
+        if let Ok(commit_matches) = CliId::find_commits_by_sha(ctx, s) {
+            matches.extend(commit_matches);
+        }
+
+        // Then try CliId matching (both prefix and exact)
+        if s.len() > 2 {
+            // For longer strings, try prefix matching on CliIds
+            let mut cli_matches = Vec::new();
+            crate::command::legacy::status::all_files(ctx)?
+                .into_iter()
+                .filter(|id| id.matches_prefix(s))
+                .for_each(|id| cli_matches.push(id));
+            crate::command::legacy::status::all_branches(ctx)?
+                .into_iter()
+                .filter(|id| id.matches_prefix(s))
+                .for_each(|id| cli_matches.push(id));
+            crate::legacy::commits::all_commits(ctx)?
+                .into_iter()
+                .filter(|id| id.matches_prefix(s))
+                .for_each(|id| cli_matches.push(id));
+            if self.unassigned().matches_prefix(s) {
+                cli_matches.push(self.unassigned().clone());
+            }
+            matches.extend(cli_matches);
+        } else {
+            // For 2-character strings, try exact CliId matching
+            let mut cli_matches = Vec::new();
+            crate::command::legacy::status::all_files(ctx)?
+                .into_iter()
+                .filter(|id| id.matches(s))
+                .for_each(|id| cli_matches.push(id));
+            if let Some(CommittedFile {
+                commit_oid_path: (commit_oid, path),
+                ..
+            }) = self.committed_files.get(s)
+            {
+                cli_matches.push(CliId::CommittedFile {
+                    commit_oid: *commit_oid,
+                    path: path.to_owned(),
+                    id: s.to_string(),
+                });
+            }
+            crate::command::legacy::status::all_branches(ctx)?
+                .into_iter()
+                .filter(|id| id.matches(s))
+                .for_each(|id| cli_matches.push(id));
+            crate::legacy::commits::all_commits(ctx)?
+                .into_iter()
+                .filter(|id| id.matches(s))
+                .for_each(|id| cli_matches.push(id));
+            if self.unassigned().matches(s) {
+                cli_matches.push(self.unassigned().clone());
+            }
+            matches.extend(cli_matches);
+        }
+
+        // Remove duplicates while preserving order
+        let mut unique_matches = Vec::new();
+        for m in matches {
+            if !unique_matches.contains(&m) {
+                unique_matches.push(m);
             }
         }
 
-        Ok(matches)
+        Ok(unique_matches)
+    }
+
+    pub fn committed_file(&self, commit_oid: gix::ObjectId, path: &BStr) -> CliId {
+        let sought = (commit_oid, path.to_owned());
+        if let Some(CommittedFile { id, .. }) = self.committed_files.get(&sought) {
+            CliId::CommittedFile {
+                commit_oid: sought.0,
+                path: sought.1,
+                id: id.to_string(),
+            }
+        } else {
+            CliId::CommittedFile {
+                commit_oid: sought.0,
+                path: sought.1,
+                id: "00".to_string(),
+            }
+        }
     }
 
     /// Returns the ID for a branch of the given name. If no such ID exists,
@@ -112,6 +278,21 @@ impl IdDb {
     }
 }
 
+impl IdDb {
+    fn find_branches_by_name(&self, name: &BStr) -> anyhow::Result<Vec<CliId>> {
+        let mut matches = Vec::new();
+
+        for (branch_name, cli_id) in self.branch_name_to_cli_id.iter() {
+            // Partial match is fine
+            if branch_name.contains_str(name) {
+                matches.push(cli_id.clone());
+            }
+        }
+
+        Ok(matches)
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum CliId {
     UncommittedFile {
@@ -119,8 +300,9 @@ pub enum CliId {
         assignment: Option<StackId>,
     },
     CommittedFile {
-        path: String,
         commit_oid: gix::ObjectId,
+        path: BString,
+        id: String,
     },
     Branch {
         name: String,
@@ -152,13 +334,6 @@ impl CliId {
         CliId::UncommittedFile {
             path: assignment.path.clone(),
             assignment: assignment.stack_id,
-        }
-    }
-
-    pub fn committed_file(path: &str, commit_oid: gix::ObjectId) -> Self {
-        CliId::CommittedFile {
-            path: path.to_string(),
-            commit_oid,
         }
     }
 
@@ -198,89 +373,6 @@ impl CliId {
             _ => self.to_string().starts_with(s),
         }
     }
-
-    pub fn from_str(ctx: &mut Context, s: &str) -> anyhow::Result<Vec<Self>> {
-        if s.len() < 2 {
-            return Err(anyhow::anyhow!(
-                "Id needs to be at least 2 characters long: {}",
-                s
-            ));
-        }
-
-        // TODO: make callers of this function pass IdDb instead
-        let mut id_db = IdDb::new(ctx)?;
-
-        let mut matches = Vec::new();
-
-        // First, try exact branch name match
-        if let Ok(branch_matches) = id_db.find_branches_by_name(ctx, s.into()) {
-            matches.extend(branch_matches);
-        }
-
-        // Then try partial SHA matches (for commits)
-        if let Ok(commit_matches) = Self::find_commits_by_sha(ctx, s) {
-            matches.extend(commit_matches);
-        }
-
-        // Then try CliId matching (both prefix and exact)
-        if s.len() > 2 {
-            // For longer strings, try prefix matching on CliIds
-            let mut cli_matches = Vec::new();
-            crate::command::legacy::status::all_files(ctx)?
-                .into_iter()
-                .filter(|id| id.matches_prefix(s))
-                .for_each(|id| cli_matches.push(id));
-            crate::command::legacy::status::all_committed_files(ctx)?
-                .into_iter()
-                .filter(|id| id.matches_prefix(s))
-                .for_each(|id| cli_matches.push(id));
-            crate::command::legacy::status::all_branches(ctx)?
-                .into_iter()
-                .filter(|id| id.matches_prefix(s))
-                .for_each(|id| cli_matches.push(id));
-            crate::legacy::commits::all_commits(ctx)?
-                .into_iter()
-                .filter(|id| id.matches_prefix(s))
-                .for_each(|id| cli_matches.push(id));
-            if id_db.unassigned().matches_prefix(s) {
-                cli_matches.push(id_db.unassigned().clone());
-            }
-            matches.extend(cli_matches);
-        } else {
-            // For 2-character strings, try exact CliId matching
-            let mut cli_matches = Vec::new();
-            crate::command::legacy::status::all_files(ctx)?
-                .into_iter()
-                .filter(|id| id.matches(s))
-                .for_each(|id| cli_matches.push(id));
-            crate::command::legacy::status::all_committed_files(ctx)?
-                .into_iter()
-                .filter(|id| id.matches(s))
-                .for_each(|id| cli_matches.push(id));
-            crate::command::legacy::status::all_branches(ctx)?
-                .into_iter()
-                .filter(|id| id.matches(s))
-                .for_each(|id| cli_matches.push(id));
-            crate::legacy::commits::all_commits(ctx)?
-                .into_iter()
-                .filter(|id| id.matches(s))
-                .for_each(|id| cli_matches.push(id));
-            if id_db.unassigned().matches(s) {
-                cli_matches.push(id_db.unassigned().clone());
-            }
-            matches.extend(cli_matches);
-        }
-
-        // Remove duplicates while preserving order
-        let mut unique_matches = Vec::new();
-        for m in matches {
-            if !unique_matches.contains(&m) {
-                unique_matches.push(m);
-            }
-        }
-
-        Ok(unique_matches)
-    }
 }
 
 impl Display for CliId {
@@ -294,9 +386,8 @@ impl Display for CliId {
                     write!(f, "{}", hash(path))
                 }
             }
-            CliId::CommittedFile { path, commit_oid } => {
-                let value = hash(&format!("{commit_oid}{path}"));
-                write!(f, "{value}")
+            CliId::CommittedFile { id, .. } => {
+                write!(f, "{}", id)
             }
             CliId::Branch { id, .. } => {
                 write!(f, "{}", id)
@@ -315,10 +406,18 @@ impl Display for CliId {
 }
 
 pub(crate) fn hash(input: &str) -> String {
+    string_hash(int_hash(input))
+}
+
+fn int_hash(input: &str) -> u64 {
     let mut hash = 0u64;
     for byte in input.bytes() {
         hash = hash.wrapping_mul(31).wrapping_add(byte as u64);
     }
+    hash
+}
+
+fn string_hash(mut hash: u64) -> String {
     // First character: g-z (20 options)
     let first_chars = "ghijklmnopqrstuvwxyz";
     let first_char = first_chars.chars().nth((hash % 20) as usize).unwrap();

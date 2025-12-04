@@ -169,6 +169,7 @@ impl Branch {
         review_id: Option<String>,
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
+        id_db: &mut crate::legacy::id::IdDb,
     ) -> anyhow::Result<Self> {
         let commits = branch
             .commits
@@ -179,6 +180,7 @@ impl Branch {
                     c.clone(),
                     show_files,
                     project_id,
+                    id_db,
                 )
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
@@ -222,6 +224,7 @@ impl Commit {
         commit: but_workspace::ui::Commit,
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
+        id_db: &mut crate::legacy::id::IdDb,
     ) -> anyhow::Result<Self> {
         let changes = if show_files {
             // TODO: we should get the `ctx` as parameter.
@@ -233,10 +236,7 @@ impl Commit {
                     .changes
                     .into_iter()
                     .map(|change| {
-                        let cli_id = crate::legacy::id::CliId::committed_file(
-                            &change.path.to_string(),
-                            commit.id,
-                        );
+                        let cli_id = id_db.committed_file(commit.id, change.path.as_ref());
                         FileChange::from_tree_change(cli_id.to_string(), change)
                     })
                     .collect(),
@@ -349,7 +349,14 @@ fn convert_branch_to_json(
         None
     };
 
-    Branch::from_branch_details(cli_id, branch.clone(), review_id, show_files, project_id)
+    Branch::from_branch_details(
+        cli_id,
+        branch.clone(),
+        review_id,
+        show_files,
+        project_id,
+        id_db,
+    )
 }
 
 /// Build the complete WorkspaceStatus JSON structure

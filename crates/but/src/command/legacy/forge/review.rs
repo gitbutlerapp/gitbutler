@@ -13,7 +13,11 @@ use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::{legacy::id::CliId, tui, utils::OutputChannel};
+use crate::{
+    legacy::id::{CliId, IdDb},
+    tui,
+    utils::OutputChannel,
+};
 
 /// Set the review template for the given project.
 pub fn set_review_template(
@@ -94,7 +98,9 @@ pub async fn publish_reviews(
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let branch_ids = CliId::from_str(&mut ctx, branch_id)?
+    let id_db = IdDb::new(&ctx)?;
+    let branch_ids = id_db
+        .parse_str(&mut ctx, branch_id)?
         .iter()
         .filter_map(|clid| match clid {
             CliId::Branch { name, .. } => Some(name.clone()),

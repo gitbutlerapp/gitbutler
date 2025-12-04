@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::{Context as _, Result};
-use bstr::ByteSlice;
+use bstr::BStr;
 use but_core::{DiffSpec, diff::tree_changes};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -15,7 +15,7 @@ use crate::{
 
 pub fn commited_file_to_another_commit(
     ctx: &mut Context,
-    path: &str,
+    path: &BStr,
     source_id: gix::ObjectId,
     target_id: gix::ObjectId,
     out: &mut OutputChannel,
@@ -30,7 +30,7 @@ pub fn commited_file_to_another_commit(
     let tree_changes = tree_changes(&repo, Some(source_commit_parent_id.detach()), source_id)?;
     let relevant_changes = tree_changes
         .into_iter()
-        .filter(|tc| tc.path.to_str_lossy() == path)
+        .filter(|tc| tc.path == path)
         .map(Into::into)
         .collect::<Vec<DiffSpec>>();
 
@@ -56,7 +56,7 @@ pub fn commited_file_to_another_commit(
 
 pub fn uncommit_file(
     ctx: &mut Context,
-    path: &str,
+    path: &BStr,
     source_id: gix::ObjectId,
     target_branch: Option<&str>,
     out: &mut OutputChannel,
@@ -72,7 +72,7 @@ pub fn uncommit_file(
         let tree_changes = tree_changes(&repo, Some(source_commit_parent_id.detach()), source_id)?;
         tree_changes
             .into_iter()
-            .filter(|tc| tc.path.to_str_lossy() == path)
+            .filter(|tc| tc.path == path)
             .map(Into::into)
             .collect::<Vec<DiffSpec>>()
     };
