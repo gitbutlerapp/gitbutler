@@ -9,10 +9,15 @@ use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 
+#[cfg(test)]
+mod tests;
+
 /// All information from [Context] needed for ID creation.
 struct ContextInfo {
     /// Branch names in unspecified order.
     branch_names: Vec<BString>,
+    /// Commit IDs in unspecified order.
+    commit_ids: Vec<gix::ObjectId>,
     /// Committed files ordered by commit ID, then filename.
     committed_files: Vec<(gix::ObjectId, BString)>,
 }
@@ -30,6 +35,7 @@ fn context_info(ctx: &Context) -> anyhow::Result<ContextInfo> {
         },
     )?;
     let mut branch_names: Vec<BString> = Vec::new();
+    let mut commit_ids: Vec<gix::ObjectId> = Vec::new();
     let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
     for stack in head_info.stacks {
         for segment in stack.segments {
@@ -38,6 +44,8 @@ fn context_info(ctx: &Context) -> anyhow::Result<ContextInfo> {
             }
             for commit in segment.commits {
                 let inner = commit.inner;
+                commit_ids.push(inner.id);
+
                 let tree_changes = but_core::diff::tree_changes(
                     repo,
                     inner.parent_ids.first().copied(),
@@ -47,11 +55,15 @@ fn context_info(ctx: &Context) -> anyhow::Result<ContextInfo> {
                     committed_files.push((inner.id, tree_change.path));
                 }
             }
+            for commit in segment.commits_on_remote {
+                commit_ids.push(commit.id);
+            }
         }
     }
     committed_files.sort();
     Ok(ContextInfo {
         branch_names,
+        commit_ids,
         committed_files,
     })
 }
@@ -75,6 +87,7 @@ impl Borrow<str> for CommittedFile {
 
 pub struct IdDb {
     branch_name_to_cli_id: HashMap<BString, CliId>,
+    commit_ids: Vec<gix::ObjectId>,
     committed_files: BTreeSet<CommittedFile>,
     unassigned: CliId,
 }
@@ -149,6 +162,7 @@ impl IdDb {
 
         Ok(Self {
             branch_name_to_cli_id,
+            commit_ids: context_info.commit_ids,
             committed_files,
             unassigned: CliId::Unassigned {
                 id: str::repeat("0", max_zero_count + 1),
@@ -174,9 +188,15 @@ impl IdDb {
             matches.extend(branch_matches);
         }
 
-        // Then try partial SHA matches (for commits)
-        if let Ok(commit_matches) = CliId::find_commits_by_sha(ctx, s) {
-            matches.extend(commit_matches);
+        // Only try SHA matching if the input looks like a hex string
+        if s.chars().all(|c| c.is_ascii_hexdigit()) && s.len() >= 2 {
+            for oid in self
+                .commit_ids
+                .iter()
+                .filter(|oid| oid.to_string().starts_with(s))
+            {
+                matches.push(CliId::Commit { oid: *oid });
+            }
         }
 
         // Then try CliId matching (both prefix and exact)
@@ -191,13 +211,6 @@ impl IdDb {
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::legacy::commits::all_commits(ctx)?
-                .into_iter()
-                .filter(|id| id.matches_prefix(s))
-                .for_each(|id| cli_matches.push(id));
-            if self.unassigned().matches_prefix(s) {
-                cli_matches.push(self.unassigned().clone());
-            }
             matches.extend(cli_matches);
         } else {
             // For 2-character strings, try exact CliId matching
@@ -221,14 +234,10 @@ impl IdDb {
                 .into_iter()
                 .filter(|id| id.matches(s))
                 .for_each(|id| cli_matches.push(id));
-            crate::legacy::commits::all_commits(ctx)?
-                .into_iter()
-                .filter(|id| id.matches(s))
-                .for_each(|id| cli_matches.push(id));
-            if self.unassigned().matches(s) {
-                cli_matches.push(self.unassigned().clone());
-            }
             matches.extend(cli_matches);
+        }
+        if self.unassigned().matches(s) {
+            matches.push(self.unassigned().clone());
         }
 
         // Remove duplicates while preserving order
@@ -335,25 +344,6 @@ impl CliId {
             path: assignment.path.clone(),
             assignment: assignment.stack_id,
         }
-    }
-
-    fn find_commits_by_sha(ctx: &Context, sha_prefix: &str) -> anyhow::Result<Vec<Self>> {
-        let mut matches = Vec::new();
-
-        // Only try SHA matching if the input looks like a hex string
-        if sha_prefix.chars().all(|c| c.is_ascii_hexdigit()) && sha_prefix.len() >= 4 {
-            let all_commits = crate::legacy::commits::all_commits(ctx)?;
-            for commit_id in all_commits {
-                if let CliId::Commit { oid } = &commit_id {
-                    let sha_string = oid.to_string();
-                    if sha_string.starts_with(sha_prefix) {
-                        matches.push(commit_id);
-                    }
-                }
-            }
-        }
-
-        Ok(matches)
     }
 
     pub fn matches(&self, s: &str) -> bool {

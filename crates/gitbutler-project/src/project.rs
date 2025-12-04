@@ -146,6 +146,20 @@ impl Project {
             preferred_forge_user: None,
         }
     }
+
+    /// A utility to support old code for basic path needs, but without actually needing full
+    /// or meaningful metadata.
+    pub fn with_paths_for_testing(
+        mut self,
+        git_dir: PathBuf,
+        worktree_dir: Option<PathBuf>,
+    ) -> Self {
+        self.git_dir = git_dir;
+        if let Some(worktree_dir) = worktree_dir {
+            self.worktree_dir = worktree_dir;
+        }
+        self
+    }
 }
 
 /// Testing

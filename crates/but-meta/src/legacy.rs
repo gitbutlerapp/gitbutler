@@ -335,6 +335,11 @@ impl VirtualBranchesTomlMetadata {
     pub fn data(&self) -> &VirtualBranches {
         &self.snapshot.content
     }
+
+    /// The vb.toml snapshot held internally is marked as changed so it will be written back to disk on drop.
+    pub fn set_changed_to_necessitate_write(&mut self) {
+        self.snapshot.set_changed_to_necessitate_write();
+    }
 }
 
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
@@ -601,6 +606,11 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 if existing.branch != new {
                     existing.branch = new;
                     changed_target = true;
+                }
+                if let Some(new_id) = value.target_commit_id
+                    && new_id != existing.sha
+                {
+                    existing.sha = new_id;
                 }
             }
             (None, None) => {}

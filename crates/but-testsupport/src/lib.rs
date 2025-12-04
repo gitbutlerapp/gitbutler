@@ -437,7 +437,7 @@ pub fn read_only_in_memory_scenario_non_isolated_keep_env(
     read_only_in_memory_scenario_named_env(name, "", gix::open::permissions::Environment::all())
 }
 
-/// Obtain an isolated repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
+/// Obtain an isolated `repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
 pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repository> {
     read_only_in_memory_scenario_named(name, "")
 }
