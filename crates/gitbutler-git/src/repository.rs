@@ -1,5 +1,5 @@
 use futures::{FutureExt, select};
-use gix::{bstr::ByteSlice, config::tree::Key};
+use gix::bstr::ByteSlice;
 use rand::Rng;
 use std::{collections::HashMap, path::Path, time::Duration};
 
@@ -470,7 +470,7 @@ where
             .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
             .map(|program| program.to_string_lossy().into_owned())),
         HarnessEnv::Global(_) => Ok(gix::config::File::from_globals()?
-            .string(gix::config::tree::Core::SSH_COMMAND.logical_name())
+            .string(gix::config::tree::Core::SSH_COMMAND)
             .map(|program| program.to_str_lossy().into_owned())),
     }
 }
