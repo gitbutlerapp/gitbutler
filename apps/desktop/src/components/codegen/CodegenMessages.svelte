@@ -218,8 +218,8 @@
 		return short ? thinkingLevel.shortLabel : thinkingLevel.label;
 	}
 
-	function insertTemplate(templateContent: string) {
-		const currentPrompt = inputRef?.getText();
+	async function insertTemplate(templateContent: string) {
+		const currentPrompt = await inputRef?.getText();
 		const newPrompt = currentPrompt + (currentPrompt ? '\n\n' : '') + templateContent;
 		onChange?.(newPrompt);
 		inputRef?.setText(newPrompt);
