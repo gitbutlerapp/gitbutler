@@ -61,14 +61,12 @@ pub fn commit_details(
     CommitDetails::from_commit_id(commit_id.attach(&repo), line_stats.into())
 }
 
-/// This function just exists to make the frontend work with different parameter names, and without
-/// the need for line-stats to be enabled explicitly.
-// TODO: the frontend shouldn't have to care or be able to remap these names internally.
+/// This function just exists for the frontend to work without the need for line-stats to be enabled explicitly.
 #[but_api(json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details_with_line_stats(
-    project_id: &Context,
+    ctx: &Context,
     commit_id: gix::ObjectId,
 ) -> anyhow::Result<CommitDetails> {
-    commit_details(project_id, commit_id, ComputeLineStats::Yes)
+    commit_details(ctx, commit_id, ComputeLineStats::Yes)
 }

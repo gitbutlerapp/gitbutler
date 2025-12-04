@@ -4,11 +4,14 @@ use quote::{format_ident, quote};
 use std::collections::HashMap;
 use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 
-/// To be used on functions, so a function `func` will be turned into:
+/// A macro to help generate wrappers which are used by some clients to support deserialisation of parameters
+/// for calls, and serialisation of return values, usually with JSON in mind.
+///
 /// * `func` - the original item, unchanged
-/// * `func_params(FuncParams)` taking a struct with all parameters
-/// * `func_cmd` for calls from the frontend, taking `serde_json::Value` and returning `Result<serde_json::Value, Error>`
-/// * `func_tauri` for calls from the tauri, args and returning `Result<serde_json::Value, Error>`, with `tauri` support.
+/// * `func_json` for calls from the frontend, taking `(#(json_params*),)` and returning `Result<JsonRVal, json::Error>`
+///     - This is also annotated with the `tauri` macro when the feature is enabled in the `but-api` crate.
+///     - IMPORTANT: It will perform auto-remappings to expected identifier names as well for convenience.
+/// * `func_cmd` for calls from the `but-server`, taking `(params: Params) ` and returning `Result<serde_json::Value, json::Error>`.
 #[proc_macro_attribute]
 pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
@@ -48,16 +51,21 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
             let pat = &pat_ty.pat;
             if let Pat::Ident(ident) = &**pat {
                 let name = &ident.ident;
-                let name_type_declaration = if let Some((json_type, _from_mode)) =
+                let (name, name_type_declaration) = if let Some(JsonParameterMapping {
+                    json_ty,
+                    json_ident,
+                    from_mode: _,
+                }) =
                     json_ty_by_name.get(&ident.ident.to_string())
                 {
-                    quote! { pub #name: #json_type }
+                    let name = json_ident.as_ref().unwrap_or(name);
+                    (name, quote! { pub #name: #json_ty })
                 } else {
                     let ty = &pat_ty.ty;
-                    quote! { pub #name: #ty }
+                    (name, quote! { pub #name: #ty })
                 };
-                struct_fields_with_json_types.push(name_type_declaration);
                 param_field_names.push(name);
+                struct_fields_with_json_types.push(name_type_declaration);
             }
         }
     }
@@ -78,8 +86,8 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
                         .into();
                 };
 
-                let name = &ident.ident;
-                let json_type_mapping = json_ty_by_name.get(&ident.ident.to_string());
+                let ident = &ident.ident;
+                let json_type_mapping = json_ty_by_name.get(&ident.to_string());
                 let (arg_ident, ty) = match &*pat_ty.ty {
                     syn::Type::Reference(r) if json_type_mapping.is_some() => {
                         // Only if a remapping happens we want to change the argument identifier to use
@@ -87,27 +95,33 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
                         // version.
                         let and = &r.and_token;
                         let mutability = &r.mutability;
-                        let arg_ident: syn::Type = syn::parse_quote! { #and #mutability #name };
+                        let arg_ident: syn::Type = syn::parse_quote! { #and #mutability #ident };
                         (arg_ident, &*r.elem)
                     }
-                    other => (syn::parse_quote! { #name }, other),
+                    other => (syn::parse_quote! { #ident }, other),
                 };
                 call_arg_idents.push(arg_ident);
-                let param = if let Some((json_type, from_mode)) = json_type_mapping {
+                let param = if let Some(JsonParameterMapping {
+                    json_ty,
+                    json_ident,
+                    from_mode,
+                }) = json_type_mapping
+                {
                     // We control these conversions, and must just make them work to keep this simple.
+                    let json_ident = json_ident.as_ref().unwrap_or(ident);
                     param_conversions.push(match from_mode {
                         FromMode::From => {
                             quote! {
-                                let mut #name = <#ty>::from(#name);
+                                let mut #ident = <#ty>::from(#json_ident);
                             }
                         }
                         FromMode::TryFrom => {
                             quote! {
-                                let mut #name = <#ty>::try_from(#name)?;
+                                let mut #ident = <#ty>::try_from(#json_ident)?;
                             }
                         }
                     });
-                    syn::parse_quote! { #name: #json_type }
+                    syn::parse_quote! { #json_ident: #json_ty }
                 } else {
                     arg.clone()
                 };
@@ -236,11 +250,21 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-/// The mapping is from type name to their respective json types. We assume they have a `NonJson::try_from(json)` implementation
-/// to turn them into their respective non-json types.
+struct JsonParameterMapping {
+    /// The mapped type to which the actual type can be converted.
+    json_ty: syn::Path,
+    /// The identifier to use when referring to the `json_ty`.
+    ///
+    /// This is important as the frontend actually uses the parameter names as identifiers.
+    json_ident: Option<syn::Ident>,
+    /// How to convert `json_ty` to the actual type.
+    from_mode: FromMode,
+}
+
+/// The mapping is from type name to their respective json types.
 fn build_json_type_mapping<'a>(
     input: impl IntoIterator<Item = &'a syn::FnArg>,
-) -> Result<HashMap<String, (syn::Path, FromMode)>, syn::Error> {
+) -> Result<HashMap<String, JsonParameterMapping>, syn::Error> {
     let mut out = HashMap::new();
 
     for arg in input {
@@ -251,7 +275,6 @@ fn build_json_type_mapping<'a>(
         let pat = &pat_ty.pat;
         let ty = &pat_ty.ty;
 
-        // We only accept patterns like `arg: &T` where `arg` is an ident.
         let Pat::Ident(pat_ident) = &**pat else {
             continue;
         };
@@ -259,8 +282,6 @@ fn build_json_type_mapping<'a>(
         let (path, is_reference) = if let syn::Type::Reference(r) = &**ty {
             // Extract the referenced type
             let inner = &r.elem;
-
-            // Expect something like &Context or &but_ctx::Context
             let syn::Type::Path(tp) = &**inner else {
                 return Err(syn::Error::new_spanned(
                     inner,
@@ -268,7 +289,6 @@ fn build_json_type_mapping<'a>(
                 ));
             };
 
-            // Path segments for matching
             (&tp.path, true)
         } else if let syn::Type::Path(ty_path) = &**ty {
             (&ty_path.path, false)
@@ -285,26 +305,34 @@ fn build_json_type_mapping<'a>(
         }
 
         let last = &segments.last().unwrap().ident;
-        if last == "Context" && (segments.len() == 1 || segments[0].ident == "but_ctx") {
-            // Map this parameter to ProjectId
-            let project_id_path: syn::Path = syn::parse_str("but_ctx::LegacyProjectId").unwrap();
-            out.insert(
-                pat_ident.ident.to_string(),
-                (project_id_path, FromMode::TryFrom),
-            );
-        } else if last == "ObjectId" && (segments.len() == 1 || segments[0].ident == "gix") {
-            // Map this parameter to HexHash
-            let project_id_path: syn::Path = syn::parse_str("crate::json::HexHash").unwrap();
-            out.insert(
-                pat_ident.ident.to_string(),
-                (project_id_path, FromMode::From),
-            );
-        } else if is_reference {
-            return Err(syn::Error::new_spanned(
-                ty,
-                "Only `&Context` or `&but_ctx::Context` may be references",
-            ));
-        }
+        let (name, mapping) =
+            if last == "Context" && (segments.len() == 1 || segments[0].ident == "but_ctx") {
+                (
+                    pat_ident.ident.to_string(),
+                    JsonParameterMapping {
+                        json_ty: syn::parse_str("but_ctx::LegacyProjectId")?,
+                        json_ident: Some(syn::parse_str("project_id")?),
+                        from_mode: FromMode::TryFrom,
+                    },
+                )
+            } else if last == "ObjectId" && (segments.len() == 1 || segments[0].ident == "gix") {
+                (
+                    pat_ident.ident.to_string(),
+                    JsonParameterMapping {
+                        json_ty: syn::parse_str("crate::json::HexHash")?,
+                        json_ident: None,
+                        from_mode: FromMode::From,
+                    },
+                )
+            } else if is_reference {
+                return Err(syn::Error::new_spanned(
+                    ty,
+                    "Only `&Context` or `&but_ctx::Context` may be references",
+                ));
+            } else {
+                continue;
+            };
+        out.insert(name, mapping);
     }
 
     Ok(out)
@@ -325,7 +353,6 @@ fn extract_ok_type(output: &syn::ReturnType) -> syn::Result<syn::Type> {
         return Err(syn::Error::new_spanned(ty, "expected a type path"));
     };
 
-    // Expect outer type: Result<...>
     let last = tp
         .path
         .segments
@@ -353,7 +380,6 @@ fn extract_ok_type(output: &syn::ReturnType) -> syn::Result<syn::Type> {
         ));
     }
 
-    // First generic argument is T in Result<T, E>
     match args.args.first().unwrap() {
         syn::GenericArgument::Type(t) => Ok(t.clone()),
         other => Err(syn::Error::new_spanned(
