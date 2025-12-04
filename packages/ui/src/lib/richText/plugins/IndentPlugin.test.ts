@@ -457,4 +457,91 @@ describe('IndentPlugin', () => {
 			});
 		});
 	});
+
+	describe('shift key handling', () => {
+		it('should insert newline with indentation but no bullet when pressing Shift+Enter', () => {
+			editor.update(() => {
+				const root = $getRoot();
+
+				// Simulate: "- First item"
+				const para = $createParagraphNode();
+				const textNode = $createTextNode('- First item');
+				para.append(textNode);
+				root.append(para);
+
+				// Position cursor at end
+				textNode.select(12, 12);
+			});
+
+			// Simulate pressing Shift+Enter with a mock event
+			editor.update(() => {
+				const event = { shiftKey: true, preventDefault: () => {} } as KeyboardEvent;
+				editor.dispatchCommand(KEY_ENTER_COMMAND, event);
+			});
+
+			editor.read(() => {
+				const root = $getRoot();
+				// Should create two paragraphs
+				const paragraphs = root.getChildren();
+				expect(paragraphs.length).toBe(2);
+
+				// First paragraph should have original bullet
+				const para1 = paragraphs[0];
+				if (!$isParagraphNode(para1)) throw new Error('Expected paragraph node');
+				const children1 = para1.getChildren();
+				expect(children1.length).toBe(1);
+				if ($isTextNode(children1[0])) {
+					expect(children1[0].getTextContent()).toBe('- First item');
+				}
+
+				// Second paragraph should have indentation but NO bullet
+				const para2 = paragraphs[1];
+				if (!$isParagraphNode(para2)) throw new Error('Expected paragraph node');
+				const children2 = para2.getChildren();
+				expect(children2.length).toBe(1);
+				if ($isTextNode(children2[0])) {
+					// Should be "  " (two spaces for indent) not "- "
+					expect(children2[0].getTextContent()).toBe('  ');
+				}
+			});
+		});
+
+		it('should insert newline with indentation but no bullet for numbered lists with Shift+Enter', () => {
+			editor.update(() => {
+				const root = $getRoot();
+
+				// Simulate: "1. First item"
+				const para = $createParagraphNode();
+				const textNode = $createTextNode('1. First item');
+				para.append(textNode);
+				root.append(para);
+
+				// Position cursor at end
+				textNode.select(13, 13);
+			});
+
+			// Simulate pressing Shift+Enter with a mock event
+			editor.update(() => {
+				const event = { shiftKey: true, preventDefault: () => {} } as KeyboardEvent;
+				editor.dispatchCommand(KEY_ENTER_COMMAND, event);
+			});
+
+			editor.read(() => {
+				const root = $getRoot();
+				// Should create two paragraphs
+				const paragraphs = root.getChildren();
+				expect(paragraphs.length).toBe(2);
+
+				// Second paragraph should have indentation but NO bullet number
+				const para2 = paragraphs[1];
+				if (!$isParagraphNode(para2)) throw new Error('Expected paragraph node');
+				const children2 = para2.getChildren();
+				expect(children2.length).toBe(1);
+				if ($isTextNode(children2[0])) {
+					// Should be "   " (three spaces for indent) not "2. "
+					expect(children2[0].getTextContent()).toBe('   ');
+				}
+			});
+		});
+	});
 });
