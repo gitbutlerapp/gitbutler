@@ -88,7 +88,7 @@ export function isWrappingExempt(line: string): ExemptionId | undefined {
 }
 
 export function parseIndent(line: string) {
-	return line.match(/^( +|\t+)/)?.[0] || '';
+	return line.match(/^[ \t]+/)?.[0] || '';
 }
 
 export function parseBullet(text: string): Bullet | undefined {
@@ -236,26 +236,40 @@ function updateParagraphsWithWrappedLines(
 function repositionCursor(
 	paragraph: ParagraphNode,
 	wrappedLines: string[],
-	selectionOffset: number
+	selectionOffset: number,
+	indent: string
 ): void {
 	const firstTextNode = paragraph.getFirstChild();
 	if (!isTextNode(firstTextNode)) return;
 
-	let remainingOffset = selectionOffset;
-	let targetLineIndex = 0;
+	// Build a map of combined text position to (lineIndex, offsetInLine)
+	// The wrapped lines contain the actual text with indentation added to continuation lines
+	let combinedLength = 0;
+	let targetLineIndex = wrappedLines.length - 1; // Default to last line
+	let offsetInTargetLine = wrappedLines[targetLineIndex].length; // Default to end
 
 	// Find which line the cursor should be on
 	for (let i = 0; i < wrappedLines.length; i++) {
-		if (remainingOffset <= wrappedLines[i].length) {
+		const lineLength = wrappedLines[i].length;
+		// Continuation lines have indent added, so we need to account for the text without indent
+		const indentLength = i > 0 ? indent.length : 0;
+		const textLengthWithoutIndent = lineLength - indentLength;
+
+		// Check if the selection offset falls within this line's range
+		if (selectionOffset <= combinedLength + textLengthWithoutIndent) {
 			targetLineIndex = i;
+			// For continuation lines, add back the indent length
+			offsetInTargetLine = selectionOffset - combinedLength + indentLength;
 			break;
 		}
-		remainingOffset -= wrappedLines[i].length + 1; // +1 for space between lines
+
+		// Move to next line: add the text length (without indent) + 1 for the space that was between lines
+		combinedLength += textLengthWithoutIndent + 1;
 	}
 
 	// Set cursor in the appropriate paragraph
 	if (targetLineIndex === 0) {
-		firstTextNode.select(Math.max(0, remainingOffset), Math.max(0, remainingOffset));
+		firstTextNode.select(Math.max(0, offsetInTargetLine), Math.max(0, offsetInTargetLine));
 		return;
 	}
 
@@ -268,7 +282,7 @@ function repositionCursor(
 	if (currentPara && $isParagraphNode(currentPara)) {
 		const textNode = currentPara.getFirstChild();
 		if (isTextNode(textNode)) {
-			textNode.select(Math.max(0, remainingOffset), Math.max(0, remainingOffset));
+			textNode.select(Math.max(0, offsetInTargetLine), Math.max(0, offsetInTargetLine));
 		}
 	}
 }
@@ -302,7 +316,7 @@ export function wrapIfNecessary({ node, maxLength }: { node: TextNode; maxLength
 	updateParagraphsWithWrappedLines(paragraph, paragraphsToRewrap, wrappedLines);
 
 	// Restore cursor position
-	repositionCursor(paragraph, wrappedLines, selectionOffset);
+	repositionCursor(paragraph, wrappedLines, selectionOffset, indent);
 }
 
 export function wrapAll(editor: LexicalEditor, maxLength: number) {
