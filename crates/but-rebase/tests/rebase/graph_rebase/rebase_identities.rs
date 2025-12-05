@@ -1,8 +1,8 @@
 /// These tests demonstrate that if none of the steps are changed, the same
 /// graphs are returned.
-use anyhow::{Result, bail};
+use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, rebase::RebaseOutcome};
+use but_rebase::graph_rebase::GraphExt;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
@@ -23,9 +23,6 @@ fn four_commits() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
     let outcome = editor.rebase()?;
-    let RebaseOutcome::Success(outcome) = outcome else {
-        bail!("Rebase failed");
-    };
     outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
@@ -59,9 +56,6 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
     let outcome = editor.rebase()?;
-    let RebaseOutcome::Success(outcome) = outcome else {
-        bail!("Rebase failed");
-    };
     outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
@@ -88,9 +82,6 @@ fn merge_in_the_middle() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
     let outcome = editor.rebase()?;
-    let RebaseOutcome::Success(outcome) = outcome else {
-        bail!("Rebase failed");
-    };
     outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
@@ -121,9 +112,6 @@ fn three_branches_merged() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
     let outcome = editor.rebase()?;
-    let RebaseOutcome::Success(outcome) = outcome else {
-        bail!("Rebase failed");
-    };
     outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);

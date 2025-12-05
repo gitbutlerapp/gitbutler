@@ -31,23 +31,9 @@ pub struct SuccessfulRebase {
     pub(crate) checkouts: Vec<Checkouts>,
 }
 
-/// Represents the rebase output and the varying degrees of success it had.
-#[derive(Debug, Clone)]
-#[expect(clippy::large_enum_variant)]
-#[must_use = "Rebase does nothing to affect the commit graph unless materialized"]
-pub enum RebaseOutcome {
-    /// The rebase
-    Success(SuccessfulRebase),
-    /// The graph rebase failed because we encountered a situation where we
-    /// couldn't merge bases.
-    ///
-    /// Holds the gix::ObjectId of the commit it failed to pick
-    MergePickFailed(gix::ObjectId),
-}
-
 impl Editor {
     /// Perform the rebase
-    pub fn rebase(self) -> Result<RebaseOutcome> {
+    pub fn rebase(self) -> Result<SuccessfulRebase> {
         // First we want to get a list of nodes that can be reached by
         // traversing downwards from the heads that we care about.
         // Usually there would be just one "head" which is an index to access
@@ -115,7 +101,8 @@ impl Editor {
                         }
                         CherryPickOutcome::FailedToMergeBases => {
                             // Exit early - the rebase failed because it encountered a commit it couldn't pick
-                            return Ok(RebaseOutcome::MergePickFailed(id));
+                            // TODO(CTO): Detect if this was the merge commit itself & signal that seperatly
+                            bail!("Failed to merge bases for commit {id}");
                         }
                     }
                 }
@@ -214,14 +201,14 @@ impl Editor {
             }
         }
 
-        Ok(RebaseOutcome::Success(SuccessfulRebase {
+        Ok(SuccessfulRebase {
             repo: self.repo,
             ref_edits,
             commit_mapping,
             graph_mapping,
             graph: output_graph,
             checkouts: self.checkouts.to_owned(),
-        }))
+        })
     }
 }
 

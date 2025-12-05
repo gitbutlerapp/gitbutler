@@ -1,7 +1,7 @@
 //! These tests exercise the insert operation.
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, Step, mutate::InsertSide, rebase::RebaseOutcome};
+use but_rebase::graph_rebase::{GraphExt, Step, mutate::InsertSide};
 use but_testsupport::{git_status, visualize_commit_graph_all};
 
 use crate::{
@@ -54,9 +54,6 @@ fn insert_below_merge_commit() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    let RebaseOutcome::Success(outcome) = outcome else {
-        bail!("Rebase failed");
-    };
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -120,9 +117,6 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    let RebaseOutcome::Success(outcome) = outcome else {
-        bail!("Rebase failed");
-    };
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -139,4 +133,10 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     ");
 
     Ok(())
+}
+
+#[test]
+#[ignore]
+fn inserts_violating_fp_protection_should_cause_rebase_failure() -> Result<()> {
+    panic!("Branch protection hasn't been implemented dyet");
 }
