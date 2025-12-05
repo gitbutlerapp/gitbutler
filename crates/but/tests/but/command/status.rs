@@ -96,7 +96,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "xe",
+      "cliId": "g0",
       "filePath": "test-file.txt",
       "changeType": "added"
     }

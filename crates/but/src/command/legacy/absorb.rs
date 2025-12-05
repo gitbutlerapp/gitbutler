@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_api::{
     json::HexHash,
     legacy::{diff, virtual_branches},
@@ -53,9 +53,18 @@ pub(crate) fn handle(
 
     if let Some(source) = source {
         match source {
-            CliId::UncommittedFile { path, assignment } => {
+            CliId::UncommittedFile {
+                path, assignment, ..
+            } => {
                 // Absorb this particular file
-                absorb_file(project, &path, assignment, &assignments, &dependencies, out)?;
+                absorb_file(
+                    project,
+                    path.as_ref(),
+                    assignment,
+                    &assignments,
+                    &dependencies,
+                    out,
+                )?;
             }
             CliId::Branch { name, .. } => {
                 // Absorb everything that is assigned to this lane
@@ -75,7 +84,7 @@ pub(crate) fn handle(
 /// Absorb a single file into the appropriate commit
 fn absorb_file(
     project: &Project,
-    path: &str,
+    path: &BStr,
     _assignment: Option<but_core::ref_metadata::StackId>,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
@@ -84,7 +93,7 @@ fn absorb_file(
     // Filter assignments to just this file
     let file_assignments: Vec<_> = assignments
         .iter()
-        .filter(|a| a.path == path)
+        .filter(|a| a.path_bytes == path)
         .cloned()
         .collect();
 

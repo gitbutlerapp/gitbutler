@@ -60,6 +60,7 @@ pub(crate) async fn worktree(
     review: bool,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
+    let mut id_map = IdMap::new(ctx)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
     let guard = ctx.shared_worktree_access();
@@ -95,14 +96,13 @@ pub(crate) async fn worktree(
     for (path, assignments) in &by_file {
         assignments_by_file.insert(
             path.clone(),
-            FileAssignment::from_assignments(path, assignments),
+            FileAssignment::from_assignments(&id_map, path, assignments),
         );
     }
     let mut stack_details: Vec<StackEntry> = vec![];
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
-    let mut id_map = IdMap::new(ctx)?;
 
     // For JSON output, we'll need the original StackDetails to avoid redundant conversions
     let mut original_stack_details: Vec<(Option<gitbutler_stack::StackId>, Option<StackDetails>)> =
@@ -558,22 +558,6 @@ fn path_with_color(status: &TreeStatus, path: String) -> ColoredString {
         TreeStatus::Modification { .. } => path.yellow(),
         TreeStatus::Rename { .. } => path.purple(),
     }
-}
-
-pub(crate) fn all_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.legacy_project.worktree_dir()?.into(),
-    )?
-    .changes;
-    let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
-    let out = assignments
-        .iter()
-        .map(CliId::file_from_assignment)
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    Ok(out)
 }
 
 pub(crate) fn all_branches(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {

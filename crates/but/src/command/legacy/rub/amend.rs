@@ -1,3 +1,4 @@
+use bstr::BStr;
 use but_core::{DiffSpec, ref_metadata::StackId};
 use but_ctx::{Context, access::WorktreeWritePermission};
 use but_hunk_assignment::HunkAssignment;
@@ -10,14 +11,14 @@ use crate::utils::OutputChannel;
 
 pub(crate) fn file_to_commit(
     ctx: &mut Context,
-    path: &str,
+    path: &BStr,
     stack_id: Option<StackId>,
     oid: &ObjectId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let diff_specs: Vec<DiffSpec> = wt_assignments(ctx)?
         .into_iter()
-        .filter(|assignment| assignment.stack_id == stack_id && assignment.path == path)
+        .filter(|assignment| assignment.stack_id == stack_id && assignment.path_bytes == path)
         .map(|assignment| assignment.into())
         .collect();
 
@@ -30,7 +31,7 @@ pub(crate) fn file_to_commit(
         })
         .unwrap_or_default();
     if let Some(out) = out.for_human() {
-        writeln!(out, "Amended {} → {}", path.bold(), new_commit)?;
+        writeln!(out, "Amended {} → {}", path.to_string().bold(), new_commit)?;
     }
     Ok(())
 }

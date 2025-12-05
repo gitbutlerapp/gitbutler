@@ -201,7 +201,7 @@ pub(crate) fn commit(
     for (path, assignments) in &by_file {
         assignments_by_file.insert(
             path.clone(),
-            FileAssignment::from_assignments(path, assignments),
+            FileAssignment::from_assignments(&id_map, path, assignments),
         );
     }
 
