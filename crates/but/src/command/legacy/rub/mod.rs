@@ -15,7 +15,7 @@ use gitbutler_oplog::{
 };
 
 use crate::{
-    legacy::id::{CliId, IdDb},
+    legacy::id::{CliId, IdMap},
     utils::OutputChannel,
 };
 
@@ -26,8 +26,8 @@ pub(crate) fn handle(
     target_str: &str,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let id_db = IdDb::new(ctx)?;
-    let (sources, target) = ids(ctx, &id_db, source_str, target_str)?;
+    let id_map = IdMap::new(ctx)?;
+    let (sources, target) = ids(ctx, &id_map, source_str, target_str)?;
 
     for source in sources {
         match (&source, &target) {
@@ -158,12 +158,12 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
 
 fn ids(
     ctx: &mut Context,
-    id_db: &IdDb,
+    id_map: &IdMap,
     source: &str,
     target: &str,
 ) -> anyhow::Result<(Vec<CliId>, CliId)> {
-    let sources = parse_sources(ctx, id_db, source)?;
-    let target_result = id_db.parse_str(ctx, target)?;
+    let sources = parse_sources(ctx, id_map, source)?;
+    let target_result = id_map.parse_str(ctx, target)?;
     if target_result.len() != 1 {
         if target_result.is_empty() {
             return Err(anyhow::anyhow!(
@@ -193,20 +193,20 @@ fn ids(
 
 pub(crate) fn parse_sources(
     ctx: &mut Context,
-    id_db: &IdDb,
+    id_map: &IdMap,
     source: &str,
 ) -> anyhow::Result<Vec<CliId>> {
     // Check if it's a range (contains '-')
     if source.contains('-') {
-        parse_range(ctx, id_db, source)
+        parse_range(ctx, id_map, source)
     }
     // Check if it's a list (contains ',')
     else if source.contains(',') {
-        parse_list(ctx, id_db, source)
+        parse_list(ctx, id_map, source)
     }
     // Single source
     else {
-        let source_result = id_db.parse_str(ctx, source)?;
+        let source_result = id_map.parse_str(ctx, source)?;
         if source_result.len() != 1 {
             if source_result.is_empty() {
                 return Err(anyhow::anyhow!(
@@ -235,7 +235,7 @@ pub(crate) fn parse_sources(
     }
 }
 
-fn parse_range(ctx: &mut Context, id_db: &IdDb, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split('-').collect();
     if parts.len() != 2 {
         return Err(anyhow::anyhow!(
@@ -248,8 +248,8 @@ fn parse_range(ctx: &mut Context, id_db: &IdDb, source: &str) -> anyhow::Result<
     let end_str = parts[1];
 
     // Get the start and end IDs
-    let start_matches = id_db.parse_str(ctx, start_str)?;
-    let end_matches = id_db.parse_str(ctx, end_str)?;
+    let start_matches = id_map.parse_str(ctx, start_str)?;
+    let end_matches = id_map.parse_str(ctx, end_str)?;
 
     if start_matches.len() != 1 {
         return Err(anyhow::anyhow!(
@@ -352,13 +352,13 @@ fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId
     Ok(all_files)
 }
 
-fn parse_list(ctx: &mut Context, id_db: &IdDb, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_list(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split(',').collect();
     let mut result = Vec::new();
 
     for part in parts {
         let part = part.trim();
-        let matches = id_db.parse_str(ctx, part)?;
+        let matches = id_map.parse_str(ctx, part)?;
         if matches.len() != 1 {
             if matches.is_empty() {
                 return Err(anyhow::anyhow!(

@@ -6,7 +6,7 @@ use gitbutler_project::Project;
 use gix::prelude::ObjectIdExt;
 
 use crate::{
-    legacy::id::{CliId, IdDb},
+    legacy::id::{CliId, IdMap},
     tui,
     utils::OutputChannel,
 };
@@ -18,10 +18,10 @@ pub(crate) fn describe_target(
     message: Option<&str>,
 ) -> Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_db = IdDb::new(&ctx)?;
+    let id_map = IdMap::new(&mut ctx)?;
 
     // Resolve the commit ID
-    let cli_ids = id_db.parse_str(&mut ctx, target)?;
+    let cli_ids = id_map.parse_str(&mut ctx, target)?;
 
     if cli_ids.is_empty() {
         bail!("ID '{}' not found", target);

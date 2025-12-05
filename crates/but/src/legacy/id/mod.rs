@@ -22,7 +22,7 @@ struct ContextInfo {
     committed_files: Vec<(gix::ObjectId, BString)>,
 }
 
-fn context_info(ctx: &Context) -> anyhow::Result<ContextInfo> {
+fn context_info(ctx: &mut Context) -> anyhow::Result<ContextInfo> {
     let guard = ctx.shared_worktree_access();
     let meta = ctx.meta(guard.read_permission())?;
     let repo = &*ctx.repo.get()?;
@@ -85,7 +85,7 @@ impl Borrow<str> for CommittedFile {
     }
 }
 
-pub struct IdDb {
+pub struct IdMap {
     branch_name_to_cli_id: HashMap<BString, CliId>,
     commit_ids: Vec<gix::ObjectId>,
     committed_files: BTreeSet<CommittedFile>,
@@ -93,10 +93,10 @@ pub struct IdDb {
 }
 
 /// Lifecycle
-impl IdDb {
+impl IdMap {
     /// Initialise CLI IDs for all information in the `RefInfo` structure for `HEAD` via `ctx`.
     // TODO: create an API that enforces re-use of `RefInfo` by its users.
-    pub fn new(ctx: &Context) -> anyhow::Result<Self> {
+    pub fn new(ctx: &mut Context) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         let context_info = context_info(ctx)?;
         let mut pairs_to_count: HashMap<u16, u8> = HashMap::new();
@@ -172,7 +172,7 @@ impl IdDb {
 }
 
 /// Cli ID generation
-impl IdDb {
+impl IdMap {
     pub fn parse_str(&self, ctx: &mut Context, s: &str) -> anyhow::Result<Vec<CliId>> {
         if s.len() < 2 {
             return Err(anyhow::anyhow!(
@@ -287,7 +287,7 @@ impl IdDb {
     }
 }
 
-impl IdDb {
+impl IdMap {
     fn find_branches_by_name(&self, name: &BStr) -> anyhow::Result<Vec<CliId>> {
         let mut matches = Vec::new();
 
