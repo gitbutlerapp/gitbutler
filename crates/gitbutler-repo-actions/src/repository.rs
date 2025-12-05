@@ -198,13 +198,13 @@ impl RepoActionsExt for Context {
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
         if use_git_executable {
-            let path = self.gitdir.clone();
+            let repo_path = self.workdir_or_gitdir()?;
             let remote = branch.remote().to_string();
             match std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
                     .unwrap()
                     .block_on(gitbutler_git::push(
-                        path,
+                        repo_path,
                         gitbutler_git::tokio::TokioExecutor,
                         &remote,
                         gitbutler_git::RefSpec::parse(refspec).unwrap(),
@@ -300,13 +300,13 @@ impl RepoActionsExt for Context {
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
         if self.legacy_project.preferred_key == AuthKey::SystemExecutable {
-            let path = self.legacy_project.git_dir().to_owned();
+            let repo_path = self.workdir_or_gitdir()?;
             let remote = remote_name.to_string();
             return std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
                     .unwrap()
                     .block_on(gitbutler_git::fetch(
-                        path,
+                        repo_path,
                         gitbutler_git::tokio::TokioExecutor,
                         &remote,
                         gitbutler_git::RefSpec::parse(refspec).unwrap(),
