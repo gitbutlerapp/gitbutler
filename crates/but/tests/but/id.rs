@@ -1,4 +1,4 @@
-// TODO: turn these into integration-level tests of the `IdDb` type directly, don't invoke it indirectly.
+// TODO: turn these into integration-level tests of the `IdMap` type directly, don't invoke it indirectly.
 use crate::utils::{Sandbox, setup_metadata};
 
 #[test]

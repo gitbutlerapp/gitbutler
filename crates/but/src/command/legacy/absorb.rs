@@ -14,7 +14,7 @@ use gitbutler_project::Project;
 
 use crate::{
     command::legacy::rub::parse_sources,
-    legacy::id::{CliId, IdDb},
+    legacy::id::{CliId, IdMap},
     utils::OutputChannel,
 };
 
@@ -37,9 +37,9 @@ pub(crate) fn handle(
     source: Option<&str>,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let id_db = IdDb::new(ctx)?;
+    let id_map = IdMap::new(ctx)?;
     let source: Option<CliId> = source
-        .and_then(|s| parse_sources(ctx, &id_db, s).ok())
+        .and_then(|s| parse_sources(ctx, &id_map, s).ok())
         .and_then(|s| {
             s.into_iter().find(|s| {
                 matches!(s, CliId::UncommittedFile { .. }) || matches!(s, CliId::Branch { .. })

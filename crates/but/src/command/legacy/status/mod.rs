@@ -19,7 +19,7 @@ pub(crate) mod assignment;
 pub(crate) mod json;
 
 use crate::{
-    legacy::id::{CliId, IdDb},
+    legacy::id::{CliId, IdMap},
     utils::OutputChannel,
 };
 
@@ -102,7 +102,7 @@ pub(crate) async fn worktree(
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
-    let mut id_db = IdDb::new(ctx)?;
+    let mut id_map = IdMap::new(ctx)?;
 
     // For JSON output, we'll need the original StackDetails to avoid redundant conversions
     let mut original_stack_details: Vec<(Option<gitbutler_stack::StackId>, Option<StackDetails>)> =
@@ -210,7 +210,7 @@ pub(crate) async fn worktree(
             review,
             project.id,
             &repo,
-            &mut id_db,
+            &mut id_map,
         )?;
         out.write_value(workspace_status)?;
         return Ok(());
@@ -247,7 +247,7 @@ pub(crate) async fn worktree(
             i == 0,
             &review_map,
             out,
-            &mut id_db,
+            &mut id_map,
         )?;
     }
     // Format the last fetched time as relative time
@@ -384,13 +384,13 @@ pub fn print_group(
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     out: &mut dyn std::fmt::Write,
-    id_db: &mut IdDb,
+    id_map: &mut IdMap,
 ) -> anyhow::Result<()> {
     let repo = project.open_isolated_repo()?;
     if let Some(group) = &group {
         let mut first = true;
         for branch in &group.branch_details {
-            let id = id_db
+            let id = id_map
                 .branch(branch.name.as_ref())
                 .to_string()
                 .underline()
@@ -453,7 +453,7 @@ pub fn print_group(
                     false,
                     show_url,
                     None,
-                    id_db,
+                    id_map,
                     out,
                 )?;
             }
@@ -486,14 +486,14 @@ pub fn print_group(
                     commit.has_conflicts,
                     show_url,
                     commit.gerrit_review_url.clone(),
-                    id_db,
+                    id_map,
                     out,
                 )?;
             }
         }
     } else {
-        let id_db = IdDb::new(ctx)?;
-        let id = id_db.unassigned().to_string().underline().blue();
+        let id_map = IdMap::new(ctx)?;
+        let id = id_map.unassigned().to_string().underline().blue();
         writeln!(
             out,
             "╭┄{} [{}] {}",
@@ -576,13 +576,13 @@ pub(crate) fn all_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
     Ok(out)
 }
 
-pub(crate) fn all_branches(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
-    let mut id_db = IdDb::new(ctx)?;
+pub(crate) fn all_branches(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
+    let mut id_map = IdMap::new(ctx)?;
     let stacks = crate::legacy::commits::stacks(ctx)?;
     let mut branches = Vec::new();
     for stack in stacks {
         for head in stack.heads {
-            branches.push(id_db.branch(head.name.as_ref()).clone());
+            branches.push(id_map.branch(head.name.as_ref()).clone());
         }
     }
     Ok(branches)
@@ -612,7 +612,7 @@ fn print_commit(
     has_conflicts: bool,
     show_url: bool,
     review_url: Option<String>,
-    id_db: &mut IdDb,
+    id_map: &mut IdMap,
     out: &mut dyn std::fmt::Write,
 ) -> anyhow::Result<()> {
     let mark = if marked {
@@ -694,7 +694,7 @@ fn print_commit(
     }
     if show_files {
         for change in &commit_details.diff_with_first_parent {
-            let cid = id_db
+            let cid = id_map
                 .committed_file(commit_id, change.path.as_ref())
                 .to_string()
                 .blue()
