@@ -224,7 +224,7 @@ impl IdMap {
 
 /// Cli ID generation
 impl IdMap {
-    pub fn parse_str(&self, ctx: &mut Context, s: &str) -> anyhow::Result<Vec<CliId>> {
+    pub fn parse_str(&self, s: &str) -> anyhow::Result<Vec<CliId>> {
         if s.len() < 2 {
             return Err(anyhow::anyhow!(
                 "Id needs to be at least 2 characters long: {}",
@@ -234,7 +234,7 @@ impl IdMap {
 
         let mut matches = Vec::new();
 
-        // First, try exact branch name match
+        // First, try partial branch name match
         if let Ok(branch_matches) = self.find_branches_by_name(s.into()) {
             matches.extend(branch_matches);
         }
@@ -250,17 +250,8 @@ impl IdMap {
             }
         }
 
-        // Then try CliId matching (both prefix and exact)
-        if s.len() > 2 {
-            // For longer strings, try prefix matching on CliIds
-            let mut cli_matches = Vec::new();
-            crate::command::legacy::status::all_branches(ctx)?
-                .into_iter()
-                .filter(|id| id.matches_prefix(s))
-                .for_each(|id| cli_matches.push(id));
-            matches.extend(cli_matches);
-        } else {
-            // For 2-character strings, try exact CliId matching
+        // Then try CliId matching
+        if s.len() == 2 {
             let mut cli_matches = Vec::new();
             if let Some(UncommittedFile {
                 assignment_path: (assignment, path),
@@ -284,13 +275,9 @@ impl IdMap {
                     id: s.to_string(),
                 });
             }
-            crate::command::legacy::status::all_branches(ctx)?
-                .into_iter()
-                .filter(|id| id.matches(s))
-                .for_each(|id| cli_matches.push(id));
             matches.extend(cli_matches);
         }
-        if self.unassigned().matches(s) {
+        if s.find(|c: char| c != '0').is_none() {
             matches.push(self.unassigned().clone());
         }
 
@@ -409,24 +396,6 @@ impl CliId {
     }
     pub fn commit(oid: gix::ObjectId) -> Self {
         CliId::Commit { oid }
-    }
-
-    pub fn matches(&self, s: &str) -> bool {
-        match self {
-            CliId::Unassigned { .. } => s.find(|c: char| c != '0').is_none(),
-            _ => s == self.to_string(),
-        }
-    }
-
-    pub fn matches_prefix(&self, s: &str) -> bool {
-        match self {
-            CliId::Commit { oid } => {
-                let oid_hash = hash(&oid.to_string());
-                oid_hash.starts_with(s)
-            }
-            CliId::Unassigned { .. } => s.find(|c: char| c != '0').is_none(),
-            _ => self.to_string().starts_with(s),
-        }
     }
 }
 

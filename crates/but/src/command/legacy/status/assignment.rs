@@ -30,7 +30,11 @@ pub(crate) struct FileAssignment {
 }
 
 impl FileAssignment {
-    pub fn from_assignments(id_map: &IdMap, path: &BString, assignments: &[HunkAssignment]) -> Self {
+    pub fn from_assignments(
+        id_map: &IdMap,
+        path: &BString,
+        assignments: &[HunkAssignment],
+    ) -> Self {
         let mut filtered_assignments = Vec::new();
         for assignment in assignments {
             if assignment.path_bytes == *path {
