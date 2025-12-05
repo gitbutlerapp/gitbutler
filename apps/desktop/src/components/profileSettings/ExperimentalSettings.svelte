@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { ircEnabled, ircServer, fModeEnabled } from '$lib/config/uiFeatureFlags';
+	import {
+		ircEnabled,
+		ircServer,
+		fModeEnabled,
+		useNewRebaseEngine
+	} from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
 	import { CardGroup, Textbox, Toggle } from '@gitbutler/ui';
@@ -63,6 +68,21 @@
 				id="f-mode"
 				checked={$fModeEnabled}
 				onclick={() => fModeEnabled.set(!$fModeEnabled)}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="new-rebase-engine">
+		{#snippet title()}
+			New rebase engine
+		{/snippet}
+		{#snippet caption()}
+			Use the new graph-based rebase engine for stack operations.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="new-rebase-engine"
+				checked={$useNewRebaseEngine}
+				onclick={() => useNewRebaseEngine.set(!$useNewRebaseEngine)}
 			/>
 		{/snippet}
 	</CardGroup.Item>

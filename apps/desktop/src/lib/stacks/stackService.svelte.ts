@@ -1,3 +1,4 @@
+import { useNewRebaseEngine } from '$lib/config/uiFeatureFlags';
 import { ConflictEntries, type ConflictEntriesObj } from '$lib/files/conflicts';
 import { sortLikeFileTree } from '$lib/files/filetreeV3';
 import { showToast } from '$lib/notifications/toasts';
@@ -28,6 +29,7 @@ import {
 	type ThunkDispatch,
 	type UnknownAction
 } from '@reduxjs/toolkit';
+import { get } from 'svelte/store';
 import type { StackOrder } from '$lib/branches/branch';
 import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
 import type { MoveCommitIllegalAction } from '$lib/commits/commit';
@@ -630,7 +632,11 @@ export class StackService {
 	}
 
 	get updateCommitMessage() {
-		return this.api.endpoints.updateCommitMessage.useMutation();
+		if (get(useNewRebaseEngine)) {
+			return this.api.endpoints.updateCommitMessage.useMutation();
+		} else {
+			return this.api.endpoints.legacyUpdateCommitMessage.useMutation();
+		}
 	}
 
 	get newBranch() {
@@ -1181,12 +1187,23 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					};
 				}
 			}),
-			updateCommitMessage: build.mutation<
+			legacyUpdateCommitMessage: build.mutation<
 				string,
 				{ projectId: string; stackId: string; commitId: string; message: string }
 			>({
 				extraOptions: {
 					command: 'update_commit_message',
+					actionName: 'Update Commit Message'
+				},
+				query: (args) => args,
+				invalidatesTags: () => [invalidatesList(ReduxTag.HeadSha)]
+			}),
+			updateCommitMessage: build.mutation<
+				string,
+				{ projectId: string; commitId: string; message: string }
+			>({
+				extraOptions: {
+					command: 'reword_commit',
 					actionName: 'Update Commit Message'
 				},
 				query: (args) => args,
