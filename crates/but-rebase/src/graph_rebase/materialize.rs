@@ -1,4 +1,6 @@
 //! Functions for materializing a rebase
+use std::collections::HashMap;
+
 use crate::graph_rebase::{Checkouts, rebase::SuccessfulRebase};
 use anyhow::Result;
 use but_core::{
@@ -9,9 +11,16 @@ use but_core::{
     },
 };
 
+/// The outcome of a materialize
+#[derive(Debug, Clone)]
+pub struct MaterializeOutcome {
+    /// A mapping of any commits that were rewritten as part of the rebase
+    pub commit_mapping: HashMap<gix::ObjectId, gix::ObjectId>,
+}
+
 impl SuccessfulRebase {
     /// Materializes a history rewrite
-    pub fn materialize(mut self) -> Result<()> {
+    pub fn materialize(mut self) -> Result<MaterializeOutcome> {
         let repo = self.repo.clone();
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(self.repo)?;
@@ -40,6 +49,8 @@ impl SuccessfulRebase {
 
         repo.edit_references(self.ref_edits.clone())?;
 
-        Ok(())
+        Ok(MaterializeOutcome {
+            commit_mapping: self.commit_mapping,
+        })
     }
 }
