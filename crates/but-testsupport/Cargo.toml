@@ -7,21 +7,37 @@ publish = false
 rust-version = "1.89"
 
 [lib]
+test = false
 doctest = false
 
 [features]
 snapbox = ["dep:snapbox"]
+sandbox = [
+    "snapbox",
+    "dep:shell-words",
+    "dep:but-meta",
+]
+## Activate API testing support, so the sandbox is made so it can also isolate a GitButler application for use with the `but-api`.
+sandbox-but-api = [
+    "sandbox",
+    "dep:but-ctx",
+    "dep:but-settings",
+]
 
 [dependencies]
 but-graph.workspace = true
 but-core.workspace = true
+but-settings = { workspace = true, optional = true }
+but-meta = { workspace = true, optional = true, features = ["legacy"] }
+but-ctx = { workspace = true, optional = true }
+
+shell-words = {  workspace = true, optional = true }
 
 gix-testtools.workspace = true
-
 gix.workspace = true
 anyhow.workspace = true
 termtree = "0.5.1"
 regex = { workspace = true }
-snapbox = { workspace = true, optional = true }
+snapbox = { workspace = true, optional = true, features = ["regex"] }
 
 [dev-dependencies]

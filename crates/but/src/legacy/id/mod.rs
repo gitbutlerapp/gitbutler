@@ -1,12 +1,11 @@
+use bstr::{BStr, BString, ByteSlice};
+use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use std::{
     borrow::Borrow,
     collections::{BTreeSet, HashMap, HashSet},
     fmt::Display,
 };
-
-use bstr::{BStr, BString, ByteSlice};
-use but_core::ref_metadata::StackId;
-use but_ctx::Context;
 
 #[cfg(test)]
 mod tests;
@@ -90,7 +89,7 @@ fn context_info(ctx: &mut Context) -> anyhow::Result<ContextInfo> {
 }
 
 /// a.cmp(b) == a.id.cmp(&b.id) for all a and b
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct UncommittedFile {
     assignment_path: (Option<StackId>, BString),
     id: String,
@@ -107,7 +106,7 @@ impl Borrow<str> for UncommittedFile {
 }
 
 /// a.cmp(b) == a.id.cmp(&b.id) for all a and b
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct CommittedFile {
     commit_oid_path: (gix::ObjectId, BString),
     id: String,
@@ -123,6 +122,7 @@ impl Borrow<str> for CommittedFile {
     }
 }
 
+#[derive(Debug)]
 pub struct IdMap {
     branch_name_to_cli_id: HashMap<BString, CliId>,
     commit_ids: Vec<gix::ObjectId>,
@@ -257,7 +257,7 @@ impl IdMap {
 
         // Then try CliId matching
         if s.len() == 2 {
-            let mut matches = Vec::new();
+            // TODO: a test for this special behaviour (if fully removed, nothing breaks)
             if let Some(UncommittedFile {
                 assignment_path: (assignment, path),
                 ..
@@ -388,8 +388,17 @@ pub enum CliId {
     },
 }
 
+/// Lifecycle
 impl CliId {
-    pub fn kind(&self) -> &'static str {
+    /// Create a CliID identifying `oid`.
+    pub fn commit(oid: gix::ObjectId) -> Self {
+        CliId::Commit { oid }
+    }
+}
+
+/// Access
+impl CliId {
+    pub fn kind_for_humans(&self) -> &'static str {
         match self {
             CliId::UncommittedFile { .. } => "an uncommitted file",
             CliId::CommittedFile { .. } => "a committed file",
@@ -397,9 +406,6 @@ impl CliId {
             CliId::Commit { .. } => "a commit",
             CliId::Unassigned { .. } => "the unassigned area",
         }
-    }
-    pub fn commit(oid: gix::ObjectId) -> Self {
-        CliId::Commit { oid }
     }
 }
 

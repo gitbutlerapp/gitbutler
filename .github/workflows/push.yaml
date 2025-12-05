@@ -135,6 +135,9 @@ jobs:
       - run: cargo check --workspace --all-targets
       - run: |
           # should work without the "legacy" feature
+          cargo check -p but-testsupport --all-targets
+          cargo check -p but-testsupport --all-targets --features sandbox
+          cargo check -p but-testsupport --all-targets --features sandbox-but-api
           cargo check -p but-ctx --all-targets
           cargo check -p but-serde --all-targets
           cargo check -p but-meta --all-targets

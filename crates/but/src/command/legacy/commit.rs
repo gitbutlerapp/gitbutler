@@ -68,7 +68,7 @@ pub(crate) fn insert_blank_commit(
         _ => {
             bail!(
                 "Target must be a commit ID or branch name, not {}",
-                cli_id.kind()
+                cli_id.kind_for_humans()
             );
         }
     };

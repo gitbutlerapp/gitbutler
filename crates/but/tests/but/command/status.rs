@@ -1,4 +1,4 @@
-use crate::utils::{Sandbox, setup_metadata};
+use crate::utils::Sandbox;
 
 #[test]
 fn worktrees() -> anyhow::Result<()> {
@@ -18,7 +18,7 @@ fn worktrees() -> anyhow::Result<()> {
     ");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     env.but("status")
         .with_assert(env.assert_with_uuid_and_timestamp_redactions())
@@ -81,7 +81,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     // Create a new file to ensure we have file assignments
     env.file("test-file.txt", "test content");

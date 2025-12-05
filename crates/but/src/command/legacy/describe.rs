@@ -45,7 +45,10 @@ pub(crate) fn describe_target(
             edit_commit_message_by_id(&ctx, project, *oid, out, message)?;
         }
         _ => {
-            bail!("Target must be a commit ID, not {}", cli_id.kind());
+            bail!(
+                "Target must be a commit ID, not {}",
+                cli_id.kind_for_humans()
+            );
         }
     }
 

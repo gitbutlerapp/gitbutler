@@ -13,6 +13,11 @@ use gix_testtools::{Creation, tempfile};
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
 
+#[cfg(feature = "sandbox")]
+mod sandbox;
+#[cfg(feature = "sandbox")]
+pub use sandbox::Sandbox;
+
 /// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
 /// i.e. `hunk_header("-1,10", "+1,10")`.
 /// Returns `( (old_start, old_lines), (new_start, new_lines) )`.

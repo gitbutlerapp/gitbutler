@@ -120,7 +120,7 @@ pub async fn handle(
                     _ => {
                         return Err(anyhow::anyhow!(
                             "Invalid anchor type: {}, expected commit or branch",
-                            anchor_id.kind()
+                            anchor_id.kind_for_humans()
                         ));
                     }
                 }

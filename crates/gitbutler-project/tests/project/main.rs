@@ -13,7 +13,7 @@ mod add {
         let tmp = paths::data_dir();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
-        let project = gitbutler_project::add_with_path(tmp.path(), path)
+        let project = gitbutler_project::add_at_app_data_dir(tmp.path(), path)
             .unwrap()
             .unwrap_project();
         assert_eq!(project.worktree_dir()?, path);
@@ -35,7 +35,8 @@ mod add {
         fn non_bare_without_worktree() {
             let tmp = paths::data_dir();
             let root = repo_path_at("non-bare-without-worktree");
-            let outcome = gitbutler_project::add_with_path(tmp.path(), root.as_path()).unwrap();
+            let outcome =
+                gitbutler_project::add_at_app_data_dir(tmp.path(), root.as_path()).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NoWorkdir));
         }
 
@@ -43,7 +44,8 @@ mod add {
         fn submodule() {
             let tmp = paths::data_dir();
             let root = repo_path_at("with-submodule").join("submodule");
-            let outcome = gitbutler_project::add_with_path(tmp.path(), root.as_path()).unwrap();
+            let outcome =
+                gitbutler_project::add_at_app_data_dir(tmp.path(), root.as_path()).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NoDotGitDirectory));
         }
 
@@ -52,7 +54,7 @@ mod add {
             let data_dir = paths::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let outcome =
-                gitbutler_project::add_with_path(data_dir.path(), tmp.path().join("missing"))
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), tmp.path().join("missing"))
                     .unwrap();
             assert!(matches!(outcome, AddProjectOutcome::PathNotFound));
         }
@@ -63,7 +65,7 @@ mod add {
             let tmp = tempfile::tempdir().unwrap();
             let path = tmp.path();
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
-            let outcome = gitbutler_project::add_with_path(data_dir.path(), path).unwrap();
+            let outcome = gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NotAGitRepository(_)));
         }
 
@@ -71,7 +73,8 @@ mod add {
         fn empty() {
             let data_dir = paths::data_dir();
             let tmp = tempfile::tempdir().unwrap();
-            let outcome = gitbutler_project::add_with_path(data_dir.path(), tmp.path()).unwrap();
+            let outcome =
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), tmp.path()).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NotAGitRepository(_)));
         }
 
@@ -80,9 +83,9 @@ mod add {
             let data_dir = paths::data_dir();
             let repository = gitbutler_testsupport::TestProject::default();
             let path = repository.path();
-            gitbutler_project::add_with_path(data_dir.path(), path).unwrap();
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
 
-            let outcome = gitbutler_project::add_with_path(data_dir.path(), path).unwrap();
+            let outcome = gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::AlreadyExists(_)));
         }
 
@@ -96,7 +99,8 @@ mod add {
             create_initial_commit(&repo);
 
             let outcome =
-                gitbutler_project::add_with_path(data_dir.path(), repo_dir.as_path()).unwrap();
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), repo_dir.as_path())
+                    .unwrap();
             assert!(matches!(outcome, AddProjectOutcome::BareRepository));
         }
 
@@ -112,7 +116,7 @@ mod add {
 
             let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
             let outcome =
-                gitbutler_project::add_with_path(data_dir.path(), worktree.path()).unwrap();
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), worktree.path()).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NonMainWorktree));
         }
 
@@ -150,7 +154,7 @@ mod delete {
         let data_dir = paths::data_dir();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
-        let project = gitbutler_project::add_with_path(data_dir.path(), path)
+        let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)
             .unwrap()
             .unwrap_project();
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok());
@@ -164,7 +168,8 @@ mod delete {
         let data_dir = paths::data_dir();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
-        let project = gitbutler_project::add_with_path(data_dir.path(), path)?.unwrap_project();
+        let project =
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
 
         let repo = project.open_isolated_repo()?;
         let head_id = repo.head_id()?;
@@ -222,7 +227,8 @@ mod delete {
         let data_dir = paths::data_dir();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
-        let project = gitbutler_project::add_with_path(data_dir.path(), path)?.unwrap_project();
+        let project =
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
 
         let repo = project.open_isolated_repo()?;
         let head_id = repo.head_id()?;

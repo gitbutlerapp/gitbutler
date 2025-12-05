@@ -160,7 +160,7 @@ fn resolve_branch_name(
         crate::legacy::id::CliId::Branch { name, .. } => Ok(name.clone()),
         _ => Err(anyhow::anyhow!(
             "Expected branch identifier, got {}. Please use a branch name or branch CLI ID.",
-            cli_ids[0].kind()
+            cli_ids[0].kind_for_humans()
         )),
     }
 }

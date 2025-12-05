@@ -42,7 +42,6 @@ legacy = [
 
 [dependencies]
 but-core.workspace = true
-but-graph.workspace = true
 but-settings.workspace = true
 but-serde.workspace = true
 but-secret.workspace = true
@@ -123,7 +122,7 @@ cfg-if = "1.0.4"
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
-but-testsupport = { workspace = true, features = ["snapbox"] }
-snapbox = { workspace = true, features = ["term-svg", "regex"] }
-shell-words = "1.1.0"
+but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
+snapbox = { workspace = true, features = ["term-svg"] }
+shell-words.workspace = true
 insta.workspace = true

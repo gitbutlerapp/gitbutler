@@ -1,12 +1,12 @@
 // TODO: turn these into integration-level tests of the `IdMap` type directly, don't invoke it indirectly.
-use crate::utils::{Sandbox, setup_metadata};
+use crate::utils::Sandbox;
 
 #[test]
 fn multiple_zeroes_as_unassigned_area() -> anyhow::Result<()> {
     let env = Sandbox::open_scenario_with_target_and_default_settings("two-stacks")?;
 
     // Must set metadata to match the scenario
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     // Check that 000 is interpreted as the unassigned area.
     env.but("rub 000 000")
@@ -24,7 +24,7 @@ fn unassigned_area_id_is_unambiguous() -> anyhow::Result<()> {
     let env = Sandbox::open_scenario_with_target_and_default_settings("two-stacks")?;
 
     // Must set metadata to match the scenario
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     env.but("branch new branch001").assert().success();
 
@@ -43,7 +43,7 @@ fn branch_avoid_nonalphanumeric() -> anyhow::Result<()> {
     let env = Sandbox::open_scenario_with_target_and_default_settings("two-stacks")?;
 
     // Must set metadata to match the scenario
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     env.but("branch new x-yz").assert().success();
 
@@ -65,7 +65,7 @@ fn branch_avoid_hexdigit() -> anyhow::Result<()> {
     let env = Sandbox::open_scenario_with_target_and_default_settings("two-stacks")?;
 
     // Must set metadata to match the scenario
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     env.but("branch new 0ax").assert().success();
 
@@ -87,7 +87,7 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
     let env = Sandbox::open_scenario_with_target_and_default_settings("two-stacks")?;
 
     // Must set metadata to match the scenario
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     // Exercise the case where we cannot generate an ID for a branch (any ID we
     // generate would also match supersubstring).
