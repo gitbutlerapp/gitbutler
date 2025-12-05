@@ -137,12 +137,17 @@ impl IdMap {
     // TODO: create an API that enforces re-use of `RefInfo` by its users.
     pub fn new(ctx: &mut Context) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
-        let context_info = context_info(ctx)?;
+        let ContextInfo {
+            branch_names,
+            commit_ids,
+            uncommitted_files,
+            committed_files,
+        } = context_info(ctx)?;
         let mut pairs_to_count: HashMap<u16, u8> = HashMap::new();
         fn u8_pair_to_u16(two: [u8; 2]) -> u16 {
             two[0] as u16 * 256 + two[1] as u16
         }
-        for branch_name in &context_info.branch_names {
+        for branch_name in &branch_names {
             for pair in branch_name.windows(2) {
                 let pair: [u8; 2] = pair.try_into()?;
                 if !pair[0].is_ascii_alphanumeric() || !pair[1].is_ascii_alphanumeric() {
@@ -166,7 +171,7 @@ impl IdMap {
 
         let mut branch_name_to_cli_id: HashMap<BString, CliId> = HashMap::new();
         let mut ids_used: HashSet<String> = HashSet::new();
-        'branch_name: for branch_name in context_info.branch_names {
+        'branch_name: for branch_name in branch_names {
             // Find first non-conflicting pair and use it as CliId.
             for pair in branch_name.windows(2) {
                 let pair: [u8; 2] = pair.try_into()?;
@@ -194,25 +199,25 @@ impl IdMap {
             }
         };
 
-        let mut uncommitted_files: BTreeSet<UncommittedFile> = BTreeSet::new();
-        for assignment_path in context_info.uncommitted_files {
-            uncommitted_files.insert(UncommittedFile {
+        let uncommitted_files: BTreeSet<_> = uncommitted_files
+            .into_iter()
+            .map(|assignment_path| UncommittedFile {
                 assignment_path,
                 id: get_next_id(),
-            });
-        }
+            })
+            .collect();
 
-        let mut committed_files: BTreeSet<CommittedFile> = BTreeSet::new();
-        for commit_oid_path in context_info.committed_files {
-            committed_files.insert(CommittedFile {
+        let committed_files: BTreeSet<_> = committed_files
+            .into_iter()
+            .map(|commit_oid_path| CommittedFile {
                 commit_oid_path,
                 id: get_next_id(),
-            });
-        }
+            })
+            .collect();
 
         Ok(Self {
             branch_name_to_cli_id,
-            commit_ids: context_info.commit_ids,
+            commit_ids,
             uncommitted_files,
             committed_files,
             unassigned: CliId::Unassigned {
@@ -252,13 +257,13 @@ impl IdMap {
 
         // Then try CliId matching
         if s.len() == 2 {
-            let mut cli_matches = Vec::new();
+            let mut matches = Vec::new();
             if let Some(UncommittedFile {
                 assignment_path: (assignment, path),
                 ..
             }) = self.uncommitted_files.get(s)
             {
-                cli_matches.push(CliId::UncommittedFile {
+                matches.push(CliId::UncommittedFile {
                     assignment: *assignment,
                     path: path.to_owned(),
                     id: s.to_string(),
@@ -269,13 +274,12 @@ impl IdMap {
                 ..
             }) = self.committed_files.get(s)
             {
-                cli_matches.push(CliId::CommittedFile {
+                matches.push(CliId::CommittedFile {
                     commit_oid: *commit_oid,
                     path: path.to_owned(),
                     id: s.to_string(),
                 });
             }
-            matches.extend(cli_matches);
         }
         if s.find(|c: char| c != '0').is_none() {
             matches.push(self.unassigned().clone());
