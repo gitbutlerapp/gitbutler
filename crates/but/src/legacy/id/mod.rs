@@ -7,7 +7,6 @@ use std::{
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
-use but_hunk_assignment::HunkAssignment;
 
 #[cfg(test)]
 mod tests;
@@ -18,6 +17,8 @@ struct ContextInfo {
     branch_names: Vec<BString>,
     /// Commit IDs in unspecified order.
     commit_ids: Vec<gix::ObjectId>,
+    /// Uncommitted files ordered by assignment, then filename.
+    uncommitted_files: Vec<(Option<StackId>, BString)>,
     /// Committed files ordered by commit ID, then filename.
     committed_files: Vec<(gix::ObjectId, BString)>,
 }
@@ -25,47 +26,84 @@ struct ContextInfo {
 fn context_info(ctx: &mut Context) -> anyhow::Result<ContextInfo> {
     let guard = ctx.shared_worktree_access();
     let meta = ctx.meta(guard.read_permission())?;
-    let repo = &*ctx.repo.get()?;
-    let head_info = but_workspace::head_info(
-        repo,
-        &meta,
-        but_workspace::ref_info::Options {
-            expensive_commit_info: false,
-            ..Default::default()
-        },
-    )?;
-    let mut branch_names: Vec<BString> = Vec::new();
-    let mut commit_ids: Vec<gix::ObjectId> = Vec::new();
-    let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
-    for stack in head_info.stacks {
-        for segment in stack.segments {
-            if let Some(ref_info) = segment.ref_info {
-                branch_names.push(ref_info.ref_name.shorten().to_owned());
-            }
-            for commit in segment.commits {
-                let inner = commit.inner;
-                commit_ids.push(inner.id);
+    let (branch_names, commit_ids, worktree_dir, committed_files) = {
+        let repo = &*ctx.repo.get()?;
+        let head_info = but_workspace::head_info(
+            repo,
+            &meta,
+            but_workspace::ref_info::Options {
+                expensive_commit_info: false,
+                ..Default::default()
+            },
+        )?;
+        let mut branch_names: Vec<BString> = Vec::new();
+        let mut commit_ids: Vec<gix::ObjectId> = Vec::new();
+        let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
+        for stack in head_info.stacks {
+            for segment in stack.segments {
+                if let Some(ref_info) = segment.ref_info {
+                    branch_names.push(ref_info.ref_name.shorten().to_owned());
+                }
+                for commit in segment.commits {
+                    let inner = commit.inner;
+                    commit_ids.push(inner.id);
 
-                let tree_changes = but_core::diff::tree_changes(
-                    repo,
-                    inner.parent_ids.first().copied(),
-                    inner.id,
-                )?;
-                for tree_change in tree_changes {
-                    committed_files.push((inner.id, tree_change.path));
+                    let tree_changes = but_core::diff::tree_changes(
+                        repo,
+                        inner.parent_ids.first().copied(),
+                        inner.id,
+                    )?;
+                    for tree_change in tree_changes {
+                        committed_files.push((inner.id, tree_change.path));
+                    }
+                }
+                for commit in segment.commits_on_remote {
+                    commit_ids.push(commit.id);
                 }
             }
-            for commit in segment.commits_on_remote {
-                commit_ids.push(commit.id);
-            }
+        }
+        committed_files.sort();
+
+        (
+            branch_names,
+            commit_ids,
+            repo.worktree().map(|worktree| worktree.base().to_owned()),
+            committed_files,
+        )
+    };
+    let mut uncommitted_files: Vec<(Option<StackId>, BString)> = Vec::new();
+    if let Some(worktree_dir) = worktree_dir {
+        let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(worktree_dir)?.changes;
+        let (assignments, _assignments_error) =
+            but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes), None)?;
+        for assignment in assignments {
+            uncommitted_files.push((assignment.stack_id, assignment.path_bytes.clone()));
         }
     }
-    committed_files.sort();
+
     Ok(ContextInfo {
         branch_names,
         commit_ids,
+        uncommitted_files,
         committed_files,
     })
+}
+
+/// a.cmp(b) == a.id.cmp(&b.id) for all a and b
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct UncommittedFile {
+    assignment_path: (Option<StackId>, BString),
+    id: String,
+}
+impl Borrow<(Option<StackId>, BString)> for UncommittedFile {
+    fn borrow(&self) -> &(Option<StackId>, BString) {
+        &self.assignment_path
+    }
+}
+impl Borrow<str> for UncommittedFile {
+    fn borrow(&self) -> &str {
+        &self.id
+    }
 }
 
 /// a.cmp(b) == a.id.cmp(&b.id) for all a and b
@@ -88,6 +126,7 @@ impl Borrow<str> for CommittedFile {
 pub struct IdMap {
     branch_name_to_cli_id: HashMap<BString, CliId>,
     commit_ids: Vec<gix::ObjectId>,
+    uncommitted_files: BTreeSet<UncommittedFile>,
     committed_files: BTreeSet<CommittedFile>,
     unassigned: CliId,
 }
@@ -144,25 +183,37 @@ impl IdMap {
             }
         }
 
-        let mut committed_files: BTreeSet<CommittedFile> = BTreeSet::new();
         let mut int_hash = 0u64;
-        for commit_oid_path in context_info.committed_files {
-            let id = loop {
+        let mut get_next_id = || -> String {
+            loop {
                 let tentative_id = string_hash(int_hash);
                 int_hash += 1;
                 if !ids_used.contains(&tentative_id) {
-                    break tentative_id;
+                    return tentative_id;
                 }
-            };
+            }
+        };
+
+        let mut uncommitted_files: BTreeSet<UncommittedFile> = BTreeSet::new();
+        for assignment_path in context_info.uncommitted_files {
+            uncommitted_files.insert(UncommittedFile {
+                assignment_path,
+                id: get_next_id(),
+            });
+        }
+
+        let mut committed_files: BTreeSet<CommittedFile> = BTreeSet::new();
+        for commit_oid_path in context_info.committed_files {
             committed_files.insert(CommittedFile {
                 commit_oid_path,
-                id,
+                id: get_next_id(),
             });
         }
 
         Ok(Self {
             branch_name_to_cli_id,
             commit_ids: context_info.commit_ids,
+            uncommitted_files,
             committed_files,
             unassigned: CliId::Unassigned {
                 id: str::repeat("0", max_zero_count + 1),
@@ -203,10 +254,6 @@ impl IdMap {
         if s.len() > 2 {
             // For longer strings, try prefix matching on CliIds
             let mut cli_matches = Vec::new();
-            crate::command::legacy::status::all_files(ctx)?
-                .into_iter()
-                .filter(|id| id.matches_prefix(s))
-                .for_each(|id| cli_matches.push(id));
             crate::command::legacy::status::all_branches(ctx)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
@@ -215,10 +262,17 @@ impl IdMap {
         } else {
             // For 2-character strings, try exact CliId matching
             let mut cli_matches = Vec::new();
-            crate::command::legacy::status::all_files(ctx)?
-                .into_iter()
-                .filter(|id| id.matches(s))
-                .for_each(|id| cli_matches.push(id));
+            if let Some(UncommittedFile {
+                assignment_path: (assignment, path),
+                ..
+            }) = self.uncommitted_files.get(s)
+            {
+                cli_matches.push(CliId::UncommittedFile {
+                    assignment: *assignment,
+                    path: path.to_owned(),
+                    id: s.to_string(),
+                });
+            }
             if let Some(CommittedFile {
                 commit_oid_path: (commit_oid, path),
                 ..
@@ -249,6 +303,23 @@ impl IdMap {
         }
 
         Ok(unique_matches)
+    }
+
+    pub fn uncommitted_file(&self, assignment: Option<StackId>, path: &BStr) -> CliId {
+        let sought = (assignment, path.to_owned());
+        if let Some(UncommittedFile { id, .. }) = self.uncommitted_files.get(&sought) {
+            CliId::UncommittedFile {
+                assignment: sought.0,
+                path: sought.1,
+                id: id.to_string(),
+            }
+        } else {
+            CliId::UncommittedFile {
+                assignment: sought.0,
+                path: sought.1,
+                id: "00".to_string(),
+            }
+        }
     }
 
     pub fn committed_file(&self, commit_oid: gix::ObjectId, path: &BStr) -> CliId {
@@ -305,8 +376,9 @@ impl IdMap {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum CliId {
     UncommittedFile {
-        path: String,
         assignment: Option<StackId>,
+        path: BString,
+        id: String,
     },
     CommittedFile {
         commit_oid: gix::ObjectId,
@@ -339,13 +411,6 @@ impl CliId {
         CliId::Commit { oid }
     }
 
-    pub fn file_from_assignment(assignment: &HunkAssignment) -> Self {
-        CliId::UncommittedFile {
-            path: assignment.path.clone(),
-            assignment: assignment.stack_id,
-        }
-    }
-
     pub fn matches(&self, s: &str) -> bool {
         match self {
             CliId::Unassigned { .. } => s.find(|c: char| c != '0').is_none(),
@@ -368,13 +433,8 @@ impl CliId {
 impl Display for CliId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CliId::UncommittedFile { path, assignment } => {
-                if let Some(assignment) = assignment {
-                    let value = hash(&format!("{assignment}{path}"));
-                    write!(f, "{value}")
-                } else {
-                    write!(f, "{}", hash(path))
-                }
+            CliId::UncommittedFile { id, .. } => {
+                write!(f, "{}", id)
             }
             CliId::CommittedFile { id, .. } => {
                 write!(f, "{}", id)

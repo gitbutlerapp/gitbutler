@@ -36,15 +36,20 @@ pub(crate) fn handle(
             }
             (CliId::UncommittedFile { path, .. }, CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::unassign_file(ctx, path, out)?;
+                assign::unassign_file(ctx, path.as_ref(), out)?;
             }
-            (CliId::UncommittedFile { path, assignment }, CliId::Commit { oid }) => {
+            (
+                CliId::UncommittedFile {
+                    path, assignment, ..
+                },
+                CliId::Commit { oid },
+            ) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
-                amend::file_to_commit(ctx, path, *assignment, oid, out)?;
+                amend::file_to_commit(ctx, path.as_ref(), *assignment, oid, out)?;
             }
             (CliId::UncommittedFile { path, .. }, CliId::Branch { name, .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_file_to_branch(ctx, path, name, out)?;
+                assign::assign_file_to_branch(ctx, path.as_ref(), name, out)?;
             }
             (CliId::Unassigned { .. }, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
@@ -268,7 +273,7 @@ fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Resul
     let end_id = &end_matches[0];
 
     // Get all files in display order (same order as shown in status)
-    let all_files_in_order = get_all_files_in_display_order(ctx)?;
+    let all_files_in_order = get_all_files_in_display_order(ctx, id_map)?;
 
     // Find the positions of start and end in the ordered file list
     let start_pos = all_files_in_order.iter().position(|id| id == start_id);
@@ -288,7 +293,7 @@ fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Resul
         end_str
     ))
 }
-fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
+fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::Result<Vec<CliId>> {
     use std::collections::BTreeMap;
 
     use bstr::BString;
@@ -326,7 +331,10 @@ fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId
                         if let Some(stack_id) = assignment.stack_id
                             && stack.id == Some(stack_id)
                         {
-                            let file_id = CliId::file_from_assignment(assignment);
+                            let file_id = id_map.uncommitted_file(
+                                assignment.stack_id,
+                                assignment.path_bytes.as_ref(),
+                            );
                             if !all_files.contains(&file_id) {
                                 all_files.push(file_id);
                             }
@@ -341,7 +349,7 @@ fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId
     for assignments in by_file.values() {
         for assignment in assignments {
             if assignment.stack_id.is_none() {
-                let file_id = CliId::file_from_assignment(assignment);
+                let file_id = id_map.uncommitted_file(None, assignment.path_bytes.as_ref());
                 if !all_files.contains(&file_id) {
                     all_files.push(file_id);
                 }

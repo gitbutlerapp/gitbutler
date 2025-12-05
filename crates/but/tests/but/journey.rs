@@ -106,7 +106,10 @@ Caused by:
         .failure()
         .stdout_eq(str![])
         .stderr_eq(str![[r#"
-Error: workspace at refs/heads/main is missing a base
+Error: errors.projects.default_target.not_found
+
+Caused by:
+    there is no default target
 
 "#]]);
 

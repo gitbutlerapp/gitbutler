@@ -1,3 +1,4 @@
+use bstr::BStr;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -7,7 +8,7 @@ use crate::utils::OutputChannel;
 
 pub(crate) fn assign_file_to_branch(
     ctx: &mut Context,
-    path: &str,
+    path: &BStr,
     branch_name: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
@@ -17,7 +18,7 @@ pub(crate) fn assign_file_to_branch(
         writeln!(
             out,
             "Assigned {} → {}.",
-            path.bold(),
+            path.to_string().bold(),
             format!("[{branch_name}]").green()
         )?;
     }
@@ -26,13 +27,13 @@ pub(crate) fn assign_file_to_branch(
 
 pub(crate) fn unassign_file(
     ctx: &mut Context,
-    path: &str,
+    path: &BStr,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let reqs = to_assignment_request(ctx, path, None)?;
     do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
-        writeln!(out, "Unassigned {}", path.bold())?;
+        writeln!(out, "Unassigned {}", path.to_string().bold())?;
     }
     Ok(())
 }
@@ -121,7 +122,7 @@ pub(crate) fn branch_name_to_stack_id(
 
 fn to_assignment_request(
     ctx: &mut Context,
-    path: &str,
+    path: &BStr,
     branch_name: Option<&str>,
 ) -> anyhow::Result<Vec<HunkAssignmentRequest>> {
     let stack_id = branch_name_to_stack_id(ctx, branch_name)?;
@@ -134,7 +135,7 @@ fn to_assignment_request(
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
     let mut reqs = Vec::new();
     for assignment in assignments {
-        if assignment.path == path {
+        if assignment.path_bytes == path {
             reqs.push(HunkAssignmentRequest {
                 hunk_header: assignment.hunk_header,
                 path_bytes: assignment.path_bytes,
