@@ -21,7 +21,7 @@ pub(crate) fn describe_target(
     let id_map = IdMap::new(&mut ctx)?;
 
     // Resolve the commit ID
-    let cli_ids = id_map.parse_str(&mut ctx, target)?;
+    let cli_ids = id_map.parse_str(target)?;
 
     if cli_ids.is_empty() {
         bail!("ID '{}' not found", target);

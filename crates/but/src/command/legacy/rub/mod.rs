@@ -168,7 +168,7 @@ fn ids(
     target: &str,
 ) -> anyhow::Result<(Vec<CliId>, CliId)> {
     let sources = parse_sources(ctx, id_map, source)?;
-    let target_result = id_map.parse_str(ctx, target)?;
+    let target_result = id_map.parse_str(target)?;
     if target_result.len() != 1 {
         if target_result.is_empty() {
             return Err(anyhow::anyhow!(
@@ -207,11 +207,11 @@ pub(crate) fn parse_sources(
     }
     // Check if it's a list (contains ',')
     else if source.contains(',') {
-        parse_list(ctx, id_map, source)
+        parse_list(id_map, source)
     }
     // Single source
     else {
-        let source_result = id_map.parse_str(ctx, source)?;
+        let source_result = id_map.parse_str(source)?;
         if source_result.len() != 1 {
             if source_result.is_empty() {
                 return Err(anyhow::anyhow!(
@@ -253,8 +253,8 @@ fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Resul
     let end_str = parts[1];
 
     // Get the start and end IDs
-    let start_matches = id_map.parse_str(ctx, start_str)?;
-    let end_matches = id_map.parse_str(ctx, end_str)?;
+    let start_matches = id_map.parse_str(start_str)?;
+    let end_matches = id_map.parse_str(end_str)?;
 
     if start_matches.len() != 1 {
         return Err(anyhow::anyhow!(
@@ -360,13 +360,13 @@ fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::
     Ok(all_files)
 }
 
-fn parse_list(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_list(id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split(',').collect();
     let mut result = Vec::new();
 
     for part in parts {
         let part = part.trim();
-        let matches = id_map.parse_str(ctx, part)?;
+        let matches = id_map.parse_str(part)?;
         if matches.len() != 1 {
             if matches.is_empty() {
                 return Err(anyhow::anyhow!(

@@ -18,10 +18,7 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 pub(crate) mod assignment;
 pub(crate) mod json;
 
-use crate::{
-    legacy::id::{CliId, IdMap},
-    utils::OutputChannel,
-};
+use crate::{legacy::id::IdMap, utils::OutputChannel};
 
 type StackDetail = (Option<StackDetails>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
@@ -558,18 +555,6 @@ fn path_with_color(status: &TreeStatus, path: String) -> ColoredString {
         TreeStatus::Modification { .. } => path.yellow(),
         TreeStatus::Rename { .. } => path.purple(),
     }
-}
-
-pub(crate) fn all_branches(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
-    let mut id_map = IdMap::new(ctx)?;
-    let stacks = crate::legacy::commits::stacks(ctx)?;
-    let mut branches = Vec::new();
-    for stack in stacks {
-        for head in stack.heads {
-            branches.push(id_map.branch(head.name.as_ref()).clone());
-        }
-    }
-    Ok(branches)
 }
 
 fn status_from_changes(changes: &[ui::TreeChange], path: BString) -> Option<ui::TreeStatus> {

@@ -100,7 +100,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let id_map = IdMap::new(&mut ctx)?;
     let branch_ids = id_map
-        .parse_str(&mut ctx, branch_id)?
+        .parse_str(branch_id)?
         .iter()
         .filter_map(|clid| match clid {
             CliId::Branch { name, .. } => Some(name.clone()),

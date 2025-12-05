@@ -12,7 +12,7 @@ fn commit_ids_never_collide_due_to_hex_alphabet() -> anyhow::Result<()> {
     assert_eq!(id_map.commit_ids.len(), 2);
     for commit_id in &id_map.commit_ids {
         // TODO: fix this - should be read-only, but needs a `but-db` refactor to support read-only DB access.
-        let actual = id_map.parse_str(&mut ctx, &commit_id.to_hex_with_len(2).to_string())?;
+        let actual = id_map.parse_str(&commit_id.to_hex_with_len(2).to_string())?;
         assert_eq!(actual.len(), 1, "The commit can be resolved");
         assert!(
             matches!(&actual[0], CliId::Commit { oid } if oid == commit_id,),

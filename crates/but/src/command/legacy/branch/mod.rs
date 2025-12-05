@@ -88,10 +88,9 @@ pub async fn handle(
 
             let anchor = if let Some(anchor_str) = anchor {
                 // Use the new create_reference API when anchor is provided
-                let mut ctx = ctx; // Make mutable for CliId resolution
 
                 // Resolve the anchor string to a CliId
-                let anchor_ids = id_map.parse_str(&mut ctx, &anchor_str)?;
+                let anchor_ids = id_map.parse_str(&anchor_str)?;
                 if anchor_ids.is_empty() {
                     return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
                 }

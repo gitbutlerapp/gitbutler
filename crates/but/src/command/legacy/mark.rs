@@ -19,7 +19,7 @@ pub(crate) fn handle(
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let id_map = IdMap::new(ctx)?;
-    let target_result = id_map.parse_str(ctx, target_str)?;
+    let target_result = id_map.parse_str(target_str)?;
     if target_result.len() != 1 {
         return Err(anyhow::anyhow!(
             "Target {} is ambiguous: {:?}",
