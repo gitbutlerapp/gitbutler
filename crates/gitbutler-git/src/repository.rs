@@ -222,7 +222,13 @@ where
     );
 
     let cwd = match harness_env {
-        HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
+        HarnessEnv::Repo(p) =>
+        // repo_path is the .git/ dir in the repository.
+        // Take the parent dir, so that e.g. an origin that's a relative path works.
+        {
+            p.as_ref().parent().unwrap_or(p.as_ref()).to_path_buf()
+        }
+        HarnessEnv::Global(p) => p.as_ref().to_path_buf()
     };
     let mut child_process = core::pin::pin! {
         async {
