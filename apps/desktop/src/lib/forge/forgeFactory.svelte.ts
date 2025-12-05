@@ -124,6 +124,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				forgeOverride
 			});
 		} else {
+			this._determinedForgeType = 'default';
 			this._forge = this.default;
 		}
 	}
