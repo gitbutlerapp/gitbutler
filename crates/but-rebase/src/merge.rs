@@ -12,7 +12,7 @@ use crate::commit::DateMode;
 /// If `target_merge_commit` only has two parents, it will be a normal merge.
 ///
 /// The specialty of the octopus merge is that the merge-base is calculated once using [`gix::Repository::merge_base_octopus()`]
-/// and then re-used when merging subsequent `parent-commit^{tree}` into each other in a three-way merge, reusing the previous
+/// and then reused when merging subsequent `parent-commit^{tree}` into each other in a three-way merge, reusing the previous
 /// result as *ours* until all parents are merged in.
 ///
 /// Conflicts will cause the operation to fail, there is no hiding of conflicts as merge commits typically are

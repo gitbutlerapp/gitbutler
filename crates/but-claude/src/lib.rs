@@ -409,7 +409,7 @@ impl PermissionDecision {
 pub struct ClaudePermissionRequest {
     /// Maps to the tool_use_id from the MCP request
     pub id: String,
-    /// When the requst was made.
+    /// When the request was made.
     pub created_at: chrono::NaiveDateTime,
     /// When the request was updated.
     pub updated_at: chrono::NaiveDateTime,

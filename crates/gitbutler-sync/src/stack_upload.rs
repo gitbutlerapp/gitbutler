@@ -22,8 +22,8 @@ pub fn push_stack_to_review(
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut stack = vb_state.get_stack(stack_id)?;
     let repo = ctx.repo.get()?;
-    // We set the stack immediatly after because it might be an old stack that
-    // dosn't yet have review_ids assigned. When reading they will have been
+    // We set the stack immediately after because it might be an old stack that
+    // doesn't yet have review_ids assigned. When reading they will have been
     // assigned new review_ids, so we just need to persist them here.
     vb_state.set_stack(stack.clone())?;
 
@@ -121,7 +121,7 @@ fn branch_heads(
     Ok(heads)
 }
 
-/// Rewrites a series of commits in preperation for pusing to gitbutler review.
+/// Rewrites a series of commits in preparation for pusing to gitbutler review.
 ///
 /// The heads and commits should be passed in child-most to parent-most order.
 ///

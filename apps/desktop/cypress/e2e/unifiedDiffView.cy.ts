@@ -348,7 +348,7 @@ describe('Unified Diff View with complex hunks', () => {
 		// Click on start a commit
 		cy.getByTestId('start-commit-button').first().click();
 
-		// Unstage everything expet the long hunk file
+		// Unstage everything expect the long hunk file
 		cy.getByTestId('uncommitted-changes-file-list').within(() => {
 			cy.getByTestId('file-list-item').each((item) => {
 				const fileName = item.text().trim();

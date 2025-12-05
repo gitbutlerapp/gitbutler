@@ -150,7 +150,7 @@
 <div class="stack-v gap-16">
 	<CardGroup>
 		<ReduxResult result={accounts.result}>
-			<!-- IF ERRROR -->
+			<!-- IF ERROR -->
 			{#snippet error()}
 				<CardGroup.Item>
 					{#snippet title()}

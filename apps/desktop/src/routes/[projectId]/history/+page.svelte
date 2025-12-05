@@ -121,7 +121,7 @@
 								isWithinRestore={withinRestoreItems.includes(entry.id)}
 								onRestoreClick={() => {
 									historyService.restoreSnapshot(projectId, entry.id);
-									// In some cases, restoring the snapshot doesnt update the UI correctly
+									// In some cases, restoring the snapshot doesn't update the UI correctly
 									// Until we have that figured out, we need to reload the page.
 									location.reload();
 								}}

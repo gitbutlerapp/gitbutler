@@ -250,7 +250,7 @@ impl Claudes {
         );
 
         let (read_stderr, write_stderr) = std::io::pipe()?;
-        // Clone so the reference to ctx can be immediatly dropped
+        // Clone so the reference to ctx can be immediately dropped
         let project_workdir = sync_ctx.legacy_project.worktree_dir()?.to_owned();
         let mut handle = spawn_command(
             writer,
@@ -828,7 +828,7 @@ fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
 }
 
 /// If a session exists, it just returns it, otherwise it creates a new session
-/// and makes a cooresponding rule
+/// and makes a corresponding rule
 fn upsert_session(
     ctx: &mut Context,
     session_id: uuid::Uuid,

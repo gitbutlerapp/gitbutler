@@ -750,7 +750,7 @@ impl Graph {
 /// This works as named segments have been created in a prior step. Thus, we are able to find best matches by
 /// the amount of matching names, probably.
 /// Note that we find applied stack-ids first, then try again with unapplied ones, and indicate if it was applied or not.
-/// Update `seen` with the stack_id we find and avoid re-using seen stack ids.
+/// Update `seen` with the stack_id we find and avoid reusing seen stack ids.
 fn find_matching_stack_id(
     metadata: Option<&ref_metadata::Workspace>,
     segments: &[StackSegment],

@@ -24,7 +24,7 @@ pub fn init(app_handle: &AppHandle, performance_logging: bool) {
         .build(&logs_dir)
         .expect("initializing rolling file appender failed");
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
-    // As the file-writer only checks `max_log_files` on file rotation, it bascially never happens.
+    // As the file-writer only checks `max_log_files` on file rotation, it basically never happens.
     // Run it now.
     prune_old_logs(&logs_dir, Some(log_prefix), Some(log_suffix), max_log_files).ok();
 

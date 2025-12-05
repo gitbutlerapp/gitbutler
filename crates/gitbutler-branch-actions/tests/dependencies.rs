@@ -24,7 +24,7 @@ fn every_commit_is_independent() -> Result<()> {
         &test_ctx.all_stacks,
     )?;
 
-    // No uncommited changes
+    // No uncommitted changes
     assert_eq!(dependencies.diffs.len(), 0);
     // One stack
     assert_eq!(dependencies.commit_dependencies.len(), 1);
@@ -55,7 +55,7 @@ fn every_commit_is_independent_multi_stack() -> Result<()> {
         &test_ctx.all_stacks,
     )?;
 
-    // No uncommited changes
+    // No uncommitted changes
     assert_eq!(dependencies.diffs.len(), 0);
     // One stack
     assert_eq!(dependencies.commit_dependencies.len(), 2);
@@ -86,7 +86,7 @@ fn every_commit_is_sequentially_dependent() -> Result<()> {
         &test_ctx.all_stacks,
     )?;
 
-    // No uncommited changes
+    // No uncommitted changes
     assert_eq!(dependencies.diffs.len(), 0);
     // One stack
     assert_eq!(dependencies.commit_dependencies.len(), 1);
@@ -148,7 +148,7 @@ fn every_commit_is_sequentially_dependent_multi_stack() -> Result<()> {
         &test_ctx.all_stacks,
     )?;
 
-    // No uncommited changes
+    // No uncommitted changes
     assert_eq!(dependencies.diffs.len(), 0);
     // One stack
     assert_eq!(dependencies.commit_dependencies.len(), 2);
@@ -247,7 +247,7 @@ fn delete_and_recreate_file_multi_stack() -> Result<()> {
         &test_ctx.all_stacks,
     )?;
 
-    // No uncommited changes
+    // No uncommitted changes
     assert_eq!(dependencies.diffs.len(), 0);
     // One stack
     assert_eq!(dependencies.commit_dependencies.len(), 2);

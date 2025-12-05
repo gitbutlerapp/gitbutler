@@ -7,7 +7,7 @@ use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use serde::Serialize;
 
 use crate::{
@@ -73,7 +73,7 @@ pub(crate) fn move_commit(
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     // Even if this fails, it's not actionable
-    let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
+    let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
     crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
@@ -188,7 +188,7 @@ fn move_commit_to_destination_stack(
     let gix_repo = ctx.repo.get()?;
     let merge_base = destination_stack.merge_base(ctx)?;
     let mut steps = destination_stack.as_rebase_steps(ctx, &gix_repo)?;
-    // TODO: In the future we can make the API provide additional info for exacly where to place the commit on the destination stack
+    // TODO: In the future we can make the API provide additional info for exactly where to place the commit on the destination stack
     steps.insert(
         steps.len() - 1,
         RebaseStep::Pick {

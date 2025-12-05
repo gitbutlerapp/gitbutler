@@ -114,7 +114,7 @@
 		<!--
 			This ternarny statement captures the nuance of maxHeight possibly
 			being lower than minHeight.
-			TODO: Move this logic into the resizer so it applies everwhere.
+			TODO: Move this logic into the resizer so it applies everywhere.
 		-->
 		{@const maxHeight =
 			resizer.maxHeight && resizer.minHeight

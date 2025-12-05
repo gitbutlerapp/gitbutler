@@ -111,7 +111,7 @@ export default class StackMacros {
 
 		const newCommitId = replacedCommits.find(([before]) => before === destinationCommitId)?.[1];
 		if (!newCommitId) {
-			// This happend only if something went wrong
+			// This happened only if something went wrong
 			throw new Error('No new commit id found for the moved changes');
 		}
 

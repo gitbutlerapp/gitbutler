@@ -419,7 +419,7 @@ M submodule
     ├── file:100644
     └── untracked:100644
 ");
-    // The submdule has changed its state, but not what the parent-repository thinks about it as it wasn't added ot the index
+    // The submdule has changed its state, but not what the parent-repository thinks about it as it wasn't added to the index
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
 100644:51f8807 .gitmodules
 160000:a047f81 embedded-repository

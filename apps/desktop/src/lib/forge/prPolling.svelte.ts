@@ -9,7 +9,7 @@ const POLLING_INTERVAL = 15 * 60 * 1000; // 15 minutes.
 /**
  * Return a reactive list of pull requests for the given project ID.
  *
- * This will poll the PRs in the defined interval, and update the everytime the project ID changes.
+ * This will poll the PRs in the defined interval, and update the every time the project ID changes.
  * This will also update the branch selection. If a PR is selected, it will check if the PR still exists.
  */
 export default function prList(

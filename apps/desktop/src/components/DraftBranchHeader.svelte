@@ -33,7 +33,7 @@
 		data-testid={TestId.BranchHeader}
 		data-testid-branch-header={branchName}
 		class="branch-header"
-		class:commiting={isCommitting}
+		class:committing={isCommitting}
 		data-remove-from-panning
 	>
 		<div class="branch-header__content">

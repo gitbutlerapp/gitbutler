@@ -134,7 +134,7 @@ pub struct IdMap {
 /// Lifecycle
 impl IdMap {
     /// Initialise CLI IDs for all information in the `RefInfo` structure for `HEAD` via `ctx`.
-    // TODO: create an API that enforces re-use of `RefInfo` by its users.
+    // TODO: create an API that enforces reuse of `RefInfo` by its users.
     pub fn new(ctx: &mut Context) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         let ContextInfo {

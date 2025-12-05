@@ -67,7 +67,7 @@
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 
-	const isCommiting = $derived(
+	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && selectionId.type === 'worktree'
 	);
 
@@ -214,7 +214,7 @@
 					>
 						<HunkDiff
 							draggingDisabled={!draggable}
-							hideCheckboxes={!isCommiting}
+							hideCheckboxes={!isCommitting}
 							filePath={change.path}
 							hunkStr={hunk.diff}
 							staged={selection.current.selected}

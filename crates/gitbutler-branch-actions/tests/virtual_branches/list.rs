@@ -131,7 +131,7 @@ fn one_branch_in_workspace_multiple_remotes() -> Result<()> {
             virtual_branch_in_workspace: true,
             has_local: true,
         },
-        "only the seconf remote is detected",
+        "only the second remote is detected",
     );
     Ok(())
 }

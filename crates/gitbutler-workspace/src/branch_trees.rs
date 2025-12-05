@@ -72,24 +72,24 @@ impl WorkspaceState {
     }
 }
 
-/// Update the uncommited changes from one snapshot of the workspace and rebase
+/// Update the uncommitted changes from one snapshot of the workspace and rebase
 /// them on top of the new snapshot.
-pub fn update_uncommited_changes(
+pub fn update_uncommitted_changes(
     ctx: &Context,
     old: WorkspaceState,
     new: WorkspaceState,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
-    let uncommited_changes = (!ctx.settings().feature_flags.cv3)
+    let uncommitted_changes = (!ctx.settings().feature_flags.cv3)
         .then(|| repo.create_wd_tree(0).map(|tree| tree.id()))
         .transpose()?;
 
-    update_uncommited_changes_with_tree(ctx, old, new, uncommited_changes, None, perm)
+    update_uncommitted_changes_with_tree(ctx, old, new, uncommitted_changes, None, perm)
 }
 
 /// `old_uncommitted_changes` is `None` if the `safe_checkout` feature is toggled on in `ctx`
-pub fn update_uncommited_changes_with_tree(
+pub fn update_uncommitted_changes_with_tree(
     ctx: &Context,
     old: WorkspaceState,
     new: WorkspaceState,
@@ -99,18 +99,19 @@ pub fn update_uncommited_changes_with_tree(
 ) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
     if let Some(worktree_id) = old_uncommitted_changes {
-        let mut new_uncommited_changes = move_tree_between_workspaces(repo, worktree_id, old, new)?;
+        let mut new_uncommitted_changes =
+            move_tree_between_workspaces(repo, worktree_id, old, new)?;
 
         // If the new tree and old tree are the same, then we don't need to do anything
-        if !new_uncommited_changes.has_conflicts() && !always_checkout.unwrap_or(false) {
-            let tree = new_uncommited_changes.write_tree_to(repo)?;
+        if !new_uncommitted_changes.has_conflicts() && !always_checkout.unwrap_or(false) {
+            let tree = new_uncommitted_changes.write_tree_to(repo)?;
             if tree == worktree_id {
                 return Ok(());
             }
         }
 
         repo.checkout_index(
-            Some(&mut new_uncommited_changes),
+            Some(&mut new_uncommitted_changes),
             Some(
                 git2::build::CheckoutBuilder::new()
                     .force()
@@ -200,7 +201,7 @@ pub struct BranchHeadAndTree {
     pub tree: git2::Oid,
 }
 
-/// Given a new head for a branch, this comptues how the tree should be
+/// Given a new head for a branch, this computes how the tree should be
 /// rebased on top of the new head. If the rebased tree is conflicted, then
 /// the function will return a new head commit which is the conflicted
 /// tree commit, and the the tree oid will be the auto-resolved tree.
@@ -226,7 +227,7 @@ pub fn compute_updated_branch_head(
     )
 }
 
-/// Given a new head for a branch, this comptues how the tree should be
+/// Given a new head for a branch, this computes how the tree should be
 /// rebased on top of the new head. If the rebased tree is conflicted, then
 /// the function will return a new head commit which is the conflicted
 /// tree commit, and the tree oid will be the auto-resolved tree.
@@ -251,7 +252,7 @@ pub fn compute_updated_branch_head_for_commits(
         None,
         &author,
         &committer,
-        "Uncommited changes",
+        "Uncommitted changes",
         &repo.find_tree(old_tree)?,
         &[&repo.find_commit(old_head)?],
         Default::default(),

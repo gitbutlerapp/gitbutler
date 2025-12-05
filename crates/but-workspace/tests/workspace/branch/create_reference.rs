@@ -510,7 +510,7 @@ mod with_workspace {
         ");
 
         // create a new dependent branch by segment below
-        // (which somewhat counter-intuitively works here) because it's a completly new
+        // (which somewhat counter-intuitively works here) because it's a completely new
         // independent branch.
         let below_b_ref = rc("refs/heads/below-B");
         let graph = but_workspace::branch::create_reference(
@@ -855,7 +855,7 @@ mod with_workspace {
         ");
 
         // create a new dependent branch by segment below
-        // (which somewhat counter-intuitively works here) because it's a completly new
+        // (which somewhat counter-intuitively works here) because it's a completely new
         // independent branch.
         let below_b_ref = rc("refs/heads/below-B");
         let graph = but_workspace::branch::create_reference(

@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * NOTE: This component MOST only ever be rendered ONCE on the page at one
-	 * time. This is because it is working directly with the query paramaters
+	 * time. This is because it is working directly with the query parameters
 	 * and has no idea if it will conflict or not.
 	 */
 	import SectionComponent from '$lib/components/review/Section.svelte';

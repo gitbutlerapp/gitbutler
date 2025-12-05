@@ -11,7 +11,7 @@ use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{
-    WorkspaceState, merge_workspace, move_tree, update_uncommited_changes,
+    WorkspaceState, merge_workspace, move_tree, update_uncommitted_changes,
 };
 use gix::prelude::ObjectIdExt as _;
 use serde::{Deserialize, Serialize};
@@ -75,7 +75,7 @@ pub fn worktree_integrate(
         .stack
         .set_heads_from_rebase_output(ctx, status.rebase_output.references)?;
     let after = WorkspaceState::create(ctx, perm.read_permission())?;
-    update_uncommited_changes(ctx, before, after, perm)?;
+    update_uncommitted_changes(ctx, before, after, perm)?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
@@ -115,7 +115,7 @@ fn worktree_integration_inner(
     // Find the base which we will use for the "cherry pick".
     let wt_meta = get_worktree_meta(&repo, id)?;
     let base = {
-        // If we have worktree metadata and the base hasn't been dropped entirly
+        // If we have worktree metadata and the base hasn't been dropped entirely
         // from history, we will use that.
         if let Some(wt_meta) = wt_meta
             && repo.find_object(wt_meta.base).is_ok()

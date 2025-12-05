@@ -653,7 +653,7 @@ export function codeContentToTokens(content: string, parser: Parser | undefined)
 }
 
 function computeWordDiff(
-	filenName: string,
+	filename: string,
 	prevSection: ContentSection,
 	nextSection: ContentSection,
 	parser: Parser | undefined,
@@ -673,7 +673,7 @@ function computeWordDiff(
 		const newLine = nextSection.lines[i] as Line;
 		const prevSectionRow = {
 			encodedLineId: encodeDiffFileLine(
-				filenName,
+				filename,
 				oldLine.beforeLineNumber,
 				oldLine.afterLineNumber
 			),
@@ -689,7 +689,7 @@ function computeWordDiff(
 		};
 		const nextSectionRow = {
 			encodedLineId: encodeDiffFileLine(
-				filenName,
+				filename,
 				newLine.beforeLineNumber,
 				newLine.afterLineNumber
 			),

@@ -347,8 +347,8 @@ impl StackBranch {
 
     /// Updates the value on the struct to reflect the current value of the reference.
     /// Returns a boolean indicating whether the reference was updated.
-    /// This should not really be needed since the head is always updated, but this function exists as a stopgap measure to be peformed before creating an oplog snapshot.
-    /// Snapshot restoring is the only place where we read the value from the persisted struct to update the reference so we want to be sure that the refernce is in sync on snapshot creation.
+    /// This should not really be needed since the head is always updated, but this function exists as a stopgap measure to be performed before creating an oplog snapshot.
+    /// Snapshot restoring is the only place where we read the value from the persisted struct to update the reference so we want to be sure that the reference is in sync on snapshot creation.
     pub fn sync_with_reference(&mut self, repo: &gix::Repository) -> Result<bool> {
         let oid_from_ref = self.head_oid(repo)?;
         match self.head {

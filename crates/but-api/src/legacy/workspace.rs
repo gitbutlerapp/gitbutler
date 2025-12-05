@@ -155,7 +155,7 @@ pub fn stack_details(
 
 fn update_push_status(branch: &mut but_workspace::ui::BranchDetails) {
     // If there are any commits that are LocalOnly, then the branch push state should be UnpushedCommits
-    // However, if there are alos any LocalAndRemote commits where the id != remote_commit_id, then it should be UnpushedCommitsRequiringForce
+    // However, if there are also any LocalAndRemote commits where the id != remote_commit_id, then it should be UnpushedCommitsRequiringForce
 
     let has_local_only = branch
         .commits

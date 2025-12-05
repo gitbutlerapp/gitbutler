@@ -212,7 +212,7 @@
 						<span class="label italic">No reviewers</span>
 					{/if}
 				</div>
-				<span class="seperator">•</span>
+				<span class="separator">•</span>
 				<div class="factoid">
 					<span class="label">
 						<Icon name="chat-small" />
@@ -257,7 +257,7 @@
 		}
 	}
 
-	.seperator {
+	.separator {
 		transform: translateY(-1.5px);
 		color: var(--clr-text-3);
 	}

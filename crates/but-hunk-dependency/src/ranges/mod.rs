@@ -147,7 +147,7 @@ impl WorkspaceRanges {
     }
 }
 
-/// Combines ranges from muiltiple branches/stacks into a single vector
+/// Combines ranges from multiple branches/stacks into a single vector
 /// with adjusted line numbers. For this to work it is required that changes
 /// between stacks are not overlapping, which is already a hard requirement.
 fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange> {

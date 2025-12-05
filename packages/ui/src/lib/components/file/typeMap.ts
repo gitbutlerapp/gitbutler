@@ -661,7 +661,7 @@ export const symbolFileNamesToIcons: { [key: string]: string } = {
 	'sanity.cli.ts': 'sanity',
 	'sanity.config.ts': 'sanity',
 	'sanity.theme.mjs': 'sanity',
-	'serverless.yml': 'severless',
+	'serverless.yml': 'serverless',
 	'setup.cfg': 'python',
 	'stylelint.config.cjs': 'stylelint',
 	'stylelint.config.js': 'stylelint',

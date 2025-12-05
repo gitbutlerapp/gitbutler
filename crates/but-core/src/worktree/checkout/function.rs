@@ -41,7 +41,7 @@ pub fn safe_checkout_from_head(
 /// We will also update the `.git/index` to match the `new_head_id^{tree}`.
 /// Note that the value for [`UncommitedWorktreeChanges`] is critical to determine what happens if a change would be overwritten.
 ///
-/// We will always handle changes in the worktree safely to avoid loss of uncommited information. This also means that deletions
+/// We will always handle changes in the worktree safely to avoid loss of uncommitted information. This also means that deletions
 /// never cause us to conflict. Conflicted files that would be checked out will cause an error.
 ///
 /// #### Note: No rename tracking

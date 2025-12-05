@@ -133,7 +133,7 @@ pub fn update_branch_description(
 /// # Errors
 /// This method will return an error if:
 ///  - The series does not exist
-///  - The stack cant be found
+///  - The stack can't be found
 ///  - The stack has not been initialized
 ///  - The project is not in workspace mode
 ///  - Persisting the changes failed

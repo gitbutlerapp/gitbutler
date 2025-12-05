@@ -59,7 +59,7 @@ use serde::Serialize;
 
 /// Functions to obtain changes between various items.
 pub mod diff;
-/// Fundamental data types for re-use
+/// Fundamental data types for reuse
 mod diff_types;
 pub use diff_types::{DiffSpec, HunkHeader, ModeFlags};
 

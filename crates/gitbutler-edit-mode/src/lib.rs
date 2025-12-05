@@ -22,7 +22,7 @@ use gitbutler_operating_modes::{
 };
 use gitbutler_repo::{RepositoryExt, SignaturePurpose, signature};
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes_with_tree};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use serde::Serialize;
 
 pub mod commands;
@@ -287,7 +287,7 @@ pub(crate) fn save_and_return_to_workspace(
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommited_changes(ctx)?;
 
-    update_uncommited_changes_with_tree(
+    update_uncommitted_changes_with_tree(
         ctx,
         old_workspace,
         new_workspace,

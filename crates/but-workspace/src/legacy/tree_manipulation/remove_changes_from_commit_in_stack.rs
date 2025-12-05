@@ -20,13 +20,13 @@ use crate::legacy::{
 /// `update_workspace_commit` such that the workspace commit now contains the
 /// updated head of the stack.
 ///
-/// You may want to make use of `update_uncommited_changes`. Using it will
+/// You may want to make use of `update_uncommitted_changes`. Using it will
 /// cause the specified change to be dropped from the working directory. Not
-/// using it will result in the change showing up as an uncommited change.
+/// using it will result in the change showing up as an uncommitted change.
 ///
 /// ## Assumptions
 ///
-/// Currently this function does not take into consideration the possiblity
+/// Currently this function does not take into consideration the possibility
 /// that the commit _might_ be part of two different stacks. As such, the
 /// other stacks may end up referring to stale commits and potentially cause
 /// a merge conflict when combining them in the workspace.

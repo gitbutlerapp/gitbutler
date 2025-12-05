@@ -1650,14 +1650,14 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
 }
 
 #[test]
-fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> anyhow::Result<()> {
+fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario(
-        "two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant",
+        "two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent",
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * cbc6713 (origin/advanced-lane, dependant, advanced-lane) change
+    | * cbc6713 (origin/advanced-lane, dependent, advanced-lane) change
     |/  
     * fafd9d0 (origin/main, main, lane) init
     ");
@@ -1665,7 +1665,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
     add_stack_with_segments(
         &mut meta,
         0,
-        "dependant",
+        "dependent",
         StackState::InWorkspace,
         &["advanced-lane"],
     );
@@ -1695,7 +1695,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "►dependant",
+                        ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1754,7 +1754,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         0,
         "advanced-lane",
         StackState::InWorkspace,
-        &["dependant"],
+        &["dependent"],
     );
 
     // Even though we *could* special-case this to keep the commit in the branch that has a remote,
@@ -1794,7 +1794,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "►dependant",
+                        ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
@@ -1839,22 +1839,22 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
 }
 
 #[test]
-fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
+fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario(
-        "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant",
+        "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * cbc6713 (origin/advanced-lane, on-top-of-dependant, dependant, advanced-lane) change
+    * cbc6713 (origin/advanced-lane, on-top-of-dependent, dependent, advanced-lane) change
     * fafd9d0 (origin/main, main, lane) init
     ");
 
     add_stack_with_segments(
         &mut meta,
         0,
-        "on-top-of-dependant",
+        "on-top-of-dependent",
         StackState::InWorkspace,
-        &["dependant", "advanced-lane"],
+        &["dependent", "advanced-lane"],
     );
 
     let opts = standard_options();
@@ -1882,7 +1882,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "►on-top-of-dependant",
+                        ref_name: "►on-top-of-dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1893,7 +1893,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "►dependant",
+                        ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1950,9 +1950,9 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
     add_stack_with_segments(
         &mut meta,
         0,
-        "dependant",
+        "dependent",
         StackState::InWorkspace,
-        &["on-top-of-dependant", "advanced-lane"],
+        &["on-top-of-dependent", "advanced-lane"],
     );
 
     let info = head_info(&repo, &meta, opts.clone())?;
@@ -1979,7 +1979,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "►dependant",
+                        ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1990,7 +1990,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "►on-top-of-dependant",
+                        ref_name: "►on-top-of-dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],

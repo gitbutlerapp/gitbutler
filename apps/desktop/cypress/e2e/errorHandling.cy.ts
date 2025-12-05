@@ -146,7 +146,7 @@ describe('Error handling - commit actions', () => {
 		expect(mockBackend.getDiff).to.have.callCount(0);
 	});
 
-	it('Fully failing to commit with rejection reasons shuold be handled graceful', () => {
+	it('Fully failing to commit with rejection reasons should be handled graceful', () => {
 		mockCommand('create_commit_from_worktree_changes', () =>
 			mockBackend.commitFailureWithReasons(null)
 		);
@@ -208,7 +208,7 @@ describe('Error handling - commit actions', () => {
 		cy.getByTestId('commit-drawer-description-input').should('contain', newCommitMessageBody);
 	});
 
-	it('Partially failing to commit with rejection reasons shuold be handled graceful', () => {
+	it('Partially failing to commit with rejection reasons should be handled graceful', () => {
 		const newCommitId = '29384726398746289374';
 		mockCommand('create_commit_from_worktree_changes', () =>
 			mockBackend.commitFailureWithReasons(newCommitId)

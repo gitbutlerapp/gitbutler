@@ -1,7 +1,7 @@
 //! Cherry Apply - Applying individual commits into the workspace.
 //!
-//! For now this doesn't consider the single branch mode, but it hopfully
-//! shouldn't be too much of a strech to adapt it to work.
+//! For now this doesn't consider the single branch mode, but it hopefully
+//! shouldn't be too much of a stretch to adapt it to work.
 //!
 //! We want to have two steps:
 //! - cherry_apply_status: Returns a list of stack IDs where a given commit can
@@ -34,7 +34,7 @@ use but_rebase::Rebase;
 use but_workspace::legacy::{StacksFilter, stack_ext::StackExt, stacks_v3};
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use gix::{ObjectId, Repository};
 use serde::Serialize;
 
@@ -139,7 +139,7 @@ pub fn cherry_apply(
 
     {
         let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+        update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     }
 
     update_workspace_commit(&vb_state, ctx, false)?;

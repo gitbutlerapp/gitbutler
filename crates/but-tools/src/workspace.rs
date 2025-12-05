@@ -90,7 +90,7 @@ pub struct CommitParameters {
         The commit message title should be concise and descriptive.
         It is typically a single line that summarizes the changes made in the commit.
         For example: 'Fix issue with user login' or 'Update README with installation instructions'.
-        Don't excede 50 characters in length.
+        Don't exceed 50 characters in length.
     </important_notes>
     ")]
     pub message_title: String,
@@ -437,7 +437,7 @@ pub struct AmendParameters {
     </description>
 
     <important_notes>
-        This should be an update of the existin commit message body in order to accomodate the changes amended into it.
+        This should be an update of the existing commit message body in order to accommodate the changes amended into it.
         If the description already matches the changes, you can pass in the same description.
         The commit message body should provide context and details about the changes made.
         It should span multiple lines if necessary.
@@ -699,7 +699,7 @@ pub struct CreateBlankCommitParameters {
     </description>
 
     <important_notes>
-        This should be the ID of an existinf commit in the stack.
+        This should be the ID of an existing commit in the stack.
     </important_notes>
     ")]
     pub parent_id: String,
@@ -1148,7 +1148,7 @@ pub struct SquashCommitsParameters {
             The commit ids should refer to commits in the specified stack.
             The commits should be in the order they were created, with the oldest commit first.
             All commit should be part of the same stack specified by `stack_id`.
-            This shuold NOT include the commit to squash into.
+            This should NOT include the commit to squash into.
         </important_notes>
         ")]
     pub source_commit_ids: Vec<String>,
@@ -1576,7 +1576,7 @@ pub struct CommitShard {
         The commit message title should be concise and descriptive.
         It is typically a single line that summarizes the changes made in the commit.
         For example: 'Fix issue with user login' or 'Update README with installation instructions'.
-        Don't excede 50 characters in length.
+        Don't exceed 50 characters in length.
     </important_notes>
     ")]
     pub message_title: String,
@@ -1857,7 +1857,7 @@ fn entries_to_simple_stacks(
 
 fn get_file_changes(
     changes: &[(TreeChange, UnifiedPatch)],
-    assingments: Vec<but_hunk_assignment::HunkAssignment>,
+    assignments: Vec<but_hunk_assignment::HunkAssignment>,
 ) -> Vec<FileChange> {
     let mut file_changes = vec![];
     for (change, unified_diff) in changes.iter() {
@@ -1877,7 +1877,7 @@ fn get_file_changes(
                     .iter()
                     .map(|hunk| {
                         let diff = hunk.diff.to_string();
-                        let assignment = assingments
+                        let assignment = assignments
                             .iter()
                             .find(|a| {
                                 a.path_bytes == change.path && a.hunk_header == Some(hunk.into())
@@ -1991,7 +1991,7 @@ fn commit_and_base_from_stack(
 #[derive(Debug, serde::Serialize, serde::Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct AbsorbSpec {
-    /// The title of the commti to use in the amended commit.
+    /// The title of the commit to use in the amended commit.
     #[schemars(description = "
     <description>
         The title of the commit to use in the amended commit.
@@ -2000,7 +2000,7 @@ pub struct AbsorbSpec {
     <important_notes>
         The title should be concise and descriptive.
         Don't use more than 50 characters.
-        It should be differente from the original commit title only if needed.
+        It should be different from the original commit title only if needed.
     </important_notes>
     ")]
     pub commit_title: String,

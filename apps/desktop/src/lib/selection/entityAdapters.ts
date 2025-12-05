@@ -53,7 +53,7 @@ export const hunkAssignmentAdapter = createEntityAdapter<HunkAssignment, string>
 
 /**
  * There may be at most one HunkSelection for each HunkAssignment. As such, we
- * use an `assignmentId` which cooresponds to a given HunkAssignment both as a
+ * use an `assignmentId` which corresponds to a given HunkAssignment both as a
  * foreign key, but also the primary identifier of a HunkSelection.
  */
 export type HunkSelection = {

@@ -20,7 +20,7 @@ use crate::{Outcome, Source, default_target_setting_if_none};
 ///   - Create a new branch if necessary (using a generic canned branch name)
 ///   - Create a new commit with all uncommitted changes found in the worktree (the request context is used as the commit message)
 ///
-/// Avery time this automation is ran, GitButler will aslo:
+/// Avery time this automation is ran, GitButler will also:
 ///   - Create an oplog snaposhot entry _before_ the automation is executed
 ///   - Create an oplog snapshot entry _after_ the automation is executed
 ///   - Create a separate persisted entry recording the request context and IDs for the two oplog snapshots

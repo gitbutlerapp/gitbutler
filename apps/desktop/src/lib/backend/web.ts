@@ -101,7 +101,7 @@ async function webHomeDirectory(): Promise<string> {
 }
 
 async function webJoinPath(pathSegment: string, ...paths: string[]): Promise<string> {
-	// TODO: We might want to expose some endpoint in the backedn to handle path joining in the right way.
+	// TODO: We might want to expose some endpoint in the backend to handle path joining in the right way.
 	// This will break on windows
 	return await Promise.resolve([pathSegment, ...paths].join(webPathSeparator()));
 }

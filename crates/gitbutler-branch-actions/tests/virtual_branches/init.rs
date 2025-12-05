@@ -45,8 +45,8 @@ fn twice() {
 
 #[test]
 fn dirty_non_target() {
-    // a situation when you initialize project while being on the local verison of the master
-    // that has uncommited changes.
+    // a situation when you initialize project while being on the local version of the master
+    // that has uncommitted changes.
     let Test { repo, ctx, .. } = &Test::default();
 
     repo.checkout(&"refs/heads/some-feature".parse().unwrap());
@@ -67,8 +67,8 @@ fn dirty_non_target() {
 
 #[test]
 fn dirty_target() {
-    // a situation when you initialize project while being on the local verison of the master
-    // that has uncommited changes.
+    // a situation when you initialize project while being on the local version of the master
+    // that has uncommitted changes.
     let Test { repo, ctx, .. } = &Test::default();
 
     fs::write(repo.path().join("file.txt"), "content").unwrap();
