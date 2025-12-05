@@ -63,7 +63,7 @@ pub type Error<E> = RepositoryError<
 >;
 
 enum HarnessEnv<P: AsRef<Path>> {
-    /// The contained P is the repo's path
+    /// The contained P is the repository's worktree directory or its `.git` directory.
     Repo(P),
     /// The contained P is the path that the command should be executed in
     Global(P),
