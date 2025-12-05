@@ -20,11 +20,11 @@
 
 <CardGroup.Item labelFor="autoFillPrDescription">
 	{#snippet title()}
-		Auto-fill PR descriptions from commit
+		Auto-fill PR/MR descriptions from commit
 	{/snippet}
 	{#snippet caption()}
-		When creating a pull request for a branch with just one commit, automatically use that commit's
-		message as the PR title and description.
+		When creating a pull request or merge request for a branch with just one commit, automatically
+		use that commit's message as the PR/MR title and description.
 	{/snippet}
 	{#snippet actions()}
 		<Toggle

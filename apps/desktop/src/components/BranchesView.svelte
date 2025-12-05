@@ -334,7 +334,7 @@
 										icon="workbench"
 										onclick={applyFromFork}
 									>
-										Apply PR to workspace
+										Apply {forge.reviewUnitAbbr} to workspace
 									</Button>
 								{/if}
 							</div>
