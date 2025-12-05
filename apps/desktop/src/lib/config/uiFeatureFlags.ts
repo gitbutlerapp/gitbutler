@@ -15,3 +15,4 @@ export type StagingBehavior = 'all' | 'selection' | 'none';
 export const stagingBehaviorFeature = persisted<StagingBehavior>('all', 'feature-staging-behavior');
 export const fModeEnabled = persisted(true, 'f-mode');
 export const newlineOnEnter = persisted(false, 'feature-newline-on-enter');
+export const useNewRebaseEngine = persisted(false, 'feature-use-new-rebase-engine');

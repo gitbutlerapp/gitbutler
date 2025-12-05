@@ -47,7 +47,7 @@ pub mod branch;
 mod changeset;
 
 /// Utility types for the [`WorkspaceCommit`].
-pub(crate) mod commit;
+pub mod commit;
 
 /// Types used only when obtaining head-information.
 ///
