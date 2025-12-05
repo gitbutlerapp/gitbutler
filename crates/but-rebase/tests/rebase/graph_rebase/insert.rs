@@ -138,5 +138,5 @@ fn insert_above_commit_with_two_children() -> Result<()> {
 #[test]
 #[ignore]
 fn inserts_violating_fp_protection_should_cause_rebase_failure() -> Result<()> {
-    panic!("Branch protection hasn't been implemented dyet");
+    panic!("Branch protection hasn't been implemented yet");
 }

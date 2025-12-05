@@ -19,7 +19,7 @@ impl GraphExt for Graph {
         // TODO(CTO): Look into stopping at the common base
         let entrypoint = self.lookup_entrypoint()?;
 
-        // Commits in this list are ordred such that iterating in reverse will
+        // Commits in this list are ordered such that iterating in reverse will
         // have any relevant parent commits already inserted in the graph.
         let mut commits: Vec<Commit> = Vec::new();
         // References are ordered from child-most to parent-most

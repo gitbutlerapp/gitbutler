@@ -569,7 +569,7 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
 }
 
 #[test]
-fn cherry_pick_back_to_origional_parents_unconflicts() -> Result<()> {
+fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
     set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 

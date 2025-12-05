@@ -38,7 +38,7 @@ pub enum CherryPickOutcome {
 /// - Then, I do the three way merge where N is the "base", M is "ours", and X
 ///   is "theirs".
 ///
-/// Expect in the case where X is conflicted. In that case we then make use of
+/// Except in the case where X is conflicted. In that case we then make use of
 /// X's "base" sub-tree as the base.
 pub fn cherry_pick(
     repo: &gix::Repository,
@@ -64,7 +64,7 @@ pub fn cherry_pick(
             Ok(CherryPickOutcome::Identity(target.id.detach()))
         }
         (MergeOutcome::Conflict, _) | (_, MergeOutcome::Conflict) => {
-            // TODO(cto): We can hande the specific case where (the base is
+            // TODO(cto): We can handle the specific case where (the base is
             // _not_ conflicted & the ontos _is_ conflicted & the target == base
             // & ontos.len() == 2) by writing out the ontos conflict as a
             // conflicted merge commit, without expanding our conflict

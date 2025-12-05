@@ -32,7 +32,7 @@ fn reword_a_commit() -> Result<()> {
 
     let mut editor = graph.to_editor(&repo)?;
 
-    // get the origional a
+    // get the original a
     let a = repo.rev_parse_single("A")?.detach();
 
     // reword commit a
@@ -41,7 +41,7 @@ fn reword_a_commit() -> Result<()> {
     a_obj.message = "A: a second coming".into();
     let a_new = repo.write_object(a_obj)?.detach();
 
-    // select the origional a out of the graph
+    // select the original a out of the graph
     let a_selector = editor
         .select_commit(a)
         .context("Failed to find commit a in editor graph")?;
@@ -75,7 +75,7 @@ fn reword_a_commit() -> Result<()> {
 }
 
 #[test]
-fn ammend_a_commit() -> Result<()> {
+fn amend_a_commit() -> Result<()> {
     set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
 
@@ -103,7 +103,7 @@ fn ammend_a_commit() -> Result<()> {
 
     let mut editor = graph.to_editor(&repo)?;
 
-    // get the origional a
+    // get the original a
     let a = repo.rev_parse_single("A")?;
     insta::assert_snapshot!(visualize_tree(a), @r#"
     0cc630c
@@ -122,7 +122,7 @@ fn ammend_a_commit() -> Result<()> {
     a_obj.message = "A: a second coming".into();
     let a_new = repo.write_object(a_obj.inner)?.detach();
 
-    // select the origional a out of the graph
+    // select the original a out of the graph
     let a_selector = editor
         .select_commit(a.detach())
         .context("Failed to find commit a in editor graph")?;
@@ -174,5 +174,5 @@ fn ammend_a_commit() -> Result<()> {
 #[test]
 #[ignore]
 fn replaces_violating_fp_protection_should_cause_rebase_failure() -> Result<()> {
-    panic!("Branch protection hasn't been implemented dyet");
+    panic!("Branch protection hasn't been implemented yet");
 }
