@@ -274,14 +274,14 @@ impl Snapshot {
             }
         }
 
-        let stack_ids_to_remove_from_workspace: Vec<_> = sideeffect_free_meta
+        let stack_ids_to_mark_outside_workspace: Vec<_> = sideeffect_free_meta
             .data()
             .branches
             .keys()
             .filter(|stack_id| !seen.contains(stack_id))
             .copied()
             .collect();
-        for stack_id_not_in_workspace in stack_ids_to_remove_from_workspace {
+        for stack_id_not_in_workspace in stack_ids_to_mark_outside_workspace {
             let vb_stack = self
                 .content
                 .branches

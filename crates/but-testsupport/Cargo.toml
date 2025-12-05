@@ -7,6 +7,7 @@ publish = false
 rust-version = "1.89"
 
 [lib]
+# Unit-tests are disabled as there are none right now.
 test = false
 doctest = false
 
