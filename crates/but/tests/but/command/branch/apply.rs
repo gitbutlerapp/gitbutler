@@ -1,4 +1,4 @@
-use crate::utils::{Sandbox, setup_metadata};
+use crate::utils::Sandbox;
 use snapbox::str;
 
 #[cfg(not(feature = "legacy"))]
@@ -92,7 +92,7 @@ fn local_branch() -> anyhow::Result<()> {
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 ");
 
-    setup_metadata(&env, &["A"])?;
+    env.setup_metadata(&["A"])?;
 
     let branch_name = "feature-branch";
     create_local_branch_with_commit(&env, branch_name);
@@ -140,7 +140,7 @@ fn local_branch_with_json_output() -> anyhow::Result<()> {
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 ");
 
-    setup_metadata(&env, &["A"])?;
+    env.setup_metadata(&["A"])?;
 
     create_local_branch_with_commit(&env, "feature-branch");
 
@@ -182,7 +182,7 @@ fn remote_branch_creates_local_tracking_branch_automatically() -> anyhow::Result
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 ");
 
-    setup_metadata(&env, &["A"])?;
+    env.setup_metadata(&["A"])?;
 
     // Create a remote branch reference
     env.invoke_bash(
@@ -262,7 +262,7 @@ fn multiple_branches_sequentially() -> anyhow::Result<()> {
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 ");
 
-    setup_metadata(&env, &["A"])?;
+    env.setup_metadata(&["A"])?;
 
     let f1 = "feature-1";
     create_local_branch_with_commit_with_message(&env, f1, "Add feature 1");

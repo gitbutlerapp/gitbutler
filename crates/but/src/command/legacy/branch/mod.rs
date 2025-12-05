@@ -5,7 +5,7 @@ use but_ctx::{Context, LegacyProject};
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 
-use crate::{args::branch, legacy::id::IdDb, utils::OutputChannel};
+use crate::{args::branch, legacy::id::IdMap, utils::OutputChannel};
 
 mod apply;
 mod json;
@@ -73,11 +73,11 @@ pub async fn handle(
             branch_name,
             anchor,
         }) => {
-            let ctx = Context::new_from_legacy_project_and_settings(
+            let mut ctx = Context::new_from_legacy_project_and_settings(
                 legacy_project,
                 AppSettings::load_from_default_path_creating()?,
             );
-            let id_db = IdDb::new(&ctx)?;
+            let id_map = IdMap::new(&mut ctx)?;
             // Get branch name or use canned name
             let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
                 but_api::legacy::workspace::canned_branch_name(legacy_project.id)
@@ -88,10 +88,9 @@ pub async fn handle(
 
             let anchor = if let Some(anchor_str) = anchor {
                 // Use the new create_reference API when anchor is provided
-                let mut ctx = ctx; // Make mutable for CliId resolution
 
                 // Resolve the anchor string to a CliId
-                let anchor_ids = id_db.parse_str(&mut ctx, &anchor_str)?;
+                let anchor_ids = id_map.parse_str(&anchor_str)?;
                 if anchor_ids.is_empty() {
                     return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
                 }
@@ -121,7 +120,7 @@ pub async fn handle(
                     _ => {
                         return Err(anyhow::anyhow!(
                             "Invalid anchor type: {}, expected commit or branch",
-                            anchor_id.kind()
+                            anchor_id.kind_for_humans()
                         ));
                     }
                 }

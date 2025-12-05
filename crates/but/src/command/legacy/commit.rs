@@ -13,7 +13,7 @@ use gitbutler_project::Project;
 
 use crate::{
     command::legacy::status::assignment::FileAssignment,
-    legacy::id::{CliId, IdDb},
+    legacy::id::{CliId, IdMap},
     tui,
     utils::OutputChannel,
 };
@@ -24,10 +24,10 @@ pub(crate) fn insert_blank_commit(
     target: &str,
 ) -> Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_db = IdDb::new(&ctx)?;
+    let id_map = IdMap::new(&mut ctx)?;
 
     // Resolve the target ID
-    let cli_ids = id_db.parse_str(&mut ctx, target)?;
+    let cli_ids = id_map.parse_str(target)?;
 
     if cli_ids.is_empty() {
         bail!("Target '{}' not found", target);
@@ -68,7 +68,7 @@ pub(crate) fn insert_blank_commit(
         _ => {
             bail!(
                 "Target must be a commit ID or branch name, not {}",
-                cli_id.kind()
+                cli_id.kind_for_humans()
             );
         }
     };
@@ -154,7 +154,7 @@ pub(crate) fn commit(
     create_branch: bool,
 ) -> anyhow::Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_db = IdDb::new(&ctx)?;
+    let id_map = IdMap::new(&mut ctx)?;
 
     // Get all stacks using but-api
     let project_id = project.id;
@@ -173,15 +173,8 @@ pub(crate) fn commit(
         })
         .collect();
 
-    let (target_stack_id, target_stack) = select_stack(
-        &mut ctx,
-        &id_db,
-        project,
-        &stacks,
-        branch_hint,
-        create_branch,
-        out,
-    )?;
+    let (target_stack_id, target_stack) =
+        select_stack(&id_map, project, &stacks, branch_hint, create_branch, out)?;
 
     // Get changes and assignments using but-api
     let worktree_changes = diff::changes_in_worktree(project_id)?;
@@ -201,7 +194,7 @@ pub(crate) fn commit(
     for (path, assignments) in &by_file {
         assignments_by_file.insert(
             path.clone(),
-            FileAssignment::from_assignments(path, assignments),
+            FileAssignment::from_assignments(&id_map, path, assignments),
         );
     }
 
@@ -248,7 +241,7 @@ pub(crate) fn commit(
             .find(|branch| branch.name == hint)
             .or_else(|| {
                 // If no exact match, try to parse as CLI ID and match
-                if let Ok(cli_ids) = id_db.parse_str(&mut ctx, hint) {
+                if let Ok(cli_ids) = id_map.parse_str(hint) {
                     for cli_id in cli_ids {
                         if let crate::legacy::id::CliId::Branch { name, .. } = cli_id
                             && let Some(branch) =
@@ -347,8 +340,7 @@ fn create_independent_branch(
 }
 
 fn select_stack(
-    ctx: &mut Context,
-    id_db: &IdDb,
+    id_map: &IdMap,
     project: &Project,
     stacks: &[(
         but_core::ref_metadata::StackId,
@@ -377,7 +369,7 @@ fn select_stack(
     match branch_hint {
         Some(hint) => {
             // Try to find stack by branch hint
-            if let Some(stack) = find_stack_by_hint(ctx, id_db, stacks, hint) {
+            if let Some(stack) = find_stack_by_hint(id_map, stacks, hint) {
                 return Ok(stack);
             }
 
@@ -409,8 +401,7 @@ fn select_stack(
 }
 
 fn find_stack_by_hint(
-    ctx: &mut Context,
-    id_db: &IdDb,
+    id_map: &IdMap,
     stacks: &[(
         but_core::ref_metadata::StackId,
         but_workspace::ui::StackDetails,
@@ -428,7 +419,7 @@ fn find_stack_by_hint(
     }
 
     // Try CLI ID parsing
-    let cli_ids = id_db.parse_str(ctx, hint).ok()?;
+    let cli_ids = id_map.parse_str(hint).ok()?;
     for cli_id in cli_ids {
         if let CliId::Branch { name, .. } = cli_id {
             for (stack_id, stack_details) in stacks {

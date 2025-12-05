@@ -217,17 +217,44 @@ impl Snapshot {
 
         let ws = graph.to_workspace()?;
         let mut seen = BTreeSet::new();
-        for (ws_stack, in_workspace_stack_id) in
-            ws.stacks.iter().filter_map(|s| s.id.map(|id| (s, id)))
-        {
-            seen.insert(in_workspace_stack_id);
-            let Some(vb_stack) = self.content.branches.get_mut(&in_workspace_stack_id) else {
-                tracing::warn!(
-                    "Didn't find stack with id {in_workspace_stack_id} in branches metadata, and it would have to be created or old code may fail"
-                );
-                continue;
-            };
 
+        // Make sure we have a stack id, which is something that may not be the case in
+        // single-branch mode or in tests that start off with just a Git repository.
+        // Having stack IDs is useful and maybe one day we can pre-generate them just like we do here
+        // as they only have to be locally unique.
+        let workspace_unique_stack_id = |mut idx: usize| -> StackId {
+            let mut stack_id = StackId::from_number_for_testing(idx as u128);
+            while self.content.branches.contains_key(&stack_id) {
+                idx += 1;
+                stack_id = StackId::from_number_for_testing(idx as u128);
+            }
+            stack_id
+        };
+        let ws_stacks_to_represent_in_vb_toml: Vec<_> = ws
+            .stacks
+            .iter()
+            .enumerate()
+            .map(|(idx, s)| {
+                let id = s.id.unwrap_or_else(|| workspace_unique_stack_id(idx + 1));
+                (s, id, idx)
+            })
+            .collect();
+        for (ws_stack, in_workspace_stack_id, ws_stack_idx) in ws_stacks_to_represent_in_vb_toml {
+            seen.insert(in_workspace_stack_id);
+            let mut inserted_new_stack = false;
+            let vb_stack = self
+                .content
+                .branches
+                .entry(in_workspace_stack_id)
+                .or_insert_with(|| {
+                    inserted_new_stack = true;
+                    Stack::new_with_just_heads(
+                        vec![],
+                        gix::date::Time::now_utc().seconds as u128 * 1000,
+                        ws_stack_idx,
+                        true,
+                    )
+                });
             let made_heads_match = make_heads_match(ws_stack, vb_stack);
             if !vb_stack.in_workspace {
                 tracing::warn!(
@@ -242,16 +269,19 @@ impl Snapshot {
                 );
                 self.set_changed_to_necessitate_write();
             }
+            if inserted_new_stack {
+                self.set_changed_to_necessitate_write();
+            }
         }
 
-        let stack_ids_to_put_in_workspace: Vec<_> = sideeffect_free_meta
+        let stack_ids_to_mark_outside_workspace: Vec<_> = sideeffect_free_meta
             .data()
             .branches
             .keys()
             .filter(|stack_id| !seen.contains(stack_id))
             .copied()
             .collect();
-        for stack_id_not_in_workspace in stack_ids_to_put_in_workspace {
+        for stack_id_not_in_workspace in stack_ids_to_mark_outside_workspace {
             let vb_stack = self
                 .content
                 .branches

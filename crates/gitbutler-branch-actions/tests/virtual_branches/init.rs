@@ -9,7 +9,7 @@ fn twice() {
     let test_project = TestProject::default();
 
     {
-        let project = gitbutler_project::add_with_path(data_dir.path(), test_project.path())
+        let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
             .expect("failed to add project")
             .unwrap_project();
         let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
@@ -26,7 +26,7 @@ fn twice() {
     }
 
     {
-        let project = gitbutler_project::add_with_path(data_dir.path(), test_project.path())
+        let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
             .unwrap()
             .unwrap_project();
         let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());

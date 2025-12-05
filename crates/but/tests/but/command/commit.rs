@@ -1,6 +1,6 @@
 use snapbox::str;
 
-use crate::utils::{Sandbox, setup_metadata};
+use crate::utils::Sandbox;
 
 #[test]
 fn commit_with_message_flag() -> anyhow::Result<()> {
@@ -11,7 +11,7 @@ fn commit_with_message_flag() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    setup_metadata(&env, &["A"])?;
+    env.setup_metadata(&["A"])?;
 
     // Create a change in the worktree
     env.file("new-file.txt", "test content");
@@ -44,7 +44,7 @@ fn commit_with_branch_hint() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     // Create a change
     env.file("file-for-b.txt", "content for B");
@@ -76,7 +76,7 @@ fn commit_with_nonexistent_branch_fails() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     env.file("file.txt", "content");
 
@@ -103,7 +103,7 @@ fn commit_with_create_flag_creates_new_branch() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     env.file("new-feature.txt", "new feature");
 

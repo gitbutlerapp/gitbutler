@@ -306,7 +306,7 @@ pub mod read_only {
         let project = if was_inserted {
             let tmp = tempfile::TempDir::new()?;
             let outcome =
-                gitbutler_project::add_with_path(tmp.path(), project_worktree_dir.as_path())?;
+                gitbutler_project::add_at_app_data_dir(tmp.path(), project_worktree_dir.as_path())?;
             outcome.try_project()?
         } else {
             Project::new_for_gitbutler_testsupport(

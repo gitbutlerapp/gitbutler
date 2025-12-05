@@ -34,8 +34,8 @@ pub fn get(id: ProjectId) -> anyhow::Result<Project> {
 }
 
 /// Testing purpose only.
-pub fn get_with_path<P: AsRef<Path>>(data_dir: P, id: ProjectId) -> anyhow::Result<Project> {
-    let controller = Controller::from_path(data_dir.as_ref());
+pub fn get_with_path<P: AsRef<Path>>(app_data_dir: P, id: ProjectId) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(app_data_dir.as_ref());
     controller.get(id)
 }
 
@@ -56,16 +56,15 @@ pub fn update(project: UpdateRequest) -> anyhow::Result<Project> {
 
 /// Testing purpose only.
 pub fn update_with_path<P: AsRef<Path>>(
-    data_dir: P,
+    app_data_dir: P,
     project: UpdateRequest,
 ) -> anyhow::Result<Project> {
-    let controller = Controller::from_path(data_dir.as_ref());
+    let controller = Controller::from_path(app_data_dir.as_ref());
     controller.update(project)
 }
 
 pub fn add<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjectOutcome> {
-    let controller = Controller::from_path(but_path::app_data_dir()?);
-    controller.add(path)
+    add_at_app_data_dir(but_path::app_data_dir()?, path)
 }
 
 pub fn add_with_best_effort<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjectOutcome> {
@@ -73,12 +72,15 @@ pub fn add_with_best_effort<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjec
     controller.add_with_best_effort(path)
 }
 
-/// Testing purpose only.
-pub fn add_with_path(
-    data_dir: impl AsRef<Path>,
+/// Control the `app_data_dir` at which the project is supposed to be added.
+///
+/// Useful mostly for testing, and a reminder that we want to keep project metadata with the project,
+/// like the other metadata we store there.
+pub fn add_at_app_data_dir(
+    app_data_dir: impl AsRef<Path>,
     path: impl AsRef<Path>,
 ) -> anyhow::Result<AddProjectOutcome> {
-    let controller = Controller::from_path(data_dir.as_ref());
+    let controller = Controller::from_path(app_data_dir.as_ref());
     controller.add(path)
 }
 
@@ -94,8 +96,8 @@ pub fn delete(id: ProjectId) -> anyhow::Result<()> {
 }
 
 /// Testing purpose only.
-pub fn delete_with_path<P: AsRef<Path>>(data_dir: P, id: ProjectId) -> anyhow::Result<()> {
-    let controller = Controller::from_path(data_dir.as_ref());
+pub fn delete_with_path<P: AsRef<Path>>(app_data_dir: P, id: ProjectId) -> anyhow::Result<()> {
+    let controller = Controller::from_path(app_data_dir.as_ref());
     controller.delete(id)
 }
 

@@ -717,7 +717,6 @@ dependencies = [
  "but-forge",
  "but-gerrit",
  "but-github",
- "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
  "but-meta",
@@ -1397,10 +1396,14 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-ctx",
  "but-graph",
+ "but-meta",
+ "but-settings",
  "gix",
  "gix-testtools",
  "regex",
+ "shell-words",
  "snapbox",
  "termtree",
 ]

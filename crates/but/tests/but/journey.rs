@@ -106,7 +106,10 @@ Caused by:
         .failure()
         .stdout_eq(str![])
         .stderr_eq(str![[r#"
-Error: workspace at refs/heads/main is missing a base
+Error: errors.projects.default_target.not_found
+
+Caused by:
+    there is no default target
 
 "#]]);
 
@@ -116,7 +119,6 @@ Error: workspace at refs/heads/main is missing a base
 #[cfg(feature = "legacy")]
 #[test]
 fn from_workspace() -> anyhow::Result<()> {
-    use crate::utils::setup_metadata;
     use snapbox::file;
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     insta::assert_snapshot!(env.git_log()?, @r"
@@ -130,7 +132,7 @@ fn from_workspace() -> anyhow::Result<()> {
     insta::assert_snapshot!(env.git_status()?, @r"");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     env.but("status")
         .assert()

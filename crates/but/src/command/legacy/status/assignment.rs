@@ -2,7 +2,7 @@ use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
 
-use crate::legacy::id::CliId;
+use crate::legacy::id::IdMap;
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,9 +13,11 @@ pub struct CLIHunkAssignment {
     pub cli_id: String,
 }
 
-impl From<HunkAssignment> for CLIHunkAssignment {
-    fn from(inner: HunkAssignment) -> Self {
-        let cli_id = CliId::file_from_assignment(&inner).to_string();
+impl CLIHunkAssignment {
+    fn from_assignment(id_map: &IdMap, inner: HunkAssignment) -> Self {
+        let cli_id = id_map
+            .uncommitted_file(inner.stack_id, inner.path_bytes.as_ref())
+            .to_string();
         Self { inner, cli_id }
     }
 }
@@ -28,7 +30,11 @@ pub(crate) struct FileAssignment {
 }
 
 impl FileAssignment {
-    pub fn from_assignments(path: &BString, assignments: &[HunkAssignment]) -> Self {
+    pub fn from_assignments(
+        id_map: &IdMap,
+        path: &BString,
+        assignments: &[HunkAssignment],
+    ) -> Self {
         let mut filtered_assignments = Vec::new();
         for assignment in assignments {
             if assignment.path_bytes == *path {
@@ -37,7 +43,10 @@ impl FileAssignment {
         }
         Self {
             path: path.clone(),
-            assignments: filtered_assignments.into_iter().map(Into::into).collect(),
+            assignments: filtered_assignments
+                .into_iter()
+                .map(|a| CLIHunkAssignment::from_assignment(id_map, a))
+                .collect(),
         }
     }
     #[expect(dead_code)]

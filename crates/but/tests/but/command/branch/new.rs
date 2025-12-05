@@ -1,4 +1,4 @@
-use crate::utils::{Sandbox, setup_metadata};
+use crate::utils::Sandbox;
 use snapbox::str;
 
 #[test]
@@ -10,7 +10,7 @@ fn outputs_branch_name() -> anyhow::Result<()> {
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 ");
 
-    setup_metadata(&env, &["A"])?;
+    env.setup_metadata(&["A"])?;
 
     env.but("branch new my-feature")
         .assert()
@@ -41,7 +41,7 @@ fn with_json_output() -> anyhow::Result<()> {
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 ");
 
-    setup_metadata(&env, &["A"])?;
+    env.setup_metadata(&["A"])?;
 
     // Test JSON output without anchor
     env.but("--json branch new my-feature")
