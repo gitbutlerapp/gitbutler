@@ -3,6 +3,7 @@
 	"compilerOptions": {
 		"target": "ES2022",
 		"lib": ["dom", "dom.iterable", "ES2021"],
+		"types": [],
 		"allowJs": true,
 		"checkJs": true,
 		"esModuleInterop": true,
@@ -14,8 +15,7 @@
 		"sourceMap": true,
 		"strict": true,
 		"experimentalDecorators": true,
-		"noFallthroughCasesInSwitch": true,
-		"types": ["vitest/importMeta", "vitest/jsdom"]
+		"noFallthroughCasesInSwitch": true
 	},
 	"include": [
 		"vitest-setup.js",
