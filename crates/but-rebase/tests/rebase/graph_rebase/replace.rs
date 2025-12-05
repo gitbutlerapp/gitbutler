@@ -1,7 +1,7 @@
 //! These tests exercise the replace operation.
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, Step, rebase::RebaseOutcome};
+use but_rebase::graph_rebase::{GraphExt, Step};
 use but_testsupport::{git_status, visualize_commit_graph_all, visualize_tree};
 
 use crate::{
@@ -55,9 +55,6 @@ fn reword_a_commit() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    let RebaseOutcome::Success(outcome) = outcome else {
-        bail!("Rebase failed");
-    };
     outcome.materialize()?;
 
     assert_eq!(head_tree, repo.head_tree()?.id);
@@ -139,9 +136,6 @@ fn ammend_a_commit() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    let RebaseOutcome::Success(outcome) = outcome else {
-        bail!("Rebase failed");
-    };
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -175,4 +169,10 @@ fn ammend_a_commit() -> Result<()> {
     "#);
 
     Ok(())
+}
+
+#[test]
+#[ignore]
+fn replaces_violating_fp_protection_should_cause_rebase_failure() -> Result<()> {
+    panic!("Branch protection hasn't been implemented dyet");
 }

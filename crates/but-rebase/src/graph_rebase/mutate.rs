@@ -1,5 +1,6 @@
 //! Operations for mutation the editor
 
+use anyhow::{Result, anyhow};
 use petgraph::{Direction, visit::EdgeRef};
 
 use crate::graph_rebase::{Edge, Editor, Selector, Step};
@@ -18,7 +19,25 @@ pub enum InsertSide {
 /// Operations for mutating the commit graph
 impl Editor {
     /// Get a selector to a particular commit in the graph
-    pub fn select_commit(&self, target: gix::ObjectId) -> Option<Selector> {
+    pub fn select_commit(&self, target: gix::ObjectId) -> Result<Selector> {
+        match self.try_select_commit(target) {
+            Some(selector) => Ok(selector),
+            None => Err(anyhow!("Failed to find commit {target} in rebase editor")),
+        }
+    }
+
+    /// Get a selector to a particular reference in the graph
+    pub fn select_reference(&self, target: &gix::refs::FullNameRef) -> Result<Selector> {
+        match self.try_select_reference(target) {
+            Some(selector) => Ok(selector),
+            None => Err(anyhow!(
+                "Failed to find reference {target} in rebase editor"
+            )),
+        }
+    }
+
+    /// Get a selector to a particular commit in the graph
+    pub fn try_select_commit(&self, target: gix::ObjectId) -> Option<Selector> {
         for node_idx in self.graph.node_indices() {
             if let Step::Pick { id, .. } = self.graph[node_idx]
                 && id == target
@@ -31,7 +50,7 @@ impl Editor {
     }
 
     /// Get a selector to a particular reference in the graph
-    pub fn select_reference(&self, target: &gix::refs::FullNameRef) -> Option<Selector> {
+    pub fn try_select_reference(&self, target: &gix::refs::FullNameRef) -> Option<Selector> {
         for node_idx in self.graph.node_indices() {
             if let Step::Reference { refname } = &self.graph[node_idx]
                 && target == refname.as_ref()
