@@ -6,10 +6,10 @@
 	const shortcutService = inject(SHORTCUT_SERVICE);
 	const uiState = inject(UI_STATE);
 
-	const unassignedSidebaFolded = uiState.global.unassignedSidebaFolded;
+	const unassignedSidebarFolded = uiState.global.unassignedSidebarFolded;
 
 	function toggleSidebar() {
-		unassignedSidebaFolded.set(!unassignedSidebaFolded.current);
+		unassignedSidebarFolded.set(!unassignedSidebarFolded.current);
 	}
 
 	$effect(() => shortcutService.on('toggle-sidebar', () => toggleSidebar()));
