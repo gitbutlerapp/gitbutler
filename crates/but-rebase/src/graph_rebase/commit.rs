@@ -1,4 +1,4 @@
-//! Provides some slightly higher level tools to help with manipulating commits, in preperation for use in the editor.
+//! Provides some slightly higher level tools to help with manipulating commits, in preparation for use in the editor.
 
 use anyhow::Result;
 use gix::prelude::ObjectIdExt;
@@ -14,7 +14,7 @@ impl Editor {
         but_core::Commit::from_id(id.attach(&self.repo))
     }
 
-    /// Writes a commit with correct signing to the in memory repostiory.
+    /// Writes a commit with correct signing to the in memory repository.
     pub fn write_commit(
         &self,
         commit: but_core::Commit<'_>,

@@ -20,9 +20,9 @@ pub struct SuccessfulRebase {
     pub(crate) repo: gix::Repository,
     /// A mapping of any commits that were rewritten as part of the rebase
     pub(crate) commit_mapping: HashMap<gix::ObjectId, gix::ObjectId>,
-    /// A mapping between the origional step graph and the new one
+    /// A mapping between the original step graph and the new one
     pub(crate) graph_mapping: HashMap<StepGraphIndex, StepGraphIndex>,
-    /// Any reference edits that need to be commited as a result of the history
+    /// Any reference edits that need to be committed as a result of the history
     /// rewrite
     pub(crate) ref_edits: Vec<RefEdit>,
     /// The new step graph
@@ -49,7 +49,7 @@ impl Editor {
                 .collect::<Vec<_>>(),
         );
 
-        // A 1 to 1 mapping between the incoming graph and hte output graph
+        // A 1 to 1 mapping between the incoming graph and the output graph
         let mut graph_mapping: HashMap<StepGraphIndex, StepGraphIndex> = HashMap::new();
         // The step graph with updated commit oids
         let mut output_graph = StepGraph::new();
@@ -174,7 +174,7 @@ impl Editor {
 
             for e in edges {
                 let Some(new_parent) = graph_mapping.get(&e.target()) else {
-                    bail!("Failed to find cooresponding parent");
+                    bail!("Failed to find corresponding parent");
                 };
 
                 output_graph.add_edge(new_idx, *new_parent, e.weight().clone());
@@ -233,7 +233,7 @@ fn collect_ordered_parents(graph: &StepGraph, target: StepGraphIndex) -> Vec<Ste
     while let Some(candidate) = potential_parent_edges.pop() {
         if let Step::Pick { .. } = graph[candidate.target()] {
             parents.push(candidate.target());
-            // Don't persue the children
+            // Don't pursue the children
             continue;
         };
 
@@ -370,7 +370,7 @@ mod test {
         }
 
         #[test]
-        fn insertion_order_is_irrelivant() -> Result<()> {
+        fn insertion_order_is_irrelevant() -> Result<()> {
             let mut graph = StepGraph::new();
             let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
             let a = graph.add_node(Step::Pick {

@@ -1,4 +1,4 @@
-//! Operations for mutation the editor
+//! Operations for mutating the editor
 
 use anyhow::{Result, anyhow};
 use petgraph::{Direction, visit::EdgeRef};

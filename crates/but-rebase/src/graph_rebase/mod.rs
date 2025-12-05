@@ -29,7 +29,7 @@ pub enum Step {
         /// If this is Some, the commit WILL NOT be picked onto the parents the
         /// graph implies but instead on to the parents listed here.
         ///
-        /// This is intened to be a private API
+        /// This is intended to be a private API
         preserved_parents: Option<Vec<gix::ObjectId>>,
     },
     /// Represents applying a reference to the commit found at it's first parent
@@ -58,8 +58,6 @@ pub(crate) struct Edge {
     ///
     /// A child commit should have edges that all have unique orders. In order
     /// to achive that we can employ the following semantics.
-    ///
-    /// When replacing a given parent with N other parents, the first in that list takes the old parent's order, and the rest take the
     order: usize,
 }
 
