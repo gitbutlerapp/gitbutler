@@ -20,7 +20,7 @@ import { userByLoginTable, userTable } from '$lib/users/usersSlice';
 import { InjectionToken } from '@gitbutler/core/context';
 import { configureStore, createSelector } from '@reduxjs/toolkit';
 
-// Individual interfaces to be used when consuming in other servies.
+// Individual interfaces to be used when consuming in other services.
 // By specifying only the interfaces you need, IE:
 // `appState: AppPostState & AppExampleState`, it means there is less mocking
 // needed when testing.

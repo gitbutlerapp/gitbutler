@@ -152,11 +152,11 @@
 			box-shadow 0.2s ease;
 		will-change: transform;
 
-		@media (pointer: fine) {
-			&:hover {
-				background-color: var(--clr-theme-pop-soft-hover);
-				box-shadow: 0 12px 26px color-mix(in srgb, var(--clr-theme-pop-element) 30%, transparent);
-			}
+		&:hover {
+			background-color: hsl(
+				from var(--clr-theme-pop-soft) h s calc(l - (var(--opacity-btn-solid-hover) * 50))
+			);
+			box-shadow: 0 12px 26px color-mix(in srgb, var(--clr-theme-pop-element) 30%, transparent);
 		}
 	}
 

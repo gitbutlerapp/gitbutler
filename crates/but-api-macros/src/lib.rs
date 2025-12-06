@@ -10,8 +10,12 @@ use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 /// * `func` - the original item, unchanged
 /// * `func_json` for calls from the frontend, taking `(#(json_params*),)` and returning `Result<JsonRVal, json::Error>`
 ///     - This is also annotated with the `tauri` macro when the feature is enabled in the `but-api` crate.
-///     - IMPORTANT: It will perform auto-remappings to expected identifier names as well for convenience.
+///     - **Parameter Transformation**
+///         - It supports `but_ctx::Context`, `&Context` or `&mut Context` as parameter,
+///           which will be translated to `LegacyProjectId` with the `project_id` parameter name.
+///         - `gix::ObjectId` will be translated into `json::HexHash`.
 /// * `func_cmd` for calls from the `but-server`, taking `(params: Params) ` and returning `Result<serde_json::Value, json::Error>`.
+///     - It performs all **Parameter Transformations** of `func_json`.
 #[proc_macro_attribute]
 pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);

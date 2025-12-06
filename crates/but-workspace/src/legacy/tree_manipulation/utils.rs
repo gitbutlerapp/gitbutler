@@ -213,7 +213,7 @@ pub fn create_tree_without_diff(
                         });
                     }
 
-                    // TODO: Validate that the hunks coorespond with actual changes?
+                    // TODO: Validate that the hunks correspond with actual changes?
                     let before_blob = before_entry.object()?.into_blob();
 
                     let new_hunks = new_hunks_after_removals(
@@ -252,7 +252,7 @@ fn new_hunks_after_removals(
     change_hunks: Vec<HunkHeader>,
     mut removal_hunks: Vec<HunkHeader>,
 ) -> anyhow::Result<Vec<HunkHeader>> {
-    // If a removal hunk matches completly then we can drop it entirely.
+    // If a removal hunk matches completely then we can drop it entirely.
     let hunks_to_keep: Vec<HunkHeader> = change_hunks
         .into_iter()
         .filter(|hunk| {

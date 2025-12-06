@@ -144,8 +144,8 @@
 		}
 		/* CHECKED. HOVER */
 		&:not(.disabled).checked:hover {
-			background-color: var(--clr-theme-pop-element-hover);
-			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element-hover);
+			background-color: var(--clr-pop-hover);
+			box-shadow: inset 0 0 0 1px var(--clr-pop-hover);
 			& .checkbox-checkmark {
 				opacity: 1;
 			}

@@ -25,7 +25,7 @@ export type TreeChange = {
 	readonly path: string;
 	/**
 	 * Something silently carried back and forth between the frontend and the backend.
-	 * This is neccessary because the path string conversion is lossy.
+	 * This is necessary because the path string conversion is lossy.
 	 */
 	readonly pathBytes: number[];
 	/** The specific information about this change.*/
@@ -153,7 +153,7 @@ export type Rename = {
 
 /**
  * Something that fully identifies the state of a [`TreeChange`] in the backend.
- * The fontend does not need to interact with this, but when requesting the UniDiff of a TreeChange,
+ * The frontend does not need to interact with this, but when requesting the UniDiff of a TreeChange,
  * this information allows for efficient retrieval of the content.
  */
 type ChangeState = {

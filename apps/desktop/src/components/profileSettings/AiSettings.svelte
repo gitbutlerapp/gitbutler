@@ -204,7 +204,7 @@
 {/snippet}
 
 <p class="text-13 text-body ai-settings__about-text">
-	GitButler supasdports multiple AI providers: OpenAI and Anthropic (via API or your own key), plus
+	GitButler supports multiple AI providers: OpenAI and Anthropic (via API or your own key), plus
 	local models through Ollama and LM Studio.
 </p>
 

@@ -43,14 +43,14 @@
 
 	let expanded = $state(false);
 
-	function getGravatarUrl(email: string, existingGravatarUrl: string): string {
+	function getGravatarUrl(email: string, existingravatarUrl: string): string {
 		if ($user?.email === undefined) {
-			return existingGravatarUrl;
+			return existingravatarUrl;
 		}
 		if (email === $user.email) {
-			return $user.picture ?? existingGravatarUrl;
+			return $user.picture ?? existingravatarUrl;
 		}
-		return existingGravatarUrl;
+		return existingravatarUrl;
 	}
 </script>
 

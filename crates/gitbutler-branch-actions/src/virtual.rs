@@ -402,7 +402,7 @@ pub fn is_remote_branch_mergeable(ctx: &Context, branch_name: &RemoteRefname) ->
     let branch = git2_repo
         .maybe_find_branch_by_refname(&branch_name.into())?
         .ok_or(anyhow!("branch not found"))?;
-    let branch_oid = branch.get().target().context("detatched head")?;
+    let branch_oid = branch.get().target().context("detached head")?;
     let branch_commit = git2_repo
         .find_commit(branch_oid)
         .context("failed to find branch commit")?;

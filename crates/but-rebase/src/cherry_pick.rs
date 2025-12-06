@@ -38,7 +38,7 @@ pub(crate) mod function {
 
     /// Place `commit_to_rebase` onto `base`.
     ///
-    /// `pick_mode` and `empty_commit` control how to deal with no-ops and epty commits.
+    /// `pick_mode` and `empty_commit` control how to deal with no-ops and empty commits.
     /// Returns the id of the cherry-picked commit.
     ///
     /// Note that the rewritten commit will have headers injected, among which is a change id.

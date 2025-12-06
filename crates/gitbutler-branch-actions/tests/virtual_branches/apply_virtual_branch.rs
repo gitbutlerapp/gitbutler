@@ -31,7 +31,7 @@ fn rebase_commit() {
     .unwrap();
 
     let mut stack_1_id = {
-        // create a branch with some commited work
+        // create a branch with some committed work
         let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest::default(),
@@ -75,7 +75,7 @@ fn rebase_commit() {
         // fetch remote
         gitbutler_branch_actions::integrate_upstream(ctx, &[], None, &Default::default()).unwrap();
 
-        // branch is stil unapplied
+        // branch is still unapplied
         let stacks = stack_details(ctx);
         assert_eq!(stacks.len(), 0);
 

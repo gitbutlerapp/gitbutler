@@ -63,7 +63,7 @@ impl Suite {
         }
         commit_all(&repository);
 
-        let outcome = gitbutler_project::add_with_path(
+        let outcome = gitbutler_project::add_at_app_data_dir(
             self.local_app_data(),
             repository.path().parent().unwrap(),
         );

@@ -128,7 +128,7 @@
 		class="branch-header"
 		class:selected
 		class:active
-		class:commiting={isCommitting}
+		class:committing={isCommitting}
 		{onclick}
 		onkeypress={onclick}
 		tabindex="0"

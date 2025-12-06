@@ -631,7 +631,7 @@ fn merge_changes(
                 ..
             },
         ) => {
-            // This is conflicting actually, and a little bit unclear what commiting this will do.
+            // This is conflicting actually, and a little bit unclear what committing this will do.
             // Pretend the added file (in index) is the one that was deleted, hence the rename.
             *ps_wt = *state;
             // Can't be no-op as this is a rename

@@ -92,8 +92,8 @@ export function mrToInstance(pr: MergeRequestSchema): PullRequest {
 		mergedAt: pr.merged_at || undefined,
 		closedAt: pr.closed_at || undefined,
 		repoOwner: '', // This is fine
-		repositorySshUrl: '', // This is hopfully not used
-		repositoryHttpsUrl: '', // This is hopfully not used
+		repositorySshUrl: '', // This is hopefully not used
+		repositoryHttpsUrl: '', // This is hopefully not used
 		reviewers
 	};
 }

@@ -295,7 +295,7 @@
 		transition: background-color var(--transition-fast);
 	}
 
-	/* CHNAGES CLMN */
+	/* CHANGES CLMN */
 	.dynclmn-changes {
 		display: flex;
 		justify-content: flex-end;

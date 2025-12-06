@@ -32,7 +32,7 @@ export type CalculationError = {
 };
 
 /**
- * Represents the depdendency of a diff hunk on a stack and commit.
+ * Represents the dependency of a diff hunk on a stack and commit.
  */
 export type HunkLock = {
 	/**
@@ -52,7 +52,7 @@ export type DiffDependency = [string, DiffHunk, HunkLock[]];
 
 export type HunkDependencies = {
 	/**
-	 * The dependecies of the hunks in the diff.
+	 * The dependencies of the hunks in the diff.
 	 */
 	diffs: DiffDependency[];
 	/**

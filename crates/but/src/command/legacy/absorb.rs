@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_api::{
     json::HexHash,
     legacy::{diff, virtual_branches},
@@ -14,7 +14,7 @@ use gitbutler_project::Project;
 
 use crate::{
     command::legacy::rub::parse_sources,
-    legacy::id::{CliId, IdDb},
+    legacy::id::{CliId, IdMap},
     utils::OutputChannel,
 };
 
@@ -28,7 +28,7 @@ use crate::{
 ///
 /// Optionally an identifier to an Uncommitted File or a Branch (stack) may be provided.
 ///
-/// If an Uncommitted File id is provided, absorb will be peformed for just that file
+/// If an Uncommitted File id is provided, absorb will be performed for just that file
 /// If a Branch (stack) id is provided, absorb will be performed for all changes assigned to that stack
 /// If no source is provided, absorb is performed for all uncommitted changes
 pub(crate) fn handle(
@@ -37,9 +37,9 @@ pub(crate) fn handle(
     source: Option<&str>,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let id_db = IdDb::new(ctx)?;
+    let id_map = IdMap::new(ctx)?;
     let source: Option<CliId> = source
-        .and_then(|s| parse_sources(ctx, &id_db, s).ok())
+        .and_then(|s| parse_sources(ctx, &id_map, s).ok())
         .and_then(|s| {
             s.into_iter().find(|s| {
                 matches!(s, CliId::UncommittedFile { .. }) || matches!(s, CliId::Branch { .. })
@@ -53,9 +53,18 @@ pub(crate) fn handle(
 
     if let Some(source) = source {
         match source {
-            CliId::UncommittedFile { path, assignment } => {
+            CliId::UncommittedFile {
+                path, assignment, ..
+            } => {
                 // Absorb this particular file
-                absorb_file(project, &path, assignment, &assignments, &dependencies, out)?;
+                absorb_file(
+                    project,
+                    path.as_ref(),
+                    assignment,
+                    &assignments,
+                    &dependencies,
+                    out,
+                )?;
             }
             CliId::Branch { name, .. } => {
                 // Absorb everything that is assigned to this lane
@@ -75,7 +84,7 @@ pub(crate) fn handle(
 /// Absorb a single file into the appropriate commit
 fn absorb_file(
     project: &Project,
-    path: &str,
+    path: &BStr,
     _assignment: Option<but_core::ref_metadata::StackId>,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
@@ -84,7 +93,7 @@ fn absorb_file(
     // Filter assignments to just this file
     let file_assignments: Vec<_> = assignments
         .iter()
-        .filter(|a| a.path == path)
+        .filter(|a| a.path_bytes == path)
         .cloned()
         .collect();
 

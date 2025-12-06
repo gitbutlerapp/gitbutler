@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice, ByteVec};
 use gix::reference::Category;
-use petgraph::{prelude::EdgeRef, stable_graph::EdgeReference, visit::IntoEdgeReferences};
+use petgraph::{prelude::EdgeRef, stable_graph::EdgeReference};
 
 use crate::{Edge, Graph, Segment, SegmentIndex, SegmentMetadata, init::PetGraph};
 
@@ -230,6 +230,7 @@ impl Graph {
     /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
     #[cfg(unix)]
     pub fn validated_or_open_as_svg(self) -> anyhow::Result<Self> {
+        use petgraph::visit::IntoEdgeReferences;
         for edge in self.inner.edge_references() {
             let res = Self::check_edge(&self.inner, edge, false);
             if res.is_err() {

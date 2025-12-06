@@ -128,7 +128,7 @@ pub(crate) struct Commit {
     author_name: String,
     /// The email of the commit author
     author_email: String,
-    /// Wheter the commit is in a conflicted state. Only applicable to local commits (and not to upstream commits)
+    /// Whether the commit is in a conflicted state. Only applicable to local commits (and not to upstream commits)
     conflicted: Option<bool>,
     /// If but status was invoked with --review and if the commit has an associated review ID (eg. Gerrit review number), it will be present here
     review_id: Option<String>,
@@ -169,7 +169,7 @@ impl Branch {
         review_id: Option<String>,
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
-        id_db: &mut crate::legacy::id::IdDb,
+        id_map: &mut crate::legacy::id::IdMap,
     ) -> anyhow::Result<Self> {
         let commits = branch
             .commits
@@ -180,7 +180,7 @@ impl Branch {
                     c.clone(),
                     show_files,
                     project_id,
-                    id_db,
+                    id_map,
                 )
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
@@ -224,7 +224,7 @@ impl Commit {
         commit: but_workspace::ui::Commit,
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
-        id_db: &mut crate::legacy::id::IdDb,
+        id_map: &mut crate::legacy::id::IdMap,
     ) -> anyhow::Result<Self> {
         let changes = if show_files {
             // TODO: we should get the `ctx` as parameter.
@@ -236,7 +236,7 @@ impl Commit {
                     .changes
                     .into_iter()
                     .map(|change| {
-                        let cli_id = id_db.committed_file(commit.id, change.path.as_ref());
+                        let cli_id = id_map.committed_file(commit.id, change.path.as_ref());
                         FileChange::from_tree_change(cli_id.to_string(), change)
                     })
                     .collect(),
@@ -332,9 +332,9 @@ fn convert_branch_to_json(
     show_files: bool,
     project_id: gitbutler_project::ProjectId,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    id_db: &mut crate::legacy::id::IdDb,
+    id_map: &mut crate::legacy::id::IdMap,
 ) -> anyhow::Result<Branch> {
-    let cli_id = id_db.branch(branch.name.as_ref()).to_string();
+    let cli_id = id_map.branch(branch.name.as_ref()).to_string();
 
     let review_id = if review {
         crate::command::legacy::forge::review::get_review_numbers(
@@ -355,7 +355,7 @@ fn convert_branch_to_json(
         review_id,
         show_files,
         project_id,
-        id_db,
+        id_map,
     )
 }
 
@@ -376,7 +376,7 @@ pub(super) fn build_workspace_status_json(
     review: bool,
     project_id: gitbutler_project::ProjectId,
     repo: &gix::Repository,
-    id_db: &mut crate::legacy::id::IdDb,
+    id_map: &mut crate::legacy::id::IdMap,
 ) -> anyhow::Result<WorkspaceStatus> {
     let mut json_stacks = Vec::new();
     let mut json_unassigned_changes = Vec::new();
@@ -390,7 +390,7 @@ pub(super) fn build_workspace_status_json(
             let stack_cli_id = details
                 .branch_details
                 .first()
-                .map(|b| id_db.branch(b.name.as_ref()).to_string())
+                .map(|b| id_map.branch(b.name.as_ref()).to_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
             let json_assigned_changes = convert_file_assignments(assignments, worktree_changes);
@@ -400,7 +400,7 @@ pub(super) fn build_workspace_status_json(
                 .iter()
                 .map(|branch| {
                     convert_branch_to_json(
-                        branch, review, show_files, project_id, review_map, id_db,
+                        branch, review, show_files, project_id, review_map, id_map,
                     )
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;

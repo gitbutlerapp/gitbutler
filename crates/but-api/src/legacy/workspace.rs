@@ -1,13 +1,9 @@
-use std::{
-    collections::{BTreeSet, HashSet, VecDeque},
-    str::FromStr,
-};
+use std::{collections::HashSet, str::FromStr};
 
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_graph::petgraph::Direction;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
@@ -93,9 +89,9 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
         tracing::warn!(
             "Pruning at most {to_remove} nodes from the bottom to assure 'dot' won't hang",
         );
-        let mut next = VecDeque::new();
+        let mut next = std::collections::VecDeque::new();
         next.extend(graph.base_segments());
-        let mut seen = BTreeSet::new();
+        let mut seen = std::collections::BTreeSet::new();
         while let Some(sidx) = next.pop_front() {
             if to_remove == 0 {
                 break;
@@ -107,7 +103,7 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
             }
             next.extend(
                 graph
-                    .neighbors_directed(sidx, Direction::Incoming)
+                    .neighbors_directed(sidx, but_graph::petgraph::Direction::Incoming)
                     .filter(|n| seen.insert(*n)),
             );
             graph.remove_node(sidx);
@@ -155,7 +151,7 @@ pub fn stack_details(
 
 fn update_push_status(branch: &mut but_workspace::ui::BranchDetails) {
     // If there are any commits that are LocalOnly, then the branch push state should be UnpushedCommits
-    // However, if there are alos any LocalAndRemote commits where the id != remote_commit_id, then it should be UnpushedCommitsRequiringForce
+    // However, if there are also any LocalAndRemote commits where the id != remote_commit_id, then it should be UnpushedCommitsRequiringForce
 
     let has_local_only = branch
         .commits

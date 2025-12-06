@@ -68,12 +68,13 @@
 		page.route.id === '/(app)' ||
 			page.route.id === '/(app)/home' ||
 			page.route.id === '/downloads' ||
-			page.route.id === '/nightly'
+			page.route.id === '/nightly' ||
+			page.route.id === '/color-generator'
 	);
 
-	// Check if current page should render children directly
+	// Check if current page should render children directly (marketing pages except home)
 	const shouldRenderChildren = $derived(
-		page.route.id === '/downloads' || page.route.id === '/nightly'
+		isMarketingPage && page.route.id !== '/(app)' && page.route.id !== '/(app)/home'
 	);
 
 	$effect(() => {

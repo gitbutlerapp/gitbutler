@@ -343,7 +343,7 @@ async fn handle_command(
         "git_set_local_config" => legacy::repo::git_set_local_config_cmd(request.params),
         "check_signing_settings" => legacy::repo::check_signing_settings_cmd(request.params),
         "git_clone_repository" => legacy::repo::git_clone_repository_cmd(request.params).await,
-        "get_uncommited_files" => legacy::repo::get_uncommited_files_cmd(request.params),
+        "get_uncommitted_files" => legacy::repo::get_uncommitted_files_cmd(request.params),
         "get_commit_file" => legacy::repo::get_commit_file_cmd(request.params),
         "get_workspace_file" => legacy::repo::get_workspace_file_cmd(request.params),
         "get_blob_file" => legacy::repo::get_blob_file_cmd(request.params),

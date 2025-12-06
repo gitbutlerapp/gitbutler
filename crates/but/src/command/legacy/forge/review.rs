@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::{
-    legacy::id::{CliId, IdDb},
+    legacy::id::{CliId, IdMap},
     tui,
     utils::OutputChannel,
 };
@@ -98,9 +98,9 @@ pub async fn publish_reviews(
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_db = IdDb::new(&ctx)?;
-    let branch_ids = id_db
-        .parse_str(&mut ctx, branch_id)?
+    let id_map = IdMap::new(&mut ctx)?;
+    let branch_ids = id_map
+        .parse_str(branch_id)?
         .iter()
         .filter_map(|clid| match clid {
             CliId::Branch { name, .. } => Some(name.clone()),
@@ -286,7 +286,7 @@ async fn publish_reviews_for_branch_and_dependents(
         if let Some(out) = out.for_human() {
             writeln!(
                 out,
-                "Publishing review for branch '{}' targetting '{}",
+                "Publishing review for branch '{}' targeting '{}",
                 head.name, current_target_branch
             )?;
         }

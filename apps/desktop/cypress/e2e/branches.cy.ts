@@ -168,7 +168,7 @@ describe('Branches', () => {
 		cy.getByTestId('delete-local-branch-confirmation-modal').should('not.exist');
 	});
 
-	it('should be able to preivew multiple branches', () => {
+	it('should be able to preview multiple branches', () => {
 		// Should be able to navigate the different branches
 		for (const branch of mockBackend.branchListings) {
 			cy.getByTestId('branch-list-card', branch.name).first().should('be.visible').click();

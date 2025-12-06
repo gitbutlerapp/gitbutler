@@ -740,7 +740,7 @@ impl PathRanges {
 
     /// Returns the shifted old start line number of an incoming hunk.
     fn get_shifted_old_start(&self, old_start: u32) -> u32 {
-        // Everytime that we that an incoming hunk is added
+        // Every time that we that an incoming hunk is added
         // and it adds or subtracts lines,
         // we need to shift the line numbers of the hunks that come after it.
 

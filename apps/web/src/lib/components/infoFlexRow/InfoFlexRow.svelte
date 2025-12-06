@@ -21,7 +21,7 @@
 		flex-wrap: wrap;
 		gap: 16px 30px;
 
-		/* TODO: Add contaner query here. It doesn't work in the current version of Svelte. */
+		/* TODO: Add container query here. It doesn't work in the current version of Svelte. */
 		/* display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
 		grid-auto-flow: row dense;

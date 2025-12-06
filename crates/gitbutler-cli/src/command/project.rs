@@ -25,7 +25,7 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
         .context("Only non-bare repositories can be added")?
         .to_owned()
         .canonicalize()?;
-    let outcome = gitbutler_project::add_with_path(data_dir, path)?;
+    let outcome = gitbutler_project::add_at_app_data_dir(data_dir, path)?;
     let project = outcome.try_project()?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
     if let Some(refname) = refname {

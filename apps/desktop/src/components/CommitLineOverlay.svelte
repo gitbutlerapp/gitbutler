@@ -4,10 +4,10 @@
 	interface Props {
 		hovered: boolean;
 		activated: boolean;
-		advertize?: boolean;
+		advertise?: boolean;
 	}
 
-	const { hovered, activated, advertize }: Props = $props();
+	const { hovered, activated, advertise }: Props = $props();
 
 	let containerElement = $state<HTMLDivElement>();
 	let indicatorElement = $state<HTMLDivElement>();
@@ -46,7 +46,7 @@
 	bind:this={containerElement}
 	class="dropzone-target container"
 	class:activated
-	class:advertize
+	class:advertise
 	class:hovered
 >
 	<div bind:this={indicatorElement} class="indicator-placeholder"></div>
@@ -56,7 +56,7 @@
 	<div
 		class="indicator-portal"
 		class:hovered
-		class:advertize
+		class:advertise
 		use:portal={stackViewElement}
 		style:top="{indicatorRect.top}px"
 		style:left="{indicatorRect.left}px"

@@ -262,7 +262,7 @@ pub struct EntryPoint<'graph> {
 /// the intent of an edge, which should always represent the connection of a commit to another.
 /// Sometimes, it represents the connection from a commit (or segment) to an empty segment which
 /// doesn't yet have a commit.
-/// The idea is to write code that keeps edge information consistent, and our visualization tools hightlights
+/// The idea is to write code that keeps edge information consistent, and our visualization tools highlights
 /// issues with the inherent invariants.
 #[derive(Debug, Copy, Clone)]
 pub struct Edge {

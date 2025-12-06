@@ -20,7 +20,7 @@ use gitbutler_repo::{RepositoryExt as _, rebase::gitbutler_merge_commits};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes_with_tree};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use serde::Serialize;
 use tracing::instrument;
 
@@ -509,7 +509,7 @@ impl BranchManager<'_> {
 
         // Permissions here might be wonky, just go with it though.
         let new_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
-        let res = update_uncommited_changes_with_tree(
+        let res = update_uncommitted_changes_with_tree(
             self.ctx,
             workspace_state,
             new_workspace,

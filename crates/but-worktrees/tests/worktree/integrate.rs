@@ -38,7 +38,7 @@ fn test_create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
             commits_above_conflict: false,
             working_dir_conflicts: false
         },
-        "We should be able to integrate the unrelated change back into the origional reference"
+        "We should be able to integrate the unrelated change back into the original reference"
     );
     assert_eq!(
         worktree_integration_status(
@@ -273,7 +273,7 @@ fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
             commits_above_conflict: false,
             working_dir_conflicts: false
         },
-        "When integrating into feature-b, because the thing that commits is the cherry on top of the source, it auto-resolves to what was origionally there, resulting in the working_dir not conflicting"
+        "When integrating into feature-b, because the thing that commits is the cherry on top of the source, it auto-resolves to what was originally there, resulting in the working_dir not conflicting"
     );
 
     assert!(

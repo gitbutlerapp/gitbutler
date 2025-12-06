@@ -15,7 +15,7 @@ use gitbutler_oplog::{
 };
 
 use crate::{
-    legacy::id::{CliId, IdDb},
+    legacy::id::{CliId, IdMap},
     utils::OutputChannel,
 };
 
@@ -26,8 +26,8 @@ pub(crate) fn handle(
     target_str: &str,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let id_db = IdDb::new(ctx)?;
-    let (sources, target) = ids(ctx, &id_db, source_str, target_str)?;
+    let id_map = IdMap::new(ctx)?;
+    let (sources, target) = ids(ctx, &id_map, source_str, target_str)?;
 
     for source in sources {
         match (&source, &target) {
@@ -36,15 +36,20 @@ pub(crate) fn handle(
             }
             (CliId::UncommittedFile { path, .. }, CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::unassign_file(ctx, path, out)?;
+                assign::unassign_file(ctx, path.as_ref(), out)?;
             }
-            (CliId::UncommittedFile { path, assignment }, CliId::Commit { oid }) => {
+            (
+                CliId::UncommittedFile {
+                    path, assignment, ..
+                },
+                CliId::Commit { oid },
+            ) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
-                amend::file_to_commit(ctx, path, *assignment, oid, out)?;
+                amend::file_to_commit(ctx, path.as_ref(), *assignment, oid, out)?;
             }
             (CliId::UncommittedFile { path, .. }, CliId::Branch { name, .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_file_to_branch(ctx, path, name, out)?;
+                assign::assign_file_to_branch(ctx, path.as_ref(), name, out)?;
             }
             (CliId::Unassigned { .. }, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
@@ -150,20 +155,20 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
     format!(
         "Operation doesn't make sense. Source {} is {} and target {} is {}.",
         source.to_string().blue().underline(),
-        source.kind().yellow(),
+        source.kind_for_humans().yellow(),
         target.to_string().blue().underline(),
-        target.kind().yellow()
+        target.kind_for_humans().yellow()
     )
 }
 
 fn ids(
     ctx: &mut Context,
-    id_db: &IdDb,
+    id_map: &IdMap,
     source: &str,
     target: &str,
 ) -> anyhow::Result<(Vec<CliId>, CliId)> {
-    let sources = parse_sources(ctx, id_db, source)?;
-    let target_result = id_db.parse_str(ctx, target)?;
+    let sources = parse_sources(ctx, id_map, source)?;
+    let target_result = id_map.parse_str(target)?;
     if target_result.len() != 1 {
         if target_result.is_empty() {
             return Err(anyhow::anyhow!(
@@ -178,7 +183,7 @@ fn ids(
                         format!("{} (commit {})", id, &oid.to_string()[..7])
                     }
                     CliId::Branch { name, .. } => format!("{id} (branch '{name}')"),
-                    _ => format!("{} ({})", id, id.kind()),
+                    _ => format!("{} ({})", id, id.kind_for_humans()),
                 })
                 .collect();
             return Err(anyhow::anyhow!(
@@ -193,20 +198,20 @@ fn ids(
 
 pub(crate) fn parse_sources(
     ctx: &mut Context,
-    id_db: &IdDb,
+    id_map: &IdMap,
     source: &str,
 ) -> anyhow::Result<Vec<CliId>> {
     // Check if it's a range (contains '-')
     if source.contains('-') {
-        parse_range(ctx, id_db, source)
+        parse_range(ctx, id_map, source)
     }
     // Check if it's a list (contains ',')
     else if source.contains(',') {
-        parse_list(ctx, id_db, source)
+        parse_list(id_map, source)
     }
     // Single source
     else {
-        let source_result = id_db.parse_str(ctx, source)?;
+        let source_result = id_map.parse_str(source)?;
         if source_result.len() != 1 {
             if source_result.is_empty() {
                 return Err(anyhow::anyhow!(
@@ -221,7 +226,7 @@ pub(crate) fn parse_sources(
                             format!("{} (commit {})", id, &oid.to_string()[..7])
                         }
                         CliId::Branch { name, .. } => format!("{id} (branch '{name}')"),
-                        _ => format!("{} ({})", id, id.kind()),
+                        _ => format!("{} ({})", id, id.kind_for_humans()),
                     })
                     .collect();
                 return Err(anyhow::anyhow!(
@@ -235,7 +240,7 @@ pub(crate) fn parse_sources(
     }
 }
 
-fn parse_range(ctx: &mut Context, id_db: &IdDb, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split('-').collect();
     if parts.len() != 2 {
         return Err(anyhow::anyhow!(
@@ -248,8 +253,8 @@ fn parse_range(ctx: &mut Context, id_db: &IdDb, source: &str) -> anyhow::Result<
     let end_str = parts[1];
 
     // Get the start and end IDs
-    let start_matches = id_db.parse_str(ctx, start_str)?;
-    let end_matches = id_db.parse_str(ctx, end_str)?;
+    let start_matches = id_map.parse_str(start_str)?;
+    let end_matches = id_map.parse_str(end_str)?;
 
     if start_matches.len() != 1 {
         return Err(anyhow::anyhow!(
@@ -268,7 +273,7 @@ fn parse_range(ctx: &mut Context, id_db: &IdDb, source: &str) -> anyhow::Result<
     let end_id = &end_matches[0];
 
     // Get all files in display order (same order as shown in status)
-    let all_files_in_order = get_all_files_in_display_order(ctx)?;
+    let all_files_in_order = get_all_files_in_display_order(ctx, id_map)?;
 
     // Find the positions of start and end in the ordered file list
     let start_pos = all_files_in_order.iter().position(|id| id == start_id);
@@ -288,7 +293,7 @@ fn parse_range(ctx: &mut Context, id_db: &IdDb, source: &str) -> anyhow::Result<
         end_str
     ))
 }
-fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
+fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::Result<Vec<CliId>> {
     use std::collections::BTreeMap;
 
     use bstr::BString;
@@ -326,7 +331,10 @@ fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId
                         if let Some(stack_id) = assignment.stack_id
                             && stack.id == Some(stack_id)
                         {
-                            let file_id = CliId::file_from_assignment(assignment);
+                            let file_id = id_map.uncommitted_file(
+                                assignment.stack_id,
+                                assignment.path_bytes.as_ref(),
+                            );
                             if !all_files.contains(&file_id) {
                                 all_files.push(file_id);
                             }
@@ -341,7 +349,7 @@ fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId
     for assignments in by_file.values() {
         for assignment in assignments {
             if assignment.stack_id.is_none() {
-                let file_id = CliId::file_from_assignment(assignment);
+                let file_id = id_map.uncommitted_file(None, assignment.path_bytes.as_ref());
                 if !all_files.contains(&file_id) {
                     all_files.push(file_id);
                 }
@@ -352,13 +360,13 @@ fn get_all_files_in_display_order(ctx: &mut Context) -> anyhow::Result<Vec<CliId
     Ok(all_files)
 }
 
-fn parse_list(ctx: &mut Context, id_db: &IdDb, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_list(id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split(',').collect();
     let mut result = Vec::new();
 
     for part in parts {
         let part = part.trim();
-        let matches = id_db.parse_str(ctx, part)?;
+        let matches = id_map.parse_str(part)?;
         if matches.len() != 1 {
             if matches.is_empty() {
                 return Err(anyhow::anyhow!(

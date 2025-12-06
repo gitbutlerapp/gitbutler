@@ -184,7 +184,7 @@ However, without an official workspace it still won't be acting as a target.
         standard_options_with_extra_target(&repo, "origin/main"),
     );
     // With an extra target, even in this situation we have a notion of upstream commits.
-    // Thus it's possible to compute the integation status.
+    // Thus it's possible to compute the integration status.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -853,9 +853,9 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
 fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
     let (repo, mut meta, description) = step("11-remote-only")?;
     insta::assert_snapshot!(description, @r"
-The remote was re-used and merged once more with more changes.
+The remote was reused and merged once more with more changes.
 
-  After S1 was squash-merged, someone else re-used the branch, pushed two commits
+  After S1 was squash-merged, someone else reused the branch, pushed two commits
   and squash-merged them into target again.
 
   Here we assure that these integrated remote commits don't mess with our logic.
@@ -868,9 +868,9 @@ The remote was re-used and merged once more with more changes.
     | * 9a2fcdf two
     |/  
     * 3234835 one
-    | * 8965172 (origin/main) other remote file changed completely afterwards
-    | * 9096eba squash origin/S1
-    | * ccaef5a avoid merge conflcit
+    | * 35faa22 (origin/main) other remote file changed completely afterwards
+    | * 293873a squash origin/S1
+    | * 4ac7bc7 avoid merge conflict
     | * adc9f0c (main) file changed completely afterwards
     | * d110262 squash S1
     |/  
@@ -974,11 +974,11 @@ A new multi-segment stack is created without remote and squash merged locally.
     |/|   
     * | 3234835 one
     |/  
-    | * 639afcf (origin/main) local file rewritten completely
-    | * ca783a4 squash local
-    | * 8965172 (main) other remote file changed completely afterwards
-    | * 9096eba squash origin/S1
-    | * ccaef5a avoid merge conflcit
+    | * 350fd89 (origin/main) local file rewritten completely
+    | * 2eb07c5 squash local
+    | * 35faa22 (main) other remote file changed completely afterwards
+    | * 293873a squash origin/S1
+    | * 4ac7bc7 avoid merge conflict
     | * adc9f0c file changed completely afterwards
     | * d110262 squash S1
     |/  
@@ -1041,7 +1041,7 @@ A new multi-segment stack is created without remote and squash merged locally.
                             ref_name: "►local",
                             remote_tracking_ref_name: "None",
                             commits: [
-                                LocalCommit(1af5d57, "new local file\n", integrated(ca783a4)),
+                                LocalCommit(1af5d57, "new local file\n", integrated(2eb07c5)),
                             ],
                             commits_on_remote: [],
                             commits_outside: None,
@@ -1054,7 +1054,7 @@ A new multi-segment stack is created without remote and squash merged locally.
                             ref_name: "►local-bottom",
                             remote_tracking_ref_name: "None",
                             commits: [
-                                LocalCommit(de02b20, "new local-bottom file\n", integrated(ca783a4)),
+                                LocalCommit(de02b20, "new local-bottom file\n", integrated(2eb07c5)),
                             ],
                             commits_on_remote: [],
                             commits_outside: None,
@@ -1076,7 +1076,7 @@ A new multi-segment stack is created without remote and squash merged locally.
             ),
             target_commit: Some(
                 TargetCommit {
-                    commit_id: Sha1(8965172e9a9c1649a2f87e645ae42ffb7f11680c),
+                    commit_id: Sha1(35faa22c8d0a01ba45da3971406eab6932b1bbde),
                     segment_index: NodeIndex(2),
                 },
             ),

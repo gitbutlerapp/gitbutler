@@ -11,7 +11,7 @@ pub enum ClaudeMessageContent {
     ClaudeOutput(serde_json::Value),
     /// Inserted via  GitButler (what the user typed)
     UserInput(UserInput),
-    /// Metadata provided by GitButler around the Claude Code statuts
+    /// Metadata provided by GitButler around the Claude Code status
     GitButlerMessage(GitButlerMessage),
 }
 

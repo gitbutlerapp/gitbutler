@@ -380,7 +380,7 @@ mod set_target_ref {
         assert_ne!(
             sig.seconds(),
             0,
-            "we don't accidentally use the default time as it would caues GC as well"
+            "we don't accidentally use the default time as it would causes GC as well"
         );
     }
 

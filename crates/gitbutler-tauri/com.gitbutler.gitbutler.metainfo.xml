@@ -150,7 +150,7 @@
     </release>
     <release version="0.10.10" date="2024-02-17">
       <description>
-        <p>fix: dont send the content of large text files to the UI as it cant handle it</p>
+        <p>fix: dont send the content of large text files to the UI as it can't handle it</p>
       </description>
     </release>
   </releases>

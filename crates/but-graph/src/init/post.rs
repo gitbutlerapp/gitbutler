@@ -670,7 +670,7 @@ impl Graph {
         // Setup dependent stacks based on searching refs on existing workspace commits.
         // Note that we can still source names from previously used stacks just to be able to capture more
         // of the original intent, despite the graph having changed. This works because in the end, we are consuming
-        // refs on commits that can't be re-used once they have been moved into their own segment.
+        // refs on commits that can't be reused once they have been moved into their own segment.
         let mut segments_to_possibly_delete = Vec::new();
         for stack in &ws_stacks {
             let mut last_created_segment = None;

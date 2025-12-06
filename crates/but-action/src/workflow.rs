@@ -77,7 +77,7 @@ impl<'de> Deserialize<'de> for Kind {
 pub enum Status {
     Completed,
     Failed(String),
-    Interupted(Uuid),
+    Interrupted(Uuid),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

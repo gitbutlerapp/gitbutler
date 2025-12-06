@@ -280,7 +280,7 @@ impl Stack {
         self.head = head;
     }
 
-    /// This is the name of the top-most branch, provided by the API for convinience
+    /// This is the name of the top-most branch, provided by the API for convenience
     pub fn derived_name(&self) -> Result<String> {
         self.heads
             .last()
@@ -595,7 +595,7 @@ impl Stack {
     /// This operation should not really be needed since references are always updated.
     /// However, this function exists to be called before an oplog snapshot of the virtual_branches.toml is taken because
     /// upon snapshot restore, git references will be updated to match the stack heads from the toml file
-    /// TODO: is there a performace implication of this?
+    /// TODO: is there a performance implication of this?
     pub fn sync_heads_with_references(
         &mut self,
         state: &VirtualBranchesHandle,
@@ -664,7 +664,7 @@ impl Stack {
         Ok(())
     }
 
-    /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
+    /// Removes any heads that are referring to commits that are no longer between the stack head and the merge base
     pub fn archive_integrated_heads(
         &mut self,
         ctx: &Context,
@@ -752,7 +752,7 @@ impl Stack {
     ) -> Result<()> {
         let state = branch_state_from_project_data_dir(project_data_dir);
 
-        // same heads, just differente commits
+        // same heads, just different commits
         if self
             .heads
             .iter()
@@ -1067,7 +1067,7 @@ mod test {
 
     #[test]
     fn gen_name_chinese_character() -> Result<()> {
-        // igrnore all
+        // ignore all
         let author = Signature::new("吉特·巴特勒", "fb@example.com", &Time::new(0, 0))?;
         assert_eq!(generate_branch_name(author)?, "branch-1");
         Ok(())

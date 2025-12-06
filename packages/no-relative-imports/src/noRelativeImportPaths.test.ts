@@ -8,7 +8,7 @@ test('formatAsNonRelative', () => {
 	// Path defined in Super-config
 	expect(formatAsNonRelative(path.join(testFixtureDirectory, './foo'))).toBe('bam');
 
-	// Overriden path
+	// Overridden path
 	// Base-config definition
 	expect(formatAsNonRelative(path.join(testFixtureDirectory, './lib/foo'))).toBe(undefined);
 	// Super-config definition

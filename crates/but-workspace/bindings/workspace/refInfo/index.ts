@@ -170,7 +170,7 @@ segments: Array<Segment>, };
  */
 export type Target = { 
 /**
- * The remote tracking branch of the traget to integrate with, like `refs/remotes/origin/main`.
+ * The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`.
  */
 remoteTrackingRef: RemoteTrackingReference, 
 /**

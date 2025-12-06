@@ -20,7 +20,7 @@ use crate::legacy::stack_ext::StackExt;
 ///
 /// ## Limitations / Assumptions
 ///
-/// Currently this function does not take into consideration the possiblity
+/// Currently this function does not take into consideration the possibility
 /// that the commit _might_ be part of two different stacks. As such, the
 /// other stacks may end up referring to stale commits and potentially cause
 /// a merge conflict when combining them in the workspace.
@@ -52,9 +52,9 @@ use crate::legacy::stack_ext::StackExt;
 ///    re-based version if needed
 /// 4. Re-rebase the branch with the diff applied to the destination commit.
 ///
-/// This implementation does a three way merge to update the destionation commit. This gives
+/// This implementation does a three way merge to update the destination commit. This gives
 /// us the potential to handle the case where the patch doesn't apply well to
-/// destionation commit well.
+/// destination commit well.
 pub fn move_changes_between_commits(
     ctx: &Context,
     source_stack_id: StackId,
@@ -161,17 +161,17 @@ pub fn move_changes_between_commits(
 
         // Create the output mapping
         let mut output_commit_mapping = source_stack_mapping.clone();
-        let mut after_destionation_commit_mapping = rebase_mapping_with_overrides(
+        let mut after_destination_commit_mapping = rebase_mapping_with_overrides(
             &result,
             [(destination_commit_id, rewritten_destination_commit)],
         );
         for (before, after) in source_stack_mapping {
-            if let Some(value) = after_destionation_commit_mapping.get(&after) {
+            if let Some(value) = after_destination_commit_mapping.get(&after) {
                 output_commit_mapping.insert(before, *value);
-                after_destionation_commit_mapping.remove(&after);
+                after_destination_commit_mapping.remove(&after);
             }
         }
-        for (before, after) in after_destionation_commit_mapping {
+        for (before, after) in after_destination_commit_mapping {
             output_commit_mapping.entry(before).or_insert(after);
         }
 

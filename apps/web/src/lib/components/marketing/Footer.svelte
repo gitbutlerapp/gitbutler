@@ -1,18 +1,14 @@
 <script lang="ts">
 	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
+	import ThemeSwitcher from '$lib/components/marketing/ThemeSwitcher.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import osIcons from '$lib/data/os-icons.json';
-	import { setTheme, themeStore } from '$lib/utils/theme.svelte';
-	import { Icon } from '@gitbutler/ui';
 
 	interface Props {
 		showDownloadLinks?: boolean;
 	}
 
 	const { showDownloadLinks = true }: Props = $props();
-
-	// Get the current theme
-	const currentTheme = $derived($themeStore);
 </script>
 
 <footer class="footer">
@@ -140,35 +136,7 @@
 				</span>
 			</div>
 
-			<div class="theme-switcher">
-				<button
-					type="button"
-					class="theme-switcher__button"
-					class:active={currentTheme === 'light'}
-					onclick={() => setTheme('light')}
-					aria-label="Light theme"
-				>
-					<Icon name="light-theme" />
-				</button>
-				<button
-					type="button"
-					class="theme-switcher__button"
-					class:active={currentTheme === 'system'}
-					onclick={() => setTheme('system')}
-					aria-label="System theme"
-				>
-					<Icon name="system-theme" />
-				</button>
-				<button
-					type="button"
-					class="theme-switcher__button"
-					class:active={currentTheme === 'dark'}
-					onclick={() => setTheme('dark')}
-					aria-label="Dark theme"
-				>
-					<Icon name="dark-theme" />
-				</button>
-			</div>
+			<ThemeSwitcher />
 		</div>
 	</div>
 </footer>
@@ -378,48 +346,22 @@
 		justify-content: center;
 		width: 24px;
 		height: 24px;
-		color: var(--clr-text-3);
-		cursor: pointer;
-		transition: color 0.1s ease-in-out;
+		.meta-links__legal {
+			display: flex;
+			gap: 8px;
 
-		&:hover {
-			color: var(--clr-text-2);
+			a {
+				color: inherit;
+				text-decoration: underline;
+
+				&:hover {
+					color: var(--clr-text-1);
+					text-decoration: none;
+				}
+			}
 		}
 
-		&.active {
-			color: var(--clr-text-1);
-		}
-	}
-
-	@media (--desktop-small-viewport) {
-		.footer {
-			margin-bottom: 60px;
-			gap: 40px;
-		}
-
-		.banner-title {
-			margin-bottom: 28px;
-			font-size: 52px;
-		}
-
-		.banner-image {
-			width: 280px;
-			transform: translateX(10px) translateY(10px);
-		}
-
-		.links {
-			gap: 28px;
-		}
-	}
-
-	@media (--tablet-viewport) {
-		.footer {
-			flex-direction: column;
-			margin-bottom: 40px;
-			gap: 40px;
-		}
-
-		.banner {
+		@media (--desktop-small-viewport) {
 			padding: 24px;
 
 			&.no-downloads {

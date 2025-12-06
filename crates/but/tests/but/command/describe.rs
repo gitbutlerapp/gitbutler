@@ -1,4 +1,4 @@
-use crate::utils::{Sandbox, setup_metadata};
+use crate::utils::Sandbox;
 use gitbutler_commit::commit_ext::CommitExt;
 use snapbox::str;
 
@@ -11,7 +11,7 @@ fn describe_commit_with_message_flag() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    setup_metadata(&env, &["A"])?;
+    env.setup_metadata(&["A"])?;
 
     // Use describe with -m flag to change commit message (using commit ID)
     env.but("describe 9477ae7 -m 'Updated commit message'")
@@ -40,7 +40,7 @@ fn describe_commit_with_multiline_message() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    setup_metadata(&env, &["A"])?;
+    env.setup_metadata(&["A"])?;
 
     // Use describe with multiline message
     env.but("describe 9477ae7 -m 'First line\n\n\tSecond paragraph with details'")
@@ -83,7 +83,7 @@ fn describe_commit_with_same_message_succeeds_as_noop() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    setup_metadata(&env, &["A"])?;
+    env.setup_metadata(&["A"])?;
 
     // Try to describe with the same message
     env.but("describe 9477ae7 -m 'add A'")

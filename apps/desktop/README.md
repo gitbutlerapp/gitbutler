@@ -18,7 +18,7 @@ Execute the following command on your terminal \
 cargo run -p but-server
 ```
 
-This shoud start the server on th default port 6978
+This should start the server on th default port 6978
 
 #### 2. Run the FE dev server
 

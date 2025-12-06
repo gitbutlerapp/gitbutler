@@ -211,7 +211,6 @@
 </Tooltip>
 
 <style lang="postcss">
-	/* Global variables for button styles */
 	/* :where approach applies a lower specificity to the styles,
 	   allowing for easier overrides and better maintainability.
 	 */
@@ -240,32 +239,26 @@
 
 		/* Consolidated outline and ghost styles */
 
+		/* All outline and ghost buttons share the same icon opacity */
+		:where(&.outline),
+		:where(&.ghost) {
+			--icon-opacity: var(--opacity-btn-icon-outline);
+		}
+
 		/* All outline buttons except neutral get a slight background by default */
 		:where(&.outline:not(.neutral)) {
 			--opacity-btn-bg: 0.1;
-			--icon-opacity: var(--opacity-btn-icon-outline);
 		}
 
 		/* Ghost buttons and neutral outline buttons keep transparent background by default */
 		:where(&.ghost),
 		:where(&.outline.neutral) {
 			--opacity-btn-bg: 0;
-			--icon-opacity: var(--opacity-btn-icon-outline);
-		}
-
-		/* Outline buttons (except neutral) hover with darker background */
-		:where(&.outline:not(.neutral):not(:disabled):hover),
-		:where(&.outline:not(.neutral).activated) {
-			--icon-opacity: var(--opacity-btn-icon-outline-hover);
-			--opacity-btn-bg: 0.25;
-		}
-
-		/* Neutral outline and ghost buttons hover */
-		:where(&.outline.neutral:not(:disabled):hover),
+		} /* All outline and ghost buttons hover with darker background */
+		:where(&.outline:not(:disabled):hover),
 		:where(&.ghost:not(:disabled):hover),
-		:where(&.outline.neutral.activated),
+		:where(&.outline.activated),
 		:where(&.ghost.activated) {
-			--icon-opacity: var(--opacity-btn-icon-outline-hover);
 			--opacity-btn-bg: var(--opacity-btn-outline-bg-hover);
 		}
 
@@ -313,7 +306,6 @@
 			--theme-outline-border: var(--clr-btn-ntrl-outline);
 			--theme-solid-text: var(--clr-theme-ntrl-on-element);
 			--theme-solid-bg: var(--clr-theme-ntrl-element);
-			--theme-solid-bg-hover: var(--clr-theme-ntrl-element-hover);
 			--theme-focus-color: var(--clr-theme-pop-element);
 			--theme-focus-mix-ratio: 100%;
 		}
@@ -324,7 +316,6 @@
 			--theme-outline-border: var(--clr-btn-pop-outline);
 			--theme-solid-text: var(--clr-theme-pop-on-element);
 			--theme-solid-bg: var(--clr-theme-pop-element);
-			--theme-solid-bg-hover: var(--clr-theme-pop-element-hover);
 			--theme-focus-color: var(--clr-theme-pop-element);
 		}
 
@@ -334,7 +325,6 @@
 			--theme-outline-border: var(--clr-btn-succ-outline);
 			--theme-solid-text: var(--clr-theme-succ-on-element);
 			--theme-solid-bg: var(--clr-theme-succ-element);
-			--theme-solid-bg-hover: var(--clr-theme-succ-element-hover);
 			--theme-focus-color: var(--clr-theme-succ-element);
 		}
 
@@ -344,7 +334,6 @@
 			--theme-outline-border: var(--clr-btn-err-outline);
 			--theme-solid-text: var(--clr-theme-err-on-element);
 			--theme-solid-bg: var(--clr-theme-err-element);
-			--theme-solid-bg-hover: var(--clr-theme-err-element-hover);
 			--theme-focus-color: var(--clr-theme-err-element);
 		}
 
@@ -354,7 +343,6 @@
 			--theme-outline-border: var(--clr-btn-warn-outline);
 			--theme-solid-text: var(--clr-theme-warn-on-element);
 			--theme-solid-bg: var(--clr-theme-warn-element);
-			--theme-solid-bg-hover: var(--clr-theme-warn-element-hover);
 			--theme-focus-color: var(--clr-theme-warn-element);
 		}
 
@@ -364,7 +352,6 @@
 			--theme-outline-border: var(--clr-btn-purp-outline);
 			--theme-solid-text: var(--clr-theme-purp-on-element);
 			--theme-solid-bg: var(--clr-theme-purp-element);
-			--theme-solid-bg-hover: var(--clr-theme-purp-element-hover);
 			--theme-focus-color: var(--clr-theme-purp-element);
 		}
 
@@ -402,11 +389,15 @@
 			--icon-opacity: var(--opacity-btn-icon-solid);
 			--label-clr: var(--theme-solid-text);
 			--btn-bg: var(--theme-solid-bg);
+			--theme-solid-bg-hover: color-mix(
+				in srgb,
+				var(--theme-solid-bg),
+				var(--clr-core-ntrl-0) calc((var(--opacity-btn-solid-hover) * 100%))
+			);
 		}
 
 		:where(&.solid:not(:disabled):hover),
 		:where(&.solid.activated) {
-			--icon-opacity: var(--opacity-btn-icon-solid-hover);
 			--btn-bg: var(--theme-solid-bg-hover);
 		}
 

@@ -37,7 +37,7 @@ pub struct VirtualBranchHunk {
     pub locked: bool,
     pub locked_to: Option<Box<[HunkLock]>>,
     pub change_type: gitbutler_diff::ChangeType,
-    /// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
+    /// Indicates that the hunk depends on multiple branches. In this case the hunk can't be moved or committed.
     pub poisoned: bool,
 }
 

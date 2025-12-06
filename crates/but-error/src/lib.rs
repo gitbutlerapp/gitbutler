@@ -89,13 +89,13 @@
 //! }
 //!
 //! fn a() -> Result<()> {
-//!     do_io().context(but_error::Context::new("This message is shown and only this meessage")
+//!     do_io().context(but_error::Context::new("This message is shown and only this message")
 //!                         .with_code(Code::Validation))
 //! }
 //!
 //! fn main() {
 //!    assert_eq!(format!("{:#}", a().unwrap_err()),
-//!              "This message is shown and only this meessage: this didn't work",
+//!              "This message is shown and only this message: this didn't work",
 //!              "now the added context just looks like an error, even though it also contains a `Code` which can be queried");
 //! }
 //! ```

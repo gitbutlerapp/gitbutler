@@ -16,7 +16,7 @@ import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
 
-/** Details about a commit beloning to a drop zone. */
+/** Details about a commit belonging to a drop zone. */
 export type DzCommitData = {
 	id: string;
 	isRemote: boolean;

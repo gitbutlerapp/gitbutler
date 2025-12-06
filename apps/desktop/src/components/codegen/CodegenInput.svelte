@@ -450,7 +450,7 @@
 
 		&:not(:disabled):hover {
 			transform: translateY(-2px);
-			background-color: var(--clr-theme-pop-element-hover);
+			background-color: var(--clr-pop-hover);
 
 			.arrow-icon {
 				transform: translate(-50%, -50%) translateY(1px);

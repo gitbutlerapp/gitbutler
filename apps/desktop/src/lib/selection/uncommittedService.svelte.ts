@@ -259,7 +259,7 @@ export class UncommittedService {
 					}
 
 					if (hunkDiff)
-						// Only some lines withing the hunk are selected.
+						// Only some lines within the hunk are selected.
 						preprocessedHeaders.push({
 							type: 'partial',
 							selectedLines: lines,

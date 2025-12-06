@@ -1,6 +1,6 @@
 use gix::status::index_worktree;
 
-/// Creates a tree containing the uncommited changes in the project.
+/// Creates a tree containing the uncommitted changes in the project.
 /// This includes files in the index that are considered conflicted.
 ///
 /// TODO: This is a copy of `create_wd_tree` from the old world. Ideally we

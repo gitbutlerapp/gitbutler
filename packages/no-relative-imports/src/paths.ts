@@ -76,7 +76,7 @@ export class PathEntry {
  */
 export class ConfigPaths {
 	/**
-	 * A map with the alias name as the key, and the cooresponding paths values
+	 * A map with the alias name as the key, and the corresponding paths values
 	 * in an array.
 	 *
 	 * When we make use of this object in `tryAliasImport` we don't make use of

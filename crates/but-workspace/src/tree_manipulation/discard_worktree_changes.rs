@@ -179,7 +179,7 @@ pub fn discard_workspace_changes(
     if has_removals_or_updates {
         index.remove_tree();
         index.remove_resolve_undo();
-        // Always sort, we currently don't keep track of wether this is truly required
+        // Always sort, we currently don't keep track of whether this is truly required
         // and checking the amount of entries isn't safe in light of conflicts (that may get removed).
         index.sort_entries();
         index.write(Default::default())?;

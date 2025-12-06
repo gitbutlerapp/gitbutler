@@ -60,9 +60,9 @@ async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> 
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn get_uncommited_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFile>> {
+pub fn get_uncommitted_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFile>> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
-    gitbutler_branch_actions::get_uncommited_files(&ctx)
+    gitbutler_branch_actions::get_uncommitted_files(&ctx)
 }
 
 #[but_api]

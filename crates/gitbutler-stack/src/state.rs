@@ -334,7 +334,7 @@ impl VirtualBranchesHandle {
             }
             if let Ok(branch_head) = branch.head_oid(&gix_repo).map(|h| h.to_git2()) {
                 if repo.find_commit(branch_head).is_err() {
-                    // if the head commit cant be found, we can GC the branch
+                    // if the head commit can't be found, we can GC the branch
                     to_remove.push(branch.id);
                 } else {
                     // if there are no commits between the head and the merge base,

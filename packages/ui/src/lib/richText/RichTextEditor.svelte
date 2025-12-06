@@ -89,7 +89,7 @@
 
 	/**
 	 * Instance of the lexical composer, used for manipulating the contents of the editor
-	 * programatically.
+	 * programmatically.
 	 */
 	let composer = $state<ReturnType<typeof Composer>>();
 	let editorDiv: HTMLDivElement | undefined = $state();

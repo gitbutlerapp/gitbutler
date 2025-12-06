@@ -33,7 +33,7 @@ Ideally, before todos that perform actions, you should add todos with clear plan
 You can generally perform the normal Git operations, such as creating branches and committing to them.
 You can also perform more advanced operations, such as:
 - `absorb`: Take a set of file changes and amend them into the existing commits in the project.
-    This requires you to figure out where the changes should go based on the locks, assingments and any other user provided information.
+    This requires you to figure out where the changes should go based on the locks, assignments and any other user provided information.
 - `split a commit`: Take an existing commit and split it into multiple commits based on the the user directive.
     This can be achieved by using the `split_commit` tool.
 - `split a branch`: Take an existing branch and split it into two branches. This basically takes a set of committed file changes and moves them to a new branch, removing them from the original branch.
@@ -308,7 +308,7 @@ pub struct TodoDescription {
     <important_notes>
         This should provide more context about the todo item.
         Mention any specific requirements and relevant resources (branch names, commit ids, files etc.).
-        It should have a clear defintion of done.
+        It should have a clear definition of done.
         Keep the description to under 1000 characters.
     </important_notes>
     ")]
