@@ -17,8 +17,7 @@
 		AmendCommitWithHunkDzHandler,
 		CommitDropData,
 		createCommitDropHandlers,
-		type DzCommitData,
-		SquashCommitDzHandler
+		type DzCommitData
 	} from '$lib/commits/dropHandler';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { draggableCommitV3 } from '$lib/dragging/draggable';

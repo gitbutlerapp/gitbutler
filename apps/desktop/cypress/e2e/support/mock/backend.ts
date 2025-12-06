@@ -424,7 +424,11 @@ export default class MockBackend {
 		const { stackId, commitId, worktreeChanges } = args as {
 			stackId: string;
 			commitId: string;
-			worktreeChanges?: Array<{ pathBytes: number[]; previousPathBytes: number[] | null; hunkHeaders: unknown[] }>;
+			worktreeChanges?: Array<{
+				pathBytes: number[];
+				previousPathBytes: number[] | null;
+				hunkHeaders: unknown[];
+			}>;
 		};
 
 		const stackDetails = this.stackDetails.get(stackId);
@@ -437,7 +441,9 @@ export default class MockBackend {
 			const amendedPaths = worktreeChanges.map((c) => bytesToStr(c.pathBytes));
 			this.worktreeChanges = {
 				...this.worktreeChanges,
-				changes: this.worktreeChanges.changes.filter((change) => !amendedPaths.includes(change.path))
+				changes: this.worktreeChanges.changes.filter(
+					(change) => !amendedPaths.includes(change.path)
+				)
 			};
 		}
 

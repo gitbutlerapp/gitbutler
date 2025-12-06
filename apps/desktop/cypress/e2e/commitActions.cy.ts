@@ -615,9 +615,7 @@ describe('Commit Actions', () => {
 		const commitDrawer = cy.getByTestId('commit-drawer');
 
 		// Perform drag and drop
-		fileListItem
-			.trigger('mousedown', { which: 1, button: 0 })
-			.trigger('dragstart');
+		fileListItem.trigger('mousedown', { which: 1, button: 0 }).trigger('dragstart');
 
 		commitDrawer.trigger('dragenter').trigger('dragover').trigger('drop').trigger('dragend');
 

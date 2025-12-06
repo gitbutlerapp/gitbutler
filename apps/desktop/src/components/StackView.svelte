@@ -16,10 +16,10 @@
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
 	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
+	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { MessageSender } from '$lib/codegen/messageQueue.svelte';
-	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
 	import {
 		AmendCommitWithChangeDzHandler,
 		AmendCommitWithHunkDzHandler,
@@ -714,26 +714,27 @@
 									hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts
 								}
 							: undefined}
-						{@const { amendHandler, squashHandler, hunkHandler } = isCommitView && dzCommit
-							? createCommitDropHandlers({
-									projectId: stableProjectId,
-									stackId: stableStackId,
-									stackService,
-									hooksService,
-									uiState,
-									commit: dzCommit,
-									runHooks: $runHooks,
-									okWithForce: true,
-									onCommitIdChange: (newId) => {
-										if (stableStackId && branchName && selection) {
-											const previewOpen = selection.previewOpen ?? true;
-											uiState
-												.lane(stableStackId)
-												.selection.set({ branchName, commitId: newId, previewOpen });
+						{@const { amendHandler, squashHandler, hunkHandler } =
+							isCommitView && dzCommit
+								? createCommitDropHandlers({
+										projectId: stableProjectId,
+										stackId: stableStackId,
+										stackService,
+										hooksService,
+										uiState,
+										commit: dzCommit,
+										runHooks: $runHooks,
+										okWithForce: true,
+										onCommitIdChange: (newId) => {
+											if (stableStackId && branchName && selection) {
+												const previewOpen = selection.previewOpen ?? true;
+												uiState
+													.lane(stableStackId)
+													.selection.set({ branchName, commitId: newId, previewOpen });
+											}
 										}
-									}
-								})
-							: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined }}
+									})
+								: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined }}
 						{#if isCommitView}
 							<Dropzone
 								handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}
@@ -752,7 +753,10 @@
 									{@render commitView(branchName!, commitId!)}
 
 									<!-- MIDDLE SECTION: Changed Files (with resizer) -->
-									<div class="changed-files-section" class:expand={!(assignedStackId || selectedFile)}>
+									<div
+										class="changed-files-section"
+										class:expand={!(assignedStackId || selectedFile)}
+									>
 										{@render commitChangedFiles(commitId!)}
 									</div>
 
@@ -807,7 +811,10 @@
 								{/if}
 
 								<!-- MIDDLE SECTION: Changed Files (with resizer) -->
-								<div class="changed-files-section" class:expand={!(assignedStackId || selectedFile)}>
+								<div
+									class="changed-files-section"
+									class:expand={!(assignedStackId || selectedFile)}
+								>
 									{#if branchName}
 										{@render branchChangedFiles(branchName)}
 									{/if}
