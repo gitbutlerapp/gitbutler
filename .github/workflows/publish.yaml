@@ -100,6 +100,10 @@ jobs:
             target: ''
           - platform: ubuntu-24.04-arm # [linux, ARM64]
             target: ''
+          - platform: ubuntu-22.04 # [linux, x64]
+            target: ''
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
+            target: ''
           - platform: windows-latest # [windows, x64]
             target: ''
 
@@ -141,7 +145,7 @@ jobs:
       - name: Rust Cache ${{ matrix.target }}
         uses: Swatinem/rust-cache@v2.8.2
         with:
-          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}
+          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}${{ matrix.platform }}
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 
@@ -351,6 +355,10 @@ jobs:
           - platform: ubuntu-24.04 # [linux, x64]
             target: ''
           - platform: ubuntu-24.04-arm # [linux, ARM64]
+            target: ''
+          - platform: ubuntu-22.04 # [linux, x64]
+            target: ''
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
             target: ''
           - platform: windows-latest # [windows, x64]
             target: ''
