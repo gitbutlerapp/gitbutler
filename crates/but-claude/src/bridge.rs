@@ -430,7 +430,6 @@ async fn spawn_command(
     // Don't create a terminal window on windows.
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
@@ -1042,7 +1041,6 @@ pub async fn check_claude_available(claude_executable: &str) -> ClaudeCheckResul
     // Don't create a terminal window on windows.
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
