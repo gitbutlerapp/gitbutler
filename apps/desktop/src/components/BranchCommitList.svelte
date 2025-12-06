@@ -16,6 +16,7 @@
 		AmendCommitWithChangeDzHandler,
 		AmendCommitWithHunkDzHandler,
 		CommitDropData,
+		createCommitDropHandlers,
 		type DzCommitData,
 		SquashCommitDzHandler
 	} from '$lib/commits/dropHandler';
@@ -296,42 +297,22 @@
 						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
 						hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
 					}}
-					{@const amendHandler = stackId
-						? new AmendCommitWithChangeDzHandler(
-								projectId,
-								stackService,
-								hooksService,
-								stackId,
-								$runHooks,
-								dzCommit,
-								(newId) => {
-									const previewOpen = selection.current?.previewOpen ?? false;
-									uiState.lane(stackId).selection.set({ branchName, commitId: newId, previewOpen });
-								},
-								uiState
-							)
-						: undefined}
-					{@const squashHandler = stackId
-						? new SquashCommitDzHandler({
-								stackService,
-								projectId,
-								stackId,
-								commit: dzCommit
-							})
-						: undefined}
-					{@const hunkHandler = stackId
-						? new AmendCommitWithHunkDzHandler({
-								stackService,
-								hooksService,
-								projectId,
-								stackId,
-								commit: dzCommit,
-								runHooks: $runHooks,
-								// TODO: Use correct value!
-								okWithForce: true,
-								uiState
-							})
-						: undefined}
+					{@const { amendHandler, squashHandler, hunkHandler } = createCommitDropHandlers({
+						projectId,
+						stackId,
+						stackService,
+						hooksService,
+						uiState,
+						commit: dzCommit,
+						runHooks: $runHooks,
+						okWithForce: true,
+						onCommitIdChange: (newId) => {
+							if (stackId) {
+								const previewOpen = selection.current?.previewOpen ?? false;
+								uiState.lane(stackId).selection.set({ branchName, commitId: newId, previewOpen });
+							}
+						}
+					})}
 					{@const tooltip = commitStatusLabel(commit.state.type)}
 					<Dropzone handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}>
 						{#snippet overlay({ hovered, activated, handler })}
