@@ -148,8 +148,7 @@ function calculateSoftLightness(
 		return shade50Target;
 	}
 
-	const zonePosition =
-		(normalizedShade - ZONE_BOUNDARIES.soft.start) / ZONE_BOUNDARIES.soft.width;
+	const zonePosition = (normalizedShade - ZONE_BOUNDARIES.soft.start) / ZONE_BOUNDARIES.soft.width;
 	const baseLightness =
 		LIGHTNESS_RANGES.soft.min +
 		Math.pow(zonePosition, LIGHTNESS_RANGES.soft.exponent) *
@@ -189,9 +188,7 @@ function calculateSolidLightness(
 }
 
 function calculateTextLightness(normalizedShade: number, isNeutral: boolean): number {
-	const range = isNeutral
-		? LIGHTNESS_RANGES.text.neutral
-		: LIGHTNESS_RANGES.text.colored;
+	const range = isNeutral ? LIGHTNESS_RANGES.text.neutral : LIGHTNESS_RANGES.text.colored;
 
 	const zonePosition = normalizedShade / ZONE_BOUNDARIES.text.width;
 	return range.min + Math.pow(zonePosition, range.exponent) * (range.max - range.min);

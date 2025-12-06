@@ -14,8 +14,7 @@
 <style>
 	.semantic-zones {
 		display: grid;
-		grid-template-columns: subgrid;
-		grid-column: 1 / -1;
+		grid-template-columns: repeat(13, 1fr);
 		align-items: center;
 		gap: 8px 0;
 	}
@@ -53,5 +52,11 @@
 
 	.zone-range {
 		color: var(--clr-text-2);
+	}
+
+	@media (max-width: 1024px) {
+		.semantic-zones {
+			display: none;
+		}
 	}
 </style>

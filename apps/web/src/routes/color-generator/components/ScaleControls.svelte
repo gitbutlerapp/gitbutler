@@ -1,6 +1,5 @@
 <script lang="ts">
 	import RangeControl from './RangeControl.svelte';
-	import { hslToHex } from '../utils/colorConversion';
 	import { Icon } from '@gitbutler/ui';
 	import type { ColorScale } from '../types/color';
 
@@ -9,37 +8,35 @@
 		saturation: number;
 		shade50Lightness: number;
 		hue: number | null;
-		onHueChange: (scaleId: string, hexColor: string) => void;
+		onHueChange: (scaleId: string, hue: number) => void;
 		onSaturationChange: (scaleId: string, value: number) => void;
 		onShade50LightnessChange: (scaleId: string, value: number) => void;
 		onCopyJSON: (scaleId: string) => void;
-		onMinimize?: () => void;
 	}
 
 	let {
 		scale,
 		saturation = $bindable(),
 		shade50Lightness = $bindable(),
-		hue,
+		hue = $bindable(),
 		onHueChange,
 		onSaturationChange,
 		onShade50LightnessChange,
-		onCopyJSON,
-		onMinimize
+		onCopyJSON
 	}: Props = $props();
 
-	const displayHue = $derived(hue !== null ? hue : scale.baseHue || 180);
-	const colorPickerValue = $derived(hslToHex(displayHue, 0.7, 0.5));
+	let displayHue = $state(hue !== null ? hue : scale.baseHue || 180);
 
-	let colorPickerInput: HTMLInputElement;
+	$effect(() => {
+		if (hue !== null) {
+			displayHue = hue;
+		}
+	});
 
-	function openColorPicker() {
-		colorPickerInput?.click();
-	}
-
-	function handleHueChange(e: Event) {
-		const target = e.currentTarget as HTMLInputElement;
-		onHueChange(scale.id, target.value);
+	function handleHueChangeFromRange() {
+		displayHue = Math.round(displayHue);
+		hue = displayHue;
+		onHueChange(scale.id, displayHue);
 	}
 
 	function handleSaturationChange() {
@@ -52,33 +49,28 @@
 </script>
 
 <div class="scale-header">
-	<input
-		type="color"
-		bind:this={colorPickerInput}
-		value={colorPickerValue}
-		oninput={handleHueChange}
-		class="hidden-color-picker"
-	/>
 	<div class="scale-actions">
-		<button type="button" class="scale-control" title="Minimize" onclick={onMinimize}>
-			<Icon name="minus-small" />
-		</button>
-		<button type="button" class="scale-control" title="Edit Hue" onclick={openColorPicker}>
-			<Icon name="edit" />
-		</button>
 		<button
 			type="button"
 			class="scale-control"
 			onclick={() => onCopyJSON(scale.id)}
 			title="Copy Scale JSON"
 		>
-			<Icon name="copy-small" />
+			<Icon name="copy" />
 		</button>
 	</div>
 
-	<div class="stack-v gap-8">
+	<div class="stack-v gap-14">
 		<span class="text-15 text-body text-bold scale-name">{scale.name}</span>
 
+		<RangeControl
+			label="Hue"
+			min={0}
+			max={360}
+			bind:value={displayHue}
+			oninput={handleHueChangeFromRange}
+			suffix="°"
+		/>
 		<RangeControl
 			label="Saturation"
 			min={0}
@@ -132,13 +124,5 @@
 				transparent
 			);
 		}
-	}
-
-	.hidden-color-picker {
-		position: absolute;
-		width: 0;
-		height: 0;
-		opacity: 0;
-		pointer-events: none;
 	}
 </style>

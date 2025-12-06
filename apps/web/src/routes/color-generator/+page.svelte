@@ -15,10 +15,10 @@
 		DEFAULT_SATURATIONS,
 		DEFAULT_SHADE_50_LIGHTNESS
 	} from './constants/colorScales';
-	import { hexToRgb, rgbToHsl } from './utils/colorConversion';
 	import { generateScale } from './utils/colorScale';
 	import { copyToClipboard } from './utils/export';
-	import GitbutlerLogoLink from '$lib/components/GitbutlerLogoLink.svelte';
+	import Header from '$lib/components/marketing/Header.svelte';
+	import ThemeSwitcher from '$lib/components/marketing/ThemeSwitcher.svelte';
 
 	let scaleSaturations: Record<string, number> = $state({
 		...DEFAULT_SATURATIONS
@@ -44,11 +44,21 @@
 		generateScale(SCALES, SHADES, scaleSaturations, scaleHues, baseHue, scaleShade50Lightness)
 	);
 
-	function updateScaleHue(scaleId: string, hexColor: string) {
-		const rgb = hexToRgb(hexColor);
-		if (!rgb) return;
-		const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-		scaleHues[scaleId] = hsl.h;
+	// Apply CSS variables to document root
+	$effect(() => {
+		const root = document.documentElement;
+		SCALES.forEach((scale) => {
+			SHADES.forEach((shade) => {
+				const value = currentColors[scale.id]?.[shade.value];
+				if (value) {
+					root.style.setProperty(`--clr-core-${scale.id}-${shade.value}`, value);
+				}
+			});
+		});
+	});
+
+	function updateScaleHue(scaleId: string, hue: number) {
+		scaleHues[scaleId] = hue;
 	}
 
 	function updateScaleSaturation(scaleId: string, value: number) {
@@ -74,69 +84,64 @@
 </svelte:head>
 
 <div class="container">
-	<div class="logo-column">
-		<div class="logo">
-			<GitbutlerLogoLink markOnly />
-			<span class="logo-slash">/</span>
+	<Header />
+
+	<div class="about-section">
+		<div class="about-header">
+			<h1 class="title">Nothing <i>But</i> Colors</h1>
+			<ThemeSwitcher />
 		</div>
+		<p class="text-14 text-body clr-text-2">
+			HSL-based color scale generator for the GitButler app.
+			<br />
+			Copy CSS and replace it in the app settings.
+			<a class="underline" href="https://docs.gitbutler.com/color-theme" target="_blank">
+				Read docs</a
+			> ↗ to learn more.
+		</p>
+
+		<ExportSection {currentColors} />
 	</div>
 
-	<div class="content-column">
-		<div class="content-header">
-			<div class="stack-v gap-16">
-				<h1 class="title">Nothing <i>But</i> Colors</h1>
-				<p class="text-14 text-body clr-text-2">
-					HSL-based color scale generator for the GitButler app.
-					<br />
-					Simply copy the generated colors or export them as JSON.
-				</p>
-			</div>
+	<div class="scales-section">
+		<SemanticZones />
 
-			<div class="divider">
-				<ExportSection {currentColors} />
-			</div>
-		</div>
+		{#each SCALES as scale (scale.id)}
+			<ColorScaleDisplay
+				{scale}
+				shades={SHADES}
+				colors={currentColors[scale.id] || {}}
+				bind:saturation={scaleSaturations[scale.id]}
+				bind:shade50Lightness={scaleShade50Lightness[scale.id]}
+				hue={scaleHues[scale.id]}
+				isExpanded={expandedScaleId === scale.id}
+				onToggle={toggleScale}
+				onHueChange={updateScaleHue}
+				onSaturationChange={updateScaleSaturation}
+				onShade50LightnessChange={updateScaleShade50Lightness}
+				onCopyJSON={copyScaleJSON}
+			/>
+		{/each}
+	</div>
 
-		<div class="scales-section">
-			<SemanticZones />
-
-			{#each SCALES as scale (scale.id)}
-				<ColorScaleDisplay
-					{scale}
-					shades={SHADES}
-					colors={currentColors[scale.id] || {}}
-					bind:saturation={scaleSaturations[scale.id]}
-					bind:shade50Lightness={scaleShade50Lightness[scale.id]}
-					hue={scaleHues[scale.id]}
-					isExpanded={expandedScaleId === scale.id}
-					onToggle={toggleScale}
-					onHueChange={updateScaleHue}
-					onSaturationChange={updateScaleSaturation}
-					onShade50LightnessChange={updateScaleShade50Lightness}
-					onCopyJSON={copyScaleJSON}
-				/>
-			{/each}
-		</div>
-
-		<div class="app-mockup-wrapper">
-			<div class="app-mockup">
-				<div class="app-mockup__header">
-					{@html appHeaderLeftSvg}
-					<div class="app-mockup__header-center">
-						{@html appHeaderCenterSvg}
-					</div>
-					{@html appHeaderRightSvg}
+	<div class="app-mockup-wrapper">
+		<div class="app-mockup">
+			<div class="app-mockup__header">
+				{@html appHeaderLeftSvg}
+				<div class="app-mockup__header-center">
+					{@html appHeaderCenterSvg}
 				</div>
-				<div class="app-mockup__body">
-					<div class="app-mockup__sidebar">
-						{@html appSidebarSvg}
-					</div>
-					<div class="app-mockup__unassigned">
-						{@html appUnassignedSvg}
-					</div>
-					<div class="app-mockup__lanes dotted-pattern">
-						{@html appLanesSvg}
-					</div>
+				{@html appHeaderRightSvg}
+			</div>
+			<div class="app-mockup__body">
+				<div class="app-mockup__sidebar">
+					{@html appSidebarSvg}
+				</div>
+				<div class="app-mockup__unassigned">
+					{@html appUnassignedSvg}
+				</div>
+				<div class="app-mockup__lanes dotted-pattern">
+					{@html appLanesSvg}
 				</div>
 			</div>
 		</div>
@@ -144,20 +149,46 @@
 </div>
 
 <style>
+	/* Layout */
+	.container {
+		display: grid;
+		grid-template-rows: auto auto 1fr auto;
+		grid-template-columns: subgrid;
+		row-gap: 40px;
+		grid-column: full-start / full-end;
+		height: 100vh;
+	}
+
+	.about-section {
+		display: flex;
+		grid-column: narrow-start / narrow-end;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.about-header {
+		display: flex;
+		gap: 16px;
+	}
+
+	.title {
+		font-size: 60px;
+		line-height: 1;
+		font-family: var(--font-accent);
+		letter-spacing: -1px;
+	}
+
+	.scales-section {
+		display: flex;
+		grid-column: full-start / full-end;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	/* App Mockup */
 	.app-mockup-wrapper {
 		position: relative;
-	}
-
-	.logo {
-		display: flex;
-		align-items: center;
-		gap: 18px;
-	}
-
-	.logo-slash {
-		font-size: 40px;
-		font-family: var(--font-accent);
-		opacity: 0.2;
+		grid-column: full-start / full-end;
 	}
 
 	.app-mockup {
@@ -203,7 +234,6 @@
 		margin-right: -1px;
 		margin-left: 8px;
 		overflow: hidden;
-		overflow: hidden;
 		border-top-left-radius: var(--radius-ml);
 		box-shadow: inset 0 1px 0 0 var(--clr-border-2);
 	}
@@ -216,49 +246,14 @@
 		background-size: 5px 5px;
 	}
 
-	.container {
-		display: grid;
-		grid-template-columns: subgrid;
-		row-gap: 30px;
-		grid-column: full-start / full-end;
-		min-height: 100vh;
-		padding-top: 40px;
-	}
+	/* Media Queries */
+	@media (max-width: 1024px) {
+		.app-mockup__header-center {
+			margin-right: 0;
+		}
 
-	.title {
-		font-size: 60px;
-		line-height: 1;
-		font-family: var(--font-accent);
-		letter-spacing: -1px;
-	}
-
-	.logo-column {
-		display: flex;
-		grid-column: 1 / 1;
-		flex-direction: column;
-		align-items: center;
-	}
-
-	.content-header {
-		display: flex;
-		justify-content: space-between;
-		gap: 24px;
-	}
-
-	.content-column {
-		display: flex;
-		grid-column: 2 / 13;
-		flex-direction: column;
-		height: 100%;
-		gap: 40px;
-	}
-
-	.scales-section {
-		display: grid;
-
-		/* 13 columns for color scales (10 shades, with shade 50 spanning 3 columns) */
-		grid-template-columns: repeat(13, 1fr);
-		row-gap: 12px;
-		flex: 1;
+		.app-mockup {
+			display: none;
+		}
 	}
 </style>

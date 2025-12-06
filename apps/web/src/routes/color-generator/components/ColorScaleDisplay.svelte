@@ -12,7 +12,7 @@
 		hue: number | null;
 		isExpanded: boolean;
 		onToggle: (scaleId: string) => void;
-		onHueChange: (scaleId: string, hexColor: string) => void;
+		onHueChange: (scaleId: string, hue: number) => void;
 		onSaturationChange: (scaleId: string, value: number) => void;
 		onShade50LightnessChange: (scaleId: string, value: number) => void;
 		onCopyJSON: (scaleId: string) => void;
@@ -34,7 +34,9 @@
 	}: Props = $props();
 
 	function toggleExpanded() {
-		onToggle(scale.id);
+		if (!isExpanded) {
+			onToggle(scale.id);
+		}
 	}
 </script>
 
@@ -58,7 +60,6 @@
 						{onSaturationChange}
 						{onShade50LightnessChange}
 						{onCopyJSON}
-						onMinimize={toggleExpanded}
 					/>
 				</div>
 			{/if}
@@ -69,19 +70,24 @@
 <style>
 	.scale-container {
 		display: grid;
-		grid-template-columns: subgrid;
-		grid-column: 1 / -1;
-
+		/* 13 columns for color scales (10 shades, with shade 50 spanning 3 columns) */
+		grid-template-columns: repeat(13, 1fr);
+		min-height: 32px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		cursor: pointer;
 		transition: height var(--transition-medium);
 	}
 
+	.scale-container:not(.compact) {
+		flex: 1;
+		min-height: 0;
+	}
+
 	.scale-container.compact {
-		min-height: 32px;
+		height: 32px;
 		overflow: hidden;
+		cursor: pointer;
 	}
 
 	.scale-container :global(.color-card[data-shade='50']) {
@@ -94,5 +100,20 @@
 		height: 100%;
 		cursor: default;
 		pointer-events: auto;
+	}
+
+	@media (max-width: 1024px) {
+		.scale-container {
+			grid-template-columns: repeat(1, 1fr);
+			border: none;
+		}
+
+		.scale-container :global(.color-card[data-shade='50']) {
+			grid-column: 1 / -1;
+		}
+
+		.scale-container :global(.color-card:not([data-shade='50'])) {
+			display: none;
+		}
 	}
 </style>

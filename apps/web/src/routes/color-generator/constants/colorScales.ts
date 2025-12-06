@@ -30,7 +30,7 @@ export const SHADES: Shade[] = [
 ];
 
 export const SEMANTIC_ZONES: SemanticZone[] = [
-	{ label: 'Background', range: '95-90' },
+	{ label: 'Background', range: '100-90' },
 	{ label: 'Soft', range: '80-60' },
 	{ label: 'Solid', range: '50-40' },
 	{ label: 'Text', range: '30-0' }

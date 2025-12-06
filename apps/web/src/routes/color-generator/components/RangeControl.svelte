@@ -5,15 +5,16 @@
 		max: number;
 		value: number;
 		oninput: () => void;
+		suffix?: string;
 	}
 
-	let { label, min, max, value = $bindable(), oninput }: Props = $props();
+	let { label, min, max, value = $bindable(), oninput, suffix = '%' }: Props = $props();
 </script>
 
 <div class="scale-control">
 	<div class="flex full-width">
 		<span class="text-12 label">{label}:</span>
-		<span class="text-12 range-value">{value}%</span>
+		<span class="text-12 range-value">{Math.round(value)}{suffix}</span>
 	</div>
 	<input type="range" {min} {max} bind:value {oninput} />
 </div>

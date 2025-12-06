@@ -106,7 +106,7 @@
 				fill="var(--clr-border-2)"
 				mask="url(#path-19-inside-3_20_212142)"
 			/>
-			<rect x="26" y="152" width="20" height="20" rx="6" fill="var(--clr-scale-ntrl-50)" />
+			<rect x="26" y="152" width="20" height="20" rx="6" fill="var(--clr-scale-pop-50)" />
 			<path
 				d="M32.5 167.75H31V156.75H32.5V167.75ZM38.25 156.5C40.0449 156.5 41.5 157.955 41.5 159.75C41.5 161.35 40.3441 162.678 38.8223 162.948C38.3398 164.462 36.9236 165.559 35.25 165.559H35V164.059H35.25C36.1201 164.059 36.8727 163.564 37.2471 162.841C35.9432 162.418 35 161.195 35 159.75C35 157.955 36.4551 156.5 38.25 156.5ZM38.25 158C37.2835 158 36.5 158.784 36.5 159.75C36.5 160.716 37.2835 161.5 38.25 161.5C39.2165 161.5 40 160.716 40 159.75C40 158.784 39.2165 158 38.25 158Z"
 				fill="white"
@@ -247,8 +247,8 @@
 					fill="var(--clr-border-2)"
 					mask="url(#path-42-inside-5_20_212142)"
 				/>
-				<rect x="29" y="267" width="10" height="10" rx="5" fill="var(--clr-scale-ntrl-50)" />
-				<path d="M35 280V294H33V280H35ZM35 264H33V250H35V264Z" fill="var(--clr-scale-ntrl-50)" />
+				<rect x="29" y="267" width="10" height="10" rx="5" fill="var(--clr-scale-pop-50)" />
+				<path d="M35 280V294H33V280H35ZM35 264H33V250H35V264Z" fill="var(--clr-scale-pop-50)" />
 				<text
 					fill="var(--clr-text-1)"
 					xml:space="preserve"
@@ -269,7 +269,7 @@
 					fill="var(--clr-border-2)"
 					mask="url(#path-47-inside-6_20_212142)"
 				/>
-				<path d="M35 324V338H33V324H35ZM35 308H33V294H35V308Z" fill="var(--clr-scale-ntrl-50)" />
+				<path d="M35 324V338H33V324H35ZM35 308H33V294H35V308Z" fill="var(--clr-scale-pop-50)" />
 			</g>
 		</g>
 		<path
