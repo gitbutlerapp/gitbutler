@@ -13,7 +13,7 @@
 			"icons/nightly/icon.icns",
 			"icons/nightly/icon.ico"
 		],
-		"externalBin": ["gitbutler-git-setsid", "gitbutler-git-askpass"]
+		"externalBin": ["to be replaced by `release.sh"]
 	},
 	"plugins": {
 		"updater": {
