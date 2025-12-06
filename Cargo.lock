@@ -3958,6 +3958,7 @@ dependencies = [
  "gitbutler-repo-actions",
  "gitbutler-watcher",
  "gix",
+ "libc",
  "log",
  "open",
  "parking_lot",
