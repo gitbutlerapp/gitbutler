@@ -33,7 +33,6 @@ fn main() -> anyhow::Result<()> {
     #[cfg(feature = "builtin-but")]
     {
         let exe = std::env::current_exe()?;
-        attach_parent_console();
         if exe.file_stem().is_some_and(|stem| stem == "but") || std::env::args_os().count() > 1 {
             return runtime.block_on(but::handle_args(std::env::args_os()));
         }
@@ -422,37 +421,6 @@ fn main() -> anyhow::Result<()> {
             });
     });
     Ok(())
-}
-
-/// Makes sure we have the standard outputs available like a console application, even though we are
-/// a GUI application.
-///
-/// ```C,norun
-/// void init_console()
-/// {
-///     if (AllocConsole()) {
-///         freopen("CONOUT$", "w", stdout);
-///         freopen("CONOUT$", "w", stderr);
-///         freopen("CONIN$",  "r", stdin);
-///     }
-/// }
-/// ```
-#[cfg(feature = "builtin-but")]
-#[cfg(windows)]
-fn attach_parent_console() {
-    use std::ffi::CString;
-
-    unsafe extern "C" {
-        // Provided by the CRT; mutable because FILE is mutable.
-        static stdout: *mut libc::FILE;
-        static stderr: *mut libc::FILE;
-    }
-    unsafe {
-        let conout = CString::new("CONOUT$").unwrap();
-        let mode = CString::new("w").unwrap();
-        libc::freopen(conout.as_ptr(), mode.as_ptr(), stdout);
-        libc::freopen(conout.as_ptr(), mode.as_ptr(), stderr);
-    }
 }
 
 /// read all objects, migrate them, and write them back if there was a migration.
