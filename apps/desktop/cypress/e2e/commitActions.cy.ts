@@ -19,6 +19,7 @@ describe('Commit Actions', () => {
 			mockBackend.createCommit(params)
 		);
 		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
+		mockCommand('amend_commit', (params) => mockBackend.amendCommit(params));
 		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
 		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 		mockCommand('message_hook', (params) => mockBackend.message_hook(params));
@@ -588,6 +589,40 @@ describe('Commit Actions', () => {
 
 		// The commit should be removed from the list
 		cy.getByTestId('commit-row').should('have.length', 0);
+	});
+
+	it('Should be able to drop uncommitted changes onto commit details view to amend', () => {
+		cy.spy(mockBackend, 'amendCommit').as('amendCommitSpy');
+
+		// There should be uncommitted changes
+		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
+
+		const fileName = mockBackend.getWorktreeChangesFileNames()[0]!;
+
+		// Click on the first commit to open the commit drawer
+		cy.getByTestId('commit-row').first().click();
+
+		// Should open the commit drawer
+		cy.getByTestId('commit-drawer').should('be.visible');
+
+		// Get the file list item and commit drawer elements
+		const fileListItem = cy
+			.getByTestId('uncommitted-changes-file-list')
+			.find('[data-testid="file-list-item"]')
+			.first()
+			.should('contain', fileName);
+
+		const commitDrawer = cy.getByTestId('commit-drawer');
+
+		// Perform drag and drop
+		fileListItem.trigger('mousedown', { which: 1, button: 0 }).trigger('dragstart');
+
+		commitDrawer.trigger('dragenter').trigger('dragover').trigger('drop').trigger('dragend');
+
+		fileListItem.trigger('mouseup', { which: 1, button: 0 });
+
+		// Should call amend commit
+		cy.get('@amendCommitSpy').should('be.called');
 	});
 });
 
