@@ -219,8 +219,8 @@ impl RepoActionsExt for Context {
             .unwrap() {
                 Ok(result) => Ok(result),
                 Err(err) => match err {
-                    gitbutler_git::Error::ForcePushProtection(_) => {
-                        Err(anyhow!("The force push was blocked because the remote branch contains commits that would be overwritten")
+                    gitbutler_git::Error::ForcePushProtection(e) => {
+                        Err(anyhow!("The force push was blocked because the remote branch contains commits that would be overwritten.\n\n{e}")
                             .context(Code::GitForcePushProtection))
                     },
                     gitbutler_git::Error::GerritNoNewChanges(_) => {
