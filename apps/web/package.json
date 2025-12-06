@@ -15,7 +15,7 @@
 	},
 	"devDependencies": {
 		"@csstools/postcss-global-data": "^3.0.0",
-		"@gitbutler/design-core": "1.3.11",
+		"@gitbutler/design-core": "1.4.0",
 		"@gitbutler/core": "workspace:*",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/ui": "workspace:*",

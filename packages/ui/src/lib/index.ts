@@ -37,6 +37,7 @@ export {
 	type Props as ProfilePictureUploadProps
 } from '$components/ProfilePictureUpload.svelte';
 export { default as RadioButton } from '$components/RadioButton.svelte';
+export { default as RangeInput } from '$components/RangeInput.svelte';
 export { default as ReviewBadge } from '$components/ReviewBadge.svelte';
 export { CardGroup } from '$components/cardGroup';
 export { default as SeriesIcon } from '$components/SeriesIcon.svelte';
