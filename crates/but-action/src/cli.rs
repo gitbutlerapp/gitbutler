@@ -106,13 +106,19 @@ fn install_cli_windows(cli_path: std::path::PathBuf, _mode: InstallMode) -> anyh
     // 2. There's no standard user-writable directory that's always in PATH
     // 3. Users typically add directories to PATH manually on Windows
 
+    let target_name = if cfg!(feature = "builtin-but") {
+        "but.exe"
+    } else {
+        "but.exe"
+    };
+
     bail!(
         "Automatic CLI installation is not supported on Windows.\n\
         \n\
         To use the But CLI, you have two options:\n\
         \n\
         1. Copy the executable to a directory in your PATH:\n\
-           copy \"{}\" \"%LOCALAPPDATA%\\Microsoft\\WindowsApps\\but.exe\"\n\
+           copy \"{}\" \"%LOCALAPPDATA%\\Microsoft\\WindowsApps\\{}\"\n\
         \n\
         2. Add the current location to your PATH environment variable:\n\
            - Press Win+X and select 'System'\n\
@@ -123,16 +129,12 @@ fn install_cli_windows(cli_path: std::path::PathBuf, _mode: InstallMode) -> anyh
         \n\
         After either option, restart your terminal to use the 'but' command.",
         cli_path.display(),
+        target_name,
         cli_path
             .parent()
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| cli_path.display().to_string())
     );
-}
-
-#[cfg(not(windows))]
-fn install_cli_windows(_cli_path: std::path::PathBuf, _mode: InstallMode) -> anyhow::Result<()> {
-    unreachable!("This function should only be called on Windows")
 }
 
 pub fn auto_fix_broken_but_cli_symlink() {
