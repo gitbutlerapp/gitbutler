@@ -1,5 +1,6 @@
 <script lang="ts">
 	import HunkContextMenu from '$components/HunkContextMenu.svelte';
+	import ImageDiff from '$components/ImageDiff.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
 	import LineLocksWarning from '$components/LineLocksWarning.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -85,6 +86,23 @@
 	const userSettings = inject(SETTINGS);
 
 	const assignments = $derived(uncommittedService.assignmentsByPath(stackId || null, change.path));
+
+	function isImageFile(path: string): boolean {
+		const imageExtensions = [
+			'.png',
+			'.jpg',
+			'.jpeg',
+			'.gif',
+			'.webp',
+			'.bmp',
+			'.ico',
+			'.heic',
+			'.heif',
+			'.avif'
+		];
+		const lowerPath = path.toLowerCase();
+		return imageExtensions.some((ext) => lowerPath.endsWith(ext));
+	}
 
 	function filter(hunks: DiffHunk[]): DiffHunk[] {
 		if (selectionId.type !== 'worktree') return hunks;
@@ -317,13 +335,17 @@
 				</EmptyStatePlaceholder>
 			</div>
 		{:else if diff.type === 'Binary'}
-			<div class="hunk-placehoder">
-				<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
-					{#snippet caption()}
-						Binary! Not for human eyes
-					{/snippet}
-				</EmptyStatePlaceholder>
-			</div>
+			{#if isImageFile(change.path)}
+				<ImageDiff {projectId} {change} {commitId} />
+			{:else}
+				<div class="hunk-placehoder">
+					<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
+						{#snippet caption()}
+							Binary! Not for human eyes
+						{/snippet}
+					</EmptyStatePlaceholder>
+				</div>
+			{/if}
 		{/if}
 	</div>
 {/snippet}
