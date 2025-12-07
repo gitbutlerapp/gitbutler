@@ -79,7 +79,10 @@
 	}
 
 	// Load image from workspace, commit, or blob.
-	async function loadImage(source: ImageSource | null): Promise<string | null> {
+	async function loadImage(
+		source: ImageSource | null,
+		signal?: AbortSignal
+	): Promise<string | null> {
 		if (!source) return null;
 
 		try {
@@ -95,19 +98,22 @@
 				fileInfo = await fileService.readFromBlob(source.path, projectId, source.blobId);
 			}
 
+			if (signal?.aborted) return null;
+
 			if (fileInfo?.content && fileInfo?.mimeType) {
 				return `data:${fileInfo.mimeType};base64,${fileInfo.content}`;
 			}
 
 			return null;
 		} catch (err) {
+			if (signal?.aborted) return null;
 			console.warn(`Failed to load image from ${source.type}: ${source.path}`, err);
 			return null;
 		}
 	}
 
 	// Load both images according to the strategy.
-	async function loadImages() {
+	async function loadImages(signal?: AbortSignal) {
 		loadError = null;
 		beforeImageUrl = null;
 		afterImageUrl = null;
@@ -116,9 +122,11 @@
 			const strategy = getLoadStrategy();
 
 			const [before, after] = await Promise.all([
-				loadImage(strategy.before),
-				loadImage(strategy.after)
+				loadImage(strategy.before, signal),
+				loadImage(strategy.after, signal)
 			]);
+
+			if (signal?.aborted) return;
 
 			beforeImageUrl = before;
 			afterImageUrl = after;
@@ -137,7 +145,9 @@
 	}
 
 	$effect(() => {
-		loadImages();
+		const abortController = new AbortController();
+		loadImages(abortController.signal);
+		return () => abortController.abort();
 	});
 </script>
 
