@@ -40,8 +40,8 @@
 		onchange
 	}: Props = $props();
 
-	// Calculate the percentage for the fill effect
-	let percentage = $derived(((value - min) / (max - min)) * 100);
+	// Calculate the fill ratio (0-1)
+	let fillRatio = $derived((value - min) / (max - min));
 </script>
 
 <div
@@ -61,33 +61,26 @@
 		</div>
 	{/if}
 
-	<div class="wrapper">
-		<div class="scale" style:--scale-percentage={percentage}>
-			<div class="scale__track"></div>
-			<div class="scale__start"></div>
-			<div class="scale__thumb"></div>
-		</div>
-
-		<input
-			bind:this={element}
-			{id}
-			data-testid={testId}
-			type="range"
-			class="input"
-			{min}
-			{max}
-			{step}
-			{disabled}
-			bind:value
-			use:focusable={{ button: true }}
-			oninput={(e) => {
-				oninput?.(parseFloat(e.currentTarget.value));
-			}}
-			onchange={(e) => {
-				onchange?.(parseFloat(e.currentTarget.value));
-			}}
-		/>
-	</div>
+	<input
+		bind:this={element}
+		{id}
+		data-testid={testId}
+		type="range"
+		class="input"
+		{min}
+		{max}
+		{step}
+		{disabled}
+		bind:value
+		use:focusable={{ button: true }}
+		style:--fill-ratio={fillRatio}
+		oninput={(e) => {
+			oninput?.(parseFloat(e.currentTarget.value));
+		}}
+		onchange={(e) => {
+			onchange?.(parseFloat(e.currentTarget.value));
+		}}
+	/>
 
 	{#if error}
 		<p class="text-11 text-body error-text">{error}</p>
@@ -99,11 +92,10 @@
 <style lang="postcss">
 	.range-input {
 		display: flex;
-		position: relative;
 		flex-direction: column;
 		gap: 8px;
 
-		--range-track: 4px;
+		--range-track-height: 4px;
 		--range-thumb-size: 16px;
 		--range-accent-color: var(--clr-theme-pop-element);
 
@@ -135,71 +127,19 @@
 		color: var(--clr-theme-err-element);
 	}
 
-	.wrapper {
-		display: flex;
-		position: relative;
-		align-items: center;
-		width: 100%;
-		height: var(--range-thumb-size);
-	}
-
-	.scale {
-		position: absolute;
-		top: 50%;
-		left: 0;
-		width: max(var(--range-thumb-size), calc(var(--scale-percentage) * 1%));
-		height: var(--range-thumb-size);
-		transform: translateY(-50%);
-		pointer-events: none;
-		transition: width var(--transition-fast);
-	}
-
-	.scale__track {
-		position: absolute;
-		top: 50%;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		transform: translateY(-50%);
-		background: var(--range-accent-color);
-		clip-path: polygon(
-			calc(var(--range-track) / 2) calc(50% - var(--range-track) / 2),
-			calc(100% - var(--range-thumb-size) / 2) calc(50% - var(--range-thumb-size) / 2),
-			calc(100% - var(--range-thumb-size) / 2) calc(50% + var(--range-thumb-size) / 2),
-			calc(var(--range-track) / 2) calc(50% + var(--range-track) / 2)
-		);
-	}
-
-	.scale__start {
-		position: absolute;
-		top: 50%;
-		left: 0;
-		width: var(--range-track);
-		height: var(--range-track);
-		transform: translateY(-50%);
-		border-radius: 50%;
-		background: var(--range-accent-color);
-	}
-
-	.scale__thumb {
-		position: absolute;
-		top: 50%;
-		right: 0;
-		width: var(--range-thumb-size);
-		height: var(--range-thumb-size);
-		transform: translateY(-50%);
-		border: 2px solid var(--range-accent-color);
-		border-radius: 50%;
-		background: var(--clr-scale-ntrl-100);
-	}
-
 	.input {
 		appearance: none;
 		width: 100%;
-		height: var(--range-track);
-		border-radius: var(--range-track);
+		height: var(--range-track-height);
+		border-radius: calc(var(--range-track-height) / 2);
 		outline: none;
-		background: var(--clr-border-2);
+		background: linear-gradient(
+			to right,
+			var(--range-accent-color) 0%,
+			var(--range-accent-color) calc(var(--fill-ratio) * 100%),
+			var(--clr-border-2) calc(var(--fill-ratio) * 100%),
+			var(--clr-border-2) 100%
+		);
 		cursor: pointer;
 
 		&:focus-visible {
@@ -212,7 +152,9 @@
 			appearance: none;
 			width: var(--range-thumb-size);
 			height: var(--range-thumb-size);
-			opacity: 0;
+			border-radius: 50%;
+			background: var(--range-accent-color);
+			cursor: pointer;
 		}
 
 		/* Firefox thumb styles */
@@ -220,23 +162,23 @@
 			appearance: none;
 			width: var(--range-thumb-size);
 			height: var(--range-thumb-size);
-			opacity: 0;
+			border: 2px solid var(--range-accent-color);
+			border-radius: 50%;
+			background: var(--clr-scale-ntrl-100);
+			cursor: pointer;
 		}
-	}
 
-	/* Disabled state */
-	.range-input:has(.input:disabled) {
-		& .scale {
+		&:disabled {
+			cursor: not-allowed;
 			opacity: 0.4;
-		}
 
-		& .scale__track,
-		& .scale__start {
-			background-color: var(--clr-scale-ntrl-60);
-		}
+			&::-webkit-slider-thumb {
+				cursor: not-allowed;
+			}
 
-		& .scale__thumb {
-			border-color: var(--clr-scale-ntrl-60);
+			&::-moz-range-thumb {
+				cursor: not-allowed;
+			}
 		}
 	}
 
@@ -248,14 +190,5 @@
 	/* Error state */
 	.range-input.error {
 		--range-accent-color: var(--clr-theme-err-element);
-
-		& .scale__track,
-		& .scale__start {
-			background-color: var(--clr-theme-err-element);
-		}
-
-		& .scale__thumb {
-			border-color: var(--clr-theme-err-element);
-		}
 	}
 </style>

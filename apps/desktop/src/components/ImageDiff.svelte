@@ -1,6 +1,8 @@
 <script lang="ts">
+	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { inject } from '@gitbutler/core/context';
+	import { ImageDiff, EmptyStatePlaceholder } from '@gitbutler/ui';
 	import type { TreeChange } from '$lib/hunks/change';
 
 	type Props = {
@@ -26,6 +28,7 @@
 	let beforeImageUrl = $state<string | null>(null);
 	let afterImageUrl = $state<string | null>(null);
 	let loadError = $state<string | null>(null);
+	let isLoading = $state<boolean>(true);
 
 	// Decide image sources for before/after panels without changing logic.
 	function getLoadStrategy(): LoadStrategy {
@@ -114,6 +117,7 @@
 
 	// Load both images according to the strategy.
 	async function loadImages(signal?: AbortSignal) {
+		isLoading = true;
 		loadError = null;
 		beforeImageUrl = null;
 		afterImageUrl = null;
@@ -141,6 +145,8 @@
 		} catch (err) {
 			console.error('Failed to load images:', err);
 			loadError = `Failed to load images: ${err instanceof Error ? err.message : String(err)}`;
+		} finally {
+			isLoading = false;
 		}
 	}
 
@@ -152,127 +158,25 @@
 </script>
 
 {#if loadError}
-	<div class="error-message">
-		<p>{loadError}</p>
+	<div class="imagediff-placehoder">
+		<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
+			{#snippet caption()}
+				Can't preview this file type
+			{/snippet}
+		</EmptyStatePlaceholder>
 	</div>
 {:else}
-	<div class="image-diff-container">
-		{#if beforeImageUrl || afterImageUrl}
-			<div class="image-comparison">
-				{#if beforeImageUrl}
-					<div class="image-panel before">
-						<div class="image-header">
-							<span class="label">Before</span>
-						</div>
-						<div class="image-wrapper">
-							<img src={beforeImageUrl} alt="{change.path} (Before)" />
-						</div>
-					</div>
-				{/if}
-
-				{#if afterImageUrl}
-					<div class="image-panel after">
-						<div class="image-header">
-							<span class="label">After</span>
-						</div>
-						<div class="image-wrapper">
-							<img src={afterImageUrl} alt="{change.path} (After)" />
-						</div>
-					</div>
-				{/if}
-			</div>
-		{:else}
-			<div class="loading">Loading images...</div>
-		{/if}
-	</div>
+	<ImageDiff {beforeImageUrl} {afterImageUrl} fileName={change.path} {isLoading} />
 {/if}
 
-<style lang="postcss">
-	.error-message {
-		padding: 20px;
-		color: var(--clr-scale-warn-40);
-		text-align: center;
-	}
-
-	.image-diff-container {
-		padding: 14px;
-		border: 1px solid var(--clr-border-3);
-		border-radius: var(--radius-m);
-		background: var(--clr-bg-2);
-	}
-
-	.image-comparison {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-		gap: 14px;
-	}
-
-	.image-panel {
-		overflow: hidden;
-		border-radius: var(--radius-s);
-		background: var(--clr-bg-1);
-
-		&.before {
-			border: 2px solid var(--clr-scale-err-40);
-		}
-
-		&.after {
-			border: 2px solid var(--clr-scale-succ-40);
-		}
-	}
-
-	.image-header {
-		padding: 8px 12px;
-		font-weight: 600;
-		font-size: 12px;
-		letter-spacing: 0.5px;
-		text-transform: uppercase;
-
-		.before & {
-			background: var(--clr-scale-err-40);
-			color: var(--clr-core-ntrl-100);
-		}
-
-		.after & {
-			background: var(--clr-scale-succ-40);
-			color: var(--clr-core-ntrl-100);
-		}
-	}
-
-	.label {
-		display: inline-block;
-	}
-
-	.image-wrapper {
+<style lang="scss">
+	.imagediff-placehoder {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		min-height: 200px;
-		padding: 14px;
-		background-image:
-			linear-gradient(45deg, var(--clr-bg-3) 25%, transparent 25%),
-			linear-gradient(-45deg, var(--clr-bg-3) 25%, transparent 25%),
-			linear-gradient(45deg, transparent 75%, var(--clr-bg-3) 75%),
-			linear-gradient(-45deg, transparent 75%, var(--clr-bg-3) 75%);
-		background-position:
-			0 0,
-			0 10px,
-			10px -10px,
-			-10px 0px;
-		background-size: 20px 20px;
-	}
-
-	.image-wrapper img {
-		display: block;
-		max-width: 100%;
-		max-height: 600px;
-		object-fit: contain;
-		border-radius: var(--radius-s);
-	}
-
-	.loading {
-		padding: 40px;
-		color: var(--clr-scale-ntrl-50);
-		text-align: center;
+		width: 100%;
+		height: 200px;
+		border: 1px solid var(--clr-border-3);
+		border-radius: var(--radius-m);
 	}
 </style>

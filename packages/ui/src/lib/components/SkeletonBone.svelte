@@ -35,7 +35,7 @@
 			opacity: var(--opacity-value);
 		}
 		100% {
-			opacity: calc(var(--opacity-value) + var(--opacity-value) * 0.5);
+			opacity: calc(var(--opacity-value) + var(--opacity-value) * 0.8);
 		}
 	}
 </style>
