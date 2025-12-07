@@ -92,6 +92,14 @@ pub fn get_workspace_file(project_id: ProjectId, relative_path: PathBuf) -> Resu
     project.read_file_from_workspace(&relative_path)
 }
 
+/// Retrieves file content directly from a Git blob object by its blob ID.
+///
+/// This function is used for displaying image diff previews when the file
+/// isn't available in the current workspace or a specific commit (e.g., for
+/// deleted files or when comparing against a previous state).
+///
+/// # Arguments
+/// * `blob_id` - Git blob object ID as a hexadecimal string
 #[but_api]
 #[instrument(err(Debug))]
 pub fn get_blob_file(
