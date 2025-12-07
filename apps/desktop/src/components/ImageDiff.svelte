@@ -124,11 +124,15 @@
 			afterImageUrl = after;
 
 			if (!before && !after) {
-				loadError = 'Failed to load images';
+				loadError = 'Failed to load both images (before and after).';
+			} else if (!before && strategy.before) {
+				loadError = 'Failed to load before image.';
+			} else if (!after && strategy.after) {
+				loadError = 'Failed to load after image.';
 			}
 		} catch (err) {
 			console.error('Failed to load images:', err);
-			loadError = 'Failed to load images';
+			loadError = `Failed to load images: ${err instanceof Error ? err.message : String(err)}`;
 		}
 	}
 
