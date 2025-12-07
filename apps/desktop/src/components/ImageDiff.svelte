@@ -146,25 +146,25 @@
 		{#if beforeImageUrl || afterImageUrl}
 			<div class="image-comparison">
 				{#if beforeImageUrl}
-					<div class="image-panel before">
-						<div class="image-header">
-							<span class="label">Before</span>
-						</div>
-						<div class="image-wrapper">
-							<img src={beforeImageUrl} alt="Before" />
-						</div>
+				<div class="image-panel before">
+					<div class="image-header">
+						<span class="label">Before</span>
 					</div>
+					<div class="image-wrapper">
+						<img src={beforeImageUrl} alt="{change.path} (Before)" />
+					</div>
+				</div>
 				{/if}
 
 				{#if afterImageUrl}
-					<div class="image-panel after">
-						<div class="image-header">
-							<span class="label">After</span>
-						</div>
-						<div class="image-wrapper">
-							<img src={afterImageUrl} alt="After" />
-						</div>
+				<div class="image-panel after">
+					<div class="image-header">
+						<span class="label">After</span>
 					</div>
+					<div class="image-wrapper">
+						<img src={afterImageUrl} alt="{change.path} (After)" />
+					</div>
+				</div>
 				{/if}
 			</div>
 		{:else}
