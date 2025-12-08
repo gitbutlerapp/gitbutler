@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::json::HexHash;
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::DiffSpec;
@@ -70,11 +71,10 @@ pub fn get_uncommitted_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFi
 pub fn get_commit_file(
     project_id: ProjectId,
     relative_path: PathBuf,
-    commit_id: String,
+    commit_id: HexHash,
 ) -> Result<FileInfo> {
     let project = gitbutler_project::get(project_id)?;
-    let commit_id = git2::Oid::from_str(&commit_id).map_err(anyhow::Error::from)?;
-    project.read_file_from_commit(commit_id, &relative_path)
+    project.read_file_from_commit(commit_id.0.to_git2(), &relative_path)
 }
 
 #[but_api]
@@ -82,6 +82,28 @@ pub fn get_commit_file(
 pub fn get_workspace_file(project_id: ProjectId, relative_path: PathBuf) -> Result<FileInfo> {
     let project = gitbutler_project::get(project_id)?;
     project.read_file_from_workspace(&relative_path)
+}
+
+/// Retrieves file content directly from a Git blob object by its blob ID.
+///
+/// This function is used for displaying image diff previews when the file
+/// isn't available in the current workspace or a specific commit (e.g., for
+/// deleted files or when comparing against a previous state).
+///
+/// # Arguments
+/// * `blob_id` - Git blob object ID as a hexadecimal string
+#[but_api]
+#[instrument(err(Debug))]
+pub fn get_blob_file(
+    project_id: ProjectId,
+    relative_path: PathBuf,
+    blob_id: HexHash,
+) -> Result<FileInfo> {
+    let project = gitbutler_project::get(project_id)?;
+    let repo = project.open_isolated_repo()?;
+    let object = repo.find_object(blob_id).context("Failed to find blob")?;
+    let blob = object.try_into_blob().context("Object is not a blob")?;
+    Ok(FileInfo::from_content(&relative_path, &blob.data))
 }
 
 #[but_api]
