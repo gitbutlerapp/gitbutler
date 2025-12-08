@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Codeblock } from '@gitbutler/ui';
-	import { Modal, Segment, SegmentControl, Button } from '@gitbutler/ui';
+	import { Modal, SegmentControl, Button } from '@gitbutler/ui';
 	import type { PromptDir } from '$lib/codegen/types';
 
 	type Props = {
@@ -31,18 +31,16 @@
 			in <code class="code-string">.local.md</code> override regular project prompts.
 		</p>
 
-		<SegmentControl defaultIndex={0}>
+		<SegmentControl selected={selectedSegment} onselect={(id) => (selectedSegment = id)}>
 			{#each promptDirs as dir}
-				<Segment
-					onselect={() => (selectedSegment = dir.label)}
+				<SegmentControl.Item
 					id={dir.label}
 					icon={dir.label === 'Global' ? 'global-small' : 'folder'}
 				>
 					{dir.label}
-				</Segment>
+				</SegmentControl.Item>
 			{/each}
 		</SegmentControl>
-
 		{#if selectedSegment === 'Global'}
 			{@render pathContent({
 				path: promptDirs.find((d) => d.label === 'Global')?.path || '',

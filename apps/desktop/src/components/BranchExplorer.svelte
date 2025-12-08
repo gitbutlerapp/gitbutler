@@ -4,7 +4,6 @@
 	import BranchesListGroup from '$components/branchesPage/BranchesListGroup.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import {
-		BRANCH_FILTER_OPTIONS,
 		combineBranchesAndPrs,
 		groupBranches,
 		isBranchFilterOption,
@@ -18,8 +17,7 @@
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { Badge, Button, EmptyStatePlaceholder, Segment, SegmentControl } from '@gitbutler/ui';
-
+	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from '@gitbutler/ui';
 	import Fuse from 'fuse.js';
 	import type { ForgeUser } from '$lib/forge/interface/types';
 	import type { Snippet } from 'svelte';
@@ -128,12 +126,6 @@
 		}
 	});
 
-	const selectedFilterIndex = $derived.by(() => {
-		const index = BRANCH_FILTER_OPTIONS.findIndex((item) => selectedOption === item);
-		if (index === -1) return 0;
-		return index;
-	});
-
 	function setFilter(id: string) {
 		if (isBranchFilterOption(id)) {
 			selectedOption = id;
@@ -183,9 +175,9 @@
 			</div>
 		</div>
 
-		<SegmentControl fullWidth defaultIndex={selectedFilterIndex} onselect={setFilter}>
+		<SegmentControl fullWidth selected={selectedOption} onselect={setFilter}>
 			{#each Object.entries(filterOptions) as [segmentId, segmentCopy]}
-				<Segment id={segmentId}>{segmentCopy}</Segment>
+				<SegmentControl.Item id={segmentId}>{segmentCopy}</SegmentControl.Item>
 			{/each}
 		</SegmentControl>
 	</div>

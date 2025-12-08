@@ -9,7 +9,6 @@
 	interface SegmentProps {
 		testId?: string;
 		id: string;
-		onselect?: (id: string) => void;
 		disabled?: boolean;
 		children?: Snippet;
 		tooltip?: string;
@@ -17,16 +16,14 @@
 		icon?: keyof typeof iconsJson;
 	}
 
-	const { id, onselect, children, disabled, icon, tooltip, tooltipPosition, testId }: SegmentProps =
-		$props();
+	const { id, children, disabled, icon, tooltip, tooltipPosition, testId }: SegmentProps = $props();
 
 	const context = getContext<SegmentContext>('SegmentControl');
-	const index = context.setIndex();
-	const selectedSegmentIndex = context.selectedSegmentIndex;
+	const selectedSegmentId = context.selectedSegmentId;
 
 	let elRef = $state<HTMLButtonElement>();
 	let isFocused = $state(false);
-	const isSelected = $derived(index === $selectedSegmentIndex);
+	const isSelected = $derived($selectedSegmentId === id);
 
 	$effect(() => {
 		if (elRef && isFocused) {
@@ -35,7 +32,7 @@
 	});
 
 	onMount(() => {
-		context.addSegment({ index });
+		context.registerSegment(id);
 	});
 </script>
 
@@ -51,26 +48,14 @@
 		tabindex={isSelected || disabled ? -1 : 0}
 		aria-selected={isSelected}
 		onclick={() => {
-			if (index !== $selectedSegmentIndex) {
-				context.setSelected({
-					index,
-					id
-				});
-				if (onselect) {
-					onselect(id);
-				}
+			if (!isSelected) {
+				context.selectSegment(id);
 			}
 		}}
 		onkeydown={({ key }) => {
 			if (key === 'Enter' || key === ' ') {
-				if (index !== $selectedSegmentIndex) {
-					context.setSelected({
-						index,
-						id
-					});
-					if (onselect) {
-						onselect(id);
-					}
+				if (!isSelected) {
+					context.selectSegment(id);
 				}
 			}
 		}}

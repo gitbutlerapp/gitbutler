@@ -2,8 +2,7 @@
 	import Badge from '$components/Badge.svelte';
 	import RangeInput from '$components/RangeInput.svelte';
 	import SkeletonBone from '$components/SkeletonBone.svelte';
-	import Segment from '$components/segmentControl/Segment.svelte';
-	import SegmentControl from '$components/segmentControl/SegmentControl.svelte';
+	import { SegmentControl } from '$components/segmentControl';
 
 	type Props = {
 		beforeImageUrl?: string | null;
@@ -283,10 +282,14 @@
 <div class="imagediff-container">
 	{#if beforeImageUrl && afterImageUrl && !isLoading}
 		<div class="view-mode-controls">
-			<SegmentControl size="small" defaultIndex={0} onselect={(id) => (viewMode = id as ViewMode)}>
-				<Segment id="2-up">2-up</Segment>
-				<Segment id="swipe">Swipe</Segment>
-				<Segment id="onion-skin">Onion Skin</Segment>
+			<SegmentControl
+				size="small"
+				selected={viewMode}
+				onselect={(id) => (viewMode = id as ViewMode)}
+			>
+				<SegmentControl.Item id="2-up">2-up</SegmentControl.Item>
+				<SegmentControl.Item id="swipe">Swipe</SegmentControl.Item>
+				<SegmentControl.Item id="onion-skin">Onion Skin</SegmentControl.Item>
 			</SegmentControl>
 		</div>
 	{/if}
