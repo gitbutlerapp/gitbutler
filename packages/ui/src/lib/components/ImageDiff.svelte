@@ -122,9 +122,9 @@
 		>
 			{formatSizeDifference(beforeImageMetadata.size, afterImageMetadata.size)}
 			{#if afterImageMetadata.size < beforeImageMetadata.size}
-				↘
+				<span aria-label="decreased">↘</span>
 			{:else if afterImageMetadata.size > beforeImageMetadata.size}
-				↗
+				<span aria-label="increased">↗</span>
 			{/if}
 		</span>
 	{/if}
