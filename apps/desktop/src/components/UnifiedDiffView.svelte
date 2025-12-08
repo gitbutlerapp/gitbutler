@@ -22,7 +22,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
-
+	import { isImageFile } from '@gitbutler/shared/utils/file';
 	import { EmptyStatePlaceholder, HunkDiff, TestId } from '@gitbutler/ui';
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
@@ -86,23 +86,6 @@
 	const userSettings = inject(SETTINGS);
 
 	const assignments = $derived(uncommittedService.assignmentsByPath(stackId || null, change.path));
-
-	function isImageFile(path: string): boolean {
-		const imageExtensions = [
-			'.png',
-			'.jpg',
-			'.jpeg',
-			'.gif',
-			'.webp',
-			'.bmp',
-			'.ico',
-			'.heic',
-			'.heif',
-			'.avif'
-		];
-		const lowerPath = path.toLowerCase();
-		return imageExtensions.some((ext) => lowerPath.endsWith(ext));
-	}
 
 	function filter(hunks: DiffHunk[]): DiffHunk[] {
 		if (selectionId.type !== 'worktree') return hunks;
