@@ -122,6 +122,31 @@
 		isDragging = false;
 	}
 
+	function handleKeyDown(e: KeyboardEvent) {
+		const step = e.shiftKey ? 10 : 1; // Larger steps with Shift key
+
+		switch (e.key) {
+			case 'ArrowLeft':
+			case 'ArrowDown':
+				e.preventDefault();
+				swipePosition = Math.max(0, swipePosition - step);
+				break;
+			case 'ArrowRight':
+			case 'ArrowUp':
+				e.preventDefault();
+				swipePosition = Math.min(100, swipePosition + step);
+				break;
+			case 'Home':
+				e.preventDefault();
+				swipePosition = 0;
+				break;
+			case 'End':
+				e.preventDefault();
+				swipePosition = 100;
+				break;
+		}
+	}
+
 	$effect(() => {
 		if (viewMode !== 'swipe') return;
 
@@ -210,6 +235,7 @@
 			bind:this={comparisonWrapperRef}
 			onmousedown={handleDragStart}
 			ontouchstart={handleDragStart}
+			onkeydown={handleKeyDown}
 			role="slider"
 			tabindex="0"
 			aria-label="Image comparison slider"
