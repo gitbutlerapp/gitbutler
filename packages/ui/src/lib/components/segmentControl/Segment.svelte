@@ -9,7 +9,6 @@
 	interface SegmentProps {
 		testId?: string;
 		id: string;
-		onselect?: (id: string) => void;
 		disabled?: boolean;
 		children?: Snippet;
 		tooltip?: string;
@@ -17,8 +16,7 @@
 		icon?: keyof typeof iconsJson;
 	}
 
-	const { id, onselect, children, disabled, icon, tooltip, tooltipPosition, testId }: SegmentProps =
-		$props();
+	const { id, children, disabled, icon, tooltip, tooltipPosition, testId }: SegmentProps = $props();
 
 	const context = getContext<SegmentContext>('SegmentControl');
 	const selectedSegmentId = context.selectedSegmentId;
@@ -52,14 +50,12 @@
 		onclick={() => {
 			if (!isSelected) {
 				context.selectSegment(id);
-				onselect?.(id);
 			}
 		}}
 		onkeydown={({ key }) => {
 			if (key === 'Enter' || key === ' ') {
 				if (!isSelected) {
 					context.selectSegment(id);
-					onselect?.(id);
 				}
 			}
 		}}

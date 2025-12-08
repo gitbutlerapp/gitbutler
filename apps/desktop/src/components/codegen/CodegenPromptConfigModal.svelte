@@ -31,10 +31,9 @@
 			in <code class="code-string">.local.md</code> override regular project prompts.
 		</p>
 
-		<SegmentControl selected={selectedSegment}>
+		<SegmentControl selected={selectedSegment} onselect={(id) => (selectedSegment = id)}>
 			{#each promptDirs as dir}
 				<SegmentControl.Item
-					onselect={() => (selectedSegment = dir.label)}
 					id={dir.label}
 					icon={dir.label === 'Global' ? 'global-small' : 'folder'}
 				>
@@ -42,7 +41,6 @@
 				</SegmentControl.Item>
 			{/each}
 		</SegmentControl>
-
 		{#if selectedSegment === 'Global'}
 			{@render pathContent({
 				path: promptDirs.find((d) => d.label === 'Global')?.path || '',
