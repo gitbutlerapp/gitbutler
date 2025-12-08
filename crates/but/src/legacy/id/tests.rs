@@ -1,6 +1,90 @@
 use crate::legacy::id::{CliId, IdMap};
-use but_hunk_assignment::HunkAssignmentRequest;
+use anyhow::bail;
+use bstr::BString;
+use but_core::ref_metadata::StackId;
+use but_hunk_assignment::HunkAssignment;
 use but_testsupport::Sandbox;
+use but_workspace::{
+    branch::Stack,
+    ref_info::{Commit, LocalCommit, Segment},
+};
+
+fn id(byte: u8) -> gix::ObjectId {
+    gix::ObjectId::try_from([byte].repeat(20).as_slice()).expect("could not generate ID")
+}
+
+fn segment<const N1: usize, const N2: usize>(
+    shortened_branch_name: &str,
+    local_commit_ids: [gix::ObjectId; N1],
+    base: Option<gix::ObjectId>,
+    remote_commit_ids: [gix::ObjectId; N2],
+) -> Segment {
+    fn commit(id: gix::ObjectId, parent_id: Option<gix::ObjectId>) -> Commit {
+        Commit {
+            id,
+            parent_ids: parent_id.into_iter().collect::<Vec<gix::ObjectId>>(),
+            tree_id: gix::index::hash::Kind::Sha1.empty_tree(),
+            message: Default::default(),
+            author: Default::default(),
+            refs: Vec::new(),
+            flags: Default::default(),
+            has_conflicts: false,
+            change_id: None,
+        }
+    }
+
+    let ref_info = Some(but_graph::RefInfo {
+        ref_name: gix::refs::FullName::try_from(format!("refs/heads/{}", shortened_branch_name))
+            .expect("could not generate ref name"),
+        worktree: None,
+    });
+    let mut commits: Vec<LocalCommit> = Vec::new();
+    for (i, id) in local_commit_ids.iter().enumerate() {
+        let parent_id = local_commit_ids.get(i + 1).or(base.as_ref());
+        commits.push(LocalCommit {
+            inner: commit(*id, parent_id.cloned()),
+            relation: Default::default(),
+        });
+    }
+    let mut commits_on_remote: Vec<Commit> = Vec::new();
+    for id in remote_commit_ids {
+        commits_on_remote.push(commit(id, None))
+    }
+    Segment {
+        ref_info,
+        id: Default::default(),
+        remote_tracking_ref_name: None,
+        commits,
+        commits_on_remote,
+        commits_outside: None,
+        metadata: None,
+        is_entrypoint: false,
+        push_status: but_workspace::ui::PushStatus::NothingToPush,
+        base,
+    }
+}
+
+fn stack<const N: usize>(segments: [Segment; N]) -> Stack {
+    Stack {
+        id: None,
+        base: None,
+        segments: segments.into_iter().collect::<Vec<Segment>>(),
+    }
+}
+
+fn hunk_assignment(path: &str, stack_id: Option<StackId>) -> HunkAssignment {
+    HunkAssignment {
+        id: None,
+        hunk_header: None,
+        path: String::new(),
+        path_bytes: BString::from(path),
+        stack_id,
+        hunk_locks: None,
+        line_nums_added: None,
+        line_nums_removed: None,
+        diff: None,
+    }
+}
 
 // TODO: make the IdMap API more testable, and making better tests should naturally lead to a better API.
 //       This is just an example to avoid more integration tests.
@@ -24,50 +108,55 @@ fn commit_ids_never_collide_due_to_hex_alphabet() -> anyhow::Result<()> {
     Ok(())
 }
 
-// TODO: be more specific, this is mostly a sample for how to setup assignments as part of the test.
 #[test]
-fn assignments_work() -> anyhow::Result<()> {
-    let env = Sandbox::open_scenario_with_target_and_default_settings("two-stacks")?;
-    let stack_ids = env.setup_metadata(&["A", "B"])?;
+fn unassigned_area_id_is_unambiguous() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("branch001", [id(1)], None, [])])];
+    let id_map = IdMap::new(stacks)?;
 
-    let a_path = "for-A";
-    env.file(a_path, "A");
-    let b_path = "for-B";
-    env.file(b_path, "B");
+    // Ensure that the ID of the unassigned area has enough 0s to be unambiguous.
+    assert_eq!(id_map.unassigned().to_string(), "000");
+    Ok(())
+}
 
-    let mut ctx = env.context()?;
-    let a_stack_id = stack_ids[0];
-    let b_stack_id = stack_ids[1];
-    but_hunk_assignment::assign(
-        &mut ctx,
-        vec![
-            HunkAssignmentRequest {
-                hunk_header: None,
-                path_bytes: a_path.into(),
-                stack_id: a_stack_id.into(),
-            },
-            HunkAssignmentRequest {
-                hunk_header: None,
-                path_bytes: b_path.into(),
-                stack_id: b_stack_id.into(),
-            },
-        ],
-        None,
-    )?;
+#[test]
+fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("h0", [id(2)], Some(id(1)), [])])];
+    let mut id_map = IdMap::new(stacks)?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<BString>> {
+        Ok(if commit_id == id(2) && parent_id == Some(id(1)) {
+            vec![
+                BString::from(b"committed1.txt"),
+                BString::from(b"committed2.txt"),
+            ]
+        } else {
+            bail!("unexpected IDs {} {:?}", commit_id, parent_id);
+        })
+    };
+    let hunk_assignments = vec![
+        hunk_assignment("uncommitted1.txt", None),
+        hunk_assignment("uncommitted2.txt", None),
+    ];
+    id_map.add_file_info(changed_paths_fn, hunk_assignments)?;
 
-    let mut id_map = IdMap::new_from_context(&ctx)?;
-    id_map.add_file_info_from_context(&mut ctx)?;
-    assert_eq!(
-        id_map
-            .uncommitted_file(Some(a_stack_id), a_path.into())
-            .to_string(),
-        "g0"
-    );
-    assert_eq!(
-        id_map
-            .uncommitted_file(Some(b_stack_id), b_path.into())
-            .to_string(),
-        "h0"
-    );
+    // Uncommitted files come first
+    assert!(matches!(
+        id_map.parse_str("g0")?.as_slice(),
+        [CliId::UncommittedFile{path,..}] if path == b"uncommitted1.txt"));
+    // But do not collide with branches
+    assert!(matches!(
+        id_map.parse_str("h0")?.as_slice(),
+        [CliId::Branch{name,..}] if name == "h0"));
+    assert!(matches!(
+        id_map.parse_str("i0")?.as_slice(),
+        [CliId::UncommittedFile{path,..}] if path == b"uncommitted2.txt"));
+    // Committed files come next
+    assert!(matches!(
+        id_map.parse_str("j0")?.as_slice(),
+        [CliId::CommittedFile{commit_oid, path,..}] if *commit_oid == id(2) && path == b"committed1.txt"));
+    assert!(matches!(
+        id_map.parse_str("k0")?.as_slice(),
+        [CliId::CommittedFile{commit_oid, path,..}] if *commit_oid == id(2) && path == b"committed2.txt"));
     Ok(())
 }

@@ -20,25 +20,6 @@ Source[..]the unassigned area[..]target[..]the unassigned area[..]"
 }
 
 #[test]
-fn unassigned_area_id_is_unambiguous() -> anyhow::Result<()> {
-    let env = Sandbox::open_scenario_with_target_and_default_settings("two-stacks")?;
-
-    // Must set metadata to match the scenario
-    env.setup_metadata(&["A", "B"])?;
-
-    env.but("branch new branch001").assert().success();
-
-    // Ensure that the ID of the unassigned area has enough 0s to be unambiguous.
-    env.but("status")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
-        .assert()
-        .success()
-        .stdout_eq(snapbox::str!["[..]000[..]Unassigned Changes[..]\n..."]);
-
-    Ok(())
-}
-
-#[test]
 fn branch_avoid_nonalphanumeric() -> anyhow::Result<()> {
     let env = Sandbox::open_scenario_with_target_and_default_settings("two-stacks")?;
 

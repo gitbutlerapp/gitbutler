@@ -717,6 +717,7 @@ dependencies = [
  "but-forge",
  "but-gerrit",
  "but-github",
+ "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
  "but-meta",

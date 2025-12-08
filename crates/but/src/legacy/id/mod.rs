@@ -333,7 +333,6 @@ impl IdMap {
 
         // Then try CliId matching
         if s.len() == 2 {
-            // TODO: a test for this special behaviour (if fully removed, nothing breaks)
             if let Some(UncommittedFile {
                 assignment_path: (assignment, path),
                 ..

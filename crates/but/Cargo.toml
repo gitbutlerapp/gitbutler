@@ -121,6 +121,7 @@ cfg-if = "1.0.4"
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }
+but-graph.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
 snapbox = { workspace = true, features = ["term-svg"] }
