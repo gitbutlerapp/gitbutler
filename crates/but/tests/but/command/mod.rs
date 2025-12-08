@@ -7,6 +7,7 @@ mod commit;
 #[cfg(feature = "legacy")]
 mod describe;
 mod format;
+mod gui;
 mod help;
 #[cfg(feature = "legacy")]
 mod rub;
