@@ -102,7 +102,7 @@ pub fn get_blob_file(
     let project = gitbutler_project::get(project_id)?;
     let repo = project.open_isolated_repo()?;
     let object = repo.find_object(blob_id).context("Failed to find blob")?;
-    let blob = object.try_into_blob()?;
+    let blob = object.try_into_blob().context("Object is not a blob")?;
     Ok(FileInfo::from_content(&relative_path, &blob.data))
 }
 
