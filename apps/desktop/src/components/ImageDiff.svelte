@@ -158,7 +158,7 @@
 </script>
 
 {#if loadError}
-	<div class="imagediff-placehoder">
+	<div class="imagediff-placeholder">
 		<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
 			{#snippet caption()}
 				Can't preview this file type
@@ -170,7 +170,7 @@
 {/if}
 
 <style lang="scss">
-	.imagediff-placehoder {
+	.imagediff-placeholder {
 		display: flex;
 		align-items: center;
 		justify-content: center;
