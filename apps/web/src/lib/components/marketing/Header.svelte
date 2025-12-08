@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MobileMenu from '$home/components/MobileMenu.svelte';
 	import GitbutlerLogoLink from '$lib/components/GitbutlerLogoLink.svelte';
+	import NoSSR from '$lib/components/NoSSR.svelte';
 	import UserAuthAvatar from '$lib/components/UserAuthAvatar.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import { USER_SERVICE } from '$lib/user/userService';
@@ -67,9 +68,11 @@
 			})}
 		</section>
 
-		{#if $user}
-			<UserAuthAvatar user={$user} />
-		{/if}
+		<NoSSR>
+			{#if $user}
+				<UserAuthAvatar user={$user} />
+			{/if}
+		</NoSSR>
 	</nav>
 
 	<MobileMenu />
