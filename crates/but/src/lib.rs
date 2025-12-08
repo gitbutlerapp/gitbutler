@@ -121,6 +121,15 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 .as_ref()
                 .expect("path is checked to be Some in match guard");
             let path = std::path::Path::new(args.current_dir.as_path()).join(maybe_path);
+
+            // Check if the path exists before trying to open the GUI
+            if !path.exists() {
+                anyhow::bail!(
+                    "\"but {}\" is not a command. Type \"but --help\" to see all available commands.",
+                    maybe_path
+                );
+            }
+
             command::gui::open(&path)?;
             Ok(())
         }
