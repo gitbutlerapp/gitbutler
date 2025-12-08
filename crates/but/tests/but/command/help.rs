@@ -58,23 +58,12 @@ fn rub_looks_good() -> anyhow::Result<()> {
 fn nonexistent_path_shows_friendly_error() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 
-    // Test that running `but <nonexistent-path>` shows a friendly error message
-    // instead of a low-level filesystem error
-    env.but("test")
+    env.but("nonexistent-directory-entry")
         .assert()
         .failure()
-        .stdout_eq("")
+        .stdout_eq(str![[]])
         .stderr_eq(str![[r#"
-Error: "but test" is not a command. Type "but --help" to see all available commands.
-
-"#]]);
-
-    env.but("nonexistent-dir")
-        .assert()
-        .failure()
-        .stdout_eq("")
-        .stderr_eq(str![[r#"
-Error: "but nonexistent-dir" is not a command. Type "but --help" to see all available commands.
+Error: "but nonexistent-directory-entry" is not a command. Type "but --help" to see all available commands.
 
 "#]]);
 
