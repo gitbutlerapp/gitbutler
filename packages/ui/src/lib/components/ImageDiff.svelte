@@ -23,6 +23,8 @@
 	let viewMode = $state<ViewMode>('2-up');
 	let swipePosition = $state(50);
 	let onionOpacity = $state(50);
+	let isDragging = $state(false);
+	let comparisonWrapperRef: HTMLDivElement | undefined = $state();
 
 	type ImageMetadata = {
 		width: number;
@@ -78,27 +80,62 @@
 	$effect(() => {
 		if (beforeImageUrl) {
 			loadImageMetadata(beforeImageUrl)
-				.then((metadata) => {
-					beforeImageMetadata = metadata;
-				})
+				.then((metadata) => (beforeImageMetadata = metadata))
 				.catch((error) => {
 					console.error('Failed to load before image metadata:', error);
 					beforeImageMetadata = null;
 				});
 		}
-	});
 
-	$effect(() => {
 		if (afterImageUrl) {
 			loadImageMetadata(afterImageUrl)
-				.then((metadata) => {
-					afterImageMetadata = metadata;
-				})
+				.then((metadata) => (afterImageMetadata = metadata))
 				.catch((error) => {
 					console.error('Failed to load after image metadata:', error);
 					afterImageMetadata = null;
 				});
 		}
+	});
+
+	function updateSwipePosition(clientX: number) {
+		if (!comparisonWrapperRef) return;
+
+		const rect = comparisonWrapperRef.getBoundingClientRect();
+		const x = clientX - rect.left;
+		swipePosition = Math.max(0, Math.min(100, (x / rect.width) * 100));
+	}
+
+	function handleDragStart(e: MouseEvent | TouchEvent) {
+		isDragging = true;
+		const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
+		updateSwipePosition(clientX);
+	}
+
+	function handleDragMove(e: MouseEvent | TouchEvent) {
+		if (!isDragging) return;
+		if (e instanceof TouchEvent) e.preventDefault();
+		const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
+		updateSwipePosition(clientX);
+	}
+
+	function handleDragEnd() {
+		isDragging = false;
+	}
+
+	$effect(() => {
+		if (viewMode !== 'swipe') return;
+
+		document.addEventListener('mousemove', handleDragMove);
+		document.addEventListener('mouseup', handleDragEnd);
+		document.addEventListener('touchmove', handleDragMove, { passive: false });
+		document.addEventListener('touchend', handleDragEnd);
+
+		return () => {
+			document.removeEventListener('mousemove', handleDragMove);
+			document.removeEventListener('mouseup', handleDragEnd);
+			document.removeEventListener('touchmove', handleDragMove);
+			document.removeEventListener('touchend', handleDragEnd);
+		};
 	});
 </script>
 
@@ -165,29 +202,49 @@
 	</div>
 {/snippet}
 
-{#snippet comparisonMode(props: {
-	type: 'swipe' | 'onion-skin';
-	controlValue: number;
-	onValueChange: (value: number) => void;
-})}
+{#snippet swipe(props: { controlValue: number; onValueChange: (value: number) => void })}
 	<div class="comparison-container">
-		<div class="comparison-wrapper checkered-bg">
+		<div
+			class="comparison-wrapper is-swipe checkered-bg"
+			class:is-dragging={isDragging}
+			bind:this={comparisonWrapperRef}
+			onmousedown={handleDragStart}
+			ontouchstart={handleDragStart}
+			role="slider"
+			tabindex="0"
+			aria-label="Image comparison slider"
+			aria-valuenow={props.controlValue}
+			aria-valuemin={0}
+			aria-valuemax={100}
+		>
 			<div class="comparison-image comparison-after">
 				<img src={afterImageUrl!} alt="{fileName} (After)" />
 			</div>
 			<div
 				class="comparison-image comparison-before"
-				style={props.type === 'swipe'
-					? `clip-path: inset(0 ${100 - props.controlValue}% 0 0);`
-					: `opacity: ${props.controlValue / 100};`}
+				style="clip-path: inset(0 {100 - props.controlValue}% 0 0);"
 			>
 				<img src={beforeImageUrl!} alt="{fileName} (Before)" />
 			</div>
-			{#if props.type === 'swipe'}
-				<div class="swipe-divider" style="left: {props.controlValue}%"></div>
-			{/if}
+			<div class="swipe-handle" style="left: {props.controlValue}%">
+				<div class="swipe-divider"></div>
+				<div class="swipe-handle-grip text-14">↔</div>
+			</div>
 		</div>
+		{@render comparisonFooter()}
+	</div>
+{/snippet}
 
+{#snippet onionSkin(props: { controlValue: number; onValueChange: (value: number) => void })}
+	<div class="comparison-container">
+		<div class="comparison-wrapper checkered-bg" bind:this={comparisonWrapperRef}>
+			<div class="comparison-image comparison-after">
+				<img src={afterImageUrl!} alt="{fileName} (After)" />
+			</div>
+			<div class="comparison-image comparison-before" style="opacity: {props.controlValue / 100};">
+				<img src={beforeImageUrl!} alt="{fileName} (Before)" />
+			</div>
+		</div>
 		<div class="comparison-controls">
 			<Badge style="error" kind="soft">Before</Badge>
 			<RangeInput min={0} max={100} value={props.controlValue} oninput={props.onValueChange} wide />
@@ -243,14 +300,12 @@
 					})}
 				{/if}
 			{:else if viewMode === 'swipe' && beforeImageUrl && afterImageUrl}
-				{@render comparisonMode({
-					type: 'swipe',
+				{@render swipe({
 					controlValue: swipePosition,
 					onValueChange: (value) => (swipePosition = value)
 				})}
 			{:else if viewMode === 'onion-skin' && beforeImageUrl && afterImageUrl}
-				{@render comparisonMode({
-					type: 'onion-skin',
+				{@render onionSkin({
 					controlValue: onionOpacity,
 					onValueChange: (value) => (onionOpacity = value)
 				})}
@@ -286,13 +341,13 @@
 		display: flex;
 		flex: 1;
 		flex-direction: column;
-		gap: 10px;
 	}
 
 	.image-footer {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
+		margin-top: 10px;
 		gap: 6px;
 		color: var(--clr-text-2);
 
@@ -365,6 +420,17 @@
 		border: 1px solid var(--clr-border-2);
 		border-bottom: none;
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
+		cursor: col-resize;
+
+		&.is-dragging {
+			user-select: none;
+		}
+
+		&.is-swipe {
+			border-bottom: 1px solid var(--clr-border-2);
+			border-radius: var(--radius-m) var(--radius-m);
+			cursor: ew-resize;
+		}
 	}
 
 	.comparison-image {
@@ -390,23 +456,43 @@
 		border-radius: var(--radius-s);
 	}
 
-	.swipe-divider {
+	.swipe-handle {
+		display: flex;
 		z-index: var(--z-index-lifted);
 		position: absolute;
+		top: 0;
 		bottom: 0;
-		width: 0;
-		height: 0;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
 		transform: translateX(-50%);
-		border-width: 0 6px 8px 6px;
-		border-style: solid;
-		border-color: transparent transparent var(--clr-core-ntrl-0) transparent;
 		pointer-events: none;
+	}
+
+	.swipe-divider {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 2px;
+		background-color: var(--clr-core-ntrl-0);
+	}
+
+	.swipe-handle-grip {
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		padding: 4px 6px;
+		border-radius: 20px;
+		background-color: var(--clr-core-ntrl-0);
+		color: var(--clr-core-ntrl-100);
+		cursor: col-resize;
+		pointer-events: all;
 	}
 
 	.comparison-controls {
 		display: flex;
 		align-items: center;
-		margin-bottom: 10px;
 		padding: 12px;
 		gap: 10px;
 		border: 1px solid var(--clr-border-2);
