@@ -63,6 +63,7 @@ fn nonexistent_path_shows_friendly_error() -> anyhow::Result<()> {
     env.but("test")
         .assert()
         .failure()
+        .stdout_eq("")
         .stderr_eq(str![[r#"
 Error: "but test" is not a command. Type "but --help" to see all available commands.
 
@@ -71,6 +72,7 @@ Error: "but test" is not a command. Type "but --help" to see all available comma
     env.but("nonexistent-dir")
         .assert()
         .failure()
+        .stdout_eq("")
         .stderr_eq(str![[r#"
 Error: "but nonexistent-dir" is not a command. Type "but --help" to see all available commands.
 
