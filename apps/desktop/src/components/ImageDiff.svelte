@@ -82,6 +82,9 @@
 	}
 
 	// Load image from workspace, commit, or blob.
+	// Note: The backend service methods (readFromWorkspace, readFromCommit, readFromBlob)
+	// do not currently support AbortSignal, so the actual IO operations cannot be cancelled.
+	// The signal parameter is used to prevent processing results after abortion.
 	async function loadImage(
 		source: ImageSource | null,
 		signal?: AbortSignal
