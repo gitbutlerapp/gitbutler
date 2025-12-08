@@ -1,4 +1,5 @@
 use crate::utils::Sandbox;
+use snapbox::str;
 
 #[cfg(not(feature = "legacy"))]
 #[test]
@@ -50,5 +51,32 @@ fn rub_looks_good() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/help/rub-short-help.stdout.term.svg"
         ]);
+    Ok(())
+}
+
+#[test]
+fn nonexistent_path_shows_friendly_error() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+
+    // Test that running `but <nonexistent-path>` shows a friendly error message
+    // instead of a low-level filesystem error
+    env.but("test")
+        .assert()
+        .failure()
+        .stdout_eq("")
+        .stderr_eq(str![[r#"
+Error: "but test" is not a command. Type "but --help" to see all available commands.
+
+"#]]);
+
+    env.but("nonexistent-dir")
+        .assert()
+        .failure()
+        .stdout_eq("")
+        .stderr_eq(str![[r#"
+Error: "but nonexistent-dir" is not a command. Type "but --help" to see all available commands.
+
+"#]]);
+
     Ok(())
 }
