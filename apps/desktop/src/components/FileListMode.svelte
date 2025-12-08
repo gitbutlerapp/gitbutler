@@ -2,7 +2,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { Segment, SegmentControl, TestId } from '@gitbutler/ui';
+	import { SegmentControl, TestId } from '@gitbutler/ui';
 
 	type Mode = 'tree' | 'list';
 	type Props = {
@@ -22,13 +22,13 @@
 </script>
 
 <SegmentControl
-	defaultIndex={mode === 'list' ? 0 : 1}
+	selected={mode}
 	onselect={(id) => {
 		// Update saved preference; the effect will sync mode
 		$saved = id as Mode;
 	}}
 	size="small"
 >
-	<Segment id="list" testId={TestId.FileListModeOption} icon="list-view" />
-	<Segment id="tree" testId={TestId.FileListModeOption} icon="tree-view" />
+	<SegmentControl.Item id="list" testId={TestId.FileListModeOption} icon="list-view" />
+	<SegmentControl.Item id="tree" testId={TestId.FileListModeOption} icon="tree-view" />
 </SegmentControl>

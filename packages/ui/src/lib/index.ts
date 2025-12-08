@@ -109,8 +109,7 @@ export {
 } from '$components/scroll/Scrollbar.svelte';
 
 // Segment Control Components
-export { default as Segment } from '$components/segmentControl/Segment.svelte';
-export { default as SegmentControl } from '$components/segmentControl/SegmentControl.svelte';
+export { SegmentControl, SegmentItem } from '$components/segmentControl';
 
 // Commit Lines Components
 export { default as Cell } from '$components/commitLines/Cell.svelte';
