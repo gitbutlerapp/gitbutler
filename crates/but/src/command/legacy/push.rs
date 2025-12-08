@@ -13,7 +13,8 @@ pub fn handle(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::new(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(&ctx)?;
+    id_map.add_file_info_from_context(&mut ctx)?;
 
     // Check gerrit mode early
     let gerrit_mode = {

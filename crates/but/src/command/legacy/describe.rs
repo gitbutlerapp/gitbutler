@@ -18,7 +18,8 @@ pub(crate) fn describe_target(
     message: Option<&str>,
 ) -> Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::new(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(&ctx)?;
+    id_map.add_file_info_from_context(&mut ctx)?;
 
     // Resolve the commit ID
     let cli_ids = id_map.parse_str(target)?;

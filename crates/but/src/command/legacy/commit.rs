@@ -24,7 +24,8 @@ pub(crate) fn insert_blank_commit(
     target: &str,
 ) -> Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::new(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(&ctx)?;
+    id_map.add_file_info_from_context(&mut ctx)?;
 
     // Resolve the target ID
     let cli_ids = id_map.parse_str(target)?;
@@ -154,7 +155,8 @@ pub(crate) fn commit(
     create_branch: bool,
 ) -> anyhow::Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::new(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(&ctx)?;
+    id_map.add_file_info_from_context(&mut ctx)?;
 
     // Get all stacks using but-api
     let project_id = project.id;

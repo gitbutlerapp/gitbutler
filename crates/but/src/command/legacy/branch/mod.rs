@@ -77,7 +77,8 @@ pub async fn handle(
                 legacy_project,
                 AppSettings::load_from_default_path_creating()?,
             );
-            let id_map = IdMap::new(&mut ctx)?;
+            let mut id_map = IdMap::new_from_context(&ctx)?;
+            id_map.add_file_info_from_context(&mut ctx)?;
             // Get branch name or use canned name
             let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
                 but_api::legacy::workspace::canned_branch_name(legacy_project.id)

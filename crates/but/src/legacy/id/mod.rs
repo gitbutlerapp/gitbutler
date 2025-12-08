@@ -1,6 +1,8 @@
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
+use but_hunk_assignment::HunkAssignment;
+use but_workspace::branch::Stack;
 use std::{
     borrow::Borrow,
     collections::{BTreeSet, HashMap, HashSet},
@@ -10,81 +12,77 @@ use std::{
 #[cfg(test)]
 mod tests;
 
-/// All information from [Context] needed for ID creation.
-struct ContextInfo {
+/// All information from HEAD's [Stack] objects needed for branch and commit CLI IDs.
+struct StacksInfo {
     /// Branch names in unspecified order.
     branch_names: Vec<BString>,
-    /// Commit IDs in unspecified order.
-    commit_ids: Vec<gix::ObjectId>,
+    /// Local commit IDs with their first parent IDs in unspecified order. The first
+    /// parent ID is stored in case a diff needs to be performed on the commit.
+    local_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
+    /// Remote commit IDs in unspecified order.
+    remote_commit_ids: Vec<gix::ObjectId>,
+}
+
+fn get_stacks_info(stacks: &[Stack]) -> anyhow::Result<StacksInfo> {
+    let mut branch_names: Vec<BString> = Vec::new();
+    let mut local_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)> =
+        Vec::new();
+    let mut remote_commit_ids: Vec<gix::ObjectId> = Vec::new();
+    for stack in stacks {
+        for segment in &stack.segments {
+            if let Some(ref_info) = &segment.ref_info {
+                branch_names.push(ref_info.ref_name.shorten().to_owned());
+            }
+            for commit in &segment.commits {
+                let inner = &commit.inner;
+                local_commit_and_first_parent_ids
+                    .push((inner.id, inner.parent_ids.first().cloned()));
+            }
+            for commit in &segment.commits_on_remote {
+                remote_commit_ids.push(commit.id);
+            }
+        }
+    }
+
+    Ok(StacksInfo {
+        branch_names,
+        local_commit_and_first_parent_ids,
+        remote_commit_ids,
+    })
+}
+
+/// All file information needed for uncommitted file and committed file CLI IDs.
+struct FileInfo {
     /// Uncommitted files ordered by assignment, then filename.
     uncommitted_files: Vec<(Option<StackId>, BString)>,
     /// Committed files ordered by commit ID, then filename.
     committed_files: Vec<(gix::ObjectId, BString)>,
 }
 
-fn context_info(ctx: &mut Context) -> anyhow::Result<ContextInfo> {
-    let guard = ctx.shared_worktree_access();
-    let meta = ctx.meta(guard.read_permission())?;
-    let (branch_names, commit_ids, worktree_dir, committed_files) = {
-        let repo = &*ctx.repo.get()?;
-        let head_info = but_workspace::head_info(
-            repo,
-            &meta,
-            but_workspace::ref_info::Options {
-                expensive_commit_info: false,
-                ..Default::default()
-            },
-        )?;
-        let mut branch_names: Vec<BString> = Vec::new();
-        let mut commit_ids: Vec<gix::ObjectId> = Vec::new();
-        let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
-        for stack in head_info.stacks {
-            for segment in stack.segments {
-                if let Some(ref_info) = segment.ref_info {
-                    branch_names.push(ref_info.ref_name.shorten().to_owned());
-                }
-                for commit in segment.commits {
-                    let inner = commit.inner;
-                    commit_ids.push(inner.id);
-
-                    let tree_changes = but_core::diff::tree_changes(
-                        repo,
-                        inner.parent_ids.first().copied(),
-                        inner.id,
-                    )?;
-                    for tree_change in tree_changes {
-                        committed_files.push((inner.id, tree_change.path));
-                    }
-                }
-                for commit in segment.commits_on_remote {
-                    commit_ids.push(commit.id);
-                }
-            }
-        }
-        committed_files.sort();
-
-        (
-            branch_names,
-            commit_ids,
-            repo.worktree().map(|worktree| worktree.base().to_owned()),
-            committed_files,
-        )
-    };
-    let mut uncommitted_files: Vec<(Option<StackId>, BString)> = Vec::new();
-    if let Some(worktree_dir) = worktree_dir {
-        let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(worktree_dir)?.changes;
-        let (assignments, _assignments_error) =
-            but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes), None)?;
-        for assignment in assignments {
-            uncommitted_files.push((assignment.stack_id, assignment.path_bytes.clone()));
+fn get_file_info<F>(
+    local_commit_and_first_parent_ids: &[(gix::ObjectId, Option<gix::ObjectId>)],
+    mut changed_paths_fn: F,
+    hunk_assignments: Vec<HunkAssignment>,
+) -> anyhow::Result<FileInfo>
+where
+    F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
+{
+    let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
+    for (commit_id, parent_id) in local_commit_and_first_parent_ids {
+        let changed_paths = changed_paths_fn(*commit_id, *parent_id)?;
+        for changed_path in changed_paths {
+            committed_files.push((*commit_id, changed_path));
         }
     }
 
-    Ok(ContextInfo {
-        branch_names,
-        commit_ids,
-        uncommitted_files,
+    let mut uncommitted_files: Vec<(Option<StackId>, BString)> = Vec::new();
+    for assignment in hunk_assignments {
+        uncommitted_files.push((assignment.stack_id, assignment.path_bytes.clone()));
+    }
+
+    Ok(FileInfo {
         committed_files,
+        uncommitted_files,
     })
 }
 
@@ -125,24 +123,29 @@ impl Borrow<str> for CommittedFile {
 #[derive(Debug)]
 pub struct IdMap {
     branch_name_to_cli_id: HashMap<BString, CliId>,
-    commit_ids: Vec<gix::ObjectId>,
+    ids_used: HashSet<String>,
+    local_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
+    remote_commit_ids: Vec<gix::ObjectId>,
+    unassigned: CliId,
+
     uncommitted_files: BTreeSet<UncommittedFile>,
     committed_files: BTreeSet<CommittedFile>,
-    unassigned: CliId,
 }
 
 /// Lifecycle
 impl IdMap {
-    /// Initialise CLI IDs for all information in the `RefInfo` structure for `HEAD` via `ctx`.
-    // TODO: create an API that enforces reuse of `RefInfo` by its users.
-    pub fn new(ctx: &mut Context) -> anyhow::Result<Self> {
+    /// Initialise CLI IDs for all information in the `RefInfo` structure for
+    /// `HEAD`. Callers that do not need to support files in the non-error
+    /// code path can use the return value as-is; when there is an error
+    /// (or if the caller needs to support files in the first place),
+    /// [Self::add_file_info()] can be called to enable parsing file IDs.
+    pub fn new(stacks: &[Stack]) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
-        let ContextInfo {
+        let StacksInfo {
             branch_names,
-            commit_ids,
-            uncommitted_files,
-            committed_files,
-        } = context_info(ctx)?;
+            local_commit_and_first_parent_ids,
+            remote_commit_ids,
+        } = get_stacks_info(stacks)?;
         let mut pairs_to_count: HashMap<u16, u8> = HashMap::new();
         fn u8_pair_to_u16(two: [u8; 2]) -> u16 {
             two[0] as u16 * 256 + two[1] as u16
@@ -187,13 +190,43 @@ impl IdMap {
                 }
             }
         }
+        Ok(Self {
+            branch_name_to_cli_id,
+            ids_used,
+            local_commit_and_first_parent_ids,
+            remote_commit_ids,
+            unassigned: CliId::Unassigned {
+                id: str::repeat("0", max_zero_count + 1),
+            },
+            uncommitted_files: BTreeSet::new(),
+            committed_files: BTreeSet::new(),
+        })
+    }
+
+    /// Enable parsing uncommitted and committed file IDs.
+    pub fn add_file_info<F>(
+        &mut self,
+        changed_paths_fn: F,
+        hunk_assignments: Vec<HunkAssignment>,
+    ) -> anyhow::Result<()>
+    where
+        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
+    {
+        let FileInfo {
+            uncommitted_files,
+            committed_files,
+        } = get_file_info(
+            &self.local_commit_and_first_parent_ids,
+            changed_paths_fn,
+            hunk_assignments,
+        )?;
 
         let mut int_hash = 0u64;
         let mut get_next_id = || -> String {
             loop {
                 let tentative_id = string_hash(int_hash);
                 int_hash += 1;
-                if !ids_used.contains(&tentative_id) {
+                if !self.ids_used.contains(&tentative_id) {
                     return tentative_id;
                 }
             }
@@ -215,15 +248,59 @@ impl IdMap {
             })
             .collect();
 
-        Ok(Self {
-            branch_name_to_cli_id,
-            commit_ids,
-            uncommitted_files,
-            committed_files,
-            unassigned: CliId::Unassigned {
-                id: str::repeat("0", max_zero_count + 1),
+        self.uncommitted_files = uncommitted_files;
+        self.committed_files = committed_files;
+        Ok(())
+    }
+}
+
+/// Thin wrappers around lifecycle methods for use with [Context].
+impl IdMap {
+    pub fn new_from_context(ctx: &Context) -> anyhow::Result<Self> {
+        let guard = ctx.shared_worktree_access();
+        let meta = ctx.meta(guard.read_permission())?;
+        let repo = &*ctx.repo.get()?;
+        let head_info = but_workspace::head_info(
+            repo,
+            &meta,
+            but_workspace::ref_info::Options {
+                expensive_commit_info: false,
+                ..Default::default()
             },
-        })
+        )?;
+        Self::new(&head_info.stacks)
+    }
+
+    pub fn add_file_info_from_context(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
+        let worktree_dir = {
+            let repo = &*ctx.repo.get()?;
+            repo.worktree().map(|worktree| worktree.base().to_owned())
+            // We need to drop `repo` here so that `assignments_with_fallback`
+            // below can take `ctx` without the borrow checker complaining...
+        };
+        let hunk_assignments = if let Some(worktree_dir) = worktree_dir {
+            let changes =
+                but_core::diff::ui::worktree_changes_by_worktree_dir(worktree_dir)?.changes;
+            let (assignments, _assignments_error) =
+                but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes), None)?;
+            assignments
+        } else {
+            Vec::new()
+        };
+        // ...but we need to regain `repo` here because `tree_changes` needs it.
+        // TODO Fix this, probably by making `assignments_with_fallback` take a
+        // more specific type instead of `ctx`.
+        let repo = &*ctx.repo.get()?;
+        self.add_file_info(
+            |commit_id, parent_id| {
+                let tree_changes = but_core::diff::tree_changes(repo, parent_id, commit_id)?;
+                Ok(tree_changes
+                    .into_iter()
+                    .map(|tree_change| tree_change.path)
+                    .collect::<Vec<_>>())
+            },
+            hunk_assignments,
+        )
     }
 }
 
@@ -247,8 +324,7 @@ impl IdMap {
         // Only try SHA matching if the input looks like a hex string
         if s.chars().all(|c| c.is_ascii_hexdigit()) && s.len() >= 2 {
             for oid in self
-                .commit_ids
-                .iter()
+                .commit_ids()
                 .filter(|oid| oid.to_string().starts_with(s))
             {
                 matches.push(CliId::Commit { oid: *oid });
@@ -361,6 +437,13 @@ impl IdMap {
         }
 
         Ok(matches)
+    }
+
+    fn commit_ids(&self) -> impl Iterator<Item = &gix::ObjectId> {
+        self.local_commit_and_first_parent_ids
+            .iter()
+            .map(|(commit_id, _parent_id)| commit_id)
+            .chain(&self.remote_commit_ids)
     }
 }
 

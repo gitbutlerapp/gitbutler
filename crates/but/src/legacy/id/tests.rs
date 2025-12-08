@@ -9,9 +9,10 @@ fn commit_ids_never_collide_due_to_hex_alphabet() -> anyhow::Result<()> {
     let env = Sandbox::open_scenario_with_target_and_default_settings("two-stacks")?;
     let mut ctx = env.context()?;
 
-    let id_map = IdMap::new(&mut ctx)?;
-    assert_eq!(id_map.commit_ids.len(), 2);
-    for commit_id in &id_map.commit_ids {
+    let mut id_map = IdMap::new_from_context(&ctx)?;
+    id_map.add_file_info_from_context(&mut ctx)?;
+    assert_eq!(id_map.commit_ids().count(), 2);
+    for commit_id in id_map.commit_ids() {
         // TODO: fix this - should be read-only, but needs a `but-db` refactor to support read-only DB access.
         let actual = id_map.parse_str(&commit_id.to_hex_with_len(2).to_string())?;
         assert_eq!(actual.len(), 1, "The commit can be resolved");
@@ -54,7 +55,8 @@ fn assignments_work() -> anyhow::Result<()> {
         None,
     )?;
 
-    let id_map = IdMap::new(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(&ctx)?;
+    id_map.add_file_info_from_context(&mut ctx)?;
     assert_eq!(
         id_map
             .uncommitted_file(Some(a_stack_id), a_path.into())
