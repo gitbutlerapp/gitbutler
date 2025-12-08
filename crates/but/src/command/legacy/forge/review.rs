@@ -15,7 +15,7 @@ use tracing::instrument;
 
 use crate::{
     legacy::id::{CliId, IdMap},
-    tui,
+    tui::get_text,
     utils::OutputChannel,
 };
 
@@ -135,9 +135,7 @@ pub async fn handle_multiple_branches_in_workspace(
     let selected_branches = if let Some(branches) = selected_branches {
         branches
     } else {
-        let simple_stacks = generate_simple_stacks(project, review_map, applied_stacks)?;
-        // Run the branches selector UI to let the user choose which branches to publish reviews for.
-        tui::select_branch::run(simple_stacks)?
+        prompt_for_branch_selection(project, review_map, applied_stacks)?
     };
 
     if selected_branches.is_empty() {
@@ -187,16 +185,19 @@ pub async fn handle_multiple_branches_in_workspace(
     Ok(())
 }
 
-fn generate_simple_stacks(
+/// Prompt the user to select branches to publish from a numbered list.
+fn prompt_for_branch_selection(
     project: &Project,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
-) -> Result<Vec<tui::select_branch::TuiStack>, anyhow::Error> {
-    let mut simple_stacks = vec![];
+) -> anyhow::Result<Vec<String>> {
     let (base_branch, repo) = get_base_branch_and_repo(project)?;
     let base_branch_id = base_branch.current_sha.to_gix();
+
+    // Collect all branches with their information
+    let mut all_branches: Vec<(String, usize, Vec<String>)> = Vec::new();
+
     for stack_entry in applied_stacks {
-        let mut simple_stack = tui::select_branch::TuiStack { branches: vec![] };
         for head in &stack_entry.heads {
             let mut branch_ref = repo.find_reference(head.name.as_bstr())?;
             let branch_id = branch_ref.peel_to_id()?;
@@ -211,16 +212,68 @@ fn generate_simple_stacks(
                 })
                 .unwrap_or_default();
 
-            let simple_branch = tui::select_branch::TuiBranch {
-                name: head.name.to_string(),
-                commits: commits.into_iter().map(Into::into).collect(),
-                reviews,
-            };
-            simple_stack.branches.push(simple_branch);
+            all_branches.push((head.name.to_string(), commits.len(), reviews));
         }
-        simple_stacks.push(simple_stack);
     }
-    Ok(simple_stacks)
+
+    if all_branches.is_empty() {
+        println!("No branches available to publish.");
+        return Ok(vec![]);
+    }
+
+    // Display branches with numbers
+    println!("\nAvailable branches to publish:\n");
+    for (idx, (name, commit_count, reviews)) in all_branches.iter().enumerate() {
+        let review_str = if !reviews.is_empty() {
+            format!(" ({})", reviews.join(", "))
+        } else {
+            String::new()
+        };
+        println!(
+            "  {}. {} - {} commit{}{}",
+            idx + 1,
+            name.bold(),
+            commit_count,
+            if *commit_count == 1 { "" } else { "s" },
+            review_str.blue()
+        );
+    }
+
+    // Prompt for selection
+    println!("\nEnter branch numbers to publish (comma-separated, or 'all' for all branches):");
+    print!("> ");
+    std::io::Write::flush(&mut std::io::stdout())?;
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    let input = input.trim();
+
+    if input.is_empty() {
+        println!("No branches selected. Aborting.");
+        return Ok(vec![]);
+    }
+
+    // Parse selection
+    let selected_branches: Vec<String> = if input.eq_ignore_ascii_case("all") {
+        all_branches.into_iter().map(|(name, _, _)| name).collect()
+    } else {
+        let mut selected = Vec::new();
+        for part in input.split(',') {
+            let part = part.trim();
+            if let Ok(num) = part.parse::<usize>() {
+                if num > 0 && num <= all_branches.len() {
+                    selected.push(all_branches[num - 1].0.clone());
+                } else {
+                    println!("Warning: Ignoring invalid branch number: {}", num);
+                }
+            } else {
+                println!("Warning: Ignoring invalid input: {}", part);
+            }
+        }
+        selected
+    };
+
+    Ok(selected_branches)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -514,7 +567,7 @@ fn get_review_body_from_editor(
     template.push_str("# with '#' will be ignored, and an empty body is allowed.\n");
     template.push_str("#\n");
 
-    let body = tui::get_text::from_editor_no_comments("but_review_body", &template)?;
+    let body = get_text::from_editor_no_comments("but_review_body", &template)?;
     Ok(body)
 }
 
@@ -556,7 +609,7 @@ fn get_review_title_from_editor(
     template.push_str("# with '#' will be ignored, and an empty title aborts the operation.\n");
     template.push_str("#\n");
 
-    let title = tui::get_text::from_editor_no_comments("but_review_title", &template)?;
+    let title = get_text::from_editor_no_comments("but_review_title", &template)?;
 
     if title.is_empty() {
         anyhow::bail!("Aborting due to empty review title");
