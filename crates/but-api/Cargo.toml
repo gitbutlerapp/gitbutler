@@ -20,7 +20,7 @@ default = []
 tauri = ["dep:tauri", "legacy"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.
-path-bytes = ["dep:bstr"]
+path-bytes = []
 ## Make legacy functionality available.
 legacy = [
     "but-ctx/legacy",
@@ -86,25 +86,27 @@ but-rules = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }
 
-gitbutler-user = {workspace = true, optional = true}
-gitbutler-project = {workspace = true, optional = true}
-gitbutler-branch = {workspace = true, optional = true}
-gitbutler-branch-actions = {workspace = true, optional = true}
-gitbutler-commit = {workspace = true, optional = true}
-gitbutler-reference = {workspace = true, optional = true}
-gitbutler-stack = {workspace = true, optional = true}
-gitbutler-repo = {workspace = true, optional = true}
-gitbutler-repo-actions = {workspace = true, optional = true}
-gitbutler-edit-mode = {workspace = true, optional = true}
-gitbutler-operating-modes = {workspace = true, optional = true}
-gitbutler-sync = {workspace = true, optional = true}
-gitbutler-oplog = {workspace = true, optional = true}
-gitbutler-git = {workspace = true, optional = true}
+gitbutler-user = { workspace = true, optional = true }
+gitbutler-project = { workspace = true, optional = true }
+gitbutler-branch = { workspace = true, optional = true }
+gitbutler-branch-actions = { workspace = true, optional = true }
+gitbutler-commit = { workspace = true, optional = true }
+gitbutler-reference = { workspace = true, optional = true }
+gitbutler-stack = { workspace = true, optional = true }
+gitbutler-repo = { workspace = true, optional = true }
+gitbutler-repo-actions = { workspace = true, optional = true }
+gitbutler-edit-mode = { workspace = true, optional = true }
+gitbutler-operating-modes = { workspace = true, optional = true }
+gitbutler-sync = { workspace = true, optional = true }
+gitbutler-oplog = { workspace = true, optional = true }
+gitbutler-git = { workspace = true, optional = true }
 
-tauri = { version = "^2.9.3", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
+tauri = { version = "^2.9.3", features = [
+    "unstable",
+], optional = true } # For the #[tauri::command(async)] macro only
 
 boolean-enums = { version = "0.4.1", features = ["serde"] }
-bstr = { workspace = true, optional = true }
+bstr = { workspace = true }
 schemars.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = ["full"] }
@@ -112,7 +114,7 @@ anyhow.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 serde-error = "0.1.3"
-gix = { workspace = true, features = ["worktree-mutation" ] }
+gix = { workspace = true, features = ["worktree-mutation"] }
 git2.workspace = true
 open.workspace = true
 url = { version = "2.5", optional = true }

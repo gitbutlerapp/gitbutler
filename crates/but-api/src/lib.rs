@@ -16,6 +16,9 @@ pub mod github;
 /// Functions that take a branch as input.
 pub mod branch;
 
+/// Functions that operate commits
+pub mod commit;
+
 /// Functions that show what changed in various Git entities, like trees, commits and the worktree.
 pub mod diff;
 

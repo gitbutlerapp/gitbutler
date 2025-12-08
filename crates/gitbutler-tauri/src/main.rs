@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use anyhow::bail;
-use but_api::{diff, github, legacy};
+use but_api::{commit, diff, github, legacy};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
@@ -384,6 +384,7 @@ fn main() -> anyhow::Result<()> {
                 claude::claude_cancel_session,
                 claude::claude_is_stack_active,
                 claude::claude_compact_history,
+                commit::tauri_reword_commit::reword_commit
             ])
             .menu(move |handle| menu::build(handle, &app_settings_for_menu))
             .on_window_event(|window, event| match event {
