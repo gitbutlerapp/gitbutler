@@ -446,7 +446,6 @@
 		border: 1px solid var(--clr-border-2);
 		border-bottom: none;
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
-		cursor: col-resize;
 
 		&.is-dragging {
 			user-select: none;
