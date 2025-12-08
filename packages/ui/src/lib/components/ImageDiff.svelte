@@ -77,17 +77,27 @@
 
 	$effect(() => {
 		if (beforeImageUrl) {
-			loadImageMetadata(beforeImageUrl).then((metadata) => {
-				beforeImageMetadata = metadata;
-			});
+			loadImageMetadata(beforeImageUrl)
+				.then((metadata) => {
+					beforeImageMetadata = metadata;
+				})
+				.catch((error) => {
+					console.error('Failed to load before image metadata:', error);
+					beforeImageMetadata = null;
+				});
 		}
 	});
 
 	$effect(() => {
 		if (afterImageUrl) {
-			loadImageMetadata(afterImageUrl).then((metadata) => {
-				afterImageMetadata = metadata;
-			});
+			loadImageMetadata(afterImageUrl)
+				.then((metadata) => {
+					afterImageMetadata = metadata;
+				})
+				.catch((error) => {
+					console.error('Failed to load after image metadata:', error);
+					afterImageMetadata = null;
+				});
 		}
 	});
 </script>
