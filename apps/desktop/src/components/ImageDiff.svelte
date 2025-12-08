@@ -81,10 +81,22 @@
 		}
 	}
 
-	// Load image from workspace, commit, or blob.
-	// Note: The backend service methods (readFromWorkspace, readFromCommit, readFromBlob)
-	// do not currently support AbortSignal, so the actual IO operations cannot be cancelled.
-	// The signal parameter is used to prevent processing results after abortion.
+	/**
+	 * Load image from workspace, commit, or blob.
+	 *
+	 * @param source - The image source to load.
+	 * @param signal - Optional AbortSignal. Note: The backend service methods
+	 *   (readFromWorkspace, readFromCommit, readFromBlob) do NOT support AbortSignal,
+	 *   so the actual IO operations cannot be cancelled once started. The signal is
+	 *   only used to prevent processing results after abortion, not to abort the IO itself.
+	 *
+	 * @returns A data URL string or null.
+	 *
+	 * @remarks
+	 *   This function cannot cancel backend IO operations. If abort support is needed,
+	 *   the backend service methods must be updated to accept and honor AbortSignal.
+	 *   See: https://github.com/gitbutlerapp/gitbutler/issues (file a follow-up if needed)
+	 */
 	async function loadImage(
 		source: ImageSource | null,
 		signal?: AbortSignal
