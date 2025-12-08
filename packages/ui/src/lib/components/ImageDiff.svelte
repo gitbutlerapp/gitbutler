@@ -113,7 +113,7 @@
 
 	function handleDragMove(e: MouseEvent | TouchEvent) {
 		if (!isDragging) return;
-		if (e instanceof TouchEvent) e.preventDefault();
+		if (typeof TouchEvent !== 'undefined' && e instanceof TouchEvent) e.preventDefault();
 		const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
 		updateSwipePosition(clientX);
 	}
