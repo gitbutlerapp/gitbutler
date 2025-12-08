@@ -96,9 +96,9 @@ jobs:
             target: ''
           - platform: macos-15 # [macOs, x64] - cross-compile
             target: x86_64-apple-darwin
-          - platform: ubuntu-20.04 # [linux, x64]
+          - platform: ubuntu-22.04 # [linux, x64]
             target: ''
-          - platform: ubuntu-20.04-arm # [linux, ARM64]
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
             target: ''
           - platform: windows-latest # [windows, x64]
             target: ''
@@ -348,9 +348,9 @@ jobs:
             target: ''
           - platform: macos-15 # [macOs, x64] - cross-compile
             target: x86_64-apple-darwin
-          - platform: ubuntu-20.04 # [linux, x64]
+          - platform: ubuntu-22.04 # [linux, x64]
             target: ''
-          - platform: ubuntu-20.04-arm # [linux, ARM64]
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
             target: ''
           - platform: windows-latest # [windows, x64]
             target: ''
