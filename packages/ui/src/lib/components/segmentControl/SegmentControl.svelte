@@ -37,9 +37,10 @@
 		registerSegment: (id: string) => {
 			if (!registeredSegments.includes(id)) {
 				registeredSegments.push(id);
-				// If no segment is selected, select the first one
+				// If no segment is selected, select the first one (silent initialization, do not call onselect)
 				if ($selectedSegmentId === undefined) {
 					selectedSegmentId.set(id);
+					// Do not call onselect here to avoid side effects before user interaction
 				}
 			}
 		},
