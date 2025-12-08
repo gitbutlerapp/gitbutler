@@ -4,7 +4,6 @@
 	import BranchesListGroup from '$components/branchesPage/BranchesListGroup.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import {
-		BRANCH_FILTER_OPTIONS,
 		combineBranchesAndPrs,
 		groupBranches,
 		isBranchFilterOption,
@@ -19,7 +18,6 @@
 	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from '@gitbutler/ui';
-
 	import Fuse from 'fuse.js';
 	import type { ForgeUser } from '$lib/forge/interface/types';
 	import type { Snippet } from 'svelte';
