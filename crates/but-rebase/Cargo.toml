@@ -14,14 +14,16 @@ but-core.workspace = true
 but-gerrit.workspace = true
 but-error.workspace = true
 but-oxidize.workspace = true
+but-graph.workspace = true
 
-gix = { workspace = true, features = ["revision", "merge"]}
+gix = { workspace = true, features = ["revision", "merge"] }
 anyhow.workspace = true
 tracing.workspace = true
 bstr.workspace = true
 tempfile.workspace = true
 serde.workspace = true
 toml.workspace = true
+petgraph.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true

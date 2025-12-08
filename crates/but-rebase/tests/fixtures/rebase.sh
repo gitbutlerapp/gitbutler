@@ -10,6 +10,17 @@ git init four-commits
   echo "c" >c && git add . && git commit -m "c"
 )
 
+git init many-references
+(cd many-references
+  echo "base" >base && git add . && git commit -m "base"
+  echo "a" >a && git add . && git commit -m "a"
+  git branch X
+  git branch Y
+  git branch Z
+  echo "b" >b && git add . && git commit -m "b"
+  echo "c" >c && git add . && git commit -m "c"
+)
+
 git init three-branches-merged
 (cd three-branches-merged
   seq 50 60 >file && git add . && git commit -m "base" && git tag base
