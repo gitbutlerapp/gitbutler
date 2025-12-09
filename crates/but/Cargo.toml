@@ -22,7 +22,6 @@ legacy = [
     "but-api/legacy",
     "but-ctx/legacy",
     "dep:but-action",
-    "dep:but-hunk-assignment",
     "dep:but-hunk-dependency",
     "dep:but-claude",
     "dep:but-cursor",
@@ -60,7 +59,8 @@ but-api = { workspace = true }
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
 but-action = { workspace = true, optional = true }
-but-hunk-assignment = { workspace = true, optional = true }
+# Still uses `gitbutler-stack`, but otherwise it is non-legacy.
+but-hunk-assignment.workspace = true
 but-hunk-dependency = { workspace = true, optional = true }
 but-claude = { workspace = true, optional = true }
 but-cursor = { workspace = true, optional = true }

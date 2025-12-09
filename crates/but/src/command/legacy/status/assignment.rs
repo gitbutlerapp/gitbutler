@@ -2,7 +2,7 @@ use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
 
-use crate::legacy::id::IdMap;
+use crate::IdMap;
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,16 +48,6 @@ impl FileAssignment {
                 .map(|a| CLIHunkAssignment::from_assignment(id_map, a))
                 .collect(),
         }
-    }
-    #[expect(dead_code)]
-    pub fn hash(&self) -> String {
-        let combined_ids: String = self
-            .assignments
-            .iter()
-            .map(|a| a.inner.id.unwrap_or_default().to_string())
-            .collect::<Vec<_>>()
-            .join("-");
-        crate::legacy::id::hash(&format!("{},{}", &self.path.to_string(), &combined_ids))
     }
 }
 

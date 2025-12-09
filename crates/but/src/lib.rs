@@ -36,6 +36,9 @@ use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
 
+mod id;
+pub use id::{CliId, IdMap};
+
 /// A place for all command implementations.
 pub(crate) mod command;
 mod tui;

@@ -14,10 +14,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 
-use crate::{
-    legacy::id::{CliId, IdMap},
-    utils::OutputChannel,
-};
+use crate::{CliId, IdMap, utils::OutputChannel};
 
 pub(crate) fn handle(
     project: &Project,

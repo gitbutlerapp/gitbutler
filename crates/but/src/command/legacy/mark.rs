@@ -7,9 +7,7 @@ use but_rules::Operation;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::Project;
 
-use crate::{
-    command::legacy::rub::branch_name_to_stack_id, legacy::id::IdMap, utils::OutputChannel,
-};
+use crate::{CliId, IdMap, command::legacy::rub::branch_name_to_stack_id, utils::OutputChannel};
 
 pub(crate) fn handle(
     project: &Project,
@@ -33,8 +31,8 @@ pub(crate) fn handle(
         but_rules::delete_rule(ctx, &rule.id())?;
     }
     match target_result[0].clone() {
-        crate::legacy::id::CliId::Branch { name, .. } => mark_branch(ctx, name, delete, out),
-        crate::legacy::id::CliId::Commit { oid } => mark_commit(ctx, oid, delete, out),
+        CliId::Branch { name, .. } => mark_branch(ctx, name, delete, out),
+        CliId::Commit { oid } => mark_commit(ctx, oid, delete, out),
         _ => bail!("Nope"),
     }
 }

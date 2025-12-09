@@ -12,113 +12,6 @@ use std::{
 #[cfg(test)]
 mod tests;
 
-/// All information from HEAD's [Stack] objects needed for branch and commit CLI IDs.
-struct StacksInfo {
-    /// Branch names in unspecified order.
-    branch_names: Vec<BString>,
-    /// Commit IDs of commits reachable from the workspace tip with their first parent IDs in unspecified order.
-    /// The first parent ID is stored in case a diff needs to be performed on the commit.
-    workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
-    /// Commits that are reachable from the remote-tracking only, i.e. are only on the remote, in unspecified order.
-    remote_commit_ids: Vec<gix::ObjectId>,
-}
-
-fn get_stacks_info(stacks: &[Stack]) -> anyhow::Result<StacksInfo> {
-    let mut branch_names: Vec<BString> = Vec::new();
-    let mut workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)> =
-        Vec::new();
-    let mut remote_commit_ids: Vec<gix::ObjectId> = Vec::new();
-    for stack in stacks {
-        for segment in &stack.segments {
-            if let Some(ref_info) = &segment.ref_info {
-                branch_names.push(ref_info.ref_name.shorten().to_owned());
-            }
-            for commit in &segment.commits {
-                workspace_commit_and_first_parent_ids
-                    .push((commit.id, commit.parent_ids.first().cloned()));
-            }
-            for commit in &segment.commits_on_remote {
-                remote_commit_ids.push(commit.id);
-            }
-        }
-    }
-
-    Ok(StacksInfo {
-        branch_names,
-        workspace_commit_and_first_parent_ids,
-        remote_commit_ids,
-    })
-}
-
-/// All file information needed for uncommitted file and committed file CLI IDs.
-struct FileInfo {
-    /// Uncommitted files ordered by assignment, then filename.
-    uncommitted_files: Vec<(Option<StackId>, BString)>,
-    /// Committed files ordered by commit ID, then filename.
-    committed_files: Vec<(gix::ObjectId, BString)>,
-}
-
-fn get_file_info_from_workspace_commits_and_status<F>(
-    workspace_commit_and_first_parent_ids: &[(gix::ObjectId, Option<gix::ObjectId>)],
-    mut changed_paths_fn: F,
-    hunk_assignments: Vec<HunkAssignment>,
-) -> anyhow::Result<FileInfo>
-where
-    F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
-{
-    let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
-    for (commit_id, parent_id) in workspace_commit_and_first_parent_ids {
-        let changed_paths = changed_paths_fn(*commit_id, *parent_id)?;
-        for changed_path in changed_paths {
-            committed_files.push((*commit_id, changed_path));
-        }
-    }
-
-    let mut uncommitted_files: Vec<(Option<StackId>, BString)> = Vec::new();
-    for assignment in hunk_assignments {
-        uncommitted_files.push((assignment.stack_id, assignment.path_bytes));
-    }
-
-    Ok(FileInfo {
-        committed_files,
-        uncommitted_files,
-    })
-}
-
-/// a.cmp(b) == a.id.cmp(&b.id) for all a and b
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct UncommittedFile {
-    assignment_path: (Option<StackId>, BString),
-    id: String,
-}
-impl Borrow<(Option<StackId>, BString)> for UncommittedFile {
-    fn borrow(&self) -> &(Option<StackId>, BString) {
-        &self.assignment_path
-    }
-}
-impl Borrow<str> for UncommittedFile {
-    fn borrow(&self) -> &str {
-        &self.id
-    }
-}
-
-/// a.cmp(b) == a.id.cmp(&b.id) for all a and b
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct CommittedFile {
-    commit_oid_path: (gix::ObjectId, BString),
-    id: String,
-}
-impl Borrow<(gix::ObjectId, BString)> for CommittedFile {
-    fn borrow(&self) -> &(gix::ObjectId, BString) {
-        &self.commit_oid_path
-    }
-}
-impl Borrow<str> for CommittedFile {
-    fn borrow(&self) -> &str {
-        &self.id
-    }
-}
-
 #[derive(Debug)]
 pub struct IdMap {
     branch_name_to_cli_id: HashMap<BString, CliId>,
@@ -516,7 +409,114 @@ impl Display for CliId {
     }
 }
 
-pub(crate) fn hash(input: &str) -> String {
+/// All information from HEAD's [Stack] objects needed for branch and commit CLI IDs.
+struct StacksInfo {
+    /// Branch names in unspecified order.
+    branch_names: Vec<BString>,
+    /// Commit IDs of commits reachable from the workspace tip with their first parent IDs in unspecified order.
+    /// The first parent ID is stored in case a diff needs to be performed on the commit.
+    workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
+    /// Commits that are reachable from the remote-tracking only, i.e. are only on the remote, in unspecified order.
+    remote_commit_ids: Vec<gix::ObjectId>,
+}
+
+fn get_stacks_info(stacks: &[Stack]) -> anyhow::Result<StacksInfo> {
+    let mut branch_names: Vec<BString> = Vec::new();
+    let mut workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)> =
+        Vec::new();
+    let mut remote_commit_ids: Vec<gix::ObjectId> = Vec::new();
+    for stack in stacks {
+        for segment in &stack.segments {
+            if let Some(ref_info) = &segment.ref_info {
+                branch_names.push(ref_info.ref_name.shorten().to_owned());
+            }
+            for commit in &segment.commits {
+                workspace_commit_and_first_parent_ids
+                    .push((commit.id, commit.parent_ids.first().cloned()));
+            }
+            for commit in &segment.commits_on_remote {
+                remote_commit_ids.push(commit.id);
+            }
+        }
+    }
+
+    Ok(StacksInfo {
+        branch_names,
+        workspace_commit_and_first_parent_ids,
+        remote_commit_ids,
+    })
+}
+
+/// All file information needed for uncommitted file and committed file CLI IDs.
+struct FileInfo {
+    /// Uncommitted files ordered by assignment, then filename.
+    uncommitted_files: Vec<(Option<StackId>, BString)>,
+    /// Committed files ordered by commit ID, then filename.
+    committed_files: Vec<(gix::ObjectId, BString)>,
+}
+
+fn get_file_info_from_workspace_commits_and_status<F>(
+    workspace_commit_and_first_parent_ids: &[(gix::ObjectId, Option<gix::ObjectId>)],
+    mut changed_paths_fn: F,
+    hunk_assignments: Vec<HunkAssignment>,
+) -> anyhow::Result<FileInfo>
+where
+    F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
+{
+    let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
+    for (commit_id, parent_id) in workspace_commit_and_first_parent_ids {
+        let changed_paths = changed_paths_fn(*commit_id, *parent_id)?;
+        for changed_path in changed_paths {
+            committed_files.push((*commit_id, changed_path));
+        }
+    }
+
+    let mut uncommitted_files: Vec<(Option<StackId>, BString)> = Vec::new();
+    for assignment in hunk_assignments {
+        uncommitted_files.push((assignment.stack_id, assignment.path_bytes));
+    }
+
+    Ok(FileInfo {
+        committed_files,
+        uncommitted_files,
+    })
+}
+
+/// a.cmp(b) == a.id.cmp(&b.id) for all a and b
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct UncommittedFile {
+    assignment_path: (Option<StackId>, BString),
+    id: String,
+}
+impl Borrow<(Option<StackId>, BString)> for UncommittedFile {
+    fn borrow(&self) -> &(Option<StackId>, BString) {
+        &self.assignment_path
+    }
+}
+impl Borrow<str> for UncommittedFile {
+    fn borrow(&self) -> &str {
+        &self.id
+    }
+}
+
+/// a.cmp(b) == a.id.cmp(&b.id) for all a and b
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct CommittedFile {
+    commit_oid_path: (gix::ObjectId, BString),
+    id: String,
+}
+impl Borrow<(gix::ObjectId, BString)> for CommittedFile {
+    fn borrow(&self) -> &(gix::ObjectId, BString) {
+        &self.commit_oid_path
+    }
+}
+impl Borrow<str> for CommittedFile {
+    fn borrow(&self) -> &str {
+        &self.id
+    }
+}
+
+fn hash(input: &str) -> String {
     string_hash(int_hash(input))
 }
 

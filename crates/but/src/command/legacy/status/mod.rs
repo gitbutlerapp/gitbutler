@@ -18,7 +18,7 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 pub(crate) mod assignment;
 pub(crate) mod json;
 
-use crate::{legacy::id::IdMap, utils::OutputChannel};
+use crate::{IdMap, utils::OutputChannel};
 
 type StackDetail = (Option<StackDetails>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);

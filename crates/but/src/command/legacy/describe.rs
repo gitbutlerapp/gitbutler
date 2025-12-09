@@ -5,11 +5,7 @@ use but_oxidize::{ObjectIdExt as _, OidExt};
 use gitbutler_project::Project;
 use gix::prelude::ObjectIdExt;
 
-use crate::{
-    legacy::id::{CliId, IdMap},
-    tui,
-    utils::OutputChannel,
-};
+use crate::{CliId, IdMap, tui, utils::OutputChannel};
 
 pub(crate) fn describe_target(
     project: &Project,

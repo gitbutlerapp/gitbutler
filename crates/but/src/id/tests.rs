@@ -1,4 +1,4 @@
-use crate::legacy::id::{CliId, IdMap};
+use crate::{CliId, IdMap};
 use anyhow::bail;
 use bstr::BString;
 use but_testsupport::Sandbox;
