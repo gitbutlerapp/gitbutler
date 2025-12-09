@@ -739,6 +739,7 @@
 							<Dropzone
 								handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}
 								fillHeight
+								overflow
 							>
 								{#snippet overlay({ hovered, activated, handler })}
 									{@const label =
