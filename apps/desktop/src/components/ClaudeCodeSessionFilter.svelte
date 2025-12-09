@@ -15,7 +15,7 @@
 <div class="cc-session-filter">
 	<div class="cc-badge">
 		<Icon name="ai-small" />
-		<span class="text-12 text-semibold">Claude Code session:</span>
+		<span class="text-12 text-semibold">Claude Code session</span>
 	</div>
 
 	<ClaudeSessionDescriptor {projectId} {sessionId}>
