@@ -19,9 +19,9 @@ pub enum InstallMode {
 
 pub fn do_install_cli(mode: InstallMode) -> anyhow::Result<()> {
     let cli_path = get_cli_path()?;
+    #[cfg(windows)]
     if cfg!(windows) {
-        // On Windows, we'll attempt to create a symlink in a user-accessible location
-        return install_cli_windows(cli_path, mode);
+        return install_cli_windows(cli_path);
     }
 
     match std::fs::symlink_metadata(UNIX_LINK_PATH) {
@@ -98,19 +98,18 @@ fn ensure_cli_path_exists_prior_to_link(cli_path: &std::path::Path) -> anyhow::R
     bail!("Run `CARGO_TARGET_DIR=$PWD/target/tauri cargo build -p but` to build the `but` binary")
 }
 
+/// On Windows, we'll provide helpful instructions rather than attempt automatic installation
+/// since:
+/// 1. Creating symlinks requires developer mode or admin privileges
+/// 2. There's no standard user-writable directory that's always in PATH
+/// 3. Users typically add directories to PATH manually on Windows
+///
+/// Note that this isn't usually called on Windows.
 #[cfg(windows)]
-fn install_cli_windows(cli_path: std::path::PathBuf, _mode: InstallMode) -> anyhow::Result<()> {
-    // On Windows, we'll provide helpful instructions rather than attempt automatic installation
-    // since:
-    // 1. Creating symlinks requires developer mode or admin privileges
-    // 2. There's no standard user-writable directory that's always in PATH
-    // 3. Users typically add directories to PATH manually on Windows
-
-    let target_name = if cfg!(feature = "builtin-but") {
-        "but.exe"
-    } else {
-        "but.exe"
-    };
+fn install_cli_windows(cli_path: std::path::PathBuf) -> anyhow::Result<()> {
+    let but_filename = cli_path
+        .file_name()
+        .context("BUG: encountered but CLI path without /")?;
 
     bail!(
         "Automatic CLI installation is not supported on Windows.\n\
@@ -121,15 +120,14 @@ fn install_cli_windows(cli_path: std::path::PathBuf, _mode: InstallMode) -> anyh
            copy \"{}\" \"%LOCALAPPDATA%\\Microsoft\\WindowsApps\\{}\"\n\
         \n\
         2. Add the current location to your PATH environment variable:\n\
-           - Press Win+X and select 'System'\n\
-           - Click 'Advanced system settings'\n\
-           - Click 'Environment Variables'\n\
+           - Press the Win key and select 'System'\n\
+           - Type 'Environment' into the search box and select 'edit variables for your account'\n\
            - Under 'User variables', select 'Path' and click 'Edit'\n\
            - Click 'New' and add: {}\n\
         \n\
         After either option, restart your terminal to use the 'but' command.",
         cli_path.display(),
-        target_name,
+        but_filename.display(),
         cli_path
             .parent()
             .map(|p| p.display().to_string())
