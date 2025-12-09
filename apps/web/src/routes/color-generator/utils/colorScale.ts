@@ -35,7 +35,7 @@ const SHADE_THRESHOLDS = {
 
 const LIGHTNESS_RANGES = {
 	background: {
-		neutral: { min: 0.88, max: 1, scale: 0.5 },
+		neutral: { min: 0.9, max: 1, scale: 0.5 },
 		colored: { min: 0.89, max: 0.98, scale: 0.5 }
 	},
 	soft: { min: 0.4, max: 0.9, exponent: 0.9 },
@@ -113,6 +113,10 @@ function calculateLightness(
 	shade50Target?: number,
 	isNeutral: boolean = false
 ): number {
+	// Always return pure white for shade 100 and pure black for shade 0
+	if (shade === 100) return 1.0;
+	if (shade === 0) return 0.0;
+
 	const normalizedShade = shade / 100;
 
 	if (shade >= SHADE_THRESHOLDS.BACKGROUND_START) {
