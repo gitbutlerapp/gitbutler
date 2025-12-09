@@ -147,7 +147,7 @@ fn intersect_workspace_ranges(
             {
                 intersections.push(HunkIntersection {
                     hunk,
-                    commit_intersections: hunk_ranges.into_iter().copied().collect(),
+                    commit_intersections: hunk_ranges.into_iter().cloned().collect(),
                 });
             } else {
                 missed_hunks.push((change.path.clone(), hunk));
