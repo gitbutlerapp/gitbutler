@@ -116,7 +116,6 @@
 				onscrollexists={(exists: boolean) => {
 					isScrollable = exists;
 				}}
-				overflow
 				mode="unassigned"
 				foldButton={$settingsStore?.featureFlags.rules ? undefined : foldButton}
 			>
