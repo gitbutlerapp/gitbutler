@@ -14,7 +14,6 @@
 
 	type ImageSource =
 		| { type: 'workspace'; path: string }
-		| { type: 'commit'; path: string; commitId: string }
 		| { type: 'blob'; path: string; blobId: string };
 
 	type LoadStrategy = {
@@ -30,7 +29,7 @@
 	let loadError = $state<string | null>(null);
 	let isLoading = $state<boolean>(true);
 
-	// Decide image sources for before/after panels without changing logic.
+	// Decide image sources for before/after panels.
 	function getLoadStrategy(): LoadStrategy {
 		const { status, path } = change;
 		const isCommitDiff = !!commitId;
@@ -38,22 +37,23 @@
 		switch (status.type) {
 			case 'Addition':
 				return isCommitDiff
-					? { before: null, after: { type: 'commit' as const, path, commitId: commitId! } }
+					? {
+							before: null,
+							after: { type: 'blob' as const, path, blobId: status.subject.state.id }
+						}
 					: { before: null, after: { type: 'workspace' as const, path } };
 
 			case 'Deletion':
-				return isCommitDiff
-					? { before: { type: 'commit' as const, path, commitId: `${commitId}^` }, after: null }
-					: {
-							before: { type: 'blob' as const, path, blobId: status.subject.previousState.id },
-							after: null
-						};
+				return {
+					before: { type: 'blob' as const, path, blobId: status.subject.previousState.id },
+					after: null
+				};
 
 			case 'Modification':
 				return isCommitDiff
 					? {
-							before: { type: 'commit' as const, path, commitId: `${commitId}^` },
-							after: { type: 'commit' as const, path, commitId: commitId! }
+							before: { type: 'blob' as const, path, blobId: status.subject.previousState.id },
+							after: { type: 'blob' as const, path, blobId: status.subject.state.id }
 						}
 					: {
 							before: { type: 'blob' as const, path, blobId: status.subject.previousState.id },
@@ -64,11 +64,11 @@
 				return isCommitDiff
 					? {
 							before: {
-								type: 'commit' as const,
+								type: 'blob' as const,
 								path: status.subject.previousPath,
-								commitId: `${commitId}^`
+								blobId: status.subject.previousState.id
 							},
-							after: { type: 'commit' as const, path, commitId: commitId! }
+							after: { type: 'blob' as const, path, blobId: status.subject.state.id }
 						}
 					: {
 							before: {
@@ -109,10 +109,7 @@
 			if (source.type === 'workspace') {
 				const { data } = await fileService.readFromWorkspace(source.path, projectId);
 				fileInfo = data;
-			} else if (source.type === 'commit') {
-				fileInfo = await fileService.readFromCommit(source.path, projectId, source.commitId);
-			} else {
-				// type === 'blob'
+			} else if (source.type === 'blob') {
 				fileInfo = await fileService.readFromBlob(source.path, projectId, source.blobId);
 			}
 
