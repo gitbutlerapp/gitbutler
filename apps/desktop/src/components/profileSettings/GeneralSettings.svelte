@@ -236,8 +236,8 @@
 
 		{#snippet caption()}
 			{#if platformName === 'windows'}
-				On Windows, you can manually copy the executable to a directory in your PATH. Click "Show
-				Command" for instructions.
+				On Windows, you can manually copy the executable (<code>`but`</code>) to a directory in your
+				PATH. Click "Show Command" for instructions.
 			{:else}
 				Installs the GitButler CLI (<code>`but`</code>) in your PATH, allowing you to use it from
 				the terminal. This action will request admin privileges. Alternatively, you could create a
