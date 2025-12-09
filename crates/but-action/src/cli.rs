@@ -19,16 +19,9 @@ pub enum InstallMode {
 
 pub fn do_install_cli(mode: InstallMode) -> anyhow::Result<()> {
     let cli_path = get_cli_path()?;
-    if cfg!(windows) {
-        bail!(
-            "CLI installation is not supported on Windows. Please install manually by placing '{}' in PATH{maybe_new_name}.",
-            cli_path.display(),
-            maybe_new_name = if cfg!(feature = "builtin-but") {
-                " and rename it to but.exe"
-            } else {
-                ""
-            }
-        );
+    #[cfg(windows)]
+    {
+        return install_cli_windows(cli_path);
     }
 
     match std::fs::symlink_metadata(UNIX_LINK_PATH) {
@@ -103,6 +96,43 @@ fn ensure_cli_path_exists_prior_to_link(cli_path: &std::path::Path) -> anyhow::R
         return Ok(());
     }
     bail!("Run `CARGO_TARGET_DIR=$PWD/target/tauri cargo build -p but` to build the `but` binary")
+}
+
+/// On Windows, we'll provide helpful instructions rather than attempt automatic installation
+/// since:
+/// 1. Creating symlinks requires developer mode or admin privileges
+/// 2. There's no standard user-writable directory that's always in PATH
+/// 3. Users typically add directories to PATH manually on Windows
+///
+/// Note that this isn't usually called on Windows.
+#[cfg(windows)]
+fn install_cli_windows(cli_path: std::path::PathBuf) -> anyhow::Result<()> {
+    let but_filename = cli_path
+        .file_name()
+        .context("BUG: encountered but CLI path without /")?;
+
+    bail!(
+        "Automatic CLI installation is not supported on Windows.\n\
+        \n\
+        To use the But CLI, you have two options:\n\
+        \n\
+        1. Copy the executable to a directory in your PATH:\n\
+           copy \"{}\" \"%LOCALAPPDATA%\\Microsoft\\WindowsApps\\{}\"\n\
+        \n\
+        2. Add the current location to your PATH environment variable:\n\
+           - Press the Win key and select 'System'\n\
+           - Type 'Environment' into the search box and select 'edit variables for your account'\n\
+           - Under 'User variables', select 'Path' and click 'Edit'\n\
+           - Click 'New' and add: {}\n\
+        \n\
+        After either option, restart your terminal to use the 'but' command.",
+        cli_path.display(),
+        but_filename.display(),
+        cli_path
+            .parent()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| cli_path.display().to_string())
+    );
 }
 
 pub fn auto_fix_broken_but_cli_symlink() {

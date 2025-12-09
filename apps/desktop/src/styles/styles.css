@@ -49,7 +49,7 @@ body {
 	padding: 1px 4px;
 	border-radius: var(--radius-s);
 	background: var(--clr-scale-ntrl-80);
-	color: var(--clr-text-1);
+	color: inherit;
 	font-size: 92%;
 	font-family: var(--font-mono);
 }
