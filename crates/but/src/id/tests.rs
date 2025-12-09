@@ -1,28 +1,24 @@
 use crate::{CliId, IdMap};
 use anyhow::bail;
 use bstr::BString;
-use but_testsupport::Sandbox;
 
-// TODO: make the IdMap API more testable, and making better tests should naturally lead to a better API.
-//       This is just an example to avoid more integration tests.
 #[test]
-fn commit_ids_never_collide_due_to_hex_alphabet() -> anyhow::Result<()> {
-    let env = Sandbox::open_scenario_with_target_and_default_settings("two-stacks")?;
-    let mut ctx = env.context()?;
+fn commit_id_works_with_two_characters() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("foo", [id(1)], None, [])])];
+    let id_map = IdMap::new(stacks)?;
 
-    let mut id_map = IdMap::new_from_context(&ctx)?;
-    id_map.add_file_info_from_context(&mut ctx)?;
-    assert_eq!(id_map.workspace_and_remote_commit_ids().count(), 2);
-
-    for commit_id in id_map.workspace_and_remote_commit_ids() {
-        // TODO: fix this - should be read-only, but needs a `but-db` refactor to support read-only DB access.
-        let actual = id_map.parse_str(&commit_id.to_hex_with_len(2).to_string())?;
-        assert_eq!(actual.len(), 1, "The commit can be resolved");
-        assert!(
-            matches!(&actual[0], CliId::Commit { oid } if oid == commit_id,),
-            "The id refers to the right commit"
-        );
-    }
+    assert!(
+        matches!(
+        id_map.parse_str("01")?.as_slice(),
+        [CliId::Commit{oid}] if *oid == id(1)),
+        "two characters are sufficient to parse a commit ID"
+    );
+    assert!(
+        matches!(
+        id_map.parse_str("010")?.as_slice(),
+        [CliId::Commit{oid}] if *oid == id(1)),
+        "three characters work too"
+    );
     Ok(())
 }
 
