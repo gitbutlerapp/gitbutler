@@ -337,6 +337,11 @@ impl Context {
         project_data_dir(&self.gitdir)
     }
 
+    /// Return the worktree directory associated with the context Git [repository](Self::repo).
+    pub fn workdir(&self) -> anyhow::Result<Option<PathBuf>> {
+        self.repo.get().map(|repo| repo.workdir().map(Into::into))
+    }
+
     /// The path to the worktree directory or the `.git` directory if there is no worktree directory.
     /// Fallible as it may need to open a repository.
     pub fn workdir_or_gitdir(&self) -> anyhow::Result<PathBuf> {

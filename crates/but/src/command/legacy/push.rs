@@ -4,7 +4,7 @@ use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_project::Project;
 
 use crate::args::push::Command;
-use crate::legacy::id::IdMap;
+use crate::{CliId, IdMap};
 use crate::{args::push, utils::OutputChannel};
 
 pub fn handle(
@@ -13,7 +13,8 @@ pub fn handle(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::new(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(&ctx)?;
+    id_map.add_file_info_from_context(&mut ctx)?;
 
     // Check gerrit mode early
     let gerrit_mode = {
@@ -137,7 +138,7 @@ fn resolve_branch_name(
         let branch_names: Vec<String> = cli_ids
             .iter()
             .filter_map(|id| match id {
-                crate::legacy::id::CliId::Branch { name, .. } => Some(name.clone()),
+                CliId::Branch { name, .. } => Some(name.clone()),
                 _ => None,
             })
             .collect();
@@ -157,7 +158,7 @@ fn resolve_branch_name(
     }
 
     match &cli_ids[0] {
-        crate::legacy::id::CliId::Branch { name, .. } => Ok(name.clone()),
+        CliId::Branch { name, .. } => Ok(name.clone()),
         _ => Err(anyhow::anyhow!(
             "Expected branch identifier, got {}. Please use a branch name or branch CLI ID.",
             cli_ids[0].kind_for_humans()

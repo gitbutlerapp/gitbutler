@@ -18,7 +18,7 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 pub(crate) mod assignment;
 pub(crate) mod json;
 
-use crate::{legacy::id::IdMap, utils::OutputChannel};
+use crate::{IdMap, utils::OutputChannel};
 
 type StackDetail = (Option<StackDetails>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
@@ -57,14 +57,13 @@ pub(crate) async fn worktree(
     review: bool,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let mut id_map = IdMap::new(ctx)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
     let guard = ctx.shared_worktree_access();
     let meta = ctx.meta(guard.read_permission())?;
 
     // TODO: use this for status information instead.
-    let _head_info = but_workspace::head_info(
+    let head_info = but_workspace::head_info(
         &*ctx.repo.get()?,
         &meta,
         but_workspace::ref_info::Options {
@@ -72,6 +71,8 @@ pub(crate) async fn worktree(
             ..Default::default()
         },
     )?;
+    let mut id_map = IdMap::new(&head_info.stacks)?;
+    id_map.add_file_info_from_context(ctx)?;
 
     let review_map = if review {
         crate::command::legacy::forge::review::get_review_map(project).await?
@@ -489,7 +490,8 @@ pub fn print_group(
             }
         }
     } else {
-        let id_map = IdMap::new(ctx)?;
+        let mut id_map = IdMap::new_from_context(ctx)?;
+        id_map.add_file_info_from_context(ctx)?;
         let id = id_map.unassigned().to_string().underline().blue();
         writeln!(
             out,

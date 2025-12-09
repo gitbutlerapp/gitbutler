@@ -12,11 +12,7 @@ use but_hunk_dependency::ui::HunkDependencies;
 use colored::Colorize;
 use gitbutler_project::Project;
 
-use crate::{
-    command::legacy::rub::parse_sources,
-    legacy::id::{CliId, IdMap},
-    utils::OutputChannel,
-};
+use crate::{CliId, IdMap, command::legacy::rub::parse_sources, utils::OutputChannel};
 
 /// Amends changes into the appropriate commits where they belong.
 ///
@@ -37,7 +33,8 @@ pub(crate) fn handle(
     source: Option<&str>,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::new(ctx)?;
+    let mut id_map = IdMap::new_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx)?;
     let source: Option<CliId> = source
         .and_then(|s| parse_sources(ctx, &id_map, s).ok())
         .and_then(|s| {

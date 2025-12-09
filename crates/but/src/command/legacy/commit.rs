@@ -12,10 +12,7 @@ use but_hunk_assignment::HunkAssignment;
 use gitbutler_project::Project;
 
 use crate::{
-    command::legacy::status::assignment::FileAssignment,
-    legacy::id::{CliId, IdMap},
-    tui,
-    utils::OutputChannel,
+    CliId, IdMap, command::legacy::status::assignment::FileAssignment, tui, utils::OutputChannel,
 };
 
 pub(crate) fn insert_blank_commit(
@@ -24,7 +21,8 @@ pub(crate) fn insert_blank_commit(
     target: &str,
 ) -> Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::new(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(&ctx)?;
+    id_map.add_file_info_from_context(&mut ctx)?;
 
     // Resolve the target ID
     let cli_ids = id_map.parse_str(target)?;
@@ -154,7 +152,8 @@ pub(crate) fn commit(
     create_branch: bool,
 ) -> anyhow::Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::new(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(&ctx)?;
+    id_map.add_file_info_from_context(&mut ctx)?;
 
     // Get all stacks using but-api
     let project_id = project.id;
@@ -243,7 +242,7 @@ pub(crate) fn commit(
                 // If no exact match, try to parse as CLI ID and match
                 if let Ok(cli_ids) = id_map.parse_str(hint) {
                     for cli_id in cli_ids {
-                        if let crate::legacy::id::CliId::Branch { name, .. } = cli_id
+                        if let CliId::Branch { name, .. } = cli_id
                             && let Some(branch) =
                                 target_stack.branch_details.iter().find(|b| b.name == name)
                         {

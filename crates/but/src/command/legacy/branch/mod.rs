@@ -5,7 +5,7 @@ use but_ctx::{Context, LegacyProject};
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 
-use crate::{args::branch, legacy::id::IdMap, utils::OutputChannel};
+use crate::{CliId, IdMap, args::branch, utils::OutputChannel};
 
 mod apply;
 mod json;
@@ -77,7 +77,8 @@ pub async fn handle(
                 legacy_project,
                 AppSettings::load_from_default_path_creating()?,
             );
-            let id_map = IdMap::new(&mut ctx)?;
+            let mut id_map = IdMap::new_from_context(&ctx)?;
+            id_map.add_file_info_from_context(&mut ctx)?;
             // Get branch name or use canned name
             let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
                 but_api::legacy::workspace::canned_branch_name(legacy_project.id)
@@ -105,13 +106,13 @@ pub async fn handle(
                 // Create the anchor for create_reference
                 // as dependent branch
                 match anchor_id {
-                    crate::legacy::id::CliId::Commit { oid } => {
+                    CliId::Commit { oid } => {
                         Some(but_api::legacy::stack::create_reference::Anchor::AtCommit {
                             commit_id: (*oid).into(),
                             position: but_workspace::branch::create_reference::Position::Above,
                         })
                     }
-                    crate::legacy::id::CliId::Branch { name, .. } => Some(
+                    CliId::Branch { name, .. } => Some(
                         but_api::legacy::stack::create_reference::Anchor::AtReference {
                             short_name: name.clone(),
                             position: but_workspace::branch::create_reference::Position::Above,

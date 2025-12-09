@@ -22,7 +22,6 @@ legacy = [
     "but-api/legacy",
     "but-ctx/legacy",
     "dep:but-action",
-    "dep:but-hunk-assignment",
     "dep:but-hunk-dependency",
     "dep:but-claude",
     "dep:but-cursor",
@@ -60,7 +59,8 @@ but-api = { workspace = true }
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
 but-action = { workspace = true, optional = true }
-but-hunk-assignment = { workspace = true, optional = true }
+# Still uses `gitbutler-stack`, but otherwise it is non-legacy.
+but-hunk-assignment.workspace = true
 but-hunk-dependency = { workspace = true, optional = true }
 but-claude = { workspace = true, optional = true }
 but-cursor = { workspace = true, optional = true }
@@ -109,8 +109,6 @@ tracing-subscriber = { workspace = true, features = [
     "fmt",
 ] }
 tracing-forest.workspace = true
-ratatui = "0.29.0"
-crossterm = "0.29.0"
 cli-prompts = "0.1.0"
 minus = { version = "5.6.1", default-features = false, features = [
     "static_output",
@@ -121,6 +119,7 @@ cfg-if = "1.0.4"
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }
+but-graph.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
 snapbox = { workspace = true, features = ["term-svg"] }
