@@ -35,13 +35,13 @@ const SHADE_THRESHOLDS = {
 
 const LIGHTNESS_RANGES = {
 	background: {
-		neutral: { min: 0.91, max: 1.0, scale: 0.5 },
-		colored: { min: 0.88, max: 0.98, scale: 0.45 }
+		neutral: { min: 0.88, max: 1, scale: 0.5 },
+		colored: { min: 0.89, max: 0.98, scale: 0.5 }
 	},
-	soft: { min: 0.43, max: 0.91, exponent: 0.7 },
+	soft: { min: 0.4, max: 0.9, exponent: 0.9 },
 	solid: { min: 0.22, max: 0.48 },
 	text: {
-		neutral: { min: 0.08, max: 0.22, exponent: 0.85 },
+		neutral: { min: 0.08, max: 0.22, exponent: 1 },
 		colored: { min: 0.11, max: 0.26, exponent: 0.85 }
 	}
 } as const;
