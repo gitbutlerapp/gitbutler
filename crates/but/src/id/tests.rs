@@ -23,6 +23,21 @@ fn commit_id_works_with_two_characters() -> anyhow::Result<()> {
 }
 
 #[test]
+fn multiple_zeroes_as_unassigned_area() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("foo", [id(1)], None, [])])];
+    let id_map = IdMap::new(stacks)?;
+
+    assert!(
+        matches!(
+            id_map.parse_str("000")?.as_slice(),
+            [CliId::Unassigned { .. }]
+        ),
+        "any number of 0s interpreted as the unassigned area"
+    );
+    Ok(())
+}
+
+#[test]
 fn unassigned_area_id_is_unambiguous() -> anyhow::Result<()> {
     let stacks = &[stack([segment("branch001", [id(1)], None, [])])];
     let id_map = IdMap::new(stacks)?;
@@ -31,6 +46,53 @@ fn unassigned_area_id_is_unambiguous() -> anyhow::Result<()> {
         id_map.unassigned().to_string(),
         "000",
         "the ID of the unassigned area should have enough 0s to be unambiguous"
+    );
+    Ok(())
+}
+
+#[test]
+fn branch_avoid_nonalphanumeric() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("x-yz", [id(1)], None, [])])];
+    let id_map = IdMap::new(stacks)?;
+
+    assert!(
+        matches!(
+        id_map.parse_str("x-yz")?.as_slice(),
+        [CliId::Branch{name, id}] if name == "x-yz" && id == "yz"),
+        "avoids non-alphanumeric, taking first alphanumeric pair"
+    );
+    Ok(())
+}
+
+#[test]
+fn branch_avoid_hexdigit() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("0ax", [id(1)], None, [])])];
+    let id_map = IdMap::new(stacks)?;
+
+    assert!(
+        matches!(
+        id_map.parse_str("0ax")?.as_slice(),
+        [CliId::Branch{name, id}] if name == "0ax" && id == "ax"),
+        "avoids hexdigit pair which can be confused with a commit ID"
+    );
+    Ok(())
+}
+
+#[test]
+fn branch_cannot_generate_id() -> anyhow::Result<()> {
+    let stacks = &[
+        stack([segment("substring", [id(1)], None, [])]),
+        stack([segment("supersubstring", [id(2)], None, [])]),
+    ];
+    let id_map = IdMap::new(stacks)?;
+
+    // The ID of the substring is a hash and cannot be asserted, so only
+    // assert the supersubstring.
+    assert!(
+        matches!(
+        id_map.parse_str("supersubstring")?.as_slice(),
+        [CliId::Branch{name, id}] if name == "supersubstring" && id == "up"),
+        "'su' would collide with substring, so 'up' is chosen"
     );
     Ok(())
 }
