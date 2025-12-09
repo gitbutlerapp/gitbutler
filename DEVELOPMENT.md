@@ -473,9 +473,9 @@ PUBLIC_API_BASE_URL=https://app.gitbutler.com/
 
 If you are interested in joining our small but tightly knit engineering team, we are currently looking for the following roles:
 
-- [Senior Rust developer](https://gitbutler.homerun.co/senior-rust-developer) (Onsite Berlin)
-- [Senior TypeScript developer](https://gitbutler.homerun.co/senior-typescript-developer) (Onsite Berlin)
-- [Senior Rails developer](https://gitbutler.homerun.co/senior-rails-developer) (Onsite Berlin)
+- [Senior Rust developer](https://jobs.gitbutler.com/jobs/backend-rust) (SF, Berlin or Remote)
+- [Senior TypeScript developer](https://jobs.gitbutler.com/jobs/frontend-typescript) (SF, Berlin or Remote)
+- [Gerrit developer](https://jobs.gitbutler.com/jobs/gerrit-developer) (SF, Berlin or Remote)
 
 ## Code Hitlist
 
@@ -483,9 +483,6 @@ This is a list of crates/modules that we want to eliminate or split into smaller
 
 - [gitbutler-reference](crates/gitbutler-reference/) (just bad)
 - [gitbutler-branch-actions](crates/gitbutler-branch-actions/) (contains functionality outside of the virtual branch domain (e.g. commit actions etc.))
-- [gitbutler-repository](crates/gitbutler-repository/)
 - [gitbutler-branch](crates/gitbutler-branch/) (contains `diff` and `branch` contexts due to a cyclic dependency)
 - [gitbutler-url](crates/gitbutler-url/) (this is a huge mess and ideally we need none of it)
 - [gitbutler_repo::config](crates/gitbutler-repo/src/config.rs) (seems like the wrong abstraction)
-- [gitbutler-config](crates/gitbutler-config) (this provides an API for the UI layer to read and write git config and we want none of that)
-- [gitbutler_virtual::assets](crates/gitbutler-branch-actions/src/assets.rs) (this is a caching of things like favicons and it's clearly a UI concern that doesn't belong here)
