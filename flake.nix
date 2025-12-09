@@ -24,7 +24,11 @@
             overlays = [ nix-playwright-browsers.overlays.${system}.default ];
           };
 
-          rustToolchain = unstable.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+          # Use stable.latest since rust-overlay doesn't always have exact versions like 1.91
+          # The rust-toolchain.toml is used by rustup in the normal dev workflow
+          rustToolchain = unstable.rust-bin.stable.latest.default.override {
+            extensions = [ "rust-src" "clippy" "rustfmt" ];
+          };
 
           common = with pkgs; [
             gtk3
