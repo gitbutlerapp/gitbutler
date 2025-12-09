@@ -163,8 +163,17 @@ mod tests {
     fn fails_when_terminal_dumb_and_no_editor() {
         let env = mock_env(HashMap::new());
         let actual = get_editor_command_impl(&env, true);
-        assert!(actual.is_err());
         assert!(actual.unwrap_err().to_string().contains("Terminal is dumb"));
+    }
+
+    #[test]
+    fn fails_when_terminal_dumb_with_only_visual() {
+        let env = mock_env(HashMap::from([("VISUAL", "visual-editor")]));
+        let actual = get_editor_command_impl(&env, true);
+        assert!(
+            actual.unwrap_err().to_string().contains("Terminal is dumb"),
+            "VISUAL isn't used in dumb terminals"
+        );
     }
 
     #[test]
@@ -210,7 +219,7 @@ mod tests {
 
     const PLATFORM_DEFAULT: &str = if cfg!(windows) { "notepad" } else { "vi" };
 
-    pub fn visual_and_editor() -> HashMap<&'static str, &'static str> {
+    fn visual_and_editor() -> HashMap<&'static str, &'static str> {
         HashMap::from([("VISUAL", "visual-editor"), ("EDITOR", "editor")])
     }
 }
