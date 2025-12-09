@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ClaudeSessionDescriptor from '$components/ClaudeSessionDescriptor.svelte';
+	import ClaudeCodeSessionFilter from '$components/ClaudeCodeSessionFilter.svelte';
 	import NewRuleMenu from '$components/NewRuleMenu.svelte';
 	import {
 		type SemanticType,
@@ -12,8 +12,7 @@
 		type RuleFilterMap
 	} from '$lib/rules/rule';
 	import { typedKeys } from '$lib/utils/object';
-	import { Button, Select, SelectItem, Textbox, Icon, FileStatusBadge } from '@gitbutler/ui';
-	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
+	import { Button, Select, SelectItem, Textbox, FileStatusBadge } from '@gitbutler/ui';
 	import type { FileStatus } from '@gitbutler/ui/components/file/types';
 
 	const FILE_STATUS_OPTIONS: FileStatus[] = ['addition', 'modification', 'deletion', 'rename'];
@@ -39,26 +38,27 @@
 	);
 	let semanticType = $state<SemanticType | undefined>(initialFilterValues.semanticType?.type);
 
-	let claudeCodeSessionId = $state<string | undefined>(
-		initialFilterValues.claudeCodeSessionId ?? undefined
-	);
-	const claudeResumeCommand = $derived(
-		claudeCodeSessionId ? `claude --resume ${claudeCodeSessionId}` : undefined
-	);
-
 	const ruleFilterTypes = $derived(typedKeys(initialFilterValues));
+	const hasClaudeSession = $derived(ruleFilterTypes.includes('claudeCodeSessionId'));
+	const claudeCodeSessionId = $derived.by(() => {
+		if (!hasClaudeSession) return undefined;
+		return initialFilterValues.claudeCodeSessionId;
+	});
 
 	const orderMap: Record<RuleFilterType, number> = {
-		claudeCodeSessionId: 0,
-		pathMatchesRegex: 1,
-		contentMatchesRegex: 2,
-		fileChangeType: 3,
-		semanticType: 4
+		pathMatchesRegex: 0,
+		contentMatchesRegex: 1,
+		fileChangeType: 2,
+		semanticType: 3,
+		claudeCodeSessionId: 4
 	};
 
 	function isLastFilterType(type: RuleFilterType): boolean {
+		if (type === 'claudeCodeSessionId') return false;
+		const regularFilters = ruleFilterTypes.filter((t) => t !== 'claudeCodeSessionId');
+		if (regularFilters.length === 0) return false;
 		const orderValue = orderMap[type];
-		const allFilterOrderValue = ruleFilterTypes.map((t) => orderMap[t]);
+		const allFilterOrderValue = regularFilters.map((t) => orderMap[t]);
 		const maxOrderValue = Math.max(...allFilterOrderValue);
 		return orderValue === maxOrderValue;
 	}
@@ -75,7 +75,11 @@
 				// For now, user defined is not considered ready
 				return semanticType !== undefined && semanticType !== 'userDefined';
 			case 'claudeCodeSessionId':
-				return claudeCodeSessionId !== undefined && claudeCodeSessionId.trim() !== '';
+				return (
+					claudeCodeSessionId !== undefined &&
+					claudeCodeSessionId !== null &&
+					claudeCodeSessionId.trim() !== ''
+				);
 		}
 	}
 
@@ -87,7 +91,8 @@
 	}
 
 	const filtersAreReady = $derived(areDraftRuleFiltersReady(ruleFilterTypes));
-	const canAddMore = $derived(canAddMoreFilters(ruleFilterTypes));
+	const regularFilters = $derived(ruleFilterTypes.filter((t) => t !== 'claudeCodeSessionId'));
+	const canAddMore = $derived(canAddMoreFilters(regularFilters));
 
 	function handleAddFilter(e: MouseEvent) {
 		e.stopPropagation();
@@ -206,28 +211,7 @@
 	</Select>
 {/snippet}
 
-<!-- Claude Code Session ID -->
-{#snippet claudeCodeSessionIdFilter(sessionId: string)}
-	<ClaudeSessionDescriptor {projectId} {sessionId}>
-		{#snippet fallback()}
-			<Textbox value={sessionId} readonly wide>
-				{#snippet customIconLeft()}
-					<Icon name="ai" />
-				{/snippet}
-			</Textbox>
-		{/snippet}
-		{#snippet children(descriptor)}
-			<Textbox value={descriptor} readonly wide>
-				{#snippet customIconLeft()}
-					<Icon name="ai" />
-				{/snippet}
-			</Textbox>
-		{/snippet}
-	</ClaudeSessionDescriptor>
-{/snippet}
-
-<!-- This is the parent component,
-        wraps around the rule input -->
+<!-- This is the parent component, wraps around the rule input -->
 {#snippet ruleFilterRow(type: RuleFilterType)}
 	<div class="rule-filter-row">
 		{#if type === 'pathMatchesRegex'}
@@ -238,73 +222,53 @@
 			{@render fileChangeType()}
 		{:else if type === 'semanticType'}
 			{@render semanticTypeFilter()}
-		{:else if type === 'claudeCodeSessionId' && claudeCodeSessionId}
-			{@render claudeCodeSessionIdFilter(claudeCodeSessionId)}
 		{/if}
 
-		{#if type !== 'claudeCodeSessionId'}
-			<div class="rule-filter-row__actions">
+		<div class="rule-filter-row__actions">
+			<Button
+				icon="bin"
+				size="cta"
+				class="rule-filter-row__button"
+				kind="ghost"
+				width="auto"
+				onclick={() => {
+					deleteFilter(type);
+				}}
+			/>
+			{#if isLastFilterType(type) && canAddMore}
 				<Button
-					icon="bin"
-					size="cta"
+					bind:el={addFilterButton}
 					class="rule-filter-row__button"
-					kind="ghost"
 					width="auto"
-					onclick={() => {
-						deleteFilter(type);
-					}}
+					icon="plus"
+					size="cta"
+					kind="ghost"
+					onclick={handleAddFilter}
 				/>
-				{#if isLastFilterType(type) && canAddMore}
-					<Button
-						bind:el={addFilterButton}
-						class="rule-filter-row__button"
-						width="auto"
-						icon="plus"
-						size="cta"
-						kind="ghost"
-						onclick={handleAddFilter}
-					/>
-				{/if}
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</div>
 {/snippet}
 
-<h3 class="text-13 text-semibold m-b-10">
-	{ruleFilterTypes.includes('claudeCodeSessionId') ? 'Claude Code session' : 'Filters'}
-</h3>
+{#if hasClaudeSession && claudeCodeSessionId}
+	<ClaudeCodeSessionFilter {projectId} sessionId={claudeCodeSessionId} />
+{:else}
+	<h3 class="text-13 text-semibold m-b-10">Filters</h3>
 
-{#if ruleFilterTypes.includes('pathMatchesRegex')}
-	{@render ruleFilterRow('pathMatchesRegex')}
-{/if}
+	{#if ruleFilterTypes.includes('pathMatchesRegex')}
+		{@render ruleFilterRow('pathMatchesRegex')}
+	{/if}
 
-{#if ruleFilterTypes.includes('contentMatchesRegex')}
-	{@render ruleFilterRow('contentMatchesRegex')}
-{/if}
+	{#if ruleFilterTypes.includes('contentMatchesRegex')}
+		{@render ruleFilterRow('contentMatchesRegex')}
+	{/if}
 
-{#if ruleFilterTypes.includes('fileChangeType')}
-	{@render ruleFilterRow('fileChangeType')}
-{/if}
+	{#if ruleFilterTypes.includes('fileChangeType')}
+		{@render ruleFilterRow('fileChangeType')}
+	{/if}
 
-{#if ruleFilterTypes.includes('semanticType')}
-	{@render ruleFilterRow('semanticType')}
-{/if}
-
-{#if ruleFilterTypes.includes('claudeCodeSessionId')}
-	{@render ruleFilterRow('claudeCodeSessionId')}
-	{#if claudeResumeCommand}
-		<button
-			class="claude-command-copy"
-			type="button"
-			onclick={() => copyToClipboard(claudeResumeCommand)}
-		>
-			<p class="text-12 clr-text-3">Resume session command:</p>
-			<code class="claude-command-copy__code">{claudeResumeCommand}</code>
-
-			<i class="claude-command-copy__icon">
-				<Icon name="copy" />
-			</i>
-		</button>
+	{#if ruleFilterTypes.includes('semanticType')}
+		{@render ruleFilterRow('semanticType')}
 	{/if}
 {/if}
 
@@ -318,47 +282,6 @@
 />
 
 <style lang="postcss">
-	.claude-command-copy {
-		display: flex;
-		position: relative;
-		flex-direction: column;
-		margin-top: 10px;
-		padding: 12px;
-		gap: 6px;
-		border: 1px solid var(--clr-border-3);
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1-muted);
-		text-align: left;
-
-		&:hover {
-			& .claude-command-copy__icon {
-				color: var(--clr-text-2);
-			}
-			& .claude-command-copy__code {
-				opacity: 0.8;
-			}
-		}
-	}
-
-	.claude-command-copy__icon {
-		display: flex;
-		position: absolute;
-		top: 8px;
-		right: 8px;
-		color: var(--clr-text-3);
-		transition: color var(--transition-fast);
-	}
-
-	.claude-command-copy__code {
-		font-size: 12px;
-		line-height: 1.5;
-		font-family: var(--font-mono);
-		word-break: break-all;
-		opacity: 0.6;
-		transition: opacity var(--transition-fast);
-		user-select: text;
-	}
-
 	.rule-filter-row {
 		display: flex;
 		margin-bottom: 8px;
