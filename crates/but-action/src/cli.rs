@@ -20,7 +20,7 @@ pub enum InstallMode {
 pub fn do_install_cli(mode: InstallMode) -> anyhow::Result<()> {
     let cli_path = get_cli_path()?;
     #[cfg(windows)]
-    if cfg!(windows) {
+    {
         return install_cli_windows(cli_path);
     }
 
