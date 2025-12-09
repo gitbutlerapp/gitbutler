@@ -25,15 +25,15 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      
+
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v16
-      
+
       - name: Setup Nix cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
-      
+
       - name: Check flake
         run: nix flake check --show-trace
-      
+
       - name: Test dev shell
         run: nix develop --command echo "Dev shell loaded successfully"
