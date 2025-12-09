@@ -175,7 +175,7 @@
 {/snippet}
 
 {#snippet sizeDifference()}
-	{#if beforeImageMetadata?.size && afterImageMetadata?.size}
+	{#if beforeImageUrl && afterImageUrl && beforeImageMetadata?.size && afterImageMetadata?.size}
 		·
 		<span
 			class:positive={afterImageMetadata.size < beforeImageMetadata.size}
