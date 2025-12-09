@@ -13,7 +13,7 @@
 			"icons/release/icon.icns",
 			"icons/release/icon.ico"
 		],
-		"externalBin": ["to be replaced by `release.sh"]
+		"externalBin": ["to be replaced by `release.sh`"]
 	},
 	"plugins": {
 		"updater": {
