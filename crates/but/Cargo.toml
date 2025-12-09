@@ -109,8 +109,6 @@ tracing-subscriber = { workspace = true, features = [
     "fmt",
 ] }
 tracing-forest.workspace = true
-ratatui = "0.29.0"
-crossterm = "0.29.0"
 cli-prompts = "0.1.0"
 minus = { version = "5.6.1", default-features = false, features = [
     "static_output",

@@ -16,16 +16,16 @@ mod tests;
 struct StacksInfo {
     /// Branch names in unspecified order.
     branch_names: Vec<BString>,
-    /// Local commit IDs with their first parent IDs in unspecified order. The first
-    /// parent ID is stored in case a diff needs to be performed on the commit.
-    local_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
-    /// Remote commit IDs in unspecified order.
+    /// Commit IDs of commits reachable from the workspace tip with their first parent IDs in unspecified order.
+    /// The first parent ID is stored in case a diff needs to be performed on the commit.
+    workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
+    /// Commits that are reachable from the remote-tracking only, i.e. are only on the remote, in unspecified order.
     remote_commit_ids: Vec<gix::ObjectId>,
 }
 
 fn get_stacks_info(stacks: &[Stack]) -> anyhow::Result<StacksInfo> {
     let mut branch_names: Vec<BString> = Vec::new();
-    let mut local_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)> =
+    let mut workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)> =
         Vec::new();
     let mut remote_commit_ids: Vec<gix::ObjectId> = Vec::new();
     for stack in stacks {
@@ -34,9 +34,8 @@ fn get_stacks_info(stacks: &[Stack]) -> anyhow::Result<StacksInfo> {
                 branch_names.push(ref_info.ref_name.shorten().to_owned());
             }
             for commit in &segment.commits {
-                let inner = &commit.inner;
-                local_commit_and_first_parent_ids
-                    .push((inner.id, inner.parent_ids.first().cloned()));
+                workspace_commit_and_first_parent_ids
+                    .push((commit.id, commit.parent_ids.first().cloned()));
             }
             for commit in &segment.commits_on_remote {
                 remote_commit_ids.push(commit.id);
@@ -46,7 +45,7 @@ fn get_stacks_info(stacks: &[Stack]) -> anyhow::Result<StacksInfo> {
 
     Ok(StacksInfo {
         branch_names,
-        local_commit_and_first_parent_ids,
+        workspace_commit_and_first_parent_ids,
         remote_commit_ids,
     })
 }
@@ -59,8 +58,8 @@ struct FileInfo {
     committed_files: Vec<(gix::ObjectId, BString)>,
 }
 
-fn get_file_info<F>(
-    local_commit_and_first_parent_ids: &[(gix::ObjectId, Option<gix::ObjectId>)],
+fn get_file_info_from_workspace_commits_and_status<F>(
+    workspace_commit_and_first_parent_ids: &[(gix::ObjectId, Option<gix::ObjectId>)],
     mut changed_paths_fn: F,
     hunk_assignments: Vec<HunkAssignment>,
 ) -> anyhow::Result<FileInfo>
@@ -68,7 +67,7 @@ where
     F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
 {
     let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
-    for (commit_id, parent_id) in local_commit_and_first_parent_ids {
+    for (commit_id, parent_id) in workspace_commit_and_first_parent_ids {
         let changed_paths = changed_paths_fn(*commit_id, *parent_id)?;
         for changed_path in changed_paths {
             committed_files.push((*commit_id, changed_path));
@@ -77,7 +76,7 @@ where
 
     let mut uncommitted_files: Vec<(Option<StackId>, BString)> = Vec::new();
     for assignment in hunk_assignments {
-        uncommitted_files.push((assignment.stack_id, assignment.path_bytes.clone()));
+        uncommitted_files.push((assignment.stack_id, assignment.path_bytes));
     }
 
     Ok(FileInfo {
@@ -124,7 +123,7 @@ impl Borrow<str> for CommittedFile {
 pub struct IdMap {
     branch_name_to_cli_id: HashMap<BString, CliId>,
     ids_used: HashSet<String>,
-    local_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
+    workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
     remote_commit_ids: Vec<gix::ObjectId>,
     unassigned: CliId,
 
@@ -143,7 +142,7 @@ impl IdMap {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         let StacksInfo {
             branch_names,
-            local_commit_and_first_parent_ids,
+            workspace_commit_and_first_parent_ids,
             remote_commit_ids,
         } = get_stacks_info(stacks)?;
         let mut pairs_to_count: HashMap<u16, u8> = HashMap::new();
@@ -193,7 +192,7 @@ impl IdMap {
         Ok(Self {
             branch_name_to_cli_id,
             ids_used,
-            local_commit_and_first_parent_ids,
+            workspace_commit_and_first_parent_ids,
             remote_commit_ids,
             unassigned: CliId::Unassigned {
                 id: str::repeat("0", max_zero_count + 1),
@@ -204,7 +203,7 @@ impl IdMap {
     }
 
     /// Enable parsing uncommitted and committed file IDs.
-    pub fn add_file_info<F>(
+    fn add_file_info<F>(
         &mut self,
         changed_paths_fn: F,
         hunk_assignments: Vec<HunkAssignment>,
@@ -215,8 +214,8 @@ impl IdMap {
         let FileInfo {
             uncommitted_files,
             committed_files,
-        } = get_file_info(
-            &self.local_commit_and_first_parent_ids,
+        } = get_file_info_from_workspace_commits_and_status(
+            &self.workspace_commit_and_first_parent_ids,
             changed_paths_fn,
             hunk_assignments,
         )?;
@@ -256,6 +255,7 @@ impl IdMap {
 
 /// Thin wrappers around lifecycle methods for use with [Context].
 impl IdMap {
+    /// Create a new instance from `ctx`, which is used to get [head info](but_workspace::head_info())
     pub fn new_from_context(ctx: &Context) -> anyhow::Result<Self> {
         let guard = ctx.shared_worktree_access();
         let meta = ctx.meta(guard.read_permission())?;
@@ -270,14 +270,15 @@ impl IdMap {
         )?;
         Self::new(&head_info.stacks)
     }
+}
 
+/// Add context for ID generation
+impl IdMap {
+    /// Use `ctx` to retrieve information around…
+    /// * …changed files in the worktree, taking their assignments into account.
+    /// * …all changes of all worktree commits
     pub fn add_file_info_from_context(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        let worktree_dir = {
-            let repo = &*ctx.repo.get()?;
-            repo.worktree().map(|worktree| worktree.base().to_owned())
-            // We need to drop `repo` here so that `assignments_with_fallback`
-            // below can take `ctx` without the borrow checker complaining...
-        };
+        let worktree_dir = ctx.workdir()?;
         let hunk_assignments = if let Some(worktree_dir) = worktree_dir {
             let changes =
                 but_core::diff::ui::worktree_changes_by_worktree_dir(worktree_dir)?.changes;
@@ -287,9 +288,8 @@ impl IdMap {
         } else {
             Vec::new()
         };
-        // ...but we need to regain `repo` here because `tree_changes` needs it.
         // TODO Fix this, probably by making `assignments_with_fallback` take a
-        // more specific type instead of `ctx`.
+        //      more specific type instead of `ctx`.
         let repo = &*ctx.repo.get()?;
         self.add_file_info(
             |commit_id, parent_id| {
@@ -324,7 +324,7 @@ impl IdMap {
         // Only try SHA matching if the input looks like a hex string
         if s.chars().all(|c| c.is_ascii_hexdigit()) && s.len() >= 2 {
             for oid in self
-                .commit_ids()
+                .workspace_and_remote_commit_ids()
                 .filter(|oid| oid.to_string().starts_with(s))
             {
                 matches.push(CliId::Commit { oid: *oid });
@@ -438,8 +438,8 @@ impl IdMap {
         Ok(matches)
     }
 
-    fn commit_ids(&self) -> impl Iterator<Item = &gix::ObjectId> {
-        self.local_commit_and_first_parent_ids
+    fn workspace_and_remote_commit_ids(&self) -> impl Iterator<Item = &gix::ObjectId> {
+        self.workspace_commit_and_first_parent_ids
             .iter()
             .map(|(commit_id, _parent_id)| commit_id)
             .chain(&self.remote_commit_ids)

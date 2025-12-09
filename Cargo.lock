@@ -165,7 +165,7 @@ dependencies = [
  "anstyle-lossy",
  "anstyle-parse",
  "html-escape",
- "unicode-width 0.2.0",
+ "unicode-width",
 ]
 
 [[package]]
@@ -738,7 +738,6 @@ dependencies = [
  "cli-prompts",
  "colored",
  "command-group",
- "crossterm 0.29.0",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
@@ -751,20 +750,19 @@ dependencies = [
  "insta",
  "minus",
  "posthog-rs",
- "ratatui",
  "regex",
  "rmcp",
  "serde",
  "serde_json",
  "shell-words",
  "snapbox",
- "strum 0.27.2",
+ "strum",
  "terminal_size",
  "tokio",
  "tracing",
  "tracing-forest",
  "tracing-subscriber",
- "unicode-width 0.2.0",
+ "unicode-width",
 ]
 
 [[package]]
@@ -795,14 +793,14 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-stack",
  "gix",
- "itertools 0.14.0",
+ "itertools",
  "reqwest 0.12.24",
  "rmcp",
  "schemars 1.1.0",
  "serde",
  "serde-error",
  "serde_json",
- "strum 0.27.2",
+ "strum",
  "tokio",
  "tracing",
  "uuid",
@@ -951,7 +949,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_json_lenient",
- "strum 0.27.2",
+ "strum",
  "tokio",
  "tracing",
  "url",
@@ -1142,7 +1140,7 @@ dependencies = [
  "gix",
  "gix-testtools",
  "insta",
- "itertools 0.14.0",
+ "itertools",
  "petgraph",
  "tracing",
 ]
@@ -1158,7 +1156,7 @@ dependencies = [
  "but-db",
  "but-hunk-dependency",
  "gitbutler-stack",
- "itertools 0.14.0",
+ "itertools",
  "serde",
  "serde-error",
  "serde_json",
@@ -1183,7 +1181,7 @@ dependencies = [
  "gix",
  "gix-testtools",
  "insta",
- "itertools 0.14.0",
+ "itertools",
  "serde",
  "serde_json",
 ]
@@ -1203,7 +1201,7 @@ dependencies = [
  "gix",
  "hex",
  "insta",
- "itertools 0.14.0",
+ "itertools",
  "md5",
  "serde",
  "toml 0.9.8",
@@ -1276,7 +1274,7 @@ dependencies = [
  "gitbutler-branch-actions",
  "gitbutler-stack",
  "gix",
- "itertools 0.14.0",
+ "itertools",
  "regex",
  "serde",
  "serde_json",
@@ -1383,7 +1381,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-stack",
  "gix",
- "itertools 0.14.0",
+ "itertools",
  "serde_json",
  "tokio",
  "tracing",
@@ -1463,7 +1461,7 @@ dependencies = [
  "gitbutler-stack",
  "gix",
  "insta",
- "itertools 0.14.0",
+ "itertools",
  "md5",
  "serde",
  "tempfile",
@@ -1634,21 +1632,6 @@ checksum = "374b7c592d9c00c1f4972ea58390ac6b18cbb6ab79011f3bdc90a0b82ca06b77"
 dependencies = [
  "serde",
  "toml 0.9.8",
-]
-
-[[package]]
-name = "cassowary"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df8670b8c7b9dae1793364eafadf7239c40d669904660c5960d74cfd80b46a53"
-
-[[package]]
-name = "castaway"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dec551ab6e7578819132c713a93c022a05d60159dc86e7a7050223577484c55a"
-dependencies = [
- "rustversion",
 ]
 
 [[package]]
@@ -1889,20 +1872,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "compact_str"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b79c4069c6cad78e2e0cdfcbd26275770669fb39fd308a752dc110e83b9af32"
-dependencies = [
- "castaway",
- "cfg-if",
- "itoa",
- "rustversion",
- "ryu",
- "static_assertions",
-]
-
-[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1988,15 +1957,6 @@ name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
-
-[[package]]
-name = "convert_case"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb402b8d4c85569410425650ce3eddc7d698ed96d39a73f941b08fb63082f1e7"
-dependencies = [
- "unicode-segmentation",
-]
 
 [[package]]
 name = "convert_case"
@@ -2180,40 +2140,6 @@ dependencies = [
  "libc",
  "mio 0.8.11",
  "parking_lot",
- "signal-hook",
- "signal-hook-mio",
- "winapi",
-]
-
-[[package]]
-name = "crossterm"
-version = "0.28.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "829d955a0bb380ef178a640b91779e3987da38c9aea133b20614cfed8cdea9c6"
-dependencies = [
- "bitflags 2.10.0",
- "crossterm_winapi",
- "mio 1.1.0",
- "parking_lot",
- "rustix 0.38.44",
- "signal-hook",
- "signal-hook-mio",
- "winapi",
-]
-
-[[package]]
-name = "crossterm"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8b9f2e4c67f833b660cdb0a3523065869fb35570177239812ed4c905aeff87b"
-dependencies = [
- "bitflags 2.10.0",
- "crossterm_winapi",
- "derive_more 2.0.1",
- "document-features",
- "mio 1.1.0",
- "parking_lot",
- "rustix 1.1.2",
  "signal-hook",
  "signal-hook-mio",
  "winapi",
@@ -2468,27 +2394,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version",
- "syn 2.0.111",
-]
-
-[[package]]
-name = "derive_more"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "093242cf7570c207c83073cf82f79706fe7b8317e98620a47d5be7c3d8497678"
-dependencies = [
- "derive_more-impl",
-]
-
-[[package]]
-name = "derive_more-impl"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bda628edc44c4bb645fbe0f758797143e4e07926f7ebf4e9bdfbd3d2ce621df3"
-dependencies = [
- "convert_case 0.7.1",
- "proc-macro2",
- "quote",
  "syn 2.0.111",
 ]
 
@@ -3527,7 +3432,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-stack",
  "gix",
- "itertools 0.14.0",
+ "itertools",
  "lazy_static",
  "serde",
 ]
@@ -3572,7 +3477,7 @@ dependencies = [
  "gitbutler-workspace",
  "gix",
  "glob",
- "itertools 0.14.0",
+ "itertools",
  "md5",
  "pretty_assertions",
  "serde",
@@ -3716,7 +3621,7 @@ dependencies = [
  "git2",
  "gitbutler-diff",
  "gitbutler-stack",
- "itertools 0.14.0",
+ "itertools",
  "serde",
 ]
 
@@ -3775,10 +3680,10 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-stack",
  "gix",
- "itertools 0.14.0",
+ "itertools",
  "pretty_assertions",
  "serde",
- "strum 0.27.2",
+ "strum",
  "tempfile",
  "toml 0.9.8",
  "tracing",
@@ -3802,7 +3707,7 @@ dependencies = [
  "resolve-path",
  "serde",
  "serde_json",
- "strum 0.27.2",
+ "strum",
  "tempfile",
  "tracing",
 ]
@@ -3848,7 +3753,7 @@ dependencies = [
  "ignore",
  "infer",
  "insta",
- "itertools 0.14.0",
+ "itertools",
  "resolve-path",
  "scopeguard",
  "serde",
@@ -3905,7 +3810,7 @@ dependencies = [
  "gitbutler-testsupport",
  "gitbutler-time",
  "gix",
- "itertools 0.14.0",
+ "itertools",
  "serde",
  "tempfile",
  "toml 0.9.8",
@@ -3929,7 +3834,7 @@ dependencies = [
  "gitbutler-url",
  "gitbutler-user",
  "gix",
- "itertools 0.14.0",
+ "itertools",
  "rand 0.9.2",
  "tracing",
 ]
@@ -5529,8 +5434,6 @@ version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
- "allocator-api2",
- "equivalent",
  "foldhash 0.1.5",
 ]
 
@@ -6027,15 +5930,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "indoc"
-version = "2.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79cf5c93f93228cf8efb3ba362535fb11199ac548a09ce117c9b1adc3030d706"
-dependencies = [
- "rustversion",
-]
-
-[[package]]
 name = "infer"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6084,19 +5978,6 @@ dependencies = [
  "once_cell",
  "serde",
  "similar",
-]
-
-[[package]]
-name = "instability"
-version = "0.3.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6778b0196eefee7df739db78758e5cf9b37412268bfa5650bfeed028aed20d9c"
-dependencies = [
- "darling 0.20.11",
- "indoc",
- "proc-macro2",
- "quote",
- "syn 2.0.111",
 ]
 
 [[package]]
@@ -6164,15 +6045,6 @@ name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
-
-[[package]]
-name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
 
 [[package]]
 name = "itertools"
@@ -6595,15 +6467,6 @@ checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 dependencies = [
  "serde",
  "value-bag",
-]
-
-[[package]]
-name = "lru"
-version = "0.12.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
-dependencies = [
- "hashbrown 0.15.5",
 ]
 
 [[package]]
@@ -8159,7 +8022,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9120690fafc389a67ba3803df527d0ec9cbbc9cc45e4cc20b332996dfb672425"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn 2.0.111",
@@ -8438,27 +8301,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16abd0c1b639e9eb4d7c50c0b8100b0d0f849be2349829c740fe8e6eb4816429"
 dependencies = [
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "ratatui"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eabd94c2f37801c20583fc49dd5cd6b0ba68c716787c2dd6ed18571e1e63117b"
-dependencies = [
- "bitflags 2.10.0",
- "cassowary",
- "compact_str",
- "crossterm 0.28.1",
- "indoc",
- "instability",
- "itertools 0.13.0",
- "lru",
- "paste",
- "strum 0.26.3",
- "unicode-segmentation",
- "unicode-truncate",
- "unicode-width 0.2.0",
 ]
 
 [[package]]
@@ -9173,7 +9015,7 @@ checksum = "0c37578180969d00692904465fb7f6b3d50b9a2b952b87c23d0e2e5cb5013416"
 dependencies = [
  "bitflags 1.3.2",
  "cssparser",
- "derive_more 0.99.20",
+ "derive_more",
  "fxhash",
  "log",
  "phf 0.8.0",
@@ -9544,7 +9386,6 @@ checksum = "b75a19a7a740b25bc7944bdee6172368f988763b744e3d4dfe753f6b4ece40cc"
 dependencies = [
  "libc",
  "mio 0.8.11",
- "mio 1.1.0",
  "signal-hook",
 ]
 
@@ -9776,33 +9617,11 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strum"
-version = "0.26.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
-dependencies = [
- "strum_macros 0.26.4",
-]
-
-[[package]]
-name = "strum"
 version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 dependencies = [
- "strum_macros 0.27.2",
-]
-
-[[package]]
-name = "strum_macros"
-version = "0.26.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
-dependencies = [
- "heck 0.5.0",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 2.0.111",
+ "strum_macros",
 ]
 
 [[package]]
@@ -10594,7 +10413,7 @@ version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c13547615a44dc9c452a8a534638acdf07120d4b6847c8178705da06306a3057"
 dependencies = [
- "unicode-width 0.2.0",
+ "unicode-width",
 ]
 
 [[package]]
@@ -11266,23 +11085,6 @@ name = "unicode-segmentation"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
-
-[[package]]
-name = "unicode-truncate"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3644627a5af5fa321c95b9b235a72fd24cd29c648c2c379431e6628655627bf"
-dependencies = [
- "itertools 0.13.0",
- "unicode-segmentation",
- "unicode-width 0.1.14",
-]
-
-[[package]]
-name = "unicode-width"
-version = "0.1.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
 
 [[package]]
 name = "unicode-width"
