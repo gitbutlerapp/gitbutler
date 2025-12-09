@@ -97,11 +97,3 @@
 		</CardGroup.Item>
 	</CardGroup>
 </SettingsSection>
-
-<style lang="postcss">
-	.options {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-</style>

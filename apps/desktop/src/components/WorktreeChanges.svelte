@@ -27,7 +27,6 @@
 		title: string;
 		mode?: 'unassigned' | 'assigned';
 		dropzoneVisible?: boolean;
-		overflow?: boolean;
 		onDropzoneActivated?: (activated: boolean) => void;
 		emptyPlaceholder?: Snippet;
 		foldButton?: Snippet;
@@ -41,7 +40,6 @@
 		title,
 		mode = 'unassigned',
 		dropzoneVisible,
-		overflow,
 		onDropzoneActivated,
 		emptyPlaceholder,
 		foldButton,
@@ -113,7 +111,6 @@
 	handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
 	maxHeight
 	onActivated={onDropzoneActivated}
-	{overflow}
 >
 	{#snippet overlay({ hovered, activated, handler })}
 		<CardOverlay

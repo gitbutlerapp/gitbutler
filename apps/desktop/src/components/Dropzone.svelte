@@ -16,7 +16,6 @@
 		onActivated?: (activated: boolean) => void;
 		overlay?: Snippet<[{ hovered: boolean; activated: boolean; handler?: DropzoneHandler }]>;
 		children?: Snippet;
-		overflow?: boolean;
 	}
 
 	const {
@@ -27,8 +26,7 @@
 		onActivated,
 		overlay,
 		children,
-		hideWhenInactive,
-		overflow
+		hideWhenInactive
 	}: Props = $props();
 
 	let hovered = $state(false);
@@ -72,7 +70,6 @@
 	class:fill-height={fillHeight}
 	class:max-height={maxHeight}
 	style:display={hideWhenInactive && !activated ? 'none' : undefined}
-	style:overflow={overflow ? 'hidden' : undefined}
 	class="dropzone-container"
 >
 	{#if overlay}
@@ -101,5 +98,6 @@
 		flex-grow: 1;
 		flex-direction: column;
 		width: 100%;
+		overflow: hidden;
 	}
 </style>
