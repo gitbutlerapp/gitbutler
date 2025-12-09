@@ -50,11 +50,20 @@ fn is_terminal_dumb() -> bool {
         .unwrap_or(false)
 }
 
+/// Implement get_editor_command to match Git's C implementation of `git_editor`.
+///
+/// - Check GIT_EDITOR environment variable first
+/// - Check git config `core.editor` (editor_program)
+/// - Check VISUAL if terminal is not dumb
+/// - Check EDITOR
+/// - Return error if terminal is dumb and no editor found
+/// - Fall back to platform defaults (vi on Unix, notepad on Windows)
+/// - Add comprehensive unit tests for all scenarios
 fn get_editor_command() -> Result<String> {
     get_editor_command_impl(&|key| std::env::var(key), is_terminal_dumb())
 }
 
-/// Internal implementation that can be tested without modifying environment
+/// Internal get_editor_command_implementation that can be tested without modifying environment
 fn get_editor_command_impl<F>(env_var: &F, terminal_is_dumb: bool) -> Result<String>
 where
     F: Fn(&str) -> Result<String, std::env::VarError>,
@@ -66,7 +75,7 @@ where
         return Ok(editor);
     }
 
-    // Try git config core.editor (editor_program)
+    // Try git config `core.editor` (editor_program)
     if let Ok(output) = std::process::Command::new(gix::path::env::exe_invocation())
         .args(["config", "--get", "core.editor"])
         .output()
@@ -86,7 +95,6 @@ where
         return Ok(editor);
     }
 
-    // Try $EDITOR
     if let Ok(editor) = env_var("EDITOR")
         && !editor.is_empty()
     {
@@ -101,11 +109,8 @@ where
     }
 
     // Fallback to platform defaults (DEFAULT_EDITOR)
-    #[cfg(windows)]
-    return Ok("notepad".to_string());
-
-    #[cfg(not(windows))]
-    return Ok("vi".to_string());
+    let default_editor = if cfg!(windows) { "notepad" } else { "vi" };
+    Ok(default_editor.to_string())
 }
 
 #[cfg(test)]
@@ -123,90 +128,89 @@ mod tests {
     }
 
     #[test]
-    fn test_get_editor_command_git_editor_takes_precedence() {
+    fn git_editor_takes_precedence() {
         let env = mock_env(HashMap::from([
             ("GIT_EDITOR", "git-editor"),
             ("VISUAL", "visual-editor"),
             ("EDITOR", "editor"),
         ]));
-        let result = get_editor_command_impl(&env, false).unwrap();
-        assert_eq!(result, "git-editor");
+        let actual = get_editor_command_impl(&env, false).unwrap();
+        assert_eq!(actual, "git-editor");
     }
 
     #[test]
-    fn test_get_editor_command_visual_when_terminal_not_dumb() {
-        let env = mock_env(HashMap::from([
-            ("VISUAL", "visual-editor"),
-            ("EDITOR", "editor"),
-        ]));
-        let result = get_editor_command_impl(&env, false).unwrap();
-        assert_eq!(result, "visual-editor");
+    fn visual_when_terminal_not_dumb() {
+        let env = mock_env(visual_and_editor());
+        let actual = get_editor_command_impl(&env, false).unwrap();
+        assert_eq!(actual, "visual-editor");
     }
 
     #[test]
-    fn test_get_editor_command_skips_visual_when_terminal_dumb() {
-        let env = mock_env(HashMap::from([
-            ("VISUAL", "visual-editor"),
-            ("EDITOR", "editor"),
-        ]));
-        let result = get_editor_command_impl(&env, true).unwrap();
-        // Should skip VISUAL and use EDITOR
-        assert_eq!(result, "editor");
+    fn skips_visual_when_terminal_dumb() {
+        let env = mock_env(visual_and_editor());
+        let actual = get_editor_command_impl(&env, true).unwrap();
+        assert_eq!(actual, "editor", "Should skip VISUAL and use EDITOR");
     }
 
     #[test]
-    fn test_get_editor_command_uses_editor() {
+    fn uses_editor() {
         let env = mock_env(HashMap::from([("EDITOR", "editor")]));
-        let result = get_editor_command_impl(&env, false).unwrap();
-        assert_eq!(result, "editor");
+        let actual = get_editor_command_impl(&env, false).unwrap();
+        assert_eq!(actual, "editor");
     }
 
     #[test]
-    fn test_get_editor_command_fails_when_terminal_dumb_and_no_editor() {
+    fn fails_when_terminal_dumb_and_no_editor() {
         let env = mock_env(HashMap::new());
-        let result = get_editor_command_impl(&env, true);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Terminal is dumb"));
+        let actual = get_editor_command_impl(&env, true);
+        assert!(actual.is_err());
+        assert!(actual.unwrap_err().to_string().contains("Terminal is dumb"));
     }
 
     #[test]
-    fn test_get_editor_command_falls_back_to_default_when_no_vars_set() {
-        let env = mock_env(HashMap::new());
-        let result = get_editor_command_impl(&env, false).unwrap();
-        #[cfg(windows)]
-        assert_eq!(result, "notepad");
-        #[cfg(not(windows))]
-        assert_eq!(result, "vi");
-    }
-
-    #[test]
-    fn test_get_editor_command_ignores_empty_git_editor() {
+    fn ignores_empty_git_editor() {
         let env = mock_env(HashMap::from([
             ("GIT_EDITOR", ""),
             ("VISUAL", "visual-editor"),
             ("EDITOR", "editor"),
         ]));
-        let result = get_editor_command_impl(&env, false).unwrap();
-        // Empty GIT_EDITOR should be ignored, fall through to VISUAL
-        assert_eq!(result, "visual-editor");
+        let actual = get_editor_command_impl(&env, false).unwrap();
+        assert_eq!(
+            actual, "visual-editor",
+            "Empty GIT_EDITOR should be ignored, fall through to VISUAL"
+        );
     }
 
     #[test]
-    fn test_get_editor_command_ignores_empty_visual() {
+    fn ignores_empty_visual() {
         let env = mock_env(HashMap::from([("VISUAL", ""), ("EDITOR", "editor")]));
-        let result = get_editor_command_impl(&env, false).unwrap();
-        // Empty VISUAL should be ignored, fall through to EDITOR
-        assert_eq!(result, "editor");
+        let actual = get_editor_command_impl(&env, false).unwrap();
+        assert_eq!(
+            actual, "editor",
+            "Empty VISUAL should be ignored, fall through to EDITOR"
+        );
     }
 
     #[test]
-    fn test_get_editor_command_ignores_empty_editor() {
+    fn ignores_empty_editor() {
         let env = mock_env(HashMap::from([("EDITOR", "")]));
-        let result = get_editor_command_impl(&env, false).unwrap();
-        // Empty EDITOR should be ignored, fall back to default
-        #[cfg(windows)]
-        assert_eq!(result, "notepad");
-        #[cfg(not(windows))]
-        assert_eq!(result, "vi");
+        let actual = get_editor_command_impl(&env, false).unwrap();
+        assert_eq!(
+            actual, PLATFORM_DEFAULT,
+            "Empty EDITOR should be ignored, fall back to default"
+        );
+    }
+
+    #[test]
+    fn falls_back_to_default_when_no_vars_set() {
+        let env = mock_env(HashMap::new());
+        let actual = get_editor_command_impl(&env, false).unwrap();
+        assert_eq!(actual, PLATFORM_DEFAULT);
+    }
+
+    const PLATFORM_DEFAULT: &str = if cfg!(windows) { "notepad" } else { "vi" };
+
+    pub fn visual_and_editor() -> HashMap<&'static str, &'static str> {
+        HashMap::from([("VISUAL", "visual-editor"), ("EDITOR", "editor")])
     }
 }
