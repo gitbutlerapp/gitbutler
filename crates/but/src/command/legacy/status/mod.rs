@@ -490,7 +490,6 @@ pub fn print_group(
             }
         }
     } else {
-        let mut id_map = IdMap::new_from_context(ctx)?;
         id_map.add_file_info_from_context(ctx)?;
         let id = id_map.unassigned().to_string().underline().blue();
         writeln!(
