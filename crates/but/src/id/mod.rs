@@ -1,3 +1,40 @@
+//! CLI ID generation and mapping for GitButler entities.
+//!
+//! This module provides a system for generating short, human-friendly IDs for various GitButler
+//! entities including branches, commits, and files. These IDs are used in the CLI to make commands
+//! more convenient and readable than using full SHA-1 hashes or long branch names.
+//!
+//! # Design
+//!
+//! The ID system works by:
+//! - Generating 2-character IDs for branches based on unique character pairs in branch names
+//! - Supporting partial SHA matching for commits (minimum 2 hex characters)
+//! - Using hash-based IDs for files (both uncommitted and committed)
+//! - Reserving strings of zeros (e.g., "00", "000") for the unassigned area
+//!
+//! # Examples
+//!
+//! ```ignore
+//! // For external crate usage
+//! use but::{IdMap, CliId};
+//! use but_ctx::Context;
+//!
+//! let ctx = Context::open(".")?;
+//! let id_map = IdMap::new_from_context(&ctx)?;
+//!
+//! // Parse a user-provided ID string
+//! let matches = id_map.parse_str("ab")?;
+//! for cli_id in matches {
+//!     match cli_id {
+//!         CliId::Branch { name, .. } => println!("Matched branch: {}", name),
+//!         CliId::Commit { oid } => println!("Matched commit: {}", oid),
+//!         _ => println!("Matched: {}", cli_id.kind_for_humans()),
+//!     }
+//! }
+//! ```
+
+#![forbid(missing_docs)]
+
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
@@ -13,25 +50,62 @@ use std::{
 #[cfg(test)]
 mod tests;
 
+/// A mapping from user-friendly CLI IDs to GitButler entities.
+///
+/// This structure maintains a bidirectional mapping between short, human-readable IDs
+/// and various GitButler entities including branches, commits, and files. It provides
+/// methods to parse user input into IDs and to generate IDs for specific entities.
+///
+/// # Lifecycle
+///
+/// 1. Create an `IdMap` using [`new()`](Self::new) or [`new_from_context()`](Self::new_from_context)
+/// 2. Optionally add file information using [`add_file_info()`](Self::add_file_info) or
+///    [`add_file_info_from_context()`](Self::add_file_info_from_context)
+/// 3. Use [`parse_str()`](Self::parse_str) to parse user input into matching IDs
+/// 4. Use specific methods like [`branch()`](Self::branch), [`uncommitted_file()`](Self::uncommitted_file),
+///    or [`committed_file()`](Self::committed_file) to get IDs for specific entities
 #[derive(Debug)]
 pub struct IdMap {
+    /// Maps branch names to their assigned CLI IDs
     branch_name_to_cli_id: HashMap<BString, CliId>,
+    /// Tracks all IDs that have been used to avoid collisions
     ids_used: HashSet<String>,
+    /// Commit IDs reachable from workspace tips with their first parent IDs
     workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
+    /// Commit IDs that are only on the remote
     remote_commit_ids: Vec<gix::ObjectId>,
+    /// The ID representing the unassigned area
     unassigned: CliId,
 
+    /// Uncommitted files with their assigned IDs
     uncommitted_files: BTreeSet<UncommittedFile>,
+    /// Committed files with their assigned IDs
     committed_files: BTreeSet<CommittedFile>,
 }
 
-/// Lifecycle
+/// Lifecycle methods for creating and initializing `IdMap` instances.
 impl IdMap {
-    /// Initialise CLI IDs for all information in the `RefInfo` structure for
-    /// `HEAD`. Callers that do not need to support files in the non-error
-    /// code path can use the return value as-is; when there is an error
-    /// (or if the caller needs to support files in the first place),
-    /// [Self::add_file_info()] can be called to enable parsing file IDs.
+    /// Initializes CLI IDs for all branches and commits in the given stacks.
+    ///
+    /// This method creates a new `IdMap` with IDs for branches and commits only.
+    /// To enable parsing of file IDs, call [`add_file_info()`](Self::add_file_info)
+    /// or [`add_file_info_from_context()`](Self::add_file_info_from_context) afterwards.
+    ///
+    /// # Algorithm
+    ///
+    /// For branches, this method:
+    /// 1. Analyzes all branch names to find unique 2-character alphanumeric pairs
+    /// 2. Avoids pairs that could be confused with commit SHA prefixes (hex digits)
+    /// 3. Falls back to hash-based IDs when no unique pair exists
+    /// 4. Generates an unassigned area ID with enough zeros to avoid collisions
+    ///
+    /// # Arguments
+    ///
+    /// * `stacks` - The stack information containing branches and commits from the workspace
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if branch name processing fails or if stack information is invalid.
     pub fn new(stacks: &[Stack]) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         let StacksInfo {
@@ -96,7 +170,21 @@ impl IdMap {
         })
     }
 
-    /// Enable parsing uncommitted and committed file IDs.
+    /// Enables parsing of uncommitted and committed file IDs.
+    ///
+    /// This method populates the `IdMap` with file information, allowing [`parse_str()`](Self::parse_str)
+    /// to recognize file IDs. It generates unique 2-character hash-based IDs for each file,
+    /// ensuring no collisions with existing branch and commit IDs.
+    ///
+    /// # Arguments
+    ///
+    /// * `changed_paths_fn` - A function that returns the changed file paths for a given commit
+    ///   and its parent. Used to identify all files in workspace commits.
+    /// * `hunk_assignments` - The list of uncommitted files in the worktree with their stack assignments
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file information retrieval fails or if ID generation encounters issues.
     fn add_file_info<F>(
         &mut self,
         changed_paths_fn: F,
@@ -147,9 +235,25 @@ impl IdMap {
     }
 }
 
-/// Thin wrappers around lifecycle methods for use with [Context].
+/// Convenience wrappers around lifecycle methods for use with [`Context`].
 impl IdMap {
-    /// Create a new instance from `ctx`, which is used to get [head info](but_workspace::head_info())
+    /// Creates a new instance from a context.
+    ///
+    /// This is a convenience method that extracts the necessary information from
+    /// the given context to initialize the `IdMap`. It retrieves head information
+    /// including all stacks and their associated branches and commits.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context from which to extract repository and workspace information
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Repository access fails
+    /// - Metadata access fails
+    /// - Head information retrieval fails
+    /// - `IdMap` initialization fails
     pub fn new_from_context(ctx: &Context) -> anyhow::Result<Self> {
         let guard = ctx.shared_worktree_access();
         let meta = ctx.meta(guard.read_permission())?;
@@ -166,11 +270,29 @@ impl IdMap {
     }
 }
 
-/// Add context for ID generation
+/// Methods for adding context to enable file ID generation.
 impl IdMap {
-    /// Use `ctx` to retrieve information around…
-    /// * …changed files in the worktree, taking their assignments into account.
-    /// * …all changes of all worktree commits
+    /// Adds file information from a context to enable file ID parsing.
+    ///
+    /// This convenience method retrieves file information from the given context,
+    /// including:
+    /// - Changed files in the worktree with their stack assignments
+    /// - All file changes in all workspace commits
+    ///
+    /// After calling this method, [`parse_str()`](Self::parse_str) will be able to
+    /// recognize file IDs in addition to branch and commit IDs.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context from which to extract file and worktree information
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Worktree changes cannot be retrieved
+    /// - Hunk assignments cannot be calculated
+    /// - Repository access fails
+    /// - Tree change computation fails
     pub fn add_file_info_from_context(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
         let worktree_dir = ctx.workdir()?;
         let hunk_assignments = if let Some(worktree_dir) = worktree_dir {
@@ -198,8 +320,38 @@ impl IdMap {
     }
 }
 
-/// Cli ID generation
+/// Methods for parsing and generating CLI IDs.
 impl IdMap {
+    /// Parses a user-provided string into matching CLI IDs.
+    ///
+    /// This method attempts to match the input string against all known entities
+    /// in the following priority order:
+    /// 1. Branch names (partial match)
+    /// 2. Commit SHA prefixes (if input is hexadecimal)
+    /// 3. File IDs (exact 2-character match)
+    /// 4. Unassigned area (if input is all zeros)
+    ///
+    /// Multiple matches may be returned if the input is ambiguous.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The user input string to parse (minimum 2 characters)
+    ///
+    /// # Returns
+    ///
+    /// A vector of matching [`CliId`]s, with duplicates removed while preserving order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input string is less than 2 characters long.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let matches = id_map.parse_str("ab")?;
+    /// // Could match a branch named "abc", a commit starting with "ab",
+    /// // or a file with ID "ab"
+    /// ```
     pub fn parse_str(&self, s: &str) -> anyhow::Result<Vec<CliId>> {
         if s.len() < 2 {
             return Err(anyhow::anyhow!(
@@ -265,6 +417,20 @@ impl IdMap {
         Ok(unique_matches)
     }
 
+    /// Returns the CLI ID for an uncommitted file.
+    ///
+    /// If the file has been added to the ID map via [`add_file_info()`](Self::add_file_info)
+    /// or [`add_file_info_from_context()`](Self::add_file_info_from_context), returns its
+    /// assigned ID. Otherwise, returns a default ID of "00".
+    ///
+    /// # Arguments
+    ///
+    /// * `assignment` - The stack ID to which the file is assigned, if any
+    /// * `path` - The path to the uncommitted file
+    ///
+    /// # Returns
+    ///
+    /// A [`CliId::UncommittedFile`] with either the assigned ID or "00" as a fallback.
     pub fn uncommitted_file(&self, assignment: Option<StackId>, path: &BStr) -> CliId {
         let sought = (assignment, path.to_owned());
         if let Some(UncommittedFile { id, .. }) = self.uncommitted_files.get(&sought) {
@@ -282,6 +448,20 @@ impl IdMap {
         }
     }
 
+    /// Returns the CLI ID for a committed file.
+    ///
+    /// If the file has been added to the ID map via [`add_file_info()`](Self::add_file_info)
+    /// or [`add_file_info_from_context()`](Self::add_file_info_from_context), returns its
+    /// assigned ID. Otherwise, returns a default ID of "00".
+    ///
+    /// # Arguments
+    ///
+    /// * `commit_oid` - The object ID of the commit containing the file
+    /// * `path` - The path to the file within the commit
+    ///
+    /// # Returns
+    ///
+    /// A [`CliId::CommittedFile`] with either the assigned ID or "00" as a fallback.
     pub fn committed_file(&self, commit_oid: gix::ObjectId, path: &BStr) -> CliId {
         let sought = (commit_oid, path.to_owned());
         if let Some(CommittedFile { id, .. }) = self.committed_files.get(&sought) {
@@ -299,8 +479,18 @@ impl IdMap {
         }
     }
 
-    /// Returns the ID for a branch of the given name. If no such ID exists,
-    /// generate one.
+    /// Returns the CLI ID for a branch by name.
+    ///
+    /// If the branch already has an assigned ID, returns it. Otherwise, generates
+    /// a new hash-based ID for the branch and caches it for future use.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the branch
+    ///
+    /// # Returns
+    ///
+    /// A reference to the [`CliId::Branch`] for this branch.
     pub fn branch(&mut self, name: &BStr) -> &CliId {
         self.branch_name_to_cli_id
             .entry(name.to_owned())
@@ -311,14 +501,35 @@ impl IdMap {
             })
     }
 
-    /// Represents the unassigned area. Its ID is a repeated string of '0', long
-    /// enough to disambiguate against any existing branch name.
+    /// Returns the CLI ID for the unassigned area.
+    ///
+    /// The unassigned area represents files and changes that are not assigned to any branch.
+    /// Its ID is a string of repeated '0' characters, with enough repetitions to ensure
+    /// it doesn't collide with any existing branch name.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the [`CliId::Unassigned`] representing the unassigned area.
     pub fn unassigned(&self) -> &CliId {
         &self.unassigned
     }
 }
 
+/// Private helper methods for `IdMap`.
 impl IdMap {
+    /// Finds all branches whose names contain the given substring.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The substring to search for in branch names
+    ///
+    /// # Returns
+    ///
+    /// A vector of [`CliId::Branch`] instances for all matching branches.
+    ///
+    /// # Errors
+    ///
+    /// Currently always succeeds, but returns `Result` for consistency with other methods.
     fn find_branches_by_name(&self, name: &BStr) -> anyhow::Result<Vec<CliId>> {
         let mut matches = Vec::new();
 
@@ -332,6 +543,13 @@ impl IdMap {
         Ok(matches)
     }
 
+    /// Returns an iterator over all commit IDs known to this ID map.
+    ///
+    /// This includes both workspace commits and remote-only commits.
+    ///
+    /// # Returns
+    ///
+    /// An iterator yielding references to all commit object IDs.
     fn workspace_and_remote_commit_ids(&self) -> impl Iterator<Item = &gix::ObjectId> {
         self.workspace_commit_and_first_parent_ids
             .iter()
@@ -340,40 +558,74 @@ impl IdMap {
     }
 }
 
+/// A user-friendly CLI ID that identifies a GitButler entity.
+///
+/// This enum represents the various types of entities that can be identified
+/// by short CLI IDs. Each variant contains the necessary information to
+/// uniquely identify the entity along with its short ID string.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum CliId {
+    /// An uncommitted file in the worktree.
     UncommittedFile {
+        /// The stack to which the file is assigned, if any
         assignment: Option<StackId>,
+        /// The file path relative to the repository root
         path: BString,
+        /// The short CLI ID for this file (typically 2 characters)
         id: String,
     },
+    /// A file that exists in a commit.
     CommittedFile {
+        /// The object ID of the commit containing the file
         commit_oid: gix::ObjectId,
+        /// The file path relative to the repository root
         path: BString,
+        /// The short CLI ID for this file (typically 2 characters)
         id: String,
     },
+    /// A branch.
     Branch {
+        /// The full name of the branch
         name: String,
+        /// The short CLI ID for this branch (typically 2 characters)
         id: String,
     },
+    /// A commit identified by its SHA.
     Commit {
+        /// The object ID of the commit
         oid: gix::ObjectId,
     },
+    /// The unassigned area representing uncommitted changes not assigned to any branch.
     Unassigned {
+        /// The CLI ID for the unassigned area (a string of zeros)
         id: String,
     },
 }
 
-/// Lifecycle
+/// Lifecycle methods for creating `CliId` instances.
 impl CliId {
-    /// Create a CliID identifying `oid`.
+    /// Creates a CLI ID for a commit.
+    ///
+    /// # Arguments
+    ///
+    /// * `oid` - The object ID of the commit
+    ///
+    /// # Returns
+    ///
+    /// A [`CliId::Commit`] instance identifying the given commit.
     pub fn commit(oid: gix::ObjectId) -> Self {
         CliId::Commit { oid }
     }
 }
 
-/// Access
+/// Methods for accessing `CliId` information.
 impl CliId {
+    /// Returns a human-readable description of the entity type.
+    ///
+    /// # Returns
+    ///
+    /// A string describing what kind of entity this ID represents, such as
+    /// "a branch", "a commit", "an uncommitted file", etc.
     pub fn kind_for_humans(&self) -> &'static str {
         match self {
             CliId::UncommittedFile { .. } => "an uncommitted file",
@@ -384,7 +636,14 @@ impl CliId {
         }
     }
 
-    /// Obtain an ID-string from this instance, for human usage as it's meant to be short.
+    /// Returns the short ID string for display to users.
+    ///
+    /// This returns the abbreviated form suitable for command-line usage,
+    /// typically 2 characters for most entities or a short SHA prefix for commits.
+    ///
+    /// # Returns
+    ///
+    /// A borrowed or owned string containing the short ID.
     pub fn to_short_str(&self) -> Cow<'_, str> {
         match self {
             CliId::UncommittedFile { id, .. }
@@ -402,17 +661,38 @@ impl Display for CliId {
     }
 }
 
-/// All information from HEAD's [Stack] objects needed for branch and commit CLI IDs.
+/// Information extracted from stacks needed for branch and commit CLI ID generation.
+///
+/// This structure aggregates branch names and commit IDs from all stacks in the workspace,
+/// providing the raw data needed to generate CLI IDs for branches and commits.
 struct StacksInfo {
     /// Branch names in unspecified order.
     branch_names: Vec<BString>,
-    /// Commit IDs of commits reachable from the workspace tip with their first parent IDs in unspecified order.
-    /// The first parent ID is stored in case a diff needs to be performed on the commit.
+    /// Commit IDs of commits reachable from workspace tips paired with their first parent IDs.
+    /// The parent ID is stored to enable computing diffs on demand.
     workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
-    /// Commits that are reachable from the remote-tracking only, i.e. are only on the remote, in unspecified order.
+    /// Commit IDs that are only reachable from remote-tracking branches (not in workspace).
     remote_commit_ids: Vec<gix::ObjectId>,
 }
 
+/// Extracts branch names and commit IDs from the given stacks.
+///
+/// This function iterates through all stacks and their segments, collecting:
+/// - Branch names from ref info
+/// - Workspace commit IDs with their first parents
+/// - Remote-only commit IDs
+///
+/// # Arguments
+///
+/// * `stacks` - The stacks to process
+///
+/// # Returns
+///
+/// A [`StacksInfo`] containing the aggregated information.
+///
+/// # Errors
+///
+/// Returns an error if stack processing fails (though currently this cannot fail).
 fn get_stacks_info(stacks: &[Stack]) -> anyhow::Result<StacksInfo> {
     let mut branch_names: Vec<BString> = Vec::new();
     let mut workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)> =
@@ -440,14 +720,36 @@ fn get_stacks_info(stacks: &[Stack]) -> anyhow::Result<StacksInfo> {
     })
 }
 
-/// All file information needed for uncommitted file and committed file CLI IDs.
+/// Information about files needed for CLI ID generation.
+///
+/// This structure holds lists of uncommitted and committed files that will
+/// be assigned CLI IDs, organized to facilitate efficient ID generation.
 struct FileInfo {
-    /// Uncommitted files ordered by assignment, then filename.
+    /// Uncommitted files paired with their stack assignments, ordered by assignment then filename.
     uncommitted_files: Vec<(Option<StackId>, BString)>,
-    /// Committed files ordered by commit ID, then filename.
+    /// Committed files paired with their commit IDs, ordered by commit ID then filename.
     committed_files: Vec<(gix::ObjectId, BString)>,
 }
 
+/// Extracts file information from workspace commits and worktree status.
+///
+/// This function processes workspace commits to find all changed files in each commit,
+/// and combines this with hunk assignment information to identify uncommitted files
+/// in the worktree.
+///
+/// # Arguments
+///
+/// * `workspace_commit_and_first_parent_ids` - Commit IDs paired with their first parents
+/// * `changed_paths_fn` - A function that returns changed file paths for a given commit
+/// * `hunk_assignments` - Hunk assignments representing uncommitted changes in the worktree
+///
+/// # Returns
+///
+/// A [`FileInfo`] containing lists of uncommitted and committed files.
+///
+/// # Errors
+///
+/// Returns an error if the `changed_paths_fn` fails for any commit.
 fn get_file_info_from_workspace_commits_and_status<F>(
     workspace_commit_and_first_parent_ids: &[(gix::ObjectId, Option<gix::ObjectId>)],
     mut changed_paths_fn: F,
@@ -475,10 +777,20 @@ where
     })
 }
 
-/// a.cmp(b) == a.id.cmp(&b.id) for all a and b
+/// Internal representation of an uncommitted file with its CLI ID.
+///
+/// This structure is used to store uncommitted files in a `BTreeSet` where ordering
+/// is determined by the ID field, enabling efficient lookups by both ID and
+/// (assignment, path) tuple.
+///
+/// # Invariant
+///
+/// For all instances `a` and `b`: `a.cmp(b) == a.id.cmp(&b.id)`
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct UncommittedFile {
+    /// The file's stack assignment and path
     assignment_path: (Option<StackId>, BString),
+    /// The short CLI ID assigned to this file
     id: String,
 }
 impl Borrow<(Option<StackId>, BString)> for UncommittedFile {
@@ -492,10 +804,20 @@ impl Borrow<str> for UncommittedFile {
     }
 }
 
-/// a.cmp(b) == a.id.cmp(&b.id) for all a and b
+/// Internal representation of a committed file with its CLI ID.
+///
+/// This structure is used to store committed files in a `BTreeSet` where ordering
+/// is determined by the ID field, enabling efficient lookups by both ID and
+/// (commit_oid, path) tuple.
+///
+/// # Invariant
+///
+/// For all instances `a` and `b`: `a.cmp(b) == a.id.cmp(&b.id)`
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct CommittedFile {
+    /// The file's commit object ID and path
     commit_oid_path: (gix::ObjectId, BString),
+    /// The short CLI ID assigned to this file
     id: String,
 }
 impl Borrow<(gix::ObjectId, BString)> for CommittedFile {
@@ -509,10 +831,34 @@ impl Borrow<str> for CommittedFile {
     }
 }
 
+/// Generates a 2-character hash string from the input string.
+///
+/// This is a convenience function that combines [`int_hash()`] and [`string_hash()`]
+/// to produce a short, human-readable ID from an arbitrary string.
+///
+/// # Arguments
+///
+/// * `input` - The string to hash
+///
+/// # Returns
+///
+/// A 2-character lowercase string suitable for use as a CLI ID.
 fn hash(input: &str) -> String {
     string_hash(int_hash(input))
 }
 
+/// Computes a simple integer hash of the input string.
+///
+/// Uses a basic polynomial rolling hash algorithm for simplicity and speed.
+/// This is not a cryptographic hash and is only used for generating short IDs.
+///
+/// # Arguments
+///
+/// * `input` - The string to hash
+///
+/// # Returns
+///
+/// A 64-bit unsigned integer hash value.
 fn int_hash(input: &str) -> u64 {
     let mut hash = 0u64;
     for byte in input.bytes() {
@@ -521,6 +867,22 @@ fn int_hash(input: &str) -> u64 {
     hash
 }
 
+/// Converts an integer hash into a 2-character string ID.
+///
+/// The generated ID uses:
+/// - First character: one of 'g'-'z' (20 options) to avoid hex digit collisions
+/// - Second character: one of '0'-'9' or 'a'-'z' (36 options)
+///
+/// This provides 720 unique combinations while avoiding IDs that could be
+/// confused with commit SHA prefixes (which use 'a'-'f' and '0'-'9').
+///
+/// # Arguments
+///
+/// * `hash` - The integer hash value to convert
+///
+/// # Returns
+///
+/// A 2-character lowercase string.
 fn string_hash(mut hash: u64) -> String {
     // First character: g-z (20 options)
     let first_chars = "ghijklmnopqrstuvwxyz";
