@@ -119,7 +119,7 @@ fn resolve_branch_name(
     branch_id: &str,
 ) -> anyhow::Result<String> {
     // Try to resolve as CliId first
-    let cli_ids = id_map.parse_str(branch_id)?;
+    let cli_ids = id_map.resolve_entity_to_ids(branch_id)?;
 
     if cli_ids.is_empty() {
         // If no CliId matches, treat as literal branch name but validate it exists

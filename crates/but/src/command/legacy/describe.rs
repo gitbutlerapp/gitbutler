@@ -18,7 +18,7 @@ pub(crate) fn describe_target(
     id_map.add_file_info_from_context(&mut ctx)?;
 
     // Resolve the commit ID
-    let cli_ids = id_map.parse_str(target)?;
+    let cli_ids = id_map.resolve_entity_to_ids(target)?;
 
     if cli_ids.is_empty() {
         bail!("ID '{}' not found", target);
@@ -38,7 +38,7 @@ pub(crate) fn describe_target(
         CliId::Branch { name, .. } => {
             edit_branch_name(&ctx, project, name, out, message)?;
         }
-        CliId::Commit { oid } => {
+        CliId::Commit(oid) => {
             edit_commit_message_by_id(&ctx, project, *oid, out, message)?;
         }
         _ => {

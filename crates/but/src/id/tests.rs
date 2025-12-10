@@ -6,16 +6,16 @@ use bstr::BString;
 fn commit_id_works_with_two_characters() -> anyhow::Result<()> {
     let id1 = id(1);
     let stacks = &[stack([segment("foo", [id1], None, [])])];
-    let id_map = IdMap::new(stacks)?;
+    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
 
-    let expected = [CliId::Commit { oid: id1 }];
+    let expected = [CliId::Commit(id1)];
     assert_eq!(
-        id_map.parse_str("01")?,
+        id_map.resolve_entity_to_ids("01")?,
         expected,
         "two characters are sufficient to parse a commit ID"
     );
     assert_eq!(
-        id_map.parse_str("010")?,
+        id_map.resolve_entity_to_ids("010")?,
         expected,
         "three characters work too"
     );
@@ -25,10 +25,10 @@ fn commit_id_works_with_two_characters() -> anyhow::Result<()> {
 #[test]
 fn multiple_zeroes_as_unassigned_area() -> anyhow::Result<()> {
     let stacks = &[stack([segment("foo", [id(1)], None, [])])];
-    let id_map = IdMap::new(stacks)?;
+    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
 
     assert_eq!(
-        id_map.parse_str("000")?,
+        id_map.resolve_entity_to_ids("000")?,
         [CliId::Unassigned { id: "00".into() }],
         "any number of 0s interpreted as the unassigned area"
     );
@@ -38,7 +38,7 @@ fn multiple_zeroes_as_unassigned_area() -> anyhow::Result<()> {
 #[test]
 fn unassigned_area_id_is_unambiguous() -> anyhow::Result<()> {
     let stacks = &[stack([segment("branch001", [id(1)], None, [])])];
-    let id_map = IdMap::new(stacks)?;
+    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
 
     assert_eq!(
         id_map.unassigned().to_string(),
@@ -51,14 +51,14 @@ fn unassigned_area_id_is_unambiguous() -> anyhow::Result<()> {
 #[test]
 fn branch_avoid_nonalphanumeric() -> anyhow::Result<()> {
     let stacks = &[stack([segment("x-yz", [id(1)], None, [])])];
-    let id_map = IdMap::new(stacks)?;
+    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
 
     let expected = [CliId::Branch {
         name: "x-yz".into(),
         id: "yz".into(),
     }];
     assert_eq!(
-        id_map.parse_str("x-yz")?,
+        id_map.resolve_entity_to_ids("x-yz")?,
         expected,
         "avoids non-alphanumeric, taking first alphanumeric pair"
     );
@@ -68,14 +68,14 @@ fn branch_avoid_nonalphanumeric() -> anyhow::Result<()> {
 #[test]
 fn branch_avoid_hexdigit() -> anyhow::Result<()> {
     let stacks = &[stack([segment("0ax", [id(1)], None, [])])];
-    let id_map = IdMap::new(stacks)?;
+    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
 
     let expected = [CliId::Branch {
         name: "0ax".into(),
         id: "ax".into(),
     }];
     assert_eq!(
-        id_map.parse_str("0ax")?,
+        id_map.resolve_entity_to_ids("0ax")?,
         expected,
         "avoids hexdigit pair which can be confused with a commit ID"
     );
@@ -88,7 +88,7 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
         stack([segment("substring", [id(1)], None, [])]),
         stack([segment("supersubstring", [id(2)], None, [])]),
     ];
-    let id_map = IdMap::new(stacks)?;
+    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
 
     // The ID of the substring is a hash and cannot be asserted, so only
     // assert the supersubstring.
@@ -97,7 +97,7 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
         id: "up".into(),
     }];
     assert_eq!(
-        id_map.parse_str("supersubstring")?,
+        id_map.resolve_entity_to_ids("supersubstring")?,
         expected,
         "'su' would collide with substring, so 'up' is chosen"
     );
@@ -107,7 +107,7 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
 #[test]
 fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     let stacks = &[stack([segment("h0", [id(2)], Some(id(1)), [])])];
-    let mut id_map = IdMap::new(stacks)?;
+    let mut id_map = IdMap::new_for_branches_and_commits(stacks)?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<BString>> {
@@ -127,7 +127,7 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     id_map.add_file_info(changed_paths_fn, hunk_assignments)?;
 
     // Uncommitted files come first
-    insta::assert_debug_snapshot!(id_map.parse_str("g0")?, @r#"
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("g0")?, @r#"
     [
         UncommittedFile {
             assignment: None,
@@ -138,7 +138,7 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     "#);
 
     // uncommitted files do not collide with branches
-    insta::assert_debug_snapshot!(id_map.parse_str("h0")?, @r#"
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("h0")?, @r#"
     [
         Branch {
             name: "h0",
@@ -148,7 +148,7 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     "#);
 
     // uncommitted files also don't collide with themselves
-    insta::assert_debug_snapshot!(id_map.parse_str("i0")?, @r#"
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("i0")?, @r#"
     [
         UncommittedFile {
             assignment: None,
@@ -159,10 +159,10 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     "#);
 
     // then come committed files, as per incremented prefix
-    insta::assert_debug_snapshot!(id_map.parse_str("j0")?, @r#"
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("j0")?, @r#"
     [
         CommittedFile {
-            commit_oid: Sha1(0202020202020202020202020202020202020202),
+            commit_id: Sha1(0202020202020202020202020202020202020202),
             path: "committed1.txt",
             id: "j0",
         },
@@ -170,10 +170,10 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     "#);
 
     // committed files also don't collide with themselves
-    insta::assert_debug_snapshot!(id_map.parse_str("k0")?, @r#"
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("k0")?, @r#"
     [
         CommittedFile {
-            commit_oid: Sha1(0202020202020202020202020202020202020202),
+            commit_id: Sha1(0202020202020202020202020202020202020202),
             path: "committed2.txt",
             id: "k0",
         },

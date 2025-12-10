@@ -18,7 +18,7 @@ pub(crate) fn handle(
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let mut id_map = IdMap::new_from_context(ctx)?;
     id_map.add_file_info_from_context(ctx)?;
-    let target_result = id_map.parse_str(target_str)?;
+    let target_result = id_map.resolve_entity_to_ids(target_str)?;
     if target_result.len() != 1 {
         return Err(anyhow::anyhow!(
             "Target {} is ambiguous: {:?}",
@@ -32,7 +32,7 @@ pub(crate) fn handle(
     }
     match target_result[0].clone() {
         CliId::Branch { name, .. } => mark_branch(ctx, name, delete, out),
-        CliId::Commit { oid } => mark_commit(ctx, oid, delete, out),
+        CliId::Commit(oid) => mark_commit(ctx, oid, delete, out),
         _ => bail!("Nope"),
     }
 }

@@ -40,7 +40,7 @@ pub(crate) fn handle(
                 CliId::UncommittedFile {
                     path, assignment, ..
                 },
-                CliId::Commit { oid },
+                CliId::Commit(oid),
             ) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::file_to_commit(ctx, path.as_ref(), *assignment, oid, out)?;
@@ -55,7 +55,7 @@ pub(crate) fn handle(
             (CliId::Unassigned { .. }, CliId::Unassigned { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
-            (CliId::Unassigned { .. }, CliId::Commit { oid }) => {
+            (CliId::Unassigned { .. }, CliId::Commit(oid)) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, None, oid, out)?;
             }
@@ -66,15 +66,15 @@ pub(crate) fn handle(
             (CliId::Commit { .. }, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
-            (CliId::Commit { oid }, CliId::Unassigned { .. }) => {
+            (CliId::Commit(oid), CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, OperationKind::UndoCommit);
                 undo::commit(ctx, oid, out)?;
             }
-            (CliId::Commit { oid: source }, CliId::Commit { oid: destination }) => {
+            (CliId::Commit(source), CliId::Commit(destination)) => {
                 create_snapshot(ctx, OperationKind::SquashCommit);
                 squash::commits(ctx, source, destination, out)?;
             }
-            (CliId::Commit { oid }, CliId::Branch { name, .. }) => {
+            (CliId::Commit(oid), CliId::Branch { name, .. }) => {
                 create_snapshot(ctx, OperationKind::MoveCommit);
                 move_commit::to_branch(ctx, oid, name, out)?;
             }
@@ -85,7 +85,7 @@ pub(crate) fn handle(
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_all(ctx, Some(from), None, out)?;
             }
-            (CliId::Branch { name, .. }, CliId::Commit { oid }) => {
+            (CliId::Branch { name, .. }, CliId::Commit(oid)) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, Some(name), oid, out)?;
             }
@@ -104,7 +104,9 @@ pub(crate) fn handle(
             }
             (
                 CliId::CommittedFile {
-                    path, commit_oid, ..
+                    path,
+                    commit_id: commit_oid,
+                    ..
                 },
                 CliId::Branch { name, .. },
             ) => {
@@ -113,9 +115,11 @@ pub(crate) fn handle(
             }
             (
                 CliId::CommittedFile {
-                    path, commit_oid, ..
+                    path,
+                    commit_id: commit_oid,
+                    ..
                 },
-                CliId::Commit { oid },
+                CliId::Commit(oid),
             ) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
                 commits::commited_file_to_another_commit(
@@ -128,7 +132,9 @@ pub(crate) fn handle(
             }
             (
                 CliId::CommittedFile {
-                    path, commit_oid, ..
+                    path,
+                    commit_id: commit_oid,
+                    ..
                 },
                 CliId::Unassigned { .. },
             ) => {
@@ -166,7 +172,7 @@ fn ids(
     target: &str,
 ) -> anyhow::Result<(Vec<CliId>, CliId)> {
     let sources = parse_sources(ctx, id_map, source)?;
-    let target_result = id_map.parse_str(target)?;
+    let target_result = id_map.resolve_entity_to_ids(target)?;
     if target_result.len() != 1 {
         if target_result.is_empty() {
             return Err(anyhow::anyhow!(
@@ -177,7 +183,7 @@ fn ids(
             let matches: Vec<String> = target_result
                 .iter()
                 .map(|id| match id {
-                    CliId::Commit { oid } => {
+                    CliId::Commit(oid) => {
                         format!("{} (commit {})", id, &oid.to_string()[..7])
                     }
                     CliId::Branch { name, .. } => format!("{id} (branch '{name}')"),
@@ -209,7 +215,7 @@ pub(crate) fn parse_sources(
     }
     // Single source
     else {
-        let source_result = id_map.parse_str(source)?;
+        let source_result = id_map.resolve_entity_to_ids(source)?;
         if source_result.len() != 1 {
             if source_result.is_empty() {
                 return Err(anyhow::anyhow!(
@@ -220,7 +226,7 @@ pub(crate) fn parse_sources(
                 let matches: Vec<String> = source_result
                     .iter()
                     .map(|id| match id {
-                        CliId::Commit { oid } => {
+                        CliId::Commit(oid) => {
                             format!("{} (commit {})", id, &oid.to_string()[..7])
                         }
                         CliId::Branch { name, .. } => format!("{id} (branch '{name}')"),
@@ -251,8 +257,8 @@ fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Resul
     let end_str = parts[1];
 
     // Get the start and end IDs
-    let start_matches = id_map.parse_str(start_str)?;
-    let end_matches = id_map.parse_str(end_str)?;
+    let start_matches = id_map.resolve_entity_to_ids(start_str)?;
+    let end_matches = id_map.resolve_entity_to_ids(end_str)?;
 
     if start_matches.len() != 1 {
         return Err(anyhow::anyhow!(
@@ -329,7 +335,7 @@ fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::
                         if let Some(stack_id) = assignment.stack_id
                             && stack.id == Some(stack_id)
                         {
-                            let file_id = id_map.uncommitted_file(
+                            let file_id = id_map.resolve_uncommitted_file_or_unassigned(
                                 assignment.stack_id,
                                 assignment.path_bytes.as_ref(),
                             );
@@ -347,7 +353,8 @@ fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::
     for assignments in by_file.values() {
         for assignment in assignments {
             if assignment.stack_id.is_none() {
-                let file_id = id_map.uncommitted_file(None, assignment.path_bytes.as_ref());
+                let file_id = id_map
+                    .resolve_uncommitted_file_or_unassigned(None, assignment.path_bytes.as_ref());
                 if !all_files.contains(&file_id) {
                     all_files.push(file_id);
                 }
@@ -364,7 +371,7 @@ fn parse_list(id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
 
     for part in parts {
         let part = part.trim();
-        let matches = id_map.parse_str(part)?;
+        let matches = id_map.resolve_entity_to_ids(part)?;
         if matches.len() != 1 {
             if matches.is_empty() {
                 return Err(anyhow::anyhow!(
