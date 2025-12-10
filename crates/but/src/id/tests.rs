@@ -4,19 +4,19 @@ use bstr::BString;
 
 #[test]
 fn commit_id_works_with_two_characters() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("foo", [id(1)], None, [])])];
+    let id1 = id(1);
+    let stacks = &[stack([segment("foo", [id1], None, [])])];
     let id_map = IdMap::new(stacks)?;
 
-    assert!(
-        matches!(
-        id_map.parse_str("01")?.as_slice(),
-        [CliId::Commit{oid}] if *oid == id(1)),
+    let expected = [CliId::Commit { oid: id1 }];
+    assert_eq!(
+        id_map.parse_str("01")?,
+        expected,
         "two characters are sufficient to parse a commit ID"
     );
-    assert!(
-        matches!(
-        id_map.parse_str("010")?.as_slice(),
-        [CliId::Commit{oid}] if *oid == id(1)),
+    assert_eq!(
+        id_map.parse_str("010")?,
+        expected,
         "three characters work too"
     );
     Ok(())
@@ -27,11 +27,9 @@ fn multiple_zeroes_as_unassigned_area() -> anyhow::Result<()> {
     let stacks = &[stack([segment("foo", [id(1)], None, [])])];
     let id_map = IdMap::new(stacks)?;
 
-    assert!(
-        matches!(
-            id_map.parse_str("000")?.as_slice(),
-            [CliId::Unassigned { .. }]
-        ),
+    assert_eq!(
+        id_map.parse_str("000")?,
+        [CliId::Unassigned { id: "00".into() }],
         "any number of 0s interpreted as the unassigned area"
     );
     Ok(())
@@ -55,10 +53,13 @@ fn branch_avoid_nonalphanumeric() -> anyhow::Result<()> {
     let stacks = &[stack([segment("x-yz", [id(1)], None, [])])];
     let id_map = IdMap::new(stacks)?;
 
-    assert!(
-        matches!(
-        id_map.parse_str("x-yz")?.as_slice(),
-        [CliId::Branch{name, id}] if name == "x-yz" && id == "yz"),
+    let expected = [CliId::Branch {
+        name: "x-yz".into(),
+        id: "yz".into(),
+    }];
+    assert_eq!(
+        id_map.parse_str("x-yz")?,
+        expected,
         "avoids non-alphanumeric, taking first alphanumeric pair"
     );
     Ok(())
@@ -69,10 +70,13 @@ fn branch_avoid_hexdigit() -> anyhow::Result<()> {
     let stacks = &[stack([segment("0ax", [id(1)], None, [])])];
     let id_map = IdMap::new(stacks)?;
 
-    assert!(
-        matches!(
-        id_map.parse_str("0ax")?.as_slice(),
-        [CliId::Branch{name, id}] if name == "0ax" && id == "ax"),
+    let expected = [CliId::Branch {
+        name: "0ax".into(),
+        id: "ax".into(),
+    }];
+    assert_eq!(
+        id_map.parse_str("0ax")?,
+        expected,
         "avoids hexdigit pair which can be confused with a commit ID"
     );
     Ok(())
@@ -88,10 +92,13 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
 
     // The ID of the substring is a hash and cannot be asserted, so only
     // assert the supersubstring.
-    assert!(
-        matches!(
-        id_map.parse_str("supersubstring")?.as_slice(),
-        [CliId::Branch{name, id}] if name == "supersubstring" && id == "up"),
+    let expected = [CliId::Branch {
+        name: "supersubstring".into(),
+        id: "up".into(),
+    }];
+    assert_eq!(
+        id_map.parse_str("supersubstring")?,
+        expected,
         "'su' would collide with substring, so 'up' is chosen"
     );
     Ok(())
@@ -119,36 +126,59 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     ];
     id_map.add_file_info(changed_paths_fn, hunk_assignments)?;
 
-    assert!(
-        matches!(
-        id_map.parse_str("g0")?.as_slice(),
-        [CliId::UncommittedFile{path,..}] if path == b"uncommitted1.txt"),
-        "Uncommitted files come first"
-    );
-    assert!(
-        matches!(
-        id_map.parse_str("h0")?.as_slice(),
-        [CliId::Branch{name,..}] if name == "h0"),
-        "uncommitted files do not collide with branches"
-    );
-    assert!(
-        matches!(
-        id_map.parse_str("i0")?.as_slice(),
-        [CliId::UncommittedFile{path,..}] if path == b"uncommitted2.txt"),
-        "uncommitted files also don't collide with themselves"
-    );
-    assert!(
-        matches!(
-        id_map.parse_str("j0")?.as_slice(),
-        [CliId::CommittedFile{commit_oid, path,..}] if *commit_oid == id(2) && path == b"committed1.txt"),
-        "then come committed files, as per incremented prefix"
-    );
-    assert!(
-        matches!(
-        id_map.parse_str("k0")?.as_slice(),
-        [CliId::CommittedFile{commit_oid, path,..}] if *commit_oid == id(2) && path == b"committed2.txt"),
-        "committed files also don't collide with themselves"
-    );
+    // Uncommitted files come first
+    insta::assert_debug_snapshot!(id_map.parse_str("g0")?, @r#"
+    [
+        UncommittedFile {
+            assignment: None,
+            path: "uncommitted1.txt",
+            id: "g0",
+        },
+    ]
+    "#);
+
+    // uncommitted files do not collide with branches
+    insta::assert_debug_snapshot!(id_map.parse_str("h0")?, @r#"
+    [
+        Branch {
+            name: "h0",
+            id: "h0",
+        },
+    ]
+    "#);
+
+    // uncommitted files also don't collide with themselves
+    insta::assert_debug_snapshot!(id_map.parse_str("i0")?, @r#"
+    [
+        UncommittedFile {
+            assignment: None,
+            path: "uncommitted2.txt",
+            id: "i0",
+        },
+    ]
+    "#);
+
+    // then come committed files, as per incremented prefix
+    insta::assert_debug_snapshot!(id_map.parse_str("j0")?, @r#"
+    [
+        CommittedFile {
+            commit_oid: Sha1(0202020202020202020202020202020202020202),
+            path: "committed1.txt",
+            id: "j0",
+        },
+    ]
+    "#);
+
+    // committed files also don't collide with themselves
+    insta::assert_debug_snapshot!(id_map.parse_str("k0")?, @r#"
+    [
+        CommittedFile {
+            commit_oid: Sha1(0202020202020202020202020202020202020202),
+            path: "committed2.txt",
+            id: "k0",
+        },
+    ]
+    "#);
     Ok(())
 }
 
