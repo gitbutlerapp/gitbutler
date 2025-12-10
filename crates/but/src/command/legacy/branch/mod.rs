@@ -91,7 +91,7 @@ pub async fn handle(
                 // Use the new create_reference API when anchor is provided
 
                 // Resolve the anchor string to a CliId
-                let anchor_ids = id_map.parse_str(&anchor_str)?;
+                let anchor_ids = id_map.resolve_entity_to_ids(&anchor_str)?;
                 if anchor_ids.is_empty() {
                     return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
                 }
@@ -106,7 +106,7 @@ pub async fn handle(
                 // Create the anchor for create_reference
                 // as dependent branch
                 match anchor_id {
-                    CliId::Commit { oid } => {
+                    CliId::Commit(oid) => {
                         Some(but_api::legacy::stack::create_reference::Anchor::AtCommit {
                             commit_id: (*oid).into(),
                             position: but_workspace::branch::create_reference::Position::Above,

@@ -71,7 +71,7 @@ pub(crate) async fn worktree(
             ..Default::default()
         },
     )?;
-    let mut id_map = IdMap::new(&head_info.stacks)?;
+    let mut id_map = IdMap::new_for_branches_and_commits(&head_info.stacks)?;
     id_map.add_file_info_from_context(ctx)?;
 
     let review_map = if review {
@@ -389,7 +389,7 @@ pub fn print_group(
         let mut first = true;
         for branch in &group.branch_details {
             let id = id_map
-                .branch(branch.name.as_ref())
+                .resolve_branch_or_insert(branch.name.as_ref())
                 .to_string()
                 .underline()
                 .blue();
@@ -665,7 +665,7 @@ fn print_commit(
     if show_files {
         for change in &commit_details.diff_with_first_parent {
             let cid = id_map
-                .committed_file(commit_id, change.path.as_ref())
+                .resolve_file_changed_in_commit_or_unassigned(commit_id, change.path.as_ref())
                 .to_string()
                 .blue()
                 .underline();

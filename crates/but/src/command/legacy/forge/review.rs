@@ -97,7 +97,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
     let mut id_map = IdMap::new_from_context(&ctx)?;
     id_map.add_file_info_from_context(&mut ctx)?;
     let branch_ids = id_map
-        .parse_str(branch_id)?
+        .resolve_entity_to_ids(branch_id)?
         .iter()
         .filter_map(|clid| match clid {
             CliId::Branch { name, .. } => Some(name.clone()),

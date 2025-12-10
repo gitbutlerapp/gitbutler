@@ -25,7 +25,7 @@ pub(crate) fn insert_blank_commit(
     id_map.add_file_info_from_context(&mut ctx)?;
 
     // Resolve the target ID
-    let cli_ids = id_map.parse_str(target)?;
+    let cli_ids = id_map.resolve_entity_to_ids(target)?;
 
     if cli_ids.is_empty() {
         bail!("Target '{}' not found", target);
@@ -43,7 +43,7 @@ pub(crate) fn insert_blank_commit(
 
     // Determine target commit ID and offset based on CLI ID type
     let (target_commit_id, offset, success_message) = match cli_id {
-        CliId::Commit { oid } => {
+        CliId::Commit(oid) => {
             // For commits, insert before (offset 0) and use the commit ID directly
             (
                 *oid,
@@ -240,7 +240,7 @@ pub(crate) fn commit(
             .find(|branch| branch.name == hint)
             .or_else(|| {
                 // If no exact match, try to parse as CLI ID and match
-                if let Ok(cli_ids) = id_map.parse_str(hint) {
+                if let Ok(cli_ids) = id_map.resolve_entity_to_ids(hint) {
                     for cli_id in cli_ids {
                         if let CliId::Branch { name, .. } = cli_id
                             && let Some(branch) =
@@ -418,7 +418,7 @@ fn find_stack_by_hint(
     }
 
     // Try CLI ID parsing
-    let cli_ids = id_map.parse_str(hint).ok()?;
+    let cli_ids = id_map.resolve_entity_to_ids(hint).ok()?;
     for cli_id in cli_ids {
         if let CliId::Branch { name, .. } = cli_id {
             for (stack_id, stack_details) in stacks {
