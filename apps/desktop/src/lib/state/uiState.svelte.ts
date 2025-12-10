@@ -1,3 +1,4 @@
+import { BranchesSelectionActions } from '$lib/branches/branchesSelection';
 import { type SnapPositionName } from '$lib/floating/types';
 import { InjectionToken } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
@@ -41,10 +42,15 @@ export type StackState = {
 	addedDirs: string[];
 };
 
-type BranchesSelection = {
+// See lib/branches/branchesSelection.ts for actions to mutate this state
+export type BranchesSelection = {
 	branchName?: string;
 	commitId?: string;
 	stackId?: string;
+	// TODO(mathijs): Remove branch "properties" from this object and make the relevant components
+	// look them up reactively, because currently there are still bugs where you e.g. unapply a
+	// branch and the UI will keep showing the branch as applied because there hasn't been a
+	// selection event.
 	remote?: string;
 	hasLocal?: boolean;
 	isTarget?: boolean;
@@ -543,7 +549,7 @@ export function updateStalePrSelection(uiState: UiState, projectId: string, prs:
 
 	const prNumber = projectState.branchesSelection.current.prNumber;
 	if (!prs.some((pr) => pr.number === prNumber)) {
-		projectState.branchesSelection.set({});
+		BranchesSelectionActions.clear(projectState.branchesSelection);
 	}
 }
 
@@ -555,7 +561,7 @@ export function updateStaleBranchSelectionInBranchesView(
 	const projectState = uiState.project(projectId);
 	const selection = projectState.branchesSelection.current;
 	if (selection.branchName && deletedBranches.includes(selection.branchName)) {
-		projectState.branchesSelection.set({});
+		BranchesSelectionActions.clear(projectState.branchesSelection);
 	}
 }
 
@@ -567,6 +573,6 @@ export function retainBranchSelectionInBranchesView(
 	const projectState = uiState.project(projectId);
 	const selection = projectState.branchesSelection.current;
 	if (selection.branchName && !branches.includes(selection.branchName)) {
-		projectState.branchesSelection.set({});
+		BranchesSelectionActions.clear(projectState.branchesSelection);
 	}
 }

@@ -4,6 +4,7 @@
 	import CherryApplyModal from '$components/CherryApplyModal.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import { BranchesSelectionActions } from '$lib/branches/branchesSelection';
 	import { commitCreatedAt } from '$lib/branches/v3';
 	import { getColorFromPushStatus, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -16,10 +17,21 @@
 		branchName: string;
 		remote?: string;
 		isTopBranch?: boolean;
+		inWorkspace: boolean;
+		hasLocal: boolean;
 		onerror?: (error: unknown) => void;
 	};
 
-	const { projectId, stackId, branchName, remote, isTopBranch = true, onerror }: Props = $props();
+	const {
+		projectId,
+		stackId,
+		branchName,
+		remote,
+		isTopBranch = true,
+		inWorkspace,
+		hasLocal,
+		onerror
+	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
 	const branchQuery = $derived(
@@ -30,7 +42,7 @@
 
 	const uiState = inject(UI_STATE);
 	const projectState = $derived(uiState.project(projectId));
-	const branchesState = $derived(projectState.branchesSelection);
+	const branchesSelection = $derived(projectState.branchesSelection);
 
 	let cherryApplyModal = $state<CherryApplyModal>();
 	let selectedCommitId = $state<string>();
@@ -69,15 +81,26 @@
 		iconName={pushStatusToIcon(branch.pushStatus)}
 		trackingBranch={branch.remoteTrackingBranch || undefined}
 		readonly
-		selected={branchesState.current.branchName === branch.name &&
-			branchesState.current.stackId === env.stackId &&
-			!branchesState.current.commitId}
+		selected={branchesSelection.current.branchName === branch.name &&
+			branchesSelection.current.stackId === env.stackId &&
+			!branchesSelection.current.commitId}
 		onclick={() => {
-			branchesState.set({
-				branchName,
-				stackId: env.stackId,
-				remote
-			});
+			if (env.stackId) {
+				BranchesSelectionActions.selectStack(branchesSelection, {
+					stackId: env.stackId,
+					branchName,
+					inWorkspace,
+					hasLocal,
+					prNumber: branch.prNumber ?? undefined
+				});
+			} else {
+				BranchesSelectionActions.selectBranch(branchesSelection, {
+					branchName,
+					remote,
+					hasLocal,
+					prNumber: branch.prNumber ?? undefined
+				});
+			}
 		}}
 	>
 		{#snippet branchContent()}
@@ -95,17 +118,15 @@
 						createdAt={commitCreatedAt(commit)}
 						commitId={commit.id}
 						branchName={branch.name}
-						selected={commit.id === branchesState?.current.commitId}
+						selected={commit.id === branchesSelection?.current.commitId}
 						onclick={() => {
-							branchesState.set({
-								stackId: env.stackId,
-								branchName: branchName,
+							BranchesSelectionActions.selectCommit(branchesSelection, {
 								commitId: commit.id,
 								remote
 							});
 						}}
 						lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
-						menu={branchesState.current.inWorkspace || branchesState.current.isTarget
+						menu={branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
 							? undefined
 							: menu}
 					></CommitRow>
@@ -124,18 +145,16 @@
 						createdAt={commitCreatedAt(commit)}
 						commitId={commit.id}
 						branchName={branch.name}
-						selected={commit.id === branchesState?.current.commitId}
+						selected={commit.id === branchesSelection?.current.commitId}
 						onclick={() => {
-							branchesState.set({
-								stackId: env.stackId,
-								branchName: branchName,
+							BranchesSelectionActions.selectCommit(branchesSelection, {
 								commitId: commit.id,
 								remote
 							});
 						}}
 						lastCommit={idx === branch.commits.length - 1}
 						active
-						menu={branchesState.current.inWorkspace || branchesState.current.isTarget
+						menu={branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
 							? undefined
 							: menu}
 					></CommitRow>
