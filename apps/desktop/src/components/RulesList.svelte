@@ -22,14 +22,12 @@
 	import { Button, chipToasts, Select, SelectItem, Icon } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import type { Snippet } from 'svelte';
 
 	type Props = {
 		projectId: string;
-		foldButton: Snippet;
 	};
 
-	const { foldButton, projectId }: Props = $props();
+	const { projectId }: Props = $props();
 
 	const rulesService = inject(RULES_SERVICE);
 	const stackService = inject(STACK_SERVICE);
@@ -49,9 +47,6 @@
 	// Component references
 	let ruleFiltersEditor = $state<RuleFiltersEditor>();
 
-	let addRuleButton = $state<HTMLDivElement>();
-	let newRuleContextMenu = $state<NewRuleMenu>();
-
 	let addFilterButton = $state<HTMLDivElement>();
 	let newFilterContextMenu = $state<NewRuleMenu>();
 
@@ -61,11 +56,6 @@
 
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
 	const canSaveRule = $derived(stackTargetSelected !== undefined && validFilters);
-
-	function openAddRuleContextMenu(e: MouseEvent) {
-		e.stopPropagation();
-		newRuleContextMenu?.toggle(e);
-	}
 
 	function openAddFilterContextMenu(e: MouseEvent) {
 		e.stopPropagation();
@@ -201,9 +191,8 @@
 </script>
 
 <div class="rules-list" use:focusable>
-	<div class="rules-list__header">
+	<!-- <div class="rules-list__header">
 		<div class="rules-list__title">
-			{@render foldButton()}
 			<h3 class="text-14 text-semibold">Rules</h3>
 		</div>
 
@@ -219,11 +208,8 @@
 				loading={creatingRule.current.isLoading}>Add rule</Button
 			>
 		</div>
-	</div>
+	</div> -->
 
-	{#if mode === 'add'}
-		{@render ruleEditor()}
-	{/if}
 	{@render ruleListContent()}
 </div>
 
@@ -241,6 +227,24 @@
 						{/if}
 					{/each}
 				</div>
+				{#if mode === 'add'}
+					{@render ruleEditor()}
+				{:else}
+					<!-- <div class="add-rule-section">
+						<Button onclick={openRuleEditor} icon="plus-small" kind="outline" wide>
+							Add new rule
+						</Button>
+					</div> -->
+				{/if}
+			{:else if mode === 'add'}
+				{@render ruleEditor()}
+			{:else}
+				<div class="rules-placeholder">
+					<p class="text-13 text-body clr-text-2">
+						Set up rules to automatically route changes to the right branch.
+					</p>
+					<Button onclick={openRuleEditor} icon="plus-small" kind="outline">Add new rule</Button>
+				</div>
 			{/if}
 		{/snippet}
 	</ReduxResult>
@@ -249,27 +253,6 @@
 {#snippet ruleEditor()}
 	{@const stackEntries = stackService.stacks(projectId)}
 	<div class="rules-list__editor-content">
-		{#if typedKeys(draftRuleFilterInitialValues).length > 0}
-			<div class="rules-list__filters">
-				<RuleFiltersEditor
-					bind:this={ruleFiltersEditor}
-					{projectId}
-					initialFilterValues={draftRuleFilterInitialValues}
-					addFilter={addDraftRuleFilter}
-					deleteFilter={removeDraftRuleFilter}
-				/>
-			</div>
-		{:else}
-			<div class="rules-list__matches-all">
-				<p class="text-12">Matches all changes</p>
-				<div bind:this={addFilterButton} class="rules-list__add-filter-button text-12">
-					<button type="button" onclick={openAddFilterContextMenu}>
-						<span class="underline-dotted"> Add filter +</span>
-					</button>
-				</div>
-			</div>
-		{/if}
-
 		<div class="rules-list__action">
 			<h3 class="text-13 text-semibold">Assign to branch</h3>
 			<ReduxResult {projectId} result={stackEntries.result}>
@@ -299,7 +282,7 @@
 					<Select
 						value={encodedStackTarget}
 						options={stackOptions}
-						placeholder="Select a branch…"
+						minHeight={200}
 						flex="1"
 						searchable
 						onselect={(selectedStackTarget) => {
@@ -338,11 +321,33 @@
 			</ReduxResult>
 		</div>
 
+		{#if typedKeys(draftRuleFilterInitialValues).length > 0}
+			<div class="rules-list__filters">
+				<RuleFiltersEditor
+					bind:this={ruleFiltersEditor}
+					{projectId}
+					initialFilterValues={draftRuleFilterInitialValues}
+					addFilter={addDraftRuleFilter}
+					deleteFilter={removeDraftRuleFilter}
+				/>
+			</div>
+		{:else}
+			<div class="rules-list__matches-all">
+				<p class="text-13">Matches all changes</p>
+				<div bind:this={addFilterButton} class="rules-list__add-filter-button text-12">
+					<button type="button" onclick={openAddFilterContextMenu}>
+						<span class="clr-text-1 underline-dotted"> Add filter +</span>
+					</button>
+				</div>
+			</div>
+		{/if}
+
 		<div class="rules-list__editor-buttons">
 			<Button onclick={cancelRuleEdition} kind="outline">Cancel</Button>
 			<Button
 				onclick={saveRule}
 				kind="solid"
+				wide
 				style="neutral"
 				disabled={!canSaveRule}
 				loading={stackEntries.result.isLoading ||
@@ -362,23 +367,24 @@
 	/>
 {/snippet}
 
-<NewRuleMenu
-	bind:this={newRuleContextMenu}
-	addedFilterTypes={ruleFilterTypes}
-	trigger={addRuleButton}
-	addFromFilter={(type) => {
-		addDraftRuleFilter(type);
-		openRuleEditor();
-	}}
-	addEmpty={() => {
-		openRuleEditor();
-	}}
-/>
-
 <style lang="postcss">
 	.rules-list {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.rules-placeholder {
+		display: flex;
+		flex-direction: column;
+		padding: 14px;
+		gap: 14px;
+		background-color: var(--clr-bg-2);
+	}
+
+	.add-rule-section {
+		display: flex;
+		padding: 12px;
+		border-top: 1px solid var(--clr-border-3);
 	}
 
 	/* HEADER */
@@ -421,8 +427,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: var(--size-cta);
-		padding: 0 12px;
+		padding: 12px;
 		gap: 8px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-2);

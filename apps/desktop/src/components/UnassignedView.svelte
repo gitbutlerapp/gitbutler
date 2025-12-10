@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Drawer from '$components/Drawer.svelte';
 	import RulesList from '$components/RulesList.svelte';
 	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
 	import UnassignedViewForgePrompt from '$components/UnassignedViewForgePrompt.svelte';
@@ -104,10 +105,6 @@
 
 {#if !unassignedSidebarFolded.current}
 	<div class="unassigned" role="presentation" use:focusable={{ vertical: true }}>
-		{#if $settingsStore?.featureFlags.rules}
-			<RulesList {foldButton} {projectId} />
-		{/if}
-
 		<div role="presentation" class="unassigned__files" onclick={unselectFiles}>
 			<WorktreeChanges
 				title="Unassigned"
@@ -161,6 +158,20 @@
 					{/if}
 				</Button>
 			</div>
+		{/if}
+
+		<!-- {#if $settingsStore?.featureFlags.rules}
+			<RulesList {projectId} />
+		{/if} -->
+
+		{#if $settingsStore?.featureFlags.rules}
+			<Drawer bottomBorder={false}>
+				{#snippet header()}
+					<h4 class="text-14 text-semibold truncate">Rules</h4>
+				{/snippet}
+
+				<RulesList {projectId} />
+			</Drawer>
 		{/if}
 	</div>
 {:else}
@@ -221,6 +232,7 @@
 		flex-direction: column;
 		padding: 12px 12px 14px 12px;
 		border-top: 1px solid var(--clr-border-3);
+		border-bottom: 1px solid var(--clr-border-2);
 
 		&.sticked-bottom {
 			border-color: var(--clr-border-2);
