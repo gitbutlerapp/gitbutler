@@ -227,11 +227,15 @@ else
 	BUNDLE_DIR=$(readlink -f "$PWD/../target/release/bundle")
 fi
 
-# The release dir determines a (significant portion of) the final S3 object key.
+# The release dir determines a (significant portion of) the S3 object keys for
+# the artifacts.
 RELEASE_DIR="$DIST/$OS/$ARCH"
-if [ "$OS" = "linux" ]; then
-  # We build for multiple linux distros and need distinct keys for them.
-  RELEASE_DIR="$DIST/$OS/$(lsb_release -cs)/$ARCH"
+if [ "$OS" = "linux" ] && [ $(lsb_release -cs) = "noble" ]; then
+  # Our default Linux build is Ubuntu jammy (22.04). We still build for noble
+  # (24.04) but put the builds in a hidden-away part of the S3 bucket. The
+  # primary reason for this build existing is that the noble-built AppImage
+  # tends to work better with newer distros than the jammy-built AppImage.
+  RELEASE_DIR="$DIST/$OS-$(lsb_release -cs)/$ARCH"
 fi
 
 echo "Resolved RELEASE_DIR=$RELEASE_DIR"
