@@ -176,7 +176,7 @@
 
 {#snippet ruleActions()}
 	<div class="rule__actions">
-		<KebabButton minimal>
+		<KebabButton minimal buttonClassname="extra-padding">
 			{#snippet contextMenu({ close })}
 				<ContextMenuSection>
 					<ContextMenuItem
@@ -190,9 +190,9 @@
 					<ContextMenuItem
 						label="Delete rule"
 						icon="bin"
-						onclick={() => {
+						onclick={async () => {
 							close();
-							confirmationModal?.open();
+							confirmationModal?.show();
 						}}
 					/>
 				</ContextMenuSection>
@@ -250,7 +250,7 @@
 		display: flex;
 		position: relative;
 		align-items: center;
-		padding: 10px;
+		padding: 10px 8px 10px 10px;
 		overflow: hidden;
 		gap: 4px;
 		border-bottom: 1px solid var(--clr-border-3);
@@ -265,6 +265,10 @@
 		align-items: center;
 	}
 
+	:global(.rule__actions .extra-padding) {
+		padding: 4px;
+	}
+
 	.filter-pill,
 	.target-pill,
 	.ai-pill {
@@ -277,13 +281,8 @@
 	}
 
 	.filter-pill {
-		/* border: 1px solid var(--clr-border-2); */
 		border-radius: 100px;
 		background-color: var(--clr-bg-2);
-
-		/* &:last-child {
-			border-right: none;
-		} */
 	}
 
 	.target-pill,

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Drawer from '$components/Drawer.svelte';
 	import NewRuleMenu from '$components/NewRuleMenu.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Rule from '$components/Rule.svelte';
@@ -19,7 +20,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { typedKeys } from '$lib/utils/object';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, chipToasts, Select, SelectItem, Icon } from '@gitbutler/ui';
+	import { Button, chipToasts, Select, SelectItem, Icon, Badge } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
@@ -53,6 +54,7 @@
 	// Visual state
 	let mode = $state<'list' | 'edit' | 'add'>('list');
 	let editingRuleId = $state<WorkspaceRuleId | null>(null);
+	let isDrawerCollapsed = $state(false);
 
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
 	const canSaveRule = $derived(stackTargetSelected !== undefined && validFilters);
@@ -188,62 +190,98 @@
 		mode = 'list';
 		resetEditor();
 	}
+
+	const rules = $derived(rulesService.workspaceRules(projectId));
+
+	// Separate AI rules from regular rules
+	const separatedRules = $derived.by(() => {
+		if (!rules.result.isSuccess) {
+			return { regularRules: [], aiRules: [] };
+		}
+
+		const regularRules: WorkspaceRule[] = [];
+		const aiRules: WorkspaceRule[] = [];
+
+		for (const rule of rules.result.data) {
+			const hasAiFilter = rule.filters.some((filter) => filter.type === 'claudeCodeSessionId');
+			if (hasAiFilter) {
+				aiRules.push(rule);
+			} else {
+				regularRules.push(rule);
+			}
+		}
+
+		return { regularRules, aiRules };
+	});
 </script>
 
-<div class="rules-list" use:focusable>
-	<!-- <div class="rules-list__header">
-		<div class="rules-list__title">
-			<h3 class="text-14 text-semibold">Rules</h3>
-		</div>
+<Drawer bottomBorder={false} ontoggle={(collapsed) => (isDrawerCollapsed = collapsed)}>
+	{#snippet header()}
+		<h4 class="text-14 text-semibold truncate">Rules</h4>
+		{#if rules.result.isSuccess}
+			<Badge>{rules.result.data.length}</Badge>
+		{/if}
+	{/snippet}
+	{#snippet actions()}
+		<!-- {#if !isDrawerCollapsed && rules.result.data && rules.result.data.length > 0} -->
+		<!-- <Button onclick={openRuleEditor} size="tag" kind="outline">New rule</Button> -->
+		<!-- {/if} -->
 
-		<div bind:this={addRuleButton}>
-			<Button
-				icon="plus-small"
-				size="tag"
-				kind="outline"
-				tooltip="Automate actions for new code changes"
-				tooltipMaxWidth={180}
-				onclick={openAddRuleContextMenu}
-				disabled={mode === 'edit' || mode === 'add'}
-				loading={creatingRule.current.isLoading}>Add rule</Button
-			>
-		</div>
-	</div> -->
+		{#if rules.result.data && rules.result.data.length > 0}
+			<Button onclick={openRuleEditor} icon="plus" size="tag" kind="ghost" />
+		{/if}
+	{/snippet}
+	<div class="rules-list" use:focusable>
+		{@render ruleListContent()}
 
-	{@render ruleListContent()}
-</div>
+		<!-- <div class="add-rule-section">
+			<Button onclick={openRuleEditor} icon="plus-small" kind="outline" wide>Add new rule</Button>
+		</div> -->
+	</div>
+</Drawer>
 
 {#snippet ruleListContent()}
-	{@const rules = rulesService.workspaceRules(projectId)}
 	<ReduxResult {projectId} result={rules.result}>
-		{#snippet children(rules)}
-			{#if rules.length > 0}
-				<div class="rules-list__content">
-					{#each rules as rule (rule.id)}
-						{#if editingRuleId === rule.id}
-							{@render ruleEditor()}
-						{:else}
-							<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
-						{/if}
-					{/each}
-				</div>
+		{#snippet children(_rulesList: WorkspaceRule[])}
+			{@const { regularRules, aiRules } = separatedRules}
+			{@const totalRules = regularRules.length + aiRules.length}
+
+			{#if totalRules > 0}
 				{#if mode === 'add'}
 					{@render ruleEditor()}
-				{:else}
-					<!-- <div class="add-rule-section">
-						<Button onclick={openRuleEditor} icon="plus-small" kind="outline" wide>
-							Add new rule
-						</Button>
-					</div> -->
 				{/if}
+
+				<div class="rules-list__content">
+					{#if regularRules.length > 0}
+						{#each regularRules as rule (rule.id)}
+							{#if editingRuleId === rule.id}
+								{@render ruleEditor()}
+							{:else}
+								<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
+							{/if}
+						{/each}
+					{/if}
+
+					{#if aiRules.length > 0}
+						<div class="rules-section">
+							{#each aiRules as rule (rule.id)}
+								{#if editingRuleId === rule.id}
+									{@render ruleEditor()}
+								{:else}
+									<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
+								{/if}
+							{/each}
+						</div>
+					{/if}
+				</div>
 			{:else if mode === 'add'}
 				{@render ruleEditor()}
 			{:else}
 				<div class="rules-placeholder">
-					<p class="text-13 text-body clr-text-2">
+					<p class="text-13 text-body rules-placeholder-text">
 						Set up rules to automatically route changes to the right branch.
 					</p>
-					<Button onclick={openRuleEditor} icon="plus-small" kind="outline">Add new rule</Button>
+					<Button onclick={openRuleEditor} icon="plus-small" kind="outline">Add first rule</Button>
 				</div>
 			{/if}
 		{/snippet}
@@ -376,38 +414,43 @@
 	.rules-placeholder {
 		display: flex;
 		flex-direction: column;
-		padding: 14px;
+		align-items: center;
+		justify-content: center;
+		padding: 20px;
 		gap: 14px;
 		background-color: var(--clr-bg-2);
 	}
 
-	.add-rule-section {
-		display: flex;
-		padding: 12px;
-		border-top: 1px solid var(--clr-border-3);
-	}
-
-	/* HEADER */
-	.rules-list__header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		height: 42px;
-		padding: 0 10px 0 14px;
-		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
-	}
-
-	.rules-list__title {
-		display: flex;
-		align-items: center;
-		gap: 6px;
+	.rules-placeholder-text {
+		color: var(--clr-text-2);
+		text-align: center;
+		text-wrap: balance;
 	}
 
 	.rules-list__content {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.rules-section {
+		display: flex;
+		flex-direction: column;
+		/* padding-top: 8px; */
+		/* border-top: 1px solid var(--clr-border-3); */
+	}
+
+	.add-rule-section {
+		display: flex;
+		padding: 12px;
+		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.rules-section-header {
+		display: flex;
+		align-items: center;
+		padding: 6px 10px;
+		gap: 6px;
+		color: var(--clr-theme-purp-element);
 	}
 
 	.rules-list__editor-content {

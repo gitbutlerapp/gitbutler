@@ -10,6 +10,7 @@
 		contextElement?: HTMLElement;
 		testId?: string;
 		contextMenuTestId?: string;
+		buttonClassname?: string;
 		contextMenu: Snippet<[{ close: () => void }]>;
 		menuSide?: 'top' | 'bottom' | 'left' | 'right';
 		menuAlign?: 'start' | 'center' | 'end';
@@ -24,6 +25,7 @@
 		contextElement,
 		testId,
 		contextMenuTestId,
+		buttonClassname,
 		contextMenu: contextMenuSnippet,
 		menuSide = 'bottom',
 		menuAlign = 'end',
@@ -94,7 +96,7 @@
 	<button
 		bind:this={buttonElement}
 		type="button"
-		class="kebab-btn"
+		class={['kebab-btn', buttonClassname]}
 		class:visible
 		class:show-on-hover={showOnHover}
 		class:minimal
@@ -102,6 +104,7 @@
 		onclick={onClick}
 		oncontextmenu={onContextMenu}
 		data-testid={testId}
+		aria-label="Open context menu"
 	>
 		<Icon name="kebab" />
 	</button>

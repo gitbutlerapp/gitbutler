@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Drawer from '$components/Drawer.svelte';
 	import RulesList from '$components/RulesList.svelte';
 	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
 	import UnassignedViewForgePrompt from '$components/UnassignedViewForgePrompt.svelte';
@@ -105,73 +104,67 @@
 
 {#if !unassignedSidebarFolded.current}
 	<div class="unassigned" role="presentation" use:focusable={{ vertical: true }}>
-		<div role="presentation" class="unassigned__files" onclick={unselectFiles}>
-			<WorktreeChanges
-				title="Unassigned"
-				{projectId}
-				stackId={undefined}
-				onscrollexists={(exists: boolean) => {
-					isScrollable = exists;
-				}}
-				mode="unassigned"
-				foldButton={$settingsStore?.featureFlags.rules ? undefined : foldButton}
-			>
-				{#snippet emptyPlaceholder()}
-					<div class="unassigned__empty">
-						<div class="unassigned__empty__placeholder">
-							{@html noChanges}
-							<p class="text-13 text-body unassigned__empty__placeholder-text">
-								You're all caught up!<br />
-								No files need committing
-							</p>
+		<div class="unassigned-wrap">
+			<div role="presentation" class="unassigned__files" onclick={unselectFiles}>
+				<WorktreeChanges
+					title="Unassigned"
+					{projectId}
+					stackId={undefined}
+					onscrollexists={(exists: boolean) => {
+						isScrollable = exists;
+					}}
+					mode="unassigned"
+					foldButton={$settingsStore?.featureFlags.rules ? undefined : foldButton}
+				>
+					{#snippet emptyPlaceholder()}
+						<div class="unassigned__empty">
+							<div class="unassigned__empty__placeholder">
+								{@html noChanges}
+								<p class="text-13 text-body unassigned__empty__placeholder-text">
+									You're all caught up!<br />
+									No files need committing
+								</p>
+							</div>
+							<UnassignedViewForgePrompt {projectId} />
 						</div>
-						<UnassignedViewForgePrompt {projectId} />
-					</div>
-				{/snippet}
-			</WorktreeChanges>
+					{/snippet}
+				</WorktreeChanges>
+			</div>
+
+			<UnassignedViewForgePrompt {projectId} />
+
+			{#if changesToCommit}
+				<div class="create-new" use:focusable>
+					<Button
+						type="button"
+						wide
+						reversedDirection
+						disabled={!!projectState.exclusiveAction.current}
+						onclick={() => {
+							projectState.exclusiveAction.set({
+								type: 'commit',
+								stackId: undefined,
+								branchName: undefined
+							});
+							checkFilesForCommit();
+							posthog.captureAction(ActionEvent.CommitToNewBranch);
+						}}
+						icon={isCommitting ? undefined : 'plus-small'}
+						testId={TestId.CommitToNewBranchButton}
+						kind="outline"
+					>
+						{#if isCommitting}
+							Committing…
+						{:else}
+							Commit to new branch
+						{/if}
+					</Button>
+				</div>
+			{/if}
 		</div>
 
-		{#if changesToCommit}
-			<UnassignedViewForgePrompt {projectId} />
-			<div class="create-new" class:sticked-bottom={isScrollable} use:focusable>
-				<Button
-					type="button"
-					wide
-					disabled={!!projectState.exclusiveAction.current}
-					onclick={() => {
-						projectState.exclusiveAction.set({
-							type: 'commit',
-							stackId: undefined,
-							branchName: undefined
-						});
-						checkFilesForCommit();
-						posthog.captureAction(ActionEvent.CommitToNewBranch);
-					}}
-					icon={isCommitting ? undefined : 'plus-small'}
-					testId={TestId.CommitToNewBranchButton}
-					kind="outline"
-				>
-					{#if isCommitting}
-						Committing…
-					{:else}
-						Commit to new branch
-					{/if}
-				</Button>
-			</div>
-		{/if}
-
-		<!-- {#if $settingsStore?.featureFlags.rules}
-			<RulesList {projectId} />
-		{/if} -->
-
 		{#if $settingsStore?.featureFlags.rules}
-			<Drawer bottomBorder={false}>
-				{#snippet header()}
-					<h4 class="text-14 text-semibold truncate">Rules</h4>
-				{/snippet}
-
-				<RulesList {projectId} />
-			</Drawer>
+			<RulesList {projectId} />
 		{/if}
 	</div>
 {:else}
@@ -227,15 +220,30 @@
 		background-color: var(--clr-bg-1);
 	}
 
+	.unassigned-wrap {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		overflow: hidden;
+		border-bottom: 1px solid var(--clr-border-2);
+	}
+
+	/* .unassigned__files {
+		display: flex;
+		position: relative;
+		flex-direction: column;
+		overflow: hidden;
+		border-bottom: 1px solid var(--clr-border-2);
+	} */
+
 	.create-new {
 		display: flex;
 		flex-direction: column;
 		padding: 12px 12px 14px 12px;
 		border-top: 1px solid var(--clr-border-3);
-		border-bottom: 1px solid var(--clr-border-2);
 
 		&.sticked-bottom {
-			border-color: var(--clr-border-2);
+			border-top-color: var(--clr-border-2);
 		}
 	}
 
