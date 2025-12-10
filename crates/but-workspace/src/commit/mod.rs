@@ -6,6 +6,8 @@ use crate::WorkspaceCommit;
 
 pub mod reword;
 pub use reword::function::reword;
+pub mod insert_blank_commit;
+pub use insert_blank_commit::function::insert_blank_commit;
 
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
 #[derive(Clone)]

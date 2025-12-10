@@ -65,7 +65,7 @@ type StepGraphIndex = petgraph::stable_graph::NodeIndex;
 type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
 
 /// Points to a step in the rebase editor.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Selector {
     id: StepGraphIndex,
 }

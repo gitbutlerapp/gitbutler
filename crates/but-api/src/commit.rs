@@ -1,6 +1,7 @@
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
+use but_rebase::graph_rebase::GraphExt;
 use tracing::instrument;
 
 /// Rewords a commit, but without updating the oplog.
@@ -15,8 +16,13 @@ pub fn reword_commit_only(
 ) -> anyhow::Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
     let (repo, _, graph) = ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let editor = graph.to_editor(&repo)?;
 
-    but_workspace::commit::reword(&graph, &repo, commit_id, message.as_bstr())
+    let (new_id, outcome) = but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
+
+    todo!()
+    // outcome.materialize()?;
+    // Ok(new_id)
 }
 
 /// Apply `existing_branch` to the workspace in the repository that `ctx` refers to, or create the workspace with default name.

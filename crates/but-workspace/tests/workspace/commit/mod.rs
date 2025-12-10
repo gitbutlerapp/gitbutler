@@ -1,3 +1,4 @@
+mod insert_blank_commit;
 mod reword;
 
 mod from_new_merge_with_metadata {

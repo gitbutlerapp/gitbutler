@@ -65,7 +65,7 @@ impl Editor {
     /// Replaces the node that the function was pointing to.
     ///
     /// Returns the replaced step.
-    pub fn replace(&mut self, target: &Selector, step: Step) -> Step {
+    pub fn replace(&mut self, target: Selector, step: Step) -> Step {
         let old = self.graph[target.id].clone();
         self.graph[target.id] = step;
         old
@@ -73,12 +73,13 @@ impl Editor {
 
     /// Inserts a new node relative to a selector
     ///
-    ///
     /// When inserting above, any nodes that point to the selector will now
     /// point to the inserted node instead. When inserting below, any nodes
     /// that the selector points to will now be pointed to by the inserted node
     /// instead.
-    pub fn insert(&mut self, target: &Selector, step: Step, side: InsertSide) {
+    ///
+    /// Returns a selector to the inserted step
+    pub fn insert(&mut self, target: Selector, step: Step, side: InsertSide) -> Selector {
         match side {
             InsertSide::Above => {
                 let edges = self
@@ -94,6 +95,8 @@ impl Editor {
                     self.graph.remove_edge(edge_id);
                     self.graph.add_edge(edge_source, new_idx, edge_weight);
                 }
+
+                Selector { id: new_idx }
             }
             InsertSide::Below => {
                 let edges = self
@@ -109,6 +112,8 @@ impl Editor {
                     self.graph.remove_edge(edge_id);
                     self.graph.add_edge(new_idx, edge_target, edge_weight);
                 }
+
+                Selector { id: new_idx }
             }
         }
     }
