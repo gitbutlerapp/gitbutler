@@ -3,6 +3,7 @@ use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::branch::Stack;
+use std::borrow::Cow;
 use std::{
     borrow::Borrow,
     collections::{BTreeSet, HashMap, HashSet},
@@ -382,30 +383,22 @@ impl CliId {
             CliId::Unassigned { .. } => "the unassigned area",
         }
     }
+
+    /// Obtain an ID-string from this instance, for human usage as it's meant to be short.
+    pub fn to_short_str(&self) -> Cow<'_, str> {
+        match self {
+            CliId::UncommittedFile { id, .. }
+            | CliId::CommittedFile { id, .. }
+            | CliId::Branch { id, .. }
+            | CliId::Unassigned { id, .. } => Cow::Borrowed(id),
+            CliId::Commit { oid, .. } => Cow::Owned(oid.to_hex_with_len(2).to_string()),
+        }
+    }
 }
 
 impl Display for CliId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CliId::UncommittedFile { id, .. } => {
-                write!(f, "{}", id)
-            }
-            CliId::CommittedFile { id, .. } => {
-                write!(f, "{}", id)
-            }
-            CliId::Branch { id, .. } => {
-                write!(f, "{}", id)
-            }
-            CliId::Unassigned { id } => {
-                write!(f, "{}", id)
-            }
-            CliId::Commit { oid } => {
-                // let oid_str = oid.to_string();
-                // write!(f, "{}", hash(&oid_str))
-                let oid = oid.to_string();
-                write!(f, "{}", &oid[..2])
-            }
-        }
+        write!(f, "{}", self.to_short_str())
     }
 }
 
