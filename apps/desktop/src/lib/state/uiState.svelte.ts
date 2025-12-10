@@ -279,6 +279,19 @@ export class UiState {
 						this.update(`${id}:${key}`, mutableResult);
 					};
 				}
+				// If the value is an object, we add a method to update
+				if (
+					typeof mutableResult === 'object' &&
+					!Array.isArray(mutableResult) &&
+					mutableResult !== null
+				) {
+					(props[key] as GlobalProperty<Record<string, UiStateValue>>).update = (
+						value: Record<string, UiStateValue>
+					) => {
+						mutableResult = { ...(mutableResult as Record<string, UiStateValue>), ...value };
+						this.update(`${id}:${key}`, mutableResult);
+					};
+				}
 			}
 			scopeCache[id] = props as GlobalStore<T>;
 			return scopeCache[id];
@@ -330,12 +343,21 @@ type ArrayPropertyMethods<T> = T extends string[]
 		}
 	: // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 		{};
+type ObjectPropertyMethods<T> =
+	T extends Record<string, UiStateValue>
+		? {
+				/** Updates the object with the new values, keeps existing values. */
+				update(value: Record<string, UiStateValue>): void;
+			}
+		: // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+			{};
 
 /** Node type for global properties. */
 export type GlobalProperty<T> = {
 	set(value: T): void;
 } & Reactive<T> &
-	ArrayPropertyMethods<T>;
+	ArrayPropertyMethods<T> &
+	ObjectPropertyMethods<T>;
 
 /** Type returned by the build function for global properties. */
 export type GlobalStore<T extends DefaultConfig> = {
