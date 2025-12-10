@@ -93,7 +93,7 @@ pub fn remerged_workspace_tree_v2(
 /// what files have been modified.
 ///
 /// This should be used to update the `gitbutler/workspace` ref with, which is usually
-/// done from [`update_workspace_commit()`], after any of its input changes.
+/// done from `update_workspace_commit()`, after any of its input changes.
 /// This is namely the conflicting state, or any head of the virtual branches.
 #[instrument(level = tracing::Level::DEBUG, skip(ctx))]
 pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<git2::Oid> {

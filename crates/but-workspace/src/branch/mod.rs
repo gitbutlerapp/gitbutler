@@ -414,7 +414,7 @@ use but_core::ref_metadata::StackId;
 
 use crate::ref_info;
 
-/// An even more minimal version of the [`StackEntry](crate::StackEntry) with enough information to query
+/// An even more minimal version of the `StackEntry` with enough information to query
 /// more information about a Stack.
 ///
 /// Mote that a stack is also used to represent detached heads, which is far-fetched but necessary
@@ -440,7 +440,7 @@ impl Stack {
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.segments.first().and_then(|name| name.tip())
     }
-    /// Return the name of the top-most [`Segment`].
+    /// Return the name of the top-most `Segment`.
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
     /// a commit anymore that was reached by our rev-walk.

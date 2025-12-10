@@ -11,7 +11,7 @@ use crate::state::OplogHandle;
 
 /// A collection of commits that we want to protect from `git GC`.
 ///
-/// It can easily be produced from a [`Project`] to get the status quo to update the reflog after the project changed.
+/// It can easily be produced from a project to get the status quo to update the reflog after the project changed.
 #[derive(Debug, Clone, Copy)]
 pub struct ReflogCommits {
     target: gix::ObjectId,

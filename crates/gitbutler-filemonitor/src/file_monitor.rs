@@ -40,7 +40,7 @@ struct RunError {
 }
 
 /// Listen to interesting filesystem events of files in `path` that are not `.gitignore`d,
-/// turn them into [`Events`](Event) which classifies it, and associates it with `project_id`.
+/// classify them, and associate them with `project_id`.
 /// These are sent through the passed `out` channel, to indicate either **Git** repository changes
 /// or **ProjectWorktree** changes
 ///

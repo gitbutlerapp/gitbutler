@@ -165,8 +165,7 @@ impl IdMap {
     /// Initializes CLI IDs for all *branches* and *commits* in the given `stacks`.
     ///
     /// This method creates a new `IdMap` with IDs for branches and commits only.
-    /// To enable parsing of file IDs, call [IdMap::add_file_info] or
-    /// [IdMap::add_file_info_from_context] afterward.
+    /// To enable parsing of file IDs, call [IdMap::add_file_info_from_context]
     pub fn new_for_branches_and_commits(stacks: &[Stack]) -> anyhow::Result<Self> {
         let StacksInfo {
             branch_names,

@@ -94,7 +94,7 @@ pub mod merge {
     impl WorkspaceCommit<'_> {
         /// like [`Self::from_new_merge_with_metadata`], but supports tips, which makes it possible to re-merge anything
         /// even if the tip is unnamed.
-        /// Note that [`missing_stacks`](Outcome::missing_stacks) is never set.
+        /// Note that `missing_stacks` is never set.
         pub fn from_new_merge_with_tips(
             tips: impl IntoIterator<Item = Tip>,
             graph: &but_graph::Graph,

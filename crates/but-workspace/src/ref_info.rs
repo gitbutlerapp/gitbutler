@@ -14,7 +14,7 @@ use gix::Repository;
 
 /// A commit with must useful information extracted from the Git commit itself.
 ///
-/// Note that additional information can be computed and placed in the [`LocalCommit`] and [`RemoteCommit`]
+/// Note that additional information can be computed and placed in the [`LocalCommit`] and `RemoteCommit`
 #[derive(Clone, Eq, PartialEq)]
 pub struct Commit {
     /// The hash of the commit.
@@ -206,7 +206,7 @@ impl WorkspaceExt for but_graph::projection::Workspace<'_> {
     }
 }
 
-/// Options for the [`ref_info()`](crate::ref_info) call.
+/// Options for the [`ref_info()`](crate::ref_info()) call.
 #[derive(Default, Debug, Clone)]
 pub struct Options {
     /// Control how to traverse the commit-graph as the basis for the workspace conversion.
@@ -256,7 +256,7 @@ pub struct Segment {
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
+    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal())
     /// is this segment, and the surrounding workspace is provided for context.
     ///
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.

@@ -342,7 +342,7 @@ pub fn amend_commit_from_worktree_changes(
 
 /// Discard all worktree changes that match the specs in `worktree_changes`.
 ///
-/// If whole files should be discarded, be sure to not pass any [hunks](but_workspace::discard::ui::DiscardSpec::hunk_headers)
+/// If whole files should be discarded, be sure to not pass any hunks
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
 #[but_api]

@@ -155,7 +155,7 @@ pub struct StackSegment {
     /// named segment.
     pub ref_info: Option<crate::RefInfo>,
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
-    /// Its presence means [`commits_unique_in_remote_tracking_branch`] are possibly available.
+    /// Its presence means `commits_outside` are possibly available.
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
     /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
     /// avoiding a search through the entire graph.
