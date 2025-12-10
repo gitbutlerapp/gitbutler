@@ -284,6 +284,17 @@ git init binary-file-unborn
   printf '\0hi\0' >with-null-bytes
 )
 
+git init diff-binary-to-text-failure
+(cd diff-binary-to-text-failure
+  printf '\0hi\0' >file.binary
+  echo "*.binary diff=fail" >.gitattributes
+
+cat <<EOF >>.git/config
+[diff "fail"]
+	textconv = "false"
+EOF
+)
+
 git init diff-binary-to-text-unborn
 (cd diff-binary-to-text-unborn
   printf '\0hi\0' >file.binary
