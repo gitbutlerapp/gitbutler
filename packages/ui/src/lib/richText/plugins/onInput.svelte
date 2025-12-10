@@ -9,6 +9,7 @@
 <script lang="ts">
 	import { getEditor } from '$lib/richText/context';
 	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from '$lib/richText/selection';
+	import { exportPlaintext } from '$lib/richText/utils/export';
 	import {
 		$getRoot as getRoot,
 		$getSelection as getSelection,
@@ -37,12 +38,10 @@
 				}
 
 				editorState.read(() => {
-					const currentText = getRoot().getTextContent();
-					if (currentText === text) {
-						return;
-					}
-
+					const currentText = exportPlaintext(getRoot());
+					if (currentText === text) return;
 					text = currentText;
+
 					const selection = getSelection();
 					if (!isRangeSelection(selection)) {
 						return;

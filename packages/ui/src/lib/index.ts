@@ -18,6 +18,7 @@ export { default as EditorLogo } from '$components/EditorLogo.svelte';
 export { default as EmptyStatePlaceholder } from '$components/EmptyStatePlaceholder.svelte';
 export { default as HunkDiff, type LineClickParams } from '$components/hunkDiff/HunkDiff.svelte';
 export { default as Icon, type IconName } from '$components/Icon.svelte';
+export { default as ImageDiff } from '$components/ImageDiff.svelte';
 export { default as InfoButton } from '$components/InfoButton.svelte';
 export { default as InfoMessage, type MessageStyle } from '$components/InfoMessage.svelte';
 export {
@@ -37,6 +38,7 @@ export {
 	type Props as ProfilePictureUploadProps
 } from '$components/ProfilePictureUpload.svelte';
 export { default as RadioButton } from '$components/RadioButton.svelte';
+export { default as RangeInput } from '$components/RangeInput.svelte';
 export { default as ReviewBadge } from '$components/ReviewBadge.svelte';
 export { CardGroup } from '$components/cardGroup';
 export { default as SeriesIcon } from '$components/SeriesIcon.svelte';
@@ -107,8 +109,7 @@ export {
 } from '$components/scroll/Scrollbar.svelte';
 
 // Segment Control Components
-export { default as Segment } from '$components/segmentControl/Segment.svelte';
-export { default as SegmentControl } from '$components/segmentControl/SegmentControl.svelte';
+export { SegmentControl, SegmentItem } from '$components/segmentControl';
 
 // Commit Lines Components
 export { default as Cell } from '$components/commitLines/Cell.svelte';

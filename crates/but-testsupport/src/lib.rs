@@ -13,6 +13,11 @@ use gix_testtools::{Creation, tempfile};
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
 
+#[cfg(feature = "sandbox")]
+mod sandbox;
+#[cfg(feature = "sandbox")]
+pub use sandbox::Sandbox;
+
 /// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
 /// i.e. `hunk_header("-1,10", "+1,10")`.
 /// Returns `( (old_start, old_lines), (new_start, new_lines) )`.
@@ -437,7 +442,7 @@ pub fn read_only_in_memory_scenario_non_isolated_keep_env(
     read_only_in_memory_scenario_named_env(name, "", gix::open::permissions::Environment::all())
 }
 
-/// Obtain an isolated repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
+/// Obtain an isolated `repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
 pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repository> {
     read_only_in_memory_scenario_named(name, "")
 }
@@ -592,8 +597,7 @@ pub fn debug_str(input: &dyn std::fmt::Debug) -> String {
 }
 
 mod graph;
-
-pub use graph::{graph_tree, graph_workspace};
+pub use graph::{graph_tree, graph_workspace, graph_workspace_determinisitcally};
 
 mod prepare_cmd_env;
 pub use prepare_cmd_env::isolate_env_std_cmd;

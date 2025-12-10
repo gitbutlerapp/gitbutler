@@ -4,6 +4,7 @@
 
 use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
 use but_settings::AppSettings;
+use gix::Repository;
 use std::path::{Path, PathBuf};
 
 /// Legacy types that shouldn't be used.
@@ -100,6 +101,14 @@ impl From<ThreadSafeContext> for Context {
     }
 }
 
+impl TryFrom<gix::Repository> for Context {
+    type Error = anyhow::Error;
+
+    fn try_from(repo: Repository) -> Result<Self, Self::Error> {
+        Context::from_repo(repo)
+    }
+}
+
 impl std::fmt::Debug for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Context")
@@ -178,6 +187,29 @@ impl Context {
                 db: new_ondemand_db(gitdir),
             })
         }
+    }
+
+    /// Create a context that already has `repo` initialised and ready to be returned.
+    ///
+    /// Particularly useful in testing, which might start off with just a Git repository.
+    /// **Note that it does not have support for legacy projects to encourage single-branch compatible code.**
+    pub fn from_repo(repo: gix::Repository) -> anyhow::Result<Context> {
+        let gitdir = repo.git_dir().to_owned();
+        let settings = AppSettings::load_from_default_path_creating()?;
+
+        Ok(Context {
+            #[cfg(feature = "legacy")]
+            legacy_project: {
+                LegacyProject::default_with_id(LegacyProjectId::from_number_for_testing(1))
+                    .with_paths_for_testing(gitdir.clone(), repo.workdir().map(ToOwned::to_owned))
+            },
+            gitdir: gitdir.clone(),
+            settings,
+            repo: new_ondemand_repo(gitdir.clone()),
+            git2_repo: new_ondemand_git2_repo(gitdir.clone()),
+            db: new_ondemand_db(gitdir),
+        }
+        .with_repo(repo))
     }
 
     /// Use `git2_repo` instead of the default repository that would be opened on first query.
@@ -303,6 +335,11 @@ impl Context {
     /// The location where project-specific data can be stored that is owned by the application.
     pub fn project_data_dir(&self) -> PathBuf {
         project_data_dir(&self.gitdir)
+    }
+
+    /// Return the worktree directory associated with the context Git [repository](Self::repo).
+    pub fn workdir(&self) -> anyhow::Result<Option<PathBuf>> {
+        self.repo.get().map(|repo| repo.workdir().map(Into::into))
     }
 
     /// The path to the worktree directory or the `.git` directory if there is no worktree directory.

@@ -49,7 +49,7 @@ pub enum OutputFormat {
     /// The output to write is supposed to be for human consumption, and can be more verbose.
     #[default]
     Human,
-    /// The output should be suitable for shells, and assigning the major result to variables so that it can be re-used
+    /// The output should be suitable for shells, and assigning the major result to variables so that it can be reused
     /// in subsequent CLI invocations.
     Shell,
     /// Output detailed information as JSON for tool consumption.
@@ -345,6 +345,9 @@ pub enum Subcommands {
     Describe {
         /// Commit ID to edit the message for, or branch ID to rename
         target: String,
+        /// The new commit message or branch name. If not provided, opens an editor.
+        #[clap(short = 'm', long = "message")]
+        message: Option<String>,
     },
 
     /// Show operation history.
@@ -414,7 +417,7 @@ pub enum Subcommands {
     ///
     /// Optionally an identifier to an Uncommitted File or a Branch (stack) may be provided.
     ///
-    /// - If an Uncommitted File id is provided, absorb will be peformed for just that file
+    /// - If an Uncommitted File id is provided, absorb will be performed for just that file
     /// - If a Branch (stack) id is provided, absorb will be performed for all changes assigned to that stack
     /// - If no source is provided, absorb is performed for all uncommitted changes
     ///
@@ -491,7 +494,7 @@ pub enum Subcommands {
     #[clap(hide = true)]
     Cursor(cursor::Platform),
 
-    /// INTERNAL: GitButler Actions are automated tasks (like macros) that can be peformed on a repository.
+    /// INTERNAL: GitButler Actions are automated tasks (like macros) that can be performed on a repository.
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     Actions(actions::Platform),

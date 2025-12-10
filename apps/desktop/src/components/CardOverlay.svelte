@@ -78,10 +78,6 @@
 		padding-bottom: var(--padding-bottom);
 		padding-left: var(--padding-left);
 
-		transition:
-			transform 0.1s,
-			padding 0.1s;
-
 		&.visible {
 			display: flex;
 
@@ -93,7 +89,6 @@
 
 		&:not(.visible).activated {
 			display: flex;
-			animation: dropzone-scale 0.1s forwards;
 		}
 
 		&.visible.activated {
@@ -104,8 +99,6 @@
 		}
 
 		&.hovered {
-			transform: scale(1.01);
-
 			.animated-rectangle rect {
 				fill: var(--dropzone-fill-hover);
 				stroke: var(--dropzone-stroke-hover);

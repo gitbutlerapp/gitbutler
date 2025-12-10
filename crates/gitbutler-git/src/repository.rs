@@ -1,7 +1,7 @@
-use std::{collections::HashMap, path::Path, time::Duration};
-
 use futures::{FutureExt, select};
+use gix::bstr::ByteSlice;
 use rand::Rng;
+use std::{collections::HashMap, path::Path, time::Duration};
 
 use super::executor::{AskpassServer, GitExecutor, Pid, Socket};
 use crate::RefSpec;
@@ -62,9 +62,16 @@ pub type Error<E> = RepositoryError<
     <<<E as GitExecutor>::ServerHandle as AskpassServer>::SocketHandle as Socket>::Error,
 >;
 
+enum HarnessEnv<P: AsRef<Path>> {
+    /// The contained P is the repository's worktree directory or its `.git` directory.
+    Repo(P),
+    /// The contained P is the path that the command should be executed in
+    Global(P),
+}
+
 #[cold]
 async fn execute_with_auth_harness<P, F, Fut, E, Extra>(
-    repo_path: P,
+    harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
     envs: Option<HashMap<String, String>>,
@@ -80,7 +87,6 @@ where
 {
     let mut current_exe = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
     current_exe = current_exe.canonicalize().unwrap_or(current_exe);
-    tracing::trace!(?current_exe);
 
     // TODO(qix-): Get parent PID of connecting processes to make sure they're us.
     //let our_pid = std::process::id();
@@ -180,7 +186,7 @@ where
         .or_else(|| std::env::var("GIT_SSH").ok())
     {
         Some(v) => v,
-        None => get_core_sshcommand(&repo_path)
+        None => get_core_sshcommand(&harness_env)
             .ok()
             .flatten()
             .unwrap_or_else(|| "ssh".into()),
@@ -215,10 +221,13 @@ where
         ),
     );
 
+    let cwd = match harness_env {
+        HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
+    };
     let mut child_process = core::pin::pin! {
         async {
             executor
-                .execute(args, repo_path, Some(envs))
+                .execute(args, cwd, Some(envs))
                 .await
                 .map_err(Error::<E>::Exec)
         }.fuse()
@@ -324,8 +333,15 @@ where
     args.push(remote);
     args.push(&refspec);
 
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(repo_path, &executor, &args, None, on_prompt, extra).await?;
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Repo(repo_path),
+        &executor,
+        &args,
+        None,
+        on_prompt,
+        extra,
+    )
+    .await?;
 
     if status == 0 {
         Ok(())
@@ -399,8 +415,15 @@ where
         args.push(opt.as_str());
     }
 
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(repo_path, &executor, &args, None, on_prompt, extra).await?;
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Repo(repo_path),
+        &executor,
+        &args,
+        None,
+        on_prompt,
+        extra,
+    )
+    .await?;
 
     if status == 0 {
         return Ok(stderr);
@@ -437,19 +460,35 @@ where
     Err(base_error.into())
 }
 
-/// Signs the given commit-ish in the repository at the given path.
-/// Returns the newly signed commit SHA.
-///
+fn get_core_sshcommand<P>(harness_env: &HarnessEnv<P>) -> anyhow::Result<Option<String>>
+where
+    P: AsRef<Path>,
+{
+    match harness_env {
+        HarnessEnv::Repo(repo_path) => Ok(gix::open(repo_path.as_ref())?
+            .config_snapshot()
+            .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
+            .map(|program| program.to_string_lossy().into_owned())),
+        HarnessEnv::Global(_) => Ok(gix::config::File::from_globals()?
+            .string(gix::config::tree::Core::SSH_COMMAND)
+            .map(|program| program.to_str_lossy().into_owned())),
+    }
+}
+
+/// Clones the given repository URL to the target directory.
 /// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
 /// which should return the user's response or `None` if the operation should be
 /// aborted, in which case an `Err` value is returned from this function.
-pub async fn sign_commit<P, E, F, Extra, Fut>(
-    repo_path: P,
+///
+/// Unlike fetch/push, this function always uses the Git CLI regardless of any
+/// backend selection, as it needs to work before a repository exists.
+pub async fn clone<P, F, Fut, E, Extra>(
+    repository_url: &str,
+    target_dir: P,
     executor: E,
-    base_commitish: String,
     on_prompt: F,
     extra: Extra,
-) -> Result<String, crate::Error<Error<E>>>
+) -> Result<(), crate::Error<Error<E>>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
@@ -457,101 +496,52 @@ where
     Fut: std::future::Future<Output = Option<String>>,
     Extra: Send + Clone,
 {
-    let repo_path = repo_path.as_ref();
+    let target_dir = target_dir.as_ref();
 
-    // First, create a worktree to perform the commit.
-    let worktree_path = repo_path
-        .join(".git")
-        .join("gitbutler")
-        .join(".wt")
-        .join(uuid::Uuid::new_v4().to_string());
-    let args = [
-        "worktree",
-        "add",
-        "--detach",
-        "--no-checkout",
-        worktree_path.to_str().unwrap(),
-        base_commitish.as_str(),
-    ];
-    let (status, stdout, stderr) = executor
-        .execute(&args, repo_path, None)
-        .await
-        .map_err(Error::<E>::Exec)?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
+    // For clone, we run from the parent directory of the target
+    let work_dir = target_dir.parent().unwrap_or(Path::new("."));
+
+    let target_dir_str = target_dir.to_string_lossy();
+    let args = vec!["clone", "--", repository_url, &target_dir_str];
+
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Global(work_dir),
+        &executor,
+        &args,
+        None,
+        on_prompt,
+        extra,
+    )
+    .await?;
+
+    if status == 0 {
+        Ok(())
+    } else if stderr.to_lowercase().contains("permission denied") {
+        Err(crate::Error::AuthorizationFailed(Error::<E>::Failed {
             status,
             args: args.into_iter().map(Into::into).collect(),
             stdout,
             stderr,
-        })?;
-    }
-
-    // Now, perform the commit.
-    let args = [
-        "commit",
-        "--amend",
-        "-S",
-        "-o",
-        "--no-edit",
-        "--no-verify",
-        "--no-post-rewrite",
-        "--allow-empty",
-        "--allow-empty-message",
-    ];
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(&worktree_path, &executor, &args, None, on_prompt, extra).await?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
+        }))?
+    } else if stderr
+        .to_lowercase()
+        .contains("already exists and is not an empty directory")
+    {
+        Err(crate::Error::RemoteExists(
+            target_dir.display().to_string(),
+            Error::<E>::Failed {
+                status,
+                args: args.into_iter().map(Into::into).collect(),
+                stdout,
+                stderr,
+            },
+        ))?
+    } else {
+        Err(Error::<E>::Failed {
             status,
             args: args.into_iter().map(Into::into).collect(),
             stdout,
             stderr,
-        })?;
+        })?
     }
-
-    // Get the commit hash that was generated
-    let args = ["rev-parse", "--verify", "HEAD"];
-    let (status, stdout, stderr) = executor
-        .execute(&args, &worktree_path, None)
-        .await
-        .map_err(Error::<E>::Exec)?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
-            status,
-            args: args.into_iter().map(Into::into).collect(),
-            stdout,
-            stderr,
-        })?;
-    }
-
-    let commit_hash = stdout.trim().to_string();
-
-    // Finally, remove the worktree
-    let args = [
-        "worktree",
-        "remove",
-        "--force",
-        worktree_path.to_str().unwrap(),
-    ];
-    let (status, stdout, stderr) = executor
-        .execute(&args, repo_path, None)
-        .await
-        .map_err(Error::<E>::Exec)?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
-            status,
-            args: args.into_iter().map(Into::into).collect(),
-            stdout,
-            stderr,
-        })?;
-    }
-
-    Ok(commit_hash)
-}
-
-fn get_core_sshcommand(cwd: impl AsRef<Path>) -> anyhow::Result<Option<String>> {
-    Ok(gix::open(cwd.as_ref())?
-        .config_snapshot()
-        .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
-        .map(|program| program.to_string_lossy().into_owned()))
 }

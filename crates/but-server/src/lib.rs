@@ -11,7 +11,7 @@ use axum::{
     response::IntoResponse,
     routing::{any, get},
 };
-use but_api::{github, json, legacy};
+use but_api::{diff, github, json, legacy};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
@@ -163,7 +163,9 @@ async fn handle_command(
         "git_get_global_config" => legacy::git::git_get_global_config_cmd(request.params),
         // Diff commands
         "tree_change_diffs" => legacy::diff::tree_change_diffs_cmd(request.params),
-        "commit_details" => legacy::diff::commit_details_cmd(request.params),
+        "commit_details_with_line_stats" => {
+            diff::commit_details_with_line_stats_cmd(request.params)
+        }
         "changes_in_branch" => legacy::diff::changes_in_branch_cmd(request.params),
         "changes_in_worktree" => legacy::diff::changes_in_worktree_cmd(request.params),
         "assign_hunk" => legacy::diff::assign_hunk_cmd(request.params),
@@ -340,10 +342,11 @@ async fn handle_command(
         "git_get_local_config" => legacy::repo::git_get_local_config_cmd(request.params),
         "git_set_local_config" => legacy::repo::git_set_local_config_cmd(request.params),
         "check_signing_settings" => legacy::repo::check_signing_settings_cmd(request.params),
-        "git_clone_repository" => legacy::repo::git_clone_repository_cmd(request.params),
-        "get_uncommited_files" => legacy::repo::get_uncommited_files_cmd(request.params),
+        "git_clone_repository" => legacy::repo::git_clone_repository_cmd(request.params).await,
+        "get_uncommitted_files" => legacy::repo::get_uncommitted_files_cmd(request.params),
         "get_commit_file" => legacy::repo::get_commit_file_cmd(request.params),
         "get_workspace_file" => legacy::repo::get_workspace_file_cmd(request.params),
+        "get_blob_file" => legacy::repo::get_blob_file_cmd(request.params),
         "find_files" => legacy::repo::find_files_cmd(request.params),
         "pre_commit_hook" => legacy::repo::pre_commit_hook_cmd(request.params),
         "pre_commit_hook_diffspecs" => legacy::repo::pre_commit_hook_diffspecs_cmd(request.params),

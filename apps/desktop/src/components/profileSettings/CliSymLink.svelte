@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { BACKEND } from '$lib/backend';
 	import { CLI_MANAGER } from '$lib/cli/cli';
 	import { inject } from '@gitbutler/core/context';
 	import { Icon } from '@gitbutler/ui';
@@ -12,16 +13,23 @@
 
 	const cliManager = inject(CLI_MANAGER);
 	const cliPath = cliManager.path();
+	const backend = inject(BACKEND);
+	const platformName = backend.platformName;
 
-	function cliCommand(path: string): string {
-		const command = "sudo ln -sf '" + path + "' /usr/local/bin/but";
-		return command;
+	function cliCommand(path: string, platform: string): string {
+		if (platform === 'windows') {
+			// Windows-specific instructions - copy to WindowsApps which is typically in PATH
+			return `copy "${path}" "%LOCALAPPDATA%\\Microsoft\\WindowsApps\\but.exe"`;
+		} else {
+			// Unix-like systems (macOS, Linux)
+			return "sudo ln -sf '" + path + "' /usr/local/bin/but";
+		}
 	}
 </script>
 
 <div class="symlink-copy-box {classes}">
 	{#if cliPath.response}
-		{@const command = cliCommand(cliPath.response)}
+		{@const command = cliCommand(cliPath.response, platformName)}
 		<p>{command}</p>
 		<button type="button" class="symlink-copy-icon" onclick={() => copyToClipboard(command)}>
 			<Icon name="copy" />

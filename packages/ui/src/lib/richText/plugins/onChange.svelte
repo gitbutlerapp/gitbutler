@@ -9,6 +9,7 @@
 <script lang="ts">
 	import { getEditor } from '$lib/richText/context';
 	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from '$lib/richText/selection';
+	import { exportPlaintext } from '$lib/richText/utils/export';
 	import { $getRoot as getRoot } from 'lexical';
 	import {
 		BLUR_COMMAND,
@@ -32,12 +33,10 @@
 			BLUR_COMMAND,
 			() => {
 				editor.read(() => {
-					const currentText = getRoot().getTextContent();
-					if (currentText === text) {
-						return;
-					}
-
+					const currentText = exportPlaintext(getRoot());
+					if (currentText === text) return;
 					text = currentText;
+
 					const selection = getSelection();
 					if (!isRangeSelection(selection)) {
 						return;
@@ -45,15 +44,11 @@
 
 					const textUpToAnchor = getEditorTextUpToAnchor(selection);
 					const textAfterAnchor = getEditorTextAfterAnchor(selection);
-					onChange?.(text, textUpToAnchor, textAfterAnchor);
+					onChange?.(exportPlaintext(getRoot()), textUpToAnchor, textAfterAnchor);
 				});
 				return false;
 			},
 			COMMAND_PRIORITY_NORMAL
 		);
 	});
-
-	export function getText(): string | undefined {
-		return text;
-	}
 </script>

@@ -1,7 +1,6 @@
-use anyhow::{Context as _, Result};
-use but_api_macros::api_cmd_tauri;
+use anyhow::Result;
+use but_api_macros::but_api;
 use but_core::{
-    Commit,
     ref_metadata::StackId,
     ui::{TreeChange, TreeChanges},
 };
@@ -16,11 +15,9 @@ use gitbutler_reference::Refname;
 use gix::refs::Category;
 use tracing::instrument;
 
-use crate::json::HexHash;
-
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
     project_id: ProjectId,
@@ -33,47 +30,13 @@ pub fn tree_change_diffs(
     change.unified_patch(&repo, app_settings.context_lines)
 }
 
-pub mod json {
-    use but_core::commit::ConflictEntries;
-    use serde::Serialize;
-
-    #[derive(Debug, Serialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct CommitDetails {
-        pub commit: but_workspace::ui::Commit,
-        #[serde(flatten)]
-        pub changes: but_core::ui::TreeChanges,
-        pub conflict_entries: Option<ConflictEntries>,
-    }
-}
-
-#[api_cmd_tauri]
-#[instrument(err(Debug))]
-pub fn commit_details(
-    project_id: ProjectId,
-    commit_id: HexHash,
-) -> anyhow::Result<json::CommitDetails> {
-    let project = gitbutler_project::get(project_id)?;
-    let repo = project.open_repo()?;
-    let commit = repo
-        .find_commit(commit_id)
-        .context("Failed for find commit")?;
-    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(&repo, commit_id.into())?;
-    let conflict_entries = Commit::from_id(commit.id())?.conflict_entries()?;
-    Ok(json::CommitDetails {
-        commit: commit.try_into()?,
-        changes,
-        conflict_entries,
-    })
-}
-
 /// Gets the changes for a given branch.
 /// If the branch is part of a stack and if the stack_id is provided, this will include only the changes
 /// up to the next branch in the stack.
 /// Otherwise, if stack_id is not provided, this will include all changes as compared to the target branch
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn changes_in_branch(
     project_id: ProjectId,
@@ -111,7 +74,7 @@ fn changes_in_branch_inner(ctx: Context, branch: Refname) -> anyhow::Result<Tree
 /// * conflicts are ignored
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChanges> {
     let project = gitbutler_project::get(project_id)?;
@@ -159,7 +122,7 @@ pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChan
     })
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn assign_hunk(
     project_id: ProjectId,

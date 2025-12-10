@@ -76,7 +76,7 @@ pub fn list_templates(project: &Project) -> Result<Vec<PromptTemplate>> {
                 .filter_map(|entry| entry.ok())
                 .collect::<Vec<_>>();
             // We could do the iteration the other way, which would be
-            // marginally faster, but this way we get the desired precidence.
+            // marginally faster, but this way we get the desired precedence.
             for filter in &dir.filters {
                 let longer_filters = dir
                     .filters

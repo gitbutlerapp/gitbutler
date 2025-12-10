@@ -303,11 +303,11 @@
 				<ReduxResult {projectId} {stackId} result={prQuery?.result}>
 					{#snippet children(pr)}
 						<ContextMenuSection>
-							<ContextMenuItemSubmenu label="Pull Request" icon="pr">
+							<ContextMenuItemSubmenu label={forge.reviewUnitName} icon="pr">
 								{#snippet submenu({ close: closeSubmenu })}
 									<ContextMenuSection>
 										<ContextMenuItem
-											label="Open PR in browser"
+											label="Open {forge.reviewUnitAbbr} in browser"
 											testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
 											onclick={() => {
 												urlService.openExternalUrl(pr.htmlUrl);
@@ -316,10 +316,12 @@
 											}}
 										/>
 										<ContextMenuItem
-											label="Copy PR link"
+											label="Copy {forge.reviewUnitAbbr} link"
 											testId={TestId.BranchHeaderContextMenu_CopyPRLink}
 											onclick={() => {
-												clipboardService.write(pr.htmlUrl, { message: 'PR link copied' });
+												clipboardService.write(pr.htmlUrl, {
+													message: `${forge.reviewUnitAbbr} link copied`
+												});
 												closeSubmenu();
 												close();
 											}}

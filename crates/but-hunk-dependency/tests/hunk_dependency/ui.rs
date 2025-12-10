@@ -36,10 +36,6 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           [
             {
               "stackId": "stack_1",
-              "commitId": "e954269ca7be71d09da50ec389b13f268a779c27"
-            },
-            {
-              "stackId": "stack_1",
               "commitId": "fba21e9ecacde86f327537add23f96775064a486"
             },
             {
@@ -58,6 +54,10 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
             "diff": "@@ -10,1 +10,2 @@\n-added at the bottom\n+update bottom\n+add another line\n"
           },
           [
+            {
+              "stackId": "stack_1",
+              "commitId": "375e35becbf67fe2b246b120bc76bf070e3e41d8"
+            },
             {
               "stackId": "stack_1",
               "commitId": "fba21e9ecacde86f327537add23f96775064a486"
@@ -151,10 +151,6 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(e954269ca7be71d09da50ec389b13f268a779c27),
-                    },
-                    HunkLock {
-                        stack_id: stack_1,
                         commit_id: Sha1(fba21e9ecacde86f327537add23f96775064a486),
                     },
                     HunkLock {
@@ -171,6 +167,10 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 +add another line
                 "),
                 [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(375e35becbf67fe2b246b120bc76bf070e3e41d8),
+                    },
                     HunkLock {
                         stack_id: stack_1,
                         commit_id: Sha1(fba21e9ecacde86f327537add23f96775064a486),

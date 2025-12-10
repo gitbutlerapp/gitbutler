@@ -61,7 +61,7 @@ pub fn compute_workspace_dependencies(
     })
 }
 
-/// Get the commits that need to be processed for the stack dependencies caculation.
+/// Get the commits that need to be processed for the stack dependencies calculation.
 ///
 /// Commit IDs are in the order that they are applied (parent first).
 /// Merge commits to the target branch are not included.

@@ -5,7 +5,7 @@ use but_ctx::{Context, LegacyProject};
 use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 
-use crate::{args::branch, utils::OutputChannel};
+use crate::{CliId, IdMap, args::branch, utils::OutputChannel};
 
 mod apply;
 mod json;
@@ -73,10 +73,12 @@ pub async fn handle(
             branch_name,
             anchor,
         }) => {
-            let ctx = Context::new_from_legacy_project_and_settings(
+            let mut ctx = Context::new_from_legacy_project_and_settings(
                 legacy_project,
                 AppSettings::load_from_default_path_creating()?,
             );
+            let mut id_map = IdMap::new_from_context(&ctx)?;
+            id_map.add_file_info_from_context(&mut ctx)?;
             // Get branch name or use canned name
             let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
                 but_api::legacy::workspace::canned_branch_name(legacy_project.id)
@@ -87,10 +89,9 @@ pub async fn handle(
 
             let anchor = if let Some(anchor_str) = anchor {
                 // Use the new create_reference API when anchor is provided
-                let mut ctx = ctx; // Make mutable for CliId resolution
 
                 // Resolve the anchor string to a CliId
-                let anchor_ids = crate::legacy::id::CliId::from_str(&mut ctx, &anchor_str)?;
+                let anchor_ids = id_map.resolve_entity_to_ids(&anchor_str)?;
                 if anchor_ids.is_empty() {
                     return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
                 }
@@ -105,13 +106,13 @@ pub async fn handle(
                 // Create the anchor for create_reference
                 // as dependent branch
                 match anchor_id {
-                    crate::legacy::id::CliId::Commit { oid } => {
+                    CliId::Commit(oid) => {
                         Some(but_api::legacy::stack::create_reference::Anchor::AtCommit {
                             commit_id: (*oid).into(),
                             position: but_workspace::branch::create_reference::Position::Above,
                         })
                     }
-                    crate::legacy::id::CliId::Branch { name, .. } => Some(
+                    CliId::Branch { name, .. } => Some(
                         but_api::legacy::stack::create_reference::Anchor::AtReference {
                             short_name: name.clone(),
                             position: but_workspace::branch::create_reference::Position::Above,
@@ -120,7 +121,7 @@ pub async fn handle(
                     _ => {
                         return Err(anyhow::anyhow!(
                             "Invalid anchor type: {}, expected commit or branch",
-                            anchor_id.kind()
+                            anchor_id.kind_for_humans()
                         ));
                     }
                 }

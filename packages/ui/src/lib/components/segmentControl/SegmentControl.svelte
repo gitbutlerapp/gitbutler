@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
-	import type { SegmentContext, SegmentItem } from '$components/segmentControl/segmentTypes';
+	import type { SegmentContext } from '$components/segmentControl/segmentTypes';
 	import type { Snippet } from 'svelte';
 
 	interface SegmentProps {
-		defaultIndex: number;
+		selected?: string;
 		fullWidth?: boolean;
 		shrinkable?: boolean;
 		size?: 'default' | 'small';
@@ -14,39 +14,39 @@
 	}
 
 	const {
-		defaultIndex,
-		fullWidth,
+		selected,
+		fullWidth = false,
 		shrinkable = false,
-		size,
+		size = 'default',
 		onselect,
 		children
 	}: SegmentProps = $props();
 
-	let indexesIterator = -1;
-	let segments: SegmentItem[] = [];
+	const registeredSegments: string[] = [];
+	const selectedSegmentId = writable<string | undefined>(selected);
 
-	let selectedSegmentIndex = writable(defaultIndex);
-
+	// Sync external selected prop to internal store
 	$effect(() => {
-		$selectedSegmentIndex = defaultIndex;
+		if (selected !== undefined) {
+			selectedSegmentId.set(selected);
+		}
 	});
 
 	const context: SegmentContext = {
-		selectedSegmentIndex,
-		setIndex: () => {
-			indexesIterator += 1;
-			return indexesIterator;
-		},
-		addSegment: ({ index }) => {
-			segments = [...segments, { index }];
-		},
-		setSelected: ({ index: segmentIndex, id }) => {
-			if (segmentIndex >= 0 && segmentIndex < segments.length) {
-				$selectedSegmentIndex = segmentIndex;
-				if (onselect) {
-					onselect(id);
+		selectedSegmentId,
+		registerSegment: (id: string) => {
+			if (!registeredSegments.includes(id)) {
+				registeredSegments.push(id);
+				// If no segment is selected, select the first one (silent initialization, do not call onselect)
+				if ($selectedSegmentId === undefined) {
+					selectedSegmentId.set(id);
+					// Do not call onselect here to avoid side effects before user interaction
 				}
 			}
+		},
+		selectSegment: (id: string) => {
+			selectedSegmentId.set(id);
+			onselect?.(id);
 		}
 	};
 

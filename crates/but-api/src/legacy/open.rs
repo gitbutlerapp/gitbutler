@@ -2,7 +2,7 @@
 use std::env;
 
 use anyhow::{Context as _, Result, bail};
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use tracing::instrument;
 use url::Url;
 
@@ -83,13 +83,13 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn open_url(url: String) -> Result<()> {
     open_that(&url)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn show_in_finder(path: String) -> Result<()> {
     // Cross-platform implementation to open file/directory in the default file manager

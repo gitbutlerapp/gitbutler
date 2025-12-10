@@ -1,12 +1,13 @@
+use crate::Worktree;
+use crate::init::walk::WorktreeByBranch;
+use crate::init::{Entrypoint, Overlay, walk::RefsById};
+use anyhow::bail;
+use but_core::{RefMetadata, ref_metadata};
+use gix::{prelude::ReferenceExt, refs::Target};
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
 };
-
-use but_core::{RefMetadata, ref_metadata};
-use gix::{prelude::ReferenceExt, refs::Target};
-
-use crate::init::{Entrypoint, Overlay, walk::RefsById};
 
 impl Overlay {
     /// Serve the given `refs` from memory, as if they would exist.
@@ -103,10 +104,12 @@ impl Overlay {
     }
 }
 
+type NameToReference = BTreeMap<gix::refs::FullName, gix::refs::Reference>;
+
 pub(crate) struct OverlayRepo<'repo> {
     inner: &'repo gix::Repository,
-    nonoverriding_references: BTreeMap<gix::refs::FullName, gix::refs::Reference>,
-    overriding_references: BTreeMap<gix::refs::FullName, gix::refs::Reference>,
+    nonoverriding_references: NameToReference,
+    overriding_references: NameToReference,
 }
 
 /// Note that functions with `'repo` in their return value technically leak the bare repo, and it's
@@ -179,10 +182,6 @@ impl<'repo> OverlayRepo<'repo> {
     }
 
     pub fn for_find_only(&self) -> &'repo gix::Repository {
-        self.inner
-    }
-
-    pub fn for_worktree_only(&self) -> &'repo gix::Repository {
         self.inner
     }
 
@@ -268,6 +267,93 @@ impl<'repo> OverlayRepo<'repo> {
         }
         all_refs_by_id.values_mut().for_each(|v| v.sort());
         Ok(all_refs_by_id)
+    }
+
+    /// This is a bit tricky but aims to map the `HEAD` targets of the main worktree to what possibly was overridden
+    /// via `main_head_referent`. The idea is that this is the entrypoint, which is assumed to be `HEAD`
+    ///
+    /// ### Shortcoming
+    ///
+    /// For now, it can only remap the first HEAD reference. For this to really work, we need proper in-memory overrides
+    /// or a way to have overrides 'for real'.
+    /// Also, we don't want `main_head_referent` to be initialised from the entrypoint, which we equal to be `HEAD`.
+    /// But this invariant can fall apart easily and is caller dependent, as we use it to see the graph *as if* `HEAD` would
+    /// be in another position - but that doesn't affect the worktree ref at all.
+    pub fn worktree_branches(
+        &self,
+        main_head_referent: Option<&gix::refs::FullNameRef>,
+    ) -> anyhow::Result<WorktreeByBranch> {
+        /// If `main_head_referent` is set, it means this is an overridden reference of the `HEAD` of the repo the graph is built in.
+        /// If `None`, `head` belongs to another worktree. Completely unrelated to linked or main.
+        fn maybe_insert_head(
+            head: Option<gix::Head<'_>>,
+            main_head_referent: Option<&gix::refs::FullNameRef>,
+            overriding: &NameToReference,
+            out: &mut WorktreeByBranch,
+        ) -> anyhow::Result<()> {
+            let Some((head, wd)) = head.and_then(|head| {
+                head.repo.worktree().map(|wt| {
+                    (
+                        head,
+                        match wt.id() {
+                            None => Worktree::Main,
+                            Some(id) => Worktree::LinkedId(id.to_owned()),
+                        },
+                    )
+                })
+            }) else {
+                return Ok(());
+            };
+
+            out.entry("HEAD".try_into().expect("valid"))
+                .or_default()
+                .push(wd.clone());
+            let mut ref_chain = Vec::new();
+            // Is this the repo that the overrides were applied on?
+            let mut cursor = if let Some(head_name) = main_head_referent {
+                overriding
+                    .get(head_name)
+                    .map(|overridden_head| overridden_head.clone().attach(head.repo))
+                    .or_else(|| head.try_into_referent())
+            } else {
+                head.try_into_referent()
+            };
+            while let Some(ref_) = cursor {
+                ref_chain.push(ref_.name().to_owned());
+                if overriding
+                    .get(ref_.name())
+                    .is_some_and(|r| r.target.try_name() != ref_.target().try_name())
+                {
+                    bail!(
+                        "SHORTCOMING: cannot deal with {ref_:?} overridden to a different symbolic name to follow"
+                    )
+                }
+                cursor = ref_.follow().transpose()?;
+            }
+            for name in ref_chain {
+                out.entry(name).or_default().push(wd.clone());
+            }
+
+            Ok(())
+        }
+
+        let mut map = BTreeMap::new();
+        maybe_insert_head(
+            self.inner.head().ok(),
+            main_head_referent,
+            &self.overriding_references,
+            &mut map,
+        )?;
+        for proxy in self.inner.worktrees()? {
+            let repo = proxy.into_repo_with_possibly_inaccessible_worktree()?;
+            maybe_insert_head(
+                repo.head().ok(),
+                None,
+                &self.overriding_references,
+                &mut map,
+            )?;
+        }
+        Ok(map)
     }
 }
 

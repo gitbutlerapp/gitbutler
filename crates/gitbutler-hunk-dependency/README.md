@@ -1,6 +1,6 @@
 # Hunk dependency
 
-This crate contains the logic behind the calculation of the dependency graph between commits and between uncommited changes.
+This crate contains the logic behind the calculation of the dependency graph between commits and between uncommitted changes.
 
 ## Overview
 
@@ -16,9 +16,9 @@ We should play around with the limits of what should be rearrangeable.
 
 ### What do we want?
 
-1. Be able to tell which uncommited changes belong to which stacks.
+1. Be able to tell which uncommitted changes belong to which stacks.
 2. Be able to tell which commits depend on which preceding commits.
-3. Be able to tell which commits are depended upon by following commits or uncommited changes (i.e. the inverse map of the previous two items).
+3. Be able to tell which commits are depended upon by following commits or uncommitted changes (i.e. the inverse map of the previous two items).
 
 ### What do we need?
 
@@ -49,7 +49,7 @@ The items in the vector, i.e. hunk ranges, have the following information:
 
 ## Algorithm's pseudo code (roughly)
 
-What we're rougly doing in the code is
+What we're roughly doing in the code is
 ```
 for all affected files:
   for all input diff hunks:
@@ -61,7 +61,7 @@ for all affected files:
       override all previous hunks
       break
 
-    if there are no exsting hunks
+    if there are no existing hunks
       add all diffs (can be multiple)
       break
 
@@ -189,12 +189,12 @@ After processing the incoming hunk, the hunk range list looks like this
 The existing range was split, and the incoming hunk split the existing range into the first and the last one.
 The index of the next hunk range to visit is `2` and the index of the first hunk to shift is `3`.
 When we process a following hunk, we need to compare it to the **3rd hunk range** (and following hunk ranges if any), but we need to shift the `start` lines of the hunk ranges following the ones we updated, in this case the **4th hunk range**.
-Since the net lines are 0, everythin stays as is.
+Since the net lines are 0, everything stays as is.
 
 ### Multiple shifts per commit
 ---
 
-Inside a commit, multple hunks will most probably shift the lines different amounts.
+Inside a commit, multiple hunks will most probably shift the lines different amounts.
 We keep track of the cumulative line shift, and update only the hunks that follow the hunk that introduced the shift.
 
 ### Matching incoming hunks to shifted ranges

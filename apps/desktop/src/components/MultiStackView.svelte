@@ -164,7 +164,7 @@
 	use:resizeObserver={(data) => {
 		// An experiment in prevent content shift. Currently this mechanism
 		// allows content shift if the main viewport is scrolled to the left,
-		// because the content shift is most annoyin when there are many
+		// because the content shift is most annoying when there are many
 		// lanes and you are e.g. making a commit to one of them.
 		if (lastWidth && lanesScrollableEl) {
 			// Only offset for sudden large changes.
@@ -275,9 +275,14 @@
 						onclick={() => createBranchModal?.show()}>create a new branch</button
 					> +
 				{:else}
-					Drag changes here to
+					Drop files to start a branch,
 					<br />
-					branch off your changes
+					or
+					<button
+						type="button"
+						class="underline-dotted pointer-events clr-text-2 link-hover-2"
+						onclick={() => createBranchModal?.show()}>create a new branch</button
+					> +
 				{/if}
 			{/snippet}
 		</MultiStackOfflaneDropzone>

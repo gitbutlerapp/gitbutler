@@ -5,7 +5,7 @@ use bstr::{BString, ByteSlice};
 use gix::prelude::ObjectIdExt;
 use serde::{Deserialize, Serialize};
 
-use crate::Commit;
+use crate::{Commit, CommitOwned};
 
 /// A unique ID to track any commit.
 pub type ChangeId = crate::Id<'C'>;
@@ -191,11 +191,26 @@ impl TreeKind {
 impl<'repo> Commit<'repo> {
     /// Decode the object at `commit_id` and keep its data for later query.
     pub fn from_id(commit_id: gix::Id<'repo>) -> anyhow::Result<Self> {
-        let commit = commit_id.object()?.try_into_commit()?.decode()?.into();
-        Ok(Commit {
-            id: commit_id,
-            inner: commit,
-        })
+        commit_id.object()?.try_into_commit()?.try_into()
+    }
+}
+
+impl<'repo> TryFrom<gix::Commit<'repo>> for Commit<'repo> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: gix::Commit<'repo>) -> Result<Self, Self::Error> {
+        let id = value.id();
+        let commit = value.decode()?.try_into()?;
+        Ok(Commit { id, inner: commit })
+    }
+}
+
+impl From<Commit<'_>> for CommitOwned {
+    fn from(Commit { id, inner }: Commit<'_>) -> Self {
+        CommitOwned {
+            id: id.detach(),
+            inner,
+        }
     }
 }
 
@@ -227,8 +242,24 @@ impl HeadersV2 {
     }
 }
 
+impl CommitOwned {
+    /// Attach `repo` to this instance to be able to do way more with it.
+    pub fn attach(self, repo: &gix::Repository) -> Commit<'_> {
+        let CommitOwned { id, inner } = self;
+        Commit {
+            id: id.attach(repo),
+            inner,
+        }
+    }
+}
+
 /// Access
 impl<'repo> Commit<'repo> {
+    /// Remove the `repo` reference to become a fully owned instance.
+    pub fn detach(self) -> CommitOwned {
+        self.into()
+    }
+
     /// Return `true` if this commit contains a tree that is conflicted.
     pub fn is_conflicted(&self) -> bool {
         self.headers().is_some_and(|hdr| hdr.is_conflicted())

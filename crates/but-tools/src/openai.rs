@@ -1,19 +1,18 @@
-use async_openai::types::{ChatCompletionTool, ChatCompletionToolType, FunctionObject};
+use async_openai::types::chat::{ChatCompletionTool, ChatCompletionTools, FunctionObject};
 
 use crate::tool::Tool;
 
-impl TryFrom<&dyn Tool> for ChatCompletionTool {
+impl TryFrom<&dyn Tool> for ChatCompletionTools {
     type Error = anyhow::Error;
-    fn try_from(tool: &dyn Tool) -> Result<ChatCompletionTool, Self::Error> {
-        let tool = ChatCompletionTool {
-            r#type: ChatCompletionToolType::Function,
+    fn try_from(tool: &dyn Tool) -> Result<ChatCompletionTools, Self::Error> {
+        let tool = ChatCompletionTools::Function(ChatCompletionTool {
             function: FunctionObject {
                 name: tool.name(),
                 description: Some(tool.description()),
                 parameters: Some(tool.parameters()),
                 strict: Some(false),
             },
-        };
+        });
 
         Ok(tool)
     }

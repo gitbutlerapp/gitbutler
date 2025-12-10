@@ -13,7 +13,7 @@ describe('Selection', () => {
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
 		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
 		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
@@ -32,7 +32,7 @@ describe('Selection', () => {
 		cy.getByTestId('branch-header').should('contain', mockBackend.stackId);
 
 		const stacks = mockBackend.getStacks();
-		// There shuold be three stacks
+		// There should be three stacks
 		cy.getByTestId('stack').should('have.length', stacks.length);
 
 		// Select the second stack
@@ -45,7 +45,7 @@ describe('Selection', () => {
 			cy.getByTestIdByValue('branch-header', stackName)
 				.click()
 				.within(() => {
-					// Shouls have the stack url
+					// Should have the stack url
 					cy.urlMatches(`/${PROJECT_ID}/workspace`);
 				});
 			// Check if the file list is updated
@@ -68,7 +68,7 @@ describe('Selection', () => {
 
 		const stacks = mockBackend.getStacks();
 		const stack = stacks[0]!;
-		// There shuold be three stacks
+		// There should be three stacks
 		cy.getByTestId('stack').should('have.length', stacks.length);
 
 		// Select the initial commit which should be local only
@@ -92,7 +92,7 @@ describe('Selection', () => {
 		cy.getByTestId('branch-header').should('contain', mockBackend.stackWithTwoCommits);
 
 		const stacks = mockBackend.getStacks();
-		// There shuold be three stacks
+		// There should be three stacks
 		cy.getByTestId('stack').should('have.length', stacks.length);
 
 		cy.getByTestIdByValue('stack', mockBackend.stackWithTwoCommits)
@@ -153,7 +153,7 @@ describe('Selection', () => {
 		cy.getByTestId('branch-header').should('contain', mockBackend.stackWithTwoCommits);
 
 		const stacks = mockBackend.getStacks();
-		// There shuold be three stacks
+		// There should be three stacks
 		cy.getByTestId('stack').should('have.length', stacks.length);
 
 		cy.getByTestIdByValue('stack', mockBackend.stackWithTwoCommits)
@@ -239,7 +239,7 @@ describe('Selection with upstream changes', () => {
 		cy.getByTestId('branch-header').should('contain', mockBackend.stackId);
 
 		const stacks = mockBackend.getStacks();
-		// There shuold be three stacks
+		// There should be three stacks
 		cy.getByTestId('stack').should('have.length', stacks.length);
 
 		// Select the initial commit which should be local only

@@ -291,8 +291,7 @@ impl OplogExt for Context {
             None
         };
 
-        let (tree_changes, _) = tree_changes(&gix_repo, old_wd_tree_id, wd_tree.id().to_gix())?;
-        Ok(tree_changes)
+        tree_changes(&gix_repo, old_wd_tree_id, wd_tree.id().to_gix())
     }
 
     fn snapshot_workspace_tree(&self, sha: gix::ObjectId) -> Result<gix::ObjectId> {

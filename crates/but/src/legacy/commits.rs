@@ -6,28 +6,6 @@ use but_workspace::{
     ui::StackDetails,
 };
 
-use crate::legacy::id::CliId;
-
-pub fn all_commits(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
-    let stacks = stacks(ctx)?
-        .iter()
-        .filter_map(|s| s.id.map(|id| stack_details(ctx, id)))
-        .filter_map(Result::ok)
-        .collect::<Vec<_>>();
-    let mut matches = Vec::new();
-    for stack in stacks {
-        for branch in &stack.branch_details {
-            for commit in &branch.upstream_commits {
-                matches.push(CliId::commit(commit.id));
-            }
-            for commit in &branch.commits {
-                matches.push(CliId::commit(commit.id));
-            }
-        }
-    }
-    Ok(matches)
-}
-
 pub fn stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
     let repo = ctx.open_repo_for_merging_non_persisting()?;
     if ctx.settings().feature_flags.ws3 {

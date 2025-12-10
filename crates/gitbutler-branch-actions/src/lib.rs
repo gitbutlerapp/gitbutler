@@ -4,7 +4,7 @@ mod actions;
 pub use actions::{
     amend, can_apply_remote_branch, create_commit, create_virtual_branch,
     create_virtual_branch_from_branch, delete_local_branch, fetch_from_remotes, find_commit,
-    find_git_branches, get_initial_integration_steps_for_branch, get_uncommited_files,
+    find_git_branches, get_initial_integration_steps_for_branch, get_uncommitted_files,
     insert_blank_commit, integrate_branch_with_steps, integrate_upstream,
     integrate_upstream_commits, list_commit_files, move_branch, move_commit, push_base_branch,
     reorder_stack, resolve_upstream_integration, set_base_branch, set_target_push_remote,

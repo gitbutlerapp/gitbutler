@@ -26,7 +26,7 @@
 
 	const canPublishPR = $derived(forge.current.authenticated && !pr);
 
-	const ctaLabel = 'Create Pull Request…';
+	const ctaLabel = $derived(`Create ${forge.reviewUnitName}…`);
 
 	export const imports = {
 		get allowedToPublishPR() {

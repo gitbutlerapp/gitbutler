@@ -1,4 +1,4 @@
-//! After looking into this and seeing false positives in token numbers ect...,
+//! After looking into this and seeing false positives in token numbers etc...,
 //! I've determined that it is currently just not possible to use the real
 //! /compact command from CC.
 //!
@@ -228,16 +228,15 @@ pub async fn generate_summary(
         let session_id =
             Transcript::current_valid_session_id(sync_ctx.legacy_project.worktree_dir()?, session)
                 .await?
-                .context("Cant find current session id")?;
+                .context("Cannot find current session id")?;
         let app_settings = sync_ctx.settings.clone();
         let claude_executable = app_settings.claude.executable.clone();
 
         let mut cmd = Command::new(claude_executable);
 
-        /// Don't create a terminal window on windows.
+        // Don't create a terminal window on windows.
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             cmd.creation_flags(CREATE_NO_WINDOW);
         }
@@ -261,7 +260,7 @@ Please include the following in your report if they are relevant:
 - The end goal
 - The steps we are taking and the steps we have taken so far
 - Key points in the conversation
-- Important implmentation details
+- Important implementation details
 - Key files that are being worked on
 - In depth summary of design goals
 - Other context that would help another developer continue this work

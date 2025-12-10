@@ -23,8 +23,9 @@ impl Test {
         let data_dir = paths::data_dir();
 
         let test_project = TestProject::default();
-        let outcome = gitbutler_project::add_with_path(data_dir.as_ref(), test_project.path())
-            .expect("failed to add project");
+        let outcome =
+            gitbutler_project::add_at_app_data_dir(data_dir.as_ref(), test_project.path())
+                .expect("failed to add project");
         let project = outcome.unwrap_project();
         let mut settings = AppSettings::default();
         change_settings(&mut settings);

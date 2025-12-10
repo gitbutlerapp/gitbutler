@@ -16,7 +16,7 @@ use gitbutler_repo::{
     rebase::gitbutler_merge_commits,
 };
 use gitbutler_stack::{StackId, Target, VirtualBranchesHandle};
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
 
@@ -312,7 +312,7 @@ fn get_stack_status(
         }
         // Rebase the commits and see if any conflict
         // Rebasing is preferable to merging, as not everything that is
-        // mergable is rebasable.
+        // mergeable is rebasable.
         // Doing both would be preferable, but we don't communicate that
         // to the frontend at the minute.
         let local_commit_ids = local_commits
@@ -524,7 +524,7 @@ pub(crate) fn integrate_upstream(
         compute_resolutions(&context, resolutions, base_branch_resolution_approach)?;
 
     {
-        // We preform the updates in stages. If deleting or unapplying fails, we
+        // We perform the updates in stages. If deleting or unapplying fails, we
         // could enter a much worse state if we're simultaneously updating trees
 
         // Delete branches
@@ -654,7 +654,7 @@ pub(crate) fn integrate_upstream(
 
         {
             let new_workspace = WorkspaceState::create(ctx, permission.read_permission())?;
-            update_uncommited_changes(ctx, old_workspace, new_workspace, permission)?;
+            update_uncommitted_changes(ctx, old_workspace, new_workspace, permission)?;
         }
 
         crate::integration::update_workspace_commit(&virtual_branches_state, ctx, false)?;
@@ -744,7 +744,7 @@ fn compute_resolutions(
                 ResolutionApproach::Delete => Ok((stack.id, IntegrationResult::DeleteBranch)),
                 ResolutionApproach::Merge => {
                     // Make a merge commit on top of the branch commits,
-                    // then rebase the tree ontop of that. If the tree ends
+                    // then rebase the tree on top of that. If the tree ends
                     // up conflicted, commit the tree.
                     let target_commit = repo.find_commit(stack.tip.to_git2())?;
                     let top_branch = stack.heads.last().context("top branch not found")?;

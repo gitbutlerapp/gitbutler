@@ -1,18 +1,14 @@
 <script lang="ts">
 	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
+	import ThemeSwitcher from '$lib/components/marketing/ThemeSwitcher.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import osIcons from '$lib/data/os-icons.json';
-	import { setTheme, themeStore } from '$lib/utils/theme.svelte';
-	import { Icon } from '@gitbutler/ui';
 
 	interface Props {
 		showDownloadLinks?: boolean;
 	}
 
 	const { showDownloadLinks = true }: Props = $props();
-
-	// Get the current theme
-	const currentTheme = $derived($themeStore);
 </script>
 
 <footer class="footer">
@@ -93,9 +89,9 @@
 
 		<img class="banner-image" src="/images/pc-skater.svg" alt="" />
 
-		<div class="banner-background">
-			<div class="banner-background__noisy noisy-1"></div>
-			<div class="banner-background__noisy noisy-2"></div>
+		<div class="banner-bg">
+			<div class="banner-bg-grainy grainy-1"></div>
+			<div class="banner-bg-grainy grainy-2"></div>
 		</div>
 	</div>
 
@@ -130,45 +126,17 @@
 					>©{new Date().getFullYear()} GitButler. All rights reserved.</span
 				>
 				<span class="meta-links__legal">
-					<a href="/privacy">
+					<a href={jsonLinks.legal.privacyPolicy.url} target="_blank">
 						{jsonLinks.legal.privacyPolicy.label}
 					</a>
 					<span> | </span>
-					<a href={jsonLinks.legal.termsOfService.url}>
+					<a href={jsonLinks.legal.termsOfService.url} target="_blank">
 						{jsonLinks.legal.termsOfService.label}
 					</a>
 				</span>
 			</div>
 
-			<div class="theme-switcher">
-				<button
-					type="button"
-					class="theme-switcher__button"
-					class:active={currentTheme === 'light'}
-					onclick={() => setTheme('light')}
-					aria-label="Light theme"
-				>
-					<Icon name="light-theme" />
-				</button>
-				<button
-					type="button"
-					class="theme-switcher__button"
-					class:active={currentTheme === 'system'}
-					onclick={() => setTheme('system')}
-					aria-label="System theme"
-				>
-					<Icon name="system-theme" />
-				</button>
-				<button
-					type="button"
-					class="theme-switcher__button"
-					class:active={currentTheme === 'dark'}
-					onclick={() => setTheme('dark')}
-					aria-label="Dark theme"
-				>
-					<Icon name="dark-theme" />
-				</button>
-			</div>
+			<ThemeSwitcher />
 		</div>
 	</div>
 </footer>
@@ -188,7 +156,7 @@
 		padding: 36px 0 0 48px;
 	}
 
-	.banner-background {
+	.banner-bg {
 		z-index: -1;
 		position: absolute;
 		top: 0;
@@ -200,38 +168,30 @@
 		background: var(--clr-scale-pop-60);
 	}
 
-	.banner-background__noisy {
+	.banner-bg-grainy {
 		position: absolute;
-		width: 140%;
-		height: 1140px;
-		transform: rotate(45deg);
-		border-radius: 50%;
-		background:
-			radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0)),
-			url("data:image/svg+xml,%3Csvg viewBox='0 0 800 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-		mix-blend-mode: screen;
-		filter: contrast(145%) brightness(1050%) invert(100%);
-		opacity: 0.7;
+		width: 900px;
+		height: 800px;
+		transform: rotate(26deg);
+		background-image: url('/images/grainy-gradient-light.png');
+		background-size: 100%;
+		background-repeat: no-repeat;
+		opacity: 0.4;
 		pointer-events: none;
+	}
 
-		:global(.dark) & {
-			opacity: 0.3;
-		}
+	.grainy-1 {
+		bottom: -130%;
+		left: -50%;
+	}
 
-		@media all and (-webkit-min-device-pixel-ratio: 0) and (min-resolution: 0.001dpcm) {
-			mix-blend-mode: color-dodge;
-			filter: contrast(125%) brightness(650%) invert(100%);
-		}
+	.grainy-2 {
+		right: -40%;
+		bottom: -70%;
+	}
 
-		&.noisy-1 {
-			bottom: -20%;
-			left: 20%;
-		}
-
-		&.noisy-2 {
-			top: -10%;
-			right: 20%;
-		}
+	:global(.dark) .banner-bg-grainy {
+		opacity: 0.2;
 	}
 
 	.banner-content-downloads {
@@ -386,48 +346,22 @@
 		justify-content: center;
 		width: 24px;
 		height: 24px;
-		color: var(--clr-text-3);
-		cursor: pointer;
-		transition: color 0.1s ease-in-out;
+		.meta-links__legal {
+			display: flex;
+			gap: 8px;
 
-		&:hover {
-			color: var(--clr-text-2);
+			a {
+				color: inherit;
+				text-decoration: underline;
+
+				&:hover {
+					color: var(--clr-text-1);
+					text-decoration: none;
+				}
+			}
 		}
 
-		&.active {
-			color: var(--clr-text-1);
-		}
-	}
-
-	@media (--desktop-small-viewport) {
-		.footer {
-			margin-bottom: 60px;
-			gap: 40px;
-		}
-
-		.banner-title {
-			margin-bottom: 28px;
-			font-size: 52px;
-		}
-
-		.banner-image {
-			width: 280px;
-			transform: translateX(10px) translateY(10px);
-		}
-
-		.links {
-			gap: 28px;
-		}
-	}
-
-	@media (--tablet-viewport) {
-		.footer {
-			flex-direction: column;
-			margin-bottom: 40px;
-			gap: 40px;
-		}
-
-		.banner {
+		@media (--desktop-small-viewport) {
 			padding: 24px;
 
 			&.no-downloads {
@@ -479,13 +413,14 @@
 			gap: 4px;
 		}
 
-		.banner-background__noisy.noisy-1 {
-			bottom: -50%;
-			left: -60%;
+		.grainy-1 {
+			bottom: -200%;
+			left: -100%;
 		}
-		.banner-background__noisy.noisy-2 {
-			top: -50%;
-			right: -50%;
+
+		.grainy-2 {
+			right: -80%;
+			bottom: -120%;
 		}
 	}
 
@@ -493,6 +428,15 @@
 		.download-links {
 			column-gap: 0;
 			flex-direction: column;
+		}
+
+		.grainy-1 {
+			bottom: -160%;
+			left: -180%;
+		}
+		.grainy-2 {
+			right: -170%;
+			bottom: -90%;
 		}
 	}
 </style>

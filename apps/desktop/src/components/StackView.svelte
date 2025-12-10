@@ -1,10 +1,12 @@
 <script lang="ts">
 	import BranchList from '$components/BranchList.svelte';
 	import BranchView from '$components/BranchView.svelte';
+	import CardOverlay from '$components/CardOverlay.svelte';
 	import ChangedFiles from '$components/ChangedFiles.svelte';
 	import CommitView from '$components/CommitView.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Drawer from '$components/Drawer.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import NewCommitView from '$components/NewCommitView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -14,11 +16,20 @@
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
 	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
+	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { MessageSender } from '$lib/codegen/messageQueue.svelte';
+	import {
+		AmendCommitWithChangeDzHandler,
+		AmendCommitWithHunkDzHandler,
+		createCommitDropHandlers,
+		type DzCommitData
+	} from '$lib/commits/dropHandler';
+	import { projectRunCommitHooks } from '$lib/config/config';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
+	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
@@ -43,6 +54,7 @@
 	import { Button, FileViewHeader, TestId } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { fly } from 'svelte/transition';
 	import type { Commit } from '$lib/branches/v3';
 
@@ -74,6 +86,7 @@
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const uiState = inject(UI_STATE);
+	const hooksService = inject(HOOKS_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	// Component is read-only when stackId is undefined
@@ -135,6 +148,13 @@
 	const branchName = $derived(selection.current?.branchName);
 	const upstream = $derived(selection.current?.upstream);
 	const previewOpen = $derived(selection.current?.previewOpen);
+
+	// Get commit data for drop handlers when viewing a commit
+	const commitQuery = $derived(
+		commitId ? stackService.commitById(stableProjectId, stableStackId, commitId) : undefined
+	);
+	const runHooks = $derived(projectRunCommitHooks(stableProjectId));
+	const isCommitView = $derived(!!(branchName && commitId));
 
 	const activeSelectionId: SelectionId | undefined = $derived.by(() => {
 		if (commitId) {
@@ -684,62 +704,166 @@
 							{hasRulesToClear}
 						/>
 					{:else}
-						<div class="details-view__inner">
-							<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
-							{#if branchName && commitId}
-								{@render commitView(branchName, commitId)}
-							{:else if branchName}
-								{@render branchView(branchName)}
-							{/if}
+						{@const commit = commitQuery?.response}
+						{@const dzCommit: DzCommitData | undefined = commit
+							? {
+									id: commit.id,
+									isRemote: isUpstreamCommit(commit),
+									isIntegrated:
+										isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
+									hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts
+								}
+							: undefined}
+						{@const { amendHandler, squashHandler, hunkHandler } =
+							isCommitView && dzCommit
+								? createCommitDropHandlers({
+										projectId: stableProjectId,
+										stackId: stableStackId,
+										stackService,
+										hooksService,
+										uiState,
+										commit: dzCommit,
+										runHooks: $runHooks,
+										okWithForce: true,
+										onCommitIdChange: (newId) => {
+											if (stableStackId && branchName && selection) {
+												const previewOpen = selection.previewOpen ?? true;
+												uiState
+													.lane(stableStackId)
+													.selection.set({ branchName, commitId: newId, previewOpen });
+											}
+										}
+									})
+								: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined }}
+						{#if isCommitView}
+							<Dropzone
+								handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}
+								fillHeight
+								overflow
+							>
+								{#snippet overlay({ hovered, activated, handler })}
+									{@const label =
+										handler instanceof AmendCommitWithChangeDzHandler ||
+										handler instanceof AmendCommitWithHunkDzHandler
+											? 'Amend'
+											: 'Squash'}
+									<CardOverlay {hovered} {activated} {label} />
+								{/snippet}
+								<div class="details-view__inner">
+									<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
+									{@render commitView(branchName!, commitId!)}
 
-							<!-- MIDDLE SECTION: Changed Files (with resizer) -->
-							<div class="changed-files-section" class:expand={!(assignedStackId || selectedFile)}>
-								{#if branchName && commitId}
-									{@render commitChangedFiles(commitId)}
-								{:else if branchName}
-									{@render branchChangedFiles(branchName)}
+									<!-- MIDDLE SECTION: Changed Files (with resizer) -->
+									<div
+										class="changed-files-section"
+										class:expand={!(assignedStackId || selectedFile)}
+									>
+										{@render commitChangedFiles(commitId!)}
+									</div>
+
+									<!-- BOTTOM SECTION: File Preview (no resizer) -->
+									{#if assignedStackId || selectedFile}
+										<ReduxResult projectId={stableProjectId} result={previewChangeQuery?.result}>
+											{#snippet children(previewChange)}
+												{@const diffQuery = diffService.getDiff(stableProjectId, previewChange)}
+												{@const diffData = diffQuery.response}
+
+												<div class="file-preview-section">
+													{#if assignedStackId}
+														<ConfigurableScrollableContainer
+															zIndex="var(--z-lifted)"
+															bind:viewport={selectionPreviewScrollContainer}
+														>
+															{@render assignedChangePreview(assignedStackId)}
+														</ConfigurableScrollableContainer>
+													{:else if selectedFile}
+														<Drawer
+															persistId="file-preview-drawer-{stableStackId}"
+															bottomBorder={false}
+														>
+															{#snippet header()}
+																<FileViewHeader
+																	noPaddings
+																	transparent
+																	filePath={previewChange.path}
+																	fileStatus={computeChangeStatus(previewChange)}
+																	linesAdded={diffData?.type === 'Patch'
+																		? diffData.subject.linesAdded
+																		: undefined}
+																	linesRemoved={diffData?.type === 'Patch'
+																		? diffData.subject.linesRemoved
+																		: undefined}
+																/>
+															{/snippet}
+															{@render otherChangePreview(selectedFile)}
+														</Drawer>
+													{/if}
+												</div>
+											{/snippet}
+										</ReduxResult>
+									{/if}
+								</div>
+							</Dropzone>
+						{:else}
+							<div class="details-view__inner">
+								<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
+								{#if branchName}
+									{@render branchView(branchName)}
+								{/if}
+
+								<!-- MIDDLE SECTION: Changed Files (with resizer) -->
+								<div
+									class="changed-files-section"
+									class:expand={!(assignedStackId || selectedFile)}
+								>
+									{#if branchName}
+										{@render branchChangedFiles(branchName)}
+									{/if}
+								</div>
+
+								<!-- BOTTOM SECTION: File Preview (no resizer) -->
+								{#if assignedStackId || selectedFile}
+									<ReduxResult projectId={stableProjectId} result={previewChangeQuery?.result}>
+										{#snippet children(previewChange)}
+											{@const diffQuery = diffService.getDiff(stableProjectId, previewChange)}
+											{@const diffData = diffQuery.response}
+
+											<div class="file-preview-section">
+												{#if assignedStackId}
+													<ConfigurableScrollableContainer
+														zIndex="var(--z-lifted)"
+														bind:viewport={selectionPreviewScrollContainer}
+													>
+														{@render assignedChangePreview(assignedStackId)}
+													</ConfigurableScrollableContainer>
+												{:else if selectedFile}
+													<Drawer
+														persistId="file-preview-drawer-{stableStackId}"
+														bottomBorder={false}
+													>
+														{#snippet header()}
+															<FileViewHeader
+																noPaddings
+																transparent
+																filePath={previewChange.path}
+																fileStatus={computeChangeStatus(previewChange)}
+																linesAdded={diffData?.type === 'Patch'
+																	? diffData.subject.linesAdded
+																	: undefined}
+																linesRemoved={diffData?.type === 'Patch'
+																	? diffData.subject.linesRemoved
+																	: undefined}
+															/>
+														{/snippet}
+														{@render otherChangePreview(selectedFile)}
+													</Drawer>
+												{/if}
+											</div>
+										{/snippet}
+									</ReduxResult>
 								{/if}
 							</div>
-
-							<!-- BOTTOM SECTION: File Preview (no resizer) -->
-							{#if assignedStackId || selectedFile}
-								<ReduxResult projectId={stableProjectId} result={previewChangeQuery?.result}>
-									{#snippet children(previewChange)}
-										{@const diffQuery = diffService.getDiff(stableProjectId, previewChange)}
-										{@const diffData = diffQuery.response}
-
-										<div class="file-preview-section">
-											{#if assignedStackId}
-												<ConfigurableScrollableContainer
-													zIndex="var(--z-lifted)"
-													bind:viewport={selectionPreviewScrollContainer}
-												>
-													{@render assignedChangePreview(assignedStackId)}
-												</ConfigurableScrollableContainer>
-											{:else if selectedFile}
-												<Drawer persistId="file-preview-drawer-{stableStackId}">
-													{#snippet header()}
-														<FileViewHeader
-															noPaddings
-															transparent
-															filePath={previewChange.path}
-															fileStatus={computeChangeStatus(previewChange)}
-															linesAdded={diffData?.type === 'Patch'
-																? diffData.subject.linesAdded
-																: undefined}
-															linesRemoved={diffData?.type === 'Patch'
-																? diffData.subject.linesRemoved
-																: undefined}
-														/>
-													{/snippet}
-													{@render otherChangePreview(selectedFile)}
-												</Drawer>
-											{/if}
-										</div>
-									{/snippet}
-								</ReduxResult>
-							{/if}
-						</div>
+						{/if}
 					{/if}
 				</div>
 

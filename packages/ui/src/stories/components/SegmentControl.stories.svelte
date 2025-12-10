@@ -1,12 +1,11 @@
 <script module lang="ts">
-	import Segment from '$components/segmentControl/Segment.svelte';
-	import SegmentControl from '$components/segmentControl/SegmentControl.svelte';
+	import { SegmentControl } from '$components/segmentControl';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'Inputs / Segment Control',
 		args: {
-			defaultIndex: 0,
+			selected: '1',
 			fullWidth: false,
 			size: 'default',
 			segments: [
@@ -16,9 +15,9 @@
 			]
 		},
 		argTypes: {
-			defaultIndex: {
+			selected: {
 				control: {
-					type: 'number'
+					type: 'text'
 				}
 			},
 			fullWidth: {
@@ -42,16 +41,18 @@
 <Story name="default">
 	{#snippet template(args)}
 		<SegmentControl
-			defaultIndex={args.defaultIndex}
+			selected={args.selected}
 			fullWidth={args.fullWidth}
 			onselect={(id) => {
 				// eslint-disable-next-line no-console
-				console.log('Selected index:', id);
+				console.log('Selected ID:', id);
 			}}
 			size={args.size}
 		>
 			{#each args.segments as segment}
-				<Segment id={segment.id} icon={segment.icon}>{segment.label}</Segment>
+				<SegmentControl.Item id={segment.id} icon={segment.icon}
+					>{segment.label}</SegmentControl.Item
+				>
 			{/each}
 		</SegmentControl>
 	{/snippet}

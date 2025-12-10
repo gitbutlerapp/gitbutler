@@ -436,7 +436,11 @@ impl<'repo> WorkspaceCommit<'repo> {
 
     /// Decode the object at `commit_id` and keep its data for later query.
     pub fn from_id(commit_id: gix::Id<'repo>) -> anyhow::Result<Self> {
-        let commit = commit_id.object()?.try_into_commit()?.decode()?.into();
+        let commit = commit_id
+            .object()?
+            .try_into_commit()?
+            .decode()?
+            .try_into()?;
         Ok(WorkspaceCommit {
             id: commit_id,
             inner: commit,
@@ -476,7 +480,7 @@ impl<'repo> WorkspaceCommit<'repo> {
         })
     }
 
-    /// also rewrite the author and commiter time, just to be sure we respect all settings. `new_from_stacks` doesn't have a repo.
+    /// also rewrite the author and committer time, just to be sure we respect all settings. `new_from_stacks` doesn't have a repo.
     fn fixup_times(ws_commit: &mut gix::objs::Commit, repo: &gix::Repository) {
         fn try_time(
             sig: Option<Result<gix::actor::SignatureRef<'_>, gix::config::time::Error>>,

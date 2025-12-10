@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, path::PathBuf};
 
 type WorktreePathByRef = BTreeMap<gix::refs::FullName, Vec<PathBuf>>;
 
-/// State for re-use in [`safe_delete()`].
+/// State for reuse in [`safe_delete()`].
 #[derive(Debug)]
 pub struct SafeDelete {
     worktrees_by_ref: WorktreePathByRef,

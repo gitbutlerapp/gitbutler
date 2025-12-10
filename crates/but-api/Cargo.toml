@@ -16,7 +16,8 @@ doctest = false
 [features]
 default = []
 ## Provide Tauri commands automatically where possible, to avoid duplication.
-tauri = ["dep:tauri"]
+## Needs "legacy" as long as it needs `ProjectId` and is not switched to `ProjectHandle`.
+tauri = ["dep:tauri", "legacy"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.
 path-bytes = ["dep:bstr"]
@@ -37,6 +38,7 @@ legacy = [
     "dep:gitbutler-operating-modes",
     "dep:gitbutler-sync",
     "dep:gitbutler-oplog",
+    "dep:gitbutler-git",
     "dep:but-action",
     "dep:but-hunk-assignment",
     "dep:but-hunk-dependency",
@@ -45,6 +47,7 @@ legacy = [
     "dep:but-gerrit",
     "dep:but-worktrees",
     "dep:but-cherry-apply",
+    "dep:url",
 ]
 
 
@@ -96,9 +99,11 @@ gitbutler-edit-mode = {workspace = true, optional = true}
 gitbutler-operating-modes = {workspace = true, optional = true}
 gitbutler-sync = {workspace = true, optional = true}
 gitbutler-oplog = {workspace = true, optional = true}
+gitbutler-git = {workspace = true, optional = true}
 
-tauri = { version = "^2.9.2", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
+tauri = { version = "^2.9.3", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
 
+boolean-enums = { version = "0.4.1", features = ["serde"] }
 bstr = { workspace = true, optional = true }
 schemars.workspace = true
 serde.workspace = true
@@ -110,5 +115,5 @@ serde-error = "0.1.3"
 gix = { workspace = true, features = ["worktree-mutation" ] }
 git2.workspace = true
 open.workspace = true
-url = "2.5"
+url = { version = "2.5", optional = true }
 uuid.workspace = true

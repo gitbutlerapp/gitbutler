@@ -101,9 +101,9 @@ cp -R 09-rewritten-local-commit 10-squash-merge-stack
 
 cp -R 10-squash-merge-stack 11-remote-only
 (cd 11-remote-only
-  echo "The remote was re-used and merged once more with more changes.
+  echo "The remote was reused and merged once more with more changes.
 
-  After S1 was squash-merged, someone else re-used the branch, pushed two commits
+  After S1 was squash-merged, someone else reused the branch, pushed two commits
   and squash-merged them into target again.
 
   Here we assure that these integrated remote commits don't mess with our logic." >.git/description
@@ -115,7 +115,7 @@ cp -R 10-squash-merge-stack 11-remote-only
 
   git checkout main
   git reset --hard origin/main
-  git revert -n @ && git commit -am "avoid merge conflcit"
+  git revert -n @ && git commit -am "avoid merge conflict"
   git merge --squash origin/S1 && git commit -m "squash origin/S1"
   echo overwrite >remote-other && git commit -am "other remote file changed completely afterwards"
   git rev-parse @ > .git/refs/remotes/origin/main

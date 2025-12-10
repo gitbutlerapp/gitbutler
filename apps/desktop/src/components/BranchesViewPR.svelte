@@ -110,7 +110,7 @@
 
 		<Modal
 			testId={TestId.BranchesView_CreateRemoteModal}
-			title="Apply Pull Request"
+			title="Apply {forge.reviewUnitName}"
 			width="small"
 			bind:this={createRemoteModal}
 			onSubmit={async () => await handleConfirmRemote(pr)}

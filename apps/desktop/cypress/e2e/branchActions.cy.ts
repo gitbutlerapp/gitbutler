@@ -90,7 +90,7 @@ describe('Branch Actions - single branch with uncommitted changes', () => {
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);

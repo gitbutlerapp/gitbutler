@@ -60,7 +60,7 @@
 		/>
 		<ContextMenuItem
 			icon="tag"
-			label="Work catergory (coming soon)"
+			label="Work category (coming soon)"
 			disabled={filterHasBeenAdded('semanticType') || true}
 			onclick={() => {
 				handleAddFilter('semanticType');

@@ -95,7 +95,10 @@ impl Stack {
 
 impl Stack {
     /// A one-line string representing the stack itself, without its contents.
-    pub fn debug_string(&self) -> String {
+    ///
+    /// Use `id_override` to have it use this (usually controlled) id instead of what otherwise
+    /// would be a generated one.
+    pub fn debug_string(&self, id_override: Option<StackId>) -> String {
         let mut dbg = self
             .segments
             .first()
@@ -105,7 +108,7 @@ impl Stack {
             dbg.push_str(&base.to_hex_with_len(7).to_string());
         }
         dbg.insert(0, '≡');
-        if let Some(id) = self.id {
+        if let Some(id) = id_override.or(self.id) {
             let id_string = id.to_string().replace("0", "").replace("-", "");
             dbg.push_str(&format!(
                 " {{{}}}",
@@ -122,7 +125,7 @@ impl Stack {
 
 impl std::fmt::Debug for Stack {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut s = f.debug_struct(&format!("Stack({})", self.debug_string()));
+        let mut s = f.debug_struct(&format!("Stack({})", self.debug_string(None)));
         s.field("segments", &self.segments);
         if let Some(stack_id) = self.id {
             s.field("id", &stack_id);
@@ -238,6 +241,14 @@ impl StackSegment {
                     .flat_map(|c| c.refs.iter().map(|ri| ri.ref_name.as_ref())),
             )
     }
+
+    /// Return `true` if this segment *would* be anonymous if it wasn't for the out-of-workspace segment to be projected onto this one.
+    ///
+    /// This is signaled by its underlying graph segment being unnamed, with a sybling set.
+    pub fn is_projected_from_outside(&self, graph: &Graph) -> bool {
+        let segment = &graph[self.id];
+        segment.ref_info.is_none() && segment.sibling_segment_id.is_some()
+    }
 }
 
 impl std::fmt::Debug for StackSegment {
@@ -245,6 +256,7 @@ impl std::fmt::Debug for StackSegment {
         f.debug_struct(&format!("StackSegment({})", self.debug_string()))
             .field("commits", &self.commits)
             .field("commits_on_remote", &self.commits_on_remote)
+            .field("commits_outside", &self.commits_outside)
             .finish()
     }
 }
@@ -258,7 +270,7 @@ impl StackSegment {
     /// is an unambiguous ref pointing to a commit, or when it splits a segment by incoming connection.
     ///
     /// `graph` is used to look up the remote segment and find its commits.
-    pub fn from_graph_segments(
+    pub(crate) fn from_graph_segments(
         segments: &[&crate::Segment],
         graph: &Graph,
     ) -> anyhow::Result<Self> {

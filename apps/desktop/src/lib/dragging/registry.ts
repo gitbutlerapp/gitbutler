@@ -4,7 +4,7 @@ import type { Dropzone } from '$lib/dragging/dropzone';
 export const DROPZONE_REGISTRY = new InjectionToken<DropzoneRegistry>('DropzoneRegistry');
 
 /**
- * This class was bascially only created in order to facilitate injection.
+ * This class was basically only created in order to facilitate injection.
  */
 export class DropzoneRegistry {
 	private map = new Map<HTMLElement, Dropzone>();

@@ -129,15 +129,15 @@ impl UnifiedPatch {
         ) {
             Ok(()) => {}
             Err(
-                blob::platform::set_resource::Error::InvalidMode { .. }
-                | blob::platform::set_resource::Error::ConvertToDiffable(
-                    blob::pipeline::convert_to_diffable::Error::InvalidEntryKind { .. },
-                ),
+                err @ blob::platform::set_resource::Error::InvalidMode { .. }
+                | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
             ) => {
+                tracing::warn!(?err, %path, "ignoring diff processing failure");
                 return Ok(None);
             }
             Err(err) => return Err(err.into()),
         };
+        let actual_previous_path = previous_path.unwrap_or(path.as_bstr());
         match diff_filter.set_resource(
             previous_state.map_or(repo.object_hash().null(), |state| state.id),
             previous_state.map_or_else(
@@ -148,17 +148,16 @@ impl UnifiedPatch {
                 },
                 |state| state.kind,
             ),
-            previous_path.unwrap_or(path.as_bstr()),
+            actual_previous_path,
             ResourceKind::OldOrSource,
             repo,
         ) {
             Ok(()) => {}
             Err(
-                blob::platform::set_resource::Error::InvalidMode { .. }
-                | blob::platform::set_resource::Error::ConvertToDiffable(
-                    blob::pipeline::convert_to_diffable::Error::InvalidEntryKind { .. },
-                ),
+                err @ blob::platform::set_resource::Error::InvalidMode { .. }
+                | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
             ) => {
+                tracing::warn!(?err, %actual_previous_path, "ignoring diff processing failure");
                 return Ok(None);
             }
             Err(err) => return Err(err.into()),

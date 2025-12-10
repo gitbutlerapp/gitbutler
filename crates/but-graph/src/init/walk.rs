@@ -973,50 +973,6 @@ pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Res
 
 pub(crate) type WorktreeByBranch = BTreeMap<gix::refs::FullName, Vec<Worktree>>;
 
-pub fn worktree_branches(repo: &gix::Repository) -> anyhow::Result<WorktreeByBranch> {
-    fn maybe_insert_head(
-        head: Option<gix::Head<'_>>,
-        out: &mut WorktreeByBranch,
-    ) -> anyhow::Result<()> {
-        let Some((head, wd)) = head.and_then(|head| {
-            head.repo.worktree().map(|wt| {
-                (
-                    head,
-                    match wt.id() {
-                        None => Worktree::Main,
-                        Some(id) => Worktree::LinkedId(id.to_owned()),
-                    },
-                )
-            })
-        }) else {
-            return Ok(());
-        };
-
-        out.entry("HEAD".try_into().expect("valid"))
-            .or_default()
-            .push(wd.to_owned());
-        let mut ref_chain = Vec::new();
-        let mut cursor = head.try_into_referent();
-        while let Some(ref_) = cursor {
-            ref_chain.push(ref_.name().to_owned());
-            cursor = ref_.follow().transpose()?;
-        }
-        for name in ref_chain {
-            out.entry(name).or_default().push(wd.to_owned());
-        }
-
-        Ok(())
-    }
-
-    let mut map = BTreeMap::new();
-    maybe_insert_head(repo.head().ok(), &mut map)?;
-    for proxy in repo.worktrees()? {
-        let repo = proxy.into_repo_with_possibly_inaccessible_worktree()?;
-        maybe_insert_head(repo.head().ok(), &mut map)?;
-    }
-    Ok(map)
-}
-
 impl crate::RefInfo {
     pub(crate) fn from_ref(
         ref_name: gix::refs::FullName,

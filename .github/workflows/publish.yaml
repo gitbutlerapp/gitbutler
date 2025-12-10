@@ -143,7 +143,7 @@ jobs:
           rustup target add ${{ matrix.target }}
       # The cache doesn't pick up the environment variable set above, so we have to set it ourselves.
       - name: Rust Cache ${{ matrix.target }}
-        uses: Swatinem/rust-cache@v2.8.1
+        uses: Swatinem/rust-cache@v2.8.2
         with:
           shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}${{ matrix.platform }}
       - name: Init Node Environment

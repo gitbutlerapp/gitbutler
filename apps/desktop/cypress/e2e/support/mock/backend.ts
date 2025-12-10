@@ -416,6 +416,41 @@ export default class MockBackend {
 		throw new Error(`Commit with ID ${commitId} not found`);
 	}
 
+	public amendCommit(args: InvokeArgs | undefined): string {
+		if (!args || typeof args !== 'object' || !('stackId' in args) || !('commitId' in args)) {
+			throw new Error('Invalid arguments for amendCommit');
+		}
+
+		const { stackId, commitId, worktreeChanges } = args as {
+			stackId: string;
+			commitId: string;
+			worktreeChanges?: Array<{
+				pathBytes: number[];
+				previousPathBytes: number[] | null;
+				hunkHeaders: unknown[];
+			}>;
+		};
+
+		const stackDetails = this.stackDetails.get(stackId);
+		if (!stackDetails) {
+			throw new Error(`Stack with ID ${stackId} not found`);
+		}
+
+		// Remove the amended changes from worktree
+		if (worktreeChanges) {
+			const amendedPaths = worktreeChanges.map((c) => bytesToStr(c.pathBytes));
+			this.worktreeChanges = {
+				...this.worktreeChanges,
+				changes: this.worktreeChanges.changes.filter(
+					(change) => !amendedPaths.includes(change.path)
+				)
+			};
+		}
+
+		// Return the same commit ID (amended commit keeps the same ID in this mock)
+		return commitId;
+	}
+
 	public getBaseBranchData(_: InvokeArgs | undefined): BaseBranchData | null {
 		return getBaseBranchData();
 	}

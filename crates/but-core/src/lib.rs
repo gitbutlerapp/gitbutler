@@ -59,7 +59,7 @@ use serde::Serialize;
 
 /// Functions to obtain changes between various items.
 pub mod diff;
-/// Fundamental data types for re-use
+/// Fundamental data types for reuse
 mod diff_types;
 pub use diff_types::{DiffSpec, HunkHeader, ModeFlags};
 
@@ -213,9 +213,19 @@ pub trait RefMetadata {
 }
 
 /// A decoded commit object with easy access to additional GitButler information.
+#[derive(Debug, Clone)]
 pub struct Commit<'repo> {
     /// The id of the commit itself.
     pub id: gix::Id<'repo>,
+    /// The decoded commit for direct access.
+    pub inner: gix::objs::Commit,
+}
+
+/// A decoded commit object with easy access to additional GitButler information, without repo reference.
+#[derive(Debug, Clone)]
+pub struct CommitOwned {
+    /// The id of the commit itself.
+    pub id: gix::ObjectId,
     /// The decoded commit for direct access.
     pub inner: gix::objs::Commit,
 }

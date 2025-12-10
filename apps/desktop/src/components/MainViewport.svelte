@@ -60,7 +60,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	const zoom = $derived($userSettings.zoom);
 
 	const uiState = inject(UI_STATE);
-	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
+	const unassignedSidebarFolded = $derived(uiState.global.unassignedSidebarFolded);
 
 	let leftPreferredWidth = $derived(pxToRem(leftWidth.default, zoom));
 	let previewPreferredWidth = $derived(pxToRem(previewWidth?.default, zoom));
@@ -134,7 +134,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	data-testid={testId}
 	class:left-sideview-open={!!preview}
 >
-	{#if !unassignedSidebaFolded.current}
+	{#if !unassignedSidebarFolded.current}
 		<div
 			class="left-section view-wrapper"
 			bind:this={leftDiv}

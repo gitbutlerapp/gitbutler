@@ -4,7 +4,6 @@ use crate::utils::OutputChannel;
 use but_ctx::LegacyProject;
 
 pub mod commits;
-pub mod id;
 
 pub fn get_or_init_non_bare_project(args: &Args) -> anyhow::Result<LegacyProject> {
     let repo = gix::discover(&args.current_dir)?;

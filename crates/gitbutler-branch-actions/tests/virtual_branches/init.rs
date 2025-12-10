@@ -9,7 +9,7 @@ fn twice() {
     let test_project = TestProject::default();
 
     {
-        let project = gitbutler_project::add_with_path(data_dir.path(), test_project.path())
+        let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
             .expect("failed to add project")
             .unwrap_project();
         let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
@@ -26,7 +26,7 @@ fn twice() {
     }
 
     {
-        let project = gitbutler_project::add_with_path(data_dir.path(), test_project.path())
+        let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
             .unwrap()
             .unwrap_project();
         let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
@@ -45,8 +45,8 @@ fn twice() {
 
 #[test]
 fn dirty_non_target() {
-    // a situation when you initialize project while being on the local verison of the master
-    // that has uncommited changes.
+    // a situation when you initialize project while being on the local version of the master
+    // that has uncommitted changes.
     let Test { repo, ctx, .. } = &Test::default();
 
     repo.checkout(&"refs/heads/some-feature".parse().unwrap());
@@ -67,8 +67,8 @@ fn dirty_non_target() {
 
 #[test]
 fn dirty_target() {
-    // a situation when you initialize project while being on the local verison of the master
-    // that has uncommited changes.
+    // a situation when you initialize project while being on the local version of the master
+    // that has uncommitted changes.
     let Test { repo, ctx, .. } = &Test::default();
 
     fs::write(repo.path().join("file.txt"), "content").unwrap();

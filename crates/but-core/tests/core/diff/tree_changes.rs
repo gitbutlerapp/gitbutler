@@ -8,7 +8,7 @@ fn many_changes() -> anyhow::Result<()> {
     let repo = repo("many-in-tree")?;
     let previous_commit_id = repo.rev_parse_single("@~1")?;
     let current_commit_id = repo.rev_parse_single("@")?;
-    let changes = but_core::diff::tree_changes(
+    let changes = but_core::diff::tree_changes_with_line_stats(
         &repo,
         Some(previous_commit_id.into()),
         current_commit_id.into(),
@@ -159,7 +159,7 @@ fn many_changes() -> anyhow::Result<()> {
     ]
     "#);
 
-    let changes = but_core::diff::tree_changes(
+    let changes = but_core::diff::tree_changes_with_line_stats(
         &repo,
         Some(current_commit_id.into()),
         previous_commit_id.into(),
@@ -318,7 +318,7 @@ fn many_changes_without_symlink_support() -> anyhow::Result<()> {
     let mut repo = repo("many-in-tree")?;
     let previous_commit_id = repo.rev_parse_single("@~1")?;
     let current_commit_id = repo.rev_parse_single("@")?;
-    let changes = but_core::diff::tree_changes(
+    let changes = but_core::diff::tree_changes_with_line_stats(
         &repo,
         Some(previous_commit_id.into()),
         current_commit_id.into(),
@@ -368,7 +368,8 @@ fn many_changes_without_symlink_support() -> anyhow::Result<()> {
 fn without_previous_tree() -> anyhow::Result<()> {
     let repo = repo("many-in-tree")?;
     let current_tree_id = repo.rev_parse_single("@^1")?;
-    let changes = but_core::diff::tree_changes(&repo, None, current_tree_id.into())?;
+    let changes =
+        but_core::diff::tree_changes_with_line_stats(&repo, None, current_tree_id.into())?;
     insta::assert_debug_snapshot!(changes, @r#"
     (
         [
@@ -446,7 +447,7 @@ fn without_previous_tree() -> anyhow::Result<()> {
 #[test]
 fn changes_between_conflicted_and_normal_commit() -> anyhow::Result<()> {
     let repo = conflict_repo("normal-and-artificial")?;
-    let changes = but_core::diff::tree_changes(
+    let changes = but_core::diff::tree_changes_with_line_stats(
         &repo,
         Some(repo.rev_parse_single("normal")?.into()),
         repo.rev_parse_single("conflicted")?.into(),
@@ -482,7 +483,7 @@ fn changes_between_conflicted_and_normal_commit() -> anyhow::Result<()> {
 #[test]
 fn changes_between_conflicted_and_conflicted_commit() -> anyhow::Result<()> {
     let repo = conflict_repo("normal-and-artificial")?;
-    let changes = but_core::diff::tree_changes(
+    let changes = but_core::diff::tree_changes_with_line_stats(
         &repo,
         Some(repo.rev_parse_single("conflicted")?.into()),
         repo.rev_parse_single("conflicted")?.into(),

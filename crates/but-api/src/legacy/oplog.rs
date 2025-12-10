@@ -2,14 +2,14 @@
 //! The oplog records snapshots of the project state at the time when an operation was initiated.
 //!
 //! Using the oplog, it is possible to restore the project to a previous state by reverting to one of these snapshots.
-//! This includes the state of the working directory as well as commmit history and references.
+//! This includes the state of the working directory as well as commit history and references.
 //!
 //! This module provides commands to interact with the oplog, including listing snapshots, creating new snapshots,
 //! restoring to a snapshot, and viewing differences between snapshots.
 //!
 //! An example usage:
 //!   - A user squashes two commits together.
-//!   - Listing the shapshot will show a new snapshot with the operation kind `SquashCommit`.
+//!   - Listing the snapshot will show a new snapshot with the operation kind `SquashCommit`.
 //!   - Restoring to the snapshot will revert the project to the state before the squash.
 //!   - A new snapshot is created for the restore operation.
 //!
@@ -17,7 +17,7 @@
 //! Refer to `gitbutler_oplog::entry::Snapshot` and `gitbutler_oplog::entry::SnapshotDetails` for the metadata stored.
 //!
 use anyhow::{Context as _, Result};
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_ctx::Context;
 use but_oxidize::OidExt;
 use gitbutler_oplog::{
@@ -38,7 +38,7 @@ use tracing::instrument;
 ///
 /// # Errors
 /// Returns an error if the project cannot be found or if there is an issue accessing the oplog.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_snapshots(
     project_id: ProjectId,
@@ -65,7 +65,7 @@ pub fn list_snapshots(
 ///
 /// # Errors
 /// Returns an error if the project cannot be found, if the snapshot SHA is invalid, or if the underlying commit is not a valid snapshot commit
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn get_snapshot(project_id: ProjectId, sha: String) -> Result<Snapshot> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -82,7 +82,7 @@ pub fn get_snapshot(project_id: ProjectId, sha: String) -> Result<Snapshot> {
 ///
 /// # Errors
 /// Returns an error if the project cannot be found or if there is an issue creating the snapshot.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn create_snapshot(project_id: ProjectId, message: Option<String>) -> Result<gix::ObjectId> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
@@ -104,9 +104,9 @@ pub fn create_snapshot(project_id: ProjectId, message: Option<String>) -> Result
 ///
 /// # Side Effects
 /// This operation modifies the repository state, reverting it to the specified snapshot.
-/// This includes the state of the working directory as well as commmit history and references.
+/// This includes the state of the working directory as well as commit history and references.
 /// Additionally, a new snapshot is created in the oplog to record the restore action.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<()> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
@@ -130,7 +130,7 @@ pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<()> {
 ///
 /// # Errors
 /// Returns an error if the project cannot be found, if the snapshot SHA is invalid, or if there is an issue computing the diff.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn snapshot_diff(project_id: ProjectId, sha: String) -> Result<Vec<but_core::ui::TreeChange>> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;

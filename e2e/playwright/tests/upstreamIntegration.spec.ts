@@ -114,7 +114,7 @@ test('should handle the update of workspace with integrated parent branch in sta
 	// Update the workspace
 	await clickByTestId(page, 'integrate-upstream-commits-button');
 
-	// The staus of the branch1 should be "Integrated"
+	// The status of the branch1 should be "Integrated"
 	const branch1Status = page.locator('[data-integration-row-branch-name="branch1"]').first();
 	await branch1Status.waitFor();
 	const statusBadge = branch1Status.getByTestId('integrate-upstream-series-row-status-badge');

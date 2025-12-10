@@ -4,7 +4,7 @@ use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
 use git2::Oid;
 use gitbutler_stack::{Stack, StackId};
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -70,7 +70,7 @@ pub fn reorder_stack(
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     // Even if this fails, it's not actionable
-    let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
+    let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
     crate::integration::update_workspace_commit(&state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
@@ -92,7 +92,7 @@ pub struct SeriesOrder {
     /// Unique name of the series (branch). Must already exist in the stack.
     pub name: String,
     /// This is the desired commit order for the series. Because the commits will be rabased,
-    /// naturally, the the commit ids will be different afte updating.
+    /// naturally, the the commit ids will be different after updating.
     /// The changes are ordered from newest to oldest (most recent changes go first)
     #[serde(with = "but_serde::oid_vec")]
     pub commit_ids: Vec<Oid>,

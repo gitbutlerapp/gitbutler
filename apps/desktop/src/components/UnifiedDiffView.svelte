@@ -1,5 +1,6 @@
 <script lang="ts">
 	import HunkContextMenu from '$components/HunkContextMenu.svelte';
+	import ImageDiff from '$components/ImageDiff.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
 	import LineLocksWarning from '$components/LineLocksWarning.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -21,7 +22,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
-
+	import { isImageFile } from '@gitbutler/shared/utils/file';
 	import { EmptyStatePlaceholder, HunkDiff, TestId } from '@gitbutler/ui';
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
@@ -67,7 +68,7 @@
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 
-	const isCommiting = $derived(
+	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && selectionId.type === 'worktree'
 	);
 
@@ -214,7 +215,7 @@
 					>
 						<HunkDiff
 							draggingDisabled={!draggable}
-							hideCheckboxes={!isCommiting}
+							hideCheckboxes={!isCommitting}
 							filePath={change.path}
 							hunkStr={hunk.diff}
 							staged={selection.current.selected}
@@ -317,13 +318,17 @@
 				</EmptyStatePlaceholder>
 			</div>
 		{:else if diff.type === 'Binary'}
-			<div class="hunk-placehoder">
-				<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
-					{#snippet caption()}
-						Binary! Not for human eyes
-					{/snippet}
-				</EmptyStatePlaceholder>
-			</div>
+			{#if isImageFile(change.path)}
+				<ImageDiff {projectId} {change} {commitId} />
+			{:else}
+				<div class="hunk-placehoder">
+					<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
+						{#snippet caption()}
+							Binary! Not for human eyes
+						{/snippet}
+					</EmptyStatePlaceholder>
+				</div>
+			{/if}
 		{/if}
 	</div>
 {/snippet}

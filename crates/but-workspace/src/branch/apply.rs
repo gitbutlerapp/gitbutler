@@ -120,7 +120,7 @@ pub struct Options {
     /// How the worktree checkout should behave int eh light of uncommitted changes in the worktree.
     pub uncommitted_changes: UncommitedWorktreeChanges,
     /// If not `None`, the applied branch should be merged into the workspace commit at the N'th parent position.
-    /// This is useful if the tip of a branc (at a specific position) was unapplied, and a segment within that branch
+    /// This is useful if the tip of a branch (at a specific position) was unapplied, and a segment within that branch
     /// should now be re-applied, but of course, be placed at the same spot and not end up at the end of the workspace.
     pub order: Option<usize>,
     /// Create new stack id, which by default is a function that generates a new StackId.
@@ -204,7 +204,7 @@ pub(crate) mod function {
             .category()
             .is_some_and(|c| c == Category::RemoteBranch)
         {
-            // TODO(gix): we really want to have a function to retunr the local tracking branch
+            // TODO(gix): we really want to have a function to return the local tracking branch
             //            fix this in other places, too.
             let Some((upstream_branch_name, _remote_name)) =
                 repo.upstream_branch_and_remote_for_tracking_branch(branch)?
@@ -388,9 +388,11 @@ pub(crate) mod function {
             .redo_traversal_with_overlay(repo, meta, overlay.clone())?;
 
         let workspace = graph.to_workspace()?;
-        let all_applied_branches_are_already_visible = branches_to_apply
-            .iter()
-            .all(|rn| workspace.refname_is_segment(rn));
+        let all_applied_branches_are_already_visible = branches_to_apply.iter().all(|rn| {
+            workspace
+                .find_segment_and_stack_by_refname(rn)
+                .is_some_and(|(_stack, segment)| !segment.is_projected_from_outside(&graph))
+        });
         let needs_ws_ref_creation = !ws_ref_exists;
         let local_tracking_config_and_ref_info = local_tracking_config_and_ref_info.zip(
             commit_to_create_branch_at.map(|commit| (branch, branch_orig, commit.attach(repo))),

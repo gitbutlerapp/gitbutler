@@ -132,7 +132,7 @@ export type GlobalUiState = {
 		height: number;
 	};
 	floatingBoxPosition: SnapPositionName;
-	unassignedSidebaFolded: boolean;
+	unassignedSidebarFolded: boolean;
 	useRuler: boolean;
 	rulerCountValue: number;
 	aiSuggestionsOnType: boolean;
@@ -187,7 +187,7 @@ export class UiState {
 			height: 330
 		},
 		floatingBoxPosition: 'bottom-center',
-		unassignedSidebaFolded: false,
+		unassignedSidebarFolded: false,
 		useRuler: true,
 		rulerCountValue: 72,
 		aiSuggestionsOnType: false,

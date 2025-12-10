@@ -1,4 +1,5 @@
 use bstr::{BString, ByteSlice};
+use gix::date::parse::TimeBuf;
 use serde::Serialize;
 
 /// Utilities for diffing, with workspace integration.
@@ -10,13 +11,13 @@ pub use ref_info::inner::RefInfo;
 
 /// This code is a fork of [`gitbutler_branch_actions::author`] to avoid depending on the `gitbutler_branch_actions` crate.
 mod author;
-pub use author::Author;
-use ts_rs::TS;
-
 use crate::{
     ref_info::{LocalCommit, LocalCommitRelation},
     ui,
 };
+pub use author::Author;
+use but_core::{CommitOwned, commit};
+use ts_rs::TS;
 
 /// Represents the state a commit could be in.
 #[derive(Debug, Clone, Serialize, TS)]
@@ -103,6 +104,31 @@ impl TryFrom<gix::Commit<'_>> for Commit {
             author: commit.author()?.into(),
             gerrit_review_url: None,
         })
+    }
+}
+
+impl From<but_core::CommitOwned> for Commit {
+    fn from(CommitOwned { id, inner }: CommitOwned) -> Self {
+        let headers = commit::HeadersV2::try_from_commit(&inner);
+        let gix::objs::Commit {
+            tree: _,
+            parents,
+            author,
+            committer,
+            encoding: _,
+            message,
+            extra_headers: _,
+        } = inner;
+        Commit {
+            id,
+            parent_ids: parents.into_iter().collect(),
+            message,
+            has_conflicts: headers.is_some_and(|hdr| hdr.is_conflicted()),
+            state: CommitState::LocalAndRemote(id),
+            created_at: committer.time.seconds as i128 * 1000,
+            author: author.to_ref(&mut TimeBuf::default()).into(),
+            gerrit_review_url: None,
+        }
     }
 }
 

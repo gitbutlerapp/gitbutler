@@ -100,7 +100,7 @@ pub fn set_project_active(
 /// Open the project with the given ID in a new Window, or focus an existing one.
 ///
 /// Note that this command is blocking the main thread just to prevent the chance for races
-/// without haveing to lock explicitly.
+/// without having to lock explicitly.
 #[tauri::command]
 #[instrument(skip(handle), err(Debug))]
 pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result<(), json::Error> {

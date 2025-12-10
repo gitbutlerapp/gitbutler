@@ -182,8 +182,8 @@
 				<a href="/downloads">stable release</a>.
 			</p>
 
-			<div class="background__noisy noisy-1"></div>
-			<div class="background__noisy noisy-2"></div>
+			<div class="grainy-bg grainy-1"></div>
+			<div class="grainy-bg grainy-2"></div>
 		</div>
 	{:else}
 		<div class="no-nightly">
@@ -320,6 +320,7 @@
 	}
 
 	.nightly-hero__header-icon {
+		z-index: var(--z-ground);
 		width: 80px;
 		height: 80px;
 	}
@@ -564,30 +565,32 @@
 		}
 	}
 
-	/* HERO BACKGROUND */
-	.background__noisy {
+	/* GRAINY BG */
+	.grainy-bg {
 		position: absolute;
-		width: 100%;
-		height: 1240px;
-		transform: rotate(45deg);
-		border-radius: 50%;
-		background:
-			radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0)),
-			url("data:image/svg+xml,%3Csvg viewBox='0 0 800 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-		mix-blend-mode: screen;
-		filter: contrast(145%) brightness(1050%) invert(100%);
-		opacity: 0.2;
+		width: 1000px;
+		height: 950px;
+		transform: rotate(30deg);
+		background-image: url('/images/grainy-gradient-light.png');
+		background-size: 100%;
+		background-repeat: no-repeat;
+		opacity: 0.08;
 		pointer-events: none;
+	}
 
-		&.noisy-1 {
-			top: -20%;
-			left: 40%;
-		}
+	:global(.dark) .grainy-bg {
+		background-image: url('/images/grainy-gradient-dark.png');
+		opacity: 0.08;
+	}
 
-		&.noisy-2 {
-			right: 30%;
-			bottom: -10%;
-		}
+	.grainy-1 {
+		top: -40%;
+		right: -45%;
+	}
+
+	.grainy-2 {
+		bottom: -80%;
+		left: -70%;
 	}
 
 	@media (--mobile-viewport) {
@@ -641,19 +644,9 @@
 			padding: 16px;
 		}
 
-		.background__noisy {
-			width: 120%;
-			transform: rotate(25deg);
-
-			&.noisy-1 {
-				top: -70%;
-				left: -30%;
-			}
-
-			&.noisy-2 {
-				right: -60%;
-				bottom: -60%;
-			}
+		.grainy-bg {
+			width: 1000px;
+			height: 800px;
 		}
 	}
 </style>

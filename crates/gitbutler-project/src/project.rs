@@ -146,6 +146,20 @@ impl Project {
             preferred_forge_user: None,
         }
     }
+
+    /// A utility to support old code for basic path needs, but without actually needing full
+    /// or meaningful metadata.
+    pub fn with_paths_for_testing(
+        mut self,
+        git_dir: PathBuf,
+        worktree_dir: Option<PathBuf>,
+    ) -> Self {
+        self.git_dir = git_dir;
+        if let Some(worktree_dir) = worktree_dir {
+            self.worktree_dir = worktree_dir;
+        }
+        self
+    }
 }
 
 /// Testing
@@ -232,7 +246,7 @@ impl Project {
         let mut projects = crate::dangerously_list_projects_without_migration()?;
         // Sort projects by longest pathname to shortest.
         // We need to do this because users might have one gitbutler project
-        // nexted inside another via a gitignored folder.
+        // nested inside another via a gitignored folder.
         // We want to match on the longest project path.
         projects.sort_by(|a, b| {
             a.worktree_dir

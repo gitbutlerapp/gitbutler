@@ -1,6 +1,6 @@
 // Re-export for use in other crates
 use anyhow::Result;
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_ctx::Context;
 pub use but_worktrees::integrate::WorktreeIntegrationStatus as IntegrationStatus;
 use but_worktrees::{
@@ -10,7 +10,7 @@ use but_worktrees::{
 use gitbutler_project::ProjectId;
 use tracing::instrument;
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_new(
     project_id: ProjectId,
@@ -23,7 +23,7 @@ pub fn worktree_new(
     but_worktrees::new::worktree_new(&mut ctx, guard.read_permission(), reference.as_ref())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_list(project_id: ProjectId) -> Result<ListWorktreeOutcome> {
     let project = gitbutler_project::get(project_id)?;
@@ -33,7 +33,7 @@ pub fn worktree_list(project_id: ProjectId) -> Result<ListWorktreeOutcome> {
     but_worktrees::list::worktree_list(&mut ctx, guard.read_permission())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_integration_status(
     project_id: ProjectId,
@@ -52,7 +52,7 @@ pub fn worktree_integration_status(
     )
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_integrate(
     project_id: ProjectId,
@@ -71,7 +71,7 @@ pub fn worktree_integrate(
     )
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_destroy_by_id(
     project_id: ProjectId,
@@ -84,7 +84,7 @@ pub fn worktree_destroy_by_id(
     but_worktrees::destroy::worktree_destroy_by_id(&mut ctx, guard.write_permission(), &id)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_destroy_by_reference(
     project_id: ProjectId,

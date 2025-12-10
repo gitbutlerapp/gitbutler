@@ -1,6 +1,6 @@
 //! In place of commands.rs
 use anyhow::{Context as _, Result};
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_core::RepositoryExt;
 use but_ctx::Context;
 use but_forge::{
@@ -12,7 +12,7 @@ use tracing::instrument;
 
 /// (Deprecated) Get the list of PR template paths for the given project and forge.
 /// This function is deprecated in favor of `list_available_review_templates`.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>> {
     let project = gitbutler_project::get_validated(project_id)?;
@@ -20,7 +20,7 @@ pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<Strin
 }
 
 /// Get the list of review template paths for the given project.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn list_available_review_templates(project_id: ProjectId) -> Result<Vec<String>> {
     let project = gitbutler_project::get_validated(project_id)?;
@@ -39,7 +39,7 @@ pub fn list_available_review_templates(project_id: ProjectId) -> Result<Vec<Stri
 ///
 /// This function is deprecated in favor of `review_template`, which serves the same purpose
 /// but uses the updated storage location.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn pr_template(
     project_id: ProjectId,
@@ -80,7 +80,7 @@ mod json {
 ///
 /// This function determines the forge of a project and retrieves the review template
 /// from the git config.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn review_template(project_id: ProjectId) -> Result<Option<json::ReviewTemplateInfo>> {
     let project = gitbutler_project::get_validated(project_id)?;
@@ -124,7 +124,7 @@ pub fn review_template(project_id: ProjectId) -> Result<Option<json::ReviewTempl
 
 /// Set the review template path in the git configuration for the given project.
 /// The template path will be validated.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn set_review_template(project_id: ProjectId, template_path: Option<String>) -> Result<()> {
     let project = gitbutler_project::get_validated(project_id)?;
@@ -158,13 +158,13 @@ pub fn set_review_template(project_id: ProjectId, template_path: Option<String>)
     repo.set_git_settings(&git_config)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>> {
     Ok(but_forge::determine_forge_from_url(&url))
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeReview>> {
     let (storage, base_branch, project) = {
@@ -186,7 +186,7 @@ pub async fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeR
     .await
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn publish_review(
     project_id: ProjectId,

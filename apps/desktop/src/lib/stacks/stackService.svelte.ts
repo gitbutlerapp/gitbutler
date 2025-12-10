@@ -485,7 +485,7 @@ export class StackService {
 	get pushStack() {
 		return this.api.endpoints.pushStack.useMutation({
 			sideEffect: (_, args) => {
-				// Timeout to accomodate eventual consistency.
+				// Timeout to accommodate eventual consistency.
 				setTimeout(() => {
 					this.forgeFactory.invalidate([
 						invalidatesItem(ReduxTag.PullRequests, args.stackId),
@@ -1016,8 +1016,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 						response.branchDetails
 					);
 
-					// This is a list of all the commits accross all branches in the stack.
-					// If you want to acces the commits of a specific branch, use the
+					// This is a list of all the commits across all branches in the stack.
+					// If you want to access the commits of a specific branch, use the
 					// `commits` property of the `BranchDetails` struct.
 					const commitsEntity = commitAdapter.addMany(
 						commitAdapter.getInitialState(),
@@ -1055,8 +1055,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				extraOptions: { command: 'branch_details' },
 				query: (args) => args,
 				transformResponse(branchDetails: BranchDetails) {
-					// This is a list of all the commits accross all branches in the stack.
-					// If you want to acces the commits of a specific branch, use the
+					// This is a list of all the commits across all branches in the stack.
+					// If you want to access the commits of a specific branch, use the
 					// `commits` property of the `BranchDetails` struct.
 					const commitsEntity = commitAdapter.addMany(
 						commitAdapter.getInitialState(),
@@ -1145,7 +1145,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				{ projectId: string; commitId: string }
 			>({
 				keepUnusedDataFor: 60, // Keep for 1 minute after last use
-				extraOptions: { command: 'commit_details' },
+				extraOptions: { command: 'commit_details_with_line_stats' },
 				query: (args) => args,
 				providesTags: (_result, _error, { commitId }) => [
 					...providesItem(ReduxTag.CommitChanges, commitId)

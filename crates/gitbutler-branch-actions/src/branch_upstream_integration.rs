@@ -5,7 +5,7 @@ use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::{legacy::stack_ext::StackExt, ui::CommitState};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use gix::ObjectId;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -172,7 +172,7 @@ pub fn integrate_branch_with_steps(
 
     source_stack.set_stack_head(&vb_state, &repository, head, None)?;
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     source_stack.set_heads_from_rebase_output(ctx, result.references)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx, false)?;

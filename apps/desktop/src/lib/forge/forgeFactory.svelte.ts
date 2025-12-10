@@ -73,6 +73,27 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		return this._canSetupIntegration;
 	}
 
+	/**
+	 * Get review unit abbreviation with fallback to 'PR'
+	 */
+	get reviewUnitAbbr(): string {
+		return this._forge.prService?.unit.abbr ?? 'PR';
+	}
+
+	/**
+	 * Get review unit name with fallback to 'Pull request'
+	 */
+	get reviewUnitName(): string {
+		return this._forge.prService?.unit.name ?? 'Pull request';
+	}
+
+	/**
+	 * Get review unit symbol with fallback to '#'
+	 */
+	get reviewUnitSymbol(): string {
+		return this._forge.prService?.unit.symbol ?? '#';
+	}
+
 	setConfig(config: ForgeConfig) {
 		if (deepCompare(config, this._config)) {
 			return;
@@ -103,6 +124,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				forgeOverride
 			});
 		} else {
+			this._determinedForgeType = 'default';
 			this._forge = this.default;
 		}
 	}

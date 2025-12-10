@@ -1,3 +1,4 @@
+import { browser } from '$app/environment';
 import { ApiError } from '$lib/network/types';
 import { InjectionToken } from '@gitbutler/core/context';
 import { derived, get, type Readable } from 'svelte/store';
@@ -44,6 +45,10 @@ export class HttpClient {
 		path: string,
 		opts: RequestOptions & { method: RequestMethod }
 	): Promise<Response> {
+		if (!browser) {
+			throw new Error("Can't call fetch in SSR phase");
+		}
+
 		const butlerHeaders = new Headers(DEFAULT_HEADERS);
 
 		if (opts.headers) {

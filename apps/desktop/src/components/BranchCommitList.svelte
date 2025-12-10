@@ -16,8 +16,8 @@
 		AmendCommitWithChangeDzHandler,
 		AmendCommitWithHunkDzHandler,
 		CommitDropData,
-		type DzCommitData,
-		SquashCommitDzHandler
+		createCommitDropHandlers,
+		type DzCommitData
 	} from '$lib/commits/dropHandler';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { draggableCommitV3 } from '$lib/dragging/draggable';
@@ -221,7 +221,7 @@
 		{@const hasRemoteCommits = upstreamOnlyCommits.length > 0}
 		{@const hasCommits = localAndRemoteCommits.length > 0}
 
-		{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
+		<!-- {@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))} -->
 
 		{#if hasCommits || hasRemoteCommits}
 			<div
@@ -264,6 +264,8 @@
 					</UpstreamCommitsAction>
 				{/if}
 
+				{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
+
 				{#each localAndRemoteCommits as commit, i (commit.id)}
 					{@const first = i === 0}
 					{@const last = i === localAndRemoteCommits.length - 1}
@@ -294,42 +296,22 @@
 						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
 						hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
 					}}
-					{@const amendHandler = stackId
-						? new AmendCommitWithChangeDzHandler(
-								projectId,
-								stackService,
-								hooksService,
-								stackId,
-								$runHooks,
-								dzCommit,
-								(newId) => {
-									const previewOpen = selection.current?.previewOpen ?? false;
-									uiState.lane(stackId).selection.set({ branchName, commitId: newId, previewOpen });
-								},
-								uiState
-							)
-						: undefined}
-					{@const squashHandler = stackId
-						? new SquashCommitDzHandler({
-								stackService,
-								projectId,
-								stackId,
-								commit: dzCommit
-							})
-						: undefined}
-					{@const hunkHandler = stackId
-						? new AmendCommitWithHunkDzHandler({
-								stackService,
-								hooksService,
-								projectId,
-								stackId,
-								commit: dzCommit,
-								runHooks: $runHooks,
-								// TODO: Use correct value!
-								okWithForce: true,
-								uiState
-							})
-						: undefined}
+					{@const { amendHandler, squashHandler, hunkHandler } = createCommitDropHandlers({
+						projectId,
+						stackId,
+						stackService,
+						hooksService,
+						uiState,
+						commit: dzCommit,
+						runHooks: $runHooks,
+						okWithForce: true,
+						onCommitIdChange: (newId) => {
+							if (stackId) {
+								const previewOpen = selection.current?.previewOpen ?? false;
+								uiState.lane(stackId).selection.set({ branchName, commitId: newId, previewOpen });
+							}
+						}
+					})}
 					{@const tooltip = commitStatusLabel(commit.state.type)}
 					<Dropzone handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}>
 						{#snippet overlay({ hovered, activated, handler })}

@@ -358,7 +358,8 @@ impl Graph {
         let tip_is_not_workspace_commit = !workspaces
             .iter()
             .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref());
-        let worktree_by_branch = worktree_branches(repo.for_worktree_only())?;
+        let worktree_by_branch =
+            repo.worktree_branches(graph.entrypoint_ref.as_ref().map(|r| r.as_ref()))?;
 
         let mut ctx = post::Context {
             repo,

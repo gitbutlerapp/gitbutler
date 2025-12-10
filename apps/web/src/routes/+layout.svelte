@@ -31,7 +31,7 @@
 
 	const { children }: Props = $props();
 
-	const routesService = new WebRoutesService(location.protocol + '//' + location.host, true);
+	const routesService = new WebRoutesService('/', true);
 	provide(WEB_ROUTES_SERVICE, routesService);
 
 	const TOKEN_STORAGE_KEY = 'AuthService--token';
@@ -42,12 +42,7 @@
 		if (item) localStorage.removeItem(TOKEN_STORAGE_KEY);
 	});
 
-	const httpClient = new HttpClient(
-		window.fetch,
-		env.PUBLIC_APP_HOST,
-		readable(undefined),
-		'include'
-	);
+	const httpClient = new HttpClient(fetch, env.PUBLIC_APP_HOST, readable(undefined), 'include');
 	provide(HTTP_CLIENT, httpClient);
 
 	const userService = new UserService(httpClient);
@@ -68,12 +63,13 @@
 		page.route.id === '/(app)' ||
 			page.route.id === '/(app)/home' ||
 			page.route.id === '/downloads' ||
-			page.route.id === '/nightly'
+			page.route.id === '/nightly' ||
+			page.route.id === '/color-generator'
 	);
 
-	// Check if current page should render children directly
+	// Check if current page should render children directly (marketing pages except home)
 	const shouldRenderChildren = $derived(
-		page.route.id === '/downloads' || page.route.id === '/nightly'
+		isMarketingPage && page.route.id !== '/(app)' && page.route.id !== '/(app)/home'
 	);
 
 	$effect(() => {

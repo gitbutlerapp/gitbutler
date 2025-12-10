@@ -152,10 +152,10 @@
 	// 		// This is to handle the case where the reviews might dictacte that
 	// 		// we should remove a branch, but we don't have the have the merge
 	// 		// commit yet. If we were to handle a branch as "integrated" without
-	// 		// the merge commit, files might dissapear for a users working tree
+	// 		// the merge commit, files might disappear for a users working tree
 	// 		// in a supprising way.
 	// 		//
-	// 		// We could query both of these simultaniously using Promise.all,
+	// 		// We could query both of these simultaneously using Promise.all,
 	// 		// but that is extra complexity that is not needed for now.
 	// 		await baseBranchService.fetchFromRemotes(projectId);
 	// 		const reviews = await forgeListingService.fetchByBranch(projectId, appliedBranches);

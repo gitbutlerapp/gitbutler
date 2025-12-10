@@ -1,7 +1,7 @@
 use async_openai::{
     Client,
     config::OpenAIConfig,
-    types::{
+    types::chat::{
         ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage,
         CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
     },
@@ -223,4 +223,4 @@ are now included in the negotiation.
 
 The update to the bundle-uri unbundling refspec puts all the heads from a
 bundle file into refs/bundle/heads instead of directly into refs/bundle/ so
-the tests also need to be updated to look in the new heirarchy."#;
+the tests also need to be updated to look in the new hierarchy."#;

@@ -98,7 +98,6 @@
 			{grow}
 			{onclose}
 			{ontoggle}
-			bottomBorder
 			noshrink
 		>
 			{#snippet header()}

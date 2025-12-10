@@ -62,7 +62,7 @@ export function showError(title: string, error: unknown, extraAction?: ExtraActi
 	if (isBundlingError(message)) {
 		console.warn(
 			'You are likely experiencing a dev mode bundling error, ' +
-				'try disabling the chache from the network tab and ' +
+				'try disabling the cache from the network tab and ' +
 				'reload the page.'
 		);
 		return;

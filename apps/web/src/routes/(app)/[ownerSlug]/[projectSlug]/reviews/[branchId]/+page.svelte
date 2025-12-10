@@ -125,7 +125,7 @@
 
 	function editSummary() {
 		if (!isFound(branch?.current)) return;
-		// Make sure we're not dealing with a reference to the origional
+		// Make sure we're not dealing with a reference to the original
 		summary = structuredClone(branch.current.value.description || '');
 		title = structuredClone(branch.current.value.title || '');
 		editingSummary = true;

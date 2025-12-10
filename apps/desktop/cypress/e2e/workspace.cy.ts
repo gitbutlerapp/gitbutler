@@ -9,7 +9,7 @@ describe('Workspace', () => {
 	});
 
 	it('Should be redirected to the workspace', () => {
-		// This is basically jsut a smoke test to check that the workspace is loaded
+		// This is basically just a smoke test to check that the workspace is loaded
 		cy.visit('/');
 
 		// Should be redirected to the workspac

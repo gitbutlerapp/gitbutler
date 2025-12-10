@@ -5,7 +5,7 @@
 <script lang="ts" generics="T">
 	/**
 	 * Lazily renders a list of many many items. This is intended to be used
-	 * in contexts where simply rendering the quanity of items causes the DOM
+	 * in contexts where simply rendering the quantity of items causes the DOM
 	 * to have poor performance, rather than computing the initial list being
 	 * the blocker.
 	 */

@@ -77,7 +77,7 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
             authors: vec![default_author()],
             stack: None
         },
-        "This is a non-virtual brnach, so it sees the local tracking branch as well"
+        "This is a non-virtual branch, so it sees the local tracking branch as well"
     );
     Ok(())
 }

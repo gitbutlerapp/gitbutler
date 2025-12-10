@@ -16,7 +16,7 @@ import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
 
-/** Details about a commit beloning to a drop zone. */
+/** Details about a commit belonging to a drop zone. */
 export type DzCommitData = {
 	id: string;
 	isRemote: boolean;
@@ -403,4 +403,71 @@ function updateUiState(
 	if (sourceReplacement && sourceState) {
 		uiState.lane(stackId).selection.set({ ...sourceState, commitId: sourceReplacement[1] });
 	}
+}
+
+/**
+ * Creates drop handlers for amending and squashing commits.
+ * Returns undefined if stackId is not provided (read-only mode).
+ */
+export function createCommitDropHandlers(args: {
+	projectId: string;
+	stackId: string | undefined;
+	stackService: StackService;
+	hooksService: HooksService;
+	uiState: UiState;
+	commit: DzCommitData;
+	runHooks: boolean;
+	onCommitIdChange?: (newCommitId: string) => void;
+	okWithForce?: boolean;
+}): {
+	amendHandler: AmendCommitWithChangeDzHandler | undefined;
+	squashHandler: SquashCommitDzHandler | undefined;
+	hunkHandler: AmendCommitWithHunkDzHandler | undefined;
+} {
+	const { stackId, commit, onCommitIdChange, okWithForce = true } = args;
+
+	if (!stackId) {
+		return {
+			amendHandler: undefined,
+			squashHandler: undefined,
+			hunkHandler: undefined
+		};
+	}
+
+	const amendHandler = new AmendCommitWithChangeDzHandler(
+		args.projectId,
+		args.stackService,
+		args.hooksService,
+		stackId,
+		args.runHooks,
+		commit,
+		(newId) => {
+			onCommitIdChange?.(newId);
+		},
+		args.uiState
+	);
+
+	const squashHandler = new SquashCommitDzHandler({
+		stackService: args.stackService,
+		projectId: args.projectId,
+		stackId,
+		commit
+	});
+
+	const hunkHandler = new AmendCommitWithHunkDzHandler({
+		stackService: args.stackService,
+		hooksService: args.hooksService,
+		projectId: args.projectId,
+		stackId,
+		commit,
+		okWithForce,
+		uiState: args.uiState,
+		runHooks: args.runHooks
+	});
+
+	return {
+		amendHandler,
+		squashHandler,
+		hunkHandler
+	};
 }

@@ -4,6 +4,7 @@ use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_project::Project;
 
 use crate::args::push::Command;
+use crate::{CliId, IdMap};
 use crate::{args::push, utils::OutputChannel};
 
 pub fn handle(
@@ -12,6 +13,8 @@ pub fn handle(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let mut id_map = IdMap::new_from_context(&ctx)?;
+    id_map.add_file_info_from_context(&mut ctx)?;
 
     // Check gerrit mode early
     let gerrit_mode = {
@@ -20,7 +23,7 @@ pub fn handle(
     };
 
     // Resolve branch_id to actual branch name
-    let branch_name = resolve_branch_name(&mut ctx, &args.branch_id)?;
+    let branch_name = resolve_branch_name(&mut ctx, &id_map, &args.branch_id)?;
 
     // Find stack_id from branch name
     let stack_id = find_stack_id_by_branch_name(project, &branch_name)?;
@@ -110,9 +113,13 @@ pub fn get_gerrit_flags(
     Ok(flags)
 }
 
-fn resolve_branch_name(ctx: &mut Context, branch_id: &str) -> anyhow::Result<String> {
+fn resolve_branch_name(
+    ctx: &mut Context,
+    id_map: &IdMap,
+    branch_id: &str,
+) -> anyhow::Result<String> {
     // Try to resolve as CliId first
-    let cli_ids = crate::legacy::id::CliId::from_str(ctx, branch_id)?;
+    let cli_ids = id_map.resolve_entity_to_ids(branch_id)?;
 
     if cli_ids.is_empty() {
         // If no CliId matches, treat as literal branch name but validate it exists
@@ -131,7 +138,7 @@ fn resolve_branch_name(ctx: &mut Context, branch_id: &str) -> anyhow::Result<Str
         let branch_names: Vec<String> = cli_ids
             .iter()
             .filter_map(|id| match id {
-                crate::legacy::id::CliId::Branch { name, .. } => Some(name.clone()),
+                CliId::Branch { name, .. } => Some(name.clone()),
                 _ => None,
             })
             .collect();
@@ -151,10 +158,10 @@ fn resolve_branch_name(ctx: &mut Context, branch_id: &str) -> anyhow::Result<Str
     }
 
     match &cli_ids[0] {
-        crate::legacy::id::CliId::Branch { name, .. } => Ok(name.clone()),
+        CliId::Branch { name, .. } => Ok(name.clone()),
         _ => Err(anyhow::anyhow!(
             "Expected branch identifier, got {}. Please use a branch name or branch CLI ID.",
-            cli_ids[0].kind()
+            cli_ids[0].kind_for_humans()
         )),
     }
 }

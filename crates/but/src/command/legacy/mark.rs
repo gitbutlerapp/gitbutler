@@ -7,7 +7,7 @@ use but_rules::Operation;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::Project;
 
-use crate::{command::legacy::rub::branch_name_to_stack_id, utils::OutputChannel};
+use crate::{CliId, IdMap, command::legacy::rub::branch_name_to_stack_id, utils::OutputChannel};
 
 pub(crate) fn handle(
     project: &Project,
@@ -16,7 +16,9 @@ pub(crate) fn handle(
     delete: bool,
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let target_result = crate::legacy::id::CliId::from_str(ctx, target_str)?;
+    let mut id_map = IdMap::new_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx)?;
+    let target_result = id_map.resolve_entity_to_ids(target_str)?;
     if target_result.len() != 1 {
         return Err(anyhow::anyhow!(
             "Target {} is ambiguous: {:?}",
@@ -29,8 +31,8 @@ pub(crate) fn handle(
         but_rules::delete_rule(ctx, &rule.id())?;
     }
     match target_result[0].clone() {
-        crate::legacy::id::CliId::Branch { name, .. } => mark_branch(ctx, name, delete, out),
-        crate::legacy::id::CliId::Commit { oid } => mark_commit(ctx, oid, delete, out),
+        CliId::Branch { name, .. } => mark_branch(ctx, name, delete, out),
+        CliId::Commit(oid) => mark_commit(ctx, oid, delete, out),
         _ => bail!("Nope"),
     }
 }
@@ -99,7 +101,7 @@ fn mark_branch(
         return Ok(());
     }
     // TODO: if there are other marks of this kind, get rid of them
-    let stack_id = stack_id.expect("Cant find stack for this branch");
+    let stack_id = stack_id.expect("Cannot find stack for this branch");
     let action = but_rules::Action::Explicit(Operation::Assign {
         target: but_rules::StackTarget::StackId(stack_id.to_string()),
     });

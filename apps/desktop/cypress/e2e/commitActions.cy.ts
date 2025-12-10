@@ -14,11 +14,12 @@ describe('Commit Actions', () => {
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
 		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
+		mockCommand('amend_commit', (params) => mockBackend.amendCommit(params));
 		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
 		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 		mockCommand('message_hook', (params) => mockBackend.message_hook(params));
@@ -589,6 +590,40 @@ describe('Commit Actions', () => {
 		// The commit should be removed from the list
 		cy.getByTestId('commit-row').should('have.length', 0);
 	});
+
+	it('Should be able to drop uncommitted changes onto commit details view to amend', () => {
+		cy.spy(mockBackend, 'amendCommit').as('amendCommitSpy');
+
+		// There should be uncommitted changes
+		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
+
+		const fileName = mockBackend.getWorktreeChangesFileNames()[0]!;
+
+		// Click on the first commit to open the commit drawer
+		cy.getByTestId('commit-row').first().click();
+
+		// Should open the commit drawer
+		cy.getByTestId('commit-drawer').should('be.visible');
+
+		// Get the file list item and commit drawer elements
+		const fileListItem = cy
+			.getByTestId('uncommitted-changes-file-list')
+			.find('[data-testid="file-list-item"]')
+			.first()
+			.should('contain', fileName);
+
+		const commitDrawer = cy.getByTestId('commit-drawer');
+
+		// Perform drag and drop
+		fileListItem.trigger('mousedown', { which: 1, button: 0 }).trigger('dragstart');
+
+		commitDrawer.trigger('dragenter').trigger('dragover').trigger('drop').trigger('dragend');
+
+		fileListItem.trigger('mouseup', { which: 1, button: 0 });
+
+		// Should call amend commit
+		cy.get('@amendCommitSpy').should('be.called');
+	});
 });
 
 describe('Commit Actions with branches containing changes', () => {
@@ -600,7 +635,7 @@ describe('Commit Actions with branches containing changes', () => {
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
@@ -696,7 +731,7 @@ describe('Commit Actions with no stacks', () => {
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
@@ -833,7 +868,7 @@ describe('Commit Actions with a stack of two empty branches', () => {
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
-		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);

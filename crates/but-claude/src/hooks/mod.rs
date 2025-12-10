@@ -170,7 +170,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     let stacks = list_stacks(defer.ctx)?;
 
     // Trigger commit message generation for newly created commits
-    // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe
+    // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if available
     // Alternatively, and probably better - we could spawn a new process to do this
 
     if let Some(openai_client) =
@@ -179,7 +179,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         for branch in &outcome.updated_branches {
             let mut commit_message_mapping = HashMap::new();
 
-            let elegibility = is_branch_eligible_for_rename(defer.ctx, &stacks, branch)?;
+            let eligibility = is_branch_eligible_for_rename(defer.ctx, &stacks, branch)?;
 
             for commit in &branch.new_commits {
                 if let Ok(commit_id) = gix::ObjectId::from_str(commit) {
@@ -204,7 +204,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
                 }
             }
 
-            let final_branch_name = match elegibility {
+            let final_branch_name = match eligibility {
                 RenameEligibility::Eligible { commit_id } => {
                     let reword_result = commit_message_mapping.get(&commit_id).cloned();
 

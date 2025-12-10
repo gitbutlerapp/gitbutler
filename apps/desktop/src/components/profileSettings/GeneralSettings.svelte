@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
+	import { BACKEND } from '$lib/backend';
 	import { CLI_MANAGER } from '$lib/cli/cli';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
@@ -34,6 +35,9 @@
 
 	const cliManager = inject(CLI_MANAGER);
 	const [instalCLI, installingCLI] = cliManager.install;
+
+	const backend = inject(BACKEND);
+	const platformName = backend.platformName;
 
 	let saving = $state(false);
 	let newName = $state('');
@@ -227,29 +231,37 @@
 <CardGroup>
 	<CardGroup.Item>
 		{#snippet title()}
-			Install the GitButler CLI (but)
+			Install the GitButler CLI <code class="code-string">but</code>
 		{/snippet}
 
 		{#snippet caption()}
-			Installs the GitButler CLI (but) in your PATH, allowing you to use it from the terminal. This
-			action will request admin privileges. Alternatively, you could create a symlink manually.
+			{#if platformName === 'windows'}
+				On Windows, you can manually copy the executable (<code>`but`</code>) to a directory in your
+				PATH. Click "Show Command" for instructions.
+			{:else}
+				Installs the GitButler CLI (<code>`but`</code>) in your PATH, allowing you to use it from
+				the terminal. This action will request admin privileges. Alternatively, you could create a
+				symlink manually.
+			{/if}
 		{/snippet}
 
 		<div class="flex flex-col gap-16">
 			<div class="flex gap-8 justify-end">
-				<Button
-					style="pop"
-					icon="play"
-					onclick={async () => await instalCLI()}
-					loading={installingCLI.current.isLoading}
-				>
-					Install But CLI</Button
-				>
+				{#if platformName !== 'windows'}
+					<Button
+						style="pop"
+						icon="play"
+						onclick={async () => await instalCLI()}
+						loading={installingCLI.current.isLoading}
+					>
+						Install But CLI</Button
+					>
+				{/if}
 				<Button
 					style="neutral"
 					kind="outline"
 					disabled={showSymlink}
-					onclick={() => (showSymlink = !showSymlink)}>Show symlink</Button
+					onclick={() => (showSymlink = !showSymlink)}>Show command</Button
 				>
 			</div>
 		</div>

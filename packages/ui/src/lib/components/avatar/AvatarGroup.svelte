@@ -131,7 +131,7 @@
 		margin-left: 2px;
 		padding: 0 4px;
 		border-radius: 10px;
-		background-color: var(--clr-theme-ntrl-soft-hover);
+		background-color: var(--clr-theme-ntrl-soft);
 		user-select: none;
 
 		& span {

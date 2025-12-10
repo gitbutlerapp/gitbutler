@@ -30,7 +30,7 @@
 	const posthog = inject(POSTHOG_WRAPPER);
 	const settingsStore = $derived(settingsService.appSettings);
 	const projectState = $derived(uiState.project(projectId));
-	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
+	const unassignedSidebarFolded = $derived(uiState.global.unassignedSidebarFolded);
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(exclusiveAction?.type === 'commit');
 	let isScrollable = $state<boolean>(false);
@@ -41,7 +41,7 @@
 	let foldedContentWidth = $state<number>(0);
 
 	function unfoldView() {
-		unassignedSidebaFolded.set(false);
+		unassignedSidebarFolded.set(false);
 	}
 
 	function unselectFiles() {
@@ -50,12 +50,12 @@
 
 	$effect(() => {
 		if (isCommitting && changesToCommit) {
-			unassignedSidebaFolded.set(false);
+			unassignedSidebarFolded.set(false);
 		}
 	});
 
 	function foldUnnassignedView() {
-		unassignedSidebaFolded.set(true);
+		unassignedSidebarFolded.set(true);
 	}
 
 	function checkSelectedFilesForCommit() {
@@ -95,14 +95,14 @@
 </script>
 
 {#snippet foldButton()}
-	{#if !isCommitting && !unassignedSidebaFolded.current}
+	{#if !isCommitting && !unassignedSidebarFolded.current}
 		<div class="unassigned__fold-button">
 			<UnassignedFoldButton active={false} onclick={foldUnnassignedView} />
 		</div>
 	{/if}
 {/snippet}
 
-{#if !unassignedSidebaFolded.current}
+{#if !unassignedSidebarFolded.current}
 	<div class="unassigned" role="presentation" use:focusable={{ vertical: true }}>
 		{#if $settingsStore?.featureFlags.rules}
 			<RulesList {foldButton} {projectId} />
@@ -116,7 +116,6 @@
 				onscrollexists={(exists: boolean) => {
 					isScrollable = exists;
 				}}
-				overflow
 				mode="unassigned"
 				foldButton={$settingsStore?.featureFlags.rules ? undefined : foldButton}
 			>

@@ -24,7 +24,12 @@
 
 <ReduxResult {projectId} result={commitQuery.result}>
 	{#snippet children(commit)}
-		<Drawer {onclose} bottomBorder persistId="unapplied-commit-drawer-{projectId}-{commitId}">
+		<Drawer
+			{onclose}
+			bottomBorder
+			noshrink
+			persistId="unapplied-commit-drawer-{projectId}-{commitId}"
+		>
 			{#snippet header()}
 				<CommitTitle
 					truncate

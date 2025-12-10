@@ -1,14 +1,17 @@
-pub(crate) mod tree_changes;
-
 use bstr::{BStr, ByteSlice};
-pub use tree_changes::tree_changes;
-
-mod worktree;
-pub use worktree::{worktree_changes, worktree_changes_no_renames};
 
 use crate::{
     ChangeState, IgnoredWorktreeChange, ModeFlags, TreeChange, TreeStatus, TreeStatusKind,
 };
+
+pub(crate) mod tree_changes;
+pub use tree_changes::{TreeChanges, tree_changes, tree_changes_with_line_stats};
+
+mod worktree;
+pub use worktree::{worktree_changes, worktree_changes_no_renames};
+
+mod commit_details;
+pub use commit_details::{CommitDetails, LineStats};
 
 /// conversion functions for use in the UI
 pub mod ui;

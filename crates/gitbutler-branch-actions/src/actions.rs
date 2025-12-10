@@ -516,9 +516,9 @@ pub fn create_virtual_branch_from_branch(
     )
 }
 
-pub fn get_uncommited_files(ctx: &Context) -> Result<Vec<RemoteBranchFile>> {
+pub fn get_uncommitted_files(ctx: &Context) -> Result<Vec<RemoteBranchFile>> {
     let guard = ctx.exclusive_worktree_access();
-    crate::branch::get_uncommited_files(ctx, guard.read_permission())
+    crate::branch::get_uncommitted_files(ctx, guard.read_permission())
 }
 
 pub fn upstream_integration_statuses(

@@ -226,21 +226,15 @@ describe('IndentPlugin', () => {
 
 			editor.read(() => {
 				const root = $getRoot();
-				// In rich text mode, creates two paragraphs
+				// Now only creates one paragraph (bullet removed, cursor stays)
 				const paragraphs = root.getChildren();
-				expect(paragraphs.length).toBe(2);
+				expect(paragraphs.length).toBe(1);
 
-				// First paragraph should be empty (bullet removed)
+				// The paragraph should be empty (bullet removed, cursor here)
 				const para1 = paragraphs[0];
 				if (!$isParagraphNode(para1)) throw new Error('Expected paragraph node');
 				const children1 = para1.getChildren();
 				expect(children1.length).toBe(0);
-
-				// Second paragraph should also be empty (cursor position)
-				const para2 = paragraphs[1];
-				if (!$isParagraphNode(para2)) throw new Error('Expected paragraph node');
-				const children2 = para2.getChildren();
-				expect(children2.length).toBe(0);
 			});
 		});
 
@@ -265,21 +259,15 @@ describe('IndentPlugin', () => {
 
 			editor.read(() => {
 				const root = $getRoot();
-				// In rich text mode, creates two paragraphs
+				// Now only creates one paragraph (bullet removed, cursor stays)
 				const paragraphs = root.getChildren();
-				expect(paragraphs.length).toBe(2);
+				expect(paragraphs.length).toBe(1);
 
-				// First paragraph should be empty (bullet removed)
+				// The paragraph should be empty (bullet removed, cursor here)
 				const para1 = paragraphs[0];
 				if (!$isParagraphNode(para1)) throw new Error('Expected paragraph node');
 				const children1 = para1.getChildren();
 				expect(children1.length).toBe(0);
-
-				// Second paragraph should also be empty (cursor position)
-				const para2 = paragraphs[1];
-				if (!$isParagraphNode(para2)) throw new Error('Expected paragraph node');
-				const children2 = para2.getChildren();
-				expect(children2.length).toBe(0);
 			});
 		});
 	});
@@ -343,6 +331,129 @@ describe('IndentPlugin', () => {
 				if ($isTextNode(c3[0])) {
 					expect(c3[0].getTextContent()).toBe('    second line');
 				}
+			});
+		});
+	});
+
+	describe('regression tests for wrapped bullet handling', () => {
+		it('should preserve mixed tabs and spaces indentation', () => {
+			editor.update(() => {
+				const root = $getRoot();
+				const paragraph = $createParagraphNode();
+				const textNode = $createTextNode('\t  Mixed indent text');
+				paragraph.append(textNode);
+				root.append(paragraph);
+				textNode.select(19, 19);
+			});
+
+			editor.update(() => {
+				editor.dispatchCommand(KEY_ENTER_COMMAND, null);
+			});
+
+			editor.read(() => {
+				const root = $getRoot();
+				const children = root.getChildren();
+				const secondLine = children[1].getTextContent();
+
+				expect(secondLine.charCodeAt(0)).toBe(9); // tab
+				expect(secondLine.charCodeAt(1)).toBe(32); // space
+				expect(secondLine.charCodeAt(2)).toBe(32); // space
+			});
+		});
+
+		it('should create continuation when pressing Enter in middle of wrapped bullet', () => {
+			editor.update(() => {
+				const root = $getRoot();
+
+				const para1 = $createParagraphNode();
+				para1.append($createTextNode('- This is a bullet that'));
+				root.append(para1);
+
+				const para2 = $createParagraphNode();
+				para2.append($createTextNode('  was previously wrapped'));
+				root.append(para2);
+
+				const textNode = para1.getFirstChild();
+				if ($isTextNode(textNode)) {
+					textNode.select(17, 17);
+				}
+			});
+
+			editor.update(() => {
+				editor.dispatchCommand(KEY_ENTER_COMMAND, null);
+			});
+
+			editor.read(() => {
+				const root = $getRoot();
+				const children = root.getChildren();
+
+				expect(children[0].getTextContent()).toBe('- This is a bulle');
+				expect(children[1].getTextContent()).toBe('  t that'); // continuation, not new bullet
+				expect(children[2].getTextContent()).toBe('  was previously wrapped');
+			});
+		});
+
+		it('should create new bullet when at end of wrapped bullet continuation line', () => {
+			editor.update(() => {
+				const root = $getRoot();
+
+				const para1 = $createParagraphNode();
+				para1.append($createTextNode('- This is a bullet'));
+				root.append(para1);
+
+				const para2 = $createParagraphNode();
+				para2.append($createTextNode('  that wraps'));
+				root.append(para2);
+
+				const textNode = para2.getFirstChild();
+				if ($isTextNode(textNode)) {
+					textNode.select(12, 12); // at end of continuation
+				}
+			});
+
+			editor.update(() => {
+				editor.dispatchCommand(KEY_ENTER_COMMAND, null);
+			});
+
+			editor.read(() => {
+				const root = $getRoot();
+				const children = root.getChildren();
+
+				expect(children.length).toBe(3);
+				expect(children[0].getTextContent()).toBe('- This is a bullet');
+				expect(children[1].getTextContent()).toBe('  that wraps');
+				expect(children[2].getTextContent()).toBe('- '); // new bullet created
+			});
+		});
+
+		it('should create new numbered bullet when at end of wrapped numbered continuation', () => {
+			editor.update(() => {
+				const root = $getRoot();
+
+				const para1 = $createParagraphNode();
+				para1.append($createTextNode('1. First item'));
+				root.append(para1);
+
+				const para2 = $createParagraphNode();
+				para2.append($createTextNode('   continues here'));
+				root.append(para2);
+
+				const textNode = para2.getFirstChild();
+				if ($isTextNode(textNode)) {
+					textNode.select(17, 17);
+				}
+			});
+
+			editor.update(() => {
+				editor.dispatchCommand(KEY_ENTER_COMMAND, null);
+			});
+
+			editor.read(() => {
+				const root = $getRoot();
+				const children = root.getChildren();
+
+				expect(children.length).toBe(3);
+				expect(children[2].getTextContent()).toBe('2. ');
 			});
 		});
 	});

@@ -29,10 +29,10 @@ export type BranchListing = {
 	stack?: StackReference | undefined;
 	/**
 	 * Timestamp in milliseconds since the branch was last updated.
-	 * This includes any commits, uncommited changes or even updates to the branch metadata (e.g. renaming).
+	 * This includes any commits, uncommitted changes or even updates to the branch metadata (e.g. renaming).
 	 */
 	updatedAt: string;
-	/** The person who commited the head commit */
+	/** The person who committed the head commit */
 	lastCommiter: Author;
 	/** Whether or not there is a local branch as part of the grouping */
 	hasLocal: boolean;
@@ -55,7 +55,7 @@ export type StackReference = {
 	pullRequests: Record<string, number>;
 };
 
-/** Represents a "commit author" or "signature", based on the data from ther git history */
+/** Represents a "commit author" or "signature", based on the data from there git history */
 export type Author = {
 	/** The name of the author as configured in the git config */
 	name?: string | undefined;
@@ -74,7 +74,7 @@ export class BranchListingDetails {
 	 * Since the virtual branch, local branch and the remote one can have different number of lines removed,
 	 * the value from the virtual branch (if present) takes the highest precedence,
 	 * followed by the local branch and then the remote branches (taking the max if there are multiple).
-	 * If this branch has a virutal branch, lines_added does NOT include the uncommitted lines.
+	 * If this branch has a virtual branch, lines_added does NOT include the uncommitted lines.
 	 */
 	linesAdded!: number;
 	/**
@@ -82,7 +82,7 @@ export class BranchListingDetails {
 	 * Since the virtual branch, local branch and the remote one can have different number of lines removed,
 	 * the value from the virtual branch (if present) takes the highest precedence,
 	 * followed by the local branch and then the remote branches (taking the max if there are multiple)
-	 * If this branch has a virutal branch, lines_removed does NOT include the uncommitted lines.
+	 * If this branch has a virtual branch, lines_removed does NOT include the uncommitted lines.
 	 */
 	linesRemoved!: number;
 	/**

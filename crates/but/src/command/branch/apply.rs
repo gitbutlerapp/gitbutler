@@ -8,19 +8,25 @@ pub fn apply(ctx: Context, branch_name: &str, out: &mut OutputChannel) -> anyhow
     let repo = ctx.repo.get()?;
 
     let reference = repo.find_reference(branch_name)?;
-    let _outcome = but_api::branch::apply(&ctx, reference.name())?;
+    let mut outcome = but_api::branch::apply(&ctx, reference.name())?;
 
     if let Some(out) = out.for_human() {
-        let short_name = reference.name().shorten();
-        let is_remote_reference = reference
-            .name()
-            .category()
-            .is_some_and(|c| c == Category::RemoteBranch);
-        if is_remote_reference {
-            writeln!(out, "Applied remote branch '{short_name}' to workspace")
-        } else {
-            writeln!(out, "Applied branch '{short_name}' to workspace")
-        }?;
+        // Since `applied_branches` is the actual applied branches, turning remotes into local branches,
+        // hack it into submission while the legacy version exists that it has to match.
+        let special_case_remove_me_once_there_is_no_legacy_apply =
+            outcome.applied_branches.len() == 1;
+        if special_case_remove_me_once_there_is_no_legacy_apply {
+            outcome.applied_branches = vec![reference.name().to_owned()];
+        }
+        for name in outcome.applied_branches {
+            let short_name = name.shorten();
+            let is_remote_reference = name.category().is_some_and(|c| c == Category::RemoteBranch);
+            if is_remote_reference {
+                writeln!(out, "Applied remote branch '{short_name}' to workspace")
+            } else {
+                writeln!(out, "Applied branch '{short_name}' to workspace")
+            }?;
+        }
     } else if let Some(out) = out.for_shell() {
         writeln!(out, "{reference_name}", reference_name = reference.name())?;
     }

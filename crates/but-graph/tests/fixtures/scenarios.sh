@@ -742,8 +742,8 @@ EOF
     add_main_remote_setup
   )
 
-  git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
-  (cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
+  git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent
+  (cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent
     commit "init"
     setup_target_to_match_main
     git checkout -b lane main
@@ -752,14 +752,14 @@ EOF
     commit "change"
     # This works without an official remote setup as we go by name as fallback.
     remote_tracking_caught_up advanced-lane
-    git branch dependant
-    git branch on-top-of-dependant
+    git branch dependent
+    git branch on-top-of-dependent
 
     create_workspace_commit_once advanced-lane
   )
 
-  git init two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
-  (cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
+  git init two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent
+  (cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent
     commit "init"
     setup_target_to_match_main
     git checkout -b lane main
@@ -770,7 +770,7 @@ EOF
     create_workspace_commit_aggressively lane advanced-lane
 
     remote_tracking_caught_up advanced-lane
-    git branch dependant advanced-lane
+    git branch dependent advanced-lane
   )
 
   # There are multiple stacked branches that could lead towards a shared stack.

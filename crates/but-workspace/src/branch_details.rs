@@ -170,7 +170,7 @@ fn compute_is_conflicted<'a>(
 }
 
 /// Traverse all commits that are reachable from the first parent of `upstream_id`, but not in `integration_branch_id` nor in `branch_id`.
-/// While at it, collect the commiter and author of each commit into `authors`.
+/// While at it, collect the committer and author of each commit into `authors`.
 /// TODO: can we use the Graph for this?
 fn upstream_commits_gix(
     upstream_id: gix::Id<'_>,
@@ -190,14 +190,14 @@ fn upstream_commits_gix(
         let id = id?.to_gix().attach(upstream_id.repo);
         let commit = id.object()?.into_commit();
         let commit = commit.decode()?;
-        let author: ui::Author = commit.author().into();
-        let commiter: ui::Author = commit.committer().into();
+        let author: ui::Author = commit.author()?.into();
+        let committer: ui::Author = commit.committer()?.into();
         authors.insert(author.clone());
-        authors.insert(commiter);
+        authors.insert(committer);
         out.push(UpstreamCommit {
             id: id.detach(),
             message: commit.message.into(),
-            created_at: i128::from(commit.time().seconds) * 1000,
+            created_at: i128::from(commit.time()?.seconds) * 1000,
             author,
         });
     }
@@ -225,9 +225,9 @@ fn local_commits_gix(
 
         let mut buf = TimeBuf::default();
         let author: ui::Author = commit.author.to_ref(&mut buf).into();
-        let commiter: ui::Author = commit.committer.to_ref(&mut buf).into();
+        let committer: ui::Author = commit.committer.to_ref(&mut buf).into();
         authors.insert(author.clone());
-        authors.insert(commiter);
+        authors.insert(committer);
         out.push(ui::Commit {
             id: id.detach(),
             parent_ids: commit.parents.iter().cloned().collect(),

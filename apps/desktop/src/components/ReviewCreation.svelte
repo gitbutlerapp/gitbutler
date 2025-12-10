@@ -423,7 +423,7 @@
 					onClose();
 				}
 			})}
-			placeholder="PR title"
+			placeholder="{forge.reviewUnitAbbr} title"
 			showCount={false}
 			oninput={imeHandler.handleInput((e: Event) => {
 				const target = e.target as HTMLInputElement;
@@ -439,8 +439,9 @@
 			initialValue={$prBody}
 			enableFileUpload
 			enableSmiles
-			placeholder="PR Description"
+			placeholder="{forge.reviewUnitAbbr} Description"
 			messageType="pr"
+			reviewUnitAbbr={forge.reviewUnitAbbr}
 			{onAiButtonClick}
 			{canUseAI}
 			{aiIsLoading}

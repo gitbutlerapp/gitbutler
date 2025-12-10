@@ -9,6 +9,8 @@
 //! Non-goals:
 //! - Completeness: The output structures do not include all the data that the internal but-api has.
 
+use crate::CliId;
+use but_api::diff::ComputeLineStats;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
@@ -127,7 +129,7 @@ pub(crate) struct Commit {
     author_name: String,
     /// The email of the commit author
     author_email: String,
-    /// Wheter the commit is in a conflicted state. Only applicable to local commits (and not to upstream commits)
+    /// Whether the commit is in a conflicted state. Only applicable to local commits (and not to upstream commits)
     conflicted: Option<bool>,
     /// If but status was invoked with --review and if the commit has an associated review ID (eg. Gerrit review number), it will be present here
     review_id: Option<String>,
@@ -168,16 +170,18 @@ impl Branch {
         review_id: Option<String>,
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
+        id_map: &mut crate::IdMap,
     ) -> anyhow::Result<Self> {
         let commits = branch
             .commits
             .iter()
             .map(|c| {
                 Commit::from_local_commit(
-                    crate::legacy::id::CliId::commit(c.id).to_string(),
+                    CliId::Commit(c.id).to_string(),
                     c.clone(),
                     show_files,
                     project_id,
+                    id_map,
                 )
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
@@ -185,13 +189,7 @@ impl Branch {
         let upstream_commits = branch
             .upstream_commits
             .iter()
-            .map(|c| {
-                Commit::from_upstream_commit(
-                    crate::legacy::id::CliId::commit(c.id).to_string(),
-                    c.clone(),
-                    None,
-                )
-            })
+            .map(|c| Commit::from_upstream_commit(CliId::Commit(c.id).to_string(), c.clone(), None))
             .collect();
 
         Ok(Branch {
@@ -221,19 +219,21 @@ impl Commit {
         commit: but_workspace::ui::Commit,
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
+        id_map: &mut crate::IdMap,
     ) -> anyhow::Result<Self> {
         let changes = if show_files {
-            let commit_details =
-                but_api::legacy::diff::commit_details(project_id, commit.id.into())?;
+            // TODO: we should get the `ctx` as parameter.
+            let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
+            let commit_details: but_api::diff::json::CommitDetails =
+                but_api::diff::commit_details(&ctx, commit.id, ComputeLineStats::No)?.into();
             Some(
                 commit_details
                     .changes
-                    .changes
                     .into_iter()
                     .map(|change| {
-                        let cli_id = crate::legacy::id::CliId::committed_file(
-                            &change.path.to_string(),
+                        let cli_id = id_map.resolve_file_changed_in_commit_or_unassigned(
                             commit.id,
+                            change.path.as_ref(),
                         );
                         FileChange::from_tree_change(cli_id.to_string(), change)
                     })
@@ -330,9 +330,11 @@ fn convert_branch_to_json(
     show_files: bool,
     project_id: gitbutler_project::ProjectId,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    id_db: &mut crate::legacy::id::IdDb,
+    id_map: &mut crate::IdMap,
 ) -> anyhow::Result<Branch> {
-    let cli_id = id_db.branch(branch.name.as_ref()).to_string();
+    let cli_id = id_map
+        .resolve_branch_or_insert(branch.name.as_ref())
+        .to_string();
 
     let review_id = if review {
         crate::command::legacy::forge::review::get_review_numbers(
@@ -347,7 +349,14 @@ fn convert_branch_to_json(
         None
     };
 
-    Branch::from_branch_details(cli_id, branch.clone(), review_id, show_files, project_id)
+    Branch::from_branch_details(
+        cli_id,
+        branch.clone(),
+        review_id,
+        show_files,
+        project_id,
+        id_map,
+    )
 }
 
 /// Build the complete WorkspaceStatus JSON structure
@@ -367,7 +376,7 @@ pub(super) fn build_workspace_status_json(
     review: bool,
     project_id: gitbutler_project::ProjectId,
     repo: &gix::Repository,
-    id_db: &mut crate::legacy::id::IdDb,
+    id_map: &mut crate::IdMap,
 ) -> anyhow::Result<WorkspaceStatus> {
     let mut json_stacks = Vec::new();
     let mut json_unassigned_changes = Vec::new();
@@ -381,7 +390,7 @@ pub(super) fn build_workspace_status_json(
             let stack_cli_id = details
                 .branch_details
                 .first()
-                .map(|b| id_db.branch(b.name.as_ref()).to_string())
+                .map(|b| id_map.resolve_branch_or_insert(b.name.as_ref()).to_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
             let json_assigned_changes = convert_file_assignments(assignments, worktree_changes);
@@ -391,7 +400,7 @@ pub(super) fn build_workspace_status_json(
                 .iter()
                 .map(|branch| {
                     convert_branch_to_json(
-                        branch, review, show_files, project_id, review_map, id_db,
+                        branch, review, show_files, project_id, review_map, id_map,
                     )
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
@@ -405,9 +414,9 @@ pub(super) fn build_workspace_status_json(
     // We use the author signature from the commit we decoded earlier
     let base_commit = repo.find_commit(common_merge_base.commit_id)?;
     let base_commit_decoded = base_commit.decode()?;
-    let author: but_workspace::ui::Author = base_commit_decoded.author().into();
+    let author: but_workspace::ui::Author = base_commit_decoded.author()?.into();
 
-    let cli_id = crate::legacy::id::CliId::commit(common_merge_base.commit_id).to_string();
+    let cli_id = CliId::Commit(common_merge_base.commit_id).to_string();
     let merge_base_commit = Commit::from_upstream_commit(
         cli_id,
         but_workspace::ui::UpstreamCommit {
@@ -423,9 +432,9 @@ pub(super) fn build_workspace_status_json(
         // Create a Commit object for the latest upstream commit
         let upstream_commit = repo.find_commit(upstream.commit_id)?;
         let upstream_commit_decoded = upstream_commit.decode()?;
-        let upstream_author: but_workspace::ui::Author = upstream_commit_decoded.author().into();
+        let upstream_author: but_workspace::ui::Author = upstream_commit_decoded.author()?.into();
 
-        let cli_id = crate::legacy::id::CliId::commit(upstream.commit_id).to_string();
+        let cli_id = CliId::Commit(upstream.commit_id).to_string();
         let latest_commit = Commit::from_upstream_commit(
             cli_id,
             but_workspace::ui::UpstreamCommit {

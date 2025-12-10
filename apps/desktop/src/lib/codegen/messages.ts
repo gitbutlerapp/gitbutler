@@ -346,7 +346,7 @@ const webRequestCost = 10;
  * because the "assistant" ones come in more frequently.
  *
  * For some reason the final quantity of tokens ends up slightly greater than if
- * you were using the result. I'm not entirly sure where the discrepency is.
+ * you were using the result. I'm not entirely sure where the discrepancy is.
  */
 export function usageStats(events: ClaudeMessage[]): {
 	tokens: number;

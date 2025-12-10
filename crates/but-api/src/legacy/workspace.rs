@@ -1,13 +1,9 @@
-use std::{
-    collections::{BTreeSet, HashSet, VecDeque},
-    str::FromStr,
-};
+use std::{collections::HashSet, str::FromStr};
 
 use anyhow::{Context as _, Result};
-use but_api_macros::api_cmd_tauri;
+use but_api_macros::but_api;
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_graph::petgraph::Direction;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
@@ -29,7 +25,7 @@ fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMet
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -49,7 +45,7 @@ pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo> {
     })
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn stacks(
     project_id: ProjectId,
@@ -71,7 +67,7 @@ pub fn stacks(
 }
 
 #[cfg(unix)]
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -93,9 +89,9 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
         tracing::warn!(
             "Pruning at most {to_remove} nodes from the bottom to assure 'dot' won't hang",
         );
-        let mut next = VecDeque::new();
+        let mut next = std::collections::VecDeque::new();
         next.extend(graph.base_segments());
-        let mut seen = BTreeSet::new();
+        let mut seen = std::collections::BTreeSet::new();
         while let Some(sidx) = next.pop_front() {
             if to_remove == 0 {
                 break;
@@ -107,7 +103,7 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
             }
             next.extend(
                 graph
-                    .neighbors_directed(sidx, Direction::Incoming)
+                    .neighbors_directed(sidx, but_graph::petgraph::Direction::Incoming)
                     .filter(|n| seen.insert(*n)),
             );
             graph.remove_node(sidx);
@@ -122,7 +118,7 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn stack_details(
     project_id: ProjectId,
@@ -155,7 +151,7 @@ pub fn stack_details(
 
 fn update_push_status(branch: &mut but_workspace::ui::BranchDetails) {
     // If there are any commits that are LocalOnly, then the branch push state should be UnpushedCommits
-    // However, if there are alos any LocalAndRemote commits where the id != remote_commit_id, then it should be UnpushedCommitsRequiringForce
+    // However, if there are also any LocalAndRemote commits where the id != remote_commit_id, then it should be UnpushedCommitsRequiringForce
 
     let has_local_only = branch
         .commits
@@ -216,7 +212,7 @@ fn handle_gerrit(
     Ok(())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn branch_details(
     project_id: ProjectId,
@@ -270,7 +266,7 @@ pub fn branch_details(
 /// hunks would fail.
 /// `stack_branch_name` is the short name of the reference that the UI knows is present in a given segment.
 /// It is necessary to insert the new commit into the right bucket.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn create_commit_from_worktree_changes(
     project_id: ProjectId,
@@ -313,7 +309,7 @@ pub fn create_commit_from_worktree_changes(
 /// All `changes` are meant to be relative to the worktree.
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn amend_commit_from_worktree_changes(
     project_id: ProjectId,
@@ -349,7 +345,7 @@ pub fn amend_commit_from_worktree_changes(
 /// If whole files should be discarded, be sure to not pass any [hunks](but_workspace::discard::ui::DiscardSpec::hunk_headers)
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
     project_id: ProjectId,
@@ -398,7 +394,7 @@ mod json {
     }
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn move_changes_between_commits(
     project_id: ProjectId,
@@ -431,7 +427,7 @@ pub fn move_changes_between_commits(
     Ok(result.into())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn split_branch(
     project_id: ProjectId,
@@ -472,7 +468,7 @@ pub fn split_branch(
     Ok(move_changes_result.into())
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn split_branch_into_dependent_branch(
     project_id: ProjectId,
@@ -509,7 +505,7 @@ pub fn split_branch_into_dependent_branch(
 /// If `assign_to` is provided, the changes will be assigned to the stack
 /// specified.
 /// If `assign_to` is not provided, the changes will be unassigned.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn uncommit_changes(
     project_id: ProjectId,
@@ -591,7 +587,7 @@ pub fn uncommit_changes(
 /// Unlike the regular stash, the user specifies a new branch where those changes will be 'saved'/committed.
 /// Immediately after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn stash_into_branch(
     project_id: ProjectId,
@@ -655,7 +651,7 @@ pub fn stash_into_branch(
 
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
 /// The main point of this is to be able to provide branch names that are not already taken.
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn canned_branch_name(project_id: ProjectId) -> Result<String> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
@@ -665,7 +661,7 @@ pub fn canned_branch_name(project_id: ProjectId) -> Result<String> {
     gitbutler_stack::Stack::next_available_name(&repo, &state, template, false)
 }
 
-#[api_cmd_tauri]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn target_commits(
     project_id: ProjectId,

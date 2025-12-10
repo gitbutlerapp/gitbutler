@@ -1,8 +1,10 @@
 use std::collections::BTreeMap;
 
+use crate::CLI_DATE;
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
-use but_core::ui::{TreeChange, TreeStatus};
+use but_api::diff::ComputeLineStats;
+use but_core::{TreeStatus, ui};
 use but_ctx::{Context, LegacyProject};
 use but_hunk_assignment::HunkAssignment;
 use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
@@ -11,17 +13,12 @@ use colored::{ColoredString, Colorize};
 use gix::date::time::CustomFormat;
 use serde::Serialize;
 
-use crate::CLI_DATE;
-
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
 pub(crate) mod assignment;
 pub(crate) mod json;
 
-use crate::{
-    legacy::id::{CliId, IdDb},
-    utils::OutputChannel,
-};
+use crate::{IdMap, utils::OutputChannel};
 
 type StackDetail = (Option<StackDetails>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
@@ -66,7 +63,7 @@ pub(crate) async fn worktree(
     let meta = ctx.meta(guard.read_permission())?;
 
     // TODO: use this for status information instead.
-    let _head_info = but_workspace::head_info(
+    let head_info = but_workspace::head_info(
         &*ctx.repo.get()?,
         &meta,
         but_workspace::ref_info::Options {
@@ -74,6 +71,8 @@ pub(crate) async fn worktree(
             ..Default::default()
         },
     )?;
+    let mut id_map = IdMap::new_for_branches_and_commits(&head_info.stacks)?;
+    id_map.add_file_info_from_context(ctx)?;
 
     let review_map = if review {
         crate::command::legacy::forge::review::get_review_map(project).await?
@@ -95,14 +94,13 @@ pub(crate) async fn worktree(
     for (path, assignments) in &by_file {
         assignments_by_file.insert(
             path.clone(),
-            FileAssignment::from_assignments(path, assignments),
+            FileAssignment::from_assignments(&id_map, path, assignments),
         );
     }
     let mut stack_details: Vec<StackEntry> = vec![];
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
-    let mut id_db = IdDb::new(ctx)?;
 
     // For JSON output, we'll need the original StackDetails to avoid redundant conversions
     let mut original_stack_details: Vec<(Option<gitbutler_stack::StackId>, Option<StackDetails>)> =
@@ -130,17 +128,17 @@ pub(crate) async fn worktree(
         .take(50)
         .collect::<String>();
     let formatted_date = base_commit_decoded
-        .committer()
+        .committer()?
         .time()?
         .format_or_unix(DATE_ONLY);
-    let author = base_commit_decoded.author();
+    let author = base_commit_decoded.author()?;
     let common_merge_base_data = CommonMergeBase {
         target_name: target_name.clone(),
         common_merge_base: target.sha.to_string()[..7].to_string(),
         message: message.clone(),
         commit_date: formatted_date,
         commit_id: target.sha.to_gix(),
-        created_at: base_commit_decoded.committer().time()?.seconds as i128 * 1000,
+        created_at: base_commit_decoded.committer()?.time()?.seconds as i128 * 1000,
         author_name: author.name.to_string(),
         author_email: author.email.to_string(),
     };
@@ -167,10 +165,14 @@ pub(crate) async fn worktree(
                                 .take(50)
                                 .collect::<String>();
 
-                            let formatted_date =
-                                commit.committer().time().ok()?.format_or_unix(DATE_ONLY);
+                            let formatted_date = commit
+                                .committer()
+                                .ok()?
+                                .time()
+                                .ok()?
+                                .format_or_unix(DATE_ONLY);
 
-                            let author = commit.author();
+                            let author = commit.author().ok()?;
 
                             Some(UpstreamState {
                                 target_name: base_branch.branch_name.clone(),
@@ -180,7 +182,8 @@ pub(crate) async fn worktree(
                                 commit_date: formatted_date,
                                 last_fetched_ms: last_fetched,
                                 commit_id: commit_id.to_gix(),
-                                created_at: commit.committer().time().ok()?.seconds as i128 * 1000,
+                                created_at: commit.committer().ok()?.time().ok()?.seconds as i128
+                                    * 1000,
                                 author_name: author.name.to_string(),
                                 author_email: author.email.to_string(),
                             })
@@ -205,7 +208,7 @@ pub(crate) async fn worktree(
             review,
             project.id,
             &repo,
-            &mut id_db,
+            &mut id_map,
         )?;
         out.write_value(workspace_status)?;
         return Ok(());
@@ -242,7 +245,7 @@ pub(crate) async fn worktree(
             i == 0,
             &review_map,
             out,
-            &mut id_db,
+            &mut id_map,
         )?;
     }
     // Format the last fetched time as relative time
@@ -318,18 +321,18 @@ pub(crate) async fn worktree(
 
 fn print_assignments(
     assignments: &Vec<FileAssignment>,
-    changes: &[TreeChange],
+    changes: &[ui::TreeChange],
     dotted: bool,
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match &state {
-            Some(state) => path_with_color(state, fa.path.to_string()),
+            Some(state) => path_with_color_ui(state, fa.path.to_string()),
             None => fa.path.to_string().normal(),
         };
 
-        let status = state.as_ref().map(status_letter).unwrap_or_default();
+        let status = state.as_ref().map(status_letter_ui).unwrap_or_default();
 
         let id = fa.assignments[0].cli_id.underline().blue();
 
@@ -369,7 +372,7 @@ pub fn print_group(
     project: &gitbutler_project::Project,
     group: Option<StackDetails>,
     assignments: Vec<FileAssignment>,
-    changes: &[TreeChange],
+    changes: &[ui::TreeChange],
     show_files: bool,
     verbose: bool,
     show_url: bool,
@@ -379,14 +382,14 @@ pub fn print_group(
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     out: &mut dyn std::fmt::Write,
-    id_db: &mut IdDb,
+    id_map: &mut IdMap,
 ) -> anyhow::Result<()> {
     let repo = project.open_isolated_repo()?;
     if let Some(group) = &group {
         let mut first = true;
         for branch in &group.branch_details {
-            let id = id_db
-                .branch(branch.name.as_ref())
+            let id = id_map
+                .resolve_branch_or_insert(branch.name.as_ref())
                 .to_string()
                 .underline()
                 .blue();
@@ -436,18 +439,19 @@ pub fn print_group(
             for commit in &branch.upstream_commits {
                 let dot = "●".yellow();
                 print_commit(
+                    ctx,
                     commit.id,
                     created_at_of_commit(ctx, commit.id)?,
                     commit.message.to_string(),
                     commit.author.name.clone(),
                     dot,
-                    project.id,
                     false,
                     show_files,
                     verbose,
                     false,
                     show_url,
                     None,
+                    id_map,
                     out,
                 )?;
             }
@@ -468,25 +472,26 @@ pub fn print_group(
                     but_workspace::ui::CommitState::Integrated => "●".purple(),
                 };
                 print_commit(
+                    ctx,
                     commit.id,
                     created_at_of_commit(ctx, commit.id)?,
                     commit.message.to_string(),
                     commit.author.name.clone(),
                     dot,
-                    project.id,
                     marked,
                     show_files,
                     verbose,
                     commit.has_conflicts,
                     show_url,
                     commit.gerrit_review_url.clone(),
+                    id_map,
                     out,
                 )?;
             }
         }
     } else {
-        let id_db = IdDb::new(ctx)?;
-        let id = id_db.unassigned().to_string().underline().blue();
+        id_map.add_file_info_from_context(ctx)?;
+        let id = id_map.unassigned().to_string().underline().blue();
         writeln!(
             out,
             "╭┄{} [{}] {}",
@@ -526,6 +531,24 @@ fn status_letter(status: &TreeStatus) -> char {
     }
 }
 
+fn status_letter_ui(status: &ui::TreeStatus) -> char {
+    match status {
+        ui::TreeStatus::Addition { .. } => 'A',
+        ui::TreeStatus::Deletion { .. } => 'D',
+        ui::TreeStatus::Modification { .. } => 'M',
+        ui::TreeStatus::Rename { .. } => 'R',
+    }
+}
+
+fn path_with_color_ui(status: &ui::TreeStatus, path: String) -> ColoredString {
+    match status {
+        ui::TreeStatus::Addition { .. } => path.green(),
+        ui::TreeStatus::Deletion { .. } => path.red(),
+        ui::TreeStatus::Modification { .. } => path.yellow(),
+        ui::TreeStatus::Rename { .. } => path.purple(),
+    }
+}
+
 fn path_with_color(status: &TreeStatus, path: String) -> ColoredString {
     match status {
         TreeStatus::Addition { .. } => path.green(),
@@ -535,35 +558,7 @@ fn path_with_color(status: &TreeStatus, path: String) -> ColoredString {
     }
 }
 
-pub(crate) fn all_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.legacy_project.worktree_dir()?.into(),
-    )?
-    .changes;
-    let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
-    let out = assignments
-        .iter()
-        .map(CliId::file_from_assignment)
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    Ok(out)
-}
-
-pub(crate) fn all_branches(ctx: &Context) -> anyhow::Result<Vec<CliId>> {
-    let mut id_db = IdDb::new(ctx)?;
-    let stacks = crate::legacy::commits::stacks(ctx)?;
-    let mut branches = Vec::new();
-    for stack in stacks {
-        for head in stack.heads {
-            branches.push(id_db.branch(head.name.as_ref()).clone());
-        }
-    }
-    Ok(branches)
-}
-
-fn status_from_changes(changes: &[TreeChange], path: BString) -> Option<TreeStatus> {
+fn status_from_changes(changes: &[ui::TreeChange], path: BString) -> Option<ui::TreeStatus> {
     changes.iter().find_map(|change| {
         if change.path_bytes == path {
             Some(change.status.clone())
@@ -573,39 +568,21 @@ fn status_from_changes(changes: &[TreeChange], path: BString) -> Option<TreeStat
     })
 }
 
-pub(crate) fn all_committed_files(ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
-    let mut committed_files = Vec::new();
-    let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
-    for stack in stacks {
-        let details = but_api::legacy::workspace::stack_details(ctx.legacy_project.id, stack.id)?;
-        for branch in details.branch_details {
-            for commit in branch.commits {
-                let commit_details =
-                    but_api::legacy::diff::commit_details(ctx.legacy_project.id, commit.id.into())?;
-                for change in &commit_details.changes.changes {
-                    let cid = CliId::committed_file(&change.path.to_string(), commit.id);
-                    committed_files.push(cid);
-                }
-            }
-        }
-    }
-    Ok(committed_files)
-}
-
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
+    ctx: &Context,
     commit_id: gix::ObjectId,
     created_at: gix::date::Time,
     message: String,
     author_name: String,
     dot: ColoredString,
-    project_id: gitbutler_project::ProjectId,
     marked: bool,
     show_files: bool,
     verbose: bool,
     has_conflicts: bool,
     show_url: bool,
     review_url: Option<String>,
+    id_map: &mut IdMap,
     out: &mut dyn std::fmt::Write,
 ) -> anyhow::Result<()> {
     let mark = if marked {
@@ -640,8 +617,8 @@ fn print_commit(
         message = "(no commit message)".to_string().dimmed().italic();
     }
 
-    let commit_details = but_api::legacy::diff::commit_details(project_id, commit_id.into())?;
-    let no_changes = if show_files && commit_details.changes.changes.is_empty() {
+    let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
+    let no_changes = if show_files && commit_details.diff_with_first_parent.is_empty() {
         "(no changes)".dimmed().italic()
     } else {
         "".to_string().normal()
@@ -686,8 +663,9 @@ fn print_commit(
         )?;
     }
     if show_files {
-        for change in &commit_details.changes.changes {
-            let cid = CliId::committed_file(&change.path.to_string(), commit_id)
+        for change in &commit_details.diff_with_first_parent {
+            let cid = id_map
+                .resolve_file_changed_in_commit_or_unassigned(commit_id, change.path.as_ref())
                 .to_string()
                 .blue()
                 .underline();

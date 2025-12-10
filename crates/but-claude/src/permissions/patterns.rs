@@ -179,10 +179,10 @@ impl PathPattern {
 }
 
 /// CC specifies in their documentation two types of permission for "WebFetch".
-/// This is either a full match, or just the "domain". It's not entirly clear
+/// This is either a full match, or just the "domain". It's not entirely clear
 /// what constitutes the "domain", so I've let a 3rd party library decide.
 ///
-/// In practice, I'm not entirly sure if WebFetch actually requires
+/// In practice, I'm not entirely sure if WebFetch actually requires
 /// permissions...
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UrlPattern {

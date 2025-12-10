@@ -334,7 +334,7 @@ impl VirtualBranchesHandle {
             }
             if let Ok(branch_head) = branch.head_oid(&gix_repo).map(|h| h.to_git2()) {
                 if repo.find_commit(branch_head).is_err() {
-                    // if the head commit cant be found, we can GC the branch
+                    // if the head commit can't be found, we can GC the branch
                     to_remove.push(branch.id);
                 } else {
                     // if there are no commits between the head and the merge base,
@@ -444,7 +444,7 @@ fn alter_parentage(
     message
         .trailers
         .push(("Base-Commit".into(), to_rewrite.to_hex().to_string().into()));
-    let mut to_rewrite: gix::objs::Commit = decoded.into();
+    let mut to_rewrite: gix::objs::Commit = decoded.try_into()?;
     to_rewrite.parents = new_parents.into();
     to_rewrite.message = message.to_bstring();
     to_rewrite.extra_headers.retain(|entry| entry.0 != "gpgsig");

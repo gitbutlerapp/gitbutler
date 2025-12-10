@@ -37,7 +37,7 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	channel: undefined,
 	draftBranchName: undefined,
 	useFloatingBox: false,
-	unassignedSidebaFolded: false,
+	unassignedSidebarFolded: false,
 	floatingBoxSize: { width: 640, height: 330 },
 	floatingBoxPosition: 'bottom-center',
 	useRuler: true,

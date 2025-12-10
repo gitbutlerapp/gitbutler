@@ -1486,7 +1486,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         &mut vb,
         Destination::NewCommit {
             parent_commit_id: Some(top_of_branch),
-            message: "empty commmit".into(),
+            message: "empty commit".into(),
             stack_segment: Some(StackSegmentId {
                 segment_ref: "refs/heads/s2-b/top".try_into()?,
                 stack_id: stack_b.id,
@@ -1506,11 +1506,11 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     let rewritten_head_id = repo.head_id()?;
     // The empty commit was inserted.
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
-    *   4e7e322 (HEAD -> merge) Merge branch 'A' into merge
+    *   f3de308 (HEAD -> merge) Merge branch 'A' into merge
     |\  
     | * 608f07b (s1-b/top) remove 5 lines from beginning
     | * 7f389ed (s1-b/below-top, A) add 10 to the beginning
-    * | 262b17d (s2-b/top) empty commmit
+    * | e43241c (s2-b/top) empty commit
     * | b5ec010 remove 5 lines from the end
     * | 91ef6f6 (s2-b/below-top, B) add 10 to the end
     |/  

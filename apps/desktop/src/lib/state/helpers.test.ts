@@ -31,7 +31,7 @@ describe.concurrent('combineResults', () => {
 		expect(combineResults(uninitialized)).toEqual(uninitialized);
 	});
 
-	test('rejected takes precidence over all', () => {
+	test('rejected takes precedence over all', () => {
 		const fulfilled = {
 			data: 'foo',
 			error: undefined,
@@ -55,7 +55,7 @@ describe.concurrent('combineResults', () => {
 		expect(combineResults(fulfilled, pending, rejected, uninitialized)).toEqual(rejected);
 	});
 
-	test('uninitialized takes precidence over fufilled and pending', () => {
+	test('uninitialized takes precedence over fulfilled and pending', () => {
 		const fulfilled = {
 			data: 'foo',
 			error: undefined,
@@ -74,7 +74,7 @@ describe.concurrent('combineResults', () => {
 		expect(combineResults(fulfilled, pending, uninitialized)).toEqual(uninitialized);
 	});
 
-	test('pending takes precidence over fufilled', () => {
+	test('pending takes precedence over fulfilled', () => {
 		const fulfilled = {
 			data: 'foo',
 			error: undefined,
@@ -88,7 +88,7 @@ describe.concurrent('combineResults', () => {
 		expect(combineResults(fulfilled, pending)).toEqual(pending);
 	});
 
-	test('multiple fufilled combines results in order', () => {
+	test('multiple fulfilled combines results in order', () => {
 		const a = {
 			data: 'a',
 			error: undefined,

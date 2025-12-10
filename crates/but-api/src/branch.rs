@@ -3,7 +3,7 @@ use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_workspace::branch::OnWorkspaceMergeConflict;
 use but_workspace::branch::apply::{WorkspaceMerge, WorkspaceReferenceNaming};
 
-/// Just like [apply()], but without updating the oplog.
+/// Apply `existing_branch` to the workspace in the repository that `ctx` refers to, or create the workspace with default name.
 pub fn apply_only(
     ctx: &but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
@@ -32,8 +32,8 @@ pub fn apply_only(
     Ok(out)
 }
 
-/// Apply `existing_branch` to the workspace in the repository that `ctx` refers to, or create the workspace with default name.
-// TODO: generate this with an improved `api_cmd_tauri` macro.
+// TODO: generate this with an improved `api_cmd` macro.
+/// Just like [apply_only()], but will create an oplog entry as well on success.
 pub fn apply(
     ctx: &but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,

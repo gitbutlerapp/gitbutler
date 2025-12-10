@@ -22,7 +22,7 @@ use gitbutler_operating_modes::{
 };
 use gitbutler_repo::{RepositoryExt, SignaturePurpose, signature};
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes_with_tree};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use serde::Serialize;
 
 pub mod commands;
@@ -287,7 +287,7 @@ pub(crate) fn save_and_return_to_workspace(
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommited_changes(ctx)?;
 
-    update_uncommited_changes_with_tree(
+    update_uncommitted_changes_with_tree(
         ctx,
         old_workspace,
         new_workspace,
@@ -359,7 +359,7 @@ pub(crate) fn starting_index_state(
 
     let gix_repo = ctx.repo.get()?;
 
-    let (tree_changes, _) = but_core::diff::tree_changes(
+    let tree_changes = but_core::diff::tree_changes(
         &gix_repo,
         Some(commit_parent_tree.id().to_gix()),
         repository
@@ -393,6 +393,6 @@ pub(crate) fn changes_from_initial(
     let head = repository.create_wd_tree(0)?.id().to_gix();
 
     let gix_repo = ctx.repo.get()?;
-    let (tree_changes, _) = but_core::diff::tree_changes(&gix_repo, Some(base), head)?;
+    let tree_changes = but_core::diff::tree_changes(&gix_repo, Some(base), head)?;
     Ok(tree_changes)
 }

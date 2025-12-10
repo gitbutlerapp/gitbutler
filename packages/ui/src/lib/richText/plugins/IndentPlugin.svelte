@@ -46,9 +46,66 @@ This component overrides enter key command to handle indentation and bullets in 
 		const indent = parseIndent(currentLineText);
 		const bullet = parseBullet(currentLineText);
 
+		// Check if we're in a continuation line (indented, no bullet)
+		const isContinuationLine = !bullet && indent.length > 0;
+
+		// If we're in a continuation line and at the end, we might want to create a new bullet
+		// Check the previous sibling to see if it's part of a bullet list
+		let shouldCreateNewBullet = false;
+		let bulletToCreate: ReturnType<typeof parseBullet> = undefined;
+		const textContent = textNode.getTextContent();
+
+		if (isContinuationLine && offset === textContent.length) {
+			// We're at the end of a continuation line - look backwards for the bullet
+			let prevSibling = parent.getPreviousSibling();
+			while (prevSibling && isParagraphNode(prevSibling)) {
+				const prevText = prevSibling.getTextContent();
+				const prevBullet = parseBullet(prevText);
+				const prevIndent = parseIndent(prevText);
+
+				if (prevBullet) {
+					// Found a bullet - if its indent matches our indent, we should create a new bullet
+					if (prevBullet.indent === indent) {
+						shouldCreateNewBullet = true;
+						bulletToCreate = prevBullet;
+					}
+					break;
+				} else if (prevIndent !== indent) {
+					// Different indentation means we're not part of the same list
+					break;
+				}
+
+				prevSibling = prevSibling.getPreviousSibling();
+			}
+		}
+
+		// Check if the next sibling is a continuation line (part of a wrapped paragraph)
+		const nextSibling = parent.getNextSibling();
+		const nextSiblingText =
+			nextSibling && isParagraphNode(nextSibling) ? nextSibling.getTextContent() : '';
+		const nextSiblingIndent = parseIndent(nextSiblingText);
+		const nextSiblingBullet = parseBullet(nextSiblingText);
+
+		// If we have a bullet and the next line is a continuation (indented but not a bullet),
+		// then we're in the middle of a wrapped paragraph. The remainder should use continuation indent.
+		const isNextLineContinuation =
+			bullet && nextSiblingText && !nextSiblingBullet && nextSiblingIndent === bullet.indent;
+
 		let newIndent = bullet ? bullet.prefix : indent;
 
-		if (bullet?.number) {
+		if (shouldCreateNewBullet && bulletToCreate) {
+			// We're at the end of a continuation line - create a new bullet
+			if (bulletToCreate.number) {
+				const padding = bulletToCreate.prefix.length - bulletToCreate.prefix.trimStart().length;
+				newIndent =
+					bulletToCreate.prefix.substring(0, padding) + (bulletToCreate.number + 1) + '. ';
+			} else {
+				newIndent = bulletToCreate.prefix;
+			}
+		} else if (isNextLineContinuation) {
+			// We're splitting a wrapped bullet - use continuation indent instead of creating new bullet
+			newIndent = bullet.indent;
+		} else if (bullet?.number) {
 			// Parse and increment numeric bullet point
 			const padding = bullet.prefix.length - bullet.prefix.trimStart().length;
 			newIndent = bullet.prefix.substring(0, padding) + (bullet.number + 1) + '. ';
@@ -57,20 +114,17 @@ This component overrides enter key command to handle indentation and bullets in 
 		// Check if we're on an empty bullet line
 		const trimmedLine = currentLineText.trim();
 		if (bullet && trimmedLine === bullet.prefix.trim()) {
-			// Clear the bullet from the current paragraph
+			// Clear the bullet from the current paragraph and keep cursor here
 			const children = parent.getChildren();
 			for (const child of children) {
 				child.remove();
 			}
-			// Create new paragraph and move cursor there
-			const newParagraph = createParagraphNode();
-			parent.insertAfter(newParagraph);
-			newParagraph.select();
+			// Keep cursor in this paragraph (now empty, no longer a bullet)
+			parent.select();
 			return true;
 		}
 
 		// Split the paragraph at the cursor position
-		const textContent = textNode.getTextContent();
 		const textAfterCursor = textContent.substring(offset);
 		const textBeforeCursor = textContent.substring(0, offset);
 
