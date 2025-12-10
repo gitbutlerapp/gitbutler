@@ -27,6 +27,28 @@ fn file_added_in_worktree() -> anyhow::Result<()> {
 }
 
 #[test]
+fn binary_text_failure() -> anyhow::Result<()> {
+    let repo = crate::diff::worktree_changes::repo("diff-binary-to-text-failure")?;
+    let actual = UnifiedPatch::compute(
+        &repo,
+        "file.binary".into(),
+        None,
+        ChangeState {
+            id: repo.object_hash().null(),
+            kind: EntryKind::Blob,
+        },
+        None,
+        3,
+    )?;
+
+    assert!(
+        actual.is_none(),
+        "any kind of filter failure is ignored for resiliency"
+    );
+    Ok(())
+}
+
+#[test]
 fn binary_text_in_unborn() -> anyhow::Result<()> {
     let repo = crate::diff::worktree_changes::repo("diff-binary-to-text-unborn")?;
     let actual = extract_patch(UnifiedPatch::compute(
