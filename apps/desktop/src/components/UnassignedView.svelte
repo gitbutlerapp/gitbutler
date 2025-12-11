@@ -33,7 +33,6 @@
 	const unassignedSidebarFolded = $derived(uiState.global.unassignedSidebarFolded);
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(exclusiveAction?.type === 'commit');
-	let isScrollable = $state<boolean>(false);
 
 	const treeChanges = $derived(uncommittedService.changesByStackId(null));
 	const treeChangesCount = $derived(treeChanges.current.length);
@@ -110,11 +109,8 @@
 					title="Unassigned"
 					{projectId}
 					stackId={undefined}
-					onscrollexists={(exists: boolean) => {
-						isScrollable = exists;
-					}}
 					mode="unassigned"
-					foldButton={$settingsStore?.featureFlags.rules ? undefined : foldButton}
+					{foldButton}
 				>
 					{#snippet emptyPlaceholder()}
 						<div class="unassigned__empty">
@@ -215,7 +211,8 @@
 	.unassigned {
 		display: flex;
 		flex-direction: column;
-		height: 100%;
+		height: calc(100% + 1px);
+		margin-bottom: -1px;
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
 	}
@@ -228,23 +225,11 @@
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
-	/* .unassigned__files {
-		display: flex;
-		position: relative;
-		flex-direction: column;
-		overflow: hidden;
-		border-bottom: 1px solid var(--clr-border-2);
-	} */
-
 	.create-new {
 		display: flex;
 		flex-direction: column;
 		padding: 12px 12px 14px 12px;
 		border-top: 1px solid var(--clr-border-3);
-
-		&.sticked-bottom {
-			border-top-color: var(--clr-border-2);
-		}
 	}
 
 	/* FOLDED */

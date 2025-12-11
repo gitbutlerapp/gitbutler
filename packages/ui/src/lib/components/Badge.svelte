@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$components/Icon.svelte';
+	import SkeletonBone from '$components/SkeletonBone.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
@@ -13,6 +14,7 @@
 		class?: string;
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
+		skeleton?: boolean;
 		children?: Snippet;
 		onclick?: (e: MouseEvent) => void;
 		reversedDirection?: boolean;
@@ -26,32 +28,39 @@
 		class: className = '',
 		icon,
 		tooltip,
+		skeleton,
 		children,
 		onclick,
-		reversedDirection = false
+		reversedDirection
 	}: Props = $props();
 </script>
 
-<Tooltip text={tooltip}>
-	<!-- A badge is not a clickable UI element, but with exceptions. No button styling desired. -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div
-		data-testid={testId}
-		class="badge {style} {kind} {size}-size {className}"
-		class:reversed={reversedDirection}
-		{onclick}
-	>
-		{#if children}
-			<span class="badge__label text-11 text-semibold">{@render children()}</span>
-		{/if}
-		{#if icon}
-			<i class="badge__icon">
-				<Icon name={icon} />
-			</i>
-		{/if}
-	</div>
-</Tooltip>
+{#if skeleton}
+	<SkeletonBone
+		radius="3rem"
+		width={size === 'icon' ? 'var(--size-icon)' : 'var(--size-tag)'}
+		height={size === 'icon' ? 'var(--size-icon)' : 'var(--size-tag)'}
+	/>
+{:else}
+	<Tooltip text={tooltip}>
+		<div
+			role="presentation"
+			data-testid={testId}
+			class="badge {style} {kind} {size}-size {className}"
+			class:reversed={reversedDirection}
+			{onclick}
+		>
+			{#if children}
+				<span class="badge__label text-11 text-semibold">{@render children()}</span>
+			{/if}
+			{#if icon}
+				<i class="badge__icon">
+					<Icon name={icon} />
+				</i>
+			{/if}
+		</div>
+	</Tooltip>
+{/if}
 
 <style lang="postcss">
 	.badge {

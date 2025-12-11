@@ -181,7 +181,7 @@
 				<ContextMenuSection>
 					<ContextMenuItem
 						label="Edit rule"
-						icon="edit-small"
+						icon="edit"
 						onclick={() => {
 							close();
 							editRule();
@@ -278,20 +278,15 @@
 		padding: 0 6px;
 		overflow: hidden;
 		gap: 6px;
+		border-radius: 100px;
 	}
 
 	.filter-pill {
-		border-radius: 100px;
 		background-color: var(--clr-bg-2);
 	}
 
-	.target-pill,
-	.ai-pill {
-		border-radius: 100px;
-	}
-
 	.target-pill {
-		border: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
 	}
 
 	.ai-pill {

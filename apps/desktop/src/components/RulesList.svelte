@@ -20,7 +20,16 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { typedKeys } from '$lib/utils/object';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, chipToasts, Select, SelectItem, Icon, Badge } from '@gitbutler/ui';
+	import {
+		Button,
+		chipToasts,
+		Select,
+		SelectItem,
+		Icon,
+		Badge,
+		Spacer,
+		SkeletonBone
+	} from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
@@ -54,7 +63,7 @@
 	// Visual state
 	let mode = $state<'list' | 'edit' | 'add'>('list');
 	let editingRuleId = $state<WorkspaceRuleId | null>(null);
-	let isDrawerCollapsed = $state(false);
+	let isDrawerOpen = $state<boolean>(false);
 
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
 	const canSaveRule = $derived(stackTargetSelected !== undefined && validFilters);
@@ -215,33 +224,59 @@
 	});
 </script>
 
-<Drawer bottomBorder={false} ontoggle={(collapsed) => (isDrawerCollapsed = collapsed)}>
+<Drawer
+	bottomBorder={false}
+	persistId="rules-drawer"
+	defaultCollapsed={true}
+	ontoggle={(collapsed) => {
+		isDrawerOpen = !collapsed;
+	}}
+>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">Rules</h4>
 		{#if rules.result.isSuccess}
 			<Badge>{rules.result.data.length}</Badge>
+		{:else}
+			<Badge skeleton />
 		{/if}
 	{/snippet}
 	{#snippet actions()}
-		<!-- {#if !isDrawerCollapsed && rules.result.data && rules.result.data.length > 0} -->
-		<!-- <Button onclick={openRuleEditor} size="tag" kind="outline">New rule</Button> -->
-		<!-- {/if} -->
-
-		{#if rules.result.data && rules.result.data.length > 0}
+		{#if isDrawerOpen && rules.result.data && rules.result.data.length > 0}
 			<Button onclick={openRuleEditor} icon="plus" size="tag" kind="ghost" />
 		{/if}
 	{/snippet}
 	<div class="rules-list" use:focusable>
 		{@render ruleListContent()}
-
-		<!-- <div class="add-rule-section">
+		<!-- 
+		<div class="add-rule-section">
 			<Button onclick={openRuleEditor} icon="plus-small" kind="outline" wide>Add new rule</Button>
 		</div> -->
 	</div>
 </Drawer>
 
+{#snippet skeletonLoading()}
+	<div class="rules-list__content">
+		<div class="rule-skeleton">
+			<SkeletonBone width="50%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+			<SkeletonBone width="40%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+		</div>
+		<div class="rule-skeleton">
+			<SkeletonBone width="40%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+			<SkeletonBone width="35%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+		</div>
+		<div class="rule-skeleton">
+			<SkeletonBone width="55%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+			<SkeletonBone width="30%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+		</div>
+	</div>
+{/snippet}
+
 {#snippet ruleListContent()}
 	<ReduxResult {projectId} result={rules.result}>
+		{#snippet loading()}
+			{@render skeletonLoading()}
+		{/snippet}
+
 		{#snippet children(_rulesList: WorkspaceRule[])}
 			{@const { regularRules, aiRules } = separatedRules}
 			{@const totalRules = regularRules.length + aiRules.length}
@@ -253,7 +288,7 @@
 
 				<div class="rules-list__content">
 					{#if regularRules.length > 0}
-						{#each regularRules as rule (rule.id)}
+						{#each regularRules.slice().reverse() as rule (rule.id)}
 							{#if editingRuleId === rule.id}
 								{@render ruleEditor()}
 							{:else}
@@ -264,7 +299,7 @@
 
 					{#if aiRules.length > 0}
 						<div class="rules-section">
-							{#each aiRules as rule (rule.id)}
+							{#each aiRules.slice().reverse() as rule (rule.id)}
 								{#if editingRuleId === rule.id}
 									{@render ruleEditor()}
 								{:else}
@@ -281,7 +316,7 @@
 					<p class="text-13 text-body rules-placeholder-text">
 						Set up rules to automatically route changes to the right branch.
 					</p>
-					<Button onclick={openRuleEditor} icon="plus-small" kind="outline">Add first rule</Button>
+					<Button onclick={openRuleEditor} icon="plus-small" kind="outline">Add new rule</Button>
 				</div>
 			{/if}
 		{/snippet}
@@ -380,6 +415,8 @@
 			</div>
 		{/if}
 
+		<Spacer margin={2} dotted />
+
 		<div class="rules-list__editor-buttons">
 			<Button onclick={cancelRuleEdition} kind="outline">Cancel</Button>
 			<Button
@@ -457,6 +494,7 @@
 		display: flex;
 		flex-direction: column;
 		padding: 12px;
+		padding-bottom: 16px;
 		gap: 16px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
@@ -495,5 +533,16 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: 6px;
+	}
+
+	.rule-skeleton {
+		display: flex;
+		padding: 8px;
+		gap: 4px;
+		border-bottom: 1px solid var(--clr-border-3);
+
+		&:last-child {
+			border-bottom: none;
+		}
 	}
 </style>

@@ -8,14 +8,22 @@
 		actions?: Snippet<[element: HTMLElement]>;
 		headerHeight?: number;
 		onclose?: () => void;
+		ondblclick?: () => void;
 	}
 
-	let { content, actions, headerHeight = $bindable(), onclose }: Props = $props();
+	let { content, actions, headerHeight = $bindable(), onclose, ondblclick }: Props = $props();
 
 	let headerDiv = $state<HTMLDivElement>();
 </script>
 
-<div bind:this={headerDiv} class="drawer-header" bind:clientHeight={headerHeight} use:focusable>
+<div
+	role="presentation"
+	bind:this={headerDiv}
+	class="drawer-header"
+	bind:clientHeight={headerHeight}
+	use:focusable
+	{ondblclick}
+>
 	<div class="drawer-header__title">
 		{@render content()}
 	</div>
