@@ -182,7 +182,9 @@ function createStore(params: {
 					}
 				},
 				serializableCheck: {
-					ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER]
+					ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+					// skip the serializable check for rtk-query cache (contains only serializable data)
+					ignoredPaths: ['backend', 'github', 'gitlab']
 				}
 			}).concat(backendApi.middleware, githubApi.middleware, gitlabApi.middleware);
 		}
