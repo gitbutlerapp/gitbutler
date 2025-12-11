@@ -92,7 +92,7 @@ pub struct CreateCommitOutcome {
 /// Alter the single `destination` in a given `frame` with as many `changes` as possible and write new objects into `repo`,
 /// but only if the commit succeeds.
 ///
-/// `context_lines` is the amount of lines of context included in each `HunkHeader`, and the value that will be used to recover the existing hunks,
+/// `context_lines` is the amount of lines of context included in each [`HunkHeader`](but_core::HunkHeader), and the value that will be used to recover the existing hunks,
 /// so that the hunks can be matched.
 ///
 /// Return additional information that helps to understand to what extent the commit was created, as the commit might not contain all the [`DiffSpecs`](DiffSpec)

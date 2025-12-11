@@ -431,8 +431,8 @@ impl Graph {
     /// Further, the most expensive operations we perform to query additional commit information by reading it, but we
     /// only do so on the ones that the user can interact with.
     ///
-    /// The `extra_target` option extends the workspace to include that target as base.
-    /// The same is true for (target commit ids)[but_core::ref_metadata::Workspace::target_commit_id].
+    /// The [extra-target](crate::init::Options::with_extra_target_commit_id) option extends the workspace to include
+    /// that target as base. The same is true for [target commit ids](but_core::ref_metadata::Workspace::target_commit_id).
     /// This affects what we consider to be the part of the workspace.
     /// Typically, that's a previous location of the target segment.
     #[instrument(level = tracing::Level::TRACE, skip(self), err(Debug))]

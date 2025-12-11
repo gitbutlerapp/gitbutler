@@ -14,7 +14,7 @@ use gix::Repository;
 
 /// A commit with must useful information extracted from the Git commit itself.
 ///
-/// Note that additional information can be computed and placed in the [`LocalCommit`] and `RemoteCommit`
+/// Note that additional information can be computed and placed in the [`LocalCommit`].
 #[derive(Clone, Eq, PartialEq)]
 pub struct Commit {
     /// The hash of the commit.

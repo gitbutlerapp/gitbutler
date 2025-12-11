@@ -126,7 +126,7 @@ export type Segment = {
 	 */
 	metadata: Branch | null;
 	/**
-	 * This is `true` a segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
+	 * This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
 	 * is this segment, and the surrounding workspace is provided for context.
 	 *
 	 * This means one will see the entire workspace, while knowing the focus is on one specific segment.
@@ -149,7 +149,7 @@ export type Segment = {
 };
 
 /**
- * The UI-clone of [`branch::Stack`].
+ * The UI-clone of `branch::Stack`.
  */
 export type Stack = {
 	/**
