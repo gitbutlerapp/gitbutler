@@ -472,8 +472,6 @@
 	.rules-section {
 		display: flex;
 		flex-direction: column;
-		/* padding-top: 8px; */
-		/* border-top: 1px solid var(--clr-border-3); */
 	}
 
 	.add-rule-section {
