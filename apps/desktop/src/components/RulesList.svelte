@@ -247,10 +247,6 @@
 	{/snippet}
 	<div class="rules-list" use:focusable>
 		{@render ruleListContent()}
-		<!-- 
-		<div class="add-rule-section">
-			<Button onclick={openRuleEditor} icon="plus-small" kind="outline" wide>Add new rule</Button>
-		</div> -->
 	</div>
 </Drawer>
 
