@@ -187,13 +187,25 @@ jobs:
             librsvg2-dev \
             xdg-utils;
 
+          if [ $(lsb_release -cs) = "jammy" ]; then
+            webkit_version='2.50.*'
+          elif [ $(lsb_release -cs) = "noble" ]; then
+            # For noble, we use this older version (that is not available on jammy) for the webkit libs as it
+            # seems to provide better AppImage compatibility. See https://github.com/gitbutlerapp/gitbutler/issues/5282
+            webkit_version='2.44.*'
+          else
+            echo "Unknown Linux distribution"
+            lsb_release -a
+            exit 1
+          fi
+
           sudo apt install -y \
-            libwebkit2gtk-4.1-0=2.44.0-2 \
-            libwebkit2gtk-4.1-dev=2.44.0-2 \
-            libjavascriptcoregtk-4.1-0=2.44.0-2 \
-            libjavascriptcoregtk-4.1-dev=2.44.0-2 \
-            gir1.2-javascriptcoregtk-4.1=2.44.0-2 \
-            gir1.2-webkit2-4.1=2.44.0-2;
+            libwebkit2gtk-4.1-0="$webkit_version" \
+            libwebkit2gtk-4.1-dev="$webkit_version" \
+            libjavascriptcoregtk-4.1-0="$webkit_version" \
+            libjavascriptcoregtk-4.1-dev="$webkit_version" \
+            gir1.2-javascriptcoregtk-4.1="$webkit_version" \
+            gir1.2-webkit2-4.1="$webkit_version";
 
       - uses: actions/download-artifact@v6
         name: Download SvelteKit build output
