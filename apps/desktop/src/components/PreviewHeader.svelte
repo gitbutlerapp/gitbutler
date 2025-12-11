@@ -8,8 +8,11 @@
 		actions?: Snippet<[element: HTMLElement]>;
 		headerHeight?: number;
 		onclose?: () => void;
+		/**
+		 * Called when the header is double-clicked.
+		 * Typically used to toggle the drawer's collapsed state.
+		 */
 		ondblclick?: () => void;
-	}
 
 	let { content, actions, headerHeight = $bindable(), onclose, ondblclick }: Props = $props();
 
