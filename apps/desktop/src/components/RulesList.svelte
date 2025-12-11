@@ -67,6 +67,7 @@
 
 	// Read initial collapsed state from persisted storage, default to false (open) if not found
 	const drawerPersistId = `rules-drawer-${projectId}`;
+	let drawer = $state<Drawer>();
 
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
 	const canSaveRule = $derived(stackTargetSelected !== undefined && validFilters);
@@ -93,6 +94,11 @@
 			chipToasts.error('Please finish editing the current rule first');
 			return;
 		}
+		// Open drawer if it's collapsed
+		if (drawer?.getIsCollapsed()) {
+			drawer.open();
+		}
+
 		mode = 'add';
 	}
 
@@ -233,7 +239,7 @@
 	}
 </script>
 
-<Drawer bottomBorder={false} persistId={drawerPersistId} maxHeight="60%">
+<Drawer bind:this={drawer} bottomBorder={false} persistId={drawerPersistId} maxHeight="60%">
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">Rules</h4>
 		{#if rules.result.isSuccess}

@@ -64,12 +64,33 @@
 	let contentHeight = $state(0);
 	const totalHeightRem = $derived(pxToRem(headerHeight + 1 + contentHeight, zoom));
 
-	function toggleCollapsed() {
+	function setCollapsed(newValue: boolean) {
 		if (isCollapsed !== undefined) {
-			const newValue = !isCollapsed;
 			internalCollapsed.set(newValue);
 			ontoggle?.(newValue);
 		}
+	}
+
+	function toggleCollapsed() {
+		if (isCollapsed !== undefined) {
+			setCollapsed(!isCollapsed);
+		}
+	}
+
+	export function open() {
+		setCollapsed(false);
+	}
+
+	export function close() {
+		setCollapsed(true);
+	}
+
+	export function toggle() {
+		toggleCollapsed();
+	}
+
+	export function getIsCollapsed(): boolean {
+		return isCollapsed ?? false;
 	}
 </script>
 
