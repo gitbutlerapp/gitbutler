@@ -276,7 +276,11 @@ impl IdMap {
         matches.extend(self.find_branches_by_name(entity.into()).map(Clone::clone));
 
         // Only try SHA matching if the input looks like a hex string
-        if entity.chars().all(|c| c.is_ascii_hexdigit()) && entity.len() >= 2 {
+        if entity
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+            && entity.len() >= 2
+        {
             for oid in self
                 .workspace_and_remote_commit_ids()
                 .filter(|oid| oid.to_string().starts_with(entity))

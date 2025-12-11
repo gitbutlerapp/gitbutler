@@ -182,6 +182,70 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn ids_are_case_sensitive() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("h0", [id(10)], Some(id(9)), [])])];
+    let mut id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<BString>> {
+        Ok(if commit_id == id(10) && parent_id == Some(id(9)) {
+            vec![BString::from(b"committed.txt")]
+        } else {
+            bail!("unexpected IDs {} {:?}", commit_id, parent_id);
+        })
+    };
+    let hunk_assignments = vec![hunk_assignment("uncommitted.txt", None)];
+    id_map.add_file_info(changed_paths_fn, hunk_assignments)?;
+
+    // Commits
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("0a")?, @r"
+    [
+        Commit(
+            Sha1(0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a),
+        ),
+    ]
+    ");
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("0A")?, @"[]");
+
+    // Branches
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("h0")?, @r#"
+    [
+        Branch {
+            name: "h0",
+            id: "h0",
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("H0")?, @"[]");
+
+    // Uncommitted files
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("g0")?, @r#"
+    [
+        UncommittedFile {
+            assignment: None,
+            path: "uncommitted.txt",
+            id: "g0",
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("G0")?, @"[]");
+
+    // Committed files
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("i0")?, @r#"
+    [
+        CommittedFile {
+            commit_id: Sha1(0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a),
+            path: "committed.txt",
+            id: "i0",
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("I0")?, @"[]");
+
+    Ok(())
+}
+
 mod util {
     use bstr::BString;
     use but_core::ref_metadata::StackId;
