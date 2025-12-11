@@ -29,10 +29,15 @@ pub fn from_editor(identifier: &str, initial_text: &str) -> Result<String> {
 
     std::fs::write(&temp_file, initial_text)?;
 
-    // Launch the editor
-    let status = std::process::Command::new(editor_cmd)
+    // The editor command is allowed to be a shell expression, e.g. "code --wait" is somewhat common.
+    // We need to execute within a shell to make sure we don't get "No such file or directory" errors.
+    let status = gix::command::prepare(editor_cmd)
         .arg(&temp_file)
-        .status()?;
+        .stdin(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::inherit())
+        .with_shell()
+        .spawn()?
+        .wait()?;
 
     if !status.success() {
         return Err(anyhow::anyhow!("Editor exited with non-zero status"));
