@@ -15,11 +15,9 @@ use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::branch::Stack;
-use std::borrow::Cow;
 use std::{
     borrow::Borrow,
     collections::{BTreeSet, HashMap, HashSet},
-    fmt::Display,
 };
 
 #[cfg(test)]
@@ -27,7 +25,6 @@ mod tests;
 
 /// A helper to indicate that this is a short-id as a user would see.
 type ShortId = String;
-type ShortIdBorrow = str;
 
 /// A mapping from user-friendly CLI IDs to GitButler entities.
 ///
@@ -488,20 +485,14 @@ impl CliId {
     }
 
     /// Returns the short ID string for display to users.
-    pub fn to_short_str(&self) -> Cow<'_, ShortIdBorrow> {
+    pub fn to_short_string(&self) -> ShortId {
         match self {
             CliId::UncommittedFile { id, .. }
             | CliId::CommittedFile { id, .. }
             | CliId::Branch { id, .. }
-            | CliId::Unassigned { id, .. } => Cow::Borrowed(id),
-            CliId::Commit(oid) => Cow::Owned(oid.to_hex_with_len(2).to_string()),
+            | CliId::Unassigned { id, .. } => id.clone(),
+            CliId::Commit(oid) => oid.to_hex_with_len(2).to_string(),
         }
-    }
-}
-
-impl Display for CliId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_short_str())
     }
 }
 

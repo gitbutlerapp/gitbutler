@@ -41,7 +41,7 @@ fn unassigned_area_id_is_unambiguous() -> anyhow::Result<()> {
     let id_map = IdMap::new_for_branches_and_commits(stacks)?;
 
     assert_eq!(
-        id_map.unassigned().to_string(),
+        id_map.unassigned().to_short_string(),
         "000",
         "the ID of the unassigned area should have enough 0s to be unambiguous"
     );

@@ -177,7 +177,7 @@ impl Branch {
             .iter()
             .map(|c| {
                 Commit::from_local_commit(
-                    CliId::Commit(c.id).to_string(),
+                    CliId::Commit(c.id).to_short_string(),
                     c.clone(),
                     show_files,
                     project_id,
@@ -189,7 +189,9 @@ impl Branch {
         let upstream_commits = branch
             .upstream_commits
             .iter()
-            .map(|c| Commit::from_upstream_commit(CliId::Commit(c.id).to_string(), c.clone(), None))
+            .map(|c| {
+                Commit::from_upstream_commit(CliId::Commit(c.id).to_short_string(), c.clone(), None)
+            })
             .collect();
 
         Ok(Branch {
@@ -235,7 +237,7 @@ impl Commit {
                             commit.id,
                             change.path.as_ref(),
                         );
-                        FileChange::from_tree_change(cli_id.to_string(), change)
+                        FileChange::from_tree_change(cli_id.to_short_string(), change)
                     })
                     .collect(),
             )
@@ -334,7 +336,7 @@ fn convert_branch_to_json(
 ) -> anyhow::Result<Branch> {
     let cli_id = id_map
         .resolve_branch_or_insert(branch.name.as_ref())
-        .to_string();
+        .to_short_string();
 
     let review_id = if review {
         crate::command::legacy::forge::review::get_review_numbers(
@@ -350,7 +352,7 @@ fn convert_branch_to_json(
     };
 
     Branch::from_branch_details(
-        cli_id,
+        cli_id.to_string(),
         branch.clone(),
         review_id,
         show_files,
@@ -390,7 +392,11 @@ pub(super) fn build_workspace_status_json(
             let stack_cli_id = details
                 .branch_details
                 .first()
-                .map(|b| id_map.resolve_branch_or_insert(b.name.as_ref()).to_string())
+                .map(|b| {
+                    id_map
+                        .resolve_branch_or_insert(b.name.as_ref())
+                        .to_short_string()
+                })
                 .unwrap_or_else(|| "unknown".to_string());
 
             let json_assigned_changes = convert_file_assignments(assignments, worktree_changes);
@@ -416,7 +422,7 @@ pub(super) fn build_workspace_status_json(
     let base_commit_decoded = base_commit.decode()?;
     let author: but_workspace::ui::Author = base_commit_decoded.author()?.into();
 
-    let cli_id = CliId::Commit(common_merge_base.commit_id).to_string();
+    let cli_id = CliId::Commit(common_merge_base.commit_id).to_short_string();
     let merge_base_commit = Commit::from_upstream_commit(
         cli_id,
         but_workspace::ui::UpstreamCommit {
@@ -434,7 +440,7 @@ pub(super) fn build_workspace_status_json(
         let upstream_commit_decoded = upstream_commit.decode()?;
         let upstream_author: but_workspace::ui::Author = upstream_commit_decoded.author()?.into();
 
-        let cli_id = CliId::Commit(upstream.commit_id).to_string();
+        let cli_id = CliId::Commit(upstream.commit_id).to_short_string();
         let latest_commit = Commit::from_upstream_commit(
             cli_id,
             but_workspace::ui::UpstreamCommit {

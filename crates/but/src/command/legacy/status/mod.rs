@@ -390,7 +390,7 @@ pub fn print_group(
         for branch in &group.branch_details {
             let id = id_map
                 .resolve_branch_or_insert(branch.name.as_ref())
-                .to_string()
+                .to_short_string()
                 .underline()
                 .blue();
             let notch = if first { "╭" } else { "├" };
@@ -491,7 +491,7 @@ pub fn print_group(
         }
     } else {
         id_map.add_file_info_from_context(ctx)?;
-        let id = id_map.unassigned().to_string().underline().blue();
+        let id = id_map.unassigned().to_short_string().underline().blue();
         writeln!(
             out,
             "╭┄{} [{}] {}",
@@ -666,7 +666,7 @@ fn print_commit(
         for change in &commit_details.diff_with_first_parent {
             let cid = id_map
                 .resolve_file_changed_in_commit_or_unassigned(commit_id, change.path.as_ref())
-                .to_string()
+                .to_short_string()
                 .blue()
                 .underline();
             let path = path_with_color(&change.status, change.path.to_string());
