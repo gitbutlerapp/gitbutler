@@ -302,8 +302,4 @@
 		background-color: var(--clr-border-2);
 	}
 
-	/* :global(.rule-filter-row .rule-filter-row__button) {
-		height: var(--size-cta);
-		background-color: red;
-	} */
 </style>
