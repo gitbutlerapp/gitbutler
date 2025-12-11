@@ -250,7 +250,7 @@
 		display: flex;
 		position: relative;
 		align-items: center;
-		padding: 10px 8px 10px 10px;
+		padding: 10px;
 		overflow: hidden;
 		gap: 4px;
 		border-bottom: 1px solid var(--clr-border-3);

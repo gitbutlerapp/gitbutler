@@ -15,7 +15,7 @@
 		compareStackTarget,
 		type RuleFilter
 	} from '$lib/rules/rule';
-	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
+	import { RULES_SERVICE, workspaceRulesSelectors } from '$lib/rules/rulesService.svelte';
 	import { getStackName } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { typedKeys } from '$lib/utils/object';
@@ -32,6 +32,7 @@
 	} from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
+	import { slide } from 'svelte/transition';
 
 	type Props = {
 		projectId: string;
@@ -63,7 +64,9 @@
 	// Visual state
 	let mode = $state<'list' | 'edit' | 'add'>('list');
 	let editingRuleId = $state<WorkspaceRuleId | null>(null);
-	let isDrawerOpen = $state<boolean>(false);
+
+	// Read initial collapsed state from persisted storage, default to false (open) if not found
+	const drawerPersistId = `rules-drawer-${projectId}`;
 
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
 	const canSaveRule = $derived(stackTargetSelected !== undefined && validFilters);
@@ -86,6 +89,10 @@
 	}
 
 	function openRuleEditor() {
+		if (editingRuleId !== null) {
+			chipToasts.error('Please finish editing the current rule first');
+			return;
+		}
 		mode = 'add';
 	}
 
@@ -122,6 +129,11 @@
 	}
 
 	async function editExistingRule(rule: WorkspaceRule) {
+		if (mode === 'add' || (editingRuleId !== null && editingRuleId !== rule.id)) {
+			chipToasts.error('Please finish editing the current rule first');
+			return;
+		}
+
 		if (rule.action.type === 'implicit') {
 			chipToasts.error('Cannot edit implicit rules');
 			return;
@@ -202,17 +214,14 @@
 
 	const rules = $derived(rulesService.workspaceRules(projectId));
 
-	// Separate AI rules from regular rules
-	const separatedRules = $derived.by(() => {
-		if (!rules.result.isSuccess) {
-			return { regularRules: [], aiRules: [] };
-		}
-
+	function separateRules(allRules: WorkspaceRule[]) {
 		const regularRules: WorkspaceRule[] = [];
 		const aiRules: WorkspaceRule[] = [];
 
-		for (const rule of rules.result.data) {
-			const hasAiFilter = rule.filters.some((filter) => filter.type === 'claudeCodeSessionId');
+		for (const rule of allRules) {
+			const hasAiFilter = rule.filters.some(
+				(filter: RuleFilter) => filter.type === 'claudeCodeSessionId'
+			);
 			if (hasAiFilter) {
 				aiRules.push(rule);
 			} else {
@@ -221,29 +230,20 @@
 		}
 
 		return { regularRules, aiRules };
-	});
+	}
 </script>
 
-<Drawer
-	bottomBorder={false}
-	persistId="rules-drawer"
-	defaultCollapsed={true}
-	ontoggle={(collapsed) => {
-		isDrawerOpen = !collapsed;
-	}}
->
+<Drawer bottomBorder={false} persistId={drawerPersistId} maxHeight="60%">
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">Rules</h4>
 		{#if rules.result.isSuccess}
-			<Badge>{rules.result.data.length}</Badge>
+			<Badge>{rules.result.data.ids.length}</Badge>
 		{:else}
 			<Badge skeleton />
 		{/if}
 	{/snippet}
 	{#snippet actions()}
-		{#if isDrawerOpen && rules.result.isSuccess && rules.result.data.length > 0}
-			<Button onclick={openRuleEditor} icon="plus" size="tag" kind="ghost" />
-		{/if}
+		<Button onclick={openRuleEditor} icon="plus-small" size="tag" kind="ghost" />
 	{/snippet}
 	<div class="rules-list" use:focusable>
 		{@render ruleListContent()}
@@ -273,20 +273,25 @@
 			{@render skeletonLoading()}
 		{/snippet}
 
-		{#snippet children(_rulesList: WorkspaceRule[])}
-			{@const { regularRules, aiRules } = separatedRules}
+		{#snippet children(rulesEntityState)}
+			{@const rulesArray = workspaceRulesSelectors.selectAll(rulesEntityState)}
+			{@const { regularRules, aiRules } = separateRules(rulesArray)}
 			{@const totalRules = regularRules.length + aiRules.length}
 
 			{#if totalRules > 0}
 				{#if mode === 'add'}
-					{@render ruleEditor()}
+					<div in:slide={{ duration: 150 }}>
+						{@render ruleEditor()}
+					</div>
 				{/if}
 
 				<div class="rules-list__content">
 					{#if regularRules.length > 0}
 						{#each regularRules.slice().reverse() as rule (rule.id)}
 							{#if editingRuleId === rule.id}
-								{@render ruleEditor()}
+								<div in:slide={{ duration: 150 }}>
+									{@render ruleEditor()}
+								</div>
 							{:else}
 								<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
 							{/if}
@@ -297,7 +302,9 @@
 						<div class="rules-section">
 							{#each aiRules.slice().reverse() as rule (rule.id)}
 								{#if editingRuleId === rule.id}
-									{@render ruleEditor()}
+									<div in:slide={{ duration: 150 }}>
+										{@render ruleEditor()}
+									</div>
 								{:else}
 									<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
 								{/if}
@@ -306,13 +313,14 @@
 					{/if}
 				</div>
 			{:else if mode === 'add'}
-				{@render ruleEditor()}
+				<div transition:slide={{ duration: 170 }}>
+					{@render ruleEditor()}
+				</div>
 			{:else}
 				<div class="rules-placeholder">
 					<p class="text-13 text-body rules-placeholder-text">
 						Set up rules to automatically route changes to the right branch.
 					</p>
-					<Button onclick={openRuleEditor} icon="plus-small" kind="outline">Add new rule</Button>
 				</div>
 			{/if}
 		{/snippet}
@@ -449,13 +457,13 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 20px;
+		padding: 24px 20px 32px;
 		gap: 14px;
 		background-color: var(--clr-bg-2);
 	}
 
 	.rules-placeholder-text {
-		color: var(--clr-text-2);
+		color: var(--clr-text-3);
 		text-align: center;
 		text-wrap: balance;
 	}
@@ -468,20 +476,6 @@
 	.rules-section {
 		display: flex;
 		flex-direction: column;
-	}
-
-	.add-rule-section {
-		display: flex;
-		padding: 12px;
-		border-top: 1px solid var(--clr-border-2);
-	}
-
-	.rules-section-header {
-		display: flex;
-		align-items: center;
-		padding: 6px 10px;
-		gap: 6px;
-		color: var(--clr-theme-purp-element);
 	}
 
 	.rules-list__editor-content {
@@ -527,6 +521,20 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: 6px;
+	}
+
+	.rule {
+		display: flex;
+		position: relative;
+		align-items: center;
+		padding: 10px;
+		overflow: hidden;
+		gap: 4px;
+		border-bottom: 1px solid var(--clr-border-3);
+
+		&:last-child {
+			border-bottom: none;
+		}
 	}
 
 	.rule-skeleton {

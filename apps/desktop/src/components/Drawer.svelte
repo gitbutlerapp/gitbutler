@@ -6,7 +6,6 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import { Icon } from '@gitbutler/ui';
-
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { writable, type Writable } from 'svelte/store';
 	import type { ComponentProps, Snippet } from 'svelte';
@@ -26,6 +25,7 @@
 		notScrollable?: boolean;
 		childrenWrapHeight?: string;
 		childrenWrapDisplay?: 'block' | 'contents' | 'flex';
+		maxHeight?: string;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -45,6 +45,7 @@
 		notScrollable = false,
 		childrenWrapHeight,
 		childrenWrapDisplay,
+		maxHeight,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -81,6 +82,7 @@
 	class:bottom-border={bottomBorder && !isCollapsed}
 	class:grow
 	class:noshrink
+	style:max-height={maxHeight}
 >
 	<PreviewHeader {actions} bind:headerHeight {onclose} ondblclick={toggleCollapsed}>
 		{#snippet content()}
