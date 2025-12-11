@@ -170,7 +170,7 @@
 			{#snippet content()}
 				{#if items && items.length > 0}
 					{#each items as item}
-						{@html item.label}
+						<span>{item.label}</span>
 					{/each}
 				{/if}
 			{/snippet}
