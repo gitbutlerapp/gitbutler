@@ -145,7 +145,7 @@
 			being lower than minHeight.
 			TODO: Move this logic into the resizer so it applies everywhere.
 		-->
-		{@const maxHeight =
+		{@const computedMaxHeight =
 			resizer.maxHeight && resizer.minHeight
 				? Math.min(resizer.maxHeight, Math.max(totalHeightRem, resizer.minHeight))
 				: undefined}
@@ -156,7 +156,7 @@
 			disabled={isCollapsed}
 			direction="down"
 			{...resizer}
-			{maxHeight}
+			maxHeight={computedMaxHeight}
 		/>
 	{/if}
 </div>

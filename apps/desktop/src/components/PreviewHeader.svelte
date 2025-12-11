@@ -13,6 +13,7 @@
 		 * Typically used to toggle the drawer's collapsed state.
 		 */
 		ondblclick?: () => void;
+	}
 
 	let { content, actions, headerHeight = $bindable(), onclose, ondblclick }: Props = $props();
 

@@ -301,5 +301,4 @@
 		height: 16px;
 		background-color: var(--clr-border-2);
 	}
-
 </style>
