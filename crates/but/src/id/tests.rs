@@ -1,6 +1,34 @@
-use crate::{CliId, IdMap};
+use crate::{CliId, IdMap, id::UintId};
 use anyhow::bail;
 use bstr::BString;
+
+#[test]
+fn uint_id_from_short_id() -> anyhow::Result<()> {
+    assert_eq!(UintId::try_from(b"a".as_slice()), Err(()));
+    assert_eq!(UintId::try_from(b"a0".as_slice()), Err(()));
+    assert_eq!(UintId::try_from(b"--".as_slice()), Err(()));
+    assert_eq!(UintId::try_from(b"g0".as_slice()), Ok(UintId(0)));
+    assert_eq!(UintId::try_from(b"z0".as_slice()), Ok(UintId(19)));
+    assert_eq!(UintId::try_from(b"gz".as_slice()), Ok(UintId(700)));
+    assert_eq!(UintId::try_from(b"zz".as_slice()), Ok(UintId(719)));
+    assert_eq!(UintId::try_from(b"g00".as_slice()), Ok(UintId(720)));
+    assert_eq!(UintId::try_from(b"gz0".as_slice()), Ok(UintId(1420)));
+    assert_eq!(UintId::try_from(b"zzz".as_slice()), Ok(UintId(26639)));
+    assert_eq!(UintId::try_from(b"g000".as_slice()), Err(()));
+    Ok(())
+}
+
+#[test]
+fn uint_id_to_short_id() -> anyhow::Result<()> {
+    assert_eq!(UintId(0).get_short_id(), "g0");
+    assert_eq!(UintId(19).get_short_id(), "z0");
+    assert_eq!(UintId(700).get_short_id(), "gz");
+    assert_eq!(UintId(719).get_short_id(), "zz");
+    assert_eq!(UintId(720).get_short_id(), "g00");
+    assert_eq!(UintId(1420).get_short_id(), "gz0");
+    assert_eq!(UintId(26639).get_short_id(), "zzz");
+    Ok(())
+}
 
 #[test]
 fn commit_id_works_with_two_characters() -> anyhow::Result<()> {
@@ -90,8 +118,15 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
     ];
     let id_map = IdMap::new_for_branches_and_commits(stacks)?;
 
-    // The ID of the substring is a hash and cannot be asserted, so only
-    // assert the supersubstring.
+    let expected = [CliId::Branch {
+        name: "substring".into(),
+        id: "g0".into(),
+    }];
+    assert_eq!(
+        id_map.resolve_entity_to_ids("substring")?,
+        expected,
+        "no unique ID, so take from pool of IDs",
+    );
     let expected = [CliId::Branch {
         name: "supersubstring".into(),
         id: "up".into(),

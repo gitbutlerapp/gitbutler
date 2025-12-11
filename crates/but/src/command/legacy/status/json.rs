@@ -335,7 +335,7 @@ fn convert_branch_to_json(
     id_map: &mut crate::IdMap,
 ) -> anyhow::Result<Branch> {
     let cli_id = id_map
-        .resolve_branch_or_insert(branch.name.as_ref())
+        .resolve_branch(branch.name.as_ref())
         .to_short_string();
 
     let review_id = if review {
@@ -392,11 +392,7 @@ pub(super) fn build_workspace_status_json(
             let stack_cli_id = details
                 .branch_details
                 .first()
-                .map(|b| {
-                    id_map
-                        .resolve_branch_or_insert(b.name.as_ref())
-                        .to_short_string()
-                })
+                .map(|b| id_map.resolve_branch(b.name.as_ref()).to_short_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
             let json_assigned_changes = convert_file_assignments(assignments, worktree_changes);

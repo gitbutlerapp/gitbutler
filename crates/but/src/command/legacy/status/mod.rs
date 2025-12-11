@@ -389,7 +389,7 @@ pub fn print_group(
         let mut first = true;
         for branch in &group.branch_details {
             let id = id_map
-                .resolve_branch_or_insert(branch.name.as_ref())
+                .resolve_branch(branch.name.as_ref())
                 .to_short_string()
                 .underline()
                 .blue();

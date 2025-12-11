@@ -10,6 +10,7 @@
 
 #![forbid(missing_docs)]
 
+use anyhow::bail;
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
@@ -26,6 +27,100 @@ mod tests;
 /// A helper to indicate that this is a short-id as a user would see.
 type ShortId = String;
 
+fn divmod(a: usize, b: usize) -> (usize, usize) {
+    (a / b, a % b)
+}
+
+/// An integer representation of a [ShortId] that starts with g-z).
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default, Hash)]
+struct UintId(u16);
+impl UintId {
+    /// First character: g-z (20 options)
+    const FIRST_CHARS: &'static [u8] = b"ghijklmnopqrstuvwxyz";
+    /// Subsequent characters: 0-9,a-z (36 options)
+    const SUBSEQUENT_CHARS: &'static [u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+    /// Must be less than this.
+    const LIMIT: u16 = 20 * 36 * 37;
+
+    /// If self cannot be represented in 3 characters, "00" is returned.
+    fn get_short_id(&self) -> ShortId {
+        let mut result = String::new();
+
+        let (quo, rem) = divmod(self.0 as usize, 20);
+        result.push(Self::FIRST_CHARS[rem] as char);
+        let (quo, rem) = divmod(quo, 36);
+        result.push(Self::SUBSEQUENT_CHARS[rem] as char);
+        let (quo, rem) = divmod(quo, 37);
+        if quo > 0 {
+            // self is too big even for 3 characters.
+            return "00".to_string();
+        }
+        if rem > 0 {
+            result.push(Self::SUBSEQUENT_CHARS[rem - 1] as char);
+        }
+
+        result
+    }
+}
+impl TryFrom<&[u8]> for UintId {
+    type Error = ();
+
+    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+        let (first_char, second_char, third_char) = match value {
+            [a, b] => (a, b, None),
+            [a, b, c] => (a, b, Some(c)),
+            _ => {
+                return Err(());
+            }
+        };
+
+        let mut result: usize = 0;
+        let Some(index) = Self::FIRST_CHARS.iter().position(|e| e == first_char) else {
+            return Err(());
+        };
+        result += index;
+        let Some(index) = Self::SUBSEQUENT_CHARS.iter().position(|e| e == second_char) else {
+            return Err(());
+        };
+        result += index * 20;
+        if let Some(third_char) = third_char {
+            let Some(index) = Self::SUBSEQUENT_CHARS.iter().position(|e| e == third_char) else {
+                return Err(());
+            };
+            result += (index + 1) * 20 * 36;
+        }
+        Ok(Self(result.try_into().expect("max < UintId::LIMIT")))
+    }
+}
+
+/// A tracker of which [UintId]s have been used.
+#[derive(Default, Debug)]
+struct IdUsage {
+    /// A [UintId] is used if it's in this set.
+    uint_ids_used: HashSet<UintId>,
+    /// A [UintId] is used if it's less than this number.
+    next_uint_id: UintId,
+}
+impl IdUsage {
+    fn mark_used(&mut self, uint_id: UintId) {
+        if self.next_uint_id.0 <= uint_id.0 {
+            self.uint_ids_used.insert(uint_id);
+        }
+    }
+
+    fn next_available(&mut self) -> anyhow::Result<UintId> {
+        while self.uint_ids_used.remove(&self.next_uint_id) {
+            self.next_uint_id = UintId(self.next_uint_id.0 + 1);
+        }
+        if self.next_uint_id.0 >= UintId::LIMIT {
+            bail!("too many IDs");
+        }
+        let result = self.next_uint_id;
+        self.next_uint_id = UintId(self.next_uint_id.0 + 1);
+        Ok(result)
+    }
+}
+
 /// A mapping from user-friendly CLI IDs to GitButler entities.
 ///
 /// # Lifecycle
@@ -39,8 +134,8 @@ type ShortId = String;
 pub struct IdMap {
     /// Maps shortened branch names to their assigned CLI IDs
     branch_name_to_cli_id: HashMap<BString, CliId>,
-    /// Tracks all IDs that have been used to avoid collisions
-    ids_used: HashSet<ShortId>,
+    /// Tracks all non-commit IDs that have been used to avoid collisions
+    id_usage: IdUsage,
     /// Commit IDs reachable from workspace tips with their first parent IDs
     workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
     /// Commit IDs that are only on the remote
@@ -61,14 +156,6 @@ impl IdMap {
     /// This method creates a new `IdMap` with IDs for branches and commits only.
     /// To enable parsing of file IDs, call [IdMap::add_file_info] or
     /// [IdMap::add_file_info_from_context] afterward.
-    ///
-    /// # Algorithm
-    ///
-    /// For branches, this method:
-    /// 1. Analyzes all branch names to find unique 2-character alphanumeric pairs
-    /// 2. Avoids pairs that could be confused with commit SHA prefixes (hex digits)
-    /// 3. Falls back to hash-based IDs when no unique pair exists
-    /// 4. Generates an unassigned area ID with enough zeros to avoid collisions with previously generated IDs.
     pub fn new_for_branches_and_commits(stacks: &[Stack]) -> anyhow::Result<Self> {
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         let StacksInfo {
@@ -76,26 +163,33 @@ impl IdMap {
             workspace_commit_and_first_parent_ids,
             remote_commit_ids,
         } = get_stacks_info(stacks)?;
-        let mut pairs_to_count: HashMap<u16, u8> = HashMap::new();
-        fn u8_pair_to_u16(two: [u8; 2]) -> u16 {
-            two[0] as u16 * 256 + two[1] as u16
-        }
+        let mut short_ids_to_count: HashMap<ShortId, u8> = HashMap::new();
+        let mut id_usage = IdUsage::default();
         for branch_name in &branch_names {
-            for pair in branch_name.windows(2) {
-                let pair: [u8; 2] = pair.try_into()?;
-                if !pair[0].is_ascii_alphanumeric() || !pair[1].is_ascii_alphanumeric() {
-                    continue;
+            for candidate in branch_name.windows(2).chain(branch_name.windows(3)) {
+                if let Some(short_id) = UintId::try_from(candidate)
+                    .ok()
+                    .map(|uint_id| {
+                        id_usage.mark_used(uint_id);
+                        uint_id.get_short_id()
+                    })
+                    .or_else(|| {
+                        // If it's not a valid UintId, it's still acceptable if it
+                        // cannot be confused for a commit ID (and is valid UTF-8).
+                        if candidate.iter().all(|c| c.is_ascii_alphanumeric())
+                            && !candidate.iter().all(|c| c.is_ascii_hexdigit())
+                        {
+                            String::from_utf8(candidate.to_vec()).ok()
+                        } else {
+                            None
+                        }
+                    })
+                {
+                    short_ids_to_count
+                        .entry(short_id)
+                        .and_modify(|count| *count = count.saturating_add(1))
+                        .or_insert(1);
                 }
-                let could_collide_with_commits =
-                    pair[0].is_ascii_hexdigit() && pair[1].is_ascii_hexdigit();
-                if could_collide_with_commits {
-                    continue;
-                }
-                let u16pair = u8_pair_to_u16(pair);
-                pairs_to_count
-                    .entry(u16pair)
-                    .and_modify(|count| *count = count.saturating_add(1))
-                    .or_insert(1);
             }
             for field in branch_name.fields_with(|c| c != '0') {
                 max_zero_count = std::cmp::max(field.len(), max_zero_count);
@@ -103,26 +197,26 @@ impl IdMap {
         }
 
         let mut branch_name_to_cli_id: HashMap<BString, CliId> = HashMap::new();
-        let mut ids_used: HashSet<String> = HashSet::new();
-        'branch_name: for branch_name in branch_names {
-            // Find first non-conflicting pair and use it as CliId.
-            for pair in branch_name.windows(2) {
-                let pair: [u8; 2] = pair.try_into()?;
-                let u16pair = u8_pair_to_u16(pair);
-                if let Some(1) = pairs_to_count.get(&u16pair) {
-                    let name = branch_name.to_string();
-                    let id = str::from_utf8(&pair)
-                        .expect("if we stored it, it's ascii-alphanum")
-                        .to_owned();
-                    ids_used.insert(id.clone());
-                    branch_name_to_cli_id.insert(branch_name, CliId::Branch { name, id });
-                    continue 'branch_name;
+        for branch_name in branch_names {
+            let name = branch_name.to_string();
+            let id = 'short_id: {
+                // Find first non-conflicting pair or triple (i.e. used in
+                // exactly one branch) and use it as CliId.
+                for candidate in branch_name.windows(2).chain(branch_name.windows(3)) {
+                    if let Ok(short_id) = str::from_utf8(candidate)
+                        && let Some(1) = short_ids_to_count.get(short_id)
+                    {
+                        break 'short_id short_id.to_owned();
+                    }
                 }
-            }
+                // If none available, use next available ID.
+                id_usage.next_available()?.get_short_id()
+            };
+            branch_name_to_cli_id.insert(branch_name, CliId::Branch { name, id });
         }
         Ok(Self {
             branch_name_to_cli_id,
-            ids_used,
+            id_usage,
             workspace_commit_and_first_parent_ids,
             remote_commit_ids,
             unassigned: CliId::Unassigned {
@@ -207,38 +301,19 @@ impl IdMap {
             hunk_assignments,
         )?;
 
-        let mut int_hash = 0u64;
-        let mut get_next_id = || -> String {
-            for _ in 0..20 * 36 {
-                let tentative_id = string_hash(int_hash);
-                int_hash += 1;
-                if !self.ids_used.contains(&tentative_id) {
-                    return tentative_id;
-                }
-            }
-            panic!(
-                "BUG: we really need a way to indicate we want more characters in the string-hash to support more IDs"
-            )
-        };
-
-        let uncommitted_files: BTreeSet<_> = uncommitted_files
-            .into_iter()
-            .map(|assignment_path| UncommittedFile {
+        for assignment_path in uncommitted_files.into_iter() {
+            self.uncommitted_files.insert(UncommittedFile {
                 assignment_path,
-                id: get_next_id(),
-            })
-            .collect();
-
-        let committed_files: BTreeSet<_> = committed_files
-            .into_iter()
-            .map(|commit_oid_path| CommittedFile {
+                id: self.id_usage.next_available()?.get_short_id(),
+            });
+        }
+        for commit_oid_path in committed_files.into_iter() {
+            self.committed_files.insert(CommittedFile {
                 commit_oid_path,
-                id: get_next_id(),
-            })
-            .collect();
+                id: self.id_usage.next_available()?.get_short_id(),
+            });
+        }
 
-        self.uncommitted_files = uncommitted_files;
-        self.committed_files = committed_files;
         Ok(())
     }
 }
@@ -387,17 +462,15 @@ impl IdMap {
 
     /// Returns the [`CliId::Branch`] for a branch by its short `name`.
     ///
-    /// If the branch already has an assigned ID, return it.
-    /// Otherwise, it generates a new hash-based ID for the branch and
-    /// caches it for future use.
-    /// TODO: make sure newly created hash is non-conflicting.
-    pub fn resolve_branch_or_insert(&mut self, name: &BStr) -> &CliId {
+    /// If the branch already has an assigned ID, return it. Otherwise, returns
+    /// `00` as fallback.
+    pub fn resolve_branch(&mut self, name: &BStr) -> CliId {
         self.branch_name_to_cli_id
-            .entry(name.to_owned())
-            .or_insert_with(|| {
-                let name = name.to_string();
-                let id = hash(&name);
-                CliId::Branch { name, id }
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| CliId::Branch {
+                name: name.to_string(),
+                id: "00".to_string(),
             })
     }
 
@@ -639,42 +712,4 @@ impl Borrow<str> for CommittedFile {
     fn borrow(&self) -> &str {
         &self.id
     }
-}
-
-/// Generates a 2-character hash string from the input string.
-fn hash(input: &str) -> String {
-    string_hash(int_hash(input))
-}
-
-/// Computes a simple integer hash of the input string.
-///
-/// Uses a basic polynomial rolling hash algorithm for simplicity and speed.
-/// This is not a cryptographic hash and is only used for generating short IDs.
-fn int_hash(input: &str) -> u64 {
-    let mut hash = 0u64;
-    for byte in input.bytes() {
-        hash = hash.wrapping_mul(31).wrapping_add(byte as u64);
-    }
-    hash
-}
-
-/// Converts an integer `hash` into a 2-character string ID.
-///
-/// The generated ID uses:
-/// - First character: one of 'g'-'z' (20 options) to avoid hex digit collisions
-/// - Second character: one of '0'-'9' or 'a'-'z' (36 options)
-///
-/// This provides 720 unique combinations while avoiding IDs that could be
-/// confused with commit SHA prefixes (which use 'a'-'f' and '0'-'9').
-fn string_hash(mut hash: u64) -> String {
-    // First character: g-z (20 options)
-    let first_chars = "ghijklmnopqrstuvwxyz";
-    let first_char = first_chars.chars().nth((hash % 20) as usize).unwrap();
-    hash /= 20;
-
-    // Second character: 0-9,a-z (36 options)
-    let second_chars = "0123456789abcdefghijklmnopqrstuvwxyz";
-    let second_char = second_chars.chars().nth((hash % 36) as usize).unwrap();
-
-    format!("{first_char}{second_char}")
 }
