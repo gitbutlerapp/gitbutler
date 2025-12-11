@@ -241,7 +241,7 @@
 		{/if}
 	{/snippet}
 	{#snippet actions()}
-		{#if isDrawerOpen && rules.result.data && rules.result.data.length > 0}
+		{#if isDrawerOpen && rules.result.isSuccess && rules.result.data.length > 0}
 			<Button onclick={openRuleEditor} icon="plus" size="tag" kind="ghost" />
 		{/if}
 	{/snippet}
