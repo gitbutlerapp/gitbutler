@@ -33,7 +33,6 @@
 	const unassignedSidebarFolded = $derived(uiState.global.unassignedSidebarFolded);
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(exclusiveAction?.type === 'commit');
-	let isScrollable = $state<boolean>(false);
 
 	const treeChanges = $derived(uncommittedService.changesByStackId(null));
 	const treeChangesCount = $derived(treeChanges.current.length);
@@ -104,63 +103,64 @@
 
 {#if !unassignedSidebarFolded.current}
 	<div class="unassigned" role="presentation" use:focusable={{ vertical: true }}>
-		{#if $settingsStore?.featureFlags.rules}
-			<RulesList {foldButton} {projectId} />
-		{/if}
-
-		<div role="presentation" class="unassigned__files" onclick={unselectFiles}>
-			<WorktreeChanges
-				title="Unassigned"
-				{projectId}
-				stackId={undefined}
-				onscrollexists={(exists: boolean) => {
-					isScrollable = exists;
-				}}
-				mode="unassigned"
-				foldButton={$settingsStore?.featureFlags.rules ? undefined : foldButton}
-			>
-				{#snippet emptyPlaceholder()}
-					<div class="unassigned__empty">
-						<div class="unassigned__empty__placeholder">
-							{@html noChanges}
-							<p class="text-13 text-body unassigned__empty__placeholder-text">
-								You're all caught up!<br />
-								No files need committing
-							</p>
+		<div class="unassigned-wrap">
+			<div role="presentation" class="unassigned__files" onclick={unselectFiles}>
+				<WorktreeChanges
+					title="Unassigned"
+					{projectId}
+					stackId={undefined}
+					mode="unassigned"
+					{foldButton}
+				>
+					{#snippet emptyPlaceholder()}
+						<div class="unassigned__empty">
+							<div class="unassigned__empty__placeholder">
+								{@html noChanges}
+								<p class="text-13 text-body unassigned__empty__placeholder-text">
+									You're all caught up!<br />
+									No files need committing
+								</p>
+							</div>
+							<UnassignedViewForgePrompt {projectId} />
 						</div>
-						<UnassignedViewForgePrompt {projectId} />
-					</div>
-				{/snippet}
-			</WorktreeChanges>
+					{/snippet}
+				</WorktreeChanges>
+			</div>
+
+			<UnassignedViewForgePrompt {projectId} />
+
+			{#if changesToCommit}
+				<div class="create-new" use:focusable>
+					<Button
+						type="button"
+						wide
+						reversedDirection
+						disabled={!!projectState.exclusiveAction.current}
+						onclick={() => {
+							projectState.exclusiveAction.set({
+								type: 'commit',
+								stackId: undefined,
+								branchName: undefined
+							});
+							checkFilesForCommit();
+							posthog.captureAction(ActionEvent.CommitToNewBranch);
+						}}
+						icon={isCommitting ? undefined : 'plus-small'}
+						testId={TestId.CommitToNewBranchButton}
+						kind="outline"
+					>
+						{#if isCommitting}
+							Committing…
+						{:else}
+							Commit to new branch
+						{/if}
+					</Button>
+				</div>
+			{/if}
 		</div>
 
-		{#if changesToCommit}
-			<UnassignedViewForgePrompt {projectId} />
-			<div class="create-new" class:sticked-bottom={isScrollable} use:focusable>
-				<Button
-					type="button"
-					wide
-					disabled={!!projectState.exclusiveAction.current}
-					onclick={() => {
-						projectState.exclusiveAction.set({
-							type: 'commit',
-							stackId: undefined,
-							branchName: undefined
-						});
-						checkFilesForCommit();
-						posthog.captureAction(ActionEvent.CommitToNewBranch);
-					}}
-					icon={isCommitting ? undefined : 'plus-small'}
-					testId={TestId.CommitToNewBranchButton}
-					kind="outline"
-				>
-					{#if isCommitting}
-						Committing…
-					{:else}
-						Commit to new branch
-					{/if}
-				</Button>
-			</div>
+		{#if $settingsStore?.featureFlags.rules}
+			<RulesList {projectId} />
 		{/if}
 	</div>
 {:else}
@@ -211,9 +211,18 @@
 	.unassigned {
 		display: flex;
 		flex-direction: column;
-		height: 100%;
+		height: calc(100% + 1px);
+		margin-bottom: -1px;
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
+	}
+
+	.unassigned-wrap {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		overflow: hidden;
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.create-new {
@@ -221,10 +230,6 @@
 		flex-direction: column;
 		padding: 12px 12px 14px 12px;
 		border-top: 1px solid var(--clr-border-3);
-
-		&.sticked-bottom {
-			border-color: var(--clr-border-2);
-		}
 	}
 
 	/* FOLDED */

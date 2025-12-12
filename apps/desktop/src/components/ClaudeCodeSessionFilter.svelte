@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ClaudeSessionDescriptor from '$components/ClaudeSessionDescriptor.svelte';
-	import { Icon, Codeblock } from '@gitbutler/ui';
+	import { Codeblock } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -13,11 +13,6 @@
 </script>
 
 <div class="cc-session-filter">
-	<div class="cc-badge">
-		<Icon name="ai-small" />
-		<span class="text-12 text-semibold">Claude Code session:</span>
-	</div>
-
 	<ClaudeSessionDescriptor {projectId} {sessionId}>
 		{#snippet children(descriptor)}
 			<p class="descriptor text-14 text-body text-bold">

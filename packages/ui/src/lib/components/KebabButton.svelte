@@ -2,6 +2,7 @@
 	import Button from '$components/Button.svelte';
 	import ContextMenu from '$components/ContextMenu.svelte';
 	import Icon from '$components/Icon.svelte';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -10,9 +11,11 @@
 		contextElement?: HTMLElement;
 		testId?: string;
 		contextMenuTestId?: string;
+		buttonClassname?: string;
 		contextMenu: Snippet<[{ close: () => void }]>;
 		menuSide?: 'top' | 'bottom' | 'left' | 'right';
 		menuAlign?: 'start' | 'center' | 'end';
+		icon?: keyof typeof iconsJson;
 		onMenuClose?: () => void;
 		onMenuOpen?: () => void;
 		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
@@ -24,9 +27,11 @@
 		contextElement,
 		testId,
 		contextMenuTestId,
+		buttonClassname,
 		contextMenu: contextMenuSnippet,
 		menuSide = 'bottom',
 		menuAlign = 'end',
+		icon = 'kebab',
 		onMenuClose,
 		onMenuOpen,
 		onMenuToggle
@@ -94,7 +99,7 @@
 	<button
 		bind:this={buttonElement}
 		type="button"
-		class="kebab-btn"
+		class={['kebab-btn', buttonClassname]}
 		class:visible
 		class:show-on-hover={showOnHover}
 		class:minimal
@@ -102,8 +107,9 @@
 		onclick={onClick}
 		oncontextmenu={onContextMenu}
 		data-testid={testId}
+		aria-label="Open context menu"
 	>
-		<Icon name="kebab" />
+		<Icon name={icon} />
 	</button>
 {:else}
 	<Button

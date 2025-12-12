@@ -306,45 +306,47 @@
 	}}
 >
 	<!-- Conflicted changes -->
-	<div class="conflicted-entries">
-		{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
-			<FileListItem
-				draggable={draggableFiles}
-				filePath={path}
-				{active}
-				conflicted
-				conflictHint={conflictEntryHint(kind)}
-				listMode="list"
-				onclick={(e) => {
-					e.stopPropagation();
-					showEditPatchConfirmation(path);
-				}}
-			/>
-		{/each}
-		{#if Object.keys(unrepresentedConflictedEntries).length > 0 && ancestorMostConflictedCommitId}
-			<div class="conflicted-entries__action">
-				<p class="text-12 text-body clr-text-2">
-					If the branch has multiple conflicted commits, GitButler opens the earliest one first,
-					since later commits depend on it.
-				</p>
-				<AsyncButton
-					testId={TestId.CommitDrawerResolveConflictsButton}
-					kind="solid"
-					style="error"
-					wide
-					action={() =>
-						editPatch({
-							modeService,
-							commitId: ancestorMostConflictedCommitId!,
-							stackId: stackId!,
-							projectId
-						})}
-				>
-					Resolve conflicts
-				</AsyncButton>
-			</div>
-		{/if}
-	</div>
+	{#if Object.keys(unrepresentedConflictedEntries).length > 0}
+		<div class="conflicted-entries">
+			{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
+				<FileListItem
+					draggable={draggableFiles}
+					filePath={path}
+					{active}
+					conflicted
+					conflictHint={conflictEntryHint(kind)}
+					listMode="list"
+					onclick={(e) => {
+						e.stopPropagation();
+						showEditPatchConfirmation(path);
+					}}
+				/>
+			{/each}
+			{#if ancestorMostConflictedCommitId}
+				<div class="conflicted-entries__action">
+					<p class="text-12 text-body clr-text-2">
+						If the branch has multiple conflicted commits, GitButler opens the earliest one first,
+						since later commits depend on it.
+					</p>
+					<AsyncButton
+						testId={TestId.CommitDrawerResolveConflictsButton}
+						kind="solid"
+						style="error"
+						wide
+						action={() =>
+							editPatch({
+								modeService,
+								commitId: ancestorMostConflictedCommitId!,
+								stackId: stackId!,
+								projectId
+							})}
+					>
+						Resolve conflicts
+					</AsyncButton>
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Other changes -->
 	{#if visibleFiles.length > 0}
