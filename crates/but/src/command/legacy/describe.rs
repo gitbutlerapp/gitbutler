@@ -236,13 +236,14 @@ fn get_commit_message_from_editor(
     template.push_str("#\n");
 
     // Read the result and strip comments
-    let message = tui::get_text::from_editor_no_comments("but_commit_msg", &template)?;
+    let lossy_message =
+        tui::get_text::from_editor_no_comments("commit_msg", &template)?.to_string();
 
-    if message.is_empty() {
+    if lossy_message.is_empty() {
         bail!("Aborting due to empty commit message");
     }
 
-    Ok(message)
+    Ok(lossy_message)
 }
 
 fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
@@ -255,13 +256,14 @@ fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
     template.push_str("# with '#' will be ignored, and an empty name aborts the operation.\n");
     template.push_str("#\n");
 
-    let branch_name = tui::get_text::from_editor_no_comments("but_branch_name", &template)?;
+    let branch_name_lossy =
+        tui::get_text::from_editor_no_comments("branch_name", &template)?.to_string();
 
-    if branch_name.is_empty() {
+    if branch_name_lossy.is_empty() {
         bail!("Aborting due to empty branch name");
     }
 
-    Ok(branch_name)
+    Ok(branch_name_lossy)
 }
 
 #[cfg(test)]

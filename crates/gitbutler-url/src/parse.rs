@@ -87,8 +87,7 @@ pub fn parse(input: &BStr) -> Result<Url, Error> {
     if path_without_file_protocol.is_some()
         || (has_no_explicit_protocol(input) && guessed_protocol == "file")
     {
-        let path =
-            path_without_file_protocol.map_or_else(|| input.into(), |stripped_path| stripped_path);
+        let path = path_without_file_protocol.unwrap_or_else(|| input.into());
         if path.is_empty() {
             return Err(Error::MissingRepositoryPath);
         }

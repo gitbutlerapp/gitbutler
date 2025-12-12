@@ -51,23 +51,6 @@
 			/>
 		{/snippet}
 	</CardGroup.Item>
-	<CardGroup.Item labelFor="rules">
-		{#snippet title()}
-			Workspace Rules
-		{/snippet}
-		{#snippet caption()}
-			Allows you to create rules for assigning new changes to a specific branch based on a
-			condition. Still under development - please let us know what you think!
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="rules"
-				checked={$settingsStore?.featureFlags.rules}
-				onclick={() =>
-					settingsService.updateFeatureFlags({ rules: !$settingsStore?.featureFlags.rules })}
-			/>
-		{/snippet}
-	</CardGroup.Item>
 	<CardGroup.Item labelFor="f-mode">
 		{#snippet title()}
 			F Mode Navigation

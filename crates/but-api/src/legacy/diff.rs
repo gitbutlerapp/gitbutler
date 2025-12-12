@@ -101,14 +101,12 @@ pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChan
         )?,
     };
 
-    if ctx.settings().feature_flags.rules {
-        but_rules::handler::process_workspace_rules(
-            ctx,
-            &assignments,
-            &dependencies.as_ref().ok().cloned(),
-        )
-        .ok();
-    }
+    but_rules::handler::process_workspace_rules(
+        ctx,
+        &assignments,
+        &dependencies.as_ref().ok().cloned(),
+    )
+    .ok();
 
     Ok(WorktreeChanges {
         worktree_changes: changes.into(),

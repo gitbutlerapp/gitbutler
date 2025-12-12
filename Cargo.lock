@@ -757,6 +757,7 @@ dependencies = [
  "shell-words",
  "snapbox",
  "strum",
+ "tempfile",
  "terminal_size",
  "tokio",
  "tracing",
