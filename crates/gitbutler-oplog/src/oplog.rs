@@ -747,15 +747,15 @@ fn write_conflicts_tree(repo: &git2::Repository) -> Result<git2::Oid> {
         None
     };
     let mut tree_builder = repo.treebuilder(None)?;
-    if merge_parent_blob.is_some() {
+    if let Some(merge_parent_blob) = merge_parent_blob {
         tree_builder.insert(
             "base_merge_parent",
-            merge_parent_blob.unwrap(),
+            merge_parent_blob,
             FileMode::Blob.into(),
         )?;
     }
-    if conflicts_blob.is_some() {
-        tree_builder.insert("conflicts", conflicts_blob.unwrap(), FileMode::Blob.into())?;
+    if let Some(conflicts_blob) = conflicts_blob {
+        tree_builder.insert("conflicts", conflicts_blob, FileMode::Blob.into())?;
     }
     let conflicts_tree = tree_builder.write()?;
     Ok(conflicts_tree)
