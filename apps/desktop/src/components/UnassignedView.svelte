@@ -92,7 +92,7 @@
 
 {#snippet foldButton()}
 	{#if !isCommitting && !unassignedSidebarFolded.current}
-		<div class="unassigned__fold-button">
+		<div class="unassigned-fold-button">
 			<UnassignedFoldButton active={false} onclick={foldUnnassignedView} />
 		</div>
 	{/if}
@@ -101,7 +101,7 @@
 {#if !unassignedSidebarFolded.current}
 	<div class="unassigned" role="presentation" use:focusable={{ vertical: true }}>
 		<div class="unassigned-wrap">
-			<div role="presentation" class="unassigned__files" onclick={unselectFiles}>
+			<div role="presentation" class="unassigned-files-wrapper" onclick={unselectFiles}>
 				<WorktreeChanges
 					title="Unassigned"
 					{projectId}
@@ -110,9 +110,9 @@
 					{foldButton}
 				>
 					{#snippet emptyPlaceholder()}
-						<div class="unassigned__empty__placeholder">
+						<div class="unassigned-empty">
 							{@html noChanges}
-							<p class="text-13 text-body unassigned__empty__placeholder-text">
+							<p class="text-13 text-body unassigned-empty-text">
 								You're all caught up!<br />
 								No files need committing
 							</p>
@@ -165,21 +165,21 @@
 	>
 		<UnassignedFoldButton active={true} onclick={unfoldView} />
 
-		<div class="unassigned-folded__content">
+		<div class="unassigned-folded-content">
 			<Badge>
 				{treeChangesCount > 99 ? '99+' : treeChangesCount}
 			</Badge>
 			<span
 				bind:clientWidth={foldedContentWidth}
 				style="height: {foldedContentWidth}px;"
-				class="unassigned-folded__text text-14 text-semibold">Unassigned</span
+				class="unassigned-folded-text text-14 text-semibold">Unassigned</span
 			>
 		</div>
 	</div>
 {/if}
 
 <style lang="postcss">
-	.unassigned__empty__placeholder {
+	.unassigned-empty {
 		display: flex;
 		flex: 1;
 		flex-direction: column;
@@ -189,7 +189,7 @@
 		gap: 20px;
 	}
 
-	.unassigned__empty__placeholder-text {
+	.unassigned-empty-text {
 		color: var(--clr-text-3);
 		text-align: center;
 	}
@@ -232,7 +232,7 @@
 		}
 	}
 
-	.unassigned-folded__content {
+	.unassigned-folded-content {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -240,13 +240,13 @@
 		gap: 10px;
 	}
 
-	.unassigned-folded__text {
+	.unassigned-folded-text {
 		display: flex;
 		align-items: center;
 		writing-mode: vertical-lr;
 	}
 
-	.unassigned__files {
+	.unassigned-files-wrapper {
 		display: flex;
 		position: relative;
 		flex: 1;
@@ -256,7 +256,7 @@
 
 	/* MODIFIERS */
 
-	.unassigned__fold-button {
+	.unassigned-fold-button {
 		display: flex;
 		/* Align this icon's position with the folded one.
 		Prevent any position shifting or jumping. */
