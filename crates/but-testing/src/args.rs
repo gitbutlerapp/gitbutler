@@ -188,6 +188,9 @@ pub enum Subcommands {
         /// The rev-spec of the extra target to provide for traversal.
         #[clap(long)]
         extra_target: Option<String>,
+        /// Disable post-processing of the graph, useful if that's failing.
+        #[clap(long)]
+        no_post: bool,
         /// Do not debug-print the workspace.
         ///
         /// If too large, it takes a long time or runs out of memory.
