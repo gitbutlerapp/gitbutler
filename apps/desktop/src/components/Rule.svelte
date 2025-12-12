@@ -12,7 +12,16 @@
 	import { getStackName } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, FileStatusBadge, Icon, Modal, Tooltip } from '@gitbutler/ui';
+	import {
+		Button,
+		FileStatusBadge,
+		Icon,
+		KebabButton,
+		ContextMenuSection,
+		ContextMenuItem,
+		Modal,
+		Tooltip
+	} from '@gitbutler/ui';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	type Props = {
@@ -65,7 +74,7 @@
 				};
 			case 'claudeCodeSessionId':
 				return {
-					icon: 'ai-small' as keyof typeof iconsJson,
+					icon: 'ai-outline' as keyof typeof iconsJson,
 					label: filter.subject,
 					tooltip: `Claude session: ${filter.subject}`
 				};
@@ -80,7 +89,7 @@
 	hasError?: boolean
 )}
 	<Tooltip text={tooltip}>
-		<div class="rule__pill" class:error={hasError}>
+		<div class="target-pill" class:error={hasError}>
 			<Icon name={icon} color={hasError ? 'error' : 'var(--clr-text-2)'} />
 			<span class="text-12 truncate">{label}</span>
 		</div>
@@ -109,19 +118,21 @@
 {/snippet}
 
 {#snippet renderBasicPill(config: ReturnType<typeof getFilterConfig>)}
-	<Tooltip text={config.tooltip}>
-		<div class="rule__pill">
-			{#if config.icon}
-				<Icon name={config.icon} color="var(--clr-text-2)" />
-			{/if}
-			<span class="text-12 truncate">{config.label}</span>
-		</div>
-	</Tooltip>
+	<div class="filter-pill">
+		<Tooltip text={config.tooltip}>
+			<div class="flex items-center gap-6 overflow-hidden">
+				{#if config.icon}
+					<Icon name={config.icon} color="var(--clr-text-2)" />
+				{/if}
+				<span class="text-12 truncate">{config.label}</span>
+			</div>
+		</Tooltip>
+	</div>
 {/snippet}
 
 {#snippet renderFileChangePill(config: ReturnType<typeof getFilterConfig>, fileStatus: any)}
 	<Tooltip text={config.tooltip}>
-		<div class="rule__pill">
+		<div class="filter-pill">
 			<FileStatusBadge status={fileStatus} style="dot" />
 			<span class="text-12 truncate">{config.label}</span>
 		</div>
@@ -130,17 +141,16 @@
 
 {#snippet renderSessionPill(tooltip: string, icon: keyof typeof iconsJson, title: string)}
 	<Tooltip text={tooltip}>
-		<div class="rule__ai-pill">
+		<div class="ai-pill">
 			<Icon name={icon} color="var(--clr-theme-purp-element)" />
-			<span class="text-12 truncate">{title}</span>
+			<span class="text-12 text-semibold truncate">{title}</span>
 		</div>
 	</Tooltip>
 {/snippet}
 
-{#snippet filterPill(filter: RuleFilter)}
-	{@const config = getFilterConfig(filter)}
-
+{#snippet aiSessionPill(filter: RuleFilter)}
 	{#if filter.type === 'claudeCodeSessionId'}
+		{@const config = getFilterConfig(filter)}
 		<ClaudeSessionDescriptor {projectId} sessionId={filter.subject}>
 			{#snippet fallback()}
 				{@render renderBasicPill(config)}
@@ -149,6 +159,14 @@
 				{@render renderSessionPill(`Claude session: ${descriptor}`, config.icon!, descriptor)}
 			{/snippet}
 		</ClaudeSessionDescriptor>
+	{/if}
+{/snippet}
+
+{#snippet filterPill(filter: RuleFilter)}
+	{@const config = getFilterConfig(filter)}
+
+	{#if filter.type === 'claudeCodeSessionId'}
+		{@render aiSessionPill(filter)}
 	{:else if filter.type === 'fileChangeType'}
 		{@render renderFileChangePill(config, filter.subject)}
 	{:else}
@@ -156,27 +174,30 @@
 	{/if}
 {/snippet}
 
-{#snippet assignChip()}
-	<Tooltip text="Assign to branch">
-		<div class="rule__action-chip">
-			<Icon name="arrow-right" />
-		</div>
-	</Tooltip>
-{/snippet}
-
 {#snippet ruleActions()}
 	<div class="rule__actions">
-		<div class="rule__actions-buttons">
-			<Button icon="edit" size="tag" kind="ghost" onclick={editRule} tooltip="Edit rule" />
-			<Button
-				icon="bin"
-				style="error"
-				size="tag"
-				kind="ghost"
-				onclick={() => confirmationModal?.show()}
-				tooltip="Delete rule"
-			/>
-		</div>
+		<KebabButton minimal buttonClassname="extra-padding">
+			{#snippet contextMenu({ close })}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Edit rule"
+						icon="edit"
+						onclick={() => {
+							close();
+							editRule();
+						}}
+					/>
+					<ContextMenuItem
+						label="Delete rule"
+						icon="bin"
+						onclick={async () => {
+							close();
+							confirmationModal?.show();
+						}}
+					/>
+				</ContextMenuSection>
+			{/snippet}
+		</KebabButton>
 	</div>
 {/snippet}
 
@@ -184,21 +205,25 @@
 	{@const target = rule.action.subject.subject.target}
 	{@const filters = rule.filters}
 
-	<div class="rule">
-		{#each filters as filter (filter.type)}
-			{@render filterPill(filter)}
-		{:else}
-			<div class="rule__pill">
-				<span class="text-12 truncate">*. All changes</span>
-			</div>
-		{/each}
-		{@render assignChip()}
-		{@render stackTarget(target)}
+	<div class="rule" role="presentation" ondblclick={editRule}>
+		<div class="flex items-center gap-4 flex-1 overflow-hidden m-r-4">
+			{#if filters.length > 0}
+				{#each filters as filter (filter.type)}
+					{@render filterPill(filter)}
+				{/each}
+			{:else}
+				<div class="filter-pill">
+					<span class="text-12 truncate">*. All changes</span>
+				</div>
+			{/if}
+			<Tooltip text="Assign to branch">
+				<Icon name="arrow-right" color="var(--clr-text-3)" />
+			</Tooltip>
+			{@render stackTarget(target)}
+		</div>
+
 		{@render ruleActions()}
 	</div>
-{:else}
-	<!-- No support for this yet -->
-	<span> '¯\_(ツ)_/¯' </span>
 {/if}
 
 <Modal
@@ -224,75 +249,48 @@
 	.rule {
 		display: flex;
 		position: relative;
-		flex-wrap: wrap;
-		padding: 12px 10px;
+		align-items: center;
+		padding: 10px;
 		overflow: hidden;
 		gap: 4px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-3);
 
-		&:hover .rule__actions {
-			transform: scale(1);
-			opacity: 1;
-			pointer-events: auto;
+		&:last-child {
+			border-bottom: none;
 		}
 	}
 
 	.rule__actions {
 		display: flex;
-		position: absolute;
-		top: 8px;
-		right: 8px;
 		align-items: center;
-		transform: scale(0.9);
-		transform-origin: top right;
-		background-color: var(--clr-bg-1);
-		box-shadow: 0 0 30px 30px var(--clr-bg-1);
-		opacity: 0;
-		pointer-events: none;
-		transition:
-			opacity var(--transition-fast),
-			transform var(--transition-medium);
 	}
 
-	.rule__actions-buttons {
-		display: flex;
-		padding: 3px;
-		gap: 2px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
+	:global(.rule__actions .extra-padding) {
+		padding: 4px;
 	}
 
-	.rule__action-chip {
+	.filter-pill,
+	.target-pill,
+	.ai-pill {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		height: var(--size-tag);
-		padding: 0 4px;
-		border-radius: 100px;
-		background: var(--clr-bg-2);
-		color: var(--clr-text-2);
-	}
-
-	.rule__pill,
-	.rule__ai-pill {
-		display: flex;
-		align-items: center;
-		max-width: 130px;
-		height: var(--size-tag);
+		height: 24px;
 		padding: 0 6px;
 		overflow: hidden;
-		gap: 5px;
+		gap: 6px;
 		border-radius: 100px;
 	}
 
-	.rule__pill {
-		border: 1px solid var(--clr-border-2);
-		&.error {
-			border: 1px solid var(--clr-theme-err-element);
-		}
+	.filter-pill {
+		background-color: var(--clr-bg-2);
 	}
 
-	.rule__ai-pill {
+	.target-pill {
+		background-color: var(--clr-bg-2);
+	}
+
+	.ai-pill {
 		background: var(--clr-theme-purp-soft);
+		color: var(--clr-theme-purp-on-soft);
 	}
 </style>

@@ -340,28 +340,8 @@
 		border-radius: 100px;
 	}
 
-	.theme-switcher__button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		.meta-links__legal {
-			display: flex;
-			gap: 8px;
-
-			a {
-				color: inherit;
-				text-decoration: underline;
-
-				&:hover {
-					color: var(--clr-text-1);
-					text-decoration: none;
-				}
-			}
-		}
-
-		@media (--desktop-small-viewport) {
+	@media (--desktop-small-viewport) {
+		.banner {
 			padding: 24px;
 
 			&.no-downloads {

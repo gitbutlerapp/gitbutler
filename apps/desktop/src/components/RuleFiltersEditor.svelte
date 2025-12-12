@@ -146,7 +146,6 @@
 		value={pathRegex}
 		oninput={(v) => (pathRegex = v)}
 		placeholder="Path e.g. src/components or a regex"
-		autofocus
 	/>
 {/snippet}
 
@@ -158,7 +157,6 @@
 		value={contentRegex}
 		oninput={(v) => (contentRegex = v)}
 		placeholder="String e.g. TODO or a regex"
-		autofocus
 	/>
 {/snippet}
 
@@ -173,7 +171,6 @@
 		placeholder="Change type..."
 		flex="1"
 		icon="file-changes"
-		autofocus
 		onselect={(selected) => {
 			treeChangeType = selected as FileStatus;
 		}}
@@ -198,7 +195,6 @@
 		flex="1"
 		searchable
 		icon="tag"
-		autofocus
 		onselect={(selected) => {
 			semanticType = selected as SemanticType;
 		}}
@@ -224,24 +220,23 @@
 			{@render semanticTypeFilter()}
 		{/if}
 
-		<div class="rule-filter-row__actions">
+		<div class="rule-filter-row__actions" bind:this={addFilterButton}>
 			<Button
 				icon="bin"
-				size="cta"
+				size="tag"
 				class="rule-filter-row__button"
 				kind="ghost"
-				width="auto"
 				onclick={() => {
 					deleteFilter(type);
 				}}
 			/>
+
 			{#if isLastFilterType(type) && canAddMore}
+				<div class="rule-filter-row__actions-divider"></div>
 				<Button
-					bind:el={addFilterButton}
+					size="tag"
 					class="rule-filter-row__button"
-					width="auto"
 					icon="plus"
-					size="cta"
 					kind="ghost"
 					onclick={handleAddFilter}
 				/>
@@ -285,7 +280,7 @@
 	.rule-filter-row {
 		display: flex;
 		margin-bottom: 8px;
-		gap: 8px;
+		gap: 6px;
 
 		&:last-child {
 			margin-bottom: 0;
@@ -295,9 +290,15 @@
 	.rule-filter-row__actions {
 		display: flex;
 		align-items: center;
+		padding: 4px;
+		gap: 4px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 
-	:global(.rule-filter-row .rule-filter-row__button) {
-		padding: 0 6px;
+	.rule-filter-row__actions-divider {
+		width: 1px;
+		height: 16px;
+		background-color: var(--clr-border-2);
 	}
 </style>

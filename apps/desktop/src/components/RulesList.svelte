@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Drawer from '$components/Drawer.svelte';
 	import NewRuleMenu from '$components/NewRuleMenu.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Rule from '$components/Rule.svelte';
@@ -14,22 +15,30 @@
 		compareStackTarget,
 		type RuleFilter
 	} from '$lib/rules/rule';
-	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
+	import { RULES_SERVICE, workspaceRulesSelectors } from '$lib/rules/rulesService.svelte';
 	import { getStackName } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { typedKeys } from '$lib/utils/object';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, chipToasts, Select, SelectItem, Icon } from '@gitbutler/ui';
+	import {
+		Button,
+		chipToasts,
+		Select,
+		SelectItem,
+		Icon,
+		Badge,
+		Spacer,
+		SkeletonBone
+	} from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import type { Snippet } from 'svelte';
+	import { slide } from 'svelte/transition';
 
 	type Props = {
 		projectId: string;
-		foldButton: Snippet;
 	};
 
-	const { foldButton, projectId }: Props = $props();
+	const { projectId }: Props = $props();
 
 	const rulesService = inject(RULES_SERVICE);
 	const stackService = inject(STACK_SERVICE);
@@ -49,9 +58,6 @@
 	// Component references
 	let ruleFiltersEditor = $state<RuleFiltersEditor>();
 
-	let addRuleButton = $state<HTMLDivElement>();
-	let newRuleContextMenu = $state<NewRuleMenu>();
-
 	let addFilterButton = $state<HTMLDivElement>();
 	let newFilterContextMenu = $state<NewRuleMenu>();
 
@@ -59,13 +65,12 @@
 	let mode = $state<'list' | 'edit' | 'add'>('list');
 	let editingRuleId = $state<WorkspaceRuleId | null>(null);
 
+	// Read initial collapsed state from persisted storage, default to false (open) if not found
+	const drawerPersistId = `rules-drawer-${projectId}`;
+	let drawer = $state<Drawer>();
+
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
 	const canSaveRule = $derived(stackTargetSelected !== undefined && validFilters);
-
-	function openAddRuleContextMenu(e: MouseEvent) {
-		e.stopPropagation();
-		newRuleContextMenu?.toggle(e);
-	}
 
 	function openAddFilterContextMenu(e: MouseEvent) {
 		e.stopPropagation();
@@ -85,6 +90,15 @@
 	}
 
 	function openRuleEditor() {
+		if (editingRuleId !== null) {
+			chipToasts.error('Please finish editing the current rule first');
+			return;
+		}
+		// Open drawer if it's collapsed
+		if (drawer?.getIsCollapsed()) {
+			drawer.open();
+		}
+
 		mode = 'add';
 	}
 
@@ -121,6 +135,11 @@
 	}
 
 	async function editExistingRule(rule: WorkspaceRule) {
+		if (mode === 'add' || (editingRuleId !== null && editingRuleId !== rule.id)) {
+			chipToasts.error('Please finish editing the current rule first');
+			return;
+		}
+
 		if (rule.action.type === 'implicit') {
 			chipToasts.error('Cannot edit implicit rules');
 			return;
@@ -198,48 +217,116 @@
 		mode = 'list';
 		resetEditor();
 	}
+
+	const rules = $derived(rulesService.workspaceRules(projectId));
+
+	function separateRules(allRules: WorkspaceRule[]) {
+		const regularRules: WorkspaceRule[] = [];
+		const aiRules: WorkspaceRule[] = [];
+
+		for (const rule of allRules) {
+			const hasAiFilter = rule.filters.some(
+				(filter: RuleFilter) => filter.type === 'claudeCodeSessionId'
+			);
+			if (hasAiFilter) {
+				aiRules.push(rule);
+			} else {
+				regularRules.push(rule);
+			}
+		}
+
+		return { regularRules, aiRules };
+	}
 </script>
 
-<div class="rules-list" use:focusable>
-	<div class="rules-list__header">
-		<div class="rules-list__title">
-			{@render foldButton()}
-			<h3 class="text-14 text-semibold">Rules</h3>
-		</div>
+<Drawer bind:this={drawer} bottomBorder={false} persistId={drawerPersistId} maxHeight="60%">
+	{#snippet header()}
+		<h4 class="text-14 text-semibold truncate">Rules</h4>
+		{#if rules.result.isSuccess}
+			<Badge>{rules.result.data.ids.length}</Badge>
+		{:else}
+			<Badge skeleton />
+		{/if}
+	{/snippet}
+	{#snippet actions()}
+		<Button onclick={openRuleEditor} icon="plus-small" size="tag" kind="ghost" />
+	{/snippet}
+	<div class="rules-list" use:focusable>
+		{@render ruleListContent()}
+	</div>
+</Drawer>
 
-		<div bind:this={addRuleButton}>
-			<Button
-				icon="plus-small"
-				size="tag"
-				kind="outline"
-				tooltip="Automate actions for new code changes"
-				tooltipMaxWidth={180}
-				onclick={openAddRuleContextMenu}
-				disabled={mode === 'edit' || mode === 'add'}
-				loading={creatingRule.current.isLoading}>Add rule</Button
-			>
+{#snippet skeletonLoading()}
+	<div class="rules-list__content">
+		<div class="rule-skeleton">
+			<SkeletonBone width="50%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+			<SkeletonBone width="40%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+		</div>
+		<div class="rule-skeleton">
+			<SkeletonBone width="40%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+			<SkeletonBone width="35%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+		</div>
+		<div class="rule-skeleton">
+			<SkeletonBone width="55%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
+			<SkeletonBone width="30%" height="var(--size-tag)" radius="var(--size-tag)" opacity={0.2} />
 		</div>
 	</div>
-
-	{#if mode === 'add'}
-		{@render ruleEditor()}
-	{/if}
-	{@render ruleListContent()}
-</div>
+{/snippet}
 
 {#snippet ruleListContent()}
-	{@const rules = rulesService.workspaceRules(projectId)}
 	<ReduxResult {projectId} result={rules.result}>
-		{#snippet children(rules)}
-			{#if rules.length > 0}
+		{#snippet loading()}
+			{@render skeletonLoading()}
+		{/snippet}
+
+		{#snippet children(rulesEntityState)}
+			{@const rulesArray = workspaceRulesSelectors.selectAll(rulesEntityState)}
+			{@const { regularRules, aiRules } = separateRules(rulesArray)}
+			{@const totalRules = regularRules.length + aiRules.length}
+
+			{#if totalRules > 0}
+				{#if mode === 'add'}
+					<div in:slide={{ duration: 150 }}>
+						{@render ruleEditor()}
+					</div>
+				{/if}
+
 				<div class="rules-list__content">
-					{#each rules as rule (rule.id)}
-						{#if editingRuleId === rule.id}
-							{@render ruleEditor()}
-						{:else}
-							<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
-						{/if}
-					{/each}
+					{#if regularRules.length > 0}
+						{#each regularRules.slice().reverse() as rule (rule.id)}
+							{#if editingRuleId === rule.id}
+								<div in:slide={{ duration: 150 }}>
+									{@render ruleEditor()}
+								</div>
+							{:else}
+								<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
+							{/if}
+						{/each}
+					{/if}
+
+					{#if aiRules.length > 0}
+						<div class="rules-section">
+							{#each aiRules.slice().reverse() as rule (rule.id)}
+								{#if editingRuleId === rule.id}
+									<div in:slide={{ duration: 150 }}>
+										{@render ruleEditor()}
+									</div>
+								{:else}
+									<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
+								{/if}
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{:else if mode === 'add'}
+				<div in:slide={{ duration: 170 }}>
+					{@render ruleEditor()}
+				</div>
+			{:else}
+				<div class="rules-placeholder">
+					<p class="text-13 text-body rules-placeholder-text">
+						Set up rules to automatically route changes to the right branch.
+					</p>
 				</div>
 			{/if}
 		{/snippet}
@@ -249,27 +336,6 @@
 {#snippet ruleEditor()}
 	{@const stackEntries = stackService.stacks(projectId)}
 	<div class="rules-list__editor-content">
-		{#if typedKeys(draftRuleFilterInitialValues).length > 0}
-			<div class="rules-list__filters">
-				<RuleFiltersEditor
-					bind:this={ruleFiltersEditor}
-					{projectId}
-					initialFilterValues={draftRuleFilterInitialValues}
-					addFilter={addDraftRuleFilter}
-					deleteFilter={removeDraftRuleFilter}
-				/>
-			</div>
-		{:else}
-			<div class="rules-list__matches-all">
-				<p class="text-12">Matches all changes</p>
-				<div bind:this={addFilterButton} class="rules-list__add-filter-button text-12">
-					<button type="button" onclick={openAddFilterContextMenu}>
-						<span class="underline-dotted"> Add filter +</span>
-					</button>
-				</div>
-			</div>
-		{/if}
-
 		<div class="rules-list__action">
 			<h3 class="text-13 text-semibold">Assign to branch</h3>
 			<ReduxResult {projectId} result={stackEntries.result}>
@@ -299,7 +365,7 @@
 					<Select
 						value={encodedStackTarget}
 						options={stackOptions}
-						placeholder="Select a branch…"
+						minHeight={200}
 						flex="1"
 						searchable
 						onselect={(selectedStackTarget) => {
@@ -338,11 +404,35 @@
 			</ReduxResult>
 		</div>
 
+		{#if typedKeys(draftRuleFilterInitialValues).length > 0}
+			<div class="rules-list__filters">
+				<RuleFiltersEditor
+					bind:this={ruleFiltersEditor}
+					{projectId}
+					initialFilterValues={draftRuleFilterInitialValues}
+					addFilter={addDraftRuleFilter}
+					deleteFilter={removeDraftRuleFilter}
+				/>
+			</div>
+		{:else}
+			<div class="rules-list__matches-all">
+				<p class="text-13">Matches all changes</p>
+				<div bind:this={addFilterButton} class="rules-list__add-filter-button text-12">
+					<button type="button" onclick={openAddFilterContextMenu}>
+						<span class="clr-text-1 underline-dotted"> Add filter +</span>
+					</button>
+				</div>
+			</div>
+		{/if}
+
+		<Spacer margin={2} dotted />
+
 		<div class="rules-list__editor-buttons">
 			<Button onclick={cancelRuleEdition} kind="outline">Cancel</Button>
 			<Button
 				onclick={saveRule}
 				kind="solid"
+				wide
 				style="neutral"
 				disabled={!canSaveRule}
 				loading={stackEntries.result.isLoading ||
@@ -362,44 +452,34 @@
 	/>
 {/snippet}
 
-<NewRuleMenu
-	bind:this={newRuleContextMenu}
-	addedFilterTypes={ruleFilterTypes}
-	trigger={addRuleButton}
-	addFromFilter={(type) => {
-		addDraftRuleFilter(type);
-		openRuleEditor();
-	}}
-	addEmpty={() => {
-		openRuleEditor();
-	}}
-/>
-
 <style lang="postcss">
 	.rules-list {
 		display: flex;
 		flex-direction: column;
 	}
 
-	/* HEADER */
-	.rules-list__header {
+	.rules-placeholder {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		justify-content: space-between;
-		height: 42px;
-		padding: 0 10px 0 14px;
-		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
+		justify-content: center;
+		padding: 24px 20px 32px;
+		gap: 14px;
 		background-color: var(--clr-bg-2);
 	}
 
-	.rules-list__title {
-		display: flex;
-		align-items: center;
-		gap: 6px;
+	.rules-placeholder-text {
+		color: var(--clr-text-3);
+		text-align: center;
+		text-wrap: balance;
 	}
 
 	.rules-list__content {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.rules-section {
 		display: flex;
 		flex-direction: column;
 	}
@@ -408,6 +488,7 @@
 		display: flex;
 		flex-direction: column;
 		padding: 12px;
+		padding-bottom: 16px;
 		gap: 16px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
@@ -421,8 +502,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: var(--size-cta);
-		padding: 0 12px;
+		padding: 12px;
 		gap: 8px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-2);
@@ -447,5 +527,30 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: 6px;
+	}
+
+	.rule {
+		display: flex;
+		position: relative;
+		align-items: center;
+		padding: 10px;
+		overflow: hidden;
+		gap: 4px;
+		border-bottom: 1px solid var(--clr-border-3);
+
+		&:last-child {
+			border-bottom: none;
+		}
+	}
+
+	.rule-skeleton {
+		display: flex;
+		padding: 8px;
+		gap: 4px;
+		border-bottom: 1px solid var(--clr-border-3);
+
+		&:last-child {
+			border-bottom: none;
+		}
 	}
 </style>

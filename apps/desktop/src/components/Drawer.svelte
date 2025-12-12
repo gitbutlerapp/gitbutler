@@ -6,7 +6,6 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import { Icon } from '@gitbutler/ui';
-
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { writable, type Writable } from 'svelte/store';
 	import type { ComponentProps, Snippet } from 'svelte';
@@ -26,6 +25,7 @@
 		notScrollable?: boolean;
 		childrenWrapHeight?: string;
 		childrenWrapDisplay?: 'block' | 'contents' | 'flex';
+		maxHeight?: string;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -45,6 +45,7 @@
 		notScrollable = false,
 		childrenWrapHeight,
 		childrenWrapDisplay,
+		maxHeight,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -53,13 +54,44 @@
 	const zoom = $derived($userSettings.zoom);
 
 	let containerDiv = $state<HTMLDivElement>();
-	let collapsed: Writable<boolean | undefined> = persistId
+	let internalCollapsed: Writable<boolean | undefined> = persistId
 		? persistWithExpiration<boolean>(defaultCollapsed, persistId, 1440)
 		: writable(defaultCollapsed);
+
+	const isCollapsed = $derived($internalCollapsed);
 
 	let headerHeight = $state(0);
 	let contentHeight = $state(0);
 	const totalHeightRem = $derived(pxToRem(headerHeight + 1 + contentHeight, zoom));
+
+	function setCollapsed(newValue: boolean) {
+		if (isCollapsed !== undefined) {
+			internalCollapsed.set(newValue);
+			ontoggle?.(newValue);
+		}
+	}
+
+	function toggleCollapsed() {
+		if (isCollapsed !== undefined) {
+			setCollapsed(!isCollapsed);
+		}
+	}
+
+	export function open() {
+		setCollapsed(false);
+	}
+
+	export function close() {
+		setCollapsed(true);
+	}
+
+	export function toggle() {
+		toggleCollapsed();
+	}
+
+	export function getIsCollapsed(): boolean {
+		return isCollapsed ?? false;
+	}
 </script>
 
 <div
@@ -67,24 +99,21 @@
 	class="drawer"
 	bind:this={containerDiv}
 	bind:clientHeight
-	class:collapsed={$collapsed}
-	class:bottom-border={bottomBorder && !$collapsed}
+	class:collapsed={isCollapsed}
+	class:bottom-border={bottomBorder && !isCollapsed}
 	class:grow
 	class:noshrink
+	style:max-height={maxHeight}
 >
-	<PreviewHeader {actions} bind:headerHeight {onclose}>
+	<PreviewHeader {actions} bind:headerHeight {onclose} ondblclick={toggleCollapsed}>
 		{#snippet content()}
 			<button
 				type="button"
 				class="chevron-btn"
-				class:expanded={!$collapsed}
+				class:expanded={!isCollapsed}
 				onclick={(e) => {
 					e.stopPropagation();
-					if ($collapsed !== undefined) {
-						const newValue = !$collapsed;
-						collapsed.set(newValue);
-						ontoggle?.(newValue);
-					}
+					toggleCollapsed();
 				}}
 			>
 				<Icon name="chevron-right" />
@@ -96,7 +125,7 @@
 		{/snippet}
 	</PreviewHeader>
 
-	{#if !$collapsed}
+	{#if !isCollapsed}
 		{#if notScrollable}
 			<div class="drawer__content" bind:clientHeight={contentHeight}>
 				{@render children()}
@@ -116,7 +145,7 @@
 			being lower than minHeight.
 			TODO: Move this logic into the resizer so it applies everywhere.
 		-->
-		{@const maxHeight =
+		{@const computedMaxHeight =
 			resizer.maxHeight && resizer.minHeight
 				? Math.min(resizer.maxHeight, Math.max(totalHeightRem, resizer.minHeight))
 				: undefined}
@@ -124,10 +153,10 @@
 			viewport={containerDiv}
 			defaultValue={undefined}
 			passive={resizer.passive}
-			disabled={$collapsed}
+			disabled={isCollapsed}
 			direction="down"
 			{...resizer}
-			{maxHeight}
+			maxHeight={computedMaxHeight}
 		/>
 	{/if}
 </div>
