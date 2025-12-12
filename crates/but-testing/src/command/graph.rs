@@ -19,6 +19,7 @@ pub fn doit(
     hard_limit: Option<usize>,
     no_debug_workspace: bool,
     stats: bool,
+    dangerously_skip_postprocessing_for_debugging: bool,
 ) -> anyhow::Result<()> {
     let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
     let mut repo = ctx.repo.get_mut()?;
@@ -47,7 +48,7 @@ pub fn doit(
                     .expect("the prefix is unambiguous")
             })
             .collect(),
-        dangerously_skip_postprocessing_for_debugging: false,
+        dangerously_skip_postprocessing_for_debugging,
     };
 
     // Never drop - this is read-only.

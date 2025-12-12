@@ -154,6 +154,7 @@ async fn main() -> Result<()> {
         } => command::ref_info(&args, ref_name.as_deref(), *expensive),
         args::Subcommands::Graph {
             dot_show,
+            no_post,
             stats,
             ref_name,
             limit,
@@ -181,6 +182,7 @@ async fn main() -> Result<()> {
             *hard_limit,
             *no_debug_workspace,
             *stats,
+            *no_post,
         ),
         args::Subcommands::HunkAssignments => {
             command::assignment::hunk_assignments(&args.current_dir, args.json)
