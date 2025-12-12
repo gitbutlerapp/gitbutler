@@ -12,6 +12,8 @@ export class GitLabState {
 	private _upstreamProjectId: Writable<string | undefined> | undefined;
 	private _instanceUrl: Writable<string | undefined> | undefined;
 	private _configured: Readable<boolean> | undefined;
+	private _currentProjectId: string | undefined;
+	private _unsubscribers: Array<() => void> = [];
 
 	constructor(private readonly secretService: SecretsService) {
 		this.token = writable<string | undefined>();
@@ -46,36 +48,47 @@ export class GitLabState {
 	}
 
 	init(projectId: string, repoInfo: RepoInfo | undefined) {
-		// For whatever reason, the token _sometimes_ is incorrectly fetched as null.
-		// I have no idea why, but this seems to work. There were also some
-		// weird reactivity issues. Don't touch it as you might make it angry.
-		const tokenLoading = writable(true);
+		// Skip if already initialized for this project
+		if (this._currentProjectId === projectId) {
+			return;
+		}
+
+		// Clean up previous subscriptions before reinitializing
+		this.cleanup();
+
+		this._currentProjectId = projectId;
+
+		// Track initial load to prevent saving the token we just loaded
+		let isInitialLoad = true;
 		let tokenLoadedAsNull = false;
+
+		// Load token from secret service
 		this.secretService.get(`git-lab-token:${projectId}`).then((fetchedToken) => {
 			if (fetchedToken) {
 				this.token.set(fetchedToken ?? '');
 			} else {
 				tokenLoadedAsNull = true;
 			}
-			tokenLoading.set(false);
-		});
-		const unsubscribe = tokenLoading.subscribe((loading) => {
-			if (loading) {
-				return;
-			}
-			const unsubscribe = this.token.subscribe((token) => {
-				if (!token && tokenLoadedAsNull) {
-					return;
-				}
-				this.secretService.set(`git-lab-token:${projectId}`, token ?? '');
-				tokenLoadedAsNull = false;
-			});
-			return unsubscribe;
+			isInitialLoad = false;
 		});
 
-		$effect(() => {
-			return unsubscribe;
+		// Subscribe to token changes to sync with secret service
+		const tokenUnsub = this.token.subscribe((token) => {
+			// Skip during initial load to avoid redundant save
+			if (isInitialLoad) {
+				return;
+			}
+
+			// Skip if token was loaded as null and is still null
+			if (!token && tokenLoadedAsNull) {
+				return;
+			}
+
+			this.secretService.set(`git-lab-token:${projectId}`, token ?? '');
+			tokenLoadedAsNull = false;
 		});
+
+		this._unsubscribers.push(tokenUnsub);
 
 		this._forkProjectId = persisted<string | undefined>(
 			undefined,
@@ -102,5 +115,11 @@ export class GitLabState {
 		if (!get(this.forkProjectId) && repoInfo) {
 			this.forkProjectId.set(`${repoInfo.owner}/${repoInfo.name}`);
 		}
+	}
+
+	cleanup() {
+		this._unsubscribers.forEach((unsub) => unsub());
+		this._unsubscribers = [];
+		this._currentProjectId = undefined;
 	}
 }
