@@ -105,6 +105,10 @@
 	$effect.pre(() => {
 		gitLabState.init(projectId, repoInfo);
 		gitLabClient.set(); // Temporary fix, will refactor.
+
+		return () => {
+			gitLabState.cleanup();
+		};
 	});
 
 	// Forge factory configuration
