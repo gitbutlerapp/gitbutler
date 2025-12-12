@@ -239,7 +239,7 @@
 	}
 </script>
 
-<Drawer bind:this={drawer} bottomBorder={false} persistId={drawerPersistId} maxHeight="60%">
+<Drawer bind:this={drawer} bottomBorder={false} persistId={drawerPersistId} maxHeight="60%" defaultCollapsed={true}>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">Rules</h4>
 		{#if rules.result.isSuccess}
