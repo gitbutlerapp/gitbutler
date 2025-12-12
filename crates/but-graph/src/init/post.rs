@@ -554,14 +554,16 @@ impl Graph {
             }
             Some(target_sidx) => {
                 let target_rtb = &self[target_sidx];
-                out.extend(
-                    self.first_commit_or_find_along_first_parent(target_rtb.id)
-                        .and_then(|(c, sidx)| {
-                            c.flags.contains(CommitFlags::InWorkspace).then_some(sidx)
-                        }),
-                );
-                out.sort();
-                out.dedup();
+                if self.is_connected_from_above(target_sidx, ws_sidx) {
+                    out.extend(
+                        self.first_commit_or_find_along_first_parent(target_rtb.id)
+                            .and_then(|(c, sidx)| {
+                                c.flags.contains(CommitFlags::InWorkspace).then_some(sidx)
+                            }),
+                    );
+                    out.sort();
+                    out.dedup();
+                }
             }
         }
         Ok(out)
@@ -1105,6 +1107,11 @@ impl Graph {
             self[sidx].generation = max_gen_of_incoming;
         }
     }
+
+    fn is_connected_from_above(&self, below_sidx: SegmentIndex, above_sidx: SegmentIndex) -> bool {
+        self.edges_directed(below_sidx, Direction::Incoming)
+            .any(|e| e.source() == above_sidx)
+    }
 }
 
 fn find_all_desired_stack_refs_in_commit<'a>(
@@ -1253,7 +1260,9 @@ fn create_independent_segments<T: RefMetadata>(
                 let s = &mut graph[below_idx];
                 if s.ref_name() != Some(ref_name.as_ref()) {
                     bail!(
-                        "BUG: ref-names must either be present in the first commit, or be the segment name"
+                        "BUG: ref-names must either be present in the first commit, or be the segment name: below_idx = {below_idx:?}, below.ref_name = {below_name:?}, above.ref_name = {above_name}",
+                        below_name = s.ref_name().map(|rn| rn.as_bstr()),
+                        above_name = ref_name.as_bstr()
                     )
                 }
                 s.ref_info = None;

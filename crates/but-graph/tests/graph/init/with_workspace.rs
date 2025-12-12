@@ -15,6 +15,48 @@ use crate::init::{
 };
 
 #[test]
+fn no_overzealus_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
+    // NOTE: Was supposed to reproduce #11459, but it found another issue instead.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11459")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   12102a6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 0b203b5 (X) X2
+    | * 4840f3b (origin/X) X1
+    * | 835086d (three, four) W2
+    * | ff310d3 W1
+    | | * 5e9d772 (origin/two) T1
+    | |/  
+    |/|   
+    * | a821094 (origin/main, two, remote, one, main, feat-2) M3
+    * | bce0c5e M2
+    |/  
+    * 3183e43 (A) M1
+    ");
+
+    add_stack_with_segments(&mut meta, 1, "X", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "feat-2", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:3:X <> origin/X →:5:⇡1 on 3183e43 {1}
+    │   └── 📙:3:X <> origin/X →:5:⇡1
+    │       ├── ·0b203b5 (🏘️)
+    │       └── ❄️4840f3b (🏘️)
+    └── ≡:7:anon: on 3183e43 {2}
+        ├── :7:anon:
+        │   ├── ·835086d (🏘️) ►four, ►three
+        │   └── ·ff310d3 (🏘️)
+        └── 📙:2:feat-2
+            ├── ·a821094 (🏘️|✓) ►main, ►one, ►remote, ►two
+            └── ·bce0c5e (🏘️|✓)
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn single_stack_ambiguous() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -2664,7 +2706,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
         └── 📙:5:A
     ");
 
-    // However, when passing an additional old position of the target, we can show now integrated parts.
+    // However, when passing an additional old position of the target, we can show the now-integrated parts.
     // The stacks will always be created on top of the integrated segments as that's where their references are
     // (these segments are never conjured up out of thin air).
     let graph = Graph::from_head(
