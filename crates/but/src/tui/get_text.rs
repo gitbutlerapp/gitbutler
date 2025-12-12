@@ -1,225 +1,124 @@
-//! Various functions that involve launching the editor.
-use anyhow::Result;
+//! Various functions that involve launching the Git editor (i.e. `GIT_EDITOR`).
+use anyhow::{Result, bail};
+use bstr::{BStr, BString, ByteSlice};
+use std::ffi::OsStr;
 
-/// Launches the user's preferred text editor to edit some initial text,
-/// identified by a unique identifier (to avoid temp file collisions).
-/// Returns the edited text, with comment lines (starting with '#') removed.
-pub fn from_editor_no_comments(identifier: &str, initial_text: &str) -> Result<String> {
-    let content = from_editor(identifier, initial_text)?;
+/// Launches the user's preferred text editor to edit some `initial_text`,
+/// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
+/// Note that this string must be valid in filenames.
+///
+/// Returns the edited text (*without known encoding*), with comment lines (starting with `#`) removed.
+pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
+    let content = from_editor(filename_safe_intent, initial_text)?;
 
     // Strip comment lines (starting with '#')
-    let filtered_lines: Vec<&str> = content
-        .lines()
-        .filter(|line| !line.trim_start().starts_with('#'))
+    let filtered_lines: Vec<&BStr> = content
+        .lines_with_terminator()
+        .filter(|line| !line.trim_start().starts_with_str("#"))
+        .map(|line| line.as_bstr())
         .collect();
 
-    Ok(filtered_lines.join("\n").trim().to_string())
+    Ok(filtered_lines.into_iter().collect())
 }
 
-/// Launches the user's preferred text editor to edit some initial text,
-/// identified by a unique identifier (to avoid temp file collisions).
-/// Returns the edited text.
-pub fn from_editor(identifier: &str, initial_text: &str) -> Result<String> {
+/// Launches the user's preferred text editor to edit some `initial_text`,
+/// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
+/// Note that this string must be valid in filenames.
+///
+/// Returns the edited text (*without known encoding*) verbatim.
+pub fn from_editor(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
     let editor_cmd = get_editor_command()?;
 
     // Create a temporary file with the initial text
-    let temp_dir = std::env::temp_dir();
-    let temp_file = temp_dir.join(format!("{}_{}", identifier, std::process::id()));
+    let tempfile = tempfile::Builder::new()
+        .prefix(&format!("but_{filename_safe_intent}_"))
+        .suffix(".txt")
+        .tempfile()?;
+    std::fs::write(&tempfile, initial_text)?;
 
-    std::fs::write(&temp_file, initial_text)?;
-
-    // Launch the editor
-    let status = std::process::Command::new(editor_cmd)
-        .arg(&temp_file)
-        .status()?;
+    // The editor command is allowed to be a shell expression, e.g. "code --wait" is somewhat common.
+    // We need to execute within a shell to make sure we don't get "No such file or directory" errors.
+    let status = gix::command::prepare(editor_cmd)
+        .arg(tempfile.path())
+        .stdin(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::inherit())
+        .with_shell()
+        .spawn()?
+        .wait()?;
 
     if !status.success() {
-        return Err(anyhow::anyhow!("Editor exited with non-zero status"));
+        bail!("Editor exited with non-zero status");
     }
-
-    // Read the edited text back
-    let edited_text = std::fs::read_to_string(&temp_file)?;
-    std::fs::remove_file(&temp_file).ok(); // Best effort to clean up
-    Ok(edited_text)
+    Ok(std::fs::read(&tempfile)?.into())
 }
 
-/// Checks if the terminal is dumb (TERM environment variable is "dumb")
-fn is_terminal_dumb() -> bool {
-    std::env::var("TERM")
-        .map(|term| term == "dumb")
-        .unwrap_or(false)
-}
-
-/// Implement get_editor_command to match Git's C implementation of `git_editor`.
+/// Get the user's preferred editor command.
+/// Runs `git var GIT_EDITOR`, which lets git do its resolution of the editor command.
+/// This typically uses the git config value for `core.editor`, and env vars like `GIT_EDITOR` or `EDITOR`.
+/// We fall back to notepad (Windows) or vi otherwise just in case we don't get something usable from `git var`.
 ///
-/// - Check GIT_EDITOR environment variable first
-/// - Check git config `core.editor` (editor_program)
-/// - Check VISUAL if terminal is not dumb
-/// - Check EDITOR
-/// - Return error if terminal is dumb and no editor found
-/// - Fall back to platform defaults (vi on Unix, notepad on Windows)
-/// - Add comprehensive unit tests for all scenarios
+/// Note: Because git config parsing is used, the current directory matters for potential local git config overrides.
 fn get_editor_command() -> Result<String> {
-    get_editor_command_impl(&|key| std::env::var(key), is_terminal_dumb())
+    get_editor_command_impl(std::env::vars_os())
 }
 
-/// Internal get_editor_command_implementation that can be tested without modifying environment
-fn get_editor_command_impl<F>(env_var: &F, terminal_is_dumb: bool) -> Result<String>
-where
-    F: Fn(&str) -> Result<String, std::env::VarError>,
-{
-    // Try $GIT_EDITOR first
-    if let Ok(editor) = env_var("GIT_EDITOR")
-        && !editor.is_empty()
-    {
-        return Ok(editor);
+/// Internal implementation that can be tested with the controlled environment `env`.
+fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(
+    env: impl IntoIterator<Item = (AsOsStr, AsOsStr)>,
+) -> Result<String> {
+    // Run git var with the controlled environment
+    let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
+    let res = cmd
+        .args(["var", "GIT_EDITOR"])
+        .env_clear()
+        .envs(env)
+        .output();
+    if res.is_err() {
+        // Avoid logging explicit env vars
+        cmd.env_clear();
+        tracing::warn!(
+            ?res,
+            ?cmd,
+            "Git could not be invoked even though we expect this to work"
+        );
     }
-
-    // Try git config `core.editor` (editor_program)
-    if let Ok(output) = std::process::Command::new(gix::path::env::exe_invocation())
-        .args(["config", "--get", "core.editor"])
-        .output()
+    if let Ok(output) = res
         && output.status.success()
     {
-        let editor = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let editor = output.stdout.as_bstr().trim();
         if !editor.is_empty() {
-            return Ok(editor);
+            return Ok(editor.as_bstr().to_string());
         }
     }
-
-    // Try $VISUAL if terminal is not dumb
-    if !terminal_is_dumb
-        && let Ok(editor) = env_var("VISUAL")
-        && !editor.is_empty()
-    {
-        return Ok(editor);
-    }
-
-    if let Ok(editor) = env_var("EDITOR")
-        && !editor.is_empty()
-    {
-        return Ok(editor);
-    }
-
-    // If terminal is dumb and no editor was found, return an error
-    if terminal_is_dumb {
-        return Err(anyhow::anyhow!(
-            "Terminal is dumb, but no editor specified in GIT_EDITOR, core.editor, or EDITOR"
-        ));
-    }
-
-    // Fallback to platform defaults (DEFAULT_EDITOR)
-    let default_editor = if cfg!(windows) { "notepad" } else { "vi" };
-    Ok(default_editor.to_string())
+    // fallback to platform defaults to have *something*.
+    Ok(PLATFORM_EDITOR.into())
 }
+
+const PLATFORM_EDITOR: &str = if cfg!(windows) { "notepad" } else { "vi" };
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
-
-    // Helper to create a mock environment function from a hashmap
-    fn mock_env(vars: HashMap<&str, &str>) -> impl Fn(&str) -> Result<String, std::env::VarError> {
-        move |key: &str| {
-            vars.get(key)
-                .map(|v| v.to_string())
-                .ok_or(std::env::VarError::NotPresent)
-        }
-    }
 
     #[test]
     fn git_editor_takes_precedence() {
-        let env = mock_env(HashMap::from([
-            ("GIT_EDITOR", "git-editor"),
-            ("VISUAL", "visual-editor"),
-            ("EDITOR", "editor"),
-        ]));
-        let actual = get_editor_command_impl(&env, false).unwrap();
-        assert_eq!(actual, "git-editor");
-    }
-
-    #[test]
-    fn visual_when_terminal_not_dumb() {
-        let env = mock_env(visual_and_editor());
-        let actual = get_editor_command_impl(&env, false).unwrap();
-        assert_eq!(actual, "visual-editor");
-    }
-
-    #[test]
-    fn skips_visual_when_terminal_dumb() {
-        let env = mock_env(visual_and_editor());
-        let actual = get_editor_command_impl(&env, true).unwrap();
-        assert_eq!(actual, "editor", "Should skip VISUAL and use EDITOR");
-    }
-
-    #[test]
-    fn uses_editor() {
-        let env = mock_env(HashMap::from([("EDITOR", "editor")]));
-        let actual = get_editor_command_impl(&env, false).unwrap();
-        assert_eq!(actual, "editor");
-    }
-
-    #[test]
-    fn fails_when_terminal_dumb_and_no_editor() {
-        let env = mock_env(HashMap::new());
-        let actual = get_editor_command_impl(&env, true);
-        assert!(actual.unwrap_err().to_string().contains("Terminal is dumb"));
-    }
-
-    #[test]
-    fn fails_when_terminal_dumb_with_only_visual() {
-        let env = mock_env(HashMap::from([("VISUAL", "visual-editor")]));
-        let actual = get_editor_command_impl(&env, true);
-        assert!(
-            actual.unwrap_err().to_string().contains("Terminal is dumb"),
-            "VISUAL isn't used in dumb terminals"
-        );
-    }
-
-    #[test]
-    fn ignores_empty_git_editor() {
-        let env = mock_env(HashMap::from([
-            ("GIT_EDITOR", ""),
-            ("VISUAL", "visual-editor"),
-            ("EDITOR", "editor"),
-        ]));
-        let actual = get_editor_command_impl(&env, false).unwrap();
+        let git_editor_env = Some(("GIT_EDITOR", "from-GIT_EDITOR"));
+        let actual = get_editor_command_impl(git_editor_env).unwrap();
         assert_eq!(
-            actual, "visual-editor",
-            "Empty GIT_EDITOR should be ignored, fall through to VISUAL"
+            actual, "from-GIT_EDITOR",
+            "GIT_EDITOR should take precedence if git is executed correctly"
         );
     }
 
     #[test]
-    fn ignores_empty_visual() {
-        let env = mock_env(HashMap::from([("VISUAL", ""), ("EDITOR", "editor")]));
-        let actual = get_editor_command_impl(&env, false).unwrap();
+    fn falls_back_when_nothing_set() {
+        // Empty environment, git considers this "dumb terminal" and `git var` will return empty string
+        // so our own fallback will be used
+        let no_env = None::<(String, String)>;
+        let actual = get_editor_command_impl(no_env).unwrap();
         assert_eq!(
-            actual, "editor",
-            "Empty VISUAL should be ignored, fall through to EDITOR"
+            actual, PLATFORM_EDITOR,
+            "Should fall back to vi/notepad when nothing is set"
         );
-    }
-
-    #[test]
-    fn ignores_empty_editor() {
-        let env = mock_env(HashMap::from([("EDITOR", "")]));
-        let actual = get_editor_command_impl(&env, false).unwrap();
-        assert_eq!(
-            actual, PLATFORM_DEFAULT,
-            "Empty EDITOR should be ignored, fall back to default"
-        );
-    }
-
-    #[test]
-    fn falls_back_to_default_when_no_vars_set() {
-        let env = mock_env(HashMap::new());
-        let actual = get_editor_command_impl(&env, false).unwrap();
-        assert_eq!(actual, PLATFORM_DEFAULT);
-    }
-
-    const PLATFORM_DEFAULT: &str = if cfg!(windows) { "notepad" } else { "vi" };
-
-    fn visual_and_editor() -> HashMap<&'static str, &'static str> {
-        HashMap::from([("VISUAL", "visual-editor"), ("EDITOR", "editor")])
     }
 }

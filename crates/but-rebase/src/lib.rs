@@ -5,7 +5,7 @@
 
 use anyhow::{Context as _, Ok, Result, anyhow, bail};
 use bstr::BString;
-use gix::{objs::Exists, prelude::ObjectIdExt};
+use gix::prelude::ObjectIdExt;
 use tracing::instrument;
 
 use crate::commit::DateMode;
@@ -91,8 +91,10 @@ impl<'repo> Rebase<'repo> {
         base_substitute: Option<gix::ObjectId>,
     ) -> Result<Self> {
         let base = base.into();
-        if base.is_some() && base.filter(|base| repo.exists(base)).is_none() {
-            bail!("Base commit must exist if provided: {}", base.unwrap());
+        if let Some(base) = base
+            && !repo.has_object(base)
+        {
+            bail!("Base commit must exist if provided: {}", base);
         }
         Ok(Self {
             repo,

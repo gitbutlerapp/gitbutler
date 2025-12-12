@@ -116,6 +116,7 @@ minus = { version = "5.6.1", default-features = false, features = [
 ] }
 unicode-width = "0.2"
 cfg-if = "1.0.4"
+tempfile.workspace = true
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }
