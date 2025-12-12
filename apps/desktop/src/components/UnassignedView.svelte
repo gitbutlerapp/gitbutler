@@ -5,7 +5,6 @@
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import { ActionEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
@@ -26,9 +25,7 @@
 	const uiState = inject(UI_STATE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
-	const settingsService = inject(SETTINGS_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
-	const settingsStore = $derived(settingsService.appSettings);
 	const projectState = $derived(uiState.project(projectId));
 	const unassignedSidebarFolded = $derived(uiState.global.unassignedSidebarFolded);
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -159,9 +156,7 @@
 			{/if}
 		</div>
 
-		{#if $settingsStore?.featureFlags.rules}
-			<RulesList {projectId} />
-		{/if}
+		<RulesList {projectId} />
 	</div>
 {:else}
 	<div

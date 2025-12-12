@@ -28,7 +28,8 @@
 		Icon,
 		Badge,
 		Spacer,
-		SkeletonBone
+		SkeletonBone,
+		Link
 	} from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -239,7 +240,13 @@
 	}
 </script>
 
-<Drawer bind:this={drawer} bottomBorder={false} persistId={drawerPersistId} maxHeight="60%">
+<Drawer
+	bind:this={drawer}
+	bottomBorder={false}
+	persistId={drawerPersistId}
+	maxHeight="60%"
+	defaultCollapsed={true}
+>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">Rules</h4>
 		{#if rules.result.isSuccess}
@@ -325,7 +332,16 @@
 			{:else}
 				<div class="rules-placeholder">
 					<p class="text-13 text-body rules-placeholder-text">
-						Set up rules to automatically route changes to the right branch.
+						Let rules automatically sort your changes.
+						<Link
+							href="https://docs.gitbutler.com/features/branch-management/rules"
+							class="underline-dotted clr-text-2"
+						>
+							Read the docs
+						</Link> or set up your
+						<button type="button" class="underline-dotted clr-text-2" onclick={openRuleEditor}>
+							first rule
+						</button> +
 					</p>
 				</div>
 			{/if}
