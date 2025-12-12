@@ -497,8 +497,9 @@ fn get_commit_message_from_editor(
     template.push_str("#\n");
 
     // Read the result from the editor and strip comments
-    let message = tui::get_text::from_editor_no_comments("commit_msg", &template)?;
-    Ok(message)
+    let lossy_message =
+        tui::get_text::from_editor_no_comments("commit_msg", &template)?.to_string();
+    Ok(lossy_message)
 }
 
 fn get_status_char(path: &BString, changes: &[TreeChange]) -> &'static str {

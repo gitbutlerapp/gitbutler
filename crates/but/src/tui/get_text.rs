@@ -1,31 +1,32 @@
 //! Various functions that involve launching the Git editor (i.e. `GIT_EDITOR`).
-use anyhow::Result;
-use bstr::ByteSlice;
+use anyhow::{Result, bail};
+use bstr::{BStr, BString, ByteSlice};
 use std::ffi::OsStr;
 
 /// Launches the user's preferred text editor to edit some `initial_text`,
 /// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
 /// Note that this string must be valid in filenames.
 ///
-/// Returns the edited text, with comment lines (starting with `#`) removed.
-pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -> Result<String> {
+/// Returns the edited text (*without known encoding*), with comment lines (starting with `#`) removed.
+pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
     let content = from_editor(filename_safe_intent, initial_text)?;
 
     // Strip comment lines (starting with '#')
-    let filtered_lines: Vec<&str> = content
-        .lines()
-        .filter(|line| !line.trim_start().starts_with('#'))
+    let filtered_lines: Vec<&BStr> = content
+        .lines_with_terminator()
+        .filter(|line| !line.trim_start().starts_with_str("#"))
+        .map(|line| line.as_bstr())
         .collect();
 
-    Ok(filtered_lines.join("\n").trim().to_string())
+    Ok(filtered_lines.into_iter().collect())
 }
 
 /// Launches the user's preferred text editor to edit some `initial_text`,
 /// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
 /// Note that this string must be valid in filenames.
 ///
-/// Returns the edited text verbatim.
-pub fn from_editor(identifier: &str, initial_text: &str) -> Result<String> {
+/// Returns the edited text (*without known encoding*) verbatim.
+pub fn from_editor(identifier: &str, initial_text: &str) -> Result<BString> {
     let editor_cmd = get_editor_command()?;
 
     // Create a temporary file with the initial text
@@ -46,9 +47,9 @@ pub fn from_editor(identifier: &str, initial_text: &str) -> Result<String> {
         .wait()?;
 
     if !status.success() {
-        return Err(anyhow::anyhow!("Editor exited with non-zero status"));
+        bail!("Editor exited with non-zero status");
     }
-    Ok(std::fs::read_to_string(&tempfile)?)
+    Ok(std::fs::read(&tempfile)?.into())
 }
 
 /// Get the user's preferred editor command.

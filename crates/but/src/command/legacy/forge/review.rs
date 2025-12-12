@@ -564,8 +564,8 @@ fn get_review_body_from_editor(
     template.push_str("# with '#' will be ignored, and an empty body is allowed.\n");
     template.push_str("#\n");
 
-    let body = get_text::from_editor_no_comments("review_body", &template)?;
-    Ok(body)
+    let lossy_body = get_text::from_editor_no_comments("review_body", &template)?.to_string();
+    Ok(lossy_body)
 }
 
 /// Extract the commit description (body) from the commit message, skipping the first line (title).
@@ -606,13 +606,13 @@ fn get_review_title_from_editor(
     template.push_str("# with '#' will be ignored, and an empty title aborts the operation.\n");
     template.push_str("#\n");
 
-    let title = get_text::from_editor_no_comments("review_title", &template)?;
+    let lossy_title = get_text::from_editor_no_comments("review_title", &template)?.to_string();
 
-    if title.is_empty() {
+    if lossy_title.is_empty() {
         anyhow::bail!("Aborting due to empty review title");
     }
 
-    Ok(title)
+    Ok(lossy_title)
 }
 
 /// Extract the commit title from the commit message (first line).
