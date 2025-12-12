@@ -26,12 +26,12 @@ pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -
 /// Note that this string must be valid in filenames.
 ///
 /// Returns the edited text (*without known encoding*) verbatim.
-pub fn from_editor(identifier: &str, initial_text: &str) -> Result<BString> {
+pub fn from_editor(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
     let editor_cmd = get_editor_command()?;
 
     // Create a temporary file with the initial text
     let tempfile = tempfile::Builder::new()
-        .prefix(&format!("but_{identifier}_"))
+        .prefix(&format!("but_{filename_safe_intent}_"))
         .suffix(".txt")
         .tempfile()?;
     std::fs::write(&tempfile, initial_text)?;
