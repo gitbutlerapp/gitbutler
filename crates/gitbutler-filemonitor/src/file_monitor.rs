@@ -194,8 +194,8 @@ pub fn spawn(
                                             .insert(relative_file_path.to_owned());
                                     };
                                 }
-                                Err(err) => {
-                                    tracing::error!(%project_id, ?err, "failed to strip prefix");
+                                Err(_) => {
+                                    tracing::warn!(%project_id, ?file_path, ?worktree_path, "failed to strip prefix");
                                 }
                             },
                         }
