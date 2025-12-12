@@ -1,6 +1,7 @@
-//! Various functions that involve launching the editor.
+//! Various functions that involve launching the Git editor (i.e. `GIT_EDITOR`).
 use anyhow::Result;
-use std::collections::HashMap;
+use bstr::ByteSlice;
+use std::ffi::OsStr;
 
 /// Launches the user's preferred text editor to edit some initial text,
 /// identified by a unique identifier (to avoid temp file collisions).
@@ -52,44 +53,55 @@ pub fn from_editor(identifier: &str, initial_text: &str) -> Result<String> {
 /// Get the user's preferred editor command.
 /// Runs `git var GIT_EDITOR`, which lets git do its resolution of the editor command.
 /// This typically uses the git config value for `core.editor`, and env vars like `GIT_EDITOR` or `EDITOR`.
-/// We fallback to notepad (Windows) or vi otherwise just in case we don't get something usable from `git var`.
+/// We fall back to notepad (Windows) or vi otherwise just in case we don't get something usable from `git var`.
 ///
 /// Note: Because git config parsing is used, the current directory matters for potential local git config overrides.
 fn get_editor_command() -> Result<String> {
-    let env: HashMap<String, String> = std::env::vars().collect();
-    get_editor_command_impl(&env)
+    get_editor_command_impl(std::env::vars_os())
 }
 
-/// Internal implementation that can be tested with controlled environment
-fn get_editor_command_impl(env: &HashMap<String, String>) -> Result<String> {
+/// Internal implementation that can be tested with the controlled environment `env`.
+fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(
+    env: impl IntoIterator<Item = (AsOsStr, AsOsStr)>,
+) -> Result<String> {
     // Run git var with the controlled environment
-    if let Ok(output) = std::process::Command::new(gix::path::env::exe_invocation())
+    let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
+    let res = cmd
         .args(["var", "GIT_EDITOR"])
         .env_clear()
         .envs(env)
-        .output()
+        .output();
+    if res.is_err() {
+        // Avoid logging explicit env vars
+        cmd.env_clear();
+        tracing::warn!(
+            ?res,
+            ?cmd,
+            "Git could not be invoked even though we expect this to work"
+        );
+    }
+    if let Ok(output) = res
         && output.status.success()
     {
-        let editor = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let editor = output.stdout.as_bstr().trim();
         if !editor.is_empty() {
-            return Ok(editor);
+            return Ok(editor.as_bstr().to_string());
         }
     }
-
-    // Simple fallback to platform defaults
-    Ok(if cfg!(windows) { "notepad" } else { "vi" }.to_string())
+    // fallback to platform defaults to have *something*.
+    Ok(PLATFORM_EDITOR.into())
 }
+
+const PLATFORM_EDITOR: &str = if cfg!(windows) { "notepad" } else { "vi" };
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const OUR_PLATFORM_DEFAULT: &str = if cfg!(windows) { "notepad" } else { "vi" };
-
     #[test]
     fn git_editor_takes_precedence() {
-        let env = HashMap::from([("GIT_EDITOR".to_string(), "from-GIT_EDITOR".to_string())]);
-        let actual = get_editor_command_impl(&env).unwrap();
+        let git_editor_env = Some(("GIT_EDITOR", "from-GIT_EDITOR"));
+        let actual = get_editor_command_impl(git_editor_env).unwrap();
         assert_eq!(
             actual, "from-GIT_EDITOR",
             "GIT_EDITOR should take precedence if git is executed correctly"
@@ -100,10 +112,10 @@ mod tests {
     fn falls_back_when_nothing_set() {
         // Empty environment, git considers this "dumb terminal" and `git var` will return empty string
         // so our own fallback will be used
-        let env = HashMap::new();
-        let actual = get_editor_command_impl(&env).unwrap();
+        let no_env = None::<(String, String)>;
+        let actual = get_editor_command_impl(no_env).unwrap();
         assert_eq!(
-            actual, OUR_PLATFORM_DEFAULT,
+            actual, PLATFORM_EDITOR,
             "Should fall back to vi/notepad when nothing is set"
         );
     }
