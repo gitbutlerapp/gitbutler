@@ -497,7 +497,7 @@ fn get_commit_message_from_editor(
     template.push_str("#\n");
 
     // Read the result from the editor and strip comments
-    let message = tui::get_text::from_editor_no_comments("but_commit_msg", &template)?;
+    let message = tui::get_text::from_editor_no_comments("commit_msg", &template)?;
     Ok(message)
 }
 

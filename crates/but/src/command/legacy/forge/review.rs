@@ -564,7 +564,7 @@ fn get_review_body_from_editor(
     template.push_str("# with '#' will be ignored, and an empty body is allowed.\n");
     template.push_str("#\n");
 
-    let body = get_text::from_editor_no_comments("but_review_body", &template)?;
+    let body = get_text::from_editor_no_comments("review_body", &template)?;
     Ok(body)
 }
 
@@ -606,7 +606,7 @@ fn get_review_title_from_editor(
     template.push_str("# with '#' will be ignored, and an empty title aborts the operation.\n");
     template.push_str("#\n");
 
-    let title = get_text::from_editor_no_comments("but_review_title", &template)?;
+    let title = get_text::from_editor_no_comments("review_title", &template)?;
 
     if title.is_empty() {
         anyhow::bail!("Aborting due to empty review title");

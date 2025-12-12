@@ -3,11 +3,13 @@ use anyhow::Result;
 use bstr::ByteSlice;
 use std::ffi::OsStr;
 
-/// Launches the user's preferred text editor to edit some initial text,
-/// identified by a unique identifier (to avoid temp file collisions).
-/// Returns the edited text, with comment lines (starting with '#') removed.
-pub fn from_editor_no_comments(identifier: &str, initial_text: &str) -> Result<String> {
-    let content = from_editor(identifier, initial_text)?;
+/// Launches the user's preferred text editor to edit some `initial_text`,
+/// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
+/// Note that this string must be valid in filenames.
+///
+/// Returns the edited text, with comment lines (starting with `#`) removed.
+pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -> Result<String> {
+    let content = from_editor(filename_safe_intent, initial_text)?;
 
     // Strip comment lines (starting with '#')
     let filtered_lines: Vec<&str> = content
@@ -18,22 +20,25 @@ pub fn from_editor_no_comments(identifier: &str, initial_text: &str) -> Result<S
     Ok(filtered_lines.join("\n").trim().to_string())
 }
 
-/// Launches the user's preferred text editor to edit some initial text,
-/// identified by a unique identifier (to avoid temp file collisions).
-/// Returns the edited text.
+/// Launches the user's preferred text editor to edit some `initial_text`,
+/// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
+/// Note that this string must be valid in filenames.
+///
+/// Returns the edited text verbatim.
 pub fn from_editor(identifier: &str, initial_text: &str) -> Result<String> {
     let editor_cmd = get_editor_command()?;
 
     // Create a temporary file with the initial text
-    let temp_dir = std::env::temp_dir();
-    let temp_file = temp_dir.join(format!("{}_{}", identifier, std::process::id()));
-
-    std::fs::write(&temp_file, initial_text)?;
+    let tempfile = tempfile::Builder::new()
+        .prefix(&format!("but_{identifier}_"))
+        .suffix(".txt")
+        .tempfile()?;
+    std::fs::write(&tempfile, initial_text)?;
 
     // The editor command is allowed to be a shell expression, e.g. "code --wait" is somewhat common.
     // We need to execute within a shell to make sure we don't get "No such file or directory" errors.
     let status = gix::command::prepare(editor_cmd)
-        .arg(&temp_file)
+        .arg(tempfile.path())
         .stdin(std::process::Stdio::inherit())
         .stdout(std::process::Stdio::inherit())
         .with_shell()
@@ -43,11 +48,7 @@ pub fn from_editor(identifier: &str, initial_text: &str) -> Result<String> {
     if !status.success() {
         return Err(anyhow::anyhow!("Editor exited with non-zero status"));
     }
-
-    // Read the edited text back
-    let edited_text = std::fs::read_to_string(&temp_file)?;
-    std::fs::remove_file(&temp_file).ok(); // Best effort to clean up
-    Ok(edited_text)
+    Ok(std::fs::read_to_string(&tempfile)?)
 }
 
 /// Get the user's preferred editor command.
