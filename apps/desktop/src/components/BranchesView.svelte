@@ -19,6 +19,7 @@
 	import CurrentOriginCard from '$components/branchesPage/CurrentOriginCard.svelte';
 	import PRListCard from '$components/branchesPage/PRListCard.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { BranchesSelectionActions } from '$lib/branches/branchesSelection';
 	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import { isParsedError } from '$lib/error/parser';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -52,7 +53,7 @@
 	const prUnit = $derived(prService?.unit);
 
 	const projectState = $derived(uiState.project(projectId));
-	const branchesState = $derived(projectState.branchesSelection);
+	const branchesSelection = $derived(projectState.branchesSelection);
 
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 
@@ -67,7 +68,7 @@
 	let branchViewLeftEl = $state<HTMLDivElement>();
 
 	const selectionId: SelectionId | undefined = $derived.by(() => {
-		const current = branchesState?.current;
+		const current = branchesSelection?.current;
 		if (current.commitId) {
 			return createCommitSelection({ commitId: current.commitId, stackId: current.stackId });
 		}
@@ -81,7 +82,7 @@
 	});
 
 	async function checkoutBranch() {
-		const { branchName, remote, prNumber, hasLocal } = branchesState.current;
+		const { branchName, remote, prNumber, hasLocal } = branchesSelection.current;
 		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
 		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
 		if (branchRef) {
@@ -98,7 +99,7 @@
 	}
 
 	async function deleteLocalBranch(branchName: string) {
-		const hasLocal = branchesState.current.hasLocal;
+		const hasLocal = branchesSelection.current.hasLocal;
 		if (!hasLocal) {
 			return;
 		}
@@ -110,7 +111,7 @@
 		});
 
 		// Unselect branch
-		branchesState.set({});
+		BranchesSelectionActions.clear(branchesSelection);
 		await baseBranchService.refreshBaseBranch(projectId);
 	}
 
@@ -129,7 +130,7 @@
 	function onerror(err: unknown) {
 		// Clear selection if branch not found.
 		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
-			branchesState.set({});
+			BranchesSelectionActions.clear(branchesSelection);
 			console.warn('Branches selection cleared');
 		}
 	}
@@ -151,7 +152,7 @@
 	bind:this={deleteLocalBranchModal}
 	title="Delete local branch"
 	width="small"
-	defaultItem={branchesState.current.branchName}
+	defaultItem={branchesSelection.current.branchName}
 	onSubmit={async (close, branchName: string | undefined) => {
 		if (branchName) {
 			await deleteLocalBranch(branchName);
@@ -182,7 +183,7 @@
 <ReduxResult {projectId} result={baseBranchQuery.result}>
 	{#snippet children(baseBranch)}
 		{@const lastCommit = baseBranch.recentCommits.at(0)}
-		{@const current = branchesState.current}
+		{@const current = branchesSelection.current}
 		{@const currentBranchName = current.branchName ?? baseBranch.shortName}
 		{@const someBranchSelected = current.branchName !== undefined}
 		{@const isTargetBranch =
@@ -212,7 +213,7 @@
 									}
 								: undefined}
 							onclick={() => {
-								branchesState.set({ branchName: baseBranch.shortName, isTarget: true });
+								BranchesSelectionActions.selectTarget(branchesSelection, baseBranch.shortName);
 							}}
 							selected={(current.branchName === undefined ||
 								current.branchName === baseBranch.shortName) &&
@@ -236,15 +237,16 @@
 										: current.branchName === sidebarEntrySubject.subject.name}
 									onclick={({ listing, pr }) => {
 										if (listing.stack) {
-											branchesState.set({
+											BranchesSelectionActions.selectStack(branchesSelection, {
 												stackId: listing.stack.id,
-												branchName: listing.stack.branches.at(0),
+												// Stack should always have at least one branch
+												branchName: listing.stack.branches[0]!,
 												prNumber: pr?.number,
 												inWorkspace: listing.stack.inWorkspace,
 												hasLocal: listing.hasLocal
 											});
 										} else {
-											branchesState.set({
+											BranchesSelectionActions.selectBranch(branchesSelection, {
 												branchName: listing.name,
 												prNumber: pr?.number,
 												remote: listing.remotes.at(0),
@@ -267,7 +269,7 @@
 									}}
 									modifiedAt={sidebarEntrySubject.subject.modifiedAt}
 									selected={current.prNumber === sidebarEntrySubject.subject.number}
-									onclick={(pr) => branchesState.set({ prNumber: pr.number })}
+									onclick={(pr) => BranchesSelectionActions.selectPr(branchesSelection, pr.number)}
 									noRemote
 								/>
 							{/if}
@@ -350,12 +352,20 @@
 							<ConfigurableScrollableContainer>
 								<div class="commits with-padding" use:focusable={{ vertical: true }}>
 									{#if current.stackId}
-										<BranchesViewStack {projectId} stackId={current.stackId} {onerror} />
+										<BranchesViewStack
+											{projectId}
+											stackId={current.stackId}
+											inWorkspace={current.inWorkspace ?? false}
+											hasLocal={current.hasLocal ?? false}
+											{onerror}
+										/>
 									{:else if current.branchName}
 										<BranchesViewBranch
 											{projectId}
 											branchName={current.branchName}
 											remote={current.remote}
+											inWorkspace={current.inWorkspace ?? false}
+											hasLocal={current.hasLocal ?? false}
 											{onerror}
 										/>
 									{/if}
