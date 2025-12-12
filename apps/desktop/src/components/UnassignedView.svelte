@@ -110,15 +110,12 @@
 					{foldButton}
 				>
 					{#snippet emptyPlaceholder()}
-						<div class="unassigned__empty">
-							<div class="unassigned__empty__placeholder">
-								{@html noChanges}
-								<p class="text-13 text-body unassigned__empty__placeholder-text">
-									You're all caught up!<br />
-									No files need committing
-								</p>
-							</div>
-							<UnassignedViewForgePrompt {projectId} />
+						<div class="unassigned__empty__placeholder">
+							{@html noChanges}
+							<p class="text-13 text-body unassigned__empty__placeholder-text">
+								You're all caught up!<br />
+								No files need committing
+							</p>
 						</div>
 					{/snippet}
 				</WorktreeChanges>
@@ -182,12 +179,6 @@
 {/if}
 
 <style lang="postcss">
-	.unassigned__empty {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-	}
-
 	.unassigned__empty__placeholder {
 		display: flex;
 		flex: 1;
