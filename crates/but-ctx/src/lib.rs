@@ -140,11 +140,12 @@ impl Context {
             let worktree_dir = repo
                 .workdir()
                 .context("Bare repositories aren't yet supported.")?;
-            let project = LegacyProject::find_by_worktree_dir(worktree_dir)?;
+            let legacy_project = LegacyProject::find_by_worktree_dir(worktree_dir)
+                .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
             Ok(Context {
                 settings,
                 gitdir: gitdir.clone(),
-                legacy_project: project,
+                legacy_project,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
@@ -163,12 +164,13 @@ impl Context {
             let worktree_dir = repo
                 .workdir()
                 .context("Bare repositories aren't yet supported.")?;
-            let project = LegacyProject::find_by_worktree_dir(worktree_dir)?;
+            let legacy_project = LegacyProject::find_by_worktree_dir(worktree_dir)
+                .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
             let gitdir = repo.git_dir().to_owned();
             Ok(Context {
                 settings: AppSettings::load_from_default_path_creating()?,
                 gitdir: gitdir.clone(),
-                legacy_project: project,
+                legacy_project,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
@@ -199,10 +201,7 @@ impl Context {
 
         Ok(Context {
             #[cfg(feature = "legacy")]
-            legacy_project: {
-                LegacyProject::default_with_id(LegacyProjectId::from_number_for_testing(1))
-                    .with_paths_for_testing(gitdir.clone(), repo.workdir().map(ToOwned::to_owned))
-            },
+            legacy_project: default_legacy_project_at_repo(&repo),
             gitdir: gitdir.clone(),
             settings,
             repo: new_ondemand_repo(gitdir.clone()),
@@ -421,6 +420,15 @@ fn new_ondemand_git2_repo(gitdir: PathBuf) -> OnDemand<git2::Repository> {
 
 fn new_ondemand_db(gitdir: PathBuf) -> OnDemand<but_db::DbHandle> {
     OnDemand::new(move || but_db::DbHandle::new_in_directory(project_data_dir(&gitdir)))
+}
+
+#[cfg(feature = "legacy")]
+fn default_legacy_project_at_repo(repo: &gix::Repository) -> LegacyProject {
+    LegacyProject::default_with_id(LegacyProjectId::from_number_for_testing(1))
+        .with_paths_for_testing(
+            repo.git_dir().to_owned(),
+            repo.workdir().map(ToOwned::to_owned),
+        )
 }
 
 mod ondemand;
