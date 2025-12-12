@@ -1253,7 +1253,9 @@ fn create_independent_segments<T: RefMetadata>(
                 let s = &mut graph[below_idx];
                 if s.ref_name() != Some(ref_name.as_ref()) {
                     bail!(
-                        "BUG: ref-names must either be present in the first commit, or be the segment name"
+                        "BUG: ref-names must either be present in the first commit, or be the segment name: below_idx = {below_idx:?}, below.ref_name = {below_name:?}, above.ref_name = {above_name}",
+                        below_name = s.ref_name().map(|rn| rn.as_bstr()),
+                        above_name = ref_name.as_bstr()
                     )
                 }
                 s.ref_info = None;
