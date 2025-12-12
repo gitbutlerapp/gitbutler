@@ -319,7 +319,7 @@
 					{/if}
 				</div>
 			{:else if mode === 'add'}
-				<div transition:slide={{ duration: 170 }}>
+				<div in:slide={{ duration: 170 }}>
 					{@render ruleEditor()}
 				</div>
 			{:else}
