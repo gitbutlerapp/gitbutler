@@ -10,7 +10,7 @@ pub(crate) mod types {
     /// which is self-describing and able to point to a path on disk while being URL safe.
     pub type LegacyProjectId = gitbutler_project::ProjectId;
 
-    /// Project metadata and utilities to access it. Superseded by [`Context`].
+    /// Project metadata and utilities to access it. Superseded by [`crate::Context`].
     pub type LegacyProject = gitbutler_project::Project;
 }
 

@@ -259,7 +259,7 @@ pub struct StackDetails {
     pub is_conflicted: bool,
 }
 
-/// Represents a branch in a [`Stack`]. It contains commits derived from the local pseudo branch and it's respective remote
+/// Represents a branch in a `Stack`. It contains commits derived from the local pseudo branch and it's respective remote
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Branch {

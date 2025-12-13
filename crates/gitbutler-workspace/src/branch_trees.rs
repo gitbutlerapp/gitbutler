@@ -207,7 +207,7 @@ pub struct BranchHeadAndTree {
 /// tree commit, and the the tree oid will be the auto-resolved tree.
 ///
 /// This does not mutate the branch, or update the virtual_branches.toml.
-/// You probably also want to call [`checkout_branch_trees`] after you have
+/// You probably also want to call `checkout_branch_trees` after you have
 /// mutated the virtual_branches.toml.
 #[deprecated = "not needed after v3 is out"]
 pub fn compute_updated_branch_head(
@@ -236,7 +236,7 @@ pub fn compute_updated_branch_head(
 /// use [`compute_updated_branch_head`] instead to prevent programmer error.
 ///
 /// This does not mutate the branch, or update the virtual_branches.toml.
-/// You probably also want to call [`checkout_branch_trees`] after you have
+/// You probably also want to call `checkout_branch_trees` after you have
 /// mutated the virtual_branches.toml.
 #[deprecated = "not needed after v3 is out"]
 pub fn compute_updated_branch_head_for_commits(

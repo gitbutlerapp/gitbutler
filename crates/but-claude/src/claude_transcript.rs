@@ -148,7 +148,7 @@ impl Transcript {
     /// non-alphanumeric characters removed. and where the session is the uuid
     /// printed out in hex.
     ///
-    /// https://github.com/anthropics/claude-code/issues/5165 could remove any
+    /// <https://github.com/anthropics/claude-code/issues/5165> could remove any
     /// need for this speculation.
     pub fn get_transcript_path(project_cwd: &Path, session_id: uuid::Uuid) -> Result<PathBuf> {
         let formatted_cwd = project_cwd

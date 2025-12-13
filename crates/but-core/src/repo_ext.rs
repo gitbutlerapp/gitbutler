@@ -16,7 +16,7 @@ pub trait RepositoryExt {
     fn default_merge_labels(&self) -> gix::merge::blob::builtin_driver::text::Labels<'static>;
 
     /// Return the configuration freshly loaded from `.git/config` so that it can be changed in memory,
-    /// and possibly written back with [Self::write_local_config()].
+    /// and possibly written back with [`Self::write_local_common_config()`].
     fn local_common_config_for_editing(&self) -> anyhow::Result<gix::config::File<'static>>;
     /// Write the given `local_config` to `.git/config` of the common repository.
     /// Note that we never write linked worktree-local configuration.

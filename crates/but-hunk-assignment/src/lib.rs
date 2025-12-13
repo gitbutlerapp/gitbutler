@@ -4,8 +4,8 @@
 //!
 //! HunkAssignment - None or Some(Stack in workspace)
 //!
-//! reconcile_assignments - takes worktree changes (Vec<TreeChange>) + current assignments (Vec<HunkAssignment>)
-//! returns updated assignments (Vec<HunkAssignment>)
+//! reconcile_assignments - takes worktree changes (`Vec<TreeChange>`) + current assignments (`Vec<HunkAssignment>`)
+//! returns updated assignments (`Vec<HunkAssignment>`)
 //!
 //! set_assignments
 

@@ -197,7 +197,7 @@ impl Claudes {
         // transcript, that a session was created. This is _not_ the best
         // way to do this.
         //
-        // https://github.com/anthropics/claude-code/issues/5161 could
+        // <https://github.com/anthropics/claude-code/issues/5161> could
         // simplify this
         let (summary_to_resume, session_id, session) = {
             let mut ctx = sync_ctx.clone().into_thread_local();

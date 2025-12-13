@@ -55,7 +55,7 @@ pub struct Workspace<'graph> {
     /// possibly pushed branches are considered integrated. This happens when there is a local branch
     /// checked out without a remote tracking branch.
     pub target_ref: Option<TargetRef>,
-    /// A commit reachable by [`Self::TargetRef`] which we chose to keep as base. That way we can extend the workspace
+    /// A commit reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
     /// past its computed lower bound.
     ///
     /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
@@ -431,8 +431,8 @@ impl Graph {
     /// Further, the most expensive operations we perform to query additional commit information by reading it, but we
     /// only do so on the ones that the user can interact with.
     ///
-    /// The [`extra_target`](crate::init::Options::extra_target) options extends the workspace to include that target as base.
-    /// The same is true for (target commit ids)[but_core::ref_metadata::Workspace::target_commit_id].
+    /// The [extra-target](crate::init::Options::with_extra_target_commit_id) option extends the workspace to include
+    /// that target as base. The same is true for [target commit ids](but_core::ref_metadata::Workspace::target_commit_id).
     /// This affects what we consider to be the part of the workspace.
     /// Typically, that's a previous location of the target segment.
     #[instrument(level = tracing::Level::TRACE, skip(self), err(Debug))]

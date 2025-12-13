@@ -166,6 +166,27 @@ jobs:
         with:
           command: check bans licenses sources
 
+  cargo-doc:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          shared-key: cargo-doc
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Dependencies for 'keyring'
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      - name: Check documentation
+        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri
+
   rust-test:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
@@ -247,6 +268,7 @@ jobs:
       - rust-test
       - rust-test-tauri
       - rust-lint
+      - cargo-doc
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always

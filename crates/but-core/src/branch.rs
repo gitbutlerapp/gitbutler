@@ -2,9 +2,10 @@ use std::{collections::BTreeMap, path::PathBuf};
 
 type WorktreePathByRef = BTreeMap<gix::refs::FullName, Vec<PathBuf>>;
 
-/// State for reuse in [`safe_delete()`].
+/// State for reuse when [safely deleting references](SafeDelete::delete_reference).
 #[derive(Debug)]
 pub struct SafeDelete {
+    /// A mapping of one or more worktree paths that are affected by changes to the keyed reference name.
     worktrees_by_ref: WorktreePathByRef,
 }
 
@@ -33,7 +34,7 @@ impl SafeDelete {
 }
 
 impl SafeDelete {
-    /// Delete the reference `rn` no `HEAD` in any worktree points to `rn` directly or indirectly.
+    /// Delete the reference `rn` if no `HEAD` in any worktree points to `rn` directly or indirectly.
     /// Return an outcome to indicate if it was deleted or not.
     pub fn delete_reference(&self, rn: &gix::Reference) -> anyhow::Result<SafeDeleteOutcome<'_>> {
         let out = if let Some(paths) = self.worktrees_by_ref.get(&rn.inner.name) {

@@ -142,7 +142,7 @@ pub mod ui;
 
 mod utils;
 
-/// Produce one [`InputStack`] instance for each [`but_workspace::StackEntry`] in `stacks` for use in [`WorkspaceRanges::try_from_stacks`].
+/// Produce one [`InputStack`] instance for each [`but_workspace::legacy::ui::StackEntry`] in `stacks` for use in [`WorkspaceRanges::try_from_stacks`].
 ///
 /// `common_merge_base` is expected to be the merge base that all `stacks` have in common, as would be created with [gix::Repository::merge_base_octopus()].
 pub fn workspace_stacks_to_input_stacks(

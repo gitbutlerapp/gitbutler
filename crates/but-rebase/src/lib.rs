@@ -21,7 +21,7 @@ pub mod commit;
 /// Utilities around merging
 pub mod merge;
 
-/// An instruction for [`RebaseBuilder::rebase()`].
+/// An instruction for [`Rebase::rebase()`].
 #[derive(Debug, Clone)]
 pub enum RebaseStep {
     /// Pick an existing commit and place it on top of `base` and optionally reword it.
@@ -64,7 +64,7 @@ impl RebaseStep {
     }
 }
 
-/// Setup a list of [instructions](RebaseStep) for the actual [rebase operation](RebaseBuilder::rebase).
+/// Setup a list of [instructions](RebaseStep) for the actual [rebase operation](Rebase::rebase).
 #[derive(Debug)]
 pub struct Rebase<'repo> {
     repo: &'repo gix::Repository,
@@ -78,7 +78,7 @@ impl<'repo> Rebase<'repo> {
     /// Creates a new rebase builder with the provided commit as a `base`, the commit
     /// that all other commits should be placed on top of.
     /// If `None` this means the first picked commit will have no parents.
-    /// This means that the first [picked commit](Self::step()) will be placed right on top of `base`.
+    /// This means that the first [picked commit](Self::steps()) will be placed right on top of `base`.
     ///
     /// If the first pick refers to a merge-commit then we will have to prove it's connected to the `base` commit.
     /// If that `base`, however, is also a new commit, we'd have no way of figuring out which parent in the picked merge
@@ -397,14 +397,14 @@ pub struct ReferenceSpec {
     pub previous_commit_id: gix::ObjectId,
 }
 
-/// The output of the [rebase](RebaseBuilder::rebase()) operation.
+/// The output of the [rebase](Rebase::rebase()) operation.
 #[derive(Debug, Clone)]
 pub struct RebaseOutput {
     /// The id of the most recently created commit in the rebase operation.
     pub top_commit: gix::ObjectId,
     /// The list of references along with their new locations, ordered from the least recent to the most recent.
     pub references: Vec<ReferenceSpec>,
-    /// A listing of all commits `(base, old, new)` in order of [steps](RebaseBuilder::step()), with its base followed by
+    /// A listing of all commits `(base, old, new)` in order of [steps](Rebase::steps()), with its base followed by
     /// the initial commit hash on the left and the rewritten version of it on the right side of each tuple.
     ///
     /// That way programmatic users may perform their own remapping without having to deal with [references](RebaseStep::Reference).

@@ -35,7 +35,7 @@ impl Graph {
     }
 
     /// Put `dst` on top of `src`, connecting it from the `src_commit` specifically,
-    /// an index valid for [`Segment::commits_unique_from_tip`] in `src` to the commit at `dst_commit` in `dst`.
+    /// an index valid for [`Segment::commits`] in `src` to the commit at `dst_commit` in `dst`.
     ///
     /// If `src_commit` is `None`, there must be no commit in `base` and it's connected directly,
     /// something that can happen for the root base of the graph which is usually empty.
@@ -298,7 +298,7 @@ impl Graph {
     ///
     /// Thus, a [`CommitIndex`] of `0` indicates the paired segment sits directly on top of `sidx`, probably as part of
     /// a merge commit that is the last commit in the respective segment. The index is always valid in the
-    /// [`Segment::commits_unique_from_tip`] field of `sidx`.
+    /// [`Segment::commits`] field of `sidx`.
     pub fn segments_below_in_order(
         &self,
         sidx: SegmentIndex,

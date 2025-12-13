@@ -478,7 +478,7 @@ pub enum Subcommands {
     ///
     /// Provides lifecycle hooks handlers for the Claude Code hooks feature.
     ///
-    /// See: https://docs.gitbutler.com/features/ai-integration/claude-code-hooks
+    /// See: <https://docs.gitbutler.com/features/ai-integration/claude-code-hooks>
     ///
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
@@ -488,7 +488,7 @@ pub enum Subcommands {
     ///
     /// Provides lifecycle hooks handlers for the Cursor hooks feature.
     ///
-    /// See: https://docs.gitbutler.com/features/ai-integration/cursor-hooks
+    /// See: <https://docs.gitbutler.com/features/ai-integration/cursor-hooks>
     ///
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]

@@ -2,7 +2,7 @@ use std::{fmt::Display, path::PathBuf};
 
 use gitbutler_project::ProjectId;
 
-/// An event for internal use, as merge between [super::file_monitor::Event] and [Action].
+/// An event for internal use, representing file system changes.
 #[derive(Debug)]
 pub enum InternalEvent {
     // From file monitor

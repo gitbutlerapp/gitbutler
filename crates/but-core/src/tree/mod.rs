@@ -9,7 +9,7 @@ use crate::{DiffSpec, HunkHeader, HunkRange, RepositoryExt, UnifiedPatch, apply_
 /// Utility types for the [`create_tree()`] function
 pub mod create_tree {
 
-    /// Provide a description of why a [`DiffSpec`] was rejected for application to the tree of a commit.
+    /// Provide a description of why a [`crate::DiffSpec`] was rejected for application to the tree of a commit.
     #[derive(Default, Debug, Copy, Clone, PartialEq, serde::Serialize)]
     #[serde(rename_all = "camelCase")]
     pub enum RejectionReason {
@@ -51,7 +51,7 @@ use create_tree::RejectionReason;
 
 use crate::worktree::worktree_file_to_git_in_buf;
 
-/// Additional information about the outcome of a [`super::create_tree()`] call.
+/// Additional information about the outcome of a [`create_tree()`] call.
 #[derive(Debug)]
 pub struct CreateTreeOutcome {
     /// Changes that were removed from `new_tree` because they caused conflicts when rebasing dependent commits,
@@ -67,7 +67,7 @@ pub struct CreateTreeOutcome {
     pub changed_tree_pre_cherry_pick: Option<gix::ObjectId>,
 }
 
-/// Like [`create_commit()`], but lower-level and only returns a new tree, without finally associating it with a commit.
+/// A lower-level function that only returns a new tree, without finally associating it with a commit.
 pub fn create_tree(
     repo: &gix::Repository,
     target_tree: gix::ObjectId,
