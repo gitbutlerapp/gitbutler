@@ -3,6 +3,7 @@
 	import SettingsSection from '$components/SettingsSection.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
+	import { parseError } from '$lib/error/parser';
 	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -47,18 +48,11 @@
 	}
 
 	function getErrorMessage(error: unknown): string {
-		if (error instanceof Error) return error.message;
-
-		if (
-			typeof error === 'object' &&
-			error !== null &&
-			'message' in error &&
-			typeof error.message === 'string'
-		) {
-			return error.message;
+		const parsedError = parseError(error);
+		if (parsedError.name && parsedError.name !== parsedError.message) {
+			return `${parsedError.name}: ${parsedError.message}`;
 		}
-
-		return String(error);
+		return parsedError.message;
 	}
 
 	async function cloneRepository() {
@@ -176,7 +170,7 @@
 			{#snippet content()}
 				{#if items && items.length > 0}
 					{#each items as item}
-						{@html item.label}
+						<span>{item.label}</span>
 					{/each}
 				{/if}
 			{/snippet}
