@@ -65,7 +65,8 @@ gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 
 bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { version = "0.75.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }
+gix = { version = "0.75.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [
+] }
 ts-rs = { version = "11.1.0", features = ["serde-compat", "no-serde-warnings"] }
 gix-testtools = "0.16.1"
 insta = "1.44.3"
@@ -111,6 +112,11 @@ bitflags = "2.9.4"
 notify = "8.2.0"
 snapbox = "0.6.23"
 url = "2.5.7"
+petgraph = { version = "0.8.3", default-features = false, features = [
+    "stable_graph",
+    "std",
+] }
+
 schemars = { version = "1.0.4", default-features = false, features = [
     "std",
     "derive",
@@ -119,9 +125,17 @@ async-openai = { version = "0.31.1", default-features = false, features = [
     "rustls",
     "chat-completion",
 ] }
-open = "5.3.3"
-regex = { version = "1.11.3", default-features = false, features = ["std", "unicode" ] }
-clap = { version = "4.5.53", default-features = false, features = ["derive", "std", "help", "unstable-markdown"]}
+open = "5.3.2"
+regex = { version = "1.11.3", default-features = false, features = [
+    "std",
+    "unicode",
+] }
+clap = { version = "4.5.51", default-features = false, features = [
+    "derive",
+    "std",
+    "help",
+    "unstable-markdown",
+] }
 tracing-forest = { version = "0.3.0" }
 sysinfo = { version = "0.37.2", default-features = false }
 shell-words = "1.1.0"

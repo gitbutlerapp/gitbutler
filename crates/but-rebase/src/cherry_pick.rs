@@ -321,13 +321,13 @@ pub(crate) mod function {
     #[derive(Default, Debug, Clone, Serialize, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct ConflictEntries {
-        ancestor_entries: Vec<PathBuf>,
-        our_entries: Vec<PathBuf>,
-        their_entries: Vec<PathBuf>,
+        pub(crate) ancestor_entries: Vec<PathBuf>,
+        pub(crate) our_entries: Vec<PathBuf>,
+        pub(crate) their_entries: Vec<PathBuf>,
     }
 
     impl ConflictEntries {
-        fn has_entries(&self) -> bool {
+        pub(crate) fn has_entries(&self) -> bool {
             !self.ancestor_entries.is_empty()
                 || !self.our_entries.is_empty()
                 || !self.their_entries.is_empty()
@@ -345,7 +345,7 @@ pub(crate) mod function {
         }
 
         /// Return the `conflicted` header field value.
-        fn conflicted_header_field(&self) -> Option<u64> {
+        pub(crate) fn conflicted_header_field(&self) -> Option<u64> {
             let entries = self.total_entries();
             Some(if entries > 0 { entries as u64 } else { 1 })
         }
