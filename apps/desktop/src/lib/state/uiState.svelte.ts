@@ -10,6 +10,7 @@ import {
 	type ThunkDispatch,
 	type UnknownAction
 } from '@reduxjs/toolkit';
+import { untrack } from 'svelte';
 import type { ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
 import type { PullRequest } from '$lib/forge/interface/types';
 import type { StackDetails } from '$lib/stacks/stack';
@@ -267,18 +268,20 @@ export class UiState {
 				};
 
 				// If the value is an array of strings, we add methods to add/remove
-				if (Array.isArray(mutableResult) && mutableResult.every(isStr)) {
-					(props[key] as GlobalProperty<string[]>).add = (...value: string[]) => {
-						const current = mutableResult as string[];
-						mutableResult = [...current, ...value.filter((v) => !current.includes(v))];
-						this.update(`${id}:${key}`, mutableResult);
-					};
-					(props[key] as GlobalProperty<string[]>).remove = (value: string) => {
-						const current = mutableResult as string[];
-						mutableResult = current.filter((v) => v !== value);
-						this.update(`${id}:${key}`, mutableResult);
-					};
-				}
+				untrack(() => {
+					if (Array.isArray(mutableResult) && mutableResult.every(isStr)) {
+						(props[key] as GlobalProperty<string[]>).add = (...value: string[]) => {
+							const current = mutableResult as string[];
+							mutableResult = [...current, ...value.filter((v) => !current.includes(v))];
+							this.update(`${id}:${key}`, mutableResult);
+						};
+						(props[key] as GlobalProperty<string[]>).remove = (value: string) => {
+							const current = mutableResult as string[];
+							mutableResult = current.filter((v) => v !== value);
+							this.update(`${id}:${key}`, mutableResult);
+						};
+					}
+				});
 			}
 			scopeCache[id] = props as GlobalStore<T>;
 			return scopeCache[id];
