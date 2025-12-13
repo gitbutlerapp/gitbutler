@@ -260,6 +260,15 @@ impl IdMap {
     /// Multiple IDs may be returned if the entity matches multiple items; they are returned in
     /// priority order as mentioned above.
     pub fn resolve_entity_to_ids(&self, entity: &str) -> anyhow::Result<Vec<CliId>> {
+        // If a branch matches exactly, use only that.
+        if let Some((_, cli_id)) = self
+            .branch_name_to_cli_id
+            .iter()
+            .find(|(branch_name, _)| *branch_name == entity.as_bytes())
+        {
+            return Ok(vec![cli_id.clone()]);
+        }
+
         if entity.len() < 2 {
             return Err(anyhow::anyhow!(
                 "Id needs to be at least 2 characters long: {}",
