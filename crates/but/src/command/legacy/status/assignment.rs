@@ -17,7 +17,7 @@ impl CLIHunkAssignment {
     fn from_assignment(id_map: &IdMap, inner: HunkAssignment) -> Self {
         let cli_id = id_map
             .resolve_uncommitted_file_or_unassigned(inner.stack_id, inner.path_bytes.as_ref())
-            .to_string();
+            .to_short_string();
         Self { inner, cli_id }
     }
 }

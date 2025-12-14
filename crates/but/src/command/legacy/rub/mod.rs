@@ -158,9 +158,9 @@ pub(crate) fn handle(
 fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
     format!(
         "Operation doesn't make sense. Source {} is {} and target {} is {}.",
-        source.to_string().blue().underline(),
+        source.to_short_string().blue().underline(),
         source.kind_for_humans().yellow(),
-        target.to_string().blue().underline(),
+        target.to_short_string().blue().underline(),
         target.kind_for_humans().yellow()
     )
 }
@@ -184,10 +184,16 @@ fn ids(
                 .iter()
                 .map(|id| match id {
                     CliId::Commit(oid) => {
-                        format!("{} (commit {})", id, &oid.to_string()[..7])
+                        format!(
+                            "{} (commit {})",
+                            id.to_short_string(),
+                            &oid.to_string()[..7]
+                        )
                     }
-                    CliId::Branch { name, .. } => format!("{id} (branch '{name}')"),
-                    _ => format!("{} ({})", id, id.kind_for_humans()),
+                    CliId::Branch { name, .. } => {
+                        format!("{} (branch '{}')", id.to_short_string(), name)
+                    }
+                    _ => format!("{} ({})", id.to_short_string(), id.kind_for_humans()),
                 })
                 .collect();
             return Err(anyhow::anyhow!(
@@ -227,10 +233,16 @@ pub(crate) fn parse_sources(
                     .iter()
                     .map(|id| match id {
                         CliId::Commit(oid) => {
-                            format!("{} (commit {})", id, &oid.to_string()[..7])
+                            format!(
+                                "{} (commit {})",
+                                id.to_short_string(),
+                                &oid.to_string()[..7]
+                            )
                         }
-                        CliId::Branch { name, .. } => format!("{id} (branch '{name}')"),
-                        _ => format!("{} ({})", id, id.kind_for_humans()),
+                        CliId::Branch { name, .. } => {
+                            format!("{} (branch '{}')", id.to_short_string(), name)
+                        }
+                        _ => format!("{} ({})", id.to_short_string(), id.kind_for_humans()),
                     })
                     .collect();
                 return Err(anyhow::anyhow!(

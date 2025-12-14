@@ -96,18 +96,18 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "g0",
+      "cliId": "i0",
       "filePath": "test-file.txt",
       "changeType": "added"
     }
   ],
   "stacks": [
     {
-      "cliId": "l3",
+      "cliId": "g0",
       "assignedChanges": [],
       "branches": [
         {
-          "cliId": "l3",
+          "cliId": "g0",
           "name": "A",
           "commits": [
             {
@@ -129,11 +129,11 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
       ]
     },
     {
-      "cliId": "m3",
+      "cliId": "h0",
       "assignedChanges": [],
       "branches": [
         {
-          "cliId": "m3",
+          "cliId": "h0",
           "name": "B",
           "commits": [
             {
