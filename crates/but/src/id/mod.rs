@@ -3,10 +3,6 @@
 //! This module provides a system for generating short, human-friendly IDs for various GitButler
 //! entities including branches, commits, and files. These IDs are used in the CLI to make commands
 //! more convenient and readable than using full SHA-1 hashes or long branch names.
-//!
-//! IDs can be mapped back to their entities in a separate step, and are usually used in a second invocation,
-//! which is why they should be as stable as possible even when facing intermediate mutations of the set of
-//! entities used to create them.
 
 #![forbid(missing_docs)]
 
@@ -501,7 +497,8 @@ impl IdMap {
             })
     }
 
-    /// Returns an iterator over all workspace commit IDs known to this ID map.
+    /// Returns an iterator over all commit IDs (workspace and remote) known to
+    /// this ID map.
     fn workspace_and_remote_commit_ids(&self) -> impl Iterator<Item = &gix::ObjectId> {
         self.workspace_commit_and_first_parent_ids
             .iter()
@@ -583,8 +580,9 @@ impl CliId {
 struct StacksInfo {
     /// Shortened branch names in unspecified order.
     branch_names: Vec<BString>,
-    /// Commit IDs of commits reachable from workspace tips paired with their first parent IDs.
-    /// The parent ID is stored to enable computing diffs on demand.
+    /// Commit IDs of commits reachable from workspace tips paired with their
+    /// first parent IDs in unspecified order. The parent ID is stored to enable
+    /// computing diffs upon an invocation of [IdMap::add_file_info].
     workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
     /// Commit IDs that are only reachable from remote-tracking branches (not in workspace).
     remote_commit_ids: Vec<gix::ObjectId>,
