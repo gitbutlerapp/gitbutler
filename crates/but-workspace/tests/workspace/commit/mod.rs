@@ -1,3 +1,5 @@
+mod reword;
+
 mod from_new_merge_with_metadata {
     use bstr::ByteSlice;
     use but_graph::init::{Options, Overlay};

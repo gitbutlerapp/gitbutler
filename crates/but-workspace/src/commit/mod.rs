@@ -4,6 +4,9 @@ use but_core::ref_metadata::MaybeDebug;
 
 use crate::WorkspaceCommit;
 
+pub mod reword;
+pub use reword::function::reword;
+
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
 #[derive(Clone)]
 pub struct Stack {
