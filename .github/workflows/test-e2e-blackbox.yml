@@ -66,7 +66,7 @@ jobs:
         if: ${{ github.ref != 'refs/heads/master' }}
         run: xvfb-run pnpm test:e2e:blackbox
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: WebdriverIO Artifacts
