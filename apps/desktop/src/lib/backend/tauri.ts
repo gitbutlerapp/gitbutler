@@ -74,7 +74,7 @@ export default class Tauri implements IBackend {
 	}
 
 	async loadDiskStore(fileName: string): Promise<DiskStore> {
-		const store = await Store.load(fileName, { autoSave: true });
+		const store = await Store.load(fileName, { autoSave: true, defaults: {} });
 		return new TauriDiskStore(store);
 	}
 
