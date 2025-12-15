@@ -18,7 +18,7 @@ pub struct Outcome<'repo> {
     pub metadata: Option<MetadataEdits>,
 }
 
-/// Edits for application via [`but_core::RefMetadata`].
+/// Edits for application to the [reference metadata store](crate::RefMetadata).
 pub struct MetadataEdits {
     /// The workspace metadata stored in the snapshot.
     pub workspace: (gix::refs::FullName, crate::ref_metadata::Workspace),
@@ -45,7 +45,7 @@ pub(super) mod function {
 
     use super::{Options, Outcome};
 
-    /// Given the `snapshot_tree` as previously returned via [super::create_tree::Outcome::snapshot_tree], extract data and…
+    /// Given the `snapshot_tree` as previously returned via [`crate::snapshot::create_tree::Outcome::snapshot_tree`], extract data and…
     ///
     /// * …cherry-pick the worktree changes onto the `target_worktree_tree_id`, which is assumed to represent the future working directory state
     ///   and which either contains the worktree changes or *preferably* is the `HEAD^{tree}` as the working directory is clean.

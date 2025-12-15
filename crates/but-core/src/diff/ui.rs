@@ -15,7 +15,7 @@ pub fn worktree_changes_by_worktree_dir(worktree_dir: PathBuf) -> anyhow::Result
     Ok(super::worktree_changes(&repo)?.into())
 }
 
-/// See [`super::commit_changes()`].
+/// See [`super::tree_changes_with_line_stats()`].
 pub fn commit_changes_with_line_stats_by_worktree_dir(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,

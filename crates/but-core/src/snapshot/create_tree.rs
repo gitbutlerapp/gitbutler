@@ -7,7 +7,7 @@ use crate::WorktreeChanges;
 /// A way to determine what should be included in the snapshot when calling [create_tree()](function::create_tree).
 #[derive(Debug, Clone)]
 pub struct State {
-    /// The result of a previous worktree changes call, but [the one **without** renames](but_core::diff::worktree_changes_no_renames()).
+    /// The result of a previous worktree changes call, but [the one **without** renames](crate::diff::worktree_changes_no_renames()).
     ///
     /// It contains detailed information about the complete set of possible changes to become part of the worktree.
     pub changes: WorktreeChanges,

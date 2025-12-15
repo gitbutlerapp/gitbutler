@@ -47,7 +47,7 @@ pub mod branch;
 mod changeset;
 
 /// Utility types for the [`WorkspaceCommit`].
-pub(crate) mod commit;
+pub mod commit;
 
 /// Types used only when obtaining head-information.
 ///
@@ -81,7 +81,7 @@ pub struct RefInfo {
     /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
     /// This happens when there is a local branch checked out without a remote tracking branch.
     pub target_ref: Option<but_graph::projection::TargetRef>,
-    /// A commit reachable by [`Self::TargetRef`] which we chose to keep as base. That way we can extend the workspace
+    /// A commit reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
     /// past its computed lower bound.
     ///
     /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.

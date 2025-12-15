@@ -137,9 +137,9 @@ impl IdUsage {
 /// # Lifecycle
 ///
 /// 1. Create an `IdMap` for example using [IdMap::new_for_branches_and_commits]
-/// 2. Optionally add file information for example using [IdMap::add_file_info]
+/// 2. Optionally add file information for example using [IdMap::add_file_info_from_context]
 /// 3. Use [IdMap::resolve_entity_to_ids] to parse user input into matching IDs
-/// 4. Use specific methods like [IdMap::resolve_branch_or_insert], [IdMap::resolve_uncommitted_file_or_unassigned],
+/// 4. Use specific methods like [IdMap::resolve_branch], [IdMap::resolve_uncommitted_file_or_unassigned],
 ///    or [IdMap::resolve_file_changed_in_commit_or_unassigned] to get IDs for specific entities
 #[derive(Debug)]
 pub struct IdMap {
@@ -165,8 +165,7 @@ impl IdMap {
     /// Initializes CLI IDs for all *branches* and *commits* in the given `stacks`.
     ///
     /// This method creates a new `IdMap` with IDs for branches and commits only.
-    /// To enable parsing of file IDs, call [IdMap::add_file_info] or
-    /// [IdMap::add_file_info_from_context] afterward.
+    /// To enable parsing of file IDs, call [IdMap::add_file_info_from_context]
     pub fn new_for_branches_and_commits(stacks: &[Stack]) -> anyhow::Result<Self> {
         let StacksInfo {
             branch_names,

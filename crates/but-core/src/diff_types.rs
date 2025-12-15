@@ -118,7 +118,7 @@ impl std::fmt::Debug for HunkHeader {
     }
 }
 
-/// Computed using the file kinds/modes of two [`ChangeState`] instances to represent
+/// Computed using the file kinds/modes of two [`crate::ChangeState`] instances to represent
 /// the *dominant* change to display. Note that it can stack with a content change,
 /// but *should not only in case of a `TypeChange*`*.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
