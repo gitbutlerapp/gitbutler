@@ -2,25 +2,25 @@
   <g clip-path="url(#clip0_9146_740)">
     <path opacity="0.87" fill-rule="evenodd" clip-rule="evenodd"
       d="M26.1057 3.1272C31.6285 3.12727 36.1056 7.60447 36.1055 13.1273L36.1052 32.1278L50.1049 32.1272L50.1055 52.1272L36.106 52.1277C25.0599 52.1281 16.1051 43.1735 16.1053 32.1274L16.1055 13.1271C16.1056 7.60422 20.5828 3.12713 26.1057 3.1272Z"
-      fill="var(--clr-pic-fill-1)" />
+      fill="var(--clr-art-spot-fill-1)" />
     <path opacity="0.87" fill-rule="evenodd" clip-rule="evenodd"
       d="M95.1057 23.1272C89.5828 23.1273 85.1057 27.6045 85.1058 33.1273L85.1061 48.1278L70.0006 48.1272L70 68.1272L85.1053 68.1277C96.1514 68.1281 105.106 59.1735 105.106 48.1274L105.106 33.1271C105.106 27.6042 100.629 23.1271 95.1057 23.1272Z"
-      fill="var(--clr-pic-fill-1)" />
+      fill="var(--clr-art-spot-fill-1)" />
     <path fill-rule="evenodd" clip-rule="evenodd"
       d="M60 9C65.5229 9 70 12.8082 70 17.5058L70 83L50 83L50 17.5058C50 12.8082 54.4772 9 60 9Z"
-      fill="var(--clr-pic-fill-2)" />
-    <path d="M85 90H88.2012V93.2012H85V90Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M74 95H77.2012V98.2012H74V95Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M101 83H104.201V86.2012H101V83Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M52 97H55.2012V100.201H52V97Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M62 90H65.2012V93.2012H62V90Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M41 90H44.2012V93.2012H41V90Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M26 92H29.2012V95.2012H26V92Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M34 81H37.2012V84.2012H34V81Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M102 96H105.201V99.2012H102V96Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M82 80H85.2012V83.2012H82V80Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M12 90H15.2012V93.2012H12V90Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M20 78H23.2012V81.2012H20V78Z" fill="var(--clr-pic-fill-1)" />
+      fill="var(--clr-art-spot-fill-2)" />
+    <path d="M85 90H88.2012V93.2012H85V90Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M74 95H77.2012V98.2012H74V95Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M101 83H104.201V86.2012H101V83Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M52 97H55.2012V100.201H52V97Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M62 90H65.2012V93.2012H62V90Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M41 90H44.2012V93.2012H41V90Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M26 92H29.2012V95.2012H26V92Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M34 81H37.2012V84.2012H34V81Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M102 96H105.201V99.2012H102V96Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M82 80H85.2012V83.2012H82V80Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M12 90H15.2012V93.2012H12V90Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M20 78H23.2012V81.2012H20V78Z" fill="var(--clr-art-spot-fill-1)" />
   </g>
   <defs>
     <clipPath>

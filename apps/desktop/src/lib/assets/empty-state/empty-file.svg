@@ -1,20 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="120" height="100" viewBox="0 0 120 100" fill="none">
   <g clip-path="url(#clip0_9146_696)">
-    <ellipse cx="60" cy="67.5" rx="56" ry="18.5" fill="var(--clr-pic-fill-1)" />
+    <ellipse cx="60" cy="67.5" rx="56" ry="18.5" fill="var(--clr-art-spot-fill-1)" />
     <path
       d="M45.9834 36.5156H87.9834L91.248 18H93.248L81.4814 84.7256C80.8051 84.8222 80.1221 84.9143 79.4326 85.002L80.7588 77.4844H38.7588L37.5078 84.5771C36.853 84.4783 36.2048 84.3756 35.5635 84.2686L47.248 18H49.248L45.9834 36.5156ZM39.1064 75.5146H81.1064L84.1973 57.9844H42.1973L39.1064 75.5146ZM42.5449 56.0146H84.5449L87.6357 38.4844H45.6357L42.5449 56.0146Z"
       fill="var(--clr-core-ntrl-60)" />
-    <path d="M106 18H109.201V21.2012H106V18Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M107 86H110.201V89.2012H107V86Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M30 15H33.2012V18.2012H30V15Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M64 13H67.2012V16.2012H64V13Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M18 91H21.2012V94.2012H18V91Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M54 97H57.2012V100.201H54V97Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M21 32H24.2012V35.2012H21V32Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M78 7H81.2012V10.2012H78V7Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M0 37H3.20122V40.2012H0V37Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M13 14H16.2012V17.2012H13V14Z" fill="var(--clr-pic-fill-1)" />
-    <path d="M115.201 29H118.402V32.2012H115.201V29Z" fill="var(--clr-pic-fill-1)" />
+    <path d="M106 18H109.201V21.2012H106V18Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M107 86H110.201V89.2012H107V86Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M30 15H33.2012V18.2012H30V15Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M64 13H67.2012V16.2012H64V13Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M18 91H21.2012V94.2012H18V91Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M54 97H57.2012V100.201H54V97Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M21 32H24.2012V35.2012H21V32Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M78 7H81.2012V10.2012H78V7Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M0 37H3.20122V40.2012H0V37Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M13 14H16.2012V17.2012H13V14Z" fill="var(--clr-art-spot-fill-1)" />
+    <path d="M115.201 29H118.402V32.2012H115.201V29Z" fill="var(--clr-art-spot-fill-1)" />
   </g>
   <defs>
     <clipPath>

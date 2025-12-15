@@ -2,56 +2,56 @@
   <g clip-path="url(#clip0_9146_775)">
     <path opacity="0.4"
       d="M107.051 0.153641C117.396 11.4615 123.508 14.1046 134.849 11.3294C127.877 19.4336 126.306 25.4575 131.254 41.0734C120.718 28.7495 114.815 26.5955 103.456 29.8976C111.621 20.6743 112.251 14.1651 107.051 0.153641Z"
-      fill="var(--clr-pic-fill-2)" />
+      fill="var(--clr-art-spot-fill-2)" />
     <path
       d="M173.826 22.9035C172.678 31.1501 173.665 34.6093 178.667 38.3405C172.952 38.2856 169.931 39.7427 165.169 47.2592C166.673 38.5776 165.554 35.376 160.329 31.8221C166.911 31.9796 169.812 29.9632 173.826 22.9035Z"
-      fill="var(--clr-pic-fill-1)" />
+      fill="var(--clr-art-spot-fill-1)" />
     <ellipse cx="155.721" cy="15.1477" rx="8.66779" ry="10.1618"
-      transform="rotate(42.4492 155.721 15.1477)" fill="var(--clr-pic-fill-2)" />
+      transform="rotate(42.4492 155.721 15.1477)" fill="var(--clr-art-spot-fill-2)" />
     <path
       d="M83 57V24H65L87 119.5H2V58.5897C2 49.6798 2 45.2249 2.64306 41.505C5.81241 23.1711 20.1711 8.81241 38.505 5.64306C42.2249 5 46.6798 5 55.5897 5C62.4747 5 65.9171 5 68.7916 5.49691C82.9587 7.94595 94.054 19.0413 96.5031 33.2084C97 36.0829 97 39.5253 97 46.4103V57"
-      stroke="var(--clr-pic-fill-2)" stroke-width="1.2" />
-    <circle cx="20" cy="72" r="11" fill="var(--clr-pic-fill-pop-1)" />
-    <circle cx="64.5" cy="60.5" r="11.5" fill="var(--clr-pic-fill-pop-1)" />
-    <circle cx="41.5" cy="34.5" r="14.5" fill="var(--clr-pic-fill-pop-1)" />
+      stroke="var(--clr-art-spot-fill-2)" stroke-width="1.2" />
+    <circle cx="20" cy="72" r="11" fill="var(--clr-art-spot-fill-pop-1)" />
+    <circle cx="64.5" cy="60.5" r="11.5" fill="var(--clr-art-spot-fill-pop-1)" />
+    <circle cx="41.5" cy="34.5" r="14.5" fill="var(--clr-art-spot-fill-pop-1)" />
     <path
       d="M41.2449 100V87.718M41.2449 27V36.7844M41.2449 87.718L24.7449 75.1213M41.2449 87.718V75.0647M15.5 68L22.051 73.0647M41.2449 41.8009L50 36.2654M41.2449 41.8009V36.7844M41.2449 41.8009V75.0647M41.2449 36.7844L33.5 30M22.051 73.0647L23.5 64.5M22.051 73.0647L24.7449 75.1213M24.7449 75.1213L16 78M41.2449 75.0647L59 63.9012M68.5 58L62.5 61.7006M59 63.9012L66 67M59 63.9012L62.5 61.7006M62.5 61.7006V55"
       stroke="var(--clr-core-pop-50)" stroke-width="2" />
-    <path d="M20.7949 120H60.2051L67 96H14L20.7949 120Z" fill="var(--clr-pic-fill-pop-1)" />
+    <path d="M20.7949 120H60.2051L67 96H14L20.7949 120Z" fill="var(--clr-art-spot-fill-pop-1)" />
     <path d="M14 93H67V102H14V93Z" fill="var(--clr-core-pop-50)" />
     <path opacity="0.5"
       d="M164.851 60.1731C171.343 60.1731 176.606 65.436 176.606 71.928C176.606 78.4199 171.343 83.6829 164.851 83.6829H157.288V60.1731H164.851Z"
       stroke="var(--clr-text-2)" stroke-width="6" />
     <g opacity="0.7">
       <path d="M109.077 110.651V120H110.961L113.412 110.633L109.077 110.651Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M112.201 120H132.544L135.018 110.542L114.653 110.628L112.201 120Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M133.784 120H154.126L154.288 119.38V110.461L136.26 110.537L133.784 120Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M154.288 89.4416V109.261L136.574 109.336L141.765 89.4943L154.288 89.4416Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M154.288 68.4222V88.2416L142.079 88.293L147.269 68.4517L154.288 68.4222Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M150.22 57.1731H154.288V67.2222L147.584 67.2504L150.22 57.1731Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M128.637 57.1731H148.98L146.342 67.2556L125.977 67.3414L128.637 57.1731Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M109.077 67.4125V57.1731H127.397L124.736 67.3466L109.077 67.4125Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M109.077 88.4319V68.6126L124.421 68.5479L119.231 88.3892L109.077 88.4319Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M109.077 109.451V89.632L118.916 89.5905L113.726 109.432L109.077 109.451Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M125.663 68.5427L146.028 68.457L140.837 88.2982L120.472 88.384L125.663 68.5427Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
       <path d="M120.158 89.5853L140.523 89.4995L135.332 109.341L114.968 109.427L120.158 89.5853Z"
-        fill="var(--clr-pic-fill-2)" />
+        fill="var(--clr-art-spot-fill-2)" />
     </g>
-    <path d="M82 57H98.0385L109.077 88.5865V120H100.038L82 57Z" fill="var(--clr-pic-fill-2)" />
+    <path d="M82 57H98.0385L109.077 88.5865V120H100.038L82 57Z" fill="var(--clr-art-spot-fill-2)" />
     <path
       d="M154.337 57.1731V50.3062C154.337 34.2191 137.731 23.4956 123.068 30.1142C115.131 33.697 110.029 41.5977 110.029 50.3062V57.1731"
-      stroke="var(--clr-pic-fill-2)" stroke-width="2" />
+      stroke="var(--clr-art-spot-fill-2)" stroke-width="2" />
   </g>
   <defs>
     <clipPath>

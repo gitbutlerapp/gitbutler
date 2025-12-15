@@ -93,7 +93,7 @@
 		height: 100%;
 		overflow: hidden;
 		border-radius: 8px;
-		background-color: var(--clr-illustration-bg);
+		background-color: var(--clr-art-scene-bg);
 	}
 
 	/* MIDDLE */
