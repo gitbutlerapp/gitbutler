@@ -651,8 +651,8 @@ impl Graph {
             )
             .collect();
             for refs_for_independent_branches in matching_refs_per_stack {
-                // Matching refs can be repeated, even so with unsound workspace metadata that mentions them
-                // multiple times. Instead of catching this earlier, catch it right here where it matters.
+                // Matching refs can be repeated, even with unsound workspace metadata that mentions them multiple times.
+                // Instead of catching this earlier, we handle deduplication right here where it matters.
                 let unique_refs_for_independent_branches: Vec<_> = refs_for_independent_branches
                     .into_iter()
                     .filter_map(|rn| seen.insert(rn.clone()).then_some(rn))
@@ -1118,6 +1118,8 @@ impl Graph {
         }
     }
 
+    /// Returns `true` if `below_sidx` is connected to `above_sidx` from above, so `above_sidx` has an
+    /// outgoing connection to `below_sidx`.
     fn is_connected_from_above(&self, below_sidx: SegmentIndex, above_sidx: SegmentIndex) -> bool {
         self.edges_directed(below_sidx, Direction::Incoming)
             .any(|e| e.source() == above_sidx)

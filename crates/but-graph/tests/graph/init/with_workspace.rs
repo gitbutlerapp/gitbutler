@@ -15,7 +15,7 @@ use crate::init::{
 };
 
 #[test]
-fn no_overzealus_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
+fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
     // NOTE: Was supposed to reproduce #11459, but it found another issue instead.
     let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11459")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
