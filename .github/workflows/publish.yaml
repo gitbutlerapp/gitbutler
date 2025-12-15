@@ -96,9 +96,9 @@ jobs:
             target: ''
           - platform: macos-15 # [macOs, x64] - cross-compile
             target: x86_64-apple-darwin
-          - platform: ubuntu-24.04 # [linux, x64]
+          - platform: ubuntu-22.04 # [linux, x64]
             target: ''
-          - platform: ubuntu-24.04-arm # [linux, ARM64]
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
             target: ''
           - platform: windows-latest # [windows, x64]
             target: ''
@@ -141,7 +141,7 @@ jobs:
       - name: Rust Cache ${{ matrix.target }}
         uses: Swatinem/rust-cache@v2.8.2
         with:
-          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}
+          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}${{ matrix.platform }}
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 
@@ -183,13 +183,14 @@ jobs:
             librsvg2-dev \
             xdg-utils;
 
+          webkit_version='2.50.*'
           sudo apt install -y \
-            libwebkit2gtk-4.1-0=2.44.0-2 \
-            libwebkit2gtk-4.1-dev=2.44.0-2 \
-            libjavascriptcoregtk-4.1-0=2.44.0-2 \
-            libjavascriptcoregtk-4.1-dev=2.44.0-2 \
-            gir1.2-javascriptcoregtk-4.1=2.44.0-2 \
-            gir1.2-webkit2-4.1=2.44.0-2;
+            libwebkit2gtk-4.1-0="$webkit_version" \
+            libwebkit2gtk-4.1-dev="$webkit_version" \
+            libjavascriptcoregtk-4.1-0="$webkit_version" \
+            libjavascriptcoregtk-4.1-dev="$webkit_version" \
+            gir1.2-javascriptcoregtk-4.1="$webkit_version" \
+            gir1.2-webkit2-4.1="$webkit_version";
 
       - uses: actions/download-artifact@v7
         name: Download SvelteKit build output
@@ -348,9 +349,9 @@ jobs:
             target: ''
           - platform: macos-15 # [macOs, x64] - cross-compile
             target: x86_64-apple-darwin
-          - platform: ubuntu-24.04 # [linux, x64]
+          - platform: ubuntu-22.04 # [linux, x64]
             target: ''
-          - platform: ubuntu-24.04-arm # [linux, ARM64]
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
             target: ''
           - platform: windows-latest # [windows, x64]
             target: ''
