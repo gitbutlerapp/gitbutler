@@ -627,6 +627,7 @@ impl Graph {
             repo,
         )?;
         for base_sidx in candidates.iter().cloned() {
+            let mut seen = BTreeSet::new();
             let base_segment = &self[base_sidx];
             // Also use the segment name as part of available refs to latch on to, and make
             // the segment anonymous if it actually gets used.
@@ -650,6 +651,15 @@ impl Graph {
             )
             .collect();
             for refs_for_independent_branches in matching_refs_per_stack {
+                // Matching refs can be repeated, even so with unsound workspace metadata that mentions them
+                // multiple times. Instead of catching this earlier, catch it right here where it matters.
+                let unique_refs_for_independent_branches: Vec<_> = refs_for_independent_branches
+                    .into_iter()
+                    .filter_map(|rn| seen.insert(rn.clone()).then_some(rn))
+                    .collect();
+                if unique_refs_for_independent_branches.is_empty() {
+                    continue;
+                }
                 let edges_connecting_base_with_ws_tip: Vec<EdgeOwned> = self
                     .inner
                     .edges_connecting(ws_sidx, base_sidx)
@@ -659,7 +669,7 @@ impl Graph {
                     self,
                     ws_sidx,
                     base_sidx,
-                    refs_for_independent_branches,
+                    unique_refs_for_independent_branches,
                     meta,
                     worktree_by_branch,
                 )?;
