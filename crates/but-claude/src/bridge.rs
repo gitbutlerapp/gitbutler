@@ -914,6 +914,8 @@ impl Default for Claudes {
 pub enum ClaudeCheckResult {
     /// Claude Code is available and returned a version
     Available { version: String },
+    /// Claude Code _could_ be found, but failed to execute
+    ExecutionFailed { stdout: String, stderr: String },
     /// Claude Code is not available or failed to execute
     NotAvailable,
 }
@@ -1046,12 +1048,15 @@ pub async fn check_claude_available(claude_executable: &str) -> ClaudeCheckResul
     }
 
     match command.output().await {
-        Ok(output) if output.status.success() => match String::from_utf8(output.stdout) {
-            Ok(version) => ClaudeCheckResult::Available {
-                version: version.trim().to_string(),
-            },
-            Err(_) => ClaudeCheckResult::NotAvailable,
-        },
+        Ok(output) if output.status.success() => {
+            let version = str::from_utf8(&output.stdout).unwrap_or("").trim().into();
+            ClaudeCheckResult::Available { version }
+        }
+        Ok(output) if !output.status.success() => {
+            let stdout = String::from_utf8(output.stdout).unwrap_or_default();
+            let stderr = String::from_utf8(output.stderr).unwrap_or_default();
+            ClaudeCheckResult::ExecutionFailed { stdout, stderr }
+        }
         _ => ClaudeCheckResult::NotAvailable,
     }
 }
