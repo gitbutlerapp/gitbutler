@@ -79,7 +79,8 @@ export function createKeybind(keybinds: KeybindDefinitions) {
 			if (
 				event.repeat ||
 				event.target instanceof HTMLInputElement ||
-				event.target instanceof HTMLTextAreaElement
+				event.target instanceof HTMLTextAreaElement ||
+				('_lexicalHandled' in event && event._lexicalHandled)
 			) {
 				return;
 			}
