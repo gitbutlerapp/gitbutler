@@ -396,7 +396,7 @@
 		overflow: hidden;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-core-pop-50);
-		color: var(--clr-core-ntrl-100);
+		color: var(--clr-core-gray-100);
 	}
 
 	.user-icon__image {

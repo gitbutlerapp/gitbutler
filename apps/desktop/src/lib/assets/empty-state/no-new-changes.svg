@@ -5,7 +5,7 @@
             fill="var(--clr-art-spot-fill-1)" />
         <path
             d="M50.3304 47.3764L61.1532 55.4794C62.7942 56.708 65.0983 56.4972 66.4891 54.9913L82.9404 37.1779"
-            stroke="var(--clr-core-ntrl-60)" stroke-width="2" />
+            stroke="var(--clr-core-gray-60)" stroke-width="2" />
         <path d="M36.1051 91.1107L47.659 78.2018L66.8838 76.9898L82.7672 88.1687L36.1051 91.1107Z"
             fill="var(--clr-art-spot-fill-2)" />
         <path

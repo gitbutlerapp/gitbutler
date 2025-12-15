@@ -351,7 +351,7 @@
 
 		&.resolved {
 			padding-left: 12px;
-			border-left: 4px solid var(--clr-core-ntrl-60);
+			border-left: 4px solid var(--clr-core-gray-60);
 		}
 
 		&.highlight {
@@ -377,8 +377,8 @@
 		color: var(--clr-br-commit-changes-requested-text);
 
 		&.resolved {
-			background: var(--clr-core-ntrl-60);
-			color: var(--clr-core-ntrl-100);
+			background: var(--clr-core-gray-60);
+			color: var(--clr-core-gray-100);
 		}
 	}
 

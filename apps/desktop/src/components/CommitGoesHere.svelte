@@ -163,7 +163,7 @@
 		transform: translateY(-50%) translateX(10%) scale(0.95);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-theme-pop-element);
-		color: var(--clr-core-ntrl-100);
+		color: var(--clr-core-gray-100);
 		transition:
 			opacity var(--transition-fast),
 			transform var(--transition-medium);

@@ -240,7 +240,7 @@
 
 	.dotted-pattern {
 		background-image: radial-gradient(
-			oklch(from var(--clr-theme-ntrl-element) l c h / 0.1) 1px,
+			oklch(from var(--clr-theme-gray-element) l c h / 0.1) 1px,
 			#ffffff00 1px
 		);
 

@@ -84,7 +84,7 @@ Container that manages positioning and stacking. Add this once to your app root.
 
 Toasts use the GitButler design system colors:
 
-- **Neutral**: `--clr-theme-ntrl-element`
+- **Neutral**: `--clr-theme-gray-element`
 - **Success**: `--clr-theme-succ-element`
 - **Warning**: `--clr-theme-warn-element`
 - **Error**: `--clr-theme-err-element`

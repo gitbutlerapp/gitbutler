@@ -301,11 +301,11 @@
 
 		/* Theme Variables - All themes use the same pattern */
 		:where(&.neutral) {
-			--theme-outline-text: var(--clr-btn-ntrl-outline-text);
-			--theme-outline-bg: var(--clr-btn-ntrl-outline-bg);
-			--theme-outline-border: var(--clr-btn-ntrl-outline);
-			--theme-solid-text: var(--clr-theme-ntrl-on-element);
-			--theme-solid-bg: var(--clr-theme-ntrl-element);
+			--theme-outline-text: var(--clr-btn-gray-outline-text);
+			--theme-outline-bg: var(--clr-btn-gray-outline-bg);
+			--theme-outline-border: var(--clr-btn-gray-outline);
+			--theme-solid-text: var(--clr-theme-gray-on-element);
+			--theme-solid-bg: var(--clr-theme-gray-element);
 			--theme-focus-color: var(--clr-theme-pop-element);
 			--theme-focus-mix-ratio: 100%;
 		}
@@ -392,7 +392,7 @@
 			--theme-solid-bg-hover: color-mix(
 				in srgb,
 				var(--theme-solid-bg),
-				var(--clr-core-ntrl-0) calc((var(--opacity-btn-solid-hover) * 100%))
+				var(--clr-core-gray-0) calc((var(--opacity-btn-solid-hover) * 100%))
 			);
 		}
 

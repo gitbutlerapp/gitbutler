@@ -74,8 +74,8 @@
 
 		/* SOLID */
 		&.neutral.solid {
-			background-color: var(--clr-theme-ntrl-element);
-			color: var(--clr-theme-ntrl-on-element);
+			background-color: var(--clr-theme-gray-element);
+			color: var(--clr-theme-gray-on-element);
 		}
 
 		&.pop.solid {
@@ -105,8 +105,8 @@
 
 		/* SOFT */
 		&.neutral.soft {
-			background-color: var(--clr-theme-ntrl-soft);
-			color: var(--clr-theme-ntrl-on-soft);
+			background-color: var(--clr-theme-gray-soft);
+			color: var(--clr-theme-gray-on-soft);
 		}
 
 		&.pop.soft {

@@ -218,8 +218,8 @@
 		display: flex;
 		padding: 2px 4px;
 		border-radius: 10px;
-		background-color: var(--clr-theme-ntrl-element);
-		color: var(--clr-theme-ntrl-on-element);
+		background-color: var(--clr-theme-gray-element);
+		color: var(--clr-theme-gray-on-element);
 	}
 
 	.sidebar-entry__details {

@@ -48,7 +48,7 @@ body {
 	word-wrap: break-word;
 	padding: 1px 4px;
 	border-radius: var(--radius-s);
-	background: color-mix(in srgb, var(--clr-theme-ntrl-element) 10%, transparent);
+	background: color-mix(in srgb, var(--clr-theme-gray-element) 10%, transparent);
 	color: inherit;
 	font-size: 92%;
 	font-family: var(--font-mono);

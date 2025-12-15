@@ -85,7 +85,7 @@
 
 			&::after {
 				transform: scale(1);
-				background-color: var(--clr-core-ntrl-100);
+				background-color: var(--clr-core-gray-100);
 				opacity: 1;
 			}
 		}

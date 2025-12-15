@@ -149,7 +149,7 @@
 
 		&::before,
 		&::after {
-			background-color: var(--clr-theme-ntrl-on-element);
+			background-color: var(--clr-theme-gray-on-element);
 		}
 	}
 

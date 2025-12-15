@@ -83,7 +83,7 @@
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-toast);
 		box-shadow: var(--fx-shadow-m);
-		color: var(--clr-theme-ntrl-on-element);
+		color: var(--clr-theme-gray-on-element);
 		text-align: center;
 	}
 

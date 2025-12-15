@@ -3,37 +3,37 @@
   <g id="7055:1150">
     <path id="7055:1151" opacity="0.3"
       d="M59.0388 93.1161V151M59.0388 93.1161H161.605M59.0388 93.1161V1M161.605 1H21.0125C9.95992 1 1 9.96639 1 21.027V130.973C1 142.034 9.9599 151 21.0125 151H161.605M161.605 1H201.987C213.04 1 222 9.96639 222 21.027V130.973C222 142.034 213.04 151 201.987 151H161.605M161.605 1V93.1161M161.605 93.1161V151"
-      stroke="var(--clr-core-ntrl-50)" stroke-width="1.2" />
+      stroke="var(--clr-core-gray-50)" stroke-width="1.2" />
     <path id="7055:1153" opacity="0.3" d="M9 34H51V52H9V34Z" fill="var(--clr-core-pop-50)" />
     <g id="Group 1948754872" opacity="0.4">
       <path id="7055:1155"
         d="M18.9043 9.59961H41.0957C46.229 9.59968 50.4004 13.8028 50.4004 18.999V105.001C50.4004 110.197 46.229 114.4 41.0957 114.4H18.9043C13.771 114.4 9.59961 110.197 9.59961 105.001V18.999C9.59961 13.8028 13.771 9.59968 18.9043 9.59961Z"
-        stroke="var(--clr-core-ntrl-50)" stroke-width="1.2" />
+        stroke="var(--clr-core-gray-50)" stroke-width="1.2" />
       <path id="7055:1156" d="M9 22H50M9 64.2329H50M9 77.305H50M9 89.9322H50M9 102H50"
-        stroke="var(--clr-core-ntrl-50)" stroke-width="1.2" />
+        stroke="var(--clr-core-gray-50)" stroke-width="1.2" />
     </g>
     <rect id="7055:1157" opacity="0.3" x="70" y="107" width="50.5632" height="6" rx="3"
-      fill="var(--clr-core-ntrl-50)" />
+      fill="var(--clr-core-gray-50)" />
     <g id="Group 1948754826" opacity="0.3">
       <rect id="7055:1159" x="70" y="125" width="26.7126" height="3" rx="1.5"
-        fill="var(--clr-core-ntrl-50)" />
+        fill="var(--clr-core-gray-50)" />
       <rect id="7055:1160" x="100.529" y="125" width="49.4713" height="3" rx="1.5"
-        fill="var(--clr-core-ntrl-50)" />
+        fill="var(--clr-core-gray-50)" />
       <rect id="7055:1161" x="70" y="134" width="46.7931" height="3" rx="1.5"
-        fill="var(--clr-core-ntrl-50)" />
+        fill="var(--clr-core-gray-50)" />
       <rect id="7055:1162" x="120.149" y="134" width="14.3103" height="3" rx="1.5"
-        fill="var(--clr-core-ntrl-50)" />
+        fill="var(--clr-core-gray-50)" />
     </g>
     <path id="7055:1163" opacity="0.4"
       d="M95.783 26L78 48.5L95.783 71M102.528 71L117.858 26M125.217 26L143 48.5L125.217 71"
-      stroke="var(--clr-core-ntrl-50)" stroke-width="1.2" />
+      stroke="var(--clr-core-gray-50)" stroke-width="1.2" />
     <g id="Group 1948754871" opacity="0.4">
-      <path id="7055:1165" d="M213 25H171M171 38H213M171 74H213" stroke="var(--clr-core-ntrl-50)"
+      <path id="7055:1165" d="M213 25H171M171 38H213M171 74H213" stroke="var(--clr-core-gray-50)"
         stroke-width="1.2" />
-      <path id="7055:1166" opacity="0.5" d="M171 49H213V64H171V49Z" fill="var(--clr-core-ntrl-60)" />
+      <path id="7055:1166" opacity="0.5" d="M171 49H213V64H171V49Z" fill="var(--clr-core-gray-60)" />
       <path id="7055:1167"
         d="M180 11.5996H204C209.191 11.5996 213.4 15.8085 213.4 21V77C213.4 82.1915 209.191 86.4004 204 86.4004H180C174.809 86.4004 170.6 82.1915 170.6 77V21C170.6 15.8085 174.809 11.5996 180 11.5996Z"
-        stroke="var(--clr-core-ntrl-50)" stroke-width="1.2" />
+        stroke="var(--clr-core-gray-50)" stroke-width="1.2" />
     </g>
   </g>
 </svg>

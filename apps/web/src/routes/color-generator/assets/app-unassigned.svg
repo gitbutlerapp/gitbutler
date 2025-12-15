@@ -17,13 +17,13 @@
     <text fill="var(--clr-text-1)" xml:space="preserve" style="white-space: pre" font-family="Inter"
       font-size="14" font-weight="500" letter-spacing="0em"><tspan x="33" y="25.0909">Rules</tspan></text>
     <g clip-path="url(#clip1_13_115348)">
-      <text fill="var(--clr-btn-ntrl-outline-text)" xml:space="preserve" style="white-space: pre"
+      <text fill="var(--clr-btn-gray-outline-text)" xml:space="preserve" style="white-space: pre"
         font-family="Inter"
         font-size="11" font-weight="500" letter-spacing="0em"><tspan x="222" y="24">Add rule</tspan></text>
       <g opacity="0.7">
         <path fill-rule="evenodd" clip-rule="evenodd"
           d="M277.25 19.25V15H278.75V19.25H283V20.75H278.75V25H277.25V20.75H273V19.25H277.25Z"
-          fill="var(--clr-btn-ntrl-outline-text)" />
+          fill="var(--clr-btn-gray-outline-text)" />
       </g>
       <path opacity="0.4"
         d="M221 9.5H284C287.038 9.5 289.5 11.9624 289.5 15V25C289.5 28.0376 287.038 30.5 284 30.5H221C217.962 30.5 215.5 28.0376 215.5 25V15C215.5 11.9624 217.962 9.5 221 9.5Z"
@@ -37,7 +37,7 @@
       mask="url(#path-12-inside-2_13_115348)" />
     <text fill="var(--clr-text-1)" xml:space="preserve" style="white-space: pre" font-family="Inter"
       font-size="14" font-weight="500" letter-spacing="0em"><tspan x="14" y="65.0909">Unassigned</tspan></text>
-    <rect x="100" y="52" width="16" height="16" rx="8" fill="var(--clr-theme-ntrl-element)" />
+    <rect x="100" y="52" width="16" height="16" rx="8" fill="var(--clr-theme-gray-element)" />
     <text fill="var(--clr-bg-1)" xml:space="preserve" style="white-space: pre" font-family="Inter"
       font-size="11" font-weight="500" letter-spacing="0em"><tspan x="104.815" y="64">7</tspan></text>
     <g clip-path="url(#clip2_13_115348)">

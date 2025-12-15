@@ -502,7 +502,7 @@
 		top: 0;
 		bottom: 0;
 		width: 2px;
-		background-color: var(--clr-core-ntrl-0);
+		background-color: var(--clr-core-gray-0);
 	}
 
 	.swipe-handle-grip {
@@ -512,8 +512,8 @@
 		justify-content: center;
 		padding: 4px 6px;
 		border-radius: 20px;
-		background-color: var(--clr-core-ntrl-0);
-		color: var(--clr-core-ntrl-100);
+		background-color: var(--clr-core-gray-0);
+		color: var(--clr-core-gray-100);
 		cursor: col-resize;
 		pointer-events: all;
 	}

@@ -71,7 +71,7 @@
 
 		border-radius: 8px;
 		background: var(--clr-theme-succ-element);
-		color: var(--clr-core-ntrl-100);
+		color: var(--clr-core-gray-100);
 
 		&.request-changes {
 			background: var(--clr-br-commit-changes-requested-bg);

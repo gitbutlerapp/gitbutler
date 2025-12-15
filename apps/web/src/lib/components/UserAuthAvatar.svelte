@@ -39,7 +39,7 @@
 		overflow: hidden;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-pop-element);
-		color: var(--clr-core-ntrl-100);
+		color: var(--clr-core-gray-100);
 
 		& img {
 			width: 100%;

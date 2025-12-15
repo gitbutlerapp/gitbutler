@@ -230,7 +230,7 @@
 		height: 100%;
 		padding: 3px 6px;
 		border-radius: 100px;
-		color: var(--clr-core-ntrl-100);
+		color: var(--clr-core-gray-100);
 	}
 
 	/* INTEGRATED LABEL */

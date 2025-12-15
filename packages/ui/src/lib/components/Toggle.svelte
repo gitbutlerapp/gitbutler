@@ -116,7 +116,7 @@
 			width: 12px;
 			height: 12px;
 			border-radius: 12px;
-			background-color: var(--clr-core-ntrl-100);
+			background-color: var(--clr-core-gray-100);
 			content: '';
 			transition:
 				background-color var(--transition-fast),

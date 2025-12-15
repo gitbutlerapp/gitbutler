@@ -130,8 +130,8 @@
 		gap: 5px;
 		transform: translateY(3px) scale(0.95);
 		border-radius: 100px;
-		background-color: var(--clr-theme-ntrl-element);
-		color: var(--clr-theme-ntrl-on-element);
+		background-color: var(--clr-theme-gray-element);
+		color: var(--clr-theme-gray-on-element);
 		opacity: 0;
 
 		transition:

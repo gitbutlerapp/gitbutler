@@ -18,10 +18,10 @@
 	--hover-pop: color-mix(
 		in srgb,
 		var(--clr-theme-pop-element),
-		var(--clr-core-ntrl-0) calc((var(--opacity-btn-solid-hover) * 100%))
+		var(--clr-core-gray-0) calc((var(--opacity-btn-solid-hover) * 100%))
 	);
-	--hover-bg: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-ntrl-0) 4%);
-	--hover-text-2: color-mix(in srgb, var(--clr-text-2), var(--clr-core-ntrl-0) 20%);
+	--hover-bg: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-gray-0) 4%);
+	--hover-text-2: color-mix(in srgb, var(--clr-text-2), var(--clr-core-gray-0) 20%);
 
 	/* LEXICAL */
 	--lexical-input-background: var(--clr-bg-1);
@@ -32,6 +32,6 @@
 
 :root.dark {
 	--hover-filter: brightness(1.2);
-	--hover-bg: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-ntrl-100) 6%);
-	--hover-text-2: color-mix(in srgb, var(--clr-text-2), var(--clr-core-ntrl-100) 30%);
+	--hover-bg: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-gray-100) 6%);
+	--hover-text-2: color-mix(in srgb, var(--clr-text-2), var(--clr-core-gray-100) 30%);
 }
