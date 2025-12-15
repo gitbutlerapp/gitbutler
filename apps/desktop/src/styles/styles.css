@@ -145,10 +145,7 @@ body {
 }
 
 .dotted-pattern {
-	background-image: radial-gradient(
-		oklch(from var(--clr-border-2) l c h / 0.13) 1px,
-		#ffffff00 1px
-	);
+	background-image: radial-gradient(oklch(from var(--clr-text-3) l c h / 0.13) 1px, #ffffff00 1px);
 	background-size: 5px 5px;
 }
 

@@ -4,7 +4,7 @@
 	import UnassignedViewForgePrompt from '$components/UnassignedViewForgePrompt.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import { ActionEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
+	import noChanges from '$lib/assets/empty-state/no-new-changes.svg?raw';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';

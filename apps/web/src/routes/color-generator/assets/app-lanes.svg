@@ -15,15 +15,15 @@
 		<g opacity="0.7">
 			<path
 				d="M336 14C336 14.8284 335.328 15.5 334.5 15.5C333.672 15.5 333 14.8284 333 14C333 13.1716 333.672 12.5 334.5 12.5C335.328 12.5 336 13.1716 336 14Z"
-				fill="var(--clr-scale-ntrl-50)"
+				fill="var(--clr-text-2)"
 			/>
 			<path
 				d="M341.5 14C341.5 14.8284 340.828 15.5 340 15.5C339.172 15.5 338.5 14.8284 338.5 14C338.5 13.1716 339.172 12.5 340 12.5C340.828 12.5 341.5 13.1716 341.5 14Z"
-				fill="var(--clr-scale-ntrl-50)"
+				fill="var(--clr-text-2)"
 			/>
 			<path
 				d="M347 14C347 14.8284 346.328 15.5 345.5 15.5C344.672 15.5 344 14.8284 344 14C344 13.1716 344.672 12.5 345.5 12.5C346.328 12.5 347 13.1716 347 14Z"
-				fill="var(--clr-scale-ntrl-50)"
+				fill="var(--clr-text-2)"
 			/>
 		</g>
 		<path
@@ -46,7 +46,7 @@
 		/>
 		<text
 			opacity="0.7"
-			fill="var(--clr-scale-ntrl-50)"
+			fill="var(--clr-text-2)"
 			xml:space="preserve"
 			style="white-space: pre"
 			font-family="Inter"
@@ -84,7 +84,7 @@
 			<path
 				opacity="0.4"
 				d="M32 86.5H328C331.038 86.5 333.5 88.9624 333.5 92V108C333.5 111.038 331.038 113.5 328 113.5H32C28.9624 113.5 26.5 111.038 26.5 108V92C26.5 88.9624 28.9624 86.5 32 86.5Z"
-				stroke="var(--clr-scale-ntrl-50)"
+				stroke="var(--clr-text-2)"
 			/>
 		</g>
 		<g clip-path="url(#clip2_20_212142)">
@@ -106,7 +106,7 @@
 				fill="var(--clr-border-2)"
 				mask="url(#path-19-inside-3_20_212142)"
 			/>
-			<rect x="26" y="152" width="20" height="20" rx="6" fill="var(--clr-scale-pop-50)" />
+			<rect x="26" y="152" width="20" height="20" rx="6" fill="var(--clr-core-pop-50)" />
 			<path
 				d="M32.5 167.75H31V156.75H32.5V167.75ZM38.25 156.5C40.0449 156.5 41.5 157.955 41.5 159.75C41.5 161.35 40.3441 162.678 38.8223 162.948C38.3398 164.462 36.9236 165.559 35.25 165.559H35V164.059H35.25C36.1201 164.059 36.8727 163.564 37.2471 162.841C35.9432 162.418 35 161.195 35 159.75C35 157.955 36.4551 156.5 38.25 156.5ZM38.25 158C37.2835 158 36.5 158.784 36.5 159.75C36.5 160.716 37.2835 161.5 38.25 161.5C39.2165 161.5 40 160.716 40 159.75C40 158.784 39.2165 158 38.25 158Z"
 				fill="white"
@@ -123,7 +123,7 @@
 				<tspan x="56" y="167.455">my-feature</tspan>
 			</text>
 			<text
-				fill="var(--clr-scale-ntrl-50)"
+				fill="var(--clr-text-2)"
 				xml:space="preserve"
 				style="white-space: pre"
 				font-family="Inter"
@@ -143,7 +143,7 @@
 				<tspan x="90" y="191.364">&#x2022;</tspan>
 			</text>
 			<text
-				fill="var(--clr-scale-ntrl-50)"
+				fill="var(--clr-text-2)"
 				xml:space="preserve"
 				style="white-space: pre"
 				font-family="Inter"
@@ -171,7 +171,7 @@
 				<path
 					opacity="0.4"
 					d="M28 218.5H40C43.0376 218.5 45.5 220.962 45.5 224V234C45.5 237.038 43.0376 239.5 40 239.5H28C24.9624 239.5 22.5 237.038 22.5 234V224C22.5 220.962 24.9624 218.5 28 218.5Z"
-					stroke="var(--clr-scale-ntrl-50)"
+					stroke="var(--clr-text-2)"
 				/>
 			</g>
 			<g clip-path="url(#clip4_20_212142)">
@@ -195,7 +195,7 @@
 				<path
 					opacity="0.4"
 					d="M58 218.5H129C132.038 218.5 134.5 220.962 134.5 224V234C134.5 237.038 132.038 239.5 129 239.5H58C54.9624 239.5 52.5 237.038 52.5 234V224C52.5 220.962 54.9624 218.5 58 218.5Z"
-					stroke="var(--clr-scale-ntrl-50)"
+					stroke="var(--clr-text-2)"
 				/>
 			</g>
 			<path
@@ -247,8 +247,8 @@
 					fill="var(--clr-border-2)"
 					mask="url(#path-42-inside-5_20_212142)"
 				/>
-				<rect x="29" y="267" width="10" height="10" rx="5" fill="var(--clr-scale-pop-50)" />
-				<path d="M35 280V294H33V280H35ZM35 264H33V250H35V264Z" fill="var(--clr-scale-pop-50)" />
+				<rect x="29" y="267" width="10" height="10" rx="5" fill="var(--clr-core-pop-50)" />
+				<path d="M35 280V294H33V280H35ZM35 264H33V250H35V264Z" fill="var(--clr-core-pop-50)" />
 				<text
 					fill="var(--clr-text-1)"
 					xml:space="preserve"
@@ -269,7 +269,7 @@
 					fill="var(--clr-border-2)"
 					mask="url(#path-47-inside-6_20_212142)"
 				/>
-				<path d="M35 324V338H33V324H35ZM35 308H33V294H35V308Z" fill="var(--clr-scale-pop-50)" />
+				<path d="M35 324V338H33V324H35ZM35 308H33V294H35V308Z" fill="var(--clr-core-pop-50)" />
 			</g>
 		</g>
 		<path
@@ -294,15 +294,15 @@
 	<g opacity="0.7">
 		<path
 			d="M695 14C695 14.8284 694.328 15.5 693.5 15.5C692.672 15.5 692 14.8284 692 14C692 13.1716 692.672 12.5 693.5 12.5C694.328 12.5 695 13.1716 695 14Z"
-			fill="var(--clr-scale-ntrl-50)"
+			fill="var(--clr-text-2)"
 		/>
 		<path
 			d="M700.5 14C700.5 14.8284 699.828 15.5 699 15.5C698.172 15.5 697.5 14.8284 697.5 14C697.5 13.1716 698.172 12.5 699 12.5C699.828 12.5 700.5 13.1716 700.5 14Z"
-			fill="var(--clr-scale-ntrl-50)"
+			fill="var(--clr-text-2)"
 		/>
 		<path
 			d="M706 14C706 14.8284 705.328 15.5 704.5 15.5C703.672 15.5 703 14.8284 703 14C703 13.1716 703.672 12.5 704.5 12.5C705.328 12.5 706 13.1716 706 14Z"
-			fill="var(--clr-scale-ntrl-50)"
+			fill="var(--clr-text-2)"
 		/>
 	</g>
 	<g clip-path="url(#clip6_20_212142)">
@@ -322,7 +322,7 @@
 				mask="url(#path-60-inside-7_20_212142)"
 			/>
 			<text
-				fill="var(--clr-scale-ntrl-0)"
+				fill="var(--clr-text-1)"
 				xml:space="preserve"
 				style="white-space: pre"
 				font-family="Inter"
@@ -383,34 +383,34 @@
 					fill-rule="evenodd"
 					clip-rule="evenodd"
 					d="M649 43.25H661V44.75H649V43.25Z"
-					fill="var(--clr-scale-ntrl-50)"
+					fill="var(--clr-text-2)"
 				/>
 				<path
 					fill-rule="evenodd"
 					clip-rule="evenodd"
 					d="M649 47.25H661V48.75H649V47.25Z"
-					fill="var(--clr-scale-ntrl-50)"
+					fill="var(--clr-text-2)"
 				/>
 				<path
 					fill-rule="evenodd"
 					clip-rule="evenodd"
 					d="M649 51.25H661V52.75H649V51.25Z"
-					fill="var(--clr-scale-ntrl-50)"
+					fill="var(--clr-text-2)"
 				/>
 				<rect width="28" height="22" transform="translate(669 37)" fill="var(--clr-bg-2)" />
 				<path
 					fill-rule="evenodd"
 					clip-rule="evenodd"
 					d="M678.75 46.75V43H677.25V51C677.25 51.9665 678.034 52.75 679 52.75H683V51.25H679C678.862 51.25 678.75 51.1381 678.75 51V48.25H683V46.75H678.75Z"
-					fill="var(--clr-scale-ntrl-50)"
+					fill="var(--clr-text-2)"
 				/>
 				<path
 					d="M684 45.5C684 45.2239 684.224 45 684.5 45H686.096C686.372 45 686.596 45.2239 686.596 45.5H688C688.552 45.5 689 45.9477 689 46.5V47.5C689 48.0523 688.552 48.5 688 48.5H685C684.448 48.5 684 48.0523 684 47.5V45.5Z"
-					fill="var(--clr-scale-ntrl-50)"
+					fill="var(--clr-text-2)"
 				/>
 				<path
 					d="M684 50C684 49.7239 684.224 49.5 684.5 49.5H686.096C686.372 49.5 686.596 49.7239 686.596 50H688C688.552 50 689 50.4477 689 51V52C689 52.5523 688.552 53 688 53H685C684.448 53 684 52.5523 684 52V50Z"
-					fill="var(--clr-scale-ntrl-50)"
+					fill="var(--clr-text-2)"
 				/>
 				<path d="M697 42V54" stroke="var(--clr-border-2)" />
 			</g>
@@ -432,7 +432,7 @@
 				fill="#2563EB"
 			/>
 			<text
-				fill="var(--clr-scale-ntrl-0)"
+				fill="var(--clr-text-1)"
 				xml:space="preserve"
 				style="white-space: pre"
 				font-family="Inter"
@@ -444,7 +444,7 @@
 			</text>
 			<text
 				opacity="0.3"
-				fill="var(--clr-scale-ntrl-0)"
+				fill="var(--clr-text-1)"
 				xml:space="preserve"
 				style="white-space: pre"
 				font-family="Inter"
@@ -467,7 +467,7 @@
 				fill="#F472B6"
 			/>
 			<text
-				fill="var(--clr-scale-ntrl-0)"
+				fill="var(--clr-text-1)"
 				xml:space="preserve"
 				style="white-space: pre"
 				font-family="Inter"
@@ -479,7 +479,7 @@
 			</text>
 			<text
 				opacity="0.3"
-				fill="var(--clr-scale-ntrl-0)"
+				fill="var(--clr-text-1)"
 				xml:space="preserve"
 				style="white-space: pre"
 				font-family="Inter"
@@ -506,7 +506,7 @@
 				fill="#2563EB"
 			/>
 			<text
-				fill="var(--clr-scale-ntrl-0)"
+				fill="var(--clr-text-1)"
 				xml:space="preserve"
 				style="white-space: pre"
 				font-family="Inter"
@@ -518,7 +518,7 @@
 			</text>
 			<text
 				opacity="0.3"
-				fill="var(--clr-scale-ntrl-0)"
+				fill="var(--clr-text-1)"
 				xml:space="preserve"
 				style="white-space: pre"
 				font-family="Inter"
@@ -569,7 +569,7 @@
 			fill="var(--clr-border-2)"
 			mask="url(#path-92-inside-11_20_212142)"
 		/>
-		<rect x="385" y="244" width="20" height="20" rx="6" fill="var(--clr-scale-ntrl-50)" />
+		<rect x="385" y="244" width="20" height="20" rx="6" fill="var(--clr-text-2)" />
 		<path
 			d="M391.5 259.75H390V248.75H391.5V259.75ZM397.25 248.5C399.045 248.5 400.5 249.955 400.5 251.75C400.5 253.35 399.344 254.678 397.822 254.948C397.34 256.462 395.924 257.559 394.25 257.559H394V256.059H394.25C395.12 256.059 395.873 255.564 396.247 254.841C394.943 254.418 394 253.195 394 251.75C394 249.955 395.455 248.5 397.25 248.5ZM397.25 250C396.284 250 395.5 250.784 395.5 251.75C395.5 252.716 396.284 253.5 397.25 253.5C398.216 253.5 399 252.716 399 251.75C399 250.784 398.216 250 397.25 250Z"
 			fill="white"
@@ -586,7 +586,7 @@
 			<tspan x="415" y="259.455">some-bugfix</tspan>
 		</text>
 		<text
-			fill="var(--clr-scale-ntrl-50)"
+			fill="var(--clr-text-2)"
 			xml:space="preserve"
 			style="white-space: pre"
 			font-family="Inter"
@@ -606,7 +606,7 @@
 			<tspan x="449" y="283.364">&#x2022;</tspan>
 		</text>
 		<text
-			fill="var(--clr-scale-ntrl-50)"
+			fill="var(--clr-text-2)"
 			xml:space="preserve"
 			style="white-space: pre"
 			font-family="Inter"
