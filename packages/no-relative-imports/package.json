@@ -32,6 +32,6 @@
 		}
 	},
 	"dependencies": {
-		"comment-json": "^4.2.5"
+		"comment-json": "^4.5.0"
 	}
 }
