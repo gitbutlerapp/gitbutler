@@ -438,6 +438,7 @@ pub fn stack_details_v3(
     fn stack_by_id(
         head_info: RefInfo,
         stack_id: StackId,
+        alt_stack_id: Option<StackId>,
         meta: &VirtualBranchesTomlMetadata,
     ) -> anyhow::Result<Option<branch::Stack>> {
         let stacks_with_id: Vec<_> = head_info
@@ -451,7 +452,7 @@ pub fn stack_details_v3(
 
         Ok(stacks_with_id
             .into_iter()
-            .find_map(|(id, stack)| (id == stack_id).then_some(stack)))
+            .find_map(|(id, stack)| (id == stack_id || Some(id) == alt_stack_id).then_some(stack)))
     }
     let mut ref_info_options = ref_info::Options {
         // TODO(perf): make this so it can be enabled for a specific stack-id.
@@ -475,18 +476,29 @@ pub fn stack_details_v3(
             info.stacks.pop().unwrap()
         }
         Some(stack_id) => {
-            let stack = meta.data().branches.get(&stack_id).with_context(|| {
+            // Even though it shouldn't be the case, the ids can totally go out of sync. Use both to play it safer.
+            let (vb_stack, alt_stack_id) = meta.data().branches.iter()
+                .find_map(|(k, s)| if s.id == stack_id {
+                    Some((s, Some(*k)))
+                } else if *k == stack_id {
+                    Some((s, Some(s.id)))
+                } else {
+                    None
+                }
+                )
+                .with_context(|| {
                 format!(
                     "Couldn't find {stack_id} even when looking at virtual_branches.toml directly"
                 )
             })?;
             let full_name = gix::refs::FullName::try_from(format!(
                 "refs/heads/{shortname}",
-                shortname = stack.derived_name()?
+                shortname = vb_stack.derived_name()?
             ))?;
             let existing_ref = repo.find_reference(&full_name)?;
-            stack_by_id(ref_info(existing_ref, meta, ref_info_options)?, stack_id, meta)?
-                .with_context(|| format!("Really couldn't find {stack_id} in current HEAD or when searching virtual_branches.toml plainly"))?
+            let ref_info = ref_info(existing_ref, meta, ref_info_options)?;
+            stack_by_id(ref_info, stack_id, alt_stack_id, meta)?
+                .with_context(|| format!("Really couldn't find {stack_id} or {alt_stack_id:?} in current HEAD or when searching virtual_branches.toml plainly"))?
         }
     };
 
