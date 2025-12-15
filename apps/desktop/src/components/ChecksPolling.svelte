@@ -67,7 +67,7 @@
 
 		if (checksQuery?.result.error) {
 			return {
-				style: 'error',
+				style: 'danger',
 				icon: 'warning-small',
 				text: 'Failed to load',
 				reducedText: 'Failed'

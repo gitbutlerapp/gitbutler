@@ -42,7 +42,7 @@
 				</p>
 			</div>
 
-			<InfoMessage error={parsedError.message} style="error">
+			<InfoMessage error={parsedError.message} style="danger">
 				{#snippet title()}
 					{parsedError.name}
 				{/snippet}

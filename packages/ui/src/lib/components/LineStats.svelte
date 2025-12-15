@@ -32,7 +32,7 @@
 			color: var(--clr-theme-succ-element);
 		}
 		& .removed {
-			color: var(--clr-theme-err-element);
+			color: var(--clr-theme-danger-element);
 		}
 	}
 </style>

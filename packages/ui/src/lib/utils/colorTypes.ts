@@ -5,7 +5,7 @@ export const componentColorConst = [
 	'gray',
 	'pop',
 	'success',
-	'error',
+	'danger',
 	'warning',
 	'purple'
 ] as const;

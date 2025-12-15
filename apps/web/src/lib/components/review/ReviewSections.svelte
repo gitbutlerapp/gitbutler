@@ -278,7 +278,7 @@
 	}
 
 	.statistic-deleted {
-		color: var(--clr-theme-err-element);
+		color: var(--clr-theme-danger-element);
 	}
 
 	.review-sections-diffs {

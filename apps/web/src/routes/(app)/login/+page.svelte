@@ -136,7 +136,7 @@
 			</InfoMessage>
 		{:else if error}
 			<div class="wiggle-animation">
-				<InfoMessage filled outlined={false} style="error" class="m-b-16">
+				<InfoMessage filled outlined={false} style="danger" class="m-b-16">
 					{#snippet content()}
 						{#if errorCode === 'email_not_verified'}
 							{#if !resendDisabled}

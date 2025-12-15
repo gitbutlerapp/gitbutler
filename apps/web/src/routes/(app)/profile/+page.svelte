@@ -149,7 +149,7 @@
 							This action cannot be undone.
 						{/snippet}
 						{#snippet actions()}
-							<Button style="error" onclick={initiateDeleteAccount}>Delete my account…</Button>
+							<Button style="danger" onclick={initiateDeleteAccount}>Delete my account…</Button>
 						{/snippet}
 					</CardGroup.Item>
 				</CardGroup>
@@ -247,7 +247,7 @@
 	{#snippet controls(close)}
 		<div class="flex flex-row gap-8 justify-end">
 			<Button style="pop" onclick={close}>Cancel</Button>
-			<Button style="error" icon="bin" kind="outline" onclick={deleteAccount}
+			<Button style="danger" icon="bin" kind="outline" onclick={deleteAccount}
 				>Delete permanently</Button
 			>
 		</div>

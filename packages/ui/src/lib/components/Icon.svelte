@@ -34,7 +34,7 @@
 	}: Props = $props();
 
 	// Check if color is a predefined type or custom color
-	const predefinedColors = ['success', 'error', 'pop', 'warning'];
+	const predefinedColors = ['success', 'danger', 'pop', 'warning'];
 	const isPredefinedColor = color && predefinedColors.includes(color as string);
 	const customColor = !isPredefinedColor ? color : undefined;
 </script>
@@ -44,7 +44,7 @@
 	fill-rule="evenodd"
 	class="icon-wrapper"
 	class:success={color === 'success'}
-	class:error={color === 'error'}
+	class:danger={color === 'danger'}
 	class:pop={color === 'pop'}
 	class:warning={color === 'warning'}
 	class:custom={customColor}
@@ -85,8 +85,8 @@
 	.success {
 		color: var(--clr-theme-succ-element);
 	}
-	.error {
-		color: var(--clr-theme-err-element);
+	.danger {
+		color: var(--clr-theme-danger-element);
 	}
 	.pop {
 		color: var(--clr-theme-pop-element);
@@ -108,14 +108,14 @@
 		}
 	}
 	.spinner-path {
-		stroke-width: var(--spinner-stroke-width);
 		stroke: currentColor;
+		stroke-width: var(--spinner-stroke-width);
 		animation: spinning-path 2s infinite ease-in-out;
 	}
 
 	.spinner-back-path {
-		stroke-width: var(--spinner-stroke-width);
 		stroke: currentColor;
+		stroke-width: var(--spinner-stroke-width);
 		opacity: 0.3;
 	}
 	@keyframes spinning-path {

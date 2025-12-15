@@ -33,7 +33,7 @@
 			case 'closed':
 				return {
 					text: `${reviewUnit} ${id} is closed`,
-					color: 'var(--clr-theme-err-element)'
+					color: 'var(--clr-theme-danger-element)'
 				};
 			case 'draft':
 				return {

@@ -613,7 +613,7 @@
 
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit">Clear context</Button>
+		<Button style="danger" type="submit">Clear context</Button>
 	{/snippet}
 </Modal>
 
@@ -783,8 +783,8 @@
 
 		& circle {
 			fill: none;
-			stroke-width: 2;
 			stroke-linecap: round;
+			stroke-width: 2;
 		}
 
 		& .bg-circle {

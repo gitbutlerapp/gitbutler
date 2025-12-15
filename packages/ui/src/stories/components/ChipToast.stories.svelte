@@ -84,7 +84,7 @@
 			<ChipToast type="info" message="Info toast message" />
 			<ChipToast type="success" message="Success! Operation completed successfully" />
 			<ChipToast type="warning" message="Warning: Please check your settings" />
-			<ChipToast type="error" message="Error: Something went wrong" />
+			<ChipToast type="danger" message="Error: Something went wrong" />
 		</div>
 	{/snippet}
 </Story>
@@ -127,7 +127,7 @@
 			/>
 
 			<ChipToast
-				type="error"
+				type="danger"
 				message="Failed to save changes"
 				showDismiss={true}
 				customButton={{

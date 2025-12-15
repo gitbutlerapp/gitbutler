@@ -126,7 +126,7 @@
 				{/snippet}
 			</InfoMessage>
 
-			<InfoMessage style="error">
+			<InfoMessage style="danger">
 				{#snippet title()}
 					Error
 				{/snippet}
@@ -191,7 +191,7 @@
 			</InfoMessage>
 
 			<InfoMessage
-				style="error"
+				style="danger"
 				primaryLabel="Retry"
 				primaryAction={() => alert('Retry clicked!')}
 				secondaryLabel="Cancel"
@@ -243,7 +243,7 @@
 				{/snippet}
 			</InfoMessage>
 
-			<InfoMessage style="error" filled>
+			<InfoMessage style="danger" filled>
 				{#snippet title()}
 					Filled Error Message
 				{/snippet}
@@ -278,7 +278,7 @@
 	{#snippet template()}
 		<div style="padding: 20px; background: var(--clr-bg-1);">
 			<InfoMessage
-				style="error"
+				style="danger"
 				error="Error: Failed to connect to server at https://api.example.com
 Status: 500 Internal Server Error
 Details: Connection timeout after 30 seconds"

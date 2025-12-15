@@ -90,7 +90,7 @@
 )}
 	<Tooltip text={tooltip}>
 		<div class="target-pill" class:error={hasError}>
-			<Icon name={icon} color={hasError ? 'error' : 'var(--clr-text-2)'} />
+			<Icon name={icon} color={hasError ? 'danger' : 'var(--clr-text-2)'} />
 			<span class="text-12 truncate">{label}</span>
 		</div>
 	</Tooltip>
@@ -117,7 +117,7 @@
 	{/if}
 {/snippet}
 
-{#snippet renderBasicPill(config: ReturnType<typeof getFilterConfig>)}
+{#snippet renderBasicPill(config: ReturnType)}
 	<div class="filter-pill">
 		<Tooltip text={config.tooltip}>
 			<div class="flex items-center gap-6 overflow-hidden">
@@ -130,7 +130,7 @@
 	</div>
 {/snippet}
 
-{#snippet renderFileChangePill(config: ReturnType<typeof getFilterConfig>, fileStatus: any)}
+{#snippet renderFileChangePill(config: ReturnType, fileStatus: any)}
 	<Tooltip text={config.tooltip}>
 		<div class="filter-pill">
 			<FileStatusBadge status={fileStatus} style="dot" />
@@ -240,7 +240,8 @@
 
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button loading={deletingRule.current.isLoading} style="error" type="submit">Delete rule</Button
+		<Button loading={deletingRule.current.isLoading} style="danger" type="submit"
+			>Delete rule</Button
 		>
 	{/snippet}
 </Modal>

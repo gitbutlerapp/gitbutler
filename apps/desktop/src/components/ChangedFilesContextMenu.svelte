@@ -580,7 +580,7 @@
 	{/snippet}
 	{#snippet controls(close, item)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<AsyncButton style="error" type="submit" action={async () => await confirmDiscard(item)}>
+		<AsyncButton style="danger" type="submit" action={async () => await confirmDiscard(item)}>
 			Confirm
 		</AsyncButton>
 	{/snippet}

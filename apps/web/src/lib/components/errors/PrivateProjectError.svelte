@@ -51,7 +51,7 @@
 
 	.icon-container {
 		margin-bottom: 16px;
-		color: var(--clr-theme-err-element);
+		color: var(--clr-theme-danger-element);
 	}
 
 	.title {

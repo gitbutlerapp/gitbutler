@@ -94,8 +94,8 @@
 		}
 
 		&.error.solid {
-			background-color: var(--clr-theme-err-element);
-			color: var(--clr-theme-err-on-element);
+			background-color: var(--clr-theme-danger-element);
+			color: var(--clr-theme-danger-on-element);
 		}
 
 		&.purple.solid {
@@ -125,8 +125,8 @@
 		}
 
 		&.error.soft {
-			background-color: var(--clr-theme-err-soft);
-			color: var(--clr-theme-err-on-soft);
+			background-color: var(--clr-theme-danger-soft);
+			color: var(--clr-theme-danger-on-soft);
 		}
 
 		&.purple.soft {

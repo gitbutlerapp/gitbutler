@@ -286,7 +286,7 @@
 		{/snippet}
 
 		{#snippet actions()}
-			<Button style="error" kind="outline" onclick={() => deleteConfirmationModal?.show()}>
+			<Button style="danger" kind="outline" onclick={() => deleteConfirmationModal?.show()}>
 				Remove projects…
 			</Button>
 		{/snippet}
@@ -302,7 +302,7 @@
 	<p>Are you sure you want to remove all GitButler projects?</p>
 
 	{#snippet controls(close)}
-		<Button style="error" kind="outline" loading={isDeleting} type="submit">Remove</Button>
+		<Button style="danger" kind="outline" loading={isDeleting} type="submit">Remove</Button>
 		<Button style="pop" onclick={close}>Cancel</Button>
 	{/snippet}
 </Modal>

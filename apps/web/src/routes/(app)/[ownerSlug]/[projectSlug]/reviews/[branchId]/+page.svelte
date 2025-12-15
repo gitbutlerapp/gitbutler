@@ -240,7 +240,7 @@
 								>
 							{:else}
 								<AsyncButton
-									style="error"
+									style="danger"
 									kind="outline"
 									action={async () => updateStatus(BranchStatus.Closed)}>Close review</AsyncButton
 								>

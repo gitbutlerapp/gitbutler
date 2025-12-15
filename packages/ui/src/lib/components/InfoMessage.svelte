@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type MessageStyle = 'info' | 'warning' | 'error' | 'success';
+	export type MessageStyle = 'info' | 'warning' | 'danger' | 'success';
 </script>
 
 <script lang="ts">
@@ -67,21 +67,21 @@
 	const iconMap: { [Key in MessageStyle]: IconName } = {
 		info: 'info',
 		warning: 'warning',
-		error: 'error',
+		danger: 'error',
 		success: 'success'
 	};
 
 	const iconColorMap: { [Key in MessageStyle]: IconColor } = {
 		info: 'pop',
 		warning: 'warning',
-		error: 'error',
+		danger: 'danger',
 		success: 'success'
 	};
 
 	const primaryButtonMap: { [Key in MessageStyle]: ComponentColorType } = {
 		info: 'pop',
 		warning: 'warning',
-		error: 'error',
+		danger: 'danger',
 		success: 'pop'
 	};
 
@@ -207,7 +207,7 @@
 		border: 0 solid var(--clr-border-2);
 	}
 	.error {
-		border: 0 solid var(--clr-theme-err-element);
+		border: 0 solid var(--clr-theme-danger-element);
 	}
 	.warning {
 		border: 0 solid var(--clr-theme-warn-element);
@@ -229,7 +229,7 @@
 			background-color: var(--clr-bg-2);
 		}
 		&.error {
-			background-color: var(--clr-theme-err-bg-muted);
+			background-color: var(--clr-theme-danger-bg-muted);
 		}
 		&.warning {
 			background-color: var(--clr-theme-warn-bg-muted);
@@ -244,15 +244,15 @@
 		padding: 10px 10px 0;
 		overflow-x: scroll;
 		border-radius: var(--radius-s);
-		background-color: var(--clr-theme-err-bg);
-		color: var(--clr-theme-err-text);
+		background-color: var(--clr-theme-danger-bg);
+		color: var(--clr-theme-danger-text);
 		font-size: 12px;
 		white-space: pre;
 		user-select: text;
 
 		/* selection */
 		&::selection {
-			background-color: color-mix(in srgb, var(--clr-theme-err-element) 20%, transparent);
+			background-color: color-mix(in srgb, var(--clr-theme-danger-element) 20%, transparent);
 		}
 		/* empty */
 		&:empty {

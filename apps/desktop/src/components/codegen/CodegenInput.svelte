@@ -271,9 +271,7 @@
 					<UpDownPlugin
 						historyLookup={async (offset) => {
 							attachmentService.clearByBranch(branchName);
-							const resp = await backend.invoke<
-								ClaudeMessage<{ source: 'user' } & UserInput> | undefined
-							>('claude_get_user_message', {
+							const resp = await backend.invoke('claude_get_user_message', {
 								projectId,
 								offset
 							});
@@ -306,7 +304,7 @@
 						<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
 							<AsyncButton
 								kind="outline"
-								style="error"
+								style="danger"
 								action={onAbort}
 								icon="stop"
 								hotkey="⌃C"

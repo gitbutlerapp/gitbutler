@@ -16,7 +16,7 @@
 	<div class="problem__container">
 		<h2 class="problem__title text-18 text-body text-bold">There was a problem loading the app</h2>
 
-		<InfoMessage filled outlined={false} style="error" icon="info">
+		<InfoMessage filled outlined={false} style="danger" icon="info">
 			{#snippet content()}
 				{error ? error : 'An unknown error occurred'}
 			{/snippet}

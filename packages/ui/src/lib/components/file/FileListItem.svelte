@@ -145,7 +145,7 @@
 		{#if conflicted}
 			<Tooltip text={conflictHint}>
 				<div class="conflicted-icon">
-					<Icon name="warning-small" color="error" />
+					<Icon name="warning-small" color="danger" />
 				</div>
 			</Tooltip>
 		{:else if fileStatus}
@@ -214,12 +214,12 @@
 			}
 
 			&.conflicted:not(.selected):hover {
-				background-color: var(--clr-theme-err-bg-muted);
+				background-color: var(--clr-theme-danger-bg-muted);
 			}
 		}
 
 		&.conflicted {
-			background-color: var(--clr-theme-err-bg);
+			background-color: var(--clr-theme-danger-bg);
 		}
 
 		&.selected {

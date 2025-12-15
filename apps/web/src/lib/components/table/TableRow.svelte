@@ -86,18 +86,18 @@
 							/>
 						{/if}
 					{:else if key === 'avatars'}
-						<AvatarGroup avatars={value as Array<AvatarsType>}></AvatarGroup>
+						<AvatarGroup avatars={value as Array}></AvatarGroup>
 					{:else if key === 'reviewers'}
 						<div class="dynclmn-reviewers">
-							{#if (value as { approvers: Array<AvatarsType> }).approvers.length > 0 || (value as { rejectors: Array<AvatarsType> }).rejectors.length > 0}
+							{#if (value as { approvers: Array }).approvers.length > 0 || (value as { rejectors: Array }).rejectors.length > 0}
 								<AvatarGroup
-									avatars={(value as { approvers: Array<AvatarsType> }).approvers}
+									avatars={(value as { approvers: Array }).approvers}
 									maxAvatars={2}
 									icon="tick-small"
 									iconColor="success"
 								/>
 								<AvatarGroup
-									avatars={(value as { rejectors: Array<AvatarsType> }).rejectors}
+									avatars={(value as { rejectors: Array }).rejectors}
 									maxAvatars={2}
 									icon="refresh-small"
 									iconColor="warning"
@@ -173,8 +173,8 @@
 					{#if columns.find((col) => col.key === 'reviewers')}
 						<Factoid label="Reviewers" placeholderText="No reviews">
 							{@const reviewers = columns.find((col) => col.key === 'reviewers')?.value as {
-								approvers: Array<AvatarsType>;
-								rejectors: Array<AvatarsType>;
+								approvers: Array;
+								rejectors: Array;
 							}}
 							{#if reviewers.approvers.length > 0 || reviewers.rejectors.length > 0}
 								<div class="dynclmn-reviewers">
@@ -226,9 +226,7 @@
 
 					{#if columns.find((col) => col.key === 'avatars')}
 						<Factoid label="Authors">
-							<AvatarGroup
-								avatars={columns.find((col) => col.key === 'avatars')?.value as Array<AvatarsType>}
-							/>
+							<AvatarGroup avatars={columns.find((col) => col.key === 'avatars')?.value as Array} />
 						</Factoid>
 					{/if}
 				</InfoFlexRow>
@@ -306,7 +304,7 @@
 	}
 	.dynclmn-changes_deletions {
 		padding-left: 6px;
-		color: var(--clr-theme-err-element);
+		color: var(--clr-theme-danger-element);
 		text-align: right;
 	}
 

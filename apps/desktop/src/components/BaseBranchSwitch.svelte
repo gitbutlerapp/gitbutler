@@ -124,7 +124,7 @@
 		</CardGroup>
 	{/if}
 {:else if remoteBranchesQuery.result.isError}
-	<InfoMessage filled outlined={true} style="error" icon="error">
+	<InfoMessage filled outlined={true} style="danger">
 		{#snippet title()}
 			We got an error trying to list your remote branches
 		{/snippet}

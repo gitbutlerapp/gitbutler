@@ -124,7 +124,7 @@
 	}
 
 	.error-text {
-		color: var(--clr-theme-err-element);
+		color: var(--clr-theme-danger-element);
 	}
 
 	.input {
@@ -188,6 +188,6 @@
 
 	/* Error state */
 	.range-input.error {
-		--range-accent-color: var(--clr-theme-err-element);
+		--range-accent-color: var(--clr-theme-danger-element);
 	}
 </style>

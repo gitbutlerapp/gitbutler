@@ -82,7 +82,7 @@
 										{:then}
 											<Icon name="success-small" color="success" />
 										{:catch}
-											<Icon name="error-small" color="error" />
+											<Icon name="error-small" color="danger" />
 										{/await}
 									</i>{check.name}
 

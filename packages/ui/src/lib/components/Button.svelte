@@ -328,13 +328,13 @@
 			--theme-focus-color: var(--clr-theme-succ-element);
 		}
 
-		:where(&.error) {
-			--theme-outline-text: var(--clr-btn-err-outline-text);
-			--theme-outline-bg: var(--clr-btn-err-outline-bg);
-			--theme-outline-border: var(--clr-btn-err-outline);
-			--theme-solid-text: var(--clr-theme-err-on-element);
-			--theme-solid-bg: var(--clr-theme-err-element);
-			--theme-focus-color: var(--clr-theme-err-element);
+		:where(&.danger) {
+			--theme-outline-text: var(--clr-btn-danger-outline-text);
+			--theme-outline-bg: var(--clr-btn-danger-outline-bg);
+			--theme-outline-border: var(--clr-btn-danger-outline);
+			--theme-solid-text: var(--clr-theme-danger-on-element);
+			--theme-solid-bg: var(--clr-theme-danger-element);
+			--theme-focus-color: var(--clr-theme-danger-element);
 		}
 
 		:where(&.warning) {

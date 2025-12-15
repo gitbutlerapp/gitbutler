@@ -106,7 +106,7 @@
 		}
 
 		&.error {
-			background: var(--clr-theme-err-element);
+			background: var(--clr-theme-danger-element);
 		}
 
 		&.pop {

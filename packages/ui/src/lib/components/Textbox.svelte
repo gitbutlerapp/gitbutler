@@ -328,7 +328,7 @@
 	}
 
 	.textbox__error-text {
-		color: var(--clr-theme-err-element);
+		color: var(--clr-theme-danger-element);
 	}
 
 	.textbox__icon {

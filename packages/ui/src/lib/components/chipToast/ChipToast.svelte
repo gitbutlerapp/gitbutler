@@ -23,8 +23,8 @@
 				return { name: 'success', color: 'var(--clr-theme-succ-element)' };
 			case 'warning':
 				return { name: 'warning', color: 'var(--clr-theme-warn-element)' };
-			case 'error':
-				return { name: 'error', color: 'var(--clr-theme-err-element)' };
+			case 'danger':
+				return { name: 'error', color: 'var(--clr-theme-danger-element)' };
 			default:
 				return { name: 'info', color: 'var(--clr-theme-pop-element)' };
 		}
