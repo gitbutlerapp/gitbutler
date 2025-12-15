@@ -51,7 +51,7 @@
 		padding: 3px 6px;
 		gap: 4px;
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-theme-purp-soft);
-		color: var(--clr-theme-purp-on-soft);
+		background-color: var(--clr-theme-purple-soft);
+		color: var(--clr-theme-purple-on-soft);
 	}
 </style>

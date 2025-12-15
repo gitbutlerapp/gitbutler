@@ -43,7 +43,7 @@
 			case 'merged':
 				return {
 					text: `${reviewUnit} ${id} is merged`,
-					color: 'var(--clr-theme-purp-element)'
+					color: 'var(--clr-theme-purple-element)'
 				};
 			default:
 				return {

@@ -99,8 +99,8 @@
 		}
 
 		&.purple.solid {
-			background-color: var(--clr-theme-purp-element);
-			color: var(--clr-theme-purp-on-element);
+			background-color: var(--clr-theme-purple-element);
+			color: var(--clr-theme-purple-on-element);
 		}
 
 		/* SOFT */
@@ -130,8 +130,8 @@
 		}
 
 		&.purple.soft {
-			background-color: var(--clr-theme-purp-soft);
-			color: var(--clr-theme-purp-on-soft);
+			background-color: var(--clr-theme-purple-soft);
+			color: var(--clr-theme-purple-on-soft);
 		}
 
 		/* SIZE */

@@ -118,7 +118,7 @@
 		}
 
 		&.purple {
-			background: var(--clr-theme-purp-element);
+			background: var(--clr-theme-purple-element);
 		}
 	}
 

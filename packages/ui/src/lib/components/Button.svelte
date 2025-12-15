@@ -347,12 +347,12 @@
 		}
 
 		:where(&.purple) {
-			--theme-outline-text: var(--clr-btn-purp-outline-text);
-			--theme-outline-bg: var(--clr-btn-purp-outline-bg);
-			--theme-outline-border: var(--clr-btn-purp-outline);
-			--theme-solid-text: var(--clr-theme-purp-on-element);
-			--theme-solid-bg: var(--clr-theme-purp-element);
-			--theme-focus-color: var(--clr-theme-purp-element);
+			--theme-outline-text: var(--clr-btn-purple-outline-text);
+			--theme-outline-bg: var(--clr-btn-purple-outline-bg);
+			--theme-outline-border: var(--clr-btn-purple-outline);
+			--theme-solid-text: var(--clr-theme-purple-on-element);
+			--theme-solid-bg: var(--clr-theme-purple-element);
+			--theme-focus-color: var(--clr-theme-purple-element);
 		}
 
 		/* Focus styles for all themed buttons */

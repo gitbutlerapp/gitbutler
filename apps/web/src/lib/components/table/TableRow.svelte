@@ -2,11 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Factoid from '$lib/components/infoFlexRow//Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import {
-		type ColumnTypes,
-		type AvatarsType,
-		type ChangesType
-	} from '$lib/components/table/types';
+	import { type ColumnTypes, type ChangesType } from '$lib/components/table/types';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';

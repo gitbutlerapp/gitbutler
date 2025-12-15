@@ -166,12 +166,12 @@
 		height: 100%;
 
 		& rect {
+			transform-origin: center;
 			fill: var(--dropzone-fill);
 			stroke: var(--dropzone-stroke);
-			stroke-width: 2px;
 			stroke-dasharray: 2;
 			stroke-dashoffset: 30;
-			transform-origin: center;
+			stroke-width: 2px;
 			transition:
 				fill var(--transition-fast),
 				stroke var(--transition-fast);

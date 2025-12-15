@@ -47,11 +47,9 @@
 		<Self {...token} />
 	{/each}
 {:else if renderers[type as keyof typeof renderers]}
-	{@const CurrentComponent = renderers[type as keyof typeof renderers] as Component<
-		Omit<Props, 'type'>
-	>}
+	{@const CurrentComponent = renderers[type as keyof typeof renderers] as Component}
 	{#if type === 'list'}
-		{@const listItems = (rest as Extract<Props, { type: 'list' }>).items}
+		{@const listItems = (rest as Extract).items}
 		<CurrentComponent {...rest}>
 			{#each listItems as item}
 				{@const ChildComponent = renderers[item.type]}

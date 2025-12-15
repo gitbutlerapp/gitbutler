@@ -177,8 +177,8 @@
 				background-color: var(--clr-bg-1-muted);
 
 				.status-badge {
-					background-color: var(--clr-theme-purp-element);
-					color: var(--clr-theme-purp-on-element);
+					background-color: var(--clr-theme-purple-element);
+					color: var(--clr-theme-purple-on-element);
 				}
 			}
 		}
@@ -271,8 +271,8 @@
 			background-color: var(--clr-bg-1-muted);
 
 			.status-badge {
-				background-color: var(--clr-theme-purp-element);
-				color: var(--clr-theme-purp-on-element);
+				background-color: var(--clr-theme-purple-element);
+				color: var(--clr-theme-purple-on-element);
 			}
 		}
 
