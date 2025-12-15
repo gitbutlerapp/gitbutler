@@ -394,29 +394,27 @@ impl IdMap {
         }
 
         // Then try CliId matching
-        if entity.len() == 2 {
-            if let Some(UncommittedFile {
-                assignment_path: (assignment, path),
-                ..
-            }) = self.uncommitted_files.get(entity)
-            {
-                matches.push(CliId::UncommittedFile {
-                    assignment: *assignment,
-                    path: path.to_owned(),
-                    id: entity.to_string(),
-                });
-            }
-            if let Some(CommittedFile {
-                commit_oid_path: (commit_oid, path),
-                ..
-            }) = self.committed_files.get(entity)
-            {
-                matches.push(CliId::CommittedFile {
-                    commit_id: *commit_oid,
-                    path: path.to_owned(),
-                    id: entity.to_string(),
-                });
-            }
+        if let Some(UncommittedFile {
+            assignment_path: (assignment, path),
+            ..
+        }) = self.uncommitted_files.get(entity)
+        {
+            matches.push(CliId::UncommittedFile {
+                assignment: *assignment,
+                path: path.to_owned(),
+                id: entity.to_string(),
+            });
+        }
+        if let Some(CommittedFile {
+            commit_oid_path: (commit_oid, path),
+            ..
+        }) = self.committed_files.get(entity)
+        {
+            matches.push(CliId::CommittedFile {
+                commit_id: *commit_oid,
+                path: path.to_owned(),
+                id: entity.to_string(),
+            });
         }
         if entity.find(|c: char| c != '0').is_none() {
             matches.push(self.unassigned().clone());
