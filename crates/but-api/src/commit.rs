@@ -8,7 +8,7 @@ use tracing::instrument;
 /// Returns the ID of the newly renamed commit
 #[but_api]
 #[instrument(err(Debug))]
-pub fn reword_commit_only(
+pub fn commit_reword_only(
     ctx: &but_ctx::Context,
     commit_id: gix::ObjectId,
     message: BString,
@@ -19,12 +19,12 @@ pub fn reword_commit_only(
     but_workspace::commit::reword(&graph, &repo, commit_id, message.as_bstr())
 }
 
-/// Rewords a commit.
+/// Rewords a commit, but without updating the oplog.
 ///
 /// Returns the ID of the newly renamed commit
 #[but_api]
 #[instrument(err(Debug))]
-pub fn reword_commit(
+pub fn commit_reword(
     ctx: &but_ctx::Context,
     commit_id: gix::ObjectId,
     message: BString,
@@ -36,7 +36,7 @@ pub fn reword_commit(
     )
     .ok();
 
-    let res = reword_commit_only(ctx, commit_id, message);
+    let res = commit_reword_only(ctx, commit_id, message);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
         snapshot.commit(ctx).ok();
     };
