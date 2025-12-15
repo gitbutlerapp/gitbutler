@@ -2,6 +2,7 @@
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { parseError } from '$lib/error/parser';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, Icon, InfoMessage, Link } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
@@ -86,7 +87,7 @@
 									</i>{check.name}
 
 									{#await check.promise catch err}
-										- {err}
+										- {parseError(err).message}
 									{/await}
 								</div>
 							{/each}
