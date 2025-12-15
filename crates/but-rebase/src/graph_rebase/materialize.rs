@@ -1,7 +1,6 @@
 //! Functions for materializing a rebase
 use std::collections::HashMap;
 
-use crate::graph_rebase::{Checkouts, rebase::SuccessfulRebase};
 use anyhow::Result;
 use but_core::{
     ObjectStorageExt as _,
@@ -10,6 +9,8 @@ use but_core::{
         safe_checkout_from_head,
     },
 };
+
+use crate::graph_rebase::{Checkouts, rebase::SuccessfulRebase};
 
 /// The outcome of a materialize
 #[derive(Debug, Clone)]

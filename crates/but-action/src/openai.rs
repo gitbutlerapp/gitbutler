@@ -1,15 +1,13 @@
 use std::{collections::HashMap, fmt::Display, ops::Deref, sync::Arc};
 
 use anyhow::{Context as _, Result};
-use async_openai::types::chat::{
-    ChatCompletionMessageToolCalls, ChatCompletionRequestToolMessageContent,
-};
 use async_openai::{
     Client,
     config::OpenAIConfig,
     types::chat::{
-        ChatCompletionRequestAssistantMessageContent, ChatCompletionRequestMessage,
-        ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessageContent,
+        ChatCompletionMessageToolCalls, ChatCompletionRequestAssistantMessageContent,
+        ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
+        ChatCompletionRequestToolMessageContent, ChatCompletionRequestUserMessageContent,
         CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
     },
 };

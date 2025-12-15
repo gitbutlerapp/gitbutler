@@ -1,4 +1,12 @@
-use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
+use std::{
+    any::Any,
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet, HashSet},
+    ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
+    time::Instant,
+};
+
 use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_core::{
@@ -16,16 +24,9 @@ use gix::{
     refs::{FullName, FullNameRef},
 };
 use itertools::Itertools;
-use std::collections::{BTreeMap, BTreeSet};
-use std::{
-    any::Any,
-    cell::RefCell,
-    collections::HashSet,
-    ops::{Deref, DerefMut},
-    path::{Path, PathBuf},
-    time::Instant,
-};
 use tracing::instrument;
+
+use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
 
 #[derive(Debug, Clone)]
 struct Snapshot {
@@ -966,9 +967,11 @@ mod fs {
     ) -> std::io::Result<()> {
         match tempfile.persist(to_path) {
             Ok(Some(_opened_file)) => Ok(()),
-            Ok(None) => unreachable!(
-                "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
-            ),
+            Ok(None) => {
+                unreachable!(
+                    "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
+                )
+            }
             Err(err) => Err(err.error),
         }
     }

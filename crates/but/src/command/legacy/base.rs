@@ -129,8 +129,9 @@ pub async fn handle(
                 } => {
                     if !worktree_conflicts.is_empty() {
                         if let Some(out) = out.for_human() {
-                            writeln!(out,
-                                     "❗️ There are uncommitted changes in the worktree that may conflict with
+                            writeln!(
+                                out,
+                                "❗️ There are uncommitted changes in the worktree that may conflict with
                             the updates. Please commit or stash them and try again."
                             )?;
                         }
@@ -150,16 +151,14 @@ pub async fn handle(
                                 }
                                 continue;
                             };
-                            let approach = if status
-                                .branch_statuses
-                                .iter()
-                                .all(|s| s.status == Integrated)
-                            && status.tree_status != gitbutler_branch_actions::upstream_integration::TreeStatus::Conflicted
+                            let approach = if status.branch_statuses.iter().all(|s| s.status == Integrated)
+                                && status.tree_status
+                                    != gitbutler_branch_actions::upstream_integration::TreeStatus::Conflicted
                             {
-                                    ResolutionApproach::Delete
-                                } else {
-                                    ResolutionApproach::Rebase
-                                };
+                                ResolutionApproach::Delete
+                            } else {
+                                ResolutionApproach::Rebase
+                            };
                             let resolution = Resolution {
                                 stack_id,
                                 approach,

@@ -11,13 +11,14 @@ pub use ref_info::inner::RefInfo;
 
 /// This code is a fork of [`gitbutler_branch_actions::author`] to avoid depending on the `gitbutler_branch_actions` crate.
 mod author;
+pub use author::Author;
+use but_core::{CommitOwned, commit};
+use ts_rs::TS;
+
 use crate::{
     ref_info::{LocalCommit, LocalCommitRelation},
     ui,
 };
-pub use author::Author;
-use but_core::{CommitOwned, commit};
-use ts_rs::TS;
 
 /// Represents the state a commit could be in.
 #[derive(Debug, Clone, Serialize, TS)]

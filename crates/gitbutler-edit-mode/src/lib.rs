@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_core::{TreeChange, ref_metadata::StackId};
-use but_ctx::Context;
-use but_ctx::access::{WorktreeReadPermission, WorktreeWritePermission};
+use but_ctx::{
+    Context,
+    access::{WorktreeReadPermission, WorktreeWritePermission},
+};
 use but_oxidize::{
     GixRepositoryExt, ObjectIdExt, OidExt, RepoExt, git2_to_gix_object_id, gix_to_git2_index,
 };

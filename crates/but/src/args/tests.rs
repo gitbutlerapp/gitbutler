@@ -9,8 +9,7 @@ fn clap() {
 mod push {
     #[cfg(feature = "legacy")]
     mod get_gerrit_flags {
-        use crate::args::push::Command as Args;
-        use crate::command::legacy::push::get_gerrit_flags;
+        use crate::{args::push::Command as Args, command::legacy::push::get_gerrit_flags};
 
         #[test]
         fn non_gerrit_mode() {

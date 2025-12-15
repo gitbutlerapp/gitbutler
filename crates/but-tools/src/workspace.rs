@@ -171,7 +171,8 @@ impl Tool for Commit {
             You can specify the commit message, target branch name, and a list of file paths to commit.
             If the branch does not exist, it will be created.
         </important_notes>
-        ".to_string()
+        "
+        .to_string()
     }
 
     fn parameters(&self) -> serde_json::Value {
@@ -1072,7 +1073,8 @@ impl Tool for GetBranchChanges {
             Call this tool before splitting a branch.
             Use this to inspect what files have been changed on a branch.
         </important_notes>
-        ".to_string()
+        "
+        .to_string()
     }
 
     fn parameters(&self) -> serde_json::Value {
@@ -1494,7 +1496,8 @@ impl Tool for SplitCommit {
             Each shard must have a unique set of files, and all files in the source commit must be assigned to a shard.
             The order of the shards determines the order of the resulting commits.
         </important_notes>
-        ".to_string()
+        "
+        .to_string()
     }
 
     fn parameters(&self) -> serde_json::Value {

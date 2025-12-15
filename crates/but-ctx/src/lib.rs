@@ -2,10 +2,11 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+use std::path::{Path, PathBuf};
+
 use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
 use but_settings::AppSettings;
 use gix::Repository;
-use std::path::{Path, PathBuf};
 
 /// Legacy types that shouldn't be used.
 #[cfg(feature = "legacy")]

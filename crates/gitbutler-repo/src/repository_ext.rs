@@ -1,6 +1,5 @@
 use std::str;
 
-use crate::{Config, SignaturePurpose};
 use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::BString;
 use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix};
@@ -16,6 +15,8 @@ use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::objs::WriteTo;
 use tracing::instrument;
+
+use crate::{Config, SignaturePurpose};
 
 /// Extension trait for `git2::Repository`.
 ///

@@ -3,9 +3,11 @@ use but_ctx::Context;
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_project::Project;
 
-use crate::args::push::Command;
-use crate::{CliId, IdMap};
-use crate::{args::push, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    args::{push, push::Command},
+    utils::OutputChannel,
+};
 
 pub fn handle(
     args: push::Command,

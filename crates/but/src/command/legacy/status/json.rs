@@ -9,10 +9,11 @@
 //! Non-goals:
 //! - Completeness: The output structures do not include all the data that the internal but-api has.
 
-use crate::CliId;
 use but_api::diff::ComputeLineStats;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
+
+use crate::CliId;
 
 /// JSON output for the `but status` command
 /// This represents the status of the GitButler "workspace".

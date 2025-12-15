@@ -1,8 +1,8 @@
 mod apply;
-use crate::args::branch::Subcommands;
-use crate::utils::OutputChannel;
 pub use apply::apply;
 use but_ctx::Context;
+
+use crate::{args::branch::Subcommands, utils::OutputChannel};
 
 pub fn handle(
     cmd: Option<Subcommands>,

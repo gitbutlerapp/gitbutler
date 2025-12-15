@@ -1,6 +1,9 @@
+use std::{
+    env,
+    ops::{Deref, DerefMut},
+};
+
 use but_testsupport::isolate_snapbox_cmd;
-use std::ops::Deref;
-use std::{env, ops::DerefMut};
 
 /// A wrapper around [but_testsupport::Sandbox] to add `but` invocation support, which can only come from the crate that
 /// defines the binary.

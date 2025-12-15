@@ -57,8 +57,7 @@ pub use ref_info::function::{head_info, ref_info};
 
 mod branch_details;
 pub use branch_details::{branch_details, local_commits_for_branch};
-use but_graph::SegmentIndex;
-use but_graph::projection::TargetCommit;
+use but_graph::{SegmentIndex, projection::TargetCommit};
 
 /// Information about refs, as seen from within or outsie of a workspace.
 ///

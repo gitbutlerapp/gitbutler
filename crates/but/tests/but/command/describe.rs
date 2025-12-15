@@ -1,6 +1,7 @@
-use crate::utils::Sandbox;
 use gitbutler_commit::commit_ext::CommitExt;
 use snapbox::str;
+
+use crate::utils::Sandbox;
 
 #[test]
 fn describe_commit_with_message_flag() -> anyhow::Result<()> {

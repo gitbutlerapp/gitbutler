@@ -1,7 +1,8 @@
+use std::{collections::HashMap, path::Path, time::Duration};
+
 use futures::{FutureExt, select};
 use gix::bstr::ByteSlice;
 use rand::Rng;
-use std::{collections::HashMap, path::Path, time::Duration};
 
 use super::executor::{AskpassServer, GitExecutor, Pid, Socket};
 use crate::RefSpec;

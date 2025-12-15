@@ -153,9 +153,9 @@ impl LockFile {
         self.inner.try_lock().or_else(|err| {
             if err.kind() == std::io::ErrorKind::Unsupported {
                 tracing::warn!(
-                "Filesystem hosting '{}' doesn't support file locking - pretending to own lock to avoid failure",
-                self.path.display()
-            );
+                    "Filesystem hosting '{}' doesn't support file locking - pretending to own lock to avoid failure",
+                    self.path.display()
+                );
                 Ok(true)
             } else {
                 Err(err)

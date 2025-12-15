@@ -477,20 +477,22 @@ pub fn stack_details_v3(
         }
         Some(stack_id) => {
             // Even though it shouldn't be the case, the ids can totally go out of sync. Use both to play it safer.
-            let (vb_stack, alt_stack_id) = meta.data().branches.iter()
-                .find_map(|(k, s)| if s.id == stack_id {
-                    Some((s, Some(*k)))
-                } else if *k == stack_id {
-                    Some((s, Some(s.id)))
-                } else {
-                    None
-                }
-                )
+            let (vb_stack, alt_stack_id) = meta
+                .data()
+                .branches
+                .iter()
+                .find_map(|(k, s)| {
+                    if s.id == stack_id {
+                        Some((s, Some(*k)))
+                    } else if *k == stack_id {
+                        Some((s, Some(s.id)))
+                    } else {
+                        None
+                    }
+                })
                 .with_context(|| {
-                format!(
-                    "Couldn't find {stack_id} even when looking at virtual_branches.toml directly"
-                )
-            })?;
+                    format!("Couldn't find {stack_id} even when looking at virtual_branches.toml directly")
+                })?;
             let full_name = gix::refs::FullName::try_from(format!(
                 "refs/heads/{shortname}",
                 shortname = vb_stack.derived_name()?
@@ -715,7 +717,8 @@ fn upstream_only_commits(
     for commit in branch_commits.upstream_only.iter() {
         let matches_known_commit = local_and_remote.iter().any(|c| {
             // If the id matches verbatim or if there is a known remote_id (in the case of LocalAndRemote) that matches
-            c.id == commit.id().to_gix() || matches!(&c.state, CommitState::LocalAndRemote(remote_id) if remote_id == &commit.id().to_gix())
+            c.id == commit.id().to_gix()
+                || matches!(&c.state, CommitState::LocalAndRemote(remote_id) if remote_id == &commit.id().to_gix())
         });
         // Ignore commits that strictly speaking are remote only, but they match a known local commit (rebase etc)
         if !matches_known_commit {

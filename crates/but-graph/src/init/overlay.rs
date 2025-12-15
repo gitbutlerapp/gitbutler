@@ -1,12 +1,18 @@
-use crate::Worktree;
-use crate::init::walk::WorktreeByBranch;
-use crate::init::{Entrypoint, Overlay, walk::RefsById};
-use anyhow::bail;
-use but_core::{RefMetadata, ref_metadata};
-use gix::{prelude::ReferenceExt, refs::Target};
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
+};
+
+use anyhow::bail;
+use but_core::{RefMetadata, ref_metadata};
+use gix::{prelude::ReferenceExt, refs::Target};
+
+use crate::{
+    Worktree,
+    init::{
+        Entrypoint, Overlay,
+        walk::{RefsById, WorktreeByBranch},
+    },
 };
 
 impl Overlay {

@@ -1,7 +1,8 @@
+use std::collections::HashMap;
+
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use std::collections::HashMap;
 use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 
 /// A macro to help generate wrappers which are used by some clients to support deserialisation of parameters

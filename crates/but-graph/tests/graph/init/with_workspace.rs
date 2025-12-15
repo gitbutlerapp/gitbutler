@@ -7,11 +7,13 @@ use but_testsupport::{
     InMemoryRefMetadata, graph_tree, graph_workspace, visualize_commit_graph_all,
 };
 
-use crate::init::utils::{add_stack, add_workspace_with_target};
 use crate::init::{
     StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev,
     read_only_in_memory_scenario, standard_options,
-    utils::{add_workspace_without_target, remove_target, standard_options_with_extra_target},
+    utils::{
+        add_stack, add_workspace_with_target, add_workspace_without_target, remove_target,
+        standard_options_with_extra_target,
+    },
 };
 
 #[test]

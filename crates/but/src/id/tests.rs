@@ -1,6 +1,7 @@
-use crate::{CliId, IdMap, id::UintId};
 use anyhow::bail;
 use bstr::BString;
+
+use crate::{CliId, IdMap, id::UintId};
 
 #[test]
 fn uint_id_from_short_id() -> anyhow::Result<()> {
@@ -295,8 +296,10 @@ mod util {
     use bstr::BString;
     use but_core::ref_metadata::StackId;
     use but_hunk_assignment::HunkAssignment;
-    use but_workspace::branch::Stack;
-    use but_workspace::ref_info::{Commit, LocalCommit, Segment};
+    use but_workspace::{
+        branch::Stack,
+        ref_info::{Commit, LocalCommit, Segment},
+    };
 
     pub fn id(byte: u8) -> gix::ObjectId {
         gix::ObjectId::try_from([byte].repeat(20).as_slice()).expect("could not generate ID")
