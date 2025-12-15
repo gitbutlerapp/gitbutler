@@ -88,7 +88,7 @@
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			style: 'neutral',
+			style: 'gray',
 			reversedDirection: defaultProps.reversedDirection
 		})}
 		<hr class="divider" />

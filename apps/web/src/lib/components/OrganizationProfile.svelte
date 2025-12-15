@@ -243,7 +243,7 @@
 									{#if localOrganization.inviteCode && !isOwner(member)}
 										<Button
 											kind="outline"
-											style="neutral"
+											style="gray"
 											onclick={() => confirmMakeOwnerDialog(member.login)}
 										>
 											Make Owner

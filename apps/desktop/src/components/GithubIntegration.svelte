@@ -209,7 +209,7 @@
 									{userCode}
 								</span>
 								<Button
-									style="neutral"
+									style="gray"
 									kind="outline"
 									icon="copy"
 									disabled={codeCopied}
@@ -291,7 +291,7 @@
 			</CardGroup.Item>
 			<CardGroup.Item>
 				<div class="flex justify-end gap-6">
-					<Button style="neutral" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
+					<Button style="gray" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
 					<Button
 						style="pop"
 						disabled={!patInput}
@@ -338,7 +338,7 @@
 			</CardGroup.Item>
 			<CardGroup.Item>
 				<div class="flex justify-end gap-6">
-					<Button style="neutral" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
+					<Button style="gray" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
 					<Button
 						style="pop"
 						disabled={!gheHostInput || !ghePatInput}
@@ -358,7 +358,7 @@
 </p>
 
 {#snippet addAccountButton(noAccounts: boolean)}
-	{@const buttonStyle = noAccounts ? 'pop' : 'neutral'}
+	{@const buttonStyle = noAccounts ? 'pop' : 'gray'}
 	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
 	<Button
 		bind:el={addAccountButtonRef}

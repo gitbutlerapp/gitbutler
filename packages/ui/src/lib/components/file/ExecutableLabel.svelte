@@ -4,5 +4,5 @@
 </script>
 
 <Tooltip text="Executable">
-	<Badge kind="soft" style="neutral" size="icon">Ex</Badge>
+	<Badge kind="soft" style="gray" size="icon">Ex</Badge>
 </Tooltip>

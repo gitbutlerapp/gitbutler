@@ -4,7 +4,7 @@
 
 	type Props = {
 		children?: Snippet;
-		style: 'neutral' | 'pop' | 'error';
+		style: 'info' | 'pop' | 'error';
 		face: faceType;
 		extraContent?: Snippet;
 	};

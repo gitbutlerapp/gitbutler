@@ -41,7 +41,7 @@
 			case 'rename':
 				return 'purple';
 			default:
-				return 'neutral';
+				return 'gray';
 		}
 	}
 </script>

@@ -57,7 +57,7 @@
 		const checks = checksQuery?.response;
 		if (!checksService && isFork) {
 			return {
-				style: 'neutral',
+				style: 'gray',
 				icon: 'info',
 				text: 'No PR checks',
 				reducedText: 'No checks',
@@ -97,10 +97,10 @@
 			return { style, icon, text, reducedText, tooltip };
 		}
 		if (loading) {
-			return { style: 'neutral', icon: 'spinner', text: 'Checks', reducedText: 'Checks' };
+			return { style: 'gray', icon: 'spinner', text: 'Checks', reducedText: 'Checks' };
 		}
 
-		return { style: 'neutral', icon: undefined, text: 'No PR checks', reducedText: 'No checks' };
+		return { style: 'gray', icon: undefined, text: 'No PR checks', reducedText: 'No checks' };
 	});
 
 	// Track previous state to detect transitions.

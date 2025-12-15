@@ -24,7 +24,7 @@
 		...DEFAULT_SATURATIONS
 	});
 	let scaleHues: Record<string, number | null> = $state({
-		ntrl: null,
+		gray: null,
 		pop: null,
 		err: null,
 		warn: null,

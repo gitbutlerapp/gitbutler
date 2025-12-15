@@ -181,7 +181,7 @@
 			testId={TestId.StackPushButton}
 			kind={isFirstBranchInStack ? 'solid' : 'outline'}
 			size="tag"
-			style="neutral"
+			style="gray"
 			{loading}
 			disabled={buttonDisabled}
 			tooltip={getButtonTooltip(

@@ -243,7 +243,7 @@
 										</AsyncButton>
 										<Button
 											type="button"
-											style="neutral"
+											style="gray"
 											onclick={cancelEditingReadme}
 											disabled={isSavingReadme}
 										>
@@ -252,7 +252,7 @@
 									{:else}
 										<Button
 											type="button"
-											style="neutral"
+											style="gray"
 											onclick={() => startEditingReadme((projectData as any).readme)}
 										>
 											Edit README
@@ -464,7 +464,7 @@
 				<div class="form-actions">
 					<Button
 						type="button"
-						style="neutral"
+						style="gray"
 						onclick={() => editProjectModal?.close()}
 						disabled={isUpdatingProject}
 					>

@@ -75,7 +75,7 @@
 		grow = false,
 		align = 'auto',
 		dropdownChild = false,
-		style = 'neutral',
+		style = 'gray',
 		kind = 'solid',
 		hotkey,
 		class: className = '',
@@ -245,14 +245,14 @@
 			--icon-opacity: var(--opacity-btn-icon-outline);
 		}
 
-		/* All outline buttons except neutral get a slight background by default */
-		:where(&.outline:not(.neutral)) {
+		/* All outline buttons except gray get a slight background by default */
+		:where(&.outline:not(.gray)) {
 			--opacity-btn-bg: 0.1;
 		}
 
-		/* Ghost buttons and neutral outline buttons keep transparent background by default */
+		/* Ghost buttons and gray outline buttons keep transparent background by default */
 		:where(&.ghost),
-		:where(&.outline.neutral) {
+		:where(&.outline.gray) {
 			--opacity-btn-bg: 0;
 		} /* All outline and ghost buttons hover with darker background */
 		:where(&.outline:not(:disabled):hover),
@@ -300,7 +300,7 @@
 		}
 
 		/* Theme Variables - All themes use the same pattern */
-		:where(&.neutral) {
+		:where(&.gray) {
 			--theme-outline-text: var(--clr-btn-gray-outline-text);
 			--theme-outline-bg: var(--clr-btn-gray-outline-bg);
 			--theme-outline-border: var(--clr-btn-gray-outline);

@@ -133,12 +133,7 @@
 			<Icon name="tick" />
 		</div>
 	{:else}
-		<AsyncButton
-			style="neutral"
-			action={handleCheckAvailability}
-			icon="update"
-			loading={isChecking}
-		>
+		<AsyncButton style="gray" action={handleCheckAvailability} icon="update" loading={isChecking}>
 			Check Connection
 		</AsyncButton>
 	{/if}

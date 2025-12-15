@@ -314,7 +314,7 @@
 						{#if !$codegenDisabled && first && codegenQuery?.response?.length === 0}
 							<Button
 								icon="ai-small"
-								style="neutral"
+								style="gray"
 								size="tag"
 								tooltip="New Codegen Session"
 								onclick={async () => {

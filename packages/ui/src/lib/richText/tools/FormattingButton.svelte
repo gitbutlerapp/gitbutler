@@ -18,7 +18,7 @@
 <div class="formatting-button" class:formatting-button--activated={activated}>
 	<Button
 		type="button"
-		style="neutral"
+		style="gray"
 		kind="ghost"
 		{size}
 		{icon}

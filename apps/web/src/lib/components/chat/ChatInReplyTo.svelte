@@ -36,7 +36,7 @@
 	</div>
 
 	{#if clearReply}
-		<Button icon="cross" style="neutral" kind="ghost" size="tag" onclick={clearReply} />
+		<Button icon="cross" style="gray" kind="ghost" size="tag" onclick={clearReply} />
 	{/if}
 </div>
 

@@ -29,7 +29,7 @@
 		</p>
 	</div>
 
-	<Button icon="cross" style="neutral" kind="ghost" size="tag" onclick={clearDiffSelection} />
+	<Button icon="cross" style="gray" kind="ghost" size="tag" onclick={clearDiffSelection} />
 </div>
 
 <style>

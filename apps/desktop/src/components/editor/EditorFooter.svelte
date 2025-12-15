@@ -16,7 +16,7 @@
 		testId={TestId.CommitDrawerCancelButton}
 		kind="outline"
 		width={120}
-		style="neutral"
+		style="gray"
 		onclick={onCancel}>{CancelButtonLabel}</Button
 	>
 	{@render children()}

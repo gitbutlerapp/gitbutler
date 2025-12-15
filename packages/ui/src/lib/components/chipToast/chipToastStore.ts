@@ -15,7 +15,7 @@ function createChipToastStore() {
 		const chipToast: ChipToastData = {
 			id,
 			message,
-			type: options.type || 'neutral',
+			type: options.type || 'info',
 			customButton: options.customButton,
 			showDismiss: options.showDismiss
 		};
@@ -41,8 +41,8 @@ function createChipToastStore() {
 	}
 
 	// Convenience methods for different chipToast types
-	function neutral(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
-		return addChipToast(message, { type: 'neutral', ...options });
+	function info(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
+		return addChipToast(message, { type: 'info', ...options });
 	}
 
 	function success(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
@@ -57,9 +57,9 @@ function createChipToastStore() {
 		return addChipToast(message, { type: 'error', ...options });
 	}
 
-	// Keep loading function for compatibility - just an alias for neutral
+	// Keep loading function for compatibility - just an alias for info
 	function loading(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
-		return neutral(message, options);
+		return info(message, options);
 	}
 
 	// Simple promise function that handles loading/success/error states
@@ -94,7 +94,7 @@ function createChipToastStore() {
 		addChipToast,
 		removeChipToast,
 		clearAll,
-		neutral,
+		info,
 		success,
 		warning,
 		error,

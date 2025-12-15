@@ -22,7 +22,7 @@
 
 	const {
 		testId,
-		style = 'neutral',
+		style = 'gray',
 		kind = 'solid',
 		size = 'icon',
 		class: className = '',
@@ -73,7 +73,7 @@
 		text-align: center;
 
 		/* SOLID */
-		&.neutral.solid {
+		&.gray.solid {
 			background-color: var(--clr-theme-gray-element);
 			color: var(--clr-theme-gray-on-element);
 		}
@@ -104,7 +104,7 @@
 		}
 
 		/* SOFT */
-		&.neutral.soft {
+		&.gray.soft {
 			background-color: var(--clr-theme-gray-soft);
 			color: var(--clr-theme-gray-on-soft);
 		}

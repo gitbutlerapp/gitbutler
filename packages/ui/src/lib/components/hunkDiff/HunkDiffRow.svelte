@@ -274,7 +274,7 @@
 						<div class="button-wrapper">
 							<Button
 								icon="text-quote"
-								style="neutral"
+								style="gray"
 								kind="ghost"
 								size="button"
 								tooltip="Quote"
@@ -286,7 +286,7 @@
 					<div class="button-wrapper">
 						<Button
 							icon="copy-small"
-							style="neutral"
+							style="gray"
 							kind="ghost"
 							size="button"
 							tooltip="Copy"

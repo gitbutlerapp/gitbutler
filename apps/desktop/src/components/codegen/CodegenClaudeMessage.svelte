@@ -31,7 +31,7 @@
 	<CodegenUserMessage content={message.message} attachments={message.attachments} />
 {:else if message.source === 'claude'}
 	{#if 'subtype' in message && message.subtype === 'compaction'}
-		<CodegenServiceMessage style="neutral" face="compacted">
+		<CodegenServiceMessage style="info" face="compacted">
 			{#snippet extraContent()}
 				{@render compactionSummary(message.message)}
 			{/snippet}

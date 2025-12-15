@@ -21,7 +21,7 @@
 		disabled = false,
 		wide = false,
 		tooltip = '',
-		style = 'neutral',
+		style = 'gray',
 		kind = 'outline'
 	}: Props = $props();
 

@@ -449,7 +449,7 @@
 				onclick={saveRule}
 				kind="solid"
 				wide
-				style="neutral"
+				style="gray"
 				disabled={!canSaveRule}
 				loading={stackEntries.result.isLoading ||
 					creatingRule.current.isLoading ||

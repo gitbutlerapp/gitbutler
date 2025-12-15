@@ -258,7 +258,7 @@
 					>
 				{/if}
 				<Button
-					style="neutral"
+					style="gray"
 					kind="outline"
 					disabled={showSymlink}
 					onclick={() => (showSymlink = !showSymlink)}>Show command</Button

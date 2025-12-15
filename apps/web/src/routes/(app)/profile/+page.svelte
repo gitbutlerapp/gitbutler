@@ -171,7 +171,7 @@
 						</p>
 					</div>
 
-					<Button style="neutral" wide onclick={() => window.open(downloadLink, '_blank')}>
+					<Button style="gray" wide onclick={() => window.open(downloadLink, '_blank')}>
 						{downloadButtonText}
 					</Button>
 

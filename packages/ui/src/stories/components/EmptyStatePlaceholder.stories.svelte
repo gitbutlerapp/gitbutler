@@ -116,7 +116,7 @@
 				Your workspace is empty. Start by adding some files or creating a new project.
 			{/snippet}
 			{#snippet actions()}
-				<Button style="neutral">Browse Files</Button>
+				<Button style="gray">Browse Files</Button>
 			{/snippet}
 		</EmptyStatePlaceholder>
 	{/snippet}

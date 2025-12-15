@@ -2,7 +2,7 @@ export const componentKindConst = ['solid', 'outline', 'ghost'] as const;
 export type ComponentKindType = (typeof componentKindConst)[number];
 
 export const componentColorConst = [
-	'neutral',
+	'gray',
 	'pop',
 	'success',
 	'error',

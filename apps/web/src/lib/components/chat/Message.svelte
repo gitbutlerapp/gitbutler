@@ -219,7 +219,7 @@
 				{#each optimisticEmojiReactions as reaction}
 					{@const reacted = thisUserReacted(reaction.users)}
 					<Button
-						style="neutral"
+						style="gray"
 						kind={reacted ? 'ghost' : 'outline'}
 						size="tag"
 						loading={reactionSet.has(reaction.reaction)}

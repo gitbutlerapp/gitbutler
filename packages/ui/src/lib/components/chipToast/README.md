@@ -8,7 +8,7 @@ A simple toast notification system for the GitButler UI package.
 - **Bottom-center positioning**: Appears at the bottom center of the screen
 - **Stacking**: Multiple toasts stack vertically
 - **Auto-dismiss**: All toasts automatically disappear after 4 seconds
-- **4 types**: Neutral, Success, Warning, and Error with appropriate styling
+- **4 types**: Info, Success, Warning, and Error with appropriate styling
 
 ## Usage
 
@@ -35,7 +35,7 @@ A simple toast notification system for the GitButler UI package.
 import { toasts } from '@gitbutler/ui';
 
 // Different toast types
-toasts.neutral('This is a neutral message');
+toasts.info('This is a info message');
 toasts.success('Operation completed successfully!');
 toasts.warning('Please review your changes');
 toasts.error('Something went wrong');
@@ -71,20 +71,9 @@ Individual toast component.
 
 **Props:**
 
-- `type: 'neutral' | 'success' | 'warning' | 'error'` - Toast type
+- `type: 'info' | 'success' | 'warning' | 'error'` - Toast type
 - `message: string` - Toast message text
 
 ### `<ToastContainer>`
 
 Container that manages positioning and stacking. Add this once to your app root.
-
-**No props required.**
-
-## Styling
-
-Toasts use the GitButler design system colors:
-
-- **Neutral**: `--clr-theme-gray-element`
-- **Success**: `--clr-theme-succ-element`
-- **Warning**: `--clr-theme-warn-element`
-- **Error**: `--clr-theme-err-element`
