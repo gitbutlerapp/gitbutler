@@ -266,10 +266,10 @@ mod stack_details {
             "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
         )?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * cbc6713 (origin/advanced-lane, on-top-of-dependent, dependent, advanced-lane) change
-    * fafd9d0 (origin/main, main, lane) init
-    ");
+        * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+        * cbc6713 (origin/advanced-lane, on-top-of-dependent, dependent, advanced-lane) change
+        * fafd9d0 (origin/main, main, lane) init
+        ");
 
         let stack_id = add_stack_with_segments(
             &mut meta,

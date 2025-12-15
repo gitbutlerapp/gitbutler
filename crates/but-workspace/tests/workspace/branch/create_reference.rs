@@ -238,12 +238,12 @@ mod with_workspace {
     fn journey_single_branch_segment_anchor() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-4-commits")?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-            * 05240ea (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-            * 43f9472 (A) A2
-            * 6fdab32 A1
-            * bce0c5e (origin/main, main) M2
-            * 3183e43 M1
-            ");
+        * 05240ea (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+        * 43f9472 (A) A2
+        * 6fdab32 A1
+        * bce0c5e (origin/main, main) M2
+        * 3183e43 M1
+        ");
 
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
         let ws = graph.to_workspace()?;
@@ -583,10 +583,10 @@ mod with_workspace {
         let (_tmp, repo, mut meta) =
             named_writable_scenario("single-branch-3-commits-no-ws-commit")?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-            * c2878fb (HEAD -> gitbutler/workspace, A) A2
-            * 49d4b34 A1
-            * 3183e43 (origin/main, main) M1
-            ");
+        * c2878fb (HEAD -> gitbutler/workspace, A) A2
+        * 49d4b34 A1
+        * 3183e43 (origin/main, main) M1
+        ");
 
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
@@ -926,10 +926,10 @@ mod with_workspace {
         let (_tmp, repo, mut meta) =
             named_writable_scenario("single-branch-3-commits-no-ws-commit")?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-            * c2878fb (HEAD -> gitbutler/workspace, A) A2
-            * 49d4b34 A1
-            * 3183e43 (origin/main, main) M1
-            ");
+        * c2878fb (HEAD -> gitbutler/workspace, A) A2
+        * 49d4b34 A1
+        * 3183e43 (origin/main, main) M1
+        ");
 
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
@@ -1062,9 +1062,9 @@ mod with_workspace {
             "single-branch-no-ws-commit",
         )?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-            * bce0c5e (HEAD -> gitbutler/workspace, main) M2
-            * 3183e43 (origin/main) M1
-            ");
+        * bce0c5e (HEAD -> gitbutler/workspace, main) M2
+        * 3183e43 (origin/main) M1
+        ");
 
         let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
         let ws = graph.to_workspace()?;
@@ -1118,11 +1118,11 @@ mod with_workspace {
             "single-branch-two-commits-no-ws-commit",
         )?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-            * bba50eb (extra) E1
-            * c2878fb (HEAD -> gitbutler/workspace, A) A2
-            * 49d4b34 A1
-            * 3183e43 (origin/main, main) M1
-            ");
+        * bba50eb (extra) E1
+        * c2878fb (HEAD -> gitbutler/workspace, A) A2
+        * 49d4b34 A1
+        * 3183e43 (origin/main, main) M1
+        ");
 
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
@@ -1286,10 +1286,10 @@ fn errors() -> anyhow::Result<()> {
     let (repo, mut meta) =
         named_read_only_in_memory_scenario("with-remotes-no-workspace", "remote")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-        * 89cc2d3 (A) change in A
-        * d79bba9 new file in A
-        * c166d42 (HEAD -> main) init-integration
-        ");
+    * 89cc2d3 (A) change in A
+    * d79bba9 new file in A
+    * c166d42 (HEAD -> main) init-integration
+    ");
 
     let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
     let ws = graph.to_workspace()?;
@@ -1447,11 +1447,11 @@ fn errors() -> anyhow::Result<()> {
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-        ⌂:0:A <> ✓!
-        └── ≡:0:A
-            └── :0:A
-                └── ✂️·89cc2d3
-        ");
+    ⌂:0:A <> ✓!
+    └── ≡:0:A
+        └── :0:A
+            └── ✂️·89cc2d3
+    ");
 
     let (a_id, _a_ref_owned) = id_at(&repo, "A");
     for anchor in [
@@ -1488,10 +1488,10 @@ fn errors() -> anyhow::Result<()> {
 fn journey_with_commits() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-with-3-commits")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-        * 281da94 (HEAD -> main) 3
-        * 12995d7 2
-        * 3d57fc1 1
-        ");
+    * 281da94 (HEAD -> main) 3
+    * 12995d7 2
+    * 3d57fc1 1
+    ");
 
     let graph = but_graph::Graph::from_head(&repo, &meta, Default::default())?;
     let ws = graph.to_workspace()?;
@@ -1666,10 +1666,10 @@ fn journey_with_commits() -> anyhow::Result<()> {
 fn journey_anon_workspace() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-with-3-commits")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-        * 281da94 (HEAD -> main) 3
-        * 12995d7 2
-        * 3d57fc1 1
-        ");
+    * 281da94 (HEAD -> main) 3
+    * 12995d7 2
+    * 3d57fc1 1
+    ");
 
     let id = id_by_rev(&repo, "@~1");
     let graph = but_graph::Graph::from_commit_traversal(id, None, &meta, Default::default())?;
@@ -1780,13 +1780,13 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     // Let's keep the test as reminder, and try to create a branch once there is a base.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-        ⌂:0:second <> ✓!
-        └── ≡📙:0:second
-            ├── 📙:0:second
-            │   └── ·12995d7
-            └── 📙:1:first
-                └── ·3d57fc1 (✓)
-        ");
+    ⌂:0:second <> ✓!
+    └── ≡📙:0:second
+        ├── 📙:0:second
+        │   └── ·12995d7
+        └── 📙:1:first
+            └── ·3d57fc1 (✓)
+    ");
 
     Ok(())
 }

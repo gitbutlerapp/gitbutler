@@ -12,7 +12,7 @@ use crate::worktree::utils::build_commit;
 fn update_unborn_head() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("unborn-empty");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"");
-    insta::assert_snapshot!(git_status(&repo)?, @r"");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let empty_tree = repo.empty_tree().id;
     let head_commit = repo.new_commit("init", empty_tree, None::<gix::ObjectId>)?;
@@ -28,7 +28,7 @@ fn update_unborn_head() -> anyhow::Result<()> {
     "#);
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 36d9c80 (HEAD -> main) init");
-    insta::assert_snapshot!(git_status(&repo)?, @r"");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
     Ok(())
 }
 
