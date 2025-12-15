@@ -117,7 +117,7 @@
 	{/if}
 {/snippet}
 
-{#snippet renderBasicPill(config: ReturnType)}
+{#snippet renderBasicPill(config: ReturnType<typeof getFilterConfig>)}
 	<div class="filter-pill">
 		<Tooltip text={config.tooltip}>
 			<div class="flex items-center gap-6 overflow-hidden">
@@ -130,7 +130,7 @@
 	</div>
 {/snippet}
 
-{#snippet renderFileChangePill(config: ReturnType, fileStatus: any)}
+{#snippet renderFileChangePill(config: ReturnType<typeof getFilterConfig>, fileStatus: any)}
 	<Tooltip text={config.tooltip}>
 		<div class="filter-pill">
 			<FileStatusBadge status={fileStatus} style="dot" />

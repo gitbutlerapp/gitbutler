@@ -363,7 +363,7 @@
 									</p>
 
 									{#if projectData.permissions?.canWrite}
-										<Button style="error" onclick={handleDisconnectFromParent}>
+										<Button style="danger" onclick={handleDisconnectFromParent}>
 											Disconnect from Parent
 										</Button>
 									{/if}
@@ -402,7 +402,7 @@
 							<h2 class="card-title danger-title">Danger Zone</h2>
 							<div class="card-content">
 								<AsyncButton
-									style="error"
+									style="danger"
 									action={async () => await deleteProject(projectData.repositoryId)}
 								>
 									Delete Project

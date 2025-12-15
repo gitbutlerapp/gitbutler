@@ -168,7 +168,7 @@
 		{#if onresolveclick}
 			{#if !conflicted}
 				<Tooltip text="Conflict resolved">
-					<Badge style="success">Resolved</Badge>
+					<Badge style="safe">Resolved</Badge>
 				</Tooltip>
 			{:else}
 				<Button

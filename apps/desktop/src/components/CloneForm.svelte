@@ -132,7 +132,7 @@
 	{@render Notification({ title: 'Success', style: 'success' })}
 {/if}
 {#if errors.length}
-	{@render Notification({ title: 'Error', items: errors, style: 'error' })}
+	{@render Notification({ title: 'Error', items: errors, style: 'danger' })}
 {/if}
 
 <div class="clone__actions">

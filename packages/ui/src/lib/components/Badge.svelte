@@ -83,9 +83,9 @@
 			color: var(--clr-theme-pop-on-element);
 		}
 
-		&.success.solid {
-			background-color: var(--clr-theme-succ-element);
-			color: var(--clr-theme-succ-on-element);
+		&.safe.solid {
+			background-color: var(--clr-theme-safe-element);
+			color: var(--clr-theme-safe-on-element);
 		}
 
 		&.warning.solid {
@@ -114,9 +114,9 @@
 			color: var(--clr-theme-pop-on-soft);
 		}
 
-		&.success.soft {
-			background-color: var(--clr-theme-succ-soft);
-			color: var(--clr-theme-succ-on-soft);
+		&.safe.soft {
+			background-color: var(--clr-theme-safe-soft);
+			color: var(--clr-theme-safe-on-soft);
 		}
 
 		&.warning.soft {

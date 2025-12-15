@@ -75,7 +75,7 @@
 		info: 'pop',
 		warning: 'warning',
 		danger: 'danger',
-		success: 'success'
+		success: 'safe'
 	};
 
 	const primaryButtonMap: { [Key in MessageStyle]: ComponentColorType } = {
@@ -213,7 +213,7 @@
 		border: 0 solid var(--clr-theme-warn-element);
 	}
 	.success {
-		border: 0 solid var(--clr-theme-succ-element);
+		border: 0 solid var(--clr-theme-safe-element);
 	}
 	.shadow {
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
@@ -235,7 +235,7 @@
 			background-color: var(--clr-theme-warn-bg-muted);
 		}
 		&.success {
-			background-color: var(--clr-theme-succ-bg-muted);
+			background-color: var(--clr-theme-safe-bg-muted);
 		}
 	}
 

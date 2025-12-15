@@ -48,8 +48,8 @@
 		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-3);
 
-		border-left: 4px solid var(--clr-theme-succ-element);
-		background: var(--clr-theme-succ-bg);
+		border-left: 4px solid var(--clr-theme-safe-element);
+		background: var(--clr-theme-safe-bg);
 
 		&:first-child {
 			border-bottom: none;
@@ -70,7 +70,7 @@
 		padding: 4px;
 
 		border-radius: 8px;
-		background: var(--clr-theme-succ-element);
+		background: var(--clr-theme-safe-element);
 		color: var(--clr-core-gray-100);
 
 		&.request-changes {

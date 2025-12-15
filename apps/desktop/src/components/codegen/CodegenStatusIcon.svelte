@@ -42,8 +42,8 @@
 		--icon-inner-color: color-mix(in srgb, var(--clr-text-1) 80%, transparent);
 
 		&.completed {
-			--icon-frame-color: var(--clr-theme-succ-element);
-			--icon-inner-color: var(--clr-theme-succ-element);
+			--icon-frame-color: var(--clr-theme-safe-element);
+			--icon-inner-color: var(--clr-theme-safe-element);
 		}
 	}
 

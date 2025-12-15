@@ -13,7 +13,7 @@
 		argTypes: {
 			color: {
 				control: 'select',
-				options: ['gray', 'ghost', 'pop', 'success', 'error', 'warning', 'purple', undefined]
+				options: ['gray', 'ghost', 'pop', 'safe', 'error', 'warning', 'purple', undefined]
 			},
 			name: {
 				control: 'select',

@@ -215,7 +215,7 @@
 			{#if props.isBefore}
 				<Badge style="danger" class="label">{props.label}</Badge>
 			{:else}
-				<Badge style="success" class="label">{props.label}</Badge>
+				<Badge style="safe" class="label">{props.label}</Badge>
 			{/if}
 			·
 			{@render imageDimensions(props.metadata)}
@@ -273,7 +273,7 @@
 		<div class="comparison-controls">
 			<Badge style="danger" kind="soft">Before</Badge>
 			<RangeInput min={0} max={100} value={props.controlValue} oninput={props.onValueChange} wide />
-			<Badge style="success" kind="soft">After</Badge>
+			<Badge style="safe" kind="soft">After</Badge>
 		</div>
 		{@render comparisonFooter()}
 	</div>
@@ -384,7 +384,7 @@
 			color: var(--clr-theme-danger-on-soft);
 		}
 		& .positive {
-			color: var(--clr-theme-succ-on-soft);
+			color: var(--clr-theme-safe-on-soft);
 		}
 	}
 

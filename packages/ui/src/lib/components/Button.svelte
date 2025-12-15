@@ -320,12 +320,12 @@
 		}
 
 		:where(&.success) {
-			--theme-outline-text: var(--clr-btn-succ-outline-text);
-			--theme-outline-bg: var(--clr-btn-succ-outline-bg);
-			--theme-outline-border: var(--clr-btn-succ-outline);
-			--theme-solid-text: var(--clr-theme-succ-on-element);
-			--theme-solid-bg: var(--clr-theme-succ-element);
-			--theme-focus-color: var(--clr-theme-succ-element);
+			--theme-outline-text: var(--clr-btn-safe-outline-text);
+			--theme-outline-bg: var(--clr-btn-safe-outline-bg);
+			--theme-outline-border: var(--clr-btn-safe-outline);
+			--theme-solid-text: var(--clr-theme-safe-on-element);
+			--theme-solid-bg: var(--clr-theme-safe-element);
+			--theme-focus-color: var(--clr-theme-safe-element);
 		}
 
 		:where(&.danger) {

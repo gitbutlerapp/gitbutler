@@ -102,7 +102,7 @@
 		color: white;
 
 		&.success {
-			background: var(--clr-theme-succ-element);
+			background: var(--clr-theme-safe-element);
 		}
 
 		&.error {

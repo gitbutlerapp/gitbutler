@@ -34,7 +34,7 @@
 	}: Props = $props();
 
 	// Check if color is a predefined type or custom color
-	const predefinedColors = ['success', 'danger', 'pop', 'warning'];
+	const predefinedColors = ['safe', 'danger', 'pop', 'warning'];
 	const isPredefinedColor = color && predefinedColors.includes(color as string);
 	const customColor = !isPredefinedColor ? color : undefined;
 </script>
@@ -43,7 +43,7 @@
 	viewBox="0 0 16 16"
 	fill-rule="evenodd"
 	class="icon-wrapper"
-	class:success={color === 'success'}
+	class:safe={color === 'safe'}
 	class:danger={color === 'danger'}
 	class:pop={color === 'pop'}
 	class:warning={color === 'warning'}
@@ -82,8 +82,8 @@
 		flex-shrink: 0;
 	}
 
-	.success {
-		color: var(--clr-theme-succ-element);
+	.safe {
+		color: var(--clr-theme-safe-element);
 	}
 	.danger {
 		color: var(--clr-theme-danger-element);

@@ -299,7 +299,7 @@
 		justify-content: flex-end;
 	}
 	.dynclmn-changes_additions {
-		color: var(--clr-theme-succ-element);
+		color: var(--clr-theme-safe-element);
 		text-align: right;
 	}
 	.dynclmn-changes_deletions {

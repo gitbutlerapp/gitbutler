@@ -28,7 +28,7 @@
 			case 'open':
 				return {
 					text: `${reviewUnit} ${id} is open`,
-					color: 'var(--clr-theme-succ-element)'
+					color: 'var(--clr-theme-safe-element)'
 				};
 			case 'closed':
 				return {

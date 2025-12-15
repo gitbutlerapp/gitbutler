@@ -274,7 +274,7 @@
 	}
 
 	.statistic-added {
-		color: var(--clr-theme-succ-element);
+		color: var(--clr-theme-safe-element);
 	}
 
 	.statistic-deleted {

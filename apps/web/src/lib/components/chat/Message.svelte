@@ -185,7 +185,7 @@
 
 			{#if message.issue}
 				{#if message.resolved}
-					<Badge style="success">Issue resolved</Badge>
+					<Badge style="safe">Issue resolved</Badge>
 				{:else}
 					<Badge style="warning">Issue</Badge>
 				{/if}

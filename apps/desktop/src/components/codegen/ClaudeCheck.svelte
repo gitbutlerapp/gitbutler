@@ -158,8 +158,8 @@
 		color: var(--clr-text-2);
 
 		&.success {
-			background-color: var(--clr-theme-succ-soft);
-			color: var(--clr-theme-succ-on-soft);
+			background-color: var(--clr-theme-safe-soft);
+			color: var(--clr-theme-safe-on-soft);
 		}
 	}
 </style>

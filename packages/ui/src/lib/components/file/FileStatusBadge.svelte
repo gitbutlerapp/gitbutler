@@ -33,11 +33,11 @@
 	function getStatusColor(status: FileStatus): ComponentColorType {
 		switch (status) {
 			case 'addition':
-				return 'success';
+				return 'safe';
 			case 'modification':
 				return 'warning';
 			case 'deletion':
-				return 'error';
+				return 'danger';
 			case 'rename':
 				return 'purple';
 			default:

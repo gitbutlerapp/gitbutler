@@ -47,7 +47,7 @@
 	function getDeletionStatus(repoName: string, deleteSucceeded: boolean): DeletionStatus {
 		return deleteSucceeded
 			? { message: `Project "${repoName}" successfully deleted`, style: 'success' }
-			: { message: `Failed to delete "${repoName}" project`, style: 'error' };
+			: { message: `Failed to delete "${repoName}" project`, style: 'danger' };
 	}
 </script>
 

@@ -100,13 +100,13 @@
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			style: 'success',
+			style: 'safe',
 			reversedDirection: defaultProps.reversedDirection
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			style: 'error',
+			style: 'danger',
 			reversedDirection: defaultProps.reversedDirection
 		})}
 		<hr class="divider" />

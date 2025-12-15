@@ -20,7 +20,7 @@
 	} {
 		switch (type) {
 			case 'success':
-				return { name: 'success', color: 'var(--clr-theme-succ-element)' };
+				return { name: 'success', color: 'var(--clr-theme-safe-element)' };
 			case 'warning':
 				return { name: 'warning', color: 'var(--clr-theme-warn-element)' };
 			case 'danger':
