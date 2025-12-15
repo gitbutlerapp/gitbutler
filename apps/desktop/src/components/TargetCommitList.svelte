@@ -3,6 +3,7 @@
 	import CommitRow from '$components/CommitRow.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { BranchesSelectionActions } from '$lib/branches/branchesSelection';
 	import { commitCreatedAt, type Commit } from '$lib/branches/v3';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -115,7 +116,7 @@
 						createdAt={commitCreatedAt(commit)}
 						author={commit.author}
 						onclick={() => {
-							branchesState.set({
+							BranchesSelectionActions.selectTargetCommit(branchesState, {
 								commitId: commit.id,
 								branchName: baseBranch.shortName,
 								remote: baseBranch.remoteName

@@ -8,10 +8,12 @@
 	type Props = {
 		projectId: string;
 		stackId: string;
+		inWorkspace: boolean;
+		hasLocal: boolean;
 		onerror: (err: unknown) => void;
 	};
 
-	const { projectId, stackId, onerror }: Props = $props();
+	const { projectId, stackId, inWorkspace, hasLocal, onerror }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
 
@@ -24,7 +26,15 @@
 			<p>Stack not found.</p>
 		{:else}
 			{#each getStackBranchNames(stack) as branchName, idx}
-				<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} {onerror} />
+				<BranchesViewBranch
+					{projectId}
+					{stackId}
+					{branchName}
+					isTopBranch={idx === 0}
+					{inWorkspace}
+					{hasLocal}
+					{onerror}
+				/>
 			{/each}
 		{/if}
 	{/snippet}
