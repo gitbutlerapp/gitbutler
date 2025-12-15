@@ -22,7 +22,7 @@ jobs:
           persist-credentials: false
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
