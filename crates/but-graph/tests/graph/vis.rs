@@ -96,6 +96,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     graph.connect_new_segment(branch, 1, remote_to_root_branch, 0, None);
 
     insta::assert_snapshot!(graph_tree(&graph), @r"
+
     └── 👉📕►►►:0[0]:main <> origin/main
         ├── ►:1[0]:new-stack
         ├── ►:2[0]:origin/main
@@ -118,6 +119,7 @@ fn detached_head() {
         ..Default::default()
     });
     insta::assert_snapshot!(graph_tree(&graph), @r"
+
     └── 👉►:0[0]:anon:
         └── 🟣aaaaaaa
     ");

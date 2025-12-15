@@ -7,9 +7,9 @@ use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
 fn disjoint() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("disjoint")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-* 32791d2 (HEAD -> disjoint) disjoint init
-* fafd9d0 (origin/main, main) init
-");
+    * 32791d2 (HEAD -> disjoint) disjoint init
+    * fafd9d0 (origin/main, main) init
+    ");
 
     let actual = branch_details(&repo, "refs/heads/disjoint".try_into()?, &*meta)?;
     insta::assert_debug_snapshot!(actual, @r#"

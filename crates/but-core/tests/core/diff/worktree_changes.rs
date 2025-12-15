@@ -333,12 +333,12 @@ fn submodule_changes_ignored_in_configuration() -> Result<()> {
 fn submodule_changes_set_to_all_in_config_but_has_uncommittable_changes() -> Result<()> {
     let repo = repo("submodule-changed-worktree-ignore-none")?;
     let actual = diff::worktree_changes(&repo)?;
-    insta::assert_debug_snapshot!(actual, @r#"
+    insta::assert_debug_snapshot!(actual, @r"
     WorktreeChanges {
         changes: [],
         ignored_changes: [],
     }
-    "#);
+    ");
     Ok(())
 }
 

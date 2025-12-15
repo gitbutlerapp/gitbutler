@@ -524,9 +524,7 @@ fn hunk_removal_of_removal_single_line() -> anyhow::Result<()> {
     assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
 
     let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
-    insta::assert_snapshot!(file_content, @r"
-    5
-    ");
+    insta::assert_snapshot!(file_content, @"5");
 
     Ok(())
 }
