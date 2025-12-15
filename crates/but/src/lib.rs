@@ -58,7 +58,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     // Check if help is requested with no subcommand
     if args.len() == 1 || args.iter().any(|arg| arg == "--help" || arg == "-h") && args.len() == 2 {
-        let mut out = OutputChannel::new_with_pager(OutputFormat::Human);
+        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
         command::help::print_grouped(&mut out)?;
         return Ok(());
     }
@@ -69,7 +69,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     if args_vec.iter().any(|arg| arg == "push")
         && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
     {
-        let mut out = OutputChannel::new_with_pager(OutputFormat::Human);
+        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
         command::push::help::print(&mut out)?;
         return Ok(());
     }
