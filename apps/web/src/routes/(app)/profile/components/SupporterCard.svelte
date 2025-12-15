@@ -25,6 +25,6 @@
 		gap: 12px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-scale-pop-95);
+		background-color: var(--clr-bg-1);
 	}
 </style>

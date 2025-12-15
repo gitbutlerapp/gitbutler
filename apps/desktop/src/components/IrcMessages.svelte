@@ -86,7 +86,7 @@
 		user-select: text;
 	}
 	.error {
-		background-color: var(--clr-scale-err-90);
+		background-color: var(--clr-theme-err-bg);
 	}
 	.extra {
 		padding: 6px 0;

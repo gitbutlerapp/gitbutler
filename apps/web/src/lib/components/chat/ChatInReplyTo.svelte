@@ -62,7 +62,7 @@
 		padding: 8px;
 		overflow: hidden;
 		gap: 8px;
-		border-left: 4px solid var(--clr-scale-ntrl-60);
+		border-left: 4px solid var(--clr-border-2);
 	}
 
 	.reply__text {

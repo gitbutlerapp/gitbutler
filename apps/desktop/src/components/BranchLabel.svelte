@@ -176,13 +176,13 @@
 
 		/* not readonly */
 		&:not([readonly]):not([disabled]):not(:focus):hover {
-			border: 1px solid color-mix(in srgb, var(--clr-scale-ntrl-40), transparent 70%);
+			border: 1px solid color-mix(in srgb, var(--clr-text-1), transparent 80%);
 		}
 
 		&:not([readonly]):not([disabled]):focus {
-			border: 1px solid color-mix(in srgb, var(--clr-scale-ntrl-40), transparent 60%);
+			border: 1px solid color-mix(in srgb, var(--clr-text-1), transparent 70%);
 			outline: none;
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg);
 		}
 
 		&[disabled] {

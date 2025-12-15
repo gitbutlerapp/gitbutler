@@ -29,7 +29,7 @@
 		<div class="right-side-wrapper">
 			{#if user && !hideDetails}
 				<div class="account-button">
-					<AccountLink pop />
+					<AccountLink />
 				</div>
 			{/if}
 

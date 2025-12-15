@@ -1,10 +1,10 @@
 @import '@gitbutler/ui/main.css';
 
 :root {
-	--dropzone-fill: oklch(from var(--clr-scale-pop-50) l c h / 0.1);
-	--dropzone-stroke: oklch(from var(--clr-scale-pop-50) l c h / 0.8);
-	--dropzone-fill-hover: oklch(from var(--clr-scale-pop-50) l c h / 0.16);
-	--dropzone-stroke-hover: oklch(from var(--clr-scale-pop-50) l c h / 1);
+	--dropzone-fill: oklch(from var(--clr-theme-pop-element) l c h / 0.1);
+	--dropzone-stroke: oklch(from var(--clr-theme-pop-element) l c h / 0.8);
+	--dropzone-fill-hover: oklch(from var(--clr-theme-pop-element) l c h / 0.16);
+	--dropzone-stroke-hover: oklch(from var(--clr-theme-pop-element) l c h / 1);
 }
 
 body {
@@ -48,7 +48,7 @@ body {
 	word-wrap: break-word;
 	padding: 1px 4px;
 	border-radius: var(--radius-s);
-	background: var(--clr-scale-ntrl-80);
+	background: color-mix(in srgb, var(--clr-theme-ntrl-element) 10%, transparent);
 	color: inherit;
 	font-size: 92%;
 	font-family: var(--font-mono);
@@ -91,7 +91,7 @@ body {
 }
 
 .locked-file-animation {
-	--locked-color: oklch(from var(--clr-scale-warn-50) l c h / 0.2);
+	--locked-color: oklch(from var(--clr-theme-warn-element) l c h / 0.2);
 	border: 1px solid var(--clr-bg-1);
 	animation: locked-file-animation 1.4s ease-out forwards;
 }
@@ -146,7 +146,7 @@ body {
 
 .dotted-pattern {
 	background-image: radial-gradient(
-		oklch(from var(--clr-scale-ntrl-50) l c h / 0.13) 1px,
+		oklch(from var(--clr-border-2) l c h / 0.13) 1px,
 		#ffffff00 1px
 	);
 	background-size: 5px 5px;

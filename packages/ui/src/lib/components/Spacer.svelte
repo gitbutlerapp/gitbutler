@@ -33,11 +33,11 @@
 	}
 
 	.divider.line {
-		background-color: var(--clr-scale-ntrl-0);
+		background-color: var(--clr-text-1);
 	}
 
 	.divider.dotted {
-		background-image: linear-gradient(to right, var(--clr-scale-ntrl-0) 50%, transparent 50%);
+		background-image: linear-gradient(to right, var(--clr-text-1) 50%, transparent 50%);
 		background-size: 4px 1px;
 		opacity: 0.2;
 	}

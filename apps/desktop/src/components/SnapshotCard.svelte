@@ -411,6 +411,6 @@
 		padding: 6px 10px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-err-bg-muted);
-		color: var(--clr-scale-err-40);
+		color: var(--clr-theme-err-element);
 	}
 </style>

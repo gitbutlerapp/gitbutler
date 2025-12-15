@@ -131,8 +131,8 @@
 		margin-left: 5px;
 		padding: 2px 4px;
 		border-radius: 16px;
-		background-color: var(--clr-scale-ntrl-20);
-		color: var(--clr-scale-ntrl-100);
+		background-color: var(--clr-theme-ntrl-element);
+		color: var(--clr-theme-ntrl-on-element);
 	}
 
 	/* if dragging more then one item */

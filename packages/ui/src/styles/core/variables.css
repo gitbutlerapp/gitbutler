@@ -12,19 +12,26 @@
 	--z-blocker: calc(infinity);
 
 	/* TODO: add focus color */
-	--focus-color: var(--clr-scale-pop-50);
-	--resizer-color: var(--clr-scale-pop-50);
+	--focus-color: var(--clr-theme-pop-element);
 
 	/* THEME COLOR INTERACTIONS */
-	--clr-pop-hover: color-mix(
+	--hover-pop: color-mix(
 		in srgb,
 		var(--clr-theme-pop-element),
 		var(--clr-core-ntrl-0) calc((var(--opacity-btn-solid-hover) * 100%))
 	);
+	--hover-bg: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-ntrl-0) 4%);
+	--hover-text-2: color-mix(in srgb, var(--clr-text-2), var(--clr-core-ntrl-0) 20%);
 
 	/* LEXICAL */
 	--lexical-input-background: var(--clr-bg-1);
 	--lexical-input-client-padding: 12px;
 	--lexical-input-client-toolbar-height: 48px;
 	--lexical-input-font-size: 13px;
+}
+
+:root.dark {
+	--hover-filter: brightness(1.2);
+	--hover-bg: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-ntrl-100) 6%);
+	--hover-text-2: color-mix(in srgb, var(--clr-text-2), var(--clr-core-ntrl-100) 30%);
 }

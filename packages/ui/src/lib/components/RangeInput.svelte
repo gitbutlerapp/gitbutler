@@ -112,7 +112,7 @@
 	}
 
 	.label {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 
 	.value {
@@ -120,7 +120,7 @@
 	}
 
 	.helper-text {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 
 	.error-text {
@@ -159,12 +159,11 @@
 
 		/* Firefox thumb styles */
 		&::-moz-range-thumb {
-			appearance: none;
 			width: var(--range-thumb-size);
 			height: var(--range-thumb-size);
-			border: 2px solid var(--range-accent-color);
+			border: none;
 			border-radius: 50%;
-			background: var(--clr-scale-ntrl-100);
+			background: var(--range-accent-color);
 			cursor: pointer;
 		}
 
@@ -184,7 +183,7 @@
 
 	/* Hover state */
 	.range-input:has(.input:hover:not(:disabled)) {
-		--range-accent-color: var(--clr-pop-hover);
+		--range-accent-color: var(--hover-pop);
 	}
 
 	/* Error state */

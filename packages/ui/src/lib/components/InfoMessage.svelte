@@ -3,8 +3,9 @@
 </script>
 
 <script lang="ts">
-	import { Button, Icon } from '@gitbutler/ui';
-	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
+	import Button from '$components/Button.svelte';
+	import Icon from '$components/Icon.svelte';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
@@ -168,7 +169,7 @@
 		gap: 12px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 		transition: background-color var(--transition-slow);
 	}
 	.info-message__inner {
@@ -206,13 +207,13 @@
 		border: 0 solid var(--clr-border-2);
 	}
 	.error {
-		border: 0 solid var(--clr-scale-err-60);
+		border: 0 solid var(--clr-theme-err-element);
 	}
 	.warning {
-		border: 0 solid var(--clr-scale-warn-60);
+		border: 0 solid var(--clr-theme-warn-element);
 	}
 	.success {
-		border: 0 solid var(--clr-scale-succ-60);
+		border: 0 solid var(--clr-theme-succ-element);
 	}
 	.shadow {
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
@@ -242,17 +243,16 @@
 	.info-message__error-block {
 		padding: 10px 10px 0;
 		overflow-x: scroll;
-		border: 1px solid var(--clr-scale-err-80);
 		border-radius: var(--radius-s);
-		background-color: var(--clr-scale-err-90);
-		color: var(--clr-scale-err-10);
+		background-color: var(--clr-theme-err-bg);
+		color: var(--clr-theme-err-text);
 		font-size: 12px;
 		white-space: pre;
 		user-select: text;
 
 		/* selection */
 		&::selection {
-			background-color: var(--clr-scale-err-80);
+			background-color: color-mix(in srgb, var(--clr-theme-err-element) 20%, transparent);
 		}
 		/* empty */
 		&:empty {

@@ -81,7 +81,6 @@
 		justify-content: center;
 		width: 100%;
 		border-radius: var(--radius-m);
-		color: var(--clr-scale-ntrl-60);
 		cursor: default; /* was defaulting to text cursor */
 	}
 
@@ -92,7 +91,7 @@
 	}
 
 	.empty-state__title {
-		color: var(--clr-scale-ntrl-40);
+		color: var(--clr-text-2);
 	}
 
 	.empty-state__caption {

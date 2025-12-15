@@ -34,6 +34,8 @@
 </script>
 
 <script lang="ts">
+	import SkeletonBone from '$components/SkeletonBone.svelte';
+
 	let {
 		picture = $bindable(),
 		alt = '',
@@ -45,17 +47,23 @@
 	}: Props = $props();
 
 	let previewUrl = $derived(picture);
+	let imageLoaded = $state(false);
 
 	function handleFileChange(e: Event) {
 		const target = e.target as HTMLInputElement;
 		const file = target.files?.[0];
 
 		if (file && acceptedFileTypes.includes(file.type)) {
+			imageLoaded = false;
 			picture = URL.createObjectURL(file);
 			onFileSelect?.(file);
 		} else {
 			onInvalidFileType?.();
 		}
+	}
+
+	function handleImageLoad() {
+		imageLoaded = true;
 	}
 </script>
 
@@ -73,8 +81,22 @@
 		class="hidden-input"
 	/>
 
+	{#if !previewUrl || !imageLoaded}
+		<div class="profile-pic-skeleton">
+			<SkeletonBone width="100%" height="100%" radius="var(--radius-m)" />
+		</div>
+	{/if}
+
 	{#if previewUrl}
-		<img class="profile-pic" src={previewUrl} {alt} referrerpolicy="no-referrer" />
+		<img
+			class="profile-pic"
+			class:loaded={imageLoaded}
+			src={previewUrl}
+			{alt}
+			referrerpolicy="no-referrer"
+			loading="lazy"
+			onload={handleImageLoad}
+		/>
 	{/if}
 
 	<span class="profile-pic__edit-label text-11 text-semibold">Edit</span>
@@ -87,7 +109,6 @@
 		flex-shrink: 0;
 		overflow: hidden;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-scale-pop-70);
 		cursor: pointer;
 
 		&:hover,
@@ -96,6 +117,13 @@
 				opacity: 1;
 			}
 		}
+	}
+
+	.profile-pic-skeleton {
+		z-index: var(--z-ground);
+		position: absolute;
+		width: 100%;
+		height: 100%;
 	}
 
 	.hidden-input {
@@ -112,6 +140,12 @@
 		height: 100%;
 		object-fit: cover;
 		background-color: var(--clr-core-pop-70);
+		opacity: 0;
+		transition: opacity 0.2s ease-in;
+
+		&.loaded {
+			opacity: 1;
+		}
 	}
 
 	.profile-pic__edit-label {

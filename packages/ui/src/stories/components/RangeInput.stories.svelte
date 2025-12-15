@@ -85,28 +85,23 @@
 <Story name="With Custom Range">
 	{#snippet template()}
 		<div class="wrap">
-			<div class="story-group">
-				<h4>Temperature (°C)</h4>
-				<RangeInput
-					bind:value={temperatureValue}
-					min={-10}
-					max={40}
-					step={0.5}
-					label="Temperature"
-					showValue={true}
-				/>
-			</div>
-			<div class="story-group">
-				<h4>Opacity</h4>
-				<RangeInput
-					bind:value={opacityValue}
-					min={0}
-					max={1}
-					step={0.05}
-					label="Opacity"
-					showValue={true}
-				/>
-			</div>
+			<RangeInput
+				bind:value={temperatureValue}
+				min={-10}
+				max={40}
+				step={0.5}
+				label="Temperature"
+				showValue={true}
+			/>
+
+			<RangeInput
+				bind:value={opacityValue}
+				min={0}
+				max={1}
+				step={0.05}
+				label="Opacity"
+				showValue={true}
+			/>
 		</div>
 	{/snippet}
 </Story>
@@ -139,7 +134,7 @@
 				showValue={true}
 				error={errorMessage}
 			/>
-			<p class="text-13" style="margin-top: 12px; color: var(--clr-scale-ntrl-40);">
+			<p class="text-13" style="margin-top: 12px; color: var(--clr-text-2);">
 				Move the slider above 100 to see the error state
 			</p>
 		</div>
@@ -165,18 +160,11 @@
 <Story name="Various Sizes">
 	{#snippet template()}
 		<div class="wrap">
-			<div class="story-group">
-				<h4>Default Width</h4>
-				<RangeInput value={50} min={0} max={100} label="Default" showValue={true} />
-			</div>
-			<div class="story-group">
-				<h4>Custom Width (200px)</h4>
-				<RangeInput value={50} min={0} max={100} label="Custom" showValue={true} width={200} />
-			</div>
-			<div class="story-group">
-				<h4>Custom Width (400px)</h4>
-				<RangeInput value={50} min={0} max={100} label="Wider" showValue={true} width={400} />
-			</div>
+			<RangeInput value={50} min={0} max={100} label="Default" showValue={true} />
+
+			<RangeInput value={50} min={0} max={100} label="Custom" showValue={true} width={200} />
+
+			<RangeInput value={50} min={0} max={100} label="Wider" showValue={true} width={400} />
 		</div>
 	{/snippet}
 </Story>
@@ -184,43 +172,34 @@
 <Story name="Interactive Examples">
 	{#snippet template()}
 		<div class="wrap">
-			<div class="story-group">
-				<h4>Volume Control</h4>
-				<RangeInput
-					bind:value={volumeValue}
-					min={0}
-					max={100}
-					step={1}
-					label="Volume"
-					showValue={true}
-					wide={true}
-				/>
-			</div>
-			<div class="story-group">
-				<h4>Brightness</h4>
-				<RangeInput
-					bind:value={basicValue}
-					min={0}
-					max={100}
-					step={5}
-					label="Brightness"
-					showValue={true}
-					wide={true}
-				/>
-			</div>
-			<div class="story-group">
-				<h4>Fine Control (Small Steps)</h4>
-				<RangeInput
-					bind:value={opacityValue}
-					min={0}
-					max={1}
-					step={0.01}
-					label="Opacity"
-					showValue={true}
-					wide={true}
-					helperText="Fine-grained control with 0.01 step"
-				/>
-			</div>
+			<RangeInput
+				bind:value={volumeValue}
+				min={0}
+				max={100}
+				step={1}
+				label="Volume"
+				showValue={true}
+				wide={true}
+			/>
+			<RangeInput
+				bind:value={basicValue}
+				min={0}
+				max={100}
+				step={5}
+				label="Brightness"
+				showValue={true}
+				wide={true}
+			/>
+			<RangeInput
+				bind:value={opacityValue}
+				min={0}
+				max={1}
+				step={0.01}
+				label="Opacity"
+				showValue={true}
+				wide={true}
+				helperText="Fine-grained control with 0.01 step"
+			/>
 		</div>
 	{/snippet}
 </Story>
@@ -232,18 +211,5 @@
 		min-width: 320px;
 		padding: 24px;
 		gap: 24px;
-	}
-
-	.story-group {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	h4 {
-		margin: 0;
-		color: var(--clr-scale-ntrl-30);
-		font-weight: 600;
-		font-size: 14px;
 	}
 </style>

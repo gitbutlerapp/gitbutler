@@ -73,7 +73,7 @@
 			outline-offset: -2px;
 		}
 		&:disabled {
-			background-color: var(--clr-scale-ntrl-70);
+			background-color: var(--clr-border-2);
 			cursor: not-allowed;
 			opacity: 0.4;
 		}
@@ -102,14 +102,13 @@
 			height: calc(100% - 8px);
 			transform: scale(0.5);
 			border-radius: 16px;
-			background-color: var(--clr-scale-ntrl-0);
+			background-color: var(--clr-text-1);
 			content: '';
 			opacity: 0;
 			transition: background-color var(--transition-fast);
 		}
 
 		/* modifiers */
-
 		&.small {
 			width: 14px;
 			height: 14px;

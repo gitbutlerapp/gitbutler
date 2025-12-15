@@ -94,9 +94,6 @@
 						{/snippet}
 					</InfoMessage>
 				{/if}
-				<div class="text-content">
-					<h2 class="title-text text-18 text-body text-bold">Can’t find project</h2>
-				</div>
 			{/snippet}
 		</ReduxResult>
 
@@ -124,8 +121,7 @@
 	}
 
 	.title-text {
-		color: var(--clr-scale-ntrl-30);
-		/* margin-bottom: 12px; */
+		color: var(--clr-text-1);
 	}
 
 	.description-text {

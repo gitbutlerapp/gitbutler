@@ -144,8 +144,8 @@
 		}
 		/* CHECKED. HOVER */
 		&:not(.disabled).checked:hover {
-			background-color: var(--clr-pop-hover);
-			box-shadow: inset 0 0 0 1px var(--clr-pop-hover);
+			background-color: var(--hover-pop);
+			box-shadow: inset 0 0 0 1px var(--hover-pop);
 			& .checkbox-checkmark {
 				opacity: 1;
 			}
@@ -170,8 +170,8 @@
 
 		/* DISABLED */
 		&:not(.checked).disabled {
-			background-color: color-mix(in srgb, var(--clr-scale-ntrl-70) 50%, var(--clr-bg-1));
-			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--clr-scale-ntrl-70) 50%, var(--clr-bg-1));
+			background-color: color-mix(in srgb, var(--clr-border-2) 50%, var(--clr-bg-1));
+			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--clr-border-2) 50%, var(--clr-bg-1));
 		}
 		/* DISABLED. CHECKED */
 		&.disabled.checked {

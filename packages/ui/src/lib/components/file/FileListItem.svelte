@@ -274,9 +274,7 @@
 
 		& .locked {
 			display: flex;
-			/* border-radius: var(--radius-l);
-			background-color: var(--clr-theme-warn-soft); */
-			color: var(--clr-scale-warn-60);
+			color: var(--clr-change-icon-modification);
 		}
 	}
 </style>

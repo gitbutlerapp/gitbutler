@@ -165,7 +165,11 @@
 		height: 100%;
 		overflow: hidden;
 		border-radius: var(--radius-xl);
-		background: var(--clr-scale-pop-60);
+		background-color: color-mix(
+			in srgb,
+			var(--clr-theme-pop-element) 40%,
+			var(--clr-theme-pop-soft)
+		);
 	}
 
 	.banner-bg-grainy {

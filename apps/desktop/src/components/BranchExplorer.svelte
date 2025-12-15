@@ -309,7 +309,7 @@
 		}
 
 		&::placeholder {
-			color: var(--clr-scale-ntrl-60);
+			color: var(--clr-text-3);
 		}
 	}
 

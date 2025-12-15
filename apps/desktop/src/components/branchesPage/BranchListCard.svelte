@@ -218,7 +218,7 @@
 		display: flex;
 		padding: 2px 4px;
 		border-radius: 10px;
-		background-color: var(--clr-scale-ntrl-50);
+		background-color: var(--clr-theme-ntrl-element);
 		color: var(--clr-theme-ntrl-on-element);
 	}
 

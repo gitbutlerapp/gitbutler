@@ -94,7 +94,7 @@
 
 	.problem__title {
 		margin-bottom: 12px;
-		color: var(--clr-scale-ntrl-30);
+		color: var(--clr-text-1);
 	}
 
 	.problem__switcher {
@@ -109,7 +109,7 @@
 		gap: 12px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-err-bg);
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 	}
 
 	.remove-project-btn {

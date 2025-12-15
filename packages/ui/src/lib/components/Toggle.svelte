@@ -79,9 +79,8 @@
 
 		&:disabled {
 			border-color: none;
-			background-color: var(--clr-scale-ntrl-60);
 			cursor: not-allowed;
-			opacity: 0.3;
+			opacity: 0.6;
 			pointer-events: none;
 		}
 
@@ -90,7 +89,7 @@
 			background-color: var(--clr-theme-pop-element);
 
 			&:hover {
-				background-color: var(--clr-pop-hover);
+				background-color: var(--hover-pop);
 			}
 
 			&:focus-visible {

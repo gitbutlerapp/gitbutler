@@ -253,11 +253,11 @@
 			background-color: transparent;
 		}
 		5% {
-			background-color: var(--clr-scale-warn-80);
+			background-color: color-mix(in srgb, var(--clr-theme-warn-element) 20%, transparent);
 		}
 		80%,
 		100% {
-			background-color: var(--clr-scale-warn-90);
+			background-color: color-mix(in srgb, var(--clr-theme-warn-element) 10%, transparent);
 		}
 	}
 

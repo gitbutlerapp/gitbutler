@@ -31,14 +31,14 @@
 		gap: 10px;
 		border-radius: var(--radius-m);
 
-		color: var(--clr-scale-ntrl-40);
+		color: var(--clr-text-2);
 		text-decoration: none;
 
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: oklch(from var(--clr-scale-ntrl-0) l c h / 0.05);
-			color: var(--clr-text-1);
+			background-color: var(--hover-bg);
+			color: var(--hover-text-2);
 		}
 	}
 </style>

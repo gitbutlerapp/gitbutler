@@ -102,23 +102,23 @@
 		color: white;
 
 		&.success {
-			background: var(--clr-scale-succ-50);
+			background: var(--clr-theme-succ-element);
 		}
 
 		&.error {
-			background: var(--clr-scale-err-50);
+			background: var(--clr-theme-err-element);
 		}
 
 		&.pop {
-			background: var(--clr-scale-pop-50);
+			background: var(--clr-theme-pop-element);
 		}
 
 		&.warning {
-			background: var(--clr-scale-warn-50);
+			background: var(--clr-theme-warn-element);
 		}
 
 		&.purple {
-			background: var(--clr-scale-purp-50);
+			background: var(--clr-theme-purp-element);
 		}
 	}
 

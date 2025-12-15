@@ -381,10 +381,10 @@
 		color: var(--clr-text-2);
 
 		& .negative {
-			color: var(--clr-scale-err-40);
+			color: var(--clr-theme-err-on-soft);
 		}
 		& .positive {
-			color: var(--clr-scale-succ-40);
+			color: var(--clr-theme-succ-on-soft);
 		}
 	}
 

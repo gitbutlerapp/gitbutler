@@ -114,13 +114,14 @@
 
 <h1 class="clone-title text-serif-42">Clone a <i>repository</i></h1>
 <SettingsSection>
-	<div class="clone__field repositoryUrl">
-		<div class="text-13 text-semibold clone__field--label">Clone URL</div>
-		<Textbox bind:value={repositoryUrl} />
-	</div>
+	<Textbox label="Clone URL" bind:value={repositoryUrl} />
+
 	<div class="clone__field repositoryTargetPath">
-		<div class="text-13 text-semibold clone__field--label">Where to clone</div>
-		<Textbox bind:value={targetDirPath} placeholder="/Users/tipsy/Documents" />
+		<Textbox
+			label="Where to clone"
+			bind:value={targetDirPath}
+			placeholder="/Users/tipsy/Documents"
+		/>
 		<Button kind="outline" disabled={loading} onclick={handleCloneTargetSelect}>Choose..</Button>
 	</div>
 </SettingsSection>
@@ -181,7 +182,7 @@
 <style>
 	.clone-title {
 		margin-bottom: 20px;
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 		line-height: 1;
 	}
 
@@ -189,10 +190,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-	}
-
-	.clone__field--label {
-		color: var(--clr-scale-ntrl-50);
 	}
 
 	.clone__actions {

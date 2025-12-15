@@ -310,8 +310,8 @@
 		overflow: hidden;
 		gap: 32px;
 		border-radius: var(--radius-xl);
-		background-color: var(--clr-scale-ntrl-20);
-		color: var(--clr-scale-ntrl-100);
+		background-color: var(--clr-theme-ntrl-element);
+		color: var(--clr-theme-ntrl-on-element);
 	}
 
 	.nightly-hero__header {
