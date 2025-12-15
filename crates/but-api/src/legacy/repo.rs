@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use crate::json::HexHash;
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::DiffSpec;
@@ -15,6 +14,8 @@ use gitbutler_repo::{
 };
 use gitbutler_repo_actions::askpass;
 use tracing::instrument;
+
+use crate::json::HexHash;
 
 #[but_api]
 #[instrument(err(Debug))]

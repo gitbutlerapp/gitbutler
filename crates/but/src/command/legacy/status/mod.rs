@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use crate::CLI_DATE;
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
@@ -12,6 +11,8 @@ use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gix::date::time::CustomFormat;
 use serde::Serialize;
+
+use crate::CLI_DATE;
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 

@@ -1,5 +1,6 @@
-use crate::utils::Sandbox;
 use snapbox::str;
+
+use crate::utils::Sandbox;
 
 #[cfg(not(feature = "legacy"))]
 #[test]
@@ -80,8 +81,9 @@ Applied remote branch 'origin/B' to workspace
     Ok(())
 }
 
-use crate::command::branch::apply::utils::create_local_branch_with_commit_with_message;
 use utils::create_local_branch_with_commit;
+
+use crate::command::branch::apply::utils::create_local_branch_with_commit_with_message;
 
 #[test]
 fn local_branch() -> anyhow::Result<()> {

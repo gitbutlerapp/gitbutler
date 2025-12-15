@@ -2,16 +2,17 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::graph_rebase::{
-    Checkouts, Editor, Step, StepGraph, StepGraphIndex,
-    cherry_pick::{CherryPickOutcome, cherry_pick},
-};
 use anyhow::{Context, Result, bail};
 use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit},
 };
 use petgraph::{Direction, visit::EdgeRef};
+
+use crate::graph_rebase::{
+    Checkouts, Editor, Step, StepGraph, StepGraphIndex,
+    cherry_pick::{CherryPickOutcome, cherry_pick},
+};
 
 /// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
 #[allow(unused)]
@@ -423,8 +424,9 @@ mod test {
     }
 
     mod order_steps_picking {
-        use anyhow::Result;
         use std::str::FromStr;
+
+        use anyhow::Result;
 
         use crate::graph_rebase::{
             Edge, Step, StepGraph, rebase::order_steps_picking, testing::TestingDot as _,

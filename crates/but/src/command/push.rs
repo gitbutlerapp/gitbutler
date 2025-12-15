@@ -1,6 +1,7 @@
 pub mod help {
-    use crate::utils::OutputChannel;
     use but_core::RepositoryExt;
+
+    use crate::utils::OutputChannel;
 
     fn is_gerrit_enabled() -> bool {
         // Parse the -C flag from command line arguments

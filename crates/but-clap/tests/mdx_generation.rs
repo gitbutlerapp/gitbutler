@@ -317,5 +317,9 @@ fn test_frontmatter_only_first_line() {
     assert!(mdx.contains("description: \"First line of description\""));
 
     // But full description should be in the body
-    assert!(mdx.contains("# First line of description\n\nFirst line of description\nSecond line of description\nThird line"));
+    assert!(
+        mdx.contains(
+            "# First line of description\n\nFirst line of description\nSecond line of description\nThird line"
+        )
+    );
 }

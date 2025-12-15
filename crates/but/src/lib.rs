@@ -28,13 +28,17 @@ use anyhow::{Context as _, Result};
 use cfg_if::cfg_if;
 
 pub mod args;
-use crate::utils::ResultJsonExt;
-use crate::utils::{OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultMetricsExt};
-use args::{Args, OutputFormat, Subcommands, forge, metrics};
-use args::{actions, base, branch, claude, cursor, worktree};
+use args::{
+    Args, OutputFormat, Subcommands, actions, base, branch, claude, cursor, forge, metrics,
+    worktree,
+};
 use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
+
+use crate::utils::{
+    OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
+};
 
 mod id;
 pub use id::{CliId, IdMap};

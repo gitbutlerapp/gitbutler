@@ -1,7 +1,9 @@
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_workspace::branch::OnWorkspaceMergeConflict;
-use but_workspace::branch::apply::{WorkspaceMerge, WorkspaceReferenceNaming};
+use but_workspace::branch::{
+    OnWorkspaceMergeConflict,
+    apply::{WorkspaceMerge, WorkspaceReferenceNaming},
+};
 
 /// Apply `existing_branch` to the workspace in the repository that `ctx` refers to, or create the workspace with default name.
 pub fn apply_only(

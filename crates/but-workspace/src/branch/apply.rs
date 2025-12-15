@@ -234,7 +234,8 @@ pub(crate) mod function {
                 .tip_commit()
                 .context("Workspace must point to a commit to check out")?;
             let current_head_commit = workspace
-                .graph.entrypoint_commit()
+                .graph
+                .entrypoint_commit()
                 .context("The entrypoint must have a commit - it's equal to HEAD, and we skipped unborn earlier")?;
             but_core::worktree::safe_checkout(
                 current_head_commit.id,
@@ -336,8 +337,9 @@ pub(crate) mod function {
         {
             None => {
                 // Pretend to create a workspace reference later at the current AdHoc workspace id
-                let tip = workspace.tip_commit().map(|c| c.id)
-                    .context("BUG: how can an empty ad-hoc workspace exist? Should have at least one stack-segment with commit")?;
+                let tip = workspace.tip_commit().map(|c| c.id).context(
+                    "BUG: how can an empty ad-hoc workspace exist? Should have at least one stack-segment with commit",
+                )?;
                 (tip, false)
             }
             Some(mut existing_workspace_reference) => {

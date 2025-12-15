@@ -1,3 +1,10 @@
+use std::{
+    collections::{HashMap, hash_map::Entry},
+    fs,
+    path::Path,
+    str::{FromStr, from_utf8},
+};
+
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::{TreeChange, diff::tree_changes};
 use but_ctx::{
@@ -14,12 +21,6 @@ use gitbutler_cherry_pick::RepositoryExtLite;
 use gitbutler_repo::{RepositoryExt, SignaturePurpose};
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::{ObjectId, bstr::ByteSlice, prelude::ObjectIdExt};
-use std::path::Path;
-use std::{
-    collections::{HashMap, hash_map::Entry},
-    fs,
-    str::{FromStr, from_utf8},
-};
 use tracing::instrument;
 
 use super::{

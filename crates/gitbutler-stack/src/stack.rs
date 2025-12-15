@@ -1,3 +1,9 @@
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    str::FromStr,
+};
+
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::Reference;
 pub use but_core::ref_metadata::StackId;
@@ -14,11 +20,6 @@ use gitbutler_repo::{
 use gix::{utils::str::decompose, validate::reference::name_partial};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
-use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-};
 
 use crate::{
     StackBranch, VirtualBranchesHandle,

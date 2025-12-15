@@ -1,5 +1,6 @@
-use crate::utils::Sandbox;
 use snapbox::str;
+
+use crate::utils::Sandbox;
 
 #[test]
 fn outputs_branch_name() -> anyhow::Result<()> {

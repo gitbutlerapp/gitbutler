@@ -210,9 +210,11 @@ pub mod merge {
                             for (mode, _) in &mut tips[..tip_idx] {
                                 match mode {
                                     I::Merge => continue,
-                                    I::MergeTrial { .. } => bail!(
-                                        "BUG: found a merge-trial, even though trial should be concluded by now"
-                                    ),
+                                    I::MergeTrial { .. } => {
+                                        bail!(
+                                            "BUG: found a merge-trial, even though trial should be concluded by now"
+                                        )
+                                    }
                                     I::CertainConflict => saw_first_certain_conflict = true,
                                     I::Skip => {
                                         if saw_first_certain_conflict {
@@ -366,7 +368,7 @@ pub mod merge {
                 .filter_map(|(top_segment, relation)| {
                     match relation {
                         WorkspaceCommitRelation::Merged => {}
-                        WorkspaceCommitRelation::MergeFrom {..} => {
+                        WorkspaceCommitRelation::MergeFrom { .. } => {
                             // These need to be part of the parents list, but shouldn't be merged.
                             // If the caller wants to retry them, they can be passed here as "Merged".
                             todo!("this is a placeholder for where we will have to start handling this UnmergedTree")
@@ -379,11 +381,14 @@ pub mod merge {
                             missing_stacks.push(top_segment.ref_name.to_owned());
                             None
                         }
-                        Some((segment, commit)) => {
-                            Some(Tip {name: Some(stack_tip_name.to_owned()), commit_id: commit.id, segment_idx: segment.id})
-                        }
+                        Some((segment, commit)) => Some(Tip {
+                            name: Some(stack_tip_name.to_owned()),
+                            commit_id: commit.id,
+                            segment_idx: segment.id,
+                        }),
                     }
-                }).collect();
+                })
+                .collect();
             for (idx, anon_tip) in anon_stacks {
                 if tips.iter().any(|t| {
                     t.commit_id == anon_tip.commit_id || t.segment_idx == anon_tip.segment_idx
@@ -464,7 +469,12 @@ impl<'repo> WorkspaceCommit<'repo> {
             .map(|s| {
                 let name = s.ref_name().map(|rn| rn.shorten().to_owned());
                 let s = Stack {
-                    tip: s.tip_skip_empty().or(s.base()).with_context(|| format!("Could not find any commit to serve as tip for stack {id:?} with name {name:?}", id = s.id))?,
+                    tip: s.tip_skip_empty().or(s.base()).with_context(|| {
+                        format!(
+                            "Could not find any commit to serve as tip for stack {id:?} with name {name:?}",
+                            id = s.id
+                        )
+                    })?,
                     name,
                 };
                 anyhow::Ok(s)
@@ -516,7 +526,8 @@ impl<'repo> WorkspaceCommit<'repo> {
             message
                 .push_str("This is a merge commit of the virtual branches in your workspace.\n\n");
         } else {
-            message.push_str("This is placeholder commit and will be replaced by a merge of your virtual branches.\n\n");
+            message
+                .push_str("This is placeholder commit and will be replaced by a merge of your virtual branches.\n\n");
         }
         message.push_str(
             "Due to GitButler managing multiple virtual branches, you cannot switch back and\n",

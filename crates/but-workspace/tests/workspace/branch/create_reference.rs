@@ -1644,10 +1644,10 @@ fn journey_with_commits() -> anyhow::Result<()> {
     )?;
 
     assert!(
-            !meta.branch(main_ref)?.is_default(),
-            "Data is created/updated for dependent branches though,
+        !meta.branch(main_ref)?.is_default(),
+        "Data is created/updated for dependent branches though,
             which is a way to make segments appear if there were not visible before due to ambiguity."
-        );
+    );
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓!
     └── ≡📙:0:main[🌳]

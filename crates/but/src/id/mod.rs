@@ -6,16 +6,17 @@
 
 #![forbid(missing_docs)]
 
+use std::{
+    borrow::Borrow,
+    collections::{BTreeSet, HashMap, HashSet},
+};
+
 use anyhow::bail;
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::branch::Stack;
-use std::{
-    borrow::Borrow,
-    collections::{BTreeSet, HashMap, HashSet},
-};
 
 #[cfg(test)]
 mod tests;

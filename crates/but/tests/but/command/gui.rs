@@ -1,5 +1,6 @@
-use crate::utils::Sandbox;
 use snapbox::str;
+
+use crate::utils::Sandbox;
 
 #[test]
 fn good_error_message_for_non_directories() -> anyhow::Result<()> {

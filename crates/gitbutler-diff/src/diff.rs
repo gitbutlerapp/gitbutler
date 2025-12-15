@@ -4,8 +4,7 @@ use anyhow::{Context as _, Result};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use but_serde::BStringForFrontend;
 use git2::DiffHunk;
-use gitbutler_cherry_pick::RepositoryExt;
-use gitbutler_cherry_pick::RepositoryExtLite;
+use gitbutler_cherry_pick::{RepositoryExt, RepositoryExtLite};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 

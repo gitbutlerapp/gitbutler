@@ -44,11 +44,7 @@ pub fn split_commit(
     let commit_mapping = result
         .commit_mapping
         .iter()
-        .filter_map(
-            |(_, old, new)| {
-                if old == new { None } else { Some((*old, *new)) }
-            },
-        )
+        .filter_map(|(_, old, new)| if old == new { None } else { Some((*old, *new)) })
         .collect();
 
     let mut source_stack = source_stack;

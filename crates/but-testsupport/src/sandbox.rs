@@ -1,7 +1,5 @@
-use crate::{
-    git_status, graph_workspace_determinisitcally, invoke_bash_at_dir, isolate_snapbox_cmd,
-    visualize_commit_graph_all_from_dir,
-};
+use std::{io::Write, ops::DerefMut, path::Path};
+
 use but_core::{
     RefMetadata,
     ref_metadata::{StackId, WorkspaceCommitRelation},
@@ -9,7 +7,11 @@ use but_core::{
 use but_meta::VirtualBranchesTomlMetadata;
 use gix_testtools::{Creation, tempfile};
 use snapbox::{Assert, Redactions};
-use std::{io::Write, ops::DerefMut, path::Path};
+
+use crate::{
+    git_status, graph_workspace_determinisitcally, invoke_bash_at_dir, isolate_snapbox_cmd,
+    visualize_commit_graph_all_from_dir,
+};
 
 /// A sandbox for a GitButler application that assumes read-write testing, so all data is editable and is cleaned up afterward.
 pub struct Sandbox {
@@ -179,7 +181,8 @@ impl Sandbox {
         redactions
             .insert(
                 "[UUID]",
-                regex::Regex::new(r#"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"#).unwrap(),
+                regex::Regex::new(r#"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"#)
+                    .unwrap(),
             )
             .unwrap();
         redactions

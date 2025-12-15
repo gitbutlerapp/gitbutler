@@ -528,10 +528,11 @@ async fn generate_branch_summary(
     use but_action::OpenAiProvider;
 
     // Get OpenAI provider (tries GitButler proxied, own key, then env var)
-    let provider = OpenAiProvider::with(None)
-        .ok_or_else(|| anyhow::anyhow!(
+    let provider = OpenAiProvider::with(None).ok_or_else(|| {
+        anyhow::anyhow!(
             "No AI credentials found. Configure in GitButler settings or set OPENAI_API_KEY environment variable."
-        ))?;
+        )
+    })?;
 
     // Build the prompt with commit information
     let mut prompt = format!(
@@ -553,7 +554,9 @@ async fn generate_branch_summary(
         prompt.push('\n');
     }
 
-    prompt.push_str("\nProvide a brief, professional summary focusing on the overall purpose and impact of these changes.");
+    prompt.push_str(
+        "\nProvide a brief, professional summary focusing on the overall purpose and impact of these changes.",
+    );
     prompt.push_str(
         "\nHere is a good example:\n\nAdd an --ai flag to the branch show command to allow generating an \nAI-powered summary of a branch's commits. This allows the user to see\nat a glance what the branch is about without reading all commit messages.\n");
 

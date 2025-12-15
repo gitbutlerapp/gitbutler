@@ -1,7 +1,8 @@
 //! Various functions that involve launching the Git editor (i.e. `GIT_EDITOR`).
+use std::ffi::OsStr;
+
 use anyhow::{Result, bail};
 use bstr::{BStr, BString, ByteSlice};
-use std::ffi::OsStr;
 
 /// Launches the user's preferred text editor to edit some `initial_text`,
 /// identified by a `filename_safe_intent` to help the user understand what's wanted of them.

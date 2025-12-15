@@ -1,6 +1,7 @@
 //! Tests for various nice user-journeys, from different starting points, performing multiple common steps in sequence.
-use crate::utils::Sandbox;
 use snapbox::str;
+
+use crate::utils::Sandbox;
 
 #[cfg(not(feature = "legacy"))]
 #[test]

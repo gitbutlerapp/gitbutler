@@ -2,12 +2,13 @@
 
 use std::path::PathBuf;
 
-use crate::{cherry_pick::function::ConflictEntries, commit::DateMode};
 use anyhow::{Context as _, Result, bail};
 use bstr::BString;
 use but_core::commit::{HEADERS_CONFLICTED_FIELD, HeadersV2, TreeKind};
 use but_oxidize::GixRepositoryExt as _;
 use gix::{objs::tree::EntryKind, prelude::ObjectIdExt as _};
+
+use crate::{cherry_pick::function::ConflictEntries, commit::DateMode};
 
 /// Describes the outcome of cherrypick.
 #[derive(Debug, Clone, Copy)]

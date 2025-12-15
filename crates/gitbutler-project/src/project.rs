@@ -211,7 +211,10 @@ impl Project {
         self.git_dir = repo.git_dir().to_owned();
         // NOTE: we set the worktree so the frontend is happier until this usage can be reviewed,
         // probably for supporting bare repositories.
-        self.worktree_dir = repo.workdir().context("BUG: we currently only support non-bare repos, yet this one didn't have a worktree dir")?.to_owned();
+        self.worktree_dir = repo
+            .workdir()
+            .context("BUG: we currently only support non-bare repos, yet this one didn't have a worktree dir")?
+            .to_owned();
         Ok(true)
     }
 

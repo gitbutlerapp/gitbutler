@@ -847,7 +847,8 @@ fn commit_to_one_below_tip() -> anyhow::Result<()> {
     write_sequence(&repo, "file", [(20, Some(40)), (80, None), (30, Some(50))])?;
     let first_commit = Destination::NewCommit {
         parent_commit_id: Some(repo.rev_parse_single("first-commit")?.into()),
-        message: "we apply a change with line offsets on top of the first commit, so a cherry-pick is necessary.".into(),
+        message: "we apply a change with line offsets on top of the first commit, so a cherry-pick is necessary."
+            .into(),
         stack_segment: None,
     };
 

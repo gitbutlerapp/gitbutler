@@ -70,11 +70,9 @@ fn non_modifications_trigger_error() -> anyhow::Result<()> {
             CONTEXT_LINES,
         )
         .unwrap_err();
-        assert!(
-            err.to_string().starts_with(
-                "Deletions or additions aren't well-defined for hunk-based operations - use the whole-file mode instead"
-            ),
-        );
+        assert!(err.to_string().starts_with(
+            "Deletions or additions aren't well-defined for hunk-based operations - use the whole-file mode instead"
+        ),);
     }
     Ok(())
 }

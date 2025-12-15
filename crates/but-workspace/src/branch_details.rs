@@ -70,14 +70,11 @@ pub fn branch_details(
         )?;
         // TODO: have a test that shows why this must/should be last. Then maybe make it easy to do
         //       the right thing whenever the mergebase with the integration branch is needed.
-        merge_bases
-            .last()
-            .map(|id| id.detach())
-            .unwrap_or_else(|| {
+        merge_bases.last().map(|id| id.detach()).unwrap_or_else(|| {
             tracing::warn!("No merge-base found between {name} and the integration branch {integration_branch_name}");
-                // default to the tip just like the code previously did, resulting in no information
-                // TODO: we should probably indicate that there is no merge-base instead of just glossing over it.
-                branch_id.detach()
+            // default to the tip just like the code previously did, resulting in no information
+            // TODO: we should probably indicate that there is no merge-base instead of just glossing over it.
+            branch_id.detach()
         })
     };
 

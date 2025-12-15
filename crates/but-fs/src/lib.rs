@@ -157,9 +157,11 @@ fn persist_tempfile(
 ) -> std::io::Result<()> {
     match tempfile.persist(to_path) {
         Ok(Some(_opened_file)) => Ok(()),
-        Ok(None) => unreachable!(
-            "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
-        ),
+        Ok(None) => {
+            unreachable!(
+                "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
+            )
+        }
         Err(err) => Err(err.error),
     }
 }

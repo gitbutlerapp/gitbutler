@@ -75,9 +75,10 @@ pub mod legacy {
 
 #[cfg(feature = "legacy")]
 mod oplog_snapshot {
-    use crate::UnmaterializedOplogSnapshot;
     use but_oxidize::{ObjectIdExt, OidExt};
     use gitbutler_oplog::OplogExt;
+
+    use crate::UnmaterializedOplogSnapshot;
 
     /// Lifecycle
     impl UnmaterializedOplogSnapshot {
