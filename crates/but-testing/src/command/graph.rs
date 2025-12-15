@@ -2,8 +2,6 @@ use std::io::{Write, stdout};
 
 use gix::odb::store::RefreshMode;
 
-use crate::command::{RepositoryOpenMode, meta_from_maybe_project, repo_and_maybe_project};
-
 pub enum Dot {
     Print,
     OpenAsSVG,
@@ -21,9 +19,13 @@ pub fn doit(
     hard_limit: Option<usize>,
     no_debug_workspace: bool,
     stats: bool,
+    dangerously_skip_postprocessing_for_debugging: bool,
 ) -> anyhow::Result<()> {
-    let (mut repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+    let mut repo = ctx.repo.get_mut()?;
     repo.objects.refresh = RefreshMode::Never;
+    drop(repo);
+    let repo = &*ctx.repo.get()?;
     let extra_target = extra_target_spec
         .map(|rev_spec| repo.rev_parse_single(rev_spec))
         .transpose()?
@@ -46,13 +48,14 @@ pub fn doit(
                     .expect("the prefix is unambiguous")
             })
             .collect(),
-        dangerously_skip_postprocessing_for_debugging: false,
+        dangerously_skip_postprocessing_for_debugging,
     };
 
     // Never drop - this is read-only.
-    let meta = meta_from_maybe_project(project.as_ref())?;
+    let guard = ctx.shared_worktree_access();
+    let meta = std::mem::ManuallyDrop::new(ctx.meta(guard.read_permission())?);
     let graph = match ref_name {
-        None => but_graph::Graph::from_head(&repo, &*meta, opts),
+        None => but_graph::Graph::from_head(repo, &*meta, opts),
         Some(ref_name) => {
             let mut reference = repo.find_reference(ref_name)?;
             let id = reference.peel_to_id()?;

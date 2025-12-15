@@ -554,14 +554,16 @@ impl Graph {
             }
             Some(target_sidx) => {
                 let target_rtb = &self[target_sidx];
-                out.extend(
-                    self.first_commit_or_find_along_first_parent(target_rtb.id)
-                        .and_then(|(c, sidx)| {
-                            c.flags.contains(CommitFlags::InWorkspace).then_some(sidx)
-                        }),
-                );
-                out.sort();
-                out.dedup();
+                if self.is_connected_from_above(target_sidx, ws_sidx) {
+                    out.extend(
+                        self.first_commit_or_find_along_first_parent(target_rtb.id)
+                            .and_then(|(c, sidx)| {
+                                c.flags.contains(CommitFlags::InWorkspace).then_some(sidx)
+                            }),
+                    );
+                    out.sort();
+                    out.dedup();
+                }
             }
         }
         Ok(out)
@@ -625,6 +627,7 @@ impl Graph {
             repo,
         )?;
         for base_sidx in candidates.iter().cloned() {
+            let mut seen = BTreeSet::new();
             let base_segment = &self[base_sidx];
             // Also use the segment name as part of available refs to latch on to, and make
             // the segment anonymous if it actually gets used.
@@ -648,6 +651,15 @@ impl Graph {
             )
             .collect();
             for refs_for_independent_branches in matching_refs_per_stack {
+                // Matching refs can be repeated, even with unsound workspace metadata that mentions them multiple times.
+                // Instead of catching this earlier, we handle deduplication right here where it matters.
+                let unique_refs_for_independent_branches: Vec<_> = refs_for_independent_branches
+                    .into_iter()
+                    .filter_map(|rn| seen.insert(rn.clone()).then_some(rn))
+                    .collect();
+                if unique_refs_for_independent_branches.is_empty() {
+                    continue;
+                }
                 let edges_connecting_base_with_ws_tip: Vec<EdgeOwned> = self
                     .inner
                     .edges_connecting(ws_sidx, base_sidx)
@@ -657,7 +669,7 @@ impl Graph {
                     self,
                     ws_sidx,
                     base_sidx,
-                    refs_for_independent_branches,
+                    unique_refs_for_independent_branches,
                     meta,
                     worktree_by_branch,
                 )?;
@@ -1105,6 +1117,13 @@ impl Graph {
             self[sidx].generation = max_gen_of_incoming;
         }
     }
+
+    /// Returns `true` if `below_sidx` is connected to `above_sidx` from above, so `above_sidx` has an
+    /// outgoing connection to `below_sidx`.
+    fn is_connected_from_above(&self, below_sidx: SegmentIndex, above_sidx: SegmentIndex) -> bool {
+        self.edges_directed(below_sidx, Direction::Incoming)
+            .any(|e| e.source() == above_sidx)
+    }
 }
 
 fn find_all_desired_stack_refs_in_commit<'a>(
@@ -1253,7 +1272,9 @@ fn create_independent_segments<T: RefMetadata>(
                 let s = &mut graph[below_idx];
                 if s.ref_name() != Some(ref_name.as_ref()) {
                     bail!(
-                        "BUG: ref-names must either be present in the first commit, or be the segment name"
+                        "BUG: ref-names must either be present in the first commit, or be the segment name: below_idx = {below_idx:?}, below.ref_name = {below_name:?}, above.ref_name = {above_name}",
+                        below_name = s.ref_name().map(|rn| rn.as_bstr()),
+                        above_name = ref_name.as_bstr()
                     )
                 }
                 s.ref_info = None;

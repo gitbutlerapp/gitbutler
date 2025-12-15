@@ -214,6 +214,34 @@ git init special-branches
 
 mkdir ws
 (cd ws
+  git init reproduce-11459
+  (cd reproduce-11459
+    commit M1
+    git branch A
+    commit M2
+    commit M3
+      git branch one
+      git branch two
+      git branch feat-2
+      git branch remote
+      setup_target_to_match_main
+    git checkout -b soon-remote-two
+      commit T1
+      setup_remote_tracking soon-remote-two two "move"
+    git checkout -b soon-anon feat-2
+      commit W1
+      commit W2
+      git branch three
+      git branch four
+    git checkout -b X A
+      commit X1
+      setup_remote_tracking X
+      commit X2
+    git checkout soon-anon
+    create_workspace_commit_once soon-anon X
+    git branch -d soon-anon
+  )
+
   git init duplicate-workspace-connection
   (cd duplicate-workspace-connection
     # this repo is for reproducing a real double-connection, which isn't always happening but causes issues downstream.
