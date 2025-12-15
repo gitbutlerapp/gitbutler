@@ -38,8 +38,8 @@ impl UintId {
     /// Must be less than this.
     const LIMIT: u16 = 20 * 36 * 37;
 
-    /// If self cannot be represented in 3 characters, "00" is returned.
-    fn get_short_id(&self) -> ShortId {
+    /// If self cannot be represented in 3 characters, `00` is returned.
+    fn to_short_id(self) -> ShortId {
         let mut result = String::new();
 
         let (quo, rem) = divmod(self.0 as usize, 20);
@@ -58,34 +58,44 @@ impl UintId {
         result
     }
 }
-impl TryFrom<&[u8]> for UintId {
-    type Error = ();
 
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+/// Lifecycle
+impl UintId {
+    /// Pick the first 2 to three characters and see if they are a valid `UintId`.
+    /// Return `None` for `value` has more than three characters or less than two.
+    fn from_name(value: &[u8]) -> Option<Self> {
         let (first_char, second_char, third_char) = match value {
             [a, b] => (a, b, None),
             [a, b, c] => (a, b, Some(c)),
             _ => {
-                return Err(());
+                return None;
             }
         };
 
         let mut result: usize = 0;
-        let Some(index) = Self::FIRST_CHARS.iter().position(|e| e == first_char) else {
-            return Err(());
-        };
+
+        let index = Self::FIRST_CHARS.iter().position(|e| e == first_char)?;
         result += index;
-        let Some(index) = Self::SUBSEQUENT_CHARS.iter().position(|e| e == second_char) else {
-            return Err(());
-        };
+
+        let index = Self::SUBSEQUENT_CHARS
+            .iter()
+            .position(|e| e == second_char)?;
         result += index * 20;
+
         if let Some(third_char) = third_char {
-            let Some(index) = Self::SUBSEQUENT_CHARS.iter().position(|e| e == third_char) else {
-                return Err(());
-            };
+            let index = Self::SUBSEQUENT_CHARS
+                .iter()
+                .position(|e| e == third_char)?;
             result += (index + 1) * 20 * 36;
         }
-        Ok(Self(result.try_into().expect("max < UintId::LIMIT")))
+
+        let result: u16 = result.try_into().expect("below u16::MAX");
+        debug_assert!(
+            result < Self::LIMIT,
+            "BUG: {result} is beyond limit of {}",
+            Self::LIMIT
+        );
+        Some(Self(result))
     }
 }
 
@@ -97,6 +107,7 @@ struct IdUsage {
     /// A [UintId] is used if it's less than this number.
     next_uint_id: UintId,
 }
+
 impl IdUsage {
     fn mark_used(&mut self, uint_id: UintId) {
         if self.next_uint_id.0 <= uint_id.0 {
@@ -105,15 +116,19 @@ impl IdUsage {
     }
 
     fn next_available(&mut self) -> anyhow::Result<UintId> {
-        while self.uint_ids_used.remove(&self.next_uint_id) {
-            self.next_uint_id = UintId(self.next_uint_id.0 + 1);
-        }
+        self.forward_next_uint_id_to_not_conflict_with_marked();
         if self.next_uint_id.0 >= UintId::LIMIT {
             bail!("too many IDs");
         }
         let result = self.next_uint_id;
         self.next_uint_id = UintId(self.next_uint_id.0 + 1);
         Ok(result)
+    }
+
+    fn forward_next_uint_id_to_not_conflict_with_marked(&mut self) {
+        while self.uint_ids_used.remove(&self.next_uint_id) {
+            self.next_uint_id = UintId(self.next_uint_id.0 + 1);
+        }
     }
 }
 
@@ -153,21 +168,46 @@ impl IdMap {
     /// To enable parsing of file IDs, call [IdMap::add_file_info] or
     /// [IdMap::add_file_info_from_context] afterward.
     pub fn new_for_branches_and_commits(stacks: &[Stack]) -> anyhow::Result<Self> {
-        let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         let StacksInfo {
             branch_names,
             workspace_commit_and_first_parent_ids,
             remote_commit_ids,
         } = get_stacks_info(stacks)?;
+
+        let mut max_zero_count = 1; // Ensure at least two "0" in ID.
+        for branch_name in &branch_names {
+            for field in branch_name.fields_with(|c| c != '0') {
+                max_zero_count = std::cmp::max(field.len(), max_zero_count);
+            }
+        }
+        let (id_usage, branch_name_to_cli_id) = Self::ids_for_branch_names(branch_names)?;
+        Ok(Self {
+            branch_name_to_cli_id,
+            id_usage,
+            workspace_commit_and_first_parent_ids,
+            remote_commit_ids,
+            unassigned: CliId::Unassigned {
+                id: str::repeat("0", max_zero_count + 1),
+            },
+            uncommitted_files: BTreeSet::new(),
+            committed_files: BTreeSet::new(),
+        })
+    }
+
+    /// Scan short `branch_names` in windows of 2 to 3 (presumed) ascii characters and see if
+    /// they resemble [`UintId`]s. If so, use them, otherwise, see if they can be used unambiguously
+    /// directly. If not, generate an ID.
+    fn ids_for_branch_names(
+        branch_names: Vec<BString>,
+    ) -> anyhow::Result<(IdUsage, HashMap<BString, CliId>)> {
         let mut short_ids_to_count: HashMap<ShortId, u8> = HashMap::new();
         let mut id_usage = IdUsage::default();
         for branch_name in &branch_names {
             for candidate in branch_name.windows(2).chain(branch_name.windows(3)) {
-                if let Some(short_id) = UintId::try_from(candidate)
-                    .ok()
+                if let Some(short_id) = UintId::from_name(candidate)
                     .map(|uint_id| {
                         id_usage.mark_used(uint_id);
-                        uint_id.get_short_id()
+                        uint_id.to_short_id()
                     })
                     .or_else(|| {
                         // If it's not a valid UintId, it's still acceptable if it
@@ -187,14 +227,10 @@ impl IdMap {
                         .or_insert(1);
                 }
             }
-            for field in branch_name.fields_with(|c| c != '0') {
-                max_zero_count = std::cmp::max(field.len(), max_zero_count);
-            }
         }
 
         let mut branch_name_to_cli_id: HashMap<BString, CliId> = HashMap::new();
         for branch_name in branch_names {
-            let name = branch_name.to_string();
             let id = 'short_id: {
                 // Find first non-conflicting pair or triple (i.e. used in
                 // exactly one branch) and use it as CliId.
@@ -206,21 +242,12 @@ impl IdMap {
                     }
                 }
                 // If none available, use next available ID.
-                id_usage.next_available()?.get_short_id()
+                id_usage.next_available()?.to_short_id()
             };
+            let name = branch_name.to_string();
             branch_name_to_cli_id.insert(branch_name, CliId::Branch { name, id });
         }
-        Ok(Self {
-            branch_name_to_cli_id,
-            id_usage,
-            workspace_commit_and_first_parent_ids,
-            remote_commit_ids,
-            unassigned: CliId::Unassigned {
-                id: str::repeat("0", max_zero_count + 1),
-            },
-            uncommitted_files: BTreeSet::new(),
-            committed_files: BTreeSet::new(),
-        })
+        Ok((id_usage, branch_name_to_cli_id))
     }
 
     /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new_for_branches_and_commits].
@@ -300,13 +327,13 @@ impl IdMap {
         for assignment_path in uncommitted_files.into_iter() {
             self.uncommitted_files.insert(UncommittedFile {
                 assignment_path,
-                id: self.id_usage.next_available()?.get_short_id(),
+                id: self.id_usage.next_available()?.to_short_id(),
             });
         }
         for commit_oid_path in committed_files.into_iter() {
             self.committed_files.insert(CommittedFile {
                 commit_oid_path,
-                id: self.id_usage.next_available()?.get_short_id(),
+                id: self.id_usage.next_available()?.to_short_id(),
             });
         }
 

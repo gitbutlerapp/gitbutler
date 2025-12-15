@@ -4,29 +4,39 @@ use bstr::BString;
 
 #[test]
 fn uint_id_from_short_id() -> anyhow::Result<()> {
-    assert_eq!(UintId::try_from(b"a".as_slice()), Err(()));
-    assert_eq!(UintId::try_from(b"a0".as_slice()), Err(()));
-    assert_eq!(UintId::try_from(b"--".as_slice()), Err(()));
-    assert_eq!(UintId::try_from(b"g0".as_slice()), Ok(UintId(0)));
-    assert_eq!(UintId::try_from(b"z0".as_slice()), Ok(UintId(19)));
-    assert_eq!(UintId::try_from(b"gz".as_slice()), Ok(UintId(700)));
-    assert_eq!(UintId::try_from(b"zz".as_slice()), Ok(UintId(719)));
-    assert_eq!(UintId::try_from(b"g00".as_slice()), Ok(UintId(720)));
-    assert_eq!(UintId::try_from(b"gz0".as_slice()), Ok(UintId(1420)));
-    assert_eq!(UintId::try_from(b"zzz".as_slice()), Ok(UintId(26639)));
-    assert_eq!(UintId::try_from(b"g000".as_slice()), Err(()));
+    assert_eq!(UintId::from_name(b"a".as_slice()), None);
+    assert_eq!(UintId::from_name(b"a0".as_slice()), None);
+    assert_eq!(UintId::from_name(b"--".as_slice()), None);
+    assert_eq!(UintId::from_name(b"g0".as_slice()), Some(UintId(0)));
+    assert_eq!(UintId::from_name(b"z0".as_slice()), Some(UintId(19)));
+    assert_eq!(UintId::from_name(b"gz".as_slice()), Some(UintId(700)));
+    assert_eq!(UintId::from_name(b"zz".as_slice()), Some(UintId(719)));
+    assert_eq!(UintId::from_name(b"g00".as_slice()), Some(UintId(720)));
+    assert_eq!(UintId::from_name(b"gz0".as_slice()), Some(UintId(1420)));
+    assert_eq!(UintId::from_name(b"zzz".as_slice()), Some(UintId(26639)));
+    assert_eq!(UintId::from_name(b"g000".as_slice()), None);
     Ok(())
 }
 
 #[test]
 fn uint_id_to_short_id() -> anyhow::Result<()> {
-    assert_eq!(UintId(0).get_short_id(), "g0");
-    assert_eq!(UintId(19).get_short_id(), "z0");
-    assert_eq!(UintId(700).get_short_id(), "gz");
-    assert_eq!(UintId(719).get_short_id(), "zz");
-    assert_eq!(UintId(720).get_short_id(), "g00");
-    assert_eq!(UintId(1420).get_short_id(), "gz0");
-    assert_eq!(UintId(26639).get_short_id(), "zzz");
+    assert_eq!(UintId(0).to_short_id(), "g0");
+    assert_eq!(UintId(19).to_short_id(), "z0");
+    assert_eq!(UintId(700).to_short_id(), "gz");
+    assert_eq!(UintId(719).to_short_id(), "zz");
+    assert_eq!(UintId(720).to_short_id(), "g00");
+    assert_eq!(UintId(1420).to_short_id(), "gz0");
+    assert_eq!(UintId(26639).to_short_id(), "zzz");
+    assert_eq!(
+        UintId(26640).to_short_id(),
+        "00",
+        "too big always yields this"
+    );
+    assert_eq!(
+        UintId(26641).to_short_id(),
+        "00",
+        "too big always yields this"
+    );
     Ok(())
 }
 
