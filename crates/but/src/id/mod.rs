@@ -13,7 +13,7 @@ use std::{
 
 use anyhow::bail;
 use bstr::{BStr, BString, ByteSlice};
-use but_core::ref_metadata::StackId;
+use but_core::{HunkHeader, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::branch::Stack;
@@ -157,6 +157,8 @@ pub struct IdMap {
 
     /// Uncommitted files with their assigned IDs
     uncommitted_files: BTreeSet<UncommittedFile>,
+    /// Uncommitted hunks.
+    uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
     /// Committed files with their assigned IDs
     committed_files: BTreeSet<CommittedFile>,
 }
@@ -190,6 +192,7 @@ impl IdMap {
                 id: str::repeat("0", max_zero_count + 1),
             },
             uncommitted_files: BTreeSet::new(),
+            uncommitted_hunks: HashMap::new(),
             committed_files: BTreeSet::new(),
         })
     }
@@ -310,7 +313,7 @@ impl IdMap {
     fn add_file_info<F>(
         &mut self,
         changed_paths_in_commit_fn: F,
-        hunk_assignments: Vec<HunkAssignment>,
+        mut hunk_assignments: Vec<HunkAssignment>,
     ) -> anyhow::Result<()>
     where
         F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
@@ -321,7 +324,7 @@ impl IdMap {
         } = get_file_info_from_workspace_commits_and_status(
             &self.workspace_commit_and_first_parent_ids,
             changed_paths_in_commit_fn,
-            hunk_assignments,
+            &hunk_assignments,
         )?;
 
         for assignment_path in uncommitted_files.into_iter() {
@@ -335,6 +338,22 @@ impl IdMap {
                 commit_oid_path,
                 id: self.id_usage.next_available()?.to_short_id(),
             });
+        }
+
+        hunk_assignments.sort_by(|a, b| {
+            a.stack_id
+                .cmp(&b.stack_id)
+                .then_with(|| a.path_bytes.cmp(&b.path_bytes))
+                .then_with(|| a.hunk_header.cmp(&b.hunk_header))
+        });
+        for hunk_assignment in hunk_assignments {
+            self.uncommitted_hunks.insert(
+                self.id_usage.next_available()?.to_short_id(),
+                UncommittedHunk {
+                    hunk_header: hunk_assignment.hunk_header,
+                    path_bytes: hunk_assignment.path_bytes,
+                },
+            );
         }
 
         Ok(())
@@ -413,6 +432,13 @@ impl IdMap {
             matches.push(CliId::CommittedFile {
                 commit_id: *commit_oid,
                 path: path.to_owned(),
+                id: entity.to_string(),
+            });
+        }
+        if let Some(uncommitted_hunk) = self.uncommitted_hunks.get(entity) {
+            matches.push(CliId::UncommittedHunk {
+                hunk_header: uncommitted_hunk.hunk_header,
+                path: uncommitted_hunk.path_bytes.clone(),
                 id: entity.to_string(),
             });
         }
@@ -559,6 +585,15 @@ pub enum CliId {
         /// The short CLI ID for this file (typically 2 characters)
         id: ShortId,
     },
+    /// An uncommitted hunk.
+    UncommittedHunk {
+        /// Same as [HunkAssignment::hunk_header].
+        hunk_header: Option<HunkHeader>,
+        /// Same as [HunkAssignment::path_bytes].
+        path: BString,
+        /// The short CLI ID for this hunk (typically 2 characters)
+        id: ShortId,
+    },
     /// A branch.
     Branch {
         /// The short name of the branch, like `main` or `origin/feat`.
@@ -582,6 +617,7 @@ impl CliId {
         match self {
             CliId::UncommittedFile { .. } => "an uncommitted file",
             CliId::CommittedFile { .. } => "a committed file",
+            CliId::UncommittedHunk { .. } => "an uncommitted hunk",
             CliId::Branch { .. } => "a branch",
             CliId::Commit { .. } => "a commit",
             CliId::Unassigned { .. } => "the unassigned area",
@@ -593,6 +629,7 @@ impl CliId {
         match self {
             CliId::UncommittedFile { id, .. }
             | CliId::CommittedFile { id, .. }
+            | CliId::UncommittedHunk { id, .. }
             | CliId::Branch { id, .. }
             | CliId::Unassigned { id, .. } => id.clone(),
             CliId::Commit(oid) => oid.to_hex_with_len(2).to_string(),
@@ -658,7 +695,7 @@ struct FileInfo {
 fn get_file_info_from_workspace_commits_and_status<F>(
     workspace_commit_and_first_parent_ids: &[(gix::ObjectId, Option<gix::ObjectId>)],
     mut changed_paths_fn: F,
-    hunk_assignments: Vec<HunkAssignment>,
+    hunk_assignments: &[HunkAssignment],
 ) -> anyhow::Result<FileInfo>
 where
     F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
@@ -673,7 +710,7 @@ where
 
     let mut uncommitted_files: BTreeSet<(Option<StackId>, BString)> = BTreeSet::new();
     for assignment in hunk_assignments {
-        uncommitted_files.insert((assignment.stack_id, assignment.path_bytes));
+        uncommitted_files.insert((assignment.stack_id, assignment.path_bytes.clone()));
     }
 
     Ok(FileInfo {
@@ -735,4 +772,10 @@ impl Borrow<str> for CommittedFile {
     fn borrow(&self) -> &str {
         &self.id
     }
+}
+
+#[derive(Debug)]
+struct UncommittedHunk {
+    hunk_header: Option<HunkHeader>,
+    path_bytes: BString,
 }

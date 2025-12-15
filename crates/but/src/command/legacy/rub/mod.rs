@@ -117,6 +117,17 @@ pub(crate) fn handle(
                 create_snapshot(ctx, OperationKind::FileChanges);
                 commits::uncommit_file(ctx, path.as_ref(), *commit_oid, None, out)?;
             }
+            (
+                CliId::UncommittedHunk {
+                    hunk_header,
+                    path: path_bytes,
+                    ..
+                },
+                CliId::Branch { name, .. },
+            ) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_hunk_to_branch(ctx, *hunk_header, path_bytes.as_ref(), name, out)?;
+            }
             _ => {
                 bail!(makes_no_sense_error(&source, &target))
             }

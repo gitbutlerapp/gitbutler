@@ -1,5 +1,7 @@
 use anyhow::bail;
 use bstr::BString;
+use but_core::HunkHeader;
+use but_hunk_assignment::HunkAssignment;
 
 use crate::{CliId, IdMap, id::UintId};
 
@@ -167,7 +169,24 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
         })
     };
     let hunk_assignments = vec![
-        hunk_assignment("uncommitted1.txt", None),
+        HunkAssignment {
+            hunk_header: Some(HunkHeader {
+                old_start: 1,
+                old_lines: 2,
+                new_start: 1,
+                new_lines: 2,
+            }),
+            ..hunk_assignment("uncommitted1.txt", None)
+        },
+        HunkAssignment {
+            hunk_header: Some(HunkHeader {
+                old_start: 3,
+                old_lines: 2,
+                new_start: 3,
+                new_lines: 2,
+            }),
+            ..hunk_assignment("uncommitted1.txt", None)
+        },
         hunk_assignment("uncommitted2.txt", None),
     ];
     id_map.add_file_info(changed_paths_fn, hunk_assignments)?;
@@ -225,6 +244,40 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
         },
     ]
     "#);
+
+    // uncommitted hunks do not collide with anything else
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("l0")?, @r#"
+    [
+        UncommittedHunk {
+            hunk_header: Some(
+                HunkHeader("-1,2", "+1,2"),
+            ),
+            path: "uncommitted1.txt",
+            id: "l0",
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("m0")?, @r#"
+    [
+        UncommittedHunk {
+            hunk_header: Some(
+                HunkHeader("-3,2", "+3,2"),
+            ),
+            path: "uncommitted1.txt",
+            id: "m0",
+        },
+    ]
+    "#);
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("n0")?, @r#"
+    [
+        UncommittedHunk {
+            hunk_header: None,
+            path: "uncommitted2.txt",
+            id: "n0",
+        },
+    ]
+    "#);
+
     Ok(())
 }
 
