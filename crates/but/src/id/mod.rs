@@ -671,14 +671,14 @@ where
         }
     }
 
-    let mut uncommitted_files: Vec<(Option<StackId>, BString)> = Vec::new();
+    let mut uncommitted_files: BTreeSet<(Option<StackId>, BString)> = BTreeSet::new();
     for assignment in hunk_assignments {
-        uncommitted_files.push((assignment.stack_id, assignment.path_bytes));
+        uncommitted_files.insert((assignment.stack_id, assignment.path_bytes));
     }
 
     Ok(FileInfo {
         committed_files,
-        uncommitted_files,
+        uncommitted_files: uncommitted_files.into_iter().collect(),
     })
 }
 
