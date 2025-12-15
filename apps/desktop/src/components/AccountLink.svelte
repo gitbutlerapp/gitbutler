@@ -9,7 +9,7 @@
 </script>
 
 <button type="button" class="profile-btn" onclick={async () => openGeneralSettings()}>
-	{#if !$user?.picture}
+	{#if $user?.picture}
 		<img class="profile-picture" src={$user.picture} alt="Avatar" referrerpolicy="no-referrer" />
 	{:else}
 		<div class="anon-icon">
