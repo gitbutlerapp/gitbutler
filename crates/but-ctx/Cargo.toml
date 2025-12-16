@@ -1,11 +1,11 @@
 [package]
 name = "but-ctx"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
 description = "A context implementation specific to a repository"
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false

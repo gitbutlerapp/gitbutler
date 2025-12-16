@@ -1,9 +1,9 @@
 [package]
 name = "gitbutler-testsupport"
 version = "0.0.0"
-edition = "2024"
+edition.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 path = "src/lib.rs"
