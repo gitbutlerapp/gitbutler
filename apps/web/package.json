@@ -43,15 +43,11 @@
 		"vitest": "catalog:"
 	},
 	"dependencies": {
-		"@ethercorps/sveltekit-og": "^3.0.0",
-		"@resvg/resvg-js": "^2.6.2",
 		"@sentry/sveltekit": "catalog:svelte",
 		"@tryghost/content-api": "^1.11.21",
 		"@types/tryghost__content-api": "^1.3.17",
 		"dayjs": "^1.11.13",
 		"highlight.js": "^11.10.0",
-		"marked": "catalog:",
-		"satori": "^0.12.1",
-		"satori-html": "^0.3.2"
+		"marked": "catalog:"
 	}
 }

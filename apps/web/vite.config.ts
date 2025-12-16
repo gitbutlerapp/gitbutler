@@ -40,5 +40,8 @@ export default defineConfig({
 		alias: {
 			'@gitbutler/ui/styles/fonts': '../../packages/ui/src/styles/fonts'
 		}
+	},
+	ssr: {
+		external: ['jsdom', 'cssstyle']
 	}
 });
