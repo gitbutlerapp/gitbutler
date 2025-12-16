@@ -23,23 +23,6 @@
 </p>
 
 <CardGroup>
-	<CardGroup.Item labelFor="ws3">
-		{#snippet title()}
-			New workspace backend
-		{/snippet}
-		{#snippet caption()}
-			Enable this to use the new API for rendering the workspace state. This should correctly detect
-			squash-merged PRs as integrated when updating the workspace.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="ws3"
-				checked={$settingsStore?.featureFlags.ws3}
-				onclick={() =>
-					settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 })}
-			/>
-		{/snippet}
-	</CardGroup.Item>
 	<CardGroup.Item labelFor="apply3">
 		{#snippet title()}
 			New apply to workspace
