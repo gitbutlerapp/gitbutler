@@ -12,7 +12,7 @@ ROOT="$(dirname "$THIS")/../.."
 if [ -n "${CARGO_BUILD_TARGET:-}" ]; then
     TRIPLE="$CARGO_BUILD_TARGET"
 else
-    TRIPLE=${TRIPLE_OVERRIDE:-$(rustc -vV | sed -n 's|host: ||p')}
+    TRIPLE=${TRIPLE_OVERRIDE:-$(rustc --print host-tuple)}
 fi
 
 TARGET_ROOT="${CARGO_TARGET_DIR:-$ROOT/target}/${TRIPLE_OVERRIDE:-${CARGO_BUILD_TARGET:+$CARGO_BUILD_TARGET}}/release"
