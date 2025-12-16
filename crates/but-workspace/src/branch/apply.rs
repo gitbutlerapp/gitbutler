@@ -647,12 +647,6 @@ pub(crate) mod function {
             storage.persist(repo)?;
             drop(in_memory_repo);
         }
-        persist_metadata_and_gitconfig(
-            meta,
-            &branches_to_apply,
-            &ws_md,
-            local_tracking_config_and_ref_info,
-        )?;
         but_core::worktree::safe_checkout(
             prev_head_id,
             new_head_id,
@@ -661,6 +655,12 @@ pub(crate) mod function {
                 uncommitted_changes,
                 skip_head_update: true,
             },
+        )?;
+        persist_metadata_and_gitconfig(
+            meta,
+            &branches_to_apply,
+            &ws_md,
+            local_tracking_config_and_ref_info,
         )?;
 
         set_head_to_reference(
