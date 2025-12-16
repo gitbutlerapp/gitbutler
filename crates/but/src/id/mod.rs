@@ -314,7 +314,7 @@ impl IdMap {
     fn add_file_info<F>(
         &mut self,
         changed_paths_in_commit_fn: F,
-        mut hunk_assignments: Vec<HunkAssignment>,
+        hunk_assignments: Vec<HunkAssignment>,
     ) -> anyhow::Result<()>
     where
         F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
@@ -341,12 +341,6 @@ impl IdMap {
             });
         }
 
-        hunk_assignments.sort_by(|a, b| {
-            a.stack_id
-                .cmp(&b.stack_id)
-                .then_with(|| a.path_bytes.cmp(&b.path_bytes))
-                .then_with(|| a.hunk_header.cmp(&b.hunk_header))
-        });
         for hunk_assignment in hunk_assignments {
             self.uncommitted_hunks.insert(
                 self.id_usage.next_available()?.to_short_id(),
@@ -601,7 +595,9 @@ pub enum CliId {
         id: ShortId,
     },
     /// A commit in the workspace identified by its SHA.
-    // TODO: Ensure our prefixes are unique within the set of known commits.
+    // TODO: Ensure our prefixes are unique within the set of known commits,
+    //       currently we only take the first two characters which can clash
+    //       without us noticing. See commit_ids_are_currently_ambiguous() test.
     Commit(gix::ObjectId),
     /// The unassigned area, as a designated area that files can be put in.
     Unassigned {

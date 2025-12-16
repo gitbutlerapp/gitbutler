@@ -1,9 +1,8 @@
+use crate::{CliId, IdMap, id::UintId};
 use anyhow::bail;
 use bstr::BString;
-use but_core::HunkHeader;
 use but_hunk_assignment::HunkAssignment;
-
-use crate::{CliId, IdMap, id::UintId};
+use but_testsupport::{hex_to_id, hunk_header};
 
 #[test]
 fn uint_id_from_short_id() -> anyhow::Result<()> {
@@ -69,6 +68,47 @@ fn commit_id_works_with_two_or_more_characters() -> anyhow::Result<()> {
         "Id needs to be at least 2 characters long: '1'",
         "one character isn't enough"
     );
+    Ok(())
+}
+
+// TODO: is there a way to produce globally unique ids for commits as well?
+//       Should be if we prepare them in advance.
+#[test]
+fn commit_ids_are_currently_ambiguous() -> anyhow::Result<()> {
+    let id1 = hex_to_id("21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    let id2 = hex_to_id("21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    let stacks = &[stack([segment("not-important", [id1, id2], None, [])])];
+    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 2
+    branches: [ no ]
+    ");
+    insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
+    [
+        Branch {
+            name: "not-important",
+            id: "no",
+        },
+        Commit(
+            Sha1(21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
+        ),
+        Commit(
+            Sha1(21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb),
+        ),
+    ]
+    "#);
+    let ids_as_shown_by_consumers = id_map
+        .all_ids()
+        .iter()
+        .map(|id| id.to_short_string())
+        .collect::<Vec<_>>();
+    insta::assert_debug_snapshot!(ids_as_shown_by_consumers, @r#"
+    [
+        "no",
+        "21",
+        "21",
+    ]
+    "#);
     Ok(())
 }
 
@@ -261,21 +301,11 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     };
     let hunk_assignments = vec![
         HunkAssignment {
-            hunk_header: Some(HunkHeader {
-                old_start: 1,
-                old_lines: 2,
-                new_start: 1,
-                new_lines: 2,
-            }),
+            hunk_header: Some(hunk_header("-1,2", "+1,2")),
             ..hunk_assignment("uncommitted1.txt", None)
         },
         HunkAssignment {
-            hunk_header: Some(HunkHeader {
-                old_start: 3,
-                old_lines: 2,
-                new_start: 3,
-                new_lines: 2,
-            }),
+            hunk_header: Some(hunk_header("-3,2", "+3,2")),
             ..hunk_assignment("uncommitted1.txt", None)
         },
         hunk_assignment("uncommitted2.txt", None),
@@ -333,6 +363,9 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             name: "h0",
             id: "h0",
         },
+        Commit(
+            Sha1(0202020202020202020202020202020202020202),
+        ),
     ]
     "#);
 
@@ -543,6 +576,11 @@ mod util {
                     self.resolve_entity_to_ids(&id)
                         .expect("BUG: valid ID means no error")
                 })
+                .chain(
+                    self.workspace_and_remote_commit_ids()
+                        .cloned()
+                        .map(CliId::Commit),
+                )
                 .sorted()
                 .collect()
         }

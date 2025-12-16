@@ -21,7 +21,7 @@ pub use sandbox::Sandbox;
 /// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
 /// i.e. `hunk_header("-1,10", "+1,10")`.
 /// Returns `( (old_start, old_lines), (new_start, new_lines) )`.
-pub fn hunk_header(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
+pub fn hunk_header_raw(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
     fn parse_header(hunk_info: &str) -> (u32, u32) {
         let hunk_info = hunk_info.trim_start_matches(['-', '+'].as_slice());
         let parts: Vec<_> = hunk_info.split(',').collect();
@@ -34,6 +34,19 @@ pub fn hunk_header(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
         (start, lines)
     }
     (parse_header(old), parse_header(new))
+}
+
+/// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
+/// i.e. `hunk_header("-1,10", "+1,10")`.
+/// Returns a [but_core::HunkHeader].
+pub fn hunk_header(old: &str, new: &str) -> but_core::HunkHeader {
+    let ((old_start, old_lines), (new_start, new_lines)) = hunk_header_raw(old, new);
+    but_core::HunkHeader {
+        old_start,
+        old_lines,
+        new_start,
+        new_lines,
+    }
 }
 
 /// While `gix` can't (or can't conveniently) do everything, let's make using `git` easier,

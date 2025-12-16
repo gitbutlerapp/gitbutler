@@ -212,17 +212,6 @@ pub fn cat_commit(commit: gix::Id<'_>) -> anyhow::Result<String> {
     Ok(commit.object()?.data.as_bstr().to_string())
 }
 
-/// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
-pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
-    let ((old_start, old_lines), (new_start, new_lines)) = but_testsupport::hunk_header(old, new);
-    HunkHeader {
-        old_start,
-        old_lines,
-        new_start,
-        new_lines,
-    }
-}
-
 pub fn r(name: &str) -> &gix::refs::FullNameRef {
     name.try_into().expect("statically known valid ref-name")
 }

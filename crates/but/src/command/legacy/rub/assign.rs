@@ -79,7 +79,7 @@ pub(crate) fn assign_all(
     )?
     .changes;
     let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes), None)?;
 
     let mut reqs = Vec::new();
     for assignment in assignments {
@@ -155,7 +155,7 @@ fn path_to_assignments<'path>(
     )?
     .changes;
     let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes), None)?;
     Ok(assignments
         .into_iter()
         .filter(move |assignment| assignment.path_bytes == path)
