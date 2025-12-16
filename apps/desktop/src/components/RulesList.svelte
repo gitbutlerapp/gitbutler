@@ -545,20 +545,6 @@
 		gap: 6px;
 	}
 
-	.rule {
-		display: flex;
-		position: relative;
-		align-items: center;
-		padding: 10px;
-		overflow: hidden;
-		gap: 4px;
-		border-bottom: 1px solid var(--clr-border-3);
-
-		&:last-child {
-			border-bottom: none;
-		}
-	}
-
 	.rule-skeleton {
 		display: flex;
 		padding: 8px;

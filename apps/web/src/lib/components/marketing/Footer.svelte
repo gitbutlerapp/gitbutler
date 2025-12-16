@@ -337,13 +337,6 @@
 		}
 	}
 
-	.theme-switcher {
-		display: flex;
-		align-self: flex-start;
-		border: 1px solid var(--clr-border-2);
-		border-radius: 100px;
-	}
-
 	@media (--desktop-small-viewport) {
 		.banner {
 			padding: 24px;
