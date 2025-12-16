@@ -163,19 +163,9 @@ pub fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
 
 #[cfg(test)]
 pub(crate) mod utils {
-    use but_core::{HunkHeader, HunkRange};
+    use but_core::HunkRange;
 
     pub fn range(start: u32, lines: u32) -> HunkRange {
         HunkRange { start, lines }
-    }
-    pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
-        let ((old_start, old_lines), (new_start, new_lines)) =
-            but_testsupport::hunk_header(old, new);
-        HunkHeader {
-            old_start,
-            old_lines,
-            new_start,
-            new_lines,
-        }
     }
 }

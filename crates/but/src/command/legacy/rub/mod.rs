@@ -29,9 +29,6 @@ pub(crate) fn handle(
 
     for source in sources {
         match (&source, &target) {
-            (CliId::UncommittedFile { .. }, CliId::UncommittedFile { .. }) => {
-                bail!(makes_no_sense_error(&source, &target))
-            }
             (CliId::UncommittedFile { path, .. }, CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::unassign_file(ctx, path.as_ref(), out)?;
@@ -49,12 +46,6 @@ pub(crate) fn handle(
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_file_to_branch(ctx, path.as_ref(), name, out)?;
             }
-            (CliId::Unassigned { .. }, CliId::UncommittedFile { .. }) => {
-                bail!(makes_no_sense_error(&source, &target))
-            }
-            (CliId::Unassigned { .. }, CliId::Unassigned { .. }) => {
-                bail!(makes_no_sense_error(&source, &target))
-            }
             (CliId::Unassigned { .. }, CliId::Commit(oid)) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, None, oid, out)?;
@@ -62,9 +53,6 @@ pub(crate) fn handle(
             (CliId::Unassigned { .. }, CliId::Branch { name: to, .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_all(ctx, None, Some(to), out)?;
-            }
-            (CliId::Commit { .. }, CliId::UncommittedFile { .. }) => {
-                bail!(makes_no_sense_error(&source, &target))
             }
             (CliId::Commit(oid), CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, OperationKind::UndoCommit);
@@ -78,9 +66,6 @@ pub(crate) fn handle(
                 create_snapshot(ctx, OperationKind::MoveCommit);
                 move_commit::to_branch(ctx, oid, name, out)?;
             }
-            (CliId::Branch { .. }, CliId::UncommittedFile { .. }) => {
-                bail!(makes_no_sense_error(&source, &target))
-            }
             (CliId::Branch { name: from, .. }, CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_all(ctx, Some(from), None, out)?;
@@ -92,15 +77,6 @@ pub(crate) fn handle(
             (CliId::Branch { name: from, .. }, CliId::Branch { name: to, .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_all(ctx, Some(from), Some(to), out)?;
-            }
-            (CliId::UncommittedFile { .. }, CliId::CommittedFile { .. }) => {
-                bail!(makes_no_sense_error(&source, &target))
-            }
-            (CliId::CommittedFile { .. }, CliId::UncommittedFile { .. }) => {
-                bail!(makes_no_sense_error(&source, &target))
-            }
-            (CliId::CommittedFile { .. }, CliId::CommittedFile { .. }) => {
-                bail!(makes_no_sense_error(&source, &target))
             }
             (
                 CliId::CommittedFile {
@@ -141,13 +117,18 @@ pub(crate) fn handle(
                 create_snapshot(ctx, OperationKind::FileChanges);
                 commits::uncommit_file(ctx, path.as_ref(), *commit_oid, None, out)?;
             }
-            (CliId::Branch { .. }, CliId::CommittedFile { .. }) => {
-                bail!(makes_no_sense_error(&source, &target))
+            (
+                CliId::UncommittedHunk {
+                    hunk_header,
+                    path: path_bytes,
+                    ..
+                },
+                CliId::Branch { name, .. },
+            ) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_hunk_to_branch(ctx, *hunk_header, path_bytes.as_ref(), name, out)?;
             }
-            (CliId::Commit { .. }, CliId::CommittedFile { .. }) => {
-                bail!(makes_no_sense_error(&source, &target))
-            }
-            (CliId::Unassigned { .. }, CliId::CommittedFile { .. }) => {
+            _ => {
                 bail!(makes_no_sense_error(&source, &target))
             }
         }

@@ -1,5 +1,17 @@
 mod to_additive_hunks {
-    use crate::{tree::to_additive_hunks, utils::hunk_header};
+    use crate::tree::to_additive_hunks;
+
+    // This needs a copy here to get the types to match, maybe due to cycle-breaking?
+    fn hunk_header(old: &str, new: &str) -> crate::HunkHeader {
+        let ((old_start, old_lines), (new_start, new_lines)) =
+            but_testsupport::hunk_header_raw(old, new);
+        crate::HunkHeader {
+            old_start,
+            old_lines,
+            new_start,
+            new_lines,
+        }
+    }
 
     #[test]
     fn rejected() {

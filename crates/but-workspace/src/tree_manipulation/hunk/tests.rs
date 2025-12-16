@@ -1,6 +1,7 @@
 mod subtract_hunks {
     use super::super::{HunkSubstraction::*, subtract_hunks};
-    use crate::utils::{hunk_header, range};
+    use crate::utils::range;
+    use but_testsupport::hunk_header;
 
     #[test]
     fn removing_all_in_old_leaves_all_new_multi() {

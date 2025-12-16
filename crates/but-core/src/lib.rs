@@ -423,19 +423,3 @@ pub struct WorktreeChanges {
     /// The conflicting index entries, along with their relative path `(rela_path, [Entries(base, ours, theirs)])`.
     pub index_conflicts: Vec<(BString, Box<[Option<ConflictIndexEntry>; 3]>)>,
 }
-
-#[cfg(test)]
-pub(crate) mod utils {
-    use crate::HunkHeader;
-
-    pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
-        let ((old_start, old_lines), (new_start, new_lines)) =
-            but_testsupport::hunk_header(old, new);
-        HunkHeader {
-            old_start,
-            old_lines,
-            new_start,
-            new_lines,
-        }
-    }
-}

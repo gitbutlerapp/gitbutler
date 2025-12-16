@@ -1,5 +1,5 @@
-use bstr::BStr;
-use but_core::ref_metadata::StackId;
+use bstr::{BStr, BString};
+use but_core::{HunkHeader, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
 use colored::Colorize;
@@ -12,7 +12,8 @@ pub(crate) fn assign_file_to_branch(
     branch_name: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let reqs = to_assignment_request(ctx, path, Some(branch_name))?;
+    let assignments = path_to_assignments(ctx, path)?;
+    let reqs = to_assignment_request(ctx, assignments, Some(branch_name))?;
     do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
         writeln!(
@@ -25,12 +26,37 @@ pub(crate) fn assign_file_to_branch(
     Ok(())
 }
 
+pub(crate) fn assign_hunk_to_branch(
+    ctx: &mut Context,
+    hunk_header: Option<HunkHeader>,
+    path_bytes: &BStr,
+    branch_name: &str,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let reqs = to_assignment_request(
+        ctx,
+        Some((hunk_header, path_bytes.to_owned())).into_iter(),
+        Some(branch_name),
+    )?;
+    do_assignments(ctx, reqs, out)?;
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "Assigned a hunk in {} → {}.",
+            path_bytes.to_string().bold(),
+            format!("[{branch_name}]").green()
+        )?;
+    }
+    Ok(())
+}
+
 pub(crate) fn unassign_file(
     ctx: &mut Context,
     path: &BStr,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let reqs = to_assignment_request(ctx, path, None)?;
+    let assignments = path_to_assignments(ctx, path)?;
+    let reqs = to_assignment_request(ctx, assignments, None)?;
     do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
         writeln!(out, "Unassigned {}", path.to_string().bold())?;
@@ -53,7 +79,7 @@ pub(crate) fn assign_all(
     )?
     .changes;
     let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes), None)?;
 
     let mut reqs = Vec::new();
     for assignment in assignments {
@@ -120,28 +146,36 @@ pub(crate) fn branch_name_to_stack_id(
     Ok(stack_id)
 }
 
-fn to_assignment_request(
+fn path_to_assignments<'path>(
     ctx: &mut Context,
-    path: &BStr,
-    branch_name: Option<&str>,
-) -> anyhow::Result<Vec<HunkAssignmentRequest>> {
-    let stack_id = branch_name_to_stack_id(ctx, branch_name)?;
-
+    path: &'path BStr,
+) -> anyhow::Result<impl Iterator<Item = (Option<HunkHeader>, BString)> + 'path> {
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
         ctx.legacy_project.worktree_dir()?.into(),
     )?
     .changes;
     let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes), None)?;
+    Ok(assignments
+        .into_iter()
+        .filter(move |assignment| assignment.path_bytes == path)
+        .map(move |assignment| (assignment.hunk_header, assignment.path_bytes)))
+}
+
+fn to_assignment_request(
+    ctx: &mut Context,
+    assignments: impl Iterator<Item = (Option<HunkHeader>, BString)>,
+    branch_name: Option<&str>,
+) -> anyhow::Result<Vec<HunkAssignmentRequest>> {
+    let stack_id = branch_name_to_stack_id(ctx, branch_name)?;
+
     let mut reqs = Vec::new();
-    for assignment in assignments {
-        if assignment.path_bytes == path {
-            reqs.push(HunkAssignmentRequest {
-                hunk_header: assignment.hunk_header,
-                path_bytes: assignment.path_bytes,
-                stack_id,
-            });
-        }
+    for (hunk_header, path_bytes) in assignments {
+        reqs.push(HunkAssignmentRequest {
+            hunk_header,
+            path_bytes,
+            stack_id,
+        });
     }
     Ok(reqs)
 }

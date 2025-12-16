@@ -187,3 +187,81 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+// TODO This test demonstrates how IDs are assigned to uncommitted and committed
+// files that have multiple hunks. This test can be removed when we have CLI
+// IDs for hunks, a command (e.g. `rub`) is taught to use them, and that command
+// is tested.
+#[test]
+fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("a.txt", format!("first\n{}last\n", "line\n".repeat(100)));
+    env.file("b.txt", "only\n");
+    env.but("commit A -m create-a-and-b").assert().success();
+    env.file("a.txt", format!("firsta\n{}lasta\n", "line\n".repeat(100)));
+    env.file("b.txt", "onlya\n");
+    env.but("commit A -m edit-a-and-b").assert().success();
+    env.file("a.txt", format!("firstb\n{}lastb\n", "line\n".repeat(100)));
+    env.file("b.txt", "onlyb\n");
+
+    env.but("--json status -f")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [
+    {
+      "cliId": "i0",
+      "filePath": "a.txt",
+      "changeType": "modified"
+    },
+    {
+      "cliId": "j0",
+      "filePath": "b.txt",
+      "changeType": "modified"
+    }
+  ],
+  "stacks": [
+...
+              "message": "edit-a-and-b",
+...
+              "changes": [
+                {
+                  "cliId": "k0",
+                  "filePath": "a.txt",
+                  "changeType": "modified"
+                },
+                {
+                  "cliId": "l0",
+                  "filePath": "b.txt",
+                  "changeType": "modified"
+                }
+              ]
+...
+              "message": "create-a-and-b",
+...
+              "changes": [
+                {
+                  "cliId": "m0",
+                  "filePath": "a.txt",
+                  "changeType": "added"
+                },
+                {
+                  "cliId": "n0",
+                  "filePath": "b.txt",
+                  "changeType": "added"
+                }
+              ]
+...
+
+"#]]);
+
+    Ok(())
+}

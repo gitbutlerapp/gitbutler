@@ -1,7 +1,8 @@
+use crate::{CliId, IdMap, id::UintId};
 use anyhow::bail;
 use bstr::BString;
-
-use crate::{CliId, IdMap, id::UintId};
+use but_hunk_assignment::HunkAssignment;
+use but_testsupport::{hex_to_id, hunk_header};
 
 #[test]
 fn uint_id_from_short_id() -> anyhow::Result<()> {
@@ -42,10 +43,14 @@ fn uint_id_to_short_id() -> anyhow::Result<()> {
 }
 
 #[test]
-fn commit_id_works_with_two_characters() -> anyhow::Result<()> {
+fn commit_id_works_with_two_or_more_characters() -> anyhow::Result<()> {
     let id1 = id(1);
-    let stacks = &[stack([segment("foo", [id1], None, [])])];
+    let stacks = &[stack([segment("not-important", [id1], None, [])])];
     let id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 1
+    branches: [ no ]
+    ");
 
     let expected = [CliId::Commit(id1)];
     assert_eq!(
@@ -58,13 +63,123 @@ fn commit_id_works_with_two_characters() -> anyhow::Result<()> {
         expected,
         "three characters work too"
     );
+    assert_eq!(
+        id_map.resolve_entity_to_ids("1").unwrap_err().to_string(),
+        "Id needs to be at least 2 characters long: '1'",
+        "one character isn't enough"
+    );
+    Ok(())
+}
+
+// TODO: is there a way to produce globally unique ids for commits as well?
+//       Should be if we prepare them in advance.
+#[test]
+fn commit_ids_are_currently_ambiguous() -> anyhow::Result<()> {
+    let id1 = hex_to_id("21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    let id2 = hex_to_id("21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    let stacks = &[stack([segment("not-important", [id1, id2], None, [])])];
+    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 2
+    branches: [ no ]
+    ");
+    insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
+    [
+        Branch {
+            name: "not-important",
+            id: "no",
+        },
+        Commit(
+            Sha1(21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
+        ),
+        Commit(
+            Sha1(21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb),
+        ),
+    ]
+    "#);
+    let ids_as_shown_by_consumers = id_map
+        .all_ids()
+        .iter()
+        .map(|id| id.to_short_string())
+        .collect::<Vec<_>>();
+    insta::assert_debug_snapshot!(ids_as_shown_by_consumers, @r#"
+    [
+        "no",
+        "21",
+        "21",
+    ]
+    "#);
+    Ok(())
+}
+
+#[test]
+fn branches_work_with_single_character() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("f", [id(1)], None, [])])];
+    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 1
+    branches: [ g0 ]
+    ");
+
+    let expected = [CliId::Branch {
+        name: "f".into(),
+        id: "g0".into(),
+    }];
+    assert_eq!(
+        id_map.resolve_entity_to_ids("f")?,
+        expected,
+        "it's OK to have a CliID that is longer, but it would be up to the UI to not show them"
+    );
+    Ok(())
+}
+
+#[test]
+fn branches_match_by_substring() -> anyhow::Result<()> {
+    let stacks = &[stack([
+        segment("foo-bar", [id(1)], None, []),
+        segment("bar", [id(2)], None, []),
+        segment("foo", [id(3)], None, []),
+        segment("baz", [id(4)], None, []),
+    ])];
+
+    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 4
+    branches: [ az, g0, h0, i0 ]
+    ");
+
+    let expected = [
+        CliId::Branch {
+            name: "foo".into(),
+            id: "i0".into(),
+        },
+        CliId::Branch {
+            name: "foo-bar".into(),
+            id: "g0".into(),
+        },
+    ];
+    assert_eq!(
+        id_map.resolve_entity_to_ids("fo")?,
+        expected,
+        "substring searches can yield multiple items"
+    );
+
+    let expected = [CliId::Branch {
+        name: "baz".into(),
+        id: "az".into(),
+    }];
+    assert_eq!(
+        id_map.resolve_entity_to_ids("az")?,
+        expected,
+        "We see the ID was generated from a substring directly"
+    );
     Ok(())
 }
 
 #[test]
 fn multiple_zeroes_as_unassigned_area() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("foo", [id(1)], None, [])])];
-    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    let id_map = IdMap::new_for_branches_and_commits(&[])?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"workspace_and_remote_commits_count: 0");
 
     assert_eq!(
         id_map.resolve_entity_to_ids("000")?,
@@ -78,22 +193,44 @@ fn multiple_zeroes_as_unassigned_area() -> anyhow::Result<()> {
 fn unassigned_area_id_is_unambiguous() -> anyhow::Result<()> {
     let stacks = &[stack([segment("branch001", [id(1)], None, [])])];
     let id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 1
+    branches: [ br ]
+    ");
 
     assert_eq!(
         id_map.unassigned().to_short_string(),
         "000",
         "the ID of the unassigned area should have enough 0s to be unambiguous"
     );
+    assert_eq!(
+        id_map.resolve_entity_to_ids("00")?,
+        [
+            CliId::Branch {
+                name: "branch001".into(),
+                id: "br".into()
+            },
+            CliId::Unassigned { id: "000".into() }
+        ],
+        "as 00 is matching the substring of a branch now, but also unassigned"
+    );
     Ok(())
 }
 
 #[test]
-fn branch_avoid_nonalphanumeric() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("x-yz", [id(1)], None, [])])];
+fn branches_avoid_invalid_ids() -> anyhow::Result<()> {
+    let stacks = &[stack([
+        segment("x-yz_/hi", [id(1)], None, []),
+        segment("0ax", [id(1)], None, []),
+    ])];
     let id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 2
+    branches: [ ax, yz ]
+    ");
 
     let expected = [CliId::Branch {
-        name: "x-yz".into(),
+        name: "x-yz_/hi".into(),
         id: "yz".into(),
     }];
     assert_eq!(
@@ -101,14 +238,6 @@ fn branch_avoid_nonalphanumeric() -> anyhow::Result<()> {
         expected,
         "avoids non-alphanumeric, taking first alphanumeric pair"
     );
-    Ok(())
-}
-
-#[test]
-fn branch_avoid_hexdigit() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("0ax", [id(1)], None, [])])];
-    let id_map = IdMap::new_for_branches_and_commits(stacks)?;
-
     let expected = [CliId::Branch {
         name: "0ax".into(),
         id: "ax".into(),
@@ -128,6 +257,10 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
         stack([segment("supersubstring", [id(2)], None, [])]),
     ];
     let id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 2
+    branches: [ g0, up ]
+    ");
 
     let expected = [CliId::Branch {
         name: "substring".into(),
@@ -136,7 +269,7 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
     assert_eq!(
         id_map.resolve_entity_to_ids("substring")?,
         expected,
-        "no unique ID, so take from pool of IDs",
+        "no unique ID, so take from pool of IDs (this one matched precisely)",
     );
     let expected = [CliId::Branch {
         name: "supersubstring".into(),
@@ -145,7 +278,7 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
     assert_eq!(
         id_map.resolve_entity_to_ids("supersubstring")?,
         expected,
-        "'su' would collide with substring, so 'up' is chosen"
+        "'su' would collide with substring, so 'up' is chosen (this one matched precisely)"
     );
     Ok(())
 }
@@ -167,64 +300,75 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
         })
     };
     let hunk_assignments = vec![
-        hunk_assignment("uncommitted1.txt", None),
+        HunkAssignment {
+            hunk_header: Some(hunk_header("-1,2", "+1,2")),
+            ..hunk_assignment("uncommitted1.txt", None)
+        },
+        HunkAssignment {
+            hunk_header: Some(hunk_header("-3,2", "+3,2")),
+            ..hunk_assignment("uncommitted1.txt", None)
+        },
         hunk_assignment("uncommitted2.txt", None),
     ];
     id_map.add_file_info(changed_paths_fn, hunk_assignments)?;
-
-    // Uncommitted files come first
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("g0")?, @r#"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 1
+    branches: [ h0 ]
+    uncommitted_files: [ g0, i0 ]
+    committed_files: [ j0, k0 ]
+    uncommitted_hunks: [ l0, m0, n0 ]
+    ");
+    insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
     [
         UncommittedFile {
             assignment: None,
             path: "uncommitted1.txt",
             id: "g0",
         },
-    ]
-    "#);
-
-    // uncommitted files do not collide with branches
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("h0")?, @r#"
-    [
-        Branch {
-            name: "h0",
-            id: "h0",
-        },
-    ]
-    "#);
-
-    // uncommitted files also don't collide with themselves
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("i0")?, @r#"
-    [
         UncommittedFile {
             assignment: None,
             path: "uncommitted2.txt",
             id: "i0",
         },
-    ]
-    "#);
-
-    // then come committed files, as per incremented prefix
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("j0")?, @r#"
-    [
         CommittedFile {
             commit_id: Sha1(0202020202020202020202020202020202020202),
             path: "committed1.txt",
             id: "j0",
         },
-    ]
-    "#);
-
-    // committed files also don't collide with themselves
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("k0")?, @r#"
-    [
         CommittedFile {
             commit_id: Sha1(0202020202020202020202020202020202020202),
             path: "committed2.txt",
             id: "k0",
         },
+        UncommittedHunk {
+            hunk_header: None,
+            path: "uncommitted2.txt",
+            id: "n0",
+        },
+        UncommittedHunk {
+            hunk_header: Some(
+                HunkHeader("-1,2", "+1,2"),
+            ),
+            path: "uncommitted1.txt",
+            id: "l0",
+        },
+        UncommittedHunk {
+            hunk_header: Some(
+                HunkHeader("-3,2", "+3,2"),
+            ),
+            path: "uncommitted1.txt",
+            id: "m0",
+        },
+        Branch {
+            name: "h0",
+            id: "h0",
+        },
+        Commit(
+            Sha1(0202020202020202020202020202020202020202),
+        ),
     ]
     "#);
+
     Ok(())
 }
 
@@ -243,8 +387,14 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     };
     let hunk_assignments = vec![hunk_assignment("uncommitted.txt", None)];
     id_map.add_file_info(changed_paths_fn, hunk_assignments)?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 1
+    branches: [ h0 ]
+    uncommitted_files: [ g0 ]
+    committed_files: [ i0 ]
+    uncommitted_hunks: [ j0 ]
+    ");
 
-    // Commits
     insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("0a")?, @r"
     [
         Commit(
@@ -252,9 +402,12 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
         ),
     ]
     ");
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("0A")?, @"[]");
+    assert_eq!(
+        id_map.resolve_entity_to_ids("0A")?,
+        [],
+        "the case matters for commits"
+    );
 
-    // Branches
     insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("h0")?, @r#"
     [
         Branch {
@@ -263,9 +416,12 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
         },
     ]
     "#);
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("H0")?, @"[]");
+    assert_eq!(
+        id_map.resolve_entity_to_ids("H0")?,
+        [],
+        "the case matters for branches"
+    );
 
-    // Uncommitted files
     insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("g0")?, @r#"
     [
         UncommittedFile {
@@ -275,9 +431,12 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
         },
     ]
     "#);
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("G0")?, @"[]");
+    assert_eq!(
+        id_map.resolve_entity_to_ids("G0")?,
+        [],
+        "the case matters for uncommitted files"
+    );
 
-    // Committed files
     insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("i0")?, @r#"
     [
         CommittedFile {
@@ -287,12 +446,17 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
         },
     ]
     "#);
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("I0")?, @"[]");
+    assert_eq!(
+        id_map.resolve_entity_to_ids("I0")?,
+        [],
+        "the case matters for committed files"
+    );
 
     Ok(())
 }
 
 mod util {
+    use crate::{CliId, IdMap};
     use bstr::BString;
     use but_core::ref_metadata::StackId;
     use but_hunk_assignment::HunkAssignment;
@@ -300,6 +464,8 @@ mod util {
         branch::Stack,
         ref_info::{Commit, LocalCommit, Segment},
     };
+    use itertools::Itertools;
+    use std::fmt::Formatter;
 
     pub fn id(byte: u8) -> gix::ObjectId {
         gix::ObjectId::try_from([byte].repeat(20).as_slice()).expect("could not generate ID")
@@ -378,6 +544,104 @@ mod util {
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
+        }
+    }
+
+    impl IdMap {
+        /// Display internal information to aid understanding and debugging
+        pub fn debug_state(&self) -> DebugState<'_> {
+            DebugState { inner: self }
+        }
+
+        /// Return a sorted list of all CliIds we can provide, excluding unassigned.
+        pub fn all_ids(&self) -> Vec<CliId> {
+            let IdMap {
+                branch_name_to_cli_id,
+                id_usage: _,
+                workspace_commit_and_first_parent_ids: _,
+                remote_commit_ids: _,
+                unassigned: _,
+                uncommitted_files,
+                uncommitted_hunks,
+                committed_files,
+            } = self;
+
+            branch_name_to_cli_id
+                .values()
+                .map(|id| id.to_short_string())
+                .chain(uncommitted_files.iter().map(|f| f.id.clone()))
+                .chain(committed_files.iter().map(|f| f.id.clone()))
+                .chain(uncommitted_hunks.keys().cloned())
+                .flat_map(|id| {
+                    self.resolve_entity_to_ids(&id)
+                        .expect("BUG: valid ID means no error")
+                })
+                .chain(
+                    self.workspace_and_remote_commit_ids()
+                        .cloned()
+                        .map(CliId::Commit),
+                )
+                .sorted()
+                .collect()
+        }
+    }
+
+    pub struct DebugState<'a> {
+        inner: &'a IdMap,
+    }
+
+    impl std::fmt::Debug for DebugState<'_> {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            use itertools::Itertools;
+            let IdMap {
+                branch_name_to_cli_id,
+                id_usage: _,
+                workspace_commit_and_first_parent_ids: _,
+                remote_commit_ids: _,
+                unassigned: _,
+                uncommitted_files,
+                uncommitted_hunks,
+                committed_files,
+            } = self.inner;
+            let commits_count = self.inner.workspace_and_remote_commit_ids().count();
+            writeln!(f, "workspace_and_remote_commits_count: {}", &commits_count)?;
+            id_list_if_not_empty(
+                f,
+                "branches",
+                branch_name_to_cli_id
+                    .values()
+                    .map(|id| id.to_short_string())
+                    .sorted(),
+            )?;
+            id_list_if_not_empty(
+                f,
+                "uncommitted_files",
+                uncommitted_files.iter().sorted().map(|id| id.id.clone()),
+            )?;
+            id_list_if_not_empty(
+                f,
+                "committed_files",
+                committed_files.iter().sorted().map(|id| id.id.clone()),
+            )?;
+            id_list_if_not_empty(
+                f,
+                "uncommitted_hunks",
+                uncommitted_hunks.keys().sorted().cloned(),
+            )?;
+            Ok(())
+        }
+    }
+
+    fn id_list_if_not_empty(
+        f: &mut Formatter<'_>,
+        field: &str,
+        ids: impl Iterator<Item = String>,
+    ) -> std::fmt::Result {
+        let ids: Vec<_> = ids.collect();
+        if !ids.is_empty() {
+            writeln!(f, "{field}: [ {} ]", ids.join(", "))
+        } else {
+            Ok(())
         }
     }
 }

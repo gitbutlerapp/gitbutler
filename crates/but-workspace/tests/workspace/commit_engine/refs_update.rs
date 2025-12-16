@@ -1,5 +1,5 @@
 use but_core::DiffSpec;
-use but_testsupport::{assure_stable_env, visualize_commit_graph};
+use but_testsupport::{assure_stable_env, hunk_header, visualize_commit_graph};
 use but_workspace::{
     commit_engine::{Destination, StackSegmentId},
     legacy::commit_engine::ReferenceFrame,
@@ -16,7 +16,7 @@ use crate::{
         utils::assure_no_worktree_changes,
     },
     utils::{
-        CONTEXT_LINES, hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks,
+        CONTEXT_LINES, read_only_in_memory_scenario, to_change_specs_all_hunks,
         to_change_specs_whole_file, visualize_index, visualize_index_with_content, visualize_tree,
         worktree_changes_with_diffs, writable_scenario, writable_scenario_with_ssh_key,
         write_sequence,
