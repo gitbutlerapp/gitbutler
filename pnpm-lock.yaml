@@ -184,8 +184,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@gitbutler/design-core':
-        specifier: file:../../../design-core
-        version: file:../design-core
+        specifier: 1.5.0
+        version: 1.5.0
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -392,8 +392,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@gitbutler/design-core':
-        specifier: file:../../../design-core
-        version: file:../design-core
+        specifier: 1.5.0
+        version: 1.5.0
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -789,8 +789,8 @@ importers:
         specifier: ^2.0.8
         version: 2.0.8(postcss@8.5.6)
       '@gitbutler/design-core':
-        specifier: file:../../../design-core
-        version: file:../design-core
+        specifier: 1.5.0
+        version: 1.5.0
       '@lezer/common':
         specifier: ^1.2.3
         version: 1.2.3
@@ -1638,8 +1638,8 @@ packages:
     resolution: {integrity: sha512-oC5cM6jS7aFOp0luTw5mWSRuMgdxwHRLZQ/aWkI+ETMfsprR/HyxsXfljlMY/XJ/fRxTbRJiodR5Axf66WjO3w==}
     engines: {node: '>=18.20.0'}
 
-  '@gitbutler/design-core@file:../design-core':
-    resolution: {directory: ../design-core, type: directory}
+  '@gitbutler/design-core@1.5.0':
+    resolution: {integrity: sha512-64wvGs1Px94TciKBS5oGIX3P9hhf/jNUpPjNdKYPRkz7n3QGrLwCzr2U6084xsuN2Z5iVw9rue4QyHR6oWOe2g==}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -8806,7 +8806,7 @@ snapshots:
       '@gitbeaker/core': 42.5.0
       '@gitbeaker/requester-utils': 42.5.0
 
-  '@gitbutler/design-core@file:../design-core': {}
+  '@gitbutler/design-core@1.5.0': {}
 
   '@humanfs/core@0.19.1': {}
 
