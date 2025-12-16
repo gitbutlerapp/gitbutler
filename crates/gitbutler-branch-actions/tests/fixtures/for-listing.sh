@@ -38,39 +38,6 @@ git clone remote one-vbranch-in-workspace-one-commit
   $CLI branch commit virtual -m "virtual branch change in index and worktree"
 )
 
-git clone remote two-vbranches-in-workspace-one-applied
-(cd two-vbranches-in-workspace-one-applied
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-  $CLI branch create virtual
-  echo change >> file
-  echo in-index > new && git add new
-  tick
-  $CLI branch commit virtual -m "commit in initially applied virtual branch"
-
-  $CLI branch create --set-default other
-  echo new > new-file
-  $CLI branch unapply virtual
-)
-
-git clone remote a-vbranch-named-like-target-branch-short-name
-(cd a-vbranch-named-like-target-branch-short-name
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-  $CLI branch create --set-default main
-  echo change >> file
-  echo in-index > new && git add new
-  tick
-  $CLI branch commit main -m "virtual branch change in index and worktree"
-)
-
-git clone remote one-vbranch-in-workspace-two-remotes
-(cd one-vbranch-in-workspace-two-remotes
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-  $CLI branch create main
-
-  git remote add other-remote ../remote
-  git fetch other-remote
-)
-
 git clone remote one-branch-one-commit-other-branch-without-commit
 (cd one-branch-one-commit-other-branch-without-commit
   local_tracking_ref="$(git rev-parse --symbolic-full-name @{u})";
