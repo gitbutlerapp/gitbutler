@@ -7,8 +7,7 @@ use super::*;
 
 #[test]
 fn integration() {
-    let Test { repo, ctx, .. } =
-        &mut Test::new_with_settings(|settings| settings.feature_flags.ws3 = false);
+    let Test { repo, ctx, .. } = &mut Test::new_with_settings(|_settings| {});
 
     gitbutler_branch_actions::set_base_branch(
         ctx,

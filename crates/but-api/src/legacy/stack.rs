@@ -104,59 +104,55 @@ pub fn create_branch(
     request: CreateSeriesRequest,
 ) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
-    if ctx.settings().feature_flags.ws3 {
-        use but_workspace::branch::create_reference::Position::Above;
-        let mut guard = ctx.exclusive_worktree_access();
-        let (repo, mut meta, graph) =
-            ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
-        let ws = graph.to_workspace()?;
-        let stack = ws.try_find_stack_by_id(stack_id)?;
-        let new_ref = Category::LocalBranch
-            .to_full_name(request.name.as_str())
-            .map_err(anyhow::Error::from)?;
-        if request.preceding_head.is_some() {
-            return Err(anyhow!(
-                "BUG: cannot have preceding head name set - let's use the new API instead"
-            ));
-        }
+    use but_workspace::branch::create_reference::Position::Above;
+    let mut guard = ctx.exclusive_worktree_access();
+    let (repo, mut meta, graph) =
+        ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let ws = graph.to_workspace()?;
+    let stack = ws.try_find_stack_by_id(stack_id)?;
+    let new_ref = Category::LocalBranch
+        .to_full_name(request.name.as_str())
+        .map_err(anyhow::Error::from)?;
+    if request.preceding_head.is_some() {
+        return Err(anyhow!(
+            "BUG: cannot have preceding head name set - let's use the new API instead"
+        ));
+    }
 
-        ctx.snapshot_create_dependent_branch(&request.name, guard.write_permission())
-            .ok();
-        _ =
-            but_workspace::branch::create_reference(
-                new_ref.as_ref(),
-                {
-                    let segment = stack.segments.first().context("BUG: no empty stacks")?;
-                    segment
-                    .ref_info
-                    .as_ref()
-                    .map(|ri| but_workspace::branch::create_reference::Anchor::AtSegment {
+    ctx.snapshot_create_dependent_branch(&request.name, guard.write_permission())
+        .ok();
+    _ = but_workspace::branch::create_reference(
+        new_ref.as_ref(),
+        {
+            let segment = stack.segments.first().context("BUG: no empty stacks")?;
+            segment
+                .ref_info
+                .as_ref()
+                .map(
+                    |ri| but_workspace::branch::create_reference::Anchor::AtSegment {
                         ref_name: Cow::Borrowed(ri.ref_name.as_ref()),
                         position: Above,
+                    },
+                )
+                .or_else(|| {
+                    Some(but_workspace::branch::create_reference::Anchor::AtCommit {
+                        commit_id: graph.tip_skip_empty(segment.id)?.id,
+                        position: Above,
                     })
-                    .or_else(|| {
-                        Some(but_workspace::branch::create_reference::Anchor::AtCommit {
-                            commit_id: graph.tip_skip_empty(segment.id)?.id,
-                            position: Above,
-                        })
-                    })
-                    .with_context(|| {
-                        format!(
-                            "TODO: UI should migrate to new version of `create_branch()` instead,\
+                })
+                .with_context(|| {
+                    format!(
+                        "TODO: UI should migrate to new version of `create_branch()` instead,\
                             couldn't handle stack_id={stack_id:?}, request={request:?}"
-                        )
-                    })?
-                },
-                &repo,
-                &ws,
-                &mut meta,
-                |_| StackId::generate(),
-                None, // order - not used for dependent branches
-            )?;
-    } else {
-        // NOTE: locking is built-in here.
-        gitbutler_branch_actions::stack::create_branch(&ctx, stack_id, request)?;
-    }
+                    )
+                })?
+        },
+        &repo,
+        &ws,
+        &mut meta,
+        |_| StackId::generate(),
+        None, // order - not used for dependent branches
+    )?;
     Ok(())
 }
 
@@ -165,31 +161,27 @@ pub fn create_branch(
 pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: String) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let mut guard = ctx.exclusive_worktree_access();
-    if ctx.settings().feature_flags.ws3 {
-        let (repo, mut meta, graph) =
-            ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
-        let ws = graph.to_workspace()?;
-        let ref_name = Category::LocalBranch
-            .to_full_name(branch_name.as_str())
-            .map_err(anyhow::Error::from)?;
-        ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission())
-            .ok();
-        but_workspace::branch::remove_reference(
-            ref_name.as_ref(),
-            &repo,
-            &ws,
-            &mut meta,
-            but_workspace::branch::remove_reference::Options {
-                avoid_anonymous_stacks: true,
-                // The UI kind of keeps it, but we can't do that somehow
-                // the object id is null, and stuff breaks. Fine for now.
-                // Delete is delete.
-                keep_metadata: false,
-            },
-        )?;
-    } else {
-        gitbutler_branch_actions::stack::remove_branch(&ctx, stack_id, &branch_name)?;
-    }
+    let (repo, mut meta, graph) =
+        ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let ws = graph.to_workspace()?;
+    let ref_name = Category::LocalBranch
+        .to_full_name(branch_name.as_str())
+        .map_err(anyhow::Error::from)?;
+    ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission())
+        .ok();
+    but_workspace::branch::remove_reference(
+        ref_name.as_ref(),
+        &repo,
+        &ws,
+        &mut meta,
+        but_workspace::branch::remove_reference::Options {
+            avoid_anonymous_stacks: true,
+            // The UI kind of keeps it, but we can't do that somehow
+            // the object id is null, and stuff breaks. Fine for now.
+            // Delete is delete.
+            keep_metadata: false,
+        },
+    )?;
     Ok(())
 }
 

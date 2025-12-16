@@ -38,8 +38,7 @@ pub fn create_virtual_branch(
     branch: BranchCreateRequest,
 ) -> Result<StackEntryNoOpt> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let ws3_enabled = ctx.settings().feature_flags.ws3;
-    let stack_entry = if ws3_enabled {
+    let stack_entry = {
         let mut guard = ctx.exclusive_worktree_access();
         let (repo, mut meta, graph) =
             ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
@@ -86,12 +85,6 @@ pub fn create_virtual_branch(
             order: Some(stack_idx),
             is_checked_out: false,
         }
-    } else {
-        gitbutler_branch_actions::create_virtual_branch(
-            &ctx,
-            &branch,
-            ctx.exclusive_worktree_access().write_permission(),
-        )?
     };
     Ok(stack_entry)
 }

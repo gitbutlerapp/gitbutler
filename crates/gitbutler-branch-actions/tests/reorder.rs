@@ -478,9 +478,7 @@ fn file(ctx: &Context, commit_id: gix::ObjectId) -> String {
 }
 
 fn command_ctx(name: &str) -> Result<(Context, TempDir)> {
-    gitbutler_testsupport::writable::fixture_with_settings("reorder.sh", name, |settings| {
-        settings.feature_flags.ws3 = false
-    })
+    gitbutler_testsupport::writable::fixture_with_settings("reorder.sh", name, |_settings| {})
 }
 
 fn test_ctx(ctx: &Context) -> Result<TestContext> {

@@ -15,7 +15,7 @@ use but_serde::BStringForFrontend;
 use gitbutler_branch::{BranchIdentity, ReferenceExtGix};
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_reference::{RemoteRefname, normalize_branch_name};
-use gitbutler_stack::{Stack, StackId, Target};
+use gitbutler_stack::{StackId, Target};
 use gix::{object::tree::diff::Action, prelude::TreeDiffChangeExt, reference::Category};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -87,7 +87,7 @@ pub fn list_branches(
 
     let vb_handle = ctx.legacy_project.virtual_branches();
     let remote_names = repo.remote_names();
-    let stacks = if ctx.settings().feature_flags.ws3 {
+    let stacks = {
         if let Some(workspace_ref) = repo.try_find_reference("refs/heads/gitbutler/workspace")? {
             // Let's get this here for convenience, and hope this isn't ever called by a writer (or there will be a deadlock).
             let read_guard = ctx.shared_worktree_access();
@@ -107,12 +107,6 @@ pub fn list_branches(
         } else {
             Vec::new()
         }
-    } else {
-        vb_handle
-            .list_all_stacks()?
-            .iter()
-            .map(|s| GitButlerStack::new_from_old(s, &remote_names))
-            .collect::<Result<Vec<_>, _>>()?
     };
 
     branches.extend(stacks.iter().map(|s| GroupBranch::Virtual(s.clone())));
@@ -436,40 +430,6 @@ impl GitButlerStack {
                 })
                 .collect(),
         }))
-    }
-    fn new_from_old(stack: &Stack, names: &gix::remote::Names) -> anyhow::Result<Self> {
-        Ok(GitButlerStack {
-            id: stack.id,
-            in_workspace: stack.in_workspace,
-            name: stack.name.clone(),
-            source_refname: stack
-                .source_refname
-                .as_ref()
-                .and_then(|r| r.to_string().try_into().ok()),
-            upstream: stack
-                .upstream
-                .as_ref()
-                .and_then(|r| {
-                    r.to_string().try_into().ok().map(|rn| {
-                        but_workspace::ui::ref_info::RemoteTrackingReference::for_ui(rn, names)
-                    })
-                })
-                .transpose()?,
-            updated_timestamp_ms: stack.updated_timestamp_ms,
-            unarchived_segments: stack
-                .branches()
-                .iter()
-                // The tip is at the bottom here.
-                .rev()
-                .filter(|s| !s.archived)
-                .map(|s| GitbutlerStackSegment {
-                    tip: s
-                        .full_name()
-                        .expect("full names are always valid, as their short names were valid"),
-                    pr_or_mr: s.pr_number,
-                })
-                .collect(),
-        })
     }
 }
 

@@ -40,13 +40,11 @@ pub fn process_workspace_rules(
     }
 
     let repo = ctx.open_repo_for_merging_non_persisting()?;
-    let stacks_in_ws = if ctx.settings().feature_flags.ws3 {
+    let stacks_in_ws = {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project_data_dir().join("virtual_branches.toml"),
         )?;
         but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)
-    } else {
-        but_workspace::legacy::stacks(ctx, &ctx.project_data_dir(), &repo, StacksFilter::default())
     }?;
 
     for rule in rules {

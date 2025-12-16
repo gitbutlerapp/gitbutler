@@ -53,17 +53,8 @@ pub fn stacks(
 ) -> Result<Vec<StackEntry>> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let repo = ctx.open_repo_for_merging_non_persisting()?;
-    if ctx.settings().feature_flags.ws3 {
-        let meta = ref_metadata_toml(&ctx.legacy_project)?;
-        but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
-    } else {
-        but_workspace::legacy::stacks(
-            &ctx,
-            &ctx.project_data_dir(),
-            &repo,
-            filter.unwrap_or_default(),
-        )
-    }
+    let meta = ref_metadata_toml(&ctx.legacy_project)?;
+    but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
 }
 
 #[cfg(unix)]
@@ -126,16 +117,10 @@ pub fn stack_details(
 ) -> Result<but_workspace::ui::StackDetails> {
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let mut details = if ctx.settings().feature_flags.ws3 {
+    let mut details = {
         let repo = ctx.open_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(&ctx.legacy_project)?;
         but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
-    } else {
-        but_workspace::legacy::stack_details(
-            &ctx.project_data_dir(),
-            stack_id.context("BUG(opt-stack-id)")?,
-            &ctx,
-        )
     }?;
     let repo = ctx.repo.get()?;
     let gerrit_mode = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
@@ -221,7 +206,7 @@ pub fn branch_details(
 ) -> Result<but_workspace::ui::BranchDetails> {
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let mut details = if ctx.settings().feature_flags.ws3 {
+    let mut details = {
         let repo = ctx.open_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(&ctx.legacy_project)?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
@@ -235,13 +220,6 @@ pub fn branch_details(
         .try_into()
         .map_err(anyhow::Error::from)?;
         but_workspace::branch_details(&repo, ref_name.as_ref(), &meta)
-    } else {
-        but_workspace::legacy::branch_details(
-            &ctx.project_data_dir(),
-            &branch_name,
-            remote.as_deref(),
-            &ctx,
-        )
     }?;
     let repo = ctx.repo.get()?;
     let mut db = ctx.db.get_mut()?;

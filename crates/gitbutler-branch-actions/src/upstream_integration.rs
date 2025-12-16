@@ -225,41 +225,25 @@ fn stacks(
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
     let project = &ctx.legacy_project;
-    if ctx.settings().feature_flags.ws3 {
-        let meta =
-            VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
-        but_workspace::legacy::stacks_v3(
-            repo,
-            &meta,
-            but_workspace::legacy::StacksFilter::InWorkspace,
-            None,
-        )
-    } else {
-        but_workspace::legacy::stacks(
-            ctx,
-            &project.gb_dir(),
-            repo,
-            but_workspace::legacy::StacksFilter::InWorkspace,
-        )
-    }
+    let meta =
+        VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
+    but_workspace::legacy::stacks_v3(
+        repo,
+        &meta,
+        but_workspace::legacy::StacksFilter::InWorkspace,
+        None,
+    )
 }
 
 fn stack_details(
     ctx: &Context,
     stack_id: Option<StackId>,
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
-    if ctx.settings().feature_flags.ws3 {
-        let repo = ctx.open_repo_for_merging_non_persisting()?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )?;
-        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
-    } else {
-        let Some(stack_id) = stack_id else {
-            bail!("Failed to get stack details: stack ID not provided");
-        };
-        but_workspace::legacy::stack_details(&ctx.project_data_dir(), stack_id, ctx)
-    }
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project_data_dir().join("virtual_branches.toml"),
+    )?;
+    but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
 }
 
 /// Returns the status of a stack

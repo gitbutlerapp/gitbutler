@@ -46,7 +46,7 @@ pub fn list_workspace_rules(project_id: ProjectId) -> Result<Vec<WorkspaceRule>>
     let ctx = &mut Context::new_from_legacy_project_id(project_id)?;
     let repo = ctx.open_repo_for_merging_non_persisting()?;
 
-    let in_workspace = if ctx.settings().feature_flags.ws3 {
+    let in_workspace = {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
         )?;
@@ -55,13 +55,6 @@ pub fn list_workspace_rules(project_id: ProjectId) -> Result<Vec<WorkspaceRule>>
             &meta,
             but_workspace::legacy::StacksFilter::InWorkspace,
             None,
-        )
-    } else {
-        but_workspace::legacy::stacks(
-            ctx,
-            &ctx.project_data_dir(),
-            &repo,
-            but_workspace::legacy::StacksFilter::InWorkspace,
         )
     }?
     .iter()
