@@ -251,15 +251,17 @@
 		<div class="branches__empty-state">
 			<EmptyStatePlaceholder image={noBranchesSvg} width={EMPTY_STATE_WIDTH} bottomMargin={48}>
 				{#snippet title()}
-					No branches or {forge.reviewUnitAbbr}s found
+					{#if selectedOption === 'local'}
+						No local branches found
+					{:else}
+						No branches or {forge.reviewUnitAbbr}s found
+					{/if}
 				{/snippet}
 				{#snippet caption()}
 					{#if selectedOption === 'pullRequest'}
 						No {forge.reviewUnitAbbr}s found {#if baseBranch}
 							from <strong>{baseBranch.remoteName}</strong>{/if}.
 					{:else if selectedOption === 'local'}
-						No local branches found.
-						<br />
 						Create a new branch or fetch from your remote.
 					{:else if baseBranch}
 						Branches and {forge.reviewUnitAbbr}s from
