@@ -255,29 +255,18 @@
 				{/snippet}
 				{#snippet caption()}
 					{#if selectedOption === 'pullRequest'}
-						<span>
-							No {forge.reviewUnitAbbr}s found{#if baseBranch}
-								from <strong>{baseBranch.remoteName}</strong>{/if}.
-						</span>
+						No {forge.reviewUnitAbbr}s found {#if baseBranch}
+							from <strong>{baseBranch.remoteName}</strong>{/if}.
 					{:else if selectedOption === 'local'}
-						<span>
-							No local branches found.
-							<br />
-							Create a new branch or fetch from your remote.
-						</span>
-					{:else}
-						<span>
-							No branches found{#if baseBranch}
-								on <strong>{baseBranch.remoteName}</strong>.
-								<br /><br />
-								Branches and {forge.reviewUnitAbbr}s from
-								<strong>{baseBranch.remoteName}/{baseBranch.shortName}</strong>
-								will appear here.
-							{/if}
-						</span>
+						No local branches found.
+						<br />
+						Create a new branch or fetch from your remote.
+					{:else if baseBranch}
+						Branches and {forge.reviewUnitAbbr}s from
+						<strong>{baseBranch.remoteName}/{baseBranch.shortName}</strong>
+						will appear here.
 					{/if}
 					{#if shouldShowAuthMessage}
-						<br /><br />
 						Authenticate with {forgeName} to see {forge.reviewUnitAbbr}s.
 					{/if}
 				{/snippet}
