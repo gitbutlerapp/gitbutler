@@ -74,6 +74,7 @@
 		"postcss-pxtorem": "catalog:postcss",
 		"posthog-js": "1.261.7",
 		"reflect-metadata": "^0.2.2",
+		"sass-embedded": "^1.96.0",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"tinykeys": "^2.1.0",

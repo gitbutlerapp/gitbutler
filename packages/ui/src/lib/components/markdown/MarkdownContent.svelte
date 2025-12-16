@@ -40,6 +40,8 @@
 	};
 
 	const { type, ...rest }: Props = $props();
+
+	type ListToken = Extract<Token, { type: 'list' }>;
 </script>
 
 {#if type === 'init' && 'tokens' in rest && rest.tokens}
@@ -49,7 +51,7 @@
 {:else if renderers[type as keyof typeof renderers]}
 	{@const CurrentComponent = renderers[type as keyof typeof renderers] as Component}
 	{#if type === 'list'}
-		{@const listItems = (rest as Extract).items}
+		{@const listItems = (rest as ListToken).items}
 		<CurrentComponent {...rest}>
 			{#each listItems as item}
 				<Self {...item} />

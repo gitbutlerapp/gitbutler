@@ -2,7 +2,11 @@
 	import { goto } from '$app/navigation';
 	import Factoid from '$lib/components/infoFlexRow//Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import { type ColumnTypes, type ChangesType } from '$lib/components/table/types';
+	import {
+		type ColumnTypes,
+		type ChangesType,
+		type AvatarsType
+	} from '$lib/components/table/types';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
@@ -82,18 +86,18 @@
 							/>
 						{/if}
 					{:else if key === 'avatars'}
-						<AvatarGroup avatars={value as Array}></AvatarGroup>
+						<AvatarGroup avatars={value as AvatarsType[]}></AvatarGroup>
 					{:else if key === 'reviewers'}
 						<div class="dynclmn-reviewers">
-							{#if (value as { approvers: Array }).approvers.length > 0 || (value as { rejectors: Array }).rejectors.length > 0}
+							{#if (value as { approvers: AvatarsType[] }).approvers.length > 0 || (value as { rejectors: AvatarsType[] }).rejectors.length > 0}
 								<AvatarGroup
-									avatars={(value as { approvers: Array }).approvers}
+									avatars={(value as { approvers: AvatarsType[] }).approvers}
 									maxAvatars={2}
 									icon="tick-small"
 									iconColor="safe"
 								/>
 								<AvatarGroup
-									avatars={(value as { rejectors: Array }).rejectors}
+									avatars={(value as { rejectors: AvatarsType[] }).rejectors}
 									maxAvatars={2}
 									icon="refresh-small"
 									iconColor="warning"
@@ -169,8 +173,8 @@
 					{#if columns.find((col) => col.key === 'reviewers')}
 						<Factoid label="Reviewers" placeholderText="No reviews">
 							{@const reviewers = columns.find((col) => col.key === 'reviewers')?.value as {
-								approvers: Array;
-								rejectors: Array;
+								approvers: AvatarsType[];
+								rejectors: AvatarsType[];
 							}}
 							{#if reviewers.approvers.length > 0 || reviewers.rejectors.length > 0}
 								<div class="dynclmn-reviewers">
@@ -222,7 +226,9 @@
 
 					{#if columns.find((col) => col.key === 'avatars')}
 						<Factoid label="Authors">
-							<AvatarGroup avatars={columns.find((col) => col.key === 'avatars')?.value as Array} />
+							<AvatarGroup
+								avatars={columns.find((col) => col.key === 'avatars')?.value as AvatarsType[]}
+							/>
 						</Factoid>
 					{/if}
 				</InfoFlexRow>
