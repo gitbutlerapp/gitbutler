@@ -213,6 +213,6 @@ function handleError(err: any, manual: boolean) {
             [downloads](https://app.gitbutler.com/downloads) page.
         `,
 		error: err,
-		style: 'error'
+		style: 'danger'
 	});
 }

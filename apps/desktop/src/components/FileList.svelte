@@ -331,7 +331,7 @@
 					<AsyncButton
 						testId={TestId.CommitDrawerResolveConflictsButton}
 						kind="solid"
-						style="error"
+						style="danger"
 						wide
 						action={() =>
 							editPatch({

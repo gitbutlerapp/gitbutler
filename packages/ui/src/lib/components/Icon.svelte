@@ -34,7 +34,7 @@
 	}: Props = $props();
 
 	// Check if color is a predefined type or custom color
-	const predefinedColors = ['success', 'error', 'pop', 'warning'];
+	const predefinedColors = ['safe', 'danger', 'pop', 'warning'];
 	const isPredefinedColor = color && predefinedColors.includes(color as string);
 	const customColor = !isPredefinedColor ? color : undefined;
 </script>
@@ -43,8 +43,8 @@
 	viewBox="0 0 16 16"
 	fill-rule="evenodd"
 	class="icon-wrapper"
-	class:success={color === 'success'}
-	class:error={color === 'error'}
+	class:safe={color === 'safe'}
+	class:danger={color === 'danger'}
 	class:pop={color === 'pop'}
 	class:warning={color === 'warning'}
 	class:custom={customColor}
@@ -82,17 +82,17 @@
 		flex-shrink: 0;
 	}
 
-	.success {
-		color: var(--clr-scale-succ-50);
+	.safe {
+		color: var(--clr-theme-safe-element);
 	}
-	.error {
-		color: var(--clr-scale-err-50);
+	.danger {
+		color: var(--clr-theme-danger-element);
 	}
 	.pop {
-		color: var(--clr-scale-pop-50);
+		color: var(--clr-theme-pop-element);
 	}
 	.warning {
-		color: var(--clr-scale-warn-50);
+		color: var(--clr-theme-warn-element);
 	}
 	.custom {
 		color: var(--custom-color);
@@ -108,14 +108,14 @@
 		}
 	}
 	.spinner-path {
-		stroke-width: var(--spinner-stroke-width);
 		stroke: currentColor;
+		stroke-width: var(--spinner-stroke-width);
 		animation: spinning-path 2s infinite ease-in-out;
 	}
 
 	.spinner-back-path {
-		stroke-width: var(--spinner-stroke-width);
 		stroke: currentColor;
+		stroke-width: var(--spinner-stroke-width);
 		opacity: 0.3;
 	}
 	@keyframes spinning-path {

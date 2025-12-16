@@ -37,7 +37,7 @@
 
 <Button
 	testId={TestId.ProjectDeleteButton}
-	style="error"
+	style="danger"
 	kind={outlineStyle ? 'outline' : 'solid'}
 	icon="bin-small"
 	reversedDirection
@@ -68,7 +68,7 @@
 	{#snippet controls()}
 		<Button
 			testId={TestId.ProjectDeleteModalConfirm}
-			style="error"
+			style="danger"
 			kind="outline"
 			reversedDirection
 			loading={isDeleting}

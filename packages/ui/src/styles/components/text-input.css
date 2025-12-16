@@ -28,11 +28,11 @@
 		&:invalid,
 		&.invalid,
 		&.error {
-			border-color: var(--clr-theme-err-element);
+			border-color: var(--clr-theme-danger-element);
 		}
 
 		&.error {
-			background-color: var(--clr-theme-err-bg);
+			background-color: var(--clr-theme-danger-bg);
 		}
 
 		&:disabled,

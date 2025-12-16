@@ -21,6 +21,8 @@
 	import { fade } from 'svelte/transition';
 	import type { FileSuggestionUpdate } from '@gitbutler/ui/richText/plugins/FilePlugin.svelte';
 
+	type UserMessage = ClaudeMessage<{ source: 'user' } & UserInput> | undefined;
+
 	type Props = {
 		projectId: string;
 		branchName: string;
@@ -268,15 +270,14 @@
 							fileSuggestions = undefined;
 						}}
 					/>
+
 					<UpDownPlugin
 						historyLookup={async (offset) => {
 							attachmentService.clearByBranch(branchName);
-							const resp = await backend.invoke<
-								ClaudeMessage<{ source: 'user' } & UserInput> | undefined
-							>('claude_get_user_message', {
+							const resp = (await backend.invoke('claude_get_user_message', {
 								projectId,
 								offset
-							});
+							})) as UserMessage;
 							// Let the state update so payload is removed.
 							await tick();
 							const payload = resp?.payload;
@@ -306,7 +307,7 @@
 						<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
 							<AsyncButton
 								kind="outline"
-								style="error"
+								style="danger"
 								action={onAbort}
 								icon="stop"
 								hotkey="⌃C"
@@ -450,7 +451,7 @@
 
 		&:not(:disabled):hover {
 			transform: translateY(-2px);
-			background-color: var(--clr-pop-hover);
+			background-color: var(--hover-pop);
 
 			.arrow-icon {
 				transform: translate(-50%, -50%) translateY(1px);

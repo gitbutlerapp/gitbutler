@@ -230,15 +230,15 @@
 		}
 
 		&.has-conflicts {
-			background-color: var(--clr-theme-err-bg);
+			background-color: var(--clr-theme-danger-bg);
 
 			&:not(.selected):hover,
 			&.menu-shown {
-				background-color: var(--clr-theme-err-bg-muted);
+				background-color: var(--clr-theme-danger-bg-muted);
 			}
 
 			.commit-name {
-				color: var(--clr-theme-err-element);
+				color: var(--clr-theme-danger-element);
 			}
 		}
 
@@ -253,11 +253,11 @@
 			background-color: transparent;
 		}
 		5% {
-			background-color: var(--clr-scale-warn-80);
+			background-color: color-mix(in srgb, var(--clr-theme-warn-element) 20%, transparent);
 		}
 		80%,
 		100% {
-			background-color: var(--clr-scale-warn-90);
+			background-color: color-mix(in srgb, var(--clr-theme-warn-element) 10%, transparent);
 		}
 	}
 
@@ -308,7 +308,7 @@
 	.commit-conflict-indicator {
 		display: flex;
 		margin-right: 4px;
-		color: var(--clr-theme-err-element);
+		color: var(--clr-theme-danger-element);
 	}
 
 	.commit-row__drag-handle {

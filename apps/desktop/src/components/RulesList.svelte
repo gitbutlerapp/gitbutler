@@ -449,7 +449,7 @@
 				onclick={saveRule}
 				kind="solid"
 				wide
-				style="neutral"
+				style="gray"
 				disabled={!canSaveRule}
 				loading={stackEntries.result.isLoading ||
 					creatingRule.current.isLoading ||
@@ -543,20 +543,6 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: 6px;
-	}
-
-	.rule {
-		display: flex;
-		position: relative;
-		align-items: center;
-		padding: 10px;
-		overflow: hidden;
-		gap: 4px;
-		border-bottom: 1px solid var(--clr-border-3);
-
-		&:last-child {
-			border-bottom: none;
-		}
 	}
 
 	.rule-skeleton {

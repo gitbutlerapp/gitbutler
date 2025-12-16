@@ -103,7 +103,7 @@
 	{#if draft}
 		<!-- Draft mode: simple placeholder -->
 		<div class="codegen-row">
-			<Icon name="ai" color="var(--clr-theme-purp-element)" />
+			<Icon name="ai" color="var(--clr-theme-purple-element)" />
 			<h3 class="text-13 text-semibold truncate codegen-row__title">AI session will start here</h3>
 		</div>
 	{:else if projectId && messages && permissionRequests}
@@ -142,7 +142,7 @@
 
 					<Icon
 						name={getCurrentIconName(hasPendingApproval)}
-						color="var(--clr-theme-purp-element)"
+						color="var(--clr-theme-purple-element)"
 					/>
 					<h3 class="text-13 text-semibold truncate codegen-row__title">{lastSummary}</h3>
 
@@ -175,14 +175,14 @@
 		gap: 8px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-theme-purp-bg);
+		background-color: var(--clr-theme-purple-bg);
 		text-align: left;
 
 		transition: background-color var(--transition-fast);
 
 		&.active.selected,
 		&[type='button']:hover {
-			background-color: var(--clr-theme-purp-bg-muted);
+			background-color: var(--clr-theme-purple-bg-muted);
 		}
 	}
 
@@ -192,12 +192,12 @@
 
 	.codegen-row__title {
 		flex: 1;
-		color: var(--clr-theme-purp-on-soft);
+		color: var(--clr-theme-purple-on-soft);
 	}
 
 	.codegen-row__todos {
 		flex-shrink: 0;
-		color: var(--clr-theme-purp-on-soft);
+		color: var(--clr-theme-purple-on-soft);
 		opacity: 0.7;
 	}
 
@@ -209,7 +209,7 @@
 		height: 45%;
 		transform: translateY(-50%);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--clr-theme-purp-element);
+		background-color: var(--clr-theme-purple-element);
 		transition: transform var(--transition-fast);
 	}
 </style>

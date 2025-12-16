@@ -19,7 +19,7 @@ export default class URLService {
 
                 ${href}
             `;
-				showToast({ title: 'External URL error', message, style: 'error' });
+				showToast({ title: 'External URL error', message, style: 'danger' });
 			}
 
 			// Rethrowing for sentry and posthog

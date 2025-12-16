@@ -145,7 +145,7 @@
 		{#if conflicted}
 			<Tooltip text={conflictHint}>
 				<div class="conflicted-icon">
-					<Icon name="warning-small" color="error" />
+					<Icon name="warning-small" color="danger" />
 				</div>
 			</Tooltip>
 		{:else if fileStatus}
@@ -168,7 +168,7 @@
 		{#if onresolveclick}
 			{#if !conflicted}
 				<Tooltip text="Conflict resolved">
-					<Badge style="success">Resolved</Badge>
+					<Badge style="safe">Resolved</Badge>
 				</Tooltip>
 			{:else}
 				<Button
@@ -214,12 +214,12 @@
 			}
 
 			&.conflicted:not(.selected):hover {
-				background-color: var(--clr-theme-err-bg-muted);
+				background-color: var(--clr-theme-danger-bg-muted);
 			}
 		}
 
 		&.conflicted {
-			background-color: var(--clr-theme-err-bg);
+			background-color: var(--clr-theme-danger-bg);
 		}
 
 		&.selected {
@@ -274,9 +274,7 @@
 
 		& .locked {
 			display: flex;
-			/* border-radius: var(--radius-l);
-			background-color: var(--clr-theme-warn-soft); */
-			color: var(--clr-scale-warn-60);
+			color: var(--clr-change-icon-modification);
 		}
 	}
 </style>

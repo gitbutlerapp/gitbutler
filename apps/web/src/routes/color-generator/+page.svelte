@@ -24,7 +24,7 @@
 		...DEFAULT_SATURATIONS
 	});
 	let scaleHues: Record<string, number | null> = $state({
-		ntrl: null,
+		gray: null,
 		pop: null,
 		err: null,
 		warn: null,
@@ -240,9 +240,10 @@
 
 	.dotted-pattern {
 		background-image: radial-gradient(
-			oklch(from var(--clr-scale-ntrl-50) l c h / 0.13) 1px,
+			oklch(from var(--clr-theme-gray-element) l c h / 0.1) 1px,
 			#ffffff00 1px
 		);
+
 		background-size: 5px 5px;
 	}
 

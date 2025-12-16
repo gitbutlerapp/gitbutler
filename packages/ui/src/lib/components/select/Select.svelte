@@ -456,7 +456,7 @@
 	}
 
 	.select__label {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 		text-align: left;
 	}
 

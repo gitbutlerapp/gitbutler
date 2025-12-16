@@ -10,12 +10,12 @@
 			docs: {
 				description: {
 					component:
-						"The ChipToast component displays temporary messages to users with different types (neutral, success, warning, error) and supports custom action buttons and dismiss functionality. Use the toast system from @gitbutler/ui for programmatic toasts, or use this component directly for custom implementations.\n\n## Basic Usage\n\n```javascript\nimport { toasts, ToastContainer } from '@gitbutler/ui';\n\n// Show programmatic toasts\ntoasts.success('Operation completed!');\ntoasts.warning('Please review your changes');\ntoasts.error('Something went wrong');\n\n// Add container to your app root\n<ToastContainer />\n```\n\n**IMPORTANT**: Use only short messages in toasts, as they are designed for brief notifications. For longer messages, consider using regular toast messages or a modal instead."
+						"The ChipToast component displays temporary messages to users with different types (info, success, warning, error) and supports custom action buttons and dismiss functionality. Use the toast system from @gitbutler/ui for programmatic toasts, or use this component directly for custom implementations.\n\n## Basic Usage\n\n```javascript\nimport { toasts, ToastContainer } from '@gitbutler/ui';\n\n// Show programmatic toasts\ntoasts.success('Operation completed!');\ntoasts.warning('Please review your changes');\ntoasts.error('Something went wrong');\n\n// Add container to your app root\n<ToastContainer />\n```\n\n**IMPORTANT**: Use only short messages in toasts, as they are designed for brief notifications. For longer messages, consider using regular toast messages or a modal instead."
 				}
 			}
 		},
 		args: {
-			type: 'neutral',
+			type: 'info',
 			message: 'This is a toast message',
 			showDismiss: false,
 			customButton: undefined
@@ -23,7 +23,7 @@
 		argTypes: {
 			type: {
 				description: 'The visual style and semantic meaning of the toast',
-				options: ['neutral', 'success', 'warning', 'error'],
+				options: ['info', 'success', 'warning', 'error'],
 				control: { type: 'select' }
 			},
 			message: {
@@ -72,7 +72,7 @@
 		docs: {
 			description: {
 				story:
-					"Showcases all available toast types: neutral (default/info), success (positive feedback), warning (caution), and error (negative feedback). Each type has distinct visual styling to convey the appropriate message tone.\n\n**Usage:**\n```javascript\n// Different toast types\ntoasts.neutral('This is a neutral message');\ntoasts.success('Operation completed successfully!');\ntoasts.warning('Please review your changes');\ntoasts.error('Something went wrong');\n```"
+					"Showcases all available toast types: info (default/info), success (positive feedback), warning (caution), and error (negative feedback). Each type has distinct visual styling to convey the appropriate message tone.\n\n**Usage:**\n```javascript\n// Different toast types\ntoasts.info('This is a info message');\ntoasts.success('Operation completed successfully!');\ntoasts.warning('Please review your changes');\ntoasts.error('Something went wrong');\n```"
 			}
 		}
 	}}
@@ -81,10 +81,10 @@
 		<div
 			style="padding: 20px; background: var(--clr-bg-1); display: flex; flex-direction: column; gap: 16px;"
 		>
-			<ChipToast type="neutral" message="Neutral toast message" />
+			<ChipToast type="info" message="Info toast message" />
 			<ChipToast type="success" message="Success! Operation completed successfully" />
 			<ChipToast type="warning" message="Warning: Please check your settings" />
-			<ChipToast type="error" message="Error: Something went wrong" />
+			<ChipToast type="danger" message="Error: Something went wrong" />
 		</div>
 	{/snippet}
 </Story>
@@ -127,7 +127,7 @@
 			/>
 
 			<ChipToast
-				type="error"
+				type="danger"
 				message="Failed to save changes"
 				showDismiss={true}
 				customButton={{
@@ -138,7 +138,7 @@
 			/>
 
 			<ChipToast
-				type="neutral"
+				type="info"
 				message="New update available"
 				showDismiss={true}
 				customButton={{
@@ -175,7 +175,7 @@
 				}}
 			/>
 
-			<ChipToast type="neutral" message="Information saved" showDismiss={true} />
+			<ChipToast type="info" message="Information saved" showDismiss={true} />
 		</div>
 	{/snippet}
 </Story>

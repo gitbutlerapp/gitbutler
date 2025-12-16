@@ -1,3 +1,4 @@
+// This file has been automatically migrated to valid ESM format by Storybook.
 import { createRequire } from 'module';
 import { dirname, join } from 'path';
 import type { StorybookConfig } from '@storybook/sveltekit';
@@ -9,8 +10,7 @@ const config: StorybookConfig = {
 	addons: [
 		getAbsolutePath('@storybook/addon-docs'),
 		getAbsolutePath('@storybook/addon-links'),
-		getAbsolutePath('@storybook/addon-svelte-csf'),
-		getAbsolutePath('@storybook/addon-vitest')
+		getAbsolutePath('@storybook/addon-svelte-csf')
 	],
 	framework: {
 		name: getAbsolutePath('@storybook/sveltekit'),

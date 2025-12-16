@@ -72,7 +72,6 @@
 	.search-input {
 		width: 100%;
 		padding: 12px 34px 12px 12px;
-
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 		color: var(--clr-text-1);
@@ -95,11 +94,11 @@
 		top: 50%;
 		right: 12px;
 		transform: translateY(-50%);
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 		transition: color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-scale-ntrl-40);
+			color: var(--hover-text-2);
 		}
 	}
 

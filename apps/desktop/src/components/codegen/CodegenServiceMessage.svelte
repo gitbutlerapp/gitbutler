@@ -4,7 +4,7 @@
 
 	type Props = {
 		children?: Snippet;
-		style: 'neutral' | 'pop' | 'error';
+		style: 'info' | 'pop' | 'error';
 		face: faceType;
 		extraContent?: Snippet;
 	};
@@ -63,8 +63,8 @@
 	}
 
 	.service-message__bubble--error {
-		background-color: var(--clr-theme-err-soft);
-		color: var(--clr-theme-err-on-soft);
+		background-color: var(--clr-theme-danger-soft);
+		color: var(--clr-theme-danger-on-soft);
 	}
 
 	.service-message__bubble--pop {

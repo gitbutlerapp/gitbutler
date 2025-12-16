@@ -80,7 +80,7 @@
 		{/if}
 
 		{#if conflicted}
-			<Badge size="icon" style="error">Has conflicts</Badge>
+			<Badge size="icon" style="danger">Has conflicts</Badge>
 		{/if}
 	</div>
 

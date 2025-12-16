@@ -29,7 +29,7 @@
 	{/if}
 
 	{#if type === 'error'}
-		<Icon name="error" color="error" />
+		<Icon name="error" color="danger" />
 	{/if}
 
 	{#if type === 'success'}

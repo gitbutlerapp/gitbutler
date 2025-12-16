@@ -36,7 +36,7 @@
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background-color: var(--clr-theme-err-element);
+		background-color: var(--clr-theme-danger-element);
 		box-shadow: 0 0 0 2px var(--clr-bg-2);
 	}
 

@@ -159,7 +159,7 @@
 
 				{#if conflicts}
 					<div class="branch-header__top-badges">
-						<Badge style="error">Conflicts</Badge>
+						<Badge style="danger">Conflicts</Badge>
 					</div>
 				{/if}
 

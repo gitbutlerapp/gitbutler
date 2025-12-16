@@ -213,9 +213,9 @@
 
 		<div class="text-12 image-footer">
 			{#if props.isBefore}
-				<Badge style="error" class="label">{props.label}</Badge>
+				<Badge style="danger" class="label">{props.label}</Badge>
 			{:else}
-				<Badge style="success" class="label">{props.label}</Badge>
+				<Badge style="safe" class="label">{props.label}</Badge>
 			{/if}
 			·
 			{@render imageDimensions(props.metadata)}
@@ -271,9 +271,9 @@
 			</div>
 		</div>
 		<div class="comparison-controls">
-			<Badge style="error" kind="soft">Before</Badge>
+			<Badge style="danger" kind="soft">Before</Badge>
 			<RangeInput min={0} max={100} value={props.controlValue} oninput={props.onValueChange} wide />
-			<Badge style="success" kind="soft">After</Badge>
+			<Badge style="safe" kind="soft">After</Badge>
 		</div>
 		{@render comparisonFooter()}
 	</div>
@@ -381,10 +381,10 @@
 		color: var(--clr-text-2);
 
 		& .negative {
-			color: var(--clr-scale-err-40);
+			color: var(--clr-theme-danger-on-soft);
 		}
 		& .positive {
-			color: var(--clr-scale-succ-40);
+			color: var(--clr-theme-safe-on-soft);
 		}
 	}
 
@@ -502,7 +502,7 @@
 		top: 0;
 		bottom: 0;
 		width: 2px;
-		background-color: var(--clr-core-ntrl-0);
+		background-color: var(--clr-core-gray-0);
 	}
 
 	.swipe-handle-grip {
@@ -512,8 +512,8 @@
 		justify-content: center;
 		padding: 4px 6px;
 		border-radius: 20px;
-		background-color: var(--clr-core-ntrl-0);
-		color: var(--clr-core-ntrl-100);
+		background-color: var(--clr-core-gray-0);
+		color: var(--clr-core-gray-100);
 		cursor: col-resize;
 		pointer-events: all;
 	}

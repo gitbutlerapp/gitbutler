@@ -29,10 +29,10 @@
 		gap: 2px;
 
 		& .added {
-			color: var(--clr-theme-succ-element);
+			color: var(--clr-theme-safe-element);
 		}
 		& .removed {
-			color: var(--clr-theme-err-element);
+			color: var(--clr-theme-danger-element);
 		}
 	}
 </style>

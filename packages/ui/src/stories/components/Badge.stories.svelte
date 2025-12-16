@@ -8,7 +8,7 @@
 		component: Badge as any,
 		args: {
 			text: 'Badge',
-			style: 'neutral',
+			style: 'gray',
 			kind: 'solid',
 			size: 'icon',
 			icon: undefined
@@ -18,7 +18,7 @@
 				control: { type: 'text' }
 			},
 			style: {
-				options: ['neutral', 'pop', 'success', 'warning', 'error', 'purple'],
+				options: ['gray', 'pop', 'safe', 'warning', 'error', 'purple'],
 				control: { type: 'select' }
 			},
 			kind: {

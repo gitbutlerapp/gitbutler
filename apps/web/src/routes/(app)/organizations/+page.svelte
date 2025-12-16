@@ -68,8 +68,8 @@
 									<div class="organization-card">
 										<div
 											class="organization-avatar"
-											style:background-color="var(--clr-scale-ntrl-20)"
-											style:color="var(--clr-scale-ntrl-80)"
+											style:background-color="var(--clr-bg-2)"
+											style:color="var(--clr-text-1)"
 										>
 											<span>{(organization.name || organization.slug)[0].toUpperCase()}</span>
 										</div>

@@ -28,12 +28,12 @@
 			case 'open':
 				return {
 					text: `${reviewUnit} ${id} is open`,
-					color: 'var(--clr-theme-succ-element)'
+					color: 'var(--clr-theme-safe-element)'
 				};
 			case 'closed':
 				return {
 					text: `${reviewUnit} ${id} is closed`,
-					color: 'var(--clr-theme-err-element)'
+					color: 'var(--clr-theme-danger-element)'
 				};
 			case 'draft':
 				return {
@@ -43,7 +43,7 @@
 			case 'merged':
 				return {
 					text: `${reviewUnit} ${id} is merged`,
-					color: 'var(--clr-theme-purp-element)'
+					color: 'var(--clr-theme-purple-element)'
 				};
 			default:
 				return {

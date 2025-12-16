@@ -17,6 +17,6 @@
 		padding: 10px 12px;
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-2);
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 </style>

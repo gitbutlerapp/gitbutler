@@ -143,7 +143,7 @@
 
 		<DropdownButton
 			bind:this={denyDropdownButton}
-			style="error"
+			style="danger"
 			kind="outline"
 			onclick={async () => {
 				await onPermissionDecision(

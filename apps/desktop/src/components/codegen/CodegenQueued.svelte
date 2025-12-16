@@ -163,9 +163,9 @@
 
 	.message-text {
 		display: -webkit-box;
+		-webkit-line-clamp: 2;
 		overflow: hidden;
 		word-break: break-word;
-		-webkit-line-clamp: 2;
 		-webkit-box-orient: vertical;
 		text-overflow: ellipsis;
 	}

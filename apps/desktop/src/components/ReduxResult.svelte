@@ -71,7 +71,7 @@
 		{@render props.error(error)}
 	{:else if isParsedError(error)}
 		<div class="redux-result__error-wrapper">
-			<InfoMessage error={error.message} style="error">
+			<InfoMessage error={error.message} style="danger">
 				{#snippet title()}
 					{error.name}
 				{/snippet}

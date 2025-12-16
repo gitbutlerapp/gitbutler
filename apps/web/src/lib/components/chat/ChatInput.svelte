@@ -314,7 +314,7 @@
 						<DropdownButton
 							bind:this={dropDownButton}
 							loading={isSendingMessage || isExecuting}
-							style="neutral"
+							style="gray"
 							kind="outline"
 							onclick={handleActionClick}
 						>

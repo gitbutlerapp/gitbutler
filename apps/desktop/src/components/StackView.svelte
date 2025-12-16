@@ -617,7 +617,7 @@
 										<Button
 											testId={TestId.StartCommitButton}
 											kind={changes.current.length > 0 ? 'solid' : 'outline'}
-											style={changes.current.length > 0 ? 'pop' : 'neutral'}
+											style={changes.current.length > 0 ? 'pop' : 'gray'}
 											type="button"
 											wide
 											disabled={isReadOnly ||

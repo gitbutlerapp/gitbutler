@@ -115,18 +115,14 @@
 								</AsyncButton>
 								<Button
 									type="button"
-									style="neutral"
+									style="gray"
 									onclick={cancelEditingReadme}
 									disabled={isSavingReadme}
 								>
 									Cancel
 								</Button>
 							{:else}
-								<Button
-									type="button"
-									style="neutral"
-									onclick={() => startEditingReadme(user.readme)}
-								>
+								<Button type="button" style="gray" onclick={() => startEditingReadme(user.readme)}>
 									Edit README
 								</Button>
 							{/if}

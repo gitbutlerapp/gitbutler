@@ -90,7 +90,7 @@
 		align-items: center;
 		justify-content: center;
 		padding: 32px;
-		background-color: var(--clr-illustration-bg);
+		background-color: var(--clr-art-scene-bg);
 
 		:global(svg) {
 			max-width: 400px;

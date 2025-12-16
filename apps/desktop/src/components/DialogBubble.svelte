@@ -68,7 +68,12 @@
 	{#if isLast && editing}
 		<div class="bubble-actions">
 			{#if !disableRemove}
-				<Button icon="bin-small" kind="outline" style="error" onclick={() => onRemoveLastExample()}>
+				<Button
+					icon="bin-small"
+					kind="outline"
+					style="danger"
+					onclick={() => onRemoveLastExample()}
+				>
 					Remove example
 				</Button>
 			{/if}
@@ -171,15 +176,15 @@
 		}
 		50% {
 			transform: translateX(5px);
-			border: 1px solid var(--clr-theme-err-element);
+			border: 1px solid var(--clr-theme-danger-element);
 		}
 		75% {
 			transform: translateX(-5px);
-			border: 1px solid var(--clr-theme-err-element);
+			border: 1px solid var(--clr-theme-danger-element);
 		}
 		100% {
 			transform: translateX(0);
-			border: 1px solid var(--clr-theme-err-element);
+			border: 1px solid var(--clr-theme-danger-element);
 		}
 	}
 </style>

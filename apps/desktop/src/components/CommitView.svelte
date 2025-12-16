@@ -106,7 +106,7 @@
 			throw new Error('No branch selected!');
 		}
 		if (!commitMessage) {
-			showToast({ message: 'Commit message is required', style: 'error' });
+			showToast({ message: 'Commit message is required', style: 'danger' });
 			return;
 		}
 

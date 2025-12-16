@@ -146,7 +146,7 @@ export function handleAddProjectOutcome(
 		case 'bareRepository':
 			showToast({
 				testId: TestId.AddProjectBareRepoModal,
-				style: 'error',
+				style: 'danger',
 				title: 'Bare repository',
 				message: 'The specified path appears to be a bare Git repository and cannot be added.'
 			});

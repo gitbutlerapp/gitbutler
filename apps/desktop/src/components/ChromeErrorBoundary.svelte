@@ -42,7 +42,7 @@
 				</p>
 			</div>
 
-			<InfoMessage error={parsedError.message} style="error">
+			<InfoMessage error={parsedError.message} style="danger">
 				{#snippet title()}
 					{parsedError.name}
 				{/snippet}
@@ -72,7 +72,7 @@
 	}
 
 	.title-text {
-		color: var(--clr-scale-ntrl-30);
+		color: var(--clr-text-1);
 	}
 
 	.button-container {

@@ -80,7 +80,7 @@
 	}
 
 	.description {
-		color: var(--clr-scale-ntrl-30);
+		color: var(--clr-text-2);
 		font-size: 14px;
 		line-height: 1.5;
 	}

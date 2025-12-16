@@ -22,15 +22,15 @@
 	const prStatusInfo: StatusInfo = $derived.by(() => {
 		switch (status) {
 			case 'loading':
-				return { text: 'Loading...', icon: 'spinner', style: 'neutral' };
+				return { text: 'Loading...', icon: 'spinner', style: 'gray' };
 			case 'merged':
 				return { text: 'Merged', icon: 'merged-pr-small', style: 'purple' };
 			case 'closed':
-				return { text: 'Closed', icon: 'closed-pr-small', style: 'error' };
+				return { text: 'Closed', icon: 'closed-pr-small', style: 'danger' };
 			case 'draft':
-				return { text: 'Draft', icon: 'draft-pr-small', style: 'neutral' };
+				return { text: 'Draft', icon: 'draft-pr-small', style: 'gray' };
 			default:
-				return { text: 'Open', icon: 'pr-small', style: 'success' };
+				return { text: 'Open', icon: 'pr-small', style: 'safe' };
 		}
 	});
 </script>

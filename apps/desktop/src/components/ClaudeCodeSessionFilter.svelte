@@ -44,14 +44,4 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-
-	.cc-badge {
-		display: flex;
-		align-items: center;
-		padding: 3px 6px;
-		gap: 4px;
-		border-radius: var(--radius-ml);
-		background-color: var(--clr-theme-purp-soft);
-		color: var(--clr-theme-purp-on-soft);
-	}
 </style>

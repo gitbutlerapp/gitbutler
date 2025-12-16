@@ -35,13 +35,13 @@ const SHADE_THRESHOLDS = {
 
 const LIGHTNESS_RANGES = {
 	background: {
-		neutral: { min: 0.9, max: 1, scale: 0.5 },
+		gray: { min: 0.9, max: 1, scale: 0.5 },
 		colored: { min: 0.89, max: 0.98, scale: 0.5 }
 	},
 	soft: { min: 0.4, max: 0.9, exponent: 0.9 },
 	solid: { min: 0.22, max: 0.48 },
 	text: {
-		neutral: { min: 0.08, max: 0.22, exponent: 1 },
+		gray: { min: 0.08, max: 0.22, exponent: 1 },
 		colored: { min: 0.11, max: 0.26, exponent: 0.85 }
 	}
 } as const;
@@ -52,7 +52,7 @@ const SATURATION = {
 	MAX_DESATURATION: 0.15 // 15% at shade 100
 } as const;
 
-const NEUTRAL_SCALE_ID = 'ntrl';
+const GRAY_SCALE_ID = 'gray';
 
 // Zone boundaries for calculations
 const ZONE_BOUNDARIES = {
@@ -106,12 +106,12 @@ function calculateDarknessIntensity(shade: number): number {
  *
  * @param shade - The shade value (0-100)
  * @param shade50Target - Optional custom lightness for shade 50 (0-1), which scales adjacent shades
- * @param isNeutral - Whether this is the neutral color scale (uses original lightness values)
+ * @param isGray - Whether this is the gray color scale (uses original lightness values)
  */
 function calculateLightness(
 	shade: number,
 	shade50Target?: number,
-	isNeutral: boolean = false
+	isGray: boolean = false
 ): number {
 	// Always return pure white for shade 100 and pure black for shade 0
 	if (shade === 100) return 1.0;
@@ -120,7 +120,7 @@ function calculateLightness(
 	const normalizedShade = shade / 100;
 
 	if (shade >= SHADE_THRESHOLDS.BACKGROUND_START) {
-		return calculateBackgroundLightness(normalizedShade, isNeutral);
+		return calculateBackgroundLightness(normalizedShade, isGray);
 	}
 
 	if (shade >= SHADE_THRESHOLDS.SOFT_START) {
@@ -131,13 +131,11 @@ function calculateLightness(
 		return calculateSolidLightness(normalizedShade, shade, shade50Target);
 	}
 
-	return calculateTextLightness(normalizedShade, isNeutral);
+	return calculateTextLightness(normalizedShade, isGray);
 }
 
-function calculateBackgroundLightness(normalizedShade: number, isNeutral: boolean): number {
-	const range = isNeutral
-		? LIGHTNESS_RANGES.background.neutral
-		: LIGHTNESS_RANGES.background.colored;
+function calculateBackgroundLightness(normalizedShade: number, isGray: boolean): number {
+	const range = isGray ? LIGHTNESS_RANGES.background.gray : LIGHTNESS_RANGES.background.colored;
 
 	const zonePosition = normalizedShade - ZONE_BOUNDARIES.background.start;
 	return range.min + zonePosition * range.scale;
@@ -191,8 +189,8 @@ function calculateSolidLightness(
 	);
 }
 
-function calculateTextLightness(normalizedShade: number, isNeutral: boolean): number {
-	const range = isNeutral ? LIGHTNESS_RANGES.text.neutral : LIGHTNESS_RANGES.text.colored;
+function calculateTextLightness(normalizedShade: number, isGray: boolean): number {
+	const range = isGray ? LIGHTNESS_RANGES.text.gray : LIGHTNESS_RANGES.text.colored;
 
 	const zonePosition = normalizedShade / ZONE_BOUNDARIES.text.width;
 	return range.min + Math.pow(zonePosition, range.exponent) * (range.max - range.min);
@@ -276,13 +274,13 @@ export function generateScale(
 		const scaleHue = scaleHues[scale.id] ?? scale.baseHue ?? baseHue;
 		const baseSaturation = scaleSaturations[scale.id] / 100;
 		const shade50Lightness = scaleShade50Lightness[scale.id] / 100;
-		const isNeutral = scale.id === NEUTRAL_SCALE_ID;
+		const isGray = scale.id === GRAY_SCALE_ID;
 
 		result[scale.id] = generateScaleShades(
 			scaleHue,
 			baseSaturation,
 			shade50Lightness,
-			isNeutral,
+			isGray,
 			shades
 		);
 	}
@@ -294,16 +292,16 @@ function generateScaleShades(
 	hue: number,
 	baseSaturation: number,
 	shade50Lightness: number,
-	isNeutral: boolean,
+	isGray: boolean,
 	shades: Shade[]
 ): Record<number, string> {
 	const scaleShades: Record<number, string> = {};
 
 	for (const shade of shades) {
-		let lightness = calculateLightness(shade.value, shade50Lightness, isNeutral);
+		let lightness = calculateLightness(shade.value, shade50Lightness, isGray);
 
 		// Apply perceptual brightness adjustment based on hue
-		if (!isNeutral) {
+		if (!isGray) {
 			lightness += getHueLightnessAdjustment(hue, shade.value);
 		}
 

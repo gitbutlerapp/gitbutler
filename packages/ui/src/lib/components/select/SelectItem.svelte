@@ -71,15 +71,12 @@
 		padding: 8px;
 		gap: 10px;
 		border-radius: var(--radius-m);
-		color: var(--clr-scale-ntrl-10);
+		color: var(--clr-text-1);
 		white-space: nowrap;
 		user-select: none;
 		&:not(.selected):hover:enabled,
 		&:not(.selected):focus:enabled {
 			background-color: var(--clr-bg-1-muted);
-			& .icon {
-				color: var(--clr-scale-ntrl-40);
-			}
 		}
 		&:disabled {
 			opacity: 0.4;

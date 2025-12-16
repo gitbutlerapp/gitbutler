@@ -109,7 +109,7 @@
 	}
 
 	.welcome-title {
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 		line-height: 1;
 	}
 

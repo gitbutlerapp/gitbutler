@@ -185,7 +185,7 @@
 
 			{#if message.issue}
 				{#if message.resolved}
-					<Badge style="success">Issue resolved</Badge>
+					<Badge style="safe">Issue resolved</Badge>
 				{:else}
 					<Badge style="warning">Issue</Badge>
 				{/if}
@@ -219,7 +219,7 @@
 				{#each optimisticEmojiReactions as reaction}
 					{@const reacted = thisUserReacted(reaction.users)}
 					<Button
-						style="neutral"
+						style="gray"
 						kind={reacted ? 'ghost' : 'outline'}
 						size="tag"
 						loading={reactionSet.has(reaction.reaction)}
@@ -351,7 +351,7 @@
 
 		&.resolved {
 			padding-left: 12px;
-			border-left: 4px solid var(--clr-core-ntrl-60);
+			border-left: 4px solid var(--clr-core-gray-60);
 		}
 
 		&.highlight {
@@ -377,8 +377,8 @@
 		color: var(--clr-br-commit-changes-requested-text);
 
 		&.resolved {
-			background: var(--clr-core-ntrl-60);
-			color: var(--clr-core-ntrl-100);
+			background: var(--clr-core-gray-60);
+			color: var(--clr-core-gray-100);
 		}
 	}
 

@@ -266,14 +266,14 @@
 	}
 
 	.tag-input-label {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 
 	.tag-input-helper {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 
 	.tag-input-error {
-		color: var(--clr-theme-err-element);
+		color: var(--clr-theme-danger-element);
 	}
 </style>

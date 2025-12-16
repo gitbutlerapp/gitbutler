@@ -89,7 +89,7 @@
 	});
 </script>
 
-<CodegenServiceMessage style="neutral" face="thinking">
+<CodegenServiceMessage style="info" face="thinking">
 	<span class="text-13 text-italic">
 		Claude is
 		{#key currentWord}

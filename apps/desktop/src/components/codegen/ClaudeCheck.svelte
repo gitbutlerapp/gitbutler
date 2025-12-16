@@ -133,12 +133,7 @@
 			<Icon name="tick" />
 		</div>
 	{:else}
-		<AsyncButton
-			style="neutral"
-			action={handleCheckAvailability}
-			icon="update"
-			loading={isChecking}
-		>
+		<AsyncButton style="gray" action={handleCheckAvailability} icon="update" loading={isChecking}>
 			Check Connection
 		</AsyncButton>
 	{/if}
@@ -163,8 +158,8 @@
 		color: var(--clr-text-2);
 
 		&.success {
-			background-color: var(--clr-theme-succ-soft);
-			color: var(--clr-theme-succ-on-soft);
+			background-color: var(--clr-theme-safe-soft);
+			color: var(--clr-theme-safe-on-soft);
 		}
 	}
 </style>

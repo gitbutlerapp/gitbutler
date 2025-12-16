@@ -75,7 +75,7 @@
 		grow = false,
 		align = 'auto',
 		dropdownChild = false,
-		style = 'neutral',
+		style = 'gray',
 		kind = 'solid',
 		hotkey,
 		class: className = '',
@@ -245,14 +245,14 @@
 			--icon-opacity: var(--opacity-btn-icon-outline);
 		}
 
-		/* All outline buttons except neutral get a slight background by default */
-		:where(&.outline:not(.neutral)) {
+		/* All outline buttons except gray get a slight background by default */
+		:where(&.outline:not(.gray)) {
 			--opacity-btn-bg: 0.1;
 		}
 
-		/* Ghost buttons and neutral outline buttons keep transparent background by default */
+		/* Ghost buttons and gray outline buttons keep transparent background by default */
 		:where(&.ghost),
-		:where(&.outline.neutral) {
+		:where(&.outline.gray) {
 			--opacity-btn-bg: 0;
 		} /* All outline and ghost buttons hover with darker background */
 		:where(&.outline:not(:disabled):hover),
@@ -300,12 +300,12 @@
 		}
 
 		/* Theme Variables - All themes use the same pattern */
-		:where(&.neutral) {
-			--theme-outline-text: var(--clr-btn-ntrl-outline-text);
-			--theme-outline-bg: var(--clr-btn-ntrl-outline-bg);
-			--theme-outline-border: var(--clr-btn-ntrl-outline);
-			--theme-solid-text: var(--clr-theme-ntrl-on-element);
-			--theme-solid-bg: var(--clr-theme-ntrl-element);
+		:where(&.gray) {
+			--theme-outline-text: var(--clr-btn-gray-outline-text);
+			--theme-outline-bg: var(--clr-btn-gray-outline-bg);
+			--theme-outline-border: var(--clr-btn-gray-outline);
+			--theme-solid-text: var(--clr-theme-gray-on-element);
+			--theme-solid-bg: var(--clr-theme-gray-element);
 			--theme-focus-color: var(--clr-theme-pop-element);
 			--theme-focus-mix-ratio: 100%;
 		}
@@ -320,21 +320,21 @@
 		}
 
 		:where(&.success) {
-			--theme-outline-text: var(--clr-btn-succ-outline-text);
-			--theme-outline-bg: var(--clr-btn-succ-outline-bg);
-			--theme-outline-border: var(--clr-btn-succ-outline);
-			--theme-solid-text: var(--clr-theme-succ-on-element);
-			--theme-solid-bg: var(--clr-theme-succ-element);
-			--theme-focus-color: var(--clr-theme-succ-element);
+			--theme-outline-text: var(--clr-btn-safe-outline-text);
+			--theme-outline-bg: var(--clr-btn-safe-outline-bg);
+			--theme-outline-border: var(--clr-btn-safe-outline);
+			--theme-solid-text: var(--clr-theme-safe-on-element);
+			--theme-solid-bg: var(--clr-theme-safe-element);
+			--theme-focus-color: var(--clr-theme-safe-element);
 		}
 
-		:where(&.error) {
-			--theme-outline-text: var(--clr-btn-err-outline-text);
-			--theme-outline-bg: var(--clr-btn-err-outline-bg);
-			--theme-outline-border: var(--clr-btn-err-outline);
-			--theme-solid-text: var(--clr-theme-err-on-element);
-			--theme-solid-bg: var(--clr-theme-err-element);
-			--theme-focus-color: var(--clr-theme-err-element);
+		:where(&.danger) {
+			--theme-outline-text: var(--clr-btn-danger-outline-text);
+			--theme-outline-bg: var(--clr-btn-danger-outline-bg);
+			--theme-outline-border: var(--clr-btn-danger-outline);
+			--theme-solid-text: var(--clr-theme-danger-on-element);
+			--theme-solid-bg: var(--clr-theme-danger-element);
+			--theme-focus-color: var(--clr-theme-danger-element);
 		}
 
 		:where(&.warning) {
@@ -347,12 +347,12 @@
 		}
 
 		:where(&.purple) {
-			--theme-outline-text: var(--clr-btn-purp-outline-text);
-			--theme-outline-bg: var(--clr-btn-purp-outline-bg);
-			--theme-outline-border: var(--clr-btn-purp-outline);
-			--theme-solid-text: var(--clr-theme-purp-on-element);
-			--theme-solid-bg: var(--clr-theme-purp-element);
-			--theme-focus-color: var(--clr-theme-purp-element);
+			--theme-outline-text: var(--clr-btn-purple-outline-text);
+			--theme-outline-bg: var(--clr-btn-purple-outline-bg);
+			--theme-outline-border: var(--clr-btn-purple-outline);
+			--theme-solid-text: var(--clr-theme-purple-on-element);
+			--theme-solid-bg: var(--clr-theme-purple-element);
+			--theme-focus-color: var(--clr-theme-purple-element);
 		}
 
 		/* Focus styles for all themed buttons */
@@ -392,7 +392,7 @@
 			--theme-solid-bg-hover: color-mix(
 				in srgb,
 				var(--theme-solid-bg),
-				var(--clr-core-ntrl-0) calc((var(--opacity-btn-solid-hover) * 100%))
+				var(--clr-core-gray-0) calc((var(--opacity-btn-solid-hover) * 100%))
 			);
 		}
 

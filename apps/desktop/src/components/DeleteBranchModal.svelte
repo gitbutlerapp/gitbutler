@@ -43,7 +43,7 @@
 		<Button kind="outline" onclick={close} autofocus>Cancel</Button>
 		<Button
 			testId={TestId.BranchHeaderDeleteModal_ActionButton}
-			style="error"
+			style="danger"
 			type="submit"
 			loading={branchRemovalOp.current.isLoading}>Delete</Button
 		>

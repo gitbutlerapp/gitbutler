@@ -73,7 +73,7 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);

@@ -243,7 +243,7 @@
 										</AsyncButton>
 										<Button
 											type="button"
-											style="neutral"
+											style="gray"
 											onclick={cancelEditingReadme}
 											disabled={isSavingReadme}
 										>
@@ -252,7 +252,7 @@
 									{:else}
 										<Button
 											type="button"
-											style="neutral"
+											style="gray"
 											onclick={() => startEditingReadme((projectData as any).readme)}
 										>
 											Edit README
@@ -363,7 +363,7 @@
 									</p>
 
 									{#if projectData.permissions?.canWrite}
-										<Button style="error" onclick={handleDisconnectFromParent}>
+										<Button style="danger" onclick={handleDisconnectFromParent}>
 											Disconnect from Parent
 										</Button>
 									{/if}
@@ -402,7 +402,7 @@
 							<h2 class="card-title danger-title">Danger Zone</h2>
 							<div class="card-content">
 								<AsyncButton
-									style="error"
+									style="danger"
 									action={async () => await deleteProject(projectData.repositoryId)}
 								>
 									Delete Project
@@ -464,7 +464,7 @@
 				<div class="form-actions">
 					<Button
 						type="button"
-						style="neutral"
+						style="gray"
 						onclick={() => editProjectModal?.close()}
 						disabled={isUpdatingProject}
 					>

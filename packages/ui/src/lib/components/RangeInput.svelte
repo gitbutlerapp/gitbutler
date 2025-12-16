@@ -112,7 +112,7 @@
 	}
 
 	.label {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 
 	.value {
@@ -120,11 +120,11 @@
 	}
 
 	.helper-text {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 
 	.error-text {
-		color: var(--clr-theme-err-element);
+		color: var(--clr-theme-danger-element);
 	}
 
 	.input {
@@ -159,12 +159,11 @@
 
 		/* Firefox thumb styles */
 		&::-moz-range-thumb {
-			appearance: none;
 			width: var(--range-thumb-size);
 			height: var(--range-thumb-size);
-			border: 2px solid var(--range-accent-color);
+			border: none;
 			border-radius: 50%;
-			background: var(--clr-scale-ntrl-100);
+			background: var(--range-accent-color);
 			cursor: pointer;
 		}
 
@@ -184,11 +183,11 @@
 
 	/* Hover state */
 	.range-input:has(.input:hover:not(:disabled)) {
-		--range-accent-color: var(--clr-pop-hover);
+		--range-accent-color: var(--hover-pop);
 	}
 
 	/* Error state */
 	.range-input.error {
-		--range-accent-color: var(--clr-theme-err-element);
+		--range-accent-color: var(--clr-theme-danger-element);
 	}
 </style>

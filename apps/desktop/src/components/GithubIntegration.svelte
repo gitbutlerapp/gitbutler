@@ -209,7 +209,7 @@
 									{userCode}
 								</span>
 								<Button
-									style="neutral"
+									style="gray"
 									kind="outline"
 									icon="copy"
 									disabled={codeCopied}
@@ -291,7 +291,7 @@
 			</CardGroup.Item>
 			<CardGroup.Item>
 				<div class="flex justify-end gap-6">
-					<Button style="neutral" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
+					<Button style="gray" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
 					<Button
 						style="pop"
 						disabled={!patInput}
@@ -338,7 +338,7 @@
 			</CardGroup.Item>
 			<CardGroup.Item>
 				<div class="flex justify-end gap-6">
-					<Button style="neutral" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
+					<Button style="gray" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
 					<Button
 						style="pop"
 						disabled={!gheHostInput || !ghePatInput}
@@ -358,7 +358,7 @@
 </p>
 
 {#snippet addAccountButton(noAccounts: boolean)}
-	{@const buttonStyle = noAccounts ? 'pop' : 'neutral'}
+	{@const buttonStyle = noAccounts ? 'pop' : 'gray'}
 	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
 	<Button
 		bind:el={addAccountButtonRef}
@@ -442,7 +442,7 @@
 			height: 1px;
 			margin-top: 8px;
 			margin-bottom: 6px;
-			background-color: var(--clr-scale-ntrl-60);
+			background-color: var(--clr-border-1);
 			content: '';
 			opacity: 0.4;
 		}
@@ -453,7 +453,7 @@
 		position: relative;
 		width: 1px;
 		margin-top: 4px;
-		border-right: 1px dashed var(--clr-scale-ntrl-60);
+		border-right: 1px dashed var(--clr-border-1);
 
 		&::before {
 			position: absolute;
@@ -462,14 +462,12 @@
 			height: 10px;
 			transform: translateX(-50%);
 			border-radius: 100%;
-			background-color: var(--clr-scale-ntrl-60);
+			background-color: var(--clr-border-1);
 			content: '';
 		}
 	}
 
 	.step-line-default {
-		border-right: 1px dashed var(--clr-scale-ntrl-60);
-
 		&::before {
 			top: 28px;
 		}

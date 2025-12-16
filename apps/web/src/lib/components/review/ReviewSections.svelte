@@ -274,11 +274,11 @@
 	}
 
 	.statistic-added {
-		color: var(--clr-scale-succ-30);
+		color: var(--clr-theme-safe-element);
 	}
 
 	.statistic-deleted {
-		color: var(--clr-scale-err-30);
+		color: var(--clr-theme-danger-element);
 	}
 
 	.review-sections-diffs {

@@ -140,10 +140,10 @@
 		overflow: hidden;
 		gap: 4px;
 		transform-style: preserve-3d;
-		border: 1px solid var(--clr-scale-pop-60);
+		border: 1px solid color-mix(in srgb, var(--clr-theme-pop-element) 50%, transparent);
 		border-radius: var(--radius-xl);
 		background-color: var(--clr-theme-pop-soft);
-		color: var(--clr-scale-pop-20);
+		color: var(--clr-theme-pop-text);
 		transition:
 			transform 0.15s ease-out,
 			color 0.15s ease,
@@ -205,7 +205,7 @@
 		height: 100%;
 		background: radial-gradient(
 			ellipse at center,
-			var(--clr-scale-pop-90) 40%,
+			var(--clr-theme-pop-bg-muted) 40%,
 			rgba(255, 255, 255, 0) 100%
 		);
 		pointer-events: none;

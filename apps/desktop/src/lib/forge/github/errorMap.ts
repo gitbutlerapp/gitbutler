@@ -23,7 +23,7 @@ export function mapErrorToToast(err: any): Toast | undefined {
                 for additional help.
             `,
 			error: message,
-			style: 'error'
+			style: 'danger'
 		};
 	}
 
@@ -31,16 +31,15 @@ export function mapErrorToToast(err: any): Toast | undefined {
 		return {
 			title: 'OAuth access restricted',
 			message: `
-                It looks like OAuth access has been restricted by your organization.
+				It looks like OAuth access has been restricted by your organization.
 
-                Please see our [documentation](https://docs.gitbutler.com/)
-                for additional help.
-            `,
+				Please see our [documentation](https://docs.gitbutler.com/)
+				for additional help.
+			`,
 			error: message,
-			style: 'error'
+			style: 'danger'
 		};
 	}
-
 	if (message.includes('Validation Failed')) {
 		let errorStrings = '';
 		if (errors instanceof Array) {
@@ -61,7 +60,7 @@ export function mapErrorToToast(err: any): Toast | undefined {
                 for additional help.
             `,
 			error: errorStrings,
-			style: 'error'
+			style: 'danger'
 		};
 	}
 }

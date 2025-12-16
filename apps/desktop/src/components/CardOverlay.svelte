@@ -130,8 +130,8 @@
 		gap: 5px;
 		transform: translateY(3px) scale(0.95);
 		border-radius: 100px;
-		background-color: var(--clr-theme-ntrl-element);
-		color: var(--clr-theme-ntrl-on-element);
+		background-color: var(--clr-theme-gray-element);
+		color: var(--clr-theme-gray-on-element);
 		opacity: 0;
 
 		transition:
@@ -166,12 +166,12 @@
 		height: 100%;
 
 		& rect {
+			transform-origin: center;
 			fill: var(--dropzone-fill);
 			stroke: var(--dropzone-stroke);
-			stroke-width: 2px;
 			stroke-dasharray: 2;
 			stroke-dashoffset: 30;
-			transform-origin: center;
+			stroke-width: 2px;
 			transition:
 				fill var(--transition-fast),
 				stroke var(--transition-fast);

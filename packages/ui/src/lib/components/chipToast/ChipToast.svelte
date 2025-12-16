@@ -20,13 +20,13 @@
 	} {
 		switch (type) {
 			case 'success':
-				return { name: 'success', color: 'var(--clr-theme-succ-element)' };
+				return { name: 'success', color: 'var(--clr-theme-safe-element)' };
 			case 'warning':
 				return { name: 'warning', color: 'var(--clr-theme-warn-element)' };
-			case 'error':
-				return { name: 'error', color: 'var(--clr-theme-err-element)' };
+			case 'danger':
+				return { name: 'error', color: 'var(--clr-theme-danger-element)' };
 			default:
-				return { name: 'info', color: 'var(--clr-scale-pop-60)' };
+				return { name: 'info', color: 'var(--clr-theme-pop-element)' };
 		}
 	}
 
@@ -81,9 +81,9 @@
 		display: flex;
 		width: fit-content;
 		border-radius: var(--radius-m);
-		background: var(--clr-scale-ntrl-10);
+		background: var(--clr-bg-toast);
 		box-shadow: var(--fx-shadow-m);
-		color: var(--clr-scale-ntrl-100);
+		color: var(--clr-theme-gray-on-element);
 		text-align: center;
 	}
 
@@ -117,7 +117,7 @@
 
 	.chip-toast__button {
 		padding: var(--toast-padding);
-		border-left: 1px solid var(--clr-scale-ntrl-30);
+		border-left: 1px solid color-mix(in srgb, var(--clr-border-2) 30%, transparent);
 		transition: opacity var(--transition-fast);
 
 		&:hover {

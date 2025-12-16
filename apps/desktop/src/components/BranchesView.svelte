@@ -173,7 +173,7 @@
 		>
 		<Button
 			testId={TestId.DeleteLocalBranchConfirmationModal_Delete}
-			style="error"
+			style="danger"
 			type="submit"
 			icon="bin">Delete</Button
 		>

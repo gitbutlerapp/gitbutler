@@ -9,7 +9,7 @@ const colorMap: Record<CommitStatusType, string> & { Error: string } = {
 	Integrated: 'var(--clr-commit-integrated)',
 	Remote: 'var(--clr-commit-upstream)', // TODO: rename Remote -> Upstream.
 	Base: 'var(--clr-commit-upstream)', // TODO: Introduce separate color for base.
-	Error: 'var(--clr-theme-err-element)'
+	Error: 'var(--clr-theme-danger-element)'
 };
 
 export function getIconFromCommitState(

@@ -30,7 +30,7 @@
 	const {
 		testId,
 		icon,
-		style = 'neutral',
+		style = 'gray',
 		kind = 'solid',
 		disabled = false,
 		loading = false,

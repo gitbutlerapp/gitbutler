@@ -22,7 +22,7 @@
 
 	const {
 		testId,
-		style = 'neutral',
+		style = 'gray',
 		kind = 'solid',
 		size = 'icon',
 		class: className = '',
@@ -73,9 +73,9 @@
 		text-align: center;
 
 		/* SOLID */
-		&.neutral.solid {
-			background-color: var(--clr-theme-ntrl-element);
-			color: var(--clr-theme-ntrl-on-element);
+		&.gray.solid {
+			background-color: var(--clr-theme-gray-element);
+			color: var(--clr-theme-gray-on-element);
 		}
 
 		&.pop.solid {
@@ -83,9 +83,9 @@
 			color: var(--clr-theme-pop-on-element);
 		}
 
-		&.success.solid {
-			background-color: var(--clr-theme-succ-element);
-			color: var(--clr-theme-succ-on-element);
+		&.safe.solid {
+			background-color: var(--clr-theme-safe-element);
+			color: var(--clr-theme-safe-on-element);
 		}
 
 		&.warning.solid {
@@ -94,19 +94,19 @@
 		}
 
 		&.error.solid {
-			background-color: var(--clr-theme-err-element);
-			color: var(--clr-theme-err-on-element);
+			background-color: var(--clr-theme-danger-element);
+			color: var(--clr-theme-danger-on-element);
 		}
 
 		&.purple.solid {
-			background-color: var(--clr-theme-purp-element);
-			color: var(--clr-theme-purp-on-element);
+			background-color: var(--clr-theme-purple-element);
+			color: var(--clr-theme-purple-on-element);
 		}
 
 		/* SOFT */
-		&.neutral.soft {
-			background-color: var(--clr-theme-ntrl-soft);
-			color: var(--clr-theme-ntrl-on-soft);
+		&.gray.soft {
+			background-color: var(--clr-theme-gray-soft);
+			color: var(--clr-theme-gray-on-soft);
 		}
 
 		&.pop.soft {
@@ -114,9 +114,9 @@
 			color: var(--clr-theme-pop-on-soft);
 		}
 
-		&.success.soft {
-			background-color: var(--clr-theme-succ-soft);
-			color: var(--clr-theme-succ-on-soft);
+		&.safe.soft {
+			background-color: var(--clr-theme-safe-soft);
+			color: var(--clr-theme-safe-on-soft);
 		}
 
 		&.warning.soft {
@@ -125,13 +125,13 @@
 		}
 
 		&.error.soft {
-			background-color: var(--clr-theme-err-soft);
-			color: var(--clr-theme-err-on-soft);
+			background-color: var(--clr-theme-danger-soft);
+			color: var(--clr-theme-danger-on-soft);
 		}
 
 		&.purple.soft {
-			background-color: var(--clr-theme-purp-soft);
-			color: var(--clr-theme-purp-on-soft);
+			background-color: var(--clr-theme-purple-soft);
+			color: var(--clr-theme-purple-on-soft);
 		}
 
 		/* SIZE */

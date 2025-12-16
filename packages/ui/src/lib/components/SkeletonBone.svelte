@@ -11,7 +11,7 @@
 		width = '100%',
 		height = '1rem',
 		radius = 'var(--radius-ml)',
-		color = 'var(--clr-scale-ntrl-70)',
+		color = 'var(--clr-border-2)',
 		opacity = 0.34
 	}: Props = $props();
 </script>

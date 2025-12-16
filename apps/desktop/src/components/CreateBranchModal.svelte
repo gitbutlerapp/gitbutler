@@ -309,9 +309,9 @@
 
 	.radio-label {
 		/* variables */
-		--btn-bg: var(--clr-btn-ntrl-outline-bg);
+		--btn-bg: var(--clr-btn-gray-outline-bg);
 		--btn-bg-opacity: 0;
-		--btn-border-clr: var(--clr-btn-ntrl-outline);
+		--btn-border-clr: var(--clr-btn-gray-outline);
 		--btn-border-opacity: var(--opacity-btn-outline);
 		--content-opacity: 1;
 		/* illustration */
@@ -348,9 +348,9 @@
 		}
 
 		&.disabled {
-			--btn-bg: var(--clr-btn-ntrl-outline-bg);
+			--btn-bg: var(--clr-btn-gray-outline-bg);
 			--btn-bg-opacity: 0.1;
-			--btn-border-clr: var(--clr-btn-ntrl-outline);
+			--btn-border-clr: var(--clr-btn-gray-outline);
 			--btn-border-opacity: 0.1;
 			--image-outline: var(--clr-border-1);
 			--image-accent-outline: var(--clr-text-3);
