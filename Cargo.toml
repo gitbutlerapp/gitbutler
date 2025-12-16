@@ -2,6 +2,12 @@
 members = ["crates/gitbutler-*", "crates/but-*", "crates/but"]
 resolver = "2"
 
+[workspace.package]
+repository = "https://github.com/gitbutlerapp/gitbutler"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition = "2024"
+rust-version = "1.89"
+
 [workspace.dependencies]
 but = { path = "crates/but" }
 but-testsupport = { path = "crates/but-testsupport" }
