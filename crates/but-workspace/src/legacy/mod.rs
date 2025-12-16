@@ -30,9 +30,6 @@ pub use tree_manipulation::{
 /// Various types for the frontend.
 pub mod ui;
 
-mod branch_details;
-pub use branch_details::branch_details;
-
 /// High level Stack functions that use primitives from this crate (`but-workspace`)
 pub mod stack_ext;
 
