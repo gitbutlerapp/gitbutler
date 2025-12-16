@@ -9,9 +9,9 @@ use bstr::BString;
 use but_core::RefMetadata;
 use but_ctx::Context;
 use but_meta::VirtualBranchesTomlMetadata;
-use but_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
+use but_oxidize::{OidExt, git2_signature_to_gix_signature};
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_stack::{Stack, StackBranch, StackId};
+use gitbutler_stack::{Stack, StackId};
 use gix::date::parse::TimeBuf;
 use itertools::Itertools;
 use tracing::instrument;
@@ -27,7 +27,7 @@ use crate::{
     ref_info,
     ref_info::Segment,
     ui,
-    ui::{CommitState, PushStatus, StackDetails},
+    ui::{CommitState, StackDetails},
 };
 
 /// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
@@ -273,155 +273,6 @@ pub fn stacks_v3(
     }
 
     Ok(stacks)
-}
-
-/// Returns information about the current state of a stack.
-/// If the stack is not found, an error is returned.
-///
-/// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
-/// - `stack_id`: The ID of the stack to get information about.
-/// - `ctx`: The command context for the project.
-pub fn stack_details(
-    gb_dir: &Path,
-    stack_id: StackId,
-    ctx: &Context,
-) -> anyhow::Result<ui::StackDetails> {
-    /// Determines if a force push is required to push a branch to its remote.
-    fn requires_force(ctx: &Context, branch: &StackBranch, remote: &str) -> anyhow::Result<bool> {
-        let upstream = branch.remote_reference(remote);
-
-        let git2_repo = ctx.git2_repo.get()?;
-        let upstream_reference = match git2_repo.refname_to_id(&upstream) {
-            Ok(reference) => reference,
-            Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(false),
-            Err(other) => return Err(other).context("failed to find upstream reference"),
-        };
-
-        let upstream_commit = git2_repo
-            .find_commit(upstream_reference)
-            .context("failed to find upstream commit")?;
-
-        let branch_head = branch.head_oid(&*ctx.repo.get()?)?;
-        let merge_base = git2_repo.merge_base(upstream_commit.id(), branch_head.to_git2())?;
-
-        Ok(merge_base != upstream_commit.id())
-    }
-
-    #[derive(Debug, Default)]
-    struct BranchState {
-        is_integrated: bool,
-        is_dirty: bool,
-        requires_force: bool,
-        has_pushed_commits: bool,
-    }
-
-    impl From<BranchState> for PushStatus {
-        fn from(state: BranchState) -> Self {
-            match (
-                state.is_integrated,
-                state.is_dirty,
-                state.requires_force,
-                state.has_pushed_commits,
-            ) {
-                (true, _, _, _) => PushStatus::Integrated,
-                (_, true, _, false) => PushStatus::CompletelyUnpushed,
-                (_, _, true, _) => PushStatus::UnpushedCommitsRequiringForce,
-                (_, true, _, _) => PushStatus::UnpushedCommits,
-                (_, false, _, _) => PushStatus::NothingToPush,
-            }
-        }
-    }
-
-    let state = state_handle(gb_dir);
-    let mut stack = state.get_stack(stack_id)?;
-    let branches = stack.branches();
-    let branches = branches.iter().filter(|b| !b.archived);
-    let repo = ctx.repo.get()?;
-    let remote = state
-        .get_default_target()
-        .context("failed to get default target")?
-        .push_remote_name();
-
-    let mut stack_state = BranchState::default();
-    let mut stack_is_conflicted = false;
-    let mut branch_details = vec![];
-    let mut current_base = stack.merge_base(ctx)?;
-
-    for branch in branches {
-        let upstream_reference = ctx
-            .git2_repo
-            .get()?
-            .find_reference(&branch.remote_reference(remote.as_str()))
-            .ok()
-            .map(|_| branch.remote_reference(remote.as_str()));
-
-        let mut branch_state = BranchState {
-            requires_force: requires_force(ctx, branch, &remote)?,
-            ..Default::default()
-        };
-
-        let mut is_conflicted = false;
-        let mut authors = HashSet::new();
-        let commits = local_and_remote_commits(ctx, &repo, branch, &stack)?;
-        let upstream_commits = upstream_only_commits(ctx, &repo, branch, &stack, Some(&commits))?;
-
-        // If there are commits in the remote, we can assume that commits have been pushed. *Like, literally*.
-        branch_state.has_pushed_commits |= !upstream_commits.is_empty();
-
-        for commit in &commits {
-            is_conflicted |= commit.has_conflicts;
-            branch_state.is_dirty |= matches!(commit.state, ui::CommitState::LocalOnly);
-            branch_state.has_pushed_commits |=
-                matches!(commit.state, CommitState::LocalAndRemote(_));
-            authors.insert(commit.author.clone());
-        }
-
-        // We can assume that if the child-most commit is integrated, the whole branch is integrated
-        branch_state.is_integrated = matches!(
-            commits.first().map(|c| &c.state),
-            Some(CommitState::Integrated)
-        );
-
-        stack_is_conflicted |= is_conflicted;
-        stack_state.is_dirty |= branch_state.is_dirty;
-        stack_state.requires_force |= branch_state.requires_force;
-        stack_state.has_pushed_commits |= branch_state.has_pushed_commits;
-
-        // If all branches are integrated, the stack is integrated
-        stack_state.is_integrated &= branch_state.is_integrated;
-
-        branch_details.push(ui::BranchDetails {
-            name: branch.name().to_owned().into(),
-            linked_worktree_id: None, /* not implemented in legacy mode */
-            remote_tracking_branch: upstream_reference.map(Into::into),
-            description: branch.description.clone(),
-            pr_number: branch.pr_number,
-            review_id: branch.review_id.clone(),
-            tip: branch.head_oid(&repo)?,
-            base_commit: current_base,
-            push_status: branch_state.into(),
-            last_updated_at: commits.first().map(|c| c.created_at),
-            authors: authors.into_iter().collect(),
-            is_conflicted,
-            commits,
-            upstream_commits,
-            is_remote_head: false,
-        });
-
-        current_base = branch.head_oid(&repo)?;
-    }
-
-    stack.migrate_change_ids(ctx).ok(); // If it fails that's ok - best effort migration
-    branch_details.reverse();
-
-    let push_status = stack_state.into();
-
-    Ok(ui::StackDetails {
-        derived_name: stack.derived_name()?,
-        push_status,
-        branch_details,
-        is_conflicted: stack_is_conflicted,
-    })
 }
 
 /// Get additional information for the stack identified by `stack_id`. If `None`, it's the first available stack
@@ -693,48 +544,6 @@ pub fn stack_branch_local_and_remote_commits(
         return Ok(vec![]);
     }
     local_and_remote_commits(ctx, repo, branch, &stack)
-}
-
-fn upstream_only_commits(
-    ctx: &Context,
-    repo: &gix::Repository,
-    stack_branch: &StackBranch,
-    stack: &Stack,
-    current_local_and_remote_commits: Option<&Vec<ui::Commit>>,
-) -> anyhow::Result<Vec<ui::UpstreamCommit>> {
-    let git2_repo = ctx.git2_repo.get()?;
-    let branch_commits = stack_branch.commits(&git2_repo, ctx, stack)?;
-
-    let local_and_remote = if let Some(current_local_and_remote) = current_local_and_remote_commits
-    {
-        current_local_and_remote
-    } else {
-        &local_and_remote_commits(ctx, repo, stack_branch, stack)?
-    };
-
-    // Upstream only
-    let mut upstream_only = vec![];
-    for commit in branch_commits.upstream_only.iter() {
-        let matches_known_commit = local_and_remote.iter().any(|c| {
-            // If the id matches verbatim or if there is a known remote_id (in the case of LocalAndRemote) that matches
-            c.id == commit.id().to_gix()
-                || matches!(&c.state, CommitState::LocalAndRemote(remote_id) if remote_id == &commit.id().to_gix())
-        });
-        // Ignore commits that strictly speaking are remote only, but they match a known local commit (rebase etc)
-        if !matches_known_commit {
-            let created_at = i128::from(commit.time().seconds()) * 1000;
-            let upstream_commit = ui::UpstreamCommit {
-                id: commit.id().to_gix(),
-                message: commit.message_bstr().into(),
-                created_at,
-                author: commit.author().into(),
-            };
-            upstream_only.push(upstream_commit);
-        }
-    }
-    upstream_only.reverse();
-
-    Ok(upstream_only)
 }
 
 /// Returns a list of the commits that are local and optionally remote as well.

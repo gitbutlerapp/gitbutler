@@ -62,7 +62,6 @@ attached to posthog events.
 	$effect(() => {
 		eventContext.update({
 			v3: true,
-			ws3: $settingsService?.featureFlags.ws3,
 			rules: $settingsService?.featureFlags.rules
 		});
 	});

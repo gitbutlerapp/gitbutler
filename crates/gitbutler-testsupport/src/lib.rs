@@ -213,14 +213,12 @@ pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termt
 
 pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
     let repo = ctx.open_repo_for_merging_non_persisting().unwrap();
-    let stacks = if ctx.settings().feature_flags.ws3 {
+    let stacks = {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project_data_dir().join("virtual_branches.toml"),
         )
         .unwrap();
         but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
-    } else {
-        but_workspace::legacy::stacks(ctx, &ctx.project_data_dir(), &repo, StacksFilter::default())
     }
     .unwrap();
     let mut details = vec![];
@@ -230,14 +228,12 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
             .expect("BUG(opt-stack-id): test code shouldn't trigger this");
         details.push((
             stack_id,
-            if ctx.settings().feature_flags.ws3 {
+            {
                 let meta = VirtualBranchesTomlMetadata::from_path(
                     ctx.project_data_dir().join("virtual_branches.toml"),
                 )
                 .unwrap();
                 but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
-            } else {
-                but_workspace::legacy::stack_details(&ctx.project_data_dir(), stack_id, ctx)
             }
             .unwrap(),
         ));

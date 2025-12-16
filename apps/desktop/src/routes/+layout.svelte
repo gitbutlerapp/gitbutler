@@ -127,10 +127,6 @@
 
 	// Debug keyboard shortcuts
 	const handleKeyDown = createKeybind({
-		// Toggle v3 workspace APIs on/off
-		'w s 3': () => {
-			settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 });
-		},
 		// Toggle next-gen safe checkout.
 		'c o 3': () => {
 			settingsService.updateFeatureFlags({ cv3: !$settingsStore?.featureFlags.cv3 });

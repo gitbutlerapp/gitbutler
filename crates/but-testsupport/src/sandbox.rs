@@ -385,7 +385,6 @@ impl Sandbox {
                 oauth_client_id: "but journey tests won't use github".to_string(),
             },
             feature_flags: FeatureFlags {
-                ws3: true,
                 cv3: true,
                 apply3: true,
                 undo: true,

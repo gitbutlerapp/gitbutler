@@ -22,11 +22,6 @@ pub struct Args {
     /// The production version is used if unset.
     #[clap(short = 's', long)]
     pub app_suffix: Option<String>,
-    /// Turn on V3 mode for those subcommands that support it.
-    ///
-    /// This helps test the output of certain functions in V3 mode, and/or compare.
-    #[clap(short = '3', long, env = "BUT3")]
-    pub v3: bool,
     /// Whether to use JSON output format.
     #[clap(long, short = 'j')]
     pub json: bool,

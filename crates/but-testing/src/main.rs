@@ -136,18 +136,16 @@ async fn main() -> Result<()> {
         args::Subcommands::Watch => command::watch(&args).await,
         args::Subcommands::WatchDb => command::watch_db(&args),
         args::Subcommands::Stacks { workspace_only } => {
-            command::stacks::list(&args.current_dir, args.json, args.v3, *workspace_only)
+            command::stacks::list(&args.current_dir, args.json, *workspace_only)
         }
         args::Subcommands::BranchList => {
             let (_repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
             command::branch_list(project)
         }
         args::Subcommands::BranchDetails { ref_name } => {
-            command::stacks::branch_details(ref_name, &args.current_dir, args.v3)
+            command::stacks::branch_details(ref_name, &args.current_dir)
         }
-        args::Subcommands::StackDetails { id } => {
-            command::stacks::details(*id, &args.current_dir, args.v3)
-        }
+        args::Subcommands::StackDetails { id } => command::stacks::details(*id, &args.current_dir),
         args::Subcommands::RefInfo {
             ref_name,
             expensive,
@@ -220,7 +218,6 @@ async fn main() -> Result<()> {
                 &args.current_dir,
                 *remote,
                 args.json,
-                args.v3,
             ),
             (None, Some(id)) => command::stacks::branches(*id, &args.current_dir, args.json),
             (None, None) => {

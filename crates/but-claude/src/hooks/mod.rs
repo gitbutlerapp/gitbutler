@@ -595,27 +595,19 @@ impl OutputClaudeJson for Result<ClaudeHookOutput> {
 }
 
 fn stack_details(ctx: &Context, stack_id: StackId) -> anyhow::Result<StackDetails> {
-    if ctx.settings().feature_flags.ws3 {
-        let repo = ctx.open_repo_for_merging_non_persisting()?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )?;
-        but_workspace::legacy::stack_details_v3(Some(stack_id), &repo, &meta)
-    } else {
-        but_workspace::legacy::stack_details(&ctx.project_data_dir(), stack_id, ctx)
-    }
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project_data_dir().join("virtual_branches.toml"),
+    )?;
+    but_workspace::legacy::stack_details_v3(Some(stack_id), &repo, &meta)
 }
 
 fn list_stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
     let repo = ctx.open_repo_for_merging_non_persisting()?;
-    if ctx.settings().feature_flags.ws3 {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )?;
-        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
-    } else {
-        but_workspace::legacy::stacks(ctx, &ctx.project_data_dir(), &repo, StacksFilter::default())
-    }
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project_data_dir().join("virtual_branches.toml"),
+    )?;
+    but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
 }
 
 /// Returns true if the session has `is_gui` set to true, and `GUTBUTLER_IN_GUI` is unset

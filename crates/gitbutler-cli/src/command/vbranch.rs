@@ -67,30 +67,23 @@ pub fn status(project: Project) -> Result<()> {
 
 pub(crate) fn stacks(ctx: &Context) -> Result<Vec<(StackId, StackDetails)>> {
     let repo = ctx.open_repo_for_merging_non_persisting()?;
-    let stacks = if ctx.settings().feature_flags.ws3 {
+    let stacks = {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project_data_dir().join("virtual_branches.toml"),
         )?;
         but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
-    } else {
-        but_workspace::legacy::stacks(ctx, &ctx.project_data_dir(), &repo, StacksFilter::default())
     }?;
     let mut details = vec![];
     for stack in stacks {
         let stack_id = stack
             .id
             .context("BUG(opt-stack-id): CLI code shouldn't trigger this")?;
-        details.push((
-            stack_id,
-            if ctx.settings().feature_flags.ws3 {
-                let meta = VirtualBranchesTomlMetadata::from_path(
-                    ctx.project_data_dir().join("virtual_branches.toml"),
-                )?;
-                but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
-            } else {
-                but_workspace::legacy::stack_details(&ctx.project_data_dir(), stack_id, ctx)
-            }?,
-        ));
+        details.push((stack_id, {
+            let meta = VirtualBranchesTomlMetadata::from_path(
+                ctx.project_data_dir().join("virtual_branches.toml"),
+            )?;
+            but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
+        }?));
     }
     Ok(details)
 }

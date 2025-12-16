@@ -1,5 +1,4 @@
 use anyhow::Result;
-use gitbutler_branch_actions::BranchListingFilter;
 
 #[test]
 fn one_vbranch_in_workspace() -> Result<()> {
@@ -42,104 +41,9 @@ fn one_vbranch_in_workspace_one_commit() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn two_vbranches_in_workspace_one_commit() -> Result<()> {
-    init_env();
-    let ctx = project_ctx_without_ws3("two-vbranches-in-workspace-one-applied")?;
-    let list = list_branches(
-        &ctx,
-        Some(BranchListingFilter {
-            local: Some(true),
-            applied: Some(true),
-        }),
-    )?;
-    assert_eq!(list.len(), 1, "only one of these is applied");
-    assert_equal(
-        &list[0],
-        ExpectedBranchListing {
-            identity: "other".into(),
-            virtual_branch_given_name: Some("other"),
-            virtual_branch_in_workspace: true,
-            has_local: true,
-            ..Default::default()
-        },
-        "It's a bare virtual branch without any branches with the same identity",
-    );
-
-    let list = list_branches(
-        &ctx,
-        Some(BranchListingFilter {
-            local: Some(true),
-            applied: Some(false),
-        }),
-    )?;
-    assert_eq!(list.len(), 1, "only one of these is *not* applied");
-
-    assert_equal(
-        &list[0],
-        ExpectedBranchListing {
-            identity: "virtual".into(),
-            virtual_branch_given_name: Some("virtual"),
-            virtual_branch_in_workspace: false,
-            has_local: true,
-            ..Default::default()
-        },
-        "It's a bare virtual branch without any branches with the same identity",
-    );
-    Ok(())
-}
-
-#[test]
-fn one_feature_branch_and_one_vbranch_in_workspace_one_commit() -> Result<()> {
-    init_env();
-    let ctx = project_ctx_without_ws3("a-vbranch-named-like-target-branch-short-name")?;
-    let list = list_branches(&ctx, None)?;
-    assert_eq!(
-        list.len(),
-        1,
-        "it finds our single virtual branch despite it having the same 'identity' as the target branch: 'main'"
-    );
-    assert_equal(
-        &list[0],
-        ExpectedBranchListing {
-            identity: "main".into(),
-            remotes: vec![],
-            virtual_branch_given_name: Some("main"),
-            virtual_branch_in_workspace: true,
-            has_local: true,
-        },
-        "virtual branches can have the name of the target, even though it's probably not going to work when pushing. \
-        The remotes of the local `refs/heads/main` are not shown",
-    );
-
-    Ok(())
-}
-
-#[test]
-fn one_branch_in_workspace_multiple_remotes() -> Result<()> {
-    init_env();
-    let ctx = project_ctx_without_ws3("one-vbranch-in-workspace-two-remotes")?;
-    let list = list_branches(&ctx, None)?;
-    assert_eq!(list.len(), 1, "a single virtual branch");
-
-    assert_equal(
-        &list[0],
-        ExpectedBranchListing {
-            identity: "main".into(),
-            remotes: vec!["other-remote"],
-            virtual_branch_given_name: Some("main"),
-            virtual_branch_in_workspace: true,
-            has_local: true,
-        },
-        "only the second remote is detected",
-    );
-    Ok(())
-}
-
 mod util {
     use anyhow::Result;
     use but_ctx::Context;
-    use but_settings::{AppSettings, app_settings::FeatureFlags};
     use gitbutler_branch::BranchIdentity;
     use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
 
@@ -222,17 +126,6 @@ mod util {
         gitbutler_testsupport::read_only::fixture("for-listing.sh", name)
     }
 
-    pub fn project_ctx_without_ws3(name: &str) -> Result<Context> {
-        gitbutler_testsupport::read_only::fixture_with_features(
-            "for-listing.sh",
-            name,
-            FeatureFlags {
-                ws3: false,
-                ..AppSettings::default().feature_flags
-            },
-        )
-    }
-
     pub fn list_branches(
         ctx: &Context,
         filter: Option<BranchListingFilter>,
@@ -243,5 +136,3 @@ mod util {
     }
 }
 pub use util::{ExpectedBranchListing, assert_equal, init_env, list_branches, project_ctx};
-
-use crate::virtual_branches::list::util::project_ctx_without_ws3;

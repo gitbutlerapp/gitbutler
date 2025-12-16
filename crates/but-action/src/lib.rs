@@ -223,22 +223,13 @@ fn default_target_setting_if_none(
 }
 
 fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
-    if ctx.settings().feature_flags.ws3 {
-        let meta = ref_metadata_toml(&ctx.legacy_project)?;
-        but_workspace::legacy::stacks_v3(
-            repo,
-            &meta,
-            but_workspace::legacy::StacksFilter::InWorkspace,
-            None,
-        )
-    } else {
-        but_workspace::legacy::stacks(
-            ctx,
-            &ctx.project_data_dir(),
-            repo,
-            but_workspace::legacy::StacksFilter::InWorkspace,
-        )
-    }
+    let meta = ref_metadata_toml(&ctx.legacy_project)?;
+    but_workspace::legacy::stacks_v3(
+        repo,
+        &meta,
+        but_workspace::legacy::StacksFilter::InWorkspace,
+        None,
+    )
 }
 
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
