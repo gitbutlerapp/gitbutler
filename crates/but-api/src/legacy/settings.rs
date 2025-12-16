@@ -4,7 +4,8 @@ use but_api_macros::but_api;
 use but_settings::{
     AppSettings, AppSettingsWithDiskSync,
     api::{
-        ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
+        CliUpdate, ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate,
+        UiUpdate,
     },
 };
 use serde::Deserialize;
@@ -119,4 +120,17 @@ pub fn update_ui(
     params: UpdateUiParams,
 ) -> Result<()> {
     app_settings_sync.update_ui(params.update)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCliParams {
+    pub update: CliUpdate,
+}
+
+pub fn update_cli(
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateCliParams,
+) -> Result<()> {
+    app_settings_sync.update_cli(params.update)
 }

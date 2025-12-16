@@ -34,5 +34,8 @@ export const MOCK_APP_SETTINGS: AppSettings = {
 	},
 	ui: {
 		useNativeTitleBar: false
+	},
+	cli: {
+		managedByPackageManager: false
 	}
 };

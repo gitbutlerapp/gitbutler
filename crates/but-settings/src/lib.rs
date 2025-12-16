@@ -24,6 +24,8 @@ pub struct AppSettings {
     pub reviews: app_settings::Reviews,
     /// UI settings.
     pub ui: app_settings::UiSettings,
+    /// CLI settings.
+    pub cli: app_settings::Cli,
 }
 
 impl Default for AppSettings {

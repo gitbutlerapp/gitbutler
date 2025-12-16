@@ -39,6 +39,8 @@
 	const backend = inject(BACKEND);
 	const platformName = backend.platformName;
 
+	const appSettings = settingsService.appSettings;
+
 	let saving = $state(false);
 	let newName = $state('');
 	let isDeleting = $state(false);
@@ -235,7 +237,10 @@
 		{/snippet}
 
 		{#snippet caption()}
-			{#if platformName === 'windows'}
+			{#if $appSettings?.cli.managedByPackageManager}
+				The <code>but</code> CLI is managed by your package manager. Please use your package manager to
+				install, update, or remove it.
+			{:else if platformName === 'windows'}
 				On Windows, you can manually copy the executable (<code>`but`</code>) to a directory in your
 				PATH. Click "Show Command" for instructions.
 			{:else}
@@ -245,29 +250,31 @@
 			{/if}
 		{/snippet}
 
-		<div class="flex flex-col gap-16">
-			<div class="flex gap-8 justify-end">
-				{#if platformName !== 'windows'}
+		{#if !$appSettings?.cli.managedByPackageManager}
+			<div class="flex flex-col gap-16">
+				<div class="flex gap-8 justify-end">
+					{#if platformName !== 'windows'}
+						<Button
+							style="pop"
+							icon="play"
+							onclick={async () => await instalCLI()}
+							loading={installingCLI.current.isLoading}
+						>
+							Install But CLI</Button
+						>
+					{/if}
 					<Button
-						style="pop"
-						icon="play"
-						onclick={async () => await instalCLI()}
-						loading={installingCLI.current.isLoading}
+						style="gray"
+						kind="outline"
+						disabled={showSymlink}
+						onclick={() => (showSymlink = !showSymlink)}>Show command</Button
 					>
-						Install But CLI</Button
-					>
-				{/if}
-				<Button
-					style="gray"
-					kind="outline"
-					disabled={showSymlink}
-					onclick={() => (showSymlink = !showSymlink)}>Show command</Button
-				>
+				</div>
 			</div>
-		</div>
 
-		{#if showSymlink}
-			<CliSymLink class="m-t-14" />
+			{#if showSymlink}
+				<CliSymLink class="m-t-14" />
+			{/if}
 		{/if}
 	</CardGroup.Item>
 </CardGroup>

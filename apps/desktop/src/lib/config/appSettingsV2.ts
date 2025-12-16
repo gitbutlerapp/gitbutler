@@ -90,6 +90,8 @@ export type AppSettings = {
 	reviews: Reviews;
 	/** UI settings */
 	ui: UiSettings;
+	/** CLI settings */
+	cli: Cli;
 };
 
 export type ForgeIntegrations = {
@@ -154,4 +156,7 @@ export type Reviews = {
 export type UiSettings = {
 	/** Whether to use the native system title bar. */
 	useNativeTitleBar: boolean;
+	/** Whether the `but` CLI is managed by a package manager.
+	    When true, the UI should show a specific message instead of installation options. */
+	cliIsManagedByPackageManager: false;
 };
