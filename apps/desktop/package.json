@@ -23,7 +23,7 @@
 		"cy:ci": "cypress run"
 	},
 	"devDependencies": {
-		"@anthropic-ai/sdk": "^0.59.0",
+		"@anthropic-ai/sdk": "^0.71.2",
 		"@gitbutler/core": "workspace:*",
 		"@gitbutler/design-core": "1.5.1",
 		"@gitbutler/shared": "workspace:*",
@@ -46,7 +46,7 @@
 		"@tauri-apps/plugin-store": "^2.3.0",
 		"@tauri-apps/plugin-updater": "^2.9.0",
 		"@testing-library/jest-dom": "^6.6.4",
-		"@testing-library/svelte": "5.2.5",
+		"@testing-library/svelte": "5.2.9",
 		"@testing-library/user-event": "^14.6.1",
 		"@types/diff-match-patch": "^1.0.36",
 		"@types/git-url-parse": "^9.0.3",
@@ -88,7 +88,7 @@
 		"@tauri-apps/plugin-clipboard-manager": "^2.3.0",
 		"@tauri-apps/plugin-deep-link": "~2.4.5",
 		"dayjs": "^1.11.13",
-		"ollama": "^0.5.16",
+		"ollama": "^0.6.3",
 		"openai": "^4.104.0",
 		"reconnecting-websocket": "^4.4.0",
 		"redux-persist": "^6.0.0",
