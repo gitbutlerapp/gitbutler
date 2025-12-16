@@ -224,6 +224,7 @@
 						{projectId}
 						bind:selectedOption={$selectedOption}
 						forgeUser={forgeUserQuery.response}
+						{baseBranch}
 					>
 						{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
 							{#if sidebarEntrySubject.type === 'branchListing'}
