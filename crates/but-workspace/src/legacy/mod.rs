@@ -16,8 +16,7 @@ pub use head::{
 pub mod tree_manipulation;
 // TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
 pub use stacks::{
-    local_and_remote_commits, stack_branches, stack_details, stack_details_v3, stack_heads_info,
-    stacks, stacks_v3,
+    local_and_remote_commits, stack_branches, stack_details_v3, stack_heads_info, stacks, stacks_v3,
 };
 pub use tree_manipulation::{
     MoveChangesResult,
