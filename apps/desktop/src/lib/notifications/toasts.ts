@@ -89,7 +89,7 @@ export function showError(title: string, error: unknown, extraAction?: ExtraActi
 			title: actualTitle,
 			message: description,
 			error: message,
-			style: 'error',
+			style: 'danger',
 			extraAction: actualExtraAction
 		});
 	}

@@ -54,7 +54,7 @@ function createChipToastStore() {
 	}
 
 	function error(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
-		return addChipToast(message, { type: 'error', ...options });
+		return addChipToast(message, { type: 'danger', ...options });
 	}
 
 	// Keep loading function for compatibility - just an alias for info

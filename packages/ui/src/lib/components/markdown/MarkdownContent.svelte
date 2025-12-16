@@ -52,10 +52,7 @@
 		{@const listItems = (rest as Extract).items}
 		<CurrentComponent {...rest}>
 			{#each listItems as item}
-				{@const ChildComponent = renderers[item.type]}
-				<ChildComponent {...item}>
-					<Self type="init" tokens={item.tokens} />
-				</ChildComponent>
+				<Self {...item} />
 			{/each}
 		</CurrentComponent>
 	{:else}

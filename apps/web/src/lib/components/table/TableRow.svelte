@@ -90,7 +90,7 @@
 									avatars={(value as { approvers: Array }).approvers}
 									maxAvatars={2}
 									icon="tick-small"
-									iconColor="success"
+									iconColor="safe"
 								/>
 								<AvatarGroup
 									avatars={(value as { rejectors: Array }).rejectors}
@@ -178,7 +178,7 @@
 										avatars={reviewers.approvers}
 										maxAvatars={2}
 										icon="tick-small"
-										iconColor="success"
+										iconColor="safe"
 									/>
 									<AvatarGroup
 										avatars={reviewers.rejectors}

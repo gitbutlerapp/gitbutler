@@ -55,10 +55,7 @@
 		{@const listItems = (rest as Extract).items}
 		<CurrentComponent {...rest}>
 			{#each listItems as item}
-				{@const ChildComponent = renderers[item.type]}
-				<ChildComponent {...item}>
-					<Self type="init" tokens={item.tokens} {mentions} />
-				</ChildComponent>
+				<Self {...item} {mentions} />
 			{/each}
 		</CurrentComponent>
 	{:else if type === 'text' && 'raw' in rest}

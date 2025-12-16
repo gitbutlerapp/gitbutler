@@ -75,7 +75,7 @@
 		}
 
 		if (checks) {
-			const style = checks.completed ? (checks.success ? 'success' : 'danger') : 'warning';
+			const style = checks.completed ? (checks.success ? 'safe' : 'danger') : 'warning';
 			const icon =
 				checks.completed && !loading
 					? checks.success

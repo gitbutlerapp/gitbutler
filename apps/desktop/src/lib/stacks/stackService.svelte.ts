@@ -105,7 +105,7 @@ Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetc
 on fetching and pushing for ways to resolve the problem.
 			`.trim(),
 				error: errorMessage,
-				style: 'error'
+				style: 'danger'
 			});
 
 			return true;
