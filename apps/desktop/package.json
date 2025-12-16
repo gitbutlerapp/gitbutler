@@ -25,7 +25,7 @@
 	"devDependencies": {
 		"@anthropic-ai/sdk": "^0.59.0",
 		"@gitbutler/core": "workspace:*",
-		"@gitbutler/design-core": "1.5.0",
+		"@gitbutler/design-core": "1.5.1",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/svelte-comment-injector": "workspace:*",
 		"@gitbutler/ui": "workspace:*",

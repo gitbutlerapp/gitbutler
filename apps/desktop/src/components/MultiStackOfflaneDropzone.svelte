@@ -83,7 +83,7 @@
 							<path
 								opacity="0.24"
 								d="M11.001 8C11.001 3.58172 14.5827 0 19.001 0L63.4681 0C67.8863 0 71.4681 3.58172 71.4681 8V61.5474C71.4681 65.9657 67.8863 69.5474 63.4681 69.5474L19.001 69.5474C14.5827 69.5474 11.001 65.9657 11.001 61.5474L11.001 8Z"
-								fill="var(--clr-art-spot-fill-2)"
+								fill="var(--clr-art-spot-fill)"
 							/>
 							<path
 								d="M41.5 11V39M58 25L25 25"
@@ -183,7 +183,7 @@
 			}
 
 			& .hidden-dropzone__svg__plus-list path:nth-child(2) {
-				fill: var(--clr-art-spot-fill-pop-1);
+				fill: var(--clr-art-spot-fill-pop);
 				opacity: 0.3;
 			}
 			& .hidden-dropzone__svg__plus-list path:nth-child(3) {
