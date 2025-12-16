@@ -19,6 +19,7 @@
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from '@gitbutler/ui';
 	import Fuse from 'fuse.js';
+	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import type { ForgeUser } from '$lib/forge/interface/types';
 	import type { Snippet } from 'svelte';
 
@@ -27,8 +28,15 @@
 		forgeUser: ForgeUser | undefined;
 		selectedOption: BranchFilterOption;
 		sidebarEntry: Snippet<[SidebarEntrySubject]>;
+		baseBranch?: BaseBranch;
 	};
-	let { projectId, forgeUser, selectedOption = $bindable(), sidebarEntry }: Props = $props();
+	let {
+		projectId,
+		forgeUser,
+		selectedOption = $bindable(),
+		sidebarEntry,
+		baseBranch
+	}: Props = $props();
 
 	const searchEngine = new Fuse([] as SidebarEntrySubject[], {
 		keys: [
@@ -135,6 +143,28 @@
 	const debounceSearchInput = debounce(() => {
 		searchTerm = searchEl!.value;
 	}, 250);
+
+	// Mapping for forge type to display name
+	const FORGE_NAME_MAP: Record<string, string> = {
+		github: 'GitHub',
+		gitlab: 'GitLab',
+		bitbucket: 'Bitbucket',
+		azure: 'Azure DevOps'
+	};
+
+	// Increased from 180 to accommodate longer contextual messages
+	const EMPTY_STATE_WIDTH = 280;
+
+	// Helper to get a user-friendly forge name
+	const forgeName = $derived(FORGE_NAME_MAP[forge.determinedForgeType] ?? 'your forge');
+
+	// Helper to determine if authentication message should be shown
+	// Show auth message when:
+	// 1. User is not authenticated, AND
+	// 2. Either viewing PRs filter OR forge has PR listing capability
+	const shouldShowAuthMessage = $derived(
+		!forge.current.authenticated && (selectedOption === 'pullRequest' || forge.current.listService)
+	);
 </script>
 
 {#snippet branchGroup(props: { title: string; children: SidebarEntrySubject[] })}
@@ -219,9 +249,28 @@
 		{/if}
 	{:else}
 		<div class="branches__empty-state">
-			<EmptyStatePlaceholder image={noBranchesSvg} width={180} bottomMargin={48}>
+			<EmptyStatePlaceholder image={noBranchesSvg} width={EMPTY_STATE_WIDTH} bottomMargin={48}>
+				{#snippet title()}
+					{#if selectedOption === 'local'}
+						No local branches found
+					{:else}
+						No branches or {forge.reviewUnitAbbr}s found
+					{/if}
+				{/snippet}
 				{#snippet caption()}
-					You have no branches
+					{#if selectedOption === 'pullRequest'}
+						No {forge.reviewUnitAbbr}s found {#if baseBranch}
+							from <strong>{baseBranch.remoteName}</strong>{/if}.
+					{:else if selectedOption === 'local'}
+						Create a new branch or fetch from your remote.
+					{:else if baseBranch}
+						Branches and {forge.reviewUnitAbbr}s from
+						<strong>{baseBranch.remoteName}/{baseBranch.shortName}</strong>
+						will appear here.
+					{/if}
+					{#if shouldShowAuthMessage}
+						Authenticate with {forgeName} to see {forge.reviewUnitAbbr}s.
+					{/if}
 				{/snippet}
 			</EmptyStatePlaceholder>
 		</div>
