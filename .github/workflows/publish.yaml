@@ -418,25 +418,8 @@ jobs:
         env:
           TAG_NAME: '${{ needs.build-tauri.outputs.channel }}/${{ needs.publish-tauri.outputs.version }}'
         run: |
-          function tag_exists() {
-            git tag --list | grep -q "^$1$"
-          }
-          function fetch_tag() {
-            git fetch origin "refs/tags/$1:refs/tags/$1"
-          }
-          function delete_tag() {
-            git push --delete origin "$1"
-          }
-          function create_tag() {
-            git tag --force "$1"
-            git push --tags
-          }
-
-          fetch_tag "$TAG_NAME" || true
-          if tag_exists "$TAG_NAME"; then
-            delete_tag "$TAG_NAME"
-          fi
-          create_tag "$TAG_NAME"
+          git tag "$TAG_NAME"
+          git push --tags
       - name: Trigger Sentry Cron - Complete
         if: ${{ github.event_name == 'schedule' }}
         shell: bash
