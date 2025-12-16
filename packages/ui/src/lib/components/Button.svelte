@@ -319,7 +319,7 @@
 			--theme-focus-color: var(--clr-theme-pop-element);
 		}
 
-		:where(&.success) {
+		:where(&.safe) {
 			--theme-outline-text: var(--clr-btn-safe-outline-text);
 			--theme-outline-bg: var(--clr-btn-safe-outline-bg);
 			--theme-outline-border: var(--clr-btn-safe-outline);
@@ -366,7 +366,7 @@
 			outline: 2px solid
 				color-mix(
 					in srgb,
-					var(--theme-focus-color) var(--theme-focus-mix-ratio, 60%),
+					var(--theme-focus-color) var(--theme-focus-mix-ratio, 50%),
 					var(--clr-text-1)
 				);
 			outline-offset: -2px;
