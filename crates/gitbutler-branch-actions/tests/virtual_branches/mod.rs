@@ -6,7 +6,6 @@ use but_settings::AppSettings;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 use gitbutler_project::{self as projects, Project, ProjectId};
-use gitbutler_reference::Refname;
 use gitbutler_testsupport::{TestProject, VAR_NO_CLEANUP, paths};
 use tempfile::TempDir;
 

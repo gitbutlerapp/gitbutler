@@ -227,7 +227,6 @@ mod util {
             "for-listing.sh",
             name,
             FeatureFlags {
-                ws3: false,
                 ..AppSettings::default().feature_flags
             },
         )

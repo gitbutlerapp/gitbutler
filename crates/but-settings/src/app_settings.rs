@@ -23,8 +23,6 @@ pub struct GitHubOAuthAppSettings {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureFlags {
-    /// Enable the usage of V3 workspace APIs.
-    pub ws3: bool,
     /// Turn on the set a v3 version of checkout
     pub cv3: bool,
     /// Use the V3 version of apply and unapply.

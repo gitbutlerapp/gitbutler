@@ -17,7 +17,6 @@ pub struct TelemetryUpdate {
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
     pub cv3: Option<bool>,
-    pub ws3: Option<bool>,
     pub apply3: Option<bool>,
     pub rules: Option<bool>,
     pub single_branch: Option<bool>,
@@ -88,7 +87,6 @@ impl AppSettingsWithDiskSync {
         &self,
         FeatureFlagsUpdate {
             cv3,
-            ws3,
             apply3,
             rules,
             single_branch,
@@ -97,9 +95,6 @@ impl AppSettingsWithDiskSync {
         let mut settings = self.get_mut_enforce_save()?;
         if let Some(cv3) = cv3 {
             settings.feature_flags.cv3 = cv3;
-        }
-        if let Some(ws3) = ws3 {
-            settings.feature_flags.ws3 = ws3;
         }
         if let Some(apply3) = apply3 {
             settings.feature_flags.apply3 = apply3;
