@@ -95,5 +95,5 @@ pub struct UiSettings {
     /// When true, the UI should show a specific message instead of installation options.
     pub cli_is_managed_by_package_manager: bool,
     /// The duration between two update checks in seconds. If `0`, no update checks will be performed.
-    pub check_for_updates_interval_in_seconds: usize,
+    pub check_for_updates_interval_in_seconds: u64,
 }

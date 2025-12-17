@@ -95,7 +95,7 @@ windows = []
 devtools = ["tauri/devtools"]
 ## Disable the auto-updater in the frontend.
 ##
-## Note that it will still be compiled in and is allowed, so the capability remains.
+## Note that it will still be compiled into the backend, so the technical capability of auto-updates remains.
 disable-auto-updates = []
 
 #! ## Development
