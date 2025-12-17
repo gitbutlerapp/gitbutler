@@ -206,7 +206,7 @@
 	.info {
 		border: 0 solid var(--clr-border-2);
 	}
-	.error {
+	.danger {
 		border: 0 solid var(--clr-theme-danger-element);
 	}
 	.warning {
