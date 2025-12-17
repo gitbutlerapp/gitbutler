@@ -1,0 +1,30 @@
+[package]
+name = "gitbutler-operating-modes"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+
+[lib]
+doctest = false
+
+[dependencies]
+but-serde = { workspace = true, features = ["legacy"] }
+but-workspace = { workspace = true, features = ["legacy"] }
+but-core.workspace = true
+but-fs.workspace = true
+but-ctx.workspace = true
+
+gitbutler-stack.workspace = true
+
+serde.workspace = true
+tracing.workspace = true
+git2.workspace = true
+anyhow.workspace = true
+toml.workspace = true
+bstr.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true

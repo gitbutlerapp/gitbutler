@@ -1,0 +1,286 @@
+name: 'Test'
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+env:
+  RUST_BACKTRACE: full
+  RUSTUP_TOOLCHAIN: stable
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      node: ${{ steps.filter.outputs.node }}
+      rust: ${{ steps.filter.outputs.rust }}
+      ui: ${{ steps.filter.outputs.ui }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            workflows: &workflows
+              - '.github/workflows/**'
+              - '.github/actions/**'
+            docs:
+              - '**/*.md'
+            node:
+              - *workflows
+              - 'apps/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+            ui:
+              - 'packages/ui/**'
+            common-rust: &rust
+              - *workflows
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+            rust: &any-rust
+              - *rust
+              - 'crates/**'
+
+  prettier:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'false' &&  needs.changes.outputs.docs == 'true'}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm prettier
+
+  lint-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm lint
+
+  check-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm check
+
+  unittest-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm test
+
+  rust-lint:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
+        with:
+          shared-key: lint
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - run: cargo fmt --check --all
+      - run: cargo check --workspace --all-targets
+      - name: cargo clippy
+        run: |
+          rustup component add clippy
+          cargo clippy --workspace --all-targets -- -D warnings
+
+  cargo-deny:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@f2ba7abc2abebaf185c833c3961145a3c275caad # v2.0.13
+        with:
+          command: check bans licenses sources
+
+  rust-test:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
+        with:
+          shared-key: cargo-test-no-tauri
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Dependencies for 'keyring'
+        run: |
+          sudo apt update
+          sudo apt install -y libdbus-1-dev pkg-config
+      - run: |
+          cargo test --workspace --exclude gitbutler-tauri
+        env:
+          GITBUTLER_TESTS_NO_CLEANUP: '1'
+        name: cargo test
+
+  rust-test-tauri:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
+        with:
+          shared-key: cargo-test-tauri
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - run: |
+          set -e
+          cargo check -p gitbutler-tauri --no-default-features
+          for feature in devtools custom-protocol error-context; do
+            cargo check -p gitbutler-tauri --no-default-features --features "$feature"
+          done
+        name: Test Tauri and Check Tauri App Features
+
+  check-rust-windows:
+    needs: changes
+    runs-on: windows-latest
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
+        with:
+          shared-key: cargo-test
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: 'cargo check'
+        run: cargo check --workspace --all-targets --features windows
+
+  check-rust:
+    if: always()
+    needs:
+      - changes
+      - check-rust-windows
+      - rust-test
+      - rust-test-tauri
+      - rust-lint
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          allowed-skips: ${{ toJSON(needs) }}
+          jobs: ${{ toJSON(needs) }}
+
+  # Check that all `actions/checkout` in CI jobs have `persist-credentials: false`.
+  check-no-persist-credentials:
+    runs-on: ubuntu-latest
+
+    env:
+      GLOB: .github/workflows/*.@(yaml|yml)
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: '.github/workflows'
+      - name: Generate workflows list to scan
+        run: |
+          shopt -s extglob
+          printf '%s\n' ${{ env.GLOB }} | grep -v .github/workflows/publish.yaml >workflows.list
+          cat workflows.list
+          echo "Note that publish.yaml is excluded until it's ensured to not need this feature"
+      - name: Scan workflows
+        run: |
+          shopt -s extglob
+          yq '.jobs.*.steps[]
+            | select(.uses == "actions/checkout@*" and .with.["persist-credentials"]? != false)
+            | {"file": filename, "line": line, "name": (.name // .uses)}
+            | .file + ":" + (.line | tostring) + ": " + .name
+          ' -- $(cat workflows.list) >query-output.txt
+          cat query-output.txt
+          test -z "$(<query-output.txt)"  # Report failure if we found anything
+  test-ui:
+    needs: changes
+    if: ${{ needs.changes.outputs.ui == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/init-env-node
+      - id: get_playwright_version
+        uses: eviden-actions/get-playwright-version@v1
+      - name: cache playwright binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ct-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
+      - run: cd packages/ui && pnpm exec playwright install --with-deps
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+      - name: run playwright tests
+        run: pnpm exec turbo run test:ct
+        if: ${{ github.ref != 'refs/heads/master' }}
+      - uses: actions/upload-artifact@v5
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            ./packages/ui/playwright-report/
+            ./packages/ui/test-results/
+          retention-days: 30

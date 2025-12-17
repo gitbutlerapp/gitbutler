@@ -1,0 +1,37 @@
+[package]
+name = "gitbutler-oplog"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+
+[lib]
+doctest = false
+
+[dependencies]
+but-meta.workspace = true
+but-serde = { workspace = true, features = ["legacy"]}
+but-core.workspace = true
+but-oxidize.workspace = true
+but-fs.workspace = true
+but-ctx = { workspace = true }
+
+gitbutler-branch.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-cherry-pick.workspace = true
+
+anyhow.workspace = true
+git2.workspace = true
+serde.workspace = true
+itertools.workspace = true
+strum = { version = "0.27", features = ["derive"] }
+tracing.workspace = true
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
+toml.workspace = true
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+tempfile.workspace = true

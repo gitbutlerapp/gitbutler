@@ -1,0 +1,328 @@
+<script lang="ts">
+	import { focusable } from '$lib/focus/focusable';
+	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
+	import { standardConfig } from '$lib/richText/config/config';
+	import { standardTheme } from '$lib/richText/config/theme';
+	import { INLINE_CODE_TRANSFORMER } from '$lib/richText/customTransforers';
+	// import CodeBlockTypeAhead from '$lib/richText/plugins/CodeBlockTypeAhead.svelte';
+	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
+	import IndentPlugin from '$lib/richText/plugins/IndentPlugin.svelte';
+	import PlainTextPastePlugin from '$lib/richText/plugins/PlainTextPastePlugin.svelte';
+	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
+	import OnInput, { type OnInputCallback } from '$lib/richText/plugins/onInput.svelte';
+	import { insertTextAtCaret, setEditorText } from '$lib/richText/selection';
+	import { exportPlaintext } from '$lib/richText/utils/export';
+	import {
+		COMMAND_PRIORITY_CRITICAL,
+		$getRoot as getRoot,
+		$isParagraphNode as isParagraphNode,
+		KEY_DOWN_COMMAND,
+		FOCUS_COMMAND,
+		BLUR_COMMAND,
+		type SerializedEditorState
+	} from 'lexical';
+	import { type Snippet } from 'svelte';
+	import {
+		Composer,
+		ContentEditable,
+		RichTextPlugin,
+		AutoFocusPlugin,
+		PlaceHolder,
+		MarkdownShortcutPlugin,
+		HistoryPlugin
+	} from 'svelte-lexical';
+
+	interface Props {
+		namespace: string;
+		onError: (error: unknown) => void;
+		styleContext: 'client-editor' | 'chat-input';
+		plugins?: Snippet;
+		placeholder?: string;
+		minHeight?: string;
+		maxHeight?: string;
+		value?: string;
+		onFocus?: () => void;
+		onBlur?: () => void;
+		onChange?: OnChangeCallback;
+		onInput?: OnInputCallback;
+		onKeyDown?: (event: KeyboardEvent | null) => boolean;
+		initialText?: string;
+		disabled?: boolean;
+		useMonospaceFont?: boolean;
+		monospaceFont?: string;
+		tabSize?: number;
+		enableLigatures?: boolean;
+		autoFocus?: boolean;
+	}
+
+	let {
+		disabled,
+		namespace,
+		onError,
+		minHeight,
+		maxHeight,
+		styleContext,
+		plugins,
+		placeholder,
+		value = $bindable(),
+		onFocus,
+		onBlur,
+		onChange,
+		onInput,
+		onKeyDown,
+		initialText,
+		useMonospaceFont,
+		monospaceFont,
+		tabSize,
+		enableLigatures,
+		autoFocus = true
+	}: Props = $props();
+
+	/** Standard configuration for our commit message editor. */
+	const initialConfig = $derived(
+		standardConfig({
+			namespace,
+			theme: standardTheme,
+			onError
+		})
+	);
+
+	/**
+	 * Instance of the lexical composer, used for manipulating the contents of the editor
+	 * programmatically.
+	 */
+	let composer = $state<ReturnType<typeof Composer>>();
+	let editorDiv: HTMLDivElement | undefined = $state();
+	let emojiPlugin = $state<ReturnType<typeof EmojiPlugin>>();
+
+	const isDisabled = $derived(disabled ?? false);
+
+	$effect(() => {
+		if (composer) {
+			const editor = composer.getEditor();
+			if (isDisabled && editor.isEditable()) {
+				editor.setEditable(false);
+			} else if (!isDisabled && !editor.isEditable()) {
+				editor.setEditable(true);
+			}
+		}
+	});
+
+	$effect(() => {
+		if (composer) {
+			const editor = composer.getEditor();
+			const unregisterKeyDown = editor.registerCommand<KeyboardEvent | null>(
+				KEY_DOWN_COMMAND,
+				(e) => {
+					if (emojiPlugin?.isBusy()) {
+						return false;
+					}
+					return onKeyDown?.(e) ?? false;
+				},
+				COMMAND_PRIORITY_CRITICAL
+			);
+			const unregisterFocus = editor.registerCommand(
+				FOCUS_COMMAND,
+				() => {
+					onFocus?.();
+					return false;
+				},
+				COMMAND_PRIORITY_CRITICAL
+			);
+			const unregisterBlur = editor.registerCommand(
+				BLUR_COMMAND,
+				() => {
+					onBlur?.();
+					return false;
+				},
+				COMMAND_PRIORITY_CRITICAL
+			);
+
+			return () => {
+				unregisterKeyDown();
+				unregisterFocus();
+				unregisterBlur();
+			};
+		}
+	});
+
+	// Initial text is available asynchronously so we need to be able to
+	// insert initial text after first render.
+	$effect(() => {
+		updateInitialtext(initialText);
+	});
+
+	async function updateInitialtext(initialText: string | undefined) {
+		if (!composer) return;
+
+		// Set initial text if provided and editor is empty
+		if (initialText) {
+			const currentText = await getPlaintext();
+			if (currentText?.trim() === '') {
+				setText(initialText);
+			}
+		}
+	}
+
+	export function getPlaintext(): Promise<string | undefined> {
+		return new Promise((resolve) => {
+			if (!composer) {
+				resolve(undefined);
+				return;
+			}
+			const editor = composer.getEditor();
+			editor.read(() => {
+				// Using `root.getTextContent()` adds extra blank lines between paragraphs, since
+				// normally paragraphs have a bottom margin (that we removed).
+				resolve(exportPlaintext(getRoot()));
+			});
+		});
+	}
+
+	export function getParagraphCount(): Promise<number> {
+		return new Promise((resolve) => {
+			if (!composer) {
+				resolve(0);
+				return;
+			}
+			const editor = composer.getEditor();
+			editor.read(() => {
+				const root = getRoot();
+				const count = root.getChildren().filter(isParagraphNode).length;
+				resolve(count);
+			});
+		});
+	}
+
+	export function clear() {
+		if (!composer) {
+			return;
+		}
+		const editor = composer.getEditor();
+		editor.update(() => {
+			const root = getRoot();
+			root.clear();
+		});
+	}
+
+	export function focus() {
+		if (!composer) {
+			return;
+		}
+		const editor = composer.getEditor();
+		// We should be able to use `editor.focus()` here, but for some reason
+		// it only works after the input has already been focused.
+		const rootElement = editor.getRootElement();
+		rootElement?.focus();
+	}
+
+	export function wrapAll() {
+		const editor = composer?.getEditor();
+		if (editor) {
+			editor.dispatchCommand(WRAP_ALL_COMMAND, undefined);
+		}
+	}
+
+	export function insertText(text: string) {
+		if (!composer) {
+			return;
+		}
+		focus();
+		const editor = composer.getEditor();
+		insertTextAtCaret(editor, text);
+	}
+
+	export function setText(text: string) {
+		if (!composer) return;
+		const editor = composer.getEditor();
+		setEditorText(editor, text);
+	}
+
+	export function save() {
+		return composer?.getEditor().getEditorState().toJSON();
+	}
+
+	export function load(state: SerializedEditorState) {
+		const editor = composer?.getEditor();
+		const editorState = editor?.parseEditorState(state);
+		if (editorState) {
+			editor?.setEditorState(editorState);
+		}
+	}
+</script>
+
+<Composer {initialConfig} bind:this={composer}>
+	<div
+		class="lexical-container lexical-{styleContext} scrollbar"
+		bind:this={editorDiv}
+		use:focusable={{ button: true }}
+		class:disabled={isDisabled}
+		style:min-height={minHeight}
+		style:max-height={maxHeight}
+		style:--code-block-font={useMonospaceFont && monospaceFont
+			? monospaceFont
+			: 'var(--font-default)'}
+		style:--code-block-tab-size={useMonospaceFont && tabSize ? tabSize : 4}
+		style:--code-block-ligatures={useMonospaceFont && enableLigatures
+			? 'common-ligatures'
+			: 'normal'}
+		style:--lexical-input-client-text-wrap={useMonospaceFont ? 'nowrap' : 'normal'}
+	>
+		<div class="editor">
+			<ContentEditable />
+			{#if placeholder}
+				<PlaceHolder>{placeholder}</PlaceHolder>
+			{/if}
+		</div>
+
+		<EmojiPlugin bind:this={emojiPlugin} />
+
+		<OnChangePlugin
+			onChange={(newValue, changeUpToAnchor, textAfterAnchor) => {
+				value = newValue;
+				onChange?.(newValue, changeUpToAnchor, textAfterAnchor);
+			}}
+		/>
+
+		{#if onInput}
+			<OnInput {onInput} />
+		{/if}
+
+		<RichTextPlugin />
+		<IndentPlugin />
+		<PlainTextPastePlugin />
+		<MarkdownShortcutPlugin transformers={[INLINE_CODE_TRANSFORMER]} />
+
+		{#if autoFocus}
+			<AutoFocusPlugin />
+		{/if}
+		<HistoryPlugin />
+
+		{#if plugins}
+			{@render plugins()}
+		{/if}
+	</div>
+</Composer>
+
+<style lang="postcss">
+	.lexical-container {
+		display: block;
+		z-index: 0;
+		position: relative;
+		flex-grow: 1;
+		overflow: auto;
+		background-color: var(--clr-bg-1);
+	}
+
+	.editor {
+		z-index: -1;
+		position: relative;
+		flex: auto;
+		resize: vertical;
+	}
+
+	.disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+</style>

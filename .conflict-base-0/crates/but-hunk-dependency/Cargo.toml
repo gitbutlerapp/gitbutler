@@ -1,0 +1,37 @@
+[package]
+name = "but-hunk-dependency"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+
+[lib]
+doctest = false
+
+[dependencies]
+but-core.workspace = true
+but-workspace = { workspace = true, features = ["legacy"] }
+but-serde.workspace = true
+but-oxidize.workspace = true
+but-ctx.workspace = true
+
+gitbutler-repo.workspace = true
+# For `ui` module
+gitbutler-stack.workspace = true
+# TODO: remove once not needed anymore
+git2.workspace = true
+
+anyhow.workspace = true
+itertools.workspace = true
+serde.workspace = true
+gix = { workspace = true, features = [] }
+
+[dev-dependencies]
+but-oxidize.workspace = true
+
+gitbutler-testsupport.workspace = true
+
+gix-testtools.workspace = true
+insta.workspace = true
+serde_json.workspace = true

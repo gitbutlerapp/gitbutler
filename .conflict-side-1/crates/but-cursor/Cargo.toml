@@ -1,0 +1,29 @@
+[package]
+name = "but-cursor"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+
+[lib]
+doctest = false
+
+[dependencies]
+but-workspace = {workspace = true, features = ["legacy"] }
+but-claude.workspace = true # Move out get_or_create_session and remove this dependency
+but-meta = { workspace = true, features = ["legacy"] }
+but-action.workspace = true
+but-hunk-assignment.workspace = true
+but-core.workspace = true
+but-ctx.workspace = true
+
+gitbutler-project.workspace = true
+gitbutler-stack.workspace = true
+
+anyhow.workspace = true
+serde.workspace = true
+md5.workspace = true
+diesel = { version = "2.3.4", features = ["sqlite"] }
+serde_json.workspace = true
+gix = { workspace = true, features = [] }

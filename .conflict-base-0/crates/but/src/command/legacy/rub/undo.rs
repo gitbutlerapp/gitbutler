@@ -1,0 +1,38 @@
+use but_core::ref_metadata::StackId;
+use but_ctx::Context;
+use but_oxidize::ObjectIdExt;
+use colored::Colorize;
+use gix::ObjectId;
+
+use crate::utils::OutputChannel;
+
+pub(crate) fn commit(
+    ctx: &mut Context,
+    oid: &ObjectId,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, oid.to_git2())?;
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Uncommitted {}", oid.to_string()[..7].blue())?;
+    }
+    Ok(())
+}
+
+pub(crate) fn stack_id_by_commit_id(ctx: &Context, oid: &ObjectId) -> anyhow::Result<StackId> {
+    let stacks = crate::legacy::commits::stacks(ctx)?
+        .iter()
+        .filter_map(|s| {
+            s.id.map(|id| crate::legacy::commits::stack_details(ctx, id).map(|d| (id, d)))
+        })
+        .filter_map(Result::ok)
+        .collect::<Vec<_>>();
+    if let Some((id, _)) = stacks.iter().find(|(_, stack)| {
+        stack
+            .branch_details
+            .iter()
+            .any(|branch| branch.commits.iter().any(|commit| commit.id == *oid))
+    }) {
+        return Ok(*id);
+    }
+    anyhow::bail!("No stack found for commit {}", oid)
+}

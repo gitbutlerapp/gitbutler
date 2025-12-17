@@ -1,0 +1,97 @@
+<script lang="ts">
+	import { ButPcAvatar, type faceType } from '@gitbutler/ui';
+	import type { Snippet } from 'svelte';
+
+	type Props = {
+		children?: Snippet;
+		style: 'neutral' | 'pop' | 'error';
+		face: faceType;
+		extraContent?: Snippet;
+	};
+
+	const { children, style, face, extraContent }: Props = $props();
+</script>
+
+<div class="service-message__wrapper">
+	<div class="service-message">
+		<ButPcAvatar mode={face} />
+
+		<div class="service-message__content">
+			{#if children}
+				<div
+					class="service-message__bubble service-message__bubble--{style} service-message__bubble--animate"
+					class:service-message__bubble--wiggle={face === 'waiting'}
+				>
+					{@render children()}
+				</div>
+			{/if}
+
+			{#if extraContent}
+				{@render extraContent()}
+			{/if}
+		</div>
+	</div>
+</div>
+
+<style lang="postcss">
+	.service-message__wrapper {
+		display: flex;
+		width: 100%;
+		padding: 8px 0 16px 0;
+	}
+	.service-message {
+		display: flex;
+		align-items: flex-end;
+		width: 100%;
+		gap: 14px;
+	}
+	.service-message__content {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		gap: 10px;
+	}
+	.service-message__bubble {
+		display: flex;
+		width: fit-content;
+		max-width: var(--message-max-width);
+		padding: 10px 12px;
+		border-radius: var(--radius-ml);
+		border-bottom-left-radius: 0;
+		background-color: var(--clr-bg-2);
+		color: var(--clr-text-2);
+	}
+
+	.service-message__bubble--error {
+		background-color: var(--clr-theme-err-soft);
+		color: var(--clr-theme-err-on-soft);
+	}
+
+	.service-message__bubble--pop {
+		background-color: var(--clr-theme-pop-soft);
+		color: var(--clr-text-1);
+	}
+
+	.service-message__bubble--animate {
+		animation: popIn 0.2s cubic-bezier(0.215, 0.61, 0.355, 1) 0.1s both;
+	}
+
+	.service-message__bubble--wiggle {
+		animation:
+			popIn 0.2s cubic-bezier(0.215, 0.61, 0.355, 1) 0.1s both,
+			row-wiggle 5s ease-in-out infinite;
+	}
+
+	@keyframes popIn {
+		0% {
+			transform: scale(0.2) translateY(15px) rotate(-8deg);
+			transform-origin: left bottom;
+			opacity: 0;
+		}
+		100% {
+			transform: scale(1) translateY(0px) rotate(0deg);
+			transform-origin: left bottom;
+			opacity: 1;
+		}
+	}
+</style>

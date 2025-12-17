@@ -1,0 +1,3 @@
+ancestorEntries = []
+ourEntries = ["crates/but-rebase/src/graph_rebase/commit.rs", "crates/but-workspace/src/commit/mod.rs", "crates/but-workspace/tests/workspace/commit/mod.rs"]
+theirEntries = ["crates/but-rebase/src/graph_rebase/commit.rs", "crates/but-workspace/src/commit/mod.rs", "crates/but-workspace/tests/workspace/commit/mod.rs"]

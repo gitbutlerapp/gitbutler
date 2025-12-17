@@ -1,0 +1,31 @@
+{
+	"productName": "GitButler",
+	"identifier": "com.gitbutler.app",
+	"build": {
+		"beforeBuildCommand": "bash ./crates/gitbutler-tauri/tauri-before-build-command.sh production"
+	},
+	"bundle": {
+		"active": true,
+		"icon": [
+			"icons/release/32x32.png",
+			"icons/release/128x128.png",
+			"icons/release/128x128@2x.png",
+			"icons/release/icon.icns",
+			"icons/release/icon.ico"
+		],
+		"externalBin": ["to be replaced by `release.sh`"]
+	},
+	"plugins": {
+		"updater": {
+			"endpoints": [
+				"https://app.gitbutler.com/releases/release/{{target}}-{{arch}}/{{current_version}}"
+			],
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYwNTc2RDhBM0U0MjM4RUIKUldUck9FSStpbTFYWUE5UkJ3eXhuekZOL2V2RnpKaFUxbGJRNzBMVmF5V0gzV1JvN3hRblJMRDIK"
+		},
+		"deep-link": {
+      "desktop": {
+        "schemes": ["but"]
+      }
+    }
+	}
+}

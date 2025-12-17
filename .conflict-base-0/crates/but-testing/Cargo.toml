@@ -1,0 +1,47 @@
+[package]
+name = "but-testing"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+
+[[bin]]
+name = "but-testing"
+path = "src/main.rs"
+doctest = false
+
+[features]
+# To help produce stable commits in test-cases.
+testing = ["dep:gitbutler-commit"]
+
+[dependencies]
+but-settings.workspace = true
+but-core.workspace = true
+but-db.workspace = true
+but-workspace = {workspace = true, features = ["legacy"]}
+but-graph.workspace = true
+but-hunk-dependency.workspace = true
+but-hunk-assignment.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
+but-ctx = { workspace = true, features = ["legacy"] }
+
+gitbutler-stack.workspace = true
+gitbutler-project.workspace = true
+gitbutler-filemonitor.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-operating-modes.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
+
+clap = { workspace = true, features = ["env"] }
+gix.workspace = true
+anyhow.workspace = true
+itertools.workspace = true
+tracing-forest.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
+dirs-next = "2.0.0"
+serde_json.workspace = true
+tokio.workspace = true
