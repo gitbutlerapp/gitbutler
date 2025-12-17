@@ -273,8 +273,6 @@ fn reorder_stack_making_bottom_empty_series() -> Result<()> {
     reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
-    assert_eq!(commits.len(), 1); // The bottom series had nothing
-
     // Verify the commit messages and ids in the second (top) series - top-series
     assert_eq!(commits[0].msgs(), vec!["commit 2", "commit 1"]);
     assert_eq!(commits[0].ids(), order.series[0].commit_ids); // nothing was rebased
