@@ -1,3 +1,9 @@
+//! # Feature Flags
+#![cfg_attr(
+    not(feature = "document-features"),
+    doc = "Activate the `document-features` cargo feature to see feature docs here"
+)]
+#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 #![cfg_attr(
     all(windows, not(test), not(debug_assertions)),
     windows_subsystem = "windows"
