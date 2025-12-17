@@ -607,6 +607,9 @@ async fn handle_command(
             }
         }
 
+        // New graph based rebasing functions
+        "commit_reword" => commit::commit_reword_cmd(request.params),
+
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };
 

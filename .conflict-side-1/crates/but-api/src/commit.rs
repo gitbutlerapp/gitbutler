@@ -3,12 +3,12 @@ use but_api_macros::but_api;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use tracing::instrument;
 
-/// Rewords a commit, but without updating the oplog.
+/// Rewords a commit
 ///
 /// Returns the ID of the newly renamed commit
 #[but_api]
 #[instrument(err(Debug))]
-pub fn reword_commit_only(
+pub fn commit_reword_only(
     ctx: &but_ctx::Context,
     commit_id: gix::ObjectId,
     message: BString,
@@ -19,12 +19,12 @@ pub fn reword_commit_only(
     but_workspace::commit::reword(&graph, &repo, commit_id, message.as_bstr())
 }
 
-/// Rewords a commit.
+/// Rewords a commit, but without updating the oplog.
 ///
 /// Returns the ID of the newly renamed commit
 #[but_api]
 #[instrument(err(Debug))]
-pub fn reword_commit(
+pub fn commit_reword(
     ctx: &but_ctx::Context,
     commit_id: gix::ObjectId,
     message: BString,
