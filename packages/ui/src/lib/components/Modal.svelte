@@ -2,7 +2,7 @@
 	type T = any | unknown | undefined;
 
 	export type ModalSize = 'medium' | 'large' | 'small' | 'xsmall' | number;
-	export type ModalType = 'info' | 'warning' | 'error' | 'success';
+	export type ModalType = 'info' | 'warning' | 'danger' | 'success';
 
 	export type ModalProps = {
 		width?: ModalSize;

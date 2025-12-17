@@ -30,7 +30,6 @@
 			height: 520px;
 			transform: translate(-50%, -50%);
 			border-radius: 100%;
-			background-color: red;
 			background: radial-gradient(var(--clr-bg-2) 10%, oklch(from var(--clr-bg-2) l c h / 0) 50%);
 			content: '';
 			transition: opacity 0.1s;

@@ -69,7 +69,7 @@
 <div class="commit-failed__wrapper">
 	<ModalHeader
 		sticky={!isScrollTopVisible}
-		type={data.newCommitId ? 'warning' : 'error'}
+		type={data.newCommitId ? 'warning' : 'danger'}
 		closeButton
 		{oncloseclick}
 		closeButtonTestId={TestId.GlobalModalActionButton}
