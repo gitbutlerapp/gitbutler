@@ -53,6 +53,7 @@ pub struct FetchUpdate {
 /// Update request for [`crate::app_settings::UiSettings`].
 pub struct UiUpdate {
     pub use_native_title_bar: Option<bool>,
+    // Note that the CLI related information cannot be set - it's set at compile time.
 }
 
 /// Mutation, immediately followed by writing everything to disk.

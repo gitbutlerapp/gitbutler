@@ -128,7 +128,7 @@ impl Mcp {
 
         let repo_path = PathBuf::from(request.current_working_directory.clone());
         let project = Project::from_path(&repo_path).expect("Failed to create project from path");
-        let settings = AppSettings::load_from_default_path_creating()
+        let settings = AppSettings::load_from_default_path_creating_without_customization()
             .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
         let ctx = &mut Context::new_from_legacy_project_and_settings(&project, settings);
 

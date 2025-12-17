@@ -63,8 +63,8 @@ pub async fn run() {
         active_projects: Arc::new(Mutex::new(ActiveProjects::new())),
         archival,
     };
-    let app_settings =
-        AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
+    let app_settings = AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), None)
+        .expect("failed to create app settings");
 
     let app = Claude {
         broadcaster: broadcaster.clone(),
@@ -200,7 +200,7 @@ async fn handle_command(
         "canned_branch_name" => legacy::workspace::canned_branch_name_cmd(request.params),
         "target_commits" => legacy::workspace::target_commits_cmd(request.params),
         // App settings
-        "get_app_settings" => legacy::settings::get_app_settings_cmd(request.params),
+        "get_app_settings" => Ok(to_json_or_panic(app_settings_sync.get()?.clone())),
         "update_onboarding_complete" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_onboarding_complete(&app_settings_sync, params)
                 .map(|r| json!(r))

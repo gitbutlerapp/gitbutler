@@ -38,7 +38,7 @@ impl Context {
     ) -> anyhow::Result<Self> {
         let gitdir = legacy_project.git_dir().to_owned();
         Ok(Context {
-            settings: AppSettings::load_from_default_path_creating()?,
+            settings: AppSettings::load_from_default_path_creating_without_customization()?,
             gitdir: gitdir.clone(),
             legacy_project,
             repo: new_ondemand_repo(gitdir.clone()),
@@ -53,7 +53,7 @@ impl Context {
         let legacy_project = gitbutler_project::get(project_id)?;
         let gitdir = legacy_project.git_dir().to_owned();
         Ok(Context {
-            settings: AppSettings::load_from_default_path_creating()?,
+            settings: AppSettings::load_from_default_path_creating_without_customization()?,
             gitdir: gitdir.clone(),
             legacy_project,
             repo: new_ondemand_repo(gitdir.clone()),

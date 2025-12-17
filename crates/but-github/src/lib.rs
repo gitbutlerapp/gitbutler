@@ -19,7 +19,7 @@ pub struct Verification {
 
 pub async fn init_device_oauth() -> Result<Verification> {
     let mut req_body = HashMap::new();
-    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let client_id = app_settings.github_oauth_app.oauth_client_id.clone();
     req_body.insert("client_id", client_id.as_str());
     req_body.insert("scope", "repo");
@@ -66,7 +66,7 @@ pub async fn check_auth_status(
     }
 
     let mut req_body = HashMap::new();
-    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let client_id = app_settings.github_oauth_app.oauth_client_id.clone();
     req_body.insert("client_id", client_id.as_str());
     req_body.insert("device_code", device_code.as_str());

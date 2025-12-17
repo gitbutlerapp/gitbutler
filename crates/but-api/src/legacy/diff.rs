@@ -25,7 +25,7 @@ pub fn tree_change_diffs(
 ) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
     let change: but_core::TreeChange = change.into();
     let project = gitbutler_project::get(project_id)?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let repo = project.open_repo()?;
     change.unified_patch(&repo, app_settings.context_lines)
 }

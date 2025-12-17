@@ -408,9 +408,10 @@ impl Sandbox {
             },
             ui: UiSettings {
                 use_native_title_bar: false,
+                cli_is_managed_by_package_manager: false,
             },
         };
-        settings.save(&self.app_data_dir().join("gitbutler/settings.json"))
+        settings.save(&self.app_data_dir().join("gitbutler/settings.json"), None)
     }
 }
 

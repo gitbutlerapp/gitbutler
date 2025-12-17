@@ -19,7 +19,7 @@ pub fn apply(
 ) -> anyhow::Result<()> {
     let ctx = &mut Context::new_from_legacy_project_and_settings(
         legacy_project,
-        AppSettings::load_from_default_path_creating()?,
+        AppSettings::load_from_default_path_creating_without_customization()?,
     );
     let repo = ctx.repo.get()?;
 

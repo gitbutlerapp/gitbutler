@@ -46,8 +46,11 @@ fn main() -> anyhow::Result<()> {
 
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
+    let custom_settings = cfg!(feature = "packaged-but-distribution")
+        .then_some(but_settings::customization::packaged_but_binary());
     let mut app_settings =
-        AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
+        AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), custom_settings)
+            .expect("failed to create app settings");
 
     if let Ok(updated_csp) = csp_with_extras(
         tauri_context.config().app.security.csp.as_ref().cloned(),
@@ -314,7 +317,6 @@ fn main() -> anyhow::Result<()> {
                 legacy::forge::tauri_determine_forge_from_url::determine_forge_from_url,
                 legacy::forge::tauri_list_reviews::list_reviews,
                 legacy::forge::tauri_publish_review::publish_review,
-                legacy::settings::tauri_get_app_settings::get_app_settings,
                 legacy::cli::tauri_install_cli::install_cli,
                 legacy::cli::tauri_cli_path::cli_path,
                 legacy::rules::tauri_create_workspace_rule::create_workspace_rule,
@@ -367,6 +369,7 @@ fn main() -> anyhow::Result<()> {
                 zip::get_logs_archive_path,
                 zip::get_project_archive_path,
                 zip::get_anonymous_graph_path,
+                settings::get_app_settings,
                 settings::update_onboarding_complete,
                 settings::update_telemetry,
                 settings::update_feature_flags,

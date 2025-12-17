@@ -3864,6 +3864,7 @@ dependencies = [
  "but-secret",
  "but-settings",
  "console-subscriber",
+ "document-features",
  "git2",
  "gitbutler-project",
  "gitbutler-repo-actions",
