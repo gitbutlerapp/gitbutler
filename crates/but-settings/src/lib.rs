@@ -38,13 +38,36 @@ impl Default for AppSettings {
 
 /// Preset customizations for applications to use in [AppSettingsWithDiskSync::new_with_customization()], but tested and maintained here.
 pub mod customization {
+    use crate::json;
     use serde_json::json;
+
+    pub fn merge_two(
+        new: serde_json::Value,
+        previous: Option<serde_json::Value>,
+    ) -> serde_json::Value {
+        match previous {
+            None => new,
+            Some(mut previous) => {
+                json::merge_non_null_json_value(new, &mut previous);
+                previous
+            }
+        }
+    }
 
     /// Tell the UI that the 'but' binary is packaged.
     pub fn packaged_but_binary() -> serde_json::Value {
         json!({
             "ui": {
                 "cliIsManagedByPackageManager": true
+            }
+        })
+    }
+
+    /// Tell the UI that no auto-update checks should be performed.
+    pub fn disable_auto_update_checks() -> serde_json::Value {
+        json!({
+            "ui": {
+                "checkForUpdatesIntervalInSeconds": 0
             }
         })
     }

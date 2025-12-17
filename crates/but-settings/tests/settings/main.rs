@@ -64,6 +64,7 @@ mod load {
 
     mod customization {
         use but_settings::AppSettings;
+        use serde_json::json;
 
         #[test]
         fn packaged_but_binary() {
@@ -75,6 +76,34 @@ mod load {
             assert_eq!(
                 settings.ui.cli_is_managed_by_package_manager, true,
                 "overridden to tell the GUI that it shouldn't provide the usual installation options"
+            );
+        }
+
+        #[test]
+        fn disable_auto_update_checks() {
+            let settings = AppSettings::load(
+                "tests/fixtures/modify_default_true_to_false.json".as_ref(),
+                Some(but_settings::customization::disable_auto_update_checks()),
+            )
+            .unwrap();
+            assert_eq!(
+                settings.ui.check_for_updates_interval_in_seconds, 0,
+                "overridden to tell the GUI that no updates should be performed"
+            );
+        }
+
+        #[test]
+        fn merge() {
+            let first = json!({
+                "a": 1
+            });
+            let actual = but_settings::customization::merge_two(first.clone(), None);
+            assert_eq!(actual, first, "second side with `None` has no effect");
+            let actual = but_settings::customization::merge_two(first, Some(json!({"b": 2})));
+            assert_eq!(
+                actual,
+                json!({"a": 1, "b": 2}),
+                "if second is Some, it's merged"
             );
         }
     }

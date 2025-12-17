@@ -47,7 +47,16 @@ fn main() -> anyhow::Result<()> {
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
     let custom_settings = cfg!(feature = "packaged-but-distribution")
-        .then_some(but_settings::customization::packaged_but_binary());
+        .then(but_settings::customization::packaged_but_binary);
+    let custom_settings = if cfg!(feature = "disable-auto-updates") {
+        but_settings::customization::merge_two(
+            but_settings::customization::disable_auto_update_checks(),
+            custom_settings,
+        )
+        .into()
+    } else {
+        custom_settings
+    };
     let mut app_settings =
         AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), custom_settings)
             .expect("failed to create app settings");
