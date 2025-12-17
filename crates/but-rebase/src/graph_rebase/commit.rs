@@ -15,7 +15,7 @@ impl Editor {
     }
 
     /// Writes a commit with correct signing to the in memory repository.
-    pub fn write_commit(
+    pub fn new_commit(
         &self,
         commit: but_core::Commit<'_>,
         date_mode: DateMode,

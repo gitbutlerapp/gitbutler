@@ -1,7 +1,8 @@
 //! Functions for materializing a rebase
-use std::collections::HashMap;
-
-use anyhow::Result;
+use crate::graph_rebase::{
+    Checkout, MaterializeOutcome, Step, SuccessfulRebase, util::collect_ordered_parents,
+};
+use anyhow::{Context, Result, bail};
 use but_core::{
     ObjectStorageExt as _,
     worktree::{
@@ -9,15 +10,6 @@ use but_core::{
         safe_checkout_from_head,
     },
 };
-
-use crate::graph_rebase::{Checkouts, rebase::SuccessfulRebase};
-
-/// The outcome of a materialize
-#[derive(Debug, Clone)]
-pub struct MaterializeOutcome {
-    /// A mapping of any commits that were rewritten as part of the rebase
-    pub commit_mapping: HashMap<gix::ObjectId, gix::ObjectId>,
-}
 
 impl SuccessfulRebase {
     /// Materializes a history rewrite
@@ -29,21 +21,34 @@ impl SuccessfulRebase {
 
         for checkout in self.checkouts {
             match checkout {
-                Checkouts::Head => {
-                    let head_oid = repo.head_commit()?.id;
-                    if let Some(new_head) = self.commit_mapping.get(&head_oid) {
-                        // If the head has changed (which means it's in the
-                        // commit mapping), perform a safe checkout.
-                        safe_checkout_from_head(
-                            *new_head,
-                            &repo,
-                            Options {
-                                uncommitted_changes:
-                                    UncommitedWorktreeChanges::KeepAndAbortOnConflict,
-                                skip_head_update: true,
-                            },
-                        )?;
-                    }
+                Checkout::Head(selector) => {
+                    let selector = self.history.normailze_selector(selector)?;
+                    let step = self.graph[selector.id].clone();
+
+                    let new_head = match step {
+                        Step::None => bail!("Checkout selector is pointing to none"),
+                        Step::Pick { id, .. } => id,
+                        Step::Reference { .. } => {
+                            let parents = collect_ordered_parents(&self.graph, selector.id);
+                            let parent_step_id =
+                                parents.first().context("No first parent to reference")?;
+                            let Step::Pick { id, .. } = self.graph[*parent_step_id] else {
+                                bail!("collect_ordered_parents should always return a commit pick");
+                            };
+                            id
+                        }
+                    };
+
+                    // If the head has changed (which means it's in the
+                    // commit mapping), perform a safe checkout.
+                    safe_checkout_from_head(
+                        new_head,
+                        &repo,
+                        Options {
+                            uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+                            skip_head_update: true,
+                        },
+                    )?;
                 }
             }
         }
@@ -51,7 +56,8 @@ impl SuccessfulRebase {
         repo.edit_references(self.ref_edits.clone())?;
 
         Ok(MaterializeOutcome {
-            commit_mapping: self.commit_mapping,
+            graph: self.graph,
+            history: self.history,
         })
     }
 }

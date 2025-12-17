@@ -6,11 +6,17 @@
 
 mod creation;
 pub mod rebase;
+use anyhow::{Result, bail};
+use gix::refs::transaction::RefEdit;
+use std::collections::HashMap;
+
+use anyhow::Context;
 pub use creation::GraphExt;
 pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;
 pub mod mutate;
+pub(crate) mod util;
 
 /// Utilities for testing
 pub mod testing;
@@ -65,16 +71,17 @@ type StepGraphIndex = petgraph::stable_graph::NodeIndex;
 type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
 
 /// Points to a step in the rebase editor.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Selector {
     id: StepGraphIndex,
+    revision: usize,
 }
 
 /// Represents places where `safe_checkout` should be called from
 #[derive(Debug, Clone)]
-pub(crate) enum Checkouts {
+pub(crate) enum Checkout {
     /// The HEAD of the `repo` the editor was created for.
-    Head,
+    Head(Selector),
 }
 
 /// Used to manipulate a set of picks.
@@ -86,7 +93,104 @@ pub struct Editor {
     /// deleted.
     initial_references: Vec<gix::refs::FullName>,
     /// Worktrees that we might need to perform `safe_checkout` on.
-    checkouts: Vec<Checkouts>,
+    checkouts: Vec<Checkout>,
     /// The in-memory repository that the rebase engine works with.
     repo: gix::Repository,
+    history: RevisionHistory,
+}
+
+/// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
+#[allow(unused)]
+#[derive(Debug, Clone)]
+pub struct SuccessfulRebase {
+    pub(crate) repo: gix::Repository,
+    /// Any reference edits that need to be committed as a result of the history
+    /// rewrite
+    pub(crate) ref_edits: Vec<RefEdit>,
+    /// The new step graph
+    pub(crate) graph: StepGraph,
+    pub(crate) checkouts: Vec<Checkout>,
+    pub(crate) history: RevisionHistory,
+}
+
+/// The outcome of a materialize
+#[derive(Debug, Clone)]
+pub struct MaterializeOutcome {
+    pub(crate) graph: StepGraph,
+    pub(crate) history: RevisionHistory,
+}
+
+/// An extenstion trait that provides lookup for different steps that a selector
+/// might point to.
+pub trait LookupStep {
+    /// Look up the step that a given selector cooresponds to.
+    fn lookup_step(&self, selector: Selector) -> Result<Step>;
+
+    /// Look up the step a given selector and asserts it's a pick.
+    fn lookup_pick(&self, selector: Selector) -> Result<gix::ObjectId> {
+        match self.lookup_step(selector)? {
+            Step::Pick { id, .. } => Ok(id),
+            _ => bail!("Expected selector to point to be a pick"),
+        }
+    }
+
+    /// Look up the step a given selector and asserts it's a pick.
+    fn lookup_reference(&self, selector: Selector) -> Result<gix::refs::FullName> {
+        match self.lookup_step(selector)? {
+            Step::Reference { refname } => Ok(refname),
+            _ => bail!("Expected selector to point to be a reference"),
+        }
+    }
+}
+
+impl LookupStep for Editor {
+    fn lookup_step(&self, selector: Selector) -> Result<Step> {
+        lookup_step(&self.graph, &self.history, selector)
+    }
+}
+
+impl LookupStep for SuccessfulRebase {
+    fn lookup_step(&self, selector: Selector) -> Result<Step> {
+        lookup_step(&self.graph, &self.history, selector)
+    }
+}
+
+impl LookupStep for MaterializeOutcome {
+    fn lookup_step(&self, selector: Selector) -> Result<Step> {
+        lookup_step(&self.graph, &self.history, selector)
+    }
+}
+
+fn lookup_step(graph: &StepGraph, history: &RevisionHistory, selector: Selector) -> Result<Step> {
+    let normalized = history.normailze_selector(selector)?;
+    Ok(graph[normalized.id].clone())
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct RevisionHistory {
+    mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,
+}
+
+impl RevisionHistory {
+    pub(crate) fn new() -> Self {
+        Default::default()
+    }
+
+    pub(crate) fn current_revision(&self) -> usize {
+        self.mappings.len()
+    }
+
+    pub(crate) fn normailze_selector(&self, mut selector: Selector) -> Result<Selector> {
+        while selector.revision < self.current_revision() {
+            selector.id = *self.mappings[selector.revision]
+                .get(&selector.id)
+                .context("Failed to normalize selector, selector was missing from the mapping")?;
+            selector.revision += 1;
+        }
+        Ok(selector)
+    }
+
+    pub(crate) fn add_revision(&mut self, mapping: HashMap<StepGraphIndex, StepGraphIndex>) {
+        self.mappings.push(mapping);
+    }
 }
