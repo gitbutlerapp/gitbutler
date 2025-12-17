@@ -113,3 +113,40 @@ git init cherry-pick-scenario
   git reset --hard base
   echo "conflict" > target-f && git add . && git commit -m "base-conflicting" --amend 
 )
+
+
+git init first-parent-leg-long
+(cd first-parent-leg-long
+  seq 50 60 >file && git add . && git commit -m "base" && git tag base
+  git branch B
+
+  git checkout -b A
+  { seq 10; seq 50 60; } >file && git add . && git commit -m "A: 10 lines on top"
+  seq 60 70 >file && git add . && git commit -m "A: 10 more lines on top"
+  seq 70 80 >file && git add . && git commit -m "A: 10 more more lines on top"
+  git branch with-inner-merge
+
+  git checkout B
+  seq 10 >new-file && git add . && git commit -m "C: new file with 10 lines"
+
+  git checkout with-inner-merge && git merge --no-ff B
+  echo seq 10 >'added-after-with-inner-merge' && git add . && git commit -m "on top of inner merge"
+)
+
+git init second-parent-leg-long
+(cd second-parent-leg-long
+  seq 50 60 >file && git add . && git commit -m "base" && git tag base
+  git branch B
+
+  git checkout -b A
+  { seq 10; seq 50 60; } >file && git add . && git commit -m "A: 10 lines on top"
+  git branch with-inner-merge
+
+  git checkout B
+  seq 10 >new-file && git add . && git commit -m "C: new file with 10 lines"
+  seq 60 70 >new-file && git add . && git commit -m "C: 10 more lines on top"
+  seq 70 80 >new-file && git add . && git commit -m "C: 10 more more lines on top"
+
+  git checkout with-inner-merge && git merge --no-ff B
+  echo seq 10 >'added-after-with-inner-merge' && git add . && git commit -m "on top of inner merge"
+)

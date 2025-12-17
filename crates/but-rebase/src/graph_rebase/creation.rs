@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use but_graph::{Commit, CommitFlags, Graph, Segment};
 use petgraph::Direction;
 
@@ -62,37 +62,28 @@ impl GraphExt for Graph {
             },
         );
 
-        // When adding child-nodes, this lookup tells us where to find the
-        // relevant "parent" to point to.
-        let mut steps_for_commits: BTreeMap<gix::ObjectId, StepGraphIndex> = BTreeMap::new();
+        // Used for linking up all the commits.
+        // Each commit is considered to have a top and/or a bottom node. This is
+        // because in the node-adding step we will link together chains of
+        // ordered references on top of their related commits
+        struct StepChain {
+            top: StepGraphIndex,
+            bottom: StepGraphIndex,
+        }
+        let mut steps_for_commits: BTreeMap<gix::ObjectId, StepChain> = BTreeMap::new();
         let mut graph = StepGraph::new();
 
-        while let Some(c) = commits.pop() {
-            let parent_steps = c
-                .parent_ids
-                .iter()
-                .enumerate()
-                .filter_map(|(o, step)| Some((o, steps_for_commits.get(step)?)))
-                .collect::<Vec<_>>();
+        let commit_ids = commits.iter().map(|c| c.id).collect::<HashSet<_>>();
 
+        for c in &commits {
             let has_no_parents = c.parent_ids.is_empty();
-            let has_missing_parent_steps = parent_steps.len() != c.parent_ids.len();
-            let has_no_parent_steps = parent_steps.is_empty();
-
-            // If we are missing _some_ but not all parents, something has gone wrong.
-            if has_missing_parent_steps && !has_no_parent_steps {
-                bail!(
-                    "Rebase creation has failed. Expected {} parent steps, found {}",
-                    c.parent_ids.len(),
-                    parent_steps.len()
-                );
-            };
+            let missing_parent_steps = c.parent_ids.iter().any(|p| !commit_ids.contains(p));
 
             // If the commit has parents in the commit graph, but none of
             // them are in the graph, this means but-graph did a partial
             // traversal and we want to preserve the commit as it is.
-            let preserved_parents = if !has_no_parents && has_no_parent_steps {
-                Some(c.parent_ids)
+            let preserved_parents = if !has_no_parents && missing_parent_steps {
+                Some(c.parent_ids.clone())
             } else {
                 None
             };
@@ -101,11 +92,9 @@ impl GraphExt for Graph {
                 id: c.id,
                 preserved_parents,
             });
+            let base_ni = ni;
 
-            for (order, parent_ni) in parent_steps {
-                graph.add_edge(ni, *parent_ni, Edge { order });
-            }
-
+            // Add and link references on top
             if let Some(refs) = references.get_mut(&c.id) {
                 // We insert in reverse to preserve the child-most to
                 // parent-most ordering that the frontend sees in the step graph
@@ -116,7 +105,23 @@ impl GraphExt for Graph {
                 }
             }
 
-            steps_for_commits.insert(c.id, ni);
+            steps_for_commits.insert(
+                c.id,
+                StepChain {
+                    top: ni,
+                    bottom: base_ni,
+                },
+            );
+        }
+
+        for c in commits {
+            for (i, p) in c.parent_ids.iter().enumerate() {
+                if let (Some(StepChain { bottom, .. }), Some(StepChain { top, .. })) =
+                    (steps_for_commits.get(&c.id), steps_for_commits.get(p))
+                {
+                    graph.add_edge(*bottom, *top, Edge { order: i });
+                }
+            }
         }
 
         Ok(Editor {
