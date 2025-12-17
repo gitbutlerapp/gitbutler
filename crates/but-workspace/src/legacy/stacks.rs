@@ -1,8 +1,5 @@
 //! Functions related to retrieving stack information.
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context as _, bail};
 use bstr::BString;
@@ -13,7 +10,6 @@ use but_oxidize::{OidExt, git2_signature_to_gix_signature};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_stack::{Stack, StackId};
 use gix::date::parse::TimeBuf;
-use itertools::Itertools;
 use tracing::instrument;
 
 use crate::{
@@ -79,44 +75,6 @@ pub fn stack_heads_info(
         .collect::<Vec<_>>();
 
     Ok(branches)
-}
-
-/// Returns the list of stacks that are currently part of the workspace.
-/// If there are no applied stacks, the returned Vec is empty.
-/// If the GitButler state file in the provided path is missing or invalid, an error is returned.
-///
-/// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
-pub fn stacks(
-    ctx: &Context,
-    gb_dir: &Path,
-    repo: &gix::Repository,
-    filter: StacksFilter,
-) -> anyhow::Result<Vec<StackEntry>> {
-    let state = state_handle(gb_dir);
-
-    let stacks = match filter {
-        StacksFilter::All => state.list_all_stacks()?,
-        StacksFilter::InWorkspace => state
-            .list_all_stacks()?
-            .into_iter()
-            .filter(|s| s.in_workspace)
-            .collect(),
-        StacksFilter::Unapplied => state
-            .list_all_stacks()?
-            .into_iter()
-            .filter(|s| !s.in_workspace)
-            .collect(),
-    };
-
-    let stacks = stacks
-        .into_iter()
-        .filter_map(|mut stack| stack.migrate_change_ids(ctx).ok().map(|()| stack))
-        .filter(|s| s.is_initialized());
-
-    stacks
-        .sorted_by_key(|s| s.order)
-        .map(|stack| StackEntry::try_new(repo, &stack))
-        .collect()
 }
 
 fn try_from_stack_v3(

@@ -867,12 +867,11 @@ mod util {
 
     fn test_ctx_at(script_name: &str, name: &str) -> anyhow::Result<TestContext> {
         let ctx = gitbutler_testsupport::read_only::fixture(script_name, name)?;
-        let stacks = but_workspace::legacy::stacks(
-            &ctx,
-            &ctx.project_data_dir(),
-            &*ctx.repo.get()?,
-            Default::default(),
+        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+            ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
         )?;
+        let stacks =
+            but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, Default::default(), None)?;
         let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
 
         Ok(TestContext {
