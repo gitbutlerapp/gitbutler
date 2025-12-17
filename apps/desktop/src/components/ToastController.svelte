@@ -40,7 +40,6 @@
 		z-index: var(--z-blocker);
 		position: absolute;
 		right: 0;
-
 		bottom: 0;
 		flex-direction: column;
 		max-width: 480px;
