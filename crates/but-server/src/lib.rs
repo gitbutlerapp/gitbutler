@@ -63,8 +63,8 @@ pub async fn run() {
         active_projects: Arc::new(Mutex::new(ActiveProjects::new())),
         archival,
     };
-    let app_settings =
-        AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
+    let app_settings = AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), None)
+        .expect("failed to create app settings");
 
     let app = Claude {
         broadcaster: broadcaster.clone(),

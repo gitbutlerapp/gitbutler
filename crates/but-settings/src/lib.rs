@@ -36,6 +36,20 @@ impl Default for AppSettings {
     }
 }
 
+/// Preset customizations for applications to use in [AppSettingsWithDiskSync::new_with_customization()], but tested and maintained here.
+pub mod customization {
+    use serde_json::json;
+
+    /// Tell the UI that the 'but' binary is packaged.
+    pub fn packed_but_binary() -> serde_json::Value {
+        json!({
+            "ui": {
+                "cliIsManagedByPackageManager": true
+            }
+        })
+    }
+}
+
 pub mod app_settings;
 mod json;
 mod persistence;

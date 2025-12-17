@@ -22,6 +22,8 @@ pub struct AppSettingsWithDiskSync {
     config_path: PathBuf,
     /// The source of truth for the application settings, as previously read from disk.
     snapshot: Arc<RwLock<AppSettings>>,
+    /// A way to set application specific overrides for default values.
+    customization: Option<serde_json::Value>,
 }
 
 /// Allow changes to the most recent [`AppSettings`] and force them to be saved.
@@ -29,13 +31,15 @@ pub(crate) struct AppSettingsEnforceSaveToDisk<'a> {
     config_path: &'a Path,
     snapshot: RwLockWriteGuard<'a, AppSettings>,
     saved: bool,
+    customization: Option<serde_json::Value>,
 }
 
 impl AppSettingsEnforceSaveToDisk<'_> {
     pub fn save(&mut self) -> Result<()> {
         // Mark as completed first so failure to save will not make us complain about not saving.
         self.saved = true;
-        self.snapshot.save(self.config_path)?;
+        self.snapshot
+            .save(self.config_path, self.customization.clone())?;
         Ok(())
     }
 }
@@ -69,15 +73,19 @@ impl AppSettingsWithDiskSync {
     /// Create a new instance without actually starting to [watch in the background](Self::watch_in_background()).
     ///
     /// * `config_dir` contains the application settings file.
-    /// * `subscriber` receives any change to it.
-    pub fn new(config_dir: impl AsRef<Path>) -> Result<Self> {
+    /// * `customization` is any change on top of the compiled-in default values.
+    pub fn new_with_customization(
+        config_dir: impl AsRef<Path>,
+        customization: Option<serde_json::Value>,
+    ) -> Result<Self> {
         let config_path = config_dir.as_ref().join(SETTINGS_FILE);
-        let app_settings = AppSettings::load(&config_path)?;
+        let app_settings = AppSettings::load(&config_path, customization.clone())?;
         let app_settings = Arc::new(RwLock::new(app_settings));
 
         Ok(Self {
             config_path,
             snapshot: app_settings,
+            customization,
         })
     }
 
@@ -96,6 +104,7 @@ impl AppSettingsWithDiskSync {
                 snapshot,
                 config_path: &self.config_path,
                 saved: false,
+                customization: self.customization.clone(),
             })
             .map_err(|e| anyhow::anyhow!("Could not write settings: {:?}", e))
     }
@@ -113,6 +122,7 @@ impl AppSettingsWithDiskSync {
         let (tx, rx) = mpsc::channel();
         let snapshot = self.snapshot.clone();
         let config_path = self.config_path.to_owned();
+        let customization = self.customization.clone();
         let watcher_config = Config::default()
             .with_compare_contents(true)
             .with_poll_interval(Duration::from_secs(2));
@@ -128,7 +138,7 @@ impl AppSettingsWithDiskSync {
                         let Ok(mut last_seen_settings) = snapshot.write() else {
                             continue;
                         };
-                        if let Ok(update) = AppSettings::load(&config_path) {
+                        if let Ok(update) = AppSettings::load(&config_path, customization.clone()) {
                             tracing::info!("settings.json modified; refreshing settings");
                             *last_seen_settings = update.clone();
                             send_event(update)?;
@@ -145,7 +155,7 @@ impl AppSettingsWithDiskSync {
                         let Ok(mut last_seen_settings) = snapshot.write() else {
                             continue;
                         };
-                        if let Ok(update) = AppSettings::load(&config_path) {
+                        if let Ok(update) = AppSettings::load(&config_path, customization.clone()) {
                             tracing::info!("settings.json replaced; refreshing settings");
                             // Have to rewatch the path here as the watcher loses track.
                             watcher.watch(&config_path, RecursiveMode::NonRecursive)?;

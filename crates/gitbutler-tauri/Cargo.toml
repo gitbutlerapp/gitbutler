@@ -85,9 +85,12 @@ correctness = "deny"
 default = ["custom-protocol", "devtools"]
 ## A forwarding to all crates that have windows-specific adjustments for testing on non-Windows.
 windows = []
+devtools = ["tauri/devtools"]
+
 ## If enabled, we will pretend to be `but` when the binary filename is `but`.
 builtin-but = ["dep:but", "but-action/builtin-but"]
-devtools = ["tauri/devtools"]
+## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
+packaged-but-distribution = []
 
 # this feature is used for production builds where `devPath` points to the filesystem
 # DO NOT remove this

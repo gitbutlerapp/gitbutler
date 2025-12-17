@@ -21,8 +21,4 @@ notify.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
 
-[[test]]
-name = "settings"
-path = "tests/mod.rs"
-
 [dev-dependencies]

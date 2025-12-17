@@ -46,8 +46,11 @@ fn main() -> anyhow::Result<()> {
 
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
+    let custom_settings = cfg!(feature = "packaged-but-distribution")
+        .then_some(but_settings::customization::packed_but_binary());
     let mut app_settings =
-        AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
+        AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), custom_settings)
+            .expect("failed to create app settings");
 
     if let Ok(updated_csp) = csp_with_extras(
         tauri_context.config().app.security.csp.as_ref().cloned(),
