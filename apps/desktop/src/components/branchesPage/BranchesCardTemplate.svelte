@@ -62,7 +62,7 @@
 		}
 
 		&:not(.selected):hover {
-			background-color: red;
+			background-color: var(--hover-bg-1);
 		}
 	}
 
