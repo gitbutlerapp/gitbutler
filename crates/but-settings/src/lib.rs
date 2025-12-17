@@ -48,6 +48,15 @@ pub mod customization {
             }
         })
     }
+
+    /// Tell the UI that no auto-update checks should be performed.
+    pub fn disable_auto_update_checks() -> serde_json::Value {
+        json!({
+            "ui": {
+                "checkForUpdatesIntervalInSeconds": 0
+            }
+        })
+    }
 }
 
 pub mod app_settings;

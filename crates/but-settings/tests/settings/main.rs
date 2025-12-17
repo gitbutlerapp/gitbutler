@@ -77,5 +77,18 @@ mod load {
                 "overridden to tell the GUI that it shouldn't provide the usual installation options"
             );
         }
+
+        #[test]
+        fn disable_auto_update_checks() {
+            let settings = AppSettings::load(
+                "tests/fixtures/modify_default_true_to_false.json".as_ref(),
+                Some(but_settings::customization::disable_auto_update_checks()),
+            )
+            .unwrap();
+            assert_eq!(
+                settings.ui.check_for_updates_interval_in_seconds, 0,
+                "overridden to tell the GUI that no updates should be performed"
+            );
+        }
     }
 }
