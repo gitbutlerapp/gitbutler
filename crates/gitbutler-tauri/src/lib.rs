@@ -1,7 +1,7 @@
 //! # Feature Flags
 #![cfg_attr(
     not(feature = "document-features"),
-    doc = "Activate the `document-features` cargo feature to see feature docs here"
+    doc = "Activate the `document-features` cargo feature to see feature docs here, i.e. `cargo doc -p gitbutler-tauri --features document-features`"
 )]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 #![cfg_attr(
