@@ -41,7 +41,7 @@ pub mod customization {
     use serde_json::json;
 
     /// Tell the UI that the 'but' binary is packaged.
-    pub fn packed_but_binary() -> serde_json::Value {
+    pub fn packaged_but_binary() -> serde_json::Value {
         json!({
             "ui": {
                 "cliIsManagedByPackageManager": true

@@ -66,10 +66,10 @@ mod load {
         use but_settings::AppSettings;
 
         #[test]
-        fn packed_but_binary() {
+        fn packaged_but_binary() {
             let settings = AppSettings::load(
                 "tests/fixtures/modify_default_true_to_false.json".as_ref(),
-                Some(but_settings::customization::packed_but_binary()),
+                Some(but_settings::customization::packaged_but_binary()),
             )
             .unwrap();
             assert_eq!(
