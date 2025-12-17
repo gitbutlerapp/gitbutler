@@ -455,7 +455,7 @@
 		cursor: pointer;
 
 		&:not(.selected):hover {
-			background: var(--clr-bg-1-muted);
+			background: var(--hover-bg-1);
 		}
 
 		&:first-child {

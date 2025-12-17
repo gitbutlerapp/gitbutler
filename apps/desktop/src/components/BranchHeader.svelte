@@ -242,7 +242,7 @@
 
 		/* Selected but NOT in focus */
 		&:hover {
-			--branch-selected-bg: var(--clr-bg-1-muted);
+			--branch-selected-bg: var(--hover-bg-1);
 
 			& .branch-header__drag-handle {
 				width: 16px;

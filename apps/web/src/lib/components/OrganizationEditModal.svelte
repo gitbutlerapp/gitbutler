@@ -140,7 +140,7 @@
 
 	.slug-note {
 		margin-top: -12px;
-		color: var(--text-muted, #666);
+		color: var(--clr-text-2);
 		font-size: 13px;
 	}
 </style>

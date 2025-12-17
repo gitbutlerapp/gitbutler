@@ -141,7 +141,6 @@
 	}
 
 	.sticky-header.disabled {
-		background-color: var(--clr-bg-muted);
 		opacity: 0.6;
 	}
 

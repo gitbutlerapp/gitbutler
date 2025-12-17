@@ -44,7 +44,7 @@
 		gap: 10px;
 		border: 1px solid var(--clr-border-3);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--clr-bg-muted);
 		color: var(--clr-text-1);
 		font-size: 12px;
 		font-family: var(--font-mono);

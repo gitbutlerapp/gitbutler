@@ -37,7 +37,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--hover-bg);
+			background-color: var(--hover-bg-1);
 			color: var(--hover-text-2);
 		}
 	}

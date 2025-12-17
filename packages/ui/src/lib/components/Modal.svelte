@@ -184,7 +184,7 @@
 		width: 100%;
 		height: 100%;
 		padding: 24px;
-		background-color: var(--clr-overlay-bg);
+		background-color: var(--clr-bg-overlay);
 	}
 
 	.modal-container.open {

@@ -113,7 +113,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-2-muted);
+			background-color: var(--hover-bg-2);
 
 			.compaction-summary__arrow {
 				color: var(--clr-text-2);

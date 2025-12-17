@@ -131,7 +131,7 @@
 		padding: 28px;
 		gap: 56px;
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-1-muted);
+		background: var(--clr-bg-muted);
 	}
 
 	.links__section {

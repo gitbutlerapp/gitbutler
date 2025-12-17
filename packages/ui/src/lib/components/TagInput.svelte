@@ -214,10 +214,6 @@
 		background-color: var(--clr-bg-2);
 		color: var(--clr-text-1);
 		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-bg-1-muted);
-		}
 	}
 
 	.tag-label {

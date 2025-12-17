@@ -205,7 +205,7 @@
 
 		&:hover,
 		&.menu-shown {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 		}
 
 		&:hover .commit-row__drag-handle {
@@ -234,7 +234,7 @@
 
 			&:not(.selected):hover,
 			&.menu-shown {
-				background-color: var(--clr-theme-danger-bg-muted);
+				background-color: var(--hover-danger-bg);
 			}
 
 			.commit-name {
@@ -332,7 +332,7 @@
 		padding: 0 4px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--clr-bg-muted);
 		color: var(--clr-text-2);
 		line-height: 1;
 		cursor: pointer;

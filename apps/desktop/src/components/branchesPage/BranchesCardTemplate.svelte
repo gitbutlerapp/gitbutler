@@ -62,7 +62,7 @@
 		}
 
 		&:not(.selected):hover {
-			background-color: var(--clr-bg-1-muted);
+			background-color: red;
 		}
 	}
 
@@ -99,7 +99,7 @@
 	}
 
 	.selected {
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--clr-bg-muted);
 
 		&::after {
 			transform: translateX(0);

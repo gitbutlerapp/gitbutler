@@ -182,7 +182,7 @@
 		&:not([readonly]):not([disabled]):focus {
 			border: 1px solid color-mix(in srgb, var(--clr-text-1), transparent 70%);
 			outline: none;
-			background-color: var(--hover-bg);
+			background-color: var(--hover-bg-1);
 		}
 
 		&[disabled] {

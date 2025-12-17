@@ -77,7 +77,7 @@
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 		}
 	}
 

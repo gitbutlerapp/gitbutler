@@ -20,7 +20,14 @@
 		var(--clr-theme-pop-element),
 		var(--clr-core-gray-0) calc((var(--opacity-btn-solid-hover) * 100%))
 	);
-	--hover-bg: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-gray-0) 4%);
+	--hover-bg-1: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-gray-0) 4%);
+	--hover-bg-muted: color-mix(in srgb, var(--clr-bg-muted), var(--clr-core-gray-0) 4%);
+	--hover-bg-2: color-mix(in srgb, var(--clr-bg-2), var(--clr-core-gray-0) 4%);
+	--hover-bg-3: color-mix(in srgb, var(--clr-bg-3), var(--clr-core-gray-0) 4%);
+	--hover-danger-bg: color-mix(in srgb, var(--clr-theme-danger-bg), var(--clr-core-danger-40) 4%);
+	--hover-safe-bg: color-mix(in srgb, var(--clr-theme-safe-bg), var(--clr-core-safe-40) 4%);
+	--hover-warn-bg: color-mix(in srgb, var(--clr-theme-warn-bg), var(--clr-core-warn-40) 4%);
+	--hover-purple-bg: color-mix(in srgb, var(--clr-theme-purple-bg), var(--clr-core-purple-40) 4%);
 	--hover-text-2: color-mix(in srgb, var(--clr-text-2), var(--clr-core-gray-0) 20%);
 
 	/* LEXICAL */
@@ -31,7 +38,13 @@
 }
 
 :root.dark {
-	--hover-filter: brightness(1.2);
-	--hover-bg: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-gray-100) 6%);
+	--hover-bg-1: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-gray-100) 6%);
+	--hover-bg-muted: color-mix(in srgb, var(--clr-bg-muted), var(--clr-core-gray-100) 6%);
+	--hover-bg-2: color-mix(in srgb, var(--clr-bg-2), var(--clr-core-gray-100) 6%);
+	--hover-bg-3: color-mix(in srgb, var(--clr-bg-3), var(--clr-core-gray-100) 6%);
+	--hover-danger-bg: color-mix(in srgb, var(--clr-theme-danger-bg), var(--clr-core-danger-60) 6%);
+	--hover-safe-bg: color-mix(in srgb, var(--clr-theme-safe-bg), var(--clr-core-safe-60) 6%);
+	--hover-warn-bg: color-mix(in srgb, var(--clr-theme-warn-bg), var(--clr-core-warn-60) 6%);
+	--hover-purple-bg: color-mix(in srgb, var(--clr-theme-purple-bg), var(--clr-core-purple-60) 6%);
 	--hover-text-2: color-mix(in srgb, var(--clr-text-2), var(--clr-core-gray-100) 30%);
 }

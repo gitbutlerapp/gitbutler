@@ -314,7 +314,7 @@
 		}
 
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 
 			& .tip-link__arrow-icon {
 				transform: translateX(0);

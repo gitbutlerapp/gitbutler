@@ -356,7 +356,7 @@
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: var(--hover-bg);
+			background-color: var(--hover-bg-1);
 			color: var(--hover-text-2);
 		}
 
@@ -421,7 +421,7 @@
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: var(--hover-bg);
+			background-color: var(--hover-bg-1);
 			color: var(--hover-text-2);
 		}
 

@@ -258,7 +258,7 @@
 		&:hover {
 			.dynclmn,
 			.dyncell-td {
-				background-color: var(--clr-bg-1-muted);
+				background-color: var(--clr-bg-muted);
 			}
 		}
 

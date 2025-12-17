@@ -52,7 +52,7 @@
 		background: var(--clr-bg-2);
 
 		&.clickable:hover {
-			background: var(--clr-bg-2-muted);
+			background: var(--hover-bg-2);
 		}
 	}
 

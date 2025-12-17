@@ -76,7 +76,7 @@
 		user-select: none;
 		&:not(.selected):hover:enabled,
 		&:not(.selected):focus:enabled {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 		}
 		&:disabled {
 			opacity: 0.4;
@@ -105,7 +105,7 @@
 		}
 	}
 
-	.highlighted {
-		background-color: var(--clr-bg-1-muted);
+	.highlighted:not(.selected) {
+		background-color: var(--hover-bg-1);
 	}
 </style>

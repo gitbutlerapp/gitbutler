@@ -174,7 +174,7 @@
 			}
 
 			&.integrated {
-				background-color: var(--clr-bg-1-muted);
+				background-color: var(--clr-bg-muted);
 
 				.status-badge {
 					background-color: var(--clr-theme-purple-element);
@@ -268,7 +268,7 @@
 		}
 
 		&.integrated {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--clr-bg-muted);
 
 			.status-badge {
 				background-color: var(--clr-theme-purple-element);

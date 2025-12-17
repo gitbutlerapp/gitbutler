@@ -86,7 +86,6 @@
 	.bubble-wrap {
 		display: flex;
 		flex-direction: column;
-
 		width: 100%;
 		padding: 0 16px;
 
@@ -117,7 +116,7 @@
 
 		& .bubble__header,
 		& .bubble-message {
-			background-color: var(--clr-theme-pop-bg-muted);
+			background-color: var(--clr-theme-pop-bg);
 		}
 	}
 

@@ -224,7 +224,7 @@
 		gap: 14px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		background: var(--clr-bg-1-muted);
+		background: var(--clr-bg-muted);
 	}
 
 	.hidden-lock-file-message {

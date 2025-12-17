@@ -287,11 +287,10 @@
 
 	.show-restore-on-hover {
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 			& .restore-btn {
 				display: flex;
 			}
-
 			& .snapshot-time {
 				display: none;
 			}
@@ -299,7 +298,7 @@
 	}
 
 	.show-restore-on-hover:global(.focused) {
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--hover-bg-1);
 		& .restore-btn {
 			display: flex;
 		}
@@ -410,7 +409,7 @@
 		width: 100%;
 		padding: 6px 10px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-danger-bg-muted);
+		background-color: var(--clr-theme-danger-bg);
 		color: var(--clr-theme-danger-element);
 	}
 </style>
