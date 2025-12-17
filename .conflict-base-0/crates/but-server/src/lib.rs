@@ -11,7 +11,7 @@ use axum::{
     response::IntoResponse,
     routing::{any, get},
 };
-use but_api::{diff, github, json, legacy};
+use but_api::{commit, diff, github, json, legacy};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
@@ -617,6 +617,9 @@ async fn handle_command(
             let result = legacy::claude::claude_verify_path(params.project_id, params.path).await;
             result.map(|r| json!(r))
         }
+
+        // New graph based rebasing functions
+        "commit_reword" => commit::commit_reword_cmd(request.params),
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command)),
     }

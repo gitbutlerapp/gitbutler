@@ -1203,7 +1203,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				{ projectId: string; commitId: string; message: string }
 			>({
 				extraOptions: {
-					command: 'reword_commit',
+					command: 'commit_reword',
 					actionName: 'Update Commit Message'
 				},
 				query: (args) => args,
