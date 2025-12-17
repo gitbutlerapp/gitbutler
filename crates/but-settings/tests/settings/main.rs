@@ -64,6 +64,7 @@ mod load {
 
     mod customization {
         use but_settings::AppSettings;
+        use serde_json::json;
 
         #[test]
         fn packaged_but_binary() {
@@ -88,6 +89,21 @@ mod load {
             assert_eq!(
                 settings.ui.check_for_updates_interval_in_seconds, 0,
                 "overridden to tell the GUI that no updates should be performed"
+            );
+        }
+
+        #[test]
+        fn merge() {
+            let first = json!({
+                "a": 1
+            });
+            let actual = but_settings::customization::merge_two(first.clone(), None);
+            assert_eq!(actual, first, "second side with `None` has no effect");
+            let actual = but_settings::customization::merge_two(first, Some(json!({"b": 2})));
+            assert_eq!(
+                actual,
+                json!({"a": 1, "b": 2}),
+                "if second is Some, it's merged"
             );
         }
     }
