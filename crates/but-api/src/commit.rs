@@ -3,7 +3,7 @@ use but_api_macros::but_api;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use tracing::instrument;
 
-/// Rewords a commit, but without updating the oplog.
+/// Rewords a commit
 ///
 /// Returns the ID of the newly renamed commit
 #[but_api]

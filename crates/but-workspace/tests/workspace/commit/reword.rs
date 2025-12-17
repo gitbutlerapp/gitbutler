@@ -1,4 +1,5 @@
 use anyhow::Result;
+use but_rebase::graph_rebase::GraphExt;
 use but_testsupport::{assure_stable_env, visualize_commit_graph_all};
 use but_workspace::commit::reword;
 
@@ -17,7 +18,10 @@ fn reword_head_commit() -> Result<()> {
 
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("three")?;
-    reword(&graph, &repo, id.detach(), b"New name".into())?;
+    let editor = graph.to_editor(&repo)?;
+    reword(editor, id.detach(), b"New name".into())?
+        .0
+        .materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 7580b8e (HEAD -> three) New name
@@ -43,7 +47,10 @@ fn reword_middle_commit() -> Result<()> {
 
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
-    reword(&graph, &repo, id.detach(), b"New name".into())?;
+    let editor = graph.to_editor(&repo)?;
+    reword(editor, id.detach(), b"New name".into())?
+        .0
+        .materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 086ad49 (HEAD -> three) commit three
@@ -71,7 +78,10 @@ fn reword_base_commit() -> Result<()> {
 
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("one")?;
-    reword(&graph, &repo, id.detach(), b"New name".into())?;
+    let editor = graph.to_editor(&repo)?;
+    reword(editor, id.detach(), b"New name".into())?
+        .0
+        .materialize()?;
 
     // We end up with two divergent histories here. This is to be expected if we
     // rewrite the very bottom commit in a repository.
