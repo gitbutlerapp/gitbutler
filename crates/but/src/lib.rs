@@ -79,7 +79,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     }
 
     let mut args: Args = clap::Parser::parse_from(args);
-    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let output_format = if args.json {
         OutputFormat::Json
     } else {

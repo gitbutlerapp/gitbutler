@@ -272,10 +272,11 @@ pub fn create(
 ) -> tauri::Result<tauri::WebviewWindow> {
     tracing::info!("creating window '{label}' created at '{window_relative_url}'");
 
-    let use_native_title_bar = but_settings::AppSettings::load_from_default_path_creating()
-        .ok()
-        .map(|settings| settings.ui.use_native_title_bar)
-        .unwrap_or(false);
+    let use_native_title_bar =
+        but_settings::AppSettings::load_from_default_path_creating_without_customization()
+            .ok()
+            .map(|settings| settings.ui.use_native_title_bar)
+            .unwrap_or(false);
 
     let window = tauri::WebviewWindowBuilder::new(
         handle,

@@ -298,7 +298,7 @@ pub fn amend_commit_from_worktree_changes(
     let project = gitbutler_project::get(project_id)?;
     let mut guard = but_core::sync::exclusive_worktree_access(project.git_dir());
     let repo = project.open_repo_for_merging()?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project.gb_dir(),

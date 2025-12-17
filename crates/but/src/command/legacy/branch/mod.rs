@@ -75,7 +75,7 @@ pub async fn handle(
         }) => {
             let mut ctx = Context::new_from_legacy_project_and_settings(
                 legacy_project,
-                AppSettings::load_from_default_path_creating()?,
+                AppSettings::load_from_default_path_creating_without_customization()?,
             );
             let mut id_map = IdMap::new_from_context(&ctx)?;
             id_map.add_file_info_from_context(&mut ctx)?;

@@ -123,7 +123,7 @@ impl Context {
     /// Create a new instance from just the `gitdir` of the repository we should provide context for.
     pub fn new(gitdir: impl Into<PathBuf>) -> anyhow::Result<Context> {
         let gitdir = gitdir.into();
-        let settings = AppSettings::load_from_default_path_creating()?;
+        let settings = AppSettings::load_from_default_path_creating_without_customization()?;
         #[cfg(not(feature = "legacy"))]
         {
             Ok(Context {
@@ -169,7 +169,7 @@ impl Context {
                 .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
             let gitdir = repo.git_dir().to_owned();
             Ok(Context {
-                settings: AppSettings::load_from_default_path_creating()?,
+                settings: AppSettings::load_from_default_path_creating_without_customization()?,
                 gitdir: gitdir.clone(),
                 legacy_project,
                 repo: new_ondemand_repo(gitdir.clone()),
@@ -184,7 +184,7 @@ impl Context {
             let gitdir = repo.git_dir().to_owned();
             Ok(crate::Context {
                 gitdir: gitdir.clone(),
-                settings: AppSettings::load_from_default_path_creating()?,
+                settings: AppSettings::load_from_default_path_creating_without_customization()?,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
@@ -198,7 +198,7 @@ impl Context {
     /// **Note that it does not have support for legacy projects to encourage single-branch compatible code.**
     pub fn from_repo(repo: gix::Repository) -> anyhow::Result<Context> {
         let gitdir = repo.git_dir().to_owned();
-        let settings = AppSettings::load_from_default_path_creating()?;
+        let settings = AppSettings::load_from_default_path_creating_without_customization()?;
 
         Ok(Context {
             #[cfg(feature = "legacy")]

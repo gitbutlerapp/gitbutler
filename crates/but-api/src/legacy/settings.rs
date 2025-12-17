@@ -1,21 +1,12 @@
 //! In place of commands.rs
 use anyhow::Result;
-use but_api_macros::but_api;
 use but_settings::{
-    AppSettings, AppSettingsWithDiskSync,
+    AppSettingsWithDiskSync,
     api::{
         ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
     },
 };
 use serde::Deserialize;
-use tracing::instrument;
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn get_app_settings() -> Result<AppSettings> {
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    Ok(app_settings)
-}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

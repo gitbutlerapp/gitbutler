@@ -35,7 +35,7 @@ impl AppSettings {
         Ok(serde_json::from_value(settings)?)
     }
 
-    pub fn load_from_default_path_creating() -> Result<Self> {
+    pub fn load_from_default_path_creating_without_customization() -> Result<Self> {
         let config_dir = but_path::app_config_dir()?;
         std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
         AppSettings::load(config_dir.join(SETTINGS_FILE).as_path(), None)

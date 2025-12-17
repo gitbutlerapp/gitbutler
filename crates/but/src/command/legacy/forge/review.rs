@@ -377,7 +377,7 @@ async fn publish_reviews_for_branch_and_dependents(
 fn get_base_branch_and_repo(
     project: &Project,
 ) -> Result<(gitbutler_branch_actions::BaseBranch, gix::Repository), anyhow::Error> {
-    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let ctx = Context::new_from_legacy_project_and_settings(project, app_settings);
     let repo = ctx.open_repo()?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
