@@ -395,17 +395,6 @@ jobs:
           source_dir: 'release-s3/'
           destination_dir: 'releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}'
 
-      # tell our server to update with the version number
-      - name: Notify GitButler API of new release
-        shell: bash
-        run: |
-          curl 'https://app.gitbutler.com/api/releases' \
-            --fail \
-            --request POST \
-            --header 'Content-Type: application/json' \
-            --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
-            --data '{"channel":"${{ needs.build-tauri.outputs.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
-
   create-git-tag:
     needs: [publish-tauri, build-tauri]
     runs-on: ubuntu-latest
@@ -420,6 +409,18 @@ jobs:
         run: |
           git tag "$TAG_NAME"
           git push --tags
+
+      # tell our server to update with the version number
+      - name: Notify GitButler API of new release
+        shell: bash
+        run: |
+          curl 'https://app.gitbutler.com/api/releases' \
+            --fail \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
+            --data '{"channel":"${{ needs.build-tauri.outputs.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
+
       - name: Trigger Sentry Cron - Complete
         if: ${{ github.event_name == 'schedule' }}
         shell: bash
