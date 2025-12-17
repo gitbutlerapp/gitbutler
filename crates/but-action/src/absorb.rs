@@ -26,7 +26,7 @@ use crate::OpenAiProvider;
 /// - Reading the commit outcome, that contains the mapping of old to new commit IDs.
 ///   Being able to read this, eliminates the need to get the project status after every amendment.
 ///
-pub fn absorb(
+pub(crate) fn absorb(
     emitter: std::sync::Arc<Emitter>,
     ctx: &mut Context,
     openai: &OpenAiProvider,

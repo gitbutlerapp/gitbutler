@@ -64,7 +64,10 @@ pub struct Grouping {
 }
 
 #[expect(dead_code)]
-pub fn group(openai: &OpenAiProvider, project_status: &ProjectStatus) -> anyhow::Result<Grouping> {
+pub(crate) fn group(
+    openai: &OpenAiProvider,
+    project_status: &ProjectStatus,
+) -> anyhow::Result<Grouping> {
     let system_message ="
         You are an expert in grouping file changes into logical units for version control.
         When given the status of a project, you should be able to identify related changes and suggest how they should be grouped into commits.

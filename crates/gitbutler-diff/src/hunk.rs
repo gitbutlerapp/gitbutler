@@ -147,7 +147,7 @@ impl Hunk {
 
 /// Access
 impl Hunk {
-    fn contains_line(&self, line: u32) -> bool {
+    pub(crate) fn contains_line(&self, line: u32) -> bool {
         self.start <= line && self.end >= line
     }
 
