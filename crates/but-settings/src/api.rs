@@ -53,13 +53,7 @@ pub struct FetchUpdate {
 /// Update request for [`crate::app_settings::UiSettings`].
 pub struct UiUpdate {
     pub use_native_title_bar: Option<bool>,
-}
-
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-/// Update request for [`crate::app_settings::Cli`].
-pub struct CliUpdate {
-    pub managed_by_package_manager: Option<bool>,
+    // Note that the CLI related information cannot be set - it's set at compile time.
 }
 
 /// Mutation, immediately followed by writing everything to disk.
@@ -161,14 +155,6 @@ impl AppSettingsWithDiskSync {
         let mut settings = self.get_mut_enforce_save()?;
         if let Some(use_native_title_bar) = update.use_native_title_bar {
             settings.ui.use_native_title_bar = use_native_title_bar;
-        }
-        settings.save()
-    }
-
-    pub fn update_cli(&self, update: CliUpdate) -> Result<()> {
-        let mut settings = self.get_mut_enforce_save()?;
-        if let Some(managed_by_package_manager) = update.managed_by_package_manager {
-            settings.cli.managed_by_package_manager = managed_by_package_manager;
         }
         settings.save()
     }

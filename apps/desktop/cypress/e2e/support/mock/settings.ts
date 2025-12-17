@@ -33,9 +33,7 @@ export const MOCK_APP_SETTINGS: AppSettings = {
 		autoFillPrDescriptionFromCommit: true
 	},
 	ui: {
-		useNativeTitleBar: false
-	},
-	cli: {
-		managedByPackageManager: false
+		useNativeTitleBar: false,
+		cliIsManagedByPackageManager: false
 	}
 };

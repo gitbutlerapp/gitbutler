@@ -375,7 +375,6 @@ fn main() -> anyhow::Result<()> {
                 settings::update_fetch,
                 settings::update_reviews,
                 settings::update_ui,
-                settings::update_cli,
                 bot::bot,
                 // Debug-only - not for production!
                 #[cfg(debug_assertions)]

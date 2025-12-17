@@ -237,7 +237,7 @@
 		{/snippet}
 
 		{#snippet caption()}
-			{#if $appSettings?.cli.managedByPackageManager}
+			{#if $appSettings?.ui.cliIsManagedByPackageManager}
 				The <code>but</code> CLI is managed by your package manager. Please use your package manager to
 				install, update, or remove it.
 			{:else if platformName === 'windows'}
@@ -250,7 +250,7 @@
 			{/if}
 		{/snippet}
 
-		{#if !$appSettings?.cli.managedByPackageManager}
+		{#if !$appSettings?.ui.cliIsManagedByPackageManager}
 			<div class="flex flex-col gap-16">
 				<div class="flex gap-8 justify-end">
 					{#if platformName !== 'windows'}

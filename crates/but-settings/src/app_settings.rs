@@ -91,12 +91,7 @@ pub struct Reviews {
 pub struct UiSettings {
     /// Whether to use the native system title bar.
     pub use_native_title_bar: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct Cli {
     /// Whether the `but` CLI is managed by a package manager.
-    /// When true, the UI should show a message instead of installation options.
-    pub managed_by_package_manager: bool,
+    /// When true, the UI should show a specific message instead of installation options.
+    pub cli_is_managed_by_package_manager: bool,
 }

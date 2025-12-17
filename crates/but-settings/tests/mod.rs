@@ -15,13 +15,3 @@ fn test_load_settings() {
         "cd51880daa675d9e6452"
     ); // default
 }
-
-#[test]
-fn test_load_cli_managed_by_package_manager() {
-    let settings =
-        AppSettings::load("tests/fixtures/cli_managed_by_package_manager.json".as_ref()).unwrap();
-    assert!(settings.cli.managed_by_package_manager); // modified
-    // Verify other defaults remain unchanged
-    assert!(!settings.onboarding_complete); // default
-    assert!(settings.telemetry.app_metrics_enabled); // default
-}
