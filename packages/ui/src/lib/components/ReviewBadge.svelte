@@ -90,7 +90,7 @@
 		gap: 3px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--hover-bg-1);
 		color: var(--clr-text-1);
 		line-height: 1;
 	}

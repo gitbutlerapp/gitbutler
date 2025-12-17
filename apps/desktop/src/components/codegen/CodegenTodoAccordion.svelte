@@ -70,8 +70,6 @@
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			/* background-color: var(--clr-bg-1-muted); */
-
 			& .todo-header__chevron {
 				color: var(--clr-text-2);
 			}

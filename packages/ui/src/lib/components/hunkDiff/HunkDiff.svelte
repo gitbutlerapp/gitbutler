@@ -288,66 +288,15 @@
 		transition: opacity 0.15s;
 	}
 
-	.table__lock {
-		box-sizing: border-box;
-		display: flex;
-		position: fixed;
-		top: 6px;
-		right: 6px;
-		align-items: center;
-		justify-content: center;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-warn-soft);
-		color: var(--clr-text-2);
-		pointer-events: none;
-		transition: transform var(--transition-medium);
-	}
-
 	.table__title-content {
 		box-sizing: border-box;
 		display: flex;
-		/* position: absolute;
-		top: var(--top);
-		left: var(--number-col-width); */
 		align-items: center;
-		/* width: calc(var(--table-width) - var(--number-col-width));
-		height: calc(100% + var(--border-width) * 2); */
 		padding: 4px 6px;
 		border-bottom: 1px solid var(--clr-border-2);
-		/* border-top-right-radius: var(--radius-m); */
 		color: var(--clr-text-2);
 		font-size: 12px;
 		text-wrap: nowrap;
-	}
-
-	/* HIDDINE LINES STATE */
-
-	.table__hidden-rows {
-		display: none;
-	}
-
-	.table__hiddenRows__count {
-		width: 24px;
-		background-color: var(--clr-diff-count-bg);
-
-		&:nth-child(2) {
-			border-right: 1px solid var(--clr-border-2);
-		}
-	}
-
-	.table__hiddenRows__content {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 40px 24px;
-		gap: 14px;
-		background-color: var(--clr-bg-1-muted);
-	}
-
-	.table__hiddenRows__caption {
-		color: var(--clr-text-2);
-		text-align: center;
 	}
 
 	/* CONTRAST MODIFIERS */

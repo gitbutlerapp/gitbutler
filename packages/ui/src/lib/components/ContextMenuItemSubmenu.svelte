@@ -195,7 +195,7 @@
 		flex-direction: column;
 
 		&.active :global(.menu-item) {
-			background-color: var(--clr-bg-2-muted);
+			background-color: var(--hover-bg-2);
 		}
 	}
 

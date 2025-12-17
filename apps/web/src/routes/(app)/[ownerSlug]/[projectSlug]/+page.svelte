@@ -501,7 +501,7 @@
 		align-items: center;
 		justify-content: center;
 		height: 200px;
-		color: var(--text-muted, #666);
+		color: var(--clr-text-2);
 		font-size: 1.2rem;
 	}
 
@@ -542,7 +542,7 @@
 		align-items: center;
 		margin-top: 10px;
 		gap: 0.5rem;
-		color: var(--text-muted, #666);
+		color: var(--clr-text-2);
 		font-size: 13px;
 	}
 
@@ -553,7 +553,7 @@
 		font-size: 1.2rem;
 
 		a {
-			color: var(--text-muted, #666);
+			color: var(--clr-text-2);
 			text-decoration: none;
 
 			&:hover {
@@ -650,7 +650,7 @@
 
 	.preview-title {
 		margin: 0 0 0.75rem 0;
-		color: var(--text-muted, #666);
+		color: var(--clr-text-2);
 		font-size: 1rem;
 	}
 
@@ -670,7 +670,7 @@
 
 	.sidebar-section-title {
 		margin: 0 0 0.5rem 0;
-		color: var(--text-muted, #666);
+		color: var(--clr-text-2);
 		font-size: 1rem;
 	}
 
@@ -783,7 +783,7 @@
 	}
 
 	.form-group small {
-		color: var(--text-muted, #666);
+		color: var(--clr-text-2);
 		font-size: 12px;
 	}
 

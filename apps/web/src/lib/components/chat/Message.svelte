@@ -318,10 +318,10 @@
 <style lang="postcss">
 	@keyframes temporary-highlight {
 		0% {
-			background: var(--clr-bg-1-muted);
+			background: var(--clr-bg-muted);
 		}
 		75% {
-			background: var(--clr-bg-1-muted);
+			background: var(--clr-bg-muted);
 		}
 		100% {
 			background: var(--clr-bg-1);

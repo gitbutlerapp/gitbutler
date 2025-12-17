@@ -28,7 +28,7 @@
 		<Icon name="warning" color="warning" />
 	{/if}
 
-	{#if type === 'error'}
+	{#if type === 'danger'}
 		<Icon name="error" color="danger" />
 	{/if}
 

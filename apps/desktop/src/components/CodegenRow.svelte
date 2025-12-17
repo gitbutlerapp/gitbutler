@@ -182,7 +182,7 @@
 
 		&.active.selected,
 		&[type='button']:hover {
-			background-color: var(--clr-theme-purple-bg-muted);
+			background-color: var(--hover-purple-bg);
 		}
 	}
 

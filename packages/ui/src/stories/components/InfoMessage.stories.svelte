@@ -26,7 +26,7 @@
 		argTypes: {
 			style: {
 				description: 'The visual style and semantic meaning of the message',
-				options: ['info', 'warning', 'error', 'success'],
+				options: ['info', 'warning', 'danger', 'success'],
 				control: { type: 'select' }
 			},
 			outlined: {

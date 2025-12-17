@@ -289,19 +289,15 @@
 	}
 
 	/* INTERDIFF */
-
 	.interdiff-bar {
 		display: flex;
 		align-items: center;
 		width: 100%;
-
 		padding: 14px;
 		gap: 12px;
-
 		border: 1px solid var(--clr-border-2);
 		border-top: none;
-
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--clr-bg-muted);
 
 		@container (max-width: 500px) {
 			flex-direction: column;

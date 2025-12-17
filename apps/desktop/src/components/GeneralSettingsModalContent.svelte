@@ -126,10 +126,8 @@
 				onclick={async () => await urlService.openExternalUrl('https://docs.gitbutler.com/')}
 			>
 				<Icon name="docs" />
-				<span class="text-13 text-bold full-width">Docs</span>
-				<div class="open-link-icon">
-					<Icon name="open-link" />
-				</div>
+				<span class="text-13 text-bold">Docs</span>
+				<div class="text-13 open-link-icon">↗</div>
 			</button>
 			<button
 				type="button"
@@ -137,10 +135,8 @@
 				onclick={async () => await urlService.openExternalUrl('https://discord.gg/MmFkmaJ42D')}
 			>
 				<Icon name="discord" />
-				<span class="text-13 text-bold full-width">Our Discord</span>
-				<div class="open-link-icon">
-					<Icon name="open-link" />
-				</div>
+				<span class="text-13 text-bold">Our Discord</span>
+				<div class="text-13 open-link-icon">↗</div>
 			</button>
 		</div>
 	{/snippet}
@@ -166,15 +162,12 @@
 		transition: all var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
-
-			.open-link-icon {
-				display: flex;
-			}
+			background-color: var(--hover-bg-1);
 		}
 	}
 
 	.open-link-icon {
-		display: none;
+		transform: translateY(-2px) translateX(-4px);
+		color: var(--clr-text-3);
 	}
 </style>

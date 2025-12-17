@@ -137,11 +137,11 @@
 		}
 
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--clr-bg-muted);
 
 			p,
 			h3 {
-				background-color: var(--clr-bg-1-muted);
+				background-color: var(--clr-bg-muted);
 			}
 
 			& .features__link-indicator-text {

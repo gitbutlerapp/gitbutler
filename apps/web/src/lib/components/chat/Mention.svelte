@@ -30,9 +30,8 @@
 		padding: 0px 4px;
 		gap: 10px;
 		border-radius: var(--radius-s, 4px);
-		background: var(--clr-theme-pop-bg-muted, #e7f8f7);
-
-		color: var(--clr-theme-pop-on-soft, #1c5451);
+		background: var(--clr-theme-pop-bg);
+		color: var(--clr-theme-pop-on-soft);
 		font-style: normal;
 	}
 </style>

@@ -210,11 +210,11 @@
 			cursor: pointer;
 
 			&:not(.selected):hover {
-				background-color: var(--clr-bg-1-muted);
+				background-color: var(--hover-bg-1);
 			}
 
 			&.conflicted:not(.selected):hover {
-				background-color: var(--clr-theme-danger-bg-muted);
+				background-color: var(--hover-danger-bg);
 			}
 		}
 

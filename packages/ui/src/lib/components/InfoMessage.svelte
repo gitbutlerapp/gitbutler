@@ -228,14 +228,14 @@
 		&.info {
 			background-color: var(--clr-bg-2);
 		}
-		&.error {
-			background-color: var(--clr-theme-danger-bg-muted);
+		&.danger {
+			background-color: var(--clr-theme-danger-bg);
 		}
 		&.warning {
-			background-color: var(--clr-theme-warn-bg-muted);
+			background-color: var(--clr-theme-warn-bg);
 		}
 		&.success {
-			background-color: var(--clr-theme-safe-bg-muted);
+			background-color: var(--clr-theme-safe-bg);
 		}
 	}
 

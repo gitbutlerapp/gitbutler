@@ -205,7 +205,7 @@
 		height: 100%;
 		background: radial-gradient(
 			ellipse at center,
-			var(--clr-theme-pop-bg-muted) 40%,
+			var(--clr-theme-pop-bg) 40%,
 			rgba(255, 255, 255, 0) 100%
 		);
 		pointer-events: none;

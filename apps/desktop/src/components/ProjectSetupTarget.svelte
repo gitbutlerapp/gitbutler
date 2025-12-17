@@ -262,7 +262,7 @@
 		padding: 14px 16px;
 		gap: 8px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--clr-bg-muted);
 		cursor: pointer;
 
 		&:hover {

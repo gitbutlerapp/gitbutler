@@ -131,7 +131,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:not(.disabled):hover {
-			background-color: var(--clr-bg-2-muted);
+			background-color: var(--hover-bg-2);
 			transition: none;
 		}
 

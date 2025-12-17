@@ -226,9 +226,9 @@
 					<div class="chrome-current-branch">
 						<div class="chrome-current-branch__content">
 							<Icon name="branch-remote" color="var(--clr-text-2)" />
-							<span class="text-12 text-semibold clr-text-1 truncate">{currentBranchName}</span>
+							<span class="text-12 text-bold clr-text-2 truncate">{currentBranchName}</span>
 							{#if isNotInWorkspace}
-								<span class="text-12 text-semibold clr-text-2"> read-only </span>
+								<span class="text-12 text-bold clr-text-2 op-60"> read-only </span>
 							{/if}
 						</div>
 					</div>
@@ -327,7 +327,6 @@
 		border-left: none;
 		border-top-right-radius: 100px;
 		border-bottom-right-radius: 100px;
-		background-color: var(--clr-bg-2-muted);
 	}
 
 	.chrome-current-branch__content {
@@ -336,7 +335,7 @@
 		overflow: hidden;
 		gap: 4px;
 		text-wrap: nowrap;
-		opacity: 0.7;
+		opacity: 0.8;
 	}
 
 	.chrome-left {
