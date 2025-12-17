@@ -84,19 +84,25 @@ correctness = "deny"
 
 [features]
 default = ["custom-protocol", "devtools"]
-## A forwarding to all crates that have windows-specific adjustments for testing on non-Windows.
-windows = []
-## Allow dev-tools to appear to help debugging the frontend.
-devtools = ["tauri/devtools"]
-
+#! ## Build- and package-related Options
 ## If enabled, we will pretend to be `but` when the binary filename is `but`.
 builtin-but = ["dep:but", "but-action/builtin-but"]
 ## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
 packaged-but-distribution = []
+## A forwarding to all crates that have windows-specific adjustments for testing on non-Windows.
+windows = []
+## Allow dev-tools to appear to help debugging the frontend.
+devtools = ["tauri/devtools"]
+## Disable the auto-updater in the frontend.
+##
+## Note that it will still be compiled in and is allowed, so the capability remains.
+disable-auto-updates = []
 
+#! ## Development
 ## This feature is used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
 
 ## Add support for backtraces on any error.
 error-context = ["dep:backtrace"]
+
