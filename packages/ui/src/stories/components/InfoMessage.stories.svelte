@@ -278,10 +278,69 @@
 	{#snippet template()}
 		<div style="padding: 20px; background: var(--clr-bg-1);">
 			<InfoMessage
+				primaryLabel="Retry"
+				primaryAction={() => alert('Retry clicked!')}
 				style="danger"
 				error="Error: Failed to connect to server at https://api.example.com
 Status: 500 Internal Server Error
-Details: Connection timeout after 30 seconds"
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com Error: Failed to connect to server at https://api.example.comError: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+
+Error: Failed to connect to server at https://api.example.com
+Status: 500 Internal Server Error
+Details: Connection timeout after 30 seconds
+"
 			>
 				{#snippet title()}
 					Connection Error

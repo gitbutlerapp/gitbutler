@@ -206,7 +206,7 @@
 	.info {
 		border: 0 solid var(--clr-border-2);
 	}
-	.error {
+	.danger {
 		border: 0 solid var(--clr-theme-danger-element);
 	}
 	.warning {
@@ -241,8 +241,9 @@
 
 	/* ERROR BLOCK */
 	.info-message__error-block {
+		max-height: 350px;
 		padding: 10px 10px 0;
-		overflow-x: scroll;
+		overflow: auto;
 		border-radius: var(--radius-s);
 		background-color: var(--clr-theme-danger-bg);
 		color: var(--clr-theme-danger-text);
