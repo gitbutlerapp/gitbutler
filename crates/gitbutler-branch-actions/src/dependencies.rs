@@ -103,7 +103,7 @@ pub struct CommitDependencies {
 }
 
 /// Returns the dependencies of a commit from the workspace dependencies.
-pub fn commit_dependencies_from_workspace(
+pub(crate) fn commit_dependencies_from_workspace(
     workspace_dependencies: &HunkDependencyResult,
     stack_id: StackId,
     commit_id: git2::Oid,

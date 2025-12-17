@@ -4,7 +4,7 @@ use but_tools::{emit::Emitter, workspace::commit_toolset};
 
 use crate::OpenAiProvider;
 
-pub fn auto_commit(
+pub(crate) fn auto_commit(
     emitter: std::sync::Arc<Emitter>,
     ctx: &mut Context,
     openai: &OpenAiProvider,

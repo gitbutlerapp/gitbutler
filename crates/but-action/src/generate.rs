@@ -11,7 +11,7 @@ use schemars::{JsonSchema, schema_for};
 use crate::OpenAiProvider;
 
 #[expect(dead_code)]
-pub fn commit_message_blocking(
+pub(crate) fn commit_message_blocking(
     openai: &OpenAiProvider,
     external_summary: &str,
     external_prompt: &str,

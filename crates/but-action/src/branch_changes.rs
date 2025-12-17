@@ -4,7 +4,7 @@ use but_tools::{emit::Emitter, workspace::commit_toolset};
 
 use crate::OpenAiProvider;
 
-pub fn branch_changes(
+pub(crate) fn branch_changes(
     emitter: std::sync::Arc<Emitter>,
     ctx: &mut Context,
     openai: &OpenAiProvider,
