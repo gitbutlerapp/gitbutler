@@ -203,7 +203,7 @@ fn main() -> anyhow::Result<()> {
             .plugin(tauri_plugin_process::init())
             .plugin(tauri_plugin_deep_link::init());
 
-        #[cfg(all(feature = "tauri-plugin-updater", not(feature = "no-updater")))]
+        #[cfg(all(feature = "tauri-plugin-updater", not(feature = "no-tauri-plugin-updater")))]
         let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
         let builder = builder

@@ -102,4 +102,4 @@ custom-protocol = ["tauri/custom-protocol"]
 error-context = ["dep:backtrace"]
 
 ## Disables the Tauri updater plugin, making all auto-update functionality unavailable.
-no-updater = []
+no-tauri-plugin-updater = []

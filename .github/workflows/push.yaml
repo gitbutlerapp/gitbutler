@@ -237,7 +237,7 @@ jobs:
       - run: |
           set -e
           cargo check -p gitbutler-tauri --no-default-features
-          for feature in devtools custom-protocol error-context; do
+          for feature in devtools custom-protocol error-context tauri-plugin-updater packaged-but-distribution builtin-but; do
             cargo check -p gitbutler-tauri --no-default-features --features "$feature"
           done
         name: Test Tauri and Check Tauri App Features
