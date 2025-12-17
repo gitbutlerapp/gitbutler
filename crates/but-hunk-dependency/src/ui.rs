@@ -12,7 +12,10 @@ pub fn hunk_dependencies_for_changes(
     // accelerate tree-tree-diffs
     let repo = ctx.open_repo_for_merging_non_persisting()?;
     let project_data_dir = &ctx.project_data_dir();
-    let stacks = but_workspace::legacy::stacks(ctx, project_data_dir, &repo, Default::default())?;
+    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
+    )?;
+    let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
     let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(project_data_dir)
         .get_default_target()?
         .sha;

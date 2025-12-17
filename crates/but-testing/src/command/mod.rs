@@ -257,12 +257,11 @@ pub mod stacks {
                 None,
             )?;
 
-            let stack_entries = but_workspace::legacy::stacks(
-                ctx,
-                &ctx.project_data_dir(),
-                &repo,
-                Default::default(),
+            let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+                ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
             )?;
+            let stack_entries =
+                but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
             let stack_entry = stack_entries
                 .into_iter()
                 .find(|entry| entry.id == Some(stack_id))
@@ -310,8 +309,11 @@ pub mod stacks {
         };
 
         gitbutler_branch_actions::stack::create_branch(ctx, stack_id, creation_request)?;
+        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+            ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
+        )?;
         let stack_entries =
-            but_workspace::legacy::stacks(ctx, &ctx.project_data_dir(), repo, Default::default())?;
+            but_workspace::legacy::stacks_v3(repo, &meta, Default::default(), None)?;
 
         let stack_entry = stack_entries
             .into_iter()
@@ -352,12 +354,10 @@ pub mod stacks {
         let ctx = Context::new_from_legacy_project_and_settings(&project, app_settings);
         let repo = ctx.repo.get()?;
 
-        let stacks = but_workspace::legacy::stacks(
-            &ctx,
-            &ctx.project_data_dir(),
-            &repo,
-            Default::default(),
+        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+            ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
         )?;
+        let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
         let subject_stack = stacks
             .clone()
             .into_iter()

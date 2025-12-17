@@ -78,9 +78,12 @@ pub fn locks(current_dir: &Path, simple: bool, use_json: bool) -> anyhow::Result
     let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
     let repo = project.open_repo()?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
+    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
+    )?;
     let input_stacks = but_hunk_dependency::workspace_stacks_to_input_stacks(
         &repo,
-        &but_workspace::legacy::stacks(&ctx, &ctx.project_data_dir(), &repo, Default::default())?,
+        &but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?,
         but_workspace::legacy::common_merge_base_with_target_branch(&ctx.project_data_dir())?,
     )?;
     let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
