@@ -46,7 +46,7 @@ tauri-plugin-os = "2.3.2"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-shell = "2.3.3"
 tauri-plugin-store = "2.4.1"
-tauri-plugin-updater = { version = "2.9.0", optional = true }
+tauri-plugin-updater = "2.9.0"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-clipboard-manager = "2.3.2"
 
@@ -83,7 +83,7 @@ perf = "deny"
 correctness = "deny"
 
 [features]
-default = ["custom-protocol", "devtools", "tauri-plugin-updater"]
+default = ["custom-protocol", "devtools"]
 ## A forwarding to all crates that have windows-specific adjustments for testing on non-Windows.
 windows = []
 ## Allow dev-tools to appear to help debugging the frontend.
@@ -100,6 +100,3 @@ custom-protocol = ["tauri/custom-protocol"]
 
 ## Add support for backtraces on any error.
 error-context = ["dep:backtrace"]
-
-## Disables the Tauri updater plugin, making all auto-update functionality unavailable.
-no-tauri-plugin-updater = []
