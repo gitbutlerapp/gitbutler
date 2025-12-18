@@ -205,6 +205,7 @@ impl IdMap {
     /// Scan short `branch_names` in windows of 2 to 3 (presumed) ascii characters and see if
     /// they resemble [`UintId`]s. If so, use them, otherwise, see if they can be used unambiguously
     /// directly. If not, generate an ID.
+    #[allow(clippy::type_complexity)]
     fn ids_for_branch_names(
         branch_names: Vec<BString>,
     ) -> anyhow::Result<(IdUsage, HashMap<BString, CliId>, HashMap<ShortId, CliId>)> {

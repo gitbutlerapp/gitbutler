@@ -1,6 +1,5 @@
-use snapbox::str;
-
 use crate::utils::Sandbox;
+use snapbox::str;
 
 #[test]
 fn shorthand_without_subcommand() -> anyhow::Result<()> {
@@ -23,23 +22,18 @@ Rubbed the wrong way. Source 'nonexistent1' not found. If you just performed a G
 }
 
 #[test]
-fn uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
+fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
 
-    // Create, then edit two lines that are far apart to ensure that they become
-    // 2 hunks.
-    env.file("a.txt", format!("first\n{}last\n", "line\n".repeat(100)));
-    env.but("commit A -m create-a").assert().success();
-    env.file("a.txt", format!("firsta\n{}lasta\n", "line\n".repeat(100)));
+    commit_file_a_with_worktree_changes_as_two_hunks(&env);
 
     // Assign the change to A and verify that the assignment happened.
     env.but("i0 A").assert().success();
     env.but("--json status -f")
         .env_remove("BUT_OUTPUT_FORMAT")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -61,7 +55,7 @@ fn uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
 "#]]);
 
     // TODO When we have a way to list the hunks and their respective IDs (e.g.
-    // via a "diff" or "show" command), assert that m0 is the hunk we want.
+    //      via a "diff" or "show" command), assert that m0 is the hunk we want.
     env.but("m0 00")
         .assert()
         .success()
@@ -74,7 +68,6 @@ fn uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
     // unassigned area and in a stack).
     env.but("--json status -f")
         .env_remove("BUT_OUTPUT_FORMAT")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -115,15 +108,11 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
     // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
 
-    // Create, then edit two lines that are far apart to ensure that they become
-    // 2 hunks.
-    env.file("a.txt", format!("first\n{}last\n", "line\n".repeat(100)));
-    env.but("commit A -m create-a").assert().success();
-    env.file("a.txt", format!("firsta\n{}lasta\n", "line\n".repeat(100)));
+    commit_file_a_with_worktree_changes_as_two_hunks(&env);
 
     // TODO When we have a way to list the hunks and their respective IDs (e.g.
-    // via a "diff" or "show" command), assert that m0 is the hunk we want.
-    env.but("m0 A")
+    //      via a "diff" or "show" command), assert that m0 is the hunk we want.
+    env.but("rub m0 A")
         .assert()
         .success()
         .stdout_eq(snapbox::file![
@@ -135,7 +124,6 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
     // unassigned area and in a stack).
     env.but("--json status -f")
         .env_remove("BUT_OUTPUT_FORMAT")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -168,3 +156,22 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+mod util {
+    use crate::utils::Sandbox;
+
+    /// Create, then edit two lines that are far apart to ensure that they become 2 hunks.
+    pub fn commit_file_a_with_worktree_changes_as_two_hunks(env: &Sandbox) {
+        let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
+        env.file(
+            "a.txt",
+            format!("first\n{}last\n", "line\n".repeat(context_distance)),
+        );
+        env.but("commit A -m create-a").assert().success();
+        env.file(
+            "a.txt",
+            format!("firsta\n{}lasta\n", "line\n".repeat(context_distance)),
+        );
+    }
+}
+use crate::command::rub::util::commit_file_a_with_worktree_changes_as_two_hunks;
