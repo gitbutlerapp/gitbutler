@@ -119,14 +119,21 @@ pub(crate) fn handle(
             }
             (
                 CliId::UncommittedHunk {
-                    hunk_header,
-                    path: path_bytes,
-                    ..
+                    hunk_header, path, ..
+                },
+                CliId::Unassigned { .. },
+            ) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::unassign_hunk(ctx, *hunk_header, path.as_ref(), out)?;
+            }
+            (
+                CliId::UncommittedHunk {
+                    hunk_header, path, ..
                 },
                 CliId::Branch { name, .. },
             ) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_hunk_to_branch(ctx, *hunk_header, path_bytes.as_ref(), name, out)?;
+                assign::assign_hunk_to_branch(ctx, *hunk_header, path.as_ref(), name, out)?;
             }
             _ => {
                 bail!(makes_no_sense_error(&source, &target))

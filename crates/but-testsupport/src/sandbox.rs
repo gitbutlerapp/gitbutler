@@ -1,17 +1,18 @@
 use std::{io::Write, ops::DerefMut, path::Path};
 
+use crate::{
+    git_status, graph_workspace_determinisitcally, invoke_bash_at_dir, isolate_snapbox_cmd,
+    visualize_commit_graph_all_from_dir,
+};
 use but_core::{
     RefMetadata,
     ref_metadata::{StackId, WorkspaceCommitRelation},
 };
 use but_meta::VirtualBranchesTomlMetadata;
+#[cfg(feature = "sandbox-but-api")]
+use but_settings::AppSettings;
 use gix_testtools::{Creation, tempfile};
 use snapbox::{Assert, Redactions};
-
-use crate::{
-    git_status, graph_workspace_determinisitcally, invoke_bash_at_dir, isolate_snapbox_cmd,
-    visualize_commit_graph_all_from_dir,
-};
 
 /// A sandbox for a GitButler application that assumes read-write testing, so all data is editable and is cleaned up afterward.
 pub struct Sandbox {
@@ -21,6 +22,9 @@ pub struct Sandbox {
     /// The more optional this is, the more testable the application.
     #[cfg(feature = "sandbox-but-api")]
     app_root: Option<tempfile::TempDir>,
+    /// The settings that are used for the application, if they are set.
+    #[cfg(feature = "sandbox-but-api")]
+    app_settings: Option<AppSettings>,
 }
 
 impl Drop for Sandbox {
@@ -50,6 +54,8 @@ impl Sandbox {
             project_root: Some(tempfile::TempDir::new()?),
             #[cfg(feature = "sandbox-but-api")]
             app_root: Some(tempfile::TempDir::new()?),
+            #[cfg(feature = "sandbox-but-api")]
+            app_settings: None,
         })
     }
 
@@ -119,10 +125,13 @@ impl Sandbox {
             script_creation,
         )
         .map_err(anyhow::Error::from_boxed)?;
-        let sandbox = Sandbox {
+        #[cfg_attr(not(feature = "sandbox-but-api"), allow(unused_mut))]
+        let mut sandbox = Sandbox {
             project_root: Some(repo_dir),
             #[cfg(feature = "sandbox-but-api")]
             app_root: Some(tempfile::TempDir::new()?),
+            #[cfg(feature = "sandbox-but-api")]
+            app_settings: None,
         };
         let repo = sandbox.open_repo()?;
 
@@ -281,6 +290,20 @@ impl Sandbox {
         Ok(git_status(&repo)?)
     }
 
+    /// Return app settings if these were initialized.
+    #[cfg(feature = "sandbox-but-api")]
+    pub fn try_app_settings(&self) -> Option<&AppSettings> {
+        self.app_settings.as_ref()
+    }
+
+    /// Return app settings or panic if these weren't initialized.
+    #[cfg(feature = "sandbox-but-api")]
+    pub fn app_settings(&self) -> &AppSettings {
+        self.app_settings
+            .as_ref()
+            .expect("BUG: must not call this in an empty or partially initialised sandbox")
+    }
+
     /// Write `data` to `path` in our projects root, creating a new file.
     pub fn file(&self, path: impl AsRef<Path>, data: impl AsRef<[u8]>) -> &Self {
         let path = self.projects_root().join(path);
@@ -364,7 +387,7 @@ impl Sandbox {
 
 impl Sandbox {
     #[cfg(feature = "sandbox-but-api")]
-    fn set_default_settings(&self) -> anyhow::Result<()> {
+    fn set_default_settings(&mut self) -> anyhow::Result<()> {
         use but_settings::{
             AppSettings,
             app_settings::{
@@ -412,7 +435,9 @@ impl Sandbox {
                 check_for_updates_interval_in_seconds: 0,
             },
         };
-        settings.save(&self.app_data_dir().join("gitbutler/settings.json"), None)
+        settings.save(&self.app_data_dir().join("gitbutler/settings.json"), None)?;
+        self.app_settings = Some(settings);
+        Ok(())
     }
 }
 

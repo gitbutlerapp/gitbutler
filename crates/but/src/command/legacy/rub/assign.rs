@@ -64,6 +64,20 @@ pub(crate) fn unassign_file(
     Ok(())
 }
 
+pub(crate) fn unassign_hunk(
+    ctx: &mut Context,
+    hunk_header: Option<HunkHeader>,
+    path: &BStr,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let reqs = to_assignment_request(ctx, Some((hunk_header, path.to_owned())).into_iter(), None)?;
+    do_assignments(ctx, reqs, out)?;
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Unassigned a hunk in {}", path.to_string().bold())?;
+    }
+    Ok(())
+}
+
 pub(crate) fn assign_all(
     ctx: &mut Context,
     from_branch: Option<&str>,

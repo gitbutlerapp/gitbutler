@@ -130,6 +130,11 @@ fn branches_work_with_single_character() -> anyhow::Result<()> {
         expected,
         "it's OK to have a CliID that is longer, but it would be up to the UI to not show them"
     );
+    assert_eq!(
+        id_map.resolve_entity_to_ids("g0")?,
+        expected,
+        "the ID also works"
+    );
     Ok(())
 }
 
@@ -557,6 +562,10 @@ mod util {
         pub fn all_ids(&self) -> Vec<CliId> {
             let IdMap {
                 branch_name_to_cli_id,
+                // All branch IDs are already obtained from
+                // `branch_name_to_cli_id`, so we don't need the keys in
+                // `branch_auto_id_to_cli_id`.
+                branch_auto_id_to_cli_id: _,
                 id_usage: _,
                 workspace_commit_and_first_parent_ids: _,
                 remote_commit_ids: _,
@@ -595,6 +604,10 @@ mod util {
             use itertools::Itertools;
             let IdMap {
                 branch_name_to_cli_id,
+                // All branch IDs are already obtained from
+                // `branch_name_to_cli_id`, so we don't need to print the keys
+                // in `branch_auto_id_to_cli_id`.
+                branch_auto_id_to_cli_id: _,
                 id_usage: _,
                 workspace_commit_and_first_parent_ids: _,
                 remote_commit_ids: _,
