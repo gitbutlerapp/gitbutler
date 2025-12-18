@@ -9,6 +9,7 @@ use but_core::{
     ref_metadata::{StackId, WorkspaceCommitRelation},
 };
 use but_meta::VirtualBranchesTomlMetadata;
+#[cfg(feature = "sandbox-but-api")]
 use but_settings::AppSettings;
 use gix_testtools::{Creation, tempfile};
 use snapbox::{Assert, Redactions};
@@ -22,6 +23,7 @@ pub struct Sandbox {
     #[cfg(feature = "sandbox-but-api")]
     app_root: Option<tempfile::TempDir>,
     /// The settings that are used for the application, if they are set.
+    #[cfg(feature = "sandbox-but-api")]
     app_settings: Option<AppSettings>,
 }
 
@@ -52,6 +54,7 @@ impl Sandbox {
             project_root: Some(tempfile::TempDir::new()?),
             #[cfg(feature = "sandbox-but-api")]
             app_root: Some(tempfile::TempDir::new()?),
+            #[cfg(feature = "sandbox-but-api")]
             app_settings: None,
         })
     }
@@ -122,10 +125,12 @@ impl Sandbox {
             script_creation,
         )
         .map_err(anyhow::Error::from_boxed)?;
+        #[cfg_attr(not(feature = "sandbox-but-api"), allow(unused_mut))]
         let mut sandbox = Sandbox {
             project_root: Some(repo_dir),
             #[cfg(feature = "sandbox-but-api")]
             app_root: Some(tempfile::TempDir::new()?),
+            #[cfg(feature = "sandbox-but-api")]
             app_settings: None,
         };
         let repo = sandbox.open_repo()?;
@@ -286,11 +291,13 @@ impl Sandbox {
     }
 
     /// Return app settings if these were initialized.
+    #[cfg(feature = "sandbox-but-api")]
     pub fn try_app_settings(&self) -> Option<&AppSettings> {
         self.app_settings.as_ref()
     }
 
-    /// Return app settings or panic if there weren't initialized.
+    /// Return app settings or panic if these weren't initialized.
+    #[cfg(feature = "sandbox-but-api")]
     pub fn app_settings(&self) -> &AppSettings {
         self.app_settings
             .as_ref()

@@ -28,7 +28,7 @@ fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
     // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
 
-    commit_file_a_with_worktree_changes_as_two_hunks(&env);
+    commit_file_a_with_worktree_changes_as_two_hunks(&env, "a.txt");
 
     // Assign the change to A and verify that the assignment happened.
     env.but("i0 A").assert().success();
@@ -64,7 +64,7 @@ fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
         ])
         .stderr_eq(str![""]);
 
-    // Verify that only one hunk was assigned ("a.txt" appears both in the
+    // Verify that only one hunk moved back to unassigned ("a.txt" appears both in the
     // unassigned area and in a stack).
     env.but("--json status -f")
         .env_remove("BUT_OUTPUT_FORMAT")
@@ -108,7 +108,7 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
     // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
 
-    commit_file_a_with_worktree_changes_as_two_hunks(&env);
+    commit_file_a_with_worktree_changes_as_two_hunks(&env, "a.txt");
 
     // TODO When we have a way to list the hunks and their respective IDs (e.g.
     //      via a "diff" or "show" command), assert that m0 is the hunk we want.
@@ -161,15 +161,15 @@ mod util {
     use crate::utils::Sandbox;
 
     /// Create, then edit two lines that are far apart to ensure that they become 2 hunks.
-    pub fn commit_file_a_with_worktree_changes_as_two_hunks(env: &Sandbox) {
+    pub fn commit_file_a_with_worktree_changes_as_two_hunks(env: &Sandbox, filename: &str) {
         let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
         env.file(
-            "a.txt",
+            filename,
             format!("first\n{}last\n", "line\n".repeat(context_distance)),
         );
         env.but("commit A -m create-a").assert().success();
         env.file(
-            "a.txt",
+            filename,
             format!("firsta\n{}lasta\n", "line\n".repeat(context_distance)),
         );
     }
