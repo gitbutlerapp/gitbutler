@@ -419,7 +419,6 @@ impl IdMap {
         if entity
             .chars()
             .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
-            && entity.len() >= 2
             && let Ok(prefix) = gix::hash::Prefix::from_hex_nonempty(entity)
         {
             for oid in self
