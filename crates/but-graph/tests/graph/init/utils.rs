@@ -13,7 +13,7 @@ pub fn read_only_in_memory_scenario(
     named_read_only_in_memory_scenario("scenarios", name)
 }
 
-fn named_read_only_in_memory_scenario(
+pub fn named_read_only_in_memory_scenario(
     script: &str,
     name: &str,
 ) -> anyhow::Result<(

@@ -212,6 +212,7 @@ git init special-branches
   commit top
 )
 
+
 mkdir ws
 (cd ws
   git init reproduce-11459
@@ -1324,6 +1325,111 @@ EOF
     setup_target_to_match_main
     git reset --hard @~1
     git branch gitbutler/workspace
+  )
+
+  # Complex merge history with origin/master as target, simulating a real-world
+  # GitButler workspace scenario with multiple merged PRs and a local stack.
+  # This models the git history:
+  #
+  # *   (origin/master) Merge pull request #11567
+  # |\
+  # | * Address Copilot review
+  # | * refactor
+  # | * rub: uncommitted hunk
+  # | * id: ensure branch IDs work
+  # * | (tag: nightly/0.5.1755) refactor-remove-unused-css-variables
+  # * |   Merge pull request #11571
+  # |\ \
+  # | * | Restrict visibility of some functions
+  # |/ /
+  # | | * (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+  # | | * (reimplement-insert-blank-commit) composibility improvements
+  # | | * rename reword_commit
+  # | | * Reimplement insert blank commit
+  # | |/
+  # |/|
+  # * |   (tag: nightly/0.5.1754) Merge pull request #11574
+  # |\ \
+  # | * (Byron/fix) Adjust type...
+  # * |   Merge pull request #11573
+  git init complex-merge-origin-master
+  (cd complex-merge-origin-master
+    # Start with initial history
+    commit init
+    commit base
+
+    # Create the Byron/fix branch for PR #11574
+    git checkout -b byron-fix
+      commit "Adjust type of ui.check_for_updates_interval_in_seconds"
+    git checkout main
+
+    # Create base for PR #11573
+    git checkout -b pr-11573
+      commit "fix kiril reword example"
+    git checkout main
+
+    # Merge PR #11573 into main
+    tick
+    git merge --no-ff pr-11573 -m "Merge pull request #11573"
+
+    # Merge PR #11574 (Byron/fix)
+    tick
+    git tag nightly/0.5.1754
+    git merge --no-ff byron-fix -m "Merge pull request #11574 from Byron/fix"
+
+    # Create PR #11571 branch
+    git checkout -b pr-11571
+      commit "Restrict visibility of some functions"
+    git checkout main
+
+    # Merge PR #11571
+    tick
+    git merge --no-ff pr-11571 -m "Merge pull request #11571"
+
+    # Create the refactor commit (PR #11576)
+    tick
+    commit "refactor-remove-unused-css-variables (#11576)"
+    git tag nightly/0.5.1755
+
+    # Create the jt/uhunk2 PR branch (#11567) from earlier point
+    git checkout -b jt-uhunk2 "HEAD~3"
+      commit "id: ensure that branch IDs work"
+      commit "rub: uncommitted hunk to unassigned area"
+      commit "refactor"
+      commit "Address Copilot review"
+    git checkout main
+
+    # Merge PR #11567 into main to create origin/master
+    tick
+    git merge --no-ff jt-uhunk2 -m "Merge pull request #11567 from gitbutlerapp/jt/uhunk2"
+
+    # Setup origin/master as remote tracking (note: using 'master' not 'main')
+    mkdir -p .git/refs/remotes/origin
+    cp .git/refs/heads/main .git/refs/remotes/origin/master
+
+    # Now create the workspace branch from an earlier point in history
+    # (branching off before the latest merges, simulating local work)
+    git checkout -b local-stack "nightly/0.5.1754"
+      commit "Reimplement insert blank commit"
+      commit "rename reword_commit to commit_reword"
+      commit "composibility improvements"
+      git branch reimplement-insert-blank-commit
+      git branch reconstructed-insert-blank-commit-branch
+
+    # Create the workspace commit
+    git checkout -b gitbutler/workspace
+    git commit --allow-empty -m "GitButler Workspace Commit"
+
+    # Setup remote config with origin/master as the target
+    cat <<EOF >>.git/config
+[remote "origin"]
+	url = ./fake/local/path
+	fetch = +refs/heads/*:refs/remotes/origin/*
+
+[branch "main"]
+  remote = "origin"
+  merge = refs/heads/master
+EOF
   )
 )
 
