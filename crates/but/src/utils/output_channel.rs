@@ -71,19 +71,17 @@ impl std::fmt::Write for OutputChannel {
 /// Lifecycle
 impl OutputChannel {
     /// Create a new instance to output with `format` (advisory), which affects where it prints to.
+    /// The `use_pager` parameter controls whether a pager should be created.
     ///
     /// It's configured to print to stdout unless [`OutputFormat::Json`] is used, then it prints everything
     /// to a `/dev/null` equivalent, so callers never have to worry if they interleave JSON with other output.
-    ///
-    /// WARNING: the current implementation is static and would cache everything in memory.
-    ///          Use `dynamic_output` (cargo feature + see https://docs.rs/minus/5.6.1/minus/#threads) otherwise.
-    ///          It also needs to avoid
-    pub fn new_with_pager(format: OutputFormat) -> Self {
+    pub fn new_with_optional_pager(format: OutputFormat, use_pager: bool) -> Self {
         OutputChannel {
             format,
             inner: std::io::stdout(),
             pager: if !matches!(format, OutputFormat::Human)
                 || std::env::var_os("NOPAGER").is_some()
+                || !use_pager
             {
                 None
             } else {

@@ -85,8 +85,13 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     } else {
         args.format
     };
-    // Set it so code past this point can assume it's set.;
-    let mut out = OutputChannel::new_with_pager(output_format);
+    // Determine if pager should be used based on the command
+    let use_pager = match args.cmd {
+        #[cfg(feature = "legacy")]
+        Some(Subcommands::Status { .. }) | Some(Subcommands::Stf { .. }) => false,
+        _ => true,
+    };
+    let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
 
     if args.trace > 0 {
         trace::init(args.trace)?;
