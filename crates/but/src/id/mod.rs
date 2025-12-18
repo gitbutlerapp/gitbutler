@@ -420,10 +420,11 @@ impl IdMap {
             .chars()
             .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
             && entity.len() >= 2
+            && let Ok(prefix) = gix::hash::Prefix::from_hex_nonempty(entity)
         {
             for oid in self
                 .workspace_and_remote_commit_ids()
-                .filter(|oid| oid.to_string().starts_with(entity))
+                .filter(|oid| prefix.cmp_oid(oid).is_eq())
             {
                 matches.push(CliId::Commit(*oid));
             }
