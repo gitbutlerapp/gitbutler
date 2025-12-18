@@ -42,7 +42,10 @@ impl Editor {
             if let Step::Pick { id, .. } = self.graph[node_idx]
                 && id == target
             {
-                return Some(Selector { id: node_idx });
+                return Some(Selector {
+                    id: node_idx,
+                    revision: self.history.current_revision(),
+                });
             }
         }
 
@@ -55,7 +58,10 @@ impl Editor {
             if let Step::Reference { refname } = &self.graph[node_idx]
                 && target == refname.as_ref()
             {
-                return Some(Selector { id: node_idx });
+                return Some(Selector {
+                    id: node_idx,
+                    revision: self.history.current_revision(),
+                });
             }
         }
 
@@ -65,20 +71,23 @@ impl Editor {
     /// Replaces the node that the function was pointing to.
     ///
     /// Returns the replaced step.
-    pub fn replace(&mut self, target: &Selector, step: Step) -> Step {
+    pub fn replace(&mut self, target: Selector, step: Step) -> Result<Step> {
+        let target = self.history.normalize_selector(target)?;
         let old = self.graph[target.id].clone();
         self.graph[target.id] = step;
-        old
+        Ok(old)
     }
 
     /// Inserts a new node relative to a selector
-    ///
     ///
     /// When inserting above, any nodes that point to the selector will now
     /// point to the inserted node instead. When inserting below, any nodes
     /// that the selector points to will now be pointed to by the inserted node
     /// instead.
-    pub fn insert(&mut self, target: &Selector, step: Step, side: InsertSide) {
+    ///
+    /// Returns a selector to the inserted step
+    pub fn insert(&mut self, target: Selector, step: Step, side: InsertSide) -> Result<Selector> {
+        let target = self.history.normalize_selector(target)?;
         match side {
             InsertSide::Above => {
                 let edges = self
@@ -94,6 +103,11 @@ impl Editor {
                     self.graph.remove_edge(edge_id);
                     self.graph.add_edge(edge_source, new_idx, edge_weight);
                 }
+
+                Ok(Selector {
+                    id: new_idx,
+                    revision: self.history.current_revision(),
+                })
             }
             InsertSide::Below => {
                 let edges = self
@@ -109,6 +123,11 @@ impl Editor {
                     self.graph.remove_edge(edge_id);
                     self.graph.add_edge(new_idx, edge_target, edge_weight);
                 }
+
+                Ok(Selector {
+                    id: new_idx,
+                    revision: self.history.current_revision(),
+                })
             }
         }
     }

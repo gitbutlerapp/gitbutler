@@ -45,13 +45,13 @@ fn insert_below_merge_commit() -> Result<()> {
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
     editor.insert(
-        &selector,
+        selector,
         Step::Pick {
             id: new_commit,
             preserved_parents: None,
         },
         InsertSide::Below,
-    );
+    )?;
 
     let outcome = editor.rebase()?;
     outcome.materialize()?;
@@ -108,13 +108,13 @@ fn insert_above_commit_with_two_children() -> Result<()> {
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
     editor.insert(
-        &selector,
+        selector,
         Step::Pick {
             id: new_commit,
             preserved_parents: None,
         },
         InsertSide::Above,
-    );
+    )?;
 
     let outcome = editor.rebase()?;
     outcome.materialize()?;

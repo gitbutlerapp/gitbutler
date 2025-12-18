@@ -1,6 +1,7 @@
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
+use but_rebase::graph_rebase::{GraphExt, LookupStep as _};
 use tracing::instrument;
 
 /// Rewords a commit
@@ -15,8 +16,15 @@ pub fn commit_reword_only(
 ) -> anyhow::Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
     let (repo, _, graph) = ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let editor = graph.to_editor(&repo)?;
 
-    but_workspace::commit::reword(&graph, &repo, commit_id, message.as_bstr())
+    let (outcome, edited_commit_selector) =
+        but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
+
+    let outcome = outcome.materialize()?;
+    let id = outcome.lookup_pick(edited_commit_selector)?;
+
+    Ok(id)
 }
 
 /// Rewords a commit, but without updating the oplog.
