@@ -296,7 +296,7 @@ export function initDependencies(args: {
 	const cliManager = new CLIManager(clientState['backendApi']);
 	const dataSharingService = new DataSharingService(clientState['backendApi']);
 	const promptService = new PromptService(backend);
-	const updaterService = new UpdaterService(backend, posthog, shortcutService);
+	const updaterService = new UpdaterService(backend, posthog, shortcutService, settingsService);
 
 	// ============================================================================
 	// UTILITIES

@@ -1,3 +1,4 @@
+import { SettingsService } from '$lib/config/appSettingsV2';
 import { showToast } from '$lib/notifications/toasts';
 import { InjectionToken } from '@gitbutler/core/context';
 import { persisted } from '@gitbutler/shared/persisted';
@@ -36,8 +37,6 @@ const downloadStatusMap: { [K in DownloadEventName]: InstallStatus } = {
 	Finished: 'Downloaded'
 };
 
-export const UPDATE_INTERVAL_MS = 3600000; // Hourly
-
 /**
  * Note that the Tauri API `checkUpdate` hangs indefinitely in dev mode, build
  * a nightly if you want to test the updater manually.
@@ -68,7 +67,8 @@ export class UpdaterService {
 	constructor(
 		private backend: IBackend,
 		private posthog: PostHogWrapper,
-		private shortcuts: ShortcutService
+		private shortcuts: ShortcutService,
+		private settingsService: SettingsService
 	) {}
 
 	private async start() {
@@ -77,11 +77,15 @@ export class UpdaterService {
 		this.shortcuts.on('update', () => {
 			this.checkForUpdate(true);
 		});
-		this.checkForUpdateInterval = setInterval(
-			async () => await this.checkForUpdate(),
-			UPDATE_INTERVAL_MS
-		);
-		this.checkForUpdate();
+		const settings = get(this.settingsService.appSettings);
+		const updateIntervalMs = settings!.ui.checkForUpdatesIntervalInSeconds * 1000;
+		if (updateIntervalMs !== 0) {
+			this.checkForUpdateInterval = setInterval(
+				async () => await this.checkForUpdate(),
+				updateIntervalMs
+			);
+			this.checkForUpdate();
+		}
 	}
 
 	private async stop() {
