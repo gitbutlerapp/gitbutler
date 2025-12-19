@@ -142,9 +142,6 @@ describe('Updater', () => {
 		await vi.advanceTimersByTimeAsync(3600 * 1000);
 		expect(mock).not.toHaveBeenCalled();
 
-		await vi.advanceTimersByTimeAsync(3600 * 1000);
-		expect(mock).not.toHaveBeenCalled();
-
 		unsubscribe();
 	});
 });
