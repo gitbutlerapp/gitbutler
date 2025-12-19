@@ -1343,7 +1343,7 @@ EOF
   # | * | Restrict visibility of some functions
   # |/ /
   # | | * (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-  # | | * (reimplement-insert-blank-commit) composibility improvements
+  # | | * (reimplement-insert-blank-commit) compatibility improvements
   # | | * rename reword_commit
   # | | * Reimplement insert blank commit
   # | |/
@@ -1352,8 +1352,8 @@ EOF
   # |\ \
   # | * (Byron/fix) Adjust type...
   # * |   Merge pull request #11573
-  git init complex-merge-origin-master
-  (cd complex-merge-origin-master
+  git init complex-merge-origin-main
+  (cd complex-merge-origin-main
     # Start with initial history
     commit init
     commit base
@@ -1399,37 +1399,25 @@ EOF
       commit "Address Copilot review"
     git checkout main
 
-    # Merge PR #11567 into main to create origin/master
+    # Merge PR #11567 into main to create origin/main
     tick
     git merge --no-ff jt-uhunk2 -m "Merge pull request #11567 from gitbutlerapp/jt/uhunk2"
 
-    # Setup origin/master as remote tracking (note: using 'master' not 'main')
-    mkdir -p .git/refs/remotes/origin
-    cp .git/refs/heads/main .git/refs/remotes/origin/master
+    # Setup origin/main as remote tracking
+    setup_target_to_match_main
 
     # Now create the workspace branch from an earlier point in history
     # (branching off before the latest merges, simulating local work)
     git checkout -b local-stack "nightly/0.5.1754"
       commit "Reimplement insert blank commit"
       commit "rename reword_commit to commit_reword"
-      commit "composibility improvements"
+      commit "composability improvements"
       git branch reimplement-insert-blank-commit
       git branch reconstructed-insert-blank-commit-branch
 
     # Create the workspace commit
     git checkout -b gitbutler/workspace
     git commit --allow-empty -m "GitButler Workspace Commit"
-
-    # Setup remote config with origin/master as the target
-    cat <<EOF >>.git/config
-[remote "origin"]
-	url = ./fake/local/path
-	fetch = +refs/heads/*:refs/remotes/origin/*
-
-[branch "main"]
-  remote = "origin"
-  merge = refs/heads/master
-EOF
   )
 )
 

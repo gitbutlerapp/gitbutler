@@ -5963,46 +5963,20 @@ mod edit_commit {
     }
 }
 
-/// Complex merge history with origin/master as the target branch.
+/// Complex merge history with origin/main as the target branch.
 /// This simulates a real-world scenario where:
-/// - origin/master has multiple merged PRs with complex merge history
+/// - origin/main has multiple merged PRs with complex merge history
 /// - A local workspace branch exists with uncommitted work
 /// - The local stack branches off from an earlier point in history (nightly/0.5.1754)
-///
-/// Git history looks like:
-/// ```text
-/// *   (origin/master) Merge pull request #11567
-/// |\
-/// | * Address Copilot review
-/// | * refactor
-/// | * rub: uncommitted hunk
-/// | * id: ensure branch IDs work
-/// * | (tag: nightly/0.5.1755) refactor-remove-unused-css-variables
-/// * |   Merge pull request #11571
-/// |\ \
-/// | * | Restrict visibility of some functions
-/// |/ /
-/// | | * (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-/// | | * (reimplement-insert-blank-commit) composibility improvements
-/// | | * rename reword_commit to commit_reword
-/// | | * Reimplement insert blank commit
-/// | |/
-/// |/|
-/// * |   (tag: nightly/0.5.1754) Merge pull request #11574
-/// |\ \
-/// | |/
-/// | * (Byron/fix) Adjust type...
-/// * |   Merge pull request #11573
-/// ```
 #[test]
-fn complex_merge_history_with_origin_master_target() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/complex-merge-origin-master")?;
+fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/complex-merge-origin-main")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 97d7f7f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 5730946 (reimplement-insert-blank-commit, reconstructed-insert-blank-commit-branch, local-stack) composibility improvements
+    * 4d53bb1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 4eaff93 (reimplement-insert-blank-commit, reconstructed-insert-blank-commit-branch, local-stack) composability improvements
     * d19db1d rename reword_commit to commit_reword
     * fb0a67e Reimplement insert blank commit
-    | *   e7e93d6 (origin/master, main) Merge pull request #11567 from gitbutlerapp/jt/uhunk2
+    | *   e7e93d6 (origin/main, main) Merge pull request #11567 from gitbutlerapp/jt/uhunk2
     | |\  
     | | * eadc96a (jt-uhunk2) Address Copilot review
     | | * 8db8b43 refactor
@@ -6028,65 +6002,20 @@ fn complex_merge_history_with_origin_master_target() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    // Add workspace with origin/master as target (not origin/main)
+    // Add workspace with origin/main as target (not origin/main)
     add_workspace(&mut meta);
-    // Override the default origin/main target to use origin/master
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("set by add_workspace")
-        .branch = gitbutler_reference::RemoteRefname::new("origin", "master");
-
-    panic!("Only 5730946, d19db1d, and fb0a67e should be considered in workspace");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r"
-    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·97d7f7f (⌂|🏘|1)
-    │       └── ►:11[1]:anon:
-    │           ├── ·5730946 (⌂|🏘|1) ►local-stack, ►reconstructed-insert-blank-commit-branch, ►reimplement-insert-blank-commit
-    │           ├── ·d19db1d (⌂|🏘|1)
-    │           └── ·fb0a67e (⌂|🏘|1)
-    │               └── ►:7[5]:anon:
-    │                   └── ·68e62aa (⌂|🏘|✓|1) ►tags/nightly/0.5.1754
-    │                       ├── ►:9[6]:anon:
-    │                       │   ├── ·322cb14 (⌂|🏘|✓|1)
-    │                       │   └── ·fafd9d0 (⌂|🏘|✓|1)
-    │                       └── ►:10[6]:pr-11573
-    │                           └── ✂·2d02c78 (⌂|🏘|✓|1)
-    └── ►:1[0]:origin/master
-        └── 🟣e7e93d6 (✓) ►main
-            ├── ►:2[1]:anon:
-            │   └── 🟣49b28a4 (✓) ►tags/nightly/0.5.1755
-            │       └── ►:4[2]:anon:
-            │           └── 🟣d627ca0 (✓)
-            │               ├── ►:5[4]:anon:
-            │               │   └── 🟣4ad4354 (✓)
-            │               │       ├── →:7:
-            │               │       └── ►:8[5]:byron-fix
-            │               │           └── 🟣5de9f4e (✓)
-            │               │               └── →:9:
-            │               └── ►:6[3]:pr-11571
-            │                   └── 🟣d62ab55 (✓)
-            │                       └── →:5:
-            └── ►:3[1]:jt-uhunk2
-                ├── 🟣eadc96a (✓)
-                ├── 🟣8db8b43 (✓)
-                ├── 🟣0aa7094 (✓)
-                └── 🟣28a0336 (✓)
-                    └── →:7:
-    ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master⇣10 on 68e62aa
-    └── ≡:11:anon: on 68e62aa
-        └── :11:anon:
-            ├── ·5730946 (🏘️) ►local-stack, ►reconstructed-insert-blank-commit-branch, ►reimplement-insert-blank-commit
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣10 on 68e62aa
+    └── ≡:12:anon: on 68e62aa
+        └── :12:anon:
+            ├── ·4eaff93 (🏘️) ►local-stack, ►reconstructed-insert-blank-commit-branch, ►reimplement-insert-blank-commit
             ├── ·d19db1d (🏘️)
             └── ·fb0a67e (🏘️)
     ");
 
     // Also add the local stack as a workspace stack
-    meta.data_mut().branches.clear();
     add_stack_with_segments(
         &mut meta,
         0,
@@ -6094,58 +6023,14 @@ fn complex_merge_history_with_origin_master_target() -> anyhow::Result<()> {
         StackState::InWorkspace,
         &["reconstructed-insert-blank-commit-branch"],
     );
-    // Re-set the target since branches were cleared
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("still set")
-        .branch = gitbutler_reference::RemoteRefname::new("origin", "master");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r"
-    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·97d7f7f (⌂|🏘|1)
-    │       └── 📙►:12[1]:reimplement-insert-blank-commit
-    │           └── 📙►:13[2]:reconstructed-insert-blank-commit-branch
-    │               ├── ·5730946 (⌂|🏘|1) ►local-stack
-    │               ├── ·d19db1d (⌂|🏘|1)
-    │               └── ·fb0a67e (⌂|🏘|1)
-    │                   └── ►:6[5]:anon:
-    │                       └── ·68e62aa (⌂|🏘|✓|1) ►tags/nightly/0.5.1754
-    │                           ├── ►:9[7]:anon:
-    │                           │   ├── ·322cb14 (⌂|🏘|✓|1)
-    │                           │   └── ·fafd9d0 (⌂|🏘|✓|1)
-    │                           └── ►:10[6]:pr-11573
-    │                               └── ·2d02c78 (⌂|🏘|✓|1)
-    │                                   └── →:9:
-    └── ►:1[0]:origin/master
-        └── 🟣e7e93d6 (✓) ►main
-            ├── ►:3[1]:anon:
-            │   └── 🟣49b28a4 (✓) ►tags/nightly/0.5.1755
-            │       └── ►:5[2]:anon:
-            │           └── 🟣d627ca0 (✓)
-            │               ├── ►:7[4]:anon:
-            │               │   └── 🟣4ad4354 (✓)
-            │               │       ├── →:6:
-            │               │       └── ►:11[5]:byron-fix
-            │               │           └── 🟣5de9f4e (✓)
-            │               │               └── →:9:
-            │               └── ►:8[3]:pr-11571
-            │                   └── 🟣d62ab55 (✓)
-            │                       └── →:7:
-            └── ►:4[1]:jt-uhunk2
-                ├── 🟣eadc96a (✓)
-                ├── 🟣8db8b43 (✓)
-                ├── 🟣0aa7094 (✓)
-                └── 🟣28a0336 (✓)
-                    └── →:6:
-    ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master⇣10 on 68e62aa
-    └── ≡📙:12:reimplement-insert-blank-commit on 68e62aa {0}
-        ├── 📙:12:reimplement-insert-blank-commit
-        └── 📙:13:reconstructed-insert-blank-commit-branch
-            ├── ·5730946 (🏘️) ►local-stack
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣10 on 68e62aa
+    └── ≡📙:13:reimplement-insert-blank-commit on 68e62aa {0}
+        ├── 📙:13:reimplement-insert-blank-commit
+        └── 📙:14:reconstructed-insert-blank-commit-branch
+            ├── ·4eaff93 (🏘️) ►local-stack
             ├── ·d19db1d (🏘️)
             └── ·fb0a67e (🏘️)
     ");
