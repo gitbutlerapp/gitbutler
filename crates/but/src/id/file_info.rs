@@ -8,8 +8,8 @@ use nonempty::NonEmpty;
 /// Information about files needed for CLI ID generation.
 /// It's really just a named return value.
 pub(crate) struct FileInfo {
-    /// Uncommitted files keyed by stack assignment and filename.
-    pub(crate) uncommitted_files: BTreeMap<(Option<StackId>, BString), NonEmpty<HunkAssignment>>,
+    /// Uncommitted files partitioned by stack assignment and filename.
+    pub(crate) uncommitted_files: Vec<NonEmpty<HunkAssignment>>,
     /// Committed files paired with their commit IDs, ordered by commit ID then filename.
     pub(crate) committed_files: Vec<(gix::ObjectId, BString)>,
 }
@@ -53,7 +53,7 @@ impl FileInfo {
 
         Ok(Self {
             committed_files,
-            uncommitted_files,
+            uncommitted_files: uncommitted_files.into_values().collect(),
         })
     }
 }

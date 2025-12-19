@@ -329,8 +329,8 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             Sha1(0202020202020202020202020202020202020202),
         ),
         UncommittedFile {
-            hunk_assignments: [
-                HunkAssignment {
+            hunk_assignments: NonEmpty {
+                head: HunkAssignment {
                     id: None,
                     hunk_header: Some(
                         HunkHeader("-1,2", "+1,2"),
@@ -343,20 +343,22 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
                     line_nums_removed: None,
                     diff: None,
                 },
-                HunkAssignment {
-                    id: None,
-                    hunk_header: Some(
-                        HunkHeader("-3,2", "+3,2"),
-                    ),
-                    path: "",
-                    path_bytes: "uncommitted1.txt",
-                    stack_id: None,
-                    hunk_locks: None,
-                    line_nums_added: None,
-                    line_nums_removed: None,
-                    diff: None,
-                },
-            ],
+                tail: [
+                    HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-3,2", "+3,2"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                ],
+            },
             id: "g0",
         },
         Branch {
@@ -364,8 +366,8 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             id: "h0",
         },
         UncommittedFile {
-            hunk_assignments: [
-                HunkAssignment {
+            hunk_assignments: NonEmpty {
+                head: HunkAssignment {
                     id: None,
                     hunk_header: None,
                     path: "",
@@ -376,7 +378,8 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
                     line_nums_removed: None,
                     diff: None,
                 },
-            ],
+                tail: [],
+            },
             id: "i0",
         },
         CommittedFile {
@@ -467,8 +470,8 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("g0")?, @r#"
     [
         UncommittedFile {
-            hunk_assignments: [
-                HunkAssignment {
+            hunk_assignments: NonEmpty {
+                head: HunkAssignment {
                     id: None,
                     hunk_header: None,
                     path: "",
@@ -479,7 +482,8 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
                     line_nums_removed: None,
                     diff: None,
                 },
-            ],
+                tail: [],
+            },
             id: "g0",
         },
     ]
@@ -626,7 +630,7 @@ mod util {
             branch_name_to_cli_id
                 .values()
                 .map(|id| id.to_short_string())
-                .chain(uncommitted_files.iter().map(|f| f.id.clone()))
+                .chain(uncommitted_files.keys().cloned())
                 .chain(committed_files.iter().map(|f| f.id.clone()))
                 .chain(uncommitted_hunks.keys().cloned())
                 .flat_map(|id| {
@@ -674,11 +678,7 @@ mod util {
                     .map(|id| id.to_short_string())
                     .sorted(),
             )?;
-            id_list_if_not_empty(
-                f,
-                "uncommitted_files",
-                uncommitted_files.iter().sorted().map(|id| id.id.clone()),
-            )?;
+            id_list_if_not_empty(f, "uncommitted_files", uncommitted_files.keys().cloned())?;
             id_list_if_not_empty(
                 f,
                 "committed_files",

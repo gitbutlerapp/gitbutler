@@ -8,7 +8,6 @@ use but_api::{
 };
 use but_core::{DiffSpec, ui::TreeChange};
 use but_ctx::Context;
-use but_hunk_assignment::HunkAssignment;
 use gitbutler_project::Project;
 
 use crate::{
@@ -178,24 +177,9 @@ pub(crate) fn commit(
     // Get changes and assignments using but-api
     let worktree_changes = diff::changes_in_worktree(project_id)?;
     let changes = worktree_changes.worktree_changes.changes;
-    let assignments = worktree_changes.assignments;
 
-    // Group assignments by file
-    let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
-    for assignment in &assignments {
-        by_file
-            .entry(assignment.path_bytes.clone())
-            .or_default()
-            .push(assignment.clone());
-    }
-
-    let mut assignments_by_file: BTreeMap<BString, FileAssignment> = BTreeMap::new();
-    for (path, assignments) in &by_file {
-        assignments_by_file.insert(
-            path.clone(),
-            FileAssignment::from_assignments(&id_map, path, assignments),
-        );
-    }
+    let assignments_by_file: BTreeMap<BString, FileAssignment> =
+        FileAssignment::get_assignments_by_file(&id_map);
 
     // Get files to commit: unassigned files + files assigned to target stack
     let mut files_to_commit = Vec::new();

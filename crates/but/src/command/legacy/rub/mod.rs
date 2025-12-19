@@ -1,4 +1,6 @@
 use anyhow::bail;
+use bstr::BStr;
+use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use colored::Colorize;
 use gitbutler_project::Project;
@@ -308,71 +310,33 @@ fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Resul
     ))
 }
 fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::Result<Vec<CliId>> {
-    use std::collections::BTreeMap;
+    // First, files assigned to branches (they appear first in status display),
+    // then unassigned files (they appear last in status display)
+    let stack_ids: Vec<StackId> = crate::legacy::commits::stacks(ctx)?
+        .iter()
+        .filter_map(|stack_entry| stack_entry.id)
+        .collect();
+    let mut positioned_files: Vec<(usize, &BStr, CliId)> = id_map
+        .uncommitted_files
+        .iter()
+        .flat_map(|(short_id, uncommitted_file)| {
+            let position = match uncommitted_file.stack_id() {
+                Some(stack_id) => stack_ids.iter().position(|e| *e == stack_id)?,
+                None => usize::MAX,
+            };
+            Some((
+                position,
+                uncommitted_file.path(),
+                uncommitted_file.to_cli_id(short_id.clone()),
+            ))
+        })
+        .collect();
+    positioned_files.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(b.1)));
 
-    use bstr::BString;
-    use but_hunk_assignment::HunkAssignment;
-
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.legacy_project.worktree_dir()?.into(),
-    )?
-    .changes;
-    let (assignments, _) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
-
-    // Group assignments by file, same as status display logic
-    let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
-    for assignment in &assignments {
-        by_file
-            .entry(assignment.path_bytes.clone())
-            .or_default()
-            .push(assignment.clone());
-    }
-
-    let mut all_files = Vec::new();
-
-    // First, get files assigned to branches (they appear first in status display)
-    let stacks = crate::legacy::commits::stacks(ctx)?;
-    for stack in stacks {
-        if let Some((_stack_id, details_result)) = stack
-            .id
-            .map(|id| (stack.id, crate::legacy::commits::stack_details(ctx, id)))
-            && let Ok(details) = details_result
-        {
-            for _branch in &details.branch_details {
-                for assignments in by_file.values() {
-                    for assignment in assignments {
-                        if let Some(stack_id) = assignment.stack_id
-                            && stack.id == Some(stack_id)
-                        {
-                            let file_id = id_map.resolve_uncommitted_file_or_unassigned(
-                                assignment.stack_id,
-                                assignment.path_bytes.as_ref(),
-                            );
-                            if !all_files.contains(&file_id) {
-                                all_files.push(file_id);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Then add unassigned files (they appear last in status display)
-    for assignments in by_file.values() {
-        for assignment in assignments {
-            if assignment.stack_id.is_none() {
-                let file_id = id_map
-                    .resolve_uncommitted_file_or_unassigned(None, assignment.path_bytes.as_ref());
-                if !all_files.contains(&file_id) {
-                    all_files.push(file_id);
-                }
-            }
-        }
-    }
-
-    Ok(all_files)
+    Ok(positioned_files
+        .into_iter()
+        .map(|(_, _, cli_id)| cli_id)
+        .collect())
 }
 
 fn parse_list(id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {

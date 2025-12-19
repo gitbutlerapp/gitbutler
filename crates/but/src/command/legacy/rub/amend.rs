@@ -4,26 +4,24 @@ use but_hunk_assignment::HunkAssignment;
 use but_workspace::commit_engine::{self, CreateCommitOutcome};
 use colored::Colorize;
 use gix::ObjectId;
+use nonempty::NonEmpty;
 
 use super::assign::branch_name_to_stack_id;
 use crate::utils::OutputChannel;
 
 pub(crate) fn file_to_commit(
     ctx: &mut Context,
-    hunk_assignments: Vec<HunkAssignment>,
+    hunk_assignments: NonEmpty<HunkAssignment>,
     oid: &ObjectId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let Some(first_hunk_assignment) = hunk_assignments.first() else {
-        // Nothing to assign
-        return Ok(());
-    };
+    let first_hunk_assignment = hunk_assignments.first();
     let path = first_hunk_assignment.path_bytes.clone();
     let stack_id = first_hunk_assignment.stack_id;
 
     let diff_specs: Vec<DiffSpec> = hunk_assignments
         .into_iter()
-        .map(|assignment| assignment.into())
+        .map(|assignment: HunkAssignment| assignment.into())
         .collect();
 
     let mut guard = ctx.exclusive_worktree_access();

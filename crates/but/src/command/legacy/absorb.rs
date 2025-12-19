@@ -54,7 +54,12 @@ pub(crate) fn handle(
                 hunk_assignments, ..
             } => {
                 // Absorb this particular file
-                absorb_assignments(project, hunk_assignments.as_slice(), &dependencies, out)?;
+                absorb_assignments(
+                    project,
+                    hunk_assignments.into_iter().collect::<Vec<_>>().as_slice(),
+                    &dependencies,
+                    out,
+                )?;
             }
             CliId::Branch { name, .. } => {
                 // Absorb everything that is assigned to this lane

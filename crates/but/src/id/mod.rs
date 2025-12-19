@@ -40,7 +40,7 @@ type ShortId = String;
 /// 1. Create an `IdMap` for example using [IdMap::new_for_branches_and_commits]
 /// 2. Optionally add file information for example using [IdMap::add_file_info_from_context]
 /// 3. Use [IdMap::resolve_entity_to_ids] to parse user input into matching IDs
-/// 4. Use specific methods like [IdMap::resolve_branch], [IdMap::resolve_uncommitted_file_or_unassigned],
+/// 4. Use specific methods like [IdMap::resolve_branch]
 ///    or [IdMap::resolve_file_changed_in_commit_or_unassigned] to get IDs for specific entities
 #[derive(Debug)]
 pub struct IdMap {
@@ -59,8 +59,8 @@ pub struct IdMap {
     /// The ID representing the unassigned area, i.e. uncommitted files that aren't assigned to a stack.
     unassigned: CliId,
 
-    /// Uncommitted files with their assigned IDs
-    uncommitted_files: BTreeSet<UncommittedFile>,
+    /// Uncommitted files.
+    pub uncommitted_files: BTreeMap<ShortId, UncommittedFile>,
     /// Uncommitted hunks.
     uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
     /// Committed files with their assigned IDs
@@ -97,7 +97,7 @@ impl IdMap {
             unassigned: CliId::Unassigned {
                 id: str::repeat("0", max_zero_count + 1),
             },
-            uncommitted_files: BTreeSet::new(),
+            uncommitted_files: BTreeMap::new(),
             uncommitted_hunks: HashMap::new(),
             committed_files: BTreeSet::new(),
         })
@@ -249,12 +249,11 @@ impl IdMap {
             &hunk_assignments,
         )?;
 
-        for (assignment_path, hunk_assignments) in uncommitted_files.into_iter() {
-            self.uncommitted_files.insert(UncommittedFile {
-                assignment_path,
-                hunk_assignments,
-                id: self.id_usage.next_available()?.to_short_id(),
-            });
+        for hunk_assignments in uncommitted_files.into_iter() {
+            self.uncommitted_files.insert(
+                self.id_usage.next_available()?.to_short_id(),
+                UncommittedFile { hunk_assignments },
+            );
         }
         for commit_oid_path in committed_files.into_iter() {
             self.committed_files.insert(CommittedFile {
@@ -323,14 +322,8 @@ impl IdMap {
         if let Some(cli_id) = self.branch_auto_id_to_cli_id.get(entity) {
             matches.push(cli_id.clone());
         }
-        if let Some(UncommittedFile {
-            hunk_assignments, ..
-        }) = self.uncommitted_files.get(entity)
-        {
-            matches.push(CliId::UncommittedFile {
-                hunk_assignments: hunk_assignments.clone().into(),
-                id: entity.to_string(),
-            });
+        if let Some(uncommitted_file) = self.uncommitted_files.get(entity) {
+            matches.push(uncommitted_file.to_cli_id(entity.to_owned()));
         }
         if let Some(CommittedFile {
             commit_oid_path: (commit_oid, path),
@@ -355,36 +348,6 @@ impl IdMap {
         }
 
         Ok(matches)
-    }
-
-    /// Returns the [CliId::UncommittedFile] for an uncommitted file as specified by its `assignment`
-    /// and repository-relative `path`.
-    pub fn resolve_uncommitted_file_or_unassigned(
-        &self,
-        assignment: Option<StackId>,
-        path: &BStr,
-    ) -> CliId {
-        let sought = (assignment, path.to_owned());
-        if let Some(UncommittedFile {
-            id,
-            hunk_assignments,
-            ..
-        }) = self.uncommitted_files.get(&sought)
-        {
-            CliId::UncommittedFile {
-                hunk_assignments: hunk_assignments.clone().into(),
-                id: id.to_string(),
-            }
-        } else {
-            // TODO This fallback is necessary only because callers of this
-            // function obtain a list of uncommitted files from elsewhere. See
-            // if they can be changed to obtain a list of uncommitted files
-            // from [IdMap].
-            CliId::UncommittedFile {
-                hunk_assignments: Vec::new(),
-                id: "00".to_string(),
-            }
-        }
     }
 
     /// Returns the [`CliId::CommittedFile`] for a changed file at repo-relative `path`
@@ -475,7 +438,7 @@ pub enum CliId {
     /// An uncommitted file in the worktree.
     UncommittedFile {
         /// The hunk assignments
-        hunk_assignments: Vec<HunkAssignment>,
+        hunk_assignments: NonEmpty<HunkAssignment>,
         /// The short CLI ID for this file (typically 2 characters)
         id: ShortId,
     },
@@ -563,47 +526,24 @@ impl CliId {
     }
 }
 
-/// Internal representation of an uncommitted file with its CLI ID.
-///
-/// This structure is used to store uncommitted files in a `BTreeSet` where ordering
-/// is determined by the ID field, enabling efficient lookups by both ID and
-/// (assignment, path) tuple.
-///
-/// # Invariant
-///
-/// For all instances `a` and `b`: `a.cmp(b) == a.id.cmp(&b.id)`
-#[derive(Debug)]
-struct UncommittedFile {
-    /// All `hunk_assignments` have this [HunkAssignment::stack_id] and [HunkAssignment::path_bytes].
-    assignment_path: (Option<StackId>, BString),
-    hunk_assignments: NonEmpty<HunkAssignment>,
-    /// The short CLI ID assigned to this file
-    id: ShortId,
+/// Internal representation of an uncommitted file.
+#[derive(Debug, Clone)]
+pub struct UncommittedFile {
+    /// Every element has the same [HunkAssignment::stack_id] and [HunkAssignment::path_bytes].
+    pub hunk_assignments: NonEmpty<HunkAssignment>,
 }
-impl PartialOrd for UncommittedFile {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+impl UncommittedFile {
+    pub fn stack_id(&self) -> Option<StackId> {
+        self.hunk_assignments.first().stack_id
     }
-}
-impl Ord for UncommittedFile {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.assignment_path.cmp(&other.assignment_path)
+    pub fn path(&self) -> &BStr {
+        self.hunk_assignments.first().path_bytes.as_ref()
     }
-}
-impl PartialEq for UncommittedFile {
-    fn eq(&self, other: &Self) -> bool {
-        self.assignment_path == other.assignment_path
-    }
-}
-impl Eq for UncommittedFile {}
-impl Borrow<(Option<StackId>, BString)> for UncommittedFile {
-    fn borrow(&self) -> &(Option<StackId>, BString) {
-        &self.assignment_path
-    }
-}
-impl Borrow<str> for UncommittedFile {
-    fn borrow(&self) -> &str {
-        &self.id
+    pub fn to_cli_id(&self, id: ShortId) -> CliId {
+        CliId::UncommittedFile {
+            hunk_assignments: self.hunk_assignments.clone(),
+            id,
+        }
     }
 }
 

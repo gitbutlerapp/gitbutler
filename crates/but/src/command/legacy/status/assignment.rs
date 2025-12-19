@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
@@ -13,15 +15,6 @@ pub struct CLIHunkAssignment {
     pub cli_id: String,
 }
 
-impl CLIHunkAssignment {
-    fn from_assignment(id_map: &IdMap, inner: HunkAssignment) -> Self {
-        let cli_id = id_map
-            .resolve_uncommitted_file_or_unassigned(inner.stack_id, inner.path_bytes.as_ref())
-            .to_short_string();
-        Self { inner, cli_id }
-    }
-}
-
 #[derive(Debug, Clone, serde::Serialize)]
 pub(crate) struct FileAssignment {
     #[serde(with = "but_serde::bstring_lossy")]
@@ -30,24 +23,29 @@ pub(crate) struct FileAssignment {
 }
 
 impl FileAssignment {
-    pub fn from_assignments(
-        id_map: &IdMap,
-        path: &BString,
-        assignments: &[HunkAssignment],
-    ) -> Self {
-        let mut filtered_assignments = Vec::new();
-        for assignment in assignments {
-            if assignment.path_bytes == *path {
-                filtered_assignments.push(assignment.clone());
+    pub fn get_assignments_by_file(id_map: &IdMap) -> BTreeMap<BString, Self> {
+        let mut assignments_by_file: BTreeMap<BString, FileAssignment> = BTreeMap::new();
+        for (short_id, uncommitted_file) in &id_map.uncommitted_files {
+            let path = uncommitted_file.path();
+            let assignments = if let Some(file_assignment) = assignments_by_file.get_mut(path) {
+                &mut file_assignment.assignments
+            } else {
+                &mut assignments_by_file
+                    .entry(path.to_owned())
+                    .or_insert(FileAssignment {
+                        path: path.to_owned(),
+                        assignments: Vec::new(),
+                    })
+                    .assignments
+            };
+            for hunk_assignment in &uncommitted_file.hunk_assignments {
+                assignments.push(CLIHunkAssignment {
+                    inner: hunk_assignment.clone(),
+                    cli_id: short_id.to_owned(),
+                });
             }
         }
-        Self {
-            path: path.clone(),
-            assignments: filtered_assignments
-                .into_iter()
-                .map(|a| CLIHunkAssignment::from_assignment(id_map, a))
-                .collect(),
-        }
+        assignments_by_file
     }
 }
 

@@ -3,20 +3,17 @@ use but_core::{HunkHeader, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::{HunkAssignment, HunkAssignmentRequest};
 use colored::Colorize;
+use nonempty::NonEmpty;
 
 use crate::utils::OutputChannel;
 
 pub(crate) fn assign_file_to_branch(
     ctx: &mut Context,
-    hunk_assignments: Vec<HunkAssignment>,
+    hunk_assignments: NonEmpty<HunkAssignment>,
     branch_name: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let Some(first_hunk_assignment) = hunk_assignments.first() else {
-        // Nothing to assign
-        return Ok(());
-    };
-    let path = first_hunk_assignment.path_bytes.clone();
+    let path = hunk_assignments.first().path_bytes.clone();
 
     let assignments = hunk_assignments
         .into_iter()
@@ -60,14 +57,10 @@ pub(crate) fn assign_hunk_to_branch(
 
 pub(crate) fn unassign_file(
     ctx: &mut Context,
-    hunk_assignments: Vec<HunkAssignment>,
+    hunk_assignments: NonEmpty<HunkAssignment>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let Some(first_hunk_assignment) = hunk_assignments.first() else {
-        // Nothing to assign
-        return Ok(());
-    };
-    let path = first_hunk_assignment.path_bytes.clone();
+    let path = hunk_assignments.first().path_bytes.clone();
 
     let assignments = hunk_assignments
         .into_iter()
