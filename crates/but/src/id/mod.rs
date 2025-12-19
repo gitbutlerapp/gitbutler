@@ -21,6 +21,7 @@ use but_core::{HunkHeader, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::branch::Stack;
+use nonempty::NonEmpty;
 
 mod file_info;
 mod id_usage;
@@ -248,9 +249,10 @@ impl IdMap {
             &hunk_assignments,
         )?;
 
-        for assignment_path in uncommitted_files.into_iter() {
+        for (assignment_path, hunk_assignments) in uncommitted_files.into_iter() {
             self.uncommitted_files.insert(UncommittedFile {
                 assignment_path,
+                hunk_assignments,
                 id: self.id_usage.next_available()?.to_short_id(),
             });
         }
@@ -322,13 +324,11 @@ impl IdMap {
             matches.push(cli_id.clone());
         }
         if let Some(UncommittedFile {
-            assignment_path: (assignment, path),
-            ..
+            hunk_assignments, ..
         }) = self.uncommitted_files.get(entity)
         {
             matches.push(CliId::UncommittedFile {
-                assignment: *assignment,
-                path: path.to_owned(),
+                hunk_assignments: hunk_assignments.clone().into(),
                 id: entity.to_string(),
             });
         }
@@ -359,24 +359,29 @@ impl IdMap {
 
     /// Returns the [CliId::UncommittedFile] for an uncommitted file as specified by its `assignment`
     /// and repository-relative `path`.
-    /// Note that it returns a default ID of `00` as fallback if it
-    /// wasn't added via [IdMap::add_file_info_from_context].
     pub fn resolve_uncommitted_file_or_unassigned(
         &self,
         assignment: Option<StackId>,
         path: &BStr,
     ) -> CliId {
         let sought = (assignment, path.to_owned());
-        if let Some(UncommittedFile { id, .. }) = self.uncommitted_files.get(&sought) {
+        if let Some(UncommittedFile {
+            id,
+            hunk_assignments,
+            ..
+        }) = self.uncommitted_files.get(&sought)
+        {
             CliId::UncommittedFile {
-                assignment: sought.0,
-                path: sought.1,
+                hunk_assignments: hunk_assignments.clone().into(),
                 id: id.to_string(),
             }
         } else {
+            // TODO This fallback is necessary only because callers of this
+            // function obtain a list of uncommitted files from elsewhere. See
+            // if they can be changed to obtain a list of uncommitted files
+            // from [IdMap].
             CliId::UncommittedFile {
-                assignment: sought.0,
-                path: sought.1,
+                hunk_assignments: Vec::new(),
                 id: "00".to_string(),
             }
         }
@@ -469,10 +474,8 @@ impl IdMap {
 pub enum CliId {
     /// An uncommitted file in the worktree.
     UncommittedFile {
-        /// The stack to which the file is assigned, if any
-        assignment: Option<StackId>,
-        /// The file path relative to the repository root
-        path: BString,
+        /// The hunk assignments
+        hunk_assignments: Vec<HunkAssignment>,
         /// The short CLI ID for this file (typically 2 characters)
         id: ShortId,
     },
@@ -569,13 +572,30 @@ impl CliId {
 /// # Invariant
 ///
 /// For all instances `a` and `b`: `a.cmp(b) == a.id.cmp(&b.id)`
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 struct UncommittedFile {
-    /// The file's stack assignment and path
+    /// All `hunk_assignments` have this [HunkAssignment::stack_id] and [HunkAssignment::path_bytes].
     assignment_path: (Option<StackId>, BString),
+    hunk_assignments: NonEmpty<HunkAssignment>,
     /// The short CLI ID assigned to this file
     id: ShortId,
 }
+impl PartialOrd for UncommittedFile {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for UncommittedFile {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.assignment_path.cmp(&other.assignment_path)
+    }
+}
+impl PartialEq for UncommittedFile {
+    fn eq(&self, other: &Self) -> bool {
+        self.assignment_path == other.assignment_path
+    }
+}
+impl Eq for UncommittedFile {}
 impl Borrow<(Option<StackId>, BString)> for UncommittedFile {
     fn borrow(&self) -> &(Option<StackId>, BString) {
         &self.assignment_path

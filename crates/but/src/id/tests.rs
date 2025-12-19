@@ -329,8 +329,34 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             Sha1(0202020202020202020202020202020202020202),
         ),
         UncommittedFile {
-            assignment: None,
-            path: "uncommitted1.txt",
+            hunk_assignments: [
+                HunkAssignment {
+                    id: None,
+                    hunk_header: Some(
+                        HunkHeader("-1,2", "+1,2"),
+                    ),
+                    path: "",
+                    path_bytes: "uncommitted1.txt",
+                    stack_id: None,
+                    hunk_locks: None,
+                    line_nums_added: None,
+                    line_nums_removed: None,
+                    diff: None,
+                },
+                HunkAssignment {
+                    id: None,
+                    hunk_header: Some(
+                        HunkHeader("-3,2", "+3,2"),
+                    ),
+                    path: "",
+                    path_bytes: "uncommitted1.txt",
+                    stack_id: None,
+                    hunk_locks: None,
+                    line_nums_added: None,
+                    line_nums_removed: None,
+                    diff: None,
+                },
+            ],
             id: "g0",
         },
         Branch {
@@ -338,8 +364,19 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             id: "h0",
         },
         UncommittedFile {
-            assignment: None,
-            path: "uncommitted2.txt",
+            hunk_assignments: [
+                HunkAssignment {
+                    id: None,
+                    hunk_header: None,
+                    path: "",
+                    path_bytes: "uncommitted2.txt",
+                    stack_id: None,
+                    hunk_locks: None,
+                    line_nums_added: None,
+                    line_nums_removed: None,
+                    diff: None,
+                },
+            ],
             id: "i0",
         },
         CommittedFile {
@@ -430,8 +467,19 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("g0")?, @r#"
     [
         UncommittedFile {
-            assignment: None,
-            path: "uncommitted.txt",
+            hunk_assignments: [
+                HunkAssignment {
+                    id: None,
+                    hunk_header: None,
+                    path: "",
+                    path_bytes: "uncommitted.txt",
+                    stack_id: None,
+                    hunk_locks: None,
+                    line_nums_added: None,
+                    line_nums_removed: None,
+                    diff: None,
+                },
+            ],
             id: "g0",
         },
     ]

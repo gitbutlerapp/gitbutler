@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BString, ByteSlice};
 use but_api::{
     json::HexHash,
     legacy::{diff, virtual_branches},
@@ -51,17 +51,10 @@ pub(crate) fn handle(
     if let Some(source) = source {
         match source {
             CliId::UncommittedFile {
-                path, assignment, ..
+                hunk_assignments, ..
             } => {
                 // Absorb this particular file
-                absorb_file(
-                    project,
-                    path.as_ref(),
-                    assignment,
-                    &assignments,
-                    &dependencies,
-                    out,
-                )?;
+                absorb_assignments(project, hunk_assignments.as_slice(), &dependencies, out)?;
             }
             CliId::Branch { name, .. } => {
                 // Absorb everything that is assigned to this lane
@@ -79,28 +72,14 @@ pub(crate) fn handle(
 }
 
 /// Absorb a single file into the appropriate commit
-fn absorb_file(
+fn absorb_assignments(
     project: &Project,
-    path: &BStr,
-    _assignment: Option<but_core::ref_metadata::StackId>,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    // Filter assignments to just this file
-    let file_assignments: Vec<_> = assignments
-        .iter()
-        .filter(|a| a.path_bytes == path)
-        .cloned()
-        .collect();
-
-    if file_assignments.is_empty() {
-        anyhow::bail!("No uncommitted changes found for file: {}", path);
-    }
-
     // Group changes by their target commit
-    let changes_by_commit =
-        group_changes_by_target_commit(project.id, &file_assignments, dependencies)?;
+    let changes_by_commit = group_changes_by_target_commit(project.id, assignments, dependencies)?;
 
     // Apply each group to its target commit
     for ((stack_id, commit_id), file_hunks) in changes_by_commit {

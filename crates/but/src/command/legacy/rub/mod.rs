@@ -29,22 +29,32 @@ pub(crate) fn handle(
 
     for source in sources {
         match (source, &target) {
-            (CliId::UncommittedFile { path, .. }, CliId::Unassigned { .. }) => {
+            (
+                CliId::UncommittedFile {
+                    hunk_assignments, ..
+                },
+                CliId::Unassigned { .. },
+            ) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::unassign_file(ctx, path.as_ref(), out)?;
+                assign::unassign_file(ctx, hunk_assignments, out)?;
             }
             (
                 CliId::UncommittedFile {
-                    path, assignment, ..
+                    hunk_assignments, ..
                 },
                 CliId::Commit(oid),
             ) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
-                amend::file_to_commit(ctx, path.as_ref(), assignment, oid, out)?;
+                amend::file_to_commit(ctx, hunk_assignments, oid, out)?;
             }
-            (CliId::UncommittedFile { path, .. }, CliId::Branch { name, .. }) => {
+            (
+                CliId::UncommittedFile {
+                    hunk_assignments, ..
+                },
+                CliId::Branch { name, .. },
+            ) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_file_to_branch(ctx, path.as_ref(), name, out)?;
+                assign::assign_file_to_branch(ctx, hunk_assignments, name, out)?;
             }
             (CliId::Unassigned { .. }, CliId::Commit(oid)) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
@@ -136,7 +146,7 @@ pub(crate) fn handle(
                 assign::assign_hunk_to_branch(ctx, hunk_header, path.as_ref(), name, out)?;
             }
             (source, target) => {
-                bail!(makes_no_sense_error(&source, &target))
+                bail!(makes_no_sense_error(&source, target))
             }
         }
     }

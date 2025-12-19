@@ -1,14 +1,15 @@
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
+use nonempty::NonEmpty;
 
 /// Information about files needed for CLI ID generation.
 /// It's really just a named return value.
 pub(crate) struct FileInfo {
-    /// Uncommitted files paired with their stack assignments, ordered by assignment then filename.
-    pub(crate) uncommitted_files: Vec<(Option<StackId>, BString)>,
+    /// Uncommitted files keyed by stack assignment and filename.
+    pub(crate) uncommitted_files: BTreeMap<(Option<StackId>, BString), NonEmpty<HunkAssignment>>,
     /// Committed files paired with their commit IDs, ordered by commit ID then filename.
     pub(crate) committed_files: Vec<(gix::ObjectId, BString)>,
 }
@@ -35,14 +36,24 @@ impl FileInfo {
             }
         }
 
-        let mut uncommitted_files: BTreeSet<(Option<StackId>, BString)> = BTreeSet::new();
+        let mut uncommitted_files: BTreeMap<(Option<StackId>, BString), NonEmpty<HunkAssignment>> =
+            BTreeMap::new();
         for assignment in hunk_assignments {
-            uncommitted_files.insert((assignment.stack_id, assignment.path_bytes.clone()));
+            // Rust does not let us borrow a tuple from 2 separate fields, so
+            // we have to clone the parts of the key even though we technically
+            // might not need it.
+            let key = (assignment.stack_id, assignment.path_bytes.clone());
+            uncommitted_files
+                .entry(key)
+                .and_modify(|hunk_assignments| {
+                    hunk_assignments.push(assignment.clone());
+                })
+                .or_insert_with(|| NonEmpty::new(assignment.clone()));
         }
 
         Ok(Self {
             committed_files,
-            uncommitted_files: uncommitted_files.into_iter().collect(),
+            uncommitted_files,
         })
     }
 }
