@@ -36,8 +36,6 @@ const downloadStatusMap: { [K in DownloadEventName]: InstallStatus } = {
 	Finished: 'Downloaded'
 };
 
-export const UPDATE_INTERVAL_MS = 3600000; // Hourly
-
 /**
  * Note that the Tauri API `checkUpdate` hangs indefinitely in dev mode, build
  * a nightly if you want to test the updater manually.
@@ -68,7 +66,8 @@ export class UpdaterService {
 	constructor(
 		private backend: IBackend,
 		private posthog: PostHogWrapper,
-		private shortcuts: ShortcutService
+		private shortcuts: ShortcutService,
+		private updateIntervalMs: number
 	) {}
 
 	private async start() {
@@ -77,11 +76,13 @@ export class UpdaterService {
 		this.shortcuts.on('update', () => {
 			this.checkForUpdate(true);
 		});
-		this.checkForUpdateInterval = setInterval(
-			async () => await this.checkForUpdate(),
-			UPDATE_INTERVAL_MS
-		);
-		this.checkForUpdate();
+		if (this.updateIntervalMs !== 0) {
+			this.checkForUpdateInterval = setInterval(
+				async () => await this.checkForUpdate(),
+				this.updateIntervalMs
+			);
+			this.checkForUpdate();
+		}
 	}
 
 	private async stop() {

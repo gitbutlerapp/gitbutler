@@ -34,6 +34,7 @@ export const MOCK_APP_SETTINGS: AppSettings = {
 	},
 	ui: {
 		useNativeTitleBar: false,
-		cliIsManagedByPackageManager: false
+		cliIsManagedByPackageManager: false,
+		checkForUpdatesIntervalInSeconds: 3600
 	}
 };

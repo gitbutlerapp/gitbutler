@@ -38,6 +38,7 @@ pub fn build<R: Runtime>(
     handle: &AppHandle<R>,
     #[cfg_attr(target_os = "linux", allow(unused_variables))] settings: &AppSettingsWithDiskSync,
 ) -> tauri::Result<Menu<R>> {
+    #[cfg(not(feature = "disable-auto-updates"))]
     let check_for_updates =
         MenuItemBuilder::with_id("global/update", "Check for updates…").build(handle)?;
 
@@ -54,20 +55,27 @@ pub fn build<R: Runtime>(
         .build(handle)?;
 
     #[cfg(target_os = "macos")]
-    let mac_menu = &SubmenuBuilder::new(handle, app_name)
-        .about(Some(AboutMetadata::default()))
-        .separator()
-        .item(&settings_menu)
-        .item(&check_for_updates)
-        .separator()
-        .services()
-        .separator()
-        .hide()
-        .hide_others()
-        .show_all()
-        .separator()
-        .quit()
-        .build()?;
+    let mac_menu = {
+        #[cfg_attr(feature = "disable-auto-updates", allow(unused_mut))]
+        let mut menu = SubmenuBuilder::new(handle, app_name)
+            .about(Some(AboutMetadata::default()))
+            .separator()
+            .item(&settings_menu);
+
+        #[cfg(not(feature = "disable-auto-updates"))]
+        {
+            menu = menu.item(&check_for_updates);
+        }
+        menu.separator()
+            .services()
+            .separator()
+            .hide()
+            .hide_others()
+            .show_all()
+            .separator()
+            .quit()
+            .build()?
+    };
 
     let file_menu = &SubmenuBuilder::new(handle, "File")
         .items(&[
@@ -91,8 +99,11 @@ pub fn build<R: Runtime>(
     #[cfg(target_os = "macos")]
     file_menu.append(&PredefinedMenuItem::close_window(handle, None)?)?;
 
-    #[cfg(not(target_os = "macos"))]
-    file_menu.append_items(&[&PredefinedMenuItem::quit(handle, None)?, &check_for_updates])?;
+    if cfg!(not(target_os = "macos")) {
+        file_menu.append_items(&[&PredefinedMenuItem::quit(handle, None)?])?;
+        #[cfg(not(feature = "disable-auto-updates"))]
+        file_menu.append_items(&[&check_for_updates])?;
+    }
 
     #[cfg(not(target_os = "linux"))]
     let edit_menu = &Submenu::new(handle, "Edit", true)?;
@@ -223,7 +234,7 @@ pub fn build<R: Runtime>(
         handle,
         &[
             #[cfg(target_os = "macos")]
-            mac_menu,
+            &mac_menu,
             file_menu,
             #[cfg(not(target_os = "linux"))]
             edit_menu,

@@ -4,7 +4,7 @@ import { type Update } from '$lib/backend';
 import { ShortcutService } from '$lib/shortcuts/shortcutService';
 import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
-import { UPDATE_INTERVAL_MS, UpdaterService } from '$lib/updater/updater';
+import { UpdaterService } from '$lib/updater/updater';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
 
@@ -20,10 +20,11 @@ describe('Updater', () => {
 	const settingsService = new MockSettingsService();
 	const eventContext = new EventContext();
 	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
+	const updateIntervalMs = 3600 * 1000;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		updater = new UpdaterService(backend, posthog, shortcuts);
+		updater = new UpdaterService(backend, posthog, shortcuts, updateIntervalMs);
 		vi.spyOn(backend, 'listen').mockReturnValue(async () => {});
 	});
 
@@ -101,7 +102,7 @@ describe('Updater', () => {
 		expect(mock).toHaveBeenCalledOnce();
 
 		for (let i = 2; i < 12; i++) {
-			await vi.advanceTimersByTimeAsync(UPDATE_INTERVAL_MS);
+			await vi.advanceTimersByTimeAsync(updateIntervalMs);
 			expect(mock).toHaveBeenCalledTimes(i);
 		}
 		unsubscribe();
