@@ -5962,3 +5962,78 @@ mod edit_commit {
         Ok(())
     }
 }
+
+/// Complex merge history with origin/main as the target branch.
+/// This simulates a real-world scenario where:
+/// - origin/main has multiple merged PRs with complex merge history
+/// - A local workspace branch exists with uncommitted work
+/// - The local stack branches off from an earlier point in history (nightly/0.5.1754)
+#[test]
+fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/complex-merge-origin-main")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 4d53bb1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 4eaff93 (reimplement-insert-blank-commit, reconstructed-insert-blank-commit-branch, local-stack) composability improvements
+    * d19db1d rename reword_commit to commit_reword
+    * fb0a67e Reimplement insert blank commit
+    | *   e7e93d6 (origin/main, main) Merge pull request #11567 from gitbutlerapp/jt/uhunk2
+    | |\  
+    | | * eadc96a (jt-uhunk2) Address Copilot review
+    | | * 8db8b43 refactor
+    | | * 0aa7094 rub: uncommitted hunk to unassigned area
+    | | * 28a0336 id: ensure that branch IDs work
+    | |/  
+    |/|   
+    | * 49b28a4 (tag: nightly/0.5.1755) refactor-remove-unused-css-variables (#11576)
+    | *   d627ca0 Merge pull request #11571
+    | |\  
+    | | * d62ab55 (pr-11571) Restrict visibility of some functions
+    | |/  
+    | * 4ad4354 Merge pull request #11574 from Byron/fix
+    |/| 
+    | * 5de9f4e (byron-fix) Adjust type of ui.check_for_updates_interval_in_seconds
+    * |   68e62aa (tag: nightly/0.5.1754) Merge pull request #11573
+    |\ \  
+    | |/  
+    |/|   
+    | * 2d02c78 (pr-11573) fix kiril reword example
+    |/  
+    * 322cb14 base
+    * fafd9d0 init
+    ");
+
+    // Add workspace with origin/main as target (not origin/main)
+    add_workspace(&mut meta);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣10 on 68e62aa
+    └── ≡:12:anon: on 68e62aa
+        └── :12:anon:
+            ├── ·4eaff93 (🏘️) ►local-stack, ►reconstructed-insert-blank-commit-branch, ►reimplement-insert-blank-commit
+            ├── ·d19db1d (🏘️)
+            └── ·fb0a67e (🏘️)
+    ");
+
+    // Also add the local stack as a workspace stack
+    add_stack_with_segments(
+        &mut meta,
+        0,
+        "reimplement-insert-blank-commit",
+        StackState::InWorkspace,
+        &["reconstructed-insert-blank-commit-branch"],
+    );
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣10 on 68e62aa
+    └── ≡📙:13:reimplement-insert-blank-commit on 68e62aa {0}
+        ├── 📙:13:reimplement-insert-blank-commit
+        └── 📙:14:reconstructed-insert-blank-commit-branch
+            ├── ·4eaff93 (🏘️) ►local-stack
+            ├── ·d19db1d (🏘️)
+            └── ·fb0a67e (🏘️)
+    ");
+
+    Ok(())
+}
