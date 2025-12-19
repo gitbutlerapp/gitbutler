@@ -64,10 +64,9 @@ pub fn build<R: Runtime>(
 
         #[cfg(not(feature = "disable-auto-updates"))]
         {
-            menu = menu.item(&check_for_updates)
+            menu = menu.item(&check_for_updates);
         }
-        &menu
-            .separator()
+        menu.separator()
             .services()
             .separator()
             .hide()
@@ -235,7 +234,7 @@ pub fn build<R: Runtime>(
         handle,
         &[
             #[cfg(target_os = "macos")]
-            mac_menu,
+            &mac_menu,
             file_menu,
             #[cfg(not(target_os = "linux"))]
             edit_menu,
