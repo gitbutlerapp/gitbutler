@@ -125,6 +125,28 @@ describe('Updater', () => {
 		await updater.checkForUpdate();
 		expect(mock).toHaveBeenCalledOnce();
 	});
+
+	test('should disable updater when updateIntervalMs is 0', async () => {
+		const mock = vi.spyOn(backend, 'checkUpdate').mockReturnValue(mockUpdate(null));
+
+		// Create updater with updateIntervalMs = 0
+		const disabledUpdater = new UpdaterService(backend, posthog, shortcuts, 0);
+
+		// Subscribe to the update store (this triggers start())
+		const unsubscribe = disabledUpdater.update.subscribe(() => {});
+
+		// checkUpdate should not be called when updateIntervalMs is 0
+		expect(mock).not.toHaveBeenCalled();
+
+		// Verify that even after time passes, no automatic checks happen (no timer was set)
+		await vi.advanceTimersByTimeAsync(3600 * 1000);
+		expect(mock).not.toHaveBeenCalled();
+
+		await vi.advanceTimersByTimeAsync(3600 * 1000);
+		expect(mock).not.toHaveBeenCalled();
+
+		unsubscribe();
+	});
 });
 
 async function mockUpdate(update: Partial<Update> | null): Promise<Update | null> {
