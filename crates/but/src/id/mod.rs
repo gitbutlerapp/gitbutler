@@ -8,130 +8,29 @@
 
 use std::{
     borrow::Borrow,
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeSet, HashMap},
 };
 
-use anyhow::bail;
+use crate::id::{
+    file_info::FileInfo,
+    id_usage::{IdUsage, UintId},
+    stacks_info::StacksInfo,
+};
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{HunkHeader, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::branch::Stack;
 
+mod file_info;
+mod id_usage;
+mod stacks_info;
+
 #[cfg(test)]
 mod tests;
 
 /// A helper to indicate that this is a short-id as a user would see.
 type ShortId = String;
-
-fn divmod(a: usize, b: usize) -> (usize, usize) {
-    (a / b, a % b)
-}
-
-/// An integer representation of a [ShortId] that starts with g-z).
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Default, Hash)]
-struct UintId(u16);
-impl UintId {
-    /// First character: g-z (20 options)
-    const FIRST_CHARS: &'static [u8] = b"ghijklmnopqrstuvwxyz";
-    /// Subsequent characters: 0-9,a-z (36 options)
-    const SUBSEQUENT_CHARS: &'static [u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
-    /// Must be less than this.
-    const LIMIT: u16 = 20 * 36 * 37;
-
-    /// If self cannot be represented in 3 characters, `00` is returned.
-    fn to_short_id(self) -> ShortId {
-        let mut result = String::new();
-
-        let (quo, rem) = divmod(self.0 as usize, 20);
-        result.push(Self::FIRST_CHARS[rem] as char);
-        let (quo, rem) = divmod(quo, 36);
-        result.push(Self::SUBSEQUENT_CHARS[rem] as char);
-        let (quo, rem) = divmod(quo, 37);
-        if quo > 0 {
-            // self is too big even for 3 characters.
-            return "00".to_string();
-        }
-        if rem > 0 {
-            result.push(Self::SUBSEQUENT_CHARS[rem - 1] as char);
-        }
-
-        result
-    }
-}
-
-/// Lifecycle
-impl UintId {
-    /// Pick the first 2 to three characters and see if they are a valid `UintId`.
-    /// Return `None` for `value` has more than three characters or less than two.
-    fn from_name(value: &[u8]) -> Option<Self> {
-        let (first_char, second_char, third_char) = match value {
-            [a, b] => (a, b, None),
-            [a, b, c] => (a, b, Some(c)),
-            _ => {
-                return None;
-            }
-        };
-
-        let mut result: usize = 0;
-
-        let index = Self::FIRST_CHARS.iter().position(|e| e == first_char)?;
-        result += index;
-
-        let index = Self::SUBSEQUENT_CHARS
-            .iter()
-            .position(|e| e == second_char)?;
-        result += index * 20;
-
-        if let Some(third_char) = third_char {
-            let index = Self::SUBSEQUENT_CHARS
-                .iter()
-                .position(|e| e == third_char)?;
-            result += (index + 1) * 20 * 36;
-        }
-
-        let result: u16 = result.try_into().expect("below u16::MAX");
-        debug_assert!(
-            result < Self::LIMIT,
-            "BUG: {result} is beyond limit of {}",
-            Self::LIMIT
-        );
-        Some(Self(result))
-    }
-}
-
-/// A tracker of which [UintId]s have been used.
-#[derive(Default, Debug)]
-struct IdUsage {
-    /// A [UintId] is used if it's in this set.
-    uint_ids_used: HashSet<UintId>,
-    /// A [UintId] is used if it's less than this number.
-    next_uint_id: UintId,
-}
-
-impl IdUsage {
-    fn mark_used(&mut self, uint_id: UintId) {
-        if self.next_uint_id.0 <= uint_id.0 {
-            self.uint_ids_used.insert(uint_id);
-        }
-    }
-
-    fn next_available(&mut self) -> anyhow::Result<UintId> {
-        self.forward_next_uint_id_to_not_conflict_with_marked();
-        if self.next_uint_id.0 >= UintId::LIMIT {
-            bail!("too many IDs");
-        }
-        let result = self.next_uint_id;
-        self.next_uint_id = UintId(self.next_uint_id.0 + 1);
-        Ok(result)
-    }
-
-    fn forward_next_uint_id_to_not_conflict_with_marked(&mut self) {
-        while self.uint_ids_used.remove(&self.next_uint_id) {
-            self.next_uint_id = UintId(self.next_uint_id.0 + 1);
-        }
-    }
-}
 
 /// A mapping from user-friendly CLI IDs to GitButler entities.
 ///
@@ -178,7 +77,7 @@ impl IdMap {
             branch_names,
             workspace_commit_and_first_parent_ids,
             remote_commit_ids,
-        } = get_stacks_info(stacks)?;
+        } = StacksInfo::from_stacks(stacks)?;
 
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         for branch_name in &branch_names {
@@ -343,7 +242,7 @@ impl IdMap {
         let FileInfo {
             uncommitted_files,
             committed_files,
-        } = get_file_info_from_workspace_commits_and_status(
+        } = FileInfo::from_workspace_commits_and_status(
             &self.workspace_commit_and_first_parent_ids,
             changed_paths_in_commit_fn,
             &hunk_assignments,
@@ -655,88 +554,6 @@ impl CliId {
             CliId::Commit(oid) => oid.to_hex_with_len(2).to_string(),
         }
     }
-}
-
-/// Information extracted from stacks needed for branch and commit CLI ID generation.
-/// It's really just a named return value.
-struct StacksInfo {
-    /// Shortened branch names in unspecified order.
-    branch_names: Vec<BString>,
-    /// Commit IDs of commits reachable from workspace tips paired with their
-    /// first parent IDs in unspecified order. The parent ID is stored to enable
-    /// computing diffs upon an invocation of [IdMap::add_file_info].
-    workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
-    /// Commit IDs that are only reachable from remote-tracking branches (not in workspace).
-    remote_commit_ids: Vec<gix::ObjectId>,
-}
-
-/// Extracts branch names and commit IDs from the given `stacks`.
-fn get_stacks_info(stacks: &[Stack]) -> anyhow::Result<StacksInfo> {
-    let mut branch_names: Vec<BString> = Vec::new();
-    let mut workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)> =
-        Vec::new();
-    let mut remote_commit_ids: Vec<gix::ObjectId> = Vec::new();
-    for stack in stacks {
-        for segment in &stack.segments {
-            if let Some(ref_info) = &segment.ref_info {
-                branch_names.push(ref_info.ref_name.shorten().to_owned());
-            }
-            for commit in &segment.commits {
-                workspace_commit_and_first_parent_ids
-                    .push((commit.id, commit.parent_ids.first().cloned()));
-            }
-            for commit in &segment.commits_on_remote {
-                remote_commit_ids.push(commit.id);
-            }
-        }
-    }
-
-    Ok(StacksInfo {
-        branch_names,
-        workspace_commit_and_first_parent_ids,
-        remote_commit_ids,
-    })
-}
-
-/// Information about files needed for CLI ID generation.
-/// It's really just a named return value.
-struct FileInfo {
-    /// Uncommitted files paired with their stack assignments, ordered by assignment then filename.
-    uncommitted_files: Vec<(Option<StackId>, BString)>,
-    /// Committed files paired with their commit IDs, ordered by commit ID then filename.
-    committed_files: Vec<(gix::ObjectId, BString)>,
-}
-
-/// Extracts file information from workspace commits and worktree status.
-///
-/// This function processes workspace commits to find all changed files in each commit,
-/// and combines this with hunk assignment information to identify uncommitted (and
-/// possibly assigned) files in the worktree.
-fn get_file_info_from_workspace_commits_and_status<F>(
-    workspace_commit_and_first_parent_ids: &[(gix::ObjectId, Option<gix::ObjectId>)],
-    mut changed_paths_fn: F,
-    hunk_assignments: &[HunkAssignment],
-) -> anyhow::Result<FileInfo>
-where
-    F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
-{
-    let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
-    for (commit_id, parent_id) in workspace_commit_and_first_parent_ids {
-        let changed_paths = changed_paths_fn(*commit_id, *parent_id)?;
-        for changed_path in changed_paths {
-            committed_files.push((*commit_id, changed_path));
-        }
-    }
-
-    let mut uncommitted_files: BTreeSet<(Option<StackId>, BString)> = BTreeSet::new();
-    for assignment in hunk_assignments {
-        uncommitted_files.insert((assignment.stack_id, assignment.path_bytes.clone()));
-    }
-
-    Ok(FileInfo {
-        committed_files,
-        uncommitted_files: uncommitted_files.into_iter().collect(),
-    })
 }
 
 /// Internal representation of an uncommitted file with its CLI ID.
