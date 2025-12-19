@@ -85,16 +85,16 @@ fn commit_ids_are_currently_ambiguous() -> anyhow::Result<()> {
     ");
     insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
     [
-        Branch {
-            name: "not-important",
-            id: "no",
-        },
         Commit(
             Sha1(21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
         ),
         Commit(
             Sha1(21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb),
         ),
+        Branch {
+            name: "not-important",
+            id: "no",
+        },
     ]
     "#);
     let ids_as_shown_by_consumers = id_map
@@ -104,9 +104,9 @@ fn commit_ids_are_currently_ambiguous() -> anyhow::Result<()> {
         .collect::<Vec<_>>();
     insta::assert_debug_snapshot!(ids_as_shown_by_consumers, @r#"
     [
+        "21",
+        "21",
         "no",
-        "21",
-        "21",
     ]
     "#);
     Ok(())
@@ -325,10 +325,17 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     ");
     insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
     [
+        Commit(
+            Sha1(0202020202020202020202020202020202020202),
+        ),
         UncommittedFile {
             assignment: None,
             path: "uncommitted1.txt",
             id: "g0",
+        },
+        Branch {
+            name: "h0",
+            id: "h0",
         },
         UncommittedFile {
             assignment: None,
@@ -346,11 +353,6 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             id: "k0",
         },
         UncommittedHunk {
-            hunk_header: None,
-            path: "uncommitted2.txt",
-            id: "n0",
-        },
-        UncommittedHunk {
             hunk_header: Some(
                 HunkHeader("-1,2", "+1,2"),
             ),
@@ -364,13 +366,11 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             path: "uncommitted1.txt",
             id: "m0",
         },
-        Branch {
-            name: "h0",
-            id: "h0",
+        UncommittedHunk {
+            hunk_header: None,
+            path: "uncommitted2.txt",
+            id: "n0",
         },
-        Commit(
-            Sha1(0202020202020202020202020202020202020202),
-        ),
     ]
     "#);
 
@@ -470,7 +470,7 @@ mod util {
         ref_info::{Commit, LocalCommit, Segment},
     };
     use itertools::Itertools;
-    use std::fmt::Formatter;
+    use std::{cmp::Ordering, fmt::Formatter};
 
     pub fn id(byte: u8) -> gix::ObjectId {
         gix::ObjectId::try_from([byte].repeat(20).as_slice()).expect("could not generate ID")
@@ -590,7 +590,7 @@ mod util {
                         .cloned()
                         .map(CliId::Commit),
                 )
-                .sorted()
+                .sorted_by(id_cmp)
                 .collect()
         }
     }
@@ -656,6 +656,10 @@ mod util {
         } else {
             Ok(())
         }
+    }
+
+    fn id_cmp(a: &CliId, b: &CliId) -> Ordering {
+        a.to_short_string().cmp(&b.to_short_string())
     }
 }
 use util::{hunk_assignment, id, segment, stack};
