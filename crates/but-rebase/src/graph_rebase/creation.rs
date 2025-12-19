@@ -4,7 +4,9 @@ use anyhow::Result;
 use but_graph::{Commit, CommitFlags, Graph, Segment};
 use petgraph::Direction;
 
-use crate::graph_rebase::{Checkouts, Edge, Editor, Step, StepGraph, StepGraphIndex};
+use crate::graph_rebase::{
+    Checkout, Edge, Editor, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
+};
 
 /// Provides an extension for creating an Editor out of the segment graph
 pub trait GraphExt {
@@ -25,6 +27,8 @@ impl GraphExt for Graph {
         // References are ordered from child-most to parent-most
         let mut references: BTreeMap<gix::ObjectId, Vec<gix::refs::FullName>> = BTreeMap::new();
 
+        let mut head_refname = None;
+
         self.visit_all_segments_including_start_until(
             entrypoint.segment_index,
             Direction::Outgoing,
@@ -37,6 +41,10 @@ impl GraphExt for Graph {
                         .entry(commit.id)
                         .and_modify(|rs| rs.push(refname.to_owned()))
                         .or_insert_with(|| vec![refname.to_owned()]);
+
+                    if head_refname.is_none() {
+                        head_refname = Some(refname.to_owned());
+                    }
                 }
 
                 // Make a note to create a references that sit on commits
@@ -75,6 +83,8 @@ impl GraphExt for Graph {
 
         let commit_ids = commits.iter().map(|c| c.id).collect::<HashSet<_>>();
 
+        let mut head_selectors = vec![];
+
         for c in &commits {
             let has_no_parents = c.parent_ids.is_empty();
             let missing_parent_steps = c.parent_ids.iter().any(|p| !commit_ids.contains(p));
@@ -102,6 +112,13 @@ impl GraphExt for Graph {
                     let ref_ni = graph.add_node(Step::Reference { refname: r.clone() });
                     graph.add_edge(ref_ni, ni, Edge { order: 0 });
                     ni = ref_ni;
+
+                    if Some(r) == head_refname.as_ref() {
+                        head_selectors.push(Selector {
+                            revision: 0,
+                            id: ref_ni,
+                        });
+                    }
                 }
             }
 
@@ -129,8 +146,9 @@ impl GraphExt for Graph {
             initial_references: references.values().flatten().cloned().collect(),
             // TODO(CTO): We need to eventually list all worktrees that we own
             // here so we can `safe_checkout` them too.
-            checkouts: vec![Checkouts::Head],
+            checkouts: head_selectors.into_iter().map(Checkout::Head).collect(),
             repo: repo.clone().with_object_memory(),
+            history: RevisionHistory::new(),
         })
     }
 }
