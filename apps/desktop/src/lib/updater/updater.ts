@@ -1,4 +1,3 @@
-import { SettingsService } from '$lib/config/appSettingsV2';
 import { showToast } from '$lib/notifications/toasts';
 import { InjectionToken } from '@gitbutler/core/context';
 import { persisted } from '@gitbutler/shared/persisted';
@@ -68,7 +67,7 @@ export class UpdaterService {
 		private backend: IBackend,
 		private posthog: PostHogWrapper,
 		private shortcuts: ShortcutService,
-		private settingsService: SettingsService
+		private updateIntervalMs: number
 	) {}
 
 	private async start() {
@@ -77,12 +76,10 @@ export class UpdaterService {
 		this.shortcuts.on('update', () => {
 			this.checkForUpdate(true);
 		});
-		const settings = get(this.settingsService.appSettings);
-		const updateIntervalMs = settings!.ui.checkForUpdatesIntervalInSeconds * 1000;
-		if (updateIntervalMs !== 0) {
+		if (this.updateIntervalMs !== 0) {
 			this.checkForUpdateInterval = setInterval(
 				async () => await this.checkForUpdate(),
-				updateIntervalMs
+				this.updateIntervalMs
 			);
 			this.checkForUpdate();
 		}

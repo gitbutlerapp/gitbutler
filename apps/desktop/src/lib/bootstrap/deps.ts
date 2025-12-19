@@ -89,6 +89,7 @@ import {
 	type ExternalLinkService
 } from '@gitbutler/ui/utils/externalLinkService';
 import { IMECompositionHandler, IME_COMPOSITION_HANDLER } from '@gitbutler/ui/utils/imeHandling';
+import { get } from 'svelte/store';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 export function initDependencies(args: {
@@ -296,7 +297,7 @@ export function initDependencies(args: {
 	const cliManager = new CLIManager(clientState['backendApi']);
 	const dataSharingService = new DataSharingService(clientState['backendApi']);
 	const promptService = new PromptService(backend);
-	const updaterService = new UpdaterService(backend, posthog, shortcutService, settingsService);
+	const updaterService = new UpdaterService(backend, posthog, shortcutService, get(settingsService)!.ui.checkForUpdatesIntervalInSeconds * 1000);
 
 	// ============================================================================
 	// UTILITIES

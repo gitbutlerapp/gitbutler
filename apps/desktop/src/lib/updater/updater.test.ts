@@ -20,10 +20,11 @@ describe('Updater', () => {
 	const settingsService = new MockSettingsService();
 	const eventContext = new EventContext();
 	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
+	const updateIntervalMs = 3600 * 1000;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		updater = new UpdaterService(backend, posthog, shortcuts, settingsService);
+		updater = new UpdaterService(backend, posthog, shortcuts, updateIntervalMs);
 		vi.spyOn(backend, 'listen').mockReturnValue(async () => {});
 	});
 
@@ -101,7 +102,7 @@ describe('Updater', () => {
 		expect(mock).toHaveBeenCalledOnce();
 
 		for (let i = 2; i < 12; i++) {
-			await vi.advanceTimersByTimeAsync(3600 * 1000);
+			await vi.advanceTimersByTimeAsync(updateIntervalMs);
 			expect(mock).toHaveBeenCalledTimes(i);
 		}
 		unsubscribe();
