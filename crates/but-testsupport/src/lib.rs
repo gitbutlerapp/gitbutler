@@ -131,9 +131,14 @@ pub fn hex_to_id(hex: &str) -> gix::ObjectId {
     gix::ObjectId::from_hex(hex.as_bytes()).expect("statically known to be valid")
 }
 
-/// Sets and environment that assures commits are reproducible.
+/// Sets and environment that assures commits are reproducible. This is particularly
+/// needed for `GITBUTLER_CHANGE_ID`.
 /// This needs the `testing` feature enabled in `but-core` as well to work.
 /// **This changes the process environment, be aware.**
+///
+/// ### WARNING
+///
+/// Do not use this function unless it's interfacing with old code. Prefer [`open_repo()`] for instance.
 pub fn assure_stable_env() {
     let env = gix_testtools::Env::new()
         // TODO(gix): once everything is ported, all these can be configured on `gix::Repository`.

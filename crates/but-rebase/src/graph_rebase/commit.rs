@@ -28,7 +28,9 @@ impl Editor {
     /// The ID of the commit is all zeros & the commit hasn't been written into any ODB
     pub fn empty_commit(&self) -> Result<but_core::Commit<'_>> {
         let kind = gix::hash::Kind::Sha1;
-        let committer = dbg!(self.repo.committer())
+        let committer = self
+            .repo
+            .committer()
             .transpose()?
             .context("Need committer to be configured when creating a new commit")?
             .into();
