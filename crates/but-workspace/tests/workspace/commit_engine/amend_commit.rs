@@ -1,17 +1,16 @@
 use but_core::{DiffSpec, HunkHeader};
-use but_testsupport::{pin_change_id_with_env_var, read_only_in_memory_scenario};
+use but_testsupport::read_only_in_memory_scenario;
 use but_workspace::commit_engine::Destination;
 
 use crate::utils::{
     CONTEXT_LINES, cat_commit, commit_from_outcome,
     commit_whole_files_and_all_hunks_from_workspace, visualize_commit, visualize_tree,
-    writable_scenario, writable_scenario_with_ssh_key, write_local_config, write_sequence,
+    writable_scenario, writable_scenario_with_ssh_key, write_local_and_api_repo_config,
+    write_sequence,
 };
 
 #[test]
 fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let mut repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
     // Change the committer and author dates to be able to tell what it changes.
     {
@@ -88,8 +87,6 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
 
 #[test]
 fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "file", [(40, 70)])?;
@@ -120,8 +117,6 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
 
 #[test]
 fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "new-file", [(10, None)])?;
@@ -144,8 +139,6 @@ fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
 
 #[test]
 fn make_a_file_empty() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Empty the file
     std::fs::write(repo.workdir_path("file").expect("non-bare"), "")?;
@@ -166,8 +159,6 @@ fn make_a_file_empty() -> anyhow::Result<()> {
 
 #[test]
 fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "new-file", [(10, None)])?;
@@ -209,8 +200,6 @@ fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
 
 #[test]
 fn signatures_are_redone() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (mut repo, _tmp) = writable_scenario_with_ssh_key("two-signed-commits-with-line-offset");
 
     let head_id = repo.head_id()?;
@@ -251,7 +240,7 @@ fn signatures_are_redone() -> anyhow::Result<()> {
 
     repo.config_snapshot_mut()
         .set_raw_value(&"gitbutler.signCommits", "false")?;
-    write_local_config(&repo)?;
+    write_local_and_api_repo_config(&repo)?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::AmendCommit {

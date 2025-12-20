@@ -1,7 +1,5 @@
 use but_core::DiffSpec;
-use but_testsupport::{
-    assure_stable_env, hunk_header, pin_change_id_with_env_var, visualize_commit_graph,
-};
+use but_testsupport::{assure_stable_env, hunk_header, visualize_commit_graph};
 use but_workspace::{
     commit_engine::{Destination, StackSegmentId},
     legacy::commit_engine::ReferenceFrame,
@@ -27,8 +25,6 @@ use crate::{
 
 #[test]
 fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("unborn-untracked");
     let mut vb = VirtualBranchesState::default();
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
@@ -334,8 +330,6 @@ fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result
 /// There is an untracked file with multiple lines, and we commit only a couple of them.
 #[test]
 fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("unborn-untracked");
     write_sequence(&repo, "not-yet-tracked", [(4, None)])?;
     let mut vb = VirtualBranchesState::default();
@@ -567,8 +561,6 @@ fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
 
 #[test]
 fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario_with_ssh_key("two-signed-commits-with-line-offset");
     let mut vb = VirtualBranchesState::default();
     let initial_commit_id = repo.rev_parse_single("@~1")?.detach();
@@ -720,8 +712,6 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
 
 #[test]
 fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("two-commits-with-line-offset");
 
     let mut vb = VirtualBranchesState::default();
@@ -779,8 +769,6 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
 
 #[test]
 fn deletions() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("delete-all-file-types");
     let head_commit = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
@@ -820,8 +808,6 @@ fn deletions() -> anyhow::Result<()> {
 
 #[test]
 fn insert_commits_into_workspace() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset-two-files");
 
     let head_commit_id = repo.head_id()?.detach();
@@ -888,8 +874,6 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn insert_commits_into_workspace_with_conflict() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset-two-files");
 
     let head_commit_id = repo.head_id()?.detach();
@@ -1011,8 +995,6 @@ fn insert_commits_into_workspace_with_conflict() -> anyhow::Result<()> {
 
 #[test]
 fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let repo = read_only_in_memory_scenario("merge-with-two-branches-auto-resolved-merge")?;
 
     let head_commit_id = repo.head_id()?;
@@ -1086,8 +1068,6 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
 
 #[test]
 fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario_with_ssh_key("merge-signed-with-two-branches-line-offset");
 
     let head_commit_id = repo.head_id()?;
@@ -1177,8 +1157,6 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
 #[test]
 fn two_commits_three_buckets_disambiguate_insertion_position_to_one_below_top() -> anyhow::Result<()>
 {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("two-commits-three-buckets");
     // duplicate the existing branches into VB
     let branch_b = repo.rev_parse_single("B")?.detach();
@@ -1234,8 +1212,6 @@ fn two_commits_three_buckets_disambiguate_insertion_position_to_one_below_top() 
 
 #[test]
 fn two_commits_three_buckets_disambiguate_insertion_position_to_top() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("two-commits-three-buckets");
     // duplicate the existing branches into VB
     let branch_b = repo.rev_parse_single("B")?.detach();
@@ -1291,8 +1267,6 @@ fn two_commits_three_buckets_disambiguate_insertion_position_to_top() -> anyhow:
 
 #[test]
 fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
 
     let head_commit_id = repo.head_id()?;
@@ -1524,8 +1498,6 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
 
     let head_commit_id = repo.head_id()?;
@@ -1598,8 +1570,6 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn amend_edit_message_only() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
 
     let head_commit_id = repo.head_id()?;

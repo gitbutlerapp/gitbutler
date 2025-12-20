@@ -1,13 +1,12 @@
 use anyhow::Result;
 use but_rebase::graph_rebase::GraphExt;
-use but_testsupport::{pin_change_id_with_env_var, visualize_commit_graph_all};
+use but_testsupport::visualize_commit_graph_all;
 use but_workspace::commit::reword;
 
 use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
 
 #[test]
 fn reword_head_commit() -> Result<()> {
-    pin_change_id_with_env_var();
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -36,7 +35,6 @@ fn reword_head_commit() -> Result<()> {
 
 #[test]
 fn reword_middle_commit() -> Result<()> {
-    pin_change_id_with_env_var();
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -67,7 +65,6 @@ fn reword_middle_commit() -> Result<()> {
 
 #[test]
 fn reword_base_commit() -> Result<()> {
-    pin_change_id_with_env_var();
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"

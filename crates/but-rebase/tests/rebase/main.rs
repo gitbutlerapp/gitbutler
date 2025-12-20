@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bstr::ByteSlice;
 use but_rebase::{Rebase, RebaseStep};
-use but_testsupport::{pin_change_id_with_env_var, visualize_commit_graph};
+use but_testsupport::visualize_commit_graph;
 use gix::prelude::ObjectIdExt;
 
 use crate::utils::{
@@ -71,7 +71,6 @@ mod commit {
 
 #[test]
 fn single_stack_journey() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, commits, _tmp) = four_commits_writable()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
     let out = builder
@@ -150,7 +149,6 @@ fn single_stack_journey() -> Result<()> {
 
 #[test]
 fn amended_commit() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
@@ -224,7 +222,6 @@ fn amended_commit() -> Result<()> {
 
 #[test]
 fn reorder_merge_in_reverse() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmp, _meta) = fixture_writable("merge-in-the-middle")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "with-inner-merge")?, @r"
     * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
@@ -303,7 +300,6 @@ fn reorder_merge_in_reverse() -> Result<()> {
 
 #[test]
 fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
@@ -505,7 +501,6 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
 
 #[test]
 fn reversible_conflicts() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
     // If conflicts are created one way, putting them back the other way auto-resolves them.
     let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
 
@@ -645,7 +640,6 @@ fn reversible_conflicts() -> anyhow::Result<()> {
 
 #[test]
 fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, commits, _tmp) = four_commits_writable()?;
     let mut builder = Rebase::new(&repo, None, None)?;
     let out = builder

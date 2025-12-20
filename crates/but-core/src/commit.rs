@@ -28,7 +28,33 @@ pub struct HeadersV2 {
     pub conflicted: Option<u64>,
 }
 
+/// Lifecycle
 impl HeadersV2 {
+    /// Create a new instance, with the following rules for setting the change id.
+    /// 1. if `GITBUTLER_CHANGE_ID` is set in the environment while the `testing` cargo feature is set,
+    ///    set a change-id of 1.
+    /// 2. Read `gitbutler.changeId` from `config` and if it's a valid u128 integer, use it as change-id.
+    /// 3. generate a new change-id
+    pub fn from_config(config: &gix::config::Snapshot) -> Self {
+        HeadersV2 {
+            // Change ID using base16 encoding
+            change_id: if cfg!(feature = "testing") && std::env::var("GITBUTLER_CHANGE_ID").is_ok()
+            {
+                ChangeId::from_number_for_testing(1)
+            } else {
+                config
+                    .integer("gitbutler.changeId")
+                    .and_then(|id| {
+                        u128::try_from(id)
+                            .ok()
+                            .map(ChangeId::from_number_for_testing)
+                    })
+                    .unwrap_or_else(ChangeId::generate)
+            },
+            conflicted: None,
+        }
+    }
+
     /// Extract header information from the given `commit`, or return `None` if not present.
     pub fn try_from_commit(commit: &gix::objs::Commit) -> Option<Self> {
         if let Some(header) = commit.extra_headers().find(HEADERS_VERSION_FIELD) {
@@ -88,24 +114,6 @@ impl HeadersV2 {
         commit
             .extra_headers
             .extend(Vec::<(BString, BString)>::from(self));
-    }
-}
-
-impl Default for HeadersV2 {
-    fn default() -> Self {
-        HeadersV2 {
-            // Change ID using base16 encoding
-            change_id: if cfg!(feature = "testing") {
-                if std::env::var("GITBUTLER_CHANGE_ID").is_ok() {
-                    ChangeId::from_number_for_testing(1)
-                } else {
-                    ChangeId::generate()
-                }
-            } else {
-                ChangeId::generate()
-            },
-            conflicted: None,
-        }
     }
 }
 

@@ -12,7 +12,7 @@ pub const CONTEXT_LINES: u32 = 0;
 pub use but_testsupport::{
     read_only_in_memory_scenario, read_only_in_memory_scenario_named, visualize_index,
     visualize_index_with_content, writable_scenario, writable_scenario_slow,
-    writable_scenario_with_args, writable_scenario_with_ssh_key, write_local_config,
+    writable_scenario_with_args, writable_scenario_with_ssh_key, write_local_and_api_repo_config,
     write_sequence,
 };
 

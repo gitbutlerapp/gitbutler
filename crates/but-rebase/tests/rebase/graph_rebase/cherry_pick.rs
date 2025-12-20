@@ -1,6 +1,6 @@
 use anyhow::{Result, bail};
 use but_rebase::graph_rebase::cherry_pick::{CherryPickOutcome, cherry_pick};
-use but_testsupport::{pin_change_id_with_env_var, visualize_tree};
+use but_testsupport::visualize_tree;
 use gix::prelude::ObjectIdExt;
 
 use crate::utils::fixture_writable;
@@ -16,7 +16,6 @@ fn get_parents(id: &gix::Id) -> Result<Vec<gix::ObjectId>> {
 
 #[test]
 fn basic_cherry_pick_clean() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
@@ -48,7 +47,6 @@ fn basic_cherry_pick_clean() -> Result<()> {
 // Basic cherry pick - conflicting
 #[test]
 fn basic_cherry_pick_cp_conflicts() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-conflicting-commit")?.detach();
@@ -109,7 +107,6 @@ fn basic_cherry_pick_identity() -> Result<()> {
 // single parent to multiple parents - clean... this one is SFW
 #[test]
 fn single_parent_to_multiple_parents_clean() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
@@ -144,7 +141,6 @@ fn single_parent_to_multiple_parents_clean() -> Result<()> {
 // single parent to multiple parents - cp conflicts
 #[test]
 fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-conflicting-commit")?.detach();
@@ -208,7 +204,6 @@ fn single_parent_to_multiple_parents_parents_conflict() -> Result<()> {
 // multiple parent to single parent - clean
 #[test]
 fn multiple_parents_to_single_parent_clean() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-clean-commit")?.detach();
@@ -241,7 +236,6 @@ fn multiple_parents_to_single_parent_clean() -> Result<()> {
 // multiple parent to single parent - cp conflicts
 #[test]
 fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-conflicting-commit")?.detach();
@@ -305,7 +299,6 @@ fn multiple_parents_to_single_parent_parents_conflict() -> Result<()> {
 // multiple parents to multiple parents - clean
 #[test]
 fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-clean-commit")?.detach();
@@ -340,7 +333,6 @@ fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
 // multiple parents to multiple parents - cp conflicts
 #[test]
 fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-conflicting-commit")?.detach();
@@ -460,7 +452,6 @@ fn no_parents_identity() -> Result<()> {
 // single parent to no parents - clean
 #[test]
 fn single_parent_to_no_parents_clean() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
@@ -490,7 +481,6 @@ fn single_parent_to_no_parents_clean() -> Result<()> {
 // no parents to single parent - clean
 #[test]
 fn no_parents_to_single_parent_clean() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("base")?.detach();
@@ -522,7 +512,6 @@ fn no_parents_to_single_parent_clean() -> Result<()> {
 // no parents to single parent - cp conflicts
 #[test]
 fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("base-conflicting")?.detach();
@@ -563,7 +552,6 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
 
 #[test]
 fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
-    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-conflicting-commit")?;

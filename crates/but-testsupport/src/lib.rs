@@ -124,6 +124,7 @@ pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
                 .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
             gix::config::tree::gitoxide::Commit::COMMITTER_DATE
                 .validated_assignment("2000-01-02 00:00:00 +0000".into())?,
+            "GitButler.changeId=1".to_owned().into(),
         ]);
     Ok(config)
 }
@@ -152,24 +153,6 @@ pub fn assure_stable_env() {
         .set("GIT_COMMITTER_DATE", "2000-01-02 00:00:00 +0000")
         .set("GIT_COMMITTER_EMAIL", "committer@example.com")
         .set("GIT_COMMITTER_NAME", "committer (From Env)")
-        .set("GITBUTLER_CHANGE_ID", "change-id");
-    // assure it doesn't get racy.
-    _ = std::mem::ManuallyDrop::new(env);
-}
-
-/// Sets the `GITBUTLER_CHANGE_ID` to a fixed value for stable builds.
-///
-/// This needs the `testing` feature enabled in `but-core` as well to work.
-/// **This changes the process environment, be aware that this affects all running tests at once.**
-///
-/// ### WARNING
-///
-/// Do not use this function unless it's interfacing with old code. Prefer [`open_repo()`] for instance.
-pub fn pin_change_id_with_env_var() {
-    let env = gix_testtools::Env::new()
-        // TODO(gix): once everything is ported, all these can be configured on `gix::Repository`.
-        //            CHANGE_ID now works with a single value.
-        //            Call `but_testsupport::open_repo()` for basic settings.
         .set("GITBUTLER_CHANGE_ID", "change-id");
     // assure it doesn't get racy.
     _ = std::mem::ManuallyDrop::new(env);
@@ -467,7 +450,7 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
             gix::path::into_bstr(signing_key_path).as_ref(),
         )
         .expect("in-memory values can always be set");
-    write_local_config(&repo)
+    write_local_and_api_repo_config(&repo)
         .expect("need this to be in configuration file while git2 is involved");
     (repo, tmp)
 }
@@ -488,14 +471,19 @@ pub fn read_only_in_memory_scenario_named(
     Ok(repo)
 }
 
-/// Write the repository local configuration in `repo` back to its `.git/config`.
+/// Write the repository local *and* **API** configuration in `repo` back to its `.git/config`.
 ///
-/// In-memory config changes aren't always enough as we still only have snapshots,
+/// In-memory config changes aren't always enough to make settings sink in.
 /// without the ability to keep the entire configuration fresh.
-pub fn write_local_config(repo: &gix::Repository) -> anyhow::Result<()> {
+pub fn write_local_and_api_repo_config(repo: &gix::Repository) -> anyhow::Result<()> {
     repo.config_snapshot().write_to_filter(
         &mut std::fs::File::create(repo.path().join("config"))?,
-        |section| section.meta().source == gix::config::Source::Local,
+        |section| {
+            matches!(
+                section.meta().source,
+                gix::config::Source::Local | gix::config::Source::Api
+            )
+        },
     )?;
     Ok(())
 }

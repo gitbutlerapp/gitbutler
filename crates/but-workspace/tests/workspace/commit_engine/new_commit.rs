@@ -1,5 +1,5 @@
 use but_core::DiffSpec;
-use but_testsupport::{hunk_header, pin_change_id_with_env_var};
+use but_testsupport::hunk_header;
 use but_workspace::{commit_engine, commit_engine::Destination};
 use gix::prelude::ObjectIdExt;
 
@@ -14,8 +14,6 @@ mod with_refs_update {}
 
 #[test]
 fn from_unborn_head() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("unborn-untracked");
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
@@ -94,8 +92,6 @@ fn from_unborn_head() -> anyhow::Result<()> {
 
 #[test]
 fn from_unborn_head_with_selection() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("unborn-untracked");
     let destination = Destination::NewCommit {
         parent_commit_id: None,
@@ -182,8 +178,6 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let repo = read_only_in_memory_scenario("unborn-untracked-all-file-types")?;
     let new_commit_from_unborn = Destination::NewCommit {
         parent_commit_id: None,
@@ -230,8 +224,6 @@ fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn from_first_commit_all_file_types_changed() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let repo = read_only_in_memory_scenario("all-file-types-changed")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
@@ -255,8 +247,6 @@ fn from_first_commit_all_file_types_changed() -> anyhow::Result<()> {
 
 #[test]
 fn unborn_with_added_submodules() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("unborn-with-submodules");
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
     let outcome = commit_engine::create_commit(
@@ -290,8 +280,6 @@ fn unborn_with_added_submodules() -> anyhow::Result<()> {
 
 #[test]
 fn deletions() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let repo = read_only_in_memory_scenario("delete-all-file-types")?;
     let head_commit = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
@@ -343,8 +331,6 @@ fn deletions() -> anyhow::Result<()> {
 
 #[test]
 fn modifications() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let repo = read_only_in_memory_scenario("all-file-types-modified")?;
     let head_commit = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
@@ -386,8 +372,6 @@ fn modifications() -> anyhow::Result<()> {
 
 #[test]
 fn renames() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
     let head_commit = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
@@ -501,8 +485,6 @@ fn renames() -> anyhow::Result<()> {
 
 #[test]
 fn renames_with_selections() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
     let head_commit_id = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit_id.object()?.peel_to_tree()?.id()), @r#"
@@ -623,8 +605,6 @@ fn renames_with_selections() -> anyhow::Result<()> {
 
 #[test]
 fn modification_with_complex_selection() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let repo = read_only_in_memory_scenario("plain-modifications")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(repo.head_tree_id()?), @r#"
     db299ef
@@ -754,8 +734,6 @@ fn modification_with_complex_selection() -> anyhow::Result<()> {
 
 #[test]
 fn submodule_typechanges() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("submodule-typechanges");
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
     insta::assert_debug_snapshot!(worktree_changes.changes, @r#"
@@ -840,8 +818,6 @@ fn submodule_typechanges() -> anyhow::Result<()> {
 
 #[test]
 fn commit_to_one_below_tip() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("two-commits-with-line-offset");
     // Repeat the file, but replace the last 20 lines with 30-50
     write_sequence(&repo, "file", [(20, Some(40)), (80, None), (30, Some(50))])?;
@@ -864,8 +840,6 @@ fn commit_to_one_below_tip() -> anyhow::Result<()> {
 
 #[test]
 fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("two-commits-with-line-offset");
     write_sequence(&repo, "file", [(20, Some(40)), (80, None), (30, Some(50))])?;
     for context_lines in [0, 3, 5] {
@@ -917,8 +891,6 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
 
 #[test]
 fn commit_to_branches_below_merge_commit() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
 
     write_sequence(&repo, "file", [(1, 20), (40, 50)])?;
@@ -962,8 +934,6 @@ fn commit_to_branches_below_merge_commit() -> anyhow::Result<()> {
 
 #[test]
 fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
 
     // rewrite all lines so changes cover both branches
@@ -1020,8 +990,6 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
 #[test]
 fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() -> anyhow::Result<()>
 {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset-two-files");
 
     // rewrite all lines so changes cover both branches
@@ -1101,8 +1069,6 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
 
 #[test]
 fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario("unborn-untracked-crlf");
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
@@ -1178,8 +1144,6 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
 
 #[test]
 fn signatures_are_redone() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let (repo, _tmp) = writable_scenario_with_ssh_key("two-signed-commits-with-line-offset");
 
     let head_id = repo.head_id()?;
@@ -1229,8 +1193,6 @@ fn signatures_are_redone() -> anyhow::Result<()> {
 
 #[test]
 fn validate_no_change_on_noop() -> anyhow::Result<()> {
-    pin_change_id_with_env_var();
-
     let repo = read_only_in_memory_scenario("two-commits-with-line-offset")?;
     let specs = vec![DiffSpec {
         path: "file".into(),
