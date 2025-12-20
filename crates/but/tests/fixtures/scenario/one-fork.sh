@@ -7,7 +7,8 @@ source "${BASH_SOURCE[0]%/*}/shared.sh"
 ### General Description
 
 # A pushed main branch with two forked-off feature branches with the same base. One of these branches is a remote tracking branch.
-git init
+git-init-frozen
+
 commit-file init
 setup_target_to_match_main
 
