@@ -4,15 +4,11 @@ use but_graph::Graph;
 use but_rebase::graph_rebase::{GraphExt, Step, mutate::InsertSide};
 use but_testsupport::{git_status, visualize_commit_graph_all};
 
-use crate::{
-    graph_rebase::set_var,
-    utils::{fixture_writable, standard_options},
-};
+use crate::utils::{fixture_writable, standard_options};
 
 /// Inserting below a merge commit should inherit all of it's parents
 #[test]
 fn insert_below_merge_commit() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -24,8 +20,7 @@ fn insert_below_merge_commit() -> Result<()> {
     |/  
     * 8f0d338 (tag: base, main) base
     ");
-    insta::assert_snapshot!(git_status(&repo)?, @r"
-    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
@@ -57,17 +52,16 @@ fn insert_below_merge_commit() -> Result<()> {
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * bd07069 (HEAD -> with-inner-merge) on top of inner merge
-    * 3b80a45 Merge branch 'B' into with-inner-merge
-    *   181b10a Commit below the merge commit
+    * dca85f5 (HEAD -> with-inner-merge) on top of inner merge
+    * dfff8d1 Merge branch 'B' into with-inner-merge
+    *   f593b23 Commit below the merge commit
     |\  
     | * 984fd1c (B) C: new file with 10 lines
     * | add59d2 (A) A: 10 lines on top
     |/  
     * 8f0d338 (tag: base, main) base
     ");
-    insta::assert_snapshot!(git_status(&repo)?, @r"
-    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
 
     Ok(())
 }
@@ -75,7 +69,6 @@ fn insert_below_merge_commit() -> Result<()> {
 /// Inserting above a commit should inherit it's parents
 #[test]
 fn insert_above_commit_with_two_children() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -87,8 +80,7 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     |/  
     * 8f0d338 (tag: base, main) base
     ");
-    insta::assert_snapshot!(git_status(&repo)?, @r"
-    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
@@ -120,17 +112,16 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 64487d8 (HEAD -> with-inner-merge) on top of inner merge
-    *   04fa958 Merge branch 'B' into with-inner-merge
+    * a371fba (HEAD -> with-inner-merge) on top of inner merge
+    *   b311d2a Merge branch 'B' into with-inner-merge
     |\  
-    | * dd12e5b (B) C: new file with 10 lines
-    * | f2c305e (A) A: 10 lines on top
+    | * 5101a39 (B) C: new file with 10 lines
+    * | 2bb9fcc (A) A: 10 lines on top
     |/  
-    * 6c1b9f3 (tag: base, main) Commit above base commit
+    * 1f3bf7d (tag: base, main) Commit above base commit
     * 8f0d338 base
     ");
-    insta::assert_snapshot!(git_status(&repo)?, @r"
-    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
 
     Ok(())
 }

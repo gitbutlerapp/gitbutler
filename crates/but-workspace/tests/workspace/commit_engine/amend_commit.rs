@@ -1,5 +1,5 @@
 use but_core::{DiffSpec, HunkHeader};
-use but_testsupport::assure_stable_env;
+use but_testsupport::pin_change_id_with_env_var;
 use but_workspace::commit_engine::Destination;
 
 use crate::utils::{
@@ -11,7 +11,7 @@ use crate::utils::{
 
 #[test]
 fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
-    assure_stable_env();
+    pin_change_id_with_env_var();
 
     let mut repo =
         read_only_in_memory_scenario_non_isolated_keep_env("all-file-types-renamed-and-modified")?;
@@ -54,7 +54,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(e69a4dfd9ef6d55fd4e49f801612fbe061677adb),
+            Sha1(1b5c5e89d5cd1931f2c6edd8681a8883261e3c81),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(e56fc9bacdd11ebe576b5d96d21127c423698126),
@@ -78,7 +78,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
     tree e56fc9bacdd11ebe576b5d96d21127c423698126
     author author <author@example.com> 946684866 +0600
-    committer committer (From Env) <committer@example.com> 946771266 +0600
+    committer user <email@example.com> 946771266 +0600
     gitbutler-headers-version 2
     gitbutler-change-id 00000000-0000-0000-0000-000000003333
 
@@ -90,7 +90,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
 
 #[test]
 fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
-    assure_stable_env();
+    pin_change_id_with_env_var();
 
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
@@ -113,7 +113,7 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
     parent 91ef6f6fc0a8b97fb456886c1cc3b2a3536ea2eb
     parent 7f389eda1b366f3d56ecc1300b3835727c3309b6
     author author <author@example.com> 946684800 +0000
-    committer committer (From Env) <committer@example.com> 946771200 +0000
+    committer Committer (Memory Override) <committer@example.com> 946771200 +0000
 
     Merge branch 'A' into merge
     ");
@@ -122,7 +122,7 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
 
 #[test]
 fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
-    assure_stable_env();
+    pin_change_id_with_env_var();
 
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
@@ -146,7 +146,7 @@ fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
 
 #[test]
 fn make_a_file_empty() -> anyhow::Result<()> {
-    assure_stable_env();
+    pin_change_id_with_env_var();
 
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Empty the file
@@ -168,7 +168,7 @@ fn make_a_file_empty() -> anyhow::Result<()> {
 
 #[test]
 fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
-    assure_stable_env();
+    pin_change_id_with_env_var();
 
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
@@ -211,7 +211,7 @@ fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
 
 #[test]
 fn signatures_are_redone() -> anyhow::Result<()> {
-    assure_stable_env();
+    pin_change_id_with_env_var();
 
     let (mut repo, _tmp) = writable_scenario_with_ssh_key("two-signed-commits-with-line-offset");
 

@@ -120,8 +120,10 @@ pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
                 .validated_assignment("Committer (Memory Override)".into())?,
             gix::config::tree::Committer::EMAIL
                 .validated_assignment("committer@example.com".into())?,
-            gix::config::tree::gitoxide::Commit::COMMITTER_DATE
+            gix::config::tree::gitoxide::Commit::AUTHOR_DATE
                 .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
+            gix::config::tree::gitoxide::Commit::COMMITTER_DATE
+                .validated_assignment("2000-01-02 00:00:00 +0000".into())?,
         ]);
     Ok(config)
 }
@@ -533,9 +535,7 @@ fn writable_scenario_inner(
         creation,
     )
     .map_err(anyhow::Error::from_boxed)?;
-    let mut options = crate::open_repo_config()?;
-    options.permissions.env = gix::open::permissions::Environment::all();
-    let repo = gix::open_opts(tmp.path(), freeze_time(options))?;
+    let repo = open_repo(tmp.path())?;
     Ok((repo, tmp))
 }
 

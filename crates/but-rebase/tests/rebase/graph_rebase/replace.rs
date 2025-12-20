@@ -4,14 +4,10 @@ use but_graph::Graph;
 use but_rebase::graph_rebase::{GraphExt, Step};
 use but_testsupport::{git_status, visualize_commit_graph_all, visualize_tree};
 
-use crate::{
-    graph_rebase::set_var,
-    utils::{fixture_writable, standard_options},
-};
+use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn reword_a_commit() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -23,8 +19,7 @@ fn reword_a_commit() -> Result<()> {
     |/  
     * 8f0d338 (tag: base, main) base
     ");
-    insta::assert_snapshot!(git_status(&repo)?, @r"
-    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let head_tree = repo.head_tree()?.id;
 
@@ -60,23 +55,21 @@ fn reword_a_commit() -> Result<()> {
     assert_eq!(head_tree, repo.head_tree()?.id);
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 4894b95 (HEAD -> with-inner-merge) on top of inner merge
-    *   af38519 Merge branch 'B' into with-inner-merge
+    * b09eadd (HEAD -> with-inner-merge) on top of inner merge
+    *   0d7d445 Merge branch 'B' into with-inner-merge
     |\  
     | * 984fd1c (B) C: new file with 10 lines
     * | 6de6b92 (A) A: a second coming
     |/  
     * 8f0d338 (tag: base, main) base
     ");
-    insta::assert_snapshot!(git_status(&repo)?, @r"
-    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
 
     Ok(())
 }
 
 #[test]
 fn amend_a_commit() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -88,8 +81,7 @@ fn amend_a_commit() -> Result<()> {
     |/  
     * 8f0d338 (tag: base, main) base
     ");
-    insta::assert_snapshot!(git_status(&repo)?, @r"
-    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let head_tree = repo.head_tree()?.id();
     insta::assert_snapshot!(visualize_tree(head_tree), @r#"
@@ -139,16 +131,15 @@ fn amend_a_commit() -> Result<()> {
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 4a8642c (HEAD -> with-inner-merge) on top of inner merge
-    *   fa3d6b8 Merge branch 'B' into with-inner-merge
+    * ca40fe2 (HEAD -> with-inner-merge) on top of inner merge
+    *   1c3ebbd Merge branch 'B' into with-inner-merge
     |\  
     | * 984fd1c (B) C: new file with 10 lines
     * | f1905a8 (A) A: a second coming
     |/  
     * 8f0d338 (tag: base, main) base
     ");
-    insta::assert_snapshot!(git_status(&repo)?, @r"
-    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
 
     // A should include our extra blob
     let a = repo.rev_parse_single("A")?;

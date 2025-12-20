@@ -1,9 +1,9 @@
 use anyhow::{Result, bail};
 use but_rebase::graph_rebase::cherry_pick::{CherryPickOutcome, cherry_pick};
-use but_testsupport::visualize_tree;
+use but_testsupport::{pin_change_id_with_env_var, visualize_tree};
 use gix::prelude::ObjectIdExt;
 
-use crate::{graph_rebase::set_var, utils::fixture_writable};
+use crate::utils::fixture_writable;
 
 fn get_parents(id: &gix::Id) -> Result<Vec<gix::ObjectId>> {
     Ok(id
@@ -16,7 +16,7 @@ fn get_parents(id: &gix::Id) -> Result<Vec<gix::ObjectId>> {
 
 #[test]
 fn basic_cherry_pick_clean() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
@@ -26,7 +26,7 @@ fn basic_cherry_pick_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(d455a27686ec5773502fb699b9d44ef2d3acc7aa),
+        Sha1(54848c290a08fe833a4cbc6a58f0fcaf3bbf6e08),
     )
     ");
 
@@ -48,7 +48,7 @@ fn basic_cherry_pick_clean() -> Result<()> {
 // Basic cherry pick - conflicting
 #[test]
 fn basic_cherry_pick_cp_conflicts() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-conflicting-commit")?.detach();
@@ -58,7 +58,7 @@ fn basic_cherry_pick_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(e016a9c4dc3335a33bfe340bdb227df31d1c1766),
+        Sha1(8ae3b596cae568f23d89dab540bfc8e97d6beb70),
     )
     ");
 
@@ -92,7 +92,6 @@ fn basic_cherry_pick_cp_conflicts() -> Result<()> {
 // Basic cherry pick - identity
 #[test]
 fn basic_cherry_pick_identity() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-conflicting-commit")?;
@@ -110,7 +109,7 @@ fn basic_cherry_pick_identity() -> Result<()> {
 // single parent to multiple parents - clean... this one is SFW
 #[test]
 fn single_parent_to_multiple_parents_clean() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
@@ -121,7 +120,7 @@ fn single_parent_to_multiple_parents_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(2cfca95cebf548c07da49b0dd7695957756a8a40),
+        Sha1(042e97dd9f0cace4fd03a8876a0ec05da996f15f),
     )
     ");
 
@@ -145,7 +144,7 @@ fn single_parent_to_multiple_parents_clean() -> Result<()> {
 // single parent to multiple parents - cp conflicts
 #[test]
 fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-conflicting-commit")?.detach();
@@ -156,7 +155,7 @@ fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(21c6f513d6642236f0ce5406a2172fd7ccbd6e18),
+        Sha1(65ebb926505ce670f16d179118f006b5e140aa44),
     )
     ");
 
@@ -193,7 +192,6 @@ fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
 // single parent to multiple parents - parents conflict
 #[test]
 fn single_parent_to_multiple_parents_parents_conflict() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
@@ -210,7 +208,7 @@ fn single_parent_to_multiple_parents_parents_conflict() -> Result<()> {
 // multiple parent to single parent - clean
 #[test]
 fn multiple_parents_to_single_parent_clean() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-clean-commit")?.detach();
@@ -220,7 +218,7 @@ fn multiple_parents_to_single_parent_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(239ca76f9cca49b56e8bce507e776cd8e8b5994a),
+        Sha1(f402cc4dedc672129e7265fa8d19e0b55e5c6918),
     )
     ");
 
@@ -243,7 +241,7 @@ fn multiple_parents_to_single_parent_clean() -> Result<()> {
 // multiple parent to single parent - cp conflicts
 #[test]
 fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-conflicting-commit")?.detach();
@@ -253,7 +251,7 @@ fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(d89a10354a95cf16dfb39f339c56eb8f0e206f3d),
+        Sha1(b03f2d364398cad85e2a518a10d5acdde44ca96e),
     )
     ");
 
@@ -290,7 +288,6 @@ fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
 // multiple parent to single parent - parents conflict
 #[test]
 fn multiple_parents_to_single_parent_parents_conflict() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo
@@ -308,7 +305,7 @@ fn multiple_parents_to_single_parent_parents_conflict() -> Result<()> {
 // multiple parents to multiple parents - clean
 #[test]
 fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-clean-commit")?.detach();
@@ -319,7 +316,7 @@ fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(7175c289fa60949d9e4f62b9dde4bbc9091fd81a),
+        Sha1(6de4f47ea11937579c6dab87cf53821a05fd171a),
     )
     ");
 
@@ -343,7 +340,7 @@ fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
 // multiple parents to multiple parents - cp conflicts
 #[test]
 fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-conflicting-commit")?.detach();
@@ -354,7 +351,7 @@ fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(622983759b4d4e58b1bd8278f2be80f39b79d276),
+        Sha1(219e13bf40e6451d281759652bfd2c4c665ea717),
     )
     ");
 
@@ -393,7 +390,6 @@ fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
 // multiple parents to multiple parents - parents conflict
 #[test]
 fn multiple_parents_to_multiple_parents_base_parents_conflict() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo
@@ -411,7 +407,6 @@ fn multiple_parents_to_multiple_parents_base_parents_conflict() -> Result<()> {
 
 #[test]
 fn multiple_parents_to_multiple_parents_target_parents_conflict() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-clean-commit")?.detach();
@@ -428,7 +423,6 @@ fn multiple_parents_to_multiple_parents_target_parents_conflict() -> Result<()> 
 // multiple parents to multiple parents - identity
 #[test]
 fn multiple_parents_to_multiple_parents_identity() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-clean-commit")?;
@@ -448,7 +442,6 @@ fn multiple_parents_to_multiple_parents_identity() -> Result<()> {
 // no parents cherry pick - is identity
 #[test]
 fn no_parents_identity() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("base")?;
@@ -467,7 +460,7 @@ fn no_parents_identity() -> Result<()> {
 // single parent to no parents - clean
 #[test]
 fn single_parent_to_no_parents_clean() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
@@ -476,7 +469,7 @@ fn single_parent_to_no_parents_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(cc5199a198b9762a9c90249bff790d3ca0f77dea),
+        Sha1(8349ba92f5c1de9187b7a581a26439d5c57b8181),
     )
     ");
 
@@ -497,7 +490,7 @@ fn single_parent_to_no_parents_clean() -> Result<()> {
 // no parents to single parent - clean
 #[test]
 fn no_parents_to_single_parent_clean() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("base")?.detach();
@@ -507,7 +500,7 @@ fn no_parents_to_single_parent_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(705a1d43c7949ab6f7bcd2fd4dad0f19c4aa5a1a),
+        Sha1(88ff3dede1088638d76d2fff43f175f4e9169f38),
     )
     ");
 
@@ -529,7 +522,7 @@ fn no_parents_to_single_parent_clean() -> Result<()> {
 // no parents to single parent - cp conflicts
 #[test]
 fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("base-conflicting")?.detach();
@@ -539,7 +532,7 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(4a81c311fd985bb9f19c9e9be25ff9ed7af3018c),
+        Sha1(b92ddaf506b9ba53051a04403c15bd5cd2025024),
     )
     ");
 
@@ -570,7 +563,7 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
 
 #[test]
 fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
-    set_var("GITBUTLER_CHANGE_ID", "1");
+    pin_change_id_with_env_var();
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-scenario")?;
 
     let target = repo.rev_parse_single("merge-conflicting-commit")?;
@@ -582,7 +575,7 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(622983759b4d4e58b1bd8278f2be80f39b79d276),
+        Sha1(219e13bf40e6451d281759652bfd2c4c665ea717),
     )
     ");
 
@@ -596,7 +589,7 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(9233ce21eeb24186978323222f61317661124337),
+        Sha1(01d8bb8621c478c98db95e38b8c6ad5e5607d572),
     )
     ");
 

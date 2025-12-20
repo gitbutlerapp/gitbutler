@@ -81,9 +81,7 @@ impl RepositoryExt for gix::Repository {
     }
 
     fn commit_signatures(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)> {
-        let repo = gix::open(self.path())?;
-
-        let author = repo
+        let author = self
             .author()
             .transpose()?
             .context("No author is configured in Git")
@@ -96,7 +94,7 @@ impl RepositoryExt for gix::Repository {
         let committer = if commit_as_gitbutler {
             committer_signature()
         } else {
-            repo.committer()
+            self.committer()
                 .transpose()?
                 .and_then(|s| s.to_owned().ok())
                 .unwrap_or_else(committer_signature)
