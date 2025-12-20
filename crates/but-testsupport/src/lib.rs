@@ -124,7 +124,7 @@ pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
                 .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
             gix::config::tree::gitoxide::Commit::COMMITTER_DATE
                 .validated_assignment("2000-01-02 00:00:00 +0000".into())?,
-            "GitButler.changeId=1".to_owned().into(),
+            "gitbutler.changeId=1".to_owned().into(),
         ]);
     Ok(config)
 }
@@ -134,7 +134,7 @@ pub fn hex_to_id(hex: &str) -> gix::ObjectId {
     gix::ObjectId::from_hex(hex.as_bytes()).expect("statically known to be valid")
 }
 
-/// Sets and environment that assures commits are reproducible. This is particularly
+/// Sets up an environment that assures commits are reproducible. This is particularly
 /// needed for `GITBUTLER_CHANGE_ID`.
 /// This needs the `testing` feature enabled in `but-core` as well to work.
 /// **This changes the process environment, be aware.**

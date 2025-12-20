@@ -256,7 +256,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
 /// it's not yet ready.
 #[test]
 fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result<()> {
-    // TODO: remove this once the new rebase engine is used which shares the repo and it's configuration.
+    // TODO: remove this once the new rebase engine is used which shares the repo and its configuration.
     assure_stable_env();
 
     let (repo, _tmp) = writable_scenario("three-commits-with-line-offset-and-workspace-commit");

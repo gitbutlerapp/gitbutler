@@ -30,7 +30,7 @@ pub struct HeadersV2 {
 
 /// Lifecycle
 impl HeadersV2 {
-    /// Create a new instance, with the following rules for setting the change id.
+    /// Create a new instance, with the following rules for setting the change id:
     /// 1. if `GITBUTLER_CHANGE_ID` is set in the environment while the `testing` cargo feature is set,
     ///    set a change-id of 1.
     /// 2. Read `gitbutler.changeId` from `config` and if it's a valid u128 integer, use it as change-id.
