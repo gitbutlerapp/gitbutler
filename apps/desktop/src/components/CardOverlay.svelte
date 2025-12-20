@@ -109,6 +109,10 @@
 				transform: translateY(0) scale(1);
 				opacity: 1;
 			}
+
+			.dropzone-label-icon {
+				animation: icon-shifting 1s infinite;
+			}
 		}
 	}
 
@@ -143,7 +147,6 @@
 	.dropzone-label-icon {
 		width: 14px;
 		height: 14px;
-		animation: icon-shifting 1s infinite;
 	}
 
 	@keyframes icon-shifting {
