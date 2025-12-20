@@ -114,7 +114,7 @@
 					provider.
 					{#if isWindows}
 						<br /><br />
-						<strong>Note:</strong> On Windows, only the Git executable option is available for compatibility
+						<strong>On Windows,</strong> only the Git executable option is available for compatibility
 						reasons.
 					{/if}
 				{/snippet}
