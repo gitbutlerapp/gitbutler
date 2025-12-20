@@ -139,10 +139,10 @@ pub fn hex_to_id(hex: &str) -> gix::ObjectId {
 /// This needs the `testing` feature enabled in `but-core` as well to work.
 /// **This changes the process environment, be aware.**
 ///
-/// ### WARNING
+/// ### DEPRECATION WARNING
 ///
 /// Do not use this function unless it's interfacing with old code. Prefer [`open_repo()`] for instance.
-pub fn assure_stable_env() {
+pub fn deprecated_stable_env_vars() {
     let env = gix_testtools::Env::new()
         // TODO(gix): once everything is ported, all these can be configured on `gix::Repository`.
         //            CHANGE_ID now works with a single value.

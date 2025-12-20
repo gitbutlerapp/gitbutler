@@ -1,5 +1,5 @@
 use but_core::DiffSpec;
-use but_testsupport::{assure_stable_env, hunk_header, visualize_commit_graph};
+use but_testsupport::{deprecated_stable_env_vars, hunk_header, visualize_commit_graph};
 use but_workspace::{
     commit_engine::{Destination, StackSegmentId},
     legacy::commit_engine::ReferenceFrame,
@@ -257,7 +257,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
 #[test]
 fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result<()> {
     // TODO: remove this once the new rebase engine is used which shares the repo and its configuration.
-    assure_stable_env();
+    deprecated_stable_env_vars();
 
     let (repo, _tmp) = writable_scenario("three-commits-with-line-offset-and-workspace-commit");
 

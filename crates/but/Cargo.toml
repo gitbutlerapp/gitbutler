@@ -119,6 +119,8 @@ cfg-if = "1.0.4"
 tempfile.workspace = true
 
 [dev-dependencies]
+## TODO: remove this line entirely and instead set `gitbutler.changeId = 1` in the Git configuration
+##       once no legacy code executed anymore that only knows the environment variables.
 but-core = { workspace = true, features = ["testing"] }
 but-graph.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
