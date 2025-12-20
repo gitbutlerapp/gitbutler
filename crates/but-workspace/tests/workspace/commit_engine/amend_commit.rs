@@ -1,11 +1,10 @@
 use but_core::{DiffSpec, HunkHeader};
-use but_testsupport::pin_change_id_with_env_var;
+use but_testsupport::{pin_change_id_with_env_var, read_only_in_memory_scenario};
 use but_workspace::commit_engine::Destination;
 
 use crate::utils::{
     CONTEXT_LINES, cat_commit, commit_from_outcome,
-    commit_whole_files_and_all_hunks_from_workspace,
-    read_only_in_memory_scenario_non_isolated_keep_env, visualize_commit, visualize_tree,
+    commit_whole_files_and_all_hunks_from_workspace, visualize_commit, visualize_tree,
     writable_scenario, writable_scenario_with_ssh_key, write_local_config, write_sequence,
 };
 
@@ -13,8 +12,7 @@ use crate::utils::{
 fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     pin_change_id_with_env_var();
 
-    let mut repo =
-        read_only_in_memory_scenario_non_isolated_keep_env("all-file-types-renamed-and-modified")?;
+    let mut repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
     // Change the committer and author dates to be able to tell what it changes.
     {
         let mut config = repo.config_snapshot_mut();
@@ -54,7 +52,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(1b5c5e89d5cd1931f2c6edd8681a8883261e3c81),
+            Sha1(6fcc83539cbb0a438ac85c7c0094d592d22b3420),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(e56fc9bacdd11ebe576b5d96d21127c423698126),
@@ -78,7 +76,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
     tree e56fc9bacdd11ebe576b5d96d21127c423698126
     author author <author@example.com> 946684866 +0600
-    committer user <email@example.com> 946771266 +0600
+    committer Committer (Memory Override) <committer@example.com> 946771266 +0600
     gitbutler-headers-version 2
     gitbutler-change-id 00000000-0000-0000-0000-000000003333
 

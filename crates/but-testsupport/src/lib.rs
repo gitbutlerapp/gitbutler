@@ -472,14 +472,6 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
     (repo, tmp)
 }
 
-/// Obtain a `repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
-/// Note that this is non-isolated, and will be affected by environment variables.
-pub fn read_only_in_memory_scenario_non_isolated_keep_env(
-    name: &str,
-) -> anyhow::Result<gix::Repository> {
-    read_only_in_memory_scenario_named_env(name, "", gix::open::permissions::Environment::all())
-}
-
 /// Obtain an isolated `repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
 pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repository> {
     read_only_in_memory_scenario_named(name, "")
@@ -490,25 +482,9 @@ pub fn read_only_in_memory_scenario_named(
     script_name: &str,
     dirname: &str,
 ) -> anyhow::Result<gix::Repository> {
-    read_only_in_memory_scenario_named_env(
-        script_name,
-        dirname,
-        gix::open::permissions::Environment::isolated(),
-    )
-}
-
-/// Obtain an `repo` from the `tests/fixtures/$dirname/$script_name.sh` script, with in-memory objects, using `open_env`
-/// to control how environment variables are handled.
-pub fn read_only_in_memory_scenario_named_env(
-    script_name: &str,
-    dirname: &str,
-    open_env: gix::open::permissions::Environment,
-) -> anyhow::Result<gix::Repository> {
     let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
-    let mut options = gix::open::Options::isolated();
-    options.permissions.env = open_env;
-    let repo = gix::open_opts(root.join(dirname), freeze_time(options))?.with_object_memory();
+    let repo = open_repo(&root.join(dirname))?.with_object_memory();
     Ok(repo)
 }
 
@@ -537,25 +513,6 @@ fn writable_scenario_inner(
     .map_err(anyhow::Error::from_boxed)?;
     let repo = open_repo(tmp.path())?;
     Ok((repo, tmp))
-}
-
-/// Set `opts` to use a predefined time each time a commit author or signature is created.
-fn freeze_time(opts: gix::open::Options) -> gix::open::Options {
-    use gix::config::tree::{User, gitoxide};
-    // Note: this should equal what's used other free-time functions that
-    // are environment based, as env-vars override this.
-    // TODO: don't allow the test-suite to change the current environment (which was needed to help old code)
-    let time = "946771200 +0000".into();
-    opts.config_overrides(
-        [
-            User::NAME.validated_assignment("user".into()),
-            User::EMAIL.validated_assignment("email@example.com".into()),
-            gitoxide::Commit::AUTHOR_DATE.validated_assignment(time),
-            gitoxide::Commit::COMMITTER_DATE.validated_assignment(time),
-        ]
-        .into_iter()
-        .map(Result::unwrap),
-    )
 }
 
 /// Windows dummy
