@@ -5,8 +5,7 @@ use but_workspace::commit_engine::Destination;
 use crate::utils::{
     CONTEXT_LINES, cat_commit, commit_from_outcome,
     commit_whole_files_and_all_hunks_from_workspace, visualize_commit, visualize_tree,
-    writable_scenario, writable_scenario_with_ssh_key, write_local_and_api_repo_config,
-    write_sequence,
+    writable_scenario, writable_scenario_with_ssh_key, write_sequence,
 };
 
 #[test]
@@ -240,7 +239,6 @@ fn signatures_are_redone() -> anyhow::Result<()> {
 
     repo.config_snapshot_mut()
         .set_raw_value(&"gitbutler.signCommits", "false")?;
-    write_local_and_api_repo_config(&repo)?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::AmendCommit {

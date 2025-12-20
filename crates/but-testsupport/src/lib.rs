@@ -450,8 +450,6 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
             gix::path::into_bstr(signing_key_path).as_ref(),
         )
         .expect("in-memory values can always be set");
-    write_local_and_api_repo_config(&repo)
-        .expect("need this to be in configuration file while git2 is involved");
     (repo, tmp)
 }
 
@@ -469,23 +467,6 @@ pub fn read_only_in_memory_scenario_named(
         .map_err(anyhow::Error::from_boxed)?;
     let repo = open_repo(&root.join(dirname))?.with_object_memory();
     Ok(repo)
-}
-
-/// Write the repository local *and* **API** configuration in `repo` back to its `.git/config`.
-///
-/// In-memory config changes aren't always enough to make settings sink in.
-/// without the ability to keep the entire configuration fresh.
-pub fn write_local_and_api_repo_config(repo: &gix::Repository) -> anyhow::Result<()> {
-    repo.config_snapshot().write_to_filter(
-        &mut std::fs::File::create(repo.path().join("config"))?,
-        |section| {
-            matches!(
-                section.meta().source,
-                gix::config::Source::Local | gix::config::Source::Api
-            )
-        },
-    )?;
-    Ok(())
 }
 
 fn writable_scenario_inner(
