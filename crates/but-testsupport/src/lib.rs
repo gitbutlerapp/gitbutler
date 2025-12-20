@@ -152,7 +152,25 @@ pub fn assure_stable_env() {
         .set("GIT_COMMITTER_NAME", "committer (From Env)")
         .set("GITBUTLER_CHANGE_ID", "change-id");
     // assure it doesn't get racy.
-    std::mem::forget(env);
+    _ = std::mem::ManuallyDrop::new(env);
+}
+
+/// Sets the `GITBUTLER_CHANGE_ID` to a fixed value for stable builds.
+///
+/// This needs the `testing` feature enabled in `but-core` as well to work.
+/// **This changes the process environment, be aware that this affects all running tests at once.**
+///
+/// ### WARNING
+///
+/// Do not use this function unless it's interfacing with old code. Prefer [`open_repo()`] for instance.
+pub fn pin_change_id_with_env_var() {
+    let env = gix_testtools::Env::new()
+        // TODO(gix): once everything is ported, all these can be configured on `gix::Repository`.
+        //            CHANGE_ID now works with a single value.
+        //            Call `but_testsupport::open_repo()` for basic settings.
+        .set("GITBUTLER_CHANGE_ID", "change-id");
+    // assure it doesn't get racy.
+    _ = std::mem::ManuallyDrop::new(env);
 }
 
 /// Utilities for the [`git()`] command.

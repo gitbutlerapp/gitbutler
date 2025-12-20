@@ -1,7 +1,7 @@
 use anyhow::Result;
 use but_rebase::graph_rebase::GraphExt as _;
 use but_rebase::graph_rebase::mutate::InsertSide;
-use but_testsupport::{assure_stable_env, visualize_commit_graph_all};
+use but_testsupport::{pin_change_id_with_env_var, visualize_commit_graph_all};
 use but_workspace::commit::insert_blank_commit;
 use but_workspace::commit::insert_blank_commit::RelativeTo;
 
@@ -9,7 +9,7 @@ use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_
 
 #[test]
 fn insert_below_commit() -> Result<()> {
-    assure_stable_env();
+    pin_change_id_with_env_var();
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -42,7 +42,7 @@ fn insert_below_commit() -> Result<()> {
 
 #[test]
 fn insert_above_commit() -> Result<()> {
-    assure_stable_env();
+    pin_change_id_with_env_var();
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -73,7 +73,7 @@ fn insert_above_commit() -> Result<()> {
 
 #[test]
 fn insert_below_reference() -> Result<()> {
-    assure_stable_env();
+    pin_change_id_with_env_var();
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -108,7 +108,7 @@ fn insert_below_reference() -> Result<()> {
 
 #[test]
 fn insert_above_reference() -> Result<()> {
-    assure_stable_env();
+    pin_change_id_with_env_var();
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
