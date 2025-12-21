@@ -8,7 +8,7 @@ function remote_tracking_caught_up() {
 
 function git-init-frozen() {
   git init
-  git config gitbutler.changeId 1
+  git config gitbutler.testing.changeId 1
 }
 
 function setup_remote_tracking() {

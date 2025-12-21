@@ -31,12 +31,12 @@ pub struct HeadersV2 {
 /// Lifecycle
 impl HeadersV2 {
     /// Create a new instance, with the following rules for setting the change id:
-    /// 1. Read `gitbutler.changeId` from `config` and if it's a valid u128 integer, use it as change-id.
+    /// 1. Read `gitbutler.testing.changeId` from `config` and if it's a valid u128 integer, use it as change-id.
     /// 2. generate a new change-id
     pub fn from_config(config: &gix::config::Snapshot) -> Self {
         HeadersV2 {
             change_id: config
-                .integer("gitbutler.changeId")
+                .integer("gitbutler.testing.changeId")
                 .and_then(|id| {
                     u128::try_from(id)
                         .ok()
