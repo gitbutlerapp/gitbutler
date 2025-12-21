@@ -81,9 +81,7 @@ impl RepositoryExt for gix::Repository {
     }
 
     fn commit_signatures(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)> {
-        let repo = gix::open(self.path())?;
-
-        let author = repo
+        let author = self
             .author()
             .transpose()?
             .context("No author is configured in Git")
@@ -96,7 +94,7 @@ impl RepositoryExt for gix::Repository {
         let committer = if commit_as_gitbutler {
             committer_signature()
         } else {
-            repo.committer()
+            self.committer()
                 .transpose()?
                 .and_then(|s| s.to_owned().ok())
                 .unwrap_or_else(committer_signature)
@@ -106,11 +104,7 @@ impl RepositoryExt for gix::Repository {
     }
 
     fn git_settings(&self) -> anyhow::Result<GitConfigSettings> {
-        // TODO: Make it easy to load the latest configuration in `gix`.
-        // Re-open just the local configuration to be sure it's fresh before writing it.
-        let repo = gix::open_opts(self.path(), self.open_options().clone())?;
-        let config = repo.config_snapshot();
-        GitConfigSettings::try_from_snapshot(&config)
+        GitConfigSettings::try_from_snapshot(&self.config_snapshot())
     }
 
     fn set_git_settings(&self, settings: &GitConfigSettings) -> anyhow::Result<()> {

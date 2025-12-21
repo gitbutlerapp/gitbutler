@@ -18,7 +18,6 @@ but-core.workspace = true
 but-oxidize.workspace = true
 but-ctx.workspace = true
 
-gitbutler-project.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-workspace.workspace = true
 gitbutler-branch-actions.workspace = true
@@ -32,10 +31,6 @@ tracing.workspace = true
 
 [dev-dependencies]
 but-oxidize.workspace = true
-
-gitbutler-branch-actions.workspace = true
-gitbutler-testsupport.workspace = true
-
-gix-testtools.workspace = true
-insta.workspace = true
 but-testsupport.workspace = true
+
+insta.workspace = true

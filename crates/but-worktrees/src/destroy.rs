@@ -18,7 +18,7 @@ pub fn worktree_destroy_by_id(
     id: &WorktreeId,
 ) -> Result<DestroyWorktreeOutcome> {
     // Remove the git worktree (force=true to handle uncommitted changes)
-    git_worktree_remove(&ctx.legacy_project.common_git_dir()?, id, true)?;
+    git_worktree_remove(ctx.repo.get()?.common_dir(), id, true)?;
 
     Ok(DestroyWorktreeOutcome {
         destroyed_ids: vec![id.clone()],
@@ -51,7 +51,7 @@ pub fn worktree_destroy_by_reference(
     // Destroy each matching worktree
     for worktree in worktrees_to_destroy {
         // Remove the git worktree (force=true to handle uncommitted changes)
-        git_worktree_remove(&ctx.legacy_project.common_git_dir()?, &worktree.id, true)?;
+        git_worktree_remove(ctx.repo.get()?.common_dir(), &worktree.id, true)?;
 
         destroyed_ids.push(worktree.id);
     }

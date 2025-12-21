@@ -6,6 +6,11 @@ function remote_tracking_caught_up() {
   setup_remote_tracking "$1"
 }
 
+function git-init-frozen() {
+  git init
+  git config gitbutler.testing.changeId 1
+}
+
 function setup_remote_tracking() {
   local branch_name="${1:?}"
   local remote_branch_name=${2:-"$branch_name"}

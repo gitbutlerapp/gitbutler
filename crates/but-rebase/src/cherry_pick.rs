@@ -183,7 +183,9 @@ pub(crate) mod function {
         } else if headers.is_none() {
             new_commit
                 .extra_headers
-                .extend(Vec::<(BString, BString)>::from(&HeadersV2::default()));
+                .extend(Vec::<(BString, BString)>::from(&HeadersV2::from_config(
+                    &repo.config_snapshot(),
+                )));
         }
         set_parent(&mut new_commit, head.id.detach())?;
         Ok(
@@ -240,7 +242,9 @@ pub(crate) mod function {
         tree.upsert(".conflict-files", EntryKind::Blob, conflicted_files_blob)?;
         tree.upsert("README.txt", EntryKind::Blob, readme_blob)?;
 
-        let mut headers = to_rebase.headers().unwrap_or_default();
+        let mut headers = to_rebase
+            .headers()
+            .unwrap_or_else(|| HeadersV2::from_config(&repo.config_snapshot()));
         headers.conflicted = conflicted_files.conflicted_header_field();
         to_rebase.tree = tree.write().context("failed to write tree")?.detach();
         set_parent(&mut to_rebase, head.id.detach())?;

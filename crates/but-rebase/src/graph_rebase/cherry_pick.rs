@@ -222,7 +222,9 @@ fn commit_from_unconflicted_tree<'repo>(
     } else if headers.is_none() {
         new_commit
             .extra_headers
-            .extend(Vec::<(BString, BString)>::from(&HeadersV2::default()));
+            .extend(Vec::<(BString, BString)>::from(&HeadersV2::from_config(
+                &repo.config_snapshot(),
+            )));
     }
     new_commit.parents = parents.into();
 
@@ -278,7 +280,9 @@ fn commit_from_conflicted_tree<'repo>(
     tree.upsert(".conflict-files", EntryKind::Blob, conflicted_files_blob)?;
     tree.upsert("README.txt", EntryKind::Blob, readme_blob)?;
 
-    let mut headers = to_rebase.headers().unwrap_or_default();
+    let mut headers = to_rebase
+        .headers()
+        .unwrap_or_else(|| HeadersV2::from_config(&repo.config_snapshot()));
     headers.conflicted = conflicted_files.conflicted_header_field();
     to_rebase.tree = tree.write().context("failed to write tree")?.detach();
     to_rebase.parents = parents.into();

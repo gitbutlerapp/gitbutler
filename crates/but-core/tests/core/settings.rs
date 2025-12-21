@@ -31,9 +31,16 @@ mod git {
         repo.set_git_settings(&expected)?;
         let actual = repo.git_settings()?;
 
+        assert_ne!(
+            actual, expected,
+            "round-tripping isn't possible due to the way this works - it would need mutability."
+        );
+
+        let repo = but_testsupport::open_repo(repo.path())?;
+        let actual = repo.git_settings()?;
         assert_eq!(
             actual, expected,
-            "round-tripping should work, and so should serialization to disk"
+            "but it works once the settings are reloaded, they were persisted to disk."
         );
         Ok(())
     }
@@ -51,7 +58,10 @@ mod git {
             }
         };
 
+        // need a reload, see `set_git_settings` for details on why.
         repo.set_git_settings(&expected)?;
+
+        let repo = but_testsupport::open_repo(repo.path())?;
         let actual = repo.git_settings()?;
         assert_eq!(
             actual, expected,

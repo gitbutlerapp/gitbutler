@@ -30,9 +30,7 @@ gix = { workspace = true, features = [] }
 
 [dev-dependencies]
 but-oxidize.workspace = true
+but-testsupport.workspace = true
 
-gitbutler-testsupport.workspace = true
-
-gix-testtools.workspace = true
 insta.workspace = true
 serde_json.workspace = true

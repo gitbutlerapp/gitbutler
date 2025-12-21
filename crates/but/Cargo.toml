@@ -119,7 +119,6 @@ cfg-if = "1.0.4"
 tempfile.workspace = true
 
 [dev-dependencies]
-but-core = { workspace = true, features = ["testing"] }
 but-graph.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 but-testsupport = { workspace = true, features = ["sandbox-but-api"] }

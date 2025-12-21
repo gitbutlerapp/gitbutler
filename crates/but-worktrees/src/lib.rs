@@ -1,9 +1,10 @@
 //! Worktree management types and database operations.
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result};
-use bstr::{BString, ByteSlice};
+use bstr::BString;
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod db;
@@ -19,8 +20,8 @@ pub struct WorktreeId(BString);
 
 impl WorktreeId {
     /// Create a new worktree ID using a random UUID.
-    pub fn new() -> Self {
-        Self(BString::from(uuid::Uuid::new_v4().to_string()))
+    pub fn generate() -> Self {
+        Self(uuid::Uuid::new_v4().to_string().into())
     }
 
     /// Create a worktree ID from a string.
@@ -36,23 +37,22 @@ impl WorktreeId {
             .file_name()
             .context("Invalid worktree path - no filename")?;
 
-        Ok(Self(BString::from(basename.to_string_lossy().as_ref())))
+        Ok(Self(gix::path::os_str_into_bstr(basename)?.to_owned()))
     }
 
-    /// Get the worktree name as a string slice.
-    pub fn as_str(&self) -> &str {
-        self.0.to_str().unwrap_or("")
-    }
-
-    /// Get the inner BString.
-    pub fn as_bstr(&self) -> &bstr::BStr {
+    fn as_bstr(&self) -> &bstr::BStr {
         self.0.as_ref()
+    }
+
+    /// Useful for lossless calls to Git.
+    pub(crate) fn to_os_str(&self) -> OsString {
+        gix::path::from_bstr(self.as_bstr()).into_owned().into()
     }
 }
 
-impl Default for WorktreeId {
-    fn default() -> Self {
-        Self::new()
+impl std::fmt::Display for WorktreeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_bstr().fmt(f)
     }
 }
 

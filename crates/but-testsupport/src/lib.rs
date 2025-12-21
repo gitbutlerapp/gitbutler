@@ -120,8 +120,11 @@ pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
                 .validated_assignment("Committer (Memory Override)".into())?,
             gix::config::tree::Committer::EMAIL
                 .validated_assignment("committer@example.com".into())?,
-            gix::config::tree::gitoxide::Commit::COMMITTER_DATE
+            gix::config::tree::gitoxide::Commit::AUTHOR_DATE
                 .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
+            gix::config::tree::gitoxide::Commit::COMMITTER_DATE
+                .validated_assignment("2000-01-02 00:00:00 +0000".into())?,
+            "gitbutler.testing.changeId=1".to_owned().into(),
         ]);
     Ok(config)
 }
@@ -131,10 +134,15 @@ pub fn hex_to_id(hex: &str) -> gix::ObjectId {
     gix::ObjectId::from_hex(hex.as_bytes()).expect("statically known to be valid")
 }
 
-/// Sets and environment that assures commits are reproducible.
+/// Sets up an environment that assures commits are reproducible. This is particularly
+/// needed for `GITBUTLER_CHANGE_ID`.
 /// This needs the `testing` feature enabled in `but-core` as well to work.
 /// **This changes the process environment, be aware.**
-pub fn assure_stable_env() {
+///
+/// ### DEPRECATION WARNING
+///
+/// Do not use this function unless it's interfacing with old code. Prefer [`open_repo()`] for instance.
+pub fn deprecated_stable_env_vars() {
     let env = gix_testtools::Env::new()
         // TODO(gix): once everything is ported, all these can be configured on `gix::Repository`.
         //            CHANGE_ID now works with a single value.
@@ -147,7 +155,7 @@ pub fn assure_stable_env() {
         .set("GIT_COMMITTER_NAME", "committer (From Env)")
         .set("GITBUTLER_CHANGE_ID", "change-id");
     // assure it doesn't get racy.
-    std::mem::forget(env);
+    _ = std::mem::ManuallyDrop::new(env);
 }
 
 /// Utilities for the [`git()`] command.
@@ -442,17 +450,7 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
             gix::path::into_bstr(signing_key_path).as_ref(),
         )
         .expect("in-memory values can always be set");
-    write_local_config(&repo)
-        .expect("need this to be in configuration file while git2 is involved");
     (repo, tmp)
-}
-
-/// Obtain a `repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
-/// Note that this is non-isolated, and will be affected by environment variables.
-pub fn read_only_in_memory_scenario_non_isolated_keep_env(
-    name: &str,
-) -> anyhow::Result<gix::Repository> {
-    read_only_in_memory_scenario_named_env(name, "", gix::open::permissions::Environment::all())
 }
 
 /// Obtain an isolated `repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
@@ -465,38 +463,10 @@ pub fn read_only_in_memory_scenario_named(
     script_name: &str,
     dirname: &str,
 ) -> anyhow::Result<gix::Repository> {
-    read_only_in_memory_scenario_named_env(
-        script_name,
-        dirname,
-        gix::open::permissions::Environment::isolated(),
-    )
-}
-
-/// Obtain an `repo` from the `tests/fixtures/$dirname/$script_name.sh` script, with in-memory objects, using `open_env`
-/// to control how environment variables are handled.
-pub fn read_only_in_memory_scenario_named_env(
-    script_name: &str,
-    dirname: &str,
-    open_env: gix::open::permissions::Environment,
-) -> anyhow::Result<gix::Repository> {
     let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
-    let mut options = gix::open::Options::isolated();
-    options.permissions.env = open_env;
-    let repo = gix::open_opts(root.join(dirname), freeze_time(options))?.with_object_memory();
+    let repo = open_repo(&root.join(dirname))?.with_object_memory();
     Ok(repo)
-}
-
-/// Write the repository local configuration in `repo` back to its `.git/config`.
-///
-/// In-memory config changes aren't always enough as we still only have snapshots,
-/// without the ability to keep the entire configuration fresh.
-pub fn write_local_config(repo: &gix::Repository) -> anyhow::Result<()> {
-    repo.config_snapshot().write_to_filter(
-        &mut std::fs::File::create(repo.path().join("config"))?,
-        |section| section.meta().source == gix::config::Source::Local,
-    )?;
-    Ok(())
 }
 
 fn writable_scenario_inner(
@@ -510,29 +480,8 @@ fn writable_scenario_inner(
         creation,
     )
     .map_err(anyhow::Error::from_boxed)?;
-    let mut options = crate::open_repo_config()?;
-    options.permissions.env = gix::open::permissions::Environment::all();
-    let repo = gix::open_opts(tmp.path(), freeze_time(options))?;
+    let repo = open_repo(tmp.path())?;
     Ok((repo, tmp))
-}
-
-/// Set `opts` to use a predefined time each time a commit author or signature is created.
-fn freeze_time(opts: gix::open::Options) -> gix::open::Options {
-    use gix::config::tree::{User, gitoxide};
-    // Note: this should equal what's used other free-time functions that
-    // are environment based, as env-vars override this.
-    // TODO: don't allow the test-suite to change the current environment (which was needed to help old code)
-    let time = "946771200 +0000".into();
-    opts.config_overrides(
-        [
-            User::NAME.validated_assignment("user".into()),
-            User::EMAIL.validated_assignment("email@example.com".into()),
-            gitoxide::Commit::AUTHOR_DATE.validated_assignment(time),
-            gitoxide::Commit::COMMITTER_DATE.validated_assignment(time),
-        ]
-        .into_iter()
-        .map(Result::unwrap),
-    )
 }
 
 /// Windows dummy

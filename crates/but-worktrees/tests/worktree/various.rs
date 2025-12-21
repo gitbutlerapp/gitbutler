@@ -1,16 +1,14 @@
-use std::path::Path;
-
-use anyhow::bail;
-use but_testsupport::git;
+use bstr::ByteSlice;
+use but_testsupport::{git, invoke_bash_at_dir};
 use but_worktrees::{
     integrate::{WorktreeIntegrationStatus, worktree_integrate, worktree_integration_status},
     new::worktree_new,
 };
 
-use crate::util::{IntoString, test_ctx};
+use crate::util::test_ctx;
 
 #[test]
-fn test_create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
+fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
     let repo = ctx.open_repo()?;
@@ -21,10 +19,10 @@ fn test_create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
     let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
 
-    bash_at(
-        &a.created.path,
+    invoke_bash_at_dir(
         r#"echo "foo" > qux.txt && git add . && git commit -am "added qux!""#,
-    )?;
+        &a.created.path,
+    );
 
     assert_eq!(
         worktree_integration_status(
@@ -55,42 +53,45 @@ fn test_create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
         "We should also be able to integrate the unrelated change back into the above reference"
     );
 
-    assert!(
-        worktree_integrate(
-            &mut ctx,
-            guard.write_permission(),
-            &a.created.id,
-            feature_a_name.as_ref()
-        )
-        .is_ok()
-    );
+    worktree_integrate(
+        &mut ctx,
+        guard.write_permission(),
+        &a.created.id,
+        feature_a_name.as_ref(),
+    )
+    .expect("it works");
 
-    let head_tree = git(&repo).args(["ls-tree", "HEAD"]).output_string()?;
-    insta::assert_snapshot!(head_tree, @r"
-    100644 blob 91c021af6e6e0d11aca2fb7f57b82818dfa9ad7c	bar.txt
-    100644 blob f2376e2bab6c5194410bd8a55630f83f933d2f34	file.txt
-    100644 blob bf8cf71260eca4acb27694afed34c3aadc8761d1	foo.txt
-    100644 blob 257cc5642cb1a054f08cc83f2d943e56fd3ebe99	qux.txt
-    ");
+    insta::assert_snapshot!(but_testsupport::visualize_tree(repo.head_tree_id()?), @r#"
+    c5bb3ff
+    ├── bar.txt:100644:91c021a "feature-b line 2\n"
+    ├── file.txt:100644:f2376e2 "initial content\n"
+    ├── foo.txt:100644:bf8cf71 "feature-b line 1\n"
+    └── qux.txt:100644:257cc56 "foo\n"
+    "#);
 
-    let log = git(&repo)
+    // cannot show hashes as these aren't controllable yet.
+    // TODO: when making this 'modern', ensure we fully isolate it.
+    let unstable_log = git(&repo)
         .args(["log", "--graph", "--pretty=format:%s %d"])
-        .output_string()?;
-    insta::assert_snapshot!(log, @r"
+        .output()?
+        .stdout
+        .as_bstr()
+        .to_owned();
+    insta::assert_snapshot!(unstable_log, @r"
     * GitButler Workspace Commit  (HEAD -> gitbutler/workspace)
     * feature-b: add line 2  (feature-b)
     * feature-b: add line 1 
     * Integrated worktree  (feature-a)
     * feature-a: add line 2 
     * feature-a: add line 1 
-    * init  (origin/main, origin/HEAD, main, gitbutler/target)
+    * init  (origin/main, main)
     ");
 
     Ok(())
 }
 
 #[test]
-fn test_causes_conflicts_above() -> anyhow::Result<()> {
+fn causes_conflicts_above() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
     let repo = ctx.open_repo()?;
@@ -101,10 +102,10 @@ fn test_causes_conflicts_above() -> anyhow::Result<()> {
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
     let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
 
-    bash_at(
-        &a.created.path,
+    invoke_bash_at_dir(
         r#"echo "foo" > foo.txt && git add . && git commit -am "added conflicts above!""#,
-    )?;
+        &a.created.path,
+    );
 
     assert_eq!(
         worktree_integration_status(
@@ -135,60 +136,58 @@ fn test_causes_conflicts_above() -> anyhow::Result<()> {
         "When integrating into feature-b, the resulting commit should end up conflicted"
     );
 
-    assert!(
-        worktree_integrate(
-            &mut ctx,
-            guard.write_permission(),
-            &a.created.id,
-            feature_a_name.as_ref()
-        )
-        .is_ok()
-    );
+    worktree_integrate(
+        &mut ctx,
+        guard.write_permission(),
+        &a.created.id,
+        feature_a_name.as_ref(),
+    )
+    .expect("it works");
 
-    let head_tree = git(&repo).args(["ls-tree", "HEAD"]).output_string()?;
-    insta::assert_snapshot!(head_tree, @r"
-    100644 blob 91c021af6e6e0d11aca2fb7f57b82818dfa9ad7c	bar.txt
-    100644 blob f2376e2bab6c5194410bd8a55630f83f933d2f34	file.txt
-    100644 blob 257cc5642cb1a054f08cc83f2d943e56fd3ebe99	foo.txt
-    ");
+    insta::assert_snapshot!(but_testsupport::visualize_tree(repo.head_tree_id()?), @r#"
+    762a113
+    ├── bar.txt:100644:91c021a "feature-b line 2\n"
+    ├── file.txt:100644:f2376e2 "initial content\n"
+    └── foo.txt:100644:257cc56 "foo\n"
+    "#);
 
-    let foo = git(&repo)
-        .args(["cat-file", "-p", "HEAD^{tree}:foo.txt"])
-        .output_string()?;
-    insta::assert_snapshot!(foo, @"foo");
-
-    let log = git(&repo)
+    // TODO: make hashes of integrated commits stable.
+    let unstable_log = git(&repo)
         .args(["log", "--graph", "--pretty=format:%s %d"])
-        .output_string()?;
-    insta::assert_snapshot!(log, @r"
+        .output()?
+        .stdout
+        .as_bstr()
+        .to_owned();
+    insta::assert_snapshot!(unstable_log, @r"
     * GitButler Workspace Commit  (HEAD -> gitbutler/workspace)
     * feature-b: add line 2  (feature-b)
     * feature-b: add line 1 
     * Integrated worktree  (feature-a)
     * feature-a: add line 2 
     * feature-a: add line 1 
-    * init  (origin/main, origin/HEAD, main, gitbutler/target)
+    * init  (origin/main, main)
     ");
 
     Ok(())
 }
 
 #[test]
-fn test_causes_workdir_conflicts_simple() -> anyhow::Result<()> {
+fn causes_workdir_conflicts_simple() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    let path = ctx.legacy_project.worktree_dir()?.to_owned();
+    ctx.settings.feature_flags.cv3 = false;
+    let main_worktree_dir = ctx.workdir()?.expect("non-bare");
 
     let mut guard = ctx.exclusive_worktree_access();
 
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
     let b = worktree_new(&mut ctx, guard.read_permission(), feature_b_name.as_ref())?;
 
-    bash_at(&path, r#"echo "qux" > foo.txt"#)?;
-    bash_at(
-        &b.created.path,
+    invoke_bash_at_dir(r#"echo "qux" > foo.txt"#, &main_worktree_dir);
+    invoke_bash_at_dir(
         r#"echo "foo" > foo.txt && git add . && git commit -am "added conflicts above!""#,
-    )?;
+        &b.created.path,
+    );
 
     assert_eq!(
         worktree_integration_status(
@@ -205,17 +204,15 @@ fn test_causes_workdir_conflicts_simple() -> anyhow::Result<()> {
         "In this case, we're putting a new commit on the top of the stack - the thing that should conflict is the working directory"
     );
 
-    assert!(
-        worktree_integrate(
-            &mut ctx,
-            guard.write_permission(),
-            &b.created.id,
-            feature_b_name.as_ref()
-        )
-        .is_ok()
-    );
+    worktree_integrate(
+        &mut ctx,
+        guard.write_permission(),
+        &b.created.id,
+        feature_b_name.as_ref(),
+    )
+    .expect("it works");
 
-    let foo = bash_at(&path, "cat foo.txt")?;
+    let foo = std::fs::read_to_string(main_worktree_dir.join("foo.txt"))?;
     insta::assert_snapshot!(foo, @r"
     <<<<<<< ours
     qux
@@ -230,10 +227,11 @@ fn test_causes_workdir_conflicts_simple() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
+fn causes_workdir_conflicts_complex() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    let path = ctx.legacy_project.worktree_dir()?.to_owned();
+    ctx.settings.feature_flags.cv3 = false;
+    let main_worktree_dir = ctx.workdir()?.expect("non-bare");
 
     let mut guard = ctx.exclusive_worktree_access();
 
@@ -241,12 +239,11 @@ fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
     let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
 
-    bash_at(&path, r#"echo "qux" > foo.txt"#)?;
-    bash_at(
-        &a.created.path,
+    std::fs::write(main_worktree_dir.join("foo.txt"), "qux\n")?;
+    invoke_bash_at_dir(
         r#"echo "foo" > foo.txt && git add . && git commit -am "added conflicts above!""#,
-    )?;
-
+        &a.created.path,
+    );
     assert_eq!(
         worktree_integration_status(
             &mut ctx,
@@ -276,17 +273,15 @@ fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
         "When integrating into feature-b, because the thing that commits is the cherry on top of the source, it auto-resolves to what was originally there, resulting in the working_dir not conflicting"
     );
 
-    assert!(
-        worktree_integrate(
-            &mut ctx,
-            guard.write_permission(),
-            &a.created.id,
-            feature_a_name.as_ref()
-        )
-        .is_ok()
-    );
+    worktree_integrate(
+        &mut ctx,
+        guard.write_permission(),
+        &a.created.id,
+        feature_a_name.as_ref(),
+    )
+    .expect("it works");
 
-    let foo = bash_at(&path, "cat foo.txt")?;
+    let foo = std::fs::read_to_string(main_worktree_dir.join("foo.txt"))?;
     insta::assert_snapshot!(foo, @r"
     <<<<<<< ours
     qux
@@ -301,7 +296,7 @@ fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_causes_workspace_conflict() -> anyhow::Result<()> {
+fn causes_workspace_conflict() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-and-parallel")?;
     let mut ctx = test_ctx.ctx;
 
@@ -312,10 +307,10 @@ fn test_causes_workspace_conflict() -> anyhow::Result<()> {
     let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
     let c = worktree_new(&mut ctx, guard.read_permission(), feature_c_name.as_ref())?;
 
-    bash_at(
-        &c.created.path,
+    invoke_bash_at_dir(
         r#"echo "foo" >> file.txt && git add . && git commit -am "added conflicts above!""#,
-    )?;
+        &c.created.path,
+    );
 
     assert_eq!(
         worktree_integration_status(
@@ -357,22 +352,4 @@ fn test_causes_workspace_conflict() -> anyhow::Result<()> {
     );
 
     Ok(())
-}
-
-fn bash_at(path: &Path, command: &str) -> anyhow::Result<String> {
-    let output = std::process::Command::from(gix::command::prepare("bash"))
-        .current_dir(path)
-        .arg("-c")
-        .arg(command)
-        .output()?;
-    if output.status.success() {
-        Ok(std::str::from_utf8(&output.stdout)?.to_owned())
-    } else {
-        bail!(
-            "Failed running {}\n\nStdout:\n{}\n\nStderr:\n{}",
-            command,
-            std::str::from_utf8(&output.stdout)?,
-            std::str::from_utf8(&output.stderr)?
-        );
-    }
 }

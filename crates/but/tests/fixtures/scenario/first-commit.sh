@@ -7,5 +7,5 @@ source "${BASH_SOURCE[0]%/*}/shared.sh"
 ### General Description
 
 # A repository with a single commit
-git init
+git-init-frozen
 commit M

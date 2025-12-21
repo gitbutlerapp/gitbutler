@@ -1,7 +1,8 @@
 #[test]
 fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
-    let (actual, _ctx) =
-        hunk_dependencies_for_workspace("complex-file-manipulation-multiple-hunks-with-changes")?;
+    let (actual, _ctx) = hunk_dependencies_for_workspace_separated(
+        "complex-file-manipulation-multiple-hunks-with-changes",
+    )?;
     let actual_str = serde_json::to_string_pretty(&actual).unwrap();
     let stack_ids = stack_ids_by_diffs(&actual);
     let actual_str = simplify_stack_ids_in_string(stack_ids.iter(), actual_str);
@@ -20,7 +21,7 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           [
             {
               "stackId": "stack_1",
-              "commitId": "375e35becbf67fe2b246b120bc76bf070e3e41d8"
+              "commitId": "9dd99b79687c4b67024d0855c08a6ad55bfa6632"
             }
           ]
         ],
@@ -36,11 +37,11 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           [
             {
               "stackId": "stack_1",
-              "commitId": "fba21e9ecacde86f327537add23f96775064a486"
+              "commitId": "9c7ad9af048c7b9ad1e84b0c17641347b84db1d1"
             },
             {
               "stackId": "stack_1",
-              "commitId": "250b92ba3b6451781f6632cd34be70db814ec4ac"
+              "commitId": "500b70982f4576f707583412a28a6797211d180a"
             }
           ]
         ],
@@ -56,11 +57,11 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           [
             {
               "stackId": "stack_1",
-              "commitId": "375e35becbf67fe2b246b120bc76bf070e3e41d8"
+              "commitId": "9dd99b79687c4b67024d0855c08a6ad55bfa6632"
             },
             {
               "stackId": "stack_1",
-              "commitId": "fba21e9ecacde86f327537add23f96775064a486"
+              "commitId": "9c7ad9af048c7b9ad1e84b0c17641347b84db1d1"
             }
           ]
         ]
@@ -73,8 +74,9 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
 
 #[test]
 fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
-    let (actual, _ctx) =
-        hunk_dependencies_for_workspace("complex-file-manipulation-with-worktree-changes")?;
+    let (actual, _ctx) = hunk_dependencies_for_workspace_separated(
+        "complex-file-manipulation-with-worktree-changes",
+    )?;
     insta::assert_snapshot!(to_stable_string(actual), @r#"
     StableHunkDependencies {
         diffs: [
@@ -92,11 +94,11 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(b2510a88eab2cf2f7dde23202c7a8e536905f4f7),
+                        commit_id: Sha1(c85aaba55013536a1d44d8972d0b9fe9e484eb6f),
                     },
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(3113ca08b2b23d7646cdb9c9b88ffde8d1c7784a),
+                        commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
                     },
                 ],
             ),
@@ -109,7 +111,7 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(98231f63bb3539acf42356c886c07b140d42b68c),
+                        commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
                     },
                 ],
             ),
@@ -122,8 +124,9 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
 
 #[test]
 fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow::Result<()> {
-    let (actual, _ctx) =
-        hunk_dependencies_for_workspace("complex-file-manipulation-multiple-hunks-with-changes")?;
+    let (actual, _ctx) = hunk_dependencies_for_workspace_separated(
+        "complex-file-manipulation-multiple-hunks-with-changes",
+    )?;
     insta::assert_snapshot!(to_stable_string(actual), @r#"
     StableHunkDependencies {
         diffs: [
@@ -137,7 +140,7 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(375e35becbf67fe2b246b120bc76bf070e3e41d8),
+                        commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                     },
                 ],
             ),
@@ -151,11 +154,11 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(fba21e9ecacde86f327537add23f96775064a486),
+                        commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                     },
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(250b92ba3b6451781f6632cd34be70db814ec4ac),
+                        commit_id: Sha1(500b70982f4576f707583412a28a6797211d180a),
                     },
                 ],
             ),
@@ -169,11 +172,11 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(375e35becbf67fe2b246b120bc76bf070e3e41d8),
+                        commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                     },
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(fba21e9ecacde86f327537add23f96775064a486),
+                        commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                     },
                 ],
             ),
@@ -186,10 +189,23 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
 
 #[test]
 fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
-    let (actual, _ctx) = hunk_dependencies_for_workspace("merge-commit")?;
+    let (actual, _ctx) = hunk_dependencies_for_workspace_separated("merge-commit")?;
     insta::assert_snapshot!(to_stable_string(actual), @r#"
     StableHunkDependencies {
         diffs: [
+            (
+                "file",
+                DiffHunk("@@ -5,1 +5,1 @@
+                -update line 5
+                +update line 5 again
+                "),
+                [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(e418c1bb8d15211edb026fa562fb4c83199d8481),
+                    },
+                ],
+            ),
             (
                 "file",
                 DiffHunk("@@ -8,1 +8,1 @@
@@ -199,7 +215,7 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(1179d94bda967d9fb70b518b9b7225524c185218),
+                        commit_id: Sha1(df241a53d1a4dae37f16def5f6d9405ea236fbf6),
                     },
                 ],
             ),
@@ -218,6 +234,7 @@ mod util {
     use but_hunk_dependency::ui::{
         HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
     };
+    use but_testsupport::gix_testtools::tempfile;
     use gitbutler_stack::StackId;
     use itertools::Itertools;
 
@@ -246,12 +263,10 @@ mod util {
         to_simplify
     }
 
-    pub fn hunk_dependencies_for_workspace(
+    pub fn hunk_dependencies_for_workspace_separated(
         name: &str,
     ) -> anyhow::Result<(HunkDependencies, TestContext)> {
-        let script_name = "../../../but-hunk-dependency/tests/fixtures/dependencies.sh";
-        let ctx = test_ctx_at(script_name, name)?;
-        let command_context = gitbutler_testsupport::read_only::fixture(script_name, name)?;
+        let (ctx, command_context) = test_scenario(name)?;
         let deps = hunk_dependencies_for_workspace_by_ctx(&command_context)?;
         Ok((deps, ctx))
     }
@@ -288,19 +303,30 @@ mod util {
     pub struct TestContext {
         /// All the stacks in the workspace
         pub stacks_entries: Vec<but_workspace::legacy::ui::StackEntry>,
+        // TODO: remove this once this has been ported to 'modern' code, i.e. uses `but-graph::projection::Workspace`.
+        #[allow(dead_code)]
+        pub tmpdir: Option<tempfile::TempDir>,
     }
 
-    fn test_ctx_at(script_name: &str, name: &str) -> anyhow::Result<TestContext> {
-        let ctx = gitbutler_testsupport::read_only::fixture(script_name, name)?;
-        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-            ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
-        )?;
+    fn test_scenario(name: &str) -> anyhow::Result<(TestContext, Context)> {
+        // TODO: make this a read-only scenario once we don't rely on vb.toml anymore.
+        let (repo, tmpdir) = but_testsupport::writable_scenario(name);
+        let ctx = Context::from_repo(repo)?;
+        let guard = ctx.shared_worktree_access();
+        {
+            let meta = ctx.legacy_meta(guard.read_permission())?;
+            meta.write_reconciled(&*ctx.repo.get()?)?;
+        }
+        let meta = ctx.legacy_meta(guard.read_permission())?;
         let stacks =
             but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, Default::default(), None)?;
-
-        Ok(TestContext {
-            stacks_entries: stacks,
-        })
+        Ok((
+            TestContext {
+                stacks_entries: stacks,
+                tmpdir: Some(tmpdir),
+            },
+            ctx,
+        ))
     }
 
     impl TestContext {
@@ -324,7 +350,5 @@ mod util {
             .collect()
     }
 }
-use util::{
-    hunk_dependencies_for_workspace, simplify_stack_ids_in_string, stack_ids_by_diffs,
-    to_stable_string,
-};
+use crate::ui::util::hunk_dependencies_for_workspace_separated;
+use util::{simplify_stack_ids_in_string, stack_ids_by_diffs, to_stable_string};

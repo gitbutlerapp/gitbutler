@@ -12,7 +12,9 @@ test = false
 doctest = false
 
 [features]
+## Make `snapbox` utilities available, generally useful for CLI testing.
 snapbox = ["dep:snapbox"]
+## Provide a writable sandbox for testing of higher-level functions, with everything *but* the `Context`, useful even for plumbing.
 sandbox = [
     "snapbox",
     "dep:shell-words",

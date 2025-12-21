@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 
 use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
 use but_settings::AppSettings;
-use gix::Repository;
 
 /// Legacy types that shouldn't be used.
 #[cfg(feature = "legacy")]
@@ -105,7 +104,7 @@ impl From<ThreadSafeContext> for Context {
 impl TryFrom<gix::Repository> for Context {
     type Error = anyhow::Error;
 
-    fn try_from(repo: Repository) -> Result<Self, Self::Error> {
+    fn try_from(repo: gix::Repository) -> Result<Self, Self::Error> {
         Context::from_repo(repo)
     }
 }

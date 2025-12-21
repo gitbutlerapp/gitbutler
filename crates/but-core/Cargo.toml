@@ -11,8 +11,6 @@ description = "A leaf-crate with core algorithms and types"
 doctest = false
 
 [features]
-# Set when building in test-mode to enable features that help with generating repeatable tests.
-testing = []
 export-ts = []
 
 [dependencies]

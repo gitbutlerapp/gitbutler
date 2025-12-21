@@ -2,11 +2,20 @@
 mod util {
     use but_cherry_apply::{CherryApplyStatus, cherry_apply, cherry_apply_status};
     use but_ctx::Context;
+    use but_testsupport::gix_testtools::tempfile::TempDir;
     use gitbutler_stack::VirtualBranchesHandle;
-    use gix_testtools::tempfile::TempDir;
 
     pub fn test_ctx(name: &str) -> anyhow::Result<TestContext> {
-        let (ctx, tmpdir) = gitbutler_testsupport::writable::fixture("cherry_apply.sh", name)?;
+        let (repo, tmpdir) = but_testsupport::writable_scenario(name);
+        // TODO: all this should work without `Context` once it's switched to the new rebase engine,
+        //       making this crate either obsolete or proper plumbing.
+        let ctx = Context::from_repo(repo)?;
+        // update the vb-toml metadata - trigger reconciliation and write the vb.toml according to what's there.
+        {
+            let guard = ctx.shared_worktree_access();
+            let meta = ctx.legacy_meta(guard.read_permission())?;
+            meta.write_reconciled(&*ctx.repo.get()?)?;
+        }
         let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
 
         Ok(TestContext {
@@ -50,291 +59,13 @@ use but_cherry_apply::CherryApplyStatus;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::legacy::stack_details_v3;
 
-mod clean_to_both {
-    use util::test_ctx;
-
-    use super::*;
-
-    #[test]
-    fn status_is_applicable_to_any_stack() -> anyhow::Result<()> {
-        let test_ctx = test_ctx("clean-to-both")?;
-
-        let repo = test_ctx.ctx.repo.get()?;
-        let commit_id = repo
-            .rev_parse_single("refs/gitbutler/clean-commit")?
-            .detach();
-
-        let status = test_ctx.get_status(commit_id)?;
-
-        assert_eq!(status, CherryApplyStatus::ApplicableToAnyStack);
-
-        Ok(())
-    }
-
-    #[test]
-    fn can_apply_to_foo_stack() -> anyhow::Result<()> {
-        let test_ctx = test_ctx("clean-to-both")?;
-
-        let repo = test_ctx.ctx.repo.get()?;
-        let commit_id = repo
-            .rev_parse_single("refs/gitbutler/clean-commit")?
-            .detach();
-
-        let foo_id = test_ctx
-            .handle
-            .list_stacks_in_workspace()?
-            .iter()
-            .find(|s| s.name == "foo")
-            .unwrap()
-            .id;
-
-        // Apply should succeed
-        test_ctx.apply(commit_id, foo_id)?;
-
-        // Verify the commit is now in the foo stack by checking for its message
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            test_ctx
-                .ctx
-                .legacy_project
-                .gb_dir()
-                .join("virtual_branches.toml"),
-        )?;
-        let details = stack_details_v3(Some(foo_id), &repo, &meta)?;
-
-        let has_commit = details
-            .branch_details
-            .iter()
-            .flat_map(|branch| &branch.commits)
-            .any(|commit| {
-                commit
-                    .message
-                    .to_string()
-                    .contains("Add clean change to shared.txt")
-            });
-
-        assert!(
-            has_commit,
-            "Expected to find cherry-picked commit in foo stack"
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn can_apply_to_bar_stack() -> anyhow::Result<()> {
-        let test_ctx = test_ctx("clean-to-both")?;
-
-        let repo = test_ctx.ctx.repo.get()?;
-        let commit_id = repo
-            .rev_parse_single("refs/gitbutler/clean-commit")?
-            .detach();
-
-        let bar_id = test_ctx
-            .handle
-            .list_stacks_in_workspace()?
-            .iter()
-            .find(|s| s.name == "bar")
-            .unwrap()
-            .id;
-
-        // Apply should succeed
-        test_ctx.apply(commit_id, bar_id)?;
-
-        // Verify the commit is now in the bar stack by checking for its message
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            test_ctx
-                .ctx
-                .legacy_project
-                .gb_dir()
-                .join("virtual_branches.toml"),
-        )?;
-        let details = stack_details_v3(Some(bar_id), &repo, &meta)?;
-
-        let has_commit = details
-            .branch_details
-            .iter()
-            .flat_map(|branch| &branch.commits)
-            .any(|commit| {
-                commit
-                    .message
-                    .to_string()
-                    .contains("Add clean change to shared.txt")
-            });
-
-        assert!(
-            has_commit,
-            "Expected to find cherry-picked commit in bar stack"
-        );
-
-        Ok(())
-    }
-}
-
-mod conflicts_with_bar {
-    use util::test_ctx;
-
-    use super::*;
-
-    #[test]
-    fn status_is_locked_to_bar() -> anyhow::Result<()> {
-        let test_ctx = test_ctx("conflicts-with-bar")?;
-
-        let repo = test_ctx.ctx.repo.get()?;
-        let commit_id = repo
-            .rev_parse_single("refs/gitbutler/bar-conflict")?
-            .detach();
-
-        let status = test_ctx.get_status(commit_id)?;
-
-        let bar_id = test_ctx
-            .handle
-            .list_stacks_in_workspace()?
-            .iter()
-            .find(|s| s.name == "bar")
-            .unwrap()
-            .id;
-
-        assert_eq!(status, CherryApplyStatus::LockedToStack(bar_id));
-
-        Ok(())
-    }
-
-    #[test]
-    fn can_only_apply_to_bar_stack() -> anyhow::Result<()> {
-        let test_ctx = test_ctx("conflicts-with-bar")?;
-
-        let repo = test_ctx.ctx.repo.get()?;
-        let commit_id = repo
-            .rev_parse_single("refs/gitbutler/bar-conflict")?
-            .detach();
-
-        let bar_id = test_ctx
-            .handle
-            .list_stacks_in_workspace()?
-            .iter()
-            .find(|s| s.name == "bar")
-            .unwrap()
-            .id;
-
-        // Apply to bar should succeed
-        test_ctx.apply(commit_id, bar_id)?;
-
-        // Verify the commit is now in the bar stack by checking for its message
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            test_ctx
-                .ctx
-                .legacy_project
-                .gb_dir()
-                .join("virtual_branches.toml"),
-        )?;
-        let details = stack_details_v3(Some(bar_id), &repo, &meta)?;
-
-        let has_commit = details
-            .branch_details
-            .iter()
-            .flat_map(|branch| &branch.commits)
-            .any(|commit| {
-                commit
-                    .message
-                    .to_string()
-                    .contains("Conflicting change to bar.txt")
-            });
-
-        assert!(
-            has_commit,
-            "Expected to find cherry-picked commit in bar stack"
-        );
-
-        Ok(())
-    }
-}
-
-mod conflicts_with_both {
-    use util::test_ctx;
-
-    use super::*;
-
-    #[test]
-    fn status_is_causes_workspace_conflict() -> anyhow::Result<()> {
-        let test_ctx = test_ctx("conflicts-with-both")?;
-
-        let repo = test_ctx.ctx.repo.get()?;
-        let commit_id = repo
-            .rev_parse_single("refs/gitbutler/both-conflict")?
-            .detach();
-
-        let status = test_ctx.get_status(commit_id)?;
-
-        assert_eq!(status, CherryApplyStatus::CausesWorkspaceConflict);
-
-        Ok(())
-    }
-
-    #[test]
-    fn cannot_apply_to_foo_stack() -> anyhow::Result<()> {
-        let test_ctx = test_ctx("conflicts-with-both")?;
-
-        let repo = test_ctx.ctx.repo.get()?;
-        let commit_id = repo
-            .rev_parse_single("refs/gitbutler/both-conflict")?
-            .detach();
-
-        let foo_id = test_ctx
-            .handle
-            .list_stacks_in_workspace()?
-            .iter()
-            .find(|s| s.name == "foo")
-            .unwrap()
-            .id;
-
-        // Apply should fail
-        let result = test_ctx.apply(commit_id, foo_id);
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("causes workspace conflicts")
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn cannot_apply_to_bar_stack() -> anyhow::Result<()> {
-        let test_ctx = test_ctx("conflicts-with-both")?;
-
-        let repo = test_ctx.ctx.repo.get()?;
-        let commit_id = repo
-            .rev_parse_single("refs/gitbutler/both-conflict")?
-            .detach();
-
-        let bar_id = test_ctx
-            .handle
-            .list_stacks_in_workspace()?
-            .iter()
-            .find(|s| s.name == "bar")
-            .unwrap()
-            .id;
-
-        // Apply should fail
-        let result = test_ctx.apply(commit_id, bar_id);
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("causes workspace conflicts")
-        );
-
-        Ok(())
-    }
-}
+mod clean_to_both;
+mod conflicts_with_bar;
+mod conflicts_with_both;
 
 mod no_stacks {
-    use util::test_ctx;
-
     use super::*;
+    use crate::util::test_ctx;
 
     #[test]
     fn status_is_no_stacks() -> anyhow::Result<()> {

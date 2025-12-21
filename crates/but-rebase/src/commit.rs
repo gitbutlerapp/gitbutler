@@ -106,10 +106,11 @@ pub fn create(
     {
         commit.extra_headers.remove(pos);
     }
-    if repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false) {
+    let settings = repo.git_settings()?;
+    if settings.gitbutler_gerrit_mode.unwrap_or(false) {
         but_gerrit::set_trailers(&mut commit);
     }
-    if repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false) {
+    if settings.gitbutler_sign_commits.unwrap_or(false) {
         let mut buf = Vec::new();
         commit.write_to(&mut buf)?;
         match sign_buffer(repo, &buf) {

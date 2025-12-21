@@ -154,6 +154,7 @@ fn many_references() -> Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @r"
+
     └── 👉►:0[0]:main[🌳]
         ├── ·120e3a9 (⌂|1)
         ├── ·a96434e (⌂|1)
@@ -205,6 +206,7 @@ fn first_parent_leg_long() -> Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @r"
+
     └── 👉►:0[0]:with-inner-merge[🌳]
         └── ·6ac5745 (⌂|1)
             └── ►:1[1]:anon:
@@ -273,6 +275,7 @@ fn second_parent_leg_long() -> Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @r"
+
     └── 👉►:0[0]:with-inner-merge[🌳]
         └── ·a6775ea (⌂|1)
             └── ►:1[1]:anon:

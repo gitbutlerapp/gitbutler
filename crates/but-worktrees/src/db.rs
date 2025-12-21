@@ -12,16 +12,20 @@ use bstr::ByteSlice;
 use crate::{WorktreeId, WorktreeMeta};
 
 const CREATED_FROM_FILE: &str = "gitbutler-created-from";
+// TODO: this is a root-ref, capitalise it and use `gix::refs::file::Store` to read and write it, directly by opening the worktree repo.
 const BASE_FILE: &str = "gitbutler-base";
 
-/// Get the `.git/worktrees/<id>/` directory for a given worktree ID.
-fn worktree_git_dir(repo: &gix::Repository, id: &WorktreeId) -> PathBuf {
-    repo.git_dir().join("worktrees").join(id.as_str())
+/// Get the possibly non-existing `.git/worktrees/<id>/` directory for a given worktree ID.
+fn worktree_gitdir(main_repo: &gix::Repository, id: &WorktreeId) -> PathBuf {
+    main_repo
+        .common_dir()
+        .join("worktrees")
+        .join(id.to_os_str())
 }
 
 /// Save worktree metadata to files in `.git/worktrees/<id>/`.
-pub fn save_worktree_meta(repo: &gix::Repository, worktree: WorktreeMeta) -> Result<()> {
-    let git_dir = worktree_git_dir(repo, &worktree.id);
+pub fn save_worktree_meta(main_repo: &gix::Repository, worktree: WorktreeMeta) -> Result<()> {
+    let git_dir = worktree_gitdir(main_repo, &worktree.id);
 
     // Ensure the directory exists
     std::fs::create_dir_all(&git_dir).context("Failed to create worktree git directory")?;
@@ -44,7 +48,7 @@ pub fn save_worktree_meta(repo: &gix::Repository, worktree: WorktreeMeta) -> Res
 
 /// Retrieve worktree metadata by its ID.
 pub fn get_worktree_meta(repo: &gix::Repository, id: &WorktreeId) -> Result<Option<WorktreeMeta>> {
-    let git_dir = worktree_git_dir(repo, id);
+    let git_dir = worktree_gitdir(repo, id);
 
     // Check if metadata files exist
     let base_file = git_dir.join(BASE_FILE);

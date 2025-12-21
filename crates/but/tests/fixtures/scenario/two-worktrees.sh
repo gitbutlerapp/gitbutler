@@ -7,7 +7,7 @@ source "${BASH_SOURCE[0]%/*}/shared.sh"
 ### General Description
 
 # A ws-ref points to a workspace commit, with two stacks inside, each with their own commit.
-git init
+git-init-frozen
 commit M1
 commit M-base
 

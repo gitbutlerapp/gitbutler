@@ -49,7 +49,7 @@ pub(crate) fn git_worktree_remove(project_path: &Path, id: &WorktreeId, force: b
     command.current_dir(project_path);
     command.arg("worktree");
     command.arg("remove");
-    command.arg(id.as_str());
+    command.arg(id.to_os_str());
 
     if force {
         command.arg("--force");
