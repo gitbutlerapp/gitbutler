@@ -28,4 +28,4 @@ petgraph.workspace = true
 [dev-dependencies]
 but-testsupport.workspace = true
 insta = "1.44.3"
-but-meta.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }

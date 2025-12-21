@@ -681,7 +681,6 @@ pub mod utils {
     use anyhow::Result;
     use but_meta::VirtualBranchesTomlMetadata;
     use but_rebase::RebaseOutput;
-    use but_testsupport::gix_testtools;
     use gix::{ObjectId, prelude::ObjectIdExt};
 
     /// Returns a fixture that may not be written to, objects will never touch disk either.
@@ -691,12 +690,7 @@ pub mod utils {
         gix::Repository,
         std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
     )> {
-        let root = gix_testtools::scripted_fixture_read_only("rebase.sh")
-            .map_err(anyhow::Error::from_boxed)?;
-        let worktree_root = root.join(fixture_name);
-        let repo =
-            gix::open_opts(&worktree_root, gix::open::Options::isolated())?.with_object_memory();
-
+        let repo = but_testsupport::read_only_in_memory_scenario(fixture_name)?;
         let meta = VirtualBranchesTomlMetadata::from_path(
             repo.path()
                 .join(".git")
@@ -714,11 +708,7 @@ pub mod utils {
         std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
     )> {
         // TODO: remove the need for this, impl everything in `gitoxide`, allowing this to be in-memory entirely.
-        let tmp = gix_testtools::scripted_fixture_writable("rebase.sh")
-            .map_err(anyhow::Error::from_boxed)?;
-        let worktree_root = tmp.path().join(fixture_name);
-        let repo = but_testsupport::open_repo(&worktree_root)?;
-
+        let (repo, tmp) = but_testsupport::writable_scenario(fixture_name);
         let meta = VirtualBranchesTomlMetadata::from_path(
             repo.path()
                 .join(".git")
