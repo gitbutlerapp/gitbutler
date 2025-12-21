@@ -1490,7 +1490,6 @@ dependencies = [
  "but-testsupport",
  "but-workspace",
  "gitbutler-branch-actions",
- "gitbutler-project",
  "gitbutler-stack",
  "gitbutler-workspace",
  "gix",

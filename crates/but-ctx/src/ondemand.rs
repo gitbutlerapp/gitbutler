@@ -20,6 +20,7 @@ where
     }
 }
 
+/// Lifecycle
 impl<T> OnDemand<T> {
     /// Create a new instance that can instantiate its value via `init` when needed.
     pub fn new(init: impl Fn() -> anyhow::Result<T> + 'static) -> Self {
@@ -28,7 +29,10 @@ impl<T> OnDemand<T> {
             value: RefCell::new(None),
         }
     }
+}
 
+/// Access
+impl<T> OnDemand<T> {
     /// Get a shared references to the cached value or fallibly initialise it.
     pub fn get(&self) -> anyhow::Result<cell::Ref<'_, T>> {
         if let Ok(cached) = cell::Ref::filter_map(self.value.try_borrow()?, |opt| opt.as_ref()) {

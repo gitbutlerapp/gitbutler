@@ -113,7 +113,7 @@ pub fn handle(
                 if let Some(out) = out.for_json() {
                     out.write_value(status)?;
                 } else if let Some(out) = out.for_human() {
-                    writeln!(out, "Integration status for worktree: {}", id.as_str())?;
+                    writeln!(out, "Integration status for worktree: {id}")?;
                     writeln!(out, "Target: {}", target_ref)?;
                     match status {
                         IntegrationStatus::NoMergeBaseFound => {
@@ -163,7 +163,7 @@ pub fn handle(
                 if let Some(out) = out.for_json() {
                     out.write_value(serde_json::json!({"status": "success"}))?;
                 } else if let Some(out) = out.for_human() {
-                    writeln!(out, "Successfully integrated worktree: {}", id.as_str())?;
+                    writeln!(out, "Successfully integrated worktree: {id}")?;
                     writeln!(out, "Target: {}", target_ref)?;
                 }
             }
@@ -198,7 +198,7 @@ pub fn handle(
                             reference
                         )?;
                         for id in &output.destroyed_ids {
-                            writeln!(out, "  - {}", id.as_str())?;
+                            writeln!(out, "  - {id}")?;
                         }
                     }
                 }
@@ -211,7 +211,7 @@ pub fn handle(
                 if let Some(out) = out.for_json() {
                     out.write_value(output)?;
                 } else if let Some(out) = out.for_human() {
-                    writeln!(out, "Destroyed worktree: {}", id.as_str())?;
+                    writeln!(out, "Destroyed worktree: {id}")?;
                 }
             }
 

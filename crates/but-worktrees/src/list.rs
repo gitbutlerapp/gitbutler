@@ -16,9 +16,9 @@ pub fn worktree_list(
     ctx: &mut Context,
     _perm: &WorktreeReadPermission,
 ) -> Result<ListWorktreeOutcome> {
-    let repo = ctx.open_repo_for_merging()?;
+    let repo = &*ctx.repo.get()?;
 
-    let metas = list_worktree_meta(&repo)?;
+    let metas = list_worktree_meta(repo)?;
 
     let entries = repo
         .worktrees()?

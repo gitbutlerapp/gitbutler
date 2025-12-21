@@ -244,7 +244,6 @@ fn causes_workdir_conflicts_complex() -> anyhow::Result<()> {
         r#"echo "foo" > foo.txt && git add . && git commit -am "added conflicts above!""#,
         &a.created.path,
     );
-
     assert_eq!(
         worktree_integration_status(
             &mut ctx,

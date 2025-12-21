@@ -79,7 +79,7 @@ pub fn worktree_integrate(
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
-    git_worktree_remove(&ctx.legacy_project.common_git_dir()?, id, true)?;
+    git_worktree_remove(ctx.repo.get()?.common_dir(), id, true)?;
 
     Ok(())
 }
@@ -97,7 +97,7 @@ fn worktree_integration_inner(
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<(WorktreeIntegrationStatus, Option<IntegrationResult>)> {
-    let repo = ctx.open_repo_for_merging()?;
+    let repo = ctx.repo.get()?.clone().for_tree_diffing()?;
 
     let target_ref = repo.find_reference(target)?;
 
