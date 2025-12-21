@@ -1,6 +1,6 @@
 #[test]
 fn every_commit_is_independent() -> anyhow::Result<()> {
-    let actual = worktree_ranges_digest_for_workspace_named("independent-commits");
+    let actual = worktree_ranges_digest_for_workspace_separated("independent-commits");
     // Nothing to see here, there is no worktree change.
     insta::assert_debug_snapshot!(actual, @r#"
     Ok(
@@ -11,7 +11,7 @@ fn every_commit_is_independent() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(dd032c30828a4b01bda81345ceb868217e10be7e),
+                            commit_id: Sha1(01748f8d123aab24bf729a1809bcd82616f742bf),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -23,7 +23,7 @@ fn every_commit_is_independent() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(540b214204e6b4a89a0c46d4970fd751d3c8c4e3),
+                            commit_id: Sha1(a66fde9ea18488f3ab518bfbe261cd03af8334d2),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -35,7 +35,7 @@ fn every_commit_is_independent() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(953c773f98972d6c6594fc74c5c39c1f90a9ec89),
+                            commit_id: Sha1(2d88e9209a4323b70b3ce93be39e073a0a695d4f),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -47,7 +47,7 @@ fn every_commit_is_independent() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(18447fcdb2b577d16aa2aecedaabadaf9939fa6d),
+                            commit_id: Sha1(ed0f7ae8f8603056a7045c400275800bb13d8dd3),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -59,7 +59,7 @@ fn every_commit_is_independent() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(67d6107c5b55c70045625a36dbad0d8d31229e83),
+                            commit_id: Sha1(d1494ebe135156ea661cb8701d1b2da60fce665f),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -71,7 +71,7 @@ fn every_commit_is_independent() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(a2033dbf8d0cb460a48155fba36197c051b77fb7),
+                            commit_id: Sha1(bc1fd83f3dbc83becc18820a407e8d36efe3bba0),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -89,7 +89,7 @@ fn every_commit_is_independent() -> anyhow::Result<()> {
 
 #[test]
 fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
-    let actual = worktree_ranges_digest_for_workspace_named("independent-commits-multi-stack");
+    let actual = worktree_ranges_digest_for_workspace_separated("independent-commits-multi-stack");
     // Nothing to see here, there is no worktree change.
     insta::assert_debug_snapshot!(actual, @r#"
     Ok(
@@ -100,7 +100,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(058c375fac02853aeba6913c45812fa45b64d073),
+                            commit_id: Sha1(01748f8d123aab24bf729a1809bcd82616f742bf),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -112,7 +112,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(fe846061bc5c8b622373524a4ce2e30ce096c82f),
+                            commit_id: Sha1(a66fde9ea18488f3ab518bfbe261cd03af8334d2),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -124,7 +124,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(efe74eb074a9349f83162fc985b60ae4b294b806),
+                            commit_id: Sha1(2d88e9209a4323b70b3ce93be39e073a0a695d4f),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -136,7 +136,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(71c95acc33dec9ac32facd7b534fcdbea72b443c),
+                            commit_id: Sha1(ed0f7ae8f8603056a7045c400275800bb13d8dd3),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -148,7 +148,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(918040101954762e07c9c11be044373ec1b8674a),
+                            commit_id: Sha1(d1494ebe135156ea661cb8701d1b2da60fce665f),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -160,7 +160,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(c96f89b592c531f95f57fcb15edf627a606fb316),
+                            commit_id: Sha1(bc1fd83f3dbc83becc18820a407e8d36efe3bba0),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -172,7 +172,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(9431eb7c2e667a5a9e493a6e4720f2eb8a1d69e5),
+                            commit_id: Sha1(42113c518333751f8bd156f9e5b985e878c1c645),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -184,7 +184,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(79af6a15f53e4048e1e86514ab44bc4e0507047b),
+                            commit_id: Sha1(0551717004df34ad131b301a5fa8f88b9225a505),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -196,7 +196,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(69c653c9427368006da50ef0dfc446aa845d5e79),
+                            commit_id: Sha1(9e10a08477f94790a594c998930020c0b54907b9),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -208,7 +208,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(5cdf5f2b5738c7ba5ca26efff73502cc5aede13e),
+                            commit_id: Sha1(856884376cde4aacfa9292392dff529b7ed857a2),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -220,7 +220,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(f65a1007f48e2ab20dc286aa00889ba075cbc780),
+                            commit_id: Sha1(aa39024b201fb1e4d9a008026dfef52ac1c383e9),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -232,7 +232,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Addition,
-                            commit_id: Sha1(3cd8b25ac64bd67773cc47d1f1995f02dfd7f1e9),
+                            commit_id: Sha1(5edb55a15807e0f9845b8b0f20365cc34650b33a),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -250,7 +250,7 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
 
 #[test]
 fn every_commit_is_sequentially_dependent() -> anyhow::Result<()> {
-    let actual = worktree_ranges_digest_for_workspace_named("sequentially-dependent-commits");
+    let actual = worktree_ranges_digest_for_workspace_separated("sequentially-dependent-commits");
     insta::assert_debug_snapshot!(actual, @r#"
     Ok(
         WorkspaceDigest {
@@ -260,7 +260,7 @@ fn every_commit_is_sequentially_dependent() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Modification,
-                            commit_id: Sha1(cb15b49f819e5ced052ba3371e7f0cade52cf5e0),
+                            commit_id: Sha1(724dc2ecec68013210a087d75914c3ddde47d4fb),
                             start: 1,
                             lines: 1,
                             line_shift: 0,
@@ -278,8 +278,9 @@ fn every_commit_is_sequentially_dependent() -> anyhow::Result<()> {
 
 #[test]
 fn every_commit_is_sequentially_dependent_multi_stack() -> anyhow::Result<()> {
-    let actual =
-        worktree_ranges_digest_for_workspace_named("sequentially-dependent-commits-multi-stack");
+    let actual = worktree_ranges_digest_for_workspace_separated(
+        "sequentially-dependent-commits-multi-stack",
+    );
     insta::assert_debug_snapshot!(actual, @r#"
     Ok(
         WorkspaceDigest {
@@ -289,7 +290,7 @@ fn every_commit_is_sequentially_dependent_multi_stack() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Modification,
-                            commit_id: Sha1(25121b40e27784892bffe7b94fd97b7d39f513d4),
+                            commit_id: Sha1(724dc2ecec68013210a087d75914c3ddde47d4fb),
                             start: 1,
                             lines: 1,
                             line_shift: 0,
@@ -301,7 +302,7 @@ fn every_commit_is_sequentially_dependent_multi_stack() -> anyhow::Result<()> {
                     [
                         StableHunkRange {
                             change_type: Modification,
-                            commit_id: Sha1(63d8c3629fd435cc7bfbc80bcb7eb7a53e11c886),
+                            commit_id: Sha1(81aa1e19a33a9c88e0895bd8a91a52898353e19f),
                             start: 1,
                             lines: 1,
                             line_shift: 1,
@@ -320,7 +321,7 @@ fn every_commit_is_sequentially_dependent_multi_stack() -> anyhow::Result<()> {
 #[test]
 fn delete_and_recreate_file_multi_stack() -> anyhow::Result<()> {
     let actual =
-        worktree_ranges_digest_for_workspace_named("delete-and-recreate-file-multi-stack")?;
+        worktree_ranges_digest_for_workspace_separated("delete-and-recreate-file-multi-stack")?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorkspaceDigest {
         ranges_by_path: [
@@ -329,7 +330,7 @@ fn delete_and_recreate_file_multi_stack() -> anyhow::Result<()> {
                 [
                     StableHunkRange {
                         change_type: Addition,
-                        commit_id: Sha1(7b47ea7b952d9a37f16b547eb406ee1274db6dd2),
+                        commit_id: Sha1(82b2fb0253a9017ca51819f40f19ab90f5294616),
                         start: 1,
                         lines: 1,
                         line_shift: 0,
@@ -341,7 +342,7 @@ fn delete_and_recreate_file_multi_stack() -> anyhow::Result<()> {
                 [
                     StableHunkRange {
                         change_type: Deletion,
-                        commit_id: Sha1(1e9f6204003a49812f4bf993f567314810b2f14f),
+                        commit_id: Sha1(71e78915f66bcfbdd6d577b194b8abb5307fba6b),
                         start: 1,
                         lines: 0,
                         line_shift: 0,
@@ -358,7 +359,7 @@ fn delete_and_recreate_file_multi_stack() -> anyhow::Result<()> {
 
 #[test]
 fn complex_file_manipulation() -> anyhow::Result<()> {
-    let actual = worktree_ranges_digest_for_workspace_named("complex-file-manipulation")?;
+    let actual = worktree_ranges_digest_for_workspace_separated("complex-file-manipulation")?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorkspaceDigest {
         ranges_by_path: [
@@ -367,28 +368,28 @@ fn complex_file_manipulation() -> anyhow::Result<()> {
                 [
                     StableHunkRange {
                         change_type: Addition,
-                        commit_id: Sha1(f4c3a647443f90d704fcfad276d8462a3bec48d5),
+                        commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
                         start: 1,
                         lines: 1,
                         line_shift: 0,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(bc72ed73931238daaef3fee09b22c919b279b508),
+                        commit_id: Sha1(c85aaba55013536a1d44d8972d0b9fe9e484eb6f),
                         start: 1,
                         lines: 2,
                         line_shift: 2,
                     },
                     StableHunkRange {
                         change_type: Addition,
-                        commit_id: Sha1(f4c3a647443f90d704fcfad276d8462a3bec48d5),
+                        commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
                         start: 4,
                         lines: 5,
                         line_shift: 5,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(322c7d36c24097e595a9578e46fdf0d1c514331e),
+                        commit_id: Sha1(767d7bb203e81a98c87bbcb74f25cfcfc26f2115),
                         start: 9,
                         lines: 3,
                         line_shift: 3,
@@ -400,28 +401,28 @@ fn complex_file_manipulation() -> anyhow::Result<()> {
                 [
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(bc72ed73931238daaef3fee09b22c919b279b508),
+                        commit_id: Sha1(c85aaba55013536a1d44d8972d0b9fe9e484eb6f),
                         start: 1,
                         lines: 1,
                         line_shift: 1,
                     },
                     StableHunkRange {
                         change_type: Addition,
-                        commit_id: Sha1(8ad1b241738f9842a37160db2caf86df3c1cd7c4),
+                        commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
                         start: 2,
                         lines: 5,
                         line_shift: 5,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(6badf2d56db3944ea13240069b0c3b20a7b4a918),
+                        commit_id: Sha1(8c7e5c65e6fd926939ccecd709d7ea81286684f7),
                         start: 7,
                         lines: 0,
                         line_shift: 0,
                     },
                     StableHunkRange {
                         change_type: Addition,
-                        commit_id: Sha1(8ad1b241738f9842a37160db2caf86df3c1cd7c4),
+                        commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
                         start: 7,
                         lines: 1,
                         line_shift: 1,
@@ -449,28 +450,28 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 [
                     StableHunkRange {
                         change_type: Addition,
-                        commit_id: Sha1(9a0811d534f44325970b0598712ff921db6369c9),
+                        commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
                         start: 1,
                         lines: 1,
                         line_shift: 0,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(bd10ed57558c598f6713a07508ce3b0206344109),
+                        commit_id: Sha1(c85aaba55013536a1d44d8972d0b9fe9e484eb6f),
                         start: 1,
                         lines: 2,
                         line_shift: 2,
                     },
                     StableHunkRange {
                         change_type: Addition,
-                        commit_id: Sha1(9a0811d534f44325970b0598712ff921db6369c9),
+                        commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
                         start: 4,
                         lines: 5,
                         line_shift: 5,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(ab38338ac7f1546850b825e18cde50b8a1d3f7ab),
+                        commit_id: Sha1(767d7bb203e81a98c87bbcb74f25cfcfc26f2115),
                         start: 9,
                         lines: 3,
                         line_shift: 3,
@@ -482,28 +483,28 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 [
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(bd10ed57558c598f6713a07508ce3b0206344109),
+                        commit_id: Sha1(c85aaba55013536a1d44d8972d0b9fe9e484eb6f),
                         start: 1,
                         lines: 1,
                         line_shift: 1,
                     },
                     StableHunkRange {
                         change_type: Addition,
-                        commit_id: Sha1(26abc4794f2d99206c3fe4ae2bd67186600903c7),
+                        commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
                         start: 2,
                         lines: 5,
                         line_shift: 5,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(d320d3b1e9b847a644714a7b5d32ca08d1dc57c9),
+                        commit_id: Sha1(8c7e5c65e6fd926939ccecd709d7ea81286684f7),
                         start: 7,
                         lines: 0,
                         line_shift: 0,
                     },
                     StableHunkRange {
                         change_type: Addition,
-                        commit_id: Sha1(26abc4794f2d99206c3fe4ae2bd67186600903c7),
+                        commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
                         start: 7,
                         lines: 1,
                         line_shift: 1,
@@ -528,14 +529,14 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
-                                commit_id: Sha1(bd10ed57558c598f6713a07508ce3b0206344109),
+                                commit_id: Sha1(c85aaba55013536a1d44d8972d0b9fe9e484eb6f),
                                 start: 1,
                                 lines: 2,
                                 line_shift: 2,
                             },
                             StableHunkRange {
                                 change_type: Addition,
-                                commit_id: Sha1(9a0811d534f44325970b0598712ff921db6369c9),
+                                commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
                                 start: 4,
                                 lines: 5,
                                 line_shift: 5,
@@ -555,7 +556,7 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Addition,
-                                commit_id: Sha1(26abc4794f2d99206c3fe4ae2bd67186600903c7),
+                                commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
                                 start: 2,
                                 lines: 5,
                                 line_shift: 5,
@@ -574,7 +575,7 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
 #[test]
 fn complex_file_manipulation_multiple_hunks() -> anyhow::Result<()> {
     let actual =
-        worktree_ranges_digest_for_workspace_named("complex-file-manipulation-multiple-hunks")?;
+        worktree_ranges_digest_for_workspace_separated("complex-file-manipulation-multiple-hunks")?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorkspaceDigest {
         ranges_by_path: [
@@ -583,70 +584,70 @@ fn complex_file_manipulation_multiple_hunks() -> anyhow::Result<()> {
                 [
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(9eca7c76bff250f547c4b715a9a21a61578afece),
+                        commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                         start: 1,
                         lines: 1,
                         line_shift: 0,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(abd0892c3cb5c110dc6112aa59990f412cc58b7f),
+                        commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                         start: 1,
                         lines: 1,
                         line_shift: 1,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(9eca7c76bff250f547c4b715a9a21a61578afece),
+                        commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                         start: 3,
                         lines: 1,
                         line_shift: 1,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(abd0892c3cb5c110dc6112aa59990f412cc58b7f),
+                        commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                         start: 4,
                         lines: 0,
                         line_shift: 1,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(689ad5ee589cb460c8bb7bcf785ab48c81e1c9c7),
+                        commit_id: Sha1(b200fb1a42de9c5fe4c1ac51239bc7ff47d287d8),
                         start: 5,
                         lines: 1,
                         line_shift: 1,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(9eca7c76bff250f547c4b715a9a21a61578afece),
+                        commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                         start: 6,
                         lines: 1,
                         line_shift: 1,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(abd0892c3cb5c110dc6112aa59990f412cc58b7f),
+                        commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                         start: 7,
                         lines: 1,
                         line_shift: 1,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(3742937a251a2d7d239b6c04344b6e301c767901),
+                        commit_id: Sha1(500b70982f4576f707583412a28a6797211d180a),
                         start: 8,
                         lines: 1,
                         line_shift: 1,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(9eca7c76bff250f547c4b715a9a21a61578afece),
+                        commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                         start: 9,
                         lines: 2,
                         line_shift: 2,
                     },
                     StableHunkRange {
                         change_type: Modification,
-                        commit_id: Sha1(abd0892c3cb5c110dc6112aa59990f412cc58b7f),
+                        commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                         start: 10,
                         lines: 1,
                         line_shift: 1,
@@ -682,7 +683,7 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
-                                commit_id: Sha1(2a49c842657487e64be1689a2661e339f8cb9732),
+                                commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                                 start: 3,
                                 lines: 1,
                                 line_shift: 1,
@@ -698,14 +699,14 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
-                                commit_id: Sha1(8161dd9c7e96717f0c180636171e5480f67e3896),
+                                commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                                 start: 7,
                                 lines: 1,
                                 line_shift: 1,
                             },
                             StableHunkRange {
                                 change_type: Modification,
-                                commit_id: Sha1(ae58594e5efee2b4241e543c20ffe6849e4eee30),
+                                commit_id: Sha1(500b70982f4576f707583412a28a6797211d180a),
                                 start: 8,
                                 lines: 1,
                                 line_shift: 1,
@@ -721,14 +722,14 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
-                                commit_id: Sha1(2a49c842657487e64be1689a2661e339f8cb9732),
+                                commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                                 start: 9,
                                 lines: 2,
                                 line_shift: 2,
                             },
                             StableHunkRange {
                                 change_type: Modification,
-                                commit_id: Sha1(8161dd9c7e96717f0c180636171e5480f67e3896),
+                                commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                                 start: 10,
                                 lines: 1,
                                 line_shift: 1,
@@ -746,7 +747,7 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
 
 #[test]
 fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
-    let actual = worktree_ranges_digest_for_workspace_named("merge-commit")?;
+    let actual = worktree_ranges_digest_for_workspace_separated("merge-commit")?;
 
     insta::assert_debug_snapshot!(actual.partial(), @r#"
     WorkspaceWithoutRanges {
@@ -755,6 +756,21 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
                 "file",
                 [
                     HunkIntersection {
+                        hunk: DiffHunk("@@ -5,1 +5,1 @@
+                        -update line 5
+                        +update line 5 again
+                        "),
+                        commit_intersections: [
+                            StableHunkRange {
+                                change_type: Modification,
+                                commit_id: Sha1(e418c1bb8d15211edb026fa562fb4c83199d8481),
+                                start: 5,
+                                lines: 1,
+                                line_shift: 0,
+                            },
+                        ],
+                    },
+                    HunkIntersection {
                         hunk: DiffHunk("@@ -8,1 +8,1 @@
                         -update line 8
                         +update line 8 again
@@ -762,25 +778,17 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
                         commit_intersections: [
                             StableHunkRange {
                                 change_type: Modification,
-                                commit_id: Sha1(8a7146c11d0ab9078ee88e52a9d692968dda6556),
+                                commit_id: Sha1(df241a53d1a4dae37f16def5f6d9405ea236fbf6),
                                 start: 8,
                                 lines: 1,
-                                line_shift: -1,
+                                line_shift: 0,
                             },
                         ],
                     },
                 ],
             ),
         ],
-        missed_hunks: [
-            (
-                "file",
-                DiffHunk("@@ -5,1 +5,1 @@
-                -update line 5
-                +update line 5 again
-                "),
-            ),
-        ],
+        missed_hunks: [],
     }
     "#);
     Ok(())
@@ -793,7 +801,7 @@ fn dependencies_handle_complex_branch_checkout() -> anyhow::Result<()> {
     //
     // The *complexity* of the branch is that it contains a merge commit from itself to itself,
     // mimicking checking-out a remote branch that had PRs merged to it.
-    let actual = worktree_ranges_digest_for_workspace_named("complex-branch-checkout")?;
+    let actual = worktree_ranges_digest_for_workspace_separated("complex-branch-checkout")?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorkspaceDigest {
         ranges_by_path: [
@@ -844,6 +852,7 @@ fn dependencies_handle_complex_branch_checkout() -> anyhow::Result<()> {
 
 mod util {
     use but_oxidize::OidExt;
+    use but_testsupport::gix_testtools::tempfile;
     use gitbutler_stack::VirtualBranchesHandle;
 
     use crate::{WorkspaceDigest, intersect_workspace_ranges};
@@ -851,9 +860,17 @@ mod util {
     pub fn worktree_ranges_digest_for_workspace_named(
         name: &str,
     ) -> anyhow::Result<WorkspaceDigest> {
-        let test_ctx = test_ctx(name)?;
+        let test_ctx = test_ctx_separated(name)?;
         worktree_ranges_digest_for_workspace(&test_ctx)
     }
+
+    pub fn worktree_ranges_digest_for_workspace_separated(
+        name: &str,
+    ) -> anyhow::Result<WorkspaceDigest> {
+        let test_ctx = test_ctx_separated(name)?;
+        worktree_ranges_digest_for_workspace(&test_ctx)
+    }
+
     fn worktree_ranges_digest_for_workspace(ctx: &TestContext) -> anyhow::Result<WorkspaceDigest> {
         let input_stacks = but_hunk_dependency::workspace_stacks_to_input_stacks(
             &ctx.repo,
@@ -865,24 +882,32 @@ mod util {
         intersect_workspace_ranges(&ctx.repo, ranges, worktree_changes)
     }
 
-    fn test_ctx_at(script_name: &str, name: &str) -> anyhow::Result<TestContext> {
-        let ctx = gitbutler_testsupport::read_only::fixture(script_name, name)?;
+    fn test_scenario(name: &str) -> anyhow::Result<TestContext> {
+        // TODO: make this a read-only scenario once we don't rely on vb.toml anymore.
+        let (repo, tmpdir) = but_testsupport::writable_scenario(name);
+        let ctx = but_ctx::Context::from_repo(repo)?;
+        {
+            let guard = ctx.shared_worktree_access();
+            let meta = ctx.legacy_meta(guard.read_permission())?;
+            meta.write_reconciled(&*ctx.repo.get()?)?;
+        }
         let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-            ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
+            ctx.project_data_dir().join("virtual_branches.toml"),
         )?;
         let stacks =
             but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, Default::default(), None)?;
         let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
 
         Ok(TestContext {
-            repo: ctx.legacy_project.open_isolated_repo()?,
+            repo: ctx.repo.get()?.clone(),
             stacks_entries: stacks,
             common_merge_base: handle.get_default_target()?.sha.to_gix(),
+            tmpdir: Some(tmpdir),
         })
     }
 
-    pub fn test_ctx(name: &str) -> anyhow::Result<TestContext> {
-        test_ctx_at("dependencies.sh", name)
+    pub fn test_ctx_separated(name: &str) -> anyhow::Result<TestContext> {
+        test_scenario(name)
     }
 
     pub struct TestContext {
@@ -891,7 +916,13 @@ mod util {
         pub stacks_entries: Vec<but_workspace::legacy::ui::StackEntry>,
         /// The tip of the local branch that tracks the upstream one.
         pub common_merge_base: gix::ObjectId,
+        // TODO: make non-optional
+        // TODO: remove once we don't need vb.toml anymore which is produced on the fly.
+        #[allow(dead_code)]
+        tmpdir: Option<tempfile::TempDir>,
     }
 }
 
-use crate::workspace_dependencies::util::worktree_ranges_digest_for_workspace_named;
+use crate::workspace_dependencies::util::{
+    worktree_ranges_digest_for_workspace_named, worktree_ranges_digest_for_workspace_separated,
+};

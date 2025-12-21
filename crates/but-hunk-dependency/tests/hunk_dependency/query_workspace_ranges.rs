@@ -165,13 +165,11 @@ mod util {
     use crate::{WorkspaceDigest, intersect_workspace_ranges};
 
     pub fn repo(name: &str) -> anyhow::Result<gix::Repository> {
-        let worktree_dir = gix_testtools::scripted_fixture_read_only("branch-states.sh")
-            .map_err(anyhow::Error::from_boxed)?
-            .join(name);
-        Ok(gix::open_opts(
-            worktree_dir,
-            gix::open::Options::isolated(),
-        )?)
+        let worktree_dir =
+            but_testsupport::gix_testtools::scripted_fixture_read_only("branch-states.sh")
+                .map_err(anyhow::Error::from_boxed)?
+                .join(name);
+        but_testsupport::open_repo(&worktree_dir)
     }
 
     pub fn workspace_ranges_digest_for_worktree_changes(
