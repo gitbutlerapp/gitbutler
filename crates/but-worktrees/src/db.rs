@@ -15,13 +15,14 @@ const CREATED_FROM_FILE: &str = "gitbutler-created-from";
 const BASE_FILE: &str = "gitbutler-base";
 
 /// Get the `.git/worktrees/<id>/` directory for a given worktree ID.
-fn worktree_git_dir(repo: &gix::Repository, id: &WorktreeId) -> PathBuf {
-    repo.git_dir().join("worktrees").join(id.as_str())
+fn worktree_git_dir(main_repo: &gix::Repository, id: &WorktreeId) -> PathBuf {
+    main_repo.git_dir().join("worktrees").join(id.as_str())
 }
 
 /// Save worktree metadata to files in `.git/worktrees/<id>/`.
-pub fn save_worktree_meta(repo: &gix::Repository, worktree: WorktreeMeta) -> Result<()> {
-    let git_dir = worktree_git_dir(repo, &worktree.id);
+pub fn save_worktree_meta(main_repo: &gix::Repository, worktree: WorktreeMeta) -> Result<()> {
+    // TODO: use `gix::refs::` here - this is a normal root ref
+    let git_dir = worktree_git_dir(main_repo, &worktree.id);
 
     // Ensure the directory exists
     std::fs::create_dir_all(&git_dir).context("Failed to create worktree git directory")?;

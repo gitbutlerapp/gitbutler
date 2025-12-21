@@ -249,12 +249,14 @@ impl Snapshot {
                 .entry(in_workspace_stack_id)
                 .or_insert_with(|| {
                     inserted_new_stack = true;
-                    Stack::new_with_just_heads(
+                    let mut stack = Stack::new_with_just_heads(
                         vec![],
                         gix::date::Time::now_utc().seconds as u128 * 1000,
                         ws_stack_idx,
                         true,
-                    )
+                    );
+                    stack.id = in_workspace_stack_id;
+                    stack
                 });
             let made_heads_match = make_heads_match(ws_stack, vb_stack);
             if !vb_stack.in_workspace {

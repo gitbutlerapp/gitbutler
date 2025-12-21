@@ -20,7 +20,7 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           [
             {
               "stackId": "stack_1",
-              "commitId": "375e35becbf67fe2b246b120bc76bf070e3e41d8"
+              "commitId": "2a49c842657487e64be1689a2661e339f8cb9732"
             }
           ]
         ],
@@ -36,11 +36,11 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           [
             {
               "stackId": "stack_1",
-              "commitId": "fba21e9ecacde86f327537add23f96775064a486"
+              "commitId": "8161dd9c7e96717f0c180636171e5480f67e3896"
             },
             {
               "stackId": "stack_1",
-              "commitId": "250b92ba3b6451781f6632cd34be70db814ec4ac"
+              "commitId": "ae58594e5efee2b4241e543c20ffe6849e4eee30"
             }
           ]
         ],
@@ -56,11 +56,11 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           [
             {
               "stackId": "stack_1",
-              "commitId": "375e35becbf67fe2b246b120bc76bf070e3e41d8"
+              "commitId": "2a49c842657487e64be1689a2661e339f8cb9732"
             },
             {
               "stackId": "stack_1",
-              "commitId": "fba21e9ecacde86f327537add23f96775064a486"
+              "commitId": "8161dd9c7e96717f0c180636171e5480f67e3896"
             }
           ]
         ]
@@ -92,11 +92,11 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(b2510a88eab2cf2f7dde23202c7a8e536905f4f7),
+                        commit_id: Sha1(bd10ed57558c598f6713a07508ce3b0206344109),
                     },
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(3113ca08b2b23d7646cdb9c9b88ffde8d1c7784a),
+                        commit_id: Sha1(9a0811d534f44325970b0598712ff921db6369c9),
                     },
                 ],
             ),
@@ -109,7 +109,7 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(98231f63bb3539acf42356c886c07b140d42b68c),
+                        commit_id: Sha1(26abc4794f2d99206c3fe4ae2bd67186600903c7),
                     },
                 ],
             ),
@@ -137,7 +137,7 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(375e35becbf67fe2b246b120bc76bf070e3e41d8),
+                        commit_id: Sha1(2a49c842657487e64be1689a2661e339f8cb9732),
                     },
                 ],
             ),
@@ -151,11 +151,11 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(fba21e9ecacde86f327537add23f96775064a486),
+                        commit_id: Sha1(8161dd9c7e96717f0c180636171e5480f67e3896),
                     },
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(250b92ba3b6451781f6632cd34be70db814ec4ac),
+                        commit_id: Sha1(ae58594e5efee2b4241e543c20ffe6849e4eee30),
                     },
                 ],
             ),
@@ -169,11 +169,11 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(375e35becbf67fe2b246b120bc76bf070e3e41d8),
+                        commit_id: Sha1(2a49c842657487e64be1689a2661e339f8cb9732),
                     },
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(fba21e9ecacde86f327537add23f96775064a486),
+                        commit_id: Sha1(8161dd9c7e96717f0c180636171e5480f67e3896),
                     },
                 ],
             ),
@@ -199,7 +199,7 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(1179d94bda967d9fb70b518b9b7225524c185218),
+                        commit_id: Sha1(8a7146c11d0ab9078ee88e52a9d692968dda6556),
                     },
                 ],
             ),

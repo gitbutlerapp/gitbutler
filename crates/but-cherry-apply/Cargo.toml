@@ -27,7 +27,5 @@ serde.workspace = true
 
 [dev-dependencies]
 but-oxidize.workspace = true
-
-gitbutler-testsupport.workspace = true
-
-gix-testtools.workspace = true
+but-testsupport.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }

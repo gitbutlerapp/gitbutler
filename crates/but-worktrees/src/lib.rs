@@ -36,7 +36,7 @@ impl WorktreeId {
             .file_name()
             .context("Invalid worktree path - no filename")?;
 
-        Ok(Self(BString::from(basename.to_string_lossy().as_ref())))
+        Ok(Self(gix::path::os_str_into_bstr(basename)?.to_owned()))
     }
 
     /// Get the worktree name as a string slice.

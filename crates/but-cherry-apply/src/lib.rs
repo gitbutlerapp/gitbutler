@@ -53,7 +53,13 @@ pub fn cherry_apply_status(
     _perm: &WorktreeReadPermission,
     subject: ObjectId,
 ) -> Result<CherryApplyStatus> {
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx
+        .repo
+        .get()?
+        .clone()
+        .for_tree_diffing()?
+        .with_object_memory();
+
     let project = &ctx.legacy_project;
     let meta =
         VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
@@ -119,7 +125,7 @@ pub fn cherry_apply(
         }
     };
 
-    let repo = ctx.open_repo_for_merging()?;
+    let repo = ctx.repo.get()?.clone().for_tree_diffing()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut stack = vb_state.get_stack(target)?;
     let mut steps = stack.as_rebase_steps(ctx, &repo)?;
