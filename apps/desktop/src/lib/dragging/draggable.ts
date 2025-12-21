@@ -10,6 +10,11 @@ import type { DragStateService } from '@gitbutler/ui/drag/dragStateService.svelt
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = 'dragging';
 
+// Create a reusable transparent 1x1 pixel image for hiding the native drag image
+const emptyDragImage = new Image();
+emptyDragImage.src =
+	'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 type chipType = 'file' | 'folder' | 'hunk' | 'ai-session' | 'branch';
 
 type DragCloneType = 'branch' | 'commit' | 'file' | 'folder' | 'hunk' | 'ai-session';
@@ -21,6 +26,7 @@ interface DragCloneProps {
 	commitType?: CommitStatusType;
 	childrenAmount?: number;
 	pushStatus?: PushStatus;
+	dragStateService?: DragStateService;
 }
 
 /**
@@ -126,15 +132,21 @@ function setupDragHandlers(
 			if (params.maxHeight) {
 				clone.style.maxHeight = `${pxToRem(params.maxHeight)}rem`;
 			}
+
+			// Position clone at cursor initially using GPU-accelerated transform
+			clone.style.position = 'fixed';
+			clone.style.left = '0';
+			clone.style.top = '0';
+			clone.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
+			clone.style.pointerEvents = 'none';
+			clone.style.zIndex = 'var(--z-blocker)';
+			clone.style.willChange = 'transform';
+
 			document.body.appendChild(clone);
 
 			if (e.dataTransfer) {
-				if (params.handlerWidth) {
-					e.dataTransfer.setDragImage(clone, e.offsetX, e.offsetY);
-				} else {
-					// Use more centered positioning for consistent cursor placement
-					e.dataTransfer.setDragImage(clone, clone.offsetWidth / 1.2, clone.offsetHeight / 1.5);
-				}
+				// Hide the native drag image using the pre-created transparent image
+				e.dataTransfer.setDragImage(emptyDragImage, 0, 0);
 
 				// Get chromium to fire dragover & drop events
 				// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
@@ -160,6 +172,21 @@ function setupDragHandlers(
 
 	function handleDrag(e: DragEvent) {
 		e.preventDefault();
+
+		// Update clone position to follow cursor using GPU-accelerated transform
+		if (clone && e.clientX !== 0 && e.clientY !== 0) {
+			clone.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
+		}
+
+		// Check if cursor is over any dropzone, clear label if not
+		if (opts?.dragStateService && e.clientX !== 0 && e.clientY !== 0) {
+			const elementUnderCursor = document.elementFromPoint(e.clientX, e.clientY);
+			const isOverDropzone = elementUnderCursor?.closest('.dropzone-target') !== null;
+
+			if (!isOverDropzone) {
+				opts.dragStateService.setDropLabel(undefined);
+			}
+		}
 
 		if (!viewport) return;
 
@@ -261,7 +288,8 @@ export function draggableBranch(node: HTMLElement, initialOpts: DraggableConfig)
 		return createSvelteDragClone({
 			type: 'branch',
 			label: opts.label,
-			pushStatus: opts.pushStatus
+			pushStatus: opts.pushStatus,
+			dragStateService: opts.dragStateService
 		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
@@ -279,7 +307,8 @@ export function draggableCommitV3(node: HTMLElement, initialOpts: DraggableConfi
 		return createSvelteDragClone({
 			type: 'commit',
 			commitType: opts.commitType,
-			label: opts.label
+			label: opts.label,
+			dragStateService: opts.dragStateService
 		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
@@ -294,7 +323,8 @@ export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) 
 			type: chipType as DragCloneType,
 			childrenAmount: selectedElements.length,
 			label: opts.label,
-			filePath: opts.filePath
+			filePath: opts.filePath,
+			dragStateService: opts.dragStateService
 		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone);

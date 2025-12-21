@@ -13,9 +13,15 @@ export const DRAG_STATE_SERVICE: InjectionToken<DragStateService> = new Injectio
 export class DragStateService {
 	private dragCount = 0;
 	private readonly _isDragging = writable(false);
+	private readonly _dropLabel = writable<string | undefined>(undefined);
+	private currentDropLabel: string | undefined = undefined;
 
 	get isDragging(): Readable<boolean> {
 		return this._isDragging;
+	}
+
+	get dropLabel(): Readable<string | undefined> {
+		return this._dropLabel;
 	}
 
 	startDragging(): () => void {
@@ -30,11 +36,31 @@ export class DragStateService {
 		return () => this.endDragging();
 	}
 
+	setDropLabel(label: string | undefined): void {
+		// Cancel any pending clear
+		if (label !== this.currentDropLabel) {
+			console.warn('[DragStateService] setDropLabel called:', label);
+			this.currentDropLabel = label;
+			this._dropLabel.set(label);
+		}
+	}
+
+	clearDropLabel(labelToClear: string): void {
+		// Only clear if this label is currently set
+		if (this.currentDropLabel === labelToClear) {
+			console.warn('[DragStateService] clearDropLabel: clearing label', labelToClear);
+			this.currentDropLabel = undefined;
+			this._dropLabel.set(undefined);
+		}
+	}
+
 	private endDragging(): void {
 		this.dragCount = Math.max(0, this.dragCount - 1);
 
 		if (this.dragCount === 0) {
 			this._isDragging.set(false);
+			this._dropLabel.set(undefined);
+			this.currentDropLabel = undefined;
 		}
 	}
 }

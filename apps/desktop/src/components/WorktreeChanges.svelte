@@ -82,11 +82,11 @@
 
 	function getDropzoneLabel(handler: DropzoneHandler | undefined): string {
 		if (handler instanceof UncommitDzHandler) {
-			return 'Uncommit changes';
+			return 'Uncommit';
 		} else if (mode === 'assigned') {
-			return 'Assign changes';
+			return 'Assign';
 		} else {
-			return 'Unassign changes';
+			return 'Unassign';
 		}
 	}
 </script>
