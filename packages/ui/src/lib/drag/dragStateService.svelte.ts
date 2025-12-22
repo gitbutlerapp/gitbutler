@@ -15,6 +15,7 @@ export class DragStateService {
 	private readonly _isDragging = writable(false);
 	private readonly _dropLabel = writable<string | undefined>(undefined);
 	private currentDropLabel: string | undefined = undefined;
+	private currentLabelToken: symbol | undefined = undefined;
 
 	get isDragging(): Readable<boolean> {
 		return this._isDragging;
@@ -36,15 +37,19 @@ export class DragStateService {
 		return () => this.endDragging();
 	}
 
-	setDropLabel(label: string | undefined): void {
+	setDropLabel(label: string | undefined): symbol {
+		const token = Symbol('dropLabel');
+		this.currentLabelToken = token;
 		this.currentDropLabel = label;
 		this._dropLabel.set(label);
+		return token;
 	}
 
-	clearDropLabel(labelToClear: string): void {
-		// Only clear if this label is currently set
-		if (this.currentDropLabel === labelToClear) {
+	clearDropLabel(token: symbol): void {
+		// Only clear if this token is the current one
+		if (this.currentLabelToken === token) {
 			this.currentDropLabel = undefined;
+			this.currentLabelToken = undefined;
 			this._dropLabel.set(undefined);
 		}
 	}
@@ -56,6 +61,7 @@ export class DragStateService {
 			this._isDragging.set(false);
 			this._dropLabel.set(undefined);
 			this.currentDropLabel = undefined;
+			this.currentLabelToken = undefined;
 		}
 	}
 }

@@ -592,7 +592,6 @@
 									projectId={stableProjectId}
 									stackId={stableStackId}
 									mode="assigned"
-									dropzoneVisible={changes.current.length === 0 && !isCommitting}
 									onDropzoneActivated={(activated) => {
 										dropzoneActivated = activated;
 									}}

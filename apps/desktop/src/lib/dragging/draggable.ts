@@ -178,16 +178,6 @@ function setupDragHandlers(
 			clone.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
 		}
 
-		// Check if cursor is over any dropzone, clear label if not
-		if (opts?.dragStateService && e.clientX !== 0 && e.clientY !== 0) {
-			const elementUnderCursor = document.elementFromPoint(e.clientX, e.clientY);
-			const isOverDropzone = elementUnderCursor?.closest('.dropzone-target') !== null;
-
-			if (!isOverDropzone) {
-				opts.dragStateService.setDropLabel(undefined);
-			}
-		}
-
 		if (!viewport) return;
 
 		const scrollSpeed = (viewport.clientWidth || 500) / 3; // Fine-tune the scroll speed

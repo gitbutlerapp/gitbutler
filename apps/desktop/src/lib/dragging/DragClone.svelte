@@ -234,21 +234,6 @@
 		box-shadow: var(--chip-shadow);
 	}
 
-	.dragchip-amount {
-		display: flex;
-		position: absolute;
-		top: -6px;
-		right: -8px;
-		align-items: center;
-		justify-content: center;
-		min-width: 16px;
-		margin-left: 5px;
-		padding: 2px 4px;
-		border-radius: 16px;
-		background-color: var(--clr-theme-gray-element);
-		color: var(--clr-theme-gray-on-element);
-	}
-
 	/* if dragging more then one item */
 	.drag-animation-wrapper.dragchip-two::after,
 	.drag-animation-wrapper.dragchip-multiple::before,

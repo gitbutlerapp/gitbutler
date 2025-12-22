@@ -25,18 +25,13 @@
 	const extraPaddingBottom = extraPaddings?.bottom ?? 0;
 	const extraPaddingLeft = extraPaddings?.left ?? 0;
 
-	// Track if this specific instance has set the label
-	let hasSetLabel = $state(false);
-
 	$effect(() => {
-		const shouldShow = activated && hovered && label;
-
-		if (shouldShow && !hasSetLabel) {
-			dragStateService?.setDropLabel(label);
-			hasSetLabel = true;
-		} else if (!shouldShow && hasSetLabel) {
-			dragStateService?.clearDropLabel(label);
-			hasSetLabel = false;
+		if (activated && hovered && label && dragStateService) {
+			// Set the label and get a token for cleanup
+			const token = dragStateService.setDropLabel(label);
+			return () => {
+				dragStateService.clearDropLabel(token);
+			};
 		}
 	});
 </script>

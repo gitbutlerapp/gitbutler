@@ -26,7 +26,6 @@
 		stackId?: string;
 		title: string;
 		mode?: 'unassigned' | 'assigned';
-		dropzoneVisible?: boolean;
 		onDropzoneActivated?: (activated: boolean) => void;
 		onDropzoneHovered?: (hovered: boolean) => void;
 		emptyPlaceholder?: Snippet;
@@ -40,7 +39,6 @@
 		stackId,
 		title,
 		mode = 'unassigned',
-		dropzoneVisible,
 		onDropzoneActivated,
 		onDropzoneHovered,
 		emptyPlaceholder,
