@@ -526,6 +526,7 @@
 <div
 	bind:clientWidth
 	bind:clientHeight
+	data-scrollable-for-dragging
 	class="stack-view-wrapper"
 	role="presentation"
 	class:dimmed

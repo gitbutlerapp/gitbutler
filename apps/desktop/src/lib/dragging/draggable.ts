@@ -48,7 +48,6 @@ export type DraggableConfig = {
 	readonly authorImgUrl?: string;
 	readonly commitType?: CommitStatusType;
 	readonly data?: DropData;
-	readonly viewportId?: string;
 	readonly chipType?: chipType;
 	readonly dropzoneRegistry: DropzoneRegistry;
 	readonly dragStateService?: DragStateService;
@@ -81,6 +80,7 @@ function setupDragHandlers(
 	let observerAnimationFrame: number | undefined;
 	const scrollIntervals = new Map<HTMLElement, ReturnType<typeof setInterval>>();
 	let currentHoveredDropzone: HTMLElement | null = null;
+	let cachedScrollContainers: HTMLElement[] = [];
 
 	// Auto-scroll detection
 	const SCROLL_EDGE_SIZE = 50;
@@ -119,9 +119,8 @@ function setupDragHandlers(
 	function handleAutoScroll(mouseX: number, mouseY: number) {
 		if (!currentMousePosition) return;
 
-		const scrollContainers = findScrollableContainers(node);
-
-		scrollContainers.forEach((container) => {
+		// Use cached scroll containers (calculated once at drag start)
+		cachedScrollContainers.forEach((container) => {
 			const rect = container.getBoundingClientRect();
 			let scrollX = 0;
 			let scrollY = 0;
@@ -238,6 +237,9 @@ function setupDragHandlers(
 		}
 
 		// Start drag state tracking
+		// Cache scrollable containers once at drag start (not on every mousemove)
+		cachedScrollContainers = findScrollableContainers(node);
+
 		if (opts.dragStateService) {
 			endDragging = opts.dragStateService.startDragging();
 		}
@@ -419,6 +421,7 @@ function setupDragHandlers(
 
 		// Reset state
 		dragHandle = null;
+		cachedScrollContainers = [];
 		dragStartPosition = null;
 		currentMousePosition = null;
 		selectedElements = [];

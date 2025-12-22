@@ -209,7 +209,7 @@
 					disabled: args.isConflicted,
 					label: branchName,
 					pushStatus: args.pushStatus,
-					viewportId: 'board-viewport',
+
 					data:
 						args.type === 'stack-branch' && args.stackId
 							? new BranchDropData(

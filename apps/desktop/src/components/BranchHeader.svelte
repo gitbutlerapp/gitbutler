@@ -3,7 +3,6 @@
 		disabled: boolean;
 		label: string;
 		pushStatus: PushStatus | undefined;
-		viewportId: string;
 		data: BranchDropData | undefined;
 	};
 </script>
