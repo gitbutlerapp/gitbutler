@@ -10,10 +10,11 @@ import type { DragStateService } from '@gitbutler/ui/drag/dragStateService.svelt
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = 'dragging';
 
-// Create a reusable transparent 1x1 pixel image for hiding the native drag image
-const emptyDragImage = new Image();
-emptyDragImage.src =
-	'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+// Minimum movement before drag starts (prevents accidental drags)
+const MIN_MOVEMENT_BEFORE_DRAG_START_PX = 3;
+
+// Observer interval for position tracking
+const OBSERVATION_INTERVAL_MS = 16; // ~60fps
 
 type chipType = 'file' | 'folder' | 'hunk' | 'ai-session' | 'branch';
 
@@ -71,23 +72,167 @@ function setupDragHandlers(
 	update: (opts: DraggableConfig) => void;
 	destroy: () => void;
 } {
-	let dragHandle: HTMLElement | null;
+	let dragHandle: HTMLElement | null = null;
 	let clone: HTMLElement | undefined;
 	let selectedElements: Element[] = [];
 	let endDragging: (() => void) | undefined;
 
-	function handleMouseDown(e: MouseEvent) {
-		dragHandle = e.target as HTMLElement;
+	// State management
+	let isDragging = false;
+	let dragStartPosition: { x: number; y: number } | null = null;
+	let currentMousePosition: { x: number; y: number } | null = null;
+	let observerInterval: ReturnType<typeof setInterval> | undefined;
+	const scrollIntervals = new Map<HTMLElement, ReturnType<typeof setInterval>>();
+	let currentHoveredDropzone: HTMLElement | null = null;
+
+	// Auto-scroll detection
+	const SCROLL_EDGE_SIZE = 50;
+	const SCROLL_SPEED = 10;
+
+	function findScrollableContainers(element: HTMLElement): HTMLElement[] {
+		const containers: HTMLElement[] = [];
+		let current: HTMLElement | null = element;
+
+		while (current && current !== document.body) {
+			const style = window.getComputedStyle(current);
+			const overflowY = style.overflowY;
+			const overflowX = style.overflowX;
+
+			if (
+				(overflowY === 'auto' ||
+					overflowY === 'scroll' ||
+					overflowX === 'auto' ||
+					overflowX === 'scroll') &&
+				(current.scrollHeight > current.clientHeight || current.scrollWidth > current.clientWidth)
+			) {
+				containers.push(current);
+			}
+
+			current = current.parentElement;
+		}
+
+		// Add window scrolling if page is scrollable
+		if (document.documentElement.scrollHeight > window.innerHeight) {
+			containers.push(document.documentElement);
+		}
+
+		return containers;
 	}
 
-	function handleDragStart(e: DragEvent) {
+	function handleAutoScroll(mouseX: number, mouseY: number) {
+		if (!currentMousePosition) return;
+
+		const scrollContainers = findScrollableContainers(node);
+
+		scrollContainers.forEach((container) => {
+			const rect = container.getBoundingClientRect();
+			let scrollX = 0;
+			let scrollY = 0;
+
+			// Check vertical scrolling
+			if (mouseY < rect.top + SCROLL_EDGE_SIZE && container.scrollTop > 0) {
+				scrollY = -SCROLL_SPEED;
+			} else if (
+				mouseY > rect.bottom - SCROLL_EDGE_SIZE &&
+				container.scrollTop < container.scrollHeight - container.clientHeight
+			) {
+				scrollY = SCROLL_SPEED;
+			}
+
+			// Check horizontal scrolling
+			if (mouseX < rect.left + SCROLL_EDGE_SIZE && container.scrollLeft > 0) {
+				scrollX = -SCROLL_SPEED;
+			} else if (
+				mouseX > rect.right - SCROLL_EDGE_SIZE &&
+				container.scrollLeft < container.scrollWidth - container.clientWidth
+			) {
+				scrollX = SCROLL_SPEED;
+			}
+
+			// Start or stop scroll interval for this container
+			if (scrollX !== 0 || scrollY !== 0) {
+				if (!scrollIntervals.has(container)) {
+					const interval = setInterval(() => {
+						if (container === document.documentElement) {
+							window.scrollBy(scrollX, scrollY);
+						} else {
+							container.scrollBy(scrollX, scrollY);
+						}
+					}, 16); // ~60fps
+					scrollIntervals.set(container, interval);
+				}
+			} else if (scrollIntervals.has(container)) {
+				clearInterval(scrollIntervals.get(container));
+				scrollIntervals.delete(container);
+			}
+		});
+	}
+
+	function stopAutoScroll() {
+		scrollIntervals.forEach((interval) => clearInterval(interval));
+		scrollIntervals.clear();
+	}
+
+	function handleMouseDown(e: MouseEvent) {
 		if (!opts || opts.disabled) return;
+
+		// Only left click
+		if (e.button !== 0) return;
+
+		// Check if clicking on a drag handle
+		const target = e.target as HTMLElement;
+		if (target.dataset.noDrag !== undefined) return;
+
+		// Prevent dragging from input elements
+		if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+			return;
+		}
+
+		e.preventDefault();
 		e.stopPropagation();
 
-		if (!dragHandle || dragHandle.dataset.noDrag !== undefined) {
-			e.preventDefault();
-			return false;
+		dragHandle = target;
+		dragStartPosition = { x: e.clientX, y: e.clientY };
+		currentMousePosition = { x: e.clientX, y: e.clientY };
+
+		// Add listeners for potential drag
+		window.addEventListener('mousemove', handleMouseMoveMaybeStart, { passive: false });
+		window.addEventListener('mouseup', handleMouseUpBeforeDrag, { passive: false });
+	}
+
+	function handleMouseMoveMaybeStart(e: MouseEvent) {
+		if (!dragStartPosition || !dragHandle) return;
+
+		e.preventDefault();
+		currentMousePosition = { x: e.clientX, y: e.clientY };
+
+		// Check if moved enough to start drag
+		const dx = Math.abs(e.clientX - dragStartPosition.x);
+		const dy = Math.abs(e.clientY - dragStartPosition.y);
+
+		if (dx >= MIN_MOVEMENT_BEFORE_DRAG_START_PX || dy >= MIN_MOVEMENT_BEFORE_DRAG_START_PX) {
+			// Remove maybe listeners
+			window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
+			window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
+
+			// Start actual drag
+			startDrag(e);
 		}
+	}
+
+	function handleMouseUpBeforeDrag() {
+		// User released before moving enough - cancel
+		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
+		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
+		dragHandle = null;
+		dragStartPosition = null;
+		currentMousePosition = null;
+	}
+
+	function startDrag(e: MouseEvent) {
+		if (!opts || !dragStartPosition) return;
+
+		isDragging = true;
 
 		const parentNode = node.parentElement?.parentElement;
 		if (!parentNode) {
@@ -100,10 +245,10 @@ function setupDragHandlers(
 			endDragging = opts.dragStateService.startDragging();
 		}
 
+		// Handle multi-selection for files
 		if (opts.data instanceof FileChangeDropData) {
 			selectedElements = [];
 			for (const path of opts.data.changedPaths(opts.data.selectionId)) {
-				// Path is sufficient as a key since we query the parent container.
 				const element = parentNode.querySelector(`[data-file-id="${path}"]`);
 				if (element) {
 					selectedElements.push(element);
@@ -115,17 +260,19 @@ function setupDragHandlers(
 			selectedElements = [node];
 		}
 
+		// Mark elements as dragging
 		for (const element of selectedElements) {
 			element.classList.add(DRAGGING_CLASS);
 		}
 
+		// Activate dropzones
 		for (const dropzone of Array.from(opts.dropzoneRegistry.values())) {
 			dropzone.activate(opts.data);
 		}
 
+		// Create drag clone
 		clone = createClone(opts, selectedElements);
 		if (clone) {
-			// TODO: remove params (clientWidth, maxHeight) V3 design has shipped.
 			if (params.handlerWidth) {
 				clone.style.width = node.clientWidth + 'px';
 			}
@@ -133,7 +280,7 @@ function setupDragHandlers(
 				clone.style.maxHeight = `${pxToRem(params.maxHeight)}rem`;
 			}
 
-			// Position clone at cursor initially using GPU-accelerated transform
+			// Position clone at cursor with GPU-accelerated transform
 			clone.style.position = 'fixed';
 			clone.style.left = '0';
 			clone.style.top = '0';
@@ -143,114 +290,145 @@ function setupDragHandlers(
 			clone.style.willChange = 'transform';
 
 			document.body.appendChild(clone);
-
-			if (e.dataTransfer) {
-				// Hide the native drag image using the pre-created transparent image
-				e.dataTransfer.setDragImage(emptyDragImage, 0, 0);
-
-				// Get chromium to fire dragover & drop events
-				// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
-				e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
-				e.dataTransfer.effectAllowed = 'move';
-			}
 		}
+
+		// Add drag listeners
+		window.addEventListener('mousemove', handleMouseMove, { passive: false });
+		window.addEventListener('mouseup', handleMouseUp, { passive: false });
+
+		// Start position observer
+		startObserver();
 	}
 
-	const viewport = opts?.viewportId ? document.getElementById(opts.viewportId) : null;
-	const triggerRange = 150;
-	const timerShutter = 700;
-	let timeoutId: undefined | ReturnType<typeof setTimeout> = undefined;
+	function handleMouseMove(e: MouseEvent) {
+		if (!isDragging) return;
 
-	function loopScroll(viewport: HTMLElement, direction: 'left' | 'right', scrollSpeed: number) {
-		viewport.scrollBy({
-			left: direction === 'left' ? -scrollSpeed : scrollSpeed,
-			behavior: 'smooth'
-		});
-
-		timeoutId = setTimeout(() => loopScroll(viewport, direction, scrollSpeed), timerShutter);
-	}
-
-	function handleDrag(e: DragEvent) {
 		e.preventDefault();
+		currentMousePosition = { x: e.clientX, y: e.clientY };
 
-		// Update clone position to follow cursor using GPU-accelerated transform
-		if (clone && e.clientX !== 0 && e.clientY !== 0) {
+		// Update clone position
+		if (clone) {
 			clone.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
 		}
 
-		if (!viewport) return;
+		// Handle auto-scrolling
+		handleAutoScroll(e.clientX, e.clientY);
+	}
 
-		const scrollSpeed = (viewport.clientWidth || 500) / 3; // Fine-tune the scroll speed
-		const viewportWidth = viewport.clientWidth;
-		const relativeX = e.clientX - viewport.getBoundingClientRect().left;
+	function handleMouseUp(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
 
-		if (relativeX < triggerRange && viewport.scrollLeft > 0) {
-			// Start scrolling to the left
-			if (!timeoutId) {
-				loopScroll(viewport, 'left', scrollSpeed);
+		cleanup();
+	}
+
+	function startObserver() {
+		// Continuous position tracking for better dropzone detection
+		observerInterval = setInterval(() => {
+			if (!currentMousePosition || !opts) return;
+
+			const { x, y } = currentMousePosition;
+			const elementUnderCursor = document.elementFromPoint(x, y);
+
+			let foundDropzone: HTMLElement | null = null;
+
+			if (elementUnderCursor) {
+				// Check if we're over a dropzone
+				for (const [dzElement, dropzone] of opts.dropzoneRegistry.entries()) {
+					const target = dropzone.getTarget();
+					const rect = target.getBoundingClientRect();
+					const isInside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+
+					if (isInside && (target.contains(elementUnderCursor) || target === elementUnderCursor)) {
+						foundDropzone = dzElement;
+						break;
+					}
+				}
 			}
-		} else if (relativeX > viewportWidth - triggerRange) {
-			// Start scrolling to the right
-			if (!timeoutId) {
-				loopScroll(viewport, 'right', scrollSpeed);
+
+			// Handle dropzone enter/leave
+			if (foundDropzone !== currentHoveredDropzone) {
+				// Leave previous dropzone
+				if (currentHoveredDropzone) {
+					const dropzone = opts.dropzoneRegistry.get(currentHoveredDropzone);
+					dropzone?.triggerLeave();
+				}
+
+				// Enter new dropzone
+				if (foundDropzone) {
+					const dropzone = opts.dropzoneRegistry.get(foundDropzone);
+					dropzone?.triggerEnter();
+				}
+
+				currentHoveredDropzone = foundDropzone;
 			}
-		} else {
-			// Stop scrolling if not in the scrollable range
-			if (timeoutId) {
-				clearTimeout(timeoutId);
-				timeoutId = undefined;
-			}
+		}, OBSERVATION_INTERVAL_MS);
+	}
+
+	function stopObserver() {
+		if (observerInterval) {
+			clearInterval(observerInterval);
+			observerInterval = undefined;
 		}
 	}
 
-	function handleDragEnd(e: DragEvent) {
-		dragHandle = null;
-		e.stopPropagation();
-		deactivateDropzones();
+	function cleanup() {
+		isDragging = false;
+
+		// Send final dragleave to any hovered dropzone
+		if (currentHoveredDropzone && opts) {
+			const dropzone = opts.dropzoneRegistry.get(currentHoveredDropzone);
+			dropzone?.triggerLeave();
+			currentHoveredDropzone = null;
+		}
+
+		// Remove listeners
+		window.removeEventListener('mousemove', handleMouseMove);
+		window.removeEventListener('mouseup', handleMouseUp);
+		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
+		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
+
+		// Stop observer
+		stopObserver();
+
+		// Stop auto-scroll
+		stopAutoScroll();
+
+		// Deactivate dropzones
+		selectedElements.forEach((el) => el.classList.remove(DRAGGING_CLASS));
+
+		if (clone) {
+			clone.remove();
+			clone = undefined;
+		}
+
+		if (opts) {
+			Array.from(opts.dropzoneRegistry.values()).forEach((dropzone) => {
+				dropzone.deactivate();
+			});
+		}
 
 		// End drag state tracking
 		endDragging?.();
+		endDragging = undefined;
+
+		// Reset state
+		dragHandle = null;
+		dragStartPosition = null;
+		currentMousePosition = null;
+		selectedElements = [];
 	}
 
 	function setup(newOpts: DraggableConfig) {
 		if (newOpts.disabled) return;
 		opts = newOpts;
-		node.draggable = true;
 
-		node.addEventListener('dragstart', handleDragStart);
-		node.addEventListener('drag', handleDrag);
-		node.addEventListener('dragend', handleDragEnd);
-		node.addEventListener('mousedown', handleMouseDown, { capture: false });
+		node.addEventListener('mousedown', handleMouseDown, { passive: false });
 	}
 
 	function clean() {
-		if (dragHandle) {
-			// If drop handler is updated/destroyed before drag end.
-			deactivateDropzones();
-		}
-
-		node.draggable = false;
-		node.removeEventListener('dragstart', handleDragStart);
-		node.removeEventListener('drag', handleDrag);
-		node.removeEventListener('dragend', handleDragEnd);
-		node.removeEventListener('mousedown', handleMouseDown, { capture: false });
-
-		// Clean up drag state if not already done
-		endDragging?.();
-	}
-
-	function deactivateDropzones() {
-		selectedElements.forEach((el) => el.classList.remove(DRAGGING_CLASS));
-		if (clone) clone.remove();
-		if (!opts) return;
-		Array.from(opts.dropzoneRegistry.values()).forEach((dropzone) => {
-			dropzone.deactivate();
-		});
-
-		if (timeoutId) {
-			clearTimeout(timeoutId);
-			timeoutId = undefined;
-		}
+		cleanup();
+		node.removeEventListener('mousedown', handleMouseDown);
 	}
 
 	if (opts) {

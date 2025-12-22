@@ -20,4 +20,7 @@ export class DropzoneRegistry {
 	values() {
 		return this.map.values();
 	}
+	entries() {
+		return this.map.entries();
+	}
 }
