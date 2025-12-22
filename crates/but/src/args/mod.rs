@@ -282,8 +282,16 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     Commit {
         /// Commit message
-        #[clap(short = 'm', long = "message")]
+        #[clap(short = 'm', long = "message", conflicts_with = "file")]
         message: Option<String>,
+        /// Read commit message from file
+        #[clap(
+            short = 'f',
+            long = "file",
+            value_name = "FILE",
+            conflicts_with = "message"
+        )]
+        file: Option<std::path::PathBuf>,
         /// Branch CLI ID or name to derive the stack to commit to
         branch: Option<String>,
         /// Whether to create a new branch for this commit.

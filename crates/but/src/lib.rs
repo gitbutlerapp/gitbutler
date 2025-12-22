@@ -358,15 +358,26 @@ async fn match_subcommand(
         #[cfg(feature = "legacy")]
         Subcommands::Commit {
             message,
+            file,
             branch,
             create,
             only,
         } => {
             let project = legacy::get_or_init_non_bare_project(&args)?;
+            // Read message from file if provided, otherwise use message option
+            let commit_message = match file {
+                Some(path) => Some(std::fs::read_to_string(&path).with_context(|| {
+                    format!(
+                        "Failed to read commit message from file: {}",
+                        path.display()
+                    )
+                })?),
+                None => message,
+            };
             command::legacy::commit::commit(
                 &project,
                 out,
-                message.as_deref(),
+                commit_message.as_deref(),
                 branch.as_deref(),
                 only,
                 create,

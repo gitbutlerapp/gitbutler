@@ -3,6 +3,66 @@ use snapbox::str;
 use crate::utils::Sandbox;
 
 #[test]
+fn commit_with_message_from_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
+
+    env.setup_metadata(&["A"])?;
+
+    // Create a change in the worktree
+    env.file("new-file.txt", "test content");
+
+    // Create a file with the commit message
+    env.file(
+        "commit-msg.txt",
+        "Add new file from message file\n\nThis is the body of the commit message.",
+    );
+
+    // Commit with file flag
+    env.but("commit -f commit-msg.txt")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Created commit [..] on branch A
+
+"#]]);
+
+    // Verify the commit was created with the correct message
+    let log = env.git_log()?;
+    assert!(log.contains("Add new file from message file"));
+
+    Ok(())
+}
+
+#[test]
+fn commit_with_message_file_not_found() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+
+    env.setup_metadata(&["A"])?;
+
+    // Create a change in the worktree
+    env.file("new-file.txt", "test content");
+
+    // Try to commit with a non-existent file
+    env.but("commit -f nonexistent-file.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Failed to read commit message from file: nonexistent-file.txt
+
+Caused by:
+    No such file or directory (os error 2)
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn commit_with_message_flag() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
