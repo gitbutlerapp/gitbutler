@@ -13,9 +13,6 @@ const DRAGGING_CLASS = 'dragging';
 // Minimum movement before drag starts (prevents accidental drags)
 const MIN_MOVEMENT_BEFORE_DRAG_START_PX = 3;
 
-// Observer interval for position tracking
-const OBSERVATION_INTERVAL_MS = 16; // ~60fps
-
 type chipType = 'file' | 'folder' | 'hunk' | 'ai-session' | 'branch';
 
 type DragCloneType = 'branch' | 'commit' | 'file' | 'folder' | 'hunk' | 'ai-session';
@@ -81,7 +78,7 @@ function setupDragHandlers(
 	let isDragging = false;
 	let dragStartPosition: { x: number; y: number } | null = null;
 	let currentMousePosition: { x: number; y: number } | null = null;
-	let observerInterval: ReturnType<typeof setInterval> | undefined;
+	let observerAnimationFrame: number | undefined;
 	const scrollIntervals = new Map<HTMLElement, ReturnType<typeof setInterval>>();
 	let currentHoveredDropzone: HTMLElement | null = null;
 
@@ -323,9 +320,11 @@ function setupDragHandlers(
 	}
 
 	function startObserver() {
-		// Continuous position tracking for better dropzone detection
-		observerInterval = setInterval(() => {
-			if (!currentMousePosition || !opts) return;
+		// Continuous position tracking synchronized with browser repaints
+		function observe() {
+			if (!isDragging || !currentMousePosition || !opts) {
+				return;
+			}
 
 			const { x, y } = currentMousePosition;
 			const elementUnderCursor = document.elementFromPoint(x, y);
@@ -362,13 +361,19 @@ function setupDragHandlers(
 
 				currentHoveredDropzone = foundDropzone;
 			}
-		}, OBSERVATION_INTERVAL_MS);
+
+			// Schedule next observation
+			observerAnimationFrame = requestAnimationFrame(observe);
+		}
+
+		// Start the observation loop
+		observerAnimationFrame = requestAnimationFrame(observe);
 	}
 
 	function stopObserver() {
-		if (observerInterval) {
-			clearInterval(observerInterval);
-			observerInterval = undefined;
+		if (observerAnimationFrame) {
+			cancelAnimationFrame(observerAnimationFrame);
+			observerAnimationFrame = undefined;
 		}
 	}
 
