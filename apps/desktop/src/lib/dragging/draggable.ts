@@ -85,6 +85,12 @@ function setupDragHandlers(
 	const SCROLL_EDGE_SIZE = 50;
 	const SCROLL_SPEED = 10;
 
+	// Auto-scroll optimization: cache container rects and throttle updates
+	// Reduces getBoundingClientRect() calls from ~60/sec to ~10/sec, avoiding layout thrashing
+	const SCROLL_RECT_UPDATE_INTERVAL_MS = 100;
+	const cachedScrollRects: Map<HTMLElement, DOMRect> = new Map();
+	let lastScrollRectUpdate = 0;
+
 	function findScrollableContainers(element: HTMLElement): HTMLElement[] {
 		const containers: HTMLElement[] = [];
 		let current: HTMLElement | null = element;
@@ -118,10 +124,39 @@ function setupDragHandlers(
 		return containers;
 	}
 
+	/**
+	 * Check if a container is visible in the viewport.
+	 * Containers outside viewport cannot be auto-scrolled via mouse position.
+	 */
+	function isContainerVisibleInViewport(rect: DOMRect): boolean {
+		return (
+			rect.bottom > 0 &&
+			rect.top < window.innerHeight &&
+			rect.right > 0 &&
+			rect.left < window.innerWidth
+		);
+	}
+
 	function performAutoScroll(mouseX: number, mouseY: number) {
-		// Use cached scroll containers (calculated once at drag start)
-		cachedScrollContainers.forEach((container) => {
-			const rect = container.getBoundingClientRect();
+		const now = performance.now();
+
+		// Throttle rect updates: refresh every 100ms instead of every frame (~16ms)
+		// This dramatically reduces layout recalculation during drag operations
+		if (now - lastScrollRectUpdate > SCROLL_RECT_UPDATE_INTERVAL_MS) {
+			cachedScrollRects.clear();
+			cachedScrollContainers.forEach((container) => {
+				const rect = container.getBoundingClientRect();
+				// Only cache visible containers - off-screen containers can't be scrolled via mouse
+				if (isContainerVisibleInViewport(rect)) {
+					cachedScrollRects.set(container, rect);
+				}
+			});
+			lastScrollRectUpdate = now;
+		}
+
+		// Use cached scroll containers and rects (avoid repeated DOM queries)
+		// Only iterate visible containers filtered during rect update
+		cachedScrollRects.forEach((rect, container) => {
 			let scrollX = 0;
 			let scrollY = 0;
 
@@ -226,6 +261,10 @@ function setupDragHandlers(
 		// Start drag state tracking
 		// Cache scrollable containers once at drag start (not on every mousemove)
 		cachedScrollContainers = findScrollableContainers(node);
+
+		// Reset auto-scroll optimization state
+		cachedScrollRects.clear();
+		lastScrollRectUpdate = 0;
 
 		if (opts.dragStateService) {
 			endDragging = opts.dragStateService.startDragging();
@@ -411,6 +450,8 @@ function setupDragHandlers(
 		// Reset state
 		dragHandle = null;
 		cachedScrollContainers = [];
+		cachedScrollRects.clear();
+		lastScrollRectUpdate = 0;
 		dragStartPosition = null;
 		currentMousePosition = null;
 		selectedElements = [];
