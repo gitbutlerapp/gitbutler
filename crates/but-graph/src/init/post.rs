@@ -647,7 +647,7 @@ impl Graph {
                             .flatten()
                             .map(|ri| &ri.ref_name),
                     ),
-                Some((&self.inner, ws_sidx, &ws_stacks, &candidates)),
+                (&self.inner, ws_sidx, &ws_stacks, &candidates),
             )
             .collect();
             for refs_for_independent_branches in matching_refs_per_stack {
@@ -700,8 +700,12 @@ impl Graph {
                     let commit = &self[ws_segment_sidx].commits[commit_idx];
                     let has_inserted_segment_above = current_above != ws_segment_sidx;
                     let Some(refs_for_dependent_branches) =
-                        find_all_desired_stack_refs_in_commit(&ws_data, commit.ref_iter(), None)
-                            .next()
+                        find_all_desired_stack_refs_in_commit_dependent(
+                            &ws_data,
+                            commit.ref_iter(),
+                            None,
+                        )
+                        .next()
                     else {
                         // Now we have to assign this uninteresting commit to the last created segment, if there was one.
                         if has_inserted_segment_above {
@@ -743,18 +747,20 @@ impl Graph {
                     Some((last_created_segment.unwrap_or(s.id), base_sidx, c))
                 })
             {
-                let Some(refs_for_dependent_branches) = find_all_desired_stack_refs_in_commit(
-                    &ws_data,
-                    self[base_sidx]
-                        .ref_info
-                        .as_ref()
-                        .map(|ri| &ri.ref_name)
-                        .filter(|_| !commit.refs.is_empty())
-                        .into_iter()
-                        .chain(commit.ref_iter()),
-                    None,
-                )
-                .next() else {
+                let Some(refs_for_dependent_branches) =
+                    find_all_desired_stack_refs_in_commit_dependent(
+                        &ws_data,
+                        self[base_sidx]
+                            .ref_info
+                            .as_ref()
+                            .map(|ri| &ri.ref_name)
+                            .filter(|_| !commit.refs.is_empty())
+                            .into_iter()
+                            .chain(commit.ref_iter()),
+                        Some(stack),
+                    )
+                    .next()
+                else {
                     continue;
                 };
 
@@ -1126,22 +1132,45 @@ impl Graph {
     }
 }
 
+fn find_all_desired_stack_refs_in_commit_dependent<'a>(
+    ws_data: &'a ref_metadata::Workspace,
+    commit_refs: impl Iterator<Item = &'a gix::refs::FullName> + Clone + 'a,
+    only_in_stack: Option<&'a crate::projection::Stack>,
+) -> impl Iterator<Item = Vec<gix::refs::FullName>> + 'a {
+    ws_data.stacks(Applied).filter_map(move |stack| {
+        if !only_in_stack.is_none_or(|limit_to| {
+            limit_to.id == Some(stack.id) || limit_to.ref_name() == stack.name()
+        }) {
+            return None;
+        }
+        let matching_refs: Vec<_> = stack
+            .branches
+            .iter()
+            .filter_map(|s| commit_refs.clone().find(|rn| *rn == &s.ref_name).cloned())
+            .collect();
+        if matching_refs.is_empty() {
+            return None;
+        }
+        Some(matching_refs)
+    })
+}
+
 fn find_all_desired_stack_refs_in_commit<'a>(
     ws_data: &'a ref_metadata::Workspace,
     commit_refs: impl Iterator<Item = &'a gix::refs::FullName> + Clone + 'a,
-    graph_and_ws_idx_and_candidates: Option<(
+    graph_and_ws_idx_and_candidates: (
         &'a PetGraph,
         SegmentIndex,
         &'a [crate::projection::Stack],
         &'a [SegmentIndex],
-    )>,
+    ),
 ) -> impl Iterator<Item = Vec<gix::refs::FullName>> + 'a {
+    let (graph, ws_idx, ws_stacks, candidates) = graph_and_ws_idx_and_candidates;
     ws_data.stacks(Applied).filter_map(move |stack| {
-        if let Some((_, _, ws_stacks, candidates)) = graph_and_ws_idx_and_candidates
-            && ws_stacks
-                .iter()
-                .filter(|s| !s.segments.iter().any(|s| candidates.contains(&s.id)))
-                .any(|existing_stack| existing_stack.id == Some(stack.id))
+        if ws_stacks
+            .iter()
+            .filter(|s| !s.segments.iter().any(|s| candidates.contains(&s.id)))
+            .any(|existing_stack| existing_stack.id == Some(stack.id))
         {
             return None;
         }
@@ -1156,18 +1185,14 @@ fn find_all_desired_stack_refs_in_commit<'a>(
 
         // We match any part of a stack above, so have to assure we don't recreate
         // part of an existing stack as new stack.
-        let is_used_in_existing_stack = graph_and_ws_idx_and_candidates
-            .zip(stack.branches.first())
-            .is_some_and(
-                |((graph, ws_idx, _ws_stacks, candidates), top_segment_name)| {
-                    graph
-                        .neighbors_directed(ws_idx, Direction::Outgoing)
-                        .filter(|sidx| !candidates.contains(sidx))
-                        .any(|stack_sidx| {
-                            graph[stack_sidx].ref_name() == Some(top_segment_name.ref_name.as_ref())
-                        })
-                },
-            );
+        let is_used_in_existing_stack = stack.branches.first().is_some_and(|top_segment_name| {
+            graph
+                .neighbors_directed(ws_idx, Direction::Outgoing)
+                .filter(|sidx| !candidates.contains(sidx))
+                .any(|stack_sidx| {
+                    graph[stack_sidx].ref_name() == Some(top_segment_name.ref_name.as_ref())
+                })
+        });
         if is_used_in_existing_stack {
             return None;
         }
