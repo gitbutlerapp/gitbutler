@@ -700,7 +700,7 @@ impl Graph {
                     let commit = &self[ws_segment_sidx].commits[commit_idx];
                     let has_inserted_segment_above = current_above != ws_segment_sidx;
                     let Some(refs_for_dependent_branches) =
-                        find_all_desired_stack_refs_in_commit_dependent(
+                        find_all_desired_stack_refs_in_commit_for_dependent_branches(
                             &ws_data,
                             commit.ref_iter(),
                             None,
@@ -748,7 +748,7 @@ impl Graph {
                 })
             {
                 let Some(refs_for_dependent_branches) =
-                    find_all_desired_stack_refs_in_commit_dependent(
+                    find_all_desired_stack_refs_in_commit_for_dependent_branches(
                         &ws_data,
                         self[base_sidx]
                             .ref_info
@@ -1132,14 +1132,17 @@ impl Graph {
     }
 }
 
-fn find_all_desired_stack_refs_in_commit_dependent<'a>(
+/// Search `ws_data` for all matching names in `commit_refs` and return them, once per stack.
+/// If `only_in_stack` is set, it will only search the stack in `ws_data` that either matches its stack-id or
+/// its tip name, to avoid matching names that are not meant to be used in `only_in_stack`.
+fn find_all_desired_stack_refs_in_commit_for_dependent_branches<'a>(
     ws_data: &'a ref_metadata::Workspace,
     commit_refs: impl Iterator<Item = &'a gix::refs::FullName> + Clone + 'a,
     only_in_stack: Option<&'a crate::projection::Stack>,
 ) -> impl Iterator<Item = Vec<gix::refs::FullName>> + 'a {
     ws_data.stacks(Applied).filter_map(move |stack| {
-        if !only_in_stack.is_none_or(|limit_to| {
-            limit_to.id == Some(stack.id) || limit_to.ref_name() == stack.name()
+        if only_in_stack.is_some_and(|limit_to| {
+            limit_to.id != Some(stack.id) && limit_to.ref_name() != stack.name()
         }) {
             return None;
         }
