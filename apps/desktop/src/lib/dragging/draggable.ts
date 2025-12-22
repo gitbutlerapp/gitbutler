@@ -158,6 +158,17 @@ function setupDragHandlers(
 		});
 	}
 
+	function restoreUserSelectValues() {
+		if (originalUserSelect !== null) {
+			document.body.style.userSelect = originalUserSelect;
+			originalUserSelect = null;
+		}
+		if (originalWebkitUserSelect !== null) {
+			document.body.style.webkitUserSelect = originalWebkitUserSelect;
+			originalWebkitUserSelect = null;
+		}
+	}
+
 	function handleMouseDown(e: MouseEvent) {
 		if (!opts || opts.disabled) return;
 
@@ -185,7 +196,7 @@ function setupDragHandlers(
 		originalUserSelect = document.body.style.userSelect;
 		originalWebkitUserSelect = document.body.style.webkitUserSelect;
 		document.body.style.userSelect = 'none';
-		document.body.style.webkitUserSelect = 'none'; // Safari support
+		document.body.style.webkitUserSelect = 'none'; // WebKit browsers (Safari, Chrome, Edge)
 
 		// Add listeners for potential drag - using passive where possible
 		window.addEventListener('mousemove', handleMouseMoveMaybeStart);
@@ -217,14 +228,7 @@ function setupDragHandlers(
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
 
 		// Restore text selection to original values
-		if (originalUserSelect !== null) {
-			document.body.style.userSelect = originalUserSelect;
-			originalUserSelect = null;
-		}
-		if (originalWebkitUserSelect !== null) {
-			document.body.style.webkitUserSelect = originalWebkitUserSelect;
-			originalWebkitUserSelect = null;
-		}
+		restoreUserSelectValues();
 
 		dragHandle = null;
 		dragStartPosition = null;
@@ -406,14 +410,7 @@ function setupDragHandlers(
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
 
 		// Restore text selection to original values
-		if (originalUserSelect !== null) {
-			document.body.style.userSelect = originalUserSelect;
-			originalUserSelect = null;
-		}
-		if (originalWebkitUserSelect !== null) {
-			document.body.style.webkitUserSelect = originalWebkitUserSelect;
-			originalWebkitUserSelect = null;
-		}
+		restoreUserSelectValues();
 
 		// Stop observer (also stops auto-scroll since it's in the same RAF loop)
 		stopObserver();
