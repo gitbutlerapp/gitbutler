@@ -404,6 +404,6 @@
 	/* Dim the original element when it's being dragged */
 	:global(.dragging) {
 		opacity: 0.5;
-		transition: opacity 0.2s ease;
+		pointer-events: none;
 	}
 </style>
