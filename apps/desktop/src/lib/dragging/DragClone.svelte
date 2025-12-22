@@ -153,7 +153,7 @@
 		align-items: center;
 
 		&.activated {
-			animation: drogchip-scale 0.2s ease forwards;
+			animation: drogchip-scale 0.23s ease forwards;
 		}
 	}
 
@@ -162,7 +162,7 @@
 			transform: scale(1);
 		}
 		50% {
-			transform: scale(1.05);
+			transform: scale(1.08);
 		}
 		100% {
 			transform: scale(1);
