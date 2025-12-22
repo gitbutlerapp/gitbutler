@@ -219,6 +219,19 @@ impl Snapshot {
         let ws = graph.to_workspace()?;
         let mut seen = BTreeSet::new();
 
+        if let Some((computed_lower_bound, target)) =
+            ws.lower_bound.zip(self.content.default_target.as_mut())
+        {
+            // The computed lower bound takes the stored target hash into consideration.
+            // Either the computed one ends up being the stored one, or the computed one has to be used to be the actual base,
+            // i.e. the commit that is reachable by all stacks.
+            // If the computed one differs, we should make old code aware by updating the value.
+            if target.sha != computed_lower_bound {
+                target.sha = computed_lower_bound;
+                self.set_changed_to_necessitate_write();
+            }
+        }
+
         // Make sure we have a stack id, which is something that may not be the case in
         // single-branch mode or in tests that start off with just a Git repository.
         // Having stack IDs is useful and maybe one day we can pre-generate them just like we do here
