@@ -80,6 +80,8 @@ function setupDragHandlers(
 	let observerAnimationFrame: number | undefined;
 	let currentHoveredDropzone: HTMLElement | null = null;
 	let cachedScrollContainers: HTMLElement[] = [];
+	let originalUserSelect: string | null = null;
+	let originalWebkitUserSelect: string | null = null;
 
 	// Auto-scroll detection
 	const SCROLL_EDGE_SIZE = 50;
@@ -179,6 +181,9 @@ function setupDragHandlers(
 		currentMousePosition = { x: e.clientX, y: e.clientY };
 
 		// Prevent text selection during potential drag using CSS
+		// Store original values to restore later
+		originalUserSelect = document.body.style.userSelect;
+		originalWebkitUserSelect = document.body.style.webkitUserSelect;
 		document.body.style.userSelect = 'none';
 		document.body.style.webkitUserSelect = 'none'; // Safari support
 
@@ -211,9 +216,15 @@ function setupDragHandlers(
 		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
 
-		// Restore text selection
-		document.body.style.removeProperty('user-select');
-		document.body.style.removeProperty('-webkit-user-select');
+		// Restore text selection to original values
+		if (originalUserSelect !== null) {
+			document.body.style.userSelect = originalUserSelect;
+			originalUserSelect = null;
+		}
+		if (originalWebkitUserSelect !== null) {
+			document.body.style.webkitUserSelect = originalWebkitUserSelect;
+			originalWebkitUserSelect = null;
+		}
 
 		dragHandle = null;
 		dragStartPosition = null;
@@ -394,9 +405,15 @@ function setupDragHandlers(
 		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
 
-		// Restore text selection
-		document.body.style.removeProperty('user-select');
-		document.body.style.removeProperty('-webkit-user-select');
+		// Restore text selection to original values
+		if (originalUserSelect !== null) {
+			document.body.style.userSelect = originalUserSelect;
+			originalUserSelect = null;
+		}
+		if (originalWebkitUserSelect !== null) {
+			document.body.style.webkitUserSelect = originalWebkitUserSelect;
+			originalWebkitUserSelect = null;
+		}
 
 		// Stop observer (also stops auto-scroll since it's in the same RAF loop)
 		stopObserver();
