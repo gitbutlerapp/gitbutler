@@ -136,12 +136,13 @@ function setupDragHandlers(
 	function performAutoScroll(mouseX: number, mouseY: number) {
 		const now = performance.now();
 
-		// Throttle: Update cached rects periodically instead of every frame
+		// Throttle: Update cached rects periodically instead of every frame (every 100ms vs every ~16ms)
+		// This reduces getBoundingClientRect() calls from ~60/sec to ~10/sec
 		if (now - lastScrollRectUpdate > SCROLL_RECT_UPDATE_INTERVAL_MS) {
 			cachedScrollRects.clear();
 			cachedScrollContainers.forEach((container) => {
 				const rect = container.getBoundingClientRect();
-				// Only cache if visible in viewport to avoid processing off-screen containers
+				// Only cache visible containers - off-screen containers cannot be scrolled via mouse anyway
 				if (isContainerVisibleInViewport(rect)) {
 					cachedScrollRects.set(container, rect);
 				}
