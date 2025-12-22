@@ -42,7 +42,11 @@
 	<div class="drag-action-label-container">
 		{#if opt.label}
 			<div class="text-11 text-bold drag-action-label drag-action-label__action">
-				{opt.label}
+				<span>{opt.label}</span>
+
+				<div class="drag-action-label-icon">
+					<Icon name="arrow-down" size={12} />
+				</div>
 			</div>
 		{/if}
 		{#if opt.amount && opt.amount > 1}
@@ -149,11 +153,11 @@
 		align-items: center;
 
 		&.activated {
-			animation: dropzone-scale 0.2s ease forwards;
+			animation: drogchip-scale 0.2s ease forwards;
 		}
 	}
 
-	@keyframes dropzone-scale {
+	@keyframes drogchip-scale {
 		0% {
 			transform: scale(1);
 		}
@@ -184,7 +188,7 @@
 	}
 
 	.drag-action-label {
-		display: inline-flex;
+		display: flex;
 		z-index: 4;
 		align-items: center;
 		padding: 4px 7px;
@@ -196,13 +200,26 @@
 	}
 
 	.drag-action-label__action {
+		gap: 4px;
 		background-color: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);
 	}
 
 	.drag-action-label-icon {
-		width: 14px;
-		height: 14px;
+		display: flex;
+		animation: icon-shifting 1s ease infinite;
+	}
+
+	@keyframes icon-shifting {
+		0% {
+			transform: translateY(0);
+		}
+		50% {
+			transform: translateY(-2px);
+		}
+		100% {
+			transform: translateY(0);
+		}
 	}
 
 	.dragchip {

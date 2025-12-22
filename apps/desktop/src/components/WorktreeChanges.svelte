@@ -116,11 +116,7 @@
 	onHovered={onDropzoneHovered}
 >
 	{#snippet overlay({ hovered, activated, handler })}
-		<CardOverlay
-			{hovered}
-			{activated}
-			label={getDropzoneLabel(handler)}
-		/>
+		<CardOverlay {hovered} {activated} label={getDropzoneLabel(handler)} />
 	{/snippet}
 
 	<div class="uncommitted-changes-wrap">
