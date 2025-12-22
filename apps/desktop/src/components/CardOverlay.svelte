@@ -25,27 +25,18 @@
 	const extraPaddingBottom = extraPaddings?.bottom ?? 0;
 	const extraPaddingLeft = extraPaddings?.left ?? 0;
 
-	let labelWeSet = $state<string | undefined>(undefined);
+	// Track if this specific instance has set the label
+	let hasSetLabel = $state(false);
 
 	$effect(() => {
-		// If dropzone is not activated, reset our tracking state
-		if (!activated) {
-			labelWeSet = undefined;
-			return;
-		}
+		const shouldShow = activated && hovered && label;
 
-		const isActivatedAndHovered = activated && hovered && !!label;
-
-		if (isActivatedAndHovered) {
-			// Set label immediately when hovering an activated dropzone
-			console.log('CardOverlay effect: setting label', label);
+		if (shouldShow && !hasSetLabel) {
 			dragStateService?.setDropLabel(label);
-			labelWeSet = label;
-		} else if (labelWeSet && labelWeSet === label) {
-			// We previously set this exact label, now clear it
-			console.log('CardOverlay effect: clearing label (we set it)', label);
+			hasSetLabel = true;
+		} else if (!shouldShow && hasSetLabel) {
 			dragStateService?.clearDropLabel(label);
-			labelWeSet = undefined;
+			hasSetLabel = false;
 		}
 	});
 </script>

@@ -37,18 +37,13 @@ export class DragStateService {
 	}
 
 	setDropLabel(label: string | undefined): void {
-		// Cancel any pending clear
-		if (label !== this.currentDropLabel) {
-			console.warn('[DragStateService] setDropLabel called:', label);
-			this.currentDropLabel = label;
-			this._dropLabel.set(label);
-		}
+		this.currentDropLabel = label;
+		this._dropLabel.set(label);
 	}
 
 	clearDropLabel(labelToClear: string): void {
 		// Only clear if this label is currently set
 		if (this.currentDropLabel === labelToClear) {
-			console.warn('[DragStateService] clearDropLabel: clearing label', labelToClear);
 			this.currentDropLabel = undefined;
 			this._dropLabel.set(undefined);
 		}
