@@ -180,6 +180,7 @@ function setupDragHandlers(
 
 		// Prevent text selection during potential drag using CSS
 		document.body.style.userSelect = 'none';
+		document.body.style.webkitUserSelect = 'none'; // Safari support
 
 		// Add listeners for potential drag - using passive where possible
 		window.addEventListener('mousemove', handleMouseMoveMaybeStart);
@@ -211,7 +212,8 @@ function setupDragHandlers(
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
 
 		// Restore text selection
-		document.body.style.userSelect = '';
+		document.body.style.removeProperty('user-select');
+		document.body.style.removeProperty('-webkit-user-select');
 
 		dragHandle = null;
 		dragStartPosition = null;
@@ -393,7 +395,8 @@ function setupDragHandlers(
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
 
 		// Restore text selection
-		document.body.style.userSelect = '';
+		document.body.style.removeProperty('user-select');
+		document.body.style.removeProperty('-webkit-user-select');
 
 		// Stop observer (also stops auto-scroll since it's in the same RAF loop)
 		stopObserver();
