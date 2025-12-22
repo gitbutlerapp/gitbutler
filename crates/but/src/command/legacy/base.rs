@@ -6,8 +6,52 @@ use gitbutler_branch_actions::upstream_integration::{
     Resolution, ResolutionApproach,
     StackStatuses::{UpToDate, UpdatesRequired},
 };
+use serde::Serialize;
 
 use crate::{args::base, utils::OutputChannel};
+
+/// JSON output for `but base check`
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BaseCheckOutput {
+    base_branch: BaseBranchInfo,
+    upstream_commits: UpstreamInfo,
+    branch_statuses: Vec<BranchStatusInfo>,
+    up_to_date: bool,
+    has_worktree_conflicts: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BaseBranchInfo {
+    name: String,
+    remote_name: String,
+    base_sha: String,
+    current_sha: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpstreamInfo {
+    count: usize,
+    commits: Vec<UpstreamCommit>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpstreamCommit {
+    id: String,
+    description: String,
+    author_name: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BranchStatusInfo {
+    name: String,
+    status: String,
+    rebasable: Option<bool>,
+}
 
 pub async fn handle(
     cmd: Subcommands,
@@ -16,12 +60,70 @@ pub async fn handle(
 ) -> anyhow::Result<()> {
     match cmd {
         Subcommands::Check => {
-            if let Some(out) = out.for_human() {
+            let base_branch = but_api::legacy::virtual_branches::fetch_from_remotes(
+                project.id,
+                Some("auto".to_string()),
+            )?;
+
+            let status =
+                but_api::legacy::virtual_branches::upstream_integration_statuses(project.id, None)
+                    .await?;
+
+            if let Some(out) = out.for_json() {
+                let (up_to_date, has_worktree_conflicts, branch_statuses) = match &status {
+                    UpToDate => (true, false, vec![]),
+                    UpdatesRequired {
+                        worktree_conflicts,
+                        statuses,
+                    } => {
+                        let branch_statuses: Vec<BranchStatusInfo> = statuses
+                            .iter()
+                            .flat_map(|(_id, stack_status)| {
+                                stack_status.branch_statuses.iter().map(|bs| {
+                                    let (status_str, rebasable) = match bs.status {
+                                        SaflyUpdatable => ("updatable", None),
+                                        Integrated => ("integrated", None),
+                                        Conflicted { rebasable } => ("conflicted", Some(rebasable)),
+                                        Empty => ("empty", None),
+                                    };
+                                    BranchStatusInfo {
+                                        name: bs.name.clone(),
+                                        status: status_str.to_string(),
+                                        rebasable,
+                                    }
+                                })
+                            })
+                            .collect();
+                        (false, !worktree_conflicts.is_empty(), branch_statuses)
+                    }
+                };
+
+                let output = BaseCheckOutput {
+                    base_branch: BaseBranchInfo {
+                        name: base_branch.branch_name.clone(),
+                        remote_name: base_branch.remote_name.clone(),
+                        base_sha: base_branch.base_sha.to_string(),
+                        current_sha: base_branch.current_sha.to_string(),
+                    },
+                    upstream_commits: UpstreamInfo {
+                        count: base_branch.behind,
+                        commits: base_branch
+                            .recent_commits
+                            .iter()
+                            .map(|c| UpstreamCommit {
+                                id: c.id.clone(),
+                                description: c.description.to_string(),
+                                author_name: c.author.name.clone(),
+                            })
+                            .collect(),
+                    },
+                    branch_statuses,
+                    up_to_date,
+                    has_worktree_conflicts,
+                };
+                out.write_value(output)?;
+            } else if let Some(out) = out.for_human() {
                 writeln!(out, "🔍 Checking base branch status...")?;
-                let base_branch = but_api::legacy::virtual_branches::fetch_from_remotes(
-                    project.id,
-                    Some("auto".to_string()),
-                )?;
                 writeln!(out, "\n📍 Base branch:\t\t{}", base_branch.branch_name)?;
                 writeln!(
                     out,
@@ -50,11 +152,6 @@ pub async fn handle(
                         "\t... ({hidden_commits} more - run `but base check --all` to see all)"
                     )?;
                 }
-
-                let status = but_api::legacy::virtual_branches::upstream_integration_statuses(
-                    project.id, None,
-                )
-                .await?;
 
                 match status {
                     UpToDate => {
