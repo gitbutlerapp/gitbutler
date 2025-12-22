@@ -14,8 +14,7 @@ export class DragStateService {
 	private dragCount = 0;
 	private readonly _isDragging = writable(false);
 	private readonly _dropLabel = writable<string | undefined>(undefined);
-	private currentDropLabel: string | undefined = undefined;
-	private currentLabelToken: symbol | undefined = undefined;
+	private activeLabels = new Map<symbol, string | undefined>();
 
 	get isDragging(): Readable<boolean> {
 		return this._isDragging;
@@ -39,19 +38,25 @@ export class DragStateService {
 
 	setDropLabel(label: string | undefined): symbol {
 		const token = Symbol('dropLabel');
-		this.currentLabelToken = token;
-		this.currentDropLabel = label;
-		this._dropLabel.set(label);
+		this.activeLabels.set(token, label);
+		this.updateDropLabel();
 		return token;
 	}
 
 	clearDropLabel(token: symbol): void {
-		// Only clear if this token is the current one
-		if (this.currentLabelToken === token) {
-			this.currentDropLabel = undefined;
-			this.currentLabelToken = undefined;
-			this._dropLabel.set(undefined);
+		// Remove the token from active labels
+		if (this.activeLabels.delete(token)) {
+			this.updateDropLabel();
 		}
+	}
+
+	private updateDropLabel(): void {
+		// Find the most recently added label (last entry in the Map)
+		let currentLabel: string | undefined = undefined;
+		for (const label of this.activeLabels.values()) {
+			currentLabel = label;
+		}
+		this._dropLabel.set(currentLabel);
 	}
 
 	private endDragging(): void {
@@ -60,8 +65,7 @@ export class DragStateService {
 		if (this.dragCount === 0) {
 			this._isDragging.set(false);
 			this._dropLabel.set(undefined);
-			this.currentDropLabel = undefined;
-			this.currentLabelToken = undefined;
+			this.activeLabels.clear();
 		}
 	}
 }
