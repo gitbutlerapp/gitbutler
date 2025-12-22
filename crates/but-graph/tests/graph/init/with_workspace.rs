@@ -17,6 +17,53 @@ use crate::init::{
 };
 
 #[test]
+fn reproduce_11483() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   3562fcd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 7236012 (A) A
+    * | 68c8a9d (B) B
+    |/  
+    * 3183e43 (origin/main, main, below) M1
+    ");
+
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["below"]);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let ws = &graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(ws), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:4:B on 3183e43 {2}
+    │   ├── 📙:4:B
+    │   │   └── ·68c8a9d (🏘️)
+    │   └── 📙:5:below
+    └── ≡📙:3:A on 3183e43 {1}
+        └── 📙:3:A
+            └── ·7236012 (🏘️)
+    ");
+
+    meta.data_mut().branches.clear();
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["below"]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:4:B on 3183e43 {2}
+    │   └── 📙:4:B
+    │       └── ·68c8a9d (🏘️)
+    └── ≡📙:3:A on 3183e43 {1}
+        ├── 📙:3:A
+        │   └── ·7236012 (🏘️)
+        └── 📙:5:below
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
     // NOTE: Was supposed to reproduce #11459, but it found another issue instead.
     let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11459")?;
@@ -5419,29 +5466,28 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
     );
     let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?;
     // The stack-id could still be found, even though `A` is wrongly marked as outside the workspace.
-    // Note that the segments are incorrectly assigned to A, which is related to it using the metadata
-    // and relying on it to be valid. Acceptable for now, what matters is as long as the stack-id is associated.
+    // Below A doesn't apply as it's marked inactive.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-    ├── ≡📙:11:C on 3183e43 {3}
-    │   ├── 📙:11:C
-    │   ├── 📙:12:C2-1
-    │   ├── 📙:13:C2-2
-    │   ├── 📙:14:C2-3
+    ├── ≡📙:9:C on 3183e43 {3}
+    │   ├── 📙:9:C
+    │   ├── 📙:10:C2-1
+    │   ├── 📙:11:C2-2
+    │   ├── 📙:12:C2-3
     │   │   └── ·f9e2cb7 (🏘️)
-    │   ├── 📙:15:C1-3
-    │   ├── 📙:16:C1-2
-    │   └── 📙:17:C1-1
-    │       └── ·aaa195b (🏘️)
+    │   ├── 📙:13:C1-3
+    │   ├── 📙:14:C1-2
+    │   ├── 📙:15:C1-1
+    │   │   └── ·aaa195b (🏘️)
+    │   ├── 📙:16:below-C
+    │   └── 📙:17:below-below-C
     ├── ≡📙:6:B on 3183e43 {2}
     │   ├── 📙:6:B
     │   ├── 📙:7:below-B
     │   └── 📙:8:below-below-B
     └── ≡📙:5:A on 3183e43 {1}
-        ├── 📙:5:A
-        │   └── ·49d4b34 (🏘️)
-        ├── 📙:9:below-C
-        └── 📙:10:below-below-C
+        └── 📙:5:A
+            └── ·49d4b34 (🏘️)
     ");
     Ok(())
 }

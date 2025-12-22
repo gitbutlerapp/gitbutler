@@ -215,6 +215,18 @@ git init special-branches
 
 mkdir ws
 (cd ws
+  git init reproduce-11483
+  (cd reproduce-11483
+      commit M1
+      git branch below
+      setup_target_to_match_main
+      git checkout -b A
+        commit A
+      git checkout -b B main
+        commit B
+    create_workspace_commit_once B A
+  )
+
   git init reproduce-11459
   (cd reproduce-11459
     commit M1

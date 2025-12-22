@@ -163,14 +163,14 @@ impl Snapshot {
                 .collect();
 
             for (segment, segment_name) in segments_to_add {
+                let first_commit_or_null = segment
+                    .commits
+                    .first()
+                    .map_or(gix::hash::Kind::Sha1.null(), |c| c.id)
+                    .to_string();
+                tracing::warn!(segment_name=%segment_name.shorten(), %first_commit_or_null, stack_id=?vb_stack.id, "Adding head to stack");
                 vb_stack.heads.push(StackBranch {
-                    head: CommitOrChangeId::CommitId(
-                        segment
-                            .commits
-                            .first()
-                            .map_or(gix::hash::Kind::Sha1.null(), |c| c.id)
-                            .to_string(),
-                    ),
+                    head: CommitOrChangeId::CommitId(first_commit_or_null),
                     name: segment_name.shorten().to_string(),
                     description: None,
                     pr_number: None,
