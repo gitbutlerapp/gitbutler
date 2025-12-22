@@ -28,6 +28,7 @@
 		mode?: 'unassigned' | 'assigned';
 		dropzoneVisible?: boolean;
 		onDropzoneActivated?: (activated: boolean) => void;
+		onDropzoneHovered?: (hovered: boolean) => void;
 		emptyPlaceholder?: Snippet;
 		foldButton?: Snippet;
 		onselect?: () => void;
@@ -41,6 +42,7 @@
 		mode = 'unassigned',
 		dropzoneVisible,
 		onDropzoneActivated,
+		onDropzoneHovered,
 		emptyPlaceholder,
 		foldButton,
 		onselect,
@@ -111,10 +113,10 @@
 	handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
 	maxHeight
 	onActivated={onDropzoneActivated}
+	onHovered={onDropzoneHovered}
 >
 	{#snippet overlay({ hovered, activated, handler })}
 		<CardOverlay
-			visible={dropzoneVisible}
 			{hovered}
 			{activated}
 			label={getDropzoneLabel(handler)}

@@ -82,6 +82,9 @@
 	const stableProjectId = $derived(projectId);
 	let lanesSrollableEl = $state<HTMLDivElement>();
 
+	let dropzoneActivated = $state(false);
+	let dropzoneHovered = $state(false);
+
 	const stackService = inject(STACK_SERVICE);
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
@@ -128,8 +131,6 @@
 	const branchesQuery = $derived(stackService.branches(stableProjectId, stableStackId));
 
 	let active = $state(false);
-
-	let dropzoneActivated = $state(false);
 
 	const laneState = $derived(uiState.lane(laneId));
 	const selection = $derived(laneState.selection);
@@ -584,6 +585,7 @@
 								class:remove-border-bottom={(isCommitting && changes.current.length === 0) ||
 									!startCommitVisible.current}
 								class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+								class:dropzone-hovered={dropzoneHovered && changes.current.length === 0}
 							>
 								<WorktreeChanges
 									title="Assigned"
@@ -593,6 +595,9 @@
 									dropzoneVisible={changes.current.length === 0 && !isCommitting}
 									onDropzoneActivated={(activated) => {
 										dropzoneActivated = activated;
+									}}
+									onDropzoneHovered={(hovered) => {
+										dropzoneHovered = hovered;
 									}}
 									onselect={() => {
 										// Clear one selection when you modify the other.
@@ -981,6 +986,12 @@
 
 			& .assigned-changes-empty__text {
 				color: var(--clr-theme-pop-on-soft);
+			}
+		}
+
+		&.dropzone-hovered {
+			& .assigned-changes-empty__text {
+				opacity: 1;
 			}
 		}
 	}
