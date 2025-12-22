@@ -85,6 +85,11 @@ function setupDragHandlers(
 	const SCROLL_EDGE_SIZE = 50;
 	const SCROLL_SPEED = 10;
 
+	// Auto-scroll optimization: cache container rects and throttle updates
+	const SCROLL_RECT_UPDATE_INTERVAL_MS = 100; // Update container rects every 100ms
+	const cachedScrollRects: Map<HTMLElement, DOMRect> = new Map();
+	let lastScrollRectUpdate = 0;
+
 	function findScrollableContainers(element: HTMLElement): HTMLElement[] {
 		const containers: HTMLElement[] = [];
 		let current: HTMLElement | null = element;
@@ -118,10 +123,35 @@ function setupDragHandlers(
 		return containers;
 	}
 
+	function isContainerVisibleInViewport(rect: DOMRect): boolean {
+		// Check if container intersects with viewport
+		return (
+			rect.bottom > 0 &&
+			rect.top < window.innerHeight &&
+			rect.right > 0 &&
+			rect.left < window.innerWidth
+		);
+	}
+
 	function performAutoScroll(mouseX: number, mouseY: number) {
+		const now = performance.now();
+
+		// Throttle: Update cached rects periodically instead of every frame
+		if (now - lastScrollRectUpdate > SCROLL_RECT_UPDATE_INTERVAL_MS) {
+			cachedScrollRects.clear();
+			cachedScrollContainers.forEach((container) => {
+				const rect = container.getBoundingClientRect();
+				// Only cache if visible in viewport to avoid processing off-screen containers
+				if (isContainerVisibleInViewport(rect)) {
+					cachedScrollRects.set(container, rect);
+				}
+			});
+			lastScrollRectUpdate = now;
+		}
+
 		// Use cached scroll containers (calculated once at drag start)
-		cachedScrollContainers.forEach((container) => {
-			const rect = container.getBoundingClientRect();
+		// Only iterate over visible containers (filtered during rect update)
+		cachedScrollRects.forEach((rect, container) => {
 			let scrollX = 0;
 			let scrollY = 0;
 
@@ -226,6 +256,10 @@ function setupDragHandlers(
 		// Start drag state tracking
 		// Cache scrollable containers once at drag start (not on every mousemove)
 		cachedScrollContainers = findScrollableContainers(node);
+
+		// Reset auto-scroll optimization state
+		cachedScrollRects.clear();
+		lastScrollRectUpdate = 0;
 
 		if (opts.dragStateService) {
 			endDragging = opts.dragStateService.startDragging();
@@ -411,6 +445,8 @@ function setupDragHandlers(
 		// Reset state
 		dragHandle = null;
 		cachedScrollContainers = [];
+		cachedScrollRects.clear();
+		lastScrollRectUpdate = 0;
 		dragStartPosition = null;
 		currentMousePosition = null;
 		selectedElements = [];
