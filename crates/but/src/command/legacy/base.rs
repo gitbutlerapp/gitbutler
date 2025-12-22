@@ -123,39 +123,59 @@ pub async fn handle(
                 };
                 out.write_value(output)?;
             } else if let Some(out) = out.for_human() {
-                writeln!(out, "🔍 Checking base branch status...")?;
-                writeln!(out, "\n📍 Base branch:\t\t{}", base_branch.branch_name)?;
+                writeln!(out, "{}", "Checking base branch status...".bold())?;
                 writeln!(
                     out,
-                    "⏫ Upstream commits:\t{} new commits on {}\n",
-                    base_branch.behind, base_branch.branch_name
+                    "\n{}\t{}",
+                    "Base branch:".dimmed(),
+                    base_branch.branch_name.cyan()
                 )?;
-                let commits = base_branch.upstream_commits.iter().take(3);
-                for commit in commits {
-                    writeln!(
-                        out,
-                        "\t{} {}",
-                        &commit.id[..7],
-                        &commit
-                            .description
-                            .to_string()
-                            .replace('\n', " ")
-                            .chars()
-                            .take(72)
-                            .collect::<String>()
-                    )?;
-                }
-                let hidden_commits = base_branch.behind.saturating_sub(3);
-                if hidden_commits > 0 {
-                    writeln!(
-                        out,
-                        "\t... ({hidden_commits} more - run `but base check --all` to see all)"
-                    )?;
+                let upstream_label = format!(
+                    "{} new commits on {}",
+                    base_branch.behind, base_branch.branch_name
+                );
+                writeln!(
+                    out,
+                    "{}\t{}",
+                    "Upstream:".dimmed(),
+                    if base_branch.behind > 0 {
+                        upstream_label.yellow()
+                    } else {
+                        upstream_label.green()
+                    }
+                )?;
+
+                if !base_branch.upstream_commits.is_empty() {
+                    writeln!(out)?;
+                    let commits = base_branch.upstream_commits.iter().take(3);
+                    for commit in commits {
+                        writeln!(
+                            out,
+                            "  {} {}",
+                            commit.id[..7].yellow(),
+                            commit
+                                .description
+                                .to_string()
+                                .replace('\n', " ")
+                                .chars()
+                                .take(72)
+                                .collect::<String>()
+                                .dimmed()
+                        )?;
+                    }
+                    let hidden_commits = base_branch.behind.saturating_sub(3);
+                    if hidden_commits > 0 {
+                        writeln!(
+                            out,
+                            "  {}",
+                            format!("... ({hidden_commits} more)").dimmed()
+                        )?;
+                    }
                 }
 
                 match status {
                     UpToDate => {
-                        writeln!(out, "\n✅ Everything is up to date")?;
+                        writeln!(out, "\n{}", "Up to date".green().bold())?;
                     }
                     UpdatesRequired {
                         worktree_conflicts,
@@ -164,48 +184,39 @@ pub async fn handle(
                         if !worktree_conflicts.is_empty() {
                             writeln!(
                                 out,
-                                "\n❗️ There are uncommitted changes in the worktree that may conflict with the updates."
+                                "\n{}",
+                                "Warning: uncommitted changes may conflict with updates."
+                                    .yellow()
+                                    .bold()
                             )?;
                         }
                         if !statuses.is_empty() {
-                            writeln!(out, "\n{}", "Active Branch Status".bold())?;
+                            writeln!(out, "\n{}", "Branch Status".bold())?;
                             for (_id, status) in statuses {
                                 for bs in status.branch_statuses {
-                                    let status_icon = match bs.status {
-                                        SaflyUpdatable => "✅".to_string(),
-                                        Integrated => "🔄".to_string(),
-                                        Conflicted { rebasable } => {
-                                            if rebasable {
-                                                "⚠️".to_string()
-                                            } else {
-                                                "❗️".to_string()
-                                            }
-                                        }
-                                        Empty => "✅".to_string(),
-                                    };
                                     let status_text = match bs.status {
-                                        SaflyUpdatable => "Updatable".green(),
-                                        Integrated => "Integrated".blue(),
+                                        SaflyUpdatable => "[ok]".green(),
+                                        Integrated => "[integrated]".blue(),
                                         Conflicted { rebasable } => {
                                             if rebasable {
-                                                "Conflicted (Rebasable)".yellow()
+                                                "[conflict - rebasable]".yellow()
                                             } else {
-                                                "Conflicted (Not Rebasable)".red()
+                                                "[conflict]".red()
                                             }
                                         }
-                                        Empty => "Nothing to do".normal(),
+                                        Empty => "[empty]".dimmed(),
                                     };
-                                    writeln!(
-                                        out,
-                                        "\n{} {} ({})",
-                                        status_icon, bs.name, status_text
-                                    )?;
+                                    writeln!(out, "  {} {}", status_text, bs.name)?;
                                 }
                             }
                         }
+                        writeln!(
+                            out,
+                            "\n{}",
+                            "Run `but base update` to update your branches".dimmed()
+                        )?;
                     }
                 }
-                writeln!(out, "\nRun `but base update` to update your branches")?;
             }
             Ok(())
         }
