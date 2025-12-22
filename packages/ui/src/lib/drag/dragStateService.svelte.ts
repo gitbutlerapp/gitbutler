@@ -51,11 +51,10 @@ export class DragStateService {
 	}
 
 	private updateDropLabel(): void {
-		// Find the most recently added label (last entry in the Map)
-		let currentLabel: string | undefined = undefined;
-		for (const label of this.activeLabels.values()) {
-			currentLabel = label;
-		}
+		// Get the most recently added label (Map maintains insertion order)
+		// Note: If the same token is updated, it won't change position in the Map
+		const labels = Array.from(this.activeLabels.values());
+		const currentLabel = labels.at(-1);
 		this._dropLabel.set(currentLabel);
 	}
 
