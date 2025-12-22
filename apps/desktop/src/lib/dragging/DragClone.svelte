@@ -153,11 +153,11 @@
 		align-items: center;
 
 		&.activated {
-			animation: drogchip-scale 0.23s ease forwards;
+			animation: dragchip-scale 0.23s ease forwards;
 		}
 	}
 
-	@keyframes drogchip-scale {
+	@keyframes dragchip-scale {
 		0% {
 			transform: scale(1);
 		}
