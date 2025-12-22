@@ -108,7 +108,7 @@ pub async fn handle(
                     upstream_commits: UpstreamInfo {
                         count: base_branch.behind,
                         commits: base_branch
-                            .recent_commits
+                            .upstream_commits
                             .iter()
                             .map(|c| UpstreamCommit {
                                 id: c.id.clone(),
