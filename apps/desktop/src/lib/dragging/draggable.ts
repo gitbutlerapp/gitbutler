@@ -178,15 +178,17 @@ function setupDragHandlers(
 		dragStartPosition = { x: e.clientX, y: e.clientY };
 		currentMousePosition = { x: e.clientX, y: e.clientY };
 
-		// Add listeners for potential drag
-		window.addEventListener('mousemove', handleMouseMoveMaybeStart, { passive: false });
-		window.addEventListener('mouseup', handleMouseUpBeforeDrag, { passive: false });
+		// Prevent text selection during potential drag using CSS
+		document.body.style.userSelect = 'none';
+
+		// Add listeners for potential drag - using passive where possible
+		window.addEventListener('mousemove', handleMouseMoveMaybeStart);
+		window.addEventListener('mouseup', handleMouseUpBeforeDrag);
 	}
 
 	function handleMouseMoveMaybeStart(e: MouseEvent) {
 		if (!dragStartPosition || !dragHandle) return;
 
-		e.preventDefault();
 		currentMousePosition = { x: e.clientX, y: e.clientY };
 
 		// Check if moved enough to start drag
@@ -207,6 +209,10 @@ function setupDragHandlers(
 		// User released before moving enough - cancel
 		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
+
+		// Restore text selection
+		document.body.style.userSelect = '';
+
 		dragHandle = null;
 		dragStartPosition = null;
 		currentMousePosition = null;
@@ -278,9 +284,9 @@ function setupDragHandlers(
 			document.body.appendChild(clone);
 		}
 
-		// Add drag listeners
-		window.addEventListener('mousemove', handleMouseMove, { passive: false });
-		window.addEventListener('mouseup', handleMouseUp, { passive: false });
+		// Add drag listeners - using passive where possible
+		window.addEventListener('mousemove', handleMouseMove);
+		window.addEventListener('mouseup', handleMouseUp);
 
 		// Start position observer
 		startObserver();
@@ -289,7 +295,6 @@ function setupDragHandlers(
 	function handleMouseMove(e: MouseEvent) {
 		if (!isDragging) return;
 
-		e.preventDefault();
 		currentMousePosition = { x: e.clientX, y: e.clientY };
 
 		// Update clone position with GPU-accelerated transform
@@ -387,6 +392,9 @@ function setupDragHandlers(
 		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
 
+		// Restore text selection
+		document.body.style.userSelect = '';
+
 		// Stop observer (also stops auto-scroll since it's in the same RAF loop)
 		stopObserver();
 
@@ -420,7 +428,7 @@ function setupDragHandlers(
 		if (newOpts.disabled) return;
 		opts = newOpts;
 
-		node.addEventListener('mousedown', handleMouseDown, { passive: false });
+		node.addEventListener('mousedown', handleMouseDown);
 	}
 
 	function clean() {
