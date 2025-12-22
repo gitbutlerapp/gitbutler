@@ -314,14 +314,14 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 
 pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<BaseBranch> {
     let repo = &*ctx.git2_repo.get()?;
-    let branch = repo
+    let target_branch = repo
         .maybe_find_branch_by_refname(&target.branch.clone().into())?
         .ok_or(anyhow!("failed to get branch"))?;
-    let commit = branch.get().peel_to_commit()?;
-    let oid = commit.id();
+    let target_commit_id = target_branch.get().peel_to_commit()?.id();
 
-    // determine if the base branch is behind it's upstream
-    let (number_commits_ahead, number_commits_behind) = repo.graph_ahead_behind(target.sha, oid)?;
+    // determine if the base branch is behind its upstream
+    let (number_commits_ahead, number_commits_behind) =
+        repo.graph_ahead_behind(target.sha, target_commit_id)?;
 
     let diverged_ahead = repo
         .log(target.sha, LogUntil::Take(number_commits_ahead), false)
@@ -331,7 +331,11 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
         .collect::<Vec<_>>();
 
     let diverged_behind = repo
-        .log(oid, LogUntil::Take(number_commits_behind), false)
+        .log(
+            target_commit_id,
+            LogUntil::Take(number_commits_behind),
+            false,
+        )
         .context("failed to get fork point")?
         .iter()
         .map(|commit| commit.id())
@@ -342,7 +346,7 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
 
     // gather a list of commits between oid and target.sha
     let upstream_commits = repo
-        .log(oid, LogUntil::Commit(target.sha), false)
+        .log(target_commit_id, LogUntil::Commit(target.sha), false)
         .context("failed to get upstream commits")?
         .iter()
         .map(commit_to_remote_commit)
@@ -395,7 +399,7 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
         push_remote_name: target.push_remote_name.clone(),
         push_remote_url,
         base_sha: target.sha,
-        current_sha: oid,
+        current_sha: target_commit_id,
         behind: upstream_commits.len(),
         upstream_commits,
         recent_commits,
