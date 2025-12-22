@@ -284,9 +284,9 @@ function setupDragHandlers(
 			document.body.appendChild(clone);
 		}
 
-		// Add drag listeners - using passive where possible
+		// Add drag listeners - mousemove is passive, mouseup needs passive:false for preventDefault
 		window.addEventListener('mousemove', handleMouseMove);
-		window.addEventListener('mouseup', handleMouseUp);
+		window.addEventListener('mouseup', handleMouseUp, { passive: false });
 
 		// Start position observer
 		startObserver();
@@ -428,7 +428,8 @@ function setupDragHandlers(
 		if (newOpts.disabled) return;
 		opts = newOpts;
 
-		node.addEventListener('mousedown', handleMouseDown);
+		// Mousedown needs passive:false because we call preventDefault
+		node.addEventListener('mousedown', handleMouseDown, { passive: false });
 	}
 
 	function clean() {
