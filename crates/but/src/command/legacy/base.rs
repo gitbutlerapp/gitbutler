@@ -130,7 +130,7 @@ pub async fn handle(
                     "⏫ Upstream commits:\t{} new commits on {}\n",
                     base_branch.behind, base_branch.branch_name
                 )?;
-                let commits = base_branch.recent_commits.iter().take(3);
+                let commits = base_branch.upstream_commits.iter().take(3);
                 for commit in commits {
                     writeln!(
                         out,
