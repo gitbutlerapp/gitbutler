@@ -159,6 +159,25 @@ pub enum Subcommands {
         target: String,
     },
 
+    /// Launch the experimental Lazy TUI interface.
+    ///
+    /// The Lazy TUI provides an interactive terminal interface for managing your
+    /// GitButler workspace, similar to lazygit but integrated with GitButler's
+    /// virtual branch workflow.
+    ///
+    /// ## Features
+    ///
+    /// - View and manage commits across branches
+    /// - Interactive commit operations (squash, reword, uncommit)
+    /// - File assignment and hunks management
+    /// - Oplog history navigation
+    /// - Upstream integration status
+    ///
+    /// This is an experimental feature and may have rough edges.
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    Lazy,
+
     /// Initializes a GitButler project from a git repository in the current directory.
     ///
     /// If you have an existing Git repository and want to start using GitButler

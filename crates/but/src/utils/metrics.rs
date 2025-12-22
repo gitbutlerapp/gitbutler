@@ -127,6 +127,8 @@ impl Subcommands {
                 forge::review::Subcommands::Template { .. } => ReviewTemplate,
             },
             #[cfg(feature = "legacy")]
+            Subcommands::Lazy => Lazy,
+            #[cfg(feature = "legacy")]
             Subcommands::Actions(_) | Subcommands::Mcp { .. } | Subcommands::Init { .. } => Unknown,
             Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
                 forge::integration::Subcommands::Auth => ForgeAuth,
