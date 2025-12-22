@@ -78,7 +78,6 @@ function setupDragHandlers(
 	let dragStartPosition: { x: number; y: number } | null = null;
 	let currentMousePosition: { x: number; y: number } | null = null;
 	let observerAnimationFrame: number | undefined;
-	const scrollIntervals = new Map<HTMLElement, ReturnType<typeof setInterval>>();
 	let currentHoveredDropzone: HTMLElement | null = null;
 	let cachedScrollContainers: HTMLElement[] = [];
 
@@ -113,12 +112,13 @@ function setupDragHandlers(
 			containers.push(document.documentElement);
 		}
 
+		// TODO: we need to track not only containers of the parent chain, but also siblings that
+		// might be scrollable and visible in the viewport.
+
 		return containers;
 	}
 
-	function handleAutoScroll(mouseX: number, mouseY: number) {
-		if (!currentMousePosition) return;
-
+	function performAutoScroll(mouseX: number, mouseY: number) {
 		// Use cached scroll containers (calculated once at drag start)
 		cachedScrollContainers.forEach((container) => {
 			const rect = container.getBoundingClientRect();
@@ -145,28 +145,15 @@ function setupDragHandlers(
 				scrollX = SCROLL_SPEED;
 			}
 
-			// Start or stop scroll interval for this container
+			// Perform scroll if needed
 			if (scrollX !== 0 || scrollY !== 0) {
-				if (!scrollIntervals.has(container)) {
-					const interval = setInterval(() => {
-						if (container === document.documentElement) {
-							window.scrollBy(scrollX, scrollY);
-						} else {
-							container.scrollBy(scrollX, scrollY);
-						}
-					}, 16); // ~60fps
-					scrollIntervals.set(container, interval);
+				if (container === document.documentElement) {
+					window.scrollBy(scrollX, scrollY);
+				} else {
+					container.scrollBy(scrollX, scrollY);
 				}
-			} else if (scrollIntervals.has(container)) {
-				clearInterval(scrollIntervals.get(container));
-				scrollIntervals.delete(container);
 			}
 		});
-	}
-
-	function stopAutoScroll() {
-		scrollIntervals.forEach((interval) => clearInterval(interval));
-		scrollIntervals.clear();
 	}
 
 	function handleMouseDown(e: MouseEvent) {
@@ -305,13 +292,10 @@ function setupDragHandlers(
 		e.preventDefault();
 		currentMousePosition = { x: e.clientX, y: e.clientY };
 
-		// Update clone position
+		// Update clone position with GPU-accelerated transform
 		if (clone) {
 			clone.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
 		}
-
-		// Handle auto-scrolling
-		handleAutoScroll(e.clientX, e.clientY);
 	}
 
 	function handleMouseUp(e: MouseEvent) {
@@ -322,27 +306,35 @@ function setupDragHandlers(
 	}
 
 	function startObserver() {
-		// Continuous position tracking synchronized with browser repaints
+		// Continuous position tracking and auto-scroll synchronized with browser repaints
 		function observe() {
 			if (!isDragging || !currentMousePosition || !opts) {
 				return;
 			}
 
 			const { x, y } = currentMousePosition;
-			const elementUnderCursor = document.elementFromPoint(x, y);
+
+			// Perform auto-scrolling (synced with RAF)
+			performAutoScroll(x, y);
 
 			let foundDropzone: HTMLElement | null = null;
+			const elementUnderCursor = document.elementFromPoint(x, y);
 
 			if (elementUnderCursor) {
-				// Check if we're over a dropzone
+				// Optimized dropzone detection: check registered elements first to avoid expensive rect calculations
 				for (const [dzElement, dropzone] of opts.dropzoneRegistry.entries()) {
 					const target = dropzone.getTarget();
-					const rect = target.getBoundingClientRect();
-					const isInside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 
-					if (isInside && (target.contains(elementUnderCursor) || target === elementUnderCursor)) {
-						foundDropzone = dzElement;
-						break;
+					// Quick check: is cursor element inside this dropzone's DOM tree?
+					if (target.contains(elementUnderCursor) || target === elementUnderCursor) {
+						// Only calculate rect if element check passed (avoids layout thrashing)
+						const rect = target.getBoundingClientRect();
+						const isInside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+
+						if (isInside) {
+							foundDropzone = dzElement;
+							break;
+						}
 					}
 				}
 			}
@@ -395,11 +387,8 @@ function setupDragHandlers(
 		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
 
-		// Stop observer
+		// Stop observer (also stops auto-scroll since it's in the same RAF loop)
 		stopObserver();
-
-		// Stop auto-scroll
-		stopAutoScroll();
 
 		// Deactivate dropzones
 		selectedElements.forEach((el) => el.classList.remove(DRAGGING_CLASS));
