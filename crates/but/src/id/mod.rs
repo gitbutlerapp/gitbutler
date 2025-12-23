@@ -59,7 +59,8 @@ pub struct IdMap {
     /// The ID representing the unassigned area, i.e. uncommitted files that aren't assigned to a stack.
     unassigned: CliId,
 
-    /// Uncommitted files.
+    /// Uncommitted files in a mapping from generated `ShortID`s to its file information.
+    /// It's public for convenience in `but rub` currently.
     pub uncommitted_files: BTreeMap<ShortId, UncommittedFile>,
     /// Uncommitted hunks.
     uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
@@ -521,6 +522,7 @@ impl CliId {
             | CliId::UncommittedHunk { id, .. }
             | CliId::Branch { id, .. }
             | CliId::Unassigned { id, .. } => id.clone(),
+            // TODO: make this so we can't display prefixes that are ambiguous.
             CliId::Commit(oid) => oid.to_hex_with_len(2).to_string(),
         }
     }
@@ -529,16 +531,21 @@ impl CliId {
 /// Internal representation of an uncommitted file.
 #[derive(Debug, Clone)]
 pub struct UncommittedFile {
-    /// Every element has the same [HunkAssignment::stack_id] and [HunkAssignment::path_bytes].
+    /// Every element has the same [HunkAssignment::stack_id] and [HunkAssignment::path_bytes],
+    /// so the first assignment can be used to obtain both.
     pub hunk_assignments: NonEmpty<HunkAssignment>,
 }
+
 impl UncommittedFile {
+    /// Return the file's stack if it is associated to one, or `None` if the Stack is unknown/has no ID.
     pub fn stack_id(&self) -> Option<StackId> {
         self.hunk_assignments.first().stack_id
     }
+    /// The path of the uncommitted file.
     pub fn path(&self) -> &BStr {
         self.hunk_assignments.first().path_bytes.as_ref()
     }
+    /// Turn this instance into a [CliId], using `id` for identification.
     pub fn to_cli_id(&self, id: ShortId) -> CliId {
         CliId::UncommittedFile {
             hunk_assignments: self.hunk_assignments.clone(),
