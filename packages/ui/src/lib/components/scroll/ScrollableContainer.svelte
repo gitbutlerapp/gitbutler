@@ -25,6 +25,7 @@
 		viewportHeight?: number;
 		childrenWrapHeight?: string;
 		childrenWrapDisplay?: 'block' | 'contents' | 'flex'; // 'contents' is used for virtual lists to avoid unnecessary height calculations
+		enableDragScroll?: boolean; // Enable auto-scroll when dragging elements
 	}
 </script>
 
@@ -52,7 +53,8 @@
 		viewport = $bindable(),
 		viewportHeight = $bindable(),
 		childrenWrapHeight,
-		childrenWrapDisplay = 'block'
+		childrenWrapDisplay = 'block',
+		enableDragScroll = false
 	}: ScrollableProps = $props();
 
 	let scrollTopVisible = $state<boolean>(true);
@@ -145,6 +147,7 @@
 		style:--overflow-x={horz ? 'auto' : 'hidden'}
 		style:--overflow-y={horz ? 'hidden' : 'auto'}
 		style:--flex-direction={horz ? 'row' : 'column'}
+		data-scrollable-for-dragging={enableDragScroll || undefined}
 	>
 		<div
 			style:min-height={childrenWrapHeight}

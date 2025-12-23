@@ -149,6 +149,7 @@
 <div
 	class="scrollbar-container hide-native-scrollbar"
 	role="presentation"
+	data-scrollable-for-dragging
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
 	bind:clientHeight={lanesScrollableHeight}

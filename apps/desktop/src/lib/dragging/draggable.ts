@@ -91,35 +91,59 @@ function setupDragHandlers(
 	const cachedScrollRects: Map<HTMLElement, DOMRect> = new Map();
 	let lastScrollRectUpdate = 0;
 
+	/**
+	 * Check if an element has scrollable overflow.
+	 */
+	function hasScrollableOverflow(style: CSSStyleDeclaration): boolean {
+		return (
+			style.overflowY === 'auto' ||
+			style.overflowY === 'scroll' ||
+			style.overflowX === 'auto' ||
+			style.overflowX === 'scroll'
+		);
+	}
+
+	/**
+	 * Check if an element is actually scrollable (has overflow and content exceeds bounds).
+	 */
+	function isScrollable(element: HTMLElement): boolean {
+		const style = window.getComputedStyle(element);
+		return (
+			hasScrollableOverflow(style) &&
+			(element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth)
+		);
+	}
+
 	function findScrollableContainers(element: HTMLElement): HTMLElement[] {
 		const containers: HTMLElement[] = [];
-		let current: HTMLElement | null = element;
+		const addedContainers = new Set<HTMLElement>();
 
-		while (current && current !== document.body) {
-			const style = window.getComputedStyle(current);
-			const overflowY = style.overflowY;
-			const overflowX = style.overflowX;
-
-			if (
-				(overflowY === 'auto' ||
-					overflowY === 'scroll' ||
-					overflowX === 'auto' ||
-					overflowX === 'scroll') &&
-				(current.scrollHeight > current.clientHeight || current.scrollWidth > current.clientWidth)
-			) {
-				containers.push(current);
+		// 1. Find all explicitly marked scrollable containers for dragging
+		const markedContainers = document.querySelectorAll('[data-scrollable-for-dragging]');
+		markedContainers.forEach((container) => {
+			if (container instanceof HTMLElement && isScrollable(container)) {
+				const rect = container.getBoundingClientRect();
+				if (isContainerVisibleInViewport(rect)) {
+					containers.push(container);
+					addedContainers.add(container);
+				}
 			}
+		});
 
+		// 2. Also include parent chain (for backwards compatibility and nested scrolling)
+		let current: HTMLElement | null = element;
+		while (current && current !== document.body) {
+			if (!addedContainers.has(current) && isScrollable(current)) {
+				containers.push(current);
+				addedContainers.add(current);
+			}
 			current = current.parentElement;
 		}
 
-		// Add window scrolling if page is scrollable
+		// 3. Add window scrolling if page is scrollable
 		if (document.documentElement.scrollHeight > window.innerHeight) {
 			containers.push(document.documentElement);
 		}
-
-		// TODO: we need to track not only containers of the parent chain, but also siblings that
-		// might be scrollable and visible in the viewport.
 
 		return containers;
 	}
@@ -157,6 +181,13 @@ function setupDragHandlers(
 		// Use cached scroll containers and rects (avoid repeated DOM queries)
 		// Only iterate visible containers filtered during rect update
 		cachedScrollRects.forEach((rect, container) => {
+			// Only scroll containers that the mouse is currently inside
+			// This prevents multiple nested containers from scrolling simultaneously
+			const isMouseInside =
+				mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom;
+
+			if (!isMouseInside) return;
+
 			let scrollX = 0;
 			let scrollY = 0;
 
