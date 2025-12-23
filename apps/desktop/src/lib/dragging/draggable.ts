@@ -474,7 +474,10 @@ function setupDragHandlers(
 
 	return {
 		update(newOpts: DraggableConfig) {
-			clean();
+			// Don't clean up if a drag is in progress - let it complete first
+			if (!isDragging) {
+				clean();
+			}
 			setup(newOpts);
 		},
 		destroy() {
