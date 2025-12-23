@@ -213,15 +213,14 @@ function setupDragHandlers(
 		dragStartPosition = { x: e.clientX, y: e.clientY };
 		currentMousePosition = { x: e.clientX, y: e.clientY };
 
-		// Add listeners for potential drag
-		window.addEventListener('mousemove', handleMouseMoveMaybeStart, { passive: false });
-		window.addEventListener('mouseup', handleMouseUpBeforeDrag, { passive: false });
+		// Add listeners for potential drag - using passive listeners
+		window.addEventListener('mousemove', handleMouseMoveMaybeStart);
+		window.addEventListener('mouseup', handleMouseUpBeforeDrag);
 	}
 
 	function handleMouseMoveMaybeStart(e: MouseEvent) {
 		if (!dragStartPosition || !dragHandle) return;
 
-		e.preventDefault();
 		currentMousePosition = { x: e.clientX, y: e.clientY };
 
 		// Check if moved enough to start drag
@@ -242,6 +241,7 @@ function setupDragHandlers(
 		// User released before moving enough - cancel
 		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
+
 		dragHandle = null;
 		dragStartPosition = null;
 		currentMousePosition = null;
@@ -317,8 +317,8 @@ function setupDragHandlers(
 			document.body.appendChild(clone);
 		}
 
-		// Add drag listeners
-		window.addEventListener('mousemove', handleMouseMove, { passive: false });
+		// Add drag listeners - mousemove is passive, mouseup needs passive:false for preventDefault
+		window.addEventListener('mousemove', handleMouseMove);
 		window.addEventListener('mouseup', handleMouseUp, { passive: false });
 
 		// Start position observer
@@ -328,7 +328,6 @@ function setupDragHandlers(
 	function handleMouseMove(e: MouseEvent) {
 		if (!isDragging) return;
 
-		e.preventDefault();
 		currentMousePosition = { x: e.clientX, y: e.clientY };
 
 		// Update clone position with GPU-accelerated transform
@@ -461,6 +460,7 @@ function setupDragHandlers(
 		if (newOpts.disabled) return;
 		opts = newOpts;
 
+		// Mousedown needs passive:false because we call preventDefault
 		node.addEventListener('mousedown', handleMouseDown, { passive: false });
 	}
 
