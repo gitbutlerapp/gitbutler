@@ -60,6 +60,7 @@
 
 		&.dimmed {
 			& .indicator {
+				background-color: var(--clr-text-2);
 				opacity: 0.4;
 			}
 		}
@@ -73,7 +74,6 @@
 		height: 3px;
 		transform: translate(-50%, -50%);
 		border-radius: var(--radius-m);
-		background-color: transparent;
 		background-color: var(--clr-theme-pop-element);
 
 		transition:

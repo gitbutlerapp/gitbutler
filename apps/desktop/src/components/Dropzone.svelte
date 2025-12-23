@@ -14,6 +14,7 @@
 		handlers: DropzoneHandler[];
 		hideWhenInactive?: boolean;
 		onActivated?: (activated: boolean) => void;
+		onHovered?: (hovered: boolean) => void;
 		overlay?: Snippet<[{ hovered: boolean; activated: boolean; handler?: DropzoneHandler }]>;
 		children?: Snippet;
 		overflow?: boolean;
@@ -25,6 +26,7 @@
 		maxHeight = false,
 		handlers,
 		onActivated,
+		onHovered,
 		overlay,
 		children,
 		hideWhenInactive,
@@ -38,11 +40,13 @@
 	function onHoverStart(args: HoverArgs) {
 		hovered = true;
 		hoveredHandler = args.handler;
+		onHovered?.(hovered);
 	}
 
 	function onHoverEnd() {
 		hovered = false;
 		hoveredHandler = undefined;
+		onHovered?.(hovered);
 	}
 
 	let activated = $state(false);

@@ -17,7 +17,13 @@ export class DropzoneRegistry {
 	delete(key: HTMLElement) {
 		this.map.delete(key);
 	}
+	has(key: HTMLElement) {
+		return this.map.has(key);
+	}
 	values() {
 		return this.map.values();
+	}
+	entries() {
+		return this.map.entries();
 	}
 }

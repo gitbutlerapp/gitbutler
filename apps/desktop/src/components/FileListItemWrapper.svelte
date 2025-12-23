@@ -170,7 +170,6 @@
 		label: getFilename(change.path),
 		filePath: change.path,
 		data: new FileChangeDropData(projectId, change, idSelection, selectionId, stackId || undefined),
-		viewportId: 'board-viewport',
 		disabled: draggableDisabled,
 		chipType: 'file',
 		dropzoneRegistry,

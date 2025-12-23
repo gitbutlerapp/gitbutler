@@ -159,7 +159,7 @@
 	.tooltip-container {
 		display: flex;
 		display: inline-block;
-		z-index: var(--z-blocker);
+		z-index: var(--z-tooltip);
 		position: fixed;
 		flex-direction: column;
 		justify-content: center;

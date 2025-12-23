@@ -345,7 +345,6 @@
 											branchName
 										)
 									: undefined,
-								viewportId: 'board-viewport',
 								dropzoneRegistry,
 								dragStateService
 							}}

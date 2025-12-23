@@ -23,9 +23,11 @@ export class Dropzone {
 	private target!: HTMLElement;
 	private data?: unknown;
 
-	private boundOnDrop: (e: DragEvent) => void;
-	private boundOnDragEnter: (e: DragEvent) => void;
-	private boundOnDragLeave: (e: DragEvent) => void;
+	private boundOnDrop: (e: DragEvent | MouseEvent) => void;
+	private boundOnDragEnter: (e: DragEvent | MouseEvent) => void;
+	private boundOnDragLeave: (e: DragEvent | MouseEvent) => void;
+	private boundOnMouseUp: (e: MouseEvent) => void;
+	private boundOnDragOver: (e: DragEvent) => void;
 
 	constructor(
 		private configuration: DropzoneConfiguration,
@@ -34,6 +36,8 @@ export class Dropzone {
 		this.boundOnDrop = this.onDrop.bind(this);
 		this.boundOnDragEnter = this.onDragEnter.bind(this);
 		this.boundOnDragLeave = this.onDragLeave.bind(this);
+		this.boundOnMouseUp = this.onMouseUp.bind(this);
+		this.boundOnDragOver = this.onDragOver.bind(this);
 
 		this.setTarget();
 	}
@@ -46,10 +50,9 @@ export class Dropzone {
 		this.registered = true;
 		this.registerListeners();
 
-		setTimeout(() => {
-			this.configuration.onActivationStart();
-			this.activated = true;
-		}, 10);
+		// Activate immediately for pointer-based drags (no need for setTimeout with new system)
+		this.configuration.onActivationStart();
+		this.activated = true;
 	}
 
 	reactivate(newConfig: DropzoneConfiguration) {
@@ -79,17 +82,40 @@ export class Dropzone {
 		this.hovered = false;
 	}
 
+	triggerEnter() {
+		if (!this.activated) return;
+		if (this.hovered) return; // Already hovering
+		this.hovered = true;
+		this.configuration.onHoverStart({ handler: this.acceptedHandler });
+	}
+
+	triggerLeave() {
+		if (!this.activated) return;
+		if (!this.hovered) return; // Not hovering
+		this.hovered = false;
+		this.configuration.onHoverEnd();
+	}
+
+	getTarget() {
+		return this.target;
+	}
+
 	private registerListeners() {
-		this.target.addEventListener('drop', this.boundOnDrop);
-		this.target.addEventListener('dragenter', this.boundOnDragEnter);
-		this.target.addEventListener('dragleave', this.boundOnDragLeave);
+		// Support both native drag events and pointer-based events
+		this.target.addEventListener('drop', this.boundOnDrop as EventListener);
+		this.target.addEventListener('dragenter', this.boundOnDragEnter as EventListener);
+		this.target.addEventListener('dragleave', this.boundOnDragLeave as EventListener);
+		this.target.addEventListener('dragover', this.boundOnDragOver as EventListener);
+		this.target.addEventListener('mouseup', this.boundOnMouseUp as EventListener);
 		this.registered = true;
 	}
 
 	private unregisterListeners() {
-		this.target.removeEventListener('drop', this.boundOnDrop);
-		this.target.removeEventListener('dragenter', this.boundOnDragEnter);
-		this.target.removeEventListener('dragleave', this.boundOnDragLeave);
+		this.target.removeEventListener('drop', this.boundOnDrop as EventListener);
+		this.target.removeEventListener('dragenter', this.boundOnDragEnter as EventListener);
+		this.target.removeEventListener('dragleave', this.boundOnDragLeave as EventListener);
+		this.target.removeEventListener('dragover', this.boundOnDragOver as EventListener);
+		this.target.removeEventListener('mouseup', this.boundOnMouseUp as EventListener);
 		this.registered = false;
 	}
 
@@ -103,23 +129,50 @@ export class Dropzone {
 		}
 	}
 
-	private async onDrop(e: DragEvent) {
+	private async onDrop(e: DragEvent | MouseEvent) {
 		e.preventDefault();
 		e.stopPropagation();
 		if (!this.activated) return;
 		this.acceptedHandler?.ondrop(this.data);
 	}
 
-	private onDragEnter(e: DragEvent) {
+	private onMouseUp(e: MouseEvent) {
+		// Handle drop via pointer events (mouseup)
+		if (!this.activated || !this.hovered) return;
+
+		e.preventDefault();
+		// Don't call stopPropagation() here - the draggable needs the mouseup event
+		// to reach the window listener so it can clean up the drag clone
+
+		this.acceptedHandler?.ondrop(this.data);
+	}
+
+	private onDragOver(e: DragEvent) {
+		// Required for native drag-and-drop to work
+		if (!this.activated) return;
+		e.preventDefault();
+	}
+
+	private onDragEnter(e: DragEvent | MouseEvent) {
 		e.preventDefault();
 		if (!this.activated) return;
+
+		// Prevent duplicate hover state
+		if (this.hovered) return;
+
 		this.hovered = true;
 		this.configuration.onHoverStart({ handler: this.acceptedHandler });
 	}
 
-	private onDragLeave(e: DragEvent) {
+	private onDragLeave(e: DragEvent | MouseEvent) {
 		e.preventDefault();
 		if (!this.activated) return;
+
+		// For drag and mouse events, check if we're really leaving (not just entering a child)
+		const relatedTarget = e.relatedTarget as Node | null;
+		if (relatedTarget && this.target.contains(relatedTarget)) {
+			return;
+		}
 
 		this.hovered = false;
 		this.configuration.onHoverEnd();

@@ -79,7 +79,6 @@
 		label: node.name,
 		filePath: folderPath,
 		data: new FolderChangeDropData(folderPath, getTreeChanges, selectionId, stackId),
-		viewportId: 'board-viewport',
 		disabled: draggableDisabled,
 		chipType: 'folder',
 		dropzoneRegistry,

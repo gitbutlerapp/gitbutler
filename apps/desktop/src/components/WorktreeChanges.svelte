@@ -26,8 +26,8 @@
 		stackId?: string;
 		title: string;
 		mode?: 'unassigned' | 'assigned';
-		dropzoneVisible?: boolean;
 		onDropzoneActivated?: (activated: boolean) => void;
+		onDropzoneHovered?: (hovered: boolean) => void;
 		emptyPlaceholder?: Snippet;
 		foldButton?: Snippet;
 		onselect?: () => void;
@@ -39,8 +39,8 @@
 		stackId,
 		title,
 		mode = 'unassigned',
-		dropzoneVisible,
 		onDropzoneActivated,
+		onDropzoneHovered,
 		emptyPlaceholder,
 		foldButton,
 		onselect,
@@ -82,11 +82,11 @@
 
 	function getDropzoneLabel(handler: DropzoneHandler | undefined): string {
 		if (handler instanceof UncommitDzHandler) {
-			return 'Uncommit changes';
+			return 'Uncommit';
 		} else if (mode === 'assigned') {
-			return 'Assign changes';
+			return 'Assign';
 		} else {
-			return 'Unassign changes';
+			return 'Unassign';
 		}
 	}
 </script>
@@ -111,14 +111,10 @@
 	handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
 	maxHeight
 	onActivated={onDropzoneActivated}
+	onHovered={onDropzoneHovered}
 >
 	{#snippet overlay({ hovered, activated, handler })}
-		<CardOverlay
-			visible={dropzoneVisible}
-			{hovered}
-			{activated}
-			label={getDropzoneLabel(handler)}
-		/>
+		<CardOverlay {hovered} {activated} label={getDropzoneLabel(handler)} />
 	{/snippet}
 
 	<div class="uncommitted-changes-wrap">

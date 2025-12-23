@@ -101,7 +101,7 @@
 
 	.indicator-portal {
 		display: flex;
-		z-index: var(--z-blocker);
+		z-index: var(--z-modal);
 		position: absolute;
 		align-items: center;
 		pointer-events: none;
