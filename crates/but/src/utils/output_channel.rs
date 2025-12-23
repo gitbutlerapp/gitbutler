@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use minus::ExitStrategy;
 
 use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
@@ -12,6 +10,12 @@ pub struct OutputChannel {
     inner: std::io::Stdout,
     /// Possibly a pager we are using. If `Some`, our `inner` is the pager itself which we interact with from here.
     pager: Option<minus::Pager>,
+}
+
+/// A channel to obtain various kinds of user input from a terminal, bypassing the pager.
+pub struct InputOutputChannel<'out> {
+    out: &'out mut OutputChannel,
+    stdin: std::io::Stdin,
 }
 
 /// Conversions
@@ -28,6 +32,23 @@ impl OutputChannel {
     pub fn for_json(&mut self) -> Option<&mut Self> {
         matches!(self.format, OutputFormat::Json).then_some(self)
     }
+
+    /// Before performing further output, obtain an input channel which always bypasses the pager when writing,
+    /// while allowing prompting the user for input.
+    pub fn prepare_for_terminal_input(&mut self) -> Option<InputOutputChannel<'_>> {
+        use std::io::IsTerminal;
+        let stdin = std::io::stdin();
+        if !stdin.is_terminal() || !self.inner.is_terminal() {
+            return None;
+        }
+        if self.for_human().is_none() {
+            tracing::warn!(
+                "Stdin is a terminal, and output wasn't configured for human consumption"
+            );
+            return None;
+        }
+        Some(InputOutputChannel { out: self, stdin })
+    }
 }
 
 /// JSON utilities
@@ -42,6 +63,7 @@ impl OutputChannel {
 
 impl std::fmt::Write for OutputChannel {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        use std::io::Write;
         match self.format {
             OutputFormat::Human | OutputFormat::Shell => {
                 if let Some(out) = self.pager.as_mut() {
@@ -65,6 +87,34 @@ impl std::fmt::Write for OutputChannel {
                 Ok(())
             }
         }
+    }
+}
+
+impl std::fmt::Write for InputOutputChannel<'_> {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        use std::io::Write;
+        self.out
+            .inner
+            .write_all(s.as_bytes())
+            .map_err(|_| std::fmt::Error)
+    }
+}
+
+impl InputOutputChannel<'_> {
+    /// Prompt a non-empty string from the user, or `None` if the input was empty.
+    pub fn prompt(&mut self, prompt: &str) -> anyhow::Result<Option<String>> {
+        use std::fmt::Write;
+        writeln!(self, "{}", prompt)?;
+        write!(self, "> ")?;
+        std::io::Write::flush(&mut self.out.inner)?;
+
+        let mut input = String::new();
+        self.stdin.read_line(&mut input)?;
+        let input = input.trim().to_owned();
+        if input.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(input))
     }
 }
 
