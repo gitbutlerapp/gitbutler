@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use anyhow::Context as _;
 use bstr::ByteSlice;
 use but_core::ref_metadata::StackId;
@@ -11,6 +9,7 @@ use cli_prompts::DisplayPrompt;
 use colored::{ColoredString, Colorize};
 use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use tracing::instrument;
 
 use crate::{CliId, IdMap, tui::get_text, utils::OutputChannel};
@@ -132,7 +131,7 @@ pub async fn handle_multiple_branches_in_workspace(
     let selected_branches = if let Some(branches) = selected_branches {
         branches
     } else {
-        prompt_for_branch_selection(project, review_map, applied_stacks)?
+        prompt_for_branch_selection(project, review_map, applied_stacks, out)?
     };
 
     if selected_branches.is_empty() {
@@ -187,6 +186,7 @@ fn prompt_for_branch_selection(
     project: &Project,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
+    out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<String>> {
     let (base_branch, repo) = get_base_branch_and_repo(project)?;
     let base_branch_id = base_branch.current_sha.to_gix();
@@ -214,41 +214,39 @@ fn prompt_for_branch_selection(
     }
 
     if all_branches.is_empty() {
-        println!("No branches available to publish.");
+        if let Some(out) = out.for_human() {
+            writeln!(out, "No branches available to publish.")?;
+        }
         return Ok(vec![]);
     }
 
+    use std::fmt::Write;
+    let mut inout = out
+        .prepare_for_terminal_input()
+        .context("Terminal input not available. Please specify branches to publish using command line arguments.")?;
+
     // Display branches with numbers
-    println!("\nAvailable branches to publish:\n");
+    writeln!(inout, "\nAvailable branches to publish:\n")?;
     for (idx, (name, commit_count, reviews)) in all_branches.iter().enumerate() {
         let review_str = if !reviews.is_empty() {
             format!(" ({})", reviews.join(", "))
         } else {
             String::new()
         };
-        println!(
+        writeln!(
+            inout,
             "  {}. {} - {} commit{}{}",
             idx + 1,
             name.bold(),
             commit_count,
             if *commit_count == 1 { "" } else { "s" },
             review_str.blue()
-        );
+        )?;
     }
 
-    // Prompt for selection
-    println!("\nEnter branch numbers to publish (comma-separated, or 'all' for all branches):");
-    print!("> ");
-    std::io::Write::flush(&mut std::io::stdout())?;
-
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-    let input = input.trim();
-
-    if input.is_empty() {
-        println!("No branches selected. Aborting.");
-        return Ok(vec![]);
-    }
+    let input = inout
+        .prompt("\nEnter branch numbers to publish (comma-separated, or 'all' for all branches):")?
+        .context("No branches selected. Aborting.")?;
 
     // Parse selection
     let selected_branches: Vec<String> = if input.eq_ignore_ascii_case("all") {
