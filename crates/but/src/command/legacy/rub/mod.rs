@@ -309,6 +309,7 @@ fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Resul
         end_str
     ))
 }
+
 fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::Result<Vec<CliId>> {
     // First, files assigned to branches (they appear first in status display),
     // then unassigned files (they appear last in status display)
