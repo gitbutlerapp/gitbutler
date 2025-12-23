@@ -80,7 +80,7 @@
 
 	const stableStackId = $derived(stackId);
 	const stableProjectId = $derived(projectId);
-	let lanesSrollableEl = $state<HTMLDivElement>();
+	let lanesScrollableEl = $state<HTMLDivElement>();
 
 	let dropzoneActivated = $state(false);
 	let dropzoneHovered = $state(false);
@@ -541,7 +541,7 @@
 		},
 		options: {
 			threshold: 0.5,
-			root: lanesSrollableEl
+			root: lanesScrollableEl
 		}
 	}}
 	use:focusable={{
