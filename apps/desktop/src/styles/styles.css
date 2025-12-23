@@ -1,9 +1,9 @@
 @import '@gitbutler/ui/main.css';
 
 :root {
-	--dropzone-fill: oklch(from var(--clr-theme-pop-element) l c h / 0.1);
+	--dropzone-fill: oklch(from var(--clr-core-pop-50) l c h / 0.1);
 	--dropzone-stroke: oklch(from var(--clr-theme-pop-element) l c h / 0.8);
-	--dropzone-fill-hover: oklch(from var(--clr-theme-pop-element) l c h / 0.16);
+	--dropzone-fill-hover: oklch(from var(--clr-core-pop-50) l c h / 0.25);
 	--dropzone-stroke-hover: oklch(from var(--clr-theme-pop-element) l c h / 1);
 }
 
