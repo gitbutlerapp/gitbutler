@@ -331,7 +331,9 @@ fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::
             ))
         })
         .collect();
-    positioned_files.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(b.1)));
+    positioned_files.sort_by(|(a_pos, a_path, _), (b_pos, b_path, _)| {
+        a_pos.cmp(b_pos).then_with(|| a_path.cmp(b_path))
+    });
 
     Ok(positioned_files
         .into_iter()

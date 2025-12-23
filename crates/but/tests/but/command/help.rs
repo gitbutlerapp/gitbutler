@@ -6,7 +6,7 @@ use crate::utils::Sandbox;
 #[test]
 fn looks_good_and_can_be_invoked_in_various_ways_non_legacy() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
-    env.but(None).assert().success().stdout_eq(snapbox::file![
+    env.but("").assert().success().stdout_eq(snapbox::file![
         "snapshots/help/no-arg-no-legacy.stdout.term.svg"
     ]);
     Ok(())
