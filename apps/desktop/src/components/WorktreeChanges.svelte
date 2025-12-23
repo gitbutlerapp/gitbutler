@@ -151,6 +151,7 @@
 				onscrollTop={(visible) => {
 					scrollTopIsVisible = visible;
 				}}
+				enableDragScroll={mode === 'assigned'}
 			>
 				{@render fileList()}
 			</ScrollableContainer>

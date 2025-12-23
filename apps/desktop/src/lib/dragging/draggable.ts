@@ -91,35 +91,61 @@ function setupDragHandlers(
 	const cachedScrollRects: Map<HTMLElement, DOMRect> = new Map();
 	let lastScrollRectUpdate = 0;
 
+	/**
+	 * Check if an element has scrollable overflow.
+	 */
+	function hasScrollableOverflow(style: CSSStyleDeclaration): boolean {
+		return (
+			style.overflowY === 'auto' ||
+			style.overflowY === 'scroll' ||
+			style.overflowX === 'auto' ||
+			style.overflowX === 'scroll'
+		);
+	}
+
+	/**
+	 * Check if an element is actually scrollable (has overflow and content exceeds bounds).
+	 */
+	function isScrollable(element: HTMLElement): boolean {
+		const style = window.getComputedStyle(element);
+		return (
+			hasScrollableOverflow(style) &&
+			(element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth)
+		);
+	}
+
 	function findScrollableContainers(element: HTMLElement): HTMLElement[] {
 		const containers: HTMLElement[] = [];
-		let current: HTMLElement | null = element;
+		const addedContainers = new Set<HTMLElement>();
 
-		while (current && current !== document.body) {
-			const style = window.getComputedStyle(current);
-			const overflowY = style.overflowY;
-			const overflowX = style.overflowX;
+		// 1. Find all explicitly marked scrollable containers for dragging
+		const markedContainers = document.querySelectorAll('[data-scrollable-for-dragging]');
+		for (const container of markedContainers) {
+			if (!(container instanceof HTMLElement)) continue;
 
-			if (
-				(overflowY === 'auto' ||
-					overflowY === 'scroll' ||
-					overflowX === 'auto' ||
-					overflowX === 'scroll') &&
-				(current.scrollHeight > current.clientHeight || current.scrollWidth > current.clientWidth)
-			) {
-				containers.push(current);
+			if (isScrollable(container)) {
+				const rect = container.getBoundingClientRect();
+				if (isContainerVisibleInViewport(rect)) {
+					containers.push(container);
+					addedContainers.add(container);
+				}
 			}
+		}
 
+		// 2. Also include parent chain (for backwards compatibility and nested scrolling)
+		let current: HTMLElement | null = element;
+		while (current && current !== document.body) {
+			if (!addedContainers.has(current) && isScrollable(current)) {
+				containers.push(current);
+				addedContainers.add(current);
+			}
 			current = current.parentElement;
 		}
 
-		// Add window scrolling if page is scrollable
+		// 3. Add window scrolling if page is scrollable
 		if (document.documentElement.scrollHeight > window.innerHeight) {
 			containers.push(document.documentElement);
 		}
-
-		// TODO: we need to track not only containers of the parent chain, but also siblings that
-		// might be scrollable and visible in the viewport.
 
 		return containers;
 	}
@@ -154,41 +180,58 @@ function setupDragHandlers(
 			lastScrollRectUpdate = now;
 		}
 
-		// Use cached scroll containers and rects (avoid repeated DOM queries)
-		// Only iterate visible containers filtered during rect update
-		cachedScrollRects.forEach((rect, container) => {
-			let scrollX = 0;
-			let scrollY = 0;
+		// Find the innermost (most specific) scrollable container under the cursor
+		// This ensures only one container scrolls, preventing nested containers from scrolling together
+		const elementUnderCursor = document.elementFromPoint(mouseX, mouseY);
+		let targetContainer: HTMLElement | null = null;
+		let targetRect: DOMRect | null = null;
 
-			// Check vertical scrolling
-			if (mouseY < rect.top + SCROLL_EDGE_SIZE && container.scrollTop > 0) {
-				scrollY = -SCROLL_SPEED;
-			} else if (
-				mouseY > rect.bottom - SCROLL_EDGE_SIZE &&
-				container.scrollTop < container.scrollHeight - container.clientHeight
-			) {
-				scrollY = SCROLL_SPEED;
-			}
-
-			// Check horizontal scrolling
-			if (mouseX < rect.left + SCROLL_EDGE_SIZE && container.scrollLeft > 0) {
-				scrollX = -SCROLL_SPEED;
-			} else if (
-				mouseX > rect.right - SCROLL_EDGE_SIZE &&
-				container.scrollLeft < container.scrollWidth - container.clientWidth
-			) {
-				scrollX = SCROLL_SPEED;
-			}
-
-			// Perform scroll if needed
-			if (scrollX !== 0 || scrollY !== 0) {
-				if (container === document.documentElement) {
-					window.scrollBy(scrollX, scrollY);
-				} else {
-					container.scrollBy(scrollX, scrollY);
+		if (elementUnderCursor) {
+			let node: HTMLElement | null = elementUnderCursor as HTMLElement;
+			while (node) {
+				if (cachedScrollRects.has(node)) {
+					targetContainer = node;
+					targetRect = cachedScrollRects.get(node)!;
+					break;
 				}
+				node = node.parentElement;
 			}
-		});
+		}
+
+		// If no scrollable container found under cursor, nothing to scroll
+		if (!targetContainer || !targetRect) return;
+
+		let scrollX = 0;
+		let scrollY = 0;
+
+		// Check vertical scrolling
+		if (mouseY < targetRect.top + SCROLL_EDGE_SIZE && targetContainer.scrollTop > 0) {
+			scrollY = -SCROLL_SPEED;
+		} else if (
+			mouseY > targetRect.bottom - SCROLL_EDGE_SIZE &&
+			targetContainer.scrollTop < targetContainer.scrollHeight - targetContainer.clientHeight
+		) {
+			scrollY = SCROLL_SPEED;
+		}
+
+		// Check horizontal scrolling
+		if (mouseX < targetRect.left + SCROLL_EDGE_SIZE && targetContainer.scrollLeft > 0) {
+			scrollX = -SCROLL_SPEED;
+		} else if (
+			mouseX > targetRect.right - SCROLL_EDGE_SIZE &&
+			targetContainer.scrollLeft < targetContainer.scrollWidth - targetContainer.clientWidth
+		) {
+			scrollX = SCROLL_SPEED;
+		}
+
+		// Perform scroll if needed
+		if (scrollX !== 0 || scrollY !== 0) {
+			if (targetContainer === document.documentElement) {
+				window.scrollBy(scrollX, scrollY);
+			} else {
+				targetContainer.scrollBy(scrollX, scrollY);
+			}
+		}
 	}
 
 	function handleMouseDown(e: MouseEvent) {

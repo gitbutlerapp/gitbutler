@@ -565,7 +565,7 @@
 			</div>
 		{/snippet}
 		{#snippet children([branches, hasRulesToClear])}
-			<ConfigurableScrollableContainer childrenWrapHeight="100%">
+			<ConfigurableScrollableContainer childrenWrapHeight="100%" enableDragScroll>
 				<div
 					class="stack-view"
 					class:details-open={isDetailsViewOpen}
@@ -778,6 +778,7 @@
 														<ConfigurableScrollableContainer
 															zIndex="var(--z-lifted)"
 															bind:viewport={selectionPreviewScrollContainer}
+															enableDragScroll
 														>
 															{@render assignedChangePreview(assignedStackId)}
 														</ConfigurableScrollableContainer>
@@ -838,6 +839,7 @@
 													<ConfigurableScrollableContainer
 														zIndex="var(--z-lifted)"
 														bind:viewport={selectionPreviewScrollContainer}
+														enableDragScroll
 													>
 														{@render assignedChangePreview(assignedStackId)}
 													</ConfigurableScrollableContainer>
