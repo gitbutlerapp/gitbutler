@@ -167,10 +167,10 @@ export class Dropzone {
 		e.preventDefault();
 		if (!this.activated) return;
 
-		// For native drag events, check if we're really leaving (not just entering a child)
+		// For native drag or mouse events, check if we're really leaving (not just entering a child)
 		if ('relatedTarget' in e) {
-			const relatedTarget = (e as DragEvent).relatedTarget as HTMLElement | null;
-			if (relatedTarget && this.target.contains(relatedTarget)) {
+			const relatedTarget = (e as { relatedTarget: EventTarget | null }).relatedTarget;
+			if (relatedTarget instanceof HTMLElement && this.target.contains(relatedTarget)) {
 				return;
 			}
 		}
