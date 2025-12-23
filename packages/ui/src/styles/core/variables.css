@@ -10,7 +10,7 @@
 	--z-floating: 3;
 	--z-modal: 4;
 	--z-tooltip: 5;
-	--z-blocker: calc(infinity);
+	--z-blocker: 9999;
 
 	/* TODO: add focus color */
 	--focus-color: var(--clr-theme-pop-element);
