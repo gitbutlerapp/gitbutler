@@ -141,7 +141,8 @@ export class Dropzone {
 		if (!this.activated || !this.hovered) return;
 
 		e.preventDefault();
-		e.stopPropagation();
+		// Don't call stopPropagation() here - the draggable needs the mouseup event
+		// to reach the window listener so it can clean up the drag clone
 
 		this.acceptedHandler?.ondrop(this.data);
 	}
