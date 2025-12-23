@@ -28,8 +28,8 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
     // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
 
-    commit_two_files_as_two_hunks_each(&env, "a.txt", "b.txt", "first commit");
-    commit_two_files_as_two_hunks_each(&env, "a.txt", "b.txt", "second commit");
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
 
     env.but("--json status -f")
         .env_remove("BUT_OUTPUT_FORMAT")
@@ -53,29 +53,14 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "j0",
-                  "filePath": "a.txt",
-                  "changeType": "modified"
-                },
-                {
-                  "cliId": "k0",
-                  "filePath": "b.txt",
-                  "changeType": "modified"
-                }
-              ]
-            },
-            {
-...
-              "changes": [
-                {
-                  "cliId": "l0",
-                  "filePath": "a.txt",
-                  "changeType": "added"
-                },
-                {
                   "cliId": "m0",
+                  "filePath": "a.txt",
+                  "changeType": "modified"
+                },
+                {
+                  "cliId": "n0",
                   "filePath": "b.txt",
-                  "changeType": "added"
+                  "changeType": "modified"
                 }
               ]
             },
@@ -84,6 +69,21 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
               "changes": [
                 {
                   "cliId": "i0",
+                  "filePath": "a.txt",
+                  "changeType": "added"
+                },
+                {
+                  "cliId": "j0",
+                  "filePath": "b.txt",
+                  "changeType": "added"
+                }
+              ]
+            },
+            {
+...
+              "changes": [
+                {
+                  "cliId": "k0",
                   "filePath": "A",
                   "changeType": "added"
                 }
@@ -103,7 +103,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "n0",
+                  "cliId": "l0",
                   "filePath": "B",
                   "changeType": "added"
                 }
@@ -132,8 +132,8 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
   "unassignedChanges": [
     {
       "cliId": "i0",
-      "filePath": "a.txt",
-      "changeType": "modified"
+      "filePath": "b.txt",
+      "changeType": "added"
     }
   ],
   "stacks": [
@@ -150,7 +150,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
               "changes": [
                 {
                   "cliId": "j0",
-                  "filePath": "b.txt",
+                  "filePath": "a.txt",
                   "changeType": "modified"
                 }
               ]
@@ -159,13 +159,8 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "l0",
+                  "cliId": "k0",
                   "filePath": "a.txt",
-                  "changeType": "added"
-                },
-                {
-                  "cliId": "m0",
-                  "filePath": "b.txt",
                   "changeType": "added"
                 }
               ]
@@ -174,7 +169,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "k0",
+                  "cliId": "l0",
                   "filePath": "A",
                   "changeType": "added"
                 }
@@ -192,7 +187,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "n0",
+                  "cliId": "m0",
                   "filePath": "B",
                   "changeType": "added"
                 }
@@ -212,7 +207,7 @@ fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
     // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
 
-    commit_file_a_with_worktree_changes_as_two_hunks(&env, "a.txt");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Assign the change to A and verify that the assignment happened.
     env.but("i0 A").assert().success();
@@ -292,7 +287,7 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
     // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
 
-    commit_file_a_with_worktree_changes_as_two_hunks(&env, "a.txt");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // TODO When we have a way to list the hunks and their respective IDs (e.g.
     //      via a "diff" or "show" command), assert that m0 is the hunk we want.
@@ -344,10 +339,12 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
 mod util {
     use crate::utils::Sandbox;
 
-    /// Create two files, each having two lines that are far apart to ensure
-    /// that they become 2 hunks.
+    /// Create two files `filename1` and `filename2` and commit them to `branch`,
+    /// each having two lines, `first_line`, then filler, and a last line that are far enough apart to
+    /// ensure that they become 2 hunks when changed.
     pub fn commit_two_files_as_two_hunks_each(
         env: &Sandbox,
+        branch: &str,
         filename1: &str,
         filename2: &str,
         first_line: &str,
@@ -355,31 +352,33 @@ mod util {
         let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
         env.file(
             filename1,
-            format!(
-                "{}\n{}last\n",
-                first_line,
-                "line\n".repeat(context_distance)
-            ),
+            format!("{first_line}\n{}last\n", "line\n".repeat(context_distance)),
         );
         env.file(
             filename2,
-            format!(
-                "{}\n{}last\n",
-                first_line,
-                "line\n".repeat(context_distance)
-            ),
+            format!("{first_line}\n{}last\n", "line\n".repeat(context_distance)),
         );
-        env.but("commit A -m create-a").assert().success();
+        env.but(format!(
+            "commit {branch} -m 'create {filename1} and {filename2}'"
+        ))
+        .assert()
+        .success();
     }
 
-    /// Create, then edit two lines that are far apart to ensure that they become 2 hunks.
-    pub fn commit_file_a_with_worktree_changes_as_two_hunks(env: &Sandbox, filename: &str) {
+    /// Create a file with `filename`, commit it to `branch`, then edit it once more to have two uncommitted hunks.
+    pub fn commit_file_with_worktree_changes_as_two_hunks(
+        env: &Sandbox,
+        branch: &str,
+        filename: &str,
+    ) {
         let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
         env.file(
             filename,
             format!("first\n{}last\n", "line\n".repeat(context_distance)),
         );
-        env.but("commit A -m create-a").assert().success();
+        env.but(format!("commit {branch} -m {filename}"))
+            .assert()
+            .success();
         env.file(
             filename,
             format!("firsta\n{}lasta\n", "line\n".repeat(context_distance)),
@@ -387,5 +386,5 @@ mod util {
     }
 }
 use crate::command::rub::util::{
-    commit_file_a_with_worktree_changes_as_two_hunks, commit_two_files_as_two_hunks_each,
+    commit_file_with_worktree_changes_as_two_hunks, commit_two_files_as_two_hunks_each,
 };

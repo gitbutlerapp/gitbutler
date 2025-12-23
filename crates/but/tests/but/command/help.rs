@@ -16,7 +16,7 @@ fn looks_good_and_can_be_invoked_in_various_ways_non_legacy() -> anyhow::Result<
 #[test]
 fn looks_good_and_can_be_invoked_in_various_ways() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
-    env.but(None)
+    env.but("")
         .assert()
         .success()
         .stdout_eq(snapbox::file!["snapshots/help/no-arg.stdout.term.svg"]);
