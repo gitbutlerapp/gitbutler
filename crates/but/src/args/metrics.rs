@@ -39,6 +39,7 @@ pub enum CommandName {
     PublishReview,
     ReviewTemplate,
     Completions,
+    Lazy,
     #[default]
     Unknown,
 }

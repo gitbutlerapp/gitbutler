@@ -218,6 +218,8 @@ fn prompt_for_branch_selection(
         return Ok(vec![]);
     }
 
+    // another comment
+
     // Display branches with numbers
     println!("\nAvailable branches to publish:\n");
     for (idx, (name, commit_count, reviews)) in all_branches.iter().enumerate() {

@@ -29,7 +29,8 @@ use cfg_if::cfg_if;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, base, branch, claude, cursor, forge, metrics,
+    Args, OutputFormat, Subcommands, actions, base, branch, claude, cursor, forge,
+    metrics::CommandName,
     worktree,
 };
 use but_settings::AppSettings;
@@ -46,6 +47,8 @@ pub use id::{CliId, IdMap};
 /// A place for all command implementations.
 pub(crate) mod command;
 mod tui;
+#[cfg(feature = "legacy")]
+mod lazy;
 
 const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
 
@@ -119,7 +122,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                     .context("Rubbed the wrong way.")
                     .emit_metrics(OneshotMetricsContext::new_if_enabled(
                         &app_settings,
-                        metrics::CommandName::Rub,
+                        CommandName::Rub,
                     ))
                     .show_root_cause_error_then_exit_without_destructors(out)
             }
@@ -434,6 +437,11 @@ async fn match_subcommand(
         Subcommands::Init { repo } => command::legacy::init::repo(&args.current_dir, out, repo)
             .context("Failed to initialize GitButler project.")
             .emit_metrics(metrics_ctx),
+        #[cfg(feature = "legacy")]
+        Subcommands::Lazy => {
+            let project = legacy::get_or_init_non_bare_project(&args)?;
+            lazy::run(&project).emit_metrics(metrics_ctx)
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
             forge::review::Subcommands::Publish {
