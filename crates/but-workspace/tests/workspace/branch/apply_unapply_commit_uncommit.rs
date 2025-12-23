@@ -137,10 +137,9 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     // note how the remote isn't interesting as we have no target configured, nor an extra target.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-    ⌂:0:main[🌳] <> ✓!
+    ⌂:0:main[🌳] <> ✓! on 3183e43
     └── ≡:0:main[🌳]
         └── :0:main[🌳]
-            └── ·3183e43
     ");
 
     // We cannot apply remote tracking branches directly, but it resolves automatically to local tracking branches.
@@ -738,10 +737,9 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
 
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-    ⌂:0:main[🌳] <> ✓!
+    ⌂:0:main[🌳] <> ✓! on 3183e43
     └── ≡:0:main[🌳]
         └── :0:main[🌳]
-            └── ·3183e43
     ");
 
     assert_eq!(
@@ -895,12 +893,10 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-    ⌂:0:DETACHED <> ✓!
-    └── ≡:0:anon:
-        ├── :0:anon:
-        │   └── ·aaa195b ►C
-        └── :1:main
-            └── ·3183e43 (✓)
+    ⌂:0:DETACHED <> ✓! on 3183e43
+    └── ≡:0:anon: on 3183e43
+        └── :0:anon:
+            └── ·aaa195b ►C
     ");
 
     let out =
@@ -1032,10 +1028,9 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
 
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-    ⌂:0:main[🌳] <> ✓!
+    ⌂:0:main[🌳] <> ✓! on 85efbe4
     └── ≡:0:main[🌳]
         └── :0:main[🌳]
-            └── ·85efbe4
     ");
 
     // Apply the dependent branch, to bring in only the dependent branch
@@ -1138,10 +1133,9 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
 
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-    ⌂:0:main[🌳] <> ✓!
+    ⌂:0:main[🌳] <> ✓! on 85efbe4
     └── ≡:0:main[🌳]
         └── :0:main[🌳]
-            └── ·85efbe4
     ");
 
     // Apply `A` first.

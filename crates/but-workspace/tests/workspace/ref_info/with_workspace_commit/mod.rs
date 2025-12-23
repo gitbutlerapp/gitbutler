@@ -2853,9 +2853,7 @@ fn disjoint() -> anyhow::Result<()> {
                         id: NodeIndex(0),
                         ref_name: "►disjoint[🌳]",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(32791d2, "disjoint init\n", local),
-                        ],
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2870,7 +2868,9 @@ fn disjoint() -> anyhow::Result<()> {
         extra_target: Some(
             NodeIndex(1),
         ),
-        lower_bound: None,
+        lower_bound: Some(
+            NodeIndex(0),
+        ),
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,

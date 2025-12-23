@@ -63,6 +63,8 @@ pub struct Workspace<'graph> {
     /// The segment index of the extra target as provided for traversal,
     /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
     /// otherwise would be.
+    // TODO: could extra-target and target_commit be one and the same? They kind of are, check usages.
+    //       Probably better to keep the `target_commit`.
     pub extra_target: Option<SegmentIndex>,
     /// Read-only workspace metadata with additional information, or `None` if nothing was present.
     /// If this is `Some()` the `kind` is always [`WorkspaceKind::Managed`]
@@ -511,7 +513,7 @@ impl Graph {
 
         let ws_lower_bound = if ws.kind.has_managed_ref() {
             self.compute_lowest_base(
-                ws.id,
+                ComputeBaseTip::WorkspaceCommit(ws.id),
                 ws.target_ref.as_ref(),
                 ws.target_commit.as_ref(),
                 self.extra_target,
@@ -533,7 +535,29 @@ impl Graph {
                 }
             })
         } else {
-            None
+            // Auto-set the target by its remote.
+            if ws.target_ref.is_none() {
+                let ws_head_segment = &self[ws.id];
+                ws.target_ref = ws_head_segment
+                    .remote_tracking_ref_name
+                    .as_ref()
+                    .zip(ws_head_segment.sibling_segment_id)
+                    .map(|(target_ref, target_sidx)| TargetRef {
+                        ref_name: target_ref.to_owned(),
+                        segment_index: target_sidx,
+                        commits_ahead: 0,
+                    });
+            }
+            if ws.target_ref.is_some() || ws.target_commit.is_some() || ws.extra_target.is_some() {
+                self.compute_lowest_base(
+                    ComputeBaseTip::SingleBranch(ws.id),
+                    ws.target_ref.as_ref(),
+                    ws.target_commit.as_ref(),
+                    self.extra_target,
+                )
+            } else {
+                None
+            }
         };
 
         (ws.lower_bound, ws.lower_bound_segment_id) = ws_lower_bound
@@ -541,7 +565,7 @@ impl Graph {
             .unwrap_or_default();
 
         // The entrypoint is integrated and has a workspace above it.
-        // Right now we would be using it, but will discard it the entrypoint is *at* or *below* the merge-base.
+        // Right now we would be using it, but will discard it if the entrypoint is *at* or *below* the merge-base.
         if let Some(((_lowest_base, lowest_base_sidx), ep_sidx)) = ws_lower_bound
             .filter(|_| {
                 matches!(downgrade, Downgrade::Allow)
@@ -594,9 +618,9 @@ impl Graph {
                 .is_some_and(|rn| rn.as_bstr().starts_with_str("refs/heads/gitbutler/"))
         }
 
+        let (lowest_base, lowest_base_sidx) =
+            ws_lower_bound.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
         if ws.kind.has_managed_ref() {
-            let (lowest_base, lowest_base_sidx) =
-                ws_lower_bound.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
             let mut used_stack_ids = BTreeSet::default();
             for stack_top_sidx in self
                 .inner
@@ -675,8 +699,8 @@ impl Graph {
             }
         } else {
             let start = ws_tip_segment;
+            let has_seen_base = RefCell::new(false);
             ws.stacks.extend(
-                // TODO: This probably depends on more factors, could have relationship with remote tracking branch.
                 self.collect_stack_segments(
                     start.id,
                     None,
@@ -685,13 +709,18 @@ impl Graph {
                         if segment_name_is_special(s) {
                             return !stop;
                         }
+                        // Cut the stack off at the lower base if we have one. This is only
+                        // the case if we have a remote.
+                        if Some(s.id) == lowest_base_sidx {
+                            has_seen_base.replace(true);
+                            return stop;
+                        }
                         match (&start.ref_info, &s.ref_info) {
                             (Some(_), Some(_)) | (None, Some(_)) => stop,
                             (Some(_), None) | (None, None) => !stop,
                         }
                     },
-                    // We keep going until depletion
-                    |_s| true,
+                    |_s| !*has_seen_base.borrow(),
                     // Never discard stacks
                     |_s| false,
                 )?
@@ -705,10 +734,11 @@ impl Graph {
 
         ws.prune_archived_segments();
         ws.mark_remote_reachability()?;
+        ws.truncate_single_stack_to_match_base();
         Ok(ws)
     }
 
-    /// Compute the lowest base (i.e. the highest generation) between the `ws_tip` of a top-most segment of the workspace,
+    /// Compute the lowest base (i.e. the highest generation) between the `tip` of a top-most segment of the workspace,
     /// another `target` segment, and any amount of `additional` segments which could be *past targets* to keep
     /// an artificial lower base for consistency.
     ///
@@ -722,29 +752,57 @@ impl Graph {
     //       searching downward, a necessary trait for many search problems.
     fn compute_lowest_base(
         &self,
-        ws_tip: SegmentIndex,
+        tip: ComputeBaseTip,
         target_ref: Option<&TargetRef>,
         target_commit: Option<&TargetCommit>,
         additional: impl IntoIterator<Item = SegmentIndex>,
     ) -> Option<(gix::ObjectId, SegmentIndex)> {
         // It's important to not start from the tip, but instead find paths to the merge-base from each stack individually.
         // Otherwise, we may end up with a short path to a segment that isn't actually reachable by all stacks.
-        let stacks = self.inner.neighbors_directed(ws_tip, Direction::Outgoing);
+        let (tips, actual_tip) = match tip {
+            ComputeBaseTip::WorkspaceCommit(ws_tip) => (
+                self.inner
+                    .neighbors_directed(ws_tip, Direction::Outgoing)
+                    .collect(),
+                ws_tip,
+            ),
+            ComputeBaseTip::SingleBranch(tip) => (vec![tip], tip),
+        };
         let mut count = 0;
-        let base = stacks
+        let base = tips
+            .into_iter()
             .chain(target_ref.map(|t| t.segment_index))
             .chain(target_commit.map(|t| t.segment_index))
             .chain(additional)
             .inspect(|_| count += 1)
             .reduce(|a, b| self.first_merge_base(a, b).unwrap_or(a))?;
 
-        if count < 2 || base == ws_tip {
-            None
+        if count < 2 || base == actual_tip {
+            match tip {
+                ComputeBaseTip::WorkspaceCommit(_) => {
+                    // In workspace mode, we get natural results if we don't accept tips == base situations,
+                    // which would mean the workspace tip is included in the target.
+                    None
+                }
+                ComputeBaseTip::SingleBranch(_) => {
+                    // In single-branch mode, and if the checkout out branch is directly reachable from the target
+                    // which typically is its remote, it should just be empty. Allow this for now, and see what happens.
+                    self.first_commit_or_find_along_first_parent(base)
+                        .map(|(c, sidx)| (c.id, sidx))
+                }
+            }
         } else {
             self.first_commit_or_find_along_first_parent(base)
                 .map(|(c, sidx)| (c.id, sidx))
         }
     }
+}
+
+enum ComputeBaseTip {
+    /// The tip is a workspace commit, and we should consider all of its stacks.
+    WorkspaceCommit(SegmentIndex),
+    /// Use the tip directly.
+    SingleBranch(SegmentIndex),
 }
 
 /// This works as named segments have been created in a prior step. Thus, we are able to find best matches by
@@ -1134,6 +1192,34 @@ impl Workspace<'_> {
             }
         }
         Ok(())
+    }
+
+    /// If there is a single stack and the base happens to be itself (which happens if the stack is directly integrated/inline with the target),
+    /// then empty all commits and segment-related metadata.
+    fn truncate_single_stack_to_match_base(&mut self) {
+        if self.stacks.len() != 1 {
+            return;
+        }
+        let Some(stack) = self.stacks.first_mut() else {
+            return;
+        };
+        let stack_is_base = stack
+            .segments
+            .first()
+            .zip(self.lower_bound_segment_id)
+            .is_some_and(|(segment, base)|
+                // We can go by branch ID as this also means the first commit is the one that is the base.
+                // This should be fine these kinds of stacks/segments should have at least one commit.
+                // There is no hard guarantee though, so let's see.
+                segment.id == base);
+        if !stack_is_base {
+            return;
+        }
+
+        stack.segments.drain(1..);
+        let first_segment = stack.segments.first_mut().expect("non-empty");
+        first_segment.commits.clear();
+        first_segment.commits_by_segment.clear();
     }
 }
 

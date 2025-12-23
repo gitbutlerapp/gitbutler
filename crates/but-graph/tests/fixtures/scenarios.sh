@@ -108,6 +108,38 @@ git init detached
   git checkout -f "$(git rev-parse HEAD)"
 )
 
+git init main-advanced-remote-advanced-two-shared
+(cd main-advanced-remote-advanced-two-shared
+  commit init
+  commit M1
+  git checkout -b soon-origin-main
+    commit RM1
+  git checkout main
+    setup_remote_tracking soon-origin-main main "move"
+    commit M2
+  add_main_remote_setup
+)
+
+git init only-remote-advanced
+(cd only-remote-advanced
+  commit init
+  commit M1
+  commit M2
+  git checkout -b soon-origin-main
+    commit RM1
+    git branch soon-other-remote
+      setup_remote_tracking soon-other-remote split-segment "move"
+    commit RM2
+  git checkout main
+    setup_remote_tracking soon-origin-main main "move"
+  add_main_remote_setup
+)
+
+cp -R only-remote-advanced only-remote-advanced-with-special-branch-name
+(cd only-remote-advanced-with-special-branch-name
+  git branch gitbutler/target :/^M1
+)
+
 # A top-down split that is highly unusual, but good to assure we can handle it.
 git init multi-root
 (cd multi-root
@@ -215,6 +247,38 @@ git init special-branches
 
 mkdir ws
 (cd ws
+  git init local-contained-and-target-ahead
+  (cd local-contained-and-target-ahead
+    commit init
+    commit M2
+    commit M3
+    create_workspace_commit_once main
+
+    git checkout -b soon-origin-main main
+      commit RM1
+    git checkout gitbutler/workspace
+    add_main_remote_setup
+    setup_remote_tracking soon-origin-main main "move"
+  )
+
+  git init local-target-and-stack
+  (cd local-target-and-stack
+      commit init
+      git checkout -b A
+        commit A1
+        commit A2
+      git checkout main
+        commit M2
+        commit M3
+    create_workspace_commit_once main A
+
+    git checkout -b soon-origin-main main~1
+      commit RM1
+    git checkout gitbutler/workspace
+    add_main_remote_setup
+    setup_remote_tracking soon-origin-main main "move"
+  )
+
   git init reproduce-11483
   (cd reproduce-11483
       commit M1

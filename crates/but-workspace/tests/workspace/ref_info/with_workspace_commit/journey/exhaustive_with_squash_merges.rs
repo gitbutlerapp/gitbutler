@@ -184,7 +184,10 @@ fn j03_main_pushed() -> anyhow::Result<()> {
         standard_options_with_extra_target(&repo, "origin/main"),
     );
     // With an extra target, even in this situation we have a notion of upstream commits.
-    // Thus it's possible to compute the integration status.
+    // Thus, it's possible to compute the integration status.
+    // TODO: note that `push_status` now matches the local commit, but it's strange
+    //       that the addition of `lower_bound` removes the integration check. Probably an issue
+    //       that they are on the same segment.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -207,9 +210,7 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                             id: NodeIndex(0),
                             ref_name: "►main[🌳]",
                             remote_tracking_ref_name: "None",
-                            commits: [
-                                LocalCommit(fafd9d0, "init\n", integrated(fafd9d0)),
-                            ],
+                            commits: [],
                             commits_on_remote: [],
                             commits_outside: None,
                             metadata: "None",
@@ -224,7 +225,9 @@ fn j03_main_pushed() -> anyhow::Result<()> {
             extra_target: Some(
                 NodeIndex(0),
             ),
-            lower_bound: None,
+            lower_bound: Some(
+                NodeIndex(0),
+            ),
             is_managed_ref: false,
             is_managed_commit: false,
             ancestor_workspace_commit: None,

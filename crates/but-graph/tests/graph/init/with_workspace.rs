@@ -17,6 +17,98 @@ use crate::init::{
 };
 
 #[test]
+fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   59a427f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * a62b0de (A) A2
+    | * 120a217 A1
+    * | 0a415d8 (main) M3
+    | | * 1f5c47b (origin/main) RM1
+    | |/  
+    |/|   
+    * | 73ba99d M2
+    |/  
+    * fafd9d0 init
+    ");
+
+    add_workspace(&mut meta);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   └── ·59a427f (⌂|🏘|1)
+    │       ├── ►:2[1]:main <> origin/main →:1:
+    │       │   └── ·0a415d8 (⌂|🏘|11)
+    │       │       └── ►:4[2]:anon:
+    │       │           └── ·73ba99d (⌂|🏘|✓|11)
+    │       │               └── ►:5[3]:anon:
+    │       │                   └── ·fafd9d0 (⌂|🏘|✓|11)
+    │       └── ►:3[1]:A
+    │           ├── ·a62b0de (⌂|🏘|1)
+    │           └── ·120a217 (⌂|🏘|1)
+    │               └── →:5:
+    └── ►:1[0]:origin/main →:2:
+        └── 🟣1f5c47b (✓)
+            └── →:4:
+    ");
+
+    // It's perfectly valid to have the local tracking branch of our target in the workspace,
+    // and the low-bound computation works as well.
+    let ws = &graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(ws), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
+    ├── ≡:3:A on fafd9d0
+    │   └── :3:A
+    │       ├── ·a62b0de (🏘️)
+    │       └── ·120a217 (🏘️)
+    └── ≡:2:main <> origin/main →:1:⇡1⇣1 on fafd9d0
+        └── :2:main <> origin/main →:1:⇡1⇣1
+            ├── 🟣1f5c47b (✓)
+            ├── ·0a415d8 (🏘️)
+            └── ❄️73ba99d (🏘️|✓)
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn workspace_with_only_local_target() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-contained-and-target-ahead")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * e5e2623 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * cb54dca (origin/main) RM1
+    |/  
+    * 0a415d8 (main) M3
+    * 73ba99d M2
+    * fafd9d0 init
+    ");
+
+    add_workspace(&mut meta);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   └── ·e5e2623 (⌂|🏘|1)
+    │       └── ►:2[1]:main <> origin/main →:1:
+    │           ├── ·0a415d8 (⌂|🏘|✓|11)
+    │           ├── ·73ba99d (⌂|🏘|✓|11)
+    │           └── ·fafd9d0 (⌂|🏘|✓|11)
+    └── ►:1[0]:origin/main →:2:
+        └── 🟣cb54dca (✓)
+            └── →:2: (main →:1:)
+    ");
+
+    let ws = &graph.to_workspace()?;
+    // It's notable how the local tracking branch of our target (origin/main) is ignored, it's not part of our workspace,
+    // but acts as base.
+    insta::assert_snapshot!(graph_workspace(ws), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 0a415d8");
+
+    Ok(())
+}
+
+#[test]
 fn reproduce_11483() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -2176,7 +2268,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
-    ⌂:0:DETACHED <> ✓!
+    ⌂:0:DETACHED <> ✓! on 79bbb29
     └── ≡:0:anon:
         ├── :0:anon:
         │   ├── ·d0df794 (✓)
@@ -2198,7 +2290,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     .validated()?;
     // For now we don't do anything to limit the each in single-branch mode using extra-targets.
     // Thanks to the limit-transplant we get to discover more of the workspace.
-    // TODO(extra-target): make it work so they limit single branches even.
+    // TODO(extra-target): make it work so they limit single branches even, but it's a special case
+    //                     as we can't have remotes here.
     insta::assert_snapshot!(graph_tree(&graph), @r"
 
     ├── 📕►►►:1[0]:gitbutler/workspace[🌳]
@@ -2234,7 +2327,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
-    ⌂:0:DETACHED <> ✓!
+    ⌂:0:DETACHED <> ✓! on 79bbb29
     └── ≡:0:anon:
         ├── :0:anon:
         │   ├── ·d0df794 (✓)
