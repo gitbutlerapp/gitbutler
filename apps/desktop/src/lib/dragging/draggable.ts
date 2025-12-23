@@ -312,7 +312,6 @@ function setupDragHandlers(
 			clone.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
 			clone.style.pointerEvents = 'none';
 			clone.style.zIndex = 'var(--z-blocker)';
-			clone.style.willChange = 'transform';
 
 			document.body.appendChild(clone);
 		}
