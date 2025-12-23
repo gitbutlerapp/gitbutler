@@ -183,8 +183,7 @@ fn j03_main_pushed() -> anyhow::Result<()> {
         &*meta,
         standard_options_with_extra_target(&repo, "origin/main"),
     );
-    // With an extra target, even in this situation we have a notion of upstream commits.
-    // Thus it's possible to compute the integration status.
+    // As we see this as base, there is no upstream commits to consider, nor is there local commits.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -207,9 +206,7 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                             id: NodeIndex(0),
                             ref_name: "►main[🌳]",
                             remote_tracking_ref_name: "None",
-                            commits: [
-                                LocalCommit(fafd9d0, "init\n", integrated(fafd9d0)),
-                            ],
+                            commits: [],
                             commits_on_remote: [],
                             commits_outside: None,
                             metadata: "None",
@@ -224,7 +221,9 @@ fn j03_main_pushed() -> anyhow::Result<()> {
             extra_target: Some(
                 NodeIndex(0),
             ),
-            lower_bound: None,
+            lower_bound: Some(
+                NodeIndex(0),
+            ),
             is_managed_ref: false,
             is_managed_commit: false,
             ancestor_workspace_commit: None,

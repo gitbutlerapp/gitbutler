@@ -1447,20 +1447,25 @@ fn errors() -> anyhow::Result<()> {
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-    ⌂:0:A <> ✓!
+    ⌂:0:A <> ✓! on 89cc2d3
     └── ≡:0:A
         └── :0:A
-            └── ✂️·89cc2d3
     ");
 
     let (a_id, _a_ref_owned) = id_at(&repo, "A");
-    for anchor in [
-        (Anchor::at_segment(a_ref, Below)),
-        (Anchor::at_id(a_id, Below)),
+    for (anchor, expected_err) in [
+        (
+            Anchor::at_segment(a_ref, Below),
+            "Cannot create reference on unborn branch",
+        ),
+        (
+            Anchor::at_id(a_id, Below),
+            "Commit 89cc2d303514654e9cab2d05b9af08b420a740c1 isn't part of the workspace",
+        ),
     ] {
         let err = but_workspace::branch::create_reference(
             new_name,
-            anchor,
+            anchor.clone(),
             &repo,
             &ws,
             &mut *meta,
@@ -1470,9 +1475,8 @@ fn errors() -> anyhow::Result<()> {
         .unwrap_err();
         assert_eq!(
             err.to_string(),
-            "Commit d79bba960b112dbd25d45921c47eeda22288022b isn't part of the workspace",
-            "it also checks the final commit for workspace membership (as it could be a parent that is below the base);\
-                This is an extra check for better error message"
+            expected_err,
+            "{anchor:?}: TODO: make these error messages consistent, and one might argue that this makes it hard to create refs on such bases."
         );
         assert!(meta.branch(a_ref)?.is_default(), "no data was stored");
         assert_ne!(
@@ -1767,7 +1771,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     );
     assert!(repo.try_find_reference(new)?.is_none());
 
-    // Give the graph a base - but that doesn't work for ad-hoc workspaces yet.
+    // Give the graph a base
     let graph = but_graph::Graph::from_commit_traversal(
         id,
         None,
@@ -1778,14 +1782,12 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         },
     )?;
     let ws = graph.to_workspace()?;
-    // Let's keep the test as reminder, and try to create a branch once there is a base.
+    // And the extra-target serves as base also in single-branch mode.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-    ⌂:0:second <> ✓!
-    └── ≡📙:0:second
-        ├── 📙:0:second
-        │   └── ·12995d7
-        └── 📙:1:first
-            └── ·3d57fc1 (✓)
+    ⌂:0:second <> ✓! on 3d57fc1
+    └── ≡📙:0:second on 3d57fc1
+        └── 📙:0:second
+            └── ·12995d7
     ");
 
     Ok(())

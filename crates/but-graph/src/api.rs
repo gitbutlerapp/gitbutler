@@ -96,8 +96,9 @@ impl Graph {
 
         let mut candidate = None;
         self.visit_all_segments_including_start_until(a, Direction::Outgoing, |s| {
+            let prune = true;
             if candidate.is_some() {
-                return true;
+                return prune;
             }
             let prune = segments_reachable_by_b.contains(&s.id);
             if prune {

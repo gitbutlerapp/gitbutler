@@ -160,6 +160,117 @@ fn detached() -> anyhow::Result<()> {
 }
 
 #[test]
+fn main_advanced_remote_advanced() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("main-advanced-remote-advanced-two-shared")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 971953d (HEAD -> main) M2
+    | * 5d29d62 (origin/main) RM1
+    |/  
+    * ce09734 M1
+    * fafd9d0 init
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+
+    ├── 👉►:0[0]:main[🌳] <> origin/main →:1:
+    │   └── ·971953d (⌂|1)
+    │       └── ►:2[1]:anon:
+    │           ├── ·ce09734 (⌂|11)
+    │           └── ·fafd9d0 (⌂|11)
+    └── ►:1[0]:origin/main →:0:
+        └── 🟣5d29d62 (0x0|10)
+            └── →:2:
+    ");
+
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣1 on ce09734
+    └── ≡:0:main[🌳] <> origin/main →:1:⇡1⇣1 on ce09734
+        └── :0:main[🌳] <> origin/main →:1:⇡1⇣1
+            ├── 🟣5d29d62
+            └── ·971953d
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn only_remote_advanced() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("only-remote-advanced")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 085535d (origin/main) RM2
+    * dd9f8d9 (origin/split-segment) RM1
+    * 971953d (HEAD -> main) M2
+    * ce09734 M1
+    * fafd9d0 init
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+
+    └── ►:1[0]:origin/main →:0:
+        └── 🟣085535d (0x0|10)
+            └── ►:2[1]:origin/split-segment
+                └── 🟣dd9f8d9 (0x0|10)
+                    └── 👉►:0[2]:main[🌳] <> origin/main →:1:
+                        ├── ·971953d (⌂|11)
+                        ├── ·ce09734 (⌂|11)
+                        └── ·fafd9d0 (⌂|11)
+    ");
+
+    // TODO: it should detect that `main` has no own commits as it's fully integrated.
+    //       This also affects the base which would have to be 085535d, the first commit.
+    //       which is strange but maybe can work?
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
+    └── ≡:0:main[🌳] <> origin/main →:1:⇣1
+        └── :0:main[🌳] <> origin/main →:1:⇣1
+            └── 🟣085535d
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
+    let (repo, meta) =
+        read_only_in_memory_scenario("only-remote-advanced-with-special-branch-name")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 085535d (origin/main) RM2
+    * dd9f8d9 (origin/split-segment) RM1
+    * 971953d (HEAD -> main) M2
+    * ce09734 (gitbutler/target) M1
+    * fafd9d0 init
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+
+    └── ►:1[0]:origin/main →:0:
+        └── 🟣085535d (0x0|10)
+            └── ►:3[1]:origin/split-segment
+                └── 🟣dd9f8d9 (0x0|10)
+                    └── 👉►:0[2]:main[🌳] <> origin/main →:1:
+                        └── ·971953d (⌂|11)
+                            └── ►:2[3]:gitbutler/target
+                                ├── ·ce09734 (⌂|11)
+                                └── ·fafd9d0 (⌂|11)
+    ");
+
+    // TODO: We'd actually have to recognise that the `origin/split-segment` branch
+    //       isn't related to our stack and count its commits to `origin/main`.
+    //       Right now we are missing dd9f8d9.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
+    └── ≡:0:main[🌳] <> origin/main →:1:⇣1
+        └── :0:main[🌳] <> origin/main →:1:⇣1
+            └── 🟣085535d
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn multi_root() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("multi-root")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -316,19 +427,18 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 
     // 'main' is frozen because it connects to a 'foreign' remote, the commit was pushed.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
-    ⌂:0:B[🌳] <> ✓!
-    └── ≡:0:B[🌳] <> origin/B →:1:⇡1⇣1
+    ⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣2 on fafd9d0
+    └── ≡:0:B[🌳] <> origin/B →:1:⇡1⇣1 on fafd9d0
         ├── :0:B[🌳] <> origin/B →:1:⇡1⇣1
         │   ├── 🟣682be32
         │   └── ·312f819
-        ├── :2:A <> origin/A →:3:⇡1⇣1
-        │   ├── 🟣e29c23d
-        │   └── ·e255adc
-        └── :4:main
-            └── ❄fafd9d0
+        └── :2:A <> origin/A →:3:⇡1⇣1
+            ├── 🟣e29c23d
+            └── ·e255adc
     ");
 
-    // The hard limit is always respected though.
+    // The hard limit is always respected though, despite yielding an incorrect result overall.
+    // That's why it's the *hard* limit.
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_hard_limit(7))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
@@ -344,16 +454,12 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     └── ►:3[0]:origin/A →:2:
     ");
     // As the remotes don't connect, they are entirely unknown.
+    // And if it's weird, it's due to the hard limit
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
-    ⌂:0:B[🌳] <> ✓!
-    └── ≡:0:B[🌳] <> origin/B →:1:⇡1⇣1
-        ├── :0:B[🌳] <> origin/B →:1:⇡1⇣1
-        │   ├── 🟣682be32
-        │   └── ·312f819
-        ├── :2:A <> origin/A →:3:⇡1
-        │   └── ·e255adc
-        └── :4:main
-            └── ·fafd9d0
+    ⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣1 on 312f819
+    └── ≡:0:B[🌳] <> origin/B →:1:⇣1 on e255adc
+        └── :0:B[🌳] <> origin/B →:1:⇣1
+            └── 🟣682be32
     ");
 
     // Everything we encounter is checked for remotes (no limit)
@@ -387,13 +493,11 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
             └── →:2: (main)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
-    ⌂:0:A <> ✓!
-    └── ≡:0:A <> origin/A →:1:⇡1⇣1
-        ├── :0:A <> origin/A →:1:⇡1⇣1
-        │   ├── 🟣e29c23d
-        │   └── ·e255adc
-        └── :2:main
-            └── ❄fafd9d0
+    ⌂:0:A <> ✓refs/remotes/origin/A⇣1 on fafd9d0
+    └── ≡:0:A <> origin/A →:1:⇡1⇣1 on fafd9d0
+        └── :0:A <> origin/A →:1:⇡1⇣1
+            ├── 🟣e29c23d
+            └── ·e255adc
     ");
     Ok(())
 }
@@ -687,23 +791,15 @@ fn with_limits() -> anyhow::Result<()> {
                 └── ·9d171ff (⌂|1)
                     └── →:1: (main)
     ");
-    // TODO(extra-target): we'd have to detect single-branch mode and differentiate between
-    //       integrated-by-workspace and the extra target to be able to decide that
-    //       integrated portions (see below) shouldn't be shown.
+
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
-    ⌂:0:C[🌳] <> ✓!
-    └── ≡:0:C[🌳]
-        ├── :0:C[🌳]
-        │   ├── ·2a95729
-        │   ├── ·6861158
-        │   ├── ·4f1f248
-        │   └── ·487ffce
-        └── :1:main
-            ├── ·edc4dee (✓)
-            ├── ·01d0e1e (✓)
-            ├── ·4b3e5a8 (✓)
-            ├── ·34d0715 (✓)
-            └── ·eb5f731 (✓)
+    ⌂:0:C[🌳] <> ✓! on edc4dee
+    └── ≡:0:C[🌳] on edc4dee
+        └── :0:C[🌳]
+            ├── ·2a95729
+            ├── ·6861158
+            ├── ·4f1f248
+            └── ·487ffce
     ");
     Ok(())
 }
