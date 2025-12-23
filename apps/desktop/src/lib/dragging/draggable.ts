@@ -355,24 +355,22 @@ function setupDragHandlers(
 			performAutoScroll(x, y);
 
 			let foundDropzone: HTMLElement | null = null;
-			const elementUnderCursor = document.elementFromPoint(x, y);
+			const elementUnderCursor = document.elementFromPoint(x, y) as HTMLElement | null;
 
 			if (elementUnderCursor) {
-				// Optimized dropzone detection: check registered elements first to avoid expensive rect calculations
-				for (const [dzElement, dropzone] of opts.dropzoneRegistry.entries()) {
-					const target = dropzone.getTarget();
+				// Optimized dropzone detection: walk up from the element under the cursor
+				// and find the first ancestor that is a registered dropzone. This avoids
+				// scanning all dropzones and eliminates expensive getBoundingClientRect()
+				// calls on every animation frame.
+				let node: HTMLElement | null = elementUnderCursor;
 
-					// Quick check: is cursor element inside this dropzone's DOM tree?
-					if (target.contains(elementUnderCursor) || target === elementUnderCursor) {
-						// Only calculate rect if element check passed (avoids layout thrashing)
-						const rect = target.getBoundingClientRect();
-						const isInside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-
-						if (isInside) {
-							foundDropzone = dzElement;
-							break;
-						}
+				while (node) {
+					if (opts.dropzoneRegistry.has(node)) {
+						foundDropzone = node;
+						break;
 					}
+
+					node = node.parentElement;
 				}
 			}
 
