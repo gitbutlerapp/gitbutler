@@ -785,7 +785,7 @@ impl Graph {
                     None
                 }
                 ComputeBaseTip::SingleBranch(_) => {
-                    // In single-branch mode, and if the checkout out branch is directly reachable from the target
+                    // In single-branch mode, and if the checkout branch is directly reachable from the target
                     // which typically is its remote, it should just be empty. Allow this for now, and see what happens.
                     self.first_commit_or_find_along_first_parent(base)
                         .map(|(c, sidx)| (c.id, sidx))
@@ -1209,7 +1209,7 @@ impl Workspace<'_> {
             .zip(self.lower_bound_segment_id)
             .is_some_and(|(segment, base)|
                 // We can go by branch ID as this also means the first commit is the one that is the base.
-                // This should be fine these kinds of stacks/segments should have at least one commit.
+                // This should be fine, as these kinds of stacks/segments should have at least one commit.
                 // There is no hard guarantee though, so let's see.
                 segment.id == base);
         if !stack_is_base {

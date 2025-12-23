@@ -257,8 +257,9 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
                                 └── ·fafd9d0 (⌂|11)
     ");
 
-    // TODO: The base computation shouldn't be tricked here, and should be updated to the actual segment
-    //       which would have to be… the stack itself. We simply can't have a matching segment here
+    // TODO: We'd actually have to recognise that the `origin/split-segment` branch
+    //       isn't related to our stack and count its commits to `origin/main`.
+    //       Right now we are missing dd9f8d9.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
     └── ≡:0:main[🌳] <> origin/main →:1:⇣1

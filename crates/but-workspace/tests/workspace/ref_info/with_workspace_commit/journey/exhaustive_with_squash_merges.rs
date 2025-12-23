@@ -183,11 +183,7 @@ fn j03_main_pushed() -> anyhow::Result<()> {
         &*meta,
         standard_options_with_extra_target(&repo, "origin/main"),
     );
-    // With an extra target, even in this situation we have a notion of upstream commits.
-    // Thus, it's possible to compute the integration status.
-    // TODO: note that `push_status` now matches the local commit, but it's strange
-    //       that the addition of `lower_bound` removes the integration check. Probably an issue
-    //       that they are on the same segment.
+    // As we see this as base, there is no upstream commits to consider, nor is there local commits.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
