@@ -96,12 +96,13 @@ impl Sandbox {
 
 /// Invocations
 impl Sandbox {
-    /// Create a command suitable for testing the output of the invocation with `args`.
-    /// Note that more args can be added later as well, whie `None` is a valid argument as well.
-    pub fn but<'a>(&self, args: impl Into<Option<&'a str>>) -> snapbox::cmd::Command {
-        let args = args.into();
+    /// Create a command suitable for testing the output of the invocation with `args`. If `args` is empty,
+    /// no arguments are provided.
+    /// Note that more arguments can be added to the returned [snapbox::cmd::Command] later as well.
+    pub fn but(&self, args: impl AsRef<str>) -> snapbox::cmd::Command {
+        let args = args.as_ref();
         let mut cmd = snapbox::cmd::Command::new(snapbox::cmd::cargo_bin!("but"));
-        if let Some(args) = args {
+        if !args.is_empty() {
             cmd = cmd
                 .args(shell_words::split(args).expect("statically known args must split correctly"))
         }

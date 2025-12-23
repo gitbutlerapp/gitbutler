@@ -35,6 +35,7 @@ impl FileInfo {
                 committed_files.push((*commit_id, changed_path));
             }
         }
+        committed_files.sort();
 
         let mut uncommitted_files: BTreeMap<(Option<StackId>, BString), NonEmpty<HunkAssignment>> =
             BTreeMap::new();
