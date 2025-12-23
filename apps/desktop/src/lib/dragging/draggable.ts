@@ -120,15 +120,17 @@ function setupDragHandlers(
 
 		// 1. Find all explicitly marked scrollable containers for dragging
 		const markedContainers = document.querySelectorAll('[data-scrollable-for-dragging]');
-		markedContainers.forEach((container) => {
-			if (container instanceof HTMLElement && isScrollable(container)) {
+		for (const container of markedContainers) {
+			if (!(container instanceof HTMLElement)) continue;
+
+			if (isScrollable(container)) {
 				const rect = container.getBoundingClientRect();
 				if (isContainerVisibleInViewport(rect)) {
 					containers.push(container);
 					addedContainers.add(container);
 				}
 			}
-		});
+		}
 
 		// 2. Also include parent chain (for backwards compatibility and nested scrolling)
 		let current: HTMLElement | null = element;
@@ -178,48 +180,58 @@ function setupDragHandlers(
 			lastScrollRectUpdate = now;
 		}
 
-		// Use cached scroll containers and rects (avoid repeated DOM queries)
-		// Only iterate visible containers filtered during rect update
-		cachedScrollRects.forEach((rect, container) => {
-			// Only scroll containers that the mouse is currently inside
-			// This prevents multiple nested containers from scrolling simultaneously
-			const isMouseInside =
-				mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom;
+		// Find the innermost (most specific) scrollable container under the cursor
+		// This ensures only one container scrolls, preventing nested containers from scrolling together
+		const elementUnderCursor = document.elementFromPoint(mouseX, mouseY);
+		let targetContainer: HTMLElement | null = null;
+		let targetRect: DOMRect | null = null;
 
-			if (!isMouseInside) return;
-
-			let scrollX = 0;
-			let scrollY = 0;
-
-			// Check vertical scrolling
-			if (mouseY < rect.top + SCROLL_EDGE_SIZE && container.scrollTop > 0) {
-				scrollY = -SCROLL_SPEED;
-			} else if (
-				mouseY > rect.bottom - SCROLL_EDGE_SIZE &&
-				container.scrollTop < container.scrollHeight - container.clientHeight
-			) {
-				scrollY = SCROLL_SPEED;
-			}
-
-			// Check horizontal scrolling
-			if (mouseX < rect.left + SCROLL_EDGE_SIZE && container.scrollLeft > 0) {
-				scrollX = -SCROLL_SPEED;
-			} else if (
-				mouseX > rect.right - SCROLL_EDGE_SIZE &&
-				container.scrollLeft < container.scrollWidth - container.clientWidth
-			) {
-				scrollX = SCROLL_SPEED;
-			}
-
-			// Perform scroll if needed
-			if (scrollX !== 0 || scrollY !== 0) {
-				if (container === document.documentElement) {
-					window.scrollBy(scrollX, scrollY);
-				} else {
-					container.scrollBy(scrollX, scrollY);
+		if (elementUnderCursor) {
+			let node: HTMLElement | null = elementUnderCursor as HTMLElement;
+			while (node) {
+				if (cachedScrollRects.has(node)) {
+					targetContainer = node;
+					targetRect = cachedScrollRects.get(node)!;
+					break;
 				}
+				node = node.parentElement;
 			}
-		});
+		}
+
+		// If no scrollable container found under cursor, nothing to scroll
+		if (!targetContainer || !targetRect) return;
+
+		let scrollX = 0;
+		let scrollY = 0;
+
+		// Check vertical scrolling
+		if (mouseY < targetRect.top + SCROLL_EDGE_SIZE && targetContainer.scrollTop > 0) {
+			scrollY = -SCROLL_SPEED;
+		} else if (
+			mouseY > targetRect.bottom - SCROLL_EDGE_SIZE &&
+			targetContainer.scrollTop < targetContainer.scrollHeight - targetContainer.clientHeight
+		) {
+			scrollY = SCROLL_SPEED;
+		}
+
+		// Check horizontal scrolling
+		if (mouseX < targetRect.left + SCROLL_EDGE_SIZE && targetContainer.scrollLeft > 0) {
+			scrollX = -SCROLL_SPEED;
+		} else if (
+			mouseX > targetRect.right - SCROLL_EDGE_SIZE &&
+			targetContainer.scrollLeft < targetContainer.scrollWidth - targetContainer.clientWidth
+		) {
+			scrollX = SCROLL_SPEED;
+		}
+
+		// Perform scroll if needed
+		if (scrollX !== 0 || scrollY !== 0) {
+			if (targetContainer === document.documentElement) {
+				window.scrollBy(scrollX, scrollY);
+			} else {
+				targetContainer.scrollBy(scrollX, scrollY);
+			}
+		}
 	}
 
 	function handleMouseDown(e: MouseEvent) {
