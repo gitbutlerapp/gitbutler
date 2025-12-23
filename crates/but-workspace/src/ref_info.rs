@@ -363,6 +363,11 @@ pub(crate) mod function {
         opts: super::Options,
     ) -> anyhow::Result<RefInfo> {
         let graph = Graph::from_head(repo, meta, opts.traversal.clone())?;
+        if graph.hard_limit_hit() {
+            tracing::warn!(hard_limit=?opts.traversal.hard_limit,
+                "Commit-graph traversal might be incorrect as it was stopped too early due to hard limit",
+            );
+        }
         graph_to_ref_info(graph, repo, opts)
     }
 
