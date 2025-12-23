@@ -417,8 +417,10 @@ function setupDragHandlers(
 		}
 
 		// Remove listeners
-		window.removeEventListener('mousemove', handleMouseMove);
-		window.removeEventListener('mouseup', handleMouseUp);
+		if (isDragging) {
+			window.removeEventListener('mousemove', handleMouseMove);
+			window.removeEventListener('mouseup', handleMouseUp);
+		}
 		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
 
