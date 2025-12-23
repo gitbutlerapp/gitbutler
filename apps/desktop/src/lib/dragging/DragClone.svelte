@@ -28,9 +28,8 @@
 		dragStateService
 	}: Props = $props();
 
-	const dropLabel = $derived(
-		dragStateService?.dropLabel ?? readable<string | undefined>(undefined)
-	);
+	const fallbackDropLabelStore = readable<string | undefined>(undefined);
+	const dropLabel = $derived(dragStateService?.dropLabel ?? fallbackDropLabelStore);
 
 	const commitColor = $derived(
 		type === 'commit' && commitType ? getColorFromCommitState(commitType, false) : undefined
