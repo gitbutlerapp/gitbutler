@@ -223,7 +223,7 @@ fn prompt_for_branch_selection(
     use std::fmt::Write;
     let mut inout = out
         .prepare_for_terminal_input()
-        .context("Please specify a branch unambiguously")?;
+        .context("Terminal input not available. Please specify branches to publish using command line arguments.")?;
 
     // Display branches with numbers
     writeln!(inout, "\nAvailable branches to publish:\n")?;

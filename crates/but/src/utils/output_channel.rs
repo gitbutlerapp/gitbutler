@@ -35,6 +35,8 @@ impl OutputChannel {
 
     /// Before performing further output, obtain an input channel which always bypasses the pager when writing,
     /// while allowing prompting the user for input.
+    /// If `None` is returned, terminal input isn't available and one should suggest to use command-line
+    /// arguments to unambiguously specify an operation.
     pub fn prepare_for_terminal_input(&mut self) -> Option<InputOutputChannel<'_>> {
         use std::io::IsTerminal;
         let stdin = std::io::stdin();
