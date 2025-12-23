@@ -22,13 +22,192 @@ Rubbed the wrong way. Source 'nonexistent1' not found. If you just performed a G
 }
 
 #[test]
+fn committed_file_to_unassigned() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    // Must set metadata to match the scenario
+    env.setup_metadata(&["A", "B"])?;
+
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
+
+    env.but("--json status -f")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![""])
+        .stdout_eq(snapbox::str![[r#"
+...
+{
+  "unassignedChanges": [],
+  "stacks": [
+    {
+      "cliId": "g0",
+      "assignedChanges": [],
+      "branches": [
+        {
+          "cliId": "g0",
+          "name": "A",
+          "commits": [
+            {
+...
+              "changes": [
+                {
+                  "cliId": "m0",
+                  "filePath": "a.txt",
+                  "changeType": "modified"
+                },
+                {
+                  "cliId": "n0",
+                  "filePath": "b.txt",
+                  "changeType": "modified"
+                }
+              ]
+            },
+            {
+...
+              "changes": [
+                {
+                  "cliId": "i0",
+                  "filePath": "a.txt",
+                  "changeType": "added"
+                },
+                {
+                  "cliId": "j0",
+                  "filePath": "b.txt",
+                  "changeType": "added"
+                }
+              ]
+            },
+            {
+...
+              "changes": [
+                {
+                  "cliId": "k0",
+                  "filePath": "A",
+                  "changeType": "added"
+                }
+              ]
+            }
+...
+    },
+    {
+      "cliId": "h0",
+      "assignedChanges": [],
+      "branches": [
+        {
+          "cliId": "h0",
+          "name": "B",
+          "commits": [
+            {
+...
+              "changes": [
+                {
+                  "cliId": "l0",
+                  "filePath": "B",
+                  "changeType": "added"
+                }
+              ]
+            }
+...
+
+"#]]);
+
+    env.but("j0 00")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/rub/committed-file-to-unassigned.stdout.term.svg"
+        ])
+        .stderr_eq(str![""]);
+
+    // Verify that `status` reflects the move.
+    env.but("--json status -f")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![""])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [
+    {
+      "cliId": "i0",
+      "filePath": "b.txt",
+      "changeType": "added"
+    }
+  ],
+  "stacks": [
+    {
+      "cliId": "g0",
+      "assignedChanges": [],
+      "branches": [
+        {
+          "cliId": "g0",
+          "name": "A",
+          "commits": [
+            {
+...
+              "changes": [
+                {
+                  "cliId": "j0",
+                  "filePath": "a.txt",
+                  "changeType": "modified"
+                }
+              ]
+            },
+            {
+...
+              "changes": [
+                {
+                  "cliId": "k0",
+                  "filePath": "a.txt",
+                  "changeType": "added"
+                }
+              ]
+            },
+            {
+...
+              "changes": [
+                {
+                  "cliId": "l0",
+                  "filePath": "A",
+                  "changeType": "added"
+                }
+...
+    },
+    {
+      "cliId": "h0",
+      "assignedChanges": [],
+      "branches": [
+        {
+          "cliId": "h0",
+          "name": "B",
+          "commits": [
+            {
+...
+              "changes": [
+                {
+                  "cliId": "m0",
+                  "filePath": "B",
+                  "changeType": "added"
+                }
+              ]
+            }
+...
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
 
-    commit_file_a_with_worktree_changes_as_two_hunks(&env, "a.txt");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Assign the change to A and verify that the assignment happened.
     env.but("i0 A").assert().success();
@@ -108,7 +287,7 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
     // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
 
-    commit_file_a_with_worktree_changes_as_two_hunks(&env, "a.txt");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // TODO When we have a way to list the hunks and their respective IDs (e.g.
     //      via a "diff" or "show" command), assert that m0 is the hunk we want.
@@ -160,18 +339,52 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
 mod util {
     use crate::utils::Sandbox;
 
-    /// Create, then edit two lines that are far apart to ensure that they become 2 hunks.
-    pub fn commit_file_a_with_worktree_changes_as_two_hunks(env: &Sandbox, filename: &str) {
+    /// Create two files `filename1` and `filename2` and commit them to `branch`,
+    /// each having two lines, `first_line`, then filler, and a last line that are far enough apart to
+    /// ensure that they become 2 hunks when changed.
+    pub fn commit_two_files_as_two_hunks_each(
+        env: &Sandbox,
+        branch: &str,
+        filename1: &str,
+        filename2: &str,
+        first_line: &str,
+    ) {
+        let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
+        env.file(
+            filename1,
+            format!("{first_line}\n{}last\n", "line\n".repeat(context_distance)),
+        );
+        env.file(
+            filename2,
+            format!("{first_line}\n{}last\n", "line\n".repeat(context_distance)),
+        );
+        env.but(format!(
+            "commit {branch} -m 'create {filename1} and {filename2}'"
+        ))
+        .assert()
+        .success();
+    }
+
+    /// Create a file with `filename`, commit it to `branch`, then edit it once more to have two uncommitted hunks.
+    pub fn commit_file_with_worktree_changes_as_two_hunks(
+        env: &Sandbox,
+        branch: &str,
+        filename: &str,
+    ) {
         let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
         env.file(
             filename,
             format!("first\n{}last\n", "line\n".repeat(context_distance)),
         );
-        env.but("commit A -m create-a").assert().success();
+        env.but(format!("commit {branch} -m {filename}"))
+            .assert()
+            .success();
         env.file(
             filename,
             format!("firsta\n{}lasta\n", "line\n".repeat(context_distance)),
         );
     }
 }
-use crate::command::rub::util::commit_file_a_with_worktree_changes_as_two_hunks;
+use crate::command::rub::util::{
+    commit_file_with_worktree_changes_as_two_hunks, commit_two_files_as_two_hunks_each,
+};

@@ -1,18 +1,23 @@
 use bstr::{BStr, BString};
 use but_core::{HunkHeader, ref_metadata::StackId};
 use but_ctx::Context;
-use but_hunk_assignment::HunkAssignmentRequest;
+use but_hunk_assignment::{HunkAssignment, HunkAssignmentRequest};
 use colored::Colorize;
+use nonempty::NonEmpty;
 
 use crate::utils::OutputChannel;
 
 pub(crate) fn assign_file_to_branch(
     ctx: &mut Context,
-    path: &BStr,
+    hunk_assignments: NonEmpty<HunkAssignment>,
     branch_name: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let assignments = path_to_assignments(ctx, path)?;
+    let path = hunk_assignments.first().path_bytes.clone();
+
+    let assignments = hunk_assignments
+        .into_iter()
+        .map(|hunk_assignment| (hunk_assignment.hunk_header, hunk_assignment.path_bytes));
     let reqs = to_assignment_request(ctx, assignments, Some(branch_name))?;
     do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
@@ -52,10 +57,14 @@ pub(crate) fn assign_hunk_to_branch(
 
 pub(crate) fn unassign_file(
     ctx: &mut Context,
-    path: &BStr,
+    hunk_assignments: NonEmpty<HunkAssignment>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let assignments = path_to_assignments(ctx, path)?;
+    let path = hunk_assignments.first().path_bytes.clone();
+
+    let assignments = hunk_assignments
+        .into_iter()
+        .map(|hunk_assignment| (hunk_assignment.hunk_header, hunk_assignment.path_bytes));
     let reqs = to_assignment_request(ctx, assignments, None)?;
     do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
@@ -158,22 +167,6 @@ pub(crate) fn branch_name_to_stack_id(
         None
     };
     Ok(stack_id)
-}
-
-fn path_to_assignments<'path>(
-    ctx: &mut Context,
-    path: &'path BStr,
-) -> anyhow::Result<impl Iterator<Item = (Option<HunkHeader>, BString)> + 'path> {
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.legacy_project.worktree_dir()?.into(),
-    )?
-    .changes;
-    let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes), None)?;
-    Ok(assignments
-        .into_iter()
-        .filter(move |assignment| assignment.path_bytes == path)
-        .map(move |assignment| (assignment.hunk_header, assignment.path_bytes)))
 }
 
 fn to_assignment_request(

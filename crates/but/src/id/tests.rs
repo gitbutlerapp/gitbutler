@@ -85,16 +85,16 @@ fn commit_ids_are_currently_ambiguous() -> anyhow::Result<()> {
     ");
     insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
     [
-        Branch {
-            name: "not-important",
-            id: "no",
-        },
         Commit(
             Sha1(21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
         ),
         Commit(
             Sha1(21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb),
         ),
+        Branch {
+            name: "not-important",
+            id: "no",
+        },
     ]
     "#);
     let ids_as_shown_by_consumers = id_map
@@ -104,9 +104,9 @@ fn commit_ids_are_currently_ambiguous() -> anyhow::Result<()> {
         .collect::<Vec<_>>();
     insta::assert_debug_snapshot!(ids_as_shown_by_consumers, @r#"
     [
+        "21",
+        "21",
         "no",
-        "21",
-        "21",
     ]
     "#);
     Ok(())
@@ -325,14 +325,61 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     ");
     insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
     [
+        Commit(
+            Sha1(0202020202020202020202020202020202020202),
+        ),
         UncommittedFile {
-            assignment: None,
-            path: "uncommitted1.txt",
+            hunk_assignments: NonEmpty {
+                head: HunkAssignment {
+                    id: None,
+                    hunk_header: Some(
+                        HunkHeader("-1,2", "+1,2"),
+                    ),
+                    path: "",
+                    path_bytes: "uncommitted1.txt",
+                    stack_id: None,
+                    hunk_locks: None,
+                    line_nums_added: None,
+                    line_nums_removed: None,
+                    diff: None,
+                },
+                tail: [
+                    HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-3,2", "+3,2"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                ],
+            },
             id: "g0",
         },
+        Branch {
+            name: "h0",
+            id: "h0",
+        },
         UncommittedFile {
-            assignment: None,
-            path: "uncommitted2.txt",
+            hunk_assignments: NonEmpty {
+                head: HunkAssignment {
+                    id: None,
+                    hunk_header: None,
+                    path: "",
+                    path_bytes: "uncommitted2.txt",
+                    stack_id: None,
+                    hunk_locks: None,
+                    line_nums_added: None,
+                    line_nums_removed: None,
+                    diff: None,
+                },
+                tail: [],
+            },
             id: "i0",
         },
         CommittedFile {
@@ -344,11 +391,6 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             commit_id: Sha1(0202020202020202020202020202020202020202),
             path: "committed2.txt",
             id: "k0",
-        },
-        UncommittedHunk {
-            hunk_header: None,
-            path: "uncommitted2.txt",
-            id: "n0",
         },
         UncommittedHunk {
             hunk_header: Some(
@@ -364,13 +406,11 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             path: "uncommitted1.txt",
             id: "m0",
         },
-        Branch {
-            name: "h0",
-            id: "h0",
+        UncommittedHunk {
+            hunk_header: None,
+            path: "uncommitted2.txt",
+            id: "n0",
         },
-        Commit(
-            Sha1(0202020202020202020202020202020202020202),
-        ),
     ]
     "#);
 
@@ -430,8 +470,20 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("g0")?, @r#"
     [
         UncommittedFile {
-            assignment: None,
-            path: "uncommitted.txt",
+            hunk_assignments: NonEmpty {
+                head: HunkAssignment {
+                    id: None,
+                    hunk_header: None,
+                    path: "",
+                    path_bytes: "uncommitted.txt",
+                    stack_id: None,
+                    hunk_locks: None,
+                    line_nums_added: None,
+                    line_nums_removed: None,
+                    diff: None,
+                },
+                tail: [],
+            },
             id: "g0",
         },
     ]
@@ -470,7 +522,7 @@ mod util {
         ref_info::{Commit, LocalCommit, Segment},
     };
     use itertools::Itertools;
-    use std::fmt::Formatter;
+    use std::{cmp::Ordering, fmt::Formatter};
 
     pub fn id(byte: u8) -> gix::ObjectId {
         gix::ObjectId::try_from([byte].repeat(20).as_slice()).expect("could not generate ID")
@@ -578,7 +630,7 @@ mod util {
             branch_name_to_cli_id
                 .values()
                 .map(|id| id.to_short_string())
-                .chain(uncommitted_files.iter().map(|f| f.id.clone()))
+                .chain(uncommitted_files.keys().cloned())
                 .chain(committed_files.iter().map(|f| f.id.clone()))
                 .chain(uncommitted_hunks.keys().cloned())
                 .flat_map(|id| {
@@ -590,7 +642,7 @@ mod util {
                         .cloned()
                         .map(CliId::Commit),
                 )
-                .sorted()
+                .sorted_by(id_cmp)
                 .collect()
         }
     }
@@ -626,11 +678,7 @@ mod util {
                     .map(|id| id.to_short_string())
                     .sorted(),
             )?;
-            id_list_if_not_empty(
-                f,
-                "uncommitted_files",
-                uncommitted_files.iter().sorted().map(|id| id.id.clone()),
-            )?;
+            id_list_if_not_empty(f, "uncommitted_files", uncommitted_files.keys().cloned())?;
             id_list_if_not_empty(
                 f,
                 "committed_files",
@@ -656,6 +704,10 @@ mod util {
         } else {
             Ok(())
         }
+    }
+
+    fn id_cmp(a: &CliId, b: &CliId) -> Ordering {
+        a.to_short_string().cmp(&b.to_short_string())
     }
 }
 use util::{hunk_assignment, id, segment, stack};

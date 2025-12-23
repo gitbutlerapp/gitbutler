@@ -5,7 +5,6 @@ use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
 use but_core::{TreeStatus, ui};
 use but_ctx::{Context, LegacyProject};
-use but_hunk_assignment::HunkAssignment;
 use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
@@ -84,20 +83,8 @@ pub(crate) async fn worktree(
     let stacks = but_api::legacy::workspace::stacks(project.id, None)?;
     let worktree_changes = but_api::legacy::diff::changes_in_worktree(project.id)?;
 
-    let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
-    for assignment in worktree_changes.assignments {
-        by_file
-            .entry(assignment.path_bytes.clone())
-            .or_default()
-            .push(assignment);
-    }
-    let mut assignments_by_file: BTreeMap<BString, FileAssignment> = BTreeMap::new();
-    for (path, assignments) in &by_file {
-        assignments_by_file.insert(
-            path.clone(),
-            FileAssignment::from_assignments(&id_map, path, assignments),
-        );
-    }
+    let assignments_by_file: BTreeMap<BString, FileAssignment> =
+        FileAssignment::get_assignments_by_file(&id_map);
     let mut stack_details: Vec<StackEntry> = vec![];
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
