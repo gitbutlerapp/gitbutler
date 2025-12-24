@@ -1,3 +1,5 @@
+mod json;
+
 use base::Subcommands;
 use but_ctx::LegacyProject;
 use colored::Colorize;
@@ -6,52 +8,9 @@ use gitbutler_branch_actions::upstream_integration::{
     Resolution, ResolutionApproach,
     StackStatuses::{UpToDate, UpdatesRequired},
 };
-use serde::Serialize;
 
 use crate::{args::base, utils::OutputChannel};
-
-/// JSON output for `but base check`
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BaseCheckOutput {
-    base_branch: BaseBranchInfo,
-    upstream_commits: UpstreamInfo,
-    branch_statuses: Vec<BranchStatusInfo>,
-    up_to_date: bool,
-    has_worktree_conflicts: bool,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BaseBranchInfo {
-    name: String,
-    remote_name: String,
-    base_sha: String,
-    current_sha: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct UpstreamInfo {
-    count: usize,
-    commits: Vec<UpstreamCommit>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct UpstreamCommit {
-    id: String,
-    description: String,
-    author_name: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BranchStatusInfo {
-    name: String,
-    status: String,
-    rebasable: Option<bool>,
-}
+use json::{BaseBranchInfo, BaseCheckOutput, BranchStatusInfo, UpstreamCommit, UpstreamInfo};
 
 pub async fn handle(
     cmd: Subcommands,
@@ -165,11 +124,7 @@ pub async fn handle(
                     }
                     let hidden_commits = base_branch.behind.saturating_sub(3);
                     if hidden_commits > 0 {
-                        writeln!(
-                            out,
-                            "  {}",
-                            format!("... ({hidden_commits} more)").dimmed()
-                        )?;
+                        writeln!(out, "  {}", format!("... ({hidden_commits} more)").dimmed())?;
                     }
                 }
 
