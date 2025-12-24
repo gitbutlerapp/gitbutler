@@ -234,7 +234,7 @@ const FORGE_API_CONFIG = {
 	tagTypes: Object.values(ReduxTag),
 	invalidationBehavior: 'immediately' as const,
 	baseQuery: fakeBaseQuery,
-	refetchOnFocus: true,
+	refetchOnFocus: false,
 	refetchOnReconnect: true,
 	keepUnusedDataFor: FORGE_CACHE_TTL_SECONDS,
 	endpoints: () => ({})
