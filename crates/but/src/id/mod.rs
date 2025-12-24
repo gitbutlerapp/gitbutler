@@ -427,6 +427,15 @@ impl IdMap {
     }
 }
 
+/// An uncommitted file in the worktree.
+#[derive(Debug, Clone)]
+pub struct UncommittedFileCliId {
+    /// The short CLI ID for this file (typically 2 characters)
+    pub id: ShortId,
+    /// The hunk assignments
+    pub hunk_assignments: NonEmpty<HunkAssignment>,
+}
+
 /// A user-friendly CLI ID that identifies a GitButler entity,
 /// with each identified by a variant.
 ///
@@ -437,12 +446,7 @@ impl IdMap {
 #[derive(Debug, Clone)]
 pub enum CliId {
     /// An uncommitted file in the worktree.
-    UncommittedFile {
-        /// The hunk assignments
-        hunk_assignments: NonEmpty<HunkAssignment>,
-        /// The short CLI ID for this file (typically 2 characters)
-        id: ShortId,
-    },
+    UncommittedFile(UncommittedFileCliId),
     /// A file that exists in a commit.
     CommittedFile {
         /// The object ID of the commit containing the change to the file
@@ -482,9 +486,10 @@ pub enum CliId {
 impl PartialEq for CliId {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::UncommittedFile { id: l_id, .. }, Self::UncommittedFile { id: r_id, .. }) => {
-                l_id == r_id
-            }
+            (
+                Self::UncommittedFile(UncommittedFileCliId { id: l_id, .. }),
+                Self::UncommittedFile(UncommittedFileCliId { id: r_id, .. }),
+            ) => l_id == r_id,
             (Self::CommittedFile { id: l_id, .. }, Self::CommittedFile { id: r_id, .. }) => {
                 l_id == r_id
             }
@@ -517,7 +522,7 @@ impl CliId {
     /// Returns the short ID string for display to users.
     pub fn to_short_string(&self) -> ShortId {
         match self {
-            CliId::UncommittedFile { id, .. }
+            CliId::UncommittedFile(UncommittedFileCliId { id, .. })
             | CliId::CommittedFile { id, .. }
             | CliId::UncommittedHunk { id, .. }
             | CliId::Branch { id, .. }
@@ -547,10 +552,10 @@ impl UncommittedFile {
     }
     /// Turn this instance into a [CliId], using `id` for identification.
     pub fn to_cli_id(&self, id: ShortId) -> CliId {
-        CliId::UncommittedFile {
+        CliId::UncommittedFile(UncommittedFileCliId {
             hunk_assignments: self.hunk_assignments.clone(),
             id,
-        }
+        })
     }
 }
 

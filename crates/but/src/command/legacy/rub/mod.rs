@@ -16,7 +16,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 
-use crate::{CliId, IdMap, utils::OutputChannel};
+use crate::{CliId, IdMap, id::UncommittedFileCliId, utils::OutputChannel};
 
 pub(crate) fn handle(
     project: &Project,
@@ -32,27 +32,27 @@ pub(crate) fn handle(
     for source in sources {
         match (source, &target) {
             (
-                CliId::UncommittedFile {
+                CliId::UncommittedFile(UncommittedFileCliId {
                     hunk_assignments, ..
-                },
+                }),
                 CliId::Unassigned { .. },
             ) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::unassign_file(ctx, hunk_assignments, out)?;
             }
             (
-                CliId::UncommittedFile {
+                CliId::UncommittedFile(UncommittedFileCliId {
                     hunk_assignments, ..
-                },
+                }),
                 CliId::Commit(oid),
             ) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::file_to_commit(ctx, hunk_assignments, oid, out)?;
             }
             (
-                CliId::UncommittedFile {
+                CliId::UncommittedFile(UncommittedFileCliId {
                     hunk_assignments, ..
-                },
+                }),
                 CliId::Branch { name, .. },
             ) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);

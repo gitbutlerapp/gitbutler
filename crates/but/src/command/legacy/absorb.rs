@@ -12,7 +12,10 @@ use but_hunk_dependency::ui::HunkDependencies;
 use colored::Colorize;
 use gitbutler_project::Project;
 
-use crate::{CliId, IdMap, command::legacy::rub::parse_sources, utils::OutputChannel};
+use crate::{
+    CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedFileCliId,
+    utils::OutputChannel,
+};
 
 /// Amends changes into the appropriate commits where they belong.
 ///
@@ -50,9 +53,9 @@ pub(crate) fn handle(
 
     if let Some(source) = source {
         match source {
-            CliId::UncommittedFile {
+            CliId::UncommittedFile(UncommittedFileCliId {
                 hunk_assignments, ..
-            } => {
+            }) => {
                 // Absorb this particular file
                 absorb_assignments(
                     project,
