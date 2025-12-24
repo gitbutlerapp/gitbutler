@@ -414,7 +414,10 @@ impl Sandbox {
                 rules: true,
                 single_branch: true,
             },
-            extra_csp: ExtraCsp { hosts: vec![] },
+            extra_csp: ExtraCsp {
+                hosts: vec![],
+                img_src: vec![],
+            },
             fetch: Fetch {
                 auto_fetch_interval_minutes: 0,
             },

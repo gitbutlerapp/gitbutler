@@ -53,6 +53,8 @@ pub struct FeatureFlags {
 pub struct ExtraCsp {
     /// Additional hosts that the application can connect to.
     pub hosts: Vec<String>,
+    /// Additional hosts for img-src that the application can load images from.
+    pub img_src: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
