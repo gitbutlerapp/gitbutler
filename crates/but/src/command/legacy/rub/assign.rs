@@ -1,21 +1,21 @@
-use bstr::{BStr, BString};
+use bstr::BString;
 use but_core::{HunkHeader, ref_metadata::StackId};
 use but_ctx::Context;
-use but_hunk_assignment::{HunkAssignment, HunkAssignmentRequest};
+use but_hunk_assignment::HunkAssignmentRequest;
 use colored::Colorize;
-use nonempty::NonEmpty;
 
-use crate::utils::OutputChannel;
+use crate::{id::UncommittedCliId, utils::OutputChannel};
 
-pub(crate) fn assign_file_to_branch(
+pub(crate) fn assign_uncommitted_to_branch(
     ctx: &mut Context,
-    hunk_assignments: NonEmpty<HunkAssignment>,
+    uncommitted_cli_id: UncommittedCliId,
     branch_name: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let path = hunk_assignments.first().path_bytes.clone();
+    let description = uncommitted_cli_id.describe();
 
-    let assignments = hunk_assignments
+    let assignments = uncommitted_cli_id
+        .hunk_assignments
         .into_iter()
         .map(|hunk_assignment| (hunk_assignment.hunk_header, hunk_assignment.path_bytes));
     let reqs = to_assignment_request(ctx, assignments, Some(branch_name))?;
@@ -24,65 +24,28 @@ pub(crate) fn assign_file_to_branch(
         writeln!(
             out,
             "Assigned {} → {}.",
-            path.to_string().bold(),
+            description,
             format!("[{branch_name}]").green()
         )?;
     }
     Ok(())
 }
 
-pub(crate) fn assign_hunk_to_branch(
+pub(crate) fn unassign_uncommitted(
     ctx: &mut Context,
-    hunk_header: Option<HunkHeader>,
-    path_bytes: &BStr,
-    branch_name: &str,
+    uncommitted_cli_id: UncommittedCliId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let reqs = to_assignment_request(
-        ctx,
-        Some((hunk_header, path_bytes.to_owned())).into_iter(),
-        Some(branch_name),
-    )?;
-    do_assignments(ctx, reqs, out)?;
-    if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "Assigned a hunk in {} → {}.",
-            path_bytes.to_string().bold(),
-            format!("[{branch_name}]").green()
-        )?;
-    }
-    Ok(())
-}
+    let description = uncommitted_cli_id.describe();
 
-pub(crate) fn unassign_file(
-    ctx: &mut Context,
-    hunk_assignments: NonEmpty<HunkAssignment>,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
-    let path = hunk_assignments.first().path_bytes.clone();
-
-    let assignments = hunk_assignments
+    let assignments = uncommitted_cli_id
+        .hunk_assignments
         .into_iter()
         .map(|hunk_assignment| (hunk_assignment.hunk_header, hunk_assignment.path_bytes));
     let reqs = to_assignment_request(ctx, assignments, None)?;
     do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
-        writeln!(out, "Unassigned {}", path.to_string().bold())?;
-    }
-    Ok(())
-}
-
-pub(crate) fn unassign_hunk(
-    ctx: &mut Context,
-    hunk_header: Option<HunkHeader>,
-    path: &BStr,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
-    let reqs = to_assignment_request(ctx, Some((hunk_header, path.to_owned())).into_iter(), None)?;
-    do_assignments(ctx, reqs, out)?;
-    if let Some(out) = out.for_human() {
-        writeln!(out, "Unassigned a hunk in {}", path.to_string().bold())?;
+        writeln!(out, "Unassigned {}", description)?;
     }
     Ok(())
 }

@@ -22,6 +22,70 @@ Rubbed the wrong way. Source 'nonexistent1' not found. If you just performed a G
 }
 
 #[test]
+fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    // Must set metadata to match the scenario
+    env.setup_metadata(&["A", "B"])?;
+
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Assign the change to A and verify that the assignment happened.
+    env.but("i0 A").assert().success();
+    env.but("--json status -f")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [],
+  "stacks": [
+    {
+      "cliId": "g0",
+      "assignedChanges": [
+        {
+          "cliId": "i0",
+          "filePath": "a.txt",
+          "changeType": "modified"
+        }
+      ],
+...
+
+"#]]);
+
+    env.but("i0 00")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/rub/uncommitted-file-to-unassigned.stdout.term.svg"
+        ])
+        .stderr_eq(str![""]);
+
+    Ok(())
+}
+
+#[test]
+fn uncommitted_file_to_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    // Must set metadata to match the scenario
+    env.setup_metadata(&["A", "B"])?;
+
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    env.but("rub i0 A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/rub/uncommitted-file-to-branch.stdout.term.svg"
+        ])
+        .stderr_eq(str![""]);
+
+    Ok(())
+}
+
+#[test]
 fn committed_file_to_unassigned() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 

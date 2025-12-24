@@ -13,8 +13,7 @@ use colored::Colorize;
 use gitbutler_project::Project;
 
 use crate::{
-    CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedFileCliId,
-    utils::OutputChannel,
+    CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedCliId, utils::OutputChannel,
 };
 
 /// Amends changes into the appropriate commits where they belong.
@@ -42,7 +41,7 @@ pub(crate) fn handle(
         .and_then(|s| parse_sources(ctx, &id_map, s).ok())
         .and_then(|s| {
             s.into_iter().find(|s| {
-                matches!(s, CliId::UncommittedFile { .. }) || matches!(s, CliId::Branch { .. })
+                matches!(s, CliId::Uncommitted { .. }) || matches!(s, CliId::Branch { .. })
             })
         });
 
@@ -53,7 +52,7 @@ pub(crate) fn handle(
 
     if let Some(source) = source {
         match source {
-            CliId::UncommittedFile(UncommittedFileCliId {
+            CliId::Uncommitted(UncommittedCliId {
                 hunk_assignments, ..
             }) => {
                 // Absorb this particular file

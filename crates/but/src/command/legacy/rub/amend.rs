@@ -4,22 +4,23 @@ use but_hunk_assignment::HunkAssignment;
 use but_workspace::commit_engine::{self, CreateCommitOutcome};
 use colored::Colorize;
 use gix::ObjectId;
-use nonempty::NonEmpty;
 
 use super::assign::branch_name_to_stack_id;
-use crate::utils::OutputChannel;
+use crate::{id::UncommittedCliId, utils::OutputChannel};
 
-pub(crate) fn file_to_commit(
+pub(crate) fn uncommitted_to_commit(
     ctx: &mut Context,
-    hunk_assignments: NonEmpty<HunkAssignment>,
+    uncommitted_cli_id: UncommittedCliId,
     oid: &ObjectId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let first_hunk_assignment = hunk_assignments.first();
-    let path = first_hunk_assignment.path_bytes.clone();
+    let description = uncommitted_cli_id.describe();
+
+    let first_hunk_assignment = uncommitted_cli_id.hunk_assignments.first();
     let stack_id = first_hunk_assignment.stack_id;
 
-    let diff_specs: Vec<DiffSpec> = hunk_assignments
+    let diff_specs: Vec<DiffSpec> = uncommitted_cli_id
+        .hunk_assignments
         .into_iter()
         .map(|assignment: HunkAssignment| assignment.into())
         .collect();
@@ -33,7 +34,7 @@ pub(crate) fn file_to_commit(
         })
         .unwrap_or_default();
     if let Some(out) = out.for_human() {
-        writeln!(out, "Amended {} → {}", path.to_string().bold(), new_commit)?;
+        writeln!(out, "Amended {} → {}", description, new_commit)?;
     }
     Ok(())
 }
