@@ -166,4 +166,5 @@ export type CreatePullRequestArgs = {
 	draft: boolean;
 	baseBranchName: string;
 	upstreamName: string;
+	labels: string[];
 };
