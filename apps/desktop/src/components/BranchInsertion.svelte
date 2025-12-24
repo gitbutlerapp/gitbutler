@@ -32,7 +32,9 @@
 </script>
 
 {#if !isFirst}
-	{#if !isCommitting && baseBranchName}
+	{#if isCommitting}
+		<BranchDividerLine {lineColor} />
+	{:else if baseBranchName}
 		{@const moveBranchHandler = new MoveBranchDzHandler(
 			stackService,
 			prService,
