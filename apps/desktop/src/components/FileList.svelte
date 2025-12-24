@@ -225,6 +225,7 @@
 
 		return updateSelection({
 			allowMultiple: true,
+			ctrlKey: e.ctrlKey,
 			metaKey: e.metaKey,
 			shiftKey: e.shiftKey,
 			key: e.key,

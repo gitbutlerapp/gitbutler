@@ -54,6 +54,7 @@ function getBottomFile(
 
 interface UpdateSelectionParams {
 	allowMultiple: boolean;
+	ctrlKey: boolean;
 	metaKey: boolean;
 	shiftKey: boolean;
 	key: string;
@@ -67,6 +68,7 @@ interface UpdateSelectionParams {
 
 export function updateSelection({
 	allowMultiple,
+	ctrlKey,
 	metaKey,
 	shiftKey,
 	key,
@@ -115,10 +117,10 @@ export function updateSelection({
 	}
 
 	switch (key) {
-		// To support either Cmd+a or Cmd+shift+a?
+		// Cmd+A on Mac, Ctrl+A on Windows/Linux
 		case 'a':
 		case 'A':
-			if (allowMultiple && metaKey) {
+			if (allowMultiple && (metaKey || ctrlKey)) {
 				preventDefault();
 
 				for (let i = 0; i < files.length; i++) {
