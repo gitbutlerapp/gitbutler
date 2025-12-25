@@ -17,7 +17,7 @@ use crate::id::{
     stacks_info::StacksInfo,
 };
 use bstr::{BStr, BString, ByteSlice};
-use but_core::{HunkHeader, ref_metadata::StackId};
+use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::branch::Stack;
@@ -263,14 +263,17 @@ impl IdMap {
             });
         }
 
-        for hunk_assignment in hunk_assignments {
-            self.uncommitted_hunks.insert(
-                self.id_usage.next_available()?.to_short_id(),
-                UncommittedHunk {
-                    hunk_header: hunk_assignment.hunk_header,
-                    path: hunk_assignment.path_bytes,
-                },
-            );
+        for uncommitted_file in self.uncommitted_files.values() {
+            if uncommitted_file.hunk_assignments.len() > 1 {
+                for hunk_assignment in uncommitted_file.hunk_assignments.iter() {
+                    self.uncommitted_hunks.insert(
+                        self.id_usage.next_available()?.to_short_id(),
+                        UncommittedHunk {
+                            hunk_assignment: hunk_assignment.clone(),
+                        },
+                    );
+                }
+            }
         }
 
         Ok(())
@@ -338,11 +341,11 @@ impl IdMap {
             });
         }
         if let Some(uncommitted_hunk) = self.uncommitted_hunks.get(entity) {
-            matches.push(CliId::UncommittedHunk {
-                hunk_header: uncommitted_hunk.hunk_header,
-                path: uncommitted_hunk.path.clone(),
+            matches.push(CliId::Uncommitted(UncommittedCliId {
                 id: entity.to_string(),
-            });
+                hunk_assignments: NonEmpty::new(uncommitted_hunk.hunk_assignment.clone()),
+                is_entire_file: false,
+            }));
         }
         if entity.bytes().all(|c| c == b'0') {
             matches.push(self.unassigned.clone());
@@ -427,6 +430,43 @@ impl IdMap {
     }
 }
 
+/// An uncommitted file or hunk in the worktree.
+#[derive(Debug, Clone)]
+pub struct UncommittedCliId {
+    /// The short CLI ID for this file (typically 2 characters)
+    pub id: ShortId,
+    /// The hunk assignments
+    pub hunk_assignments: NonEmpty<HunkAssignment>,
+    /// True iff self represents all hunks in a (stack assignment, file) pair.
+    /// Note that this file may have hunks with other stack assignments.
+    pub is_entire_file: bool,
+}
+impl UncommittedCliId {
+    /// Describes self.
+    pub fn describe(&self) -> String {
+        let hunk_cardinality = if self.is_entire_file {
+            if self.hunk_assignments.len() == 1 {
+                "the only hunk"
+            } else {
+                "all hunks"
+            }
+        } else {
+            "a hunk"
+        };
+        let assignment = if self.hunk_assignments.first().stack_id.is_some() {
+            "a stack"
+        } else {
+            "the unassigned area"
+        };
+        format!(
+            "{} in {} in {}",
+            hunk_cardinality,
+            self.hunk_assignments.first().path_bytes,
+            assignment
+        )
+    }
+}
+
 /// A user-friendly CLI ID that identifies a GitButler entity,
 /// with each identified by a variant.
 ///
@@ -436,13 +476,8 @@ impl IdMap {
 /// to find it.
 #[derive(Debug, Clone)]
 pub enum CliId {
-    /// An uncommitted file in the worktree.
-    UncommittedFile {
-        /// The hunk assignments
-        hunk_assignments: NonEmpty<HunkAssignment>,
-        /// The short CLI ID for this file (typically 2 characters)
-        id: ShortId,
-    },
+    /// An uncommitted file or hunk in the worktree.
+    Uncommitted(UncommittedCliId),
     /// A file that exists in a commit.
     CommittedFile {
         /// The object ID of the commit containing the change to the file
@@ -450,15 +485,6 @@ pub enum CliId {
         /// The file path relative to the repository root
         path: BString,
         /// The short CLI ID for this file (typically 2 characters)
-        id: ShortId,
-    },
-    /// An uncommitted hunk.
-    UncommittedHunk {
-        /// Same as [HunkAssignment::hunk_header].
-        hunk_header: Option<HunkHeader>,
-        /// Same as [HunkAssignment::path_bytes].
-        path: BString,
-        /// The short CLI ID for this hunk (typically 2 characters)
         id: ShortId,
     },
     /// A branch.
@@ -482,13 +508,11 @@ pub enum CliId {
 impl PartialEq for CliId {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::UncommittedFile { id: l_id, .. }, Self::UncommittedFile { id: r_id, .. }) => {
-                l_id == r_id
-            }
+            (
+                Self::Uncommitted(UncommittedCliId { id: l_id, .. }),
+                Self::Uncommitted(UncommittedCliId { id: r_id, .. }),
+            ) => l_id == r_id,
             (Self::CommittedFile { id: l_id, .. }, Self::CommittedFile { id: r_id, .. }) => {
-                l_id == r_id
-            }
-            (Self::UncommittedHunk { id: l_id, .. }, Self::UncommittedHunk { id: r_id, .. }) => {
                 l_id == r_id
             }
             (Self::Branch { id: l_id, .. }, Self::Branch { id: r_id, .. }) => l_id == r_id,
@@ -505,9 +529,8 @@ impl CliId {
     /// Returns a human-readable description of the entity type.
     pub fn kind_for_humans(&self) -> &'static str {
         match self {
-            CliId::UncommittedFile { .. } => "an uncommitted file",
+            CliId::Uncommitted { .. } => "an uncommitted file or hunk",
             CliId::CommittedFile { .. } => "a committed file",
-            CliId::UncommittedHunk { .. } => "an uncommitted hunk",
             CliId::Branch { .. } => "a branch",
             CliId::Commit { .. } => "a commit",
             CliId::Unassigned { .. } => "the unassigned area",
@@ -517,9 +540,8 @@ impl CliId {
     /// Returns the short ID string for display to users.
     pub fn to_short_string(&self) -> ShortId {
         match self {
-            CliId::UncommittedFile { id, .. }
+            CliId::Uncommitted(UncommittedCliId { id, .. })
             | CliId::CommittedFile { id, .. }
-            | CliId::UncommittedHunk { id, .. }
             | CliId::Branch { id, .. }
             | CliId::Unassigned { id, .. } => id.clone(),
             // TODO: make this so we can't display prefixes that are ambiguous.
@@ -547,10 +569,11 @@ impl UncommittedFile {
     }
     /// Turn this instance into a [CliId], using `id` for identification.
     pub fn to_cli_id(&self, id: ShortId) -> CliId {
-        CliId::UncommittedFile {
+        CliId::Uncommitted(UncommittedCliId {
             hunk_assignments: self.hunk_assignments.clone(),
             id,
-        }
+            is_entire_file: true,
+        })
     }
 }
 
@@ -584,6 +607,5 @@ impl Borrow<str> for CommittedFile {
 
 #[derive(Debug)]
 struct UncommittedHunk {
-    hunk_header: Option<HunkHeader>,
-    path: BString,
+    hunk_assignment: HunkAssignment,
 }

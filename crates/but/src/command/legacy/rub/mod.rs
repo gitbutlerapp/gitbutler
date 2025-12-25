@@ -31,32 +31,17 @@ pub(crate) fn handle(
 
     for source in sources {
         match (source, &target) {
-            (
-                CliId::UncommittedFile {
-                    hunk_assignments, ..
-                },
-                CliId::Unassigned { .. },
-            ) => {
+            (CliId::Uncommitted(uncommitted_cli_id), CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::unassign_file(ctx, hunk_assignments, out)?;
+                assign::unassign_uncommitted(ctx, uncommitted_cli_id, out)?;
             }
-            (
-                CliId::UncommittedFile {
-                    hunk_assignments, ..
-                },
-                CliId::Commit(oid),
-            ) => {
+            (CliId::Uncommitted(uncommitted_cli_id), CliId::Commit(oid)) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
-                amend::file_to_commit(ctx, hunk_assignments, oid, out)?;
+                amend::uncommitted_to_commit(ctx, uncommitted_cli_id, oid, out)?;
             }
-            (
-                CliId::UncommittedFile {
-                    hunk_assignments, ..
-                },
-                CliId::Branch { name, .. },
-            ) => {
+            (CliId::Uncommitted(uncommitted_cli_id), CliId::Branch { name, .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_file_to_branch(ctx, hunk_assignments, name, out)?;
+                assign::assign_uncommitted_to_branch(ctx, uncommitted_cli_id, name, out)?;
             }
             (CliId::Unassigned { .. }, CliId::Commit(oid)) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
@@ -128,24 +113,6 @@ pub(crate) fn handle(
             ) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
                 commits::uncommit_file(ctx, path.as_ref(), commit_oid, None, out)?;
-            }
-            (
-                CliId::UncommittedHunk {
-                    hunk_header, path, ..
-                },
-                CliId::Unassigned { .. },
-            ) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::unassign_hunk(ctx, hunk_header, path.as_ref(), out)?;
-            }
-            (
-                CliId::UncommittedHunk {
-                    hunk_header, path, ..
-                },
-                CliId::Branch { name, .. },
-            ) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_hunk_to_branch(ctx, hunk_header, path.as_ref(), name, out)?;
             }
             (source, target) => {
                 bail!(makes_no_sense_error(&source, target))
