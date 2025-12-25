@@ -4,7 +4,7 @@ use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
 use but_core::{TreeStatus, ui};
-use but_ctx::{Context, LegacyProject};
+use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
@@ -50,13 +50,12 @@ struct UpstreamState {
 }
 
 pub(crate) async fn worktree(
-    project: &LegacyProject,
+    ctx: &mut Context,
     out: &mut OutputChannel,
     show_files: bool,
     verbose: bool,
     review: bool,
 ) -> anyhow::Result<()> {
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
     let guard = ctx.shared_worktree_access();
@@ -75,13 +74,13 @@ pub(crate) async fn worktree(
     id_map.add_file_info_from_context(ctx)?;
 
     let review_map = if review {
-        crate::command::legacy::forge::review::get_review_map(project).await?
+        crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project).await?
     } else {
         std::collections::HashMap::new()
     };
 
-    let stacks = but_api::legacy::workspace::stacks(project.id, None)?;
-    let worktree_changes = but_api::legacy::diff::changes_in_worktree(project.id)?;
+    let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
+    let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx.legacy_project.id)?;
 
     let assignments_by_file: BTreeMap<BString, FileAssignment> =
         FileAssignment::get_assignments_by_file(&id_map);
@@ -95,7 +94,7 @@ pub(crate) async fn worktree(
         vec![(None, None)];
 
     for stack in stacks {
-        let details = but_api::legacy::workspace::stack_details(project.id, stack.id)?;
+        let details = but_api::legacy::workspace::stack_details(ctx.legacy_project.id, stack.id)?;
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
         original_stack_details.push((stack.id, Some(details.clone())));
         stack_details.push((stack.id, (Some(details), assignments)));
@@ -133,7 +132,7 @@ pub(crate) async fn worktree(
 
     // Get cached upstream state information (without fetching)
     let (upstream_state, last_fetched_ms) =
-        but_api::legacy::virtual_branches::get_base_branch_data(project.id)
+        but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)
             .ok()
             .flatten()
             .map(|base_branch| {
@@ -194,7 +193,7 @@ pub(crate) async fn worktree(
             &review_map,
             show_files,
             review,
-            project.id,
+            ctx.legacy_project.id,
             &repo,
             &mut id_map,
         )?;
@@ -220,7 +219,6 @@ pub(crate) async fn worktree(
         });
 
         print_group(
-            project,
             details,
             assignments,
             &worktree_changes.worktree_changes.changes,
@@ -357,7 +355,6 @@ fn print_assignments(
 
 #[expect(clippy::too_many_arguments)]
 pub fn print_group(
-    project: &gitbutler_project::Project,
     group: Option<StackDetails>,
     assignments: Vec<FileAssignment>,
     changes: &[ui::TreeChange],
@@ -372,7 +369,7 @@ pub fn print_group(
     out: &mut dyn std::fmt::Write,
     id_map: &mut IdMap,
 ) -> anyhow::Result<()> {
-    let repo = project.open_isolated_repo()?;
+    let repo = ctx.legacy_project.open_isolated_repo()?;
     if let Some(group) = &group {
         let mut first = true;
         for branch in &group.branch_details {

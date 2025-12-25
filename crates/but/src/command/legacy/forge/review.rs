@@ -16,20 +16,20 @@ use crate::{CliId, IdMap, tui::get_text, utils::OutputChannel};
 
 /// Set the review template for the given project.
 pub fn set_review_template(
-    project: &Project,
+    ctx: &mut Context,
     template_path: Option<String>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     if let Some(path) = template_path {
         let message = format!("Set review template path to: {}", &path);
-        but_api::legacy::forge::set_review_template(project.id, Some(path))?;
+        but_api::legacy::forge::set_review_template(ctx.legacy_project.id, Some(path))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", message)?;
         }
     } else {
-        let current_template = but_api::legacy::forge::review_template(project.id)?;
+        let current_template = but_api::legacy::forge::review_template(ctx.legacy_project.id)?;
         let available_templates =
-            but_api::legacy::forge::list_available_review_templates(project.id)?;
+            but_api::legacy::forge::list_available_review_templates(ctx.legacy_project.id)?;
         let template_prompt = cli_prompts::prompts::Selection::new_with_transformation(
             "Select a review template (and press Enter)",
             available_templates.into_iter(),
@@ -50,7 +50,10 @@ pub fn set_review_template(
             .display()
             .map_err(|_| anyhow::anyhow!("Could not determine selected review template"))?;
         let message = format!("Set review template path to: {}", &selected_template);
-        but_api::legacy::forge::set_review_template(project.id, Some(selected_template.clone()))?;
+        but_api::legacy::forge::set_review_template(
+            ctx.legacy_project.id,
+            Some(selected_template.clone()),
+        )?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", message)?;
         }
@@ -61,7 +64,7 @@ pub fn set_review_template(
 
 /// Publish reviews for active branches in the workspace.
 pub async fn publish_reviews(
-    project: &Project,
+    ctx: &mut Context,
     branch: Option<String>,
     skip_force_push_protection: bool,
     with_force: bool,
@@ -69,16 +72,16 @@ pub async fn publish_reviews(
     default: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let review_map = get_review_map(project).await?;
+    let review_map = get_review_map(&ctx.legacy_project).await?;
     let applied_stacks = but_api::legacy::workspace::stacks(
-        project.id,
+        ctx.legacy_project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
     let maybe_branch_names = branch
-        .map(|branch_id| get_branch_names(project, &branch_id))
+        .map(|branch_id| get_branch_names(&ctx.legacy_project, &branch_id))
         .transpose()?;
     handle_multiple_branches_in_workspace(
-        project,
+        &ctx.legacy_project,
         &review_map,
         &applied_stacks,
         skip_force_push_protection,

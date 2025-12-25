@@ -8,14 +8,13 @@ use gix::prelude::ObjectIdExt;
 use crate::{CliId, IdMap, tui, utils::OutputChannel};
 
 pub(crate) fn describe_target(
-    project: &Project,
+    ctx: &mut Context,
     out: &mut OutputChannel,
     target: &str,
     message: Option<&str>,
 ) -> Result<()> {
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let mut id_map = IdMap::new_from_context(&ctx)?;
-    id_map.add_file_info_from_context(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx)?;
 
     // Resolve the commit ID
     let cli_ids = id_map.resolve_entity_to_ids(target)?;
@@ -36,10 +35,10 @@ pub(crate) fn describe_target(
 
     match cli_id {
         CliId::Branch { name, .. } => {
-            edit_branch_name(&ctx, project, name, out, message)?;
+            edit_branch_name(ctx, &ctx.legacy_project, name, out, message)?;
         }
         CliId::Commit(oid) => {
-            edit_commit_message_by_id(&ctx, project, *oid, out, message)?;
+            edit_commit_message_by_id(ctx, &ctx.legacy_project, *oid, out, message)?;
         }
         _ => {
             bail!(

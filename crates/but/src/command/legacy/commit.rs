@@ -15,13 +15,12 @@ use crate::{
 };
 
 pub(crate) fn insert_blank_commit(
-    project: &Project,
+    ctx: &mut Context,
     out: &mut OutputChannel,
     target: &str,
 ) -> Result<()> {
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let mut id_map = IdMap::new_from_context(&ctx)?;
-    id_map.add_file_info_from_context(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx)?;
 
     // Resolve the target ID
     let cli_ids = id_map.resolve_entity_to_ids(target)?;
@@ -55,7 +54,7 @@ pub(crate) fn insert_blank_commit(
         }
         CliId::Branch { name, .. } => {
             // For branches, we need to find the branch and get its head commit
-            let head_commit_id = find_branch_head_commit(project.id, name)?;
+            let head_commit_id = find_branch_head_commit(ctx.legacy_project.id, name)?;
             (
                 head_commit_id,
                 -1,
@@ -71,9 +70,9 @@ pub(crate) fn insert_blank_commit(
     };
 
     // Find the stack containing the target commit and insert blank commit
-    let stack_id = find_stack_containing_commit(project.id, target_commit_id)?;
+    let stack_id = find_stack_containing_commit(ctx.legacy_project.id, target_commit_id)?;
     virtual_branches::insert_blank_commit(
-        project.id,
+        ctx.legacy_project.id,
         stack_id,
         Some(target_commit_id.to_string()),
         offset,
@@ -143,19 +142,18 @@ fn find_stack_containing_commit(
 }
 
 pub(crate) fn commit(
-    project: &Project,
+    ctx: &mut Context,
     out: &mut OutputChannel,
     message: Option<&str>,
     branch_hint: Option<&str>,
     only: bool,
     create_branch: bool,
 ) -> anyhow::Result<()> {
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let mut id_map = IdMap::new_from_context(&ctx)?;
-    id_map.add_file_info_from_context(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx)?;
 
     // Get all stacks using but-api
-    let project_id = project.id;
+    let project_id = ctx.legacy_project.id;
     let stack_entries = workspace::stacks(project_id, None)?;
     let stacks: Vec<(
         but_core::ref_metadata::StackId,
@@ -171,8 +169,14 @@ pub(crate) fn commit(
         })
         .collect();
 
-    let (target_stack_id, target_stack) =
-        select_stack(&id_map, project, &stacks, branch_hint, create_branch, out)?;
+    let (target_stack_id, target_stack) = select_stack(
+        &id_map,
+        &ctx.legacy_project,
+        &stacks,
+        branch_hint,
+        create_branch,
+        out,
+    )?;
 
     // Get changes and assignments using but-api
     let worktree_changes = diff::changes_in_worktree(project_id)?;

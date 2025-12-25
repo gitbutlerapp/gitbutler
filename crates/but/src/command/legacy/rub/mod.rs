@@ -3,7 +3,6 @@ use bstr::BStr;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use colored::Colorize;
-use gitbutler_project::Project;
 mod amend;
 mod assign;
 mod commits;
@@ -19,12 +18,11 @@ use gitbutler_oplog::{
 use crate::{CliId, IdMap, utils::OutputChannel};
 
 pub(crate) fn handle(
-    project: &Project,
+    ctx: &mut Context,
     out: &mut OutputChannel,
     source_str: &str,
     target_str: &str,
 ) -> anyhow::Result<()> {
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let mut id_map = IdMap::new_from_context(ctx)?;
     id_map.add_file_info_from_context(ctx)?;
     let (sources, target) = ids(ctx, &id_map, source_str, target_str)?;
