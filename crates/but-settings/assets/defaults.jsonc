@@ -34,7 +34,9 @@
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {
 		// Additional hosts that the application can connect to.
-		"hosts": []
+		"hosts": [],
+		// Additional hosts for img-src that the application can load images from.
+		"imgSrc": []
 	},
 	// Settings related to fetching.
 	"fetch": {
