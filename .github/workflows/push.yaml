@@ -145,7 +145,7 @@ jobs:
           cargo check -p but-workspace --all-targets
           cargo check -p but-github --all-targets
           cargo check -p but-api --all-targets
-          cargo check -p but --all-targets --no-default-features
+          cargo check -p but --all-targets
         name: Special `cargo check` runs
         env:
           RUSTFLAGS: '--deny warnings'
@@ -211,7 +211,7 @@ jobs:
         env:
           GITBUTLER_TESTS_NO_CLEANUP: '1'
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
-      - run: cargo test -p but --no-default-features
+      - run: cargo test -p but
       - run: cargo test -p but-server
 
   rust-test-tauri:
