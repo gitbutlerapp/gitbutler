@@ -609,6 +609,10 @@ pub mod base {
 
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommands {
+        /// Only fetches from the remote to update the base branch information.
+        /// This is used by the auto-fetch functionality (from a side-process)
+        #[clap(hide = true)]
+        Fetch,
         /// Fetches from the remote and checks the mergeability of the branches in the workspace.
         ///
         /// This will see if the target branch has had new work merged into it, and if so,

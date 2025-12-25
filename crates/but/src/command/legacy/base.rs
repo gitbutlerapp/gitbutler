@@ -15,6 +15,14 @@ pub async fn handle(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     match cmd {
+        Subcommands::Fetch => {
+            but_api::legacy::virtual_branches::fetch_from_remotes(
+                ctx.legacy_project.id,
+                Some("auto".to_string()),
+            )
+            .ok();
+            Ok(())
+        }
         Subcommands::Check => {
             if let Some(out) = out.for_human() {
                 writeln!(out, "🔍 Checking base branch status...")?;

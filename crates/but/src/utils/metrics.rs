@@ -68,6 +68,7 @@ impl Subcommands {
             Subcommands::Base(base::Platform { cmd }) => match cmd {
                 base::Subcommands::Update => BaseUpdate,
                 base::Subcommands::Check => BaseCheck,
+                base::Subcommands::Fetch => BaseFetch,
             },
             Subcommands::Branch(branch::Platform { cmd }) => match cmd {
                 None => BranchList,

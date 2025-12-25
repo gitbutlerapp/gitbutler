@@ -17,6 +17,7 @@ pub enum CommandName {
     Undo,
     Snapshot,
     Gui,
+    BaseFetch,
     BaseCheck,
     BaseUpdate,
     BranchNew,
