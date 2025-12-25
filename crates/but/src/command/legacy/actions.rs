@@ -1,17 +1,15 @@
 use but_action::Source;
 use but_ctx::Context;
-use gitbutler_project::Project;
 use serde::Serialize;
 
 use crate::utils::OutputChannel;
 
 pub(crate) fn handle_changes(
-    project: &Project,
+    ctx: &mut Context,
     out: &mut OutputChannel,
     handler: impl Into<but_action::ActionHandler>,
     change_description: &str,
 ) -> anyhow::Result<()> {
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let response = but_action::handle_changes(
         ctx,
         change_description,
@@ -32,13 +30,11 @@ impl From<crate::args::actions::Handler> for but_action::ActionHandler {
 }
 
 pub(crate) fn list_actions(
-    project: &Project,
+    ctx: &mut Context,
     out: &mut OutputChannel,
     offset: i64,
     limit: i64,
 ) -> anyhow::Result<()> {
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-
     let response = but_action::list_actions(ctx, offset, limit)?;
     print_json_or_human(&response, out)
 }

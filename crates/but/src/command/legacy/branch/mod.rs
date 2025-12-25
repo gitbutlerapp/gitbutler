@@ -2,7 +2,6 @@ use anyhow::bail;
 use branch::Subcommands;
 use but_core::ref_metadata::StackId;
 use but_ctx::{Context, LegacyProject};
-use but_settings::AppSettings;
 use but_workspace::legacy::ui::StackEntry;
 
 use crate::{CliId, IdMap, args::branch, utils::OutputChannel};
@@ -14,7 +13,7 @@ mod show;
 
 pub async fn handle(
     cmd: Option<Subcommands>,
-    legacy_project: &LegacyProject,
+    ctx: &mut Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     match cmd {
@@ -29,7 +28,7 @@ pub async fn handle(
                     review: false,
                     no_check: false,
                 }),
-                legacy_project,
+                ctx,
                 out,
             ))
             .await
@@ -46,7 +45,7 @@ pub async fn handle(
             let ahead = !no_ahead; // Invert the flag
             let check = !no_check; // Invert the flag
             list::list(
-                legacy_project,
+                &ctx.legacy_project,
                 local,
                 remote,
                 all,
@@ -66,22 +65,27 @@ pub async fn handle(
             ai,
             check,
         }) => {
-            show::show(legacy_project, &branch_id, out, review, files, ai, check).await?;
+            show::show(
+                &ctx.legacy_project,
+                &branch_id,
+                out,
+                review,
+                files,
+                ai,
+                check,
+            )
+            .await?;
             Ok(())
         }
         Some(Subcommands::New {
             branch_name,
             anchor,
         }) => {
-            let mut ctx = Context::new_from_legacy_project_and_settings(
-                legacy_project,
-                AppSettings::load_from_default_path_creating_without_customization()?,
-            );
-            let mut id_map = IdMap::new_from_context(&ctx)?;
-            id_map.add_file_info_from_context(&mut ctx)?;
+            let mut id_map = IdMap::new_from_context(ctx)?;
+            id_map.add_file_info_from_context(ctx)?;
             // Get branch name or use canned name
             let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
-                but_api::legacy::workspace::canned_branch_name(legacy_project.id)
+                but_api::legacy::workspace::canned_branch_name(ctx.legacy_project.id)
             })?;
 
             // Store anchor string for JSON output
@@ -130,7 +134,7 @@ pub async fn handle(
                 None
             };
             but_api::legacy::stack::create_reference(
-                legacy_project.id,
+                ctx.legacy_project.id,
                 but_api::legacy::stack::create_reference::Request {
                     new_name: branch_name.clone(),
                     anchor,
@@ -152,7 +156,7 @@ pub async fn handle(
         }
         Some(Subcommands::Delete { branch_name, force }) => {
             let stacks = but_api::legacy::workspace::stacks(
-                legacy_project.id,
+                ctx.legacy_project.id,
                 Some(but_workspace::legacy::StacksFilter::InWorkspace),
             )?;
 
@@ -164,7 +168,13 @@ pub async fn handle(
                 }
 
                 if let Some(sid) = stack_entry.id {
-                    return confirm_branch_deletion(legacy_project, sid, &branch_name, force, out);
+                    return confirm_branch_deletion(
+                        &ctx.legacy_project,
+                        sid,
+                        &branch_name,
+                        force,
+                        out,
+                    );
                 }
             }
 
@@ -173,10 +183,12 @@ pub async fn handle(
             }
             Ok(())
         }
-        Some(Subcommands::Apply { branch_name }) => apply::apply(legacy_project, &branch_name, out),
+        Some(Subcommands::Apply { branch_name }) => {
+            apply::apply(&ctx.legacy_project, &branch_name, out)
+        }
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::legacy::workspace::stacks(
-                legacy_project.id,
+                ctx.legacy_project.id,
                 Some(but_workspace::legacy::StacksFilter::InWorkspace),
             )?;
 
@@ -188,7 +200,13 @@ pub async fn handle(
                 }
 
                 if let Some(sid) = stack_entry.id {
-                    return confirm_unapply_stack(legacy_project, sid, stack_entry, force, out);
+                    return confirm_unapply_stack(
+                        &ctx.legacy_project,
+                        sid,
+                        stack_entry,
+                        force,
+                        out,
+                    );
                 }
             }
 

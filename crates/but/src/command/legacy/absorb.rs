@@ -30,11 +30,10 @@ use crate::{
 /// If a Branch (stack) id is provided, absorb will be performed for all changes assigned to that stack
 /// If no source is provided, absorb is performed for all uncommitted changes
 pub(crate) fn handle(
-    project: &Project,
+    ctx: &mut Context,
     out: &mut OutputChannel,
     source: Option<&str>,
 ) -> anyhow::Result<()> {
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
     let mut id_map = IdMap::new_from_context(ctx)?;
     id_map.add_file_info_from_context(ctx)?;
     let source: Option<CliId> = source
@@ -46,7 +45,7 @@ pub(crate) fn handle(
         });
 
     // Get all worktree changes, assignments, and dependencies
-    let worktree_changes = diff::changes_in_worktree(project.id)?;
+    let worktree_changes = diff::changes_in_worktree(ctx.legacy_project.id)?;
     let assignments = worktree_changes.assignments;
     let dependencies = worktree_changes.dependencies;
 
@@ -57,7 +56,7 @@ pub(crate) fn handle(
             }) => {
                 // Absorb this particular file
                 absorb_assignments(
-                    project,
+                    &ctx.legacy_project,
                     hunk_assignments.into_iter().collect::<Vec<_>>().as_slice(),
                     &dependencies,
                     out,
@@ -65,7 +64,7 @@ pub(crate) fn handle(
             }
             CliId::Branch { name, .. } => {
                 // Absorb everything that is assigned to this lane
-                absorb_branch(project, &name, &assignments, &dependencies, out)?;
+                absorb_branch(&ctx.legacy_project, &name, &assignments, &dependencies, out)?;
             }
             _ => {
                 anyhow::bail!("Invalid source: expected an uncommitted file or branch");
@@ -73,7 +72,7 @@ pub(crate) fn handle(
         }
     } else {
         // Try to absorb everything uncommitted
-        absorb_all(project, &assignments, &dependencies, out)?;
+        absorb_all(&ctx.legacy_project, &assignments, &dependencies, out)?;
     }
     Ok(())
 }

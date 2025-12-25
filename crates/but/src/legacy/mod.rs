@@ -1,10 +1,10 @@
-use but_ctx::LegacyProject;
+use but_ctx::{Context, LegacyProject};
 
 use crate::{args::Args, command, utils::OutputChannel};
 
 pub mod commits;
 
-pub fn get_or_init_non_bare_project(args: &Args) -> anyhow::Result<LegacyProject> {
+pub fn get_or_init_non_bare_ctx(args: &Args) -> anyhow::Result<Context> {
     let repo = gix::discover(&args.current_dir)?;
     if let Some(path) = repo.workdir() {
         let project = match LegacyProject::find_by_worktree_dir(path) {
@@ -18,7 +18,7 @@ pub fn get_or_init_non_bare_project(args: &Args) -> anyhow::Result<LegacyProject
                 LegacyProject::find_by_worktree_dir(path)
             }
         }?;
-        Ok(project)
+        Context::new_from_legacy_project(project)
     } else {
         anyhow::bail!("Bare repositories are not supported.");
     }

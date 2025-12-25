@@ -11,12 +11,11 @@ use crate::{
 
 pub fn handle(
     args: push::Command,
-    project: &Project,
+    ctx: &mut Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let mut id_map = IdMap::new_from_context(&ctx)?;
-    id_map.add_file_info_from_context(&mut ctx)?;
+    let mut id_map = IdMap::new_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx)?;
 
     // Check gerrit mode early
     let gerrit_mode = {
@@ -25,17 +24,17 @@ pub fn handle(
     };
 
     // Resolve branch_id to actual branch name
-    let branch_name = resolve_branch_name(&mut ctx, &id_map, &args.branch_id)?;
+    let branch_name = resolve_branch_name(ctx, &id_map, &args.branch_id)?;
 
     // Find stack_id from branch name
-    let stack_id = find_stack_id_by_branch_name(project, &branch_name)?;
+    let stack_id = find_stack_id_by_branch_name(&ctx.legacy_project, &branch_name)?;
 
     // Convert CLI args to gerrit flags with validation
     let gerrit_flags = get_gerrit_flags(&args, &branch_name, gerrit_mode)?;
 
     // Call push_stack
     let result: PushResult = but_api::legacy::stack::push_stack(
-        project.id,
+        ctx.legacy_project.id,
         stack_id,
         args.with_force,
         args.skip_force_push_protection,

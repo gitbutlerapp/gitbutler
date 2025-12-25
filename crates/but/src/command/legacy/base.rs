@@ -1,5 +1,5 @@
 use base::Subcommands;
-use but_ctx::LegacyProject;
+use but_ctx::Context;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
     BranchStatus::{Conflicted, Empty, Integrated, SaflyUpdatable},
@@ -11,7 +11,7 @@ use crate::{args::base, utils::OutputChannel};
 
 pub async fn handle(
     cmd: Subcommands,
-    project: &LegacyProject,
+    ctx: &Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     match cmd {
@@ -19,7 +19,7 @@ pub async fn handle(
             if let Some(out) = out.for_human() {
                 writeln!(out, "🔍 Checking base branch status...")?;
                 let base_branch = but_api::legacy::virtual_branches::fetch_from_remotes(
-                    project.id,
+                    ctx.legacy_project.id,
                     Some("auto".to_string()),
                 )?;
                 writeln!(out, "\n📍 Base branch:\t\t{}", base_branch.branch_name)?;
@@ -52,7 +52,8 @@ pub async fn handle(
                 }
 
                 let status = but_api::legacy::virtual_branches::upstream_integration_statuses(
-                    project.id, None,
+                    ctx.legacy_project.id,
+                    None,
                 )
                 .await?;
 
@@ -113,9 +114,11 @@ pub async fn handle(
             Ok(())
         }
         Subcommands::Update => {
-            let status =
-                but_api::legacy::virtual_branches::upstream_integration_statuses(project.id, None)
-                    .await?;
+            let status = but_api::legacy::virtual_branches::upstream_integration_statuses(
+                ctx.legacy_project.id,
+                None,
+            )
+            .await?;
             let resolutions = match status {
                 UpToDate => {
                     if let Some(out) = out.for_human() {
@@ -173,7 +176,7 @@ pub async fn handle(
 
             if let Some(resolutions) = resolutions {
                 but_api::legacy::virtual_branches::integrate_upstream(
-                    project.id,
+                    ctx.legacy_project.id,
                     resolutions,
                     None,
                 )

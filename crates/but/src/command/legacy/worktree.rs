@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
 use but_api::legacy::worktree::IntegrationStatus;
+use but_ctx::Context;
 use but_worktrees::WorktreeId;
 
 use crate::{args::worktree::Subcommands, utils::OutputChannel};
@@ -24,11 +25,7 @@ fn parse_worktree_identifier(
     Ok(WorktreeId::from_bstr(input))
 }
 
-pub fn handle(
-    cmd: Subcommands,
-    project: &gitbutler_project::Project,
-    out: &mut OutputChannel,
-) -> Result<()> {
+pub fn handle(cmd: Subcommands, ctx: &Context, out: &mut OutputChannel) -> Result<()> {
     match cmd {
         Subcommands::New { reference } => {
             // Naivly append refs/heads/ if it's not present to always have a
@@ -38,7 +35,7 @@ pub fn handle(
             } else {
                 gix::refs::FullName::try_from(format!("refs/heads/{}", reference))?
             };
-            let output = but_api::legacy::worktree::worktree_new(project.id, reference)?;
+            let output = but_api::legacy::worktree::worktree_new(ctx.legacy_project.id, reference)?;
             if let Some(out) = out.for_json() {
                 out.write_value(output)?;
             } else if let Some(out) = out.for_human() {
@@ -54,7 +51,7 @@ pub fn handle(
             Ok(())
         }
         Subcommands::List => {
-            let output = but_api::legacy::worktree::worktree_list(project.id)?;
+            let output = but_api::legacy::worktree::worktree_list(ctx.legacy_project.id)?;
             if let Some(out) = out.for_json() {
                 out.write_value(output)?;
             } else if let Some(out) = out.for_human() {
@@ -76,7 +73,7 @@ pub fn handle(
             Ok(())
         }
         Subcommands::Integrate { path, target, dry } => {
-            let id = parse_worktree_identifier(&path, project)?;
+            let id = parse_worktree_identifier(&path, &ctx.legacy_project)?;
 
             // Determine the target reference
             let target_ref = if let Some(target_str) = target {
@@ -90,7 +87,8 @@ pub fn handle(
             } else {
                 // No target specified - get it from the worktree metadata
                 // First, we need to get the worktree metadata to find what reference it was created from
-                let worktree_list = but_api::legacy::worktree::worktree_list(project.id)?;
+                let worktree_list =
+                    but_api::legacy::worktree::worktree_list(ctx.legacy_project.id)?;
                 let worktree_entry = worktree_list
                     .entries
                     .iter()
@@ -105,7 +103,7 @@ pub fn handle(
             if dry {
                 // Dry run - check integration status
                 let status = but_api::legacy::worktree::worktree_integration_status(
-                    project.id,
+                    ctx.legacy_project.id,
                     id.clone(),
                     target_ref.clone(),
                 )?;
@@ -155,7 +153,7 @@ pub fn handle(
             } else {
                 // Actual integration
                 but_api::legacy::worktree::worktree_integrate(
-                    project.id,
+                    ctx.legacy_project.id,
                     id.clone(),
                     target_ref.clone(),
                 )?;
@@ -181,7 +179,7 @@ pub fn handle(
                 };
 
                 let output = but_api::legacy::worktree::worktree_destroy_by_reference(
-                    project.id,
+                    ctx.legacy_project.id,
                     reference.clone(),
                 )?;
 
@@ -204,9 +202,11 @@ pub fn handle(
                 }
             } else {
                 // Treat target as a path or worktree name
-                let id = parse_worktree_identifier(&target, project)?;
-                let output =
-                    but_api::legacy::worktree::worktree_destroy_by_id(project.id, id.clone())?;
+                let id = parse_worktree_identifier(&target, &ctx.legacy_project)?;
+                let output = but_api::legacy::worktree::worktree_destroy_by_id(
+                    ctx.legacy_project.id,
+                    id.clone(),
+                )?;
 
                 if let Some(out) = out.for_json() {
                     out.write_value(output)?;

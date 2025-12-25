@@ -114,8 +114,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 .expect("target is checked to be Some in match guard");
             #[cfg(feature = "legacy")]
             {
-                let project = legacy::get_or_init_non_bare_project(&args)?;
-                command::legacy::rub::handle(&project, &mut out, source, target)
+                let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+                command::legacy::rub::handle(&mut ctx, &mut out, source, target)
                     .context("Rubbed the wrong way.")
                     .emit_metrics(OneshotMetricsContext::new_if_enabled(
                         &app_settings,
@@ -188,8 +188,8 @@ async fn match_subcommand(
         Subcommands::Branch(branch::Platform { cmd }) => {
             cfg_if! {
                 if #[cfg(feature = "legacy")]  {
-                    let project = legacy::get_or_init_non_bare_project(&args)?;
-                    command::legacy::branch::handle(cmd, &project, out)
+                    let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+                    command::legacy::branch::handle(cmd, &mut ctx, out)
                         .await
                         .emit_metrics(metrics_ctx)
                 } else {
@@ -212,12 +212,12 @@ async fn match_subcommand(
                 description,
                 handler,
             }) => {
-                let project = legacy::get_or_init_non_bare_project(&args)?;
-                command::legacy::actions::handle_changes(&project, out, handler, &description)
+                let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+                command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)
             }
             None => {
-                let project = legacy::get_or_init_non_bare_project(&args)?;
-                command::legacy::actions::list_actions(&project, out, 0, 10)
+                let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+                command::legacy::actions::list_actions(&mut ctx, out, 0, 10)
             }
         },
         #[cfg(feature = "legacy")]
@@ -238,11 +238,7 @@ async fn match_subcommand(
                     but_claude::mcp::start(&args.current_dir, &session_id).await
                 }
                 claude::Subcommands::Last { offset } => {
-                    let project = legacy::get_or_init_non_bare_project(&args)?;
-                    let mut ctx = but_ctx::Context::new_from_legacy_project_and_settings(
-                        &project,
-                        app_settings.clone(),
-                    );
+                    let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
                     let message = but_claude::db::get_user_message(&mut ctx, Some(offset as i64))?;
                     match message {
                         Some(msg) => {
@@ -301,15 +297,15 @@ async fn match_subcommand(
         },
         #[cfg(feature = "legacy")]
         Subcommands::Base(base::Platform { cmd }) => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::base::handle(cmd, &project, out)
+            let ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::base::handle(cmd, &ctx, out)
                 .await
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::worktree::handle(cmd, &project, out)
+            let ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::worktree::handle(cmd, &ctx, out)
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
@@ -319,38 +315,38 @@ async fn match_subcommand(
             verbose,
             review,
         } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::status::worktree(&project, out, show_files, verbose, review)
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::status::worktree(&mut ctx, out, show_files, verbose, review)
                 .await
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Stf { verbose, review } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::status::worktree(&project, out, true, verbose, review)
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::status::worktree(&mut ctx, out, true, verbose, review)
                 .await
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Rub { source, target } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::rub::handle(&project, out, &source, &target)
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::rub::handle(&mut ctx, out, &source, &target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Mark { target, delete } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::mark::handle(&project, out, &target, delete)
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::mark::handle(&mut ctx, out, &target, delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unmark => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::mark::unmark(&project, out)
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::mark::unmark(&mut ctx, out)
                 .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
@@ -363,7 +359,7 @@ async fn match_subcommand(
             create,
             only,
         } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
             // Read message from file if provided, otherwise use message option
             let commit_message = match file {
                 Some(path) => Some(std::fs::read_to_string(&path).with_context(|| {
@@ -375,7 +371,7 @@ async fn match_subcommand(
                 None => message,
             };
             command::legacy::commit::commit(
-                &project,
+                &mut ctx,
                 out,
                 commit_message.as_deref(),
                 branch.as_deref(),
@@ -386,48 +382,48 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::push::handle(push_args, &project, out).emit_metrics(metrics_ctx)
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::push::handle(push_args, &mut ctx, out).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::New { target } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::commit::insert_blank_commit(&project, out, &target)
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::commit::insert_blank_commit(&mut ctx, out, &target)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Describe { target, message } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::describe::describe_target(&project, out, &target, message.as_deref())
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::describe::describe_target(&mut ctx, out, &target, message.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog { since } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::oplog::show_oplog(&project, out, since.as_deref())
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Restore { oplog_sha, force } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::oplog::restore_to_oplog(&project, out, &oplog_sha, force)
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Undo => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::oplog::undo_last_operation(&project, out).emit_metrics(metrics_ctx)
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::oplog::undo_last_operation(&mut ctx, out).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Snapshot { message } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::oplog::create_snapshot(&project, out, message.as_deref())
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Absorb { source } => {
-            let project = legacy::get_or_init_non_bare_project(&args)?;
-            command::legacy::absorb::handle(&project, out, source.as_deref())
+            let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+            command::legacy::absorb::handle(&mut ctx, out, source.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
@@ -443,9 +439,9 @@ async fn match_subcommand(
                 run_hooks,
                 default,
             } => {
-                let project = legacy::get_or_init_non_bare_project(&args)?;
+                let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
                 command::legacy::forge::review::publish_reviews(
-                    &project,
+                    &mut ctx,
                     branch,
                     skip_force_push_protection,
                     with_force,
@@ -458,8 +454,8 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
             }
             forge::review::Subcommands::Template { template_path } => {
-                let project = legacy::get_or_init_non_bare_project(&args)?;
-                command::legacy::forge::review::set_review_template(&project, template_path, out)
+                let mut ctx = legacy::get_or_init_non_bare_ctx(&args)?;
+                command::legacy::forge::review::set_review_template(&mut ctx, template_path, out)
                     .context("Failed to set review template.")
                     .emit_metrics(metrics_ctx)
             }
