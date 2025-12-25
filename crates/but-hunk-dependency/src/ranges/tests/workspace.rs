@@ -182,3 +182,180 @@ P5
 
     Ok(())
 }
+
+#[test]
+fn intersection_with_addition_change_type() -> anyhow::Result<()> {
+    let path = BString::from("/test.txt");
+
+    let commit1_id = id_from_hex_char('1');
+    let stack1_id = StackId::generate();
+
+    let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![InputStack {
+        stack_id: stack1_id,
+        commits_from_base_to_tip: vec![InputCommit {
+            commit_id: commit1_id,
+            files: vec![InputFile {
+                path: path.clone(),
+                change_type: TreeStatusKind::Addition,
+                hunks: vec![InputDiffHunk {
+                    old_start: 0,
+                    old_lines: 0,
+                    new_start: 1,
+                    new_lines: 5,
+                }],
+            }],
+        }],
+    }])?;
+
+    // For additions, any intersection query should return the hunk
+    let dependencies = workspace_ranges.intersection(&path, 1, 1).unwrap();
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].commit_id, commit1_id);
+    assert_eq!(dependencies[0].change_type, TreeStatusKind::Addition);
+
+    // Query outside the hunk range should still return it for additions
+    let dependencies = workspace_ranges.intersection(&path, 10, 1).unwrap();
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].commit_id, commit1_id);
+    assert_eq!(dependencies[0].change_type, TreeStatusKind::Addition);
+
+    Ok(())
+}
+
+#[test]
+fn intersection_with_deletion_change_type() -> anyhow::Result<()> {
+    let path = BString::from("/test.txt");
+
+    let commit1_id = id_from_hex_char('1');
+    let stack1_id = StackId::generate();
+
+    let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![InputStack {
+        stack_id: stack1_id,
+        commits_from_base_to_tip: vec![InputCommit {
+            commit_id: commit1_id,
+            files: vec![InputFile {
+                path: path.clone(),
+                change_type: TreeStatusKind::Deletion,
+                hunks: vec![InputDiffHunk {
+                    old_start: 1,
+                    old_lines: 5,
+                    new_start: 0,
+                    new_lines: 0,
+                }],
+            }],
+        }],
+    }])?;
+
+    // For deletions, any intersection query should return the hunk
+    let dependencies = workspace_ranges.intersection(&path, 1, 1).unwrap();
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].commit_id, commit1_id);
+    assert_eq!(dependencies[0].change_type, TreeStatusKind::Deletion);
+
+    // Query outside the hunk range should still return it for deletions
+    let dependencies = workspace_ranges.intersection(&path, 100, 1).unwrap();
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].commit_id, commit1_id);
+    assert_eq!(dependencies[0].change_type, TreeStatusKind::Deletion);
+
+    Ok(())
+}
+
+#[test]
+fn intersection_with_modification_respects_range() -> anyhow::Result<()> {
+    let path = BString::from("/test.txt");
+
+    let commit1_id = id_from_hex_char('1');
+    let stack1_id = StackId::generate();
+
+    let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![InputStack {
+        stack_id: stack1_id,
+        commits_from_base_to_tip: vec![InputCommit {
+            commit_id: commit1_id,
+            files: vec![InputFile {
+                path: path.clone(),
+                change_type: TreeStatusKind::Modification,
+                hunks: vec![InputDiffHunk {
+                    old_start: 5,
+                    old_lines: 3,
+                    new_start: 5,
+                    new_lines: 3,
+                }],
+            }],
+        }],
+    }])?;
+
+    // Query inside the modification range should return it
+    let dependencies = workspace_ranges.intersection(&path, 5, 2).unwrap();
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].commit_id, commit1_id);
+
+    // Query outside the modification range should return None
+    let dependencies = workspace_ranges.intersection(&path, 1, 1);
+    assert!(dependencies.is_none());
+
+    let dependencies = workspace_ranges.intersection(&path, 10, 1);
+    assert!(dependencies.is_none());
+
+    Ok(())
+}
+
+#[test]
+fn intersection_mixed_change_types() -> anyhow::Result<()> {
+    let path = BString::from("/test.txt");
+
+    let commit1_id = id_from_hex_char('1');
+    let stack1_id = StackId::generate();
+
+    let commit2_id = id_from_hex_char('2');
+    let stack2_id = StackId::generate();
+
+    let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![
+        InputStack {
+            stack_id: stack1_id,
+            commits_from_base_to_tip: vec![InputCommit {
+                commit_id: commit1_id,
+                files: vec![InputFile {
+                    path: path.clone(),
+                    change_type: TreeStatusKind::Modification,
+                    hunks: vec![InputDiffHunk {
+                        old_start: 5,
+                        old_lines: 2,
+                        new_start: 5,
+                        new_lines: 2,
+                    }],
+                }],
+            }],
+        },
+        InputStack {
+            stack_id: stack2_id,
+            commits_from_base_to_tip: vec![InputCommit {
+                commit_id: commit2_id,
+                files: vec![InputFile {
+                    path: path.clone(),
+                    change_type: TreeStatusKind::Addition,
+                    hunks: vec![InputDiffHunk {
+                        old_start: 0,
+                        old_lines: 0,
+                        new_start: 1,
+                        new_lines: 10,
+                    }],
+                }],
+            }],
+        },
+    ])?;
+
+    // Query at any line should return the addition (since additions always intersect)
+    let dependencies = workspace_ranges.intersection(&path, 1, 1).unwrap();
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].commit_id, commit2_id);
+    assert_eq!(dependencies[0].change_type, TreeStatusKind::Addition);
+
+    // Query at a different line should still return the addition
+    let dependencies = workspace_ranges.intersection(&path, 100, 1).unwrap();
+    assert_eq!(dependencies.len(), 1);
+    assert_eq!(dependencies[0].commit_id, commit2_id);
+    assert_eq!(dependencies[0].change_type, TreeStatusKind::Addition);
+
+    Ok(())
+}

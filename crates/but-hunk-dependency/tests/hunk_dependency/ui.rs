@@ -94,6 +94,10 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 [
                     HunkLock {
                         stack_id: stack_1,
+                        commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
+                    },
+                    HunkLock {
+                        stack_id: stack_1,
                         commit_id: Sha1(c85aaba55013536a1d44d8972d0b9fe9e484eb6f),
                     },
                     HunkLock {
@@ -109,6 +113,10 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 +updated d
                 "),
                 [
+                    HunkLock {
+                        stack_id: stack_1,
+                        commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
+                    },
                     HunkLock {
                         stack_id: stack_1,
                         commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),

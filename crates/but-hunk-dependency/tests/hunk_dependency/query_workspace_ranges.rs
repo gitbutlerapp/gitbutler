@@ -16,6 +16,13 @@ fn change_2_to_two_in_second_commit() -> anyhow::Result<()> {
                         "),
                         commit_intersections: [
                             StableHunkRange {
+                                change_type: Addition,
+                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                                start: 1,
+                                lines: 1,
+                                line_shift: 1,
+                            },
+                            StableHunkRange {
                                 change_type: Modification,
                                 commit_id: Sha1(ca5567e4be81f1ee69b3d5ac5410d5010bcea756),
                                 start: 2,
@@ -73,6 +80,13 @@ fn change_2_to_two_in_second_commit_after_shift_by_two() -> anyhow::Result<()> {
                         "),
                         commit_intersections: [
                             StableHunkRange {
+                                change_type: Addition,
+                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                                start: 1,
+                                lines: 1,
+                                line_shift: 1,
+                            },
+                            StableHunkRange {
                                 change_type: Modification,
                                 commit_id: Sha1(ca5567e4be81f1ee69b3d5ac5410d5010bcea756),
                                 start: 4,
@@ -107,6 +121,13 @@ fn add_single_line() -> anyhow::Result<()> {
                         "),
                         commit_intersections: [
                             StableHunkRange {
+                                change_type: Addition,
+                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                                start: 1,
+                                lines: 1,
+                                line_shift: 1,
+                            },
+                            StableHunkRange {
                                 change_type: Modification,
                                 commit_id: Sha1(ab311c05e6ca309fb01bcba46e9ab6ba652e0012),
                                 start: 4,
@@ -140,6 +161,13 @@ fn remove_single_line() -> anyhow::Result<()> {
                         -5
                         "),
                         commit_intersections: [
+                            StableHunkRange {
+                                change_type: Addition,
+                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                                start: 1,
+                                lines: 1,
+                                line_shift: 1,
+                            },
                             StableHunkRange {
                                 change_type: Modification,
                                 commit_id: Sha1(ab311c05e6ca309fb01bcba46e9ab6ba652e0012),

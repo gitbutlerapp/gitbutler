@@ -68,6 +68,13 @@ pub(crate) fn assignments(
         match intersecting.len().cmp(&1) {
             Ordering::Less => {
                 // No intersection - do nothing, the None assignment is kept
+                let matching_file = old
+                    .iter()
+                    .filter(|current_entry| current_entry.path == new_assignment.path)
+                    .collect::<Vec<_>>();
+                if let Some(matching_file) = matching_file.first() {
+                    new_assignment.hunk_locks = matching_file.hunk_locks.clone();
+                }
             }
             Ordering::Equal => {
                 new_assignment.set_from(intersecting[0], applied_stack_ids, update_unassigned);

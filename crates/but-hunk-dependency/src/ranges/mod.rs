@@ -132,7 +132,14 @@ impl WorkspaceRanges {
         if let Some(hunk_range) = self.paths.get(path) {
             let intersection = hunk_range
                 .iter()
-                .filter(|hunk| hunk.intersects(start, lines).unwrap_or(false))
+                .filter(|hunk| {
+                    if hunk.change_type == TreeStatusKind::Modification {
+                        hunk.intersects(start, lines).unwrap_or(false)
+                    } else {
+                        // For additions and deletions, we consider the hunk to always intersect.
+                        true
+                    }
+                })
                 .collect_vec();
             if !intersection.is_empty() {
                 return Some(intersection);
