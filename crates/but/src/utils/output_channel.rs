@@ -33,6 +33,11 @@ impl OutputChannel {
         matches!(self.format, OutputFormat::Json).then_some(self)
     }
 
+    /// Get the output format setting.
+    pub fn format(&self) -> OutputFormat {
+        self.format
+    }
+
     /// Before performing further output, obtain an input channel which always bypasses the pager when writing,
     /// while allowing prompting the user for input.
     /// If `None` is returned, terminal input isn't available and one should suggest to use command-line
