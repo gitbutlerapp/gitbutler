@@ -10,7 +10,7 @@ describe('Unified Diff View', () => {
 
 		mockCommand('stacks', () => mockBackend.getStacks());
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
-		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
+		mockCommand('branch_diff', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
@@ -273,7 +273,7 @@ describe('Unified Diff View with complex hunks', () => {
 
 		mockCommand('stacks', () => mockBackend.getStacks());
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
-		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
+		mockCommand('branch_diff', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 		mockCommand('create_commit_from_worktree_changes', (params) =>

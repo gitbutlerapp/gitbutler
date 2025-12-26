@@ -11,7 +11,7 @@ describe('Branch Actions', () => {
 
 		mockCommand('stacks', () => mockBackend.getStacks());
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
-		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
+		mockCommand('branch_diff', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('integrate_upstream_commits', (args) => mockBackend.integrateUpstreamCommits(args));
 		mockCommand('update_branch_name', (params) => mockBackend.renameBranch(params));
 		mockCommand('remove_branch', (params) => mockBackend.removeBranch(params));

@@ -1173,7 +1173,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				{ changes: EntityState<TreeChange, string>; stats: TreeStats },
 				{ projectId: string; stackId?: string; branch: BranchRef }
 			>({
-				extraOptions: { command: 'changes_in_branch' },
+				extraOptions: { command: 'branch_diff' },
 				query: (args) => args,
 				providesTags: (_result, _error, { stackId }) =>
 					stackId ? providesItem(ReduxTag.BranchChanges, stackId) : [],
