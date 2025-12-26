@@ -13,11 +13,16 @@ pub(crate) fn show_oplog(
     ctx: &mut Context,
     out: &mut OutputChannel,
     since: Option<&str>,
+    all: bool,
+    snapshots_only: bool,
 ) -> anyhow::Result<()> {
-    let snapshots = if let Some(since_sha) = since {
+    // Determine limit based on --all flag: no limit if --all, otherwise 20
+    let limit = if all { usize::MAX } else { 20 };
+
+    let mut snapshots = if let Some(since_sha) = since {
         // Get all snapshots first to find the starting point
         let all_snapshots =
-            but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 1000, None, None)?; // Get a large number to find the SHA
+            but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, usize::MAX, None, None)?;
         let mut found_index = None;
 
         // Find the snapshot that matches the since SHA (partial match supported)
@@ -31,8 +36,8 @@ pub(crate) fn show_oplog(
 
         match found_index {
             Some(index) => {
-                // Take 20 entries starting from the found index
-                all_snapshots.into_iter().skip(index).take(20).collect()
+                // Take entries starting from the found index, respecting the limit
+                all_snapshots.into_iter().skip(index).take(limit).collect()
             }
             None => {
                 return Err(anyhow::anyhow!(
@@ -42,14 +47,28 @@ pub(crate) fn show_oplog(
             }
         }
     } else {
-        but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 20, None, None)?
+        but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, limit, None, None)?
     };
+
+    // Filter to only named snapshots if --snapshots flag is specified
+    if snapshots_only {
+        snapshots.retain(|s| {
+            s.details
+                .as_ref()
+                .map(|d| d.operation == OperationKind::OnDemandSnapshot)
+                .unwrap_or(false)
+        });
+    }
 
     if snapshots.is_empty() {
         if let Some(out) = out.for_json() {
             out.write_value(&snapshots)?;
         } else if let Some(out) = out.for_human() {
-            writeln!(out, "No operations found in history.")?;
+            if snapshots_only {
+                writeln!(out, "No named snapshots found in history.")?;
+            } else {
+                writeln!(out, "No operations found in history.")?;
+            }
         }
         return Ok(());
     }
@@ -57,65 +76,87 @@ pub(crate) fn show_oplog(
     if let Some(out) = out.for_json() {
         out.write_value(&snapshots)?;
     } else if let Some(out) = out.for_human() {
-        writeln!(out, "{}", "Operations History".blue().bold())?;
+        let header = if snapshots_only {
+            "Named Snapshots"
+        } else {
+            "Operations History"
+        };
+
+        writeln!(out, "{}", header.blue().bold())?;
         writeln!(out, "{}", "─".repeat(50).dimmed())?;
 
         for snapshot in snapshots {
-            let time_string = snapshot_time_string(&snapshot);
-
-            let commit_id = format!(
-                "{}{}",
-                &snapshot.commit_id.to_string()[..7].blue().underline(),
-                &snapshot.commit_id.to_string()[7..12].blue().dimmed()
-            );
-
-            let (operation_type, title) = if let Some(details) = &snapshot.details {
-                let op_type = match details.operation {
-                    OperationKind::CreateCommit => "CREATE",
-                    OperationKind::CreateBranch => "BRANCH",
-                    OperationKind::AmendCommit => "AMEND",
-                    OperationKind::UndoCommit => "UNDO",
-                    OperationKind::SquashCommit => "SQUASH",
-                    OperationKind::UpdateCommitMessage => "REWORD",
-                    OperationKind::MoveCommit => "MOVE",
-                    OperationKind::RestoreFromSnapshot => "RESTORE",
-                    OperationKind::ReorderCommit => "REORDER",
-                    OperationKind::InsertBlankCommit => "INSERT",
-                    OperationKind::MoveHunk => "MOVE_HUNK",
-                    OperationKind::ReorderBranches => "REORDER_BRANCH",
-                    OperationKind::UpdateWorkspaceBase => "UPDATE_BASE",
-                    OperationKind::UpdateBranchName => "RENAME",
-                    OperationKind::GenericBranchUpdate => "BRANCH_UPDATE",
-                    OperationKind::ApplyBranch => "APPLY",
-                    OperationKind::UnapplyBranch => "UNAPPLY",
-                    OperationKind::DeleteBranch => "DELETE",
-                    OperationKind::DiscardChanges => "DISCARD",
-                    _ => "OTHER",
-                };
-                (op_type, details.title.clone())
-            } else {
-                ("UNKNOWN", "Unknown operation".to_string())
-            };
-
-            let operation_colored = match operation_type {
-                "CREATE" => operation_type.green(),
-                "AMEND" | "REWORD" => operation_type.yellow(),
-                "UNDO" | "RESTORE" => operation_type.red(),
-                "BRANCH" | "CHECKOUT" => operation_type.purple(),
-                "MOVE" | "REORDER" | "MOVE_HUNK" => operation_type.cyan(),
-                _ => operation_type.normal(),
-            };
-
-            writeln!(
-                out,
-                "{} {} [{}] {}",
-                commit_id,
-                time_string.dimmed(),
-                operation_colored,
-                title
-            )?;
+            display_snapshot(out, &snapshot)?;
         }
     }
+
+    Ok(())
+}
+
+fn display_snapshot(
+    out: &mut dyn std::fmt::Write,
+    snapshot: &Snapshot,
+) -> anyhow::Result<()> {
+    let time_string = snapshot_time_string(snapshot);
+
+    let commit_id = format!(
+        "{}{}",
+        &snapshot.commit_id.to_string()[..7].blue().underline(),
+        &snapshot.commit_id.to_string()[7..12].blue().dimmed()
+    );
+
+    let (operation_type, title) = if let Some(details) = &snapshot.details {
+        let op_type = match details.operation {
+            OperationKind::CreateCommit => "CREATE",
+            OperationKind::CreateBranch => "BRANCH",
+            OperationKind::AmendCommit => "AMEND",
+            OperationKind::UndoCommit => "UNDO",
+            OperationKind::SquashCommit => "SQUASH",
+            OperationKind::UpdateCommitMessage => "REWORD",
+            OperationKind::MoveCommit => "MOVE",
+            OperationKind::RestoreFromSnapshot => "RESTORE",
+            OperationKind::ReorderCommit => "REORDER",
+            OperationKind::InsertBlankCommit => "INSERT",
+            OperationKind::MoveHunk => "MOVE_HUNK",
+            OperationKind::ReorderBranches => "REORDER_BRANCH",
+            OperationKind::UpdateWorkspaceBase => "UPDATE_BASE",
+            OperationKind::UpdateBranchName => "RENAME",
+            OperationKind::GenericBranchUpdate => "BRANCH_UPDATE",
+            OperationKind::ApplyBranch => "APPLY",
+            OperationKind::UnapplyBranch => "UNAPPLY",
+            OperationKind::DeleteBranch => "DELETE",
+            OperationKind::DiscardChanges => "DISCARD",
+            OperationKind::OnDemandSnapshot => "SNAPSHOT",
+            _ => "OTHER",
+        };
+        let display_title = if let Some(body) = &details.body {
+            format!("{} - {}", details.title, body)
+        } else {
+            details.title.clone()
+        };
+        (op_type, display_title)
+    } else {
+        ("UNKNOWN", "Unknown operation".to_string())
+    };
+
+    let operation_colored = match operation_type {
+        "CREATE" => operation_type.green(),
+        "AMEND" | "REWORD" => operation_type.yellow(),
+        "UNDO" | "RESTORE" => operation_type.red(),
+        "BRANCH" | "CHECKOUT" => operation_type.purple(),
+        "MOVE" | "REORDER" | "MOVE_HUNK" => operation_type.cyan(),
+        "SNAPSHOT" => operation_type.bright_magenta(),
+        _ => operation_type.normal(),
+    };
+
+    writeln!(
+        out,
+        "{} {} [{}] {}",
+        commit_id,
+        time_string.dimmed(),
+        operation_colored,
+        title
+    )?;
 
     Ok(())
 }
