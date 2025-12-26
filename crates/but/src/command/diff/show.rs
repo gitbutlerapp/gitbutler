@@ -33,10 +33,21 @@ pub(crate) fn commit(
     ctx: &mut Context,
     out: &mut OutputChannel,
     id: gix::ObjectId,
-    _path: Option<BString>,
+    path: Option<BString>,
 ) -> anyhow::Result<()> {
     let result = but_api::diff::commit_details(ctx, id, ComputeLineStats::No)?;
-    writeln!(out, "{:?}", result)?;
+    for change in result.diff_with_first_parent {
+        if let Some(path) = &path {
+            if &change.path != path {
+                continue;
+            }
+        } else {
+            let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone().into())
+                .ok()
+                .flatten();
+            writeln!(out, "{}", TreeChangeWithPatch::new(change.into(), patch))?;
+        }
+    }
     Ok(())
 }
 
