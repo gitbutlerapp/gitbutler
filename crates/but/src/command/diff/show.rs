@@ -18,15 +18,24 @@ pub(crate) fn worktree(
     filter: Option<Filter>,
 ) -> anyhow::Result<()> {
     let result = but_api::legacy::diff::changes_in_worktree(ctx)?;
-    writeln!(out, "{:?}", result)?;
     if let Some(filter) = filter {
         match filter {
-            Filter::Unassigned => Ok(()),
-            Filter::Uncommitted(_id) => Ok(()),
+            Filter::Unassigned => {}
+            Filter::Uncommitted(_id) => {}
         }
     } else {
-        Ok(())
+        if result.worktree_changes.changes.is_empty() {
+            writeln!(out, "No changes in the working tree.")?;
+        } else {
+            for change in result.worktree_changes.changes {
+                let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone())
+                    .ok()
+                    .flatten();
+                writeln!(out, "{}", TreeChangeWithPatch::new(change, patch))?;
+            }
+        }
     }
+    Ok(())
 }
 
 pub(crate) fn commit(
