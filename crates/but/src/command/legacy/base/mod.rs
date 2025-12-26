@@ -182,7 +182,7 @@ pub async fn handle(
             let resolutions = match status {
                 UpToDate => {
                     if let Some(out) = out.for_human() {
-                        writeln!(out, "✅ Everything is up to date")?;
+                        writeln!(out, "{}", "Everything is up to date".green().bold())?;
                     }
                     None
                 }
@@ -194,13 +194,16 @@ pub async fn handle(
                         if let Some(out) = out.for_human() {
                             writeln!(
                                 out,
-                                "❗️ There are uncommitted changes in the worktree that may conflict with the updates. Please commit or stash them and try again."
+                                "{}",
+                                "Warning: There are uncommitted changes in the worktree that may conflict with the updates. Please commit or stash them and try again."
+                                    .yellow()
+                                    .bold()
                             )?;
                         }
                         None
                     } else {
                         if let Some(out) = out.for_human() {
-                            writeln!(out, "🔄 Updating branches...")?;
+                            writeln!(out, "{}", "Updating branches...".bold())?;
                         }
                         let mut resolutions = vec![];
                         for (maybe_stack_id, status) in statuses {
