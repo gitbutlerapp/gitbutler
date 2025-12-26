@@ -516,7 +516,7 @@ fn status_letter(status: &TreeStatus) -> char {
     }
 }
 
-fn status_letter_ui(status: &ui::TreeStatus) -> char {
+pub fn status_letter_ui(status: &ui::TreeStatus) -> char {
     match status {
         ui::TreeStatus::Addition { .. } => 'A',
         ui::TreeStatus::Deletion { .. } => 'D',
@@ -525,7 +525,7 @@ fn status_letter_ui(status: &ui::TreeStatus) -> char {
     }
 }
 
-fn path_with_color_ui(status: &ui::TreeStatus, path: String) -> ColoredString {
+pub fn path_with_color_ui(status: &ui::TreeStatus, path: String) -> ColoredString {
     match status {
         ui::TreeStatus::Addition { .. } => path.green(),
         ui::TreeStatus::Deletion { .. } => path.red(),

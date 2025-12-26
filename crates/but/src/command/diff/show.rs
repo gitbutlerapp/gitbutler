@@ -1,10 +1,11 @@
 use bstr::BString;
 use but_api::diff::ComputeLineStats;
-use but_core::{UnifiedPatch, ui::TreeChange};
 use but_ctx::Context;
-use std::fmt::{Display, Write};
+use std::fmt::Write;
 
 use crate::{id::UncommittedCliId, utils::OutputChannel};
+
+use super::display::TreeChangeWithPatch;
 
 pub(crate) enum Filter {
     Unassigned,
@@ -53,28 +54,4 @@ pub(crate) fn branch(
         writeln!(out, "{}", TreeChangeWithPatch::new(change, patch))?;
     }
     Ok(())
-}
-
-#[derive(Debug)]
-struct TreeChangeWithPatch {
-    change: TreeChange,
-    patch: Option<UnifiedPatch>,
-}
-
-impl TreeChangeWithPatch {
-    pub fn new(change: TreeChange, patch: Option<UnifiedPatch>) -> Self {
-        Self { change, patch }
-    }
-}
-
-impl Display for TreeChangeWithPatch {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Change: {:?}", self.change)?;
-        if let Some(patch) = &self.patch {
-            writeln!(f, "Patch: {:?}", patch)?;
-        } else {
-            writeln!(f, "No patch available")?;
-        }
-        Ok(())
-    }
 }
