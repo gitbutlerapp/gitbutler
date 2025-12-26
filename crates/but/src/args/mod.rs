@@ -159,6 +159,20 @@ pub enum Subcommands {
         target: String,
     },
 
+    /// Displays the diff of changes in the repo.
+    ///
+    /// Without any arguments, it shows the diff of all uncommitted changes.
+    /// Optionally, a CLI ID argument can be provided, which chan show the diff specific to
+    /// - an uncomitted file
+    /// - a branch
+    /// - an entiere stack
+    /// - a commit
+    /// - a file change within a commit
+    Diff {
+        /// The CLI ID of the entity to show the diff for
+        target: Option<String>,
+    },
+
     /// Initializes a GitButler project from a git repository in the current directory.
     ///
     /// If you have an existing Git repository and want to start using GitButler
