@@ -7,10 +7,10 @@ import type { ColorScale, Shade, SemanticZone } from '../types/color';
 export const SCALES: ColorScale[] = [
 	{ name: 'Gray', id: 'gray', baseHue: 25 },
 	{ name: 'Pop (Teal)', id: 'pop', baseHue: 180 },
-	{ name: 'Error (Red)', id: 'err', baseHue: 8 },
+	{ name: 'Error (Red)', id: 'danger', baseHue: 8 },
 	{ name: 'Warning (Orange)', id: 'warn', baseHue: 35 },
-	{ name: 'Success (Green)', id: 'succ', baseHue: 155 },
-	{ name: 'Purple', id: 'purp', baseHue: 270 }
+	{ name: 'Success (Green)', id: 'safe', baseHue: 155 },
+	{ name: 'Purple', id: 'purple', baseHue: 270 }
 ];
 
 export const SHADES: Shade[] = [
@@ -39,17 +39,17 @@ export const SEMANTIC_ZONES: SemanticZone[] = [
 export const DEFAULT_SATURATIONS: Record<string, number> = {
 	gray: 8,
 	pop: 65,
-	succ: 60,
-	err: 68,
+	safe: 60,
+	danger: 68,
 	warn: 95,
-	purp: 60
+	purple: 60
 };
 
 export const DEFAULT_SHADE_50_LIGHTNESS: Record<string, number> = {
 	gray: 45,
 	pop: 42,
-	err: 50,
+	danger: 50,
 	warn: 50,
-	succ: 45,
-	purp: 54
+	safe: 45,
+	purple: 54
 };
