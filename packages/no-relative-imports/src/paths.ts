@@ -1,6 +1,13 @@
 import path from 'node:path';
 
 /**
+ * Normalize paths across platforms.
+ */
+export function normalize(p: string) {
+	return path.normalize(p).replace(/\\/g, '/');
+}
+
+/**
  * Checks whether a path entry ends in a glob.
  *
  * The wildcard * can be used in any part of the key and values, but this is a
@@ -41,10 +48,11 @@ export class PathEntry {
 		// The target is defined as being relative to the tsconfig's directory.
 		// When it comes to matching, it's easier to work on the absolute
 		// version instead.
-		this.absoluteTarget = path.normalize(path.join(configDirectory, target));
+		this.absoluteTarget = normalize(path.join(configDirectory, target));
 	}
 
 	tryAliasImport(absoluteImportPath: string): string | undefined {
+		const importPath = normalize(absoluteImportPath);
 		if (hasWildcard(this.absoluteTarget)) {
 			// If the target is a glob, we want to see if the import
 			// starts with the target path. If it does, we then want
@@ -52,9 +60,9 @@ export class PathEntry {
 			// and replace it with the key.
 			const deglobbedPath = removeGlob(this.absoluteTarget);
 
-			if (absoluteImportPath.startsWith(deglobbedPath)) {
+			if (importPath.startsWith(deglobbedPath)) {
 				if (hasWildcard(this.key)) {
-					let newPath = absoluteImportPath.replace(deglobbedPath, '');
+					let newPath = importPath.replace(deglobbedPath, '');
 					newPath = removeGlob(this.key) + newPath;
 					return newPath;
 				} else {
@@ -64,7 +72,7 @@ export class PathEntry {
 		} else {
 			// If the target is not a glob, then we can directly
 			// replace the import with the alias.
-			if (absoluteImportPath === this.absoluteTarget) {
+			if (importPath === this.absoluteTarget) {
 				return this.key;
 			}
 		}
