@@ -180,7 +180,7 @@ pub(crate) fn commit(
     )?;
 
     // Get changes and assignments using but-api
-    let worktree_changes = diff::changes_in_worktree(project_id)?;
+    let worktree_changes = diff::changes_in_worktree(ctx)?;
     let changes = worktree_changes.worktree_changes.changes;
 
     let assignments_by_file: BTreeMap<BString, FileAssignment> =

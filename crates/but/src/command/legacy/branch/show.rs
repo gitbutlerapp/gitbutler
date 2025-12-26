@@ -8,7 +8,7 @@ use crate::utils::OutputChannel;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn show(
-    project: &Project,
+    ctx: &mut Context,
     branch_id: &str,
     out: &mut OutputChannel,
     review: bool,
@@ -16,7 +16,7 @@ pub async fn show(
     generate_ai_summary: bool,
     check_merge: bool,
 ) -> anyhow::Result<()> {
-    let id_map = load_id_map(project)?;
+    let id_map = load_id_map(&ctx.legacy_project)?;
 
     // Find the branch name from the ID
     let branch_name = if branch_id.len() == 2 {
@@ -37,14 +37,14 @@ pub async fn show(
     };
 
     // Get the list of commits ahead of base for this branch
-    let commits = get_commits_ahead(project, &branch_name, show_files)?;
+    let commits = get_commits_ahead(&ctx.legacy_project, &branch_name, show_files)?;
 
     // Get unassigned files for this branch
-    let unassigned_files = get_unassigned_files(project, &branch_name)?;
+    let unassigned_files = get_unassigned_files(ctx, &branch_name)?;
 
     // Get review information if requested
     let reviews = if review {
-        crate::command::legacy::forge::review::get_review_map(project)
+        crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project)
             .await?
             .get(&branch_name)
             .cloned()
@@ -62,7 +62,7 @@ pub async fn show(
 
     // Check merge conflicts if requested
     let merge_check = if check_merge {
-        Some(check_merge_conflicts(project, &branch_name)?)
+        Some(check_merge_conflicts(&ctx.legacy_project, &branch_name)?)
     } else {
         None
     };
@@ -445,7 +445,7 @@ fn get_commits_ahead(
 }
 
 fn get_unassigned_files(
-    project: &Project,
+    ctx: &mut Context,
     branch_name: &str,
 ) -> Result<Vec<String>, anyhow::Error> {
     use std::collections::BTreeMap;
@@ -455,7 +455,7 @@ fn get_unassigned_files(
 
     // Find the stack that contains this branch
     let stacks = but_api::legacy::workspace::stacks(
-        project.id,
+        ctx.legacy_project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
@@ -467,7 +467,7 @@ fn get_unassigned_files(
 
     if let Some(stack_id) = stack_id {
         // Get worktree changes and assignments
-        let worktree_changes = but_api::legacy::diff::changes_in_worktree(project.id)?;
+        let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
 
         let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
         for assignment in worktree_changes.assignments {

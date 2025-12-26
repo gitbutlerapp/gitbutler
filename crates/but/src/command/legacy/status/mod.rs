@@ -80,7 +80,7 @@ pub(crate) async fn worktree(
     };
 
     let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
-    let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx.legacy_project.id)?;
+    let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
 
     let assignments_by_file: BTreeMap<BString, FileAssignment> =
         FileAssignment::get_assignments_by_file(&id_map);
