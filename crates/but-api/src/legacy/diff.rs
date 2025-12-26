@@ -6,7 +6,6 @@ use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeCh
 use but_hunk_dependency::ui::{
     HunkDependencies, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use but_settings::AppSettings;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::Refname;
 use gix::refs::Category;
@@ -17,14 +16,12 @@ use tracing::instrument;
 #[but_api]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
-    project_id: ProjectId,
+    ctx: Context,
     change: TreeChange,
 ) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
     let change: but_core::TreeChange = change.into();
-    let project = gitbutler_project::get(project_id)?;
-    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
-    let repo = project.open_repo()?;
-    change.unified_patch(&repo, app_settings.context_lines)
+    let repo = ctx.open_repo()?;
+    change.unified_patch(&repo, ctx.settings.context_lines)
 }
 
 /// Gets the changes for a given branch.
