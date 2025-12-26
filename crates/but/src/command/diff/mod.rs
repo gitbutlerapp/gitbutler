@@ -1,8 +1,12 @@
 use but_ctx::Context;
 
 use crate::{CliId, IdMap, command::diff::show::Filter, utils::OutputChannel};
+
 mod display;
 mod show;
+
+// Note: To use the DiffDisplay trait in other modules,
+// import it with: use crate::command::diff::display::DiffDisplay;
 
 pub fn handle(
     ctx: &mut Context,

@@ -5,7 +5,7 @@ use std::fmt::Write;
 
 use crate::{id::UncommittedCliId, utils::OutputChannel};
 
-use super::display::TreeChangeWithPatch;
+use super::display::{DiffDisplay, TreeChangeWithPatch};
 
 pub(crate) enum Filter {
     Unassigned,
@@ -31,7 +31,8 @@ pub(crate) fn worktree(
                 let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone())
                     .ok()
                     .flatten();
-                writeln!(out, "{}", TreeChangeWithPatch::new(change, patch))?;
+                let diff = TreeChangeWithPatch::new(change, patch);
+                write!(out, "{}", diff.print_diff())?;
             }
         }
     }
@@ -54,7 +55,8 @@ pub(crate) fn commit(
             let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone().into())
                 .ok()
                 .flatten();
-            writeln!(out, "{}", TreeChangeWithPatch::new(change.into(), patch))?;
+            let diff = TreeChangeWithPatch::new(change.into(), patch);
+            write!(out, "{}", diff.print_diff())?;
         }
     }
     Ok(())
@@ -71,7 +73,8 @@ pub(crate) fn branch(
             .ok()
             .flatten();
 
-        writeln!(out, "{}", TreeChangeWithPatch::new(change, patch))?;
+        let diff = TreeChangeWithPatch::new(change, patch);
+        write!(out, "{}", diff.print_diff())?;
     }
     Ok(())
 }
