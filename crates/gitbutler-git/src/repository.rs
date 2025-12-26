@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path, time::Duration};
 
 use futures::{FutureExt, select};
 use gix::bstr::ByteSlice;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 
 use super::executor::{AskpassServer, GitExecutor, Pid, Socket};
 use crate::RefSpec;
@@ -155,11 +155,8 @@ where
         .await
         .map_err(Error::<E>::Exec)?;
 
-    // FIXME(qix-): This is probably not cryptographically secure, did this in a bit
-    // FIXME(qix-): of a hurry. We should probably use a proper CSPRNG here, but this
-    // FIXME(qix-): is probably fine for now (as this security mechanism is probably
-    // FIXME(qix-): overkill to begin with).
-    let secret = rand::rng()
+    // NB: StdRng is always a cryptographically secure random generator.
+    let secret = rand::rngs::StdRng::from_os_rng()
         .sample_iter(&rand::distr::Alphanumeric)
         .take(ASKPASS_SECRET_LENGTH)
         .map(char::from)
