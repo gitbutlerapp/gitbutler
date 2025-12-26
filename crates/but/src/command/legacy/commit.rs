@@ -433,19 +433,8 @@ fn prompt_for_stack_selection(
     let mut stdout = std::io::stdout();
     writeln!(stdout, "Multiple stacks found. Choose one to commit to:")?;
 
-    for (i, (stack_id, stack_details)) in stacks.iter().enumerate() {
-        let branch_names: Vec<String> = stack_details
-            .branch_details
-            .iter()
-            .map(|b| b.name.to_string())
-            .collect();
-        writeln!(
-            stdout,
-            "  {}. {} [{}]",
-            i + 1,
-            stack_id,
-            branch_names.join(", ")
-        )?;
+    for (i, (_stack_id, stack_details)) in stacks.iter().enumerate() {
+        writeln!(stdout, "  {}. {}", i + 1, stack_details.derived_name)?;
     }
 
     write!(stdout, "Enter selection (1-{}): ", stacks.len())?;
