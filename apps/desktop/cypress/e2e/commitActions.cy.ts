@@ -641,7 +641,7 @@ describe('Commit Actions with branches containing changes', () => {
 		);
 		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
-		mockCommand('changes_in_branch', (params) => mockBackend.getBranchChanges(params));
+		mockCommand('branch_diff', (params) => mockBackend.getBranchChanges(params));
 		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
 		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 

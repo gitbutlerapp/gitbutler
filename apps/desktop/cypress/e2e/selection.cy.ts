@@ -11,7 +11,7 @@ describe('Selection', () => {
 
 		mockCommand('stacks', () => mockBackend.getStacks());
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
-		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
+		mockCommand('branch_diff', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 		mockCommand('commit_details_with_line_stats', (params) => mockBackend.getCommitChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
@@ -220,7 +220,7 @@ describe('Selection with upstream changes', () => {
 
 		mockCommand('stacks', () => mockBackend.getStacks());
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
-		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
+		mockCommand('branch_diff', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
 		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));

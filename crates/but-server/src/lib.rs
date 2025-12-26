@@ -166,7 +166,7 @@ async fn handle_command(
         "commit_details_with_line_stats" => {
             diff::commit_details_with_line_stats_cmd(request.params)
         }
-        "changes_in_branch" => legacy::diff::changes_in_branch_cmd(request.params),
+        "branch_diff" => but_api::branch::branch_diff_cmd(request.params),
         "changes_in_worktree" => legacy::diff::changes_in_worktree_cmd(request.params),
         "assign_hunk" => legacy::diff::assign_hunk_cmd(request.params),
         // Cherry apply commands

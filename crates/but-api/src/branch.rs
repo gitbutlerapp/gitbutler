@@ -1,9 +1,13 @@
+use but_api_macros::but_api;
+use but_core::ui::TreeChanges;
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
+use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
 };
+use tracing::instrument;
 
 /// Apply `existing_branch` to the workspace in the repository that `ctx` refers to, or create the workspace with default name.
 pub fn apply_only(
@@ -55,4 +59,16 @@ pub fn apply(
         snapshot.commit(ctx).ok();
     }
     res
+}
+
+/// Gets the changes for a given branch.
+#[but_api(TreeChanges)]
+#[instrument(err(Debug))]
+pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges> {
+    let guard = ctx.shared_worktree_access();
+    let (repo, _meta, graph) =
+        ctx.graph_and_meta_and_repo_from_head(ctx.repo.get()?.clone(), guard.read_permission())?;
+    let reference = repo.find_reference(&branch)?;
+    let ws = graph.to_workspace()?;
+    but_workspace::ui::diff::changes_in_branch(&repo, &ws, reference.name())
 }
