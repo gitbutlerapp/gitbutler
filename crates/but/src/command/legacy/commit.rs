@@ -8,6 +8,7 @@ use but_api::{
 };
 use but_core::{DiffSpec, ui::TreeChange};
 use but_ctx::Context;
+use colored::Colorize;
 use gitbutler_project::Project;
 
 use crate::{
@@ -433,18 +434,12 @@ fn prompt_for_stack_selection(
     let mut stdout = std::io::stdout();
     writeln!(stdout, "Multiple stacks found. Choose one to commit to:")?;
 
-    for (i, (stack_id, stack_details)) in stacks.iter().enumerate() {
-        let branch_names: Vec<String> = stack_details
-            .branch_details
-            .iter()
-            .map(|b| b.name.to_string())
-            .collect();
+    for (i, (_stack_id, stack_details)) in stacks.iter().enumerate() {
         writeln!(
             stdout,
-            "  {}. {} [{}]",
+            "  {}. {}",
             i + 1,
-            stack_id,
-            branch_names.join(", ")
+            stack_details.derived_name.green()
         )?;
     }
 
