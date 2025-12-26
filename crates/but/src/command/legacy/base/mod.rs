@@ -194,8 +194,7 @@ pub async fn handle(
                         if let Some(out) = out.for_human() {
                             writeln!(
                                 out,
-                                "❗️ There are uncommitted changes in the worktree that may conflict with
-                            the updates. Please commit or stash them and try again."
+                                "❗️ There are uncommitted changes in the worktree that may conflict with the updates. Please commit or stash them and try again."
                             )?;
                         }
                         None
