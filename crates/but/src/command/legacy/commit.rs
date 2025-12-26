@@ -8,6 +8,7 @@ use but_api::{
 };
 use but_core::{DiffSpec, ui::TreeChange};
 use but_ctx::Context;
+use colored::Colorize;
 use gitbutler_project::Project;
 
 use crate::{
@@ -434,7 +435,12 @@ fn prompt_for_stack_selection(
     writeln!(stdout, "Multiple stacks found. Choose one to commit to:")?;
 
     for (i, (_stack_id, stack_details)) in stacks.iter().enumerate() {
-        writeln!(stdout, "  {}. {}", i + 1, stack_details.derived_name)?;
+        writeln!(
+            stdout,
+            "  {}. {}",
+            i + 1,
+            stack_details.derived_name.green()
+        )?;
     }
 
     write!(stdout, "Enter selection (1-{}): ", stacks.len())?;
