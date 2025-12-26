@@ -584,14 +584,11 @@ export class StackService {
 
 	/**
 	 * Gets the changes for a given branch.
-	 * If the branch is part of a stack and if the stackId is provided, this will include only the changes up to the next branch in the stack.
-	 * Otherwise, if stackId is not provided, this will include all changes as compared to the target branch
 	 */
 	branchChanges(args: { projectId: string; stackId?: string; branch: BranchRef }) {
 		return this.api.endpoints.branchChanges.useQuery(
 			{
 				projectId: args.projectId,
-				stackId: args.stackId,
 				branch: args.branch
 			},
 			{

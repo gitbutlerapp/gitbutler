@@ -1,9 +1,6 @@
 use anyhow::Result;
 use but_api_macros::but_api;
-use but_core::{
-    ref_metadata::StackId,
-    ui::{TreeChange, TreeChanges},
-};
+use but_core::ui::{TreeChange, TreeChanges};
 use but_ctx::Context;
 use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeChanges};
 use but_hunk_dependency::ui::{
@@ -38,12 +35,7 @@ pub fn tree_change_diffs(
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
 #[but_api]
 #[instrument(err(Debug))]
-pub fn changes_in_branch(
-    project_id: ProjectId,
-    _stack_id: Option<StackId>,
-    branch: Refname,
-) -> anyhow::Result<TreeChanges> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
+pub fn changes_in_branch(ctx: Context, branch: Refname) -> anyhow::Result<TreeChanges> {
     changes_in_branch_inner(ctx, branch)
 }
 
