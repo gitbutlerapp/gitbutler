@@ -90,26 +90,21 @@ where
     current_exe = current_exe.canonicalize().unwrap_or(current_exe);
 
     // TODO(qix-): Get parent PID of connecting processes to make sure they're us.
-    //let our_pid = std::process::id();
+    // let our_pid = std::process::id();
 
-    // TODO(qix-): This is a bit of a hack. Under a test environment,
-    // TODO(qix-): Cargo is running a test runner with a quasi-random
-    // TODO(qix-): suffix. The actual executables live in the parent directory.
-    // TODO(qix-): Thus, we have to do this under test. It's not ideal, but
-    // TODO(qix-): it works for now.
-    #[cfg(feature = "test-askpass-path")]
-    let current_exe = current_exe.parent().unwrap();
+    // This is a bit of a hack. Under a test environment, Cargo is running a
+    // test runner with a quasi-random suffix. The actual executables live in
+    // the parent directory. Thus, we have to do this under test. It's not
+    // ideal, but it works for now.
+    //
+    // This logic is used in downstream tests like gitbutler-branch-actions.
+    if current_exe.iter().nth_back(1) == Some("deps".as_ref()) {
+        current_exe = current_exe.parent().unwrap().to_path_buf();
+    }
 
-    let askpath_path = current_exe.with_file_name({
-        #[cfg(unix)]
-        {
-            "gitbutler-git-askpass"
-        }
-        #[cfg(windows)]
-        {
-            "gitbutler-git-askpass.exe"
-        }
-    });
+    let askpath_path = current_exe
+        .with_file_name("gitbutler-git-askpass")
+        .with_extension(std::env::consts::EXE_EXTENSION);
 
     #[cfg(unix)]
     let setsid_path = current_exe.with_file_name("gitbutler-git-setsid");
