@@ -1,6 +1,7 @@
 use but_ctx::Context;
 
 use crate::{CliId, IdMap, command::diff::show::Filter, utils::OutputChannel};
+mod display;
 mod show;
 
 pub fn handle(
