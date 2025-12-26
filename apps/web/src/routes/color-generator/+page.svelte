@@ -1,10 +1,5 @@
 <script lang="ts">
-	import appHeaderCenterSvg from './assets/app-header-center.svg?raw';
-	import appHeaderLeftSvg from './assets/app-header-left.svg?raw';
-	import appHeaderRightSvg from './assets/app-header-right.svg?raw';
-	import appLanesSvg from './assets/app-lanes.svg?raw';
-	import appSidebarSvg from './assets/app-sidebar.svg?raw';
-	import appUnassignedSvg from './assets/app-unassigned.svg?raw';
+	import appPreview from './assets/app-preview.svg?raw';
 	import ColorScaleDisplay from './components/ColorScaleDisplay.svelte';
 	import ExportSection from './components/ExportSection.svelte';
 	import SemanticZones from './components/SemanticZones.svelte';
@@ -105,7 +100,6 @@
 
 	<div class="scales-section">
 		<SemanticZones />
-
 		{#each SCALES as scale (scale.id)}
 			<ColorScaleDisplay
 				{scale}
@@ -126,24 +120,7 @@
 
 	<div class="app-mockup-wrapper">
 		<div class="app-mockup">
-			<div class="app-mockup__header">
-				{@html appHeaderLeftSvg}
-				<div class="app-mockup__header-center">
-					{@html appHeaderCenterSvg}
-				</div>
-				{@html appHeaderRightSvg}
-			</div>
-			<div class="app-mockup__body">
-				<div class="app-mockup__sidebar">
-					{@html appSidebarSvg}
-				</div>
-				<div class="app-mockup__unassigned">
-					{@html appUnassignedSvg}
-				</div>
-				<div class="app-mockup__lanes dotted-pattern">
-					{@html appLanesSvg}
-				</div>
-			</div>
+			{@html appPreview}
 		</div>
 	</div>
 </div>
@@ -156,7 +133,7 @@
 		grid-template-columns: subgrid;
 		row-gap: 40px;
 		grid-column: full-start / full-end;
-		height: 100vh;
+		min-height: 100vh;
 	}
 
 	.about-section {
@@ -188,14 +165,13 @@
 	/* App Mockup */
 	.app-mockup-wrapper {
 		position: relative;
-		grid-column: full-start / full-end;
+		grid-column: narrow-start / narrow-end;
 	}
 
 	.app-mockup {
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		transform: translateY(1px);
 		border: 1px solid var(--clr-border-2);
 		border-bottom: none;
 		border-radius: 16px 16px 0 0;
