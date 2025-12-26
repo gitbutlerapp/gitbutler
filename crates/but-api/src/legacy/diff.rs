@@ -68,9 +68,7 @@ fn changes_in_branch_inner(ctx: Context, branch: Refname) -> anyhow::Result<Tree
 /// All ignored status changes are also provided so they can be displayed separately.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChanges> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
+pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges> {
     let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?;
 
     let dependencies =

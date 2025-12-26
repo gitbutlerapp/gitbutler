@@ -65,16 +65,7 @@ pub async fn handle(
             ai,
             check,
         }) => {
-            show::show(
-                &ctx.legacy_project,
-                &branch_id,
-                out,
-                review,
-                files,
-                ai,
-                check,
-            )
-            .await?;
+            show::show(ctx, &branch_id, out, review, files, ai, check).await?;
             Ok(())
         }
         Some(Subcommands::New {

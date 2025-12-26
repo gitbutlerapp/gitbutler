@@ -45,7 +45,7 @@ pub(crate) fn handle(
         });
 
     // Get all worktree changes, assignments, and dependencies
-    let worktree_changes = diff::changes_in_worktree(ctx.legacy_project.id)?;
+    let worktree_changes = diff::changes_in_worktree(ctx)?;
     let assignments = worktree_changes.assignments;
     let dependencies = worktree_changes.dependencies;
 
