@@ -10,7 +10,8 @@ import {
 	MergeMethod,
 	type CreatePullRequestArgs,
 	type DetailedPullRequest,
-	type PullRequest
+	type PullRequest,
+	type Label
 } from '$lib/forge/interface/types';
 import { eventualConsistencyCheck } from '$lib/forge/shared/progressivePolling';
 import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from '$lib/state/tags';
@@ -39,7 +40,8 @@ export class GitHubPrService implements ForgePrService {
 		body,
 		draft,
 		baseBranchName,
-		upstreamName
+		upstreamName,
+		labels
 	}: CreatePullRequestArgs): Promise<PullRequest> {
 		this.loading.set(true);
 		const request = async () => {
@@ -49,7 +51,8 @@ export class GitHubPrService implements ForgePrService {
 					base: baseBranchName,
 					title,
 					body,
-					draft
+					draft,
+					labels
 				})
 			);
 		};
@@ -101,6 +104,9 @@ export class GitHubPrService implements ForgePrService {
 		update: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
 	) {
 		await this.api.endpoints.updatePr.mutate({ number, update });
+	}
+	labels(options?: StartQueryActionCreatorOptions) {
+		return this.api.endpoints.getLabels.useQuery(undefined, options);
 	}
 }
 
@@ -183,16 +189,44 @@ function injectEndpoints(api: GitHubApi) {
 			}),
 			createPr: build.mutation<
 				CreatePrResult,
-				{ head: string; base: string; title: string; body: string; draft: boolean }
+				{
+					head: string;
+					base: string;
+					title: string;
+					body: string;
+					draft: boolean;
+					labels: string[];
+				}
 			>({
-				queryFn: async ({ head, base, title, body, draft }, api) =>
+				queryFn: async ({ head, base, title, body, draft, labels }, api) =>
 					await ghQuery({
 						domain: 'pulls',
 						action: 'create',
-						parameters: { head, base, title, body, draft },
+						parameters: { head, base, title, body, draft, labels },
 						extra: api.extra
 					}),
 				invalidatesTags: (result) => [invalidatesItem(ReduxTag.PullRequests, result?.number)]
+			}),
+			getLabels: build.query<Label[], void>({
+				queryFn: async (_args, api) => {
+					const result = await ghQuery({
+						domain: 'issues',
+						action: 'listLabelsForRepo',
+						parameters: {},
+						extra: api.extra
+					});
+					if (result.error) {
+						return { error: result.error };
+					}
+					return {
+						data: result.data.map((l: any) => ({
+							name: l.name,
+							description: l.description || undefined,
+							color: l.color
+						}))
+					};
+				},
+				providesTags: [ReduxTag.PullRequests]
 			}),
 			mergePr: build.mutation<void, { number: number; method: MergeMethod }>({
 				queryFn: async ({ number, method: method }, api) => {

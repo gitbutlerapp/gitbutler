@@ -6,10 +6,12 @@
 		body: string;
 		draft: boolean;
 		upstreamBranchName: string | undefined;
+		labels: string[];
 	}
 </script>
 
 <script lang="ts">
+	import LabelSection from '$components/LabelSection.svelte';
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
 	import MessageEditor from '$components/editor/MessageEditor.svelte';
 	import MessageEditorInput from '$components/editor/MessageEditorInput.svelte';
@@ -63,6 +65,8 @@
 	const uiState = inject(UI_STATE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = settingsService.appSettings;
+
+	let selectedLabels = $state<string[]>([]);
 
 	const gitLabState = inject(GITLAB_STATE);
 	const gitLabConfigured = $derived(gitLabState.configured);
@@ -222,7 +226,8 @@
 				title,
 				body,
 				draft,
-				upstreamBranchName: branch
+				upstreamBranchName: branch,
+				labels: selectedLabels
 			});
 
 			prBody.reset();
@@ -310,7 +315,8 @@
 				body: params.body,
 				draft: params.draft,
 				baseBranchName: base,
-				upstreamName
+				upstreamName: upstreamName,
+				labels: params.labels
 			});
 
 			// Store the new pull request number with the branch data.
@@ -388,6 +394,7 @@
 </script>
 
 <div class="pr-editor">
+	<LabelSection {projectId} {prService} bind:selectedLabels disabled={isExecuting} />
 	<PrTemplateSection
 		{projectId}
 		template={{ enabled: templateEnabled, path: templatePath }}
