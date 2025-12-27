@@ -146,10 +146,58 @@ function injectEndpoints(api: GitLabApi) {
 				invalidatesTags: (result) => [invalidatesItem(ReduxTag.GitLabPullRequests, result?.number)]
 			}),
 			mergePr: build.mutation<undefined, { number: number; method: MergeMethod }>({
-				queryFn: async ({ number }, query) => {
+				queryFn: async ({ number, method }, query) => {
 					try {
 						const { api, upstreamProjectId } = gitlab(query.extra);
-						await api.MergeRequests.merge(upstreamProjectId, number);
+
+						// Note: Unlike GitHub, GitLab's rebase is a two-step async process
+						if (method === 'rebase') {
+							// Rebase the source branch onto the target branch
+							// This is an async operation that returns immediately with 202 status
+							await api.MergeRequests.rebase(upstreamProjectId, number, {
+								skipCI: false
+							});
+
+							// Poll for rebase completion before merging
+							// GitLab's rebase operation is asynchronous, so we need to wait
+							const maxAttempts = 30; // 30 seconds timeout
+							let attempt = 0;
+
+							while (attempt < maxAttempts) {
+								// Check rebase status immediately (first iteration) or after waiting
+								const mr = await api.MergeRequests.show(upstreamProjectId, number, {
+									includeRebaseInProgress: true
+								});
+
+								// Check if rebase completed successfully
+								if (!mr.rebase_in_progress) {
+									// Check for rebase errors
+									if (mr.merge_error) {
+										throw new Error(`Rebase failed: ${mr.merge_error}`);
+									}
+									break;
+								}
+
+								attempt++;
+								if (attempt >= maxAttempts) {
+									throw new Error('Rebase operation timed out. Please try merging again later.');
+								}
+
+								await sleep(1000);
+							}
+
+							// After rebase completes successfully, perform the merge
+							await api.MergeRequests.merge(upstreamProjectId, number, {
+								shouldRemoveSourceBranch: true
+							});
+						} else {
+							// For 'merge' and 'squash' methods, use the merge API directly
+							await api.MergeRequests.merge(upstreamProjectId, number, {
+								squash: method === 'squash',
+								shouldRemoveSourceBranch: true
+							});
+						}
+
 						return { data: undefined };
 					} catch (e: unknown) {
 						return { error: toSerializable(e) };
