@@ -79,7 +79,7 @@
 		"postcss-nesting": "catalog:postcss",
 		"postcss-pxtorem": "catalog:postcss",
 		"rimraf": "^6.0.1",
-		"storybook": "^10.1.8",
+		"storybook": "^10.1.10",
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:",
 		"vitest": "catalog:"
