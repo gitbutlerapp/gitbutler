@@ -104,6 +104,24 @@ pub struct StopEvent {
     pub workspace_roots: Vec<String>,
 }
 
+fn cursor_path_to_pathbuf(input: &str) -> std::path::PathBuf {
+    // Windows: Cursor Hooks send paths like `/c:/Users/...`, strip the leading slash
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(without_leading_slash) = input.strip_prefix('/') {
+            let b = without_leading_slash.as_bytes();
+            if b.len() >= 3 && b[1] == b':' && (b[2] == b'/' || b[2] == b'\\') {
+                return std::path::PathBuf::from(without_leading_slash);
+            }
+        }
+        std::path::PathBuf::from(input)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::path::PathBuf::from(input)
+    }
+}
+
 pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
     let mut input: FileEditEvent = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
@@ -118,16 +136,16 @@ pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
         .workspace_roots
         .first()
         .ok_or_else(|| anyhow::anyhow!("No workspace roots provided"))
-        .map(std::path::Path::new)?;
+        .map(|p| cursor_path_to_pathbuf(p))?;
 
     // Convert file_path from absolute to relative
-    let absolute_path = std::path::Path::new(&input.file_path);
+    let absolute_path = cursor_path_to_pathbuf(&input.file_path);
     input.file_path = absolute_path
-        .strip_prefix(dir)
+        .strip_prefix(&dir)
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or(input.file_path);
 
-    let repo = gix::discover(dir)?;
+    let repo = gix::discover(&dir)?;
     let project = Project::from_path(
         repo.workdir()
             .ok_or(anyhow::anyhow!("No worktree found for repo"))?,
@@ -186,8 +204,8 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
         .workspace_roots
         .first()
         .ok_or_else(|| anyhow::anyhow!("No workspace roots provided"))
-        .map(std::path::Path::new)?;
-    let repo = gix::discover(dir)?;
+        .map(|p| cursor_path_to_pathbuf(p))?;
+    let repo = gix::discover(&dir)?;
     let project = Project::from_path(
         repo.workdir()
             .ok_or(anyhow::anyhow!("No worktree found for repo"))?,
@@ -212,7 +230,7 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
         but_claude::hooks::get_or_create_session(ctx, &input.conversation_id, stacks, vb_state)?;
 
     let summary = "".to_string();
-    let prompt = crate::db::get_generations(dir, nightly)
+    let prompt = crate::db::get_generations(&dir, nightly)
         .map(|gens| {
             gens.iter()
                 .find(|g| g.generation_uuid == input.generation_id)
@@ -298,4 +316,36 @@ fn stdin() -> anyhow::Result<String> {
     let mut buffer = String::new();
     io::stdin().read_to_string(&mut buffer)?;
     Ok(buffer.trim().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cursor_path_to_pathbuf_windows_drive_paths() {
+        #[cfg(target_os = "windows")]
+        {
+            assert_eq!(
+                cursor_path_to_pathbuf("/C:/repo").to_string_lossy(),
+                "C:/repo"
+            );
+            assert_eq!(
+                cursor_path_to_pathbuf("/M:/work/repo").to_string_lossy(),
+                "M:/work/repo"
+            );
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            assert_eq!(
+                cursor_path_to_pathbuf("/C:/repo").to_string_lossy(),
+                "/C:/repo"
+            );
+            assert_eq!(
+                cursor_path_to_pathbuf("/M:/work/repo").to_string_lossy(),
+                "/M:/work/repo"
+            );
+        }
+    }
 }
