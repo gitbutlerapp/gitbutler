@@ -89,9 +89,14 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         args.format
     };
     // Determine if pager should be used based on the command
-    let use_pager = match args.cmd {
+    let use_pager = match &args.cmd {
         #[cfg(feature = "legacy")]
         Some(Subcommands::Status { .. }) | Some(Subcommands::Stf { .. }) => false,
+        #[cfg(feature = "legacy")]
+        Some(Subcommands::Oplog(args::oplog::Platform { all, .. })) => {
+            // Only use pager for oplog if --all is specified (at platform or subcommand level)
+            *all
+        }
         _ => true,
     };
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
@@ -401,10 +406,27 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Oplog { since } => {
+        Subcommands::Oplog(args::oplog::Platform { all: platform_all, snapshots: platform_snapshots, cmd }) => {
             let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
-            command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref())
-                .emit_metrics(metrics_ctx)
+            match cmd {
+                Some(args::oplog::Subcommands::List { since, all: subcommand_all, snapshots: subcommand_snapshots }) => {
+                    // Use subcommand --all if specified, otherwise use platform --all
+                    let use_all = subcommand_all || platform_all;
+                    // Use subcommand --snapshots if specified, otherwise use platform --snapshots
+                    let use_snapshots = subcommand_snapshots || platform_snapshots;
+                    command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), use_all, use_snapshots)
+                        .emit_metrics(metrics_ctx)
+                }
+                Some(args::oplog::Subcommands::Snapshot { message }) => {
+                    command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())
+                        .emit_metrics(metrics_ctx)
+                }
+                None => {
+                    // Default to listing oplog, respecting platform --all and --snapshots
+                    command::legacy::oplog::show_oplog(&mut ctx, out, None, platform_all, platform_snapshots)
+                        .emit_metrics(metrics_ctx)
+                }
+            }
         }
         #[cfg(feature = "legacy")]
         Subcommands::Restore { oplog_sha, force } => {
@@ -416,12 +438,6 @@ async fn match_subcommand(
         Subcommands::Undo => {
             let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
             command::legacy::oplog::undo_last_operation(&mut ctx, out).emit_metrics(metrics_ctx)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Snapshot { message } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
-            command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())
-                .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Absorb { source } => {

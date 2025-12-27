@@ -56,7 +56,7 @@ impl Subcommands {
     fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{base, branch, claude, cursor, forge, worktree};
+        use crate::args::{base, branch, claude, cursor, forge, oplog, worktree};
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -100,13 +100,15 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Describe { .. } => Describe,
             #[cfg(feature = "legacy")]
-            Subcommands::Oplog { .. } => Oplog,
+            Subcommands::Oplog(oplog::Platform { cmd, .. }) => match cmd {
+                Some(oplog::Subcommands::List { .. }) => Oplog,
+                Some(oplog::Subcommands::Snapshot { .. }) => Snapshot,
+                None => Oplog,
+            },
             #[cfg(feature = "legacy")]
             Subcommands::Restore { .. } => Restore,
             #[cfg(feature = "legacy")]
             Subcommands::Undo => Undo,
-            #[cfg(feature = "legacy")]
-            Subcommands::Snapshot { .. } => Snapshot,
             #[cfg(feature = "legacy")]
             Subcommands::Claude(claude::Platform { cmd }) => match cmd {
                 claude::Subcommands::PreTool => ClaudePreTool,
