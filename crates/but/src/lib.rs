@@ -413,8 +413,13 @@ async fn match_subcommand(
         Subcommands::Oplog(oplog::Platform { cmd }) => {
             let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
             match cmd {
-                Some(oplog::Subcommands::List { since }) => {
-                    command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref())
+                Some(oplog::Subcommands::List { since, snapshot }) => {
+                    let filter = if snapshot {
+                        Some(command::legacy::oplog::OplogFilter::Snapshot)
+                    } else {
+                        None
+                    };
+                    command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)
                         .emit_metrics(metrics_ctx)
                 }
                 Some(oplog::Subcommands::Snapshot { message }) => {
@@ -423,7 +428,7 @@ async fn match_subcommand(
                 }
                 None => {
                     // Default to list when no subcommand is provided
-                    command::legacy::oplog::show_oplog(&mut ctx, out, None)
+                    command::legacy::oplog::show_oplog(&mut ctx, out, None, None)
                         .emit_metrics(metrics_ctx)
                 }
             }

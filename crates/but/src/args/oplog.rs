@@ -21,6 +21,9 @@ pub enum Subcommands {
         /// Start from this oplog SHA instead of the head
         #[clap(long)]
         since: Option<String>,
+        /// Show only on-demand snapshot entries
+        #[clap(long, short = 's')]
+        snapshot: bool,
     },
 
     /// Create an on-demand snapshot with optional message.

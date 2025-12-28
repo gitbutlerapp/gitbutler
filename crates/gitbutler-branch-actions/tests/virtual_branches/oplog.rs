@@ -55,7 +55,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
         ctx.exclusive_worktree_access().write_permission(),
     )?;
 
-    let snapshots = ctx.list_snapshots(10, None, Vec::new())?;
+    let snapshots = ctx.list_snapshots(10, None, Vec::new(), None)?;
     assert_eq!(
         snapshots.len(),
         7,
@@ -69,7 +69,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
         .expect("restoration succeeds");
 
     assert_eq!(
-        ctx.list_snapshots(10, None, Vec::new())?.len(),
+        ctx.list_snapshots(10, None, Vec::new(), None)?.len(),
         8,
         "all the previous + 1 restore commit"
     );
@@ -163,7 +163,7 @@ fn basic_oplog() -> anyhow::Result<()> {
         3
     );
 
-    let snapshots = ctx.list_snapshots(10, None, Vec::new())?;
+    let snapshots = ctx.list_snapshots(10, None, Vec::new(), None)?;
 
     let ops = snapshots
         .iter()
@@ -298,7 +298,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     assert_ne!(commit1_id, commit2_id);
 
     // restore the first
-    let snapshots = ctx.list_snapshots(10, None, Vec::new())?;
+    let snapshots = ctx.list_snapshots(10, None, Vec::new(), None)?;
     assert_eq!(
         snapshots.len(),
         3,
@@ -323,7 +323,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         1,
         "vbranches aren't affected by this (only the head commit)"
     );
-    let all_snapshots = ctx.list_snapshots(10, None, Vec::new())?;
+    let all_snapshots = ctx.list_snapshots(10, None, Vec::new(), None)?;
     assert_eq!(
         all_snapshots.len(),
         4,
@@ -331,20 +331,20 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     );
 
     assert_eq!(
-        ctx.list_snapshots(0, None, Vec::new())?.len(),
+        ctx.list_snapshots(0, None, Vec::new(), None)?.len(),
         0,
         "it respects even non-sensical limits"
     );
 
-    let snapshots = ctx.list_snapshots(1, None, Vec::new())?;
+    let snapshots = ctx.list_snapshots(1, None, Vec::new(), None)?;
     assert_eq!(snapshots.len(), 1);
     assert_eq!(
-        ctx.list_snapshots(1, None, Vec::new())?,
+        ctx.list_snapshots(1, None, Vec::new(), None)?,
         snapshots,
         "traversal from oplog head is the same as if it wasn't specified, and the given head is returned first"
     );
     assert_eq!(
-        ctx.list_snapshots(10, Some(all_snapshots[2].commit_id), Vec::new())?,
+        ctx.list_snapshots(10, Some(all_snapshots[2].commit_id), Vec::new(), None)?,
         &all_snapshots[3..],
     );
 
@@ -369,7 +369,7 @@ fn head_corrupt_is_recreated_automatically() {
     )
     .unwrap();
 
-    let snapshots = ctx.list_snapshots(10, None, Vec::new()).unwrap();
+    let snapshots = ctx.list_snapshots(10, None, Vec::new(), None).unwrap();
     assert_eq!(
         snapshots.len(),
         1,
@@ -391,7 +391,7 @@ fn head_corrupt_is_recreated_automatically() {
     )
     .expect("the snapshot doesn't fail despite the corrupt head");
 
-    let snapshots = ctx.list_snapshots(10, None, Vec::new()).unwrap();
+    let snapshots = ctx.list_snapshots(10, None, Vec::new(), None).unwrap();
     assert_eq!(
         snapshots.len(),
         1,
@@ -420,7 +420,7 @@ fn first_snapshot_diff_works() -> anyhow::Result<()> {
     let _commit_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "first commit", None)?;
 
-    let snapshots = ctx.list_snapshots(10, None, Vec::new())?;
+    let snapshots = ctx.list_snapshots(10, None, Vec::new(), None)?;
     assert!(!snapshots.is_empty(), "Should have at least one snapshot");
 
     // Test snapshot_diff on all snapshots to make sure none fail (including the first one)

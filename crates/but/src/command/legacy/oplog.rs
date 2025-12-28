@@ -9,15 +9,35 @@ use crate::utils::OutputChannel;
 
 pub const ISO8601_NO_TZ: CustomFormat = CustomFormat::new("%Y-%m-%d %H:%M:%S");
 
+/// Filter for oplog entries by operation kind
+#[derive(Debug, Clone, Copy)]
+pub enum OplogFilter {
+    /// Show only on-demand snapshot entries
+    Snapshot,
+}
+
+impl OplogFilter {
+    /// Convert the filter to a list of OperationKind to include
+    fn to_include_kinds(self) -> Vec<OperationKind> {
+        match self {
+            OplogFilter::Snapshot => vec![OperationKind::OnDemandSnapshot],
+        }
+    }
+}
+
 pub(crate) fn show_oplog(
     ctx: &mut Context,
     out: &mut OutputChannel,
     since: Option<&str>,
+    filter: Option<OplogFilter>,
 ) -> anyhow::Result<()> {
+    // Convert filter to include_kind parameter for the API
+    let include_kind = filter.map(|f| f.to_include_kinds());
+
     let snapshots = if let Some(since_sha) = since {
         // Get all snapshots first to find the starting point
         let all_snapshots =
-            but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 1000, None, None)?; // Get a large number to find the SHA
+            but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 1000, None, None, None)?; // Get a large number to find the SHA
         let mut found_index = None;
 
         // Find the snapshot that matches the since SHA (partial match supported)
@@ -31,8 +51,15 @@ pub(crate) fn show_oplog(
 
         match found_index {
             Some(index) => {
-                // Take 20 entries starting from the found index
-                all_snapshots.into_iter().skip(index).take(20).collect()
+                let start_sha = all_snapshots[index].commit_id.to_string();
+                // Now fetch with the proper filter from that point
+                but_api::legacy::oplog::list_snapshots(
+                    ctx.legacy_project.id,
+                    20,
+                    Some(start_sha),
+                    None,
+                    include_kind,
+                )?
             }
             None => {
                 return Err(anyhow::anyhow!(
@@ -42,7 +69,7 @@ pub(crate) fn show_oplog(
             }
         }
     } else {
-        but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 25, None, None)?
+        but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 25, None, None, include_kind)?
     };
 
     if snapshots.is_empty() {
@@ -217,7 +244,8 @@ pub(crate) fn undo_last_operation(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Get the last two snapshots - restore to the second one back
-    let snapshots = but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 2, None, None)?;
+    let snapshots =
+        but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 2, None, None, None)?;
 
     if snapshots.len() < 2 {
         if let Some(out) = out.for_human() {

@@ -33,6 +33,7 @@ use tracing::instrument;
 /// - `limit`: Maximum number of snapshots to return.
 /// - `sha`: Optional SHA to filter snapshots starting from a specific commit.
 /// - `exclude_kind`: Optional list of operation kinds to exclude from the results.
+/// - `include_kind`: Optional list of operation kinds to include (if set, only these kinds are returned).
 ///
 /// Returns a vector of `Snapshot` entries.
 ///
@@ -45,6 +46,7 @@ pub fn list_snapshots(
     limit: usize,
     sha: Option<String>,
     exclude_kind: Option<Vec<OperationKind>>,
+    include_kind: Option<Vec<OperationKind>>,
 ) -> Result<Vec<Snapshot>> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let snapshots = ctx.list_snapshots(
@@ -52,6 +54,7 @@ pub fn list_snapshots(
         sha.map(|hex| hex.parse().map_err(anyhow::Error::from))
             .transpose()?,
         exclude_kind.unwrap_or_default(),
+        include_kind,
     )?;
     Ok(snapshots)
 }
