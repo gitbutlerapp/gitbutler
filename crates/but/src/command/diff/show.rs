@@ -23,17 +23,11 @@ pub(crate) fn worktree(
             Filter::Unassigned => {}
             Filter::Uncommitted(_id) => {}
         }
+    } else if result.worktree_changes.changes.is_empty() {
+        writeln!(out, "No changes in the working tree.")?;
     } else {
-        if result.worktree_changes.changes.is_empty() {
-            writeln!(out, "No changes in the working tree.")?;
-        } else {
-            for change in result.worktree_changes.changes {
-                let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone())
-                    .ok()
-                    .flatten();
-                let diff = TreeChangeWithPatch::new(change, patch);
-                write!(out, "{}", diff.print_diff())?;
-            }
+        for assignment in result.assignments {
+            write!(out, "{}", assignment.print_diff())?;
         }
     }
     Ok(())
