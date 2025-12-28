@@ -4,15 +4,17 @@
 
 	interface Props {
 		currentColors: Record<string, Record<number, string>>;
+		artColorsLight: Record<string, { h: number; s: number; l: number }>;
+		artColorsDark: Record<string, { h: number; s: number; l: number }>;
 	}
 
-	let { currentColors }: Props = $props();
+	let { currentColors, artColorsLight, artColorsDark }: Props = $props();
 
 	let cssCopied = $state(false);
 	let jsonCopied = $state(false);
 
 	async function handleCopyCSS() {
-		await copyCSS(currentColors);
+		await copyCSS(currentColors, artColorsLight, artColorsDark);
 		cssCopied = true;
 		setTimeout(() => {
 			cssCopied = false;
@@ -20,7 +22,7 @@
 	}
 
 	async function handleCopyJSON() {
-		await copyJSON(currentColors);
+		await copyJSON(currentColors, artColorsLight, artColorsDark);
 		jsonCopied = true;
 		setTimeout(() => {
 			jsonCopied = false;

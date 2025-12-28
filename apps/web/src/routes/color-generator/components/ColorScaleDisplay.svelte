@@ -15,7 +15,6 @@
 		onHueChange: (scaleId: string, hue: number) => void;
 		onSaturationChange: (scaleId: string, value: number) => void;
 		onShade50LightnessChange: (scaleId: string, value: number) => void;
-		onCopyJSON: (scaleId: string) => void;
 	}
 
 	let {
@@ -29,8 +28,7 @@
 		onToggle,
 		onHueChange,
 		onSaturationChange,
-		onShade50LightnessChange,
-		onCopyJSON
+		onShade50LightnessChange
 	}: Props = $props();
 
 	function toggleExpanded() {
@@ -59,7 +57,6 @@
 						{onHueChange}
 						{onSaturationChange}
 						{onShade50LightnessChange}
-						{onCopyJSON}
 					/>
 				</div>
 			{/if}
