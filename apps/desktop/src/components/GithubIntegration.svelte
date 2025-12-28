@@ -52,7 +52,7 @@
 	let gheHostError = $state<string>();
 
 	// Add account button and context menu
-	let addAccountButtonRef = $state<HTMLElement>();
+	let addProfileButtonRef = $state<HTMLElement>();
 	let addAccountContextMenu = $state<ContextMenu>();
 
 	function cleanupAuthFlow() {
@@ -187,7 +187,7 @@
 					{/snippet}
 
 					{#snippet actions()}
-						{@render addAccountButton(noAccounts)}
+						{@render addProfileButton(noAccounts)}
 					{/snippet}
 				</CardGroup.Item>
 			{/snippet}
@@ -357,11 +357,11 @@
 	🔒 Credentials are persisted locally in your OS Keychain / Credential Manager.
 </p>
 
-{#snippet addAccountButton(noAccounts: boolean)}
+{#snippet addProfileButton(noAccounts: boolean)}
 	{@const buttonStyle = noAccounts ? 'pop' : 'gray'}
 	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
 	<Button
-		bind:el={addAccountButtonRef}
+		bind:el={addProfileButtonRef}
 		style={buttonStyle}
 		onclick={() => addAccountContextMenu?.toggle()}
 		disabled={showingFlow !== undefined}
@@ -371,7 +371,7 @@
 		{buttonText}
 	</Button>
 
-	<ContextMenu bind:this={addAccountContextMenu} leftClickTrigger={addAccountButtonRef}>
+	<ContextMenu bind:this={addAccountContextMenu} leftClickTrigger={addProfileButtonRef}>
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Authorize GitHub Account"

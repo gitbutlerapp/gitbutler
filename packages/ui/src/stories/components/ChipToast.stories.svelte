@@ -1,42 +1,19 @@
 <script module lang="ts">
-	import ChipToast from '$components/chipToast/ChipToast.svelte';
+	import Button from '$components/Button.svelte';
+	import ChipToastContainer from '$components/chipToast/ChipToastContainer.svelte';
+	import { chipToasts } from '$components/chipToast/chipToastStore';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'Overlays / ChipToast',
-		component: ChipToast,
+		component: ChipToastContainer,
 		tags: ['autodocs'],
 		parameters: {
 			docs: {
 				description: {
 					component:
-						"The ChipToast component displays temporary messages to users with different types (info, success, warning, error) and supports custom action buttons and dismiss functionality. Use the toast system from @gitbutler/ui for programmatic toasts, or use this component directly for custom implementations.\n\n## Basic Usage\n\n```javascript\nimport { toasts, ToastContainer } from '@gitbutler/ui';\n\n// Show programmatic toasts\ntoasts.success('Operation completed!');\ntoasts.warning('Please review your changes');\ntoasts.error('Something went wrong');\n\n// Add container to your app root\n<ToastContainer />\n```\n\n**IMPORTANT**: Use only short messages in toasts, as they are designed for brief notifications. For longer messages, consider using regular toast messages or a modal instead."
+						"The ChipToast component displays temporary messages to users with different types (info, success, warning, error) and supports custom action buttons and dismiss functionality. Use the toast system from @gitbutler/ui for programmatic toasts.\n\n## Basic Usage\n\n```javascript\nimport { chipToasts, ChipToastContainer } from '@gitbutler/ui';\n\n// Show programmatic toasts\nchipToasts.success('Operation completed!');\nchipToasts.warning('Please review your changes');\nchipToasts.error('Something went wrong');\nchipToasts.info('Information message');\n\n// Add container to your app root\n<ChipToastContainer />\n```\n\n**IMPORTANT**: Use only short messages in toasts, as they are designed for brief notifications. For longer messages, consider using regular toast messages or a modal instead."
 				}
-			}
-		},
-		args: {
-			type: 'info',
-			message: 'This is a toast message',
-			showDismiss: false,
-			customButton: undefined
-		},
-		argTypes: {
-			type: {
-				description: 'The visual style and semantic meaning of the toast',
-				options: ['info', 'success', 'warning', 'error'],
-				control: { type: 'select' }
-			},
-			message: {
-				description: 'The text content to display in the toast',
-				control: { type: 'text' }
-			},
-			showDismiss: {
-				description: 'Whether to show the dismiss (X) button',
-				control: { type: 'boolean' }
-			},
-			customButton: {
-				description: 'Optional custom action button with label and action callback',
-				control: { type: 'object' }
 			}
 		}
 	});
@@ -48,20 +25,47 @@
 		docs: {
 			description: {
 				story:
-					'Interactive playground to test different ChipToast configurations. Use the controls panel to modify properties and see the changes in real-time.'
+					'Interactive playground to test the ChipToast system. Click the buttons below to trigger different types of toasts. Toasts will auto-dismiss after 4 seconds unless they have a dismiss button.'
 			}
 		}
 	}}
 >
-	{#snippet template(args)}
+	{#snippet template()}
 		<div style="padding: 20px; background: var(--clr-bg-1);">
-			<ChipToast
-				type={args.type}
-				message={args.message}
-				showDismiss={args.showDismiss}
-				customButton={args.customButton}
-				onDismiss={() => alert('Toast dismissed!')}
-			/>
+			<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+				<Button size="tag" onclick={() => chipToasts.info('This is an info message')}>
+					Show Info
+				</Button>
+				<Button size="tag" onclick={() => chipToasts.success('Operation completed successfully!')}>
+					Show Success
+				</Button>
+				<Button
+					size="tag"
+					onclick={() => chipToasts.warning('Warning: Please check your settings')}
+				>
+					Show Warning
+				</Button>
+				<Button size="tag" onclick={() => chipToasts.error('Error: Something went wrong')}>
+					Show Error
+				</Button>
+				<Button
+					size="tag"
+					onclick={() => chipToasts.info('Message with dismiss button', { showDismiss: true })}
+				>
+					With Dismiss
+				</Button>
+				<Button
+					size="tag"
+					onclick={() =>
+						chipToasts.success('File uploaded!', {
+							customButton: { label: 'View', action: () => alert('View clicked!') }
+						})}
+				>
+					With Action
+				</Button>
+				<Button size="tag" onclick={() => chipToasts.clearAll()}>Clear All</Button>
+			</div>
+			<ChipToastContainer />
 		</div>
 	{/snippet}
 </Story>
@@ -72,19 +76,25 @@
 		docs: {
 			description: {
 				story:
-					"Showcases all available toast types: info (default/info), success (positive feedback), warning (caution), and error (negative feedback). Each type has distinct visual styling to convey the appropriate message tone.\n\n**Usage:**\n```javascript\n// Different toast types\ntoasts.info('This is a info message');\ntoasts.success('Operation completed successfully!');\ntoasts.warning('Please review your changes');\ntoasts.error('Something went wrong');\n```"
+					"Showcases all available toast types: info (default/info), success (positive feedback), warning (caution), and error (negative feedback). Each type has distinct visual styling to convey the appropriate message tone.\n\n**Usage:**\n```javascript\n// Different toast types\nchipToasts.info('This is an info message');\nchipToasts.success('Operation completed successfully!');\nchipToasts.warning('Please review your changes');\nchipToasts.error('Something went wrong');\n```"
 			}
 		}
 	}}
 >
 	{#snippet template()}
-		<div
-			style="padding: 20px; background: var(--clr-bg-1); display: flex; flex-direction: column; gap: 16px;"
-		>
-			<ChipToast type="info" message="Info toast message" />
-			<ChipToast type="success" message="Success! Operation completed successfully" />
-			<ChipToast type="warning" message="Warning: Please check your settings" />
-			<ChipToast type="danger" message="Error: Something went wrong" />
+		<div style="padding: 20px; background: var(--clr-bg-1);">
+			<Button
+				size="tag"
+				onclick={() => {
+					chipToasts.info('Info toast message');
+					chipToasts.success('Success! Operation completed successfully');
+					chipToasts.warning('Warning: Please check your settings');
+					chipToasts.error('Error: Something went wrong');
+				}}
+			>
+				Show All Types
+			</Button>
+			<ChipToastContainer />
 		</div>
 	{/snippet}
 </Story>
@@ -95,58 +105,71 @@
 		docs: {
 			description: {
 				story:
-					'Examples showing toasts with both custom action buttons and dismiss functionality. Users can interact with the toast through actions or dismiss it entirely.'
+					'Examples showing toasts with both custom action buttons and dismiss functionality. Users can interact with the toast through actions or dismiss it entirely. Note that toasts with dismiss buttons will not auto-dismiss.'
 			}
 		}
 	}}
 >
 	{#snippet template()}
-		<div
-			style="padding: 20px; background: var(--clr-bg-1); display: flex; flex-direction: column; gap: 16px;"
-		>
-			<ChipToast
-				type="success"
-				message="File uploaded successfully!"
-				showDismiss={true}
-				customButton={{
-					label: 'View File',
-					action: () => alert('Opening file...')
-				}}
-				onDismiss={() => alert('Toast dismissed!')}
-			/>
+		<div style="padding: 20px; background: var(--clr-bg-1);">
+			<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+				<Button
+					size="tag"
+					onclick={() =>
+						chipToasts.success('File uploaded successfully!', {
+							showDismiss: true,
+							customButton: {
+								label: 'View File',
+								action: () => alert('Opening file...')
+							}
+						})}
+				>
+					Upload Success
+				</Button>
 
-			<ChipToast
-				type="warning"
-				message="Your session will expire soon"
-				showDismiss={true}
-				customButton={{
-					label: 'Extend Session',
-					action: () => alert('Session extended!')
-				}}
-				onDismiss={() => alert('Toast dismissed!')}
-			/>
+				<Button
+					size="tag"
+					onclick={() =>
+						chipToasts.warning('Your session will expire soon', {
+							showDismiss: true,
+							customButton: {
+								label: 'Extend',
+								action: () => alert('Session extended!')
+							}
+						})}
+				>
+					Session Warning
+				</Button>
 
-			<ChipToast
-				type="danger"
-				message="Failed to save changes"
-				showDismiss={true}
-				customButton={{
-					label: 'Retry',
-					action: () => alert('Retrying...')
-				}}
-				onDismiss={() => alert('Toast dismissed!')}
-			/>
+				<Button
+					size="tag"
+					onclick={() =>
+						chipToasts.error('Failed to save changes', {
+							showDismiss: true,
+							customButton: {
+								label: 'Retry',
+								action: () => alert('Retrying...')
+							}
+						})}
+				>
+					Save Error
+				</Button>
 
-			<ChipToast
-				type="info"
-				message="New update available"
-				showDismiss={true}
-				customButton={{
-					label: 'Update Now',
-					action: () => alert('Updating...')
-				}}
-				onDismiss={() => alert('Toast dismissed!')}
-			/>
+				<Button
+					size="tag"
+					onclick={() =>
+						chipToasts.info('New update available', {
+							showDismiss: true,
+							customButton: {
+								label: 'Update',
+								action: () => alert('Updating...')
+							}
+						})}
+				>
+					Update Info
+				</Button>
+			</div>
+			<ChipToastContainer />
 		</div>
 	{/snippet}
 </Story>
@@ -163,19 +186,29 @@
 	}}
 >
 	{#snippet template()}
-		<div
-			style="padding: 20px; background: var(--clr-bg-1); display: flex; flex-direction: column; gap: 16px;"
-		>
-			<ChipToast
-				type="success"
-				message="Operation completed"
-				customButton={{
-					label: 'View Details',
-					action: () => alert('Showing details...')
-				}}
-			/>
+		<div style="padding: 20px; background: var(--clr-bg-1);">
+			<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+				<Button
+					size="tag"
+					onclick={() =>
+						chipToasts.success('Operation completed', {
+							customButton: {
+								label: 'View Details',
+								action: () => alert('Showing details...')
+							}
+						})}
+				>
+					With Action Button
+				</Button>
 
-			<ChipToast type="info" message="Information saved" showDismiss={true} />
+				<Button
+					size="tag"
+					onclick={() => chipToasts.info('Information saved', { showDismiss: true })}
+				>
+					With Dismiss Button
+				</Button>
+			</div>
+			<ChipToastContainer />
 		</div>
 	{/snippet}
 </Story>

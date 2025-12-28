@@ -3,12 +3,12 @@
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
-		title: 'Inputs / ProfilePictureUpload',
+		title: 'Avatar / ProfilePictureUpload',
 		component: ProfilePictureUpload,
 		args: {
 			picture: 'https://avatars.githubusercontent.com/u/1942963?v=4',
 			alt: 'User avatar',
-			size: 6.25
+			size: '6.25rem'
 		},
 		argTypes: {
 			size: {
@@ -61,7 +61,7 @@
 				<ProfilePictureUpload
 					picture="https://avatars.githubusercontent.com/u/1942963?v=4"
 					alt="Small avatar"
-					size={3.75}
+					size="3.75rem"
 					onFileSelect={(file) => {
 						chipToasts.success(`File selected: ${file.name}`);
 					}}
@@ -77,7 +77,7 @@
 				<ProfilePictureUpload
 					picture="https://avatars.githubusercontent.com/u/1942963?v=4"
 					alt="Default avatar"
-					size={6.25}
+					size="6.25rem"
 					onFileSelect={(file) => {
 						chipToasts.success(`File selected: ${file.name}`);
 					}}
@@ -93,7 +93,7 @@
 				<ProfilePictureUpload
 					picture="https://avatars.githubusercontent.com/u/1942963?v=4"
 					alt="Large avatar"
-					size={9.375}
+					size="9.375rem"
 					onFileSelect={(file) => {
 						chipToasts.success(`File selected: ${file.name}`);
 					}}

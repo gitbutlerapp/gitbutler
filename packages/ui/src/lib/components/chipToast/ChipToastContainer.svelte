@@ -26,6 +26,7 @@
 		bottom: 20px;
 		left: 50%;
 		flex-direction: column;
+		align-items: center;
 		gap: 8px;
 		transform: translateX(-50%);
 		pointer-events: none;
