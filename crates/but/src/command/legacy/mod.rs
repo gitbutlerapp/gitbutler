@@ -15,5 +15,6 @@ pub mod mcp_internal;
 pub mod oplog;
 pub mod push;
 pub mod rub;
+pub mod squash;
 pub mod status;
 pub mod worktree;

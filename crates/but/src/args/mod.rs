@@ -437,6 +437,35 @@ pub enum Subcommands {
         source: Option<String>,
     },
 
+    /// Squash two commits together and use AI to generate a combined commit message.
+    ///
+    /// This command takes two commit IDs or CLI short IDs. One commit must be
+    /// an ancestor of the other. The commits are squashed together using
+    /// `but rub`, and then AI is used to generate a new combined commit message
+    /// from both original messages.
+    ///
+    /// ## Examples
+    ///
+    /// Squash two commits using their SHAs:
+    ///
+    /// ```text
+    /// but squash abc1234 def5678
+    /// ```
+    ///
+    /// Squash using CLI short IDs from `but status`:
+    ///
+    /// ```text
+    /// but squash 3a 5b
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    Squash {
+        /// The first commit ID or CLI short ID
+        commit1: String,
+        /// The second commit ID or CLI short ID
+        commit2: String,
+    },
+
     /// Commands for interacting with forges like GitHub, GitLab (coming soon), etc.
     ///
     /// The `but forge` tools allow you to authenticate with a forge from the CLI,

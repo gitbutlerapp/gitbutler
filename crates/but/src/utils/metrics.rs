@@ -123,6 +123,8 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Absorb { .. } => Absorb,
             #[cfg(feature = "legacy")]
+            Subcommands::Squash { .. } => Squash,
+            #[cfg(feature = "legacy")]
             Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
                 forge::review::Subcommands::Publish { .. } => PublishReview,
                 forge::review::Subcommands::Template { .. } => ReviewTemplate,

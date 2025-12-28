@@ -8,6 +8,7 @@ pub enum CommandName {
     Status,
     Stf,
     Rub,
+    Squash,
     Commit,
     Push,
     New,
