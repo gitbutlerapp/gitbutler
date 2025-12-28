@@ -419,6 +419,40 @@ pub enum Subcommands {
         force: bool,
     },
 
+    /// Squash multiple commits together and use AI to generate a combined commit message.
+    ///
+    /// This command takes two or more commit IDs or CLI short IDs. All commits must be
+    /// in the same stack and form a contiguous range. The commits are squashed together
+    /// into the oldest (parent-most) commit, and AI is used to generate a new combined
+    /// commit message from all original messages.
+    ///
+    /// ## Examples
+    ///
+    /// Squash two commits using their SHAs:
+    ///
+    /// ```text
+    /// but squash abc1234 def5678
+    /// ```
+    ///
+    /// Squash three commits using CLI short IDs from `but status`:
+    ///
+    /// ```text
+    /// but squash 3a 4b 5c
+    /// ```
+    ///
+    /// Squash a range of commits:
+    ///
+    /// ```text
+    /// but squash 2a 3a 4a 5a
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    Squash {
+        /// The commit IDs or CLI short IDs to squash together (minimum 2)
+        #[clap(required = true, num_args = 2..)]
+        commits: Vec<String>,
+    },
+
     /// Undo the last operation by reverting to the previous snapshot.
     ///
     /// This is a shorthand for restoring to the last oplog entry before the

@@ -441,6 +441,15 @@ async fn match_subcommand(
             }
         }
         #[cfg(feature = "legacy")]
+        Subcommands::Squash { commits } => {
+            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            command::legacy::squash::handle(&mut ctx, out, &commits)
+                .await
+                .context("Failed to squash commits.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Restore { oplog_sha, force } => {
             let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
             command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force)

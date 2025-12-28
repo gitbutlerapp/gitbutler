@@ -17,5 +17,6 @@ pub mod oplog;
 pub mod pull;
 pub mod push;
 pub mod rub;
+pub mod squash;
 pub mod status;
 pub mod worktree;
