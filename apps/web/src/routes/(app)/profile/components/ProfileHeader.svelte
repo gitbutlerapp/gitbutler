@@ -73,13 +73,7 @@
 	<form onsubmit={updateAdditionalInfo}>
 		<CardGroup.Item>
 			<div class="profile-header">
-				<ProfilePictureUpload
-					picture={user.picture}
-					onFileSelect={onPictureChange}
-					onInvalidFileType={() => {
-						// TODO: Add toast notification for invalid file type
-					}}
-				/>
+				<ProfilePictureUpload picture={user.picture} onFileSelect={onPictureChange} />
 
 				<div class="contact-info__fields">
 					<Textbox

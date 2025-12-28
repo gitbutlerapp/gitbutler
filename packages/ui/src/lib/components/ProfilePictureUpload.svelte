@@ -1,35 +1,12 @@
 <script lang="ts" module>
 	export interface Props {
-		/**
-		 * The URL of the current profile picture
-		 */
 		picture?: string;
-		/**
-		 * Alternative text for the image
-		 */
 		alt?: string;
-		/**
-		 * Array of accepted file types (e.g., ['image/jpeg', 'image/png'])
-		 * @default ['image/jpeg', 'image/png']
-		 */
 		acceptedFileTypes?: string[];
-		/**
-		 * Callback when a valid file is selected
-		 */
 		onFileSelect?: (file: File) => void;
-		/**
-		 * Callback when an invalid file type is selected
-		 */
 		onInvalidFileType?: () => void;
-		/**
-		 * Custom class for the wrapper
-		 */
 		class?: string;
-		/**
-		 * Size of the profile picture
-		 * @default 100
-		 */
-		size?: number;
+		size?: string;
 	}
 </script>
 
@@ -43,7 +20,7 @@
 		onFileSelect,
 		onInvalidFileType,
 		class: className,
-		size = 6.25
+		size = '6.25rem'
 	}: Props = $props();
 
 	let previewUrl = $derived(picture);
@@ -70,7 +47,7 @@
 <label
 	class="profile-pic-wrapper {className || ''}"
 	for="profile-picture-upload"
-	style="width: {size}rem; height: {size}rem;"
+	style:width={size}
 >
 	<input
 		onchange={handleFileChange}
@@ -107,13 +84,16 @@
 		display: flex;
 		position: relative;
 		flex-shrink: 0;
+		aspect-ratio: 1 / 1;
+		height: max-content;
 		overflow: hidden;
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-ml);
 		cursor: pointer;
 
 		&:hover,
 		&:focus-within {
 			& .profile-pic__edit-label {
+				transform: translateY(0);
 				opacity: 1;
 			}
 		}
@@ -153,11 +133,14 @@
 		bottom: 8px;
 		left: 8px;
 		padding: 4px 6px;
+		transform: translateY(2px);
 		border-radius: var(--radius-m);
 		outline: 1px solid color-mix(in srgb, var(--clr-core-gray-100) 40%, transparent);
 		background-color: var(--clr-core-gray-20);
 		color: var(--clr-core-gray-100);
 		opacity: 0;
-		transition: opacity var(--transition-fast);
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-medium);
 	}
 </style>
