@@ -338,6 +338,12 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
+        Subcommands::Diff { target } => {
+            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            command::diff::handle(&mut ctx, out, target.as_deref())
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Mark { target, delete } => {
             let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;

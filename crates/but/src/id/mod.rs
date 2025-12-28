@@ -199,16 +199,28 @@ impl IdMap {
     /// and all changed files of all workspace commits.
     ///
     /// After calling this method, [IdMap::resolve_entity_to_ids] will be able to recognize file IDs in addition to branch and commit IDs.
-    pub fn add_file_info_from_context(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        let worktree_dir = ctx.workdir()?;
-        let hunk_assignments = if let Some(worktree_dir) = worktree_dir {
-            let changes =
-                but_core::diff::ui::worktree_changes_by_worktree_dir(worktree_dir)?.changes;
-            let (assignments, _assignments_error) =
-                but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes), None)?;
-            assignments
-        } else {
-            Vec::new()
+    pub fn add_file_info_from_context(
+        &mut self,
+        ctx: &mut Context,
+        assignments: Option<Vec<HunkAssignment>>,
+    ) -> anyhow::Result<()> {
+        let hunk_assignments = match assignments {
+            Some(assignments) => assignments,
+            None => {
+                if let Some(worktree_dir) = ctx.workdir()? {
+                    let changes =
+                        but_core::diff::ui::worktree_changes_by_worktree_dir(worktree_dir)?.changes;
+                    let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+                        ctx,
+                        false,
+                        Some(changes),
+                        None,
+                    )?;
+                    assignments
+                } else {
+                    Vec::new()
+                }
+            }
         };
         // TODO Fix this, probably by making `assignments_with_fallback` take a
         //      more specific type instead of `ctx`.

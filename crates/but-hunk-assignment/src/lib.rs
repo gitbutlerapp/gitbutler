@@ -14,7 +14,7 @@ mod state;
 
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
-use but_core::{HunkHeader, UnifiedPatch, ref_metadata::StackId};
+use but_core::{HunkHeader, TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
@@ -54,6 +54,12 @@ pub struct HunkAssignment {
     /// The hunk diff for internal usage. This is not to be persisted or sent over the API.
     #[serde(skip)]
     pub diff: Option<BString>,
+}
+
+impl HunkAssignment {
+    pub fn from_tree_change(change: &TreeChange, patch: Option<UnifiedPatch>) -> Vec<Self> {
+        diff_to_assignments(patch, change.path.clone())
+    }
 }
 
 impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
@@ -260,9 +266,9 @@ pub fn assign(
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
         let diff = change.unified_patch(repo, ctx.settings().context_lines);
-        worktree_assignments.extend(diff_to_assignments(
+        worktree_assignments.extend(HunkAssignment::from_tree_change(
+            change,
             diff.ok().flatten(),
-            change.path.clone(),
         ));
     }
 
@@ -362,9 +368,9 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
         let diff = change.unified_patch(&repo, ctx.settings().context_lines);
-        worktree_assignments.extend(diff_to_assignments(
+        worktree_assignments.extend(HunkAssignment::from_tree_change(
+            change,
             diff.ok().flatten(),
-            change.path.clone(),
         ));
     }
     drop(repo);

@@ -14,7 +14,7 @@ use tracing::instrument;
 #[but_api]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
-    ctx: Context,
+    ctx: &Context,
     change: TreeChange,
 ) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
     let change: but_core::TreeChange = change.into();

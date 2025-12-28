@@ -5,6 +5,7 @@ pub mod legacy;
 #[cfg(not(feature = "legacy"))]
 pub mod branch;
 pub mod completions;
+pub mod diff;
 pub mod forge;
 pub mod gui;
 pub mod help;

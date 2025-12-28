@@ -73,7 +73,7 @@ pub async fn handle(
             anchor,
         }) => {
             let mut id_map = IdMap::new_from_context(ctx)?;
-            id_map.add_file_info_from_context(ctx)?;
+            id_map.add_file_info_from_context(ctx, None)?;
             // Get branch name or use canned name
             let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
                 but_api::legacy::workspace::canned_branch_name(ctx.legacy_project.id)
