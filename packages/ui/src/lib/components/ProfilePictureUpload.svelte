@@ -12,6 +12,7 @@
 
 <script lang="ts">
 	import SkeletonBone from '$components/SkeletonBone.svelte';
+	import { useImageLoading } from '$lib/utils/imageLoading.svelte';
 
 	let {
 		picture = $bindable(),
@@ -24,23 +25,18 @@
 	}: Props = $props();
 
 	let previewUrl = $derived(picture);
-	let imageLoaded = $state(false);
+	const imageLoadingState = useImageLoading();
 
 	function handleFileChange(e: Event) {
 		const target = e.target as HTMLInputElement;
 		const file = target.files?.[0];
 
 		if (file && acceptedFileTypes.includes(file.type)) {
-			imageLoaded = false;
 			picture = URL.createObjectURL(file);
 			onFileSelect?.(file);
 		} else {
 			onInvalidFileType?.();
 		}
-	}
-
-	function handleImageLoad() {
-		imageLoaded = true;
 	}
 </script>
 
@@ -58,7 +54,7 @@
 		class="hidden-input"
 	/>
 
-	{#if !previewUrl || !imageLoaded}
+	{#if !previewUrl || !imageLoadingState.imageLoaded}
 		<div class="profile-pic-skeleton">
 			<SkeletonBone width="100%" height="100%" radius="var(--radius-m)" />
 		</div>
@@ -66,13 +62,13 @@
 
 	{#if previewUrl}
 		<img
+			bind:this={imageLoadingState.imgElement}
 			class="profile-pic"
-			class:loaded={imageLoaded}
+			class:loaded={imageLoadingState.imageLoaded}
 			src={previewUrl}
 			{alt}
 			referrerpolicy="no-referrer"
-			loading="lazy"
-			onload={handleImageLoad}
+			onload={imageLoadingState.handleImageLoad}
 		/>
 	{/if}
 
