@@ -7,6 +7,7 @@ use crate::{id::UncommittedCliId, utils::OutputChannel};
 
 use super::display::{DiffDisplay, TreeChangeWithPatch};
 
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum Filter {
     Unassigned,
     Uncommitted(UncommittedCliId),

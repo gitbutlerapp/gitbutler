@@ -71,7 +71,7 @@ pub(crate) async fn worktree(
         },
     )?;
     let mut id_map = IdMap::new_for_branches_and_commits(&head_info.stacks)?;
-    id_map.add_file_info_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx, None)?;
 
     let review_map = if review {
         crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project).await?
@@ -475,7 +475,7 @@ pub fn print_group(
             }
         }
     } else {
-        id_map.add_file_info_from_context(ctx)?;
+        id_map.add_file_info_from_context(ctx, None)?;
         let id = id_map.unassigned().to_short_string().underline().blue();
         writeln!(
             out,

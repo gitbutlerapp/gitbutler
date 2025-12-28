@@ -15,7 +15,7 @@ pub fn handle(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let mut id_map = IdMap::new_from_context(ctx)?;
-    id_map.add_file_info_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx, None)?;
 
     // Check gerrit mode early
     let gerrit_mode = {

@@ -14,7 +14,7 @@ pub(crate) fn describe_target(
     message: Option<&str>,
 ) -> Result<()> {
     let mut id_map = IdMap::new_from_context(ctx)?;
-    id_map.add_file_info_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx, None)?;
 
     // Resolve the commit ID
     let cli_ids = id_map.resolve_entity_to_ids(target)?;

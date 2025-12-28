@@ -163,9 +163,9 @@ pub enum Subcommands {
     ///
     /// Without any arguments, it shows the diff of all uncommitted changes.
     /// Optionally, a CLI ID argument can be provided, which chan show the diff specific to
-    /// - an uncomitted file
+    /// - an uncommitted file
     /// - a branch
-    /// - an entiere stack
+    /// - an entire stack
     /// - a commit
     /// - a file change within a commit
     Diff {

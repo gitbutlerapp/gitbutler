@@ -15,7 +15,7 @@ pub(crate) fn handle(
     delete: bool,
 ) -> anyhow::Result<()> {
     let mut id_map = IdMap::new_from_context(ctx)?;
-    id_map.add_file_info_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx, None)?;
     let target_result = id_map.resolve_entity_to_ids(target_str)?;
     if target_result.len() != 1 {
         return Err(anyhow::anyhow!(
