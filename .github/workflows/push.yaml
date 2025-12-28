@@ -145,7 +145,7 @@ jobs:
           cargo check -p but-workspace --all-targets
           cargo check -p but-github --all-targets
           cargo check -p but-api --all-targets
-          cargo check -p but --all-targets
+          cargo check -p but --all-targets --no-default-features
         name: Special `cargo check` runs
         env:
           RUSTFLAGS: '--deny warnings'

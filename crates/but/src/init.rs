@@ -1,11 +1,10 @@
-use but_ctx::{Context, LegacyProject};
+use crate::{args::Args, utils::OutputChannel};
+use but_ctx::Context;
 use command_group::AsyncCommandGroup;
 use std::fmt::Write;
 
-use crate::{args::Args, utils::OutputChannel};
-
-pub(crate) enum Fetch<'a> {
-    Auto(&'a mut OutputChannel),
+pub(crate) enum Fetch {
+    Auto,
     None,
 }
 
@@ -48,36 +47,54 @@ pub(crate) enum Fetch<'a> {
 ///
 /// When `fetch_mode` is `Fetch::None`, no auto-fetch is performed regardless of the
 /// configured interval.
-pub fn init_ctx(args: &Args, fetch_mode: &mut Fetch) -> anyhow::Result<Context> {
+pub fn init_ctx(
+    args: &Args,
+    fetch_mode: Fetch,
+    out: &mut OutputChannel,
+) -> anyhow::Result<Context> {
     let repo = gix::discover(&args.current_dir)?;
-    let ctx = if let Some(path) = repo.workdir() {
-        let project = match LegacyProject::find_by_worktree_dir(path) {
-            Ok(p) => Ok(p),
-            Err(_e) => {
-                crate::command::legacy::init::repo(
-                    path,
-                    &mut OutputChannel::new_without_pager_non_json(args.format),
-                    false,
-                )?;
-                LegacyProject::find_by_worktree_dir(path)
-            }
-        }?;
-        Context::new_from_legacy_project(project)
-    } else {
-        anyhow::bail!("Bare repositories are not supported.");
-    }?;
-    let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
-    let last_fetch = ctx
-        .legacy_project
-        .project_data_last_fetch
-        .as_ref()
-        .map(|f| f.timestamp());
+    let (ctx, fetch_interval_minutes, last_fetch) = {
+        let Some(workdir) = repo.workdir() else {
+            anyhow::bail!("Bare repositories are not supported.");
+        };
+        #[cfg(feature = "legacy")]
+        {
+            use but_ctx::LegacyProject;
+            let project = match LegacyProject::find_by_worktree_dir(workdir) {
+                Ok(p) => Ok(p),
+                Err(_e) => {
+                    crate::command::legacy::init::repo(
+                        workdir,
+                        &mut OutputChannel::new_without_pager_non_json(args.format),
+                        false,
+                    )?;
+                    LegacyProject::find_by_worktree_dir(workdir)
+                }
+            }?;
+            let ctx = Context::new_from_legacy_project(project)?;
+            let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
+            let last_fetch = ctx
+                .legacy_project
+                .project_data_last_fetch
+                .as_ref()
+                .map(|f| f.timestamp());
+            (ctx, fetch_interval_minutes, last_fetch)
+        }
+        #[cfg(not(feature = "legacy"))]
+        {
+            let ctx = but_ctx::Context::from_repo(repo)?;
+            // TODO: this can be implemented once project metadata is available from the project location itself,
+            //       i.e. once it was migrated out of `projects.json` into `.git/gitbutler/…`
+            let fetch_interval_disabled = 0;
+            (ctx, fetch_interval_disabled, None::<std::time::SystemTime>)
+        }
+    };
 
     match fetch_mode {
         Fetch::None => {
             return Ok(ctx);
         }
-        Fetch::Auto(out) => {
+        Fetch::Auto => {
             // Negative or zero fetch interval disables auto-fetch
             // Auto fetch done only for human output
             if fetch_interval_minutes <= 0
@@ -87,7 +104,7 @@ pub fn init_ctx(args: &Args, fetch_mode: &mut Fetch) -> anyhow::Result<Context> 
             }
 
             let should_fetch = if let Some(last_fetch) = last_fetch {
-                match std::time::SystemTime::now().duration_since(*last_fetch) {
+                match std::time::SystemTime::now().duration_since(last_fetch) {
                     Ok(elapsed) => elapsed.as_secs() / 60 >= fetch_interval_minutes as u64,
                     Err(_) => true, // System time went backwards, force fetch
                 }
@@ -111,7 +128,7 @@ pub fn init_ctx(args: &Args, fetch_mode: &mut Fetch) -> anyhow::Result<Context> 
                     let msg = last_fetch
                         .and_then(|t| {
                             std::time::SystemTime::now()
-                                .duration_since(*t)
+                                .duration_since(t)
                                 .ok()
                                 .map(|elapsed| {
                                     let secs = elapsed.as_secs();

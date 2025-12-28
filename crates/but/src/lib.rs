@@ -117,7 +117,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 .expect("target is checked to be Some in match guard");
             #[cfg(feature = "legacy")]
             {
-                let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
+                let mut ctx = init::init_ctx(&args, Fetch::None, &mut out)?;
                 command::legacy::rub::handle(&mut ctx, &mut out, source, target)
                     .context("Rubbed the wrong way.")
                     .emit_metrics(OneshotMetricsContext::new_if_enabled(
@@ -191,7 +191,7 @@ async fn match_subcommand(
         Subcommands::Branch(branch::Platform { cmd }) => {
             cfg_if! {
                 if #[cfg(feature = "legacy")]  {
-                    let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+                    let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
                     command::legacy::branch::handle(cmd, &mut ctx, out)
                         .await
                         .emit_metrics(metrics_ctx)
@@ -215,11 +215,11 @@ async fn match_subcommand(
                 description,
                 handler,
             }) => {
-                let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
+                let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
                 command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)
             }
             None => {
-                let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
+                let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
                 command::legacy::actions::list_actions(&mut ctx, out, 0, 10)
             }
         },
@@ -241,7 +241,7 @@ async fn match_subcommand(
                     but_claude::mcp::start(&args.current_dir, &session_id).await
                 }
                 claude::Subcommands::Last { offset } => {
-                    let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
+                    let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
                     let message = but_claude::db::get_user_message(&mut ctx, Some(offset as i64))?;
                     match message {
                         Some(msg) => {
@@ -300,14 +300,14 @@ async fn match_subcommand(
         },
         #[cfg(feature = "legacy")]
         Subcommands::Base(base::Platform { cmd }) => {
-            let ctx = init::init_ctx(&args, &mut Fetch::None)?;
+            let ctx = init::init_ctx(&args, Fetch::None, out)?;
             command::legacy::base::handle(cmd, &ctx, out)
                 .await
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
-            let ctx = init::init_ctx(&args, &mut Fetch::None)?;
+            let ctx = init::init_ctx(&args, Fetch::None, out)?;
             command::legacy::worktree::handle(cmd, &ctx, out)
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
@@ -318,35 +318,36 @@ async fn match_subcommand(
             verbose,
             review,
         } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::status::worktree(&mut ctx, out, show_files, verbose, review)
                 .await
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Stf { verbose, review } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::status::worktree(&mut ctx, out, true, verbose, review)
                 .await
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Rub { source, target } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::rub::handle(&mut ctx, out, &source, &target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
+        #[cfg(feature = "legacy")]
         Subcommands::Diff { target } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
-            command::diff::handle(&mut ctx, out, target.as_deref())
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            command::legacy::diff::handle(&mut ctx, out, target.as_deref())
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Mark { target, delete } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::mark::handle(&mut ctx, out, &target, delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
                 .emit_metrics(metrics_ctx)
@@ -354,7 +355,7 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unmark => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::mark::unmark(&mut ctx, out)
                 .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
                 .emit_metrics(metrics_ctx)
@@ -368,7 +369,7 @@ async fn match_subcommand(
             create,
             only,
         } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             // Read message from file if provided, otherwise use message option
             let commit_message = match file {
                 Some(path) => Some(std::fs::read_to_string(&path).with_context(|| {
@@ -391,47 +392,47 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
+            let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
             command::legacy::push::handle(push_args, &mut ctx, out).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::New { target } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::commit::insert_blank_commit(&mut ctx, out, &target)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Describe { target, message } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::describe::describe_target(&mut ctx, out, &target, message.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog { since } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
+            let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
             command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Restore { oplog_sha, force } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
+            let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
             command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Undo => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
+            let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
             command::legacy::oplog::undo_last_operation(&mut ctx, out).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Snapshot { message } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::None)?;
+            let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
             command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Absorb { source } => {
-            let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::absorb::handle(&mut ctx, out, source.as_deref())
                 .emit_metrics(metrics_ctx)
         }
@@ -448,7 +449,7 @@ async fn match_subcommand(
                 run_hooks,
                 default,
             } => {
-                let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+                let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
                 command::legacy::forge::review::publish_reviews(
                     &mut ctx,
                     branch,
@@ -463,7 +464,7 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
             }
             forge::review::Subcommands::Template { template_path } => {
-                let mut ctx = init::init_ctx(&args, &mut Fetch::Auto(out))?;
+                let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
                 command::legacy::forge::review::set_review_template(&mut ctx, template_path, out)
                     .context("Failed to set review template.")
                     .emit_metrics(metrics_ctx)
