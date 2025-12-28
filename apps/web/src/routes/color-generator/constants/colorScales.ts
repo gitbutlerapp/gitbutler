@@ -53,3 +53,15 @@ export const DEFAULT_SHADE_50_LIGHTNESS: Record<string, number> = {
 	safe: 45,
 	purple: 54
 };
+
+export const ART_COLORS_LIGHT = {
+	'art-scene-bg': { h: 175, s: 46, l: 89 },
+	'art-scene-fill': { h: 60, s: 65, l: 97 },
+	'art-scene-outline': { h: 180, s: 6, l: 30 }
+};
+
+export const ART_COLORS_DARK = {
+	'art-scene-bg': { h: 177, s: 44, l: 28 },
+	'art-scene-fill': { h: 79, s: 38, l: 82 },
+	'art-scene-outline': { h: 180, s: 26, l: 11 }
+};

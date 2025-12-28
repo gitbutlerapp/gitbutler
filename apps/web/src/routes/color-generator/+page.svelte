@@ -1,19 +1,23 @@
 <script lang="ts">
-	import appPreview from './assets/app-preview.svg?raw';
+	import appPreviewSvg from './assets/app-preview.svg?raw';
+	import artPreviewSvg from './assets/art-preview.svg?raw';
 	import ColorScaleDisplay from './components/ColorScaleDisplay.svelte';
 	import ExportSection from './components/ExportSection.svelte';
+	import IllustrationColors from './components/IllustrationColors.svelte';
 	import SemanticZones from './components/SemanticZones.svelte';
 
 	import {
 		SCALES,
 		SHADES,
 		DEFAULT_SATURATIONS,
-		DEFAULT_SHADE_50_LIGHTNESS
+		DEFAULT_SHADE_50_LIGHTNESS,
+		ART_COLORS_LIGHT,
+		ART_COLORS_DARK
 	} from './constants/colorScales';
 	import { generateScale } from './utils/colorScale';
-	import { copyToClipboard } from './utils/export';
 	import Header from '$lib/components/marketing/Header.svelte';
 	import ThemeSwitcher from '$lib/components/marketing/ThemeSwitcher.svelte';
+	import { effectiveThemeStore } from '$lib/utils/theme.svelte';
 
 	let scaleSaturations: Record<string, number> = $state({
 		...DEFAULT_SATURATIONS
@@ -29,6 +33,17 @@
 	let scaleShade50Lightness: Record<string, number> = $state({
 		...DEFAULT_SHADE_50_LIGHTNESS
 	});
+
+	let artColorOverridesLight: Record<string, { h: number; s: number; l: number }> = $state({});
+	let artColorOverridesDark: Record<string, { h: number; s: number; l: number }> = $state({});
+
+	let illustrationColors = $derived({
+		...($effectiveThemeStore === 'dark' ? ART_COLORS_DARK : ART_COLORS_LIGHT),
+		...($effectiveThemeStore === 'dark' ? artColorOverridesDark : artColorOverridesLight)
+	});
+
+	let currentArtColorsLight = $derived({ ...ART_COLORS_LIGHT, ...artColorOverridesLight });
+	let currentArtColorsDark = $derived({ ...ART_COLORS_DARK, ...artColorOverridesDark });
 
 	let expandedScaleId: string | null = $state('pop');
 
@@ -50,6 +65,11 @@
 				}
 			});
 		});
+		// Apply illustration colors
+		Object.entries(illustrationColors).forEach(([colorId, color]) => {
+			const colorString = `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
+			root.style.setProperty(`--clr-${colorId}`, colorString);
+		});
 	});
 
 	function updateScaleHue(scaleId: string, hue: number) {
@@ -64,13 +84,16 @@
 		scaleShade50Lightness[scaleId] = value;
 	}
 
-	function copyScaleJSON(scaleId: string) {
-		const json = JSON.stringify(currentColors[scaleId], null, 2);
-		copyToClipboard(json);
-	}
-
 	function toggleScale(scaleId: string) {
 		expandedScaleId = expandedScaleId === scaleId ? null : scaleId;
+	}
+
+	function updateArtColor(colorId: string, hsl: { h: number; s: number; l: number }) {
+		if ($effectiveThemeStore === 'dark') {
+			artColorOverridesDark[colorId] = hsl;
+		} else {
+			artColorOverridesLight[colorId] = hsl;
+		}
 	}
 </script>
 
@@ -95,7 +118,11 @@
 			> ↗ to learn more.
 		</p>
 
-		<ExportSection {currentColors} />
+		<ExportSection
+			{currentColors}
+			artColorsLight={currentArtColorsLight}
+			artColorsDark={currentArtColorsDark}
+		/>
 	</div>
 
 	<div class="scales-section">
@@ -113,14 +140,24 @@
 				onHueChange={updateScaleHue}
 				onSaturationChange={updateScaleSaturation}
 				onShade50LightnessChange={updateScaleShade50Lightness}
-				onCopyJSON={copyScaleJSON}
 			/>
 		{/each}
+
+		<IllustrationColors
+			colors={illustrationColors}
+			onColorChange={updateArtColor}
+			isExpanded={expandedScaleId === 'art'}
+			onToggle={() => toggleScale('art')}
+		/>
 	</div>
 
 	<div class="app-mockup-wrapper">
 		<div class="app-mockup">
-			{@html appPreview}
+			{#if expandedScaleId === 'art'}
+				{@html artPreviewSvg}
+			{:else}
+				{@html appPreviewSvg}
+			{/if}
 		</div>
 	</div>
 </div>
@@ -179,56 +216,8 @@
 		box-shadow: 0 14px 36px rgba(0, 0, 0, 0.2);
 	}
 
-	.app-mockup__header {
-		display: flex;
-		justify-content: space-between;
-		width: 100%;
-		padding: 14px;
-		gap: 8px;
-	}
-
-	.app-mockup__header-center {
-		display: flex;
-		justify-content: center;
-		margin-right: 14%;
-	}
-
-	.app-mockup__body {
-		display: flex;
-		flex-shrink: 0;
-		width: 100%;
-	}
-
-	.app-mockup__sidebar {
-		margin-right: 16px;
-	}
-
-	.app-mockup__lanes {
-		display: flex;
-		flex-grow: 1;
-		flex-shrink: 0;
-		margin-right: -1px;
-		margin-left: 8px;
-		overflow: hidden;
-		border-top-left-radius: var(--radius-ml);
-		box-shadow: inset 0 1px 0 0 var(--clr-border-2);
-	}
-
-	.dotted-pattern {
-		background-image: radial-gradient(
-			oklch(from var(--clr-theme-gray-element) l c h / 0.1) 1px,
-			#ffffff00 1px
-		);
-
-		background-size: 5px 5px;
-	}
-
 	/* Media Queries */
 	@media (max-width: 1024px) {
-		.app-mockup__header-center {
-			margin-right: 0;
-		}
-
 		.app-mockup {
 			display: none;
 		}
