@@ -1,5 +1,5 @@
 <script lang="ts">
-	import AccountLink from '$components/AccountLink.svelte';
+	import ProfileButton from '$components/ProfileButton.svelte';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
 	import { type Snippet } from 'svelte';
@@ -29,7 +29,7 @@
 		<div class="right-side-wrapper">
 			{#if user && !hideDetails}
 				<div class="account-button">
-					<AccountLink />
+					<ProfileButton />
 				</div>
 			{/if}
 

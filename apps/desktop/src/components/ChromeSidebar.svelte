@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import ProfileButton from '$components/ProfileButton.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import {
@@ -14,24 +15,13 @@
 	} from '$lib/routes/routes.svelte';
 	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
-	import {
-		Button,
-		ContextMenu,
-		ContextMenuItem,
-		ContextMenuSection,
-		Icon,
-		TestId
-	} from '@gitbutler/ui';
+	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { stringToColor } from '@gitbutler/ui/utils/stringToColor';
 
 	import { slide } from 'svelte/transition';
 
 	const { projectId, disabled = false }: { projectId: string; disabled?: boolean } = $props();
-
-	const user = inject(USER);
 
 	let contextTriggerButton = $state<HTMLButtonElement | undefined>();
 	let contextMenuEl = $state<ContextMenu>();
@@ -240,38 +230,7 @@
 				</Button>
 			</div>
 
-			<Button
-				kind="outline"
-				width={34}
-				class="btn-height-auto"
-				onclick={() => {
-					contextMenuEl?.toggle();
-				}}
-				bind:el={contextTriggerButton}
-			>
-				{#snippet custom()}
-					<div class="user-button">
-						<div
-							class="user-icon"
-							style="background-color: {stringToColor($user?.email || 'guest')}"
-						>
-							{#if $user?.picture}
-								<img
-									class="user-icon__image"
-									src={$user.picture}
-									alt=""
-									referrerpolicy="no-referrer"
-								/>
-							{:else}
-								<Icon name="profile" />
-							{/if}
-						</div>
-						<div class="user-button__select-icon">
-							<Icon name="select-chevron" />
-						</div>
-					</div>
-				{/snippet}
-			</Button>
+			<ProfileButton />
 		</div>
 		<div class="bottom__ghost-actions">
 			<Button
