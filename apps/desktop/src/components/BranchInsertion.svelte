@@ -31,29 +31,7 @@
 	}: Props = $props();
 </script>
 
-{#if !isFirst}
-	{#if !isCommitting && baseBranchName}
-		{@const moveBranchHandler = new MoveBranchDzHandler(
-			stackService,
-			prService,
-			projectId,
-			stackId,
-			branchName,
-			baseBranchName
-		)}
-		<Dropzone handlers={[moveBranchHandler]}>
-			{#snippet overlay({ hovered, activated })}
-				<div data-testid="BranchListInsertionDropzone" class="dropzone-target">
-					<BranchDividerLine {lineColor} />
-					{#if activated}
-						<BranchLineOverlay {hovered} />
-						<BranchDividerLine {lineColor} />
-					{/if}
-				</div>
-			{/snippet}
-		</Dropzone>
-	{/if}
-{:else if !isCommitting && baseBranchName}
+{#if !isCommitting && baseBranchName}
 	{@const moveBranchHandler = new MoveBranchDzHandler(
 		stackService,
 		prService,
@@ -64,13 +42,25 @@
 	)}
 	<Dropzone handlers={[moveBranchHandler]}>
 		{#snippet overlay({ hovered, activated })}
-			{#if activated}
-				<div data-testid="BranchListInsertionDropzone" class="dropzone-target top-dropzone">
-					<BranchLineOverlay {hovered} />
+			{#if isFirst}
+				{#if activated}
+					<div data-testid="BranchListInsertionDropzone" class="dropzone-target top-dropzone">
+						<BranchLineOverlay {hovered} />
+					</div>
+				{/if}
+			{:else}
+				<div data-testid="BranchListInsertionDropzone" class="dropzone-target">
+					<BranchDividerLine {lineColor} />
+					{#if activated}
+						<BranchLineOverlay {hovered} />
+						<BranchDividerLine {lineColor} />
+					{/if}
 				</div>
 			{/if}
 		{/snippet}
 	</Dropzone>
+{:else if !isFirst}
+	<BranchDividerLine {lineColor} />
 {/if}
 
 <style>
