@@ -13,8 +13,11 @@ pub fn handle(
     out: &mut OutputChannel,
     target_str: Option<&str>,
 ) -> anyhow::Result<()> {
+    let mut id_map = IdMap::new_from_context(ctx)?;
+    let wt_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
+    id_map.add_file_info_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+
     if let Some(entity) = target_str {
-        let id_map = IdMap::new_from_context(ctx)?;
         let id = id_map
             .resolve_entity_to_ids(entity)? // TODO: look up plain names
             .first() // TODO: handle ambiguity
@@ -22,8 +25,12 @@ pub fn handle(
             .ok_or_else(|| anyhow::anyhow!("No ID found for entity"))?;
 
         match id {
-            CliId::Uncommitted(id) => show::worktree(ctx, out, Some(Filter::Uncommitted(id))),
-            CliId::Unassigned { .. } => show::worktree(ctx, out, Some(Filter::Unassigned)),
+            CliId::Uncommitted(id) => {
+                show::worktree(wt_changes, id_map, out, Some(Filter::Uncommitted(id)))
+            }
+            CliId::Unassigned { .. } => {
+                show::worktree(wt_changes, id_map, out, Some(Filter::Unassigned))
+            }
             CliId::CommittedFile {
                 commit_id, path, ..
             } => show::commit(ctx, out, commit_id, Some(path)),
@@ -31,6 +38,6 @@ pub fn handle(
             CliId::Commit(id) => show::commit(ctx, out, id, None),
         }
     } else {
-        show::worktree(ctx, out, None)
+        show::worktree(wt_changes, id_map, out, None)
     }
 }
