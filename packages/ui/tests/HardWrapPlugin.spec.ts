@@ -274,6 +274,11 @@ test.describe('HardWrapPlugin', () => {
 		// Wait for rewrapping to occur - should now be 2 paragraphs
 		await waitForParagraphCountGreaterThan(component, 1);
 
+		// Wait for the complete text to be typed and DOM to stabilize
+		// We need to wait for the full phrase "additional text" to ensure typing is complete
+		await waitForTextContent(component, 'additional');
+		await waitForTextContent(component, 'text');
+
 		const finalText = await getTextContent(component);
 
 		// Verify specific words to ensure nothing was dropped during wrapping
