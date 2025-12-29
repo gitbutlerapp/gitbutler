@@ -70,8 +70,6 @@ pub(crate) async fn worktree(
             ..Default::default()
         },
     )?;
-    let mut id_map = IdMap::new_for_branches_and_commits(&head_info.stacks)?;
-    id_map.add_file_info_from_context(ctx, None)?;
 
     let review_map = if review {
         crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project).await?
@@ -81,6 +79,9 @@ pub(crate) async fn worktree(
 
     let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
     let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
+
+    let mut id_map = IdMap::new_for_branches_and_commits(&head_info.stacks)?;
+    id_map.add_file_info_from_context(ctx, Some(worktree_changes.assignments))?;
 
     let assignments_by_file: BTreeMap<BString, FileAssignment> =
         FileAssignment::get_assignments_by_file(&id_map);
