@@ -19,8 +19,11 @@ use crate::command::legacy::status::{path_with_color_ui, status_letter_ui};
 /// use crate::command::diff::display::DiffDisplay;
 ///
 /// impl DiffDisplay for MyType {
-///     fn print_diff(&self) -> String {
+///     fn print_diff(&self, cli_id: Option<&crate::id::CliId>) -> String {
 ///         let mut output = String::new();
+///         if let Some(id) = cli_id {
+///             output.push_str(&format!(" [{}] ", id.to_short_string()));
+///         }
 ///         output.push_str(&format!(" {}\n", self.title));
 ///         // Add more diff formatting here
 ///         output
@@ -28,14 +31,15 @@ use crate::command::legacy::status::{path_with_color_ui, status_letter_ui};
 /// }
 ///
 /// // Usage:
-/// let diff_output = my_value.print_diff();
+/// let diff_output = my_value.print_diff(Some(&cli_id));
 /// write!(out, "{}", diff_output)?;
 /// ```
 pub(crate) trait DiffDisplay {
     /// Format this diff and return it as a String.
     ///
     /// This method generates a nicely formatted diff with colored output.
-    fn print_diff(&self) -> String;
+    /// If `cli_id` is provided, it will be displayed first in the output.
+    fn print_diff(&self, cli_id: Option<&crate::id::CliId>) -> String;
 }
 
 #[derive(Debug)]
@@ -51,8 +55,11 @@ impl TreeChangeWithPatch {
 }
 
 impl DiffDisplay for TreeChangeWithPatch {
-    fn print_diff(&self) -> String {
+    fn print_diff(&self, _cli_id: Option<&crate::id::CliId>) -> String {
+        // Note: CLI IDs are per-hunk, so we don't display them for TreeChangeWithPatch
+        // which shows file-level diffs with potentially multiple hunks.
         let mut output = String::new();
+
         let status = status_letter_ui(&self.change.status);
         let path = path_with_color_ui(&self.change.status, self.change.path_bytes.to_string());
         output.push_str(&format!(" {status} {path}\n"));
@@ -118,17 +125,6 @@ fn fmt_hunk(hunk: &DiffHunk) -> String {
 
     let mut output = String::new();
 
-    // Print hunk header
-    output.push_str(&format!(
-        "   {}\n",
-        format!(
-            "@@ -{},{} +{},{} @@",
-            hunk.old_start, hunk.old_lines, hunk.new_start, hunk.new_lines
-        )
-        .cyan()
-        .bold()
-    ));
-
     // Track line numbers for old and new versions
     let mut old_line = hunk.old_start;
     let mut new_line = hunk.new_start;
@@ -189,23 +185,30 @@ fn fmt_hunk(hunk: &DiffHunk) -> String {
 }
 
 impl DiffDisplay for HunkAssignment {
-    fn print_diff(&self) -> String {
+    fn print_diff(&self, cli_id: Option<&crate::id::CliId>) -> String {
         let mut output = String::new();
 
-        // Write the header - show path and optionally the hunk header
-        if let Some(header) = &self.hunk_header {
+        // Format CLI ID prefix if provided
+        let id_str = cli_id.map(|id| id.to_short_string());
+
+        // Calculate the width needed for the box (id + space + filename)
+        let content_width = id_str.as_ref().map_or(0, |s| s.len() + 1) + self.path.len();
+
+        // Render box-style header:
+        // ────────╮
+        // <id> file│
+        // ────────╯
+        output.push_str(&format!("{}╮\n", "─".repeat(content_width).dimmed()));
+        if let Some(id) = &id_str {
             output.push_str(&format!(
-                " {} @@ -{},{} +{},{} @@\n",
-                self.path.bright_white(),
-                header.old_start,
-                header.old_lines,
-                header.new_start,
-                header.new_lines
+                "{} {}│\n",
+                id.blue().underline(),
+                self.path.bright_white()
             ));
         } else {
-            // Binary, too large, or whole file
-            output.push_str(&format!(" {}\n", self.path.bright_white()));
+            output.push_str(&format!("{}│\n", self.path.bright_white()));
         }
+        output.push_str(&format!("{}╯\n", "─".repeat(content_width).dimmed()));
 
         // Check if we have diff data to display
         if let (Some(diff), Some(header)) = (&self.diff, &self.hunk_header) {

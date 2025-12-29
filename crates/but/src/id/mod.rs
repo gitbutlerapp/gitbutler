@@ -405,6 +405,22 @@ impl IdMap {
             })
     }
 
+    /// Returns the [`CliId::Uncommitted`] for a given hunk assignment, if it exists.
+    ///
+    /// Searches for a matching hunk assignment in the uncommitted hunks map and returns
+    /// its corresponding CLI ID if found.
+    pub fn resolve_uncommitted_hunk(&self, hunk: &HunkAssignment) -> Option<CliId> {
+        self.uncommitted_hunks.iter().find_map(|(id, uh)| {
+            (uh.hunk_assignment == *hunk).then(|| {
+                CliId::Uncommitted(UncommittedCliId {
+                    id: id.clone(),
+                    hunk_assignments: NonEmpty::new(hunk.clone()),
+                    is_entire_file: false, // TODO: figure out if we can know this here
+                })
+            })
+        })
+    }
+
     /// Returns the [`CliId::Unassigned`] for the unassigned area, which is useful as an
     /// ID for a destination of operations.
     ///

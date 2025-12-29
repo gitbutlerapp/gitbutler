@@ -1,9 +1,10 @@
 use bstr::BString;
 use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
+use but_hunk_assignment::WorktreeChanges;
 use std::fmt::Write;
 
-use crate::{id::UncommittedCliId, utils::OutputChannel};
+use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
 
 use super::display::{DiffDisplay, TreeChangeWithPatch};
 
@@ -14,21 +15,33 @@ pub(crate) enum Filter {
 }
 
 pub(crate) fn worktree(
-    ctx: &mut Context,
+    wt_changes: WorktreeChanges,
+    id_map: IdMap,
     out: &mut OutputChannel,
     filter: Option<Filter>,
 ) -> anyhow::Result<()> {
-    let result = but_api::legacy::diff::changes_in_worktree(ctx)?;
-    if let Some(filter) = filter {
-        match filter {
-            Filter::Unassigned => {}
-            Filter::Uncommitted(_id) => {}
-        }
-    } else if result.worktree_changes.changes.is_empty() {
-        writeln!(out, "No changes in the working tree.")?;
+    let assignments: Vec<_> = wt_changes
+        .assignments
+        .iter()
+        .filter(|a| match &filter {
+            None => true,
+            Some(Filter::Unassigned) => a.stack_id.is_none(),
+            Some(Filter::Uncommitted(id)) => {
+                if id.is_entire_file {
+                    a.path_bytes == id.hunk_assignments.first().path_bytes
+                } else {
+                    a == &id.hunk_assignments.first()
+                }
+            }
+        })
+        .collect();
+
+    if assignments.is_empty() {
+        writeln!(out, "No diffs to show.")?;
     } else {
-        for assignment in result.assignments {
-            write!(out, "{}", assignment.print_diff())?;
+        for assignment in assignments {
+            let cli_id = id_map.resolve_uncommitted_hunk(assignment);
+            write!(out, "{}", assignment.print_diff(cli_id.as_ref()))?;
         }
     }
     Ok(())
@@ -51,7 +64,7 @@ pub(crate) fn commit(
                 .ok()
                 .flatten();
             let diff = TreeChangeWithPatch::new(change.into(), patch);
-            write!(out, "{}", diff.print_diff())?;
+            write!(out, "{}", diff.print_diff(None))?;
         }
     }
     Ok(())
@@ -69,7 +82,7 @@ pub(crate) fn branch(
             .flatten();
 
         let diff = TreeChangeWithPatch::new(change, patch);
-        write!(out, "{}", diff.print_diff())?;
+        write!(out, "{}", diff.print_diff(None))?;
     }
     Ok(())
 }
