@@ -12,7 +12,7 @@ pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<Bran
     let project = super::project::project_from_path(current_dir)?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let meta = super::project::ref_metadata_toml(&ctx.legacy_project)?;
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let ref_name = repo.find_reference(ref_name)?.name().to_owned();
 
     let details = but_workspace::branch_details(&repo, ref_name.as_ref(), &meta)?;

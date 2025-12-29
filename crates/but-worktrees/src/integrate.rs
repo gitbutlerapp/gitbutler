@@ -1,10 +1,12 @@
+use crate::{WorktreeId, db::get_worktree_meta, git::git_worktree_remove};
 use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
+use but_core::RepositoryExt;
 use but_ctx::{
     Context,
     access::{WorktreeReadPermission, WorktreeWritePermission},
 };
-use but_oxidize::{GixRepositoryExt as _, ObjectIdExt};
+use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseOutput, RebaseStep};
 use but_status::create_wd_tree;
 use but_workspace::legacy::stack_ext::StackExt;
@@ -15,8 +17,6 @@ use gitbutler_workspace::branch_trees::{
 };
 use gix::prelude::ObjectIdExt as _;
 use serde::{Deserialize, Serialize};
-
-use crate::{WorktreeId, db::get_worktree_meta, git::git_worktree_remove};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "data", rename_all = "camelCase")]

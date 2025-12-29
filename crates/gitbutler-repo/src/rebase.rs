@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
+use but_core::RepositoryExt;
 use but_core::commit::ConflictEntries;
-use but_oxidize::{GixRepositoryExt as _, ObjectIdExt as _, OidExt as _};
-use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
+use but_oxidize::{ObjectIdExt as _, OidExt as _};
+use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 
 use crate::RepositoryExt as _;

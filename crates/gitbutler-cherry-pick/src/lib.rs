@@ -119,7 +119,7 @@ impl GixRepositoryExt for gix::Repository {
             ConflictedTreeKey::Theirs,
         )?;
 
-        use but_oxidize::GixRepositoryExt;
+        use but_core::RepositoryExt;
         self.merge_trees(
             base,
             ours,

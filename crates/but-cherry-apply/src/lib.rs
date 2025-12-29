@@ -23,13 +23,13 @@
 //!   - otherwise, it can be applied anywhere
 
 use anyhow::{Context as _, Result, bail};
+use but_core::RepositoryExt;
 use but_core::ref_metadata::StackId;
 use but_ctx::{
     Context,
     access::{WorktreeReadPermission, WorktreeWritePermission},
 };
 use but_meta::VirtualBranchesTomlMetadata;
-use but_oxidize::GixRepositoryExt;
 use but_rebase::Rebase;
 use but_workspace::legacy::{StacksFilter, stack_ext::StackExt, stacks_v3};
 use gitbutler_branch_actions::update_workspace_commit;

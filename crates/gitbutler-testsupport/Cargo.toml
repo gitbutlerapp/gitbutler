@@ -11,6 +11,7 @@ doctest = false
 test = false
 
 [dependencies]
+but-core.workspace = true
 but-settings.workspace = true
 but-oxidize.workspace = true
 but-meta = {workspace = true, features = ["legacy"]}

@@ -10,7 +10,7 @@ pub fn hunk_dependencies_for_changes(
     changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<HunkDependencies> {
     // accelerate tree-tree-diffs
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let project_data_dir = &ctx.project_data_dir();
     let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
         ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
@@ -31,7 +31,7 @@ pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
     ctx: &Context,
     worktree_changes: Option<Vec<but_core::TreeChange>>,
 ) -> anyhow::Result<HunkDependencies> {
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let worktree_changes = worktree_changes
         .map(Ok)
         .unwrap_or_else(|| but_core::diff::worktree_changes(&repo).map(|wtc| wtc.changes))?;

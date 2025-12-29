@@ -26,7 +26,7 @@ pub async fn rename_branch(
         current_branch_name,
     } = parameters;
 
-    let repo = &ctx.open_repo_for_merging_non_persisting()?;
+    let repo = &ctx.clone_repo_for_merging_non_persisting()?;
     let stacks = crate::stacks(ctx, repo)?;
     let existing_branch_names = stacks
         .iter()

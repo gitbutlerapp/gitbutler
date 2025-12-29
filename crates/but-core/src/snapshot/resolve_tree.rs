@@ -38,9 +38,9 @@ pub struct Options {
 pub(super) mod function {
     use std::collections::BTreeSet;
 
+    use crate::RepositoryExt;
     use anyhow::{Context as _, bail};
     use bstr::ByteSlice;
-    use but_oxidize::GixRepositoryExt;
     use gix::index::entry::{Flags, Stage};
 
     use super::{Options, Outcome};

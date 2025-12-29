@@ -1,6 +1,6 @@
 use std::{fs, path, path::PathBuf};
 
-use but_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
+use but_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;
 use tempfile::TempDir;
@@ -240,6 +240,7 @@ impl TestProject {
 
         let gix_repo = gix::open_opts(self.remote_repo.path(), gix::open::Options::isolated())?;
         let merge_tree = {
+            use but_core::RepositoryExt;
             let mut merge_result = gix_repo.merge_commits(
                 git2_to_gix_object_id(master_branch_commit.id()),
                 git2_to_gix_object_id(branch.get().peel_to_commit()?.id()),

@@ -44,7 +44,7 @@ pub fn update_workspace_rule(
 #[instrument(err(Debug))]
 pub fn list_workspace_rules(project_id: ProjectId) -> Result<Vec<WorkspaceRule>> {
     let ctx = &mut Context::new_from_legacy_project_id(project_id)?;
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     let in_workspace = {
         let meta = VirtualBranchesTomlMetadata::from_path(

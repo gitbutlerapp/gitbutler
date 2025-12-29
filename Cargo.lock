@@ -3494,6 +3494,7 @@ name = "gitbutler-cherry-pick"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-oxidize",
  "git2",
  "gitbutler-commit",
@@ -3902,6 +3903,7 @@ name = "gitbutler-testsupport"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-ctx",
  "but-fs",
  "but-meta",

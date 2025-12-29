@@ -178,7 +178,7 @@ pub mod stacks {
     pub fn list(current_dir: &Path, use_json: bool, in_workspace: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
-        let repo = ctx.open_repo_for_merging_non_persisting()?;
+        let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let filter = if in_workspace {
             StacksFilter::InWorkspace
         } else {
@@ -202,7 +202,7 @@ pub mod stacks {
         let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         let details = {
             let meta = ref_metadata_toml(&ctx.legacy_project)?;
-            let repo = ctx.open_repo_for_merging_non_persisting()?;
+            let repo = ctx.clone_repo_for_merging_non_persisting()?;
             but_workspace::legacy::stack_details_v3(id, &repo, &meta)
         }?;
         debug_print(details)
@@ -212,7 +212,7 @@ pub mod stacks {
         let project = project_from_path(current_dir)?;
         let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         let meta = ref_metadata_toml(&ctx.legacy_project)?;
-        let repo = ctx.open_repo_for_merging_non_persisting()?;
+        let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let ref_name = repo.find_reference(ref_name)?.name().to_owned();
 
         let details = { but_workspace::branch_details(&repo, ref_name.as_ref(), &meta) }?;

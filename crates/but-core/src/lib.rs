@@ -88,9 +88,6 @@ pub mod cmd;
 pub mod settings;
 pub use settings::git::types::GitConfigSettings;
 
-mod repo_ext;
-pub use repo_ext::RepositoryExt;
-
 pub mod snapshot;
 
 /// Utilities to deal with git worktrees.
@@ -108,6 +105,9 @@ pub mod sync;
 
 mod ext;
 pub use ext::ObjectStorageExt;
+
+mod repo_ext;
+pub use repo_ext::RepositoryExt;
 
 /// Return `true` if `ref_name` looks like the standard GitButler workspace.
 ///

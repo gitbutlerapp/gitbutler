@@ -1,9 +1,10 @@
 //! Functions relate to the GitButler workspace head
 use anyhow::{Context as _, Result};
+use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt};
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::RepositoryExt as _;
-use gitbutler_repo::{RepositoryExt, SignaturePurpose};
+use gitbutler_repo::{RepositoryExt as _, SignaturePurpose};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gix::merge::tree::TreatAsUnresolved;
 use tracing::instrument;
@@ -98,7 +99,7 @@ pub fn remerged_workspace_tree_v2(
 #[instrument(level = tracing::Level::DEBUG, skip(ctx))]
 pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<git2::Oid> {
     let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.open_repo_for_merging()?;
+    let gix_repo = ctx.clone_repo_for_merging()?;
     let (workspace_tree_id, stacks, target_commit) = remerged_workspace_tree_v2(ctx, &gix_repo)?;
     let workspace_tree = repo.find_tree(workspace_tree_id)?;
 

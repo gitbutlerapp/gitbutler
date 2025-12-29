@@ -1,10 +1,10 @@
+use super::list::load_id_map;
+use crate::utils::OutputChannel;
 use but_ctx::Context;
+use but_oxidize::OidExt;
 use colored::Colorize;
 use gitbutler_project::Project;
 use tracing::instrument;
-
-use super::list::load_id_map;
-use crate::utils::OutputChannel;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn show(
@@ -118,11 +118,11 @@ fn check_merge_conflicts(
     project: &Project,
     branch_name: &str,
 ) -> Result<MergeCheck, anyhow::Error> {
-    use but_oxidize::GixRepositoryExt;
+    use but_core::RepositoryExt;
 
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let git2_repo = &*ctx.git2_repo.get()?;
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
@@ -159,10 +159,10 @@ fn check_merge_conflicts(
     let merge_base_commit = git2_repo.find_commit(merge_base)?;
 
     // Check if branch merges cleanly into target
-    let merges_cleanly = repo.merges_cleanly_compat(
-        merge_base_commit.tree_id(),
-        target_commit.tree_id(),
-        branch_commit.tree_id(),
+    let merges_cleanly = repo.merges_cleanly(
+        merge_base_commit.tree_id().to_gix(),
+        target_commit.tree_id().to_gix(),
+        branch_commit.tree_id().to_gix(),
     )?;
 
     let mut conflicting_files = Vec::new();
@@ -205,7 +205,7 @@ fn get_merge_conflict_paths(
     ours_tree: git2::Oid,
     theirs_tree: git2::Oid,
 ) -> Result<Vec<String>, anyhow::Error> {
-    use but_oxidize::GixRepositoryExt;
+    use but_core::RepositoryExt;
 
     let (options, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     let merge_result = gix_repo.merge_trees(

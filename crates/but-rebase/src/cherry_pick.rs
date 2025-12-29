@@ -103,7 +103,7 @@ pub(crate) mod function {
     ) -> anyhow::Result<gix::merge::tree::Outcome<'repo>> {
         let repo = to_rebase.id.repo;
         let (base, ours, theirs) = find_cherry_pick_trees(new_base, to_rebase)?;
-        use but_oxidize::GixRepositoryExt;
+        use but_core::RepositoryExt;
         repo.merge_trees(
             base,
             ours,

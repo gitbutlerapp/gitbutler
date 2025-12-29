@@ -595,7 +595,7 @@ impl OutputClaudeJson for Result<ClaudeHookOutput> {
 }
 
 fn stack_details(ctx: &Context, stack_id: StackId) -> anyhow::Result<StackDetails> {
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = VirtualBranchesTomlMetadata::from_path(
         ctx.project_data_dir().join("virtual_branches.toml"),
     )?;
@@ -603,7 +603,7 @@ fn stack_details(ctx: &Context, stack_id: StackId) -> anyhow::Result<StackDetail
 }
 
 fn list_stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = VirtualBranchesTomlMetadata::from_path(
         ctx.project_data_dir().join("virtual_branches.toml"),
     )?;

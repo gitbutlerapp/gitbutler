@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, bail};
 use bstr::BString;
+use but_core::RepositoryExt as _;
 use but_core::commit::{HEADERS_CONFLICTED_FIELD, HeadersV2, TreeKind};
-use but_oxidize::GixRepositoryExt as _;
 use gix::{objs::tree::EntryKind, prelude::ObjectIdExt as _};
 
 use crate::{cherry_pick::function::ConflictEntries, commit::DateMode};

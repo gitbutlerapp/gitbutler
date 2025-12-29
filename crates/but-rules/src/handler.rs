@@ -39,7 +39,7 @@ pub fn process_workspace_rules(
         return Ok(updates);
     }
 
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let stacks_in_ws = {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project_data_dir().join("virtual_branches.toml"),
@@ -80,7 +80,7 @@ fn handle_amend(
 ) -> anyhow::Result<()> {
     let changes: Vec<DiffSpec> = assignments.into_iter().map(|a| a.into()).collect();
     let mut guard = ctx.exclusive_worktree_access();
-    let repo = ctx.open_repo_for_merging()?;
+    let repo = ctx.clone_repo_for_merging()?;
 
     let meta = VirtualBranchesTomlMetadata::from_path(
         ctx.project_data_dir().join("virtual_branches.toml"),

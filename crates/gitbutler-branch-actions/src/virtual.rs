@@ -1,8 +1,10 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
+use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, status::get_applied_status_cached};
 use anyhow::{Context as _, Result, anyhow, bail};
+use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
+use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch::{BranchUpdateRequest, dedup};
@@ -12,7 +14,7 @@ use gitbutler_diff::GitHunk;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name};
 use gitbutler_repo::{
-    RepositoryExt,
+    RepositoryExt as _,
     logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_repo_actions::RepoActionsExt;
@@ -22,8 +24,6 @@ use gitbutler_stack::{
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use itertools::Itertools;
 use serde::Serialize;
-
-use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, status::get_applied_status_cached};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -412,7 +412,7 @@ pub fn is_remote_branch_mergeable(ctx: &Context, branch_name: &RemoteRefname) ->
     let wd_tree = git2_repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
-    let gix_repo_in_memory = ctx.open_repo_for_merging()?.with_object_memory();
+    let gix_repo_in_memory = ctx.clone_repo_for_merging()?.with_object_memory();
     let (merge_options_fail_fast, conflict_kind) =
         gix_repo_in_memory.merge_options_no_rewrites_fail_fast()?;
     let mergeable = !gix_repo_in_memory

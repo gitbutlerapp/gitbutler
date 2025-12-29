@@ -3,11 +3,12 @@
 //! This code is a fork of the [`gitbutler_branch_actions::virtual::IsCommitIntegrated`]
 
 use anyhow::{Context as _, Result, anyhow};
-use but_oxidize::{GixRepositoryExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
+use but_core::RepositoryExt;
+use but_oxidize::{OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::{
     RepositoryExt as _,
-    logging::{LogUntil, RepositoryExt},
+    logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_stack::Target;
 use itertools::Itertools;

@@ -1,8 +1,14 @@
+use super::BranchManager;
+use crate::{
+    VirtualBranchesExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
+    r#virtual as vbranch,
+};
 use anyhow::{Context as _, Result, anyhow, bail};
+use but_core::RepositoryExt;
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_ctx::access::WorktreeWritePermission;
 use but_error::Marker;
-use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, RepoExt};
+use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use but_workspace::{
     branch::{
         OnWorkspaceMergeConflict,
@@ -23,12 +29,6 @@ use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use serde::Serialize;
 use tracing::instrument;
-
-use super::BranchManager;
-use crate::{
-    VirtualBranchesExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
-    r#virtual as vbranch,
-};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -406,12 +406,12 @@ impl BranchManager<'_> {
         // We don't support having two branches applied that conflict with each other
         {
             let uncommited_changes_tree_id = repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?.id();
-            let gix_repo = self.ctx.open_repo_for_merging_non_persisting()?;
+            let gix_repo = self.ctx.clone_repo_for_merging_non_persisting()?;
             let merges_cleanly = gix_repo
-                .merges_cleanly_compat(
-                    merge_base_tree_id,
-                    branch_tree_id,
-                    uncommited_changes_tree_id,
+                .merges_cleanly(
+                    merge_base_tree_id.to_gix(),
+                    branch_tree_id.to_gix(),
+                    uncommited_changes_tree_id.to_gix(),
                 )
                 .context("failed to merge trees")?;
 

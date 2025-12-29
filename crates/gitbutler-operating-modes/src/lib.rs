@@ -120,7 +120,7 @@ pub fn operating_mode(ctx: &Context) -> OperatingMode {
 
 fn outside_workspace_metadata(ctx: &Context) -> Result<OutsideWorkspaceMetadata> {
     // We do a virtual-merge, extracting conflicts.
-    let gix_repo = ctx.open_repo_for_merging_non_persisting()?;
+    let gix_repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     let head = gix_repo.head()?;
     let branch_name = head
