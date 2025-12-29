@@ -37,7 +37,6 @@ pub(crate) fn unassign_uncommitted(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let description = uncommitted_cli_id.describe();
-
     let assignments = uncommitted_cli_id
         .hunk_assignments
         .into_iter()
@@ -45,7 +44,7 @@ pub(crate) fn unassign_uncommitted(
     let reqs = to_assignment_request(ctx, assignments, None)?;
     do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
-        writeln!(out, "Unassigned {}", description)?;
+        writeln!(out, "Unassigned {description}")?;
     }
     Ok(())
 }

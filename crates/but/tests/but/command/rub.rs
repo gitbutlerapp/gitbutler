@@ -1,3 +1,6 @@
+use crate::command::util::{
+    commit_file_with_worktree_changes_as_two_hunks, commit_two_files_as_two_hunks_each,
+};
 use crate::utils::Sandbox;
 use snapbox::str;
 
@@ -25,9 +28,7 @@ Rubbed the wrong way. Source 'nonexistent1' not found. If you just performed a G
 fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
-    // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
-
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Assign the change to A and verify that the assignment happened.
@@ -69,9 +70,7 @@ fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
 fn uncommitted_file_to_branch() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
-    // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
-
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     env.but("rub i0 A")
@@ -89,9 +88,7 @@ fn uncommitted_file_to_branch() -> anyhow::Result<()> {
 fn committed_file_to_unassigned() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
-    // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
-
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
 
@@ -268,9 +265,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
-    // Must set metadata to match the scenario
     env.setup_metadata(&["A", "B"])?;
-
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Assign the change to A and verify that the assignment happened.
@@ -399,56 +394,3 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
 
     Ok(())
 }
-
-mod util {
-    use crate::utils::Sandbox;
-
-    /// Create two files `filename1` and `filename2` and commit them to `branch`,
-    /// each having two lines, `first_line`, then filler, and a last line that are far enough apart to
-    /// ensure that they become 2 hunks when changed.
-    pub fn commit_two_files_as_two_hunks_each(
-        env: &Sandbox,
-        branch: &str,
-        filename1: &str,
-        filename2: &str,
-        first_line: &str,
-    ) {
-        let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
-        env.file(
-            filename1,
-            format!("{first_line}\n{}last\n", "line\n".repeat(context_distance)),
-        );
-        env.file(
-            filename2,
-            format!("{first_line}\n{}last\n", "line\n".repeat(context_distance)),
-        );
-        env.but(format!(
-            "commit {branch} -m 'create {filename1} and {filename2}'"
-        ))
-        .assert()
-        .success();
-    }
-
-    /// Create a file with `filename`, commit it to `branch`, then edit it once more to have two uncommitted hunks.
-    pub fn commit_file_with_worktree_changes_as_two_hunks(
-        env: &Sandbox,
-        branch: &str,
-        filename: &str,
-    ) {
-        let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
-        env.file(
-            filename,
-            format!("first\n{}last\n", "line\n".repeat(context_distance)),
-        );
-        env.but(format!("commit {branch} -m {filename}"))
-            .assert()
-            .success();
-        env.file(
-            filename,
-            format!("firsta\n{}lasta\n", "line\n".repeat(context_distance)),
-        );
-    }
-}
-use crate::command::rub::util::{
-    commit_file_with_worktree_changes_as_two_hunks, commit_two_files_as_two_hunks_each,
-};

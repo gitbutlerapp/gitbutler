@@ -7,7 +7,7 @@ use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    args::{Subcommands, metrics::CommandName, oplog},
+    args::{Subcommands, metrics::CommandName},
     utils::ResultMetricsExt,
 };
 
@@ -102,10 +102,10 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Describe { .. } => Describe,
             #[cfg(feature = "legacy")]
-            Subcommands::Oplog(oplog::Platform { cmd }) => match cmd {
+            Subcommands::Oplog(crate::args::oplog::Platform { cmd }) => match cmd {
                 None => OplogList,
-                Some(oplog::Subcommands::List { .. }) => OplogList,
-                Some(oplog::Subcommands::Snapshot { .. }) => OplogSnapshot,
+                Some(crate::args::oplog::Subcommands::List { .. }) => OplogList,
+                Some(crate::args::oplog::Subcommands::Snapshot { .. }) => OplogSnapshot,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Restore { .. } => Restore,

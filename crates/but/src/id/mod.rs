@@ -449,10 +449,11 @@ pub struct UncommittedCliId {
     pub id: ShortId,
     /// The hunk assignments
     pub hunk_assignments: NonEmpty<HunkAssignment>,
-    /// True iff self represents all hunks in a (stack assignment, file) pair.
+    /// `true` if self represents all hunks in a stack-assignment or file pair.
     /// Note that this file may have hunks with other stack assignments.
     pub is_entire_file: bool,
 }
+
 impl UncommittedCliId {
     /// Describes self.
     pub fn describe(&self) -> String {
@@ -471,10 +472,8 @@ impl UncommittedCliId {
             "the unassigned area"
         };
         format!(
-            "{} in {} in {}",
-            hunk_cardinality,
+            "{hunk_cardinality} in {} in {assignment}",
             self.hunk_assignments.first().path_bytes,
-            assignment
         )
     }
 }
