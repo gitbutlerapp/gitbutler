@@ -373,7 +373,7 @@ pub enum Subcommands {
         message: Option<String>,
     },
 
-    /// Show operation history.
+    /// Commands for viewing and managing operation history.
     ///
     /// Displays a list of past operations performed in the repository,
     /// including their timestamps and descriptions.
@@ -383,12 +383,10 @@ pub enum Subcommands {
     ///
     /// You can use `but restore <oplog-sha>` to restore to a specific state.
     ///
+    /// By default, shows the last 20 oplog entries (same as `but oplog list`).
+    ///
     #[cfg(feature = "legacy")]
-    Oplog {
-        /// Start from this oplog SHA instead of the head
-        #[clap(long)]
-        since: Option<String>,
-    },
+    Oplog(oplog::Platform),
 
     /// Restore to a specific oplog snapshot.
     ///
@@ -414,20 +412,6 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     Undo,
-
-    /// Create an on-demand snapshot with optional message.
-    ///
-    /// This allows you to create a named snapshot of the current state, which
-    /// can be helpful to always be able to return to a known good state.
-    ///
-    /// You can provide an optional message to describe the snapshot.
-    ///
-    #[cfg(feature = "legacy")]
-    Snapshot {
-        /// Message to include with the snapshot
-        #[clap(short = 'm', long = "message")]
-        message: Option<String>,
-    },
 
     /// Amends changes into the appropriate commits where they belong.
     ///
@@ -568,6 +552,8 @@ pub mod actions {
 
 pub mod forge;
 pub mod metrics;
+#[cfg(feature = "legacy")]
+pub mod oplog;
 pub mod push;
 
 pub mod claude {

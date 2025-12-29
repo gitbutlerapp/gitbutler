@@ -47,7 +47,7 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
         ),
         (
             "Operation History".yellow(),
-            vec!["oplog", "undo", "restore", "snapshot"],
+            vec!["oplog", "undo", "restore"],
         ),
     ];
 

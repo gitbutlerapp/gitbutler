@@ -42,7 +42,7 @@ pub(crate) fn show_oplog(
             }
         }
     } else {
-        but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 20, None, None)?
+        but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 25, None, None)?
     };
 
     if snapshots.is_empty() {
