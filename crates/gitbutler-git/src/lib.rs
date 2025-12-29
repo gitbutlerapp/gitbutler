@@ -8,15 +8,6 @@
 #![allow(async_fn_in_trait)]
 #![allow(unknown_lints)]
 
-#[cfg(all(
-    not(debug_assertions),
-    not(feature = "benches"),
-    feature = "test-askpass-path"
-))]
-compile_error!(
-    "BUG: in production code this flag should not be set, nor do we run test with `cargo test --release`. Benches must use `--features benches`"
-);
-
 mod error;
 /// utilities to execute a command
 pub mod executor;
