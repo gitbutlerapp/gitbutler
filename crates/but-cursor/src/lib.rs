@@ -1,9 +1,3 @@
-use std::{
-    collections::HashMap,
-    io::{self, Read},
-    str::FromStr,
-};
-
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -16,6 +10,12 @@ use gix::diff::blob::{
     unified_diff::{ConsumeBinaryHunk, ContextSize},
 };
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use std::{
+    collections::HashMap,
+    io::{self, Read},
+    str::FromStr,
+};
 
 pub mod db;
 pub mod workspace_identifier;
@@ -104,21 +104,22 @@ pub struct StopEvent {
     pub workspace_roots: Vec<String>,
 }
 
-fn cursor_path_to_pathbuf(input: &str) -> std::path::PathBuf {
-    // Windows: Cursor Hooks send paths like `/c:/Users/...`, strip the leading slash
-    #[cfg(target_os = "windows")]
-    {
-        if let Some(without_leading_slash) = input.strip_prefix('/') {
-            let b = without_leading_slash.as_bytes();
-            if b.len() >= 3 && b[1] == b':' && (b[2] == b'/' || b[2] == b'\\') {
-                return std::path::PathBuf::from(without_leading_slash);
-            }
+/// Cursor Hooks send paths like `/c:/Users/...`, strip the leading slash
+fn cursor_path_to_pathbuf_windows(input: &str) -> PathBuf {
+    if let Some(without_leading_slash) = input.strip_prefix('/') {
+        let b = without_leading_slash.as_bytes();
+        if b.len() >= 3 && b[1] == b':' && (b[2] == b'/' || b[2] == b'\\') {
+            return without_leading_slash.into();
         }
-        std::path::PathBuf::from(input)
     }
-    #[cfg(not(target_os = "windows"))]
-    {
-        std::path::PathBuf::from(input)
+    input.into()
+}
+
+fn cursor_path_to_pathbuf(input: &str) -> PathBuf {
+    if cfg!(windows) {
+        cursor_path_to_pathbuf_windows(input)
+    } else {
+        input.into()
     }
 }
 
@@ -135,8 +136,8 @@ pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
     let dir = input
         .workspace_roots
         .first()
-        .ok_or_else(|| anyhow::anyhow!("No workspace roots provided"))
-        .map(|p| cursor_path_to_pathbuf(p))?;
+        .ok_or_else(|| anyhow::anyhow!("No workspace roots provided"))?;
+    let dir = cursor_path_to_pathbuf(dir);
 
     // Convert file_path from absolute to relative
     let absolute_path = cursor_path_to_pathbuf(&input.file_path);
@@ -319,32 +320,34 @@ fn stdin() -> anyhow::Result<String> {
 }
 
 #[cfg(test)]
-mod tests {
+mod cursor_path_to_pathbuf_windows {
     use super::*;
 
     #[test]
     fn test_cursor_path_to_pathbuf_windows_drive_paths() {
-        #[cfg(target_os = "windows")]
-        {
+        for (input, expected, msg) in [
+            ("C:/repo", "C:/repo", "only applies to leading slashes"),
+            ("/C:/repo", "C:/repo", "leading slashes are removed"),
+            (
+                "/C:\\repo/mixed",
+                "C:\\repo/mixed",
+                "leading slashes are removed even with a backslash between the drive letter",
+            ),
+            (
+                "//m/work/repo/",
+                "//m/work/repo/",
+                "network paths don't trigger the conversion",
+            ),
+            (
+                "/☀️:/repo",
+                "/☀️:/repo",
+                "emojies in drive letters throw it off, but it won't crash either",
+            ),
+        ] {
             assert_eq!(
-                cursor_path_to_pathbuf("/C:/repo").to_string_lossy(),
-                "C:/repo"
-            );
-            assert_eq!(
-                cursor_path_to_pathbuf("/M:/work/repo").to_string_lossy(),
-                "M:/work/repo"
-            );
-        }
-
-        #[cfg(not(target_os = "windows"))]
-        {
-            assert_eq!(
-                cursor_path_to_pathbuf("/C:/repo").to_string_lossy(),
-                "/C:/repo"
-            );
-            assert_eq!(
-                cursor_path_to_pathbuf("/M:/work/repo").to_string_lossy(),
-                "/M:/work/repo"
+                cursor_path_to_pathbuf_windows(input).to_str().unwrap(),
+                expected,
+                "{msg}: {input} -> {expected}"
             );
         }
     }
