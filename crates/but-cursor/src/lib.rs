@@ -1,9 +1,3 @@
-use std::{
-    collections::HashMap,
-    io::{self, Read},
-    str::FromStr,
-};
-
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -16,6 +10,12 @@ use gix::diff::blob::{
     unified_diff::{ConsumeBinaryHunk, ContextSize},
 };
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use std::{
+    collections::HashMap,
+    io::{self, Read},
+    str::FromStr,
+};
 
 pub mod db;
 pub mod workspace_identifier;
@@ -104,6 +104,25 @@ pub struct StopEvent {
     pub workspace_roots: Vec<String>,
 }
 
+/// Cursor Hooks send paths like `/c:/Users/...`, strip the leading slash
+fn cursor_path_to_pathbuf_windows(input: &str) -> PathBuf {
+    if let Some(without_leading_slash) = input.strip_prefix('/') {
+        let b = without_leading_slash.as_bytes();
+        if b.len() >= 3 && b[1] == b':' && (b[2] == b'/' || b[2] == b'\\') {
+            return without_leading_slash.into();
+        }
+    }
+    input.into()
+}
+
+fn cursor_path_to_pathbuf(input: &str) -> PathBuf {
+    if cfg!(windows) {
+        cursor_path_to_pathbuf_windows(input)
+    } else {
+        input.into()
+    }
+}
+
 pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
     let mut input: FileEditEvent = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
@@ -117,17 +136,17 @@ pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
     let dir = input
         .workspace_roots
         .first()
-        .ok_or_else(|| anyhow::anyhow!("No workspace roots provided"))
-        .map(std::path::Path::new)?;
+        .ok_or_else(|| anyhow::anyhow!("No workspace roots provided"))?;
+    let dir = cursor_path_to_pathbuf(dir);
 
     // Convert file_path from absolute to relative
-    let absolute_path = std::path::Path::new(&input.file_path);
+    let absolute_path = cursor_path_to_pathbuf(&input.file_path);
     input.file_path = absolute_path
-        .strip_prefix(dir)
+        .strip_prefix(&dir)
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or(input.file_path);
 
-    let repo = gix::discover(dir)?;
+    let repo = gix::discover(&dir)?;
     let project = Project::from_path(
         repo.workdir()
             .ok_or(anyhow::anyhow!("No worktree found for repo"))?,
@@ -186,8 +205,8 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
         .workspace_roots
         .first()
         .ok_or_else(|| anyhow::anyhow!("No workspace roots provided"))
-        .map(std::path::Path::new)?;
-    let repo = gix::discover(dir)?;
+        .map(|p| cursor_path_to_pathbuf(p))?;
+    let repo = gix::discover(&dir)?;
     let project = Project::from_path(
         repo.workdir()
             .ok_or(anyhow::anyhow!("No worktree found for repo"))?,
@@ -212,7 +231,7 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
         but_claude::hooks::get_or_create_session(ctx, &input.conversation_id, stacks, vb_state)?;
 
     let summary = "".to_string();
-    let prompt = crate::db::get_generations(dir, nightly)
+    let prompt = crate::db::get_generations(&dir, nightly)
         .map(|gens| {
             gens.iter()
                 .find(|g| g.generation_uuid == input.generation_id)
@@ -298,4 +317,38 @@ fn stdin() -> anyhow::Result<String> {
     let mut buffer = String::new();
     io::stdin().read_to_string(&mut buffer)?;
     Ok(buffer.trim().to_string())
+}
+
+#[cfg(test)]
+mod cursor_path_to_pathbuf_windows {
+    use super::*;
+
+    #[test]
+    fn test_cursor_path_to_pathbuf_windows_drive_paths() {
+        for (input, expected, msg) in [
+            ("C:/repo", "C:/repo", "only applies to leading slashes"),
+            ("/C:/repo", "C:/repo", "leading slashes are removed"),
+            (
+                "/C:\\repo/mixed",
+                "C:\\repo/mixed",
+                "leading slashes are removed even with a backslash between the drive letter",
+            ),
+            (
+                "//m/work/repo/",
+                "//m/work/repo/",
+                "network paths don't trigger the conversion",
+            ),
+            (
+                "/☀️:/repo",
+                "/☀️:/repo",
+                "emojies in drive letters throw it off, but it won't crash either",
+            ),
+        ] {
+            assert_eq!(
+                cursor_path_to_pathbuf_windows(input).to_str().unwrap(),
+                expected,
+                "{msg}: {input} -> {expected}"
+            );
+        }
+    }
 }
