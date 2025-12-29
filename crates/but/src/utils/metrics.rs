@@ -127,9 +127,9 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Absorb { .. } => Absorb,
             #[cfg(feature = "legacy")]
-            Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
-                forge::review::Subcommands::Publish { .. } => PublishReview,
-                forge::review::Subcommands::Template { .. } => ReviewTemplate,
+            Subcommands::Pr(forge::pr::Platform { cmd }) => match cmd {
+                None | Some(forge::pr::Subcommands::New { .. }) => PrNew,
+                Some(forge::pr::Subcommands::Template { .. }) => PrTemplate,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Actions(_) | Subcommands::Mcp { .. } | Subcommands::Init { .. } => Unknown,

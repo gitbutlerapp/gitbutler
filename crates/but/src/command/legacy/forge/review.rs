@@ -9,7 +9,6 @@ use cli_prompts::DisplayPrompt;
 use colored::{ColoredString, Colorize};
 use gitbutler_project::{Project, ProjectId};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use tracing::instrument;
 
 use crate::{CliId, IdMap, tui::get_text, utils::OutputChannel};
@@ -62,8 +61,10 @@ pub fn set_review_template(
     Ok(())
 }
 
-/// Publish reviews for active branches in the workspace.
-pub async fn publish_reviews(
+/// Create a new PR for a branch.
+/// If no branch is specified, prompts the user to select one.
+/// If there is only one branch without a PR, asks for confirmation.
+pub async fn create_pr(
     ctx: &mut Context,
     branch: Option<String>,
     skip_force_push_protection: bool,
@@ -77,9 +78,49 @@ pub async fn publish_reviews(
         ctx.legacy_project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
-    let maybe_branch_names = branch
-        .map(|branch_id| get_branch_names(&ctx.legacy_project, &branch_id))
-        .transpose()?;
+
+    // If branch is specified, resolve it
+    let maybe_branch_names = if let Some(branch_id) = branch {
+        Some(get_branch_names(&ctx.legacy_project, &branch_id)?)
+    } else {
+        // Find branches without PRs
+        let branches_without_prs = get_branches_without_prs(&review_map, &applied_stacks);
+
+        if branches_without_prs.is_empty() {
+            if let Some(out) = out.for_human() {
+                writeln!(out, "All branches already have PRs.")?;
+            }
+            return Ok(());
+        } else if branches_without_prs.len() == 1 {
+            // If there's only one branch without a PR, ask for confirmation
+            let branch_name = &branches_without_prs[0];
+            let mut inout = out.prepare_for_terminal_input().context(
+                "Terminal input not available. Please specify a branch using command line arguments.",
+            )?;
+            let response = inout.prompt(&format!(
+                "Do you want to open a new PR on branch '{}'? [y/n]",
+                branch_name
+            ))?;
+            match response {
+                Some(r)
+                    if r.trim().eq_ignore_ascii_case("y")
+                        || r.trim().eq_ignore_ascii_case("yes") =>
+                {
+                    Some(vec![branch_name.clone()])
+                }
+                _ => {
+                    if let Some(out) = out.for_human() {
+                        writeln!(out, "Aborted.")?;
+                    }
+                    return Ok(());
+                }
+            }
+        } else {
+            // Multiple branches without PRs - let the prompt handle it
+            None
+        }
+    };
+
     handle_multiple_branches_in_workspace(
         &ctx.legacy_project,
         &review_map,
@@ -92,6 +133,28 @@ pub async fn publish_reviews(
         maybe_branch_names,
     )
     .await
+}
+
+/// Get list of branch names that don't have PRs yet.
+fn get_branches_without_prs(
+    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    applied_stacks: &[but_workspace::legacy::ui::StackEntry],
+) -> Vec<String> {
+    let mut branches_without_prs = Vec::new();
+    for stack_entry in applied_stacks {
+        for head in &stack_entry.heads {
+            let branch_name = head.name.to_string();
+            if !review_map.contains_key(&branch_name)
+                || review_map
+                    .get(&branch_name)
+                    .map(|v| v.is_empty())
+                    .unwrap_or(true)
+            {
+                branches_without_prs.push(branch_name);
+            }
+        }
+    }
+    branches_without_prs
 }
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
@@ -296,15 +359,16 @@ async fn publish_reviews_for_branch_and_dependents(
         .collect::<Vec<_>>();
 
     if let Some(out) = out.for_human() {
+        write!(out, "{} ", "→".cyan())?;
         if !all_branches_up_to_subject.is_empty() {
             writeln!(
                 out,
-                "Pushing branch '{}' with {} dependent branch(es) first",
-                branch_name,
-                all_branches_up_to_subject.len()
+                "Pushing {} with {} dependent branch(es)...",
+                branch_name.green().bold(),
+                all_branches_up_to_subject.len().to_string().yellow()
             )?;
         } else {
-            writeln!(out, "Pushing branch '{}'", branch_name)?;
+            writeln!(out, "Pushing {}...", branch_name.green().bold())?;
         }
     }
 
@@ -321,14 +385,12 @@ async fn publish_reviews_for_branch_and_dependents(
     )?;
 
     if let Some(out) = out.for_human() {
-        writeln!(out, "Push completed successfully")?;
-        writeln!(out, "Pushed to remote: {}", result.remote)?;
-        if !result.branch_to_remote.is_empty() {
-            for (branch, remote_ref) in &result.branch_to_remote {
-                writeln!(out, "  {} -> {}", branch, remote_ref)?;
-            }
-        }
-        writeln!(out)?;
+        writeln!(
+            out,
+            "  {} Pushed to {}",
+            "✓".green().bold(),
+            result.remote.cyan()
+        )?;
     }
 
     let mut newly_published = Vec::new();
@@ -336,10 +398,13 @@ async fn publish_reviews_for_branch_and_dependents(
     let mut current_target_branch = base_branch.short_name();
     for head in stack_entry.heads.iter().rev() {
         if let Some(out) = out.for_human() {
+            write!(out, "{} ", "→".cyan())?;
             writeln!(
                 out,
-                "Publishing review for branch '{}' targeting '{}",
-                head.name, current_target_branch
+                "Creating PR for {} {} {}...",
+                head.name.to_string().green().bold(),
+                "→".dimmed(),
+                current_target_branch.cyan()
             )?;
         }
 
@@ -390,51 +455,74 @@ fn display_review_publication_summary(
     outcome: PublishReviewsOutcome,
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
-    // Group published reviews by branch name
-    let mut published_by_branch: BTreeMap<&str, Vec<&but_forge::ForgeReview>> = BTreeMap::new();
-    for review in &outcome.published {
-        published_by_branch
-            .entry(review.source_branch.as_str())
-            .or_default()
-            .push(review);
-    }
-    for (branch, reviews) in published_by_branch {
-        writeln!(out, "Published reviews for branch '{}':", branch)?;
-        for review in reviews {
-            print_review_information(review, out)?;
+    // Show newly published PRs
+    if !outcome.published.is_empty() {
+        writeln!(out)?;
+        for review in &outcome.published {
+            print_new_pr_info(review, out)?;
         }
     }
 
-    // Group already existing reviews by branch name
-    let mut existing_by_branch: BTreeMap<&str, Vec<&but_forge::ForgeReview>> = BTreeMap::new();
-    for review in &outcome.already_existing {
-        existing_by_branch
-            .entry(review.source_branch.as_str())
-            .or_default()
-            .push(review);
-    }
-    for (branch, reviews) in existing_by_branch {
-        writeln!(out, "Review(s) already exist for branch '{}':", branch)?;
-        for review in reviews {
-            print_review_information(review, out)?;
+    // Show already existing PRs
+    if !outcome.already_existing.is_empty() {
+        writeln!(out)?;
+        for review in &outcome.already_existing {
+            print_existing_pr_info(review, out)?;
         }
     }
 
     Ok(())
 }
 
-/// Print review information in a formatted way
-fn print_review_information(
+/// Print information about a newly created PR
+fn print_new_pr_info(
     review: &but_forge::ForgeReview,
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     writeln!(
         out,
-        "  '{}' ({}{}): {}",
-        review.title.bold(),
-        review.unit_symbol.blue(),
-        review.number.to_string().blue(),
-        review.html_url.underline()
+        "{} {} {}{}",
+        "✓".green().bold(),
+        "Created PR".green(),
+        review.unit_symbol.cyan(),
+        review.number.to_string().cyan().bold()
+    )?;
+    writeln!(out, "  {} {}", "Title:".dimmed(), review.title.bold())?;
+    writeln!(
+        out,
+        "  {} {}",
+        "Branch:".dimmed(),
+        review.source_branch.green()
+    )?;
+    writeln!(
+        out,
+        "  {} {}",
+        "URL:".dimmed(),
+        review.html_url.underline().blue()
+    )?;
+
+    Ok(())
+}
+
+/// Print information about an existing PR
+fn print_existing_pr_info(
+    review: &but_forge::ForgeReview,
+    out: &mut dyn std::fmt::Write,
+) -> std::fmt::Result {
+    writeln!(
+        out,
+        "{} {} {} {}{}",
+        "•".yellow(),
+        "PR already exists for".yellow(),
+        review.source_branch.green().bold(),
+        review.unit_symbol.cyan(),
+        review.number.to_string().cyan().bold()
+    )?;
+    writeln!(
+        out,
+        "  {} {}",
+        "URL:".dimmed(),
+        review.html_url.underline().blue()
     )?;
 
     Ok(())
@@ -479,9 +567,7 @@ async fn publish_review_for_branch(
             .unwrap_or_default();
         (title, body)
     } else {
-        let title = get_review_title_from_editor(commit.as_ref(), branch_name)?;
-        let body = get_review_body_from_editor(project.id, commit.as_ref(), branch_name, &title)?;
-        (title, body)
+        get_pr_title_and_body_from_editor(project.id, commit.as_ref(), branch_name)?
     };
 
     // Publish a new review for the branch
@@ -533,19 +619,30 @@ fn default_commit(
     Ok(commit.cloned())
 }
 
-/// Prompt the user to enter the review body using their default editor.
-/// Pre-fills the editor with the commit description if available.
-fn get_review_body_from_editor(
+/// Prompt the user to enter the PR title and description using their default editor.
+/// Opens a single file where the first line is the title and the rest is the description.
+/// Pre-fills with commit message if available.
+fn get_pr_title_and_body_from_editor(
     project_id: ProjectId,
     commit: Option<&Commit>,
     branch_name: &str,
-    title: &str,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<(String, String)> {
     let mut template = String::new();
 
-    let commit_description = extract_commit_description(commit);
+    // Use the first line of the commit message as the default title if available
+    let commit_title = extract_commit_title(commit);
+    if let Some(commit_title) = commit_title {
+        template.push_str(commit_title);
+    } else {
+        template.push_str(branch_name);
+    }
+    template.push('\n');
+
+    // Add a blank line between title and description
+    template.push('\n');
 
     // Use commit description as template if available
+    let commit_description = extract_commit_description(commit);
     if let Some(commit_description) = commit_description {
         for line in commit_description {
             template.push_str(line);
@@ -553,20 +650,39 @@ fn get_review_body_from_editor(
         }
     } else if let Some(review_template) = but_api::legacy::forge::review_template(project_id)? {
         template.push_str(&review_template.content);
-    } else {
-        template.push_str(branch_name);
+        template.push('\n');
     }
 
-    template.push_str("\n# This is the review description for:");
-    template.push_str("\n# '");
-    template.push_str(title);
-    template.push_str("' \n");
-    template.push_str("\n# Optionally, enter the review body above. Lines starting\n");
-    template.push_str("# with '#' will be ignored, and an empty body is allowed.\n");
+    // Add instructions as comments
+    template.push_str("\n# PR Title and Description for branch: ");
+    template.push_str(branch_name);
+    template.push_str("\n#\n");
+    template.push_str("# The FIRST LINE of this file will be the PR title.\n");
+    template.push_str("# Everything AFTER the first line will be the PR description.\n");
+    template.push_str("#\n");
+    template.push_str("# Lines starting with '#' will be ignored.\n");
+    template.push_str("# An empty title (first line) aborts the operation.\n");
     template.push_str("#\n");
 
-    let lossy_body = get_text::from_editor_no_comments("review_body", &template)?.to_string();
-    Ok(lossy_body)
+    let content = get_text::from_editor_no_comments("pr_message", &template)?.to_string();
+
+    // Split into title (first line) and body (rest)
+    let mut lines = content.lines();
+    let title = lines.next().unwrap_or("").trim().to_string();
+
+    if title.is_empty() {
+        anyhow::bail!("Aborting due to empty PR title");
+    }
+
+    // Skip any leading blank lines after the title, then collect the rest as description
+    let body: String = lines
+        .skip_while(|l| l.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string();
+
+    Ok((title, body))
 }
 
 /// Extract the commit description (body) from the commit message, skipping the first line (title).
@@ -585,35 +701,6 @@ fn extract_commit_description(commit: Option<&Commit>) -> Option<Vec<&str>> {
             Some(desc_lines)
         }
     })
-}
-
-/// Prompt the user to enter the review title using their default editor.
-/// Pre-fills the editor with the commit title if available.
-fn get_review_title_from_editor(
-    commit: Option<&Commit>,
-    branch_name: &str,
-) -> anyhow::Result<String> {
-    let mut template = String::new();
-
-    // Use the first line of the commit message as the default title if available
-    let commit_title = extract_commit_title(commit);
-    if let Some(commit_title) = commit_title {
-        template.push_str(commit_title);
-    } else {
-        template.push_str(branch_name);
-    }
-
-    template.push_str("\n# Please enter the review title above. Lines starting\n");
-    template.push_str("# with '#' will be ignored, and an empty title aborts the operation.\n");
-    template.push_str("#\n");
-
-    let lossy_title = get_text::from_editor_no_comments("review_title", &template)?.to_string();
-
-    if lossy_title.is_empty() {
-        anyhow::bail!("Aborting due to empty review title");
-    }
-
-    Ok(lossy_title)
 }
 
 /// Extract the commit title from the commit message (first line).

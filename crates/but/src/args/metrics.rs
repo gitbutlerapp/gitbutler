@@ -38,8 +38,8 @@ pub enum CommandName {
     ForgeAuth,
     ForgeListUsers,
     ForgeForget,
-    PublishReview,
-    ReviewTemplate,
+    PrNew,
+    PrTemplate,
     Completions,
     #[default]
     Unknown,
