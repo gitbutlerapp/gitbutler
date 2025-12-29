@@ -607,18 +607,34 @@ impl UncommittedFile {
 /// Internal representation of a committed file with its CLI ID.
 ///
 /// This structure is used to store committed files in a `BTreeSet` where ordering
-/// is determined by the ID field, enabling efficient lookups by both ID and
-/// (commit_oid, path) tuple.
-///
-/// # Invariant
-///
-/// For all instances `a` and `b`: `a.cmp(b) == a.id.cmp(&b.id)`
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+/// and equality are determined solely by the `commit_oid_path` field, enabling
+/// deduplication and efficient lookups by (commit_oid, path) tuple.
+#[derive(Debug)]
 struct CommittedFile {
     /// The file's commit object ID and path
     commit_oid_path: (gix::ObjectId, BString),
     /// The short CLI ID assigned to this file
     id: ShortId,
+}
+
+impl PartialEq for CommittedFile {
+    fn eq(&self, other: &Self) -> bool {
+        self.commit_oid_path == other.commit_oid_path
+    }
+}
+
+impl Eq for CommittedFile {}
+
+impl PartialOrd for CommittedFile {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CommittedFile {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.commit_oid_path.cmp(&other.commit_oid_path)
+    }
 }
 
 impl Borrow<(gix::ObjectId, BString)> for CommittedFile {

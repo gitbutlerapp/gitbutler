@@ -566,6 +566,44 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn committed_files_are_deduplicated_by_commit_oid_path() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("branch", [id(2)], Some(id(1)), [])])];
+    let mut id_map = IdMap::new_for_branches_and_commits(stacks)?;
+
+    // Simulate a changed_paths function that returns the same file twice
+    // (which could happen due to a bug in the caller or data source)
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<BString>> {
+        Ok(if commit_id == id(2) && parent_id == Some(id(1)) {
+            vec![
+                BString::from(b"file.txt"),
+                BString::from(b"file.txt"), // Duplicate!
+                BString::from(b"other.txt"),
+            ]
+        } else {
+            anyhow::bail!("unexpected IDs {} {:?}", commit_id, parent_id);
+        })
+    };
+
+    id_map.add_file_info(changed_paths_fn, vec![])?;
+
+    // The duplicate should be deduplicated - we should only have 2 committed files
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 1
+    branches: [ br ]
+    committed_files: [ g0, i0 ]
+    ");
+
+    // Verify we can look up both files (g0 for file.txt, i0 for other.txt)
+    // Note: h0 was consumed by the duplicate but discarded during deduplication
+    assert!(id_map.resolve_entity_to_ids("g0")?.len() == 1);
+    assert!(id_map.resolve_entity_to_ids("i0")?.len() == 1);
+
+    Ok(())
+}
+
 mod util {
     use crate::{CliId, IdMap};
     use bstr::BString;
