@@ -11,7 +11,6 @@ use crate::util::test_ctx;
 fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    let repo = ctx.open_repo()?;
 
     let mut guard = ctx.exclusive_worktree_access();
 
@@ -61,6 +60,7 @@ fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
     )
     .expect("it works");
 
+    let repo = ctx.repo.get()?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(repo.head_tree_id()?), @r#"
     c5bb3ff
     ├── bar.txt:100644:91c021a "feature-b line 2\n"
@@ -94,7 +94,6 @@ fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
 fn causes_conflicts_above() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    let repo = ctx.open_repo()?;
 
     let mut guard = ctx.exclusive_worktree_access();
 
@@ -144,6 +143,7 @@ fn causes_conflicts_above() -> anyhow::Result<()> {
     )
     .expect("it works");
 
+    let repo = ctx.repo.get()?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(repo.head_tree_id()?), @r#"
     762a113
     ├── bar.txt:100644:91c021a "feature-b line 2\n"

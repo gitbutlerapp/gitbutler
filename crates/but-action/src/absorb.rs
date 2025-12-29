@@ -32,8 +32,6 @@ pub(crate) fn absorb(
     openai: &OpenAiProvider,
     changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<()> {
-    let repo = ctx.open_repo()?;
-
     let paths = changes
         .iter()
         .map(|change| change.path.clone())
@@ -42,7 +40,7 @@ pub(crate) fn absorb(
     let path_strings = path_strings.join("\n");
 
     let start = std::time::Instant::now();
-    let project_status = but_tools::workspace::get_project_status(ctx, &repo, Some(paths.clone()))?;
+    let project_status = but_tools::workspace::get_project_status(ctx, Some(paths.clone()))?;
     tracing::info!("get_project_status took {:?}", start.elapsed());
 
     // First, absorb changes that are already locked to a specific commit.
@@ -51,7 +49,7 @@ pub(crate) fn absorb(
 
     // After absorbing locked changes, we need to get the project status again,
     // because the commit IDs might have changed.
-    let project_status = but_tools::workspace::get_project_status(ctx, &repo, Some(paths))
+    let project_status = but_tools::workspace::get_project_status(ctx, Some(paths))
         .context("Failed to get project status after absorbing locked changes")?;
 
     if project_status.file_changes.is_empty() {

@@ -379,7 +379,7 @@ fn check_branches_merge_cleanly(
 
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let git2_repo = &*ctx.git2_repo.get()?;
-    let repo = ctx.open_repo()?.for_tree_diffing()?.with_object_memory();
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
 
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
     let target = stack.get_default_target()?;

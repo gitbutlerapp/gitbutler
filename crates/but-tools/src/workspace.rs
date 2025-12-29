@@ -212,7 +212,7 @@ pub fn create_commit(
         .map(Into::into)
         .collect::<Vec<_>>();
 
-    let stacks = stacks(ctx, &repo)?;
+    let stacks = stacks(ctx)?;
 
     let stack_id = stacks
         .iter()
@@ -634,7 +634,6 @@ impl Tool for GetProjectStatus {
         _emitter: Arc<Emitter>,
         _commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let repo = ctx.open_repo()?;
         let params: GetProjectStatusParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
@@ -642,7 +641,7 @@ impl Tool for GetProjectStatus {
             .filter_changes
             .map(|f| f.into_iter().map(BString::from).collect::<Vec<BString>>());
 
-        let value = get_project_status(ctx, &repo, paths).to_json("get_project_status");
+        let value = get_project_status(ctx, paths).to_json("get_project_status");
         Ok(value)
     }
 }
@@ -1102,8 +1101,7 @@ pub fn branch_changes(
     ctx: &mut Context,
     params: GetBranchChangesParameters,
 ) -> anyhow::Result<Vec<FileChangeSimple>> {
-    let repo = ctx.repo.get()?;
-    let stacks = stacks(ctx, &repo)?;
+    let stacks = stacks(ctx)?;
     let stack_id = stacks
         .iter()
         .find_map(|s| {
@@ -1375,11 +1373,10 @@ pub fn split_branch(
     params: SplitBranchParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<StackId, anyhow::Error> {
-    let repo = ctx.repo.get()?;
     let mut guard = ctx.exclusive_worktree_access();
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
-    let stacks = stacks(ctx, &repo)?;
+    let stacks = stacks(ctx)?;
     let source_stack_id = stacks
         .iter()
         .find(|s| s.heads.iter().any(|b| b.name == params.source_branch_name))
@@ -1766,20 +1763,18 @@ impl ToolResult for Result<ProjectStatus, anyhow::Error> {
 
 pub fn get_project_status(
     ctx: &mut Context,
-    repo: &gix::Repository,
     filter_changes: Option<Vec<BString>>,
 ) -> anyhow::Result<ProjectStatus> {
-    let stacks = stacks(ctx, repo)?;
+    let stacks = stacks(ctx)?;
     let stacks = entries_to_simple_stacks(
         &stacks
             .into_iter()
             .map(TryInto::try_into)
             .collect::<Result<Vec<_>, _>>()?,
         ctx,
-        repo,
     )?;
 
-    let file_changes = get_filtered_changes(ctx, repo, filter_changes)?;
+    let file_changes = get_filtered_changes(ctx, filter_changes)?;
 
     Ok(ProjectStatus {
         stacks,
@@ -1789,10 +1784,11 @@ pub fn get_project_status(
 
 pub fn get_filtered_changes(
     ctx: &mut Context,
-    repo: &gix::Repository,
     filter_changes: Option<Vec<BString>>,
 ) -> Result<Vec<FileChange>, anyhow::Error> {
-    let worktree = but_core::diff::worktree_changes(repo)?;
+    // TODO(db): once `&mut Context` is `&Context`, let it use `ctx.repo.get()`.
+    let repo = ctx.open_isolated_repo()?;
+    let worktree = but_core::diff::worktree_changes(&repo)?;
     let changes = if let Some(filter) = filter_changes {
         worktree
             .changes
@@ -1802,7 +1798,7 @@ pub fn get_filtered_changes(
     } else {
         worktree.changes.clone()
     };
-    let diff = unified_diff_for_changes(repo, changes, ctx.settings().context_lines)?;
+    let diff = unified_diff_for_changes(&repo, changes, ctx.settings().context_lines)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
         false,
@@ -1817,10 +1813,10 @@ pub fn get_filtered_changes(
 fn entries_to_simple_stacks(
     entries: &[StackEntryNoOpt],
     ctx: &Context,
-    repo: &gix::Repository,
 ) -> anyhow::Result<Vec<SimpleStack>> {
     let mut stacks = vec![];
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let repo = &*ctx.repo.get()?;
     for entry in entries {
         let stack = vb_state.get_stack(entry.id)?;
         let branches = stack.branches();
@@ -2046,11 +2042,9 @@ fn find_the_right_commit_id(
     commit_id
 }
 
-fn stacks(
-    ctx: &Context,
-    repo: &gix::Repository,
-) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
+fn stacks(ctx: &Context) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
     let meta = ref_metadata_toml(&ctx.legacy_project)?;
+    let repo = &*ctx.repo.get()?;
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,

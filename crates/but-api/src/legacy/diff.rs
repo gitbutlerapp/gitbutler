@@ -18,7 +18,7 @@ pub fn tree_change_diffs(
     change: TreeChange,
 ) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
     let change: but_core::TreeChange = change.into();
-    let repo = ctx.open_repo()?;
+    let repo = ctx.repo.get()?;
     change.unified_patch(&repo, ctx.settings.context_lines)
 }
 

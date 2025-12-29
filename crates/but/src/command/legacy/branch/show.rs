@@ -122,8 +122,7 @@ fn check_merge_conflicts(
 
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let git2_repo = &*ctx.git2_repo.get()?;
-    let repo = ctx.open_repo()?;
-    let gix_repo = repo.for_tree_diffing()?.with_object_memory();
+    let repo = ctx.open_repo_for_merging_non_persisting()?;
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
@@ -135,7 +134,7 @@ fn check_merge_conflicts(
         target.branch.remote(),
         target.branch.branch()
     );
-    let target_commit = match gix_repo.find_reference(&target_ref_name) {
+    let target_commit = match repo.find_reference(&target_ref_name) {
         Ok(reference) => {
             let target_oid = reference.id();
             git2_repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
@@ -160,7 +159,7 @@ fn check_merge_conflicts(
     let merge_base_commit = git2_repo.find_commit(merge_base)?;
 
     // Check if branch merges cleanly into target
-    let merges_cleanly = gix_repo.merges_cleanly_compat(
+    let merges_cleanly = repo.merges_cleanly_compat(
         merge_base_commit.tree_id(),
         target_commit.tree_id(),
         branch_commit.tree_id(),
@@ -172,7 +171,7 @@ fn check_merge_conflicts(
     if !merges_cleanly {
         // Get the list of conflicting files from the merge
         let conflict_paths = get_merge_conflict_paths(
-            &gix_repo,
+            &repo,
             merge_base_commit.tree_id(),
             target_commit.tree_id(),
             branch_commit.tree_id(),

@@ -360,18 +360,6 @@ impl Context {
 
 /// *Repository* helpers, for when you need something more specific than [Self::repo].
 impl Context {
-    /// Open a standard Git repository at the project directory, just like a real user would.
-    ///
-    /// This repository is good for standard tasks, like checking refs and traversing the commit graph,
-    /// and for reading objects as well.
-    ///
-    /// Diffing and merging is better done with [`Self::open_repo_for_merging()`].
-    ///
-    /// Note that this repository isn't cached!
-    pub fn open_repo(&self) -> anyhow::Result<gix::Repository> {
-        Ok(gix::open(&self.gitdir)?)
-    }
-
     /// Open an isolated repository, one that didn't read options beyond `.git/config` and
     /// knows no environment variables.
     ///
@@ -385,8 +373,9 @@ impl Context {
 
     /// Return a newly opened `gitoxide` repository, with all configuration available
     /// to correctly figure out author and committer names (i.e. with most global configuration loaded),
-    /// *and* which will perform diffs quickly thanks to an adequate object cache, *and*
-    /// which **writes all objects into memory**.
+    /// *and* which will perform diffs quickly thanks to an adequate object cache.
+    ///
+    /// This naturally is also useful for merging, but *only if these merged objects are supposed to be persisted immediately*.
     pub fn open_repo_for_merging(&self) -> anyhow::Result<gix::Repository> {
         but_core::open_repo_for_merging(&self.gitdir)
     }

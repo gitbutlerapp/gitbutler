@@ -7,14 +7,9 @@ pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
     Project::from_path(path)
 }
 
-pub fn project_repo(path: &Path) -> anyhow::Result<gix::Repository> {
-    let project = project_from_path(path)?;
-    configured_repo(project.open_repo()?, RepositoryOpenMode::General)
-}
 pub enum RepositoryOpenMode {
     // We'll need this later for the commit command
     Merge,
-    General,
 }
 
 fn configured_repo(
@@ -25,9 +20,6 @@ fn configured_repo(
         RepositoryOpenMode::Merge => {
             let bytes = repo.compute_object_cache_size_for_tree_diffs(&***repo.index_or_empty()?);
             repo.object_cache_size_if_unset(bytes);
-        }
-        RepositoryOpenMode::General => {
-            repo.object_cache_size_if_unset(512 * 1024);
         }
     }
     Ok(repo)

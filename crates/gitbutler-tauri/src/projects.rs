@@ -77,8 +77,8 @@ pub fn set_project_active(
         .ok();
     }
 
-    let db_error = assure_database_valid(project.gb_dir())?;
-    let filter_error = warn_about_filters_and_git_lfs(ctx.open_isolated_repo()?)?;
+    let db_error = assure_database_valid(ctx.project_data_dir())?;
+    let filter_error = warn_about_filters_and_git_lfs(&*ctx.repo.get()?)?;
     for err in [&db_error, &filter_error] {
         if let Some(err) = &err {
             tracing::error!("{err}");
@@ -115,13 +115,13 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
 
 /// Fatal errors are returned as error, fixed errors for tracing will be `Some(err)`
 #[instrument(level = tracing::Level::DEBUG)]
-fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<String>> {
-    if let Err(err) = but_db::DbHandle::new_in_directory(&gb_dir) {
-        let db_path = but_db::DbHandle::db_file_path(&gb_dir);
+fn assure_database_valid(data_dir: PathBuf) -> anyhow::Result<Option<String>> {
+    if let Err(err) = but_db::DbHandle::new_in_directory(&data_dir) {
+        let db_path = but_db::DbHandle::db_file_path(&data_dir);
         let db_filename = db_path.file_name().unwrap();
         let max_attempts = 255;
         for round in 1..max_attempts {
-            let backup_path = gb_dir.join(format!(
+            let backup_path = data_dir.join(format!(
                 "{db_name}.maybe-broken-{round:02}",
                 db_name = Path::new(db_filename).display()
             ));
@@ -152,7 +152,7 @@ fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<String>> {
 }
 
 /// Return an error message that
-fn warn_about_filters_and_git_lfs(repo: gix::Repository) -> anyhow::Result<Option<String>> {
+fn warn_about_filters_and_git_lfs(repo: &gix::Repository) -> anyhow::Result<Option<String>> {
     let index = repo.index_or_empty()?;
     let mut cache = repo.attributes_only(
         &index,
