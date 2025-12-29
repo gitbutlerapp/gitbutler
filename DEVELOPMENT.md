@@ -312,7 +312,7 @@ If none of these solutions work, please check our [GitHub Issues](https://github
 To build the app in production mode, run:
 
 ```bash
-$ pnpm tauri build --features devtools --config crates/gitbutler-tauri/tauri.conf.nightly.json
+$ pnpm tauri build --features devtools,builtin-but,disable-auto-updates --config crates/gitbutler-tauri/tauri.conf.nightly-local.json
 ```
 
 This will make an asset similar to our nightly build.
