@@ -90,14 +90,12 @@ where
     current_exe = current_exe.canonicalize().unwrap_or(current_exe);
 
     // TODO(qix-): Get parent PID of connecting processes to make sure they're us.
-    // let our_pid = std::process::id();
-
     // This is a bit of a hack. Under a test environment, Cargo is running a
     // test runner with a quasi-random suffix. The actual executables live in
     // the parent directory. Thus, we have to do this under test. It's not
     // ideal, but it works for now.
     //
-    // This logic is used in downstream tests like gitbutler-branch-actions.
+    // TODO: remove this special case once `gitbutler-branch-actions` is gone.
     if current_exe.iter().nth_back(1) == Some("deps".as_ref()) {
         current_exe = current_exe.parent().unwrap().to_path_buf();
     }
