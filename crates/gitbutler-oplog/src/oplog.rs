@@ -104,6 +104,7 @@ pub trait OplogExt {
         limit: usize,
         oplog_commit_id: Option<git2::Oid>,
         exclude_kind: Vec<OperationKind>,
+        include_kind: Option<Vec<OperationKind>>,
     ) -> Result<Vec<Snapshot>>;
 
     /// Reverts to a previous state of the working directory, virtual branches and commits.
@@ -197,6 +198,7 @@ impl OplogExt for Context {
         limit: usize,
         oplog_commit_id: Option<git2::Oid>,
         exclude_kind: Vec<OperationKind>,
+        include_kind: Option<Vec<OperationKind>>,
     ) -> Result<Vec<Snapshot>> {
         let repo = self.clone_repo_for_merging()?;
         let traversal_root_id = git2_to_gix_object_id(match oplog_commit_id {
@@ -246,9 +248,19 @@ impl OplogExt for Context {
                 .ok()
                 .and_then(|msg| SnapshotDetails::from_str(msg).ok());
             let commit_time = gix_time_to_git2(commit.time()?);
-            if let Some(details) = &details
-                && exclude_kind.contains(&details.operation)
-            {
+            if let Some(details) = &details {
+                // Skip if this kind is excluded
+                if exclude_kind.contains(&details.operation) {
+                    continue;
+                }
+                // Skip if include filter is set and this kind is not included
+                if let Some(ref include) = include_kind
+                    && !include.contains(&details.operation)
+                {
+                    continue;
+                }
+            } else if include_kind.is_some() {
+                // If we require specific kinds but have no details, skip
                 continue;
             }
 
