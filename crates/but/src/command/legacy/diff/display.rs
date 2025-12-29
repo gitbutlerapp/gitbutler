@@ -62,10 +62,26 @@ impl DiffDisplay for TreeChangeWithPatch {
 
         let status = status_letter_ui(&self.change.status);
         let path = path_with_color_ui(&self.change.status, self.change.path_bytes.to_string());
-        output.push_str(&format!(" {status} {path}\n"));
+        let path_str = self.change.path_bytes.to_string();
+
+        // Calculate the width needed for the box (status + space + filename)
+        // We use the raw path length for width calculation since ANSI codes don't count
+        let content_width = 2 + path_str.len(); // "M " + path
+
+        // Helper to render box-style header (same layout as HunkAssignment):
+        // ────────╮
+        // M file  │
+        // ────────╯
+        let render_header = |out: &mut String| {
+            out.push_str(&format!("{}╮\n", "─".repeat(content_width).dimmed()));
+            out.push_str(&format!("{status} {path}│\n"));
+            out.push_str(&format!("{}╯\n", "─".repeat(content_width).dimmed()));
+        };
 
         if let Some(patch) = &self.patch {
-            output.push_str(&format_patch(patch));
+            output.push_str(&format_patch(patch, render_header));
+        } else {
+            render_header(&mut output);
         }
         output
     }
@@ -74,16 +90,19 @@ impl DiffDisplay for TreeChangeWithPatch {
 /// Format a patch (UnifiedPatch) to a String.
 ///
 /// This is a helper function for consistent patch formatting.
-fn format_patch(patch: &UnifiedPatch) -> String {
+/// The `render_header` function is called before each hunk to render the file header.
+fn format_patch(patch: &UnifiedPatch, render_header: impl Fn(&mut String)) -> String {
     let mut output = String::new();
     match patch {
         UnifiedPatch::Binary => {
+            render_header(&mut output);
             output.push_str(&format!(
                 "   {}\n",
                 "Binary file - no diff available".dimmed()
             ));
         }
         UnifiedPatch::TooLarge { size_in_bytes } => {
+            render_header(&mut output);
             output.push_str(&format!(
                 "   {}\n",
                 format!(
@@ -96,10 +115,10 @@ fn format_patch(patch: &UnifiedPatch) -> String {
         UnifiedPatch::Patch {
             hunks,
             is_result_of_binary_to_text_conversion,
-            lines_added,
-            lines_removed,
+            ..
         } => {
             if *is_result_of_binary_to_text_conversion {
+                render_header(&mut output);
                 output.push_str(&format!(
                     "   {}\n",
                     "(diff generated from binary-to-text conversion)".yellow()
@@ -107,14 +126,9 @@ fn format_patch(patch: &UnifiedPatch) -> String {
             }
 
             for hunk in hunks {
+                render_header(&mut output);
                 output.push_str(&fmt_hunk(hunk));
             }
-
-            output.push_str(&format!(
-                "   {} {}\n",
-                format!("+{} -{}", lines_added, lines_removed).dimmed(),
-                format!("({} added, {} removed)", lines_added, lines_removed).dimmed()
-            ));
         }
     }
     output
@@ -138,7 +152,8 @@ fn fmt_hunk(hunk: &DiffHunk) -> String {
     );
 
     for line in hunk.diff.lines() {
-        if line.is_empty() {
+        if line.is_empty() || line.starts_with(b"@@") {
+            // Skip empty lines and hunk headers (e.g., "@@ -68,6 +68,7 @@")
             continue;
         }
 
@@ -221,15 +236,6 @@ impl DiffDisplay for HunkAssignment {
                 diff: diff.clone(),
             };
             output.push_str(&fmt_hunk(&hunk));
-
-            // Show line count summary
-            let added_count = self.line_nums_added.as_ref().map_or(0, |v| v.len());
-            let removed_count = self.line_nums_removed.as_ref().map_or(0, |v| v.len());
-            output.push_str(&format!(
-                "   {} {}\n",
-                format!("+{} -{}", added_count, removed_count).dimmed(),
-                format!("({} added, {} removed)", added_count, removed_count).dimmed()
-            ));
         } else if self.hunk_header.is_none() {
             // Binary, too large, or whole file without detailed diff
             output.push_str(&format!("   {}\n", "(no detailed diff available)".dimmed()));

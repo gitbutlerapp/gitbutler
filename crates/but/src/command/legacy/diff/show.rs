@@ -55,11 +55,7 @@ pub(crate) fn commit(
 ) -> anyhow::Result<()> {
     let result = but_api::diff::commit_details(ctx, id, ComputeLineStats::No)?;
     for change in result.diff_with_first_parent {
-        if let Some(path) = &path {
-            if &change.path != path {
-                continue;
-            }
-        } else {
+        if path.as_ref().is_none_or(|p| p == &change.path) {
             let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone().into())
                 .ok()
                 .flatten();
