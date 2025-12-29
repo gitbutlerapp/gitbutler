@@ -276,7 +276,7 @@ impl IdMap {
         }
 
         for uncommitted_file in self.uncommitted_files.values() {
-            if uncommitted_file.hunk_assignments.len() > 1 {
+            if !uncommitted_file.hunk_assignments.is_empty() {
                 for hunk_assignment in uncommitted_file.hunk_assignments.iter() {
                     self.uncommitted_hunks.insert(
                         self.id_usage.next_available()?.to_short_id(),
