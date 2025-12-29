@@ -3,7 +3,7 @@ use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
 use std::fmt::Write;
 
-use crate::{id::UncommittedCliId, utils::OutputChannel};
+use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
 
 use super::display::{DiffDisplay, TreeChangeWithPatch};
 
@@ -19,6 +19,8 @@ pub(crate) fn worktree(
     filter: Option<Filter>,
 ) -> anyhow::Result<()> {
     let result = but_api::legacy::diff::changes_in_worktree(ctx)?;
+    let mut id_map = IdMap::new_from_context(ctx)?;
+    id_map.add_file_info_from_context(ctx, Some(result.assignments.clone()))?;
     if let Some(filter) = filter {
         match filter {
             Filter::Unassigned => {}
@@ -28,7 +30,8 @@ pub(crate) fn worktree(
         writeln!(out, "No changes in the working tree.")?;
     } else {
         for assignment in result.assignments {
-            write!(out, "{}", assignment.print_diff())?;
+            let cli_id = id_map.resolve_uncommitted_hunk(&assignment);
+            write!(out, "{}", assignment.print_diff(cli_id.as_ref()))?;
         }
     }
     Ok(())
@@ -51,7 +54,7 @@ pub(crate) fn commit(
                 .ok()
                 .flatten();
             let diff = TreeChangeWithPatch::new(change.into(), patch);
-            write!(out, "{}", diff.print_diff())?;
+            write!(out, "{}", diff.print_diff(None))?;
         }
     }
     Ok(())
@@ -69,7 +72,7 @@ pub(crate) fn branch(
             .flatten();
 
         let diff = TreeChangeWithPatch::new(change, patch);
-        write!(out, "{}", diff.print_diff())?;
+        write!(out, "{}", diff.print_diff(None))?;
     }
     Ok(())
 }
