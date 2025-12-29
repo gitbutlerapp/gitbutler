@@ -29,7 +29,7 @@ use cfg_if::cfg_if;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, base, branch, claude, cursor, forge, metrics, oplog,
+    Args, OutputFormat, Subcommands, actions, base, branch, claude, cursor, forge, metrics,
     worktree,
 };
 use but_settings::AppSettings;
@@ -410,10 +410,10 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Oplog(oplog::Platform { cmd }) => {
+        Subcommands::Oplog(args::oplog::Platform { cmd }) => {
             let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
             match cmd {
-                Some(oplog::Subcommands::List { since, snapshot }) => {
+                Some(args::oplog::Subcommands::List { since, snapshot }) => {
                     let filter = if snapshot {
                         Some(command::legacy::oplog::OplogFilter::Snapshot)
                     } else {
@@ -422,7 +422,7 @@ async fn match_subcommand(
                     command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)
                         .emit_metrics(metrics_ctx)
                 }
-                Some(oplog::Subcommands::Snapshot { message }) => {
+                Some(args::oplog::Subcommands::Snapshot { message }) => {
                     command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())
                         .emit_metrics(metrics_ctx)
                 }
