@@ -754,6 +754,7 @@ dependencies = [
  "posthog-rs",
  "regex",
  "rmcp",
+ "schemars 1.1.0",
  "serde",
  "serde_json",
  "shell-words",

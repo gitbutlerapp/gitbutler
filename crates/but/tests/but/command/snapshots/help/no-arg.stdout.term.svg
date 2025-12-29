@@ -67,7 +67,7 @@
 </tspan>
     <tspan x="10px" y="442px"><tspan>  </tspan><tspan class="fg-green">push         </tspan><tspan>Push changes in a branch to remote</tspan>
 </tspan>
-    <tspan x="10px" y="460px"><tspan>  </tspan><tspan class="fg-green">review       </tspan><tspan>Commands for creating and publishing code reviews to a forge</tspan>
+    <tspan x="10px" y="460px"><tspan>  </tspan><tspan class="fg-green">pr           </tspan><tspan>Commands for creating and managing pull requests on a forge</tspan>
 </tspan>
     <tspan x="10px" y="478px"><tspan>  </tspan><tspan class="fg-green">forge        </tspan><tspan>Commands for interacting with forges like GitHub, GitLab (comin…</tspan>
 </tspan>

@@ -439,7 +439,7 @@ pub enum Subcommands {
     /// Commands for interacting with forges like GitHub, GitLab (coming soon), etc.
     ///
     /// The `but forge` tools allow you to authenticate with a forge from the CLI,
-    /// which then enables features like creating pull requests with the `but review`
+    /// which then enables features like creating pull requests with the `but pr`
     /// commands.
     ///
     /// Start by running `but forge auth` to authenticate with your forge.
@@ -452,14 +452,18 @@ pub enum Subcommands {
     ///
     Forge(forge::integration::Platform),
 
-    /// Commands for creating and publishing code reviews to a forge.
+    /// Commands for creating and managing pull requests on a forge.
     ///
     /// If you are authenticated with a forge using `but forge auth`, you can use
-    /// the `but review` commands to create pull requests (or merge requests) on
+    /// the `but pr` commands to create pull requests (or merge requests) on
     /// the remote repository for your branches.
     ///
+    /// Running `but pr` without a subcommand defaults to `but pr new`, which
+    /// will prompt you to select a branch to create a PR for.
+    ///
     #[cfg(feature = "legacy")]
-    Review(forge::review::Platform),
+    #[clap(visible_alias = "review")]
+    Pr(forge::pr::Platform),
 
     /// AI: Starts up the MCP server.
     ///

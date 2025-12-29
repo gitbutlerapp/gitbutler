@@ -79,6 +79,7 @@ gitbutler-oplog = { workspace = true, optional = true }
 
 git2.workspace = true
 async-openai.workspace = true
+schemars.workspace = true
 posthog-rs = { version = "0.3.7" }
 serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }

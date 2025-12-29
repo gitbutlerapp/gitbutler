@@ -455,16 +455,16 @@ async fn match_subcommand(
             .context("Failed to initialize GitButler project.")
             .emit_metrics(metrics_ctx),
         #[cfg(feature = "legacy")]
-        Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
-            forge::review::Subcommands::Publish {
-                branch,
-                skip_force_push_protection,
-                with_force,
-                run_hooks,
-                default,
-            } => {
-                let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-                command::legacy::forge::review::publish_reviews(
+        Subcommands::Pr(forge::pr::Platform { cmd }) => {
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            match cmd {
+                Some(forge::pr::Subcommands::New {
+                    branch,
+                    skip_force_push_protection,
+                    with_force,
+                    run_hooks,
+                    default,
+                }) => command::legacy::forge::review::create_pr(
                     &mut ctx,
                     branch,
                     skip_force_push_protection,
@@ -474,16 +474,28 @@ async fn match_subcommand(
                     out,
                 )
                 .await
-                .context("Failed to publish reviews for branches.")
-                .emit_metrics(metrics_ctx)
-            }
-            forge::review::Subcommands::Template { template_path } => {
-                let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-                command::legacy::forge::review::set_review_template(&mut ctx, template_path, out)
-                    .context("Failed to set review template.")
+                .context("Failed to create PR for branch.")
+                .emit_metrics(metrics_ctx),
+                Some(forge::pr::Subcommands::Template { template_path }) => {
+                    command::legacy::forge::review::set_review_template(
+                        &mut ctx,
+                        template_path,
+                        out,
+                    )
+                    .context("Failed to set PR template.")
                     .emit_metrics(metrics_ctx)
+                }
+                None => {
+                    // Default to `pr new` when no subcommand is provided
+                    command::legacy::forge::review::create_pr(
+                        &mut ctx, None, false, true, true, false, out,
+                    )
+                    .await
+                    .context("Failed to create PR for branch.")
+                    .emit_metrics(metrics_ctx)
+                }
             }
-        },
+        }
     }
 }
 
