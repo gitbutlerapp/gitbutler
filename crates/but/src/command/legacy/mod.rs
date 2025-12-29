@@ -7,6 +7,7 @@ pub mod base;
 pub mod branch;
 pub mod commit;
 pub mod describe;
+pub mod diff;
 pub mod forge;
 pub mod init;
 pub mod mark;

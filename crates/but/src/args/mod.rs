@@ -168,6 +168,7 @@ pub enum Subcommands {
     /// - an entire stack
     /// - a commit
     /// - a file change within a commit
+    #[cfg(feature = "legacy")]
     Diff {
         /// The CLI ID of the entity to show the diff for
         target: Option<String>,

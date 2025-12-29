@@ -408,7 +408,6 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
             .project_data_last_fetch
             .as_ref()
             .map(FetchResult::timestamp)
-            .copied()
             .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap().as_millis()),
         conflicted,
         diverged,

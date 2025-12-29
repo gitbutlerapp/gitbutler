@@ -64,6 +64,7 @@ impl Subcommands {
             Subcommands::Stf { .. } => Stf,
             #[cfg(feature = "legacy")]
             Subcommands::Rub { .. } => Rub,
+            #[cfg(feature = "legacy")]
             Subcommands::Diff { .. } => Diff,
             #[cfg(feature = "legacy")]
             Subcommands::Base(base::Platform { cmd }) => match cmd {

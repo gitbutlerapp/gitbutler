@@ -1,4 +1,4 @@
-use but_core::{UnifiedPatch, ui::TreeChange, unified_diff::DiffHunk};
+use but_core::{UnifiedPatch, ui, unified_diff::DiffHunk};
 use but_hunk_assignment::HunkAssignment;
 use colored::Colorize;
 
@@ -40,12 +40,12 @@ pub(crate) trait DiffDisplay {
 
 #[derive(Debug)]
 pub(crate) struct TreeChangeWithPatch {
-    change: TreeChange,
+    change: ui::TreeChange,
     patch: Option<UnifiedPatch>,
 }
 
 impl TreeChangeWithPatch {
-    pub fn new(change: TreeChange, patch: Option<UnifiedPatch>) -> Self {
+    pub fn new(change: ui::TreeChange, patch: Option<UnifiedPatch>) -> Self {
         Self { change, patch }
     }
 }
@@ -113,7 +113,7 @@ fn format_patch(patch: &UnifiedPatch) -> String {
     output
 }
 
-fn fmt_hunk(hunk: &but_core::unified_diff::DiffHunk) -> String {
+fn fmt_hunk(hunk: &DiffHunk) -> String {
     use bstr::ByteSlice;
 
     let mut output = String::new();
