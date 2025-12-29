@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow, bail};
 use bstr::{BString, ByteSlice};
+use but_core::RepositoryExt;
 use but_core::commit::TreeKind;
-use but_oxidize::GixRepositoryExt;
 use gix::prelude::ObjectIdExt;
 
 use crate::commit::DateMode;

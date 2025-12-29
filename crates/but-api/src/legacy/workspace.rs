@@ -29,7 +29,7 @@ fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMet
 #[instrument(err(Debug))]
 pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ref_metadata_toml(&ctx.legacy_project)?;
     but_workspace::head_info(
         &repo,
@@ -52,7 +52,7 @@ pub fn stacks(
     filter: Option<but_workspace::legacy::StacksFilter>,
 ) -> Result<Vec<StackEntry>> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ref_metadata_toml(&ctx.legacy_project)?;
     but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
 }
@@ -118,7 +118,7 @@ pub fn stack_details(
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let mut details = {
-        let repo = ctx.open_repo_for_merging_non_persisting()?;
+        let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(&ctx.legacy_project)?;
         but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
     }?;
@@ -207,7 +207,7 @@ pub fn branch_details(
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let mut details = {
-        let repo = ctx.open_repo_for_merging_non_persisting()?;
+        let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(&ctx.legacy_project)?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
             None => {
@@ -573,7 +573,7 @@ pub fn stash_into_branch(
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let repo = ctx.open_repo_for_merging()?;
+    let repo = ctx.clone_repo_for_merging()?;
 
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();

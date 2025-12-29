@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use but_oxidize::OidExt;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_project::Project;
@@ -374,12 +375,12 @@ fn check_branches_merge_cleanly(
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     branches: &[gitbutler_branch_actions::BranchListing],
 ) -> Result<HashMap<String, bool>, anyhow::Error> {
+    use but_core::RepositoryExt;
     use but_ctx::Context;
-    use but_oxidize::GixRepositoryExt;
 
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let git2_repo = &*ctx.git2_repo.get()?;
-    let repo = ctx.open_repo()?.for_tree_diffing()?.with_object_memory();
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
     let target = stack.get_default_target()?;
@@ -416,10 +417,10 @@ fn check_branches_merge_cleanly(
 
                             // Check if branch merges cleanly into target
                             let merges_cleanly = repo
-                                .merges_cleanly_compat(
-                                    merge_base_commit.tree_id(),
-                                    target_commit.tree_id(),
-                                    branch_commit.tree_id(),
+                                .merges_cleanly(
+                                    merge_base_commit.tree_id().to_gix(),
+                                    target_commit.tree_id().to_gix(),
+                                    branch_commit.tree_id().to_gix(),
                                 )
                                 .unwrap_or(false);
 
@@ -450,10 +451,10 @@ fn check_branches_merge_cleanly(
 
                         // Check if branch merges cleanly into target
                         let merges_cleanly = repo
-                            .merges_cleanly_compat(
-                                merge_base_commit.tree_id(),
-                                target_commit.tree_id(),
-                                branch_commit.tree_id(),
+                            .merges_cleanly(
+                                merge_base_commit.tree_id().to_gix(),
+                                target_commit.tree_id().to_gix(),
+                                branch_commit.tree_id().to_gix(),
                             )
                             .unwrap_or(false);
 

@@ -93,7 +93,7 @@ fn amend_diff_specs(
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<CreateCommitOutcome> {
     but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
-        &ctx.open_repo_for_merging()?,
+        &ctx.clone_repo_for_merging()?,
         &ctx.project_data_dir(),
         stack_id,
         commit_engine::Destination::AmendCommit {

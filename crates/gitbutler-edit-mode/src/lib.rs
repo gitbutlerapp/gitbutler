@@ -2,14 +2,12 @@ use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
-use but_core::{TreeChange, ref_metadata::StackId};
+use but_core::{RepositoryExt, TreeChange, ref_metadata::StackId};
 use but_ctx::{
     Context,
     access::{WorktreeReadPermission, WorktreeWritePermission},
 };
-use but_oxidize::{
-    GixRepositoryExt, ObjectIdExt, OidExt, RepoExt, git2_to_gix_object_id, gix_to_git2_index,
-};
+use but_oxidize::{ObjectIdExt, OidExt, RepoExt, git2_to_gix_object_id, gix_to_git2_index};
 use but_workspace::legacy::stack_ext::StackExt;
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::update_workspace_commit;
@@ -22,7 +20,7 @@ use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF, operating_mode,
     read_edit_mode_metadata, write_edit_mode_metadata,
 };
-use gitbutler_repo::{RepositoryExt, SignaturePurpose, signature};
+use gitbutler_repo::{RepositoryExt as _, SignaturePurpose, signature};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use serde::Serialize;
@@ -51,7 +49,7 @@ fn get_commit_index(ctx: &Context, commit: &git2::Commit) -> Result<git2::Index>
             .context("Failed to get base")?
             .id();
 
-        let gix_repo = ctx.open_repo_for_merging()?;
+        let gix_repo = ctx.clone_repo_for_merging()?;
         // Merge without favoring a side this time to get a tree containing the actual conflicts.
         let mut merge_result = gix_repo.merge_trees(
             git2_to_gix_object_id(base),

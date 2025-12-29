@@ -49,9 +49,7 @@ pub fn freestyle(
     chat_messages: Vec<openai::ChatMessage>,
     model: Option<String>,
 ) -> anyhow::Result<String> {
-    let repo = ctx.open_repo()?;
-
-    let project_status = but_tools::workspace::get_project_status(ctx, &repo, None)?;
+    let project_status = but_tools::workspace::get_project_status(ctx, None)?;
     let serialized_status = serde_json::to_string_pretty(&project_status)
         .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
 

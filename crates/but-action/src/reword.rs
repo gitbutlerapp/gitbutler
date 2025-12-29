@@ -26,7 +26,7 @@ pub async fn commit(
 ) -> anyhow::Result<Option<(gix::ObjectId, String)>> {
     let (diff, sync_ctx) = {
         let ctx = Context::new_from_legacy_project(event.project.clone())?;
-        let repo = &ctx.open_repo_for_merging_non_persisting()?;
+        let repo = &ctx.clone_repo_for_merging_non_persisting()?;
         let changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
             repo,
             event.commit_id,
@@ -89,7 +89,7 @@ pub async fn commit(
 }
 
 fn stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = VirtualBranchesTomlMetadata::from_path(
         ctx.project_data_dir().join("virtual_branches.toml"),
     )?;

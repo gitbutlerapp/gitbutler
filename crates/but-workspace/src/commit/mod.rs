@@ -34,9 +34,9 @@ impl std::fmt::Debug for Stack {
 /// Structures related to creating a merge-commit along with the respective tree.
 pub mod merge {
     use anyhow::{Context as _, bail};
+    use but_core::RepositoryExt;
     use but_core::ref_metadata::{MaybeDebug, WorkspaceCommitRelation};
     use but_graph::SegmentIndex;
-    use but_oxidize::GixRepositoryExt;
     use gix::prelude::ObjectIdExt;
     use tracing::instrument;
 

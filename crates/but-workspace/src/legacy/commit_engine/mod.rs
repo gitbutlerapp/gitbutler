@@ -45,7 +45,7 @@ pub fn create_commit_simple(
     stack_branch_name: String,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let repo = ctx.open_repo_for_merging()?;
+    let repo = ctx.clone_repo_for_merging()?;
     // If parent_id was not set but a stack branch name was provided, pick the current head of that branch as parent.
     let parent_commit_id: Option<gix::ObjectId> = match parent_id {
         Some(id) => Some(id),

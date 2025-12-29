@@ -12,7 +12,7 @@ use gitbutler_stack::VirtualBranchesHandle;
 /// Returns the oid of the base of the workspace
 /// TODO: Ensure that this is the bottom most common ancestor of all the stacks
 pub fn workspace_base(ctx: &Context, _perm: &WorktreeReadPermission) -> Result<gix::ObjectId> {
-    let gix_repo = ctx.open_repo_for_merging()?;
+    let gix_repo = ctx.clone_repo_for_merging()?;
     let repo = &*ctx.git2_repo.get()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_state.get_default_target()?;
@@ -36,7 +36,7 @@ pub fn workspace_base_from_heads(
     _perm: &WorktreeReadPermission,
     heads: &[gix::ObjectId],
 ) -> Result<gix::ObjectId> {
-    let gix_repo = ctx.open_repo_for_merging()?;
+    let gix_repo = ctx.clone_repo_for_merging()?;
     let repo = &*ctx.git2_repo.get()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_state.get_default_target()?;

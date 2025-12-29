@@ -172,9 +172,11 @@ pub fn push_stack(
 
     let git2_repo = ctx.git2_repo.get()?;
     let default_target = state.get_default_target()?;
-    let repo = ctx.open_repo()?;
+    let gix_repo = ctx.clone_repo_for_merging_non_persisting()?;
     let merge_base_id = git2_repo
-        .find_commit(git2_repo.merge_base(stack.head_oid(&repo)?.to_git2(), default_target.sha)?)?
+        .find_commit(
+            git2_repo.merge_base(stack.head_oid(&gix_repo)?.to_git2(), default_target.sha)?,
+        )?
         .id()
         .to_gix();
 
@@ -183,7 +185,6 @@ pub fn push_stack(
         &default_target.push_remote_name(),
         Some("push_stack".into()),
     )?;
-    let gix_repo = ctx.open_repo_for_merging_non_persisting()?;
     let cache = gix_repo.commit_graph_if_enabled()?;
     let stack_branches = stack.branches();
     let mut result = PushResult {

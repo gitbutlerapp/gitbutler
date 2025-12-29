@@ -142,7 +142,6 @@ pub(crate) mod function {
         },
     };
     use but_graph::{SegmentIndex, init::Overlay, petgraph::Direction, projection::WorkspaceKind};
-    use but_oxidize::GixRepositoryExt;
     use gix::{
         prelude::ObjectIdExt,
         reference::Category,

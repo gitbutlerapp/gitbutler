@@ -1,10 +1,10 @@
+use super::list::load_id_map;
+use crate::utils::OutputChannel;
 use but_ctx::Context;
+use but_oxidize::OidExt;
 use colored::Colorize;
 use gitbutler_project::Project;
 use tracing::instrument;
-
-use super::list::load_id_map;
-use crate::utils::OutputChannel;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn show(
@@ -118,12 +118,11 @@ fn check_merge_conflicts(
     project: &Project,
     branch_name: &str,
 ) -> Result<MergeCheck, anyhow::Error> {
-    use but_oxidize::GixRepositoryExt;
+    use but_core::RepositoryExt;
 
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let git2_repo = &*ctx.git2_repo.get()?;
-    let repo = ctx.open_repo()?;
-    let gix_repo = repo.for_tree_diffing()?.with_object_memory();
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
@@ -135,7 +134,7 @@ fn check_merge_conflicts(
         target.branch.remote(),
         target.branch.branch()
     );
-    let target_commit = match gix_repo.find_reference(&target_ref_name) {
+    let target_commit = match repo.find_reference(&target_ref_name) {
         Ok(reference) => {
             let target_oid = reference.id();
             git2_repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
@@ -160,10 +159,10 @@ fn check_merge_conflicts(
     let merge_base_commit = git2_repo.find_commit(merge_base)?;
 
     // Check if branch merges cleanly into target
-    let merges_cleanly = gix_repo.merges_cleanly_compat(
-        merge_base_commit.tree_id(),
-        target_commit.tree_id(),
-        branch_commit.tree_id(),
+    let merges_cleanly = repo.merges_cleanly(
+        merge_base_commit.tree_id().to_gix(),
+        target_commit.tree_id().to_gix(),
+        branch_commit.tree_id().to_gix(),
     )?;
 
     let mut conflicting_files = Vec::new();
@@ -172,7 +171,7 @@ fn check_merge_conflicts(
     if !merges_cleanly {
         // Get the list of conflicting files from the merge
         let conflict_paths = get_merge_conflict_paths(
-            &gix_repo,
+            &repo,
             merge_base_commit.tree_id(),
             target_commit.tree_id(),
             branch_commit.tree_id(),
@@ -206,7 +205,7 @@ fn get_merge_conflict_paths(
     ours_tree: git2::Oid,
     theirs_tree: git2::Oid,
 ) -> Result<Vec<String>, anyhow::Error> {
-    use but_oxidize::GixRepositoryExt;
+    use but_core::RepositoryExt;
 
     let (options, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     let merge_result = gix_repo.merge_trees(

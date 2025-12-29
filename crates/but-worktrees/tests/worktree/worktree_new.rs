@@ -10,7 +10,7 @@ fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {
     let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
     let guard = test_ctx.ctx.exclusive_worktree_access();
-    let repo = test_ctx.ctx.open_repo_for_merging()?;
+    let repo = test_ctx.ctx.clone_repo_for_merging()?;
     let meta = VirtualBranchesTomlMetadata::from_path(
         test_ctx
             .ctx
@@ -58,7 +58,7 @@ fn can_create_worktree_from_feature_b() -> anyhow::Result<()> {
     let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
     let guard = test_ctx.ctx.exclusive_worktree_access();
-    let repo = test_ctx.ctx.open_repo_for_merging()?;
+    let repo = test_ctx.ctx.clone_repo_for_merging()?;
     let meta = VirtualBranchesTomlMetadata::from_path(
         test_ctx
             .ctx
@@ -106,7 +106,7 @@ fn can_create_worktree_from_feature_c() -> anyhow::Result<()> {
     let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
     let guard = test_ctx.ctx.exclusive_worktree_access();
-    let repo = test_ctx.ctx.open_repo_for_merging()?;
+    let repo = test_ctx.ctx.clone_repo_for_merging()?;
     let meta = VirtualBranchesTomlMetadata::from_path(
         test_ctx
             .ctx

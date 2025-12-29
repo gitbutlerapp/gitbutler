@@ -191,8 +191,9 @@ fn prompt_for_branch_selection(
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<String>> {
-    let (base_branch, repo) = get_base_branch_and_repo(project)?;
+    let (base_branch, ctx) = get_base_branch_and_context(project)?;
     let base_branch_id = base_branch.current_sha.to_gix();
+    let repo = &*ctx.repo.get()?;
 
     // Collect all branches with their information
     let mut all_branches: Vec<(String, usize, Vec<String>)> = Vec::new();
@@ -286,7 +287,7 @@ async fn publish_reviews_for_branch_and_dependents(
     default_message: bool,
     out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
-    let (base_branch, _) = get_base_branch_and_repo(project)?;
+    let (base_branch, _) = get_base_branch_and_context(project)?;
     let all_branches_up_to_subject = stack_entry
         .heads
         .iter()
@@ -375,14 +376,13 @@ async fn publish_reviews_for_branch_and_dependents(
     Ok(outcome)
 }
 
-fn get_base_branch_and_repo(
+fn get_base_branch_and_context(
     project: &Project,
-) -> Result<(gitbutler_branch_actions::BaseBranch, gix::Repository), anyhow::Error> {
+) -> Result<(gitbutler_branch_actions::BaseBranch, but_ctx::Context), anyhow::Error> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let ctx = Context::new_from_legacy_project_and_settings(project, app_settings);
-    let repo = ctx.open_repo()?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-    Ok((base_branch, repo))
+    Ok((base_branch, ctx))
 }
 
 /// Display a summary of published and already existing reviews for humans

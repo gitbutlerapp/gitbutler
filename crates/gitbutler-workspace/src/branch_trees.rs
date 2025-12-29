@@ -122,7 +122,7 @@ pub fn update_uncommitted_changes_with_tree(
     } else {
         let old_tree_id = merge_workspace(repo, old)?.to_gix();
         let new_tree_id = merge_workspace(repo, new)?.to_gix();
-        let gix_repo = ctx.open_repo_for_merging()?;
+        let gix_repo = ctx.clone_repo_for_merging()?;
         but_core::worktree::safe_checkout(
             old_tree_id,
             new_tree_id,

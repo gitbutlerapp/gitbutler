@@ -212,7 +212,7 @@ pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termt
 }
 
 pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
-    let repo = ctx.open_repo_for_merging_non_persisting().unwrap();
+    let repo = ctx.clone_repo_for_merging_non_persisting().unwrap();
     let stacks = {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project_data_dir().join("virtual_branches.toml"),

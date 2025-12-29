@@ -88,9 +88,6 @@ pub mod cmd;
 pub mod settings;
 pub use settings::git::types::GitConfigSettings;
 
-mod repo_ext;
-pub use repo_ext::RepositoryExt;
-
 pub mod snapshot;
 
 /// Utilities to deal with git worktrees.
@@ -108,6 +105,9 @@ pub mod sync;
 
 mod ext;
 pub use ext::ObjectStorageExt;
+
+mod repo_ext;
+pub use repo_ext::RepositoryExt;
 
 /// Return `true` if `ref_name` looks like the standard GitButler workspace.
 ///
@@ -288,15 +288,6 @@ pub fn open_repo_for_merging(path: impl Into<PathBuf>) -> anyhow::Result<gix::Re
     let bytes = repo.compute_object_cache_size_for_tree_diffs(&***repo.index_or_empty()?);
     repo.object_cache_size_if_unset(bytes);
     Ok(repo)
-}
-
-/// A central place for opening a standard repository at `path` configured for any operation.
-/// Note that there may be more specialized versions of `open_repo_*` that might be more suitable for
-/// specific use-cases.
-///
-/// Note that the repository isn't discovered, but must exist at `path`.
-pub fn open_repo(path: impl Into<PathBuf>) -> anyhow::Result<gix::Repository> {
-    Ok(gix::open(path)?)
 }
 
 /// An entry in the worktree that changed and thus is eligible to being committed.

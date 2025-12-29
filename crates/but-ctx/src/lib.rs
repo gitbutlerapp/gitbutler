@@ -2,10 +2,10 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
-use std::path::{Path, PathBuf};
-
+use but_core::RepositoryExt;
 use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
 use but_settings::AppSettings;
+use std::path::{Path, PathBuf};
 
 /// Legacy types that shouldn't be used.
 #[cfg(feature = "legacy")]
@@ -360,22 +360,11 @@ impl Context {
 
 /// *Repository* helpers, for when you need something more specific than [Self::repo].
 impl Context {
-    /// Open a standard Git repository at the project directory, just like a real user would.
-    ///
-    /// This repository is good for standard tasks, like checking refs and traversing the commit graph,
-    /// and for reading objects as well.
-    ///
-    /// Diffing and merging is better done with [`Self::open_repo_for_merging()`].
-    ///
-    /// Note that this repository isn't cached!
-    pub fn open_repo(&self) -> anyhow::Result<gix::Repository> {
-        Ok(gix::open(&self.gitdir)?)
-    }
-
     /// Open an isolated repository, one that didn't read options beyond `.git/config` and
     /// knows no environment variables.
     ///
     /// Use it for fastest-possible access, when incomplete configuration is acceptable.
+    /// Note that [Self::repo].get() should be preferred.
     pub fn open_isolated_repo(&self) -> anyhow::Result<gix::Repository> {
         Ok(gix::open_opts(
             &self.gitdir,
@@ -383,22 +372,26 @@ impl Context {
         )?)
     }
 
-    /// Return a newly opened `gitoxide` repository, with all configuration available
+    /// Return a cloned [`Repository`](gix::Repository) as cached in the context, with all configuration available
     /// to correctly figure out author and committer names (i.e. with most global configuration loaded),
-    /// *and* which will perform diffs quickly thanks to an adequate object cache, *and*
-    /// which **writes all objects into memory**.
-    pub fn open_repo_for_merging(&self) -> anyhow::Result<gix::Repository> {
-        but_core::open_repo_for_merging(&self.gitdir)
+    /// *and* which will perform diffs quickly thanks to an adequate object cache.
+    ///
+    /// This naturally is also useful for merging, but *only if these merged objects are supposed to be persisted immediately*.
+    /// Note that the object cache will be temporary this way, and is dropped when the instance is dropped.
+    pub fn clone_repo_for_merging(&self) -> anyhow::Result<gix::Repository> {
+        let repo = self.repo.get()?.clone().for_tree_diffing()?;
+        Ok(repo)
     }
 
-    /// Return a newly opened `gitoxide` repository, with all configuration available
+    /// Return a cloned [`Repository`](gix::Repository) as cached in the context, with all configuration available
     /// to correctly figure out author and committer names (i.e. with most global configuration loaded),
     /// *and* which will perform diffs quickly thanks to an adequate object cache, *and*
     /// which **writes all objects into memory**.
     ///
     /// This means *changes are non-persisting*.
-    pub fn open_repo_for_merging_non_persisting(&self) -> anyhow::Result<gix::Repository> {
-        self.open_repo_for_merging()
+    /// Note that the object cache will be temporary this way, and is dropped when the instance is dropped.
+    pub fn clone_repo_for_merging_non_persisting(&self) -> anyhow::Result<gix::Repository> {
+        self.clone_repo_for_merging()
             .map(|repo| repo.with_object_memory())
     }
 }

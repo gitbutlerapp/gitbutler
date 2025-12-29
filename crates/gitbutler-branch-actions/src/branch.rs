@@ -10,7 +10,7 @@ use std::{
 use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_ctx::{Context, access::WorktreeReadPermission};
-use but_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
+use but_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use but_serde::BStringForFrontend;
 use gitbutler_branch::{BranchIdentity, ReferenceExtGix};
 use gitbutler_diff::DiffByPathMap;
@@ -645,7 +645,7 @@ pub fn get_branch_listing_details(
         .map(TryInto::try_into)
         .filter_map(Result::ok)
         .collect();
-    let repo = ctx.open_isolated_repo()?.for_tree_diffing()?;
+    let repo = ctx.clone_repo_for_merging()?;
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
     let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {

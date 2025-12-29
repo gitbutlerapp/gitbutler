@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::ByteSlice;
-use but_core::Reference;
+use but_core::{Reference, RepositoryExt};
 use but_ctx::{Context, access::WorktreeWritePermission};
 use but_meta::VirtualBranchesTomlMetadata;
-use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
+use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_serde::BStringForFrontend;
 use but_workspace::{legacy::stack_ext::StackDetailsExt, ref_info::Options};
@@ -239,7 +239,7 @@ fn stack_details(
     ctx: &Context,
     stack_id: Option<StackId>,
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
-    let repo = ctx.open_repo_for_merging_non_persisting()?;
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = VirtualBranchesTomlMetadata::from_path(
         ctx.project_data_dir().join("virtual_branches.toml"),
     )?;
@@ -358,7 +358,7 @@ pub fn upstream_integration_statuses(
     let git2_repo = &*ctx.git2_repo.get()?;
     let old_target = git2_repo.find_commit(target.sha)?;
 
-    let gix_repo = context.ctx.open_repo_for_merging()?;
+    let gix_repo = context.ctx.clone_repo_for_merging()?;
     let gix_repo_in_memory = gix_repo.clone().with_object_memory();
 
     if *new_target == old_target.id() {
