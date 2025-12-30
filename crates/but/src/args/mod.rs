@@ -369,17 +369,16 @@ pub enum Subcommands {
     /// Edit the commit message of the specified commit.
     ///
     /// You can easily change the commit message of any of your commits by
-    /// running `but describe <commit-id>` and providing a new message in the
+    /// running `but reword <commit-id>` and providing a new message in the
     /// editor.
     ///
     /// This will rewrite the commit with the new message and then rebase any
     /// dependent commits on top of it.
     ///
-    /// You can also use `but describe <branch-id>` to rename the branch.
+    /// You can also use `but reword <branch-id>` to rename the branch.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(alias = "desc")]
-    Describe {
+    Reword {
         /// Commit ID to edit the message for, or branch ID to rename
         target: String,
         /// The new commit message or branch name. If not provided, opens an editor.
