@@ -9,7 +9,7 @@
 //!   - Currently, there is only one workspace per repository, but this is something we intend to change
 //!     in the future to facilitate new use cases.
 //! * **Workspace Ref**
-//!   - The reference that points to the merge-commit which integrates all *workspace* *stacks*.
+//!   - The reference that points to the merge-ommit which integrates all *workspace* *stacks*.
 //! * **Stack**
 //!   - GitButler implements the concept of a branch stack. This is essentially a collection of "heads"
 //!     (pseudo branches) that contain each other.
