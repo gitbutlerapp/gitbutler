@@ -3,9 +3,10 @@ use std::collections::BTreeMap;
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
+use but_core::diff::CommitDetails;
 use but_core::{TreeStatus, ui};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
+use but_oxidize::OidExt;
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gix::date::time::CustomFormat;
@@ -421,8 +422,9 @@ pub fn print_group(
             first = false;
             for commit in &branch.upstream_commits {
                 let dot = "●".yellow();
+                let details = but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
                 print_commit(
-                    ctx, commit.id, dot, false, show_files, verbose, show_url, None, id_map, out,
+                    details, dot, false, show_files, verbose, show_url, None, id_map, out,
                 )?;
             }
             for cli_commit in &branch.commits {
@@ -441,9 +443,9 @@ pub fn print_group(
                     }
                     but_workspace::ui::CommitState::Integrated => "●".purple(),
                 };
+                let details = but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
                 print_commit(
-                    ctx,
-                    commit.id,
+                    details,
                     dot,
                     marked,
                     show_files,
@@ -471,20 +473,6 @@ pub fn print_group(
     }
     writeln!(out, "┊")?;
     Ok(())
-}
-
-// TODO: we have the commit information, but the caller uses a degenerated structure that loses TZ information.
-//       Use the original data (which would also fix frontend display).
-fn created_at_of_commit(
-    ctx: &Context,
-    commit_id: gix::ObjectId,
-) -> anyhow::Result<gix::date::Time> {
-    Ok(ctx
-        .git2_repo
-        .get()?
-        .find_commit(commit_id.to_git2())?
-        .time()
-        .to_gix())
 }
 
 fn status_letter(status: &TreeStatus) -> char {
@@ -535,8 +523,7 @@ fn status_from_changes(changes: &[ui::TreeChange], path: BString) -> Option<ui::
 
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
-    ctx: &Context,
-    commit_id: gix::ObjectId,
+    commit_details: CommitDetails,
     dot: ColoredString,
     marked: bool,
     show_files: bool,
@@ -552,58 +539,20 @@ fn print_commit(
         None
     };
 
-    let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
-    let no_changes = if show_files && commit_details.diff_with_first_parent.is_empty() {
-        "(no changes)".dimmed().italic()
-    } else {
-        "".to_string().normal()
-    };
-
-    let conflicted_str = if commit_details.conflict_entries.is_some() {
-        "{conflicted}".red()
-    } else {
-        "".normal()
-    };
-    let created_at = created_at_of_commit(ctx, commit_id)?;
-    let message = commit_details.commit.inner.message.to_string();
-    let mut message = if verbose {
-        message
-            .replace('\n', " ")
-            .chars()
-            .take(50)
-            .collect::<String>()
-    } else {
-        // For non-verbose mode, only use the first line (title)
-        message
-            .lines()
-            .next()
-            .unwrap_or("")
-            .chars()
-            .take(50)
-            .collect::<String>()
-    }
-    .normal();
-    if message.is_empty() {
-        message = "(no commit message)".to_string().dimmed().italic();
-    }
+    let details_string = commit_details.display_cli(verbose);
 
     if verbose {
         // Verbose format: author and timestamp on first line, message on second line
-        let formatted_time = created_at.format_or_unix(CLI_DATE);
         writeln!(
             out,
-            "┊{dot}   {}{} {} {} {} {} {} {}",
-            &commit_id.to_string()[..2].blue().underline(),
-            &commit_id.to_string()[2..7].dimmed(),
-            commit_details.commit.inner.author.name,
-            formatted_time.dimmed(),
-            no_changes,
-            conflicted_str,
+            "┊{dot}   {} {} {}",
+            details_string,
             review_url
                 .map(|r| format!("◖{}◗", r.underline().blue()))
                 .unwrap_or_default(),
             mark.unwrap_or_default()
         )?;
+        let message = CommitMessage(commit_details.commit.inner.message).display_cli(verbose);
         writeln!(out, "┊│     {message}")?;
     } else {
         // Original format: everything on one line
@@ -615,12 +564,8 @@ fn print_commit(
         .unwrap_or_default();
         writeln!(
             out,
-            "┊{dot}   {}{} {} {} {} {} {}",
-            &commit_id.to_string()[..2].blue().underline(),
-            &commit_id.to_string()[2..7].dimmed(),
-            message,
-            no_changes,
-            conflicted_str,
+            "┊{dot}   {} {} {}",
+            details_string,
             review_url,
             mark.unwrap_or_default()
         )?;
@@ -628,7 +573,10 @@ fn print_commit(
     if show_files {
         for change in &commit_details.diff_with_first_parent {
             let cid = id_map
-                .resolve_file_changed_in_commit_or_unassigned(commit_id, change.path.as_ref())
+                .resolve_file_changed_in_commit_or_unassigned(
+                    commit_details.commit.id,
+                    change.path.as_ref(),
+                )
                 .to_short_string()
                 .blue()
                 .underline();
@@ -638,4 +586,72 @@ fn print_commit(
         }
     }
     Ok(())
+}
+
+trait CliDisplay {
+    fn display_cli(&self, verbose: bool) -> String;
+}
+
+impl CliDisplay for CommitDetails {
+    fn display_cli(&self, verbose: bool) -> String {
+        let commit_id = &self.commit.id.to_string();
+
+        let conflicted_str = if self.conflict_entries.is_some() {
+            " {conflicted}".red()
+        } else {
+            "".normal()
+        };
+
+        let no_changes = if self.diff_with_first_parent.is_empty() {
+            " (no changes)".dimmed().italic()
+        } else {
+            "".to_string().normal()
+        };
+
+        if verbose {
+            // No message when verbose since it goes to the next line
+            let created_at = self.commit.inner.committer.time;
+            let formatted_time = created_at.format_or_unix(CLI_DATE);
+            format!(
+                "{}{} {} {}{}{}",
+                commit_id[..2].blue().underline(),
+                commit_id[2..7].to_string().dimmed(),
+                self.commit.inner.author.name,
+                formatted_time.dimmed(),
+                no_changes,
+                conflicted_str,
+            )
+        } else {
+            let message = CommitMessage(self.commit.inner.message.clone()).display_cli(verbose);
+            format!(
+                "{}{} {}{}{}",
+                commit_id[..2].blue().underline(),
+                commit_id[2..7].to_string().dimmed(),
+                message,
+                no_changes,
+                conflicted_str,
+            )
+        }
+    }
+}
+
+struct CommitMessage(pub BString);
+
+impl CliDisplay for CommitMessage {
+    fn display_cli(&self, verbose: bool) -> String {
+        let message = self.0.to_string();
+        let text = if verbose {
+            message.replace('\n', " ")
+        } else {
+            message.lines().next().unwrap_or("").to_string()
+        };
+
+        let truncated: String = text.chars().take(50).collect();
+
+        if truncated.is_empty() {
+            "(no commit message)".dimmed().italic().to_string()
+        } else {
+            truncated.normal().to_string()
+        }
+    }
 }
