@@ -142,6 +142,8 @@ pub struct GiteaUser {
     pub full_name: Option<String>,
     pub email: String,
     pub avatar_url: String,
+    #[serde(default)]
+    pub is_bot: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
