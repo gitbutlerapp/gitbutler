@@ -414,7 +414,7 @@ pub mod merge {
     ) -> anyhow::Result<(gix::ObjectId, SegmentIndex)> {
         let base_sidx = graph.first_merge_base(left, right).with_context(|| {
             format!(
-                "Couldn't find merge-base between segments {l} and {r}",
+                "Couldn't find merge-base between segments {l} and {r} - they are disjoint in the commit-graph",
                 l = left.index(),
                 r = right.index()
             )
