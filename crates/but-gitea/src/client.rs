@@ -29,7 +29,7 @@ impl GiteaClient {
     fn request(&self, method: reqwest::Method, path: &str) -> reqwest::RequestBuilder {
         self.client
             .request(method, format!("{}{}", self.base_url, path))
-            .header("Authorization", format!("token {}", self.token.0))
+            .header("Authorization", format!("token {}", self.token.expose()))
             .header("Accept", "application/json")
     }
 
