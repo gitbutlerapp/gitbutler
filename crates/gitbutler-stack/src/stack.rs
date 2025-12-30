@@ -261,7 +261,7 @@ impl Stack {
         self.heads
             .last()
             .map(|branch| branch.head_oid(repo))
-            .ok_or_else(|| anyhow!("Stack is uninitialized"))?
+            .ok_or_else(|| anyhow!("head_oid: Stack is uninitialized"))?
     }
 
     // This should not be needed in v3
@@ -286,7 +286,7 @@ impl Stack {
         self.heads
             .last()
             .map(|head| head.name.clone())
-            .ok_or_else(|| anyhow!("Stack is uninitialized"))
+            .ok_or_else(|| anyhow!("Stack::derived_name: Stack is uninitialized"))
     }
 
     // TODO: When this is stable, make it error out on initialization failure
