@@ -196,7 +196,7 @@ pub(crate) async fn worktree(
             review,
             ctx.legacy_project.id,
             &repo,
-            &mut id_map,
+            &id_map,
         )?;
         out.write_value(workspace_status)?;
         return Ok(());
@@ -232,7 +232,7 @@ pub(crate) async fn worktree(
             i == 0,
             &review_map,
             out,
-            &mut id_map,
+            &id_map,
         )?;
     }
     // Format the last fetched time as relative time
@@ -368,7 +368,7 @@ pub fn print_group(
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     out: &mut dyn std::fmt::Write,
-    id_map: &mut IdMap,
+    id_map: &IdMap,
 ) -> anyhow::Result<()> {
     let repo = ctx.legacy_project.open_isolated_repo()?;
     if let Some(group) = &group {
@@ -476,7 +476,6 @@ pub fn print_group(
             }
         }
     } else {
-        id_map.add_file_info_from_context(ctx, None)?;
         let id = id_map.unassigned().to_short_string().underline().blue();
         writeln!(
             out,
@@ -568,7 +567,7 @@ fn print_commit(
     has_conflicts: bool,
     show_url: bool,
     review_url: Option<String>,
-    id_map: &mut IdMap,
+    id_map: &IdMap,
     out: &mut dyn std::fmt::Write,
 ) -> anyhow::Result<()> {
     let mark = if marked {
