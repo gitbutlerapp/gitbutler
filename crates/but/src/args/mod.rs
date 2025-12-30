@@ -204,7 +204,7 @@ pub enum Subcommands {
     ///
     /// The `base` subcommand allows you to manage and update this base branch.
     ///
-    /// When you run `but base update`, GitButler will fetch the latest changes
+    /// When you run `but pull`, GitButler will fetch the latest changes
     /// from the remote and rebase all your applied branches on top of the updated
     /// base branch. You will want to do this regularly to keep your branches
     /// up to date with the latest changes from the main development line.
@@ -215,6 +215,20 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     Base(base::Platform),
+
+    /// Updates all applied branches to be up to date with the target branch.
+    ///
+    /// This fetches the latest changes from the remote and rebases all applied branches
+    /// on top of the updated target branch.
+    ///
+    /// You should run this regularly to keep your branches up to date with the latest
+    /// changes from the main development line.
+    ///
+    /// You can run `but base check` first to see if your branches can be cleanly
+    /// merged into the target branch before running the update.
+    ///
+    #[cfg(feature = "legacy")]
+    Pull,
 
     /// Commands for managing branches.
     ///
@@ -627,19 +641,6 @@ pub mod base {
         /// It will also show what work is upstream that has not yet been integrated into the branches.
         ///
         Check,
-
-        /// Updates all applied branches to be up to date with the target branch
-        ///
-        /// This fetches the latest changes from the remote and rebases all applied branches
-        /// on top of the updated target branch.
-        ///
-        /// You should run this regularly to keep your branches up to date with the latest
-        /// changes from the main development line.
-        ///
-        /// You can run `but base check` first to see if your branches can be cleanly
-        /// merged into the target branch before running the update.
-        ///
-        Update,
     }
 }
 

@@ -68,10 +68,11 @@ impl Subcommands {
             Subcommands::Diff { .. } => Diff,
             #[cfg(feature = "legacy")]
             Subcommands::Base(base::Platform { cmd }) => match cmd {
-                base::Subcommands::Update => BaseUpdate,
                 base::Subcommands::Check => BaseCheck,
                 base::Subcommands::Fetch => BaseFetch,
             },
+            #[cfg(feature = "legacy")]
+            Subcommands::Pull => Pull,
             Subcommands::Branch(branch::Platform { cmd }) => match cmd {
                 None => BranchList,
                 #[cfg(feature = "legacy")]
