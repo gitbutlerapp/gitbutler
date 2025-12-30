@@ -96,7 +96,7 @@ mod stack {
             self.heads
                 .last()
                 .map(|head| head.name.clone())
-                .ok_or_else(|| anyhow!("Stack is uninitialized"))
+                .ok_or_else(|| anyhow!("but_meta::Stack::derived_name: Stack is uninitialized"))
         }
     }
 

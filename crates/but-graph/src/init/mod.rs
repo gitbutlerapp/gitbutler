@@ -556,6 +556,10 @@ impl Graph {
                 // Avoid duplication before we create a new branch segment, these should not interfere,
                 // just integrate.
                 if next.iter().any(|t| t.0 == segment_tip) {
+                    next.add_goal_to(
+                        segment_tip.detach(),
+                        goals.flag_for(tip).unwrap_or_default(),
+                    );
                     continue;
                 };
                 // We always want these segments named, we know they are supposed to be in the workspace,
@@ -587,7 +591,7 @@ impl Graph {
                     segment_tip.detach(),
                     CommitFlags::NotInRemote,
                     Instruction::CollectCommit { into: segment },
-                    max_limit,
+                    max_limit.with_indirect_goal(tip, &mut goals),
                 ));
             }
         }

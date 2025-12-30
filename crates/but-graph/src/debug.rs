@@ -126,6 +126,7 @@ impl Graph {
         is_entrypoint: bool,
         is_early_end: bool,
         hard_limit: bool,
+        max_goals: Option<usize>,
     ) -> String {
         format!(
             "{ep}{end}{kind}{hex}{flags}{refs}",
@@ -141,7 +142,7 @@ impl Graph {
                 "·"
             },
             flags = if !commit.flags.is_empty() {
-                format!(" ({})", commit.flags.debug_string())
+                format!(" ({})", commit.flags.debug_string(max_goals))
             } else {
                 "".to_string()
             },
@@ -299,10 +300,21 @@ impl Graph {
         );
     }
 
+    /// Return the highest amount of goals that a commit has stored in its flags.
+    ///
+    /// This relates to the amount of commits who were tracked for reachability, i.e. allowing an ancestor to see
+    /// if a particular commit is in its future.
+    pub fn max_goals(&self) -> Option<usize> {
+        self.node_weights()
+            .filter_map(|s| s.commits.iter().map(|c| c.flags.num_goals()).max())
+            .max()
+    }
+
     /// Produces a dot-version of the graph.
     pub fn dot_graph(&self) -> String {
         const HEX: usize = 7;
         let entrypoint = self.entrypoint;
+        let max_goals = self.max_goals();
         let node_attrs = |_: &PetGraph, (sidx, s): (SegmentIndex, &Segment)| {
             let name = format!(
                 "{ref_name_and_remote}{maybe_centering_newline}",
@@ -330,6 +342,7 @@ impl Graph {
                             self.is_early_end_of_traversal(sidx)
                         },
                         self.hard_limit_hit,
+                        max_goals,
                     )
                 })
                 .collect::<Vec<_>>()
