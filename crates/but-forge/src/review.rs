@@ -99,7 +99,47 @@ pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFu
             is_valid_review_template_path: is_valid_review_template_path_azure,
             supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
         },
+        ForgeName::Gitea => ReviewTemplateFunctions {
+            is_review_template: is_review_template_gitea,
+            get_root: get_gitea_directory_path,
+            is_valid_review_template_path: is_valid_review_template_path_gitea,
+            supported_template_directories: &[
+                SupportedTemplateDirectory::ForgeRoot,
+                SupportedTemplateDirectory::ProjectRoot,
+                SupportedTemplateDirectory::Custom("docs"),
+            ],
+        },
     }
+}
+
+fn get_gitea_directory_path(root_path: &path::Path) -> path::PathBuf {
+    let mut path = root_path.to_path_buf();
+    path.push(".gitea");
+    path
+}
+
+fn is_review_template_gitea(path_str: &str) -> bool {
+    // Gitea supports both .gitea and .github folders for templates, and root.
+    let normalized_path = path_str.replace('\\', "/");
+    normalized_path == "PULL_REQUEST_TEMPLATE.md"
+        || normalized_path == "pull_request_template.md"
+        || normalized_path.contains(".gitea/PULL_REQUEST_TEMPLATE")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains(".gitea/pull_request_template")
+            && normalized_path.ends_with(".md")
+            // Fallback/Compatibility with GitHub standard which Gitea supports
+        || normalized_path.contains(".github/PULL_REQUEST_TEMPLATE")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains(".github/pull_request_template")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains("docs/PULL_REQUEST_TEMPLATE")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains("docs/pull_request_template")
+            && normalized_path.ends_with(".md")
+}
+
+fn is_valid_review_template_path_gitea(path: &path::Path) -> bool {
+    is_review_template_gitea(path.to_str().unwrap_or_default())
 }
 
 fn get_github_directory_path(root_path: &path::Path) -> path::PathBuf {

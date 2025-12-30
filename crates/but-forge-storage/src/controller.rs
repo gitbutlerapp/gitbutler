@@ -64,6 +64,34 @@ impl Controller {
         self.save_settings(&settings)
     }
 
+    /// Get all known Gitea accounts.
+    pub fn gitea_accounts(&self) -> anyhow::Result<Vec<crate::settings::GiteaAccount>> {
+        let settings = self.read_settings()?;
+        Ok(settings.gitea.known_accounts)
+    }
+
+    /// Add a Gitea account if it does not already exist.
+    pub fn add_gitea_account(&self, account: &crate::settings::GiteaAccount) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+
+        if settings.gitea.known_accounts.iter().any(|a| a == account) {
+            return Ok(());
+        }
+
+        settings.gitea.known_accounts.push(account.to_owned());
+        self.save_settings(&settings)
+    }
+
+    /// Remove a Gitea account.
+    pub fn remove_gitea_account(
+        &self,
+        account: &crate::settings::GiteaAccount,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        settings.gitea.known_accounts.retain(|a| a != account);
+        self.save_settings(&settings)
+    }
+
     fn read_settings(&self) -> anyhow::Result<crate::settings::ForgeSettings> {
         self.settings_storage.read()
     }

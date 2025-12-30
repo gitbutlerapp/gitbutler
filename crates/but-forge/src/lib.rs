@@ -14,6 +14,10 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
         Some(ForgeName::GitHub)
     } else if host.contains("gitlab.com") || host.starts_with("gitlab.") {
         Some(ForgeName::GitLab)
+    } else if host.contains("gitea.com") || host.contains("gitea.io") {
+        // Note: Generic self-hosted gitea detection on host string is hard without user hint or metdata.
+        // Assuming common domains for now.
+        Some(ForgeName::Gitea)
     } else if host.contains("bitbucket.org") {
         Some(ForgeName::Bitbucket)
     } else if host.contains("azure.com") {
