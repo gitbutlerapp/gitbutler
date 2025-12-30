@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum ForgeName {
     GitHub,
     GitLab,
+    Gitea,
     Bitbucket,
     Azure,
 }
@@ -29,12 +30,21 @@ impl PartialEq for ForgeRepoInfo {
 #[serde(tag = "provider", rename_all = "lowercase", content = "details")]
 pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
+    Gitea(but_gitea::GiteaAccountIdentifier),
 }
 
 impl ForgeUser {
     pub fn github(&self) -> Option<&but_github::GithubAccountIdentifier> {
         match self {
             ForgeUser::GitHub(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    pub fn gitea(&self) -> Option<&but_gitea::GiteaAccountIdentifier> {
+        match self {
+            ForgeUser::Gitea(id) => Some(id),
+            _ => None,
         }
     }
 }

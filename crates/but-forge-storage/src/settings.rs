@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 pub struct ForgeSettings {
     /// GitHub-specific settings.
     pub github: GitHubSettings,
+    /// Gitea-specific settings.
+    #[serde(default)]
+    pub gitea: GiteaSettings,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -12,6 +15,29 @@ pub struct ForgeSettings {
 pub struct GitHubSettings {
     /// GitHub-specific settings.
     pub known_accounts: Vec<GitHubAccount>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GiteaSettings {
+    /// Gitea-specific settings.
+    pub known_accounts: Vec<GiteaAccount>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub struct GiteaAccount {
+    pub username: String,
+    pub host: String,
+    pub access_token_key: String,
+}
+
+impl PartialEq for GiteaAccount {
+    fn eq(&self, other: &Self) -> bool {
+        self.username == other.username
+            && self.host == other.host
+            && self.access_token_key == other.access_token_key
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

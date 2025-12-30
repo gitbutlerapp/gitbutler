@@ -1067,6 +1067,7 @@ dependencies = [
  "anyhow",
  "but-forge-storage",
  "but-fs",
+ "but-gitea",
  "but-github",
  "git-url-parse",
  "serde",
@@ -1110,6 +1111,22 @@ dependencies = [
  "serde",
  "sha-1",
  "uuid",
+]
+
+[[package]]
+name = "but-gitea"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-error",
+ "but-forge-storage",
+ "but-secret",
+ "but-settings",
+ "http 1.4.0",
+ "reqwest 0.12.24",
+ "serde",
+ "serde_json",
+ "time",
 ]
 
 [[package]]
