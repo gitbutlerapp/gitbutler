@@ -92,7 +92,7 @@ impl std::fmt::Debug for Commit {
             f,
             "Commit({hash}, {flags}{refs})",
             hash = self.id.to_hex_with_len(7),
-            flags = self.flags.debug_string()
+            flags = self.flags.debug_string(None)
         )
     }
 }
@@ -123,8 +123,17 @@ bitflags! {
 }
 
 impl CommitFlags {
-    /// Return a less verbose debug string
-    pub fn debug_string(&self) -> String {
+    /// The amount of goals that were tracked, i.e. 0 if there is no goal, or N if there are N goal.
+    pub fn num_goals(&self) -> usize {
+        let goals = self.bits() & !Self::all().bits();
+        if goals == 0 {
+            0
+        } else {
+            (Self::all().bits().leading_zeros() - goals.leading_zeros()) as usize
+        }
+    }
+    /// Return a less verbose debug string, with `max_goals` marking the highest amount of goals we have to display.
+    pub fn debug_string(&self, max_goals: Option<usize>) -> String {
         if self.is_empty() {
             "".into()
         } else {
@@ -139,7 +148,10 @@ impl CommitFlags {
                 .replace("Integrated", "✓")
                 .replace(" ", "");
             if extra != 0 {
-                out.push_str(&format!("|{extra:b}"));
+                out.push_str(&format!(
+                    "|{extra:>0width$b}",
+                    width = max_goals.unwrap_or(0)
+                ));
             }
             out
         }

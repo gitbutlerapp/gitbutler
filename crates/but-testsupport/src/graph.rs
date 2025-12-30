@@ -76,8 +76,9 @@ fn tree_for_stack_segment(
 pub fn graph_tree(graph: &Graph) -> StringTree {
     let mut root = Tree::new("".to_string());
     let mut seen = Default::default();
+    let max_goals = graph.max_goals();
     for sidx in graph.tip_segments() {
-        root.push(recurse_segment(graph, sidx, &mut seen));
+        root.push(recurse_segment(graph, sidx, &mut seen, max_goals));
     }
     let missing = graph.num_segments() - seen.len();
     if missing > 0 {
@@ -86,7 +87,7 @@ pub fn graph_tree(graph: &Graph) -> StringTree {
         ));
         let mut newly_seen = Default::default();
         for sidx in graph.segments().filter(|sidx| !seen.contains(sidx)) {
-            missing.push(recurse_segment(graph, sidx, &mut newly_seen));
+            missing.push(recurse_segment(graph, sidx, &mut newly_seen, max_goals));
         }
         root.push(missing);
         seen.extend(newly_seen);
@@ -111,13 +112,22 @@ fn tree_for_commit(
     is_entrypoint: bool,
     is_early_end: bool,
     hard_limit_hit: bool,
+    max_goals: Option<usize>,
 ) -> StringTree {
-    Graph::commit_debug_string(commit, is_entrypoint, is_early_end, hard_limit_hit).into()
+    Graph::commit_debug_string(
+        commit,
+        is_entrypoint,
+        is_early_end,
+        hard_limit_hit,
+        max_goals,
+    )
+    .into()
 }
 fn recurse_segment(
     graph: &but_graph::Graph,
     sidx: SegmentIndex,
     seen: &mut BTreeSet<SegmentIndex>,
+    max_goals: Option<usize>,
 ) -> StringTree {
     let segment = &graph[sidx];
     if seen.contains(&sidx) {
@@ -202,10 +212,11 @@ fn recurse_segment(
                 graph.is_early_end_of_traversal(sidx)
             },
             graph.hard_limit_hit(),
+            max_goals,
         );
         if let Some(segment_indices) = connected_segments.get(&Some(cidx)) {
             for sidx in segment_indices {
-                commit_tree.push(recurse_segment(graph, *sidx, seen));
+                commit_tree.push(recurse_segment(graph, *sidx, seen, max_goals));
             }
         }
         root.push(commit_tree);
@@ -213,7 +224,7 @@ fn recurse_segment(
     // Get the segments that are directly connected.
     if let Some(segment_indices) = connected_segments.get(&None) {
         for sidx in segment_indices {
-            root.push(recurse_segment(graph, *sidx, seen));
+            root.push(recurse_segment(graph, *sidx, seen, max_goals));
         }
     }
 

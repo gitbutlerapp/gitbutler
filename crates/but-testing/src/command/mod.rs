@@ -573,15 +573,17 @@ pub fn remove_reference(
 }
 
 pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyhow::Result<()> {
-    let (repo, project, graph, mut meta) =
-        repo_and_maybe_project_and_graph(args, RepositoryOpenMode::Merge)?;
+    let ctx = but_ctx::Context::discover(&args.current_dir)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let (repo, mut meta, graph) =
+        ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
     let branch = repo.find_reference(short_name)?;
     let ws = graph.to_workspace()?;
     let apply_outcome = but_workspace::branch::apply(
         branch.name(),
         &ws,
         &repo,
-        &mut *meta,
+        &mut meta,
         but_workspace::branch::apply::Options {
             workspace_merge: WorkspaceMerge::AlwaysMerge,
             on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
@@ -592,10 +594,6 @@ pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyh
         },
     )?;
 
-    if project.is_some() {
-        // write metadata if there are projects - this is a special case while we use vb.toml.
-        ManuallyDrop::into_inner(meta);
-    }
     debug_print(apply_outcome)
 }
 
