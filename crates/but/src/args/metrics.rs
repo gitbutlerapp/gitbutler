@@ -20,7 +20,7 @@ pub enum CommandName {
     Gui,
     BaseFetch,
     BaseCheck,
-    BaseUpdate,
+    Pull,
     BranchNew,
     BranchDelete,
     BranchList,

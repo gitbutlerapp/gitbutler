@@ -308,6 +308,13 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::Pull => {
+            let ctx = init::init_ctx(&args, Fetch::None, out)?;
+            command::legacy::pull::handle(&ctx, out)
+                .await
+                .emit_metrics(metrics_ctx)
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
             let ctx = init::init_ctx(&args, Fetch::None, out)?;
             command::legacy::worktree::handle(cmd, &ctx, out)
