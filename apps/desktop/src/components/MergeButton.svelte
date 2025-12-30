@@ -55,7 +55,7 @@
 	);
 
 	const labels = $derived({
-		[MergeMethod.Merge]: isGitLab ? 'Merge merge request' : 'Merge pull request',
+		[MergeMethod.Merge]: 'Merge',
 		[MergeMethod.Rebase]: 'Rebase and merge',
 		[MergeMethod.Squash]: 'Squash and merge'
 	});
