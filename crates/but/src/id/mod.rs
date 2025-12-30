@@ -395,7 +395,7 @@ impl IdMap {
     ///
     /// If the branch already has an assigned ID, return it. Otherwise, returns
     /// `00` as fallback.
-    pub fn resolve_branch(&mut self, name: &BStr) -> CliId {
+    pub fn resolve_branch(&self, name: &BStr) -> CliId {
         self.branch_name_to_cli_id
             .get(name)
             .cloned()

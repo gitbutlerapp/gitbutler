@@ -171,7 +171,7 @@ impl Branch {
         review_id: Option<String>,
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
-        id_map: &mut crate::IdMap,
+        id_map: &crate::IdMap,
     ) -> anyhow::Result<Self> {
         let commits = branch
             .commits
@@ -222,7 +222,7 @@ impl Commit {
         commit: but_workspace::ui::Commit,
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
-        id_map: &mut crate::IdMap,
+        id_map: &crate::IdMap,
     ) -> anyhow::Result<Self> {
         let changes = if show_files {
             // TODO: we should get the `ctx` as parameter.
@@ -333,7 +333,7 @@ fn convert_branch_to_json(
     show_files: bool,
     project_id: gitbutler_project::ProjectId,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    id_map: &mut crate::IdMap,
+    id_map: &crate::IdMap,
 ) -> anyhow::Result<Branch> {
     let cli_id = id_map
         .resolve_branch(branch.name.as_ref())
@@ -379,7 +379,7 @@ pub(super) fn build_workspace_status_json(
     review: bool,
     project_id: gitbutler_project::ProjectId,
     repo: &gix::Repository,
-    id_map: &mut crate::IdMap,
+    id_map: &crate::IdMap,
 ) -> anyhow::Result<WorkspaceStatus> {
     let mut json_stacks = Vec::new();
     let mut json_unassigned_changes = Vec::new();
