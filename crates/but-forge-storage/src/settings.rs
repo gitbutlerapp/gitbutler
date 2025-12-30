@@ -20,7 +20,7 @@ pub struct GitHubSettings {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GiteaSettings {
-    /// Gitea-specific settings.
+    /// Settings for managing Gitea accounts and authentication.
     pub known_accounts: Vec<GiteaAccount>,
 }
 
