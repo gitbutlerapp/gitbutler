@@ -69,7 +69,7 @@ pub async fn get(
 
 fn resolve_account(
     preferred_account: Option<&crate::GiteaAccountIdentifier>,
-    _repo_owner: &str, // GitHub implementation doesn't use owner to resolve account currently, just preference or default.
+    _repo_owner: &str, // Currently we resolve the account by preferred account (if any) or default, and do not use the repo owner.
     storage: &but_forge_storage::Controller,
 ) -> Result<crate::GiteaAccountIdentifier, anyhow::Error> {
     // We need list_known_gitea_accounts in token.rs
