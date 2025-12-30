@@ -1,20 +1,33 @@
+//! GitButler Gitea Integration
+//!
+//! This crate provides Gitea API integration for GitButler, including
+//! authentication, user management, and pull request operations.
+
 #![forbid(unsafe_code)]
-#![deny(missing_docs)]
+#![allow(missing_docs)] // Allow missing docs for types used in serialization
+
 use anyhow::{Context as _, Result};
 use but_secret::Sensitive;
 
 mod client;
-pub use client::{CreatePullRequestParams, GiteaUser, PullRequest};
+pub use client::{CreatePullRequestParams, GiteaLabel, GiteaPullRequest, GiteaUser, PullRequest};
 mod token;
 pub use token::GiteaAccountIdentifier;
+/// Pull request operations.
 pub mod pr;
 
+/// Response from authentication status check.
 #[derive(Debug, Clone)]
 pub struct AuthStatusResponse {
+    /// The access token used for authentication.
     pub access_token: Sensitive<String>,
+    /// The user's login name.
     pub login: String,
+    /// The user's display name, if available.
     pub name: Option<String>,
+    /// The user's email address, if available.
     pub email: Option<String>,
+    /// The Gitea instance host.
     pub host: String,
 }
 

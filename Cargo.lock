@@ -1118,15 +1118,11 @@ name = "but-gitea"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "but-error",
  "but-forge-storage",
  "but-secret",
- "but-settings",
- "http 1.4.0",
  "reqwest 0.12.24",
  "serde",
  "serde_json",
- "time",
 ]
 
 [[package]]

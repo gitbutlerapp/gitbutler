@@ -1,5 +1,8 @@
+//! Pull request operations for Gitea.
+
 use anyhow::{Context as _, Result, bail};
 
+/// List open pull requests for a repository.
 pub async fn list(
     preferred_account: Option<&crate::GiteaAccountIdentifier>,
     owner: &str,
@@ -21,6 +24,7 @@ pub async fn list(
     }
 }
 
+/// Create a new pull request.
 pub async fn create(
     preferred_account: Option<&crate::GiteaAccountIdentifier>,
     params: crate::client::CreatePullRequestParams<'_>,
@@ -37,12 +41,14 @@ pub async fn create(
         Ok(pr)
     } else {
         bail!(
-            "No Gitea access token found for account '{}'.\nPlease, try to re-authenticate with this account.",
-            account_id.username
+            "No Gitea access token found for account '{}@{}'.\nPlease, try to re-authenticate with this account.",
+            account_id.username,
+            account_id.host
         );
     }
 }
 
+/// Get a specific pull request.
 pub async fn get(
     preferred_account: Option<&crate::GiteaAccountIdentifier>,
     owner: &str,
@@ -61,8 +67,9 @@ pub async fn get(
         Ok(pr)
     } else {
         bail!(
-            "No Gitea access token found for account '{}'.\nPlease, try to re-authenticate with this account.",
-            account_id.username
+            "No Gitea access token found for account '{}@{}'.\nPlease, try to re-authenticate with this account.",
+            account_id.username,
+            account_id.host
         );
     }
 }
@@ -72,7 +79,6 @@ fn resolve_account(
     _repo_owner: &str, // Currently we resolve the account by preferred account (if any) or default, and do not use the repo owner.
     storage: &but_forge_storage::Controller,
 ) -> Result<crate::GiteaAccountIdentifier, anyhow::Error> {
-    // We need list_known_gitea_accounts in token.rs
     let known_accounts = crate::token::list_known_gitea_accounts(storage)?;
     let Some(default_account) = known_accounts.first() else {
         bail!("No authenticated Gitea users found. Please authenticate with Gitea first.");
@@ -83,8 +89,9 @@ fn resolve_account(
             account
         } else {
             bail!(
-                "Preferred Gitea account '{}' has not authenticated yet. Please choose another account or authenticate with the desired account first.",
-                account.username
+                "Preferred Gitea account '{}@{}' has not authenticated yet. Please choose another account or authenticate with the desired account first.",
+                account.username,
+                account.host
             );
         }
     } else {

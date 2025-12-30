@@ -46,6 +46,10 @@
 			value: 'gitlab'
 		},
 		{
+			label: 'Gitea',
+			value: 'gitea'
+		},
+		{
 			label: 'Azure',
 			value: 'azure'
 		},
@@ -82,7 +86,7 @@
 				<br />
 				To enable Forge integration, please select your Forge from the dropdown below.
 				<br />
-				<span class="text-bold">Note:</span> Currently, only GitHub and GitLab support pull request creation.
+				<span class="text-bold">Note:</span> Currently, GitHub, GitLab, and Gitea support pull request creation.
 			{:else}
 				We’ve detected that you’re using <span class="text-bold"
 					>{forge.determinedForgeType.toUpperCase()}</span
@@ -155,6 +159,36 @@
 				can connect. Read more in the <Link
 					href="https://docs.gitbutler.com/troubleshooting/custom-csp">docs</Link
 				>
+			</p>
+		</CardGroup.Item>
+	{/if}
+
+	{#if forge.current.name === 'gitea'}
+		<CardGroup.Item>
+			{#snippet title()}
+				Configure Gitea integration
+			{/snippet}
+
+			{#snippet caption()}
+				Gitea integration requires a Personal Access Token. Generate one in your Gitea instance
+				under Settings → Applications → Personal Access Tokens.
+			{/snippet}
+
+			<InfoMessage style="pop" filled outlined={false}>
+				{#snippet title()}
+					Gitea support is in development
+				{/snippet}
+				{#snippet content()}
+					Gitea authentication is currently configured via the web interface. 
+					Visit the GitButler web app to add your Gitea account.
+				{/snippet}
+			</InfoMessage>
+
+			<Spacer margin={5} />
+
+			<p class="text-12 text-body clr-text-2">
+				For self-hosted Gitea instances, ensure the hostname contains "gitea" for automatic detection,
+				or manually select Gitea from the forge override dropdown above.
 			</p>
 		</CardGroup.Item>
 	{/if}

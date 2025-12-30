@@ -14,17 +14,13 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
-but-settings.workspace = true
 but-secret.workspace = true
 but-forge-storage.workspace = true
-but-error.workspace = true
 
 serde.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
 reqwest = { workspace = true, features = ["json"] }
-time = { version = "0.3.36", features = ["parsing", "formatting", "serde"] }
 
 [dev-dependencies]
 reqwest = { workspace = true, features = ["blocking"] }
-http = "1"
