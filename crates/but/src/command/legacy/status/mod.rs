@@ -422,20 +422,7 @@ pub fn print_group(
             for commit in &branch.upstream_commits {
                 let dot = "●".yellow();
                 print_commit(
-                    ctx,
-                    commit.id,
-                    created_at_of_commit(ctx, commit.id)?,
-                    commit.message.to_string(),
-                    commit.author.name.clone(),
-                    dot,
-                    false,
-                    show_files,
-                    verbose,
-                    false,
-                    show_url,
-                    None,
-                    id_map,
-                    out,
+                    ctx, commit.id, dot, false, show_files, verbose, show_url, None, id_map, out,
                 )?;
             }
             for cli_commit in &branch.commits {
@@ -457,14 +444,10 @@ pub fn print_group(
                 print_commit(
                     ctx,
                     commit.id,
-                    created_at_of_commit(ctx, commit.id)?,
-                    commit.message.to_string(),
-                    commit.author.name.clone(),
                     dot,
                     marked,
                     show_files,
                     verbose,
-                    commit.has_conflicts,
                     show_url,
                     commit.gerrit_review_url.clone(),
                     id_map,
@@ -554,14 +537,10 @@ fn status_from_changes(changes: &[ui::TreeChange], path: BString) -> Option<ui::
 fn print_commit(
     ctx: &Context,
     commit_id: gix::ObjectId,
-    created_at: gix::date::Time,
-    message: String,
-    author_name: String,
     dot: ColoredString,
     marked: bool,
     show_files: bool,
     verbose: bool,
-    has_conflicts: bool,
     show_url: bool,
     review_url: Option<String>,
     id_map: &IdMap,
@@ -572,12 +551,21 @@ fn print_commit(
     } else {
         None
     };
-    let conflicted_str = if has_conflicts {
+
+    let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
+    let no_changes = if show_files && commit_details.diff_with_first_parent.is_empty() {
+        "(no changes)".dimmed().italic()
+    } else {
+        "".to_string().normal()
+    };
+
+    let conflicted_str = if commit_details.conflict_entries.is_some() {
         "{conflicted}".red()
     } else {
         "".normal()
     };
-
+    let created_at = created_at_of_commit(ctx, commit_id)?;
+    let message = commit_details.commit.inner.message.to_string();
     let mut message = if verbose {
         message
             .replace('\n', " ")
@@ -599,13 +587,6 @@ fn print_commit(
         message = "(no commit message)".to_string().dimmed().italic();
     }
 
-    let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
-    let no_changes = if show_files && commit_details.diff_with_first_parent.is_empty() {
-        "(no changes)".dimmed().italic()
-    } else {
-        "".to_string().normal()
-    };
-
     if verbose {
         // Verbose format: author and timestamp on first line, message on second line
         let formatted_time = created_at.format_or_unix(CLI_DATE);
@@ -614,7 +595,7 @@ fn print_commit(
             "┊{dot}   {}{} {} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
             &commit_id.to_string()[2..7].dimmed(),
-            author_name,
+            commit_details.commit.inner.author.name,
             formatted_time.dimmed(),
             no_changes,
             conflicted_str,
