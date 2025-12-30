@@ -209,7 +209,6 @@ pub(crate) async fn worktree(
     drop(base_commit_decoded);
     drop(base_commit);
     drop(repo);
-    let stack_details_len = stack_details.len();
     for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
         let mut stack_mark = stack_id.and_then(|stack_id| {
             if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
@@ -228,7 +227,6 @@ pub(crate) async fn worktree(
             review,
             &mut stack_mark,
             ctx,
-            i == stack_details_len - 1,
             i == 0,
             &review_map,
             out,
@@ -364,7 +362,6 @@ pub fn print_group(
     show_url: bool,
     stack_mark: &mut Option<ColoredString>,
     ctx: &mut Context,
-    _last: bool,
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     out: &mut dyn std::fmt::Write,
