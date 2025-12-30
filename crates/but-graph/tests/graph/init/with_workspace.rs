@@ -2076,8 +2076,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
             └── ·03ad472 (🏘️)
     ");
 
-    // The limit is effective for integrated workspaces branches, but the traversal proceeds until
-    // the integration branch finds its goal.
+    // The limit is effective for integrated workspaces branches, and it doesn't unnecessarily
+    // prolong the traversal once the all tips are known to be integrated.
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
@@ -2091,13 +2091,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │                   ├── ·79bbb29 (⌂|🏘|✓|1)
     │                   ├── ·fc98174 (⌂|🏘|✓|1)
     │                   ├── ·a381df5 (⌂|🏘|✓|1)
-    │                   └── ·777b552 (⌂|🏘|✓|1)
-    │                       └── ►:6[3]:anon:
-    │                           └── ·ce4a760 (⌂|🏘|✓|1)
-    │                               ├── ►:7[4]:anon:
-    │                               │   └── ✂·01d0e1e (⌂|🏘|✓|1)
-    │                               └── ►:8[4]:A-feat
-    │                                   └── ✂·fea59b5 (⌂|🏘|✓|1)
+    │                   └── ✂·777b552 (⌂|🏘|✓|1)
     └── ►:1[0]:origin/main
         ├── 🟣d0df794 (✓)
         └── 🟣09c6e08 (✓)
