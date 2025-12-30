@@ -12,7 +12,7 @@ pub enum CommandName {
     Commit,
     Push,
     New,
-    Describe,
+    Reword,
     OplogList,
     OplogSnapshot,
     Restore,

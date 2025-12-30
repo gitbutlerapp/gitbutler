@@ -411,9 +411,9 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Describe { target, message } => {
+        Subcommands::Reword { target, message } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-            command::legacy::describe::describe_target(&mut ctx, out, &target, message.as_deref())
+            command::legacy::reword::reword_target(&mut ctx, out, &target, message.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]

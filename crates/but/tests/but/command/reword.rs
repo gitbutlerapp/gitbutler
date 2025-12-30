@@ -4,7 +4,7 @@ use snapbox::str;
 use crate::utils::Sandbox;
 
 #[test]
-fn describe_commit_with_message_flag() -> anyhow::Result<()> {
+fn reword_commit_with_message_flag() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -14,8 +14,8 @@ fn describe_commit_with_message_flag() -> anyhow::Result<()> {
 
     env.setup_metadata(&["A"])?;
 
-    // Use describe with -m flag to change commit message (using commit ID)
-    env.but("describe 9477ae7 -m 'Updated commit message'")
+    // Use reword with -m flag to change commit message (using commit ID)
+    env.but("reword 9477ae7 -m 'Updated commit message'")
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -33,7 +33,7 @@ Updated commit message for [..] (now [..])
 }
 
 #[test]
-fn describe_commit_with_multiline_message() -> anyhow::Result<()> {
+fn reword_commit_with_multiline_message() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -43,8 +43,8 @@ fn describe_commit_with_multiline_message() -> anyhow::Result<()> {
 
     env.setup_metadata(&["A"])?;
 
-    // Use describe with multiline message
-    env.but("describe 9477ae7 -m 'First line\n\n\tSecond paragraph with details'")
+    // Use reword with multiline message
+    env.but("reword 9477ae7 -m 'First line\n\n\tSecond paragraph with details'")
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -76,7 +76,7 @@ Updated commit message for [..] (now [..])
 // The branch rename functionality with -m flag is tested manually and works correctly.
 
 #[test]
-fn describe_commit_with_same_message_succeeds_as_noop() -> anyhow::Result<()> {
+fn reword_commit_with_same_message_succeeds_as_noop() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -86,8 +86,8 @@ fn describe_commit_with_same_message_succeeds_as_noop() -> anyhow::Result<()> {
 
     env.setup_metadata(&["A"])?;
 
-    // Try to describe with the same message
-    env.but("describe 9477ae7 -m 'add A'")
+    // Try to reword with the same message
+    env.but("reword 9477ae7 -m 'add A'")
         .assert()
         .success()
         .stdout_eq(str![[r#"

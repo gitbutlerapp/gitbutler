@@ -7,7 +7,7 @@ use gix::prelude::ObjectIdExt;
 
 use crate::{CliId, IdMap, tui, utils::OutputChannel};
 
-pub(crate) fn describe_target(
+pub(crate) fn reword_target(
     ctx: &mut Context,
     out: &mut OutputChannel,
     target: &str,

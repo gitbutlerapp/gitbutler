@@ -77,31 +77,31 @@
 </tspan>
     <tspan x="10px" y="532px"><tspan>  </tspan><tspan class="fg-green">rub          </tspan><tspan>Combines two entities together to perform an operation like ame…</tspan>
 </tspan>
-    <tspan x="10px" y="550px"><tspan>  </tspan><tspan class="fg-green">describe     </tspan><tspan>Edit the commit message of the specified commit</tspan>
+    <tspan x="10px" y="550px"><tspan>  </tspan><tspan class="fg-green">absorb       </tspan><tspan>Amends changes into the appropriate commits where they belong</tspan>
 </tspan>
-    <tspan x="10px" y="568px"><tspan>  </tspan><tspan class="fg-green">absorb       </tspan><tspan>Amends changes into the appropriate commits where they belong</tspan>
+    <tspan x="10px" y="568px">
 </tspan>
-    <tspan x="10px" y="586px">
+    <tspan x="10px" y="586px"><tspan class="fg-yellow">Operation History</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="604px"><tspan class="fg-yellow">Operation History</tspan><tspan>:</tspan>
+    <tspan x="10px" y="604px"><tspan>  </tspan><tspan class="fg-green">oplog        </tspan><tspan>Commands for viewing and managing operation history</tspan>
 </tspan>
-    <tspan x="10px" y="622px"><tspan>  </tspan><tspan class="fg-green">oplog        </tspan><tspan>Commands for viewing and managing operation history</tspan>
+    <tspan x="10px" y="622px"><tspan>  </tspan><tspan class="fg-green">undo         </tspan><tspan>Undo the last operation by reverting to the previous snapshot</tspan>
 </tspan>
-    <tspan x="10px" y="640px"><tspan>  </tspan><tspan class="fg-green">undo         </tspan><tspan>Undo the last operation by reverting to the previous snapshot</tspan>
+    <tspan x="10px" y="640px"><tspan>  </tspan><tspan class="fg-green">restore      </tspan><tspan>Restore to a specific oplog snapshot</tspan>
 </tspan>
-    <tspan x="10px" y="658px"><tspan>  </tspan><tspan class="fg-green">restore      </tspan><tspan>Restore to a specific oplog snapshot</tspan>
+    <tspan x="10px" y="658px">
 </tspan>
-    <tspan x="10px" y="676px">
+    <tspan x="10px" y="676px"><tspan class="fg-yellow">Other Commands</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="694px"><tspan class="fg-yellow">Other Commands</tspan><tspan>:</tspan>
+    <tspan x="10px" y="694px"><tspan>  </tspan><tspan class="fg-green">diff         </tspan><tspan>Displays the diff of changes in the repo</tspan>
 </tspan>
-    <tspan x="10px" y="712px"><tspan>  </tspan><tspan class="fg-green">diff         </tspan><tspan>Displays the diff of changes in the repo</tspan>
+    <tspan x="10px" y="712px"><tspan>  </tspan><tspan class="fg-green">init         </tspan><tspan>Initializes a GitButler project from a git repository in the cu…</tspan>
 </tspan>
-    <tspan x="10px" y="730px"><tspan>  </tspan><tspan class="fg-green">init         </tspan><tspan>Initializes a GitButler project from a git repository in the cu…</tspan>
+    <tspan x="10px" y="730px"><tspan>  </tspan><tspan class="fg-green">pull         </tspan><tspan>Updates all applied branches to be up to date with the target b…</tspan>
 </tspan>
-    <tspan x="10px" y="748px"><tspan>  </tspan><tspan class="fg-green">pull         </tspan><tspan>Updates all applied branches to be up to date with the target b…</tspan>
+    <tspan x="10px" y="748px"><tspan>  </tspan><tspan class="fg-green">gui          </tspan><tspan>Open the GitButler GUI for the current project</tspan>
 </tspan>
-    <tspan x="10px" y="766px"><tspan>  </tspan><tspan class="fg-green">gui          </tspan><tspan>Open the GitButler GUI for the current project</tspan>
+    <tspan x="10px" y="766px"><tspan>  </tspan><tspan class="fg-green">reword       </tspan><tspan>Edit the commit message of the specified commit</tspan>
 </tspan>
     <tspan x="10px" y="784px">
 </tspan>

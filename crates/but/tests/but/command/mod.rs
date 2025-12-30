@@ -6,11 +6,11 @@ mod absorb;
 mod branch;
 #[cfg(feature = "legacy")]
 mod commit;
-#[cfg(feature = "legacy")]
-mod describe;
 mod format;
 mod gui;
 mod help;
+#[cfg(feature = "legacy")]
+mod reword;
 #[cfg(feature = "legacy")]
 mod rub;
 #[cfg(feature = "legacy")]
