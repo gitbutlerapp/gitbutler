@@ -9,6 +9,7 @@
       line-height: 18px;
     }
     .bold { font-weight: bold; }
+    .italic { font-style: italic; }
     .underline { text-decoration-line: underline; }
     .dimmed { opacity: 0.7; }
     tspan {
@@ -27,11 +28,11 @@
 </tspan>
     <tspan x="10px" y="64px"><tspan>┊╭┄</tspan><tspan class="underline">g0</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan> 📁 gitbutler/worktrees/A] </tspan><tspan> </tspan>
 </tspan>
-    <tspan x="10px" y="82px"><tspan>┊</tspan><tspan class="fg-yellow">●</tspan><tspan>   </tspan><tspan class="underline">19</tspan><tspan class="dimmed">7ddce</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-02 00:00:00 +0000</tspan><tspan>    </tspan>
+    <tspan x="10px" y="82px"><tspan>┊</tspan><tspan class="fg-yellow">●</tspan><tspan>   </tspan><tspan class="underline">19</tspan><tspan class="dimmed">7ddce</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-02 00:00:00 +0000</tspan><tspan class="italic dimmed"> (no changes)</tspan><tspan>  </tspan>
 </tspan>
     <tspan x="10px" y="100px"><tspan>┊│     A-remote </tspan>
 </tspan>
-    <tspan x="10px" y="118px"><tspan>┊●   </tspan><tspan class="underline">4c</tspan><tspan class="dimmed">4624e</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-02 00:00:00 +0000</tspan><tspan>    </tspan>
+    <tspan x="10px" y="118px"><tspan>┊●   </tspan><tspan class="underline">4c</tspan><tspan class="dimmed">4624e</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-02 00:00:00 +0000</tspan><tspan class="italic dimmed"> (no changes)</tspan><tspan>  </tspan>
 </tspan>
     <tspan x="10px" y="136px"><tspan>┊│     A </tspan>
 </tspan>
@@ -41,7 +42,7 @@
 </tspan>
     <tspan x="10px" y="190px"><tspan>┊╭┄</tspan><tspan class="underline">h0</tspan><tspan> [</tspan><tspan class="fg-green bold">B</tspan><tspan> 📁 gitbutler/worktrees/B] </tspan><tspan> </tspan>
 </tspan>
-    <tspan x="10px" y="208px"><tspan>┊●   </tspan><tspan class="underline">3e</tspan><tspan class="dimmed">01e28</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-02 00:00:00 +0000</tspan><tspan>    </tspan>
+    <tspan x="10px" y="208px"><tspan>┊●   </tspan><tspan class="underline">3e</tspan><tspan class="dimmed">01e28</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-02 00:00:00 +0000</tspan><tspan class="italic dimmed"> (no changes)</tspan><tspan>  </tspan>
 </tspan>
     <tspan x="10px" y="226px"><tspan>┊│     B </tspan>
 </tspan>
