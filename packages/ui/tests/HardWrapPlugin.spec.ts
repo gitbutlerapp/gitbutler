@@ -340,4 +340,33 @@ test.describe('HardWrapPlugin', () => {
 		const text = await getTextContent(component);
 		expect(text).toContain('Some text');
 	});
+
+	test('should not swallow space when typed at max line length', async ({ mount, page }) => {
+		const initialText = 'This line is twenty.';
+		const component = await mount(HardWrapPluginTestWrapper, {
+			props: {
+				maxLength: 20,
+				enabled: true,
+				initialText
+			}
+		});
+
+		await waitForParagraphCount(component, 1);
+
+		// Focus and move cursor to end
+		await component.getByTestId('focus-button').click();
+		await page.keyboard.press('End');
+
+		// Type space at max length - should create new paragraph
+		await page.keyboard.press('Space');
+
+		await waitForParagraphCountGreaterThan(component, 1);
+
+		// Should have 2 paragraphs: first with original text, second empty
+		const paragraphCount = await getParagraphCount(component);
+		expect(paragraphCount).toBe(2);
+
+		const text = await getTextContent(component);
+		expect(text.trim()).toBe(initialText);
+	});
 });
