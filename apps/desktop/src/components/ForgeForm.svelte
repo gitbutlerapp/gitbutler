@@ -174,7 +174,7 @@
 				under Settings → Applications → Personal Access Tokens.
 			{/snippet}
 
-			<InfoMessage style="neutral" filled outlined={false}>
+			<InfoMessage style="warning" filled outlined={false}>
 				{#snippet title()}
 					Gitea support is in development
 				{/snippet}
