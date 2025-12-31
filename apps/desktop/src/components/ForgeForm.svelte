@@ -86,7 +86,8 @@
 				<br />
 				To enable Forge integration, please select your Forge from the dropdown below.
 				<br />
-				<span class="text-bold">Note:</span> Currently, GitHub, GitLab, and Gitea support pull request creation.
+				<span class="text-bold">Note:</span> Currently, GitHub, GitLab, and Gitea support pull request
+				creation.
 			{:else}
 				We’ve detected that you’re using <span class="text-bold"
 					>{forge.determinedForgeType.toUpperCase()}</span
@@ -179,16 +180,16 @@
 					Gitea support is in development
 				{/snippet}
 				{#snippet content()}
-					Gitea authentication is currently configured via the web interface. 
-					Visit the GitButler web app to add your Gitea account.
+					Gitea authentication is currently configured via the web interface. Visit the GitButler
+					web app to add your Gitea account.
 				{/snippet}
 			</InfoMessage>
 
 			<Spacer margin={5} />
 
 			<p class="text-12 text-body clr-text-2">
-				For self-hosted Gitea instances, ensure the hostname contains "gitea" for automatic detection,
-				or manually select Gitea from the forge override dropdown above.
+				For self-hosted Gitea instances, ensure the hostname contains "gitea" for automatic
+				detection, or manually select Gitea from the forge override dropdown above.
 			</p>
 		</CardGroup.Item>
 	{/if}

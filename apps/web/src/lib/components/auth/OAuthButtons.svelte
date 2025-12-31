@@ -16,7 +16,6 @@
 	</div>
 	<div class="oauth-buttons">
 		{#snippet oauthButton(provider: 'github' | 'google' | 'gitea')}
-
 			{@const config = {
 				github: {
 					endpoint: 'auth/github',
