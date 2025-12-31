@@ -10,7 +10,7 @@ import type { ReduxTag } from '$lib/state/tags';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { TagDescription } from '@reduxjs/toolkit/query';
 
-export type ForgeName = 'github' | 'gitlab' | 'bitbucket' | 'azure' | 'default';
+export type ForgeName = 'github' | 'gitlab' | 'gitea' | 'bitbucket' | 'azure' | 'default';
 
 export interface Forge {
 	readonly name: ForgeName;
