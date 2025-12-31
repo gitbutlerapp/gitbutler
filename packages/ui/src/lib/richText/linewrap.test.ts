@@ -17,7 +17,7 @@ describe('wrapline', () => {
 			maxLength: 11
 		});
 		expect(newLine).toEqual('hello world');
-		expect(remainder).toEqual('');
+		expect(remainder).toEqual(' ');
 	});
 
 	test('trailing space', () => {
@@ -26,7 +26,7 @@ describe('wrapline', () => {
 			maxLength: 5
 		});
 		expect(newLine).toEqual('space');
-		expect(remainder).toEqual('');
+		expect(remainder).toEqual(' ');
 	});
 
 	test('whitepsace only', () => {

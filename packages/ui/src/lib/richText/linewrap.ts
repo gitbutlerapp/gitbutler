@@ -66,7 +66,15 @@ export function wrapLine({ line, maxLength, remainder = '', indent = '', bullet 
 		acc = nextAcc;
 	}
 
-	return { newLine: acc.trimEnd(), newRemainder: '' };
+	// Check if we have trailing whitespace that would push us over maxLength
+	const trimmedAcc = acc.trimEnd();
+	if (trimmedAcc.length === maxLength && acc.length > maxLength) {
+		// We're exactly at max length with trailing space(s)
+		// Return a space as remainder to create an empty next line
+		return { newLine: trimmedAcc, newRemainder: ' ' };
+	}
+
+	return { newLine: trimmedAcc, newRemainder: '' };
 }
 
 export const WRAP_EXEMPTIONS = {
