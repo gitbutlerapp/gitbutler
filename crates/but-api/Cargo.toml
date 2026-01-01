@@ -101,7 +101,7 @@ gitbutler-sync = { workspace = true, optional = true }
 gitbutler-oplog = { workspace = true, optional = true }
 gitbutler-git = { workspace = true, optional = true }
 
-tauri = { version = "^2.9.3", features = [
+tauri = { version = "^2.9.5", features = [
     "unstable",
 ], optional = true } # For the #[tauri::command(async)] macro only
 
