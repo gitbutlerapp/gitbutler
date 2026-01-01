@@ -1065,6 +1065,7 @@ name = "but-forge"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-db",
  "but-forge-storage",
  "but-fs",
  "but-github",

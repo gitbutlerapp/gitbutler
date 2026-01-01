@@ -291,6 +291,11 @@ impl ForgeReview {
     pub fn is_merged_at_commit(&self, commit_id: &str) -> bool {
         self.is_merged() && self.sha == commit_id
     }
+
+    /// The struct version for persistence compatibility purposes
+    pub fn struct_version() -> i32 {
+        1
+    }
 }
 
 impl From<but_github::PullRequest> for ForgeReview {

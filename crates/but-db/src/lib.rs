@@ -18,6 +18,8 @@ mod file_write_locks;
 pub use file_write_locks::FileWriteLock;
 mod workspace_rules;
 pub use workspace_rules::WorkspaceRule;
+mod forge_reviews;
+pub use forge_reviews::ForgeReview;
 mod gerrit_metadata;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 pub use gerrit_metadata::GerritMeta;
