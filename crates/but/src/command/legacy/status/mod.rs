@@ -580,9 +580,7 @@ fn print_commit(
                 .to_short_string()
                 .blue()
                 .underline();
-            let path = path_with_color(&change.status, change.path.to_string());
-            let status_letter = status_letter(&change.status);
-            writeln!(out, "┊│     {cid} {status_letter} {path}")?;
+            writeln!(out, "┊│     {cid} {}", change.display_cli(false))?;
         }
     }
     Ok(())
@@ -590,6 +588,14 @@ fn print_commit(
 
 trait CliDisplay {
     fn display_cli(&self, verbose: bool) -> String;
+}
+
+impl CliDisplay for but_core::TreeChange {
+    fn display_cli(&self, _verbose: bool) -> String {
+        let path = path_with_color(&self.status, self.path.to_string());
+        let status_letter = status_letter(&self.status);
+        format!("{status_letter} {path}")
+    }
 }
 
 impl CliDisplay for CommitDetails {
