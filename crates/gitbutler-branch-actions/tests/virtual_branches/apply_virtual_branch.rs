@@ -249,6 +249,11 @@ fn upstream_integration_status_with_merged_pr() {
             repo_owner: None,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
+            last_sync_at: chrono::NaiveDateTime::parse_from_str(
+                "2024-01-04 23:56:04",
+                "%Y-%m-%d %H:%M:%S",
+            )
+            .unwrap(),
         },
     );
 
@@ -338,6 +343,11 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
             repo_owner: None,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
+            last_sync_at: chrono::NaiveDateTime::parse_from_str(
+                "2024-01-04 23:56:04",
+                "%Y-%m-%d %H:%M:%S",
+            )
+            .unwrap(),
         },
     );
 
@@ -427,6 +437,11 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
             repo_owner: None,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
+            last_sync_at: chrono::NaiveDateTime::parse_from_str(
+                "2024-01-04 23:56:04",
+                "%Y-%m-%d %H:%M:%S",
+            )
+            .unwrap(),
         },
     );
 
@@ -516,6 +531,11 @@ fn upstream_integration_status_with_different_branch_pr() {
             repo_owner: None,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
+            last_sync_at: chrono::NaiveDateTime::parse_from_str(
+                "2024-01-04 23:56:04",
+                "%Y-%m-%d %H:%M:%S",
+            )
+            .unwrap(),
         },
     );
 

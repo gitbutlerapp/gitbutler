@@ -272,6 +272,8 @@ pub struct ForgeReview {
     pub reviewers: Vec<ForgeUser>,
     /// The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs).
     pub unit_symbol: String,
+    /// The timestamp when this review was last fetched from the forge.
+    pub last_sync_at: chrono::NaiveDateTime,
 }
 
 impl ForgeReview {
@@ -317,6 +319,7 @@ impl From<but_github::PullRequest> for ForgeReview {
                 .map(ForgeUser::from)
                 .collect(),
             unit_symbol: "#".to_string(),
+            last_sync_at: chrono::Local::now().naive_local(),
         }
     }
 }
