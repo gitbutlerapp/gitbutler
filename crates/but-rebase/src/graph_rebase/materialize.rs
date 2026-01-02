@@ -1,7 +1,4 @@
 //! Functions for materializing a rebase
-use crate::graph_rebase::{
-    Checkout, MaterializeOutcome, Step, SuccessfulRebase, util::collect_ordered_parents,
-};
 use anyhow::{Context, Result, bail};
 use but_core::{
     ObjectStorageExt as _,
@@ -9,6 +6,10 @@ use but_core::{
         checkout::{Options, UncommitedWorktreeChanges},
         safe_checkout_from_head,
     },
+};
+
+use crate::graph_rebase::{
+    Checkout, MaterializeOutcome, Step, SuccessfulRebase, util::collect_ordered_parents,
 };
 
 impl SuccessfulRebase {

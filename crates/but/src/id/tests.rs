@@ -1,8 +1,9 @@
-use crate::{CliId, IdMap, id::UintId};
 use anyhow::bail;
 use bstr::BString;
 use but_hunk_assignment::HunkAssignment;
 use but_testsupport::{hex_to_id, hunk_header};
+
+use crate::{CliId, IdMap, id::UintId};
 
 #[test]
 fn uint_id_from_short_id() -> anyhow::Result<()> {
@@ -605,7 +606,8 @@ fn committed_files_are_deduplicated_by_commit_oid_path() -> anyhow::Result<()> {
 }
 
 mod util {
-    use crate::{CliId, IdMap};
+    use std::{cmp::Ordering, fmt::Formatter};
+
     use bstr::BString;
     use but_core::ref_metadata::StackId;
     use but_hunk_assignment::HunkAssignment;
@@ -614,7 +616,8 @@ mod util {
         ref_info::{Commit, LocalCommit, Segment},
     };
     use itertools::Itertools;
-    use std::{cmp::Ordering, fmt::Formatter};
+
+    use crate::{CliId, IdMap};
 
     pub fn id(byte: u8) -> gix::ObjectId {
         gix::ObjectId::try_from([byte].repeat(20).as_slice()).expect("could not generate ID")

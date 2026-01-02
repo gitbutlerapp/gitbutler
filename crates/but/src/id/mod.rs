@@ -11,17 +11,18 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
 };
 
-use crate::id::{
-    file_info::FileInfo,
-    id_usage::{IdUsage, UintId},
-    stacks_info::StacksInfo,
-};
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::branch::Stack;
 use nonempty::NonEmpty;
+
+use crate::id::{
+    file_info::FileInfo,
+    id_usage::{IdUsage, UintId},
+    stacks_info::StacksInfo,
+};
 
 mod file_info;
 mod id_usage;

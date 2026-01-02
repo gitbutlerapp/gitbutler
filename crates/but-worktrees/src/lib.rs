@@ -1,7 +1,9 @@
 //! Worktree management types and database operations.
 
-use std::ffi::OsString;
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context as _, Result};
 use bstr::BString;

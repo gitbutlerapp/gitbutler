@@ -38,8 +38,9 @@ impl Default for AppSettings {
 
 /// Preset customizations for applications to use in [AppSettingsWithDiskSync::new_with_customization()], but tested and maintained here.
 pub mod customization {
-    use crate::json;
     use serde_json::json;
+
+    use crate::json;
 
     pub fn merge_two(
         new: serde_json::Value,

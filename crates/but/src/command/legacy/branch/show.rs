@@ -1,10 +1,11 @@
-use super::list::load_id_map;
-use crate::utils::OutputChannel;
 use but_ctx::Context;
 use but_oxidize::OidExt;
 use colored::Colorize;
 use gitbutler_project::Project;
 use tracing::instrument;
+
+use super::list::load_id_map;
+use crate::utils::OutputChannel;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn show(

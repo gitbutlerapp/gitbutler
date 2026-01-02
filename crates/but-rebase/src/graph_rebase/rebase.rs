@@ -2,17 +2,18 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::graph_rebase::{
-    Editor, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
-    cherry_pick::{CherryPickOutcome, cherry_pick},
-    util::collect_ordered_parents,
-};
 use anyhow::{Context, Result, bail};
 use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit},
 };
 use petgraph::{Direction, visit::EdgeRef};
+
+use crate::graph_rebase::{
+    Editor, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
+    cherry_pick::{CherryPickOutcome, cherry_pick},
+    util::collect_ordered_parents,
+};
 
 impl Editor {
     /// Perform the rebase

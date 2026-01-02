@@ -1,3 +1,10 @@
+use std::{
+    collections::HashMap,
+    io::{self, Read},
+    path::PathBuf,
+    str::FromStr,
+};
+
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -10,12 +17,6 @@ use gix::diff::blob::{
     unified_diff::{ConsumeBinaryHunk, ContextSize},
 };
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::{
-    collections::HashMap,
-    io::{self, Read},
-    str::FromStr,
-};
 
 pub mod db;
 pub mod workspace_identifier;

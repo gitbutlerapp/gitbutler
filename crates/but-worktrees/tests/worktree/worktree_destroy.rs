@@ -1,9 +1,10 @@
-use crate::util::test_ctx;
 use but_worktrees::{
     destroy::{worktree_destroy_by_id, worktree_destroy_by_reference},
     list::worktree_list,
     new::worktree_new,
 };
+
+use crate::util::test_ctx;
 
 #[test]
 fn can_destroy_worktree_by_id() -> anyhow::Result<()> {

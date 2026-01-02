@@ -1,6 +1,5 @@
 use but_api_macros::but_api;
-use but_core::ui::TreeChanges;
-use but_core::worktree::checkout::UncommitedWorktreeChanges;
+use but_core::{ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_workspace::branch::{

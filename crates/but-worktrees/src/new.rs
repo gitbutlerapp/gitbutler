@@ -1,8 +1,10 @@
-use crate::{Worktree, WorktreeId, WorktreeMeta, db::save_worktree_meta, git::git_worktree_add};
+use std::path::{Path, PathBuf};
+
 use anyhow::{Result, bail};
 use but_ctx::{Context, access::WorktreeReadPermission};
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+
+use crate::{Worktree, WorktreeId, WorktreeMeta, db::save_worktree_meta, git::git_worktree_add};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

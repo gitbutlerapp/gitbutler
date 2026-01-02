@@ -1,6 +1,5 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
-use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, status::get_applied_status_cached};
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::RepositoryExt;
 use but_ctx::Context;
@@ -24,6 +23,8 @@ use gitbutler_stack::{
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use itertools::Itertools;
 use serde::Serialize;
+
+use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, status::get_applied_status_cached};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

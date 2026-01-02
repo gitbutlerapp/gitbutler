@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
-use crate::id::ShortId;
 use anyhow::bail;
+
+use crate::id::ShortId;
 
 fn divmod(a: usize, b: usize) -> (usize, usize) {
     (a / b, a % b)

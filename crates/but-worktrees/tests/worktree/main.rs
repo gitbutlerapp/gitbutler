@@ -35,8 +35,9 @@ mod util {
 mod worktree_new;
 
 mod worktree_list {
-    use crate::util::test_ctx;
     use but_worktrees::{list::worktree_list, new::worktree_new};
+
+    use crate::util::test_ctx;
 
     #[test]
     fn can_list_worktrees() -> anyhow::Result<()> {

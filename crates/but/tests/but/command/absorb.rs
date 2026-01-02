@@ -1,7 +1,7 @@
-use crate::command::util::commit_file_with_worktree_changes_as_two_hunks;
-use crate::utils::Sandbox;
 use bstr::ByteSlice;
 use snapbox::str;
+
+use crate::{command::util::commit_file_with_worktree_changes_as_two_hunks, utils::Sandbox};
 
 #[test]
 fn uncommitted_file() -> anyhow::Result<()> {

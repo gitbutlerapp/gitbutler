@@ -358,5 +358,6 @@ mod util {
             .collect()
     }
 }
-use crate::ui::util::hunk_dependencies_for_workspace_separated;
 use util::{simplify_stack_ids_in_string, stack_ids_by_diffs, to_stable_string};
+
+use crate::ui::util::hunk_dependencies_for_workspace_separated;

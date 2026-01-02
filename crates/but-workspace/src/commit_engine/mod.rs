@@ -1,9 +1,9 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a workspace.
 
 use anyhow::bail;
-use but_core::commit::HeadersV2;
 use but_core::{
     DiffSpec, RepositoryExt,
+    commit::HeadersV2,
     ref_metadata::StackId,
     tree::{CreateTreeOutcome, create_tree, create_tree::RejectionReason},
 };

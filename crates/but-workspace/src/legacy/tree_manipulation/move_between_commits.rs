@@ -1,6 +1,5 @@
 use anyhow::{Result, bail};
-use but_core::DiffSpec;
-use but_core::RepositoryExt;
+use but_core::{DiffSpec, RepositoryExt};
 use but_ctx::Context;
 use but_rebase::{Rebase, RebaseStep, replace_commit_tree};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
