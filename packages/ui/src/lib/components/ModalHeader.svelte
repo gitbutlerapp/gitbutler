@@ -33,7 +33,7 @@
 	{/if}
 
 	{#if type === 'success'}
-		<Icon name="success" color="success" />
+		<Icon name="success" color="safe" />
 	{/if}
 
 	<h2 class="text-14 text-bold">

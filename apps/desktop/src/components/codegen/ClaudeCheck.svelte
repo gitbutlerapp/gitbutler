@@ -94,7 +94,7 @@
 				<Icon name="warning" color="warning" />
 				<h4 class="text-16 text-semibold text-body">Claude Code can't be found</h4>
 			{:else}
-				<Icon name="success" color="success" />
+				<Icon name="success" color="safe" />
 				<h4 class="text-16 text-semibold text-body">Claude code is connected</h4>
 			{/if}
 		</div>
