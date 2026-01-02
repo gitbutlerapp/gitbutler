@@ -1073,6 +1073,7 @@ dependencies = [
  "git-url-parse",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

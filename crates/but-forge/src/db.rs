@@ -79,3 +79,15 @@ impl TryFrom<but_db::ForgeReview> for ForgeReview {
         })
     }
 }
+
+pub(crate) fn cache_reviews(
+    db: &mut but_db::DbHandle,
+    reviews: &[ForgeReview],
+) -> anyhow::Result<()> {
+    let db_reviews: Vec<but_db::ForgeReview> = reviews
+        .iter()
+        .map(|r| r.clone().try_into())
+        .collect::<anyhow::Result<Vec<but_db::ForgeReview>>>(
+    )?;
+    db.forge_reviews().set_all(db_reviews)
+}

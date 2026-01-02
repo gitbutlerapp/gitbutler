@@ -330,25 +330,53 @@ impl From<but_github::PullRequest> for ForgeReview {
 }
 
 /// List the open reviews (e.g. pull requests) for a given forge repository
-pub async fn list_forge_reviews(
-    preferred_forge_user: &Option<crate::ForgeUser>,
+pub fn list_forge_reviews(
+    preferred_forge_user: Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
+    db: &mut but_db::DbHandle,
 ) -> Result<Vec<ForgeReview>> {
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
-    match forge {
+    let reviews = match forge {
         ForgeName::GitHub => {
-            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
-            let pulls = but_github::pr::list(preferred_account, owner, repo, storage).await?;
-            Ok(pulls.into_iter().map(ForgeReview::from).collect())
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.github().cloned());
+
+            // Clone owned data for thread
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let storage = storage.clone();
+
+            let pulls = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(but_github::pr::list(
+                        preferred_account.as_ref(),
+                        &owner,
+                        &repo,
+                        &storage,
+                    ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+
+            pulls
+                .into_iter()
+                .map(ForgeReview::from)
+                .collect::<Vec<ForgeReview>>()
         }
-        _ => Err(Error::msg(format!(
-            "Listing reviews for forge {:?} is not implemented yet.",
-            forge,
-        ))),
-    }
+        _ => {
+            return Err(Error::msg(format!(
+                "Listing reviews for forge {:?} is not implemented yet.",
+                forge,
+            )));
+        }
+    };
+    crate::db::cache_reviews(db, &reviews)?;
+    Ok(reviews)
 }
 
 /// Get a specific review (e.g. pull request) for a given forge repository
