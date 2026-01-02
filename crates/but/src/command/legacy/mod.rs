@@ -17,5 +17,6 @@ pub mod pull;
 pub mod push;
 pub mod reword;
 pub mod rub;
+pub mod squash;
 pub mod status;
 pub mod worktree;
