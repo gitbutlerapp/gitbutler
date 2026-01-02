@@ -303,13 +303,6 @@
 					<SkeletonBone width="6.25rem" height="0.75rem" />
 				</div>
 			</div>
-			<div class="image-panel skeleton-panel">
-				<SkeletonBone height="12.5rem" />
-				<div class="skeleton-footer">
-					<SkeletonBone width="3.75rem" height="1.25rem" />
-					<SkeletonBone width="6.25rem" height="0.75rem" />
-				</div>
-			</div>
 		{:else if beforeImageUrl || afterImageUrl}
 			{#if viewMode === '2-up'}
 				{#if beforeImageUrl}
