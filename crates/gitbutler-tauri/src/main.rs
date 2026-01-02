@@ -372,6 +372,8 @@ fn main() -> anyhow::Result<()> {
                 action::freestyle,
                 askpass::submit_prompt_response,
                 menu::menu_item_set_enabled,
+                gitbutler_tauri::debug::open_logs_folder,
+                gitbutler_tauri::debug::open_config_folder,
                 projects::list_projects,
                 projects::set_project_active,
                 projects::open_project_in_window,

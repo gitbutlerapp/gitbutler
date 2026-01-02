@@ -209,11 +209,15 @@ pub fn build<R: Runtime>(
 
     let help_menu = SubmenuBuilder::new(handle, "Help")
         .text("help/documentation", "Documentation")
+        .text("help/debugging-guide", "Debugging Guide")
         .text("help/github", "Source Code")
         .text("help/release-notes", "Release Notes")
         .separator()
         .text("help/share-debug-info", "Share Debug Info…")
-        .text("help/report-issue", "Report an Issue…")
+        .text("help/report-issue", "Create an Issue")
+        .separator()
+        .text("help/open-logs-folder", "Open Logs Folder")
+        .text("help/open-config-folder", "Open Config Folder")
         .separator()
         .text("help/discord", "Discord")
         .text("help/youtube", "YouTube")
@@ -358,9 +362,26 @@ pub fn handle_event<R: Runtime>(
         return;
     }
 
+    if event.id() == "help/open-logs-folder" {
+        if let Err(err) = crate::debug::open_logs_folder(_handle.clone()) {
+            tracing::error!(error = ?err, "failed to open logs folder");
+        }
+        return;
+    }
+
+    if event.id() == "help/open-config-folder" {
+        if let Err(err) = crate::debug::open_config_folder(_handle.clone()) {
+            tracing::error!(error = ?err, "failed to open config folder");
+        }
+        return;
+    }
+
     'open_link: {
         let result = match event.id().0.as_str() {
             "help/documentation" => open::that("https://docs.gitbutler.com"),
+            "help/debugging-guide" => {
+                open::that("https://docs.gitbutler.com/development/debugging")
+            }
             "help/github" => open::that("https://github.com/gitbutlerapp/gitbutler"),
             "help/release-notes" => {
                 open::that("https://github.com/gitbutlerapp/gitbutler/releases")
