@@ -80,7 +80,7 @@
 										{#await check.promise}
 											<Icon name="spinner" spinnerRadius={4} />
 										{:then}
-											<Icon name="success-small" color="success" />
+											<Icon name="success-small" color="safe" />
 										{:catch}
 											<Icon name="error-small" color="danger" />
 										{/await}

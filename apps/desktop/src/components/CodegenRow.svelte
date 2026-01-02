@@ -154,7 +154,7 @@
 						<span class="text-12 codegen-row__todos">Todos ({completedCount}/{totalCount})</span>
 
 						{#if completedCount === totalCount}
-							<Icon name="success-outline" color="success" />
+							<Icon name="success-outline" color="safe" />
 						{/if}
 					{/if}
 				</button>
