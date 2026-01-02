@@ -32,16 +32,16 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
 
     // Define command groupings and their order (excluding MISC)
     let groups = [
-        ("Inspection".yellow(), vec!["status"]),
+        ("Inspection".yellow(), vec!["status", "diff"]),
         (
             "Branching and Committing".yellow(),
-            vec!["commit", "new", "branch", "base", "mark", "unmark"],
+            vec!["commit", "new", "branch", "mark", "unmark"],
         ),
-        ("Server Interactions".yellow(), vec!["push", "pr", "forge"]),
         (
-            "Editing Commits".yellow(),
-            vec!["rub", "describe", "absorb"],
+            "Server Interactions".yellow(),
+            vec!["push", "pull", "base", "pr", "forge"],
         ),
+        ("Editing Commits".yellow(), vec!["rub", "absorb", "reword"]),
         (
             "Operation History".yellow(),
             vec!["oplog", "undo", "restore"],
