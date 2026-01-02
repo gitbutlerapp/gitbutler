@@ -1,0 +1,26 @@
+[package]
+name = "but-gitea"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "GitButler Gitea Integration"
+authors.workspace = true
+readme = "../../README.md"
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+but-secret.workspace = true
+but-forge-storage.workspace = true
+
+serde.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+
+[dev-dependencies]
+reqwest = { workspace = true, features = ["blocking"] }

@@ -34,6 +34,7 @@ but-cursor = { path = "crates/but-cursor" }
 but-gerrit = { path = "crates/but-gerrit" }
 but-cherry-apply = { path = "crates/but-cherry-apply" }
 but-github = { path = "crates/but-github" }
+but-gitea = { path = "crates/but-gitea" }
 but-error = { path = "crates/but-error" }
 but-serde = { path = "crates/but-serde" }
 but-secret = { path = "crates/but-secret" }

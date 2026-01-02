@@ -13,6 +13,7 @@ doctest = false
 [dependencies]
 but-fs.workspace = true
 but-github.workspace = true
+but-gitea.workspace = true
 but-forge-storage.workspace = true
 
 git-url-parse = "0.6.0"

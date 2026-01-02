@@ -99,7 +99,47 @@ pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFu
             is_valid_review_template_path: is_valid_review_template_path_azure,
             supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
         },
+        ForgeName::Gitea => ReviewTemplateFunctions {
+            is_review_template: is_review_template_gitea,
+            get_root: get_gitea_directory_path,
+            is_valid_review_template_path: is_valid_review_template_path_gitea,
+            supported_template_directories: &[
+                SupportedTemplateDirectory::ForgeRoot,
+                SupportedTemplateDirectory::ProjectRoot,
+                SupportedTemplateDirectory::Custom("docs"),
+            ],
+        },
     }
+}
+
+fn get_gitea_directory_path(root_path: &path::Path) -> path::PathBuf {
+    let mut path = root_path.to_path_buf();
+    path.push(".gitea");
+    path
+}
+
+fn is_review_template_gitea(path_str: &str) -> bool {
+    // Gitea supports both .gitea and .github folders for templates, and root.
+    let normalized_path = path_str.replace('\\', "/");
+    normalized_path == "PULL_REQUEST_TEMPLATE.md"
+        || normalized_path == "pull_request_template.md"
+        || normalized_path.contains(".gitea/PULL_REQUEST_TEMPLATE")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains(".gitea/pull_request_template")
+            && normalized_path.ends_with(".md")
+            // Fallback/Compatibility with GitHub standard which Gitea supports
+        || normalized_path.contains(".github/PULL_REQUEST_TEMPLATE")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains(".github/pull_request_template")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains("docs/PULL_REQUEST_TEMPLATE")
+            && normalized_path.ends_with(".md")
+        || normalized_path.contains("docs/pull_request_template")
+            && normalized_path.ends_with(".md")
+}
+
+fn is_valid_review_template_path_gitea(path: &path::Path) -> bool {
+    is_review_template_gitea(path.to_str().unwrap_or_default())
 }
 
 fn get_github_directory_path(root_path: &path::Path) -> path::PathBuf {
@@ -223,6 +263,29 @@ impl From<but_github::GitHubUser> for ForgeUser {
     }
 }
 
+impl From<but_gitea::GiteaUser> for ForgeUser {
+    fn from(user: but_gitea::GiteaUser) -> Self {
+        ForgeUser {
+            id: user.id,
+            login: user.login,
+            name: user.full_name,
+            email: Some(user.email).filter(|e| !e.is_empty()),
+            avatar_url: Some(user.avatar_url),
+            is_bot: user.is_bot,
+        }
+    }
+}
+
+impl From<but_gitea::GiteaLabel> for ForgeReviewLabel {
+    fn from(label: but_gitea::GiteaLabel) -> Self {
+        ForgeReviewLabel {
+            name: label.name,
+            description: label.description,
+            color: label.color,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 /// Represents a review (pull request/merge request) from a forge platform (GitHub, GitLab, etc.).
@@ -321,6 +384,36 @@ impl From<but_github::PullRequest> for ForgeReview {
     }
 }
 
+impl From<but_gitea::PullRequest> for ForgeReview {
+    fn from(pr: but_gitea::PullRequest) -> Self {
+        ForgeReview {
+            html_url: pr.html_url,
+            number: pr.number,
+            title: pr.title,
+            body: pr.body,
+            author: Some(ForgeUser::from(pr.author)),
+            labels: pr.labels.into_iter().map(ForgeReviewLabel::from).collect(),
+            draft: pr.draft,
+            source_branch: pr.source_branch,
+            target_branch: pr.target_branch,
+            sha: pr.sha,
+            created_at: Some(pr.created_at),
+            modified_at: pr.modified_at,
+            merged_at: pr.merged_at,
+            closed_at: pr.closed_at,
+            repository_ssh_url: pr.repository_ssh_url,
+            repository_https_url: pr.repository_https_url,
+            repo_owner: pr.repo_owner,
+            reviewers: pr
+                .requested_reviewers
+                .into_iter()
+                .map(ForgeUser::from)
+                .collect(),
+            unit_symbol: "#".to_string(),
+        }
+    }
+}
+
 /// List the open reviews (e.g. pull requests) for a given forge repository
 pub async fn list_forge_reviews(
     preferred_forge_user: &Option<crate::ForgeUser>,
@@ -334,6 +427,11 @@ pub async fn list_forge_reviews(
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let pulls = but_github::pr::list(preferred_account, owner, repo, storage).await?;
+            Ok(pulls.into_iter().map(ForgeReview::from).collect())
+        }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pulls = but_gitea::pr::list(preferred_account, owner, repo, storage).await?;
             Ok(pulls.into_iter().map(ForgeReview::from).collect())
         }
         _ => Err(Error::msg(format!(
@@ -358,6 +456,12 @@ pub async fn get_forge_review(
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let pr =
                 but_github::pr::get(preferred_account, owner, repo, pr_number, storage).await?;
+            Ok(ForgeReview::from(pr))
+        }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr = but_gitea::pr::get(preferred_account, owner, repo, pr_number as i64, storage)
+                .await?;
             Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(
@@ -402,6 +506,19 @@ pub async fn create_forge_review(
             };
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let pr = but_github::pr::create(preferred_account, pr_params, storage).await?;
+            Ok(ForgeReview::from(pr))
+        }
+        ForgeName::Gitea => {
+            let pr_params = but_gitea::CreatePullRequestParams {
+                owner,
+                repo,
+                title: &params.title,
+                body: &params.body,
+                head: &params.source_branch,
+                base: &params.target_branch,
+            };
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr = but_gitea::pr::create(preferred_account, pr_params, storage).await?;
             Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(
