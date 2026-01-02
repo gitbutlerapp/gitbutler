@@ -7,7 +7,7 @@ use gitbutler_project::Project;
 use tracing::instrument;
 
 #[allow(clippy::too_many_arguments)]
-pub async fn show(
+pub fn show(
     ctx: &mut Context,
     branch_id: &str,
     out: &mut OutputChannel,
@@ -44,8 +44,7 @@ pub async fn show(
 
     // Get review information if requested
     let reviews = if review {
-        crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project)
-            .await?
+        crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project)?
             .get(&branch_name)
             .cloned()
             .unwrap_or_default()
@@ -55,7 +54,7 @@ pub async fn show(
 
     // Generate AI summary if requested
     let ai_summary = if generate_ai_summary {
-        Some(generate_branch_summary(&branch_name, &commits).await?)
+        Some(generate_branch_summary(&branch_name, &commits)?)
     } else {
         None
     };
@@ -516,10 +515,7 @@ struct CommitInfo {
 }
 
 #[instrument(skip(commits))]
-async fn generate_branch_summary(
-    branch_name: &str,
-    commits: &[CommitInfo],
-) -> anyhow::Result<String> {
+fn generate_branch_summary(branch_name: &str, commits: &[CommitInfo]) -> anyhow::Result<String> {
     use async_openai::types::chat::{
         ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessageArgs,
         CreateChatCompletionRequestArgs,
@@ -579,7 +575,13 @@ async fn generate_branch_summary(
         .max_completion_tokens(500u32)
         .build()?;
 
-    let response = client.chat().create(request).await?;
+    let response = std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(client.chat().create(request))
+    })
+    .join()
+    .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
 
     // Extract the summary from the response
     let summary = response

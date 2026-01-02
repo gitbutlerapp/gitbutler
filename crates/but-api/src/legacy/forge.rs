@@ -166,7 +166,7 @@ pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>> {
 
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeReview>> {
+pub fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeReview>> {
     let mut ctx = Context::new_from_legacy_project_id(project_id)?;
     let (storage, base_branch, project) = {
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;

@@ -195,7 +195,6 @@ async fn match_subcommand(
                 if #[cfg(feature = "legacy")]  {
                     let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
                     command::legacy::branch::handle(cmd, &mut ctx, out)
-                        .await
                         .emit_metrics(metrics_ctx)
                 } else {
                     let ctx = but_ctx::Context::discover(&args.current_dir)?;
@@ -329,14 +328,12 @@ async fn match_subcommand(
         } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::status::worktree(&mut ctx, out, show_files, verbose, review)
-                .await
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Stf { verbose, review } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::status::worktree(&mut ctx, out, true, verbose, review)
-                .await
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]

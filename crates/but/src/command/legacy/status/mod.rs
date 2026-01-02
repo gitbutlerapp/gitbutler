@@ -50,7 +50,7 @@ struct UpstreamState {
     author_email: String,
 }
 
-pub(crate) async fn worktree(
+pub(crate) fn worktree(
     ctx: &mut Context,
     out: &mut OutputChannel,
     show_files: bool,
@@ -73,7 +73,7 @@ pub(crate) async fn worktree(
     )?;
 
     let review_map = if review {
-        crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project).await?
+        crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project)?
     } else {
         std::collections::HashMap::new()
     };
