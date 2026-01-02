@@ -65,7 +65,10 @@ pub fn list(
     };
 
     let branch_review_map = if review {
-        crate::command::legacy::forge::review::get_review_map(project, None)?
+        crate::command::legacy::forge::review::get_review_map(
+            project,
+            Some(but_forge::CacheConfig::CacheOnly),
+        )?
     } else {
         HashMap::new()
     };

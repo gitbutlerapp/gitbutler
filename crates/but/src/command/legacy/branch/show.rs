@@ -44,10 +44,13 @@ pub fn show(
 
     // Get review information if requested
     let reviews = if review {
-        crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project, None)?
-            .get(&branch_name)
-            .cloned()
-            .unwrap_or_default()
+        crate::command::legacy::forge::review::get_review_map(
+            &ctx.legacy_project,
+            Some(but_forge::CacheConfig::CacheOnly),
+        )?
+        .get(&branch_name)
+        .cloned()
+        .unwrap_or_default()
     } else {
         Vec::new()
     };

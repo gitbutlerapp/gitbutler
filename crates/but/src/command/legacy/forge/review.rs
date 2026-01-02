@@ -73,7 +73,7 @@ pub async fn create_pr(
     default: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let review_map = get_review_map(&ctx.legacy_project, None)?;
+    let review_map = get_review_map(&ctx.legacy_project, Some(but_forge::CacheConfig::CacheOnly))?;
     let applied_stacks = but_api::legacy::workspace::stacks(
         ctx.legacy_project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
