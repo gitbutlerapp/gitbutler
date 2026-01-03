@@ -329,7 +329,6 @@ fn convert_file_assignments(
 /// Convert a BranchDetails to the JSON Branch type
 fn convert_branch_to_json(
     branch: &but_workspace::ui::BranchDetails,
-    review: bool,
     show_files: bool,
     project_id: gitbutler_project::ProjectId,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
@@ -339,7 +338,7 @@ fn convert_branch_to_json(
         .resolve_branch(branch.name.as_ref())
         .to_short_string();
 
-    let review_id = if review {
+    let review_id = {
         crate::command::legacy::forge::review::get_review_numbers(
             &branch.name.to_string(),
             &branch.pr_number,
@@ -348,8 +347,6 @@ fn convert_branch_to_json(
         .split_whitespace()
         .next()
         .map(|s| s.to_string())
-    } else {
-        None
     };
 
     Branch::from_branch_details(
@@ -376,7 +373,6 @@ pub(super) fn build_workspace_status_json(
     last_fetched_ms: Option<u128>,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     show_files: bool,
-    review: bool,
     project_id: gitbutler_project::ProjectId,
     repo: &gix::Repository,
     id_map: &crate::IdMap,
@@ -402,9 +398,7 @@ pub(super) fn build_workspace_status_json(
                 .branch_details
                 .iter()
                 .map(|branch| {
-                    convert_branch_to_json(
-                        branch, review, show_files, project_id, review_map, id_map,
-                    )
+                    convert_branch_to_json(branch, show_files, project_id, review_map, id_map)
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
 

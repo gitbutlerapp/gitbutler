@@ -324,16 +324,19 @@ async fn match_subcommand(
         Subcommands::Status {
             show_files,
             verbose,
-            review,
+            refresh_prs: sync_prs,
         } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-            command::legacy::status::worktree(&mut ctx, out, show_files, verbose, review)
+            command::legacy::status::worktree(&mut ctx, out, show_files, verbose, sync_prs)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Stf { verbose, review } => {
+        Subcommands::Stf {
+            verbose,
+            refresh_prs,
+        } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-            command::legacy::status::worktree(&mut ctx, out, true, verbose, review)
+            command::legacy::status::worktree(&mut ctx, out, true, verbose, refresh_prs)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]

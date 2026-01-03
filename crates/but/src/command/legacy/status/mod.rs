@@ -55,7 +55,7 @@ pub(crate) fn worktree(
     out: &mut OutputChannel,
     show_files: bool,
     verbose: bool,
-    review: bool,
+    refresh_prs: bool,
 ) -> anyhow::Result<()> {
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
@@ -72,14 +72,15 @@ pub(crate) fn worktree(
         },
     )?;
 
-    let review_map = if review {
-        crate::command::legacy::forge::review::get_review_map(
-            &ctx.legacy_project,
-            Some(but_forge::CacheConfig::CacheOnly),
-        )?
+    let cache_config = if refresh_prs {
+        but_forge::CacheConfig::NoCache
     } else {
-        std::collections::HashMap::new()
+        but_forge::CacheConfig::CacheOnly
     };
+    let review_map = crate::command::legacy::forge::review::get_review_map(
+        &ctx.legacy_project,
+        Some(cache_config),
+    )?;
 
     let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
     let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
@@ -197,7 +198,6 @@ pub(crate) fn worktree(
             last_fetched_ms,
             &review_map,
             show_files,
-            review,
             ctx.legacy_project.id,
             &repo,
             &id_map,
@@ -228,7 +228,6 @@ pub(crate) fn worktree(
             &worktree_changes.worktree_changes.changes,
             show_files,
             verbose,
-            review,
             &mut stack_mark,
             ctx,
             i == 0,
@@ -363,7 +362,6 @@ pub fn print_group(
     changes: &[ui::TreeChange],
     show_files: bool,
     verbose: bool,
-    show_url: bool,
     stack_mark: &mut Option<ColoredString>,
     ctx: &mut Context,
     first: bool,
@@ -426,9 +424,7 @@ pub fn print_group(
             for commit in &branch.upstream_commits {
                 let dot = "●".yellow();
                 let details = but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
-                print_commit(
-                    details, dot, false, show_files, verbose, show_url, None, id_map, out,
-                )?;
+                print_commit(details, dot, false, show_files, verbose, None, id_map, out)?;
             }
             for cli_commit in &branch.commits {
                 let commit = &cli_commit;
@@ -453,7 +449,6 @@ pub fn print_group(
                     marked,
                     show_files,
                     verbose,
-                    show_url,
                     commit.gerrit_review_url.clone(),
                     id_map,
                     out,
@@ -531,7 +526,6 @@ fn print_commit(
     marked: bool,
     show_files: bool,
     verbose: bool,
-    show_url: bool,
     review_url: Option<String>,
     id_map: &IdMap,
     out: &mut dyn std::fmt::Write,
@@ -559,12 +553,9 @@ fn print_commit(
         writeln!(out, "┊│     {message}")?;
     } else {
         // Original format: everything on one line
-        let review_url = if show_url {
-            review_url.map(|r| format!("◖{}◗", r.underline().blue()))
-        } else {
-            review_url.map(|_| format!("◖{}◗", "r".normal()))
-        }
-        .unwrap_or_default();
+        let review_url = review_url
+            .map(|r| format!("◖{}◗", r.underline().blue()))
+            .unwrap_or_default();
         writeln!(
             out,
             "┊{dot}   {} {} {}",

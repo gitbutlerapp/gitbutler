@@ -90,9 +90,9 @@ pub enum Subcommands {
         /// Show verbose output with commit author and timestamp.
         #[clap(short = 'v', long = "verbose", default_value_t = false)]
         verbose: bool,
-        /// Show the forge review information
-        #[clap(short = 'r', long = "review", default_value_t = false)]
-        review: bool,
+        /// Forces a sync of pull requests from the forge before showing status.
+        #[clap(short = 'r', long = "refresh-prs", default_value_t = false)]
+        refresh_prs: bool,
     },
 
     /// Overview of the uncommitted changes in the repository with files shown.
@@ -105,9 +105,9 @@ pub enum Subcommands {
         /// Show verbose output with commit author and timestamp.
         #[clap(short = 'v', long = "verbose", default_value_t = false)]
         verbose: bool,
-        /// Show the forge review information
-        #[clap(short = 'r', long = "review", default_value_t = false)]
-        review: bool,
+        /// Forces a sync of pull requests from the forge before showing status.
+        #[clap(short = 'r', long = "refresh-prs", default_value_t = false)]
+        refresh_prs: bool,
     },
 
     /// Combines two entities together to perform an operation like amend, squash, assign, or move.
