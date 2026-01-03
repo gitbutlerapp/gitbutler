@@ -11,28 +11,25 @@ mod json;
 mod list;
 mod show;
 
-pub async fn handle(
+pub fn handle(
     cmd: Option<Subcommands>,
     ctx: &mut Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     match cmd {
-        None => {
-            Box::pin(handle(
-                Some(Subcommands::List {
-                    filter: None,
-                    local: false,
-                    remote: false,
-                    all: false,
-                    no_ahead: false,
-                    review: false,
-                    no_check: false,
-                }),
-                ctx,
-                out,
-            ))
-            .await
-        }
+        None => handle(
+            Some(Subcommands::List {
+                filter: None,
+                local: false,
+                remote: false,
+                all: false,
+                no_ahead: false,
+                review: false,
+                no_check: false,
+            }),
+            ctx,
+            out,
+        ),
         Some(Subcommands::List {
             filter,
             local,
@@ -54,8 +51,7 @@ pub async fn handle(
                 filter,
                 out,
                 check,
-            )
-            .await?;
+            )?;
             Ok(())
         }
         Some(Subcommands::Show {
@@ -65,7 +61,7 @@ pub async fn handle(
             ai,
             check,
         }) => {
-            show::show(ctx, &branch_id, out, review, files, ai, check).await?;
+            show::show(ctx, &branch_id, out, review, files, ai, check)?;
             Ok(())
         }
         Some(Subcommands::New {

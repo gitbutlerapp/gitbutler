@@ -44,7 +44,7 @@ pub fn load_id_map(project: &Project) -> Result<HashMap<String, String>, anyhow:
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn list(
+pub fn list(
     project: &Project,
     local: bool,
     remote: bool,
@@ -65,7 +65,10 @@ pub async fn list(
     };
 
     let branch_review_map = if review {
-        crate::command::legacy::forge::review::get_review_map(project).await?
+        crate::command::legacy::forge::review::get_review_map(
+            project,
+            Some(but_forge::CacheConfig::CacheOnly),
+        )?
     } else {
         HashMap::new()
     };

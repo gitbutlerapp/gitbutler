@@ -195,7 +195,6 @@ async fn match_subcommand(
                 if #[cfg(feature = "legacy")]  {
                     let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
                     command::legacy::branch::handle(cmd, &mut ctx, out)
-                        .await
                         .emit_metrics(metrics_ctx)
                 } else {
                     let ctx = but_ctx::Context::discover(&args.current_dir)?;
@@ -325,18 +324,19 @@ async fn match_subcommand(
         Subcommands::Status {
             show_files,
             verbose,
-            review,
+            refresh_prs: sync_prs,
         } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-            command::legacy::status::worktree(&mut ctx, out, show_files, verbose, review)
-                .await
+            command::legacy::status::worktree(&mut ctx, out, show_files, verbose, sync_prs)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Stf { verbose, review } => {
+        Subcommands::Stf {
+            verbose,
+            refresh_prs,
+        } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-            command::legacy::status::worktree(&mut ctx, out, true, verbose, review)
-                .await
+            command::legacy::status::worktree(&mut ctx, out, true, verbose, refresh_prs)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
@@ -490,6 +490,18 @@ async fn match_subcommand(
                         out,
                     )
                     .context("Failed to set PR template.")
+                    .emit_metrics(metrics_ctx)
+                }
+                Some(forge::pr::Subcommands::List { no_cache }) => {
+                    but_api::legacy::forge::list_reviews(
+                        ctx.legacy_project.id,
+                        if no_cache {
+                            Some(but_forge::CacheConfig::NoCache)
+                        } else {
+                            Some(but_forge::CacheConfig::CacheOnly)
+                        },
+                    )
+                    .context("Failed to list PRs for the repository.")
                     .emit_metrics(metrics_ctx)
                 }
                 None => {

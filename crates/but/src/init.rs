@@ -114,7 +114,7 @@ pub fn init_ctx(
 
             if should_fetch {
                 let binary_path = std::env::current_exe().unwrap_or_default();
-                let proc = tokio::process::Command::new(binary_path)
+                let proc = tokio::process::Command::new(binary_path.clone())
                     .arg("-C")
                     .arg(&args.current_dir)
                     .arg("base")
@@ -124,6 +124,18 @@ pub fn init_ctx(
                     .group()
                     .kill_on_drop(false)
                     .spawn();
+                tokio::process::Command::new(binary_path)
+                    .arg("-C")
+                    .arg(&args.current_dir)
+                    .arg("pr")
+                    .arg("list")
+                    .arg("--no-cache")
+                    .stderr(std::process::Stdio::null())
+                    .stdout(std::process::Stdio::null())
+                    .group()
+                    .kill_on_drop(false)
+                    .spawn()
+                    .ok();
                 if proc.is_ok() {
                     let msg = last_fetch
                         .and_then(|t| {

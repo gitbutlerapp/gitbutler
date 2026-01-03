@@ -73,7 +73,7 @@ pub async fn create_pr(
     default: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let review_map = get_review_map(&ctx.legacy_project).await?;
+    let review_map = get_review_map(&ctx.legacy_project, Some(but_forge::CacheConfig::CacheOnly))?;
     let applied_stacks = but_api::legacy::workspace::stacks(
         ctx.legacy_project.id,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
@@ -710,12 +710,12 @@ fn extract_commit_title(commit: Option<&Commit>) -> Option<&str> {
 
 /// Get a mapping from branch names to their associated reviews.
 #[instrument(skip(project))]
-pub async fn get_review_map(
+pub fn get_review_map(
     project: &Project,
+    cache_config: Option<but_forge::CacheConfig>,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
-    let reviews = but_api::legacy::forge::list_reviews(project.id)
-        .await
-        .unwrap_or_default();
+    let reviews =
+        but_api::legacy::forge::list_reviews(project.id, cache_config).unwrap_or_default();
 
     let branch_review_map =
         reviews

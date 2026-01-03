@@ -272,6 +272,8 @@ pub struct ForgeReview {
     pub reviewers: Vec<ForgeUser>,
     /// The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs).
     pub unit_symbol: String,
+    /// The timestamp when this review was last fetched from the forge.
+    pub last_sync_at: chrono::NaiveDateTime,
 }
 
 impl ForgeReview {
@@ -288,6 +290,11 @@ impl ForgeReview {
     /// Whether the review points to the given commit ID and has been merged
     pub fn is_merged_at_commit(&self, commit_id: &str) -> bool {
         self.is_merged() && self.sha == commit_id
+    }
+
+    /// The struct version for persistence compatibility purposes
+    pub fn struct_version() -> i32 {
+        1
     }
 }
 
@@ -317,30 +324,99 @@ impl From<but_github::PullRequest> for ForgeReview {
                 .map(ForgeUser::from)
                 .collect(),
             unit_symbol: "#".to_string(),
+            last_sync_at: chrono::Local::now().naive_local(),
         }
     }
 }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[derive(Default)]
+pub enum CacheConfig {
+    CacheOnly,
+    CacheWithFallback {
+        max_age_seconds: u64,
+    },
+    #[default]
+    NoCache,
+}
 
 /// List the open reviews (e.g. pull requests) for a given forge repository
-pub async fn list_forge_reviews(
-    preferred_forge_user: &Option<crate::ForgeUser>,
+pub fn list_forge_reviews_with_cache(
+    preferred_forge_user: Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    storage: &but_forge_storage::Controller,
+    db: &mut but_db::DbHandle,
+    cache_config: Option<CacheConfig>,
+) -> Result<Vec<ForgeReview>> {
+    let cache_config = cache_config.unwrap_or_default();
+    let reviews = match cache_config {
+        CacheConfig::CacheOnly => crate::db::reviews_from_cache(db)?,
+        CacheConfig::CacheWithFallback { max_age_seconds } => {
+            let cached = crate::db::reviews_from_cache(db)?;
+            if let Some(last_sync) = cached.first().map(|r| r.last_sync_at) {
+                let age = chrono::Local::now().naive_local() - last_sync;
+                if !cached.is_empty() && age.num_seconds() as u64 <= max_age_seconds {
+                    return Ok(cached);
+                }
+            }
+            let reviews = list_forge_reviews(preferred_forge_user, forge_repo_info, storage)?;
+            crate::db::cache_reviews(db, &reviews).ok();
+            reviews
+        }
+        CacheConfig::NoCache => {
+            let reviews = list_forge_reviews(preferred_forge_user, forge_repo_info, storage)?;
+            crate::db::cache_reviews(db, &reviews).ok();
+            reviews
+        }
+    };
+    Ok(reviews)
+}
+
+fn list_forge_reviews(
+    preferred_forge_user: Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<ForgeReview>> {
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
-    match forge {
+    let reviews = match forge {
         ForgeName::GitHub => {
-            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
-            let pulls = but_github::pr::list(preferred_account, owner, repo, storage).await?;
-            Ok(pulls.into_iter().map(ForgeReview::from).collect())
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.github().cloned());
+
+            // Clone owned data for thread
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let storage = storage.clone();
+
+            let pulls = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(but_github::pr::list(
+                        preferred_account.as_ref(),
+                        &owner,
+                        &repo,
+                        &storage,
+                    ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+
+            pulls
+                .into_iter()
+                .map(ForgeReview::from)
+                .collect::<Vec<ForgeReview>>()
         }
-        _ => Err(Error::msg(format!(
-            "Listing reviews for forge {:?} is not implemented yet.",
-            forge,
-        ))),
-    }
+        _ => {
+            return Err(Error::msg(format!(
+                "Listing reviews for forge {:?} is not implemented yet.",
+                forge,
+            )));
+        }
+    };
+    Ok(reviews)
 }
 
 /// Get a specific review (e.g. pull request) for a given forge repository

@@ -27,6 +27,16 @@ pub mod pr {
             #[clap(long, short = 't', default_value_t = false)]
             default: bool,
         },
+        /// List open pull requests for the current repository.
+        /// This command is hidden because the PR data is incorporated into other commands, such as `but status`.
+        /// This command is primarily used to forcefully refresh cached PR data in the background and is also
+        /// spawned automatically during initialization for background PR cache refresh.
+        #[clap(hide = true)]
+        List {
+            /// Do not use cached review data; fetch fresh data from the forge.
+            #[clap(long, default_value_t = false)]
+            no_cache: bool,
+        },
         /// Configure the template to use for PR descriptions.
         /// This will list all available templates found in the repository and allow you to select one.
         Template {

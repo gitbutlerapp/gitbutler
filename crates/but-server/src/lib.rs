@@ -438,7 +438,7 @@ async fn handle_command(
             let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
-                    let result = legacy::forge::list_reviews_cmd(params).await;
+                    let result = legacy::forge::list_reviews_cmd(params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
