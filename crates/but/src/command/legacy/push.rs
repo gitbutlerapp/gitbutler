@@ -326,14 +326,25 @@ fn get_branches_with_unpushed_info(
                 // Find the corresponding branch details to count unpushed commits
                 let unpushed_count = if let Some(branch_detail) = stack_details.branch_details.iter()
                     .find(|b| b.name == head.name) {
-                    // Count unpushed commits - if there's a remote tracking branch,
-                    // compare with it, otherwise all commits are unpushed
-                    if branch_detail.remote_tracking_branch.is_some() {
-                        // Count the local commits not on the remote
-                        branch_detail.commits.len()
-                    } else {
-                        // No remote tracking branch means all commits are unpushed
-                        branch_detail.commits.len()
+                    // Count only commits that are LocalOnly (not pushed to remote)
+                    // LocalAndRemote means it exists on both, Integrated means it's already in base
+                    let local_only_count = branch_detail.commits.iter()
+                        .filter(|c| matches!(c.state, but_workspace::ui::CommitState::LocalOnly))
+                        .count();
+
+                    // Additionally check if push_status indicates there are unpushed commits
+                    // even if we don't find any LocalOnly commits (e.g., for new branches)
+                    match branch_detail.push_status {
+                        but_workspace::ui::PushStatus::CompletelyUnpushed => {
+                            // All commits on the branch need to be pushed
+                            branch_detail.commits.len().max(local_only_count)
+                        }
+                        but_workspace::ui::PushStatus::UnpushedCommits |
+                        but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce => {
+                            // There are commits to push
+                            local_only_count.max(1) // At least 1 if push_status says so
+                        }
+                        _ => local_only_count
                     }
                 } else {
                     // If no detailed branch info found, assume no unpushed commits
