@@ -1,4 +1,5 @@
 use minus::ExitStrategy;
+use std::io::IsTerminal;
 
 use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 
@@ -10,6 +11,54 @@ pub struct OutputChannel {
     inner: std::io::Stdout,
     /// Possibly a pager we are using. If `Some`, our `inner` is the pager itself which we interact with from here.
     pager: Option<minus::Pager>,
+}
+
+/// A channel that implements [`std::io::Write`], to make unbuffered writes to [`std::io::stderr`]
+/// if the error channel is connected to a terminal, for providing progress or error information.
+/// Broken pipes will also be ignored, thus the output written to this channel should be considered optional.
+pub struct ProgressChannel {
+    /// The channel writes will go to, if we are connected to a terminal.
+    inner: Option<std::io::Stderr>,
+}
+
+impl Default for ProgressChannel {
+    fn default() -> Self {
+        ProgressChannel {
+            inner: {
+                let stderr = std::io::stderr();
+                stderr.is_terminal().then_some(stderr)
+            },
+        }
+    }
+}
+
+impl std::io::Write for ProgressChannel {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if let Some(stderr) = self.inner.as_mut() {
+            stderr
+                .write(buf)
+                .or_else(|err| ignore_broken_pipe(err).map(|()| buf.len()))
+        } else {
+            // Pretend we wrote everything
+            Ok(buf.len())
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        if let Some(stderr) = self.inner.as_mut() {
+            stderr.flush().or_else(ignore_broken_pipe)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+fn ignore_broken_pipe(err: std::io::Error) -> std::io::Result<()> {
+    if err.kind() == std::io::ErrorKind::BrokenPipe {
+        Ok(())
+    } else {
+        Err(err)
+    }
 }
 
 /// A channel to obtain various kinds of user input from a terminal, bypassing the pager.
@@ -55,6 +104,12 @@ impl OutputChannel {
             return None;
         }
         Some(InputOutputChannel { out: self, stdin })
+    }
+
+    /// A convenience function to create a progress channel, which doesn't have any relationship with this instance.
+    #[expect(dead_code)] // TODO: remove once this is actually used.
+    pub fn progress_channel(&self) -> ProgressChannel {
+        ProgressChannel::default()
     }
 }
 

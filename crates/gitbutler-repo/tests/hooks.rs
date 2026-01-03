@@ -67,7 +67,7 @@ fn pre_push_hook_failure() -> anyhow::Result<()> {
 
     fs::write(
         &hook_path,
-        "#!/bin/sh\necho Hook failed with args: $@\nexit 1\n",
+        "#!/bin/sh\nsleep 1\necho Hook failed with args: $@\nexit 1\n",
     )?;
 
     #[cfg(unix)]
