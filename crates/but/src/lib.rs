@@ -489,6 +489,18 @@ async fn match_subcommand(
                     .context("Failed to set PR template.")
                     .emit_metrics(metrics_ctx)
                 }
+                Some(forge::pr::Subcommands::List { no_cache }) => {
+                    but_api::legacy::forge::list_reviews(
+                        ctx.legacy_project.id,
+                        if no_cache {
+                            Some(but_forge::CacheConfig::NoCache)
+                        } else {
+                            Some(but_forge::CacheConfig::CacheOnly)
+                        },
+                    )
+                    .context("Failed to list PRs for the repository.")
+                    .emit_metrics(metrics_ctx)
+                }
                 None => {
                     // Default to `pr new` when no subcommand is provided
                     command::legacy::forge::review::create_pr(

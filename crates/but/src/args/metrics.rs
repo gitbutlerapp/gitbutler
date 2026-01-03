@@ -39,6 +39,7 @@ pub enum CommandName {
     ForgeListUsers,
     ForgeForget,
     PrNew,
+    PrList,
     PrTemplate,
     Completions,
     #[default]

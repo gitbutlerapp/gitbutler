@@ -131,6 +131,7 @@ impl Subcommands {
             Subcommands::Pr(forge::pr::Platform { cmd }) => match cmd {
                 None | Some(forge::pr::Subcommands::New { .. }) => PrNew,
                 Some(forge::pr::Subcommands::Template { .. }) => PrTemplate,
+                Some(forge::pr::Subcommands::List { .. }) => PrList,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Actions(_) | Subcommands::Mcp { .. } | Subcommands::Init { .. } => Unknown,
