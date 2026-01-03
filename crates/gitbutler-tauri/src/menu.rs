@@ -252,11 +252,7 @@ pub fn build<R: Runtime>(
 }
 
 /// `handle` is needed to access the undo queue, and buttons for that are only available when the `undo` feature is enabled.
-pub fn handle_event<R: Runtime>(
-    _handle: &AppHandle<R>,
-    webview: &WebviewWindow,
-    event: &MenuEvent,
-) {
+pub fn handle_event<R: Runtime>(handle: &AppHandle<R>, webview: &WebviewWindow, event: &MenuEvent) {
     if event.id() == "edit/undo" {
         eprintln!("use app undo queue to undo.");
         return;
@@ -363,14 +359,14 @@ pub fn handle_event<R: Runtime>(
     }
 
     if event.id() == "help/open-logs-folder" {
-        if let Err(err) = crate::debug::open_logs_folder(_handle.clone()) {
+        if let Err(err) = crate::debug::open_logs_folder(handle) {
             tracing::error!(error = ?err, "failed to open logs folder");
         }
         return;
     }
 
     if event.id() == "help/open-config-folder" {
-        if let Err(err) = crate::debug::open_config_folder(_handle.clone()) {
+        if let Err(err) = crate::debug::open_config_folder(handle) {
             tracing::error!(error = ?err, "failed to open config folder");
         }
         return;
