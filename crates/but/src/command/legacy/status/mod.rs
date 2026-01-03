@@ -73,7 +73,7 @@ pub(crate) fn worktree(
     )?;
 
     let review_map = if review {
-        crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project)?
+        crate::command::legacy::forge::review::get_review_map(&ctx.legacy_project, None)?
     } else {
         std::collections::HashMap::new()
     };

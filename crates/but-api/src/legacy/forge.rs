@@ -166,7 +166,10 @@ pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>> {
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeReview>> {
+pub fn list_reviews(
+    project_id: ProjectId,
+    cache_config: Option<but_forge::CacheConfig>,
+) -> Result<Vec<but_forge::ForgeReview>> {
     let mut ctx = Context::new_from_legacy_project_id(project_id)?;
     let (storage, base_branch, project) = {
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
@@ -177,13 +180,14 @@ pub fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeReview>
         )
     };
     let db = &mut *ctx.db.get_mut()?;
-    but_forge::list_forge_reviews(
+    but_forge::list_forge_reviews_with_cache(
         project.preferred_forge_user,
         &base_branch
             .forge_repo_info
             .context("No forge could be determined for this repository branch")?,
         &storage,
         db,
+        cache_config,
     )
 }
 

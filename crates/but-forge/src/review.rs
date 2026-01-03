@@ -328,13 +328,54 @@ impl From<but_github::PullRequest> for ForgeReview {
         }
     }
 }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[derive(Default)]
+pub enum CacheConfig {
+    CacheOnly,
+    CacheWithFallback {
+        max_age_seconds: u64,
+    },
+    #[default]
+    NoCache,
+}
 
 /// List the open reviews (e.g. pull requests) for a given forge repository
-pub fn list_forge_reviews(
+pub fn list_forge_reviews_with_cache(
     preferred_forge_user: Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
     db: &mut but_db::DbHandle,
+    cache_config: Option<CacheConfig>,
+) -> Result<Vec<ForgeReview>> {
+    let cache_config = cache_config.unwrap_or_default();
+    let reviews = match cache_config {
+        CacheConfig::CacheOnly => crate::db::reviews_from_cache(db)?,
+        CacheConfig::CacheWithFallback { max_age_seconds } => {
+            let cached = crate::db::reviews_from_cache(db)?;
+            if let Some(last_sync) = cached.first().map(|r| r.last_sync_at) {
+                let age = chrono::Local::now().naive_local() - last_sync;
+                if !cached.is_empty() && age.num_seconds() as u64 <= max_age_seconds {
+                    return Ok(cached);
+                }
+            }
+            let reviews = list_forge_reviews(preferred_forge_user, forge_repo_info, storage)?;
+            crate::db::cache_reviews(db, &reviews).ok();
+            reviews
+        }
+        CacheConfig::NoCache => {
+            let reviews = list_forge_reviews(preferred_forge_user, forge_repo_info, storage)?;
+            crate::db::cache_reviews(db, &reviews).ok();
+            reviews
+        }
+    };
+    Ok(reviews)
+}
+
+fn list_forge_reviews(
+    preferred_forge_user: Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    storage: &but_forge_storage::Controller,
 ) -> Result<Vec<ForgeReview>> {
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
@@ -375,7 +416,6 @@ pub fn list_forge_reviews(
             )));
         }
     };
-    crate::db::cache_reviews(db, &reviews)?;
     Ok(reviews)
 }
 
