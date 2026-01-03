@@ -1,7 +1,7 @@
 #[derive(Debug, clap::Parser)]
 pub struct Command {
-    /// Branch name or CLI ID to push
-    pub branch_id: String,
+    /// Branch name or CLI ID to push. If not specified, will list all branches and prompt for selection
+    pub branch_id: Option<String>,
     /// Force push even if it's not fast-forward
     #[clap(long, short = 'f', default_value_t = true)]
     pub with_force: bool,

@@ -1,5 +1,9 @@
+use std::io::IsTerminal;
+
 use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::Context;
+use cli_prompts::DisplayPrompt;
+use colored::Colorize;
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_project::Project;
 
@@ -23,22 +27,44 @@ pub fn handle(
         repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false)
     };
 
-    // Resolve branch_id to actual branch name
-    let branch_name = resolve_branch_name(ctx, &id_map, &args.branch_id)?;
+    // If no branch_id is provided, show all branches and prompt or push all
+    let branch_name = if let Some(ref branch_id) = args.branch_id {
+        // Resolve branch_id to actual branch name
+        resolve_branch_name(ctx, &id_map, branch_id)?
+    } else {
+        handle_no_branch_specified(ctx, &ctx.legacy_project, out)?
+    };
 
+    // If we have multiple branches to push (from "all" selection)
+    if branch_name == "__all__" {
+        return push_all_branches(ctx, &ctx.legacy_project, &args, gerrit_mode, out);
+    }
+
+    // Single branch push
+    push_single_branch(ctx, &ctx.legacy_project, &branch_name, &args, gerrit_mode, out)
+}
+
+fn push_single_branch(
+    _ctx: &Context,
+    project: &Project,
+    branch_name: &str,
+    args: &Command,
+    gerrit_mode: bool,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     // Find stack_id from branch name
-    let stack_id = find_stack_id_by_branch_name(&ctx.legacy_project, &branch_name)?;
+    let stack_id = find_stack_id_by_branch_name(project, branch_name)?;
 
     // Convert CLI args to gerrit flags with validation
-    let gerrit_flags = get_gerrit_flags(&args, &branch_name, gerrit_mode)?;
+    let gerrit_flags = get_gerrit_flags(args, branch_name, gerrit_mode)?;
 
     // Call push_stack
     let result: PushResult = but_api::legacy::stack::push_stack(
-        ctx.legacy_project.id,
+        project.id,
         stack_id,
         args.with_force,
         args.skip_force_push_protection,
-        branch_name.clone(),
+        branch_name.to_string(),
         args.run_hooks,
         gerrit_flags,
     )?;
@@ -51,9 +77,208 @@ pub fn handle(
                 writeln!(out, "  {} -> {}", branch, remote_ref)?;
             }
         }
+
+        // The PushResult struct doesn't have a commits_pushed field,
+        // so we'll skip showing the count for now
     }
 
     Ok(())
+}
+
+fn push_all_branches(
+    ctx: &Context,
+    project: &Project,
+    args: &Command,
+    gerrit_mode: bool,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let branches_with_info = get_branches_with_unpushed_info(ctx, project)?;
+
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Pushing all branches with unpushed commits...")?;
+        writeln!(out)?;
+    }
+
+    let mut total_commits_pushed = 0;
+    let mut pushed_branches = Vec::new();
+
+    for (branch_name, unpushed_count, _) in branches_with_info {
+        if unpushed_count > 0 {
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Pushing branch '{}'...", branch_name.bold())?;
+            }
+
+            match push_single_branch(ctx, project, &branch_name, args, gerrit_mode, out) {
+                Ok(_) => {
+                    pushed_branches.push((branch_name.clone(), unpushed_count));
+                    total_commits_pushed += unpushed_count;
+                }
+                Err(e) => {
+                    if let Some(out) = out.for_human() {
+                        writeln!(out, "  Failed to push '{}': {}", branch_name, e)?;
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(out) = out.for_human() {
+        writeln!(out)?;
+        if pushed_branches.is_empty() {
+            writeln!(out, "No branches had unpushed commits.")?;
+        } else {
+            writeln!(out, "Push completed. Summary:")?;
+            for (branch, count) in pushed_branches {
+                writeln!(out, "  {}: {} commit{} pushed",
+                    branch.bold(),
+                    count,
+                    if count == 1 { "" } else { "s" }
+                )?;
+            }
+            writeln!(out, "Total commits pushed: {}", total_commits_pushed)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn handle_no_branch_specified(
+    ctx: &Context,
+    project: &Project,
+    out: &mut OutputChannel,
+) -> anyhow::Result<String> {
+    let branches_with_info = get_branches_with_unpushed_info(ctx, project)?;
+
+    if branches_with_info.is_empty() {
+        anyhow::bail!("No branches found in the workspace");
+    }
+
+    // Check if we're in an interactive terminal
+    let is_interactive = std::io::stdin().is_terminal() && out.for_human().is_some();
+
+    if !is_interactive {
+        // Non-interactive mode: push all branches with unpushed commits
+        if let Some(out) = out.for_human() {
+            writeln!(out, "Non-interactive mode detected. Pushing all branches with unpushed commits...")?;
+        }
+        return Ok("__all__".to_string());
+    }
+
+    // Interactive mode: show branches and prompt for selection
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Applied branches and unpushed commits:")?;
+        writeln!(out)?;
+
+        let mut has_unpushed = false;
+        for (branch_name, unpushed_count, stack_name) in &branches_with_info {
+            if *unpushed_count > 0 {
+                has_unpushed = true;
+                writeln!(out, "  {} ({}): {} unpushed commit{}",
+                    branch_name.bold(),
+                    stack_name.dimmed(),
+                    unpushed_count,
+                    if *unpushed_count == 1 { "" } else { "s" }
+                )?;
+            } else {
+                writeln!(out, "  {} ({}): up to date",
+                    branch_name.dimmed(),
+                    stack_name.dimmed()
+                )?;
+            }
+        }
+
+        if !has_unpushed {
+            writeln!(out)?;
+            writeln!(out, "All branches are up to date with the remote.")?;
+            return Err(anyhow::anyhow!("No branches to push"));
+        }
+
+        writeln!(out)?;
+
+        // Create selection options
+        let mut options = vec!["all - Push all branches with unpushed commits".to_string()];
+        for (branch_name, unpushed_count, _) in &branches_with_info {
+            if *unpushed_count > 0 {
+                options.push(format!("{} - {} unpushed commit{}",
+                    branch_name,
+                    unpushed_count,
+                    if *unpushed_count == 1 { "" } else { "s" }
+                ));
+            }
+        }
+
+        let prompt = cli_prompts::prompts::Selection::new(
+            "Which branch(es) would you like to push?",
+            options.clone().into_iter(),
+        );
+
+        let selection = prompt.display()
+            .map_err(|e| anyhow::anyhow!("Selection aborted: {:?}", e))?;
+
+        // Parse the selection
+        if selection.starts_with("all ") {
+            Ok("__all__".to_string())
+        } else {
+            // Extract branch name from the selection
+            let branch_name = selection.split(" - ").next()
+                .ok_or_else(|| anyhow::anyhow!("Invalid selection"))?;
+            Ok(branch_name.to_string())
+        }
+    } else {
+        Err(anyhow::anyhow!("Human output required for interactive prompt"))
+    }
+}
+
+fn get_branches_with_unpushed_info(
+    _ctx: &Context,
+    project: &Project,
+) -> anyhow::Result<Vec<(String, usize, String)>> {
+    let stacks = but_api::legacy::workspace::stacks(
+        project.id,
+        Some(but_workspace::legacy::StacksFilter::InWorkspace),
+    )?;
+
+    let mut branches_info = Vec::new();
+
+    for stack in stacks {
+        if let Some(stack_id) = stack.id {
+            let stack_details = but_api::legacy::workspace::stack_details(project.id, Some(stack_id))?;
+            let stack_name = stack.name()
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "unnamed".to_string());
+
+            // Get branch names from the heads
+            for head in &stack.heads {
+                let branch_name = head.name.to_string();
+
+                // Find the corresponding branch details to count unpushed commits
+                let unpushed_count = if let Some(branch_detail) = stack_details.branch_details.iter()
+                    .find(|b| b.name == head.name) {
+                    // Count unpushed commits - if there's a remote tracking branch,
+                    // compare with it, otherwise all commits are unpushed
+                    if branch_detail.remote_tracking_branch.is_some() {
+                        // Count the local commits not on the remote
+                        branch_detail.commits.len()
+                    } else {
+                        // No remote tracking branch means all commits are unpushed
+                        branch_detail.commits.len()
+                    }
+                } else {
+                    // If no detailed branch info found, assume no unpushed commits
+                    0
+                };
+
+                branches_info.push((branch_name, unpushed_count, stack_name.clone()));
+            }
+        }
+    }
+
+    // Sort by stack name and then by branch name for consistent ordering
+    branches_info.sort_by(|a, b| {
+        a.2.cmp(&b.2).then(a.0.cmp(&b.0))
+    });
+
+    Ok(branches_info)
 }
 
 pub fn get_gerrit_flags(
