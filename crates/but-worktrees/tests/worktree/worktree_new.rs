@@ -1,8 +1,9 @@
-use crate::util::test_ctx;
 use anyhow::Context as _;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::legacy::{StacksFilter, stacks_v3};
 use but_worktrees::new::worktree_new;
+
+use crate::util::test_ctx;
 
 #[test]
 fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {

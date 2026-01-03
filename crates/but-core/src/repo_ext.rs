@@ -1,7 +1,9 @@
 use anyhow::Context as _;
 use but_error::Code;
-use gix::merge::tree::{Options, TreatAsUnresolved};
-use gix::prelude::ObjectIdExt;
+use gix::{
+    merge::tree::{Options, TreatAsUnresolved},
+    prelude::ObjectIdExt,
+};
 
 use crate::{GitConfigSettings, commit::TreeKind};
 

@@ -1,12 +1,12 @@
+use std::fmt::Write;
+
 use bstr::BString;
 use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
 use but_hunk_assignment::WorktreeChanges;
-use std::fmt::Write;
-
-use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
 
 use super::display::{DiffDisplay, TreeChangeWithPatch};
+use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
 
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum Filter {

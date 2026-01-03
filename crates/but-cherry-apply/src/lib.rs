@@ -23,8 +23,7 @@
 //!   - otherwise, it can be applied anywhere
 
 use anyhow::{Context as _, Result, bail};
-use but_core::RepositoryExt;
-use but_core::ref_metadata::StackId;
+use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::{
     Context,
     access::{WorktreeReadPermission, WorktreeWritePermission},

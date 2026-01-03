@@ -6,12 +6,11 @@
 
 mod creation;
 pub mod rebase;
-use anyhow::{Result, bail};
-use gix::refs::transaction::RefEdit;
 use std::collections::HashMap;
 
-use anyhow::Context;
+use anyhow::{Context, Result, bail};
 pub use creation::GraphExt;
+use gix::refs::transaction::RefEdit;
 pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;

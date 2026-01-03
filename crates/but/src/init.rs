@@ -1,7 +1,9 @@
-use crate::{args::Args, utils::OutputChannel};
+use std::fmt::Write;
+
 use but_ctx::Context;
 use command_group::AsyncCommandGroup;
-use std::fmt::Write;
+
+use crate::{args::Args, utils::OutputChannel};
 
 pub(crate) enum Fetch {
     Auto,

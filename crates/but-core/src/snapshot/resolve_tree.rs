@@ -38,12 +38,12 @@ pub struct Options {
 pub(super) mod function {
     use std::collections::BTreeSet;
 
-    use crate::RepositoryExt;
     use anyhow::{Context as _, bail};
     use bstr::ByteSlice;
     use gix::index::entry::{Flags, Stage};
 
     use super::{Options, Outcome};
+    use crate::RepositoryExt;
 
     /// Given the `snapshot_tree` as previously returned via [`crate::snapshot::create_tree::Outcome::snapshot_tree`], extract data and…
     ///

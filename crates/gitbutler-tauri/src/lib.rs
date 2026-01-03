@@ -27,6 +27,7 @@ pub use window::state::{WindowState, event::ChangeForFrontend};
 pub mod action;
 pub mod askpass;
 pub mod bot;
+pub mod debug;
 pub mod projects;
 
 pub mod settings;

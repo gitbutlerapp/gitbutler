@@ -2,10 +2,13 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
-use but_core::RepositoryExt;
-use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
-use but_settings::AppSettings;
 use std::path::{Path, PathBuf};
+
+use but_core::{
+    RepositoryExt,
+    sync::{WorktreeReadPermission, WorktreeWritePermission},
+};
+use but_settings::AppSettings;
 
 /// Legacy types that shouldn't be used.
 #[cfg(feature = "legacy")]

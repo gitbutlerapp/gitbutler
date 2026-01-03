@@ -1,11 +1,5 @@
-use super::BranchManager;
-use crate::{
-    VirtualBranchesExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
-    r#virtual as vbranch,
-};
 use anyhow::{Context as _, Result, anyhow, bail};
-use but_core::RepositoryExt;
-use but_core::worktree::checkout::UncommitedWorktreeChanges;
+use but_core::{RepositoryExt, worktree::checkout::UncommitedWorktreeChanges};
 use but_ctx::access::WorktreeWritePermission;
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
@@ -29,6 +23,12 @@ use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use serde::Serialize;
 use tracing::instrument;
+
+use super::BranchManager;
+use crate::{
+    VirtualBranchesExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
+    r#virtual as vbranch,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
