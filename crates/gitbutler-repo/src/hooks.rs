@@ -206,7 +206,7 @@ pub fn pre_push(
             .ok()
             .and_then(|r| r.target())
             .unwrap_or_else(git2::Oid::zero);
-        // THIS IS WRONG: but is correct the common case. This also is an issue when the ref is actually pushed,
+        // THIS IS WRONG: but is correct in the common case. This also is an issue when the ref is actually pushed,
         // but we can fix it when moving everything to `gix`.
         let local_tracking_branch_deduced =
             format!("refs/heads/{}", remote_tracking_branch.branch());
