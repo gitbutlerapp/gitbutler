@@ -193,6 +193,14 @@ pub fn pre_push(
     .spawn()?;
 
     {
+        // Wait for the child process to be ready before writing to stdin.
+        // Check if the process has already exited unexpectedly.
+        if let Some(status) = child.try_wait()? {
+            // Process already exited, don't write to stdin.
+            let error = format!("pre-push hook exited early with status: {}", status);
+            return Ok(HookResult::Failure(ErrorData { error }));
+        }
+
         let remote_commit = repo
             .find_reference(&remote_tracking_branch.to_string())
             .ok()
