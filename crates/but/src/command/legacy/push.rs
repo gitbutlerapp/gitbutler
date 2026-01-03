@@ -70,19 +70,46 @@ fn push_single_branch(
     )?;
 
     if let Some(out) = out.for_human() {
-        writeln!(out, "Push completed successfully")?;
-        writeln!(out, "Pushed to remote: {}", result.remote)?;
+        writeln!(out)?;
+        writeln!(out, "{} Push completed successfully", "✓".green().bold())?;
+        writeln!(out)?;
+        writeln!(out, "  {} {}", "Remote:".dimmed(), result.remote.bold())?;
         if !gerrit_mode && !result.branch_to_remote.is_empty() {
             for (branch, remote_ref) in &result.branch_to_remote {
-                writeln!(out, "  {} -> {}", branch, remote_ref)?;
+                writeln!(out, "  {} → {}", branch.cyan(), remote_ref.to_string().dimmed())?;
             }
         }
-
-        // The PushResult struct doesn't have a commits_pushed field,
-        // so we'll skip showing the count for now
     }
 
     Ok(())
+}
+
+// Quieter version for batch operations
+fn push_single_branch_quietly(
+    _ctx: &Context,
+    project: &Project,
+    branch_name: &str,
+    args: &Command,
+    gerrit_mode: bool,
+) -> anyhow::Result<String> {
+    // Find stack_id from branch name
+    let stack_id = find_stack_id_by_branch_name(project, branch_name)?;
+
+    // Convert CLI args to gerrit flags with validation
+    let gerrit_flags = get_gerrit_flags(args, branch_name, gerrit_mode)?;
+
+    // Call push_stack
+    let result: PushResult = but_api::legacy::stack::push_stack(
+        project.id,
+        stack_id,
+        args.with_force,
+        args.skip_force_push_protection,
+        branch_name.to_string(),
+        args.run_hooks,
+        gerrit_flags,
+    )?;
+
+    Ok(result.remote)
 }
 
 fn push_all_branches(
@@ -94,29 +121,52 @@ fn push_all_branches(
 ) -> anyhow::Result<()> {
     let branches_with_info = get_branches_with_unpushed_info(ctx, project)?;
 
+    // Filter to only branches with unpushed commits
+    let branches_to_push: Vec<_> = branches_with_info
+        .into_iter()
+        .filter(|(_, count, _)| *count > 0)
+        .collect();
+
+    if branches_to_push.is_empty() {
+        if let Some(out) = out.for_human() {
+            writeln!(out, "{}", "No branches have unpushed commits.".dimmed())?;
+        }
+        return Ok(());
+    }
+
     if let Some(out) = out.for_human() {
-        writeln!(out, "Pushing all branches with unpushed commits...")?;
+        writeln!(out)?;
+        writeln!(out, "{}", "Pushing branches...".bright_blue().bold())?;
         writeln!(out)?;
     }
 
     let mut total_commits_pushed = 0;
     let mut pushed_branches = Vec::new();
+    let mut failed_branches = Vec::new();
 
-    for (branch_name, unpushed_count, _) in branches_with_info {
-        if unpushed_count > 0 {
-            if let Some(out) = out.for_human() {
-                writeln!(out, "Pushing branch '{}'...", branch_name.bold())?;
-            }
+    for (branch_name, unpushed_count, _) in branches_to_push {
+        if let Some(out) = out.for_human() {
+            #[allow(unused_imports)]
+            use std::fmt::Write;
+            write!(out, "  {} {}... ", "→".cyan(), branch_name.bold())?;
+        }
 
-            match push_single_branch(ctx, project, &branch_name, args, gerrit_mode, out) {
-                Ok(_) => {
-                    pushed_branches.push((branch_name.clone(), unpushed_count));
-                    total_commits_pushed += unpushed_count;
+        match push_single_branch_quietly(ctx, project, &branch_name, args, gerrit_mode) {
+            Ok(remote) => {
+                pushed_branches.push((branch_name.clone(), unpushed_count, remote));
+                total_commits_pushed += unpushed_count;
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "{} ({} commit{})",
+                        "✓".green(),
+                        unpushed_count.to_string().yellow(),
+                        if unpushed_count == 1 { "" } else { "s" }
+                    )?;
                 }
-                Err(e) => {
-                    if let Some(out) = out.for_human() {
-                        writeln!(out, "  Failed to push '{}': {}", branch_name, e)?;
-                    }
+            }
+            Err(e) => {
+                failed_branches.push((branch_name.clone(), e.to_string()));
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "{} {}", "✗".red(), e.to_string().red())?;
                 }
             }
         }
@@ -124,18 +174,34 @@ fn push_all_branches(
 
     if let Some(out) = out.for_human() {
         writeln!(out)?;
-        if pushed_branches.is_empty() {
-            writeln!(out, "No branches had unpushed commits.")?;
-        } else {
-            writeln!(out, "Push completed. Summary:")?;
-            for (branch, count) in pushed_branches {
-                writeln!(out, "  {}: {} commit{} pushed",
-                    branch.bold(),
-                    count,
-                    if count == 1 { "" } else { "s" }
+
+        if !pushed_branches.is_empty() {
+            writeln!(out, "{} {} {} {}",
+                "✓".green().bold(),
+                "Successfully pushed".green().bold(),
+                total_commits_pushed.to_string().yellow().bold(),
+                if total_commits_pushed == 1 { "commit" } else { "commits" }
+            )?;
+
+            for (branch, count, remote) in &pushed_branches {
+                writeln!(out, "    {} → {} ({})",
+                    branch.dimmed(),
+                    format!("{}/{}", remote, branch).dimmed(),
+                    format!("{} commit{}", count, if *count == 1 { "" } else { "s" }).dimmed()
                 )?;
             }
-            writeln!(out, "Total commits pushed: {}", total_commits_pushed)?;
+        }
+
+        if !failed_branches.is_empty() {
+            writeln!(out)?;
+            writeln!(out, "{} Failed to push {} {}:",
+                "✗".red().bold(),
+                failed_branches.len().to_string().red().bold(),
+                if failed_branches.len() == 1 { "branch" } else { "branches" }
+            )?;
+            for (branch, error) in &failed_branches {
+                writeln!(out, "    {} - {}", branch.red(), error.dimmed())?;
+            }
         }
     }
 
@@ -166,30 +232,36 @@ fn handle_no_branch_specified(
 
     // Interactive mode: show branches and prompt for selection
     if let Some(out) = out.for_human() {
-        writeln!(out, "Applied branches and unpushed commits:")?;
+        writeln!(out, "{}", "Branch Status:".bright_blue().bold())?;
         writeln!(out)?;
 
         let mut has_unpushed = false;
-        for (branch_name, unpushed_count, stack_name) in &branches_with_info {
+        let mut unpushed_branches = Vec::new();
+
+        for (branch_name, unpushed_count, _stack_name) in &branches_with_info {
             if *unpushed_count > 0 {
                 has_unpushed = true;
-                writeln!(out, "  {} ({}): {} unpushed commit{}",
+                unpushed_branches.push((branch_name.clone(), *unpushed_count));
+                writeln!(out, "  {} {} {}",
+                    "●".green(),
                     branch_name.bold(),
-                    stack_name.dimmed(),
-                    unpushed_count,
-                    if *unpushed_count == 1 { "" } else { "s" }
+                    format!("({} unpushed commit{})",
+                        unpushed_count.to_string().yellow(),
+                        if *unpushed_count == 1 { "" } else { "s" }
+                    ).dimmed()
                 )?;
             } else {
-                writeln!(out, "  {} ({}): up to date",
+                writeln!(out, "  {} {} {}",
+                    "○".dimmed(),
                     branch_name.dimmed(),
-                    stack_name.dimmed()
+                    "(up to date)".dimmed()
                 )?;
             }
         }
 
         if !has_unpushed {
             writeln!(out)?;
-            writeln!(out, "All branches are up to date with the remote.")?;
+            writeln!(out, "{}", "✓ All branches are up to date with the remote.".green())?;
             return Err(anyhow::anyhow!("No branches to push"));
         }
 
