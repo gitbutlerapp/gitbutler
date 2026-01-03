@@ -4,7 +4,7 @@ use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
-use but_workspace::ui::Commit;
+use but_workspace::ui::{BranchDetails, Commit};
 use cli_prompts::DisplayPrompt;
 use colored::{ColoredString, Colorize};
 use gitbutler_project::{Project, ProjectId};
@@ -735,6 +735,21 @@ pub fn get_review_map(
             });
 
     Ok(branch_review_map)
+}
+
+pub(crate) fn from_branch_details(
+    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    details: &BranchDetails,
+) -> Option<but_forge::ForgeReview> {
+    review_map
+        .get(&details.name.to_string())
+        .and_then(|rs| {
+            details
+                .pr_number
+                .and_then(|pr| rs.iter().find(|r| r.number == pr as i64))
+                .or_else(|| rs.first())
+        })
+        .cloned()
 }
 
 pub fn get_review_numbers(
