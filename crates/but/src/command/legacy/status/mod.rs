@@ -6,6 +6,7 @@ use but_api::diff::ComputeLineStats;
 use but_core::diff::CommitDetails;
 use but_core::{TreeStatus, ui};
 use but_ctx::Context;
+use but_forge::ForgeReview;
 use but_oxidize::OidExt;
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
@@ -19,6 +20,7 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 pub(crate) mod assignment;
 pub(crate) mod json;
 
+use crate::command::legacy::forge::review;
 use crate::{IdMap, utils::OutputChannel};
 
 type StackDetail = (Option<StackDetails>, Vec<FileAssignment>);
@@ -391,11 +393,9 @@ pub fn print_group(
             .dimmed()
             .italic();
 
-            let reviews = crate::command::legacy::forge::review::get_review_numbers(
-                &branch.name.to_string(),
-                &branch.pr_number,
-                review_map,
-            );
+            let review = review::from_branch_details(review_map, branch)
+                .map(|r| format!(" {} ", r.display_cli(verbose)))
+                .unwrap_or_default();
 
             let workspace = branch
                 .linked_worktree_id
@@ -412,7 +412,7 @@ pub fn print_group(
                 .unwrap_or_default();
             writeln!(
                 out,
-                "┊{notch}┄{id} [{branch}{workspace}]{reviews} {no_commits} {stack_mark}",
+                "┊{notch}┄{id} [{branch}{workspace}]{review} {no_commits} {stack_mark}",
                 stack_mark = stack_mark.clone().unwrap_or_default(),
                 branch = branch.name.to_string().green().bold(),
             )?;
@@ -652,6 +652,28 @@ impl CliDisplay for CommitMessage {
             "(no commit message)".dimmed().italic().to_string()
         } else {
             truncated.normal().to_string()
+        }
+    }
+}
+
+impl CliDisplay for ForgeReview {
+    fn display_cli(&self, verbose: bool) -> String {
+        if verbose {
+            format!(
+                "#{}: {}",
+                self.number.to_string().bold(),
+                self.html_url.underline().blue(),
+            )
+        } else {
+            format!(
+                "#{}: {}",
+                self.number.to_string().bold(),
+                self.title
+                    .chars()
+                    .take(50)
+                    .collect::<String>()
+                    .trim_end_matches(|c: char| !c.is_ascii() && !c.is_alphanumeric())
+            )
         }
     }
 }
