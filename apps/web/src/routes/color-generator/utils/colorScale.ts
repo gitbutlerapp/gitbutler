@@ -41,8 +41,8 @@ const LIGHTNESS_RANGES = {
 	soft: { min: 0.4, max: 0.9, exponent: 0.9 },
 	solid: { min: 0.22, max: 0.48 },
 	text: {
-		gray: { min: 0.08, max: 0.22, exponent: 1 },
-		colored: { min: 0.11, max: 0.26, exponent: 0.85 }
+		gray: { min: 0.06, max: 0.22, exponent: 1 },
+		colored: { min: 0.08, max: 0.26, exponent: 0.85 }
 	}
 } as const;
 
