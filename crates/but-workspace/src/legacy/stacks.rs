@@ -276,13 +276,21 @@ pub fn stack_details_v3(
             // another way that still allows to extend the range via gas-stations. Maybe one day we won't need this.
             ref_info_options.traversal.hard_limit = Some(500);
             let mut info = head_info(repo, meta, ref_info_options)?;
-            if info.stacks.len() != 1 {
-                bail!(
-                    "BUG(opt-stack-id): should have gotten exactly one stack, got {}",
-                    info.stacks.len()
-                );
+            if info.is_entrypoint {
+                if info.stacks.len() != 1 {
+                    bail!(
+                        "BUG(opt-stack-id): should have gotten exactly one stack, got {}",
+                        info.stacks.len()
+                    );
+                }
+                info.stacks.pop().unwrap()
+            } else {
+                info.stacks
+                    .iter()
+                    .find(|stack| stack.segments.iter().any(|segment| segment.is_entrypoint))
+                    .cloned()
+                    .context("BUG: expected to find one segment with entrypoint")?
             }
-            info.stacks.pop().unwrap()
         }
         Some(stack_id) => {
             // Even though it shouldn't be the case, the ids can totally go out of sync. Use both to play it safer.
