@@ -1,0 +1,70 @@
+# 'confidence' is a segment in 'real-embed', but it's also a separate 'stack'.
+# Prefer it as stack then.
+[default_target]
+branchName = "main"
+remoteName = "origin"
+remoteUrl = "https://github.com/A2va/dlib-rs"
+sha = "39b41821d90a6445815f32777ec5dbebb716897f"
+pushRemoteName = "origin"
+
+[branch_targets]
+
+[branches.1819a203-26ef-477c-ac56-2d07a034ddb8]
+id = "1819a203-26ef-477c-ac56-2d07a034ddb8"
+name = "real-embed"
+notes = ""
+source_refname = "refs/heads/real-embed"
+upstream = "refs/remotes/origin/real-embed"
+upstream_head = "121e048bd5d483f8c6c4f14a13c76cf006672dfd"
+created_timestamp_ms = "1764514312033"
+updated_timestamp_ms = "1765788590699"
+tree = "086076eb7dc19973afeef1ee031aa279ec8700e7"
+head = "50c1d2e8298877802fcbcda10af7df748ae90611"
+ownership = ""
+order = 0
+selected_for_changes = 1764514312027
+allow_rebasing = true
+in_workspace = true
+post_commits = false
+
+[[branches.1819a203-26ef-477c-ac56-2d07a034ddb8.heads]]
+name = "confidence"
+archived = false
+
+[branches.1819a203-26ef-477c-ac56-2d07a034ddb8.heads.head]
+CommitId = "50c1d2e8298877802fcbcda10af7df748ae90611"
+
+[[branches.1819a203-26ef-477c-ac56-2d07a034ddb8.heads]]
+name = "main"
+archived = true
+
+[branches.1819a203-26ef-477c-ac56-2d07a034ddb8.heads.head]
+CommitId = "50c1d2e8298877802fcbcda10af7df748ae90611"
+
+[branches.a3102d3c-4c62-4a8a-955c-421f72d4df74]
+id = "a3102d3c-4c62-4a8a-955c-421f72d4df74"
+name = "confidence"
+notes = ""
+created_timestamp_ms = "1764610180000"
+updated_timestamp_ms = "1764792789760"
+tree = "0000000000000000000000000000000000000000"
+head = "33ce4486eea72dd513505f857e54e235cb2d2616"
+ownership = ""
+order = 0
+allow_rebasing = true
+in_workspace = false
+post_commits = false
+
+[[branches.a3102d3c-4c62-4a8a-955c-421f72d4df74.heads]]
+name = "confidence"
+archived = false
+
+[branches.a3102d3c-4c62-4a8a-955c-421f72d4df74.heads.head]
+CommitId = "50c1d2e8298877802fcbcda10af7df748ae90611"
+
+[[branches.a3102d3c-4c62-4a8a-955c-421f72d4df74.heads]]
+name = "main"
+archived = false
+
+[branches.a3102d3c-4c62-4a8a-955c-421f72d4df74.heads.head]
+CommitId = "7214ef6e0d06cc632f057defed086d43809f8548"

@@ -1216,6 +1216,170 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn dlib_rs_auto_fix() -> anyhow::Result<()> {
+    let (store, _tmp) = vb_store_rw("non-unique-branches")?;
+
+    insta::assert_debug_snapshot!(store.data().default_target, @r#"
+    Some(
+        Target {
+            branch: Refname {
+                remote: "origin",
+                branch: "main",
+            },
+            remote_url: "https://github.com/A2va/dlib-rs",
+            sha: Sha1(39b41821d90a6445815f32777ec5dbebb716897f),
+            push_remote_name: Some(
+                "origin",
+            ),
+        },
+    )
+    "#);
+    let ws_ref_name = "refs/heads/gitbutler/workspace".try_into()?;
+    let ws = store.workspace(ws_ref_name)?;
+    let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
+    // The iteration order is fixed by sorting by order, and then by name as the order can't be trusted either.
+    // Also: `main` as target somehow made it into the workspace officially.
+    insta::assert_snapshot!(actual, @r#"
+    [
+        WorkspaceStack {
+            id: 1,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/main",
+                    archived: false,
+                },
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Outside,
+        },
+        WorkspaceStack {
+            id: 2,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/main",
+                    archived: true,
+                },
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
+        },
+    ]
+    "#);
+
+    // The above being stable already fixes `dlib`.
+    let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
+    let graph = but_graph::Graph::from_commit_traversal(
+        repo.find_reference(ws_ref_name)?.peel_to_id()?,
+        Some(ws_ref_name.to_owned()),
+        &store,
+        but_graph::init::Options::limited(),
+    )?;
+    // It looks very empty without reconciliation, as if it had not found any metadata (even though it's there).
+    // The problem is that StackId {1} refers to stack that is also marked as outside the workspace, so it's not really
+    // picked up. But… it also listed as stack (which shouldn't happen), which gets it the stack-id association.
+    // Finally, we end up with nothing as that one segment is also marked archived, which leads to it being truncated
+    // and fully empty stacks are removed. OMG.
+    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
+
+    let path = store.path().to_owned();
+    store.write_reconciled(&repo)?;
+
+    let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
+    // The target was adjusted to fit the computed lower bound, which took the possibly stale
+    // stored value into consideration.
+    insta::assert_debug_snapshot!(store.data().default_target, @r#"
+    Some(
+        Target {
+            branch: Refname {
+                remote: "origin",
+                branch: "main",
+            },
+            remote_url: "https://github.com/A2va/dlib-rs",
+            sha: Sha1(bce0c5efc577b90e52a8ba20c4c41621af3134d3),
+            push_remote_name: Some(
+                "origin",
+            ),
+        },
+    )
+    "#);
+
+    let ws = store.workspace(ws_ref_name)?;
+    let graph = but_graph::Graph::from_commit_traversal(
+        repo.find_reference(ws_ref_name)?.peel_to_id()?,
+        Some(ws_ref_name.to_owned()),
+        &store,
+        but_graph::init::Options::limited(),
+    )?;
+    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
+
+    let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
+    // Now both stacks are outside workspace, as is indicated by the workspace above.
+    // Also, their uniqueness constraint is enforced.
+    insta::assert_snapshot!(actual, @r#"
+    [
+        WorkspaceStack {
+            id: 1,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/main",
+                    archived: false,
+                },
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Outside,
+        },
+    ]
+    "#);
+
+    // Now that there is one stack left, we can manipulate it and look at vb.toml data directly.
+    store
+        .data_mut()
+        .branches
+        .values_mut()
+        .next()
+        .expect("exactly one")
+        .id = StackId::from_number_for_testing(8);
+    // Now the ID and the ID used for storage are out of sync.
+    snapbox::assert_data_eq!(
+        debug_str(&store.data().branches),
+        snapbox::str![[r#"
+{
+    a3102d3c-4c62-4a8a-955c-421f72d4df74: Stack {
+...
+        id: 00000000-0000-0000-0000-000000000008,
+...
+}
+"#]]
+    );
+    store.write_reconciled(&repo)?;
+
+    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+
+    // now the ID is in sync again
+    snapbox::assert_data_eq!(
+        debug_str(&store.data().branches),
+        snapbox::str![[r#"
+{
+    a3102d3c-4c62-4a8a-955c-421f72d4df74: Stack {
+...
+        id: a3102d3c-4c62-4a8a-955c-421f72d4df74,
+...
+}
+"#]],
+    );
+    Ok(())
+}
+
 fn vb_fixture(name: &str) -> PathBuf {
     format!("tests/fixtures/legacy/{name}.toml").into()
 }
