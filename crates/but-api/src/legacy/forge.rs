@@ -192,6 +192,26 @@ pub fn list_reviews(
 }
 
 #[but_api]
+#[instrument(skip(ctx), err(Debug))]
+pub fn list_ci_checks(ctx: &Context, reference: String) -> Result<Vec<but_forge::CiCheck>> {
+    let (storage, base_branch) = {
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+        )
+    };
+    but_forge::ci_checks_for_ref(
+        ctx.legacy_project.preferred_forge_user.clone(),
+        &base_branch
+            .forge_repo_info
+            .context("No forge could be determined for this repository branch")?,
+        &storage,
+        &reference,
+    )
+}
+
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn publish_review(
     project_id: ProjectId,

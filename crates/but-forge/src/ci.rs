@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::ForgeName;
 
 pub fn ci_checks_for_ref(
@@ -37,6 +39,8 @@ pub fn ci_checks_for_ref(
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CiCheck {
     pub id: i64,
     pub name: String,
@@ -49,12 +53,16 @@ pub struct CiCheck {
     pub pull_requests: Vec<PullRequestMinimal>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CiOutput {
     pub summary: String,
     pub text: String,
     pub title: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum CiStatus {
     Complete {
         conclusion: CiConclusion,
@@ -65,6 +73,8 @@ pub enum CiStatus {
     Unknown,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum CiConclusion {
     ActionRequired,
     Cancelled,
@@ -76,6 +86,8 @@ pub enum CiConclusion {
     Unknown,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PullRequestMinimal {
     pub id: i64,
     pub number: i64,
