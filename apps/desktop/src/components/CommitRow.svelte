@@ -238,7 +238,7 @@
 			}
 
 			.commit-name {
-				color: var(--clr-theme-danger-element);
+				color: var(--clr-theme-danger-on-soft);
 			}
 		}
 
