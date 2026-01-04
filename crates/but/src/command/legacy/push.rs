@@ -56,29 +56,14 @@ pub fn handle(
 }
 
 fn push_single_branch(
-    _ctx: &Context,
+    ctx: &Context,
     project: &Project,
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    // Find stack_id from branch name
-    let stack_id = find_stack_id_by_branch_name(project, branch_name)?;
-
-    // Convert CLI args to gerrit flags with validation
-    let gerrit_flags = get_gerrit_flags(args, branch_name, gerrit_mode)?;
-
-    // Call push_stack
-    let result: PushResult = but_api::legacy::stack::push_stack(
-        project.id,
-        stack_id,
-        args.with_force,
-        args.skip_force_push_protection,
-        branch_name.to_string(),
-        args.run_hooks,
-        gerrit_flags,
-    )?;
+    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
 
     if let Some(out) = out.for_human() {
         writeln!(out)?;
@@ -97,12 +82,24 @@ fn push_single_branch(
 
 // Quieter version for batch operations
 fn push_single_branch_quietly(
-    _ctx: &Context,
+    ctx: &Context,
     project: &Project,
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
 ) -> anyhow::Result<String> {
+    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
+    Ok(result.remote)
+}
+
+// Shared implementation for pushing a single branch
+fn push_single_branch_impl(
+    _ctx: &Context,
+    project: &Project,
+    branch_name: &str,
+    args: &Command,
+    gerrit_mode: bool,
+) -> anyhow::Result<PushResult> {
     // Find stack_id from branch name
     let stack_id = find_stack_id_by_branch_name(project, branch_name)?;
 
@@ -120,7 +117,7 @@ fn push_single_branch_quietly(
         gerrit_flags,
     )?;
 
-    Ok(result.remote)
+    Ok(result)
 }
 
 fn push_all_branches(
