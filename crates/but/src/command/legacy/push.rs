@@ -13,6 +13,14 @@ use crate::{
     utils::OutputChannel,
 };
 
+/// Represents the result of branch selection when no branch is specified
+enum BranchSelection {
+    /// Push a single branch
+    Single(String),
+    /// Push all branches with unpushed commits
+    All,
+}
+
 pub fn handle(
     args: push::Command,
     ctx: &mut Context,
@@ -28,20 +36,23 @@ pub fn handle(
     };
 
     // If no branch_id is provided, show all branches and prompt or push all
-    let branch_name = if let Some(ref branch_id) = args.branch_id {
+    let branch_selection = if let Some(ref branch_id) = args.branch_id {
         // Resolve branch_id to actual branch name
-        resolve_branch_name(ctx, &id_map, branch_id)?
+        let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
+        BranchSelection::Single(branch_name)
     } else {
         handle_no_branch_specified(ctx, &ctx.legacy_project, out)?
     };
 
-    // If we have multiple branches to push (from "all" selection)
-    if branch_name == "__all__" {
-        return push_all_branches(ctx, &ctx.legacy_project, &args, gerrit_mode, out);
+    // Handle branch selection
+    match branch_selection {
+        BranchSelection::All => {
+            push_all_branches(ctx, &ctx.legacy_project, &args, gerrit_mode, out)
+        }
+        BranchSelection::Single(branch_name) => {
+            push_single_branch(ctx, &ctx.legacy_project, &branch_name, &args, gerrit_mode, out)
+        }
     }
-
-    // Single branch push
-    push_single_branch(ctx, &ctx.legacy_project, &branch_name, &args, gerrit_mode, out)
 }
 
 fn push_single_branch(
@@ -146,7 +157,6 @@ fn push_all_branches(
 
     for (branch_name, unpushed_count, _) in branches_to_push {
         if let Some(out) = out.for_human() {
-            use std::fmt::Write;
             write!(out, "  {} {}... ", "→".cyan(), branch_name.bold())?;
         }
 
@@ -211,7 +221,7 @@ fn handle_no_branch_specified(
     ctx: &Context,
     project: &Project,
     out: &mut OutputChannel,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<BranchSelection> {
     let branches_with_info = get_branches_with_unpushed_info(ctx, project)?;
 
     if branches_with_info.is_empty() {
@@ -226,7 +236,7 @@ fn handle_no_branch_specified(
         if let Some(out) = out.for_human() {
             writeln!(out, "Non-interactive mode detected. Pushing all branches with unpushed commits...")?;
         }
-        return Ok("__all__".to_string());
+        return Ok(BranchSelection::All);
     }
 
     // Interactive mode: show branches and prompt for selection
@@ -286,12 +296,12 @@ fn handle_no_branch_specified(
 
         // Parse the selection
         if selection.starts_with("all ") {
-            Ok("__all__".to_string())
+            Ok(BranchSelection::All)
         } else {
             // Extract branch name from the selection
             let branch_name = selection.split(" - ").next()
                 .ok_or_else(|| anyhow::anyhow!("Invalid selection"))?;
-            Ok(branch_name.to_string())
+            Ok(BranchSelection::Single(branch_name.to_string()))
         }
     } else {
         Err(anyhow::anyhow!("Human output required for interactive prompt"))
