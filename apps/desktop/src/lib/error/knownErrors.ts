@@ -33,6 +33,6 @@ Missing default keychain.
 With \`seahorse\` or equivalent, create a \`Login\` password store, right click it and choose \`Set Default\`.
 	`,
 	[Code.GitHubTokenExpired]: `
-Your GitHub token appears expired, please check your settings!
+Your GitHub token appears expired. Please log out and back in to refresh it. (Settings -> Integrations -> Forget) 
 	`
 };
