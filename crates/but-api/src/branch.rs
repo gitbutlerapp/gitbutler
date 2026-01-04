@@ -2,6 +2,7 @@ use but_api_macros::but_api;
 use but_core::{ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+use but_rebase::graph_rebase::{GraphExt as _, Step, mutate::InsertSide};
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
@@ -70,4 +71,26 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
     let reference = repo.find_reference(&branch)?;
     let ws = graph.to_workspace()?;
     but_workspace::ui::diff::changes_in_branch(&repo, &ws, reference.name())
+}
+
+/// Creates a branch pointing to the given commit. If the commit is already part
+/// of a branch, the existing branch will be stacked above the new branch.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn new_only(
+    ctx: &but_ctx::Context,
+    refname: gix::refs::FullName,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let (repo, _, graph) = ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let mut editor = graph.to_editor(&repo)?;
+
+    editor.insert(
+        editor.select_commit(commit_id)?,
+        Step::Reference { refname },
+        InsertSide::Above,
+    )?;
+    editor.rebase()?.materialize()?;
+    Ok(())
 }

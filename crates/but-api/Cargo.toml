@@ -119,3 +119,7 @@ git2.workspace = true
 open.workspace = true
 url = { version = "2.5", optional = true }
 uuid.workspace = true
+
+[dev-dependencies]
+but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
+insta.workspace = true

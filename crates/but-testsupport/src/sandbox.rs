@@ -1,4 +1,4 @@
-use std::{io::Write, ops::DerefMut, path::Path};
+use std::{io::Write, iter, ops::DerefMut, path::Path};
 
 use but_core::{
     RefMetadata,
@@ -7,6 +7,7 @@ use but_core::{
 use but_meta::VirtualBranchesTomlMetadata;
 #[cfg(feature = "sandbox-but-api")]
 use but_settings::AppSettings;
+use gix::{ObjectId, actor::SignatureRef, objs::tree::EntryKind};
 use gix_testtools::{Creation, tempfile};
 use snapbox::{Assert, Redactions};
 
@@ -58,6 +59,53 @@ impl Sandbox {
             #[cfg(feature = "sandbox-but-api")]
             app_settings: None,
         })
+    }
+
+    /// Create a new instance simulating a repo cloned from a remote. The
+    /// upstream commit and workspace commit can be obtained by passing
+    /// `remotes/origin/main` and `gitbutler/workspace` respectively to
+    /// [gix::Repository::rev_parse_single].
+    pub fn simulate_clone() -> anyhow::Result<Sandbox> {
+        let env = Sandbox::empty()?;
+        env.invoke_git("init");
+        env.invoke_git("remote add origin ./fake/local/path");
+        env.invoke_git("config user.name User");
+        env.invoke_git("config user.email user@example.com");
+        let repo = env.open_repo()?;
+
+        // Write the empty blob so that trees can be created with
+        // `repo.empty_blob().id` successfully
+        repo.write_blob(b"")?;
+
+        // Simulate an upstream commit
+        let tree_id = repo
+            .empty_tree()
+            .edit()?
+            .upsert("README", EntryKind::Blob, repo.empty_blob().id)?
+            .write()?;
+        let upstream_commit_id = env.new_commit("upstream", tree_id, iter::empty::<ObjectId>())?;
+        repo.reference(
+            "refs/remotes/origin/main",
+            upstream_commit_id,
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            b"arbitrary log message",
+        )?;
+        env.invoke_git("symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main");
+
+        // Create the workspace commit
+        let workspace_commit_id = env.new_commit(
+            "GitButler Workspace Commit",
+            tree_id,
+            iter::once(upstream_commit_id),
+        )?;
+        repo.reference(
+            "refs/heads/gitbutler/workspace",
+            workspace_commit_id,
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            b"arbitrary log message",
+        )?;
+
+        Ok(env)
     }
 
     /// A utility to init a scenario if the legacy feature is set, or open a repo otherwise.
@@ -342,6 +390,40 @@ impl Sandbox {
     #[cfg(feature = "sandbox-but-api")]
     pub fn app_data_dir(&self) -> &Path {
         self.app_root.as_ref().unwrap().path()
+    }
+}
+
+/// Commit creation that's reproducible across test runs
+impl Sandbox {
+    /// Create a new commit with commit time and author time independent of the
+    /// current system time.
+    pub fn new_commit(
+        &self,
+        message: impl AsRef<str>,
+        tree: impl Into<ObjectId>,
+        parents: impl IntoIterator<Item = impl Into<ObjectId>>,
+    ) -> anyhow::Result<ObjectId> {
+        let repo = self.open_repo()?;
+        let committer = repo
+            .committer()
+            .ok_or(anyhow::format_err!("no committer configured"))??;
+        let author = repo
+            .author()
+            .ok_or(anyhow::format_err!("no author configured"))??;
+        let commit = repo.new_commit_as(
+            SignatureRef {
+                time: "1675176957",
+                ..committer
+            },
+            SignatureRef {
+                time: "1675176957",
+                ..author
+            },
+            message,
+            tree,
+            parents,
+        )?;
+        Ok(commit.id)
     }
 }
 
