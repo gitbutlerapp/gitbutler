@@ -1210,7 +1210,7 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 
     let heads = &mut meta.data_mut().branches.get_mut(&stack_id).unwrap().heads;
     heads[0].archived = true;
-    heads[2].archived = true;
+    heads[1].archived = true;
     heads[2].archived = true;
 
     // Archiving everything removes the stack entirely.

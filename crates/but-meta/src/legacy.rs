@@ -136,7 +136,7 @@ impl Snapshot {
             .content
             .branches
             .iter_mut()
-            .sorted_by(|(_, a), (_, b)| a.order.cmp(&b.order).then_with(|| a.name.cmp(&b.name)))
+            .sorted_by(|(_, a), (_, b)| order_then_name(&&**a, &&**b))
         {
             let head_indices_to_remove: Vec<_> = stack
                 .heads
@@ -152,6 +152,7 @@ impl Snapshot {
                     "Removed '{head_name}' from stack {stack_id} as it was already used in another stack",
                     head_name = head.name
                 );
+                changed = true;
             }
 
             if stack.name.is_empty() {
@@ -188,6 +189,7 @@ impl Snapshot {
         for stack_id in empty_stacks_to_remove {
             self.content.branches.remove(&stack_id);
             tracing::warn!("Removed now empty stack {stack_id}");
+            changed = true;
         }
         changed
     }
@@ -1010,8 +1012,11 @@ fn branch_to_stack_branch(
     )
 }
 
+/// Deterministically compare two stacks by their `order` field, using `name` and `id` as a tiebreaker.
 fn order_then_name(a: &&Stack, b: &&Stack) -> Ordering {
-    a.order.cmp(&b.order).then_with(|| a.name.cmp(&b.name))
+    a.order
+        .cmp(&b.order)
+        .then_with(|| a.name.cmp(&b.name).then_with(|| a.id.cmp(&b.id)))
 }
 
 /// Copied from `gitbutler-fs` - shouldn't be needed anymore in future.
