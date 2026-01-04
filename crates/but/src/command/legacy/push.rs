@@ -146,7 +146,6 @@ fn push_all_branches(
 
     for (branch_name, unpushed_count, _) in branches_to_push {
         if let Some(out) = out.for_human() {
-            #[allow(unused_imports)]
             use std::fmt::Write;
             write!(out, "  {} {}... ", "→".cyan(), branch_name.bold())?;
         }
@@ -236,12 +235,10 @@ fn handle_no_branch_specified(
         writeln!(out)?;
 
         let mut has_unpushed = false;
-        let mut unpushed_branches = Vec::new();
 
         for (branch_name, unpushed_count, _stack_name) in &branches_with_info {
             if *unpushed_count > 0 {
                 has_unpushed = true;
-                unpushed_branches.push((branch_name.clone(), *unpushed_count));
                 writeln!(out, "  {} {} {}",
                     "●".green(),
                     branch_name.bold(),
@@ -281,7 +278,7 @@ fn handle_no_branch_specified(
 
         let prompt = cli_prompts::prompts::Selection::new(
             "Which branch(es) would you like to push?",
-            options.clone().into_iter(),
+            options.into_iter(),
         );
 
         let selection = prompt.display()
