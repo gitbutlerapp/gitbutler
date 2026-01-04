@@ -1207,6 +1207,15 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
         ├── 📙:3:C
         └── 📙:4:B
     ");
+
+    let heads = &mut meta.data_mut().branches.get_mut(&stack_id).unwrap().heads;
+    heads[0].archived = true;
+    heads[2].archived = true;
+    heads[2].archived = true;
+
+    // Archiving everything removes the stack entirely.
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0");
     Ok(())
 }
 

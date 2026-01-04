@@ -1072,6 +1072,8 @@ impl Workspace<'_> {
     /// despite other portions of the code possibly being in a good position to do that. Ultimately, they
     /// all match by name, and we just keep the 'archived' handling localised
     /// (possibly allowing it to be turned off, etc).
+    ///
+    /// Remove the whole stack if everything is archived.
     fn prune_archived_segments(&mut self) {
         let Some(md) = &self.metadata else { return };
         let archived_stack_branches = md.stacks(Applied).flat_map(|s| {
@@ -1079,6 +1081,7 @@ impl Workspace<'_> {
                 .iter()
                 .filter_map(|s| s.archived.then_some(s.ref_name.as_ref()))
         });
+        let mut empty_stacks_to_remove = Vec::new();
         for archived_ref_name in archived_stack_branches {
             let Some((stack_idx, segment_idx)) =
                 self.find_segment_owner_indexes_by_refname(archived_ref_name)
@@ -1093,6 +1096,18 @@ impl Workspace<'_> {
                 continue;
             }
             stack.segments.truncate(segment_idx);
+            if stack.segments.is_empty() {
+                empty_stacks_to_remove.push(stack_idx);
+            }
+        }
+
+        empty_stacks_to_remove.sort();
+        for stack_idx_to_remove in empty_stacks_to_remove.into_iter().rev() {
+            let stack = self.stacks.remove(stack_idx_to_remove);
+            tracing::warn!(
+                "Pruned stack {stack_id:?} from workspace as all its segments were archived",
+                stack_id = stack.id
+            )
         }
     }
 
