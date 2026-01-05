@@ -129,7 +129,7 @@
 						menu={branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
 							? undefined
 							: menu}
-					></CommitRow>
+					/>
 				{/each}
 				{#each branch.commits || [] as commit, idx}
 					{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
@@ -157,7 +157,7 @@
 						menu={branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
 							? undefined
 							: menu}
-					></CommitRow>
+					/>
 				{/each}
 			</div>
 		{/snippet}
