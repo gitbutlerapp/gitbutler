@@ -134,6 +134,10 @@ impl Subcommands {
                 Some(forge::pr::Subcommands::List { .. }) => PrList,
             },
             #[cfg(feature = "legacy")]
+            Subcommands::Ci(forge::ci::Platform { cmd }) => match cmd {
+                forge::ci::Subcommands::Warm => CiWarm,
+            },
+            #[cfg(feature = "legacy")]
             Subcommands::Actions(_) | Subcommands::Mcp { .. } | Subcommands::Init { .. } => Unknown,
             Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
                 forge::integration::Subcommands::Auth => ForgeAuth,

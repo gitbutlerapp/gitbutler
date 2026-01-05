@@ -66,3 +66,19 @@ pub mod integration {
         },
     }
 }
+
+pub mod ci {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Subcommands,
+    }
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        /// Warm up the CI checks cache for all applied branches with PRs.
+        /// This command is hidden because it's spawned automatically during initialization
+        /// for background CI cache refresh. It also performs cleanup of stale cache entries.
+        #[clap(hide = true)]
+        Warm,
+    }
+}

@@ -46,6 +46,17 @@ impl CiChecksHandle<'_> {
         Ok(results)
     }
 
+    /// Lists all unique references that have CI checks in the database.
+    pub fn list_all_references(&mut self) -> anyhow::Result<Vec<String>> {
+        use crate::schema::ci_checks::dsl::{ci_checks as all_checks, reference};
+        use diesel::prelude::*;
+        let results = all_checks
+            .select(reference)
+            .distinct()
+            .load::<String>(&mut self.db.conn)?;
+        Ok(results)
+    }
+
     /// Sets the ci_checks table for a specific reference to the provided values.
     /// Any existing entries for this reference are deleted.
     pub fn set_for_reference(
@@ -58,13 +69,21 @@ impl CiChecksHandle<'_> {
 
         self.db.conn.transaction(|conn| {
             diesel::delete(all_checks.filter(reference.eq(ref_name))).execute(conn)?;
-            for check in checks {
+            if !checks.is_empty() {
                 diesel::insert_into(all_checks)
-                    .values(&check)
+                    .values(&checks)
                     .execute(conn)?;
             }
             diesel::result::QueryResult::Ok(())
         })?;
+        Ok(())
+    }
+
+    /// Deletes all CI check entries for a specific reference.
+    pub fn delete_for_reference(&mut self, ref_name: &str) -> anyhow::Result<()> {
+        use crate::schema::ci_checks::dsl::{ci_checks as all_checks, reference};
+        use diesel::prelude::*;
+        diesel::delete(all_checks.filter(reference.eq(ref_name))).execute(&mut self.db.conn)?;
         Ok(())
     }
 }

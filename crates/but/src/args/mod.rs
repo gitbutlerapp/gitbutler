@@ -479,6 +479,14 @@ pub enum Subcommands {
     #[clap(visible_alias = "review")]
     Pr(forge::pr::Platform),
 
+    /// Commands for managing CI checks cache.
+    ///
+    /// This is a hidden command primarily used for background operations.
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    Ci(forge::ci::Platform),
+
     /// AI: Starts up the MCP server.
     ///
     /// This is the local MCP server that can be used by coding agents to invoke
