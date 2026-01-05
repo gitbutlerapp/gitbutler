@@ -93,7 +93,7 @@
 			color: var(--clr-theme-warn-on-element);
 		}
 
-		&.error.solid {
+		&.danger.solid {
 			background-color: var(--clr-theme-danger-element);
 			color: var(--clr-theme-danger-on-element);
 		}
@@ -124,7 +124,7 @@
 			color: var(--clr-theme-warn-on-soft);
 		}
 
-		&.error.soft {
+		&.danger.soft {
 			background-color: var(--clr-theme-danger-soft);
 			color: var(--clr-theme-danger-on-soft);
 		}
