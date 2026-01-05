@@ -70,6 +70,8 @@
 
 {#snippet branchCard(branch: BranchDetails, env: { projectId: string; stackId?: string })}
 	{@const commitColor = getColorFromPushStatus(branch.pushStatus)}
+	{@const hasCommits =
+		(branch.upstreamCommits?.length ?? 0) > 0 || (branch.commits?.length ?? 0) > 0}
 	<BranchCard
 		type="normal-branch"
 		first={isTopBranch}
@@ -81,6 +83,7 @@
 		iconName={pushStatusToIcon(branch.pushStatus)}
 		trackingBranch={branch.remoteTrackingBranch || undefined}
 		readonly
+		roundedBottom={!hasCommits}
 		selected={branchesSelection.current.branchName === branch.name &&
 			branchesSelection.current.stackId === env.stackId &&
 			!branchesSelection.current.commitId}
@@ -104,62 +107,65 @@
 		}}
 	>
 		{#snippet branchContent()}
-			<div class="branch-commits hide-when-empty">
-				{#each branch.upstreamCommits || [] as commit, idx}
-					{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
-						{@render commitMenu(rightClickTrigger, commit.id)}
-					{/snippet}
-					<CommitRow
-						disableCommitActions={false}
-						stackId={env.stackId}
-						type="Remote"
-						active
-						commitMessage={commit.message}
-						createdAt={commitCreatedAt(commit)}
-						commitId={commit.id}
-						branchName={branch.name}
-						selected={commit.id === branchesSelection?.current.commitId}
-						onclick={() => {
-							BranchesSelectionActions.selectCommit(branchesSelection, {
-								commitId: commit.id,
-								remote
-							});
-						}}
-						lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
-						menu={branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
-							? undefined
-							: menu}
-					/>
-				{/each}
-				{#each branch.commits || [] as commit, idx}
-					{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
-						{@render commitMenu(rightClickTrigger, commit.id)}
-					{/snippet}
-					<CommitRow
-						disableCommitActions={false}
-						stackId={env.stackId}
-						type={branch.commits.at(0)?.state.type || 'LocalOnly'}
-						diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
-						commitMessage={commit.message}
-						gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
-						createdAt={commitCreatedAt(commit)}
-						commitId={commit.id}
-						branchName={branch.name}
-						selected={commit.id === branchesSelection?.current.commitId}
-						onclick={() => {
-							BranchesSelectionActions.selectCommit(branchesSelection, {
-								commitId: commit.id,
-								remote
-							});
-						}}
-						lastCommit={idx === branch.commits.length - 1}
-						active
-						menu={branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
-							? undefined
-							: menu}
-					/>
-				{/each}
-			</div>
+			{#if hasCommits}
+				<div class="branch-commits">
+					{#each branch.upstreamCommits || [] as commit, idx}
+						{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
+							{@render commitMenu(rightClickTrigger, commit.id)}
+						{/snippet}
+						<CommitRow
+							disableCommitActions={false}
+							stackId={env.stackId}
+							type="Remote"
+							active
+							commitMessage={commit.message}
+							createdAt={commitCreatedAt(commit)}
+							commitId={commit.id}
+							branchName={branch.name}
+							selected={commit.id === branchesSelection?.current.commitId}
+							onclick={() => {
+								BranchesSelectionActions.selectCommit(branchesSelection, {
+									commitId: commit.id,
+									remote
+								});
+							}}
+							lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
+							menu={branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
+								? undefined
+								: menu}
+						/>
+					{/each}
+					{#each branch.commits || [] as commit, idx}
+						{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
+							{@render commitMenu(rightClickTrigger, commit.id)}
+						{/snippet}
+						<CommitRow
+							disableCommitActions={false}
+							stackId={env.stackId}
+							type={branch.commits.at(0)?.state.type || 'LocalOnly'}
+							diverged={commit.state.type === 'LocalAndRemote' &&
+								commit.id !== commit.state.subject}
+							commitMessage={commit.message}
+							gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
+							createdAt={commitCreatedAt(commit)}
+							commitId={commit.id}
+							branchName={branch.name}
+							selected={commit.id === branchesSelection?.current.commitId}
+							onclick={() => {
+								BranchesSelectionActions.selectCommit(branchesSelection, {
+									commitId: commit.id,
+									remote
+								});
+							}}
+							lastCommit={idx === branch.commits.length - 1}
+							active
+							menu={branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
+								? undefined
+								: menu}
+						/>
+					{/each}
+				</div>
+			{/if}
 		{/snippet}
 	</BranchCard>
 {/snippet}

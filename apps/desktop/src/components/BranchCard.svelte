@@ -41,6 +41,7 @@
 		lastUpdatedAt?: number;
 		isTopBranch?: boolean;
 		isNewBranch?: boolean;
+		roundedBottom?: boolean;
 		onclick: () => void;
 		branchContent: Snippet;
 		codegenRow?: Snippet;
@@ -296,6 +297,7 @@
 			readonly
 			{isPushed}
 			onclick={args.onclick}
+			roundedBottom={args.roundedBottom}
 		>
 			{#snippet emptyState()}
 				<span class="branch-header__empty-state-span">There are no commits yet on this branch.</span
