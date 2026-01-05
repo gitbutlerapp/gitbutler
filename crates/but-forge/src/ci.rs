@@ -44,6 +44,7 @@ pub fn ci_checks_for_ref(
 pub struct CiCheck {
     pub id: i64,
     pub name: String,
+    pub output: CiOutput,
     pub started_at: Option<chrono::DateTime<chrono::Utc>>,
     pub status: CiStatus,
     pub head_sha: String,
@@ -59,6 +60,16 @@ pub struct CiOutput {
     pub summary: String,
     pub text: String,
     pub title: String,
+}
+
+impl From<octorust::types::Output> for CiOutput {
+    fn from(value: octorust::types::Output) -> Self {
+        CiOutput {
+            summary: value.summary,
+            text: value.text,
+            title: value.title,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -151,6 +162,7 @@ impl From<octorust::types::CheckRun> for CiCheck {
         CiCheck {
             id: value.id,
             name: value.name,
+            output: value.output.into(),
             started_at: value.started_at,
             status,
             head_sha: value.head_sha,
