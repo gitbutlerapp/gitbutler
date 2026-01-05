@@ -50,7 +50,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(6fcc83539cbb0a438ac85c7c0094d592d22b3420),
+            Sha1(040c4f1b81c90d596fded5e13245cc75dee4fb87),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(e56fc9bacdd11ebe576b5d96d21127c423698126),
@@ -73,7 +73,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     // which thus should never be removed.
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
     tree e56fc9bacdd11ebe576b5d96d21127c423698126
-    author author <author@example.com> 946684866 +0600
+    author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771266 +0600
     gitbutler-headers-version 2
     gitbutler-change-id 00000000-0000-0000-0000-000000003333

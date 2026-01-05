@@ -194,7 +194,7 @@ pub fn create_commit(
                 Some(but_rebase::commit::create(
                     repo,
                     commit.inner,
-                    DateMode::CommitterUpdateAuthorUpdate,
+                    DateMode::CommitterUpdateAuthorKeep,
                 )?)
             }
         }
