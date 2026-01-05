@@ -130,7 +130,8 @@
 		// For stack branches not committing, check if actions are visible and structural conditions
 		if (args.type === 'stack-branch' && !args.isCommitting) {
 			const hasActions = args.buttons !== undefined || args.menu !== undefined;
-			const structurallyRounded = args.hasCodegenRow || args.numberOfCommits === 0;
+			const structurallyRounded =
+				args.hasCodegenRow || (args.numberOfCommits === 0 && args.numberOfUpstreamCommits === 0);
 			return hasActions && structurallyRounded;
 		}
 
