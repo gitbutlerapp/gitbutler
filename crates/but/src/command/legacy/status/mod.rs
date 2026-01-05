@@ -760,15 +760,14 @@ impl CliDisplay for CiChecks {
             })
             .count();
 
-        let state = if failed > 0 {
-            "❌".to_string()
+        if failed > 0 {
+            " CI: ❌".to_string()
         } else if in_progress > 0 {
-            "⏳".to_string()
+            " CI: ⏳".to_string()
         } else if success > 0 {
-            "✅".to_string()
+            " CI: ✅".to_string()
         } else {
             "".to_string()
-        };
-        format!(" CI: {state}")
+        }
     }
 }
