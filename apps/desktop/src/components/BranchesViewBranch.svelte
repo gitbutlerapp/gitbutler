@@ -79,7 +79,7 @@
 	{@const commitType: 'Remote' | 'LocalOnly' | 'LocalAndRemote' | 'Integrated' = isUpstream ? 'Remote' : ((branchFirstCommitType as 'LocalOnly' | 'LocalAndRemote' | 'Integrated') ?? 'LocalOnly')}
 	{@const isDiverged = localCommit
 		? localCommit.state.type === 'LocalAndRemote' &&
-			commit.id !== (localCommit.state as any).subject
+			commit.id !== localCommit.state.subject
 		: false}
 	{@const shouldShowMenu = !(
 		branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
