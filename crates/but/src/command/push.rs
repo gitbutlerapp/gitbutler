@@ -29,10 +29,21 @@ pub mod help {
         use std::fmt::Write;
         writeln!(out, "Push a branch/stack to remote")?;
         writeln!(out,)?;
-        writeln!(out, "Usage: but push [OPTIONS] <BRANCH_ID>")?;
+        writeln!(out, "Usage: but push [OPTIONS] [BRANCH_ID]")?;
         writeln!(out,)?;
         writeln!(out, "Arguments:")?;
-        writeln!(out, "  <BRANCH_ID>  Branch name or CLI ID to push")?;
+        writeln!(
+            out,
+            "  [BRANCH_ID]  Branch name or CLI ID to push. If not specified:"
+        )?;
+        writeln!(
+            out,
+            "               - In interactive mode: lists branches and prompts for selection"
+        )?;
+        writeln!(
+            out,
+            "               - In non-interactive mode: pushes all branches with unpushed commits"
+        )?;
         writeln!(out,)?;
         writeln!(out, "Options:")?;
         writeln!(
