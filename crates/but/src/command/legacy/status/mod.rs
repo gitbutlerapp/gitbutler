@@ -199,6 +199,7 @@ pub(crate) fn worktree(
             &upstream_state,
             last_fetched_ms,
             &review_map,
+            &ci_map,
             show_files,
             ctx.legacy_project.id,
             &repo,
