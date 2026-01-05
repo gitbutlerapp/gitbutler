@@ -65,6 +65,7 @@ pub(crate) fn repo(
             .remote_default_name(gix::remote::Direction::Push)
             .ok_or_else(|| anyhow::anyhow!("No push remote set"))?
             .to_string();
+        // TODO: if no remote/HEAD, try to find main/master
         let mut head_ref = repo
             .find_reference(&format!("refs/remotes/{remote_name}/HEAD"))
             .map_err(|_| anyhow::anyhow!("No HEAD reference found for remote {}", remote_name))?;
