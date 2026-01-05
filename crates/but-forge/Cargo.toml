@@ -17,6 +17,7 @@ but-forge-storage.workspace = true
 but-db.workspace = true
 chrono.workspace = true
 tokio = { workspace = true }
+octorust.workspace = true
 
 git-url-parse = "0.6.0"
 serde.workspace = true

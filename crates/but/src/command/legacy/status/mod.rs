@@ -80,7 +80,7 @@ pub(crate) fn worktree(
     };
     let review_map = crate::command::legacy::forge::review::get_review_map(
         &ctx.legacy_project,
-        Some(cache_config),
+        Some(cache_config.clone()),
     )?;
 
     let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
@@ -106,6 +106,7 @@ pub(crate) fn worktree(
         original_stack_details.push((stack.id, Some(details.clone())));
         stack_details.push((stack.id, (Some(details), assignments)));
     }
+    let ci_map = ci_map(ctx, &cache_config, &stack_details)?;
 
     // Calculate common_merge_base data
     let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -233,6 +234,7 @@ pub(crate) fn worktree(
             ctx,
             i == 0,
             &review_map,
+            &ci_map,
             out,
             &id_map,
         )?;
@@ -308,6 +310,29 @@ pub(crate) fn worktree(
     Ok(())
 }
 
+fn ci_map(
+    ctx: &mut Context,
+    cache_config: &but_forge::CacheConfig,
+    stack_details: &[StackEntry],
+) -> Result<BTreeMap<String, Vec<but_forge::CiCheck>>, anyhow::Error> {
+    let mut ci_map = BTreeMap::new();
+    if matches!(cache_config, but_forge::CacheConfig::NoCache) {
+        for (_, (details, _)) in stack_details {
+            if let Some(details) = details {
+                for branch in &details.branch_details {
+                    if branch.pr_number.is_some()
+                        && let Ok(checks) =
+                            but_api::legacy::forge::list_ci_checks(ctx, branch.name.to_string())
+                    {
+                        ci_map.insert(branch.name.to_string(), checks);
+                    }
+                }
+            }
+        }
+    }
+    Ok(ci_map)
+}
+
 fn print_assignments(
     assignments: &Vec<FileAssignment>,
     changes: &[ui::TreeChange],
@@ -367,6 +392,7 @@ pub fn print_group(
     ctx: &mut Context,
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
     out: &mut dyn std::fmt::Write,
     id_map: &IdMap,
 ) -> anyhow::Result<()> {
@@ -396,6 +422,12 @@ pub fn print_group(
                 .map(|r| format!(" {} ", r.display_cli(verbose)))
                 .unwrap_or_default();
 
+            let ci = ci_map
+                .get(&branch.name.to_string())
+                .map(CiChecks::from)
+                .map(|c| c.display_cli(verbose))
+                .unwrap_or_default();
+
             let workspace = branch
                 .linked_worktree_id
                 .as_ref()
@@ -411,7 +443,7 @@ pub fn print_group(
                 .unwrap_or_default();
             writeln!(
                 out,
-                "┊{notch}┄{id} [{branch}{workspace}]{review} {no_commits} {stack_mark}",
+                "┊{notch}┄{id} [{branch}{workspace}]{ci}{review} {no_commits} {stack_mark}",
                 stack_mark = stack_mark.clone().unwrap_or_default(),
                 branch = branch.name.to_string().green().bold(),
             )?;
@@ -674,5 +706,66 @@ impl CliDisplay for ForgeReview {
                     .trim_end_matches(|c: char| !c.is_ascii() && !c.is_alphanumeric())
             )
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct CiChecks(pub Vec<but_forge::CiCheck>);
+
+impl From<&Vec<but_forge::CiCheck>> for CiChecks {
+    fn from(checks: &Vec<but_forge::CiCheck>) -> Self {
+        CiChecks(checks.clone())
+    }
+}
+
+impl CliDisplay for CiChecks {
+    fn display_cli(&self, _verbose: bool) -> String {
+        let success = self
+            .0
+            .iter()
+            .filter(|check| {
+                matches!(
+                    check.status,
+                    but_forge::CiStatus::Complete {
+                        conclusion: but_forge::CiConclusion::Success,
+                        ..
+                    }
+                )
+            })
+            .count();
+        let failed = self
+            .0
+            .iter()
+            .filter(|check| {
+                matches!(
+                    check.status,
+                    but_forge::CiStatus::Complete {
+                        conclusion: but_forge::CiConclusion::Failure,
+                        ..
+                    }
+                )
+            })
+            .count();
+        let in_progress = self
+            .0
+            .iter()
+            .filter(|check| {
+                matches!(
+                    check.status,
+                    but_forge::CiStatus::InProgress | but_forge::CiStatus::Queued
+                )
+            })
+            .count();
+
+        let state = if failed > 0 {
+            "❌".to_string()
+        } else if in_progress > 0 {
+            "⏳".to_string()
+        } else if success > 0 {
+            "✅".to_string()
+        } else {
+            "".to_string()
+        };
+        format!(" CI: {state}")
     }
 }

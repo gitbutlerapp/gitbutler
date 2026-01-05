@@ -1,6 +1,10 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use but_secret::Sensitive;
-use octorust::{Client, auth::Credentials, types::UsersGetByUsernameResponseOneOf};
+use octorust::{
+    Client,
+    auth::Credentials,
+    types::{ActionsListJobsWorkflowRunFilter, JobStatus, UsersGetByUsernameResponseOneOf},
+};
 use serde::Serialize;
 
 pub struct GitHubClient {
@@ -15,6 +19,21 @@ impl GitHubClient {
         )?;
 
         Ok(Self { github })
+    }
+
+    pub fn from_storage(
+        storage: &but_forge_storage::Controller,
+        preferred_account: Option<&crate::GithubAccountIdentifier>,
+    ) -> anyhow::Result<Self> {
+        let account_id = resolve_account(preferred_account, storage)?;
+        if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
+            Ok(GitHubClient::new(&access_token)?)
+        } else {
+            Err(anyhow::anyhow!(
+                "No GitHub access token found for account '{}'.\nPlease, try to re-authenticate with this account.",
+                account_id
+            ))
+        }
     }
 
     pub fn new_with_host_override(access_token: &Sensitive<String>, host: &str) -> Result<Self> {
@@ -57,6 +76,33 @@ impl GitHubClient {
                     }
                 }
             })
+    }
+
+    pub async fn list_checks_for_ref(
+        &self,
+        owner: &str,
+        repo: &str,
+        reference: &str,
+    ) -> Result<Vec<octorust::types::CheckRun>> {
+        let no_name_filter = "";
+        let resp = self
+            .github
+            .checks()
+            .list_for_ref(
+                owner,
+                repo,
+                reference,
+                no_name_filter,
+                JobStatus::Noop, // Retrieve all statuses
+                ActionsListJobsWorkflowRunFilter::Latest,
+                0, // use default
+                0, // use default
+                0, // use default
+            )
+            .await
+            .map(|response| response.body);
+        resp.map_err(|e| anyhow::anyhow!("Failed to list checks for ref: {:?}", e))
+            .map(|r| r.check_runs)
     }
 
     pub async fn list_open_pulls(&self, owner: &str, repo: &str) -> Result<Vec<PullRequest>> {
@@ -291,4 +337,28 @@ impl From<octorust::types::PullRequestData> for PullRequest {
             requested_reviewers,
         }
     }
+}
+
+pub(crate) fn resolve_account(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    storage: &but_forge_storage::Controller,
+) -> Result<crate::GithubAccountIdentifier, anyhow::Error> {
+    let known_accounts = crate::token::list_known_github_accounts(storage)?;
+    let Some(default_account) = known_accounts.first() else {
+        bail!("No authenticated GitHub users found. Please authenticate with GitHub first.");
+    };
+    let account = if let Some(account) = preferred_account {
+        if known_accounts.contains(account) {
+            account
+        } else {
+            bail!(
+                "Preferred GitHub account '{}' has not authenticated yet. Please choose another account or authenticate with the desired account first.",
+                account
+            );
+        }
+    } else {
+        default_account
+    };
+
+    Ok(account.to_owned())
 }

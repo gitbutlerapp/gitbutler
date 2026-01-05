@@ -71,8 +71,7 @@ gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 
 bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { version = "0.77.0", default-features = false, features = [
-] }
+gix = { version = "0.77.0", default-features = false, features = [] }
 ts-rs = { version = "11.1.0", features = ["serde-compat", "no-serde-warnings"] }
 gix-testtools = "0.16.1"
 insta = "1.45.1"
@@ -131,6 +130,7 @@ async-openai = { version = "0.31.1", default-features = false, features = [
     "rustls",
     "chat-completion",
 ] }
+octorust = { version = "0.10.0", default-features = false }
 open = "5.3.2"
 regex = { version = "1.11.3", default-features = false, features = [
     "std",
