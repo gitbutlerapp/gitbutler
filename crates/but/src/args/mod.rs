@@ -336,14 +336,15 @@ pub enum Subcommands {
     /// Push changes in a branch to remote.
     ///
     /// `but push` will update the remote with the latest commits from the
-    /// specified branch.
+    /// applied branch(es).
     ///
-    /// Whatever the upstream remote is configured for the base branch,
-    /// that will be used as the remote to push to.
+    /// Without a branch ID:
+    /// - Interactive mode: Lists all branches with unpushed commits and prompts for selection
+    /// - Non-interactive mode: Automatically pushes all branches with unpushed commits
     ///
-    /// If you have another remote you want to push to that is different from
-    /// the target remote (for example, a fork of an open source project), you
-    /// can set it in the GitButler project settings. (Currently only via the GUI.)
+    /// With a branch ID:
+    /// - `but push bu` - push the branch with CLI ID "bu"
+    /// - `but push feature-branch` - push the branch named "feature-branch"
     ///
     #[cfg(feature = "legacy")]
     Push(push::Command),
