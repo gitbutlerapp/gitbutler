@@ -193,7 +193,11 @@ pub fn list_reviews(
 
 #[but_api]
 #[instrument(skip(ctx), err(Debug))]
-pub fn list_ci_checks(ctx: &Context, reference: String) -> Result<Vec<but_forge::CiCheck>> {
+pub fn list_ci_checks(
+    ctx: &mut Context,
+    reference: String,
+    cache_config: Option<but_forge::CacheConfig>,
+) -> Result<Vec<but_forge::CiCheck>> {
     let (storage, base_branch) = {
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
         (
@@ -201,13 +205,16 @@ pub fn list_ci_checks(ctx: &Context, reference: String) -> Result<Vec<but_forge:
             base_branch,
         )
     };
-    but_forge::ci_checks_for_ref(
+    let db = &mut *ctx.db.get_mut()?;
+    but_forge::ci_checks_for_ref_with_cache(
         ctx.legacy_project.preferred_forge_user.clone(),
         &base_branch
             .forge_repo_info
             .context("No forge could be determined for this repository branch")?,
         &storage,
         &reference,
+        db,
+        cache_config,
     )
 }
 

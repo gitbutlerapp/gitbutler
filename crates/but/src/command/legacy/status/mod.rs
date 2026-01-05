@@ -317,16 +317,17 @@ fn ci_map(
     stack_details: &[StackEntry],
 ) -> Result<BTreeMap<String, Vec<but_forge::CiCheck>>, anyhow::Error> {
     let mut ci_map = BTreeMap::new();
-    if matches!(cache_config, but_forge::CacheConfig::NoCache) {
-        for (_, (details, _)) in stack_details {
-            if let Some(details) = details {
-                for branch in &details.branch_details {
-                    if branch.pr_number.is_some()
-                        && let Ok(checks) =
-                            but_api::legacy::forge::list_ci_checks(ctx, branch.name.to_string())
-                    {
-                        ci_map.insert(branch.name.to_string(), checks);
-                    }
+    for (_, (details, _)) in stack_details {
+        if let Some(details) = details {
+            for branch in &details.branch_details {
+                if branch.pr_number.is_some()
+                    && let Ok(checks) = but_api::legacy::forge::list_ci_checks(
+                        ctx,
+                        branch.name.to_string(),
+                        Some(cache_config.clone()),
+                    )
+                {
+                    ci_map.insert(branch.name.to_string(), checks);
                 }
             }
         }

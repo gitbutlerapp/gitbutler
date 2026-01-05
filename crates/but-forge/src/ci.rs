@@ -1,8 +1,42 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::ForgeName;
 
-pub fn ci_checks_for_ref(
+pub fn ci_checks_for_ref_with_cache(
+    preferred_forge_user: Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    storage: &but_forge_storage::Controller,
+    reference: &str,
+    db: &mut but_db::DbHandle,
+    cache_config: Option<crate::CacheConfig>,
+) -> anyhow::Result<Vec<CiCheck>> {
+    let cache_config = cache_config.unwrap_or_default();
+    let checks = match cache_config {
+        crate::CacheConfig::CacheOnly => crate::db::ci_checks_from_cache(db, reference)?,
+        crate::CacheConfig::CacheWithFallback { max_age_seconds } => {
+            let cached = crate::db::ci_checks_from_cache(db, reference)?;
+            if let Some(last_sync) = cached.first().map(|c| c.last_sync_at) {
+                let age = chrono::Local::now().naive_local() - last_sync;
+                if !cached.is_empty() && age.num_seconds() as u64 <= max_age_seconds {
+                    return Ok(cached);
+                }
+            }
+            let checks =
+                ci_checks_for_ref(preferred_forge_user, forge_repo_info, storage, reference)?;
+            crate::db::cache_ci_checks(db, reference, &checks).ok();
+            checks
+        }
+        crate::CacheConfig::NoCache => {
+            let checks =
+                ci_checks_for_ref(preferred_forge_user, forge_repo_info, storage, reference)?;
+            crate::db::cache_ci_checks(db, reference, &checks).ok();
+            checks
+        }
+    };
+    Ok(checks)
+}
+
+fn ci_checks_for_ref(
     preferred_forge_user: Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
@@ -18,10 +52,11 @@ pub fn ci_checks_for_ref(
                 .and_then(|user| user.github().cloned());
             let gh = but_github::GitHubClient::from_storage(storage, preferred_account.as_ref())?;
 
-            // Clone owned datta for thread
+            // Clone owned data for thread
             let owner = owner.clone();
             let repo = repo.clone();
             let reference = reference.to_string();
+            let reference_for_checks = reference.clone();
 
             let checks = std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
@@ -30,7 +65,15 @@ pub fn ci_checks_for_ref(
             })
             .join()
             .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))?;
-            checks.map(|c| c.into_iter().map(CiCheck::from).collect())
+            checks.map(|c| {
+                c.into_iter()
+                    .map(|check| {
+                        let mut ci_check = CiCheck::from(check);
+                        ci_check.reference = reference_for_checks.to_string();
+                        ci_check
+                    })
+                    .collect()
+            })
         }
         _ => Err(anyhow::anyhow!(
             "Listing ci checks for forge {:?} is not implemented yet.",
@@ -52,6 +95,17 @@ pub struct CiCheck {
     pub html_url: String,
     pub details_url: String,
     pub pull_requests: Vec<PullRequestMinimal>,
+    #[serde(skip_serializing)]
+    pub reference: String,
+    #[serde(skip_serializing)]
+    pub last_sync_at: chrono::NaiveDateTime,
+}
+
+impl CiCheck {
+    /// The struct version for persistence compatibility purposes
+    pub fn struct_version() -> i32 {
+        1
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -97,7 +151,7 @@ pub enum CiConclusion {
     Unknown,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PullRequestMinimal {
     pub id: i64,
@@ -174,6 +228,8 @@ impl From<octorust::types::CheckRun> for CiCheck {
                 .into_iter()
                 .map(|pr| pr.into())
                 .collect(),
+            reference: String::new(), // Will be set by the caller
+            last_sync_at: chrono::Local::now().naive_local(),
         }
     }
 }

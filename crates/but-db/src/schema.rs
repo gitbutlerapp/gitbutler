@@ -125,3 +125,25 @@ diesel::table! {
         struct_version -> Integer,
     }
 }
+
+diesel::table! {
+    ci_checks (id) {
+        id -> BigInt,
+        name -> Text,
+        output_summary -> Text,
+        output_text -> Text,
+        output_title -> Text,
+        started_at -> Nullable<Timestamp>,
+        status_type -> Text,
+        status_conclusion -> Nullable<Text>,
+        status_completed_at -> Nullable<Timestamp>,
+        head_sha -> Text,
+        url -> Text,
+        html_url -> Text,
+        details_url -> Text,
+        pull_requests -> Text,
+        reference -> Text,
+        last_sync_at -> Timestamp,
+        struct_version -> Integer,
+    }
+}
