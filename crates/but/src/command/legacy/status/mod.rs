@@ -7,7 +7,7 @@ use but_core::{TreeStatus, diff::CommitDetails, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_oxidize::OidExt;
-use but_workspace::ui::StackDetails;
+use but_workspace::ui::{PushStatus, StackDetails};
 use colored::{ColoredString, Colorize};
 use gix::date::time::CustomFormat;
 use serde::Serialize;
@@ -321,6 +321,7 @@ fn ci_map(
         if let Some(details) = details {
             for branch in &details.branch_details {
                 if branch.pr_number.is_some()
+                    && !matches!(branch.push_status, PushStatus::Integrated)
                     && let Ok(checks) = but_api::legacy::forge::list_ci_checks(
                         ctx,
                         branch.name.to_string(),
