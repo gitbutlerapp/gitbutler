@@ -6,7 +6,7 @@ pub use crate::forge::{ForgeName, ForgeRepoInfo, ForgeUser, deserialize_preferre
 mod ci;
 mod db;
 mod review;
-pub use ci::{CiCheck, CiConclusion, CiOutput, CiStatus, ci_checks_for_ref};
+pub use ci::{CiCheck, CiConclusion, CiOutput, CiStatus, ci_checks_for_ref_with_cache};
 pub use review::{
     CacheConfig, CreateForgeReviewParams, ForgeReview, ReviewTemplateFunctions,
     available_review_templates, create_forge_review, get_forge_review,

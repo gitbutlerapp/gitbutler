@@ -193,7 +193,11 @@ pub fn list_reviews(
 
 #[but_api]
 #[instrument(skip(ctx), err(Debug))]
-pub fn list_ci_checks(ctx: &Context, reference: String) -> Result<Vec<but_forge::CiCheck>> {
+pub fn list_ci_checks(
+    ctx: &mut Context,
+    reference: String,
+    cache_config: Option<but_forge::CacheConfig>,
+) -> Result<Vec<but_forge::CiCheck>> {
     let (storage, base_branch) = {
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
         (
@@ -201,13 +205,16 @@ pub fn list_ci_checks(ctx: &Context, reference: String) -> Result<Vec<but_forge:
             base_branch,
         )
     };
-    but_forge::ci_checks_for_ref(
+    let db = &mut *ctx.db.get_mut()?;
+    but_forge::ci_checks_for_ref_with_cache(
         ctx.legacy_project.preferred_forge_user.clone(),
         &base_branch
             .forge_repo_info
             .context("No forge could be determined for this repository branch")?,
         &storage,
         &reference,
+        db,
+        cache_config,
     )
 }
 
@@ -235,4 +242,57 @@ pub async fn publish_review(
         &storage,
     )
     .await
+}
+
+/// Warm up the CI checks cache for all applied branches with PRs.
+/// This function fetches CI check data from the forge and caches it in the database
+/// without returning any data. It only processes branches that have associated pull requests.
+/// Additionally, it cleans up stale CI check entries for references that are no longer
+/// part of any applied stack.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn warm_ci_checks_cache(project_id: ProjectId) -> Result<()> {
+    let mut ctx = Context::new_from_legacy_project_id(project_id)?;
+
+    // Get all stacks
+    let stacks = crate::legacy::workspace::stacks(project_id, None)?;
+
+    // Collect branch references that have CI checks cached
+    let mut current_refs = std::collections::HashSet::new();
+
+    // For each stack, get details and check branches
+    for stack in stacks {
+        if let Some(stack_id) = stack.id {
+            let details = crate::legacy::workspace::stack_details(project_id, Some(stack_id))?;
+
+            // Process each branch that has a PR
+            for branch in &details.branch_details {
+                if branch.pr_number.is_some() {
+                    // Fetch CI checks with NoCache to force refresh
+                    let _ = list_ci_checks(
+                        &mut ctx,
+                        branch.name.to_string(),
+                        Some(but_forge::CacheConfig::NoCache),
+                    );
+                    // Ignore errors for individual branches to ensure we process all branches
+
+                    // Track this reference as having CI checks
+                    current_refs.insert(branch.name.to_string());
+                }
+            }
+        }
+    }
+
+    // Clean up stale CI check entries from the database
+    let db = &mut *ctx.db.get_mut()?;
+    let all_cached_refs = db.ci_checks().list_all_references()?;
+
+    // Delete CI checks for references that are no longer in applied stacks
+    for cached_ref in all_cached_refs {
+        if !current_refs.contains(&cached_ref) {
+            db.ci_checks().delete_for_reference(&cached_ref)?;
+        }
+    }
+
+    Ok(())
 }

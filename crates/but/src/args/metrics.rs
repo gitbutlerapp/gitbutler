@@ -41,6 +41,7 @@ pub enum CommandName {
     PrNew,
     PrList,
     PrTemplate,
+    CiWarm,
     Completions,
     #[default]
     Unknown,

@@ -100,3 +100,146 @@ pub(crate) fn cache_reviews(
     )?;
     db.forge_reviews().set_all(db_reviews)
 }
+
+use super::CiCheck;
+
+impl TryFrom<CiCheck> for but_db::CiCheck {
+    type Error = anyhow::Error;
+    fn try_from(value: CiCheck) -> anyhow::Result<Self, Self::Error> {
+        let version = CiCheck::struct_version();
+        let (status_type, status_conclusion, status_completed_at) = match value.status {
+            super::CiStatus::Complete {
+                conclusion,
+                completed_at,
+            } => {
+                let conclusion_str = match conclusion {
+                    super::CiConclusion::ActionRequired => "ActionRequired",
+                    super::CiConclusion::Cancelled => "Cancelled",
+                    super::CiConclusion::Failure => "Failure",
+                    super::CiConclusion::Neutral => "Neutral",
+                    super::CiConclusion::Skipped => "Skipped",
+                    super::CiConclusion::Success => "Success",
+                    super::CiConclusion::TimedOut => "TimedOut",
+                    super::CiConclusion::Unknown => "Unknown",
+                };
+                (
+                    "Complete".to_string(),
+                    Some(conclusion_str.to_string()),
+                    Some(completed_at.naive_local()),
+                )
+            }
+            super::CiStatus::InProgress => ("InProgress".to_string(), None, None),
+            super::CiStatus::Queued => ("Queued".to_string(), None, None),
+            super::CiStatus::Unknown => ("Unknown".to_string(), None, None),
+        };
+
+        Ok(but_db::CiCheck {
+            id: value.id,
+            name: value.name,
+            output_summary: value.output.summary,
+            output_text: value.output.text,
+            output_title: value.output.title,
+            started_at: value.started_at.map(|dt| dt.naive_local()),
+            status_type,
+            status_conclusion,
+            status_completed_at,
+            head_sha: value.head_sha,
+            url: value.url,
+            html_url: value.html_url,
+            details_url: value.details_url,
+            pull_requests: serde_json::to_string(&value.pull_requests)?,
+            reference: value.reference,
+            last_sync_at: value.last_sync_at,
+            struct_version: version,
+        })
+    }
+}
+
+impl TryFrom<but_db::CiCheck> for CiCheck {
+    type Error = anyhow::Error;
+    fn try_from(value: but_db::CiCheck) -> anyhow::Result<Self, Self::Error> {
+        if value.struct_version != CiCheck::struct_version() {
+            return Err(anyhow::Error::msg(format!(
+                "Incompatible CiCheck struct version: expected {}, found {}",
+                CiCheck::struct_version(),
+                value.struct_version
+            )));
+        }
+
+        let status = match value.status_type.as_str() {
+            "Complete" => {
+                let conclusion_str = value
+                    .status_conclusion
+                    .ok_or_else(|| anyhow::Error::msg("Complete status missing conclusion"))?;
+                let conclusion = match conclusion_str.as_str() {
+                    "ActionRequired" => super::CiConclusion::ActionRequired,
+                    "Cancelled" => super::CiConclusion::Cancelled,
+                    "Failure" => super::CiConclusion::Failure,
+                    "Neutral" => super::CiConclusion::Neutral,
+                    "Skipped" => super::CiConclusion::Skipped,
+                    "Success" => super::CiConclusion::Success,
+                    "TimedOut" => super::CiConclusion::TimedOut,
+                    _ => super::CiConclusion::Unknown,
+                };
+                let completed_at = value
+                    .status_completed_at
+                    .ok_or_else(|| anyhow::Error::msg("Complete status missing completed_at"))?;
+                super::CiStatus::Complete {
+                    conclusion,
+                    completed_at: chrono::DateTime::from_naive_utc_and_offset(
+                        completed_at,
+                        chrono::Utc,
+                    ),
+                }
+            }
+            "InProgress" => super::CiStatus::InProgress,
+            "Queued" => super::CiStatus::Queued,
+            _ => super::CiStatus::Unknown,
+        };
+
+        Ok(CiCheck {
+            id: value.id,
+            name: value.name,
+            output: super::CiOutput {
+                summary: value.output_summary,
+                text: value.output_text,
+                title: value.output_title,
+            },
+            started_at: value
+                .started_at
+                .map(|dt| chrono::DateTime::from_naive_utc_and_offset(dt, chrono::Utc)),
+            status,
+            head_sha: value.head_sha,
+            url: value.url,
+            html_url: value.html_url,
+            details_url: value.details_url,
+            pull_requests: serde_json::from_str(&value.pull_requests)?,
+            reference: value.reference,
+            last_sync_at: value.last_sync_at,
+        })
+    }
+}
+
+pub(crate) fn ci_checks_from_cache(
+    db: &mut but_db::DbHandle,
+    reference: &str,
+) -> anyhow::Result<Vec<CiCheck>> {
+    let db_checks = db.ci_checks().list_for_reference(reference)?;
+    let checks: Vec<CiCheck> = db_checks
+        .into_iter()
+        .map(|c| c.try_into())
+        .collect::<anyhow::Result<Vec<CiCheck>>>()?;
+    Ok(checks)
+}
+
+pub(crate) fn cache_ci_checks(
+    db: &mut but_db::DbHandle,
+    reference: &str,
+    checks: &[CiCheck],
+) -> anyhow::Result<()> {
+    let db_checks: Vec<but_db::CiCheck> = checks
+        .iter()
+        .map(|c| c.clone().try_into())
+        .collect::<anyhow::Result<Vec<but_db::CiCheck>>>()?;
+    db.ci_checks().set_for_reference(reference, db_checks)
+}

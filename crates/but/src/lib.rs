@@ -515,6 +515,17 @@ async fn match_subcommand(
                 }
             }
         }
+        #[cfg(feature = "legacy")]
+        Subcommands::Ci(forge::ci::Platform { cmd }) => {
+            let ctx = init::init_ctx(&args, Fetch::None, out)?;
+            match cmd {
+                forge::ci::Subcommands::Warm => {
+                    but_api::legacy::forge::warm_ci_checks_cache(ctx.legacy_project.id)
+                        .context("Failed to warm CI checks cache.")
+                        .emit_metrics(metrics_ctx)
+                }
+            }
+        }
     }
 }
 
