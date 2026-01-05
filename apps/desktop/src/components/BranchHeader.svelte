@@ -142,7 +142,7 @@
 			></div>
 		{/if}
 
-		{#if !conflicts}
+		{#if dragArgs && !dragArgs.disabled && !conflicts}
 			<div class="branch-header__drag-handle" data-no-drag>
 				<Icon name="draggable-narrow" />
 			</div>

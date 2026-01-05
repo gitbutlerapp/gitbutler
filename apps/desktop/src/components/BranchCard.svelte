@@ -60,6 +60,7 @@
 		pushStatus: PushStatus;
 		lastUpdatedAt?: number;
 		isConflicted: boolean;
+		applied?: boolean;
 		contextMenu?: typeof BranchHeaderContextMenu;
 		dropzones: DropzoneHandler[];
 		numberOfCommits: number;
@@ -206,7 +207,7 @@
 				conflicts={args.isConflicted}
 				{showPrCreation}
 				dragArgs={{
-					disabled: args.isConflicted,
+					disabled: args.isConflicted || (args.type === 'stack-branch' && args.applied === false),
 					label: branchName,
 					pushStatus: args.pushStatus,
 					data:
