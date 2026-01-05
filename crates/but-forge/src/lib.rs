@@ -3,8 +3,10 @@ use git_url_parse::{GitUrl, types::provider::GenericProvider};
 mod forge;
 pub use crate::forge::{ForgeName, ForgeRepoInfo, ForgeUser, deserialize_preferred_forge_user_opt};
 
+mod ci;
 mod db;
 mod review;
+pub use ci::{CiCheck, CiConclusion, CiOutput, CiStatus, ci_checks_for_ref};
 pub use review::{
     CacheConfig, CreateForgeReviewParams, ForgeReview, ReviewTemplateFunctions,
     available_review_templates, create_forge_review, get_forge_review,

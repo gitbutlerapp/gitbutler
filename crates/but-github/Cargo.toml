@@ -28,7 +28,7 @@ serde.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
 reqwest = { workspace = true, features = ["json"] }
-octorust = { version = "0.10.0", default-features = false }
+octorust.workspace = true
 
 [dev-dependencies]
 reqwest = { workspace = true, features = ["blocking"] }

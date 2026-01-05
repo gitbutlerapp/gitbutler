@@ -1071,6 +1071,7 @@ dependencies = [
  "but-github",
  "chrono",
  "git-url-parse",
+ "octorust",
  "serde",
  "serde_json",
  "tokio",

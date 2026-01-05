@@ -78,6 +78,33 @@ impl GitHubClient {
             })
     }
 
+    pub async fn list_checks_for_ref(
+        &self,
+        owner: &str,
+        repo: &str,
+        reference: &str,
+    ) -> Result<Vec<octorust::types::CheckRun>> {
+        let no_name_filter = "";
+        let resp = self
+            .github
+            .checks()
+            .list_for_ref(
+                owner,
+                repo,
+                reference,
+                no_name_filter,
+                JobStatus::Noop, // Retrieve all statuses
+                ActionsListJobsWorkflowRunFilter::Latest,
+                0, // use default
+                0, // use default
+                0, // use default
+            )
+            .await
+            .map(|response| response.body);
+        resp.map_err(|e| anyhow::anyhow!("Failed to list checks for ref: {:?}", e))
+            .map(|r| r.check_runs)
+    }
+
     pub async fn list_open_pulls(&self, owner: &str, repo: &str) -> Result<Vec<PullRequest>> {
         let pulls = self
             .github
