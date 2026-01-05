@@ -33,7 +33,7 @@
 	</div>
 </div>
 
-<style class="postcss">
+<style lang="postcss">
 	/* TARGET CARD */
 	.branches-list-card {
 		display: flex;

@@ -90,7 +90,7 @@
 	</CardGroup>
 {/if}
 
-<style class="postcss">
+<style lang="postcss">
 	.welcome-signin-action {
 		display: flex;
 		flex-direction: row;
