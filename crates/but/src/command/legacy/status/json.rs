@@ -9,6 +9,8 @@
 //! Non-goals:
 //! - Completeness: The output structures do not include all the data that the internal but-api has.
 
+use std::collections::BTreeMap;
+
 use but_api::diff::ComputeLineStats;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -96,6 +98,47 @@ pub(crate) struct Branch {
     branch_status: BranchStatus,
     /// If but status was invoked with --review and if the branch has an associated review ID (eg. PR number), it will be present here
     review_id: Option<String>,
+    /// The CI status checks associated with this branch, including pending, passing, and failing checks.
+    /// This is only populated when CI information is available for the branch (for example, when the
+    /// repository is configured with CI and the status has been fetched); otherwise it will be `None`.
+    ci: Option<Ci>,
+}
+
+/// The aggregated status of CI checks associated with a branch.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Ci {
+    /// Titles of CI checks that are currently pending or still running
+    pub pending_check_titles: Vec<String>,
+    /// Titles of CI checks that have completed successfully
+    pub passing_check_titles: Vec<String>,
+    /// Titles of CI checks that have completed with a failure
+    pub failing_check_titles: Vec<String>,
+    /// Overall execution status of the CI checks (whether checks are still running or all are complete)
+    pub status: CiStatus,
+    /// Overall result of the completed CI checks (pass, fail, or unknown), independent of whether checks are still running
+    pub conclusion: CiConclusion,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum CiStatus {
+    /// All CI checks have finished running, regardless of whether they passed or failed.
+    Complete,
+    /// At least one CI check is still running or has not started yet.
+    InProgress,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum CiConclusion {
+    /// At least one required CI check failed or reported an error.
+    Failure,
+    /// All required CI checks completed successfully.
+    Success,
+    /// The overall CI outcome is not known, for example because no checks ran
+    /// or the CI provider did not report a final result.
+    Unknown,
 }
 
 /// The status of a branch with respect to its upstream
@@ -164,6 +207,64 @@ pub(crate) enum ChangeType {
     Renamed,
 }
 
+impl From<Vec<but_forge::CiCheck>> for Ci {
+    fn from(checks: Vec<but_forge::CiCheck>) -> Self {
+        let mut pending_check_titles = Vec::new();
+        let mut passing_check_titles = Vec::new();
+        let mut failing_check_titles = Vec::new();
+        let mut overall_conclusion = CiConclusion::Unknown;
+
+        for check in checks {
+            match check.status {
+                but_forge::CiStatus::InProgress => {
+                    pending_check_titles.push(check.name);
+                }
+                but_forge::CiStatus::Queued => {
+                    pending_check_titles.push(check.name);
+                }
+                but_forge::CiStatus::Complete { conclusion, .. } => match conclusion {
+                    but_forge::CiConclusion::Success => {
+                        passing_check_titles.push(check.name);
+                    }
+                    but_forge::CiConclusion::Failure => {
+                        failing_check_titles.push(check.name);
+                    }
+                    _ => {
+                        // Other conclusions (e.g., Neutral, Skipped, Cancelled, TimedOut,
+                        // ActionRequired) are not treated as passing or failing.
+                    }
+                },
+                but_forge::CiStatus::Unknown => {
+                    // Intentionally ignore checks with unknown status: they are not included in any
+                    // of the *_check_titles lists and do not affect overall status/conclusion.
+                }
+            }
+        }
+
+        let overall_status = if !pending_check_titles.is_empty() {
+            CiStatus::InProgress
+        } else {
+            CiStatus::Complete
+        };
+
+        if !failing_check_titles.is_empty() {
+            overall_conclusion = CiConclusion::Failure;
+        } else if !pending_check_titles.is_empty() {
+            overall_conclusion = CiConclusion::Unknown;
+        } else if !passing_check_titles.is_empty() {
+            overall_conclusion = CiConclusion::Success;
+        }
+
+        Ci {
+            pending_check_titles,
+            passing_check_titles,
+            failing_check_titles,
+            status: overall_status,
+            conclusion: overall_conclusion,
+        }
+    }
+}
+
 impl Branch {
     pub fn from_branch_details(
         cli_id: String,
@@ -172,6 +273,7 @@ impl Branch {
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
         id_map: &crate::IdMap,
+        ci: Option<Vec<but_forge::CiCheck>>,
     ) -> anyhow::Result<Self> {
         let commits = branch
             .commits
@@ -202,6 +304,7 @@ impl Branch {
             upstream_commits,
             branch_status: branch.push_status.into(),
             review_id,
+            ci: ci.map(Ci::from),
         })
     }
 }
@@ -332,6 +435,7 @@ fn convert_branch_to_json(
     show_files: bool,
     project_id: gitbutler_project::ProjectId,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
     id_map: &crate::IdMap,
 ) -> anyhow::Result<Branch> {
     let cli_id = id_map
@@ -349,6 +453,8 @@ fn convert_branch_to_json(
         .map(|s| s.to_string())
     };
 
+    let ci = ci_map.get(&branch.name.to_string()).cloned();
+
     Branch::from_branch_details(
         cli_id.to_string(),
         branch.clone(),
@@ -356,6 +462,7 @@ fn convert_branch_to_json(
         show_files,
         project_id,
         id_map,
+        ci,
     )
 }
 
@@ -372,6 +479,7 @@ pub(super) fn build_workspace_status_json(
     upstream_state: &Option<super::UpstreamState>,
     last_fetched_ms: Option<u128>,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
     show_files: bool,
     project_id: gitbutler_project::ProjectId,
     repo: &gix::Repository,
@@ -398,7 +506,9 @@ pub(super) fn build_workspace_status_json(
                 .branch_details
                 .iter()
                 .map(|branch| {
-                    convert_branch_to_json(branch, show_files, project_id, review_map, id_map)
+                    convert_branch_to_json(
+                        branch, show_files, project_id, review_map, ci_map, id_map,
+                    )
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
 

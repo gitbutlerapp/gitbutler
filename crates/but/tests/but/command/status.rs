@@ -124,7 +124,8 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
           ],
           "upstreamCommits": [],
           "branchStatus": "completelyUnpushed",
-          "reviewId": null
+          "reviewId": null,
+          "ci": null
         }
       ]
     },
@@ -150,7 +151,8 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
           ],
           "upstreamCommits": [],
           "branchStatus": "completelyUnpushed",
-          "reviewId": null
+          "reviewId": null,
+          "ci": null
         }
       ]
     }
