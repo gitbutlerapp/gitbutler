@@ -8,7 +8,6 @@ rust-version.workspace = true
 
 [lib]
 doctest = false
-test = false
 
 [dependencies]
 but-core.workspace = true
@@ -24,3 +23,11 @@ bstr.workspace = true
 chrono.workspace = true
 serde.workspace = true
 gix = { workspace = true }
+
+[dev-dependencies]
+
+but-testsupport.workspace = true
+
+gix = { workspace = true, features = ["revision"] }
+
+tempfile = "3"

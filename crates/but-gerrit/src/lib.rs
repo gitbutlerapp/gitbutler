@@ -203,6 +203,7 @@ fn mappings(
     push_output: PushOutput,
 ) -> anyhow::Result<Vec<ChangeIdMapping>> {
     let mut mappings = vec![];
+    let host = gerrit_host(repo);
     for id in candidate_ids {
         let commit = repo.find_commit(id)?;
         let msg = commit.message_bstr().to_string();
@@ -217,20 +218,46 @@ fn mappings(
                     .change_id()
                     .map(|change_id| (change_id, c.url.clone()))
             });
+
         if let Some((change_id, review_url)) = change_id_review_url {
             mappings.push(ChangeIdMapping {
                 commit_id: id,
                 change_id,
                 review_url,
             });
+        } else if let (Some(change_id), Some(host)) = (commit.change_id(), host.as_ref()) {
+            // Fallback: generate review URL if we have a change ID and a host
+            if let Ok(uuid) = uuid::Uuid::parse_str(&change_id) {
+                let gerrit_change_id = GerritChangeId::from(uuid);
+                let review_url = format!("https://{}/q/{}", host, gerrit_change_id);
+                mappings.push(ChangeIdMapping {
+                    commit_id: id,
+                    change_id,
+                    review_url,
+                });
+            }
         }
     }
     Ok(mappings)
 }
 
+fn gerrit_host(repo: &gix::Repository) -> Option<String> {
+    let name = repo.remote_default_name(gix::remote::Direction::Push);
+    let name = name
+        .as_ref()
+        .map(|n| n.as_ref())
+        .unwrap_or(b"origin".as_bstr());
+    let remote = repo.find_remote(name).ok()?;
+    let url = remote
+        .url(gix::remote::Direction::Push)
+        .or_else(|| remote.url(gix::remote::Direction::Fetch))?;
+    url.host().map(|h| h.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn output_is_41_characters_long() {
         let uuid = Uuid::new_v4();

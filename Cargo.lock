@@ -1108,11 +1108,13 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-db",
+ "but-testsupport",
  "chrono",
  "gitbutler-commit",
  "gix",
  "serde",
  "sha-1",
+ "tempfile",
  "uuid",
 ]
 
