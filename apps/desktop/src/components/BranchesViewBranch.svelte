@@ -75,7 +75,8 @@
 	{/snippet}
 	{@const localCommit = commit as Commit}
 	{@const commitType: 'LocalOnly' | 'LocalAndRemote' | 'Integrated' = (branchFirstCommitType as 'LocalOnly' | 'LocalAndRemote' | 'Integrated') ?? 'LocalOnly'}
-	{@const isDiverged = localCommit.state.type === 'LocalAndRemote' && commit.id !== localCommit.state.subject}
+	{@const isDiverged =
+		localCommit.state.type === 'LocalAndRemote' && commit.id !== localCommit.state.subject}
 	{@const shouldShowMenu = !(
 		branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
 	)}
@@ -148,12 +149,7 @@
 			{#if hasCommits}
 				<div class="branch-commits">
 					{#each branch.commits ?? [] as commit, idx}
-						{@render renderCommitRow(
-							commit,
-							idx,
-							localCount,
-							branchFirstCommitType
-						)}
+						{@render renderCommitRow(commit, idx, localCount, branchFirstCommitType)}
 					{/each}
 				</div>
 			{/if}
