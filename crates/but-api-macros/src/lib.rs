@@ -8,6 +8,21 @@ use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 /// A macro to help generate wrappers which are used by some clients to support deserialisation of parameters
 /// for calls, and serialisation of return values, usually with JSON in mind.
 ///
+/// # Parameters
+///
+/// This paragraph explains how the proc-macro can be called.
+///
+/// * `JSONReturnType`
+///     - Use it like `but_api(JSONReturnType)` where `JSONReturnType::from(actual_return_type)` is implemented.
+///     - Used as return-type of `func_json` and `func_cmd`.
+/// * `try_from = JSONReturnType`
+///     - Use it like `but_api(try_from = JSONReturnType)` where `JSONReturnType::try_from(actual_return_type)?` is implemented.
+///     - Used as return-type of `func_json` and `func_cmd`.
+///
+/// # Generated Functions
+///
+/// This paragraph explains what it generates.
+///
 /// * `func` - the original item, unchanged
 /// * `func_json` for calls from the frontend, taking `(#(json_params*),)` and returning `Result<JsonRVal, json::Error>`
 ///     - This is also annotated with the `tauri` macro when the feature is enabled in the `but-api` crate.
@@ -422,13 +437,13 @@ struct ResultConversion {
 fn parse_attrs_to_options(meta: syn::Meta, is_result_option: bool) -> Result<Options, syn::Error> {
     let path = match meta {
         syn::Meta::Path(path) => {
-            // #[api_cmd_tauri(Foo)]
+            // #[but_api(Foo)]
             Some((FromMode::From, path))
         }
         syn::Meta::NameValue(nv) => {
             if let (Some(ident), Expr::Path(path)) = (&nv.path.get_ident(), &nv.value) {
                 if *ident == "try_from" {
-                    // #[api_cmd_tauri(try_from = Foo)]
+                    // #[but_api(try_from = Foo)]
                     Some((FromMode::TryFrom, path.path.clone()))
                 } else {
                     return Err(syn::Error::new_spanned(
