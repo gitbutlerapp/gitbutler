@@ -80,25 +80,7 @@ fn push_single_branch(
             "✓".green().bold()
         )?;
         writeln!(progress)?;
-        writeln!(
-            progress,
-            "  {} {}",
-            "Remote:".dimmed(),
-            result.remote.bold()
-        )?;
-        if !gerrit_mode && !result.branch_to_remote.is_empty() {
-            for (branch, remote_ref) in &result.branch_to_remote {
-                writeln!(
-                    progress,
-                    "  {} → {}",
-                    branch.cyan(),
-                    remote_ref.to_string().dimmed()
-                )?;
-            }
-        }
-        // Print SHA information
         if !result.branch_sha_updates.is_empty() {
-            writeln!(progress)?;
             for (branch, before_sha, after_sha) in &result.branch_sha_updates {
                 let before_str = if before_sha == "0000000000000000000000000000000000000000" {
                     "(new branch)".to_string()
@@ -106,10 +88,15 @@ fn push_single_branch(
                     before_sha.chars().take(7).collect()
                 };
                 let after_str: String = after_sha.chars().take(7).collect();
+
+                // Construct simple remote ref format: remote/branch
+                let remote_ref = format!("{}/{}", result.remote, branch);
+
                 writeln!(
                     progress,
-                    "  {} {} → {}",
+                    "  {} -> {} ({} -> {})",
                     branch.cyan(),
+                    remote_ref.dimmed(),
                     before_str.dimmed(),
                     after_str.green()
                 )?;
@@ -231,7 +218,7 @@ fn push_all_branches(
             )?;
             writeln!(progress)?;
 
-            // Print SHA information for all pushed branches
+            // Print combined branch, remote, and SHA information for all pushed branches
             for result in &pushed_results {
                 for (branch, before_sha, after_sha) in &result.branch_sha_updates {
                     let before_str = if before_sha == "0000000000000000000000000000000000000000" {
@@ -240,10 +227,15 @@ fn push_all_branches(
                         before_sha.chars().take(7).collect()
                     };
                     let after_str: String = after_sha.chars().take(7).collect();
+
+                    // Construct simple remote ref format: remote/branch
+                    let remote_ref = format!("{}/{}", result.remote, branch);
+
                     writeln!(
                         progress,
-                        "  {} {} → {}",
+                        "  {} -> {} ({} -> {})",
                         branch.cyan(),
+                        remote_ref.dimmed(),
                         before_str.dimmed(),
                         after_str.green()
                     )?;
