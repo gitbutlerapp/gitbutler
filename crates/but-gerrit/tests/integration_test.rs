@@ -1,5 +1,5 @@
 use but_ctx::Context;
-use but_gerrit::{record_push_metadata, parse::PushOutput, GerritChangeId};
+use but_gerrit::{GerritChangeId, parse::PushOutput, record_push_metadata};
 use but_testsupport::CommandExt;
 
 #[test]
@@ -31,7 +31,10 @@ fn test_record_push_metadata_fallback_url() {
         message: "Test commit".into(),
         extra_headers: vec![
             (b"gitbutler-headers-version".into(), b"2".into()),
-            (b"gitbutler-change-id".into(), change_uuid.to_string().into()),
+            (
+                b"gitbutler-change-id".into(),
+                change_uuid.to_string().into(),
+            ),
         ],
     };
     let commit_id = gix_repo.write_object(&commit_obj).unwrap().detach();
