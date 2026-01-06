@@ -145,11 +145,11 @@ fn with_change_id_trailer(msg: BString, change_id: Uuid) -> BString {
 
 pub fn record_push_metadata(
     ctx: &mut Context,
-    repo: &gix::Repository,
     candidate_ids: Vec<gix::ObjectId>,
     push_output: PushOutput,
 ) -> anyhow::Result<()> {
-    let mappings = mappings(repo, candidate_ids, push_output)?;
+    let repo = ctx.repo.get()?;
+    let mappings = mappings(&repo, candidate_ids, push_output)?;
     let mut db = ctx.db.get_mut()?;
     let mut db = db.gerrit_metadata();
 

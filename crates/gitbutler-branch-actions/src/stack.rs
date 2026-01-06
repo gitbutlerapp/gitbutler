@@ -283,7 +283,7 @@ pub fn push_stack(
                 .iter()
                 .map(|id| id.to_gix())
                 .collect_vec();
-            but_gerrit::record_push_metadata(ctx, &gix_repo, stacks, push_output)?;
+            but_gerrit::record_push_metadata(ctx, stacks, push_output)?;
         }
 
         result.branch_to_remote.push((

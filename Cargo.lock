@@ -1114,7 +1114,7 @@ dependencies = [
  "gix",
  "serde",
  "sha-1",
- "tempfile",
+ "snapbox",
  "uuid",
 ]
 
