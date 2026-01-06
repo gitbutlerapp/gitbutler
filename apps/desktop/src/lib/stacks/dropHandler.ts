@@ -194,11 +194,15 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 					branch: { name: undefined }
 				});
 
-				const assignment = this.uncommittedService.getAssignmentByHeader(
+				const assignmentReactive = this.uncommittedService.getAssignmentByHeader(
 					data.stackId,
 					data.change.path,
 					data.hunk
-				).current!;
+				);
+				const assignment = assignmentReactive.current;
+				if (!assignment) {
+					throw new Error('No hunk assignment found for the dropped worktree hunk');
+				}
 
 				await this.diffService.assignHunk({
 					projectId: this.projectId,
