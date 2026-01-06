@@ -13,9 +13,9 @@ pub fn handle(
     out: &mut OutputChannel,
     target_str: Option<&str>,
 ) -> anyhow::Result<()> {
-    let mut id_map = IdMap::new_from_context(ctx)?;
     let wt_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
-    id_map.add_file_info_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+    let mut id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+    id_map.add_committed_file_info_from_context(ctx)?;
 
     if let Some(entity) = target_str {
         let id = id_map

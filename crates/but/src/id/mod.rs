@@ -22,11 +22,13 @@ use crate::id::{
     file_info::FileInfo,
     id_usage::{IdUsage, UintId},
     stacks_info::StacksInfo,
+    uncommitted_info::UncommittedInfo,
 };
 
 mod file_info;
 mod id_usage;
 mod stacks_info;
+mod uncommitted_info;
 
 #[cfg(test)]
 mod tests;
@@ -38,8 +40,8 @@ type ShortId = String;
 ///
 /// # Lifecycle
 ///
-/// 1. Create an `IdMap` for example using [IdMap::new_for_branches_and_commits]
-/// 2. Optionally add file information for example using [IdMap::add_file_info_from_context]
+/// 1. Create an `IdMap` for example using [IdMap::new]
+/// 2. Optionally add file information for example using [IdMap::add_committed_file_info_from_context]
 /// 3. Use [IdMap::resolve_entity_to_ids] to parse user input into matching IDs
 /// 4. Use specific methods like [IdMap::resolve_branch]
 ///    or [IdMap::resolve_file_changed_in_commit_or_unassigned] to get IDs for specific entities
@@ -71,16 +73,17 @@ pub struct IdMap {
 
 /// Lifecycle methods for creating and initializing `IdMap` instances.
 impl IdMap {
-    /// Initializes CLI IDs for all *branches* and *commits* in the given `stacks`.
-    ///
-    /// This method creates a new `IdMap` with IDs for branches and commits only.
-    /// To enable parsing of file IDs, call [IdMap::add_file_info_from_context]
-    pub fn new_for_branches_and_commits(stacks: &[Stack]) -> anyhow::Result<Self> {
+    /// Initializes CLI IDs for branches, commits, and uncommitted
+    /// files/hunks. To enable parsing of committed file IDs, call
+    /// [IdMap::add_committed_file_info_from_context].
+    pub fn new(stacks: &[Stack], hunk_assignments: Vec<HunkAssignment>) -> anyhow::Result<Self> {
         let StacksInfo {
             branch_names,
             workspace_commit_and_first_parent_ids,
             remote_commit_ids,
         } = StacksInfo::from_stacks(stacks)?;
+        let UncommittedInfo { partitioned_hunks } =
+            UncommittedInfo::from_hunk_assignments(hunk_assignments)?;
 
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         for branch_name in &branch_names {
@@ -88,8 +91,28 @@ impl IdMap {
                 max_zero_count = std::cmp::max(field.len(), max_zero_count);
             }
         }
-        let (id_usage, branch_name_to_cli_id, branch_auto_id_to_cli_id) =
+        let (mut id_usage, branch_name_to_cli_id, branch_auto_id_to_cli_id) =
             Self::ids_for_branch_names(branch_names)?;
+
+        let mut uncommitted_files = BTreeMap::new();
+        let mut uncommitted_hunks = HashMap::new();
+        for hunk_assignments in partitioned_hunks {
+            uncommitted_files.insert(
+                id_usage.next_available()?.to_short_id(),
+                UncommittedFile { hunk_assignments },
+            );
+        }
+        for uncommitted_file in uncommitted_files.values() {
+            for hunk_assignment in uncommitted_file.hunk_assignments.iter() {
+                uncommitted_hunks.insert(
+                    id_usage.next_available()?.to_short_id(),
+                    UncommittedHunk {
+                        hunk_assignment: hunk_assignment.clone(),
+                    },
+                );
+            }
+        }
+
         Ok(Self {
             branch_name_to_cli_id,
             branch_auto_id_to_cli_id,
@@ -99,8 +122,8 @@ impl IdMap {
             unassigned: CliId::Unassigned {
                 id: str::repeat("0", max_zero_count + 1),
             },
-            uncommitted_files: BTreeMap::new(),
-            uncommitted_hunks: HashMap::new(),
+            uncommitted_files,
+            uncommitted_hunks,
             committed_files: BTreeSet::new(),
         })
     }
@@ -177,34 +200,14 @@ impl IdMap {
         Ok((id_usage, branch_name_to_cli_id, branch_auto_id_to_cli_id))
     }
 
-    /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new_for_branches_and_commits].
-    pub fn new_from_context(ctx: &Context) -> anyhow::Result<Self> {
-        let guard = ctx.shared_worktree_access();
-        let meta = ctx.meta(guard.read_permission())?;
-        let repo = &*ctx.repo.get()?;
-        let head_info = but_workspace::head_info(
-            repo,
-            &meta,
-            but_workspace::ref_info::Options {
-                expensive_commit_info: false,
-                ..Default::default()
-            },
-        )?;
-        Self::new_for_branches_and_commits(&head_info.stacks)
-    }
-}
-
-/// Methods for adding context to enable file ID generation for the entities it contains.
-impl IdMap {
-    /// Adds file information from a `ctx` to add IDs for changed files in the worktree with their stack assignments
-    /// and all changed files of all workspace commits.
-    ///
-    /// After calling this method, [IdMap::resolve_entity_to_ids] will be able to recognize file IDs in addition to branch and commit IDs.
-    pub fn add_file_info_from_context(
-        &mut self,
+    /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
+    pub fn new_from_context(
         ctx: &mut Context,
         assignments: Option<Vec<HunkAssignment>>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Self> {
+        let guard = ctx.shared_worktree_access();
+        let meta = ctx.meta(guard.read_permission())?;
+
         let hunk_assignments = match assignments {
             Some(assignments) => assignments,
             None => {
@@ -223,65 +226,53 @@ impl IdMap {
                 }
             }
         };
-        // TODO Fix this, probably by making `assignments_with_fallback` take a
-        //      more specific type instead of `ctx`.
+
         let repo = &*ctx.repo.get()?;
-        self.add_file_info(
-            |commit_id, parent_id| {
-                let tree_changes = but_core::diff::tree_changes(repo, parent_id, commit_id)?;
-                Ok(tree_changes
-                    .into_iter()
-                    .map(|tree_change| tree_change.path)
-                    .collect::<Vec<_>>())
+        let head_info = but_workspace::head_info(
+            repo,
+            &meta,
+            but_workspace::ref_info::Options {
+                expensive_commit_info: false,
+                ..Default::default()
             },
-            hunk_assignments,
-        )
+        )?;
+        Self::new(&head_info.stacks, hunk_assignments)
+    }
+}
+
+/// Methods for adding context to enable file ID generation for the entities it contains.
+impl IdMap {
+    /// Adds committed file information from a `ctx` to add IDs for all changed
+    /// files of all workspace commits.
+    pub fn add_committed_file_info_from_context(
+        &mut self,
+        ctx: &mut Context,
+    ) -> anyhow::Result<()> {
+        let repo = &*ctx.repo.get()?;
+        self.add_committed_file_info(|commit_id, parent_id| {
+            let tree_changes = but_core::diff::tree_changes(repo, parent_id, commit_id)?;
+            Ok(tree_changes
+                .into_iter()
+                .map(|tree_change| tree_change.path)
+                .collect::<Vec<_>>())
+        })
     }
 
-    /// Trigger the generation of IDs for uncommitted and committed files and store them in the map.
+    /// Trigger the generation of IDs for committed files and store them in the map.
     ///
     /// It generates unique 2-character hash-based IDs for each file, ensuring no collisions with existing branch
     /// and commit IDs.
     ///
     /// * `changed_paths_in_commit_fn(commit, parent)` returns the changed file paths for a given commit
     ///   and its parent. Used to identify all files altered by workspace commits.
-    /// * `hunk_assignments` - The list of uncommitted files in the worktree with their stack assignments
-    fn add_file_info<F>(
-        &mut self,
-        changed_paths_in_commit_fn: F,
-        hunk_assignments: Vec<HunkAssignment>,
-    ) -> anyhow::Result<()>
+    fn add_committed_file_info<F>(&mut self, changed_paths_in_commit_fn: F) -> anyhow::Result<()>
     where
         F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
     {
-        let FileInfo {
-            uncommitted_files,
-            committed_files,
-        } = FileInfo::from_workspace_commits_and_status(
+        let FileInfo { committed_files } = FileInfo::from_workspace_commits_and_status(
             &self.workspace_commit_and_first_parent_ids,
             changed_paths_in_commit_fn,
-            &hunk_assignments,
         )?;
-
-        for hunk_assignments in uncommitted_files.into_iter() {
-            self.uncommitted_files.insert(
-                self.id_usage.next_available()?.to_short_id(),
-                UncommittedFile { hunk_assignments },
-            );
-        }
-
-        for uncommitted_file in self.uncommitted_files.values() {
-            if !uncommitted_file.hunk_assignments.is_empty() {
-                for hunk_assignment in uncommitted_file.hunk_assignments.iter() {
-                    self.uncommitted_hunks.insert(
-                        self.id_usage.next_available()?.to_short_id(),
-                        UncommittedHunk {
-                            hunk_assignment: hunk_assignment.clone(),
-                        },
-                    );
-                }
-            }
-        }
 
         for commit_oid_path in committed_files.into_iter() {
             self.committed_files.insert(CommittedFile {
@@ -399,7 +390,7 @@ impl IdMap {
     /// Returns the [`CliId::CommittedFile`] for a changed file at repo-relative `path`
     /// that is contained in the `commit_id`.
     /// Note that the returned short id may be `00` as fallback if it wasn't
-    /// added by [IdMap::add_file_info_from_context].
+    /// added by [IdMap::add_committed_file_info_from_context].
     pub fn resolve_file_changed_in_commit_or_unassigned(
         &self,
         commit_id: gix::ObjectId,
