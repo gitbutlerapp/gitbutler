@@ -128,11 +128,6 @@ impl Subcommands {
             Subcommands::Pr(forge::pr::Platform { cmd }) => match cmd {
                 None | Some(forge::pr::Subcommands::New { .. }) => PrNew,
                 Some(forge::pr::Subcommands::Template { .. }) => PrTemplate,
-                Some(forge::pr::Subcommands::List { .. }) => PrList,
-            },
-            #[cfg(feature = "legacy")]
-            Subcommands::Ci(forge::ci::Platform { cmd }) => match cmd {
-                forge::ci::Subcommands::Warm => CiWarm,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Actions(_) | Subcommands::Mcp { .. } | Subcommands::Init { .. } => Unknown,
@@ -143,6 +138,7 @@ impl Subcommands {
             },
             Subcommands::Completions { .. } => Completions,
             Subcommands::Metrics { .. } => Unknown,
+            Subcommands::RefreshRemoteData { .. } => RefreshRemoteData,
         }
     }
 }

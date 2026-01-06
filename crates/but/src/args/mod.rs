@@ -463,13 +463,22 @@ pub enum Subcommands {
     #[clap(visible_alias = "review")]
     Pr(forge::pr::Platform),
 
-    /// Commands for managing CI checks cache.
+    /// Trigger a refresh of remote data fetching from the remote, Pull Requests, and CI status.
     ///
-    /// This is a hidden command primarily used for background operations.
-    ///
+    /// This is a hidden command primarily used for background sync operations.
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
-    Ci(forge::ci::Platform),
+    RefreshRemoteData {
+        /// Whether to also refresh git fetch from the remote.
+        #[clap(long, default_value_t = false)]
+        fetch: bool,
+        /// Whether to also refresh Pull Requests from the forge.
+        #[clap(long, default_value_t = false)]
+        pr: bool,
+        /// Whether to also refresh CI status from the forge.
+        #[clap(long, default_value_t = false)]
+        ci: bool,
+    },
 
     /// AI: Starts up the MCP server.
     ///

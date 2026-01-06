@@ -39,10 +39,9 @@ pub enum CommandName {
     ForgeListUsers,
     ForgeForget,
     PrNew,
-    PrList,
     PrTemplate,
-    CiWarm,
     Completions,
+    RefreshRemoteData,
     #[default]
     Unknown,
 }
