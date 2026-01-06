@@ -18,7 +18,7 @@
 				control: { type: 'text' }
 			},
 			style: {
-				options: ['gray', 'pop', 'safe', 'warning', 'error', 'purple'],
+				options: ['gray', 'pop', 'safe', 'warning', 'danger', 'purple'],
 				control: { type: 'select' }
 			},
 			kind: {

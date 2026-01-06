@@ -142,6 +142,12 @@
 			></div>
 		{/if}
 
+		{#if dragArgs && !dragArgs.disabled && !conflicts}
+			<div class="branch-header__drag-handle" data-no-drag>
+				<Icon name="draggable-narrow" />
+			</div>
+		{/if}
+
 		<div class="branch-header__content">
 			<div class="branch-header__title text-14 text-bold">
 				<div class="branch-header__title-content">
@@ -161,10 +167,6 @@
 						<Badge style="danger">Conflicts</Badge>
 					</div>
 				{/if}
-
-				<div class="branch-header__drag-handle" data-no-drag>
-					<Icon name="draggable-narrow" />
-				</div>
 			</div>
 
 			{#if isEmpty}
@@ -234,6 +236,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: flex-start;
+		padding-right: var(--branch-side-padding);
 		padding-left: var(--branch-side-padding);
 		overflow: hidden;
 		border-bottom: none;
@@ -294,8 +297,6 @@
 		align-items: center;
 		justify-content: space-between;
 		min-width: 0;
-		/* margin-right: 12px; */
-		/* gap: 4px; */
 	}
 
 	.branch-header__title-content {
@@ -303,13 +304,13 @@
 		flex-grow: 1;
 		align-items: center;
 		min-width: 0;
+		padding-right: 8px;
 		gap: 6px;
 	}
 
 	.branch-header__top-badges {
 		display: flex;
 		align-items: center;
-		margin-left: 6px;
 		gap: 4px;
 		transform: translateY(-2px);
 	}
@@ -327,12 +328,12 @@
 
 	.branch-header__drag-handle {
 		display: flex;
-		position: relative;
+		position: absolute;
+		top: 6px;
+		right: 4px;
 		align-items: center;
 		justify-content: flex-end;
 		width: 10px;
-		margin-top: -20px;
-		margin-right: 3px;
 		color: var(--clr-text-1);
 		opacity: 0;
 		transition:

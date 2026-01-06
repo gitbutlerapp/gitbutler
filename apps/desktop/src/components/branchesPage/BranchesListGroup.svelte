@@ -16,7 +16,7 @@
 	</div>
 </div>
 
-<style class="postcss">
+<style lang="postcss">
 	.branches-list-wrap {
 		display: flex;
 		flex-direction: column;

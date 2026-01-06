@@ -41,6 +41,7 @@
 		lastUpdatedAt?: number;
 		isTopBranch?: boolean;
 		isNewBranch?: boolean;
+		roundedBottom?: boolean;
 		onclick: () => void;
 		branchContent: Snippet;
 		codegenRow?: Snippet;
@@ -60,6 +61,7 @@
 		pushStatus: PushStatus;
 		lastUpdatedAt?: number;
 		isConflicted: boolean;
+		applied?: boolean;
 		contextMenu?: typeof BranchHeaderContextMenu;
 		dropzones: DropzoneHandler[];
 		numberOfCommits: number;
@@ -128,7 +130,8 @@
 		// For stack branches not committing, check if actions are visible and structural conditions
 		if (args.type === 'stack-branch' && !args.isCommitting) {
 			const hasActions = args.buttons !== undefined || args.menu !== undefined;
-			const structurallyRounded = args.hasCodegenRow || args.numberOfCommits === 0;
+			const structurallyRounded =
+				args.hasCodegenRow || (args.numberOfCommits === 0 && args.numberOfUpstreamCommits === 0);
 			return hasActions && structurallyRounded;
 		}
 
@@ -206,7 +209,7 @@
 				conflicts={args.isConflicted}
 				{showPrCreation}
 				dragArgs={{
-					disabled: args.isConflicted,
+					disabled: args.isConflicted || (args.type === 'stack-branch' && args.applied === false),
 					label: branchName,
 					pushStatus: args.pushStatus,
 					data:
@@ -295,6 +298,7 @@
 			readonly
 			{isPushed}
 			onclick={args.onclick}
+			roundedBottom={args.roundedBottom}
 		>
 			{#snippet emptyState()}
 				<span class="branch-header__empty-state-span">There are no commits yet on this branch.</span

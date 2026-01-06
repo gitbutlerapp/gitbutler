@@ -1,7 +1,8 @@
 <script lang="ts">
+	import BranchDividerLine from '$components/BranchDividerLine.svelte';
 	import BranchesViewBranch from '$components/BranchesViewBranch.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { getStackBranchNames } from '$lib/stacks/stack';
+	import { getColorFromPushStatus, getStackBranchNames } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
 
@@ -26,6 +27,16 @@
 			<p>Stack not found.</p>
 		{:else}
 			{#each getStackBranchNames(stack) as branchName, idx}
+				{@const branchDetailsQuery = stackService.branchDetails(projectId, stackId, branchName)}
+				{@const branchDetails = branchDetailsQuery.response}
+				{@const lineColor = branchDetails
+					? getColorFromPushStatus(branchDetails.pushStatus)
+					: 'var(--clr-commit-local)'}
+
+				{#if idx > 0}
+					<BranchDividerLine {lineColor} />
+				{/if}
+
 				<BranchesViewBranch
 					{projectId}
 					{stackId}
