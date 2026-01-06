@@ -1,14 +1,17 @@
-use std::collections::{BTreeMap, btree_map::Entry};
+use std::collections::{BTreeMap, HashSet, btree_map::Entry};
 
 use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
 use nonempty::NonEmpty;
 
+use crate::id::id_usage::UintId;
+
 /// Information about uncommitted files.
 pub(crate) struct UncommittedInfo {
     /// Uncommitted hunks partitioned by stack assignment and filename.
     pub(crate) partitioned_hunks: Vec<NonEmpty<HunkAssignment>>,
+    pub(crate) uncommitted_short_filenames: HashSet<BString>,
 }
 
 impl UncommittedInfo {
@@ -18,7 +21,13 @@ impl UncommittedInfo {
     ) -> anyhow::Result<Self> {
         let mut uncommitted_hunks: BTreeMap<(Option<StackId>, BString), NonEmpty<HunkAssignment>> =
             BTreeMap::new();
+        let mut uncommitted_short_filenames = HashSet::new();
         for assignment in hunk_assignments {
+            if assignment.path_bytes.len() <= UintId::LENGTH_LIMIT
+                && !uncommitted_short_filenames.contains(&assignment.path_bytes)
+            {
+                uncommitted_short_filenames.insert(assignment.path_bytes.clone());
+            }
             // Rust does not let us borrow a tuple from 2 separate fields, so
             // we have to clone the parts of the key even though we technically
             // might not need it.
@@ -35,6 +44,7 @@ impl UncommittedInfo {
 
         Ok(Self {
             partitioned_hunks: uncommitted_hunks.into_values().collect(),
+            uncommitted_short_filenames,
         })
     }
 }

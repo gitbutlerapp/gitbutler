@@ -8,7 +8,7 @@
 
 use std::{
     borrow::Borrow,
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 };
 
 use bstr::{BStr, BString, ByteSlice};
@@ -82,8 +82,10 @@ impl IdMap {
             workspace_commit_and_first_parent_ids,
             remote_commit_ids,
         } = StacksInfo::from_stacks(stacks)?;
-        let UncommittedInfo { partitioned_hunks } =
-            UncommittedInfo::from_hunk_assignments(hunk_assignments)?;
+        let UncommittedInfo {
+            partitioned_hunks,
+            uncommitted_short_filenames,
+        } = UncommittedInfo::from_hunk_assignments(hunk_assignments)?;
 
         let mut max_zero_count = 1; // Ensure at least two "0" in ID.
         for branch_name in &branch_names {
@@ -92,7 +94,7 @@ impl IdMap {
             }
         }
         let (mut id_usage, branch_name_to_cli_id, branch_auto_id_to_cli_id) =
-            Self::ids_for_branch_names(branch_names)?;
+            Self::ids_for_branch_names(branch_names, uncommitted_short_filenames)?;
 
         let mut uncommitted_files = BTreeMap::new();
         let mut uncommitted_hunks = HashMap::new();
@@ -134,35 +136,51 @@ impl IdMap {
     #[allow(clippy::type_complexity)]
     fn ids_for_branch_names(
         branch_names: Vec<BString>,
+        uncommitted_short_filenames: HashSet<BString>,
     ) -> anyhow::Result<(IdUsage, BTreeMap<BString, CliId>, HashMap<ShortId, CliId>)> {
-        // Extract all valid short-ids that are contained in branch names
-        // to see if they are unique.
+        // Map from an acceptable short ID to how many times it appears among
+        // uncommitted short filenames and substrings of branch names. If a
+        // string doesn't appear in this map, it is not an acceptable short ID,
+        // and if a string's count is more than 1, it's ambiguous.
+        //
+        // Note that this map's keys do not necessarily need to start with g-z,
+        // unlike [UintId], as long as the key cannot be confused with a commit
+        // ID.
         let mut short_ids_to_count: HashMap<ShortId, u8> = HashMap::new();
+        // Similar to `short_ids_to_count`, but only tracks valid [UintId]s.
         let mut id_usage = IdUsage::default();
+
+        // Fill the `short_ids_to_count` and `id_usage` data structures.
+        let mut maybe_mark_used = |candidate| {
+            if let Some(short_id) = UintId::from_name(candidate)
+                .map(|uint_id| {
+                    id_usage.mark_used(uint_id);
+                    uint_id.to_short_id()
+                })
+                .or_else(|| {
+                    // If it's not a valid UintId, it's still acceptable if it
+                    // cannot be confused for a commit ID (and is valid UTF-8).
+                    if candidate.iter().all(|c| c.is_ascii_alphanumeric())
+                        && !candidate.iter().all(|c| c.is_ascii_hexdigit())
+                    {
+                        String::from_utf8(candidate.to_vec()).ok()
+                    } else {
+                        None
+                    }
+                })
+            {
+                short_ids_to_count
+                    .entry(short_id)
+                    .and_modify(|count| *count = count.saturating_add(1))
+                    .or_insert(1);
+            }
+        };
+        for uncommitted_short_filename in uncommitted_short_filenames.iter() {
+            maybe_mark_used(uncommitted_short_filename);
+        }
         for branch_name in &branch_names {
             for candidate in branch_name.windows(2).chain(branch_name.windows(3)) {
-                if let Some(short_id) = UintId::from_name(candidate)
-                    .map(|uint_id| {
-                        id_usage.mark_used(uint_id);
-                        uint_id.to_short_id()
-                    })
-                    .or_else(|| {
-                        // If it's not a valid UintId, it's still acceptable if it
-                        // cannot be confused for a commit ID (and is valid UTF-8).
-                        if candidate.iter().all(|c| c.is_ascii_alphanumeric())
-                            && !candidate.iter().all(|c| c.is_ascii_hexdigit())
-                        {
-                            String::from_utf8(candidate.to_vec()).ok()
-                        } else {
-                            None
-                        }
-                    })
-                {
-                    short_ids_to_count
-                        .entry(short_id)
-                        .and_modify(|count| *count = count.saturating_add(1))
-                        .or_insert(1);
-                }
+                maybe_mark_used(candidate);
             }
         }
 
@@ -308,18 +326,6 @@ impl IdMap {
             // TODO once the set of allowed CLI IDs is determined and the
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
-            // TODO a file at the root of the worktree whose name is 2 or 3
-            // characters may collide with the ID of another entity. To solve
-            // this, `IdMap` could obtain all uncommitted filenames at the
-            // start (instead of later, through `add_file_info()`), but this
-            // locks us into a performance hit when running every command that
-            // parses IDs even if they only operate on branches and/or commits
-            // (because in the case that a branch cannot be assigned an ID
-            // that's a substring of its name, its ID will be autogenerated,
-            // and this autogenerated ID must be checked to not collide with an
-            // uncommitted file). Either teach `IdMap` to obtain all uncommitted
-            // filenames at the start, as described above, or if the performance
-            // hit is unacceptable, figure out a better solution.
             if hunk_assignment.stack_id.is_none() && hunk_assignment.path_bytes == entity.as_bytes()
             {
                 matches.push(uncommitted_file.to_cli_id(entity.to_owned()));

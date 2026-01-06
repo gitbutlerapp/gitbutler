@@ -257,6 +257,30 @@ fn branches_avoid_invalid_ids() -> anyhow::Result<()> {
 }
 
 #[test]
+fn branches_avoid_uncommitted_filenames() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("ghij", [id(1)], None, [])])];
+    let hunk_assignments = vec![hunk_assignment("gh", None), hunk_assignment("hi", None)];
+    let id_map = IdMap::new(stacks, hunk_assignments)?;
+    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    workspace_and_remote_commits_count: 1
+    branches: [ ij ]
+    uncommitted_files: [ g0, h0 ]
+    uncommitted_hunks: [ i0, j0 ]
+    ");
+
+    let expected = [CliId::Branch {
+        name: "ghij".into(),
+        id: "ij".into(),
+    }];
+    assert_eq!(
+        id_map.resolve_entity_to_ids("ghij")?,
+        expected,
+        "avoids 'gh' and 'hi', which conflict with filenames"
+    );
+    Ok(())
+}
+
+#[test]
 fn branch_cannot_generate_id() -> anyhow::Result<()> {
     let stacks = &[
         stack([segment("substring", [id(1)], None, [])]),
