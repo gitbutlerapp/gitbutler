@@ -251,7 +251,7 @@ fn gerrit_host(repo: &gix::Repository) -> Option<String> {
     let url = remote
         .url(gix::remote::Direction::Push)
         .or_else(|| remote.url(gix::remote::Direction::Fetch))?;
-    url.host().map(|h| format!("{}", h))
+    url.host().map(|h| h.to_string())
 }
 
 #[cfg(test)]

@@ -12,7 +12,7 @@ fn test_record_push_metadata_fallback_url() {
     let change_uuid = uuid::Uuid::new_v4();
 
     let tree_id = gix_repo
-        .write_object(&gix::objs::Tree::empty())
+        .write_object(gix::objs::Tree::empty())
         .unwrap()
         .detach();
     let author = gix::actor::Signature {
