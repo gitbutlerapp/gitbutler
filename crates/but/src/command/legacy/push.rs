@@ -174,6 +174,15 @@ fn push_all_branches(
         .collect();
 
     if branches_to_push.is_empty() {
+        // Output empty result for JSON
+        if let Some(out) = out.for_json() {
+            let batch_result = BatchPushResult {
+                pushed: vec![],
+                failed: vec![],
+            };
+            out.write_value(&batch_result)?;
+        }
+
         if out.for_human().is_some() {
             writeln!(
                 progress,
@@ -291,7 +300,12 @@ fn push_all_branches(
                 }
             )?;
             for failed in &failed_branches {
-                writeln!(progress, "    {} - {}", failed.branch_name.red(), failed.error.dimmed())?;
+                writeln!(
+                    progress,
+                    "    {} - {}",
+                    failed.branch_name.red(),
+                    failed.error.dimmed()
+                )?;
             }
         }
     }
