@@ -6,6 +6,7 @@ use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_project::Project;
+use std::fmt::Write;
 
 use crate::{
     CliId, IdMap,
@@ -68,7 +69,7 @@ fn push_single_branch(
     gerrit_mode: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
+    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode, out)?;
 
     if let Some(out) = out.for_human() {
         writeln!(out)?;
@@ -97,8 +98,9 @@ fn push_single_branch_quietly(
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<String> {
-    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
+    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode, out)?;
     Ok(result.remote)
 }
 
@@ -109,7 +111,18 @@ fn push_single_branch_impl(
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<PushResult> {
+    if out.for_human().is_some() {
+        let mut progress = out.progress_channel();
+        writeln!(
+            progress,
+            "{} Pushing branch '{}'",
+            "→".cyan(),
+            branch_name.bold()
+        )?;
+    }
+
     // Find stack_id from branch name
     let stack_id = find_stack_id_by_branch_name(project, branch_name)?;
 
@@ -167,7 +180,7 @@ fn push_all_branches(
             write!(out, "  {} {}... ", "→".cyan(), branch_name.bold())?;
         }
 
-        match push_single_branch_quietly(ctx, project, &branch_name, args, gerrit_mode) {
+        match push_single_branch_quietly(ctx, project, &branch_name, args, gerrit_mode, out) {
             Ok(remote) => {
                 pushed_branches.push((branch_name.clone(), unpushed_count, remote));
                 total_commits_pushed += unpushed_count;

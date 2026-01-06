@@ -56,7 +56,7 @@ impl Subcommands {
     fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{base, branch, claude, cursor, forge, worktree};
+        use crate::args::{branch, claude, cursor, forge, worktree};
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -67,12 +67,7 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Diff { .. } => Diff,
             #[cfg(feature = "legacy")]
-            Subcommands::Base(base::Platform { cmd }) => match cmd {
-                base::Subcommands::Check => BaseCheck,
-                base::Subcommands::Fetch => BaseFetch,
-            },
-            #[cfg(feature = "legacy")]
-            Subcommands::Pull => Pull,
+            Subcommands::Pull { .. } => Pull,
             Subcommands::Branch(branch::Platform { cmd }) => match cmd {
                 None => BranchList,
                 #[cfg(feature = "legacy")]

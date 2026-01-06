@@ -113,7 +113,6 @@ impl OutputChannel {
     }
 
     /// A convenience function to create a progress channel, which doesn't have any relationship with this instance.
-    #[expect(dead_code)] // TODO: remove once this is actually used.
     pub fn progress_channel(&self) -> ProgressChannel {
         ProgressChannel::default()
     }
