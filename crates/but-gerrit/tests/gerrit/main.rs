@@ -27,8 +27,8 @@ fn record_push_metadata_fallback_url() -> anyhow::Result<()> {
         .headers()
         .expect("gb header are set")
         .change_id;
-    let mut ctx = but_ctx::Context::from_repo(repo.clone())?;
-    record_push_metadata(&mut ctx, &repo, candidate_ids, push_output)?;
+    let mut ctx = but_ctx::Context::from_repo(repo)?;
+    record_push_metadata(&mut ctx, candidate_ids, push_output)?;
 
     let mut db = ctx.db.get_mut()?;
     let mut db = db.gerrit_metadata();
