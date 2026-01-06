@@ -532,6 +532,11 @@ pub enum Subcommands {
         #[clap(value_enum)]
         shell: Option<clap_complete::Shell>,
     },
+
+    /// Hidden command that redirects to `but pull --check`
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    Fetch,
 }
 
 pub mod actions {

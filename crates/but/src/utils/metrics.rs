@@ -68,6 +68,8 @@ impl Subcommands {
             Subcommands::Diff { .. } => Diff,
             #[cfg(feature = "legacy")]
             Subcommands::Pull { .. } => Pull,
+            #[cfg(feature = "legacy")]
+            Subcommands::Fetch => Pull,
             Subcommands::Branch(branch::Platform { cmd }) => match cmd {
                 None => BranchList,
                 #[cfg(feature = "legacy")]
