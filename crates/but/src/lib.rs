@@ -227,16 +227,22 @@ async fn match_subcommand(
         Subcommands::Claude(claude::Platform { cmd }) => {
             use but_claude::hooks::OutputClaudeJson;
             match cmd {
-                claude::Subcommands::PreTool => but_claude::hooks::handle_pre_tool_call()
-                    .output_claude_json()
-                    .emit_metrics(metrics_ctx),
-                claude::Subcommands::PostTool => but_claude::hooks::handle_post_tool_call()
-                    .output_claude_json()
-                    .emit_metrics(metrics_ctx),
-                claude::Subcommands::Stop => but_claude::hooks::handle_stop()
-                    .await
-                    .output_claude_json()
-                    .emit_metrics(metrics_ctx),
+                claude::Subcommands::PreTool => {
+                    but_claude::hooks::handle_pre_tool_call(std::io::stdin().lock())
+                        .output_claude_json()
+                        .emit_metrics(metrics_ctx)
+                }
+                claude::Subcommands::PostTool => {
+                    but_claude::hooks::handle_post_tool_call(std::io::stdin().lock())
+                        .output_claude_json()
+                        .emit_metrics(metrics_ctx)
+                }
+                claude::Subcommands::Stop => {
+                    but_claude::hooks::handle_stop(std::io::stdin().lock())
+                        .await
+                        .output_claude_json()
+                        .emit_metrics(metrics_ctx)
+                }
                 claude::Subcommands::PermissionPromptMcp { session_id } => {
                     but_claude::mcp::start(&args.current_dir, &session_id).await
                 }
@@ -289,14 +295,18 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
-            cursor::Subcommands::AfterEdit => but_cursor::handle_after_edit()
-                .await
-                .output_json(true)
-                .emit_metrics(metrics_ctx),
-            cursor::Subcommands::Stop { nightly } => but_cursor::handle_stop(nightly)
-                .await
-                .output_json(true)
-                .emit_metrics(metrics_ctx),
+            cursor::Subcommands::AfterEdit => {
+                but_cursor::handle_after_edit(std::io::stdin().lock())
+                    .await
+                    .output_json(true)
+                    .emit_metrics(metrics_ctx)
+            }
+            cursor::Subcommands::Stop { nightly } => {
+                but_cursor::handle_stop(nightly, std::io::stdin().lock())
+                    .await
+                    .output_json(true)
+                    .emit_metrics(metrics_ctx)
+            }
         },
         #[cfg(feature = "legacy")]
         Subcommands::Pull { check } => {

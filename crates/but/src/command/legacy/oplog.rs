@@ -1,5 +1,4 @@
-use anyhow::bail;
-use but_ctx::Context;
+use anyhow::{Context, bail};
 use but_oxidize::TimeExt;
 use colored::Colorize;
 use gitbutler_oplog::entry::{OperationKind, Snapshot};
@@ -26,7 +25,7 @@ impl OplogFilter {
 }
 
 pub(crate) fn show_oplog(
-    ctx: &mut Context,
+    ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     since: Option<&str>,
     filter: Option<OplogFilter>,
@@ -149,7 +148,7 @@ fn snapshot_time_string(snapshot: &Snapshot) -> String {
 }
 
 pub(crate) fn restore_to_oplog(
-    ctx: &mut Context,
+    ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     oplog_sha: &str,
     force: bool,
@@ -169,7 +168,8 @@ pub(crate) fn restore_to_oplog(
 
     let target_time = snapshot_time_string(target_snapshot);
 
-    if let Some(out) = out.for_human() {
+    if let Some(mut out) = out.prepare_for_terminal_input() {
+        use std::fmt::Write;
         writeln!(out, "{}", "Restoring to oplog snapshot...".blue().bold())?;
         writeln!(
             out,
@@ -185,25 +185,19 @@ pub(crate) fn restore_to_oplog(
 
         // Confirm the restoration (safety check)
         if !force {
-            use std::io::Write;
-            let mut stdout = std::io::stdout();
-
             writeln!(
-                stdout,
+                out,
                 "\n{}",
                 "⚠️  This will overwrite your current workspace state."
                     .yellow()
                     .bold()
             )?;
-            write!(stdout, "Continue with restore? [y/N]: ")?;
-            std::io::stdout().flush()?;
+            let input = out
+                .prompt("Continue with restore? [y/N]: ")?
+                .context("Restore cancelled.".yellow())?
+                .to_lowercase();
 
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input)?;
-
-            let input = input.trim().to_lowercase();
             if input != "y" && input != "yes" {
-                writeln!(stdout, "{}", "Restore cancelled.".yellow())?;
                 return Ok(());
             }
         }
@@ -234,7 +228,7 @@ pub(crate) fn restore_to_oplog(
 }
 
 pub(crate) fn undo_last_operation(
-    ctx: &mut Context,
+    ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Get the last two snapshots - restore to the second one back
@@ -297,7 +291,7 @@ pub(crate) fn undo_last_operation(
 }
 
 pub(crate) fn create_snapshot(
-    ctx: &mut Context,
+    ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     message: Option<&str>,
 ) -> anyhow::Result<()> {

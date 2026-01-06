@@ -97,23 +97,17 @@ pub async fn create_pr(
             let mut inout = out.prepare_for_terminal_input().context(
                 "Terminal input not available. Please specify a branch using command line arguments.",
             )?;
-            let response = inout.prompt(&format!(
-                "Do you want to open a new PR on branch '{}'? [y/n]",
-                branch_name
-            ))?;
-            match response {
-                Some(r)
-                    if r.trim().eq_ignore_ascii_case("y")
-                        || r.trim().eq_ignore_ascii_case("yes") =>
-                {
-                    Some(vec![branch_name.clone()])
-                }
-                _ => {
-                    if let Some(out) = out.for_human() {
-                        writeln!(out, "Aborted.")?;
-                    }
-                    return Ok(());
-                }
+            let response = inout
+                .prompt(format!(
+                    "Do you want to open a new PR on branch '{}'? [y/n]",
+                    branch_name
+                ))?
+                .context("Aborted.")?
+                .to_lowercase();
+            if response == "y" || response == "yes" {
+                Some(vec![branch_name.clone()])
+            } else {
+                return Ok(());
             }
         } else {
             // Multiple branches without PRs - let the prompt handle it

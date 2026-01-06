@@ -1,9 +1,10 @@
-use anyhow::bail;
+use anyhow::{Context, bail};
 use but_github::AuthStatusResponse;
 use but_secret::Sensitive;
 use cli_prompts::DisplayPrompt;
+use std::fmt::Write;
 
-use crate::utils::OutputChannel;
+use crate::utils::{InputOutputChannel, OutputChannel};
 
 #[derive(Debug, Clone)]
 enum AuthMethod {
@@ -24,9 +25,9 @@ impl From<AuthMethod> for String {
 
 /// Authenticate with GitHub
 pub async fn auth_github(out: &mut OutputChannel) -> anyhow::Result<()> {
-    let Some(out) = out.for_human() else {
-        bail!("Human input required - run this in a terminal")
-    };
+    let input = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal")?;
     let auth_method_prompt = cli_prompts::prompts::Selection::new(
         "Select an authentication method",
         vec![
@@ -42,99 +43,62 @@ pub async fn auth_github(out: &mut OutputChannel) -> anyhow::Result<()> {
         .map_err(|_| anyhow::anyhow!("Could not determine authentication method"))?;
 
     match selected_method {
-        AuthMethod::Pat => github_pat(out).await,
-        AuthMethod::Enterprise => github_enterprise(out).await,
-        AuthMethod::DeviceFlow => github_oauth(out).await,
+        AuthMethod::Pat => github_pat(input).await,
+        AuthMethod::Enterprise => github_enterprise(input).await,
+        AuthMethod::DeviceFlow => github_oauth(input).await,
     }
 }
 
 /// Authenticate with GitHub using a Personal Access Token (PAT)
-async fn github_pat(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
-    writeln!(
-        out_for_humans,
-        "Please enter your GitHub Personal Access Token (PAT) and hit enter:"
-    )?;
+async fn github_pat(mut inout: InputOutputChannel<'_>) -> anyhow::Result<()> {
+    let input = inout
+        .prompt("Please enter your GitHub Personal Access Token (PAT) and hit enter:")?
+        .context("No PAT provided. Aborting authentication.")?;
 
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-
-    if input.trim().is_empty() {
-        bail!("No PAT provided. Aborting authentication.");
-    }
-
-    let pat = Sensitive(input.trim().to_string());
+    let pat = Sensitive(input);
     let AuthStatusResponse { login, .. } = but_api::github::store_github_pat(pat)
         .await
         .map_err(|err| err.context("Authentication failed"))?;
 
-    writeln!(
-        out_for_humans,
-        "Authentication successful! Welcome, {}.",
-        login
-    )?;
-
+    writeln!(inout, "Authentication successful! Welcome, {}.", login)?;
     Ok(())
 }
 
 /// Authenticate with GitHub Enterprise
-async fn github_enterprise(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
-    writeln!(
-        out_for_humans,
-        "Please enter your GitHub Enterprise API base URL (e.g., https://github.mycompany.com/api/v3) and hit enter:"
-    )?;
+async fn github_enterprise(mut inout: InputOutputChannel<'_>) -> anyhow::Result<()> {
+    let base_url = inout.prompt("Please enter your GitHub Enterprise API base URL (e.g., https://github.mycompany.com/api/v3) and hit enter:")?.context("No host provided. Aborting authentication.")?;
 
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-
-    let base_url = input.trim().to_string();
-    if base_url.is_empty() {
-        bail!("No host provided. Aborting authentication.")
-    }
-
-    writeln!(
-        out_for_humans,
-        "Now, please enter your GitHub Enterprise Personal Access Token (PAT) and hit enter:"
-    )?;
-
-    input.clear();
-    std::io::stdin().read_line(&mut input)?;
-    let pat = Sensitive(input.trim().to_string());
-    if pat.is_empty() {
-        bail!("No PAT provided. Aborting authentication.");
-    }
-
+    let input = inout
+        .prompt(
+            "Now, please enter your GitHub Enterprise Personal Access Token (PAT) and hit enter:",
+        )?
+        .context("No PAT provided. Aborting authentication.")?;
+    let pat = Sensitive(input);
     let AuthStatusResponse { login, .. } =
         but_api::github::store_github_enterprise_pat(pat, base_url)
             .await
             .map_err(|err| err.context("Authentication failed"))?;
 
-    writeln!(
-        out_for_humans,
-        "Authentication successful! Welcome, {}.",
-        login
-    )?;
-
+    writeln!(inout, "Authentication successful! Welcome, {}.", login)?;
     Ok(())
 }
 
-/// Authenticate with GitHub usgin the device OAuth flow
-async fn github_oauth(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
+/// Authenticate with GitHub using the device OAuth flow
+async fn github_oauth(mut inout: InputOutputChannel<'_>) -> anyhow::Result<()> {
     let code = but_api::github::init_device_oauth().await?;
     writeln!(
-        out_for_humans,
+        inout,
         "Device authorization initiated. Please visit the following URL and enter the code:\n\nhttps://github.com/login/device\n\nCode: {}\n\n",
         code.user_code
     )?;
 
-    writeln!(
-        out_for_humans,
-        "Type 'y' and press Enter after you have successfully authorized the device:"
-    )?;
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
+    let aborted_msg = "Authorization process aborted by user.";
+    let input = inout
+        .prompt("Type 'y' and press Enter after you have successfully authorized the device:")?
+        .context(aborted_msg)?;
 
-    if input.trim().to_lowercase() != "y" {
-        bail!("Authorization process aborted by user.")
+    if input.to_lowercase() != "y" {
+        bail!(aborted_msg)
     }
 
     let status = but_api::github::check_auth_status(code.device_code)
@@ -142,7 +106,7 @@ async fn github_oauth(out_for_humans: &mut dyn std::fmt::Write) -> anyhow::Resul
         .map_err(|err| err.context("Authentication failed"))?;
 
     writeln!(
-        out_for_humans,
+        inout,
         "Authentication successful! Welcome, {}.",
         status.login
     )?;

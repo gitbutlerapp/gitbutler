@@ -1,6 +1,6 @@
 use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 use minus::ExitStrategy;
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Write};
 
 /// A utility `std::io::Write` implementation that can always be used to generate output for humans or for scripts.
 pub struct OutputChannel {
@@ -65,12 +65,6 @@ fn ignore_broken_pipe(err: std::io::Error) -> std::io::Result<()> {
     } else {
         Err(err)
     }
-}
-
-/// A channel to obtain various kinds of user input from a terminal, bypassing the pager.
-pub struct InputOutputChannel<'out> {
-    out: &'out mut OutputChannel,
-    stdin: std::io::Stdin,
 }
 
 /// Conversions
@@ -157,9 +151,16 @@ impl std::fmt::Write for OutputChannel {
     }
 }
 
+/// A channel to obtain various kinds of user input from a terminal, bypassing the pager.
+pub struct InputOutputChannel<'out> {
+    out: &'out mut OutputChannel,
+    stdin: std::io::Stdin,
+}
+
 impl std::fmt::Write for InputOutputChannel<'_> {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
         use std::io::Write;
+        // bypass the pager, fail on broken pipes (we are prompting)
         self.out
             .inner
             .write_all(s.as_bytes())
@@ -169,8 +170,9 @@ impl std::fmt::Write for InputOutputChannel<'_> {
 
 impl InputOutputChannel<'_> {
     /// Prompt a non-empty string from the user, or `None` if the input was empty.
-    pub fn prompt(&mut self, prompt: &str) -> anyhow::Result<Option<String>> {
+    pub fn prompt(&mut self, prompt: impl AsRef<str>) -> anyhow::Result<Option<String>> {
         use std::fmt::Write;
+        let prompt = prompt.as_ref();
         writeln!(self, "{}", prompt)?;
         write!(self, "> ")?;
         std::io::Write::flush(&mut self.out.inner)?;
@@ -182,6 +184,13 @@ impl InputOutputChannel<'_> {
             return Ok(None);
         }
         Ok(Some(input))
+    }
+}
+
+/// Be sure to flush everything written after the prompt as well - the output channel may be buffered.
+impl Drop for InputOutputChannel<'_> {
+    fn drop(&mut self) {
+        self.out.inner.flush().ok();
     }
 }
 

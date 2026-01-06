@@ -255,15 +255,11 @@ fn handle_no_branch_specified(
 
     // Check if we're in an interactive terminal
     let is_interactive = std::io::stdin().is_terminal() && out.for_human().is_some();
-
     if !is_interactive {
+        tracing::info!(
+            "Non-interactive mode detected. Pushing all branches with unpushed commits..."
+        );
         // Non-interactive mode: push all branches with unpushed commits
-        if let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "Non-interactive mode detected. Pushing all branches with unpushed commits..."
-            )?;
-        }
         return Ok(BranchSelection::All);
     }
 

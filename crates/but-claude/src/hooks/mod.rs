@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    io::{self, Read},
-    path::Path,
-    str::FromStr,
-};
+use std::{collections::HashMap, path::Path, str::FromStr};
 
 use anyhow::{Context as _, Result, anyhow};
 use but_action::{
@@ -20,8 +15,6 @@ use gitbutler_branch::BranchCreateRequest;
 use gitbutler_project::Project;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
-
-// use crate::command::file_lock;
 
 mod file_lock;
 use but_core::{HunkHeader, ref_metadata::StackId};
@@ -91,8 +84,8 @@ pub struct ClaudeStopInput {
     pub stop_hook_active: Option<bool>,
 }
 
-pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
-    let input: ClaudeStopInput = serde_json::from_str(&stdin()?)
+pub async fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
+    let input: ClaudeStopInput = serde_json::from_reader(read)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
 
     let transcript = Transcript::from_file(Path::new(&input.transcript_path))?;
@@ -347,8 +340,8 @@ pub struct ClaudePreToolUseInput {
     pub tool_input: ToolInput,
 }
 
-pub fn handle_pre_tool_call() -> anyhow::Result<ClaudeHookOutput> {
-    let mut input: ClaudePreToolUseInput = serde_json::from_str(&stdin()?)
+pub fn handle_pre_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
+    let mut input: ClaudePreToolUseInput = serde_json::from_reader(read)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
 
     let dir = std::path::Path::new(&input.tool_input.file_path)
@@ -385,8 +378,8 @@ pub fn handle_pre_tool_call() -> anyhow::Result<ClaudeHookOutput> {
     })
 }
 
-pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
-    let mut input: ClaudePostToolUseInput = serde_json::from_str(&stdin()?)
+pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
+    let mut input: ClaudePostToolUseInput = serde_json::from_reader(read)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
 
     let hook_headers = input
@@ -525,12 +518,6 @@ pub fn get_or_create_session(
         stack_id
     };
     Ok(stack_id)
-}
-
-fn stdin() -> anyhow::Result<String> {
-    let mut buffer = String::new();
-    io::stdin().read_to_string(&mut buffer)?;
-    Ok(buffer.trim().to_string())
 }
 
 fn create_stack(

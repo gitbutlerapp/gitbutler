@@ -1,7 +1,7 @@
-use anyhow::bail;
+use anyhow::{Context, bail};
 use branch::Subcommands;
 use but_core::ref_metadata::StackId;
-use but_ctx::{Context, LegacyProject};
+use but_ctx::LegacyProject;
 use but_workspace::legacy::ui::StackEntry;
 
 use crate::{CliId, IdMap, args::branch, utils::OutputChannel};
@@ -13,7 +13,7 @@ mod show;
 
 pub fn handle(
     cmd: Option<Subcommands>,
-    ctx: &mut Context,
+    ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     match cmd {
@@ -219,22 +219,17 @@ fn confirm_unapply_stack(
         .collect::<Vec<_>>()
         .join(", ");
 
-    if !force && out.for_human().is_some() {
-        use std::io::Write;
-        let mut stdout = std::io::stdout();
-        writeln!(
-            stdout,
-            "Are you sure you want to unapply stack with branches '{}'? [y/N]:",
-            branches
-        )?;
+    if !force && let Some(mut inout) = out.prepare_for_terminal_input() {
+        let abort_msg = "Aborted unapply operation.";
+        let input = inout
+            .prompt(format!(
+                "Are you sure you want to unapply stack with branches '{branches}'? [y/N]:"
+            ))?
+            .context(abort_msg)?
+            .to_lowercase();
 
-        std::io::stdout().flush()?;
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input)?;
-
-        let input = input.trim().to_lowercase();
         if input != "y" && input != "yes" {
-            bail!("Aborted unapply operation.");
+            bail!(abort_msg);
         }
     }
 
@@ -261,22 +256,18 @@ fn confirm_branch_deletion(
     force: bool,
     out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
-    if !force && out.for_human().is_some() {
-        use std::io::Write;
-        let mut stdout = std::io::stdout();
-        writeln!(
-            stdout,
-            "Are you sure you want to delete branch '{}'? [y/N]:",
-            branch_name
-        )?;
+    if !force && let Some(mut inout) = out.prepare_for_terminal_input() {
+        let abort_msg = "Aborted branch deletion.";
+        let input = inout
+            .prompt(format!(
+                "Are you sure you want to delete branch '{}'? [y/N]:",
+                branch_name
+            ))?
+            .context(abort_msg)?
+            .to_lowercase();
 
-        std::io::stdout().flush()?;
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input)?;
-
-        let input = input.trim().to_lowercase();
         if input != "y" && input != "yes" {
-            bail!("Aborted branch deletion.");
+            bail!(abort_msg);
         }
     }
 

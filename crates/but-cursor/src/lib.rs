@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    io::{self, Read},
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_ctx::Context;
@@ -124,8 +119,8 @@ fn cursor_path_to_pathbuf(input: &str) -> PathBuf {
     }
 }
 
-pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
-    let mut input: FileEditEvent = serde_json::from_str(&stdin()?)
+pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<CursorHookOutput> {
+    let mut input: FileEditEvent = serde_json::from_reader(read)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
     let hook_headers = input
         .edits
@@ -199,8 +194,11 @@ pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
     Ok(CursorHookOutput::default())
 }
 
-pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
-    let input: StopEvent = serde_json::from_str(&stdin()?)
+pub async fn handle_stop(
+    nightly: bool,
+    read: impl std::io::Read,
+) -> anyhow::Result<CursorHookOutput> {
+    let input: StopEvent = serde_json::from_reader(read)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
     let dir = input
         .workspace_roots
@@ -312,12 +310,6 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
     }
 
     Ok(CursorHookOutput::default())
-}
-
-fn stdin() -> anyhow::Result<String> {
-    let mut buffer = String::new();
-    io::stdin().read_to_string(&mut buffer)?;
-    Ok(buffer.trim().to_string())
 }
 
 #[cfg(test)]
