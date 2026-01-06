@@ -1,7 +1,7 @@
 use std::io::Write;
 
 mod output_channel;
-pub use output_channel::OutputChannel;
+pub use output_channel::{InputOutputChannel, OutputChannel};
 
 pub mod metrics;
 #[cfg(feature = "legacy")]

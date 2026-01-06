@@ -1,22 +1,22 @@
 use std::collections::BTreeMap;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
     json::HexHash,
     legacy::{diff, virtual_branches, workspace},
 };
 use but_core::{DiffSpec, ui::TreeChange};
-use but_ctx::Context;
 use colored::Colorize;
 use gitbutler_project::Project;
 
+use crate::utils::InputOutputChannel;
 use crate::{
     CliId, IdMap, command::legacy::status::assignment::FileAssignment, tui, utils::OutputChannel,
 };
 
 pub(crate) fn insert_blank_commit(
-    ctx: &mut Context,
+    ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     target: &str,
 ) -> Result<()> {
@@ -143,7 +143,7 @@ fn find_stack_containing_commit(
 }
 
 pub(crate) fn commit(
-    ctx: &mut Context,
+    ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     message: Option<&str>,
     branch_hint: Option<&str>,
@@ -379,8 +379,8 @@ fn select_stack(
         }
         None => {
             // Prompt user to select
-            if out.for_human().is_some() {
-                prompt_for_stack_selection(stacks)
+            if let Some(inout) = out.prepare_for_terminal_input() {
+                prompt_for_stack_selection(stacks, inout)
             } else {
                 bail!("Multiple candidate stacks found")
             }
@@ -426,31 +426,21 @@ fn prompt_for_stack_selection(
         but_core::ref_metadata::StackId,
         but_workspace::ui::StackDetails,
     )],
+    mut inout: InputOutputChannel,
 ) -> Result<(
     but_core::ref_metadata::StackId,
     but_workspace::ui::StackDetails,
 )> {
-    use std::io::Write;
-    let mut stdout = std::io::stdout();
-    writeln!(stdout, "Multiple stacks found. Choose one to commit to:")?;
+    use std::fmt::Write;
+    writeln!(inout, "Multiple stacks found. Choose one to commit to:")?;
 
     for (i, (_stack_id, stack_details)) in stacks.iter().enumerate() {
-        writeln!(
-            stdout,
-            "  {}. {}",
-            i + 1,
-            stack_details.derived_name.green()
-        )?;
+        writeln!(inout, "  {}. {}", i + 1, stack_details.derived_name.green())?;
     }
 
-    write!(stdout, "Enter selection (1-{}): ", stacks.len())?;
-    std::io::stdout().flush()?;
-
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-
-    let selection: usize = input
-        .trim()
+    let selection: usize = inout
+        .prompt(format!("Enter selection (1-{}): ", stacks.len()))?
+        .context("Missing selection")?
         .parse()
         .map_err(|_| anyhow::anyhow!("Invalid selection"))?;
 
