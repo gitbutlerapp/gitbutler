@@ -568,6 +568,57 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
 }
 
 #[test]
+fn branch_and_file_by_name() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("foo", [id(1)], None, [])])];
+    let mut id_map = IdMap::new_for_branches_and_commits(stacks)?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<BString>> {
+        Ok(if commit_id == id(1) && parent_id.is_none() {
+            vec![]
+        } else {
+            bail!("unexpected IDs {} {:?}", commit_id, parent_id);
+        })
+    };
+    let hunk_assignments = vec![hunk_assignment("foo", None)];
+    id_map.add_file_info(changed_paths_fn, hunk_assignments)?;
+
+    // Both branches and uncommitted, unassigned files match by name, and none
+    // have priority over the other (i.e. if there is both a branch and a file
+    // that matches, the result is ambiguous).
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("foo")?, @r#"
+    [
+        Branch {
+            name: "foo",
+            id: "fo",
+        },
+        Uncommitted(
+            UncommittedCliId {
+                id: "foo",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "foo",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+
+    Ok(())
+}
+
+#[test]
 fn committed_files_are_deduplicated_by_commit_oid_path() -> anyhow::Result<()> {
     let stacks = &[stack([segment("branch", [id(2)], Some(id(1)), [])])];
     let mut id_map = IdMap::new_for_branches_and_commits(stacks)?;
