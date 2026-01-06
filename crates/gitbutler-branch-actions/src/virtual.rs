@@ -33,6 +33,10 @@ pub struct PushResult {
     pub remote: String,
     /// The list of pushed branches and their corresponding remote refnames.
     pub branch_to_remote: Vec<(String, Refname)>,
+    /// The list of branches with their before/after commit SHAs.
+    /// Format: (branch_name, before_sha, after_sha)
+    /// SHAs are stored as hex strings for serialization
+    pub branch_sha_updates: Vec<(String, String, String)>,
 }
 
 fn find_base_tree<'a>(

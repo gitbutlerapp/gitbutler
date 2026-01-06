@@ -190,6 +190,7 @@ pub fn push_stack(
     let mut result = PushResult {
         remote: default_target.push_remote_name(),
         branch_to_remote: vec![],
+        branch_sha_updates: vec![],
     };
     let gerrit_mode = gix_repo
         .git_settings()?
@@ -225,6 +226,14 @@ pub fn push_stack(
         }
         drop(graph);
         let push_details = stack.push_details(ctx, branch.name().to_owned())?;
+
+        // Capture the SHA before push (remote ref if exists, otherwise zero)
+        let before_sha = git2_repo
+            .find_reference(&push_details.remote_refname.to_string())
+            .and_then(|r| r.peel_to_commit())
+            .map(|c| c.id())
+            .unwrap_or_else(|_| git2::Oid::zero());
+        let local_sha = push_details.head;
 
         if run_hooks {
             let remote_name = default_target.push_remote_name();
@@ -289,6 +298,13 @@ pub fn push_stack(
         result.branch_to_remote.push((
             branch.name().to_owned(),
             push_details.remote_refname.to_owned().into(),
+        ));
+
+        // Record the SHA update (before -> after)
+        result.branch_sha_updates.push((
+            branch.name().to_owned(),
+            before_sha.to_string(),
+            local_sha.to_string(),
         ));
 
         if branch.name().eq(&branch_limit) {

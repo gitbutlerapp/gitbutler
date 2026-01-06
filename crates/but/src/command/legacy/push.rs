@@ -70,19 +70,48 @@ fn push_single_branch(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
+    let mut progress = out.progress_channel();
 
-    if let Some(out) = out.for_human() {
-        writeln!(out)?;
-        writeln!(out, "{} Push completed successfully", "✓".green().bold())?;
-        writeln!(out)?;
-        writeln!(out, "  {} {}", "Remote:".dimmed(), result.remote.bold())?;
+    if out.for_human().is_some() {
+        writeln!(progress)?;
+        writeln!(
+            progress,
+            "{} Push completed successfully",
+            "✓".green().bold()
+        )?;
+        writeln!(progress)?;
+        writeln!(
+            progress,
+            "  {} {}",
+            "Remote:".dimmed(),
+            result.remote.bold()
+        )?;
         if !gerrit_mode && !result.branch_to_remote.is_empty() {
             for (branch, remote_ref) in &result.branch_to_remote {
                 writeln!(
-                    out,
+                    progress,
                     "  {} → {}",
                     branch.cyan(),
                     remote_ref.to_string().dimmed()
+                )?;
+            }
+        }
+        // Print SHA information
+        if !result.branch_sha_updates.is_empty() {
+            writeln!(progress)?;
+            for (branch, before_sha, after_sha) in &result.branch_sha_updates {
+                let before_str = if before_sha == "0000000000000000000000000000000000000000" {
+                    "(new branch)".to_string()
+                } else {
+                    before_sha.chars().take(7).collect()
+                };
+                let after_str: String = after_sha.chars().take(7).collect();
+                writeln!(
+                    progress,
+                    "  {} {} → {}",
+                    branch.cyan(),
+                    before_str.dimmed(),
+                    after_str.green()
                 )?;
             }
         }
@@ -148,8 +177,12 @@ fn push_all_branches(
         .collect();
 
     if branches_to_push.is_empty() {
-        if let Some(out) = out.for_human() {
-            writeln!(out, "{}", "No branches have unpushed commits.".dimmed())?;
+        if out.for_human().is_some() {
+            writeln!(
+                progress,
+                "{}",
+                "No branches have unpushed commits.".dimmed()
+            )?;
         }
         return Ok(());
     }
@@ -192,12 +225,12 @@ fn push_all_branches(
         }
     }
 
-    if let Some(out) = out.for_human() {
-        writeln!(out)?;
+    if out.for_human().is_some() {
+        writeln!(progress)?;
 
         if !pushed_branches.is_empty() {
             writeln!(
-                out,
+                progress,
                 "{} {} {} {}",
                 "✓".green().bold(),
                 "Successfully pushed".green().bold(),
@@ -211,7 +244,7 @@ fn push_all_branches(
 
             for (branch, count, remote) in &pushed_branches {
                 writeln!(
-                    out,
+                    progress,
                     "    {} → {} ({})",
                     branch.dimmed(),
                     format!("{}/{}", remote, branch).dimmed(),
@@ -221,9 +254,9 @@ fn push_all_branches(
         }
 
         if !failed_branches.is_empty() {
-            writeln!(out)?;
+            writeln!(progress)?;
             writeln!(
-                out,
+                progress,
                 "{} Failed to push {} {}:",
                 "✗".red().bold(),
                 failed_branches.len().to_string().red().bold(),
@@ -234,7 +267,7 @@ fn push_all_branches(
                 }
             )?;
             for (branch, error) in &failed_branches {
-                writeln!(out, "    {} - {}", branch.red(), error.dimmed())?;
+                writeln!(progress, "    {} - {}", branch.red(), error.dimmed())?;
             }
         }
     }
@@ -264,7 +297,8 @@ fn handle_no_branch_specified(
     }
 
     // Interactive mode: show branches and prompt for selection
-    if let Some(out) = out.for_human() {
+    let mut progress = out.progress_channel();
+    if out.for_human().is_some() {
         let mut has_unpushed = false;
 
         for (_branch_name, unpushed_count, _stack_name) in &branches_with_info {
@@ -274,16 +308,16 @@ fn handle_no_branch_specified(
         }
 
         if !has_unpushed {
-            writeln!(out)?;
+            writeln!(progress)?;
             writeln!(
-                out,
+                progress,
                 "{}",
                 "✓ All branches are up to date with the remote.".green()
             )?;
             return Ok(BranchSelection::All);
         }
 
-        writeln!(out)?;
+        writeln!(progress)?;
 
         // Create selection options
         let mut options = vec!["all - Push all branches with unpushed commits".to_string()];
