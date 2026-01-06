@@ -306,6 +306,23 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::Fetch => {
+            if out.for_human().is_some() {
+                use std::fmt::Write;
+                let mut progress = out.progress_channel();
+                writeln!(
+                    progress,
+                    "{}",
+                    "Assuming you meant to check for upstream work, running `but pull --check`"
+                        .yellow()
+                )?;
+            }
+            let ctx = init::init_ctx(&args, Fetch::None, out)?;
+            command::legacy::pull::handle(&ctx, out, true)
+                .await
+                .emit_metrics(metrics_ctx)
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
             let ctx = init::init_ctx(&args, Fetch::None, out)?;
             command::legacy::worktree::handle(cmd, &ctx, out)
