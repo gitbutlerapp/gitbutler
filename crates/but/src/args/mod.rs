@@ -196,26 +196,6 @@ pub enum Subcommands {
         repo: bool,
     },
 
-    /// Commands for managing the base target branch.
-    ///
-    /// Every branch managed by GitButler is based off a common base branch on
-    /// your remote repository (usually `origin/main` or `origin/master`). This
-    /// is the target branch that all changes will eventually be integrated into.
-    ///
-    /// The `base` subcommand allows you to manage and update this base branch.
-    ///
-    /// When you run `but pull`, GitButler will fetch the latest changes
-    /// from the remote and rebase all your applied branches on top of the updated
-    /// base branch. You will want to do this regularly to keep your branches
-    /// up to date with the latest changes from the main development line.
-    ///
-    /// You can also use `but base check` to verify that your branches
-    /// can be cleanly merged into the base branch without conflicts and see
-    /// what work is upstream an not yet integrated into your branches.
-    ///
-    #[cfg(feature = "legacy")]
-    Base(base::Platform),
-
     /// Updates all applied branches to be up to date with the target branch.
     ///
     /// This fetches the latest changes from the remote and rebases all applied branches
@@ -224,11 +204,15 @@ pub enum Subcommands {
     /// You should run this regularly to keep your branches up to date with the latest
     /// changes from the main development line.
     ///
-    /// You can run `but base check` first to see if your branches can be cleanly
+    /// You can run `but pull --check` first to see if your branches can be cleanly
     /// merged into the target branch before running the update.
     ///
     #[cfg(feature = "legacy")]
-    Pull,
+    Pull {
+        /// Only check the status without updating (equivalent to the old `but base check`)
+        #[clap(long, short = 'c')]
+        check: bool,
+    },
 
     /// Commands for managing branches.
     ///
@@ -624,31 +608,6 @@ pub mod cursor {
             #[clap(long, default_value = "false")]
             nightly: bool,
         },
-    }
-}
-
-pub mod base {
-    #[derive(Debug, clap::Parser)]
-    pub struct Platform {
-        #[clap(subcommand)]
-        pub cmd: Subcommands,
-    }
-
-    #[derive(Debug, clap::Subcommand)]
-    pub enum Subcommands {
-        /// Only fetches from the remote to update the base branch information.
-        /// This is used by the auto-fetch functionality (from a side-process)
-        #[clap(hide = true)]
-        Fetch,
-        /// Fetches from the remote and checks the mergeability of the branches in the workspace.
-        ///
-        /// This will see if the target branch has had new work merged into it, and if so,
-        /// it will check if each branch in the workspace can be cleanly merged into the updated
-        /// target branch.
-        ///
-        /// It will also show what work is upstream that has not yet been integrated into the branches.
-        ///
-        Check,
     }
 }
 

@@ -1,13 +1,17 @@
+mod json;
+
 use but_ctx::Context;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
-    BranchStatus::{self, Conflicted, Integrated, SaflyUpdatable},
+    BranchStatus::{self, Conflicted, Empty, Integrated, SaflyUpdatable},
     Resolution, ResolutionApproach,
     StackStatuses::{UpToDate, UpdatesRequired},
     TreeStatus,
 };
+use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, UpstreamInfo};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Write;
 
 use crate::utils::OutputChannel;
 
@@ -58,7 +62,184 @@ struct PullSummary {
     branches_unchanged: usize,
 }
 
-pub async fn handle(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+pub async fn handle(
+    ctx: &Context,
+    out: &mut OutputChannel,
+    check_only: bool,
+) -> anyhow::Result<()> {
+    if check_only {
+        handle_check(ctx, out).await
+    } else {
+        handle_pull(ctx, out).await
+    }
+}
+
+async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    let mut progress = out.progress_channel();
+    writeln!(progress, "Fetching from upstream remotes...")?;
+
+    let base_branch = but_api::legacy::virtual_branches::fetch_from_remotes(
+        ctx.legacy_project.id,
+        Some("auto".to_string()),
+    )?;
+
+    writeln!(progress, "Checking integration statuses...")?;
+
+    let status = but_api::legacy::virtual_branches::upstream_integration_statuses(
+        ctx.legacy_project.id,
+        None,
+    )
+    .await?;
+
+    if let Some(out) = out.for_json() {
+        let (up_to_date, has_worktree_conflicts, branch_statuses) = match &status {
+            UpToDate => (true, false, vec![]),
+            UpdatesRequired {
+                worktree_conflicts,
+                statuses,
+            } => {
+                let branch_statuses: Vec<BranchStatusInfo> = statuses
+                    .iter()
+                    .flat_map(|(_id, stack_status)| {
+                        stack_status.branch_statuses.iter().map(|bs| {
+                            let (status_str, rebasable) = match bs.status {
+                                SaflyUpdatable => ("updatable", None),
+                                Integrated => ("integrated", None),
+                                Conflicted { rebasable } => ("conflicted", Some(rebasable)),
+                                Empty => ("empty", None),
+                            };
+                            BranchStatusInfo {
+                                name: bs.name.clone(),
+                                status: status_str.to_string(),
+                                rebasable,
+                            }
+                        })
+                    })
+                    .collect();
+                (false, !worktree_conflicts.is_empty(), branch_statuses)
+            }
+        };
+
+        let output = PullCheckOutput {
+            base_branch: BaseBranchInfo {
+                name: base_branch.branch_name.clone(),
+                remote_name: base_branch.remote_name.clone(),
+                base_sha: base_branch.base_sha.to_string(),
+                current_sha: base_branch.current_sha.to_string(),
+            },
+            upstream_commits: UpstreamInfo {
+                count: base_branch.behind,
+                commits: base_branch
+                    .upstream_commits
+                    .iter()
+                    .map(|c| UpstreamCommit {
+                        id: c.id.clone(),
+                        description: c.description.to_string(),
+                        author_name: c.author.name.clone(),
+                    })
+                    .collect(),
+            },
+            branch_statuses,
+            up_to_date,
+            has_worktree_conflicts,
+        };
+        out.write_value(output)?;
+    } else if let Some(out) = out.for_human() {
+        writeln!(progress, "{}", "Checking base branch status...".bold())?;
+        writeln!(
+            out,
+            "\n{}\t{}",
+            "Base branch:".dimmed(),
+            base_branch.branch_name.cyan()
+        )?;
+        let upstream_label = format!(
+            "{} new commits on {}",
+            base_branch.behind, base_branch.branch_name
+        );
+        writeln!(
+            out,
+            "{}\t{}",
+            "Upstream:".dimmed(),
+            if base_branch.behind > 0 {
+                upstream_label.yellow()
+            } else {
+                upstream_label.green()
+            }
+        )?;
+
+        if !base_branch.upstream_commits.is_empty() {
+            writeln!(out)?;
+            let commits = base_branch.upstream_commits.iter().take(3);
+            for commit in commits {
+                writeln!(
+                    out,
+                    "  {} {}",
+                    commit.id[..7].yellow(),
+                    commit
+                        .description
+                        .to_string()
+                        .replace('\n', " ")
+                        .chars()
+                        .take(72)
+                        .collect::<String>()
+                        .dimmed()
+                )?;
+            }
+            let hidden_commits = base_branch.behind.saturating_sub(3);
+            if hidden_commits > 0 {
+                writeln!(out, "  {}", format!("... ({hidden_commits} more)").dimmed())?;
+            }
+        }
+
+        match status {
+            UpToDate => {
+                writeln!(out, "\n{}", "Up to date".green().bold())?;
+            }
+            UpdatesRequired {
+                worktree_conflicts,
+                statuses,
+            } => {
+                if !worktree_conflicts.is_empty() {
+                    writeln!(
+                        out,
+                        "\n{}",
+                        "Warning: uncommitted changes may conflict with updates."
+                            .yellow()
+                            .bold()
+                    )?;
+                }
+                if !statuses.is_empty() {
+                    writeln!(out, "\n{}", "Branch Status".bold())?;
+                    for (_id, status) in statuses {
+                        for bs in status.branch_statuses {
+                            let status_text = match bs.status {
+                                SaflyUpdatable => "[ok]".green(),
+                                Integrated => "[integrated]".blue(),
+                                Conflicted { rebasable } => {
+                                    if rebasable {
+                                        "[conflict - rebasable]".yellow()
+                                    } else {
+                                        "[conflict]".red()
+                                    }
+                                }
+                                Empty => "[empty]".dimmed(),
+                            };
+                            writeln!(out, "  {} {}", status_text, bs.name)?;
+                        }
+                    }
+                }
+                writeln!(
+                    out,
+                    "\n{}",
+                    "Run `but pull` to update your branches".dimmed()
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
     let mut pull_result = PullResult {
         status: String::new(),
         upstream_url: None,
@@ -76,9 +257,15 @@ pub async fn handle(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()
         undo_command: None,
     };
 
+    let mut progress = out.progress_channel();
+
     // Step 1: Check upstream data
-    if let Some(out) = out.for_human() {
-        writeln!(out, "{}", "Checking upstream data...".bright_cyan())?;
+    if let Some(_out) = out.for_human() {
+        writeln!(
+            progress,
+            "{}",
+            "Fetching newest data from remotes...".bright_cyan()
+        )?;
     }
 
     // Fetch from remotes to get latest upstream info
@@ -105,7 +292,7 @@ pub async fn handle(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()
     }
 
     if let Some(out) = out.for_human() {
-        writeln!(out, "   Fetching from: {}", upstream_url.bright_cyan())?;
+        writeln!(progress, "   Checking: {}", upstream_url.bright_cyan())?;
 
         if base_branch.behind > 0 {
             writeln!(
@@ -137,6 +324,8 @@ pub async fn handle(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()
         } else {
             writeln!(out, "\n{}", "No new upstream commits found".green())?;
         }
+
+        writeln!(progress, "   Checking integration statuses...")?;
     }
 
     // Step 2: Check integration status
@@ -185,7 +374,6 @@ pub async fn handle(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()
                 // Analyze branches to update
                 let mut branches_to_update = 0;
                 let mut integrated_branches = vec![];
-                let mut conflicted_branches = vec![];
                 let mut resolutions = vec![];
 
                 for (maybe_stack_id, status) in &statuses {
@@ -215,10 +403,8 @@ pub async fn handle(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()
                                 integrated_branches.push(branch_status.name.clone());
                                 pull_result.summary.branches_integrated += 1;
                             }
-                            Conflicted { rebasable } => {
-                                conflicted_branches.push((branch_status.name.clone(), *rebasable));
+                            Conflicted { .. } => {
                                 pull_result.summary.branches_conflicted += 1;
-                                // TODO: Get actual conflict files
                             }
                             SaflyUpdatable => {
                                 pull_result.summary.branches_updated += 1;
@@ -297,8 +483,6 @@ pub async fn handle(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()
 
         match integration_result {
             Ok(_outcome) => {
-                // IntegrationOutcome only tells us about deleted branches, but we already tracked that
-
                 // Show results for each branch
                 if let Some(out) = out.for_human() {
                     // Re-fetch status to check for any remaining conflicts

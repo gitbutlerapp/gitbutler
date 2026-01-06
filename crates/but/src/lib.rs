@@ -29,8 +29,7 @@ use cfg_if::cfg_if;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, base, branch, claude, cursor, forge, metrics,
-    worktree,
+    Args, OutputFormat, Subcommands, actions, branch, claude, cursor, forge, metrics, worktree,
 };
 use but_settings::AppSettings;
 use colored::Colorize;
@@ -300,16 +299,9 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx),
         },
         #[cfg(feature = "legacy")]
-        Subcommands::Base(base::Platform { cmd }) => {
+        Subcommands::Pull { check } => {
             let ctx = init::init_ctx(&args, Fetch::None, out)?;
-            command::legacy::base::handle(cmd, &ctx, out)
-                .await
-                .emit_metrics(metrics_ctx)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Pull => {
-            let ctx = init::init_ctx(&args, Fetch::None, out)?;
-            command::legacy::pull::handle(&ctx, out)
+            command::legacy::pull::handle(&ctx, out, check)
                 .await
                 .emit_metrics(metrics_ctx)
         }
