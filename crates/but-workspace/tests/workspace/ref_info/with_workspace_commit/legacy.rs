@@ -169,6 +169,9 @@ mod stacks {
             branch_details: [
                 BranchDetails {
                     name: "C-on-A",
+                    reference: FullName(
+                        "refs/heads/C-on-A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
                     description: None,
@@ -192,6 +195,9 @@ mod stacks {
                 },
                 BranchDetails {
                     name: "A",
+                    reference: FullName(
+                        "refs/heads/A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
@@ -286,6 +292,9 @@ mod stack_details {
             branch_details: [
                 BranchDetails {
                     name: "dependent",
+                    reference: FullName(
+                        "refs/heads/dependent",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
                     description: None,
@@ -305,6 +314,9 @@ mod stack_details {
                 },
                 BranchDetails {
                     name: "advanced-lane",
+                    reference: FullName(
+                        "refs/heads/advanced-lane",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/advanced-lane",
@@ -361,6 +373,9 @@ mod stack_details {
             branch_details: [
                 BranchDetails {
                     name: "B-on-A",
+                    reference: FullName(
+                        "refs/heads/B-on-A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
                     description: None,
@@ -384,6 +399,9 @@ mod stack_details {
                 },
                 BranchDetails {
                     name: "A",
+                    reference: FullName(
+                        "refs/heads/A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
@@ -420,6 +438,9 @@ mod stack_details {
             branch_details: [
                 BranchDetails {
                     name: "C-on-A",
+                    reference: FullName(
+                        "refs/heads/C-on-A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
                     description: None,
@@ -443,6 +464,9 @@ mod stack_details {
                 },
                 BranchDetails {
                     name: "A",
+                    reference: FullName(
+                        "refs/heads/A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",

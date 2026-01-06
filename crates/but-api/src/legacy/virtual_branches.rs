@@ -301,13 +301,18 @@ pub fn insert_blank_commit(
     offset: i32,
 ) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let commit_id = match commit_id {
-        Some(oid) => git2::Oid::from_str(&oid).map_err(|e| anyhow!(e))?,
+    // This code is really bad, but the TLDR is that if you have no commit_id
+    // passed, we always want the offset to be -1, because we default to the
+    // stack head and we want the commit to be above that. Is this _actually_
+    // what we want? No, but it's been this way for months & we're hopfully
+    // going to move off it soon so I'm not going to change it.
+    let (commit_id, offset) = match commit_id {
+        Some(oid) => (git2::Oid::from_str(&oid).map_err(|e| anyhow!(e))?, offset),
         None => {
             let state = VirtualBranchesHandle::new(ctx.project_data_dir());
             let stack = state.get_stack(stack_id)?;
             let gix_repo = ctx.repo.get()?;
-            stack.head_oid(&gix_repo)?.to_git2()
+            (stack.head_oid(&gix_repo)?.to_git2(), -1)
         }
     };
     gitbutler_branch_actions::insert_blank_commit(&ctx, stack_id, commit_id, offset, None)?;

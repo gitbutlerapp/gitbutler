@@ -403,6 +403,7 @@ impl ui::BranchDetails {
                 .category()
                 .is_some_and(|c| matches!(c, gix::refs::Category::RemoteBranch)),
             name: ref_info.ref_name.shorten().into(),
+            reference: ref_info.ref_name,
             linked_worktree_id: ref_info.worktree.and_then(|ws| match ws {
                 but_graph::Worktree::Main => None,
                 but_graph::Worktree::LinkedId(id) => Some(id),

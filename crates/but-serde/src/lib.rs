@@ -15,6 +15,27 @@ pub mod bstring_lossy {
     }
 }
 
+pub mod fullname_lossy {
+    use bstr::ByteSlice;
+    use serde::{Deserialize, Deserializer, Serialize};
+
+    pub fn serialize<S>(v: &gix::refs::FullName, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.as_bstr().to_str_lossy().serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<gix::refs::FullName, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let string = <String as Deserialize>::deserialize(d)?;
+        gix::refs::FullName::try_from(string)
+            .map_err(|err| serde::de::Error::custom(err.to_string()))
+    }
+}
+
 pub mod bstring_vec_lossy {
     use bstr::{BString, ByteSlice};
     use serde::Serialize;

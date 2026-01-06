@@ -2,11 +2,13 @@
 
 use anyhow::{Result, anyhow};
 use petgraph::{Direction, visit::EdgeRef};
+use serde::{Deserialize, Serialize};
 
 use crate::graph_rebase::{Edge, Editor, Selector, Step};
 
 /// Describes where relative to the selector a step should be inserted
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum InsertSide {
     /// When inserting above, any nodes that point to the selector will now
     /// point to the inserted node instead.

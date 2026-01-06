@@ -95,6 +95,7 @@ export function createMockUpstreamCommit(
 
 export const MOCK_BRANCH_DETAILS: Workspace.BranchDetails = {
 	name: 'branch-a',
+	reference: 'refs/heads/branch-a',
 	linkedWorktreeId: null,
 	remoteTrackingBranch: null,
 	description: null,
@@ -113,6 +114,7 @@ export const MOCK_BRANCH_DETAILS: Workspace.BranchDetails = {
 
 export const MOCK_BRANCH_DETAILS_BRAND_NEW: Workspace.BranchDetails = {
 	name: MOCK_BRAND_NEW_BRANCH_NAME,
+	reference: `refs/heads/${MOCK_BRAND_NEW_BRANCH_NAME}`,
 	remoteTrackingBranch: null,
 	linkedWorktreeId: null,
 	description: null,

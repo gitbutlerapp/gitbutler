@@ -198,10 +198,14 @@ pub enum PushStatus {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct BranchDetails {
-    /// The name of the branch.
+    /// The name of the branch. This is the "given name" IE, just `foo` out of `refs/heads/foo`
     #[serde(with = "but_serde::bstring_lossy")]
     #[ts(type = "string")]
     pub name: BString,
+    #[serde(with = "but_serde::fullname_lossy")]
+    #[ts(type = "string")]
+    /// The full reference of the branch
+    pub reference: gix::refs::FullName,
     /// The id of the linked worktree that has the reference of `name` checked out.
     /// Note that we don't list the main worktree here.
     #[serde(with = "but_serde::bstring_opt_lossy")]

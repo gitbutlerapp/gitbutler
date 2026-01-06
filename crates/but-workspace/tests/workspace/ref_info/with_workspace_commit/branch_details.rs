@@ -14,7 +14,10 @@ fn disjoint() -> anyhow::Result<()> {
     let actual = branch_details(&repo, "refs/heads/disjoint".try_into()?, &*meta)?;
     insta::assert_debug_snapshot!(actual, @r#"
     BranchDetails {
-        name: "refs/heads/disjoint",
+        name: "disjoint",
+        reference: FullName(
+            "refs/heads/disjoint",
+        ),
         linked_worktree_id: None,
         remote_tracking_branch: None,
         description: None,
@@ -40,7 +43,10 @@ fn disjoint() -> anyhow::Result<()> {
     let actual = branch_details(&repo, "refs/heads/main".try_into()?, &*meta)?;
     insta::assert_debug_snapshot!(actual, @r#"
     BranchDetails {
-        name: "refs/heads/main",
+        name: "main",
+        reference: FullName(
+            "refs/heads/main",
+        ),
         linked_worktree_id: None,
         remote_tracking_branch: None,
         description: None,
