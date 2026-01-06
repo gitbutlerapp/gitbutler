@@ -7,6 +7,7 @@ use std::path::Path;
 use anyhow::Result;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_project::ProjectId;
+use notify::{RecursiveMode, Watcher as _};
 pub use handler::Handler;
 use tokio::{
     sync::mpsc::{UnboundedSender, unbounded_channel},
@@ -71,7 +72,7 @@ pub fn watch_in_background(
     let (events_out, mut events_in) = unbounded_channel();
     let (flush_tx, mut flush_rx) = unbounded_channel();
 
-    let debounce =
+    let mut debounce =
         gitbutler_filemonitor::spawn(project_id, worktree_path.as_ref(), events_out.clone())?;
 
     let cancellation_token = CancellationToken::new();
@@ -96,7 +97,14 @@ pub fn watch_in_background(
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                Some(event) = events_in.recv() => handle_event(event, app_settings.clone())?,
+                Some(event) = events_in.recv() => match event {
+                    InternalEvent::WatchPath(_, path) => {
+                        if let Err(err) = debounce.watcher().watch(&path, RecursiveMode::NonRecursive) {
+                            tracing::warn!(%project_id, ?path, ?err, "failed to add watch");
+                        }
+                    }
+                    event => handle_event(event, app_settings.clone())?,
+                },
                 Some(_signal_flush) = flush_rx.recv() => {
                     debounce.flush_nonblocking();
                 }

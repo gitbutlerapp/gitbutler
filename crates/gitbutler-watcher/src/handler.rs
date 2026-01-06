@@ -57,6 +57,8 @@ impl Handler {
                 self.git_files_change(paths, ctx)
                     .context("failed to handle git file change event")
             }
+
+            InternalEvent::WatchPath(_, _) => Ok(()),
         }
     }
 

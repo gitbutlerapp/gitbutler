@@ -25,3 +25,6 @@ gitbutler-project.workspace = true
 all = "deny"
 perf = "deny"
 correctness = "deny"
+
+[dev-dependencies]
+tempfile.workspace = true
