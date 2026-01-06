@@ -76,14 +76,19 @@ pub async fn handle(
 
 async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
-    writeln!(progress, "Fetching from upstream remotes...")?;
+
+    if out.for_human().is_some() {
+        writeln!(progress, "Fetching from upstream remotes...")?;
+    }
 
     let base_branch = but_api::legacy::virtual_branches::fetch_from_remotes(
         ctx.legacy_project.id,
         Some("auto".to_string()),
     )?;
 
-    writeln!(progress, "Checking integration statuses...")?;
+    if out.for_human().is_some() {
+        writeln!(progress, "Checking integration statuses...")?;
+    }
 
     let status = but_api::legacy::virtual_branches::upstream_integration_statuses(
         ctx.legacy_project.id,
