@@ -158,7 +158,7 @@ pub(crate) fn worktree(
                                 .to_string()
                                 .replace('\n', " ")
                                 .chars()
-                                .take(50)
+                                .take(30)
                                 .collect::<String>();
 
                             let formatted_date = commit
@@ -282,43 +282,55 @@ pub(crate) fn worktree(
     if let Some(upstream) = &upstream_state {
         let dot = "●".yellow();
 
-        writeln!(
-            out,
-            "┊{dot} {} (upstream) ⏫ {} new commits {} {}{}",
-            upstream.latest_commit.dimmed(),
-            upstream.behind_count,
-            upstream.commit_date.dimmed(),
-            upstream.message,
-            last_checked_text.dimmed()
-        )?;
-
-        // Display detailed list of upstream commits if --upstream flag is set
         if show_upstream {
-            if let Some(ref base_branch) = base_branch {
-                if !base_branch.upstream_commits.is_empty() {
-                    writeln!(out)?;
-                    let commits = base_branch.upstream_commits.iter().take(3);
-                    for commit in commits {
-                        writeln!(
-                            out,
-                            "┊  {} {}",
-                            commit.id[..7].yellow(),
-                            commit
-                                .description
-                                .to_string()
-                                .replace('\n', " ")
-                                .chars()
-                                .take(72)
-                                .collect::<String>()
-                                .dimmed()
-                        )?;
-                    }
-                    let hidden_commits = base_branch.behind.saturating_sub(3);
-                    if hidden_commits > 0 {
-                        writeln!(out, "┊  {}", format!("... ({hidden_commits} more)").dimmed())?;
-                    }
+            // When showing detailed commits, only show count in summary
+            writeln!(
+                out,
+                "┊╭┄(upstream) ⏫ {} new commits{}",
+                upstream.behind_count,
+                last_checked_text.dimmed()
+            )?;
+
+            // Display detailed list of upstream commits
+            if let Some(ref base_branch) = base_branch
+                && !base_branch.upstream_commits.is_empty()
+            {
+                let commits = base_branch.upstream_commits.iter().take(8);
+                for commit in commits {
+                    writeln!(
+                        out,
+                        "┊{dot} {} {}",
+                        commit.id[..7].yellow(),
+                        commit
+                            .description
+                            .to_string()
+                            .replace('\n', " ")
+                            .chars()
+                            .take(72)
+                            .collect::<String>()
+                            .dimmed()
+                    )?;
+                }
+                let hidden_commits = base_branch.behind.saturating_sub(8);
+                if hidden_commits > 0 {
+                    writeln!(
+                        out,
+                        "┊    {}",
+                        format!("and {hidden_commits} more…").dimmed()
+                    )?;
                 }
             }
+            writeln!(out, "┊┊")?;
+        } else {
+            // Without --upstream, show the summary with latest commit info
+            writeln!(
+                out,
+                "┊{dot} {} (upstream) ⏫ {} new commits {} {}",
+                upstream.latest_commit.dimmed(),
+                upstream.behind_count,
+                upstream.commit_date.dimmed(),
+                last_checked_text.dimmed()
+            )?;
         }
     }
 

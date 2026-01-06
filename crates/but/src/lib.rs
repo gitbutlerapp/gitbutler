@@ -347,8 +347,10 @@ async fn match_subcommand(
             upstream,
         } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-            command::legacy::status::worktree(&mut ctx, out, show_files, verbose, sync_prs, upstream)
-                .emit_metrics(metrics_ctx)
+            command::legacy::status::worktree(
+                &mut ctx, out, show_files, verbose, sync_prs, upstream,
+            )
+            .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Stf {
