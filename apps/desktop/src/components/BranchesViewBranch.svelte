@@ -73,7 +73,7 @@
 	{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
 		{@render commitMenu(rightClickTrigger, commit.id)}
 	{/snippet}
-	{@const localCommit = commit as Commit}
+	{@const localCommit = commit}
 	{@const commitType: 'LocalOnly' | 'LocalAndRemote' | 'Integrated' = (branchFirstCommitType as 'LocalOnly' | 'LocalAndRemote' | 'Integrated') ?? 'LocalOnly'}
 	{@const isDiverged =
 		localCommit.state.type === 'LocalAndRemote' && commit.id !== localCommit.state.subject}
