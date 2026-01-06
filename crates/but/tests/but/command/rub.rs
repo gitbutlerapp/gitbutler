@@ -58,7 +58,7 @@ fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
 
 "#]]);
 
-    env.but("i0 00")
+    env.but("i0 zz")
         .assert()
         .success()
         .stdout_eq(snapbox::file![
@@ -177,7 +177,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 
 "#]]);
 
-    env.but("j0 00")
+    env.but("j0 zz")
         .assert()
         .success()
         .stdout_eq(snapbox::file![
@@ -320,7 +320,7 @@ k0 a.txt│
        9│+lasta
 
 "#]]);
-    env.but("j0 00")
+    env.but("j0 zz")
         .assert()
         .success()
         .stdout_eq(snapbox::file![

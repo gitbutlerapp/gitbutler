@@ -36,6 +36,8 @@ mod tests;
 /// A helper to indicate that this is a short-id as a user would see.
 type ShortId = String;
 
+const UNASSIGNED: &str = "zz";
+
 /// A mapping from user-friendly CLI IDs to GitButler entities.
 ///
 /// # Lifecycle
@@ -87,12 +89,6 @@ impl IdMap {
             uncommitted_short_filenames,
         } = UncommittedInfo::from_hunk_assignments(hunk_assignments)?;
 
-        let mut max_zero_count = 1; // Ensure at least two "0" in ID.
-        for branch_name in &branch_names {
-            for field in branch_name.fields_with(|c| c != '0') {
-                max_zero_count = std::cmp::max(field.len(), max_zero_count);
-            }
-        }
         let (mut id_usage, branch_name_to_cli_id, branch_auto_id_to_cli_id) =
             Self::ids_for_branch_names(branch_names, uncommitted_short_filenames)?;
 
@@ -122,7 +118,7 @@ impl IdMap {
             workspace_commit_and_first_parent_ids,
             remote_commit_ids,
             unassigned: CliId::Unassigned {
-                id: str::repeat("0", max_zero_count + 1),
+                id: UNASSIGNED.to_string(),
             },
             uncommitted_files,
             uncommitted_hunks,
@@ -175,6 +171,7 @@ impl IdMap {
                     .or_insert(1);
             }
         };
+        maybe_mark_used(UNASSIGNED.as_bytes());
         for uncommitted_short_filename in uncommitted_short_filenames.iter() {
             maybe_mark_used(uncommitted_short_filename);
         }
@@ -386,7 +383,7 @@ impl IdMap {
                 is_entire_file: false,
             }));
         }
-        if entity.bytes().all(|c| c == b'0') {
+        if entity == UNASSIGNED {
             matches.push(self.unassigned.clone());
         }
 
@@ -452,8 +449,6 @@ impl IdMap {
     /// ID for a destination of operations.
     ///
     /// The unassigned area represents files and changes that are not assigned to any branch.
-    /// Its ID is a string of repeated '0' characters, with enough repetitions to ensure
-    /// it doesn't collide with any existing branch name.
     pub fn unassigned(&self) -> &CliId {
         &self.unassigned
     }
@@ -555,7 +550,7 @@ pub enum CliId {
     Commit(gix::ObjectId),
     /// The unassigned area, as a designated area that files can be put in.
     Unassigned {
-        /// The CLI ID for the unassigned area (a string of 2 or more zeros).
+        /// The CLI ID for the unassigned area.
         id: ShortId,
     },
 }

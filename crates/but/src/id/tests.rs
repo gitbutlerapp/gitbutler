@@ -183,42 +183,22 @@ fn branches_match_by_substring() -> anyhow::Result<()> {
 }
 
 #[test]
-fn multiple_zeroes_as_unassigned_area() -> anyhow::Result<()> {
-    let id_map = IdMap::new(&[], Vec::new())?;
-    insta::assert_debug_snapshot!(id_map.debug_state(), @"workspace_and_remote_commits_count: 0");
-
-    assert_eq!(
-        id_map.resolve_entity_to_ids("000")?,
-        [CliId::Unassigned { id: "00".into() }],
-        "any number of 0s interpreted as the unassigned area"
-    );
-    Ok(())
-}
-
-#[test]
-fn unassigned_area_id_is_unambiguous() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("branch001", [id(1)], None, [])])];
+fn branches_avoid_unassigned_area_id() -> anyhow::Result<()> {
+    let stacks = &[stack([segment("zza", [id(1)], None, [])])];
     let id_map = IdMap::new(stacks, Vec::new())?;
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
     workspace_and_remote_commits_count: 1
-    branches: [ br ]
+    branches: [ za ]
     ");
 
+    let expected = [CliId::Branch {
+        name: "zza".into(),
+        id: "za".into(),
+    }];
     assert_eq!(
-        id_map.unassigned().to_short_string(),
-        "000",
-        "the ID of the unassigned area should have enough 0s to be unambiguous"
-    );
-    assert_eq!(
-        id_map.resolve_entity_to_ids("00")?,
-        [
-            CliId::Branch {
-                name: "branch001".into(),
-                id: "br".into()
-            },
-            CliId::Unassigned { id: "000".into() }
-        ],
-        "as 00 is matching the substring of a branch now, but also unassigned"
+        id_map.resolve_entity_to_ids("za")?,
+        expected,
+        "avoids unassigned area ID (zz)"
     );
     Ok(())
 }
