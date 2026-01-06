@@ -103,9 +103,7 @@ impl Permission {
                 if let Some(terms) = terms
                     && let Some(url) = terms.first()
                 {
-                    return Ok(vec![Self::WebFetch(Some(UrlPattern::full_match(
-                        url.clone(),
-                    )))]);
+                    return Ok(vec![Self::WebFetch(Some(UrlPattern::domain(url)?))]);
                 }
                 Ok(vec![Self::WebFetch(None)])
             }
@@ -491,18 +489,6 @@ mod test {
         }
 
         #[test]
-        fn full_match_url() {
-            let pattern = UrlPattern::full_match("https://example.com/api/v1".to_string());
-            let perm = Permission::WebFetch(Some(pattern));
-            let ctx = create_test_context(false);
-
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "WebFetch(https://example.com/api/v1)"
-            );
-        }
-
-        #[test]
         fn domain_match() {
             let pattern = UrlPattern::Domain("example.com".to_string());
             let perm = Permission::WebFetch(Some(pattern));
@@ -511,20 +497,6 @@ mod test {
             assert_eq!(
                 perm.serialize(&ctx).unwrap(),
                 "WebFetch(domain:example.com)"
-            );
-        }
-
-        #[test]
-        fn url_with_query_params() {
-            let pattern = UrlPattern::full_match(
-                "https://api.github.com/repos/owner/repo?per_page=100".to_string(),
-            );
-            let perm = Permission::WebFetch(Some(pattern));
-            let ctx = create_test_context(false);
-
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "WebFetch(https://api.github.com/repos/owner/repo?per_page=100)"
             );
         }
     }
