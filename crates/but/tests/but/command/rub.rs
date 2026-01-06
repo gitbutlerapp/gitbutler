@@ -213,7 +213,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "j0",
+                  "cliId": "k0",
                   "filePath": "a.txt",
                   "changeType": "modified"
                 }
@@ -223,7 +223,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "k0",
+                  "cliId": "l0",
                   "filePath": "a.txt",
                   "changeType": "added"
                 }
@@ -233,7 +233,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "l0",
+                  "cliId": "m0",
                   "filePath": "A",
                   "changeType": "added"
                 }
@@ -251,7 +251,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "m0",
+                  "cliId": "n0",
                   "filePath": "B",
                   "changeType": "added"
                 }
@@ -295,7 +295,7 @@ fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
 
 "#]]);
 
-    // Verify that the first hunk is m0, and move it to unassigned.
+    // Verify that the first hunk is j0, and move it to unassigned.
     env.but("diff i0")
         .env_remove("CLICOLOR_FORCE")
         .assert()
@@ -303,7 +303,7 @@ fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 ────────╮
-m0 a.txt│
+j0 a.txt│
 ────────╯
    1  │-first
      1│+firsta
@@ -311,7 +311,7 @@ m0 a.txt│
    3 3│ line
    4 4│ line
 ────────╮
-n0 a.txt│
+k0 a.txt│
 ────────╯
     6  6│ line
     7  7│ line
@@ -320,7 +320,7 @@ n0 a.txt│
        9│+lasta
 
 "#]]);
-    env.but("m0 00")
+    env.but("j0 00")
         .assert()
         .success()
         .stdout_eq(snapbox::file![
@@ -374,7 +374,7 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
 
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    // Verify that the first hunk is m0, and move it to unassigned.
+    // Verify that the first hunk is j0, and move it to unassigned.
     env.but("diff a.txt")
         .env_remove("CLICOLOR_FORCE")
         .assert()
@@ -382,7 +382,7 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 ────────╮
-m0 a.txt│
+j0 a.txt│
 ────────╯
    1  │-first
      1│+firsta
@@ -390,7 +390,7 @@ m0 a.txt│
    3 3│ line
    4 4│ line
 ────────╮
-n0 a.txt│
+k0 a.txt│
 ────────╯
     6  6│ line
     7  7│ line
@@ -399,7 +399,7 @@ n0 a.txt│
        9│+lasta
 
 "#]]);
-    env.but("rub m0 A")
+    env.but("rub j0 A")
         .assert()
         .success()
         .stdout_eq(snapbox::file![

@@ -269,12 +269,6 @@ impl IdMap {
                 UncommittedFile { hunk_assignments },
             );
         }
-        for commit_oid_path in committed_files.into_iter() {
-            self.committed_files.insert(CommittedFile {
-                commit_oid_path,
-                id: self.id_usage.next_available()?.to_short_id(),
-            });
-        }
 
         for uncommitted_file in self.uncommitted_files.values() {
             if !uncommitted_file.hunk_assignments.is_empty() {
@@ -287,6 +281,13 @@ impl IdMap {
                     );
                 }
             }
+        }
+
+        for commit_oid_path in committed_files.into_iter() {
+            self.committed_files.insert(CommittedFile {
+                commit_oid_path,
+                id: self.id_usage.next_available()?.to_short_id(),
+            });
         }
 
         Ok(())

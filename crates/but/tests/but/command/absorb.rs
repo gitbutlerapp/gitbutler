@@ -73,7 +73,7 @@ fn uncommitted_hunk() -> anyhow::Result<()> {
     env.setup_metadata(&["A", "B"])?;
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    // Verify that the first hunk is m0, and absorb it.
+    // Verify that the first hunk is j0, and absorb it.
     env.but("diff a.txt")
         .env_remove("CLICOLOR_FORCE")
         .assert()
@@ -81,7 +81,7 @@ fn uncommitted_hunk() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 ────────╮
-m0 a.txt│
+j0 a.txt│
 ────────╯
    1  │-first
      1│+firsta
@@ -89,7 +89,7 @@ m0 a.txt│
    3 3│ line
    4 4│ line
 ────────╮
-n0 a.txt│
+k0 a.txt│
 ────────╯
     6  6│ line
     7  7│ line
@@ -98,7 +98,7 @@ n0 a.txt│
        9│+lasta
 
 "#]]);
-    env.but("absorb m0")
+    env.but("absorb j0")
         .assert()
         .success()
         .stdout_eq(snapbox::file![

@@ -321,8 +321,8 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     workspace_and_remote_commits_count: 1
     branches: [ h0 ]
     uncommitted_files: [ g0, i0 ]
-    committed_files: [ j0, k0 ]
-    uncommitted_hunks: [ l0, m0, n0 ]
+    committed_files: [ m0, n0 ]
+    uncommitted_hunks: [ j0, k0, l0 ]
     ");
     insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
     [
@@ -389,19 +389,9 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
                 is_entire_file: true,
             },
         ),
-        CommittedFile {
-            commit_id: Sha1(0202020202020202020202020202020202020202),
-            path: "committed1.txt",
-            id: "j0",
-        },
-        CommittedFile {
-            commit_id: Sha1(0202020202020202020202020202020202020202),
-            path: "committed2.txt",
-            id: "k0",
-        },
         Uncommitted(
             UncommittedCliId {
-                id: "l0",
+                id: "j0",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
                         id: None,
@@ -423,7 +413,7 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
         ),
         Uncommitted(
             UncommittedCliId {
-                id: "m0",
+                id: "k0",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
                         id: None,
@@ -445,7 +435,7 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
         ),
         Uncommitted(
             UncommittedCliId {
-                id: "n0",
+                id: "l0",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
                         id: None,
@@ -463,6 +453,16 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
                 is_entire_file: false,
             },
         ),
+        CommittedFile {
+            commit_id: Sha1(0202020202020202020202020202020202020202),
+            path: "committed1.txt",
+            id: "m0",
+        },
+        CommittedFile {
+            commit_id: Sha1(0202020202020202020202020202020202020202),
+            path: "committed2.txt",
+            id: "n0",
+        },
     ]
     "#);
 
@@ -488,8 +488,8 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     workspace_and_remote_commits_count: 1
     branches: [ h0 ]
     uncommitted_files: [ g0 ]
-    committed_files: [ i0 ]
-    uncommitted_hunks: [ j0 ]
+    committed_files: [ j0 ]
+    uncommitted_hunks: [ i0 ]
     ");
 
     insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("0a")?, @r"
@@ -551,11 +551,26 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("i0")?, @r#"
     [
-        CommittedFile {
-            commit_id: Sha1(0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a),
-            path: "committed.txt",
-            id: "i0",
-        },
+        Uncommitted(
+            UncommittedCliId {
+                id: "i0",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "uncommitted.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
     ]
     "#);
     assert_eq!(
