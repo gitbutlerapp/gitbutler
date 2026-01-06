@@ -3617,6 +3617,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backoff",
+ "but-testsupport",
  "gitbutler-notify-debouncer",
  "gitbutler-project",
  "gix",
@@ -4004,6 +4005,7 @@ dependencies = [
  "gitbutler-filemonitor",
  "gitbutler-operating-modes",
  "gitbutler-project",
+ "notify",
  "serde-error",
  "tokio",
  "tokio-util",

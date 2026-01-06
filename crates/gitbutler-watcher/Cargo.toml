@@ -22,6 +22,7 @@ gitbutler-operating-modes.workspace = true
 gitbutler-project.workspace = true
 
 anyhow.workspace = true
+notify.workspace = true
 tokio = { workspace = true, features = ["macros", "sync"] }
 tokio-util = "0.7.16"
 tracing.workspace = true

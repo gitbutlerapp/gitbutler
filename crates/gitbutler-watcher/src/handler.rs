@@ -57,6 +57,9 @@ impl Handler {
                 self.git_files_change(paths, ctx)
                     .context("failed to handle git file change event")
             }
+
+            // This event is handled in the watcher loop to add dynamic watches and is a no-op here.
+            InternalEvent::WatchPath(_, _) => Ok(()),
         }
     }
 
