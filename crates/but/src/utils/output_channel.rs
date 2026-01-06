@@ -1,7 +1,6 @@
+use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 use minus::ExitStrategy;
 use std::io::IsTerminal;
-
-use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 
 /// A utility `std::io::Write` implementation that can always be used to generate output for humans or for scripts.
 pub struct OutputChannel {
@@ -50,6 +49,13 @@ impl std::io::Write for ProgressChannel {
         } else {
             Ok(())
         }
+    }
+}
+
+impl std::fmt::Write for ProgressChannel {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        use std::io::Write;
+        self.write_all(s.as_bytes()).map_err(|_| std::fmt::Error)
     }
 }
 
