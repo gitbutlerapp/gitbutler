@@ -488,56 +488,97 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
 
         match integration_result {
             Ok(_outcome) => {
-                // Show results for each branch
-                if let Some(out) = out.for_human() {
-                    // Re-fetch status to check for any remaining conflicts
-                    let post_status =
-                        but_api::legacy::virtual_branches::upstream_integration_statuses(
-                            ctx.legacy_project.id,
-                            None,
-                        )
-                        .await?;
+                // Re-fetch status to check for any remaining conflicts
+                let post_status = but_api::legacy::virtual_branches::upstream_integration_statuses(
+                    ctx.legacy_project.id,
+                    None,
+                )
+                .await?;
 
-                    writeln!(out)?;
+                // Report detailed results for each resolution
+                let mut successful_rebases: Vec<String> = Vec::new();
+                let mut conflicted_rebases: Vec<String> = Vec::new();
 
-                    // Report detailed results for each resolution
-                    let mut successful_rebases: Vec<String> = Vec::new();
-                    let mut conflicted_rebases: Vec<String> = Vec::new();
+                for (stack_id, approach) in &resolution_map {
+                    if let Some((branch_name, _original_status)) = branch_info_map.get(stack_id) {
+                        match approach {
+                            ResolutionApproach::Rebase => {
+                                // Check if this branch still has conflicts in post_status
+                                let still_conflicted = if let UpdatesRequired {
+                                    statuses: post_statuses,
+                                    ..
+                                } = &post_status
+                                {
+                                    post_statuses.iter().any(|(id, status)| {
+                                        id.as_ref() == Some(stack_id)
+                                            && status
+                                                .branch_statuses
+                                                .iter()
+                                                .any(|bs| matches!(bs.status, Conflicted { .. }))
+                                    })
+                                } else {
+                                    false
+                                };
 
-                    for (stack_id, approach) in &resolution_map {
-                        if let Some((branch_name, _original_status)) = branch_info_map.get(stack_id)
-                        {
-                            match approach {
-                                ResolutionApproach::Rebase => {
-                                    // Check if this branch still has conflicts in post_status
-                                    let still_conflicted = if let UpdatesRequired {
-                                        statuses: post_statuses,
-                                        ..
-                                    } = &post_status
-                                    {
-                                        post_statuses.iter().any(|(id, status)| {
-                                            id.as_ref() == Some(stack_id)
-                                                && status.branch_statuses.iter().any(|bs| {
-                                                    matches!(bs.status, Conflicted { .. })
-                                                })
-                                        })
-                                    } else {
-                                        false
-                                    };
-
-                                    if still_conflicted {
-                                        conflicted_rebases.push(branch_name.to_string());
-                                    } else {
-                                        successful_rebases.push(branch_name.to_string());
-                                    }
+                                if still_conflicted {
+                                    conflicted_rebases.push(branch_name.to_string());
+                                } else {
+                                    successful_rebases.push(branch_name.to_string());
                                 }
-                                ResolutionApproach::Delete => {
-                                    // Already handled in integrated_branches
-                                }
-                                _ => {}
                             }
+                            ResolutionApproach::Delete => {
+                                // Already handled in integrated_branches
+                            }
+                            _ => {}
                         }
                     }
+                }
+
+                // Check if there are any conflicted files
+                let has_conflicts = !conflicted_rebases.is_empty()
+                    || (if let UpdatesRequired {
+                        statuses: post_statuses,
+                        ..
+                    } = &post_status
+                    {
+                        post_statuses.iter().any(|(_, status)| {
+                            status.tree_status == TreeStatus::Conflicted
+                                || status
+                                    .branch_statuses
+                                    .iter()
+                                    .any(|bs| matches!(bs.status, Conflicted { .. }))
+                        })
+                    } else {
+                        false
+                    });
+
+                // Update final status
+                pull_result.status = if has_conflicts {
+                    "completed_with_conflicts".to_string()
+                } else {
+                    "completed".to_string()
+                };
+
+                // Update summary counts
+                pull_result.summary.branches_updated = successful_rebases.len();
+                pull_result.summary.branches_conflicted = conflicted_rebases.len();
+                pull_result.summary.branches_integrated = pull_result.integrated_branches.len();
+
+                // Set undo command
+                pull_result.undo_command = Some("but undo".to_string());
+
+                // Populate conflicts info
+                for branch_name in &conflicted_rebases {
+                    pull_result.conflicts.push(ConflictInfo {
+                        branch: branch_name.clone(),
+                        files: vec![], // TODO: Get actual conflicted files
+                        upstream_commit: None,
+                    });
+                }
+
+                // Show results for each branch
+                if let Some(out) = out.for_human() {
+                    writeln!(out)?;
 
                     // Show successful rebases
                     for branch_name in &successful_rebases {
@@ -573,24 +614,6 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                             )?;
                         }
                     }
-
-                    // Check if there are any conflicted files
-                    let has_conflicts = !conflicted_rebases.is_empty()
-                        || (if let UpdatesRequired {
-                            statuses: post_statuses,
-                            ..
-                        } = &post_status
-                        {
-                            post_statuses.iter().any(|(_, status)| {
-                                status.tree_status == TreeStatus::Conflicted
-                                    || status
-                                        .branch_statuses
-                                        .iter()
-                                        .any(|bs| matches!(bs.status, Conflicted { .. }))
-                            })
-                        } else {
-                            false
-                        });
 
                     // Final summary
                     writeln!(out, "\n{}", "Summary".bold())?;
@@ -635,6 +658,11 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                     writeln!(out)?;
                     writeln!(out, "{}", "To undo this operation:".bright_white())?;
                     writeln!(out, "  Run `but undo`")?;
+                }
+
+                // Output JSON result
+                if let Some(out) = out.for_json() {
+                    out.write_value(&pull_result)?;
                 }
             }
             Err(e) => {
