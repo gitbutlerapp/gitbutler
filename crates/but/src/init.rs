@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use but_core::sync::LockScope;
 use but_ctx::Context;
 use command_group::AsyncCommandGroup;
 
@@ -114,7 +115,15 @@ pub fn init_ctx(
                 true // Never fetched before, force fetch
             };
 
-            if should_fetch {
+            // Check if there is a process still doing background refreshes
+            let exclusive_access = but_core::sync::try_exclusive_inter_process_access(
+                &ctx.gitdir,
+                LockScope::BackgroundRefreshOperations,
+            )
+            .ok();
+
+            if should_fetch && exclusive_access.is_some() {
+                drop(exclusive_access); // Release the lock immediately so that the new child process can acquire it
                 let binary_path = std::env::current_exe().unwrap_or_default();
                 let proc = tokio::process::Command::new(binary_path.clone())
                     .arg("-C")
