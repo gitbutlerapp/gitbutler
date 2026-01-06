@@ -69,7 +69,7 @@ fn push_single_branch(
     gerrit_mode: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode, out)?;
+    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
 
     if let Some(out) = out.for_human() {
         writeln!(out)?;
@@ -98,9 +98,8 @@ fn push_single_branch_quietly(
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
-    out: &mut OutputChannel,
 ) -> anyhow::Result<String> {
-    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode, out)?;
+    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
     Ok(result.remote)
 }
 
@@ -111,18 +110,7 @@ fn push_single_branch_impl(
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
-    out: &mut OutputChannel,
 ) -> anyhow::Result<PushResult> {
-    if out.for_human().is_some() {
-        let mut progress = out.progress_channel();
-        writeln!(
-            progress,
-            "{} Pushing branch '{}'",
-            "→".cyan(),
-            branch_name.bold()
-        )?;
-    }
-
     // Find stack_id from branch name
     let stack_id = find_stack_id_by_branch_name(project, branch_name)?;
 
@@ -150,6 +138,7 @@ fn push_all_branches(
     gerrit_mode: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
+    let mut progress = out.progress_channel();
     let branches_with_info = get_branches_with_unpushed_info(ctx, project)?;
 
     // Filter to only branches with unpushed commits
@@ -165,10 +154,10 @@ fn push_all_branches(
         return Ok(());
     }
 
-    if let Some(out) = out.for_human() {
-        writeln!(out)?;
-        writeln!(out, "{}", "Pushing branches...".bright_blue().bold())?;
-        writeln!(out)?;
+    if out.for_human().is_some() {
+        writeln!(progress)?;
+        writeln!(progress, "{}", "Pushing branches...".bright_blue().bold())?;
+        writeln!(progress)?;
     }
 
     let mut total_commits_pushed = 0;
@@ -176,17 +165,17 @@ fn push_all_branches(
     let mut failed_branches = Vec::new();
 
     for (branch_name, unpushed_count, _) in branches_to_push {
-        if let Some(out) = out.for_human() {
-            write!(out, "  {} {}... ", "→".cyan(), branch_name.bold())?;
+        if out.for_human().is_some() {
+            write!(progress, "  {} {}... ", "→".cyan(), branch_name.bold())?;
         }
 
-        match push_single_branch_quietly(ctx, project, &branch_name, args, gerrit_mode, out) {
+        match push_single_branch_quietly(ctx, project, &branch_name, args, gerrit_mode) {
             Ok(remote) => {
                 pushed_branches.push((branch_name.clone(), unpushed_count, remote));
                 total_commits_pushed += unpushed_count;
-                if let Some(out) = out.for_human() {
+                if out.for_human().is_some() {
                     writeln!(
-                        out,
+                        progress,
                         "{} ({} commit{})",
                         "✓".green(),
                         unpushed_count.to_string().yellow(),
@@ -196,8 +185,8 @@ fn push_all_branches(
             }
             Err(e) => {
                 failed_branches.push((branch_name.clone(), e.to_string()));
-                if let Some(out) = out.for_human() {
-                    writeln!(out, "{} {}", "✗".red(), e.to_string().red())?;
+                if out.for_human().is_some() {
+                    writeln!(progress, "{} {}", "✗".red(), e.to_string().red())?;
                 }
             }
         }
@@ -280,34 +269,11 @@ fn handle_no_branch_specified(
 
     // Interactive mode: show branches and prompt for selection
     if let Some(out) = out.for_human() {
-        writeln!(out, "{}", "Branch Status:".bright_blue().bold())?;
-        writeln!(out)?;
-
         let mut has_unpushed = false;
 
-        for (branch_name, unpushed_count, _stack_name) in &branches_with_info {
+        for (_branch_name, unpushed_count, _stack_name) in &branches_with_info {
             if *unpushed_count > 0 {
                 has_unpushed = true;
-                writeln!(
-                    out,
-                    "  {} {} {}",
-                    "●".green(),
-                    branch_name.bold(),
-                    format!(
-                        "({} unpushed commit{})",
-                        unpushed_count.to_string().yellow(),
-                        if *unpushed_count == 1 { "" } else { "s" }
-                    )
-                    .dimmed()
-                )?;
-            } else {
-                writeln!(
-                    out,
-                    "  {} {} {}",
-                    "○".dimmed(),
-                    branch_name.dimmed(),
-                    "(up to date)".dimmed()
-                )?;
             }
         }
 
