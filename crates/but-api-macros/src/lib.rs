@@ -14,10 +14,10 @@ use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 ///
 /// * `JSONReturnType`
 ///     - Use it like `but_api(JSONReturnType)` where `JSONReturnType::from(actual_return_type)` is implemented.
-///     - Used as return-type of `func_json` and `func_cmd`.
+///     - Controls how the actual return value is converted for JSON serialization in `func_json` and `func_cmd`.
 /// * `try_from = JSONReturnType`
 ///     - Use it like `but_api(try_from = JSONReturnType)` where `JSONReturnType::try_from(actual_return_type)?` is implemented.
-///     - Used as return-type of `func_json` and `func_cmd`.
+///     - Controls how the actual return value is fallibly converted for JSON serialization in `func_json` and `func_cmd`.
 ///
 /// # Generated Functions
 ///
