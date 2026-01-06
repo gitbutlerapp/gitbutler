@@ -6,6 +6,7 @@ use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_project::Project;
+use serde::Serialize;
 use std::fmt::Write;
 
 use crate::{
@@ -20,6 +21,23 @@ enum BranchSelection {
     Single(String),
     /// Push all branches with unpushed commits
     All,
+}
+
+/// Batch push result for JSON output
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BatchPushResult {
+    /// Successfully pushed branches
+    pushed: Vec<PushResult>,
+    /// Failed branches with error messages
+    failed: Vec<FailedBranch>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FailedBranch {
+    branch_name: String,
+    error: String,
 }
 
 pub fn handle(
@@ -71,6 +89,10 @@ fn push_single_branch(
 ) -> anyhow::Result<()> {
     let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
     let mut progress = out.progress_channel();
+
+    if let Some(out) = out.for_json() {
+        out.write_value(&result)?;
+    }
 
     if out.for_human().is_some() {
         writeln!(progress)?;
@@ -192,12 +214,24 @@ fn push_all_branches(
                 pushed_results.push(result);
             }
             Err(e) => {
-                failed_branches.push((branch_name.clone(), e.to_string()));
+                failed_branches.push(FailedBranch {
+                    branch_name: branch_name.clone(),
+                    error: e.to_string(),
+                });
                 if out.for_human().is_some() {
                     writeln!(progress, "{} {}", "✗".red(), e.to_string().red())?;
                 }
             }
         }
+    }
+
+    // Output JSON if requested
+    if let Some(out) = out.for_json() {
+        let batch_result = BatchPushResult {
+            pushed: pushed_results.clone(),
+            failed: failed_branches.clone(),
+        };
+        out.write_value(&batch_result)?;
     }
 
     if out.for_human().is_some() {
@@ -256,8 +290,8 @@ fn push_all_branches(
                     "branches"
                 }
             )?;
-            for (branch, error) in &failed_branches {
-                writeln!(progress, "    {} - {}", branch.red(), error.dimmed())?;
+            for failed in &failed_branches {
+                writeln!(progress, "    {} - {}", failed.branch_name.red(), failed.error.dimmed())?;
             }
         }
     }
