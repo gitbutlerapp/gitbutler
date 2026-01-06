@@ -5,7 +5,7 @@
 	import CommitRow from '$components/CommitRow.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { BranchesSelectionActions } from '$lib/branches/branchesSelection';
-	import { commitCreatedAt, type Commit, type UpstreamCommit } from '$lib/branches/v3';
+	import { commitCreatedAt, type Commit } from '$lib/branches/v3';
 	import { getColorFromPushStatus, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -65,25 +65,21 @@
 {/snippet}
 
 {#snippet renderCommitRow(
-	commit: Commit | UpstreamCommit,
+	commit: Commit,
 	idx: number,
-	isUpstream: boolean,
-	totalUpstream: number,
 	totalLocal: number,
 	branchFirstCommitType: string | undefined
 )}
 	{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
 		{@render commitMenu(rightClickTrigger, commit.id)}
 	{/snippet}
-	{@const localCommit = isUpstream ? undefined : (commit as Commit)}
-	{@const commitType: 'Remote' | 'LocalOnly' | 'LocalAndRemote' | 'Integrated' = isUpstream ? 'Remote' : ((branchFirstCommitType as 'LocalOnly' | 'LocalAndRemote' | 'Integrated') ?? 'LocalOnly')}
-	{@const isDiverged = localCommit
-		? localCommit.state.type === 'LocalAndRemote' &&
-			commit.id !== localCommit.state.subject
-		: false}
+	{@const localCommit = commit as Commit}
+	{@const commitType: 'LocalOnly' | 'LocalAndRemote' | 'Integrated' = (branchFirstCommitType as 'LocalOnly' | 'LocalAndRemote' | 'Integrated') ?? 'LocalOnly'}
+	{@const isDiverged = localCommit.state.type === 'LocalAndRemote' && commit.id !== localCommit.state.subject}
 	{@const shouldShowMenu = !(
 		branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
 	)}
+	{@const isLastCommit = idx === totalLocal - 1}
 	<CommitRow
 		disableCommitActions={false}
 		{stackId}
@@ -101,17 +97,15 @@
 				remote
 			});
 		}}
-		lastCommit={isUpstream ? idx === totalUpstream - 1 && totalLocal === 0 : idx === totalLocal - 1}
-		active={!isUpstream}
+		lastCommit={isLastCommit}
 		{...shouldShowMenu && { menu }}
 	/>
 {/snippet}
 
 {#snippet branchCard(branch: BranchDetails, env: { projectId: string; stackId?: string })}
 	{@const commitColor = getColorFromPushStatus(branch.pushStatus)}
-	{@const upstreamCount = branch.upstreamCommits?.length ?? 0}
 	{@const localCount = branch.commits?.length ?? 0}
-	{@const hasCommits = upstreamCount > 0 || localCount > 0}
+	{@const hasCommits = localCount > 0}
 	{@const isBranchSelected =
 		branchesSelection.current.branchName === branch.name &&
 		branchesSelection.current.stackId === env.stackId &&
@@ -153,22 +147,10 @@
 		{#snippet branchContent()}
 			{#if hasCommits}
 				<div class="branch-commits">
-					{#each branch.upstreamCommits ?? [] as commit, idx}
-						{@render renderCommitRow(
-							commit,
-							idx,
-							true,
-							upstreamCount,
-							localCount,
-							branchFirstCommitType
-						)}
-					{/each}
 					{#each branch.commits ?? [] as commit, idx}
 						{@render renderCommitRow(
 							commit,
 							idx,
-							false,
-							upstreamCount,
 							localCount,
 							branchFirstCommitType
 						)}
