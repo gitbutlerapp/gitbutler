@@ -7,7 +7,7 @@ use but_settings::AppSettings;
 use but_workspace::ui::{BranchDetails, Commit};
 use cli_prompts::DisplayPrompt;
 use colored::{ColoredString, Colorize};
-use gitbutler_project::{Project, ProjectId};
+use gitbutler_project::Project;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -567,7 +567,7 @@ async fn publish_review_for_branch(
             .unwrap_or_default();
         (title, body)
     } else {
-        get_pr_title_and_body_from_editor(project.id, commit.as_ref(), branch_name)?
+        get_pr_title_and_body_from_editor(project, stack_id, commit.as_ref(), branch_name)?
     };
 
     // Publish a new review for the branch
@@ -621,9 +621,10 @@ fn default_commit(
 
 /// Prompt the user to enter the PR title and description using their default editor.
 /// Opens a single file where the first line is the title and the rest is the description.
-/// Pre-fills with commit message if available.
+/// Pre-fills with commit message if available and includes commit list with files.
 fn get_pr_title_and_body_from_editor(
-    project_id: ProjectId,
+    project: &Project,
+    stack_id: Option<StackId>,
     commit: Option<&Commit>,
     branch_name: &str,
 ) -> anyhow::Result<(String, String)> {
@@ -648,7 +649,7 @@ fn get_pr_title_and_body_from_editor(
             template.push_str(line);
             template.push('\n');
         }
-    } else if let Some(review_template) = but_api::legacy::forge::review_template(project_id)? {
+    } else if let Some(review_template) = but_api::legacy::forge::review_template(project.id)? {
         template.push_str(&review_template.content);
         template.push('\n');
     }
@@ -662,6 +663,70 @@ fn get_pr_title_and_body_from_editor(
     template.push_str("#\n");
     template.push_str("# Lines starting with '#' will be ignored.\n");
     template.push_str("# An empty title (first line) aborts the operation.\n");
+    template.push_str("#\n");
+
+    // Add commit list with modified files as context
+    if let Ok(stack_details) = but_api::legacy::workspace::stack_details(project.id, stack_id)
+        && let Some(branch) = stack_details
+            .branch_details
+            .into_iter()
+            .find(|h| h.name.to_str().unwrap_or("") == branch_name)
+        && !branch.commits.is_empty()
+    {
+        template.push_str("# Commits in this PR:\n");
+        template.push_str("#\n");
+
+        // Get the repository for diff operations
+        if let Ok(ctx) = but_ctx::Context::new_from_legacy_project(project.clone())
+            && let Ok(repo) = ctx.repo.get()
+        {
+            for (idx, commit) in branch.commits.iter().enumerate() {
+                // Extract commit title (first line of message)
+                let commit_title = commit
+                    .message
+                    .lines()
+                    .next()
+                    .and_then(|l| l.to_str().ok())
+                    .unwrap_or("");
+                template.push_str(&format!(
+                    "# {}. {} ({})\n",
+                    idx + 1,
+                    commit_title,
+                    commit.id.to_hex_with_len(7)
+                ));
+
+                // Get the files modified in this commit
+                let parent = commit.parent_ids.first().copied();
+                if let Ok(changes) =
+                    but_core::diff::TreeChanges::from_trees(&repo, parent, commit.id)
+                {
+                    let mut file_paths: Vec<String> = changes
+                        .0
+                        .iter()
+                        .map(|change| {
+                            let tree_change: but_core::TreeChange = change.clone().into();
+                            tree_change.path.to_string()
+                        })
+                        .collect();
+                    file_paths.sort();
+
+                    if !file_paths.is_empty() {
+                        template.push_str("#    Modified files:\n");
+                        for file in file_paths.iter().take(10) {
+                            template.push_str(&format!("#      - {}\n", file));
+                        }
+                        if file_paths.len() > 10 {
+                            template.push_str(&format!(
+                                "#      ... and {} more files\n",
+                                file_paths.len() - 10
+                            ));
+                        }
+                    }
+                }
+                template.push_str("#\n");
+            }
+        }
+    }
     template.push_str("#\n");
 
     let content = get_text::from_editor_no_comments("pr_message", &template)?.to_string();
