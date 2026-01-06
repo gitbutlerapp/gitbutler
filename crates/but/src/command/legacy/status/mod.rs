@@ -57,6 +57,7 @@ pub(crate) fn worktree(
     show_files: bool,
     verbose: bool,
     refresh_prs: bool,
+    show_upstream: bool,
 ) -> anyhow::Result<()> {
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
@@ -139,7 +140,7 @@ pub(crate) fn worktree(
     };
 
     // Get cached upstream state information (without fetching)
-    let (upstream_state, last_fetched_ms) =
+    let (upstream_state, last_fetched_ms, base_branch) =
         but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)
             .ok()
             .flatten()
@@ -186,9 +187,9 @@ pub(crate) fn worktree(
                 } else {
                     None
                 };
-                (state, last_fetched)
+                (state, last_fetched, Some(base_branch))
             })
-            .unwrap_or((None, None));
+            .unwrap_or((None, None, None));
 
     if let Some(out) = out.for_json() {
         let workspace_status = json::build_workspace_status_json(
@@ -204,6 +205,8 @@ pub(crate) fn worktree(
             ctx.legacy_project.id,
             &repo,
             &id_map,
+            base_branch.as_ref(),
+            show_upstream,
         )?;
         out.write_value(workspace_status)?;
         return Ok(());
@@ -288,6 +291,35 @@ pub(crate) fn worktree(
             upstream.message,
             last_checked_text.dimmed()
         )?;
+
+        // Display detailed list of upstream commits if --upstream flag is set
+        if show_upstream {
+            if let Some(ref base_branch) = base_branch {
+                if !base_branch.upstream_commits.is_empty() {
+                    writeln!(out)?;
+                    let commits = base_branch.upstream_commits.iter().take(3);
+                    for commit in commits {
+                        writeln!(
+                            out,
+                            "┊  {} {}",
+                            commit.id[..7].yellow(),
+                            commit
+                                .description
+                                .to_string()
+                                .replace('\n', " ")
+                                .chars()
+                                .take(72)
+                                .collect::<String>()
+                                .dimmed()
+                        )?;
+                    }
+                    let hidden_commits = base_branch.behind.saturating_sub(3);
+                    if hidden_commits > 0 {
+                        writeln!(out, "┊  {}", format!("... ({hidden_commits} more)").dimmed())?;
+                    }
+                }
+            }
+        }
     }
 
     writeln!(

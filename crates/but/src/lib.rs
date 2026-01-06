@@ -344,9 +344,10 @@ async fn match_subcommand(
             show_files,
             verbose,
             refresh_prs: sync_prs,
+            upstream,
         } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-            command::legacy::status::worktree(&mut ctx, out, show_files, verbose, sync_prs)
+            command::legacy::status::worktree(&mut ctx, out, show_files, verbose, sync_prs, upstream)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
@@ -355,7 +356,7 @@ async fn match_subcommand(
             refresh_prs,
         } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-            command::legacy::status::worktree(&mut ctx, out, true, verbose, refresh_prs)
+            command::legacy::status::worktree(&mut ctx, out, true, verbose, refresh_prs, false)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
