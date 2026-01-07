@@ -397,7 +397,9 @@ fn main() -> anyhow::Result<()> {
                 claude::claude_is_stack_active,
                 claude::claude_compact_history,
                 commit::tauri_commit_reword::commit_reword,
-                commit::tauri_commit_insert_blank::commit_insert_blank
+                commit::tauri_commit_insert_blank::commit_insert_blank,
+                commit::tauri_commit_move_changes_between::commit_move_changes_between,
+
             ])
             .menu(move |handle| menu::build(handle, &app_settings_for_menu))
             .on_window_event(|window, event| match event {

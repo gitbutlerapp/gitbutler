@@ -351,13 +351,8 @@ pub fn discard_worktree_changes(
 
 mod json {
     use but_workspace::legacy::MoveChangesResult;
-    use serde::Serialize;
 
-    #[derive(Debug, Serialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct UIMoveChangesResult {
-        replaced_commits: Vec<(String, String)>,
-    }
+    pub use crate::json::UIMoveChangesResult;
 
     impl From<MoveChangesResult> for UIMoveChangesResult {
         fn from(value: MoveChangesResult) -> Self {
@@ -365,7 +360,7 @@ mod json {
                 replaced_commits: value
                     .replaced_commits
                     .into_iter()
-                    .map(|(x, y)| (x.to_hex().to_string(), y.to_hex().to_string()))
+                    .map(|(x, y)| (x.into(), y.into()))
                     .collect(),
             }
         }

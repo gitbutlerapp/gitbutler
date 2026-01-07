@@ -3,6 +3,7 @@ use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide};
+use but_workspace::commit::move_changes_between_commits;
 use tracing::instrument;
 
 /// Rewords a commit
@@ -131,6 +132,69 @@ pub fn commit_insert_blank(
     .ok();
 
     let res = commit_insert_blank_only(ctx, relative_to, side);
+    if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
+        snapshot.commit(ctx).ok();
+    };
+    res
+}
+
+/// Moves changes between two commits
+///
+/// Returns where the source and destination commits were mapped to.
+///
+/// TODO(CTO): Create a way of extracting _all_ mapped commits. Copoilot, have
+/// made linear ticket GB-980 for this. I will do this in a follow up PR. Please
+/// don't complain.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn commit_move_changes_between_only(
+    ctx: &but_ctx::Context,
+    source_commit_id: json::HexHash,
+    destination_commit_id: json::HexHash,
+    changes: Vec<but_core::DiffSpec>,
+) -> anyhow::Result<json::UIMoveChangesResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let (repo, _, graph) = ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let editor = graph.to_editor(&repo)?;
+
+    let outcome = move_changes_between_commits(
+        editor,
+        source_commit_id.into(),
+        destination_commit_id.into(),
+        changes,
+        3,
+    )?;
+    let materialized = outcome.rebase.materialize()?;
+    let new_source_commit_id = materialized.lookup_pick(outcome.source_selector)?;
+    let new_destination_commit_id = materialized.lookup_pick(outcome.destination_selector)?;
+
+    Ok(json::UIMoveChangesResult {
+        replaced_commits: vec![
+            (source_commit_id, new_source_commit_id.into()),
+            (destination_commit_id, new_destination_commit_id.into()),
+        ],
+    })
+}
+
+/// Moves changes between two commits
+///
+/// Returns where the source and destination commits were mapped to.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn commit_move_changes_between(
+    ctx: &but_ctx::Context,
+    source_commit_id: json::HexHash,
+    destination_commit_id: json::HexHash,
+    changes: Vec<but_core::DiffSpec>,
+) -> anyhow::Result<json::UIMoveChangesResult> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
+        ctx,
+        SnapshotDetails::new(OperationKind::MoveCommitFile),
+    )
+    .ok();
+
+    let res =
+        commit_move_changes_between_only(ctx, source_commit_id, destination_commit_id, changes);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
         snapshot.commit(ctx).ok();
     };

@@ -720,7 +720,11 @@ export class StackService {
 	}
 
 	get moveChangesBetweenCommits() {
-		return this.api.endpoints.moveChangesBetweenCommits.mutate;
+		if (get(useNewRebaseEngine)) {
+			return this.api.endpoints.commitMoveChangesBetween.mutate;
+		} else {
+			return this.api.endpoints.legacyMoveChangesBetweenCommits.mutate;
+		}
 	}
 
 	get uncommitChanges() {
@@ -1342,7 +1346,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				query: (args) => args,
 				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)]
 			}),
-			moveChangesBetweenCommits: build.mutation<
+			legacyMoveChangesBetweenCommits: build.mutation<
 				{ replacedCommits: [string, string][] },
 				{
 					projectId: string;
@@ -1369,6 +1373,26 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 						...commitChangesTags
 					];
 				}
+			}),
+			commitMoveChangesBetween: build.mutation<
+				{ replacedCommits: [string, string][] },
+				{
+					projectId: string;
+					changes: DiffSpec[];
+					sourceCommitId: string;
+					destinationCommitId: string;
+				}
+			>({
+				extraOptions: {
+					command: 'commit_move_changes_between',
+					actionName: 'Move Changes Between Commits'
+				},
+				query: (args) => args,
+				invalidatesTags: [
+					invalidatesList(ReduxTag.HeadSha),
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.CommitChanges)
+				]
 			}),
 			uncommitChanges: build.mutation<
 				{ replacedCommits: [string, string][] },
