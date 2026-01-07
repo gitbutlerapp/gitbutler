@@ -209,17 +209,17 @@ pub fn spawn(
                         }
                     }
 
-                    let watch_paths: HashSet<_> = ignore_filtering_ran
-                        .then_some(
-                            classified_file_paths
-                                .iter()
-                                .filter(|(file_path, kind)| {
-                                    *kind == FileKind::Project && file_path.is_dir()
-                                })
-                                .map(|(path, _)| path.clone())
-                                .collect(),
-                        )
-                        .unwrap_or_default();
+                    let watch_paths: HashSet<_> = if ignore_filtering_ran {
+                        classified_file_paths
+                            .iter()
+                            .filter(|(file_path, kind)| {
+                                *kind == FileKind::Project && file_path.is_dir()
+                            })
+                            .map(|(path, _)| path.clone())
+                            .collect()
+                    } else {
+                        HashSet::new()
+                    };
                     let (mut stripped_git_paths, mut worktree_relative_paths) =
                         (HashSet::new(), HashSet::new());
                     for (file_path, kind) in classified_file_paths {
