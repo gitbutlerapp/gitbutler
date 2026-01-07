@@ -35,6 +35,8 @@ import { HISTORY_SERVICE, HistoryService } from '$lib/history/history';
 import { OplogService, OPLOG_SERVICE } from '$lib/history/oplogService.svelte';
 import { HOOKS_SERVICE, HooksService } from '$lib/hooks/hooksService';
 import { DiffService, DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
+import { I18nService, I18N_SERVICE } from '$lib/i18n/i18nService';
+import { messages as I18nServiceMessages } from '$lib/i18n/locales';
 import { IrcClient, IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 import { IrcService, IRC_SERVICE } from '$lib/irc/ircService.svelte';
 import { ModeService, MODE_SERVICE } from '$lib/mode/modeService';
@@ -308,6 +310,11 @@ export function initDependencies(args: {
 	// UTILITIES
 	// ============================================================================
 
+	const i18nService = new I18nService({
+		locale: I18nService.defaultLocale,
+		fallbackLocale: I18nService.defaultLocale,
+		messages: I18nServiceMessages
+	});
 	const urlService = new URLService(backend);
 	const clipboardService = new ClipboardService(backend);
 	const externalLinkService = {
@@ -355,6 +362,7 @@ export function initDependencies(args: {
 		[HISTORY_SERVICE, historyService],
 		[HOOKS_SERVICE, hooksService],
 		[HTTP_CLIENT, httpClient],
+		[I18N_SERVICE, i18nService],
 		[FILE_SELECTION_MANAGER, fileSelectionManager],
 		[IME_COMPOSITION_HANDLER, imeHandler],
 		[IRC_CLIENT, ircClient],
