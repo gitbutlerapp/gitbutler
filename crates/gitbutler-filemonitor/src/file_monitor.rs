@@ -127,14 +127,12 @@ pub fn spawn(
                 notify::ErrorKind::PathNotFound => Err(backoff::Error::permanent(RunError::from(
                     anyhow!("{} not found", worktree_path.display()),
                 ))),
-                notify::ErrorKind::Io(_) | notify::ErrorKind::InvalidConfig(_) => {
-                    Err(backoff::Error::permanent(RunError::from(anyhow::Error::from(
-                        err,
-                    ))))
-                }
-                _ => Err(backoff::Error::transient(RunError::from(anyhow::Error::from(
-                    err,
-                )))),
+                notify::ErrorKind::Io(_) | notify::ErrorKind::InvalidConfig(_) => Err(
+                    backoff::Error::permanent(RunError::from(anyhow::Error::from(err))),
+                ),
+                _ => Err(backoff::Error::transient(RunError::from(
+                    anyhow::Error::from(err),
+                ))),
             },
         }
     })
@@ -403,10 +401,13 @@ fn to_repo_relative_key(path: &Path) -> BString {
 fn is_interesting_kind(kind: notify::EventKind) -> bool {
     matches!(
         kind,
-        notify::EventKind::Create(notify::event::CreateKind::File | notify::event::CreateKind::Folder)
-            | notify::EventKind::Modify(notify::event::ModifyKind::Data(_))
+        notify::EventKind::Create(
+            notify::event::CreateKind::File | notify::event::CreateKind::Folder
+        ) | notify::EventKind::Modify(notify::event::ModifyKind::Data(_))
             | notify::EventKind::Modify(notify::event::ModifyKind::Name(_))
-            | notify::EventKind::Remove(notify::event::RemoveKind::File | notify::event::RemoveKind::Folder)
+            | notify::EventKind::Remove(
+                notify::event::RemoveKind::File | notify::event::RemoveKind::Folder
+            )
     )
 }
 
