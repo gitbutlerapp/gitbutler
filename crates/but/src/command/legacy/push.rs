@@ -6,6 +6,7 @@ use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_project::Project;
+use serde::Serialize;
 use std::fmt::Write;
 
 use crate::{
@@ -20,6 +21,23 @@ enum BranchSelection {
     Single(String),
     /// Push all branches with unpushed commits
     All,
+}
+
+/// Batch push result for JSON output
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BatchPushResult {
+    /// Successfully pushed branches
+    pushed: Vec<PushResult>,
+    /// Failed branches with error messages
+    failed: Vec<FailedBranch>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FailedBranch {
+    branch_name: String,
+    error: String,
 }
 
 pub fn handle(
@@ -70,37 +88,45 @@ fn push_single_branch(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
+    let mut progress = out.progress_channel();
 
-    if let Some(out) = out.for_human() {
-        writeln!(out)?;
-        writeln!(out, "{} Push completed successfully", "✓".green().bold())?;
-        writeln!(out)?;
-        writeln!(out, "  {} {}", "Remote:".dimmed(), result.remote.bold())?;
-        if !gerrit_mode && !result.branch_to_remote.is_empty() {
-            for (branch, remote_ref) in &result.branch_to_remote {
+    if let Some(out) = out.for_json() {
+        out.write_value(&result)?;
+    }
+
+    if out.for_human().is_some() {
+        writeln!(progress)?;
+        writeln!(
+            progress,
+            "{} Push completed successfully",
+            "✓".green().bold()
+        )?;
+        writeln!(progress)?;
+        if !result.branch_sha_updates.is_empty() {
+            for (branch, before_sha, after_sha) in &result.branch_sha_updates {
+                let before_str = if before_sha == "0000000000000000000000000000000000000000" {
+                    "(new branch)".to_string()
+                } else {
+                    before_sha.chars().take(7).collect()
+                };
+                let after_str: String = after_sha.chars().take(7).collect();
+
+                // Construct simple remote ref format: remote/branch
+                let remote_ref = format!("{}/{}", result.remote, branch);
+
                 writeln!(
-                    out,
-                    "  {} → {}",
+                    progress,
+                    "  {} -> {} ({} -> {})",
                     branch.cyan(),
-                    remote_ref.to_string().dimmed()
+                    remote_ref.dimmed(),
+                    before_str.dimmed(),
+                    after_str.green()
                 )?;
             }
         }
     }
 
     Ok(())
-}
-
-// Quieter version for batch operations
-fn push_single_branch_quietly(
-    ctx: &Context,
-    project: &Project,
-    branch_name: &str,
-    args: &Command,
-    gerrit_mode: bool,
-) -> anyhow::Result<String> {
-    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
-    Ok(result.remote)
 }
 
 // Shared implementation for pushing a single branch
@@ -148,8 +174,21 @@ fn push_all_branches(
         .collect();
 
     if branches_to_push.is_empty() {
-        if let Some(out) = out.for_human() {
-            writeln!(out, "{}", "No branches have unpushed commits.".dimmed())?;
+        // Output empty result for JSON
+        if let Some(out) = out.for_json() {
+            let batch_result = BatchPushResult {
+                pushed: vec![],
+                failed: vec![],
+            };
+            out.write_value(&batch_result)?;
+        }
+
+        if out.for_human().is_some() {
+            writeln!(
+                progress,
+                "{}",
+                "No branches have unpushed commits.".dimmed()
+            )?;
         }
         return Ok(());
     }
@@ -161,7 +200,7 @@ fn push_all_branches(
     }
 
     let mut total_commits_pushed = 0;
-    let mut pushed_branches = Vec::new();
+    let mut pushed_results = Vec::new();
     let mut failed_branches = Vec::new();
 
     for (branch_name, unpushed_count, _) in branches_to_push {
@@ -169,9 +208,8 @@ fn push_all_branches(
             write!(progress, "  {} {}... ", "→".cyan(), branch_name.bold())?;
         }
 
-        match push_single_branch_quietly(ctx, project, &branch_name, args, gerrit_mode) {
-            Ok(remote) => {
-                pushed_branches.push((branch_name.clone(), unpushed_count, remote));
+        match push_single_branch_impl(ctx, project, &branch_name, args, gerrit_mode) {
+            Ok(result) => {
                 total_commits_pushed += unpushed_count;
                 if out.for_human().is_some() {
                     writeln!(
@@ -182,9 +220,13 @@ fn push_all_branches(
                         if unpushed_count == 1 { "" } else { "s" }
                     )?;
                 }
+                pushed_results.push(result);
             }
             Err(e) => {
-                failed_branches.push((branch_name.clone(), e.to_string()));
+                failed_branches.push(FailedBranch {
+                    branch_name: branch_name.clone(),
+                    error: e.to_string(),
+                });
                 if out.for_human().is_some() {
                     writeln!(progress, "{} {}", "✗".red(), e.to_string().red())?;
                 }
@@ -192,12 +234,21 @@ fn push_all_branches(
         }
     }
 
-    if let Some(out) = out.for_human() {
-        writeln!(out)?;
+    // Output JSON if requested
+    if let Some(out) = out.for_json() {
+        let batch_result = BatchPushResult {
+            pushed: pushed_results.clone(),
+            failed: failed_branches.clone(),
+        };
+        out.write_value(&batch_result)?;
+    }
 
-        if !pushed_branches.is_empty() {
+    if out.for_human().is_some() {
+        writeln!(progress)?;
+
+        if !pushed_results.is_empty() {
             writeln!(
-                out,
+                progress,
                 "{} {} {} {}",
                 "✓".green().bold(),
                 "Successfully pushed".green().bold(),
@@ -208,22 +259,37 @@ fn push_all_branches(
                     "commits"
                 }
             )?;
+            writeln!(progress)?;
 
-            for (branch, count, remote) in &pushed_branches {
-                writeln!(
-                    out,
-                    "    {} → {} ({})",
-                    branch.dimmed(),
-                    format!("{}/{}", remote, branch).dimmed(),
-                    format!("{} commit{}", count, if *count == 1 { "" } else { "s" }).dimmed()
-                )?;
+            // Print combined branch, remote, and SHA information for all pushed branches
+            for result in &pushed_results {
+                for (branch, before_sha, after_sha) in &result.branch_sha_updates {
+                    let before_str = if before_sha == "0000000000000000000000000000000000000000" {
+                        "(new branch)".to_string()
+                    } else {
+                        before_sha.chars().take(7).collect()
+                    };
+                    let after_str: String = after_sha.chars().take(7).collect();
+
+                    // Construct simple remote ref format: remote/branch
+                    let remote_ref = format!("{}/{}", result.remote, branch);
+
+                    writeln!(
+                        progress,
+                        "  {} -> {} ({} -> {})",
+                        branch.cyan(),
+                        remote_ref.dimmed(),
+                        before_str.dimmed(),
+                        after_str.green()
+                    )?;
+                }
             }
         }
 
         if !failed_branches.is_empty() {
-            writeln!(out)?;
+            writeln!(progress)?;
             writeln!(
-                out,
+                progress,
                 "{} Failed to push {} {}:",
                 "✗".red().bold(),
                 failed_branches.len().to_string().red().bold(),
@@ -233,8 +299,13 @@ fn push_all_branches(
                     "branches"
                 }
             )?;
-            for (branch, error) in &failed_branches {
-                writeln!(out, "    {} - {}", branch.red(), error.dimmed())?;
+            for failed in &failed_branches {
+                writeln!(
+                    progress,
+                    "    {} - {}",
+                    failed.branch_name.red(),
+                    failed.error.dimmed()
+                )?;
             }
         }
     }
@@ -264,7 +335,8 @@ fn handle_no_branch_specified(
     }
 
     // Interactive mode: show branches and prompt for selection
-    if let Some(out) = out.for_human() {
+    let mut progress = out.progress_channel();
+    if out.for_human().is_some() {
         let mut has_unpushed = false;
 
         for (_branch_name, unpushed_count, _stack_name) in &branches_with_info {
@@ -274,16 +346,16 @@ fn handle_no_branch_specified(
         }
 
         if !has_unpushed {
-            writeln!(out)?;
+            writeln!(progress)?;
             writeln!(
-                out,
+                progress,
                 "{}",
                 "✓ All branches are up to date with the remote.".green()
             )?;
             return Ok(BranchSelection::All);
         }
 
-        writeln!(out)?;
+        writeln!(progress)?;
 
         // Create selection options
         let mut options = vec!["all - Push all branches with unpushed commits".to_string()];
