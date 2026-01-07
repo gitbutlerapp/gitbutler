@@ -17,9 +17,6 @@ EOF
 mkdir -p ignored_dir
 echo "tracked" >ignored_dir/tracked_file
 git add -f ignored_dir/tracked_file
-git commit -m "add tracked file in ignored dir"
 
 mkdir -p normal_dir
 echo "hi" >normal_dir/file.txt
-git add normal_dir/file.txt
-git commit -m "add normal file"

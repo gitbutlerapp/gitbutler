@@ -32,31 +32,6 @@ fn compute_watch_plan_respects_gitignore_for_ignored_dirs() {
 
 #[test]
 fn compute_watch_plan_includes_ignored_but_tracked_dirs() {
-    let (repo, _tmpdir) = but_testsupport::writable_scenario("watch-plan-ignores-node-modules");
-    let worktree = repo.workdir().expect("non-bare");
-
-    // Create a directory, add it to .gitignore, but track a file inside it.
-    std::fs::create_dir(worktree.join("ignored_dir")).unwrap();
-    std::fs::write(worktree.join("ignored_dir/tracked_file"), "content").unwrap();
-    std::fs::write(worktree.join(".gitignore"), "ignored_dir/").unwrap();
-
-    // Use git to force add the file in the ignored directory
-    let mut cmd = but_testsupport::git(&repo);
-    cmd.arg("add").arg("-f").arg("ignored_dir/tracked_file");
-    assert!(cmd.status().unwrap().success());
-
-    let plan = gitbutler_filemonitor::compute_watch_plan(worktree).expect("plan computed");
-    let worktree_real = gix::path::realpath(worktree).expect("realpath worktree");
-
-    let actual = canonicalize_plan(&plan, &worktree_real);
-    assert!(
-        actual.contains(&("non-recursive", "ignored_dir".to_string())),
-        "ignored_dir should be watched because it contains tracked files, even if ignored"
-    );
-}
-
-#[test]
-fn compute_watch_plan_includes_ignored_but_tracked_dirs_fixture() {
     let (repo, _tmpdir) = but_testsupport::writable_scenario("watch-plan-ignored-but-tracked");
     let worktree = repo.workdir().expect("non-bare");
 

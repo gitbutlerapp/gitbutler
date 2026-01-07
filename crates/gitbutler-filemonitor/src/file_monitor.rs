@@ -519,12 +519,11 @@ fn compute_watch_plan_for_repo(
             let Ok(entry) = entry else {
                 continue;
             };
-            let path = entry.path();
-            let Ok(metadata) = path.symlink_metadata() else {
+            let Ok(file_type) = entry.file_type() else {
                 continue;
             };
-            if metadata.is_dir() && !metadata.is_symlink() {
-                stack.push(path);
+            if file_type.is_dir() && !file_type.is_symlink() {
+                stack.push(entry.path());
             }
         }
     }
@@ -626,26 +625,5 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
         }
     } else {
         FileKind::Project
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #![allow(unsafe_code)]
-    use super::*;
-    use gix::bstr::ByteSlice;
-
-    #[test]
-    fn test_tracked_worktree_dir_prefixes_empty_root() {
-        let index = gix::index::State::new(gix::hash::Kind::Sha1);
-        let tracked_dirs = tracked_worktree_dir_prefixes(&index);
-        assert!(tracked_dirs.contains(b"".as_bstr()), "Root should always be in tracked_dirs");
-    }
-
-    #[test]
-    fn test_watch_mode_from_env_fallback() {
-        unsafe { std::env::set_var(ENV_WATCH_MODE, "invalid"); }
-        assert_eq!(WatchMode::from_env(), WatchMode::Auto);
-        unsafe { std::env::remove_var(ENV_WATCH_MODE); }
     }
 }

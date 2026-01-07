@@ -103,7 +103,12 @@ pub fn watch_in_background(
                         // directory before the watch is established will be missed.
                         tracing::trace!(%project_id, ?path, "adding dynamic watch");
                         if let Err(err) = debounce.watcher().watch(&path, RecursiveMode::NonRecursive) {
-                            tracing::warn!(%project_id, ?path, ?err, "failed to add watch");
+                            tracing::warn!(
+                                %project_id,
+                                ?path,
+                                ?err,
+                                "failed to add watch; changes may be missed until restart"
+                            );
                         }
                     }
                     event => handle_event(event, app_settings.clone())?,
