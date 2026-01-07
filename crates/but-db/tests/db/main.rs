@@ -29,7 +29,7 @@ fn init_in_nonexisting_dir() -> anyhow::Result<()> {
 }
 
 #[test]
-fn init_in_parallel() -> anyhow::Result<()> {
+fn migrations_in_parallel_with_threads() -> anyhow::Result<()> {
     let tmp = tempfile::tempdir()?;
     let num_threads = 2;
     let barrier = std::sync::Barrier::new(num_threads);
