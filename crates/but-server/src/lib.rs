@@ -19,7 +19,6 @@ use gitbutler_project::ProjectId;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
-use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 
 mod projects;
@@ -71,7 +70,6 @@ pub async fn run() {
         instance_by_stack: Default::default(),
     };
 
-    // build our application with a single route
     let app = Router::new()
         .route(
             "/",
@@ -96,7 +94,7 @@ pub async fn run() {
                 tokio::task::spawn(next.run(req)).await.unwrap()
             },
         ))
-        .layer(ServiceBuilder::new().layer(cors));
+        .layer(cors);
 
     let port = std::env::var("BUTLER_PORT").unwrap_or("6978".into());
     let host = std::env::var("BUTLER_HOST").unwrap_or("127.0.0.1".into());
