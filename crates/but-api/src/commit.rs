@@ -1,7 +1,8 @@
+use crate::json;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{GraphExt, LookupStep as _};
+use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide};
 use tracing::instrument;
 
 /// Rewords a commit
@@ -45,6 +46,91 @@ pub fn commit_reword(
     .ok();
 
     let res = commit_reword_only(ctx, commit_id, message);
+    if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
+        snapshot.commit(ctx).ok();
+    };
+    res
+}
+
+mod ui {
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+    pub enum RelativeTo {
+        /// Relative to a commit
+        #[serde(with = "but_serde::object_id")]
+        Commit(gix::ObjectId),
+        /// Relative to a reference
+        #[serde(with = "but_serde::fullname_lossy")]
+        Reference(gix::refs::FullName),
+    }
+
+    impl From<but_workspace::commit::insert_blank_commit::RelativeTo<'_>> for RelativeTo {
+        fn from(value: but_workspace::commit::insert_blank_commit::RelativeTo) -> Self {
+            match value {
+                but_workspace::commit::insert_blank_commit::RelativeTo::Commit(c) => {
+                    Self::Commit(c)
+                }
+                but_workspace::commit::insert_blank_commit::RelativeTo::Reference(r) => {
+                    Self::Reference(r.into())
+                }
+            }
+        }
+    }
+
+    impl<'a> From<&'a RelativeTo> for but_workspace::commit::insert_blank_commit::RelativeTo<'a> {
+        fn from(value: &'a RelativeTo) -> Self {
+            match value {
+                RelativeTo::Commit(c) => Self::Commit(*c),
+                RelativeTo::Reference(r) => Self::Reference(r.as_ref()),
+            }
+        }
+    }
+}
+
+/// Inserts a blank commit relative to either a commit or a reference
+///
+/// Returns the ID of the newly created blank commit
+#[but_api(json::HexHash)]
+#[instrument(err(Debug))]
+pub fn commit_insert_blank_only(
+    ctx: &but_ctx::Context,
+    relative_to: ui::RelativeTo,
+    side: InsertSide,
+) -> anyhow::Result<gix::ObjectId> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let (repo, _, graph) = ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let editor = graph.to_editor(&repo)?;
+
+    let relative_to = (&relative_to).into();
+
+    let (outcome, blank_commit_selector) =
+        but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
+
+    let outcome = outcome.materialize()?;
+    let id = outcome.lookup_pick(blank_commit_selector)?;
+
+    Ok(id)
+}
+
+/// Inserts a blank commit relative to either a commit or a reference, with oplog support
+///
+/// Returns the ID of the newly created blank commit
+#[but_api(json::HexHash)]
+#[instrument(err(Debug))]
+pub fn commit_insert_blank(
+    ctx: &but_ctx::Context,
+    relative_to: ui::RelativeTo,
+    side: InsertSide,
+) -> anyhow::Result<gix::ObjectId> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
+        ctx,
+        SnapshotDetails::new(OperationKind::InsertBlankCommit),
+    )
+    .ok();
+
+    let res = commit_insert_blank_only(ctx, relative_to, side);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
         snapshot.commit(ctx).ok();
     };

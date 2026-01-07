@@ -23,9 +23,13 @@ export type Author = {
  */
 export type BranchDetails = {
 	/**
-	 * The name of the branch.
+	 * The name of the branch. This is the "given name" IE, just `foo` out of `refs/heads/foo`
 	 */
 	name: string;
+	/**
+	 * The full reference of the branch
+	 */
+	reference: string;
 	/**
 	 * The id of the linked worktree that has the reference of `name` checked out.
 	 * Note that we don't list the main worktree here.

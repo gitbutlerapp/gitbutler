@@ -217,7 +217,8 @@
 								projectId,
 								stackId,
 								commitId: undefined,
-								offset: -1
+								offset: 1,
+								reference: contextData.branch.reference
 							});
 							close();
 						}}

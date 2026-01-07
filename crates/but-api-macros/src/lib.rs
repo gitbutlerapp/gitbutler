@@ -233,6 +233,11 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         // Original function stays
         #input_fn
 
+        const _: () = {
+            #[allow(dead_code)]
+            pub fn keep_json(_json: #json_ty) {}
+        };
+
         /// Cmd function - this is legacy just while most of its functionality depend on `LegacyProjectId`.
         /// parameter struct input via json value, json output.
         #[cfg(feature = "legacy")]
