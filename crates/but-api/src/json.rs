@@ -415,3 +415,11 @@ impl From<gix::refs::Reference> for Reference {
         }
     }
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// UI type for a move changes between commits result
+pub struct UIMoveChangesResult {
+    /// Commits that have been mapped from one thing to another
+    pub replaced_commits: Vec<(HexHash, HexHash)>,
+}

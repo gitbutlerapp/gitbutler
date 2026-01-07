@@ -9,6 +9,11 @@ use crate::{
 };
 
 impl Editor {
+    /// Returns a reference to the in-memory repository.
+    pub fn repo(&self) -> &gix::Repository {
+        &self.repo
+    }
+
     /// Finds a commit from inside the editor's in memory repository.
     pub fn find_commit(&self, id: gix::ObjectId) -> Result<but_core::Commit<'_>> {
         but_core::Commit::from_id(id.attach(&self.repo))
