@@ -103,6 +103,10 @@ pub(crate) struct Branch {
     /// This is only populated when CI information is available for the branch (for example, when the
     /// repository is configured with CI and the status has been fetched); otherwise it will be `None`.
     ci: Option<Ci>,
+    /// The merge status of the branch with upstream, indicating whether it can be cleanly integrated.
+    /// This is only populated when `but status --upstream` is used.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    merge_status: Option<MergeStatus>,
 }
 
 /// The aggregated status of CI checks associated with a branch.
@@ -140,6 +144,23 @@ pub(crate) enum CiConclusion {
     /// The overall CI outcome is not known, for example because no checks ran
     /// or the CI provider did not report a final result.
     Unknown,
+}
+
+/// The merge status of a branch with the upstream branch
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum MergeStatus {
+    /// The branch can be cleanly merged or rebased onto the upstream
+    Clean,
+    /// The branch has already been integrated into the upstream
+    Integrated,
+    /// The branch has conflicts with the upstream
+    Conflicted {
+        /// Whether the branch can be rebased (despite conflicts)
+        rebasable: bool,
+    },
+    /// The branch has no commits
+    Empty,
 }
 
 /// The status of a branch with respect to its upstream
@@ -267,6 +288,7 @@ impl From<Vec<but_forge::CiCheck>> for Ci {
 }
 
 impl Branch {
+    #[allow(clippy::too_many_arguments)]
     pub fn from_branch_details(
         cli_id: String,
         branch: but_workspace::ui::BranchDetails,
@@ -275,6 +297,7 @@ impl Branch {
         project_id: gitbutler_project::ProjectId,
         id_map: &crate::IdMap,
         ci: Option<Vec<but_forge::CiCheck>>,
+        merge_status: Option<MergeStatus>,
     ) -> anyhow::Result<Self> {
         let commits = branch
             .commits
@@ -310,6 +333,7 @@ impl Branch {
             branch_status: branch.push_status.into(),
             review_id,
             ci: ci.map(Ci::from),
+            merge_status,
         })
     }
 }
@@ -441,6 +465,10 @@ fn convert_branch_to_json(
     project_id: gitbutler_project::ProjectId,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
+    branch_merge_statuses: &BTreeMap<
+        String,
+        gitbutler_branch_actions::upstream_integration::BranchStatus,
+    >,
     id_map: &crate::IdMap,
 ) -> anyhow::Result<Branch> {
     let cli_id = id_map
@@ -460,6 +488,26 @@ fn convert_branch_to_json(
 
     let ci = ci_map.get(&branch.name.to_string()).cloned();
 
+    let merge_status =
+        branch_merge_statuses
+            .get(&branch.name.to_string())
+            .map(|status| match status {
+                gitbutler_branch_actions::upstream_integration::BranchStatus::SaflyUpdatable => {
+                    MergeStatus::Clean
+                }
+                gitbutler_branch_actions::upstream_integration::BranchStatus::Integrated => {
+                    MergeStatus::Integrated
+                }
+                gitbutler_branch_actions::upstream_integration::BranchStatus::Conflicted {
+                    rebasable,
+                } => MergeStatus::Conflicted {
+                    rebasable: *rebasable,
+                },
+                gitbutler_branch_actions::upstream_integration::BranchStatus::Empty => {
+                    MergeStatus::Empty
+                }
+            });
+
     Branch::from_branch_details(
         cli_id.to_string(),
         branch.clone(),
@@ -468,6 +516,7 @@ fn convert_branch_to_json(
         project_id,
         id_map,
         ci,
+        merge_status,
     )
 }
 
@@ -485,6 +534,10 @@ pub(super) fn build_workspace_status_json(
     last_fetched_ms: Option<u128>,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
+    branch_merge_statuses: &BTreeMap<
+        String,
+        gitbutler_branch_actions::upstream_integration::BranchStatus,
+    >,
     show_files: bool,
     project_id: gitbutler_project::ProjectId,
     repo: &gix::Repository,
@@ -514,7 +567,13 @@ pub(super) fn build_workspace_status_json(
                 .iter()
                 .map(|branch| {
                     convert_branch_to_json(
-                        branch, show_files, project_id, review_map, ci_map, id_map,
+                        branch,
+                        show_files,
+                        project_id,
+                        review_map,
+                        ci_map,
+                        branch_merge_statuses,
+                        id_map,
                     )
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
