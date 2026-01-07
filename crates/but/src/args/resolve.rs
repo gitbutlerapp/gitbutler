@@ -5,8 +5,8 @@ pub enum Subcommands {
 
     /// Finalize conflict resolution and return to workspace mode.
     ///
-    /// This commits the resolved changes, clears the conflict markers,
-    /// and returns to the normal workspace.
+    /// This commits the resolved changes, rebases any commits on top of the
+    /// resolved commit, and returns to the normal workspace.
     Finish,
 
     /// Cancel conflict resolution and return to workspace mode.

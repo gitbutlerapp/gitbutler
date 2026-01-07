@@ -723,6 +723,7 @@ dependencies = [
  "but-meta",
  "but-oxidize",
  "but-path",
+ "but-rebase",
  "but-rules",
  "but-secret",
  "but-serde",

@@ -76,6 +76,7 @@ pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
     Ok(())
 }
 
+// GUI-facing API that returns () for serialization compatibility
 #[but_api]
 #[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
@@ -83,6 +84,14 @@ pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
 
     gitbutler_edit_mode::commands::save_and_return_to_workspace(&ctx)?;
 
+    Ok(())
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn save_edit_and_return_to_workspace_with_output(project_id: ProjectId) -> Result<()> {
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    gitbutler_edit_mode::commands::save_and_return_to_workspace(&ctx)?;
     Ok(())
 }
 

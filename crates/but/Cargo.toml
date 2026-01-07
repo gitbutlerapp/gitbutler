@@ -49,6 +49,7 @@ but-secret.workspace = true
 but-oxidize.workspace = true
 but-path.workspace = true
 but-ctx.workspace = true
+but-rebase.workspace = true
 # NOTE: "legacy" is needed as long as virtual-branches.toml is around.
 but-meta = { workspace = true, features = ["legacy"] }
 # NOTE: close to mostly 'proper', but depends on `gitbutler-user`

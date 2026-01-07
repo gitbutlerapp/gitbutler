@@ -51,40 +51,9 @@ struct UpstreamState {
     author_email: String,
 }
 
-fn show_edit_mode_status(out: &mut OutputChannel) -> anyhow::Result<()> {
-    let Some(out) = out.for_human() else {
-        // TODO: support JSON output for edit mode status
-        return Ok(());
-    };
-
-    writeln!(
-        out,
-        "{}",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            .yellow()
-    )?;
-    writeln!(
-        out,
-        "{} {} \n\n - resolve all conflicts \n - finalize with {} \n - OR cancel with {}\n",
-        "⚠".yellow().bold(),
-        "You are currently in conflict resolution mode.".bold(),
-        "but resolve finish".green().bold(),
-        "but resolve cancel".red().bold()
-    )?;
-    writeln!(
-        out,
-        "  view remaining issues with {}",
-        "but resolve status".yellow().bold()
-    )?;
-    writeln!(
-        out,
-        "{}",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            .yellow()
-    )?;
-    writeln!(out)?; // Empty line after the notice
-
-    Ok(())
+fn show_edit_mode_status(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    // Delegate to the resolve status logic to show actual conflict details
+    crate::command::legacy::resolve::show_resolve_status(ctx, out)
 }
 
 pub(crate) fn worktree(
@@ -98,8 +67,8 @@ pub(crate) fn worktree(
     // Check if we're in edit mode first, before doing any expensive operations
     let mode = gitbutler_operating_modes::operating_mode(ctx);
     if let gitbutler_operating_modes::OperatingMode::Edit(_metadata) = mode {
-        // In edit mode, show a simplified status with just the conflicted files
-        return show_edit_mode_status(out);
+        // In edit mode, show the conflict resolution status
+        return show_edit_mode_status(ctx, out);
     }
 
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
