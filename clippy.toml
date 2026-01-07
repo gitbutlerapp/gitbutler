@@ -1,0 +1,6 @@
+# Clippy configuration for the workspace
+# See: https://doc.rust-lang.org/clippy/configuration.html
+
+disallowed-methods = [
+    { path = "tokio::runtime::Runtime::new", reason = "Use tokio::runtime::Builder::new_current_thread().enable_all().build_local() instead for minimal runtime configuration" },
+]
