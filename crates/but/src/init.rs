@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use but_core::sync::LockScope;
 use but_ctx::Context;
+use colored::Colorize;
 use command_group::AsyncCommandGroup;
 
 use crate::{args::Args, utils::OutputChannel};
@@ -157,7 +158,12 @@ pub fn init_ctx(
                                 })
                         })
                         .unwrap_or_default();
-                    writeln!(out, "{}Initiated a background fetch...", msg).ok();
+                    writeln!(
+                        out,
+                        "{}",
+                        format!("{}Initiated a background fetch...", msg).dimmed()
+                    )
+                    .ok();
                 }
             }
         }

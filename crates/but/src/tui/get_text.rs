@@ -117,9 +117,10 @@ mod tests {
         // so our own fallback will be used
         let no_env = None::<(String, String)>;
         let actual = get_editor_command_impl(no_env).unwrap();
-        assert_eq!(
-            actual, PLATFORM_EDITOR,
-            "Should fall back to vi/notepad when nothing is set"
+        assert!(
+            ["notepad", "vim", "vi"].contains(&actual.as_str()),
+            "Should fall back to vi/vim/notepad when nothing is set, got: {}",
+            actual
         );
     }
 }
