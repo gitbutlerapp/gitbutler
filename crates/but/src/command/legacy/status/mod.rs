@@ -51,6 +51,42 @@ struct UpstreamState {
     author_email: String,
 }
 
+fn show_edit_mode_status(out: &mut OutputChannel) -> anyhow::Result<()> {
+    let Some(out) = out.for_human() else {
+        // TODO: support JSON output for edit mode status
+        return Ok(());
+    };
+
+    writeln!(
+        out,
+        "{}",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            .yellow()
+    )?;
+    writeln!(
+        out,
+        "{} {} \n\n - resolve all conflicts \n - finalize with {} \n - OR cancel with {}\n",
+        "⚠".yellow().bold(),
+        "You are currently in conflict resolution mode.".bold(),
+        "but resolve finish".green().bold(),
+        "but resolve cancel".red().bold()
+    )?;
+    writeln!(
+        out,
+        "  view remaining issues with {}",
+        "but resolve status".yellow().bold()
+    )?;
+    writeln!(
+        out,
+        "{}",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            .yellow()
+    )?;
+    writeln!(out)?; // Empty line after the notice
+
+    Ok(())
+}
+
 pub(crate) fn worktree(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -59,6 +95,13 @@ pub(crate) fn worktree(
     refresh_prs: bool,
     show_upstream: bool,
 ) -> anyhow::Result<()> {
+    // Check if we're in edit mode first, before doing any expensive operations
+    let mode = gitbutler_operating_modes::operating_mode(ctx);
+    if let gitbutler_operating_modes::OperatingMode::Edit(_metadata) = mode {
+        // In edit mode, show a simplified status with just the conflicted files
+        return show_edit_mode_status(out);
+    }
+
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
     let guard = ctx.shared_worktree_access();
@@ -216,9 +259,11 @@ pub(crate) fn worktree(
         return Ok(());
     };
 
+    // Drop base_commit_decoded, base_commit, and repo to release the borrow on ctx before we need to borrow ctx again
     drop(base_commit_decoded);
     drop(base_commit);
     drop(repo);
+
     for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
         let mut stack_mark = stack_id.and_then(|stack_id| {
             if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {

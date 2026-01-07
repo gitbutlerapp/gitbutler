@@ -531,6 +531,14 @@ async fn match_subcommand(
             command::legacy::refresh::handle(&mut ctx, out, fetch, prs, ci)
                 .emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
+        Subcommands::Resolve { cmd, commit } => {
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            command::legacy::resolve::handle(&mut ctx, out, cmd, commit)
+                .context("Failed to handle conflict resolution.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
     }
 }
 

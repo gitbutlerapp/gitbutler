@@ -138,7 +138,10 @@ impl Subcommands {
             },
             Subcommands::Completions { .. } => Completions,
             Subcommands::Metrics { .. } => Unknown,
+            #[cfg(feature = "legacy")]
             Subcommands::RefreshRemoteData { .. } => RefreshRemoteData,
+            #[cfg(feature = "legacy")]
+            Subcommands::Resolve { .. } => Resolve,
         }
     }
 }
