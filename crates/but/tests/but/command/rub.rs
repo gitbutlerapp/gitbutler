@@ -58,7 +58,7 @@ fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
 
 "#]]);
 
-    env.but("i0 00")
+    env.but("i0 zz")
         .assert()
         .success()
         .stdout_eq(snapbox::file![
@@ -177,7 +177,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 
 "#]]);
 
-    env.but("j0 00")
+    env.but("j0 zz")
         .assert()
         .success()
         .stdout_eq(snapbox::file![
@@ -213,7 +213,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "j0",
+                  "cliId": "k0",
                   "filePath": "a.txt",
                   "changeType": "modified"
                 }
@@ -223,7 +223,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "k0",
+                  "cliId": "l0",
                   "filePath": "a.txt",
                   "changeType": "added"
                 }
@@ -233,7 +233,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "l0",
+                  "cliId": "m0",
                   "filePath": "A",
                   "changeType": "added"
                 }
@@ -251,7 +251,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "m0",
+                  "cliId": "n0",
                   "filePath": "B",
                   "changeType": "added"
                 }
@@ -295,9 +295,32 @@ fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
 
 "#]]);
 
-    // TODO When we have a way to list the hunks and their respective IDs (e.g.
-    //      via a "diff" or "show" command), assert that m0 is the hunk we want.
-    env.but("m0 00")
+    // Verify that the first hunk is j0, and move it to unassigned.
+    env.but("diff i0")
+        .env_remove("CLICOLOR_FORCE")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+────────╮
+j0 a.txt│
+────────╯
+   1  │-first
+     1│+firsta
+   2 2│ line
+   3 3│ line
+   4 4│ line
+────────╮
+k0 a.txt│
+────────╯
+    6  6│ line
+    7  7│ line
+    8  8│ line
+    9   │-last
+       9│+lasta
+
+"#]]);
+    env.but("j0 zz")
         .assert()
         .success()
         .stdout_eq(snapbox::file![
@@ -351,9 +374,32 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
 
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    // TODO When we have a way to list the hunks and their respective IDs (e.g.
-    //      via a "diff" or "show" command), assert that m0 is the hunk we want.
-    env.but("rub m0 A")
+    // Verify that the first hunk is j0, and move it to unassigned.
+    env.but("diff a.txt")
+        .env_remove("CLICOLOR_FORCE")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+────────╮
+j0 a.txt│
+────────╯
+   1  │-first
+     1│+firsta
+   2 2│ line
+   3 3│ line
+   4 4│ line
+────────╮
+k0 a.txt│
+────────╯
+    6  6│ line
+    7  7│ line
+    8  8│ line
+    9   │-last
+       9│+lasta
+
+"#]]);
+    env.but("rub j0 A")
         .assert()
         .success()
         .stdout_eq(snapbox::file![

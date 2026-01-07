@@ -23,8 +23,8 @@ pub(crate) fn handle(
     source_str: &str,
     target_str: &str,
 ) -> anyhow::Result<()> {
-    let mut id_map = IdMap::new_from_context(ctx)?;
-    id_map.add_file_info_from_context(ctx, None)?;
+    let mut id_map = IdMap::new_from_context(ctx, None)?;
+    id_map.add_committed_file_info_from_context(ctx)?;
     let (sources, target) = ids(ctx, &id_map, source_str, target_str)?;
 
     for source in sources {

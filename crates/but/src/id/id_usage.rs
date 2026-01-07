@@ -18,6 +18,8 @@ impl UintId {
     const SUBSEQUENT_CHARS: &'static [u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
     /// Must be less than this.
     const LIMIT: u16 = 20 * 36 * 37;
+    /// String representation must be at most this long.
+    pub(crate) const LENGTH_LIMIT: usize = 3;
 
     /// If self cannot be represented in 3 characters, `00` is returned.
     pub(crate) fn to_short_id(self) -> ShortId {

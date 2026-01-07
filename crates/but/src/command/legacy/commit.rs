@@ -20,8 +20,8 @@ pub(crate) fn insert_blank_commit(
     out: &mut OutputChannel,
     target: &str,
 ) -> Result<()> {
-    let mut id_map = IdMap::new_from_context(ctx)?;
-    id_map.add_file_info_from_context(ctx, None)?;
+    let mut id_map = IdMap::new_from_context(ctx, None)?;
+    id_map.add_committed_file_info_from_context(ctx)?;
 
     // Resolve the target ID
     let cli_ids = id_map.resolve_entity_to_ids(target)?;
@@ -150,8 +150,8 @@ pub(crate) fn commit(
     only: bool,
     create_branch: bool,
 ) -> anyhow::Result<()> {
-    let mut id_map = IdMap::new_from_context(ctx)?;
-    id_map.add_file_info_from_context(ctx, None)?;
+    let mut id_map = IdMap::new_from_context(ctx, None)?;
+    id_map.add_committed_file_info_from_context(ctx)?;
 
     // Get all stacks using but-api
     let project_id = ctx.legacy_project.id;
