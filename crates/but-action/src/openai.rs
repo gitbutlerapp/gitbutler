@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Display, ops::Deref, sync::Arc};
 
+use crate::block_on_future_with_new_runtime;
 use anyhow::{Context as _, Result};
 use async_openai::{
     Client,
@@ -133,13 +134,7 @@ pub fn structured_output_blocking<
             .collect::<Vec<_>>(),
     );
 
-    std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(structured_output::<T>(&client, messages))
-    })
-    .join()
-    .unwrap()
+    block_on_future_with_new_runtime(structured_output::<T>(&client, messages))?
 }
 
 pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
@@ -184,13 +179,7 @@ pub fn tool_calling_blocking(
     let messages_owned = messages.clone();
     let tools_owned = tools.clone();
 
-    std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(tool_calling(&client, messages_owned, tools_owned, model))
-    })
-    .join()
-    .unwrap()
+    block_on_future_with_new_runtime(tool_calling(&client, messages_owned, tools_owned, model))?
 }
 
 pub async fn tool_calling(
@@ -230,19 +219,13 @@ pub fn tool_calling_stream_blocking(
     let messages_owned = messages.clone();
     let tools_owned = tools.clone();
 
-    std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(tool_calling_stream(
-                &client,
-                messages_owned,
-                tools_owned,
-                model,
-                on_token,
-            ))
-    })
-    .join()
-    .unwrap()
+    block_on_future_with_new_runtime(tool_calling_stream(
+        &client,
+        messages_owned,
+        tools_owned,
+        model,
+        on_token,
+    ))?
 }
 
 pub async fn tool_calling_stream(

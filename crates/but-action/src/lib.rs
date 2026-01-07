@@ -289,3 +289,10 @@ pub struct UpdatedBranch {
     pub branch_name: String,
     pub new_commits: Vec<String>,
 }
+
+fn block_on_future_with_new_runtime<T>(f: impl Future<Output = T>) -> anyhow::Result<T> {
+    Ok(tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build_local(Default::default())?
+        .block_on(f))
+}

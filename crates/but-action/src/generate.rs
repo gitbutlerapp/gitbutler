@@ -8,7 +8,7 @@ use async_openai::{
 };
 use schemars::{JsonSchema, schema_for};
 
-use crate::OpenAiProvider;
+use crate::{OpenAiProvider, block_on_future_with_new_runtime};
 
 #[expect(dead_code)]
 pub(crate) fn commit_message_blocking(
@@ -22,18 +22,12 @@ pub(crate) fn commit_message_blocking(
     let diff_owned = diff.to_string();
     let client = openai.client()?;
 
-    std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(commit_message(
-                &client,
-                &change_summary_owned,
-                &external_prompt_owned,
-                &diff_owned,
-            ))
-    })
-    .join()
-    .unwrap()
+    block_on_future_with_new_runtime(commit_message(
+        &client,
+        &change_summary_owned,
+        &external_prompt_owned,
+        &diff_owned,
+    ))?
 }
 
 pub async fn commit_message(

@@ -200,23 +200,22 @@ impl RepoActionsExt for Context {
         if use_git_executable {
             let repo_path = self.workdir_or_gitdir()?;
             let remote = branch.remote().to_string();
-            match std::thread::spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(gitbutler_git::push(
-                        repo_path,
-                        gitbutler_git::tokio::TokioExecutor,
-                        &remote,
-                        gitbutler_git::RefSpec::parse(refspec).unwrap(),
-                        with_force,
-                        force_push_protection,
-                        handle_git_prompt_push,
-                        askpass_broker,
-                        push_opts,
-                    ))
-            })
-            .join()
-            .unwrap() {
+            let res = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build_local(Default::default())?
+                .block_on(gitbutler_git::push(
+                    repo_path,
+                    gitbutler_git::tokio::TokioExecutor,
+                    &remote,
+                    gitbutler_git::RefSpec::parse(refspec).unwrap(),
+                    with_force,
+                    force_push_protection,
+                    handle_git_prompt_push,
+                    askpass_broker,
+                    push_opts,
+                ));
+            match res
+            {
                 Ok(result) => Ok(result),
                 Err(err) => match err {
                     gitbutler_git::Error::ForcePushProtection(e) => {
@@ -302,21 +301,18 @@ impl RepoActionsExt for Context {
         if self.legacy_project.preferred_key == AuthKey::SystemExecutable {
             let repo_path = self.workdir_or_gitdir()?;
             let remote = remote_name.to_string();
-            return std::thread::spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(gitbutler_git::fetch(
-                        repo_path,
-                        gitbutler_git::tokio::TokioExecutor,
-                        &remote,
-                        gitbutler_git::RefSpec::parse(refspec).unwrap(),
-                        handle_git_prompt_fetch,
-                        askpass,
-                    ))
-            })
-            .join()
-            .unwrap()
-            .map_err(Into::into);
+            return tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build_local(Default::default())?
+                .block_on(gitbutler_git::fetch(
+                    repo_path,
+                    gitbutler_git::tokio::TokioExecutor,
+                    &remote,
+                    gitbutler_git::RefSpec::parse(refspec).unwrap(),
+                    handle_git_prompt_fetch,
+                    askpass,
+                ))
+                .map_err(Into::into);
         }
 
         let git2_repo = self.git2_repo.get()?;

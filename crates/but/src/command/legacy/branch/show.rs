@@ -5,7 +5,7 @@ use gitbutler_project::Project;
 use tracing::instrument;
 
 use super::list::load_id_map;
-use crate::utils::OutputChannel;
+use crate::utils::{OutputChannel, block_on_future_with_new_runtime};
 
 #[allow(clippy::too_many_arguments)]
 pub fn show(
@@ -579,13 +579,7 @@ fn generate_branch_summary(branch_name: &str, commits: &[CommitInfo]) -> anyhow:
         .max_completion_tokens(500u32)
         .build()?;
 
-    let response = std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(client.chat().create(request))
-    })
-    .join()
-    .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+    let response = block_on_future_with_new_runtime(client.chat().create(request))??;
 
     // Extract the summary from the response
     let summary = response

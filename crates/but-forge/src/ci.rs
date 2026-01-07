@@ -58,13 +58,10 @@ fn ci_checks_for_ref(
             let reference = reference.to_string();
             let reference_for_checks = reference.clone();
 
-            let checks = std::thread::spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(gh.list_checks_for_ref(&owner, &repo, &reference))
-            })
-            .join()
-            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))?;
+            let checks = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build_local(Default::default())?
+                .block_on(gh.list_checks_for_ref(&owner, &repo, &reference));
             checks.map(|c| {
                 c.into_iter()
                     .map(|check| {

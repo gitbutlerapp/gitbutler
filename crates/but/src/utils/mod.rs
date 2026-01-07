@@ -62,3 +62,10 @@ fn json_pretty_to_stdout(value: &impl serde::Serialize) -> std::io::Result<()> {
     }
     Ok(())
 }
+
+pub fn block_on_future_with_new_runtime<T>(f: impl Future<Output = T>) -> anyhow::Result<T> {
+    Ok(tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build_local(Default::default())?
+        .block_on(f))
+}

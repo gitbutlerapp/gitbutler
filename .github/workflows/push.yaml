@@ -148,7 +148,7 @@ jobs:
           cargo check -p but --all-targets
         name: Special `cargo check` runs
         env:
-          RUSTFLAGS: '--deny warnings'
+          RUSTFLAGS: '--deny warnings --cfg tokio_unstable'
       - name: cargo clippy
         run: |
           rustup component add clippy
