@@ -1,4 +1,9 @@
 use crate::Context;
+use but_core::sync::LockScope::AllOperations;
+pub use but_core::sync::{
+    LockFile, WorkspaceReadGuard, WorkspaceWriteGuard, WorktreeReadPermission,
+    WorktreeWritePermission,
+};
 
 /// Locking utilities to protect against concurrency on the same repo.
 impl Context {
@@ -9,7 +14,7 @@ impl Context {
     /// Note that the lock is automatically released on `Drop`, or when the process quits for any reason,
     /// so it can't go stale.
     pub fn try_exclusive_access(&self) -> anyhow::Result<but_core::sync::LockFile> {
-        but_core::sync::try_exclusive_inter_process_access(&self.gitdir)
+        but_core::sync::try_exclusive_inter_process_access(&self.gitdir, AllOperations)
     }
     /// Return a guard for exclusive (read+write) worktree access, blocking while waiting for someone else,
     /// in the same process only, to release it, or for all readers to disappear.
@@ -28,8 +33,3 @@ impl Context {
         but_core::sync::shared_worktree_access(&self.gitdir)
     }
 }
-
-pub use but_core::sync::{
-    LockFile, WorkspaceReadGuard, WorkspaceWriteGuard, WorktreeReadPermission,
-    WorktreeWritePermission,
-};

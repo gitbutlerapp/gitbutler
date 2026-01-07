@@ -24,7 +24,6 @@ Error: The reference 'main' did not exist
 // TODO: maybe this should be a non-legacy journey only as we start out without workspace?
 #[cfg(feature = "legacy")]
 #[test]
-#[ignore = "While it's flaky because of spawning background processes running migrations at the same time"]
 fn from_empty() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 

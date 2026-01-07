@@ -1,3 +1,4 @@
+use but_core::sync::LockScope;
 use std::fmt::Write;
 
 pub fn handle(
@@ -7,6 +8,12 @@ pub fn handle(
     prs: bool,
     ci: bool,
 ) -> anyhow::Result<()> {
+    // Obtain a lock to prevent concurrent background refreshes
+    let _exclusive_access = but_core::sync::try_exclusive_inter_process_access(
+        &ctx.gitdir,
+        LockScope::BackgroundRefreshOperations,
+    )?;
+
     if fetch {
         out.write_str("\nFetching from remotes...")?;
         let fetch_result = but_api::legacy::virtual_branches::fetch_from_remotes(

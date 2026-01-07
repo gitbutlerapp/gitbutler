@@ -6,26 +6,66 @@ use std::{
 
 use anyhow::{Context as _, bail};
 use parking_lot::{ArcRwLockReadGuard, ArcRwLockWriteGuard, RawRwLock};
+/// The scope of a lock. It can be either on the entire project or on specific operations.
+#[derive(Debug, Clone, Copy, Default)]
+pub enum LockScope {
+    /// Represents a lock on the entire project, preventing other GitButler instances from operating on it.
+    #[default]
+    AllOperations,
+    /// Represents a lock on background refresh operations only. This would prevent other GitButler instances
+    /// from performing background refreshes, but would still allow exclusive access for user-driven operations.
+    BackgroundRefreshOperations,
+}
 
-/// Try to obtain the exclusive inter-process lock on the entire project that stores its application data in `project_data`,
-/// preventing other GitButler instances to operate on it entirely.
-/// This lock should be obtained and held for as long as a user interface is observing the project.
+impl From<LockScope> for PathBuf {
+    fn from(val: LockScope) -> Self {
+        match val {
+            LockScope::AllOperations => PathBuf::from("project.lock"),
+            LockScope::BackgroundRefreshOperations => PathBuf::from("background-refresh.lock"),
+        }
+    }
+}
+
+/// Try to obtain an exclusive inter-process lock on a project that stores its application data in `project_data`.
 ///
-/// Note that the lock is automatically released on `Drop`, or when the process quits for any reason,
+/// The `scope` parameter determines what operations the lock protects:
+/// - [`LockScope::AllOperations`]: Prevents other GitButler instances from performing any operations on the project.
+///   This lock should be held for as long as a user interface is observing the project.
+/// - [`LockScope::BackgroundRefreshOperations`]: Only prevents background refresh operations, allowing other
+///   user-driven operations to proceed. This enables multiple GitButler instances to work on the same project
+///   as long as only one is performing background refreshes at a time.
+///
+/// Returns an error if another process already holds the requested lock scope.
+///
+/// # Lock Lifecycle
+///
+/// The lock is automatically released when the returned [`LockFile`] is dropped, or when the process quits for any reason,
 /// so it can't go stale.
 pub fn try_exclusive_inter_process_access(
     project_data: impl AsRef<Path>,
+    scope: LockScope,
 ) -> anyhow::Result<LockFile> {
     let project_data = project_data.as_ref();
-    let mut lock = LockFile::open(project_data.join("project.lock").as_os_str())?;
+    let mut lock = LockFile::open(project_data.join::<PathBuf>(scope.into()).as_os_str())?;
     let got_lock = lock
         .try_lock()
         .context("Failed to check if lock is taken")?;
     if !got_lock {
-        bail!(
-            "Project at '{}' is already opened for writing",
-            project_data.display()
-        );
+        let error_message = match scope {
+            LockScope::AllOperations => {
+                format!(
+                    "Project at '{}' is already opened for writing by another GitButler instance",
+                    project_data.display()
+                )
+            }
+            LockScope::BackgroundRefreshOperations => {
+                format!(
+                    "Project at '{}' is already being refreshed in the background by another GitButler instance",
+                    project_data.display()
+                )
+            }
+        };
+        bail!(error_message);
     }
     Ok(lock)
 }

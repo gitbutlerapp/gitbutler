@@ -6,5 +6,6 @@ mod json_samples;
 mod ref_metadata;
 mod settings;
 mod snapshot;
+mod sync;
 mod unified_diff;
 mod worktree;
