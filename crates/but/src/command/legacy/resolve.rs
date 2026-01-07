@@ -122,7 +122,7 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     drop(commit);
     drop(git2_repo);
 
-    // Show user-friendly output
+    // Show checkout message
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -130,23 +130,10 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
             "Checking out conflicted commit".bold(),
             commit_oid.to_string()[..7].cyan()
         )?;
-        writeln!(
-            out,
-            "You are now in edit mode - resolve all conflicts and finalize with {} or cancel with {}",
-            "but resolve finish".green().bold(),
-            "but resolve cancel".red().bold()
-        )?;
-        writeln!(
-            out,
-            "  view remaining issues with {}",
-            "but resolve status".yellow().bold()
-        )?;
     }
 
-    // Show initial conflicted files (ignore the return value here)
-    let _all_resolved = show_conflicted_files(ctx, out)?;
-
-    Ok(())
+    // Now show the same status as `but resolve status` would show
+    show_status(ctx, out)
 }
 
 fn show_status(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
