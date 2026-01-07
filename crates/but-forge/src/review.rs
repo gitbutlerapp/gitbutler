@@ -391,18 +391,15 @@ fn list_forge_reviews(
             let repo = repo.clone();
             let storage = storage.clone();
 
-            let pulls = std::thread::spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(but_github::pr::list(
-                        preferred_account.as_ref(),
-                        &owner,
-                        &repo,
-                        &storage,
-                    ))
-            })
-            .join()
-            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+            let pulls = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build_local(Default::default())?
+                .block_on(but_github::pr::list(
+                    preferred_account.as_ref(),
+                    &owner,
+                    &repo,
+                    &storage,
+                ))?;
 
             pulls
                 .into_iter()
