@@ -42,7 +42,7 @@ pub(crate) fn insert_blank_commit(
 
     // Determine target commit ID and offset based on CLI ID type
     let (target_commit_id, offset, success_message) = match cli_id {
-        CliId::Commit(oid) => {
+        CliId::Commit { commit_id: oid, .. } => {
             // For commits, insert before (offset 0) and use the commit ID directly
             (
                 *oid,

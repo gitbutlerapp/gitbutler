@@ -30,7 +30,7 @@ pub(crate) fn handle(
     }
     match target_result[0].clone() {
         CliId::Branch { name, .. } => mark_branch(ctx, name, delete, out),
-        CliId::Commit(oid) => mark_commit(ctx, oid, delete, out),
+        CliId::Commit { commit_id: oid, .. } => mark_commit(ctx, oid, delete, out),
         _ => bail!("Nope"),
     }
 }

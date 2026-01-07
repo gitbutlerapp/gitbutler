@@ -10,8 +10,10 @@ impl FileInfo {
     /// Extracts file information from workspace commits and worktree status.
     ///
     /// This function processes workspace commits to find all changed files in each commit.
-    pub(crate) fn from_workspace_commits_and_status<F>(
-        workspace_commit_and_first_parent_ids: &[(gix::ObjectId, Option<gix::ObjectId>)],
+    pub(crate) fn from_workspace_commits_and_status<'a, F>(
+        workspace_commit_and_first_parent_ids: impl Iterator<
+            Item = (&'a gix::ObjectId, &'a Option<gix::ObjectId>),
+        >,
         mut changed_paths_fn: F,
     ) -> anyhow::Result<Self>
     where
