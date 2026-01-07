@@ -93,6 +93,9 @@ pub enum Subcommands {
         /// Forces a sync of pull requests from the forge before showing status.
         #[clap(short = 'r', long = "refresh-prs", default_value_t = false)]
         refresh_prs: bool,
+        /// Show detailed list of upstream commits that haven't been integrated yet.
+        #[clap(short = 'u', long = "upstream", default_value_t = false)]
+        upstream: bool,
     },
 
     /// Overview of the uncommitted changes in the repository with files shown.

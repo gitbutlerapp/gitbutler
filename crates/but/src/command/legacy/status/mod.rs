@@ -57,6 +57,7 @@ pub(crate) fn worktree(
     show_files: bool,
     verbose: bool,
     refresh_prs: bool,
+    show_upstream: bool,
 ) -> anyhow::Result<()> {
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
@@ -139,7 +140,7 @@ pub(crate) fn worktree(
     };
 
     // Get cached upstream state information (without fetching)
-    let (upstream_state, last_fetched_ms) =
+    let (upstream_state, last_fetched_ms, base_branch) =
         but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)
             .ok()
             .flatten()
@@ -157,7 +158,7 @@ pub(crate) fn worktree(
                                 .to_string()
                                 .replace('\n', " ")
                                 .chars()
-                                .take(50)
+                                .take(30)
                                 .collect::<String>();
 
                             let formatted_date = commit
@@ -186,9 +187,9 @@ pub(crate) fn worktree(
                 } else {
                     None
                 };
-                (state, last_fetched)
+                (state, last_fetched, Some(base_branch))
             })
-            .unwrap_or((None, None));
+            .unwrap_or((None, None, None));
 
     if let Some(out) = out.for_json() {
         let workspace_status = json::build_workspace_status_json(
@@ -204,6 +205,8 @@ pub(crate) fn worktree(
             ctx.legacy_project.id,
             &repo,
             &id_map,
+            base_branch.as_ref(),
+            show_upstream,
         )?;
         out.write_value(workspace_status)?;
         return Ok(());
@@ -279,15 +282,56 @@ pub(crate) fn worktree(
     if let Some(upstream) = &upstream_state {
         let dot = "●".yellow();
 
-        writeln!(
-            out,
-            "┊{dot} {} (upstream) ⏫ {} new commits {} {}{}",
-            upstream.latest_commit.dimmed(),
-            upstream.behind_count,
-            upstream.commit_date.dimmed(),
-            upstream.message,
-            last_checked_text.dimmed()
-        )?;
+        if show_upstream {
+            // When showing detailed commits, only show count in summary
+            writeln!(
+                out,
+                "┊╭┄(upstream) ⏫ {} new commits{}",
+                upstream.behind_count,
+                last_checked_text.dimmed()
+            )?;
+
+            // Display detailed list of upstream commits
+            if let Some(ref base_branch) = base_branch
+                && !base_branch.upstream_commits.is_empty()
+            {
+                let commits = base_branch.upstream_commits.iter().take(8);
+                for commit in commits {
+                    writeln!(
+                        out,
+                        "┊{dot} {} {}",
+                        commit.id[..7].yellow(),
+                        commit
+                            .description
+                            .to_string()
+                            .replace('\n', " ")
+                            .chars()
+                            .take(72)
+                            .collect::<String>()
+                            .dimmed()
+                    )?;
+                }
+                let hidden_commits = base_branch.behind.saturating_sub(8);
+                if hidden_commits > 0 {
+                    writeln!(
+                        out,
+                        "┊    {}",
+                        format!("and {hidden_commits} more…").dimmed()
+                    )?;
+                }
+            }
+            writeln!(out, "┊┊")?;
+        } else {
+            // Without --upstream, show the summary with latest commit info
+            writeln!(
+                out,
+                "┊{dot} {} (upstream) ⏫ {} new commits {} {}",
+                upstream.latest_commit.dimmed(),
+                upstream.behind_count,
+                upstream.commit_date.dimmed(),
+                last_checked_text.dimmed()
+            )?;
+        }
     }
 
     writeln!(

@@ -42,6 +42,9 @@ pub(crate) struct UpstreamState {
     pub latest_commit: Commit,
     /// Timestamp of when the upstream branch was last fetched, in RFC3339 format
     pub last_fetched: Option<String>,
+    /// List of upstream commits (only populated when requested with --upstream flag)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upstream_commits: Option<Vec<Commit>>,
 }
 
 impl WorkspaceStatus {
@@ -484,6 +487,8 @@ pub(super) fn build_workspace_status_json(
     project_id: gitbutler_project::ProjectId,
     repo: &gix::Repository,
     id_map: &crate::IdMap,
+    base_branch: Option<&gitbutler_branch_actions::BaseBranch>,
+    show_upstream: bool,
 ) -> anyhow::Result<WorkspaceStatus> {
     let mut json_stacks = Vec::new();
     let mut json_unassigned_changes = Vec::new();
@@ -555,10 +560,48 @@ pub(super) fn build_workspace_status_json(
 
         let last_fetched = last_fetched_ms.map(|ts| i128_to_rfc3339(ts as i128));
 
+        // Populate upstream_commits if show_upstream flag is set and base_branch is available
+        let upstream_commits = if show_upstream {
+            base_branch.and_then(|bb| {
+                if bb.upstream_commits.is_empty() {
+                    None
+                } else {
+                    let commits: anyhow::Result<Vec<Commit>> = bb
+                        .upstream_commits
+                        .iter()
+                        .map(|remote_commit| {
+                            let commit_oid = gix::ObjectId::from_hex(remote_commit.id.as_bytes())?;
+                            let cli_id = CliId::Commit(commit_oid).to_short_string();
+                            // Convert the author manually since there's no From impl between the two Author types
+                            let author = but_workspace::ui::Author {
+                                name: remote_commit.author.name.clone(),
+                                email: remote_commit.author.email.clone(),
+                                gravatar_url: remote_commit.author.gravatar_url.clone(),
+                            };
+                            Ok(Commit::from_upstream_commit(
+                                cli_id,
+                                but_workspace::ui::UpstreamCommit {
+                                    id: commit_oid,
+                                    created_at: remote_commit.created_at as i128,
+                                    message: remote_commit.description.clone().into(),
+                                    author,
+                                },
+                                None,
+                            ))
+                        })
+                        .collect();
+                    commits.ok()
+                }
+            })
+        } else {
+            None
+        };
+
         UpstreamState {
             behind: upstream.behind_count,
             latest_commit,
             last_fetched,
+            upstream_commits,
         }
     } else {
         // When up to date, use the merge base as the latest commit
@@ -568,6 +611,7 @@ pub(super) fn build_workspace_status_json(
             behind: 0,
             latest_commit: merge_base_commit.clone(),
             last_fetched,
+            upstream_commits: None,
         }
     };
 
