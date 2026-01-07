@@ -126,6 +126,21 @@ describe('Updater', () => {
 		expect(mock).toHaveBeenCalledOnce();
 	});
 
+	test('should ignore disableAutoChecks setting when manual update', async () => {
+		const mock = vi.spyOn(backend, 'checkUpdate').mockReturnValue(mockUpdate(null));
+		const manualCheck = true;
+
+		updater.disableAutoChecks.set(true);
+
+		await updater.checkForUpdate(manualCheck);
+		expect(mock).toHaveBeenCalledOnce();
+
+		updater.disableAutoChecks.set(false);
+
+		await updater.checkForUpdate(manualCheck);
+		expect(mock).toHaveBeenCalledTimes(2);
+	});
+
 	test('should disable updater when updateIntervalMs is 0', async () => {
 		const mock = vi.spyOn(backend, 'checkUpdate').mockReturnValue(mockUpdate(null));
 
