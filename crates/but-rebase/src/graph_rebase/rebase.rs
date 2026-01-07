@@ -190,6 +190,7 @@ impl Editor {
 
         Ok(SuccessfulRebase {
             repo: self.repo,
+            initial_references: self.initial_references,
             ref_edits,
             graph: output_graph,
             checkouts: self.checkouts.to_owned(),

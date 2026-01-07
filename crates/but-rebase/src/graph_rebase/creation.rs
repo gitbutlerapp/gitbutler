@@ -6,6 +6,7 @@ use petgraph::Direction;
 
 use crate::graph_rebase::{
     Checkout, Edge, Editor, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
+    SuccessfulRebase,
 };
 
 /// Provides an extension for creating an Editor out of the segment graph
@@ -150,6 +151,19 @@ impl GraphExt for Graph {
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
         })
+    }
+}
+
+impl SuccessfulRebase {
+    /// Converts a SuccessfulRebase back into another editor for multi-step operations
+    pub fn to_editor(self) -> Editor {
+        Editor {
+            graph: self.graph,
+            initial_references: self.initial_references,
+            checkouts: self.checkouts,
+            repo: self.repo,
+            history: self.history,
+        }
     }
 }
 

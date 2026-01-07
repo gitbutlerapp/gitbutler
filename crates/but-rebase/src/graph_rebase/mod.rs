@@ -103,6 +103,7 @@ pub struct Editor {
 #[derive(Debug, Clone)]
 pub struct SuccessfulRebase {
     pub(crate) repo: gix::Repository,
+    pub(crate) initial_references: Vec<gix::refs::FullName>,
     /// Any reference edits that need to be committed as a result of the history
     /// rewrite
     pub(crate) ref_edits: Vec<RefEdit>,
