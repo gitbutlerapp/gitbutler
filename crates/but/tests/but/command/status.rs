@@ -21,7 +21,6 @@ fn worktrees() -> anyhow::Result<()> {
     env.setup_metadata(&["A", "B"])?;
 
     env.but("status")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -30,7 +29,6 @@ fn worktrees() -> anyhow::Result<()> {
         ]);
 
     env.but("status --verbose")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -47,7 +45,6 @@ fn unborn() -> anyhow::Result<()> {
 
     // TODO: make this work
     env.but("status --verbose")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
@@ -65,7 +62,6 @@ fn first_commit_no_workspace() -> anyhow::Result<()> {
 
     // TODO: make this work
     env.but("status --verbose")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
@@ -88,7 +84,6 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
 
     env.but("--json status")
         .env_remove("BUT_OUTPUT_FORMAT")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -113,7 +108,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
             {
               "cliId": "94",
               "commitId": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56",
-              "createdAt": "[RFC_TIMESTAMP]",
+              "createdAt": "2000-01-01T00:00:00+00:00",
               "message": "add A/n",
               "authorName": "author",
               "authorEmail": "author@example.com",
@@ -140,7 +135,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
             {
               "cliId": "d3",
               "commitId": "d3e2ba36c529fbdce8de90593e22aceae21f9b17",
-              "createdAt": "[RFC_TIMESTAMP]",
+              "createdAt": "2000-01-01T00:00:00+00:00",
               "message": "add B/n",
               "authorName": "author",
               "authorEmail": "author@example.com",
@@ -160,7 +155,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
   "mergeBase": {
     "cliId": "0d",
     "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-    "createdAt": "[RFC_TIMESTAMP]",
+    "createdAt": "2000-01-02T00:00:00+00:00",
     "message": "add M ",
     "authorName": "author",
     "authorEmail": "author@example.com",
@@ -173,7 +168,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
     "latestCommit": {
       "cliId": "0d",
       "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-      "createdAt": "[RFC_TIMESTAMP]",
+      "createdAt": "2000-01-02T00:00:00+00:00",
       "message": "add M ",
       "authorName": "author",
       "authorEmail": "author@example.com",
@@ -212,7 +207,6 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
 
     env.but("--json status -f")
         .env_remove("BUT_OUTPUT_FORMAT")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
