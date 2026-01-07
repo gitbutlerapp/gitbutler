@@ -38,3 +38,14 @@ There are several community-maintained distributions of GitButler. Issues with t
   - [gitbutler-bin](https://aur.archlinux.org/packages/gitbutler-bin)
 - Flatpak
   - [GitButler](https://flathub.org/en/apps/com.gitbutler.gitbutler)
+
+## Known issues and workarounds
+
+### High CPU usage in WebKitGTK thread
+If you're exhibiting high CPU usage in a WebKit-related thread, try disabling hardware acceleration for WebKitGTK.
+
+```bash
+$ WEBKIT_DISABLE_COMPOSITING_MODE=1 gitbutler-tauri
+```
+
+See https://github.com/gitbutlerapp/gitbutler/issues/11602 for details.
