@@ -379,6 +379,26 @@ fn update_branch_name_fails_validation() -> Result<()> {
 }
 
 #[test]
+fn update_branch_name_to_same_name_is_noop() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let branch_name = String::from("virtual");
+
+    let update = PatchReferenceUpdate {
+        name: Some(branch_name.clone()),
+        description: None,
+    };
+    let result = test_ctx
+        .stack
+        .update_branch(&ctx, branch_name.clone(), &update);
+
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.stack.heads[0].name(), &branch_name);
+
+    Ok(())
+}
+
+#[test]
 fn update_branch_name_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
