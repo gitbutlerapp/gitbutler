@@ -63,7 +63,7 @@ enum WatchMode {
 impl WatchMode {
     fn from_env() -> Self {
         let Ok(mode) = std::env::var(ENV_WATCH_MODE) else {
-            return Self::Legacy;
+            return Self::Auto;
         };
         match mode.trim().to_ascii_lowercase().as_str() {
             "legacy" => Self::Legacy,
