@@ -143,8 +143,8 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
         )?;
     }
 
-    // Show initial conflicted files
-    show_conflicted_files(ctx, out)?;
+    // Show initial conflicted files (ignore the return value here)
+    let _all_resolved = show_conflicted_files(ctx, out)?;
 
     Ok(())
 }
@@ -167,12 +167,48 @@ fn show_status(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
         )?;
     }
 
-    show_conflicted_files(ctx, out)?;
+    let all_resolved = show_conflicted_files(ctx, out)?;
+
+    // If all conflicts are resolved and we're in human mode, offer to finalize
+    if all_resolved && out.for_human().is_some() {
+        // Use a separate scope for the prompt
+        if let Some(human_out) = out.for_human() {
+            writeln!(human_out)?;
+            writeln!(
+                human_out,
+                "{}",
+                "All conflicts have been resolved!".green().bold()
+            )?;
+        }
+
+        // Prompt user to finalize using stdio directly
+        use std::io::{self, Write};
+        print!("Finalize the resolution now? [Y/n]: ");
+        io::stdout().flush()?;
+
+        let mut response = String::new();
+        io::stdin().read_line(&mut response)?;
+        let response = response.trim().to_lowercase();
+
+        if response.is_empty() || response == "y" || response == "yes" {
+            println!();
+            // Call finish_resolution with the full OutputChannel
+            return finish_resolution(ctx, out);
+        } else {
+            if let Some(human_out) = out.for_human() {
+                writeln!(
+                    human_out,
+                    "Resolution not finalized. Run {} when ready.",
+                    "but resolve finish".green().bold()
+                )?;
+            }
+        }
+    }
 
     Ok(())
 }
 
-fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<bool> {
     let conflicted_files = edit_initial_index_state(ctx.legacy_project.id)
         .context("Failed to get conflicted files")?;
 
@@ -209,7 +245,9 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<(
         }
     }
 
-    if still_conflicted.is_empty() {
+    let all_resolved = still_conflicted.is_empty();
+
+    if all_resolved {
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", "No conflicted files remaining!".green())?;
             if !resolved.is_empty() {
@@ -223,11 +261,6 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<(
                     )?;
                 }
             }
-            writeln!(
-                out,
-                "Run {} to finalize the resolution.",
-                "but resolve finish".green().bold()
-            )?;
         }
     } else {
         if let Some(out) = out.for_human() {
@@ -264,12 +297,13 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<(
                 "conflicted_files": conflicted_list,
                 "resolved_files": resolved_list,
                 "conflicted_count": conflicted_list.len(),
-                "resolved_count": resolved_list.len()
+                "resolved_count": resolved_list.len(),
+                "all_resolved": all_resolved
             }))?;
         }
     }
 
-    Ok(())
+    Ok(all_resolved)
 }
 
 /// Check if a file contains git conflict markers
