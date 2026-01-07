@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     path::{Component, Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use anyhow::{Context as _, Result, anyhow};
@@ -73,9 +73,9 @@ impl WatchMode {
                 tracing::warn!(
                     env = ENV_WATCH_MODE,
                     value = other,
-                    "unknown watch mode; falling back to legacy"
+                    "unknown watch mode; falling back to auto"
                 );
-                Self::Legacy
+                Self::Auto
             }
         }
     }
@@ -117,7 +117,16 @@ fn setup_watch_plan(
     worktree_path: &Path,
     git_dir: &Path,
 ) -> Result<()> {
+    let start = Instant::now();
     let watch_plan = compute_watch_plan_for_repo(repo, worktree_path, git_dir)?;
+    let duration = start.elapsed();
+    if duration > Duration::from_secs(1) {
+        tracing::warn!(
+            %project_id,
+            ?duration,
+            "compute_watch_plan_for_repo took a long time"
+        );
+    }
 
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(watch_backoff_policy(), || {
@@ -130,7 +139,7 @@ fn setup_watch_plan(
                         tracing::warn!(
                             %project_id,
                             path = %path.display(),
-                            "OS file watch limit reached; continuing with partial watches"
+                            "OS file watch limit reached; continuing with partial watches. Monitoring coverage may be incomplete until restart."
                         );
                         break;
                     }
@@ -369,7 +378,11 @@ pub fn spawn(
                         classified_file_paths
                             .iter()
                             .filter(|(file_path, kind)| {
-                                *kind == FileKind::Project && file_path.is_dir()
+                                *kind == FileKind::Project
+                                    && file_path
+                                        .symlink_metadata()
+                                        .map(|m| m.is_dir() && !m.is_symlink())
+                                        .unwrap_or(false)
                             })
                             .map(|(path, _)| path.clone())
                             .collect()
@@ -410,6 +423,8 @@ pub fn spawn(
                     stats.record("project", worktree_relative_paths.len());
 
                     for path in watch_paths {
+                        // NOTE: There is an inherent race condition here where files created in the new
+                        // directory before the watch is established will be missed.
                         let event = InternalEvent::WatchPath(project_id, path);
                         if out.send(event).is_err() {
                             tracing::info!("channel closed - stopping file watcher");
@@ -504,11 +519,12 @@ fn compute_watch_plan_for_repo(
             let Ok(entry) = entry else {
                 continue;
             };
-            let Ok(file_type) = entry.file_type() else {
+            let path = entry.path();
+            let Ok(metadata) = path.symlink_metadata() else {
                 continue;
             };
-            if file_type.is_dir() && !file_type.is_symlink() {
-                stack.push(entry.path());
+            if metadata.is_dir() && !metadata.is_symlink() {
+                stack.push(path);
             }
         }
     }
@@ -610,5 +626,26 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
         }
     } else {
         FileKind::Project
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(unsafe_code)]
+    use super::*;
+    use gix::bstr::ByteSlice;
+
+    #[test]
+    fn test_tracked_worktree_dir_prefixes_empty_root() {
+        let index = gix::index::State::new(gix::hash::Kind::Sha1);
+        let tracked_dirs = tracked_worktree_dir_prefixes(&index);
+        assert!(tracked_dirs.contains(b"".as_bstr()), "Root should always be in tracked_dirs");
+    }
+
+    #[test]
+    fn test_watch_mode_from_env_fallback() {
+        unsafe { std::env::set_var(ENV_WATCH_MODE, "invalid"); }
+        assert_eq!(WatchMode::from_env(), WatchMode::Auto);
+        unsafe { std::env::remove_var(ENV_WATCH_MODE); }
     }
 }

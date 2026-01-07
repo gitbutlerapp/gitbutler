@@ -99,6 +99,9 @@ pub fn watch_in_background(
             tokio::select! {
                 Some(event) = events_in.recv() => match event {
                     InternalEvent::WatchPath(_, path) => {
+                        // NOTE: There is an inherent race condition here where files created in the new
+                        // directory before the watch is established will be missed.
+                        tracing::trace!(%project_id, ?path, "adding dynamic watch");
                         if let Err(err) = debounce.watcher().watch(&path, RecursiveMode::NonRecursive) {
                             tracing::warn!(%project_id, ?path, ?err, "failed to add watch");
                         }

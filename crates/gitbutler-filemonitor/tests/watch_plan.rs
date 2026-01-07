@@ -30,6 +30,55 @@ fn compute_watch_plan_respects_gitignore_for_ignored_dirs() {
     assert_eq!(actual, expected);
 }
 
+#[test]
+fn compute_watch_plan_includes_ignored_but_tracked_dirs() {
+    let (repo, _tmpdir) = but_testsupport::writable_scenario("watch-plan-ignores-node-modules");
+    let worktree = repo.workdir().expect("non-bare");
+
+    // Create a directory, add it to .gitignore, but track a file inside it.
+    std::fs::create_dir(worktree.join("ignored_dir")).unwrap();
+    std::fs::write(worktree.join("ignored_dir/tracked_file"), "content").unwrap();
+    std::fs::write(worktree.join(".gitignore"), "ignored_dir/").unwrap();
+
+    // Use git to force add the file in the ignored directory
+    let mut cmd = but_testsupport::git(&repo);
+    cmd.arg("add").arg("-f").arg("ignored_dir/tracked_file");
+    assert!(cmd.status().unwrap().success());
+
+    let plan = gitbutler_filemonitor::compute_watch_plan(worktree).expect("plan computed");
+    let worktree_real = gix::path::realpath(worktree).expect("realpath worktree");
+
+    let actual = canonicalize_plan(&plan, &worktree_real);
+    assert!(
+        actual.contains(&("non-recursive", "ignored_dir".to_string())),
+        "ignored_dir should be watched because it contains tracked files, even if ignored"
+    );
+}
+
+#[test]
+fn compute_watch_plan_includes_ignored_but_tracked_dirs_fixture() {
+    let (repo, _tmpdir) = but_testsupport::writable_scenario("watch-plan-ignored-but-tracked");
+    let worktree = repo.workdir().expect("non-bare");
+
+    let plan = gitbutler_filemonitor::compute_watch_plan(worktree).expect("plan computed");
+    let worktree_real = gix::path::realpath(worktree).expect("realpath worktree");
+
+    let actual = canonicalize_plan(&plan, &worktree_real);
+    let expected: BTreeSet<CanonicalWatch> = [
+        ("non-recursive", "."),
+        ("non-recursive", ".git"),
+        ("non-recursive", ".git/logs"),
+        ("recursive", ".git/refs/heads"),
+        ("non-recursive", "ignored_dir"),
+        ("non-recursive", "normal_dir"),
+    ]
+    .into_iter()
+    .map(|(mode, path)| (mode, path.to_string()))
+    .collect();
+
+    assert_eq!(actual, expected);
+}
+
 fn canonicalize_plan(
     plan: &[(std::path::PathBuf, RecursiveMode)],
     worktree: &Path,
