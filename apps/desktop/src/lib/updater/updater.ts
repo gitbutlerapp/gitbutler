@@ -94,7 +94,7 @@ export class UpdaterService {
 	}
 
 	async checkForUpdate(manual = false) {
-		if (get(this.disableAutoChecks)) return;
+		if (get(this.disableAutoChecks) && !manual) return;
 
 		if (manual) {
 			this.manualCheck = manual;
