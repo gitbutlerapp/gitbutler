@@ -154,7 +154,34 @@ fn local_branch_with_json_output() -> anyhow::Result<()> {
         .stdout_eq(str![[r#"
 {
   "name": {
-    "full": "refs/heads/feature-branch"
+    "full": "refs/heads/feature-branch",
+    "full_bytes": [
+      114,
+      101,
+      102,
+      115,
+      47,
+      104,
+      101,
+      97,
+      100,
+      115,
+      47,
+      102,
+      101,
+      97,
+      116,
+      117,
+      114,
+      101,
+      45,
+      98,
+      114,
+      97,
+      110,
+      99,
+      104
+    ]
   },
   "target_id": "9f9d5a694afe171f5f9c72f8cf06db6210c3cf43",
   "target_ref": null
