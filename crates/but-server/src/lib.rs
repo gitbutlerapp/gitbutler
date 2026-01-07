@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use axum::extract::State;
 use axum::{
     Json, Router,
     body::Body,
@@ -19,7 +20,6 @@ use gitbutler_project::ProjectId;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
-use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 
 mod projects;
@@ -43,6 +43,13 @@ pub(crate) struct Request {
 pub(crate) struct Extra {
     active_projects: Arc<Mutex<ActiveProjects>>,
     archival: Arc<but_feedback::Archival>,
+}
+
+#[derive(Clone)]
+struct AppState {
+    app: Claude,
+    extra: Extra,
+    app_settings: AppSettingsWithDiskSync,
 }
 
 pub async fn run() {
@@ -71,15 +78,16 @@ pub async fn run() {
         instance_by_stack: Default::default(),
     };
 
-    // build our application with a single route
+    let state = AppState {
+        app,
+        extra,
+        app_settings,
+    };
+
     let app = Router::new()
         .route(
             "/",
-            get(|| async { "Hello, World!" }).post({
-                let app = app.clone();
-                let extra = extra.clone();
-                move |req| handle_json_command(req, app, extra, app_settings)
-            }),
+            get("We need a post actually").post(post_handle_json_command),
         )
         .route(
             "/ws",
@@ -96,7 +104,8 @@ pub async fn run() {
                 tokio::task::spawn(next.run(req)).await.unwrap()
             },
         ))
-        .layer(ServiceBuilder::new().layer(cors));
+        .layer(cors)
+        .with_state(state);
 
     let port = std::env::var("BUTLER_PORT").unwrap_or("6978".into());
     let host = std::env::var("BUTLER_HOST").unwrap_or("127.0.0.1".into());
@@ -104,6 +113,23 @@ pub async fn run() {
     let listener = tokio::net::TcpListener::bind(&url).await.unwrap();
     println!("Running at {url}");
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn post_handle_json_command(
+    State(state): State<AppState>,
+    Json(req): Json<Request>,
+) -> Json<serde_json::Value> {
+    let app = state.app;
+    let extra = state.extra;
+    let app_settings_sync = state.app_settings;
+    let res = handle_command(req, app, extra, app_settings_sync).await;
+    match res {
+        Ok(value) => Json(json!(Response::Success(value))),
+        Err(e) => {
+            let e = json::Error::from(e);
+            Json(json!(Response::Error(json!(e))))
+        }
+    }
 }
 
 async fn handle_ws_request(
@@ -143,7 +169,7 @@ async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>
 }
 
 async fn handle_command(
-    Json(request): Json<Request>,
+    request: Request,
     // TODO: this is due to mixing UI broadcasting into Claude related state (which also broadcasts)
     app: Claude,
     extra: Extra,
@@ -622,24 +648,6 @@ async fn handle_command(
         "commit_reword" => commit::commit_reword_cmd(request.params),
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command)),
-    }
-}
-
-async fn handle_json_command(
-    req: Json<Request>,
-    // TODO: this is due to mixing UI broadcasting into Claude related state (which also broadcasts)
-    app: Claude,
-    extra: Extra,
-    app_settings_sync: AppSettingsWithDiskSync,
-    // TODO: make this anyhow::Result<serde_json::Value>
-) -> Json<serde_json::Value> {
-    let res = handle_command(req, app, extra, app_settings_sync).await;
-    match res {
-        Ok(value) => Json(json!(Response::Success(value))),
-        Err(e) => {
-            let e = json::Error::from(e);
-            Json(json!(Response::Error(json!(e))))
-        }
     }
 }
 
