@@ -569,7 +569,9 @@ impl Stack {
         let mut updated_heads = self.heads.clone();
 
         // Handle name updates
-        if let Some(name) = update.name.clone() {
+        if let Some(name) = update.name.clone()
+            && name != branch_name
+        {
             let head = updated_heads
                 .iter_mut()
                 .find(|h: &&mut StackBranch| *h.name() == branch_name);
