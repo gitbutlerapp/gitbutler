@@ -7,8 +7,8 @@ use std::path::Path;
 use anyhow::Result;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_project::ProjectId;
-use notify::{RecursiveMode, Watcher as _};
 pub use handler::Handler;
+use notify::{RecursiveMode, Watcher as _};
 use tokio::{
     sync::mpsc::{UnboundedSender, unbounded_channel},
     task,
