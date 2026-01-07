@@ -181,14 +181,12 @@ fn show_status(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
             println!();
             // Call finish_resolution with the full OutputChannel
             return finish_resolution(ctx, out);
-        } else {
-            if let Some(human_out) = out.for_human() {
-                writeln!(
-                    human_out,
-                    "Resolution not finalized. Run {} when ready.",
-                    "but resolve finish".green().bold()
-                )?;
-            }
+        } else if let Some(human_out) = out.for_human() {
+            writeln!(
+                human_out,
+                "Resolution not finalized. Run {} when ready.",
+                "but resolve finish".green().bold()
+            )?;
         }
     }
 
@@ -249,45 +247,43 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
                 }
             }
         }
-    } else {
-        if let Some(out) = out.for_human() {
-            writeln!(out, "{}:", "Conflicted files remaining".yellow().bold())?;
-            for change in &still_conflicted {
+    } else if let Some(out) = out.for_human() {
+        writeln!(out, "{}:", "Conflicted files remaining".yellow().bold())?;
+        for change in &still_conflicted {
+            writeln!(
+                out,
+                "  {} {}",
+                "✗".red(),
+                change.path.to_str_lossy().yellow()
+            )?;
+        }
+        if !resolved.is_empty() {
+            writeln!(out, "\n{} resolved:", "Files".green())?;
+            for change in &resolved {
                 writeln!(
                     out,
                     "  {} {}",
-                    "✗".red(),
-                    change.path.to_str_lossy().yellow()
+                    "✓".green(),
+                    change.path.to_str_lossy().green()
                 )?;
             }
-            if !resolved.is_empty() {
-                writeln!(out, "\n{} resolved:", "Files".green())?;
-                for change in &resolved {
-                    writeln!(
-                        out,
-                        "  {} {}",
-                        "✓".green(),
-                        change.path.to_str_lossy().green()
-                    )?;
-                }
-            }
-        } else if let Some(out) = out.for_json() {
-            let conflicted_list: Vec<String> = still_conflicted
-                .iter()
-                .map(|change| change.path.to_str_lossy().to_string())
-                .collect();
-            let resolved_list: Vec<String> = resolved
-                .iter()
-                .map(|change| change.path.to_str_lossy().to_string())
-                .collect();
-            out.write_value(&serde_json::json!({
-                "conflicted_files": conflicted_list,
-                "resolved_files": resolved_list,
-                "conflicted_count": conflicted_list.len(),
-                "resolved_count": resolved_list.len(),
-                "all_resolved": all_resolved
-            }))?;
         }
+    } else if let Some(out) = out.for_json() {
+        let conflicted_list: Vec<String> = still_conflicted
+            .iter()
+            .map(|change| change.path.to_str_lossy().to_string())
+            .collect();
+        let resolved_list: Vec<String> = resolved
+            .iter()
+            .map(|change| change.path.to_str_lossy().to_string())
+            .collect();
+        out.write_value(serde_json::json!({
+            "conflicted_files": conflicted_list,
+            "resolved_files": resolved_list,
+            "conflicted_count": conflicted_list.len(),
+            "resolved_count": resolved_list.len(),
+            "all_resolved": all_resolved
+        }))?;
     }
 
     Ok(all_resolved)
@@ -419,7 +415,7 @@ fn show_workflow_help(out: &mut OutputChannel) -> Result<()> {
         )?;
         writeln!(out, "  {} (finalize)", "but resolve finish".green())?;
     } else if let Some(out) = out.for_json() {
-        out.write_value(&serde_json::json!({
+        out.write_value(serde_json::json!({
             "workflow": [
                 {
                     "step": 1,
