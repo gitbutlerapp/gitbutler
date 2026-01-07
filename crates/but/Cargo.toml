@@ -54,7 +54,7 @@ but-github.workspace = true
 # NOTE: close to mostly 'proper', but depends on `but-github` which depends on `gitbutler-user`
 but-forge.workspace = true
 but-workspace = { workspace = true }
-but-api = { workspace = true }
+but-api = { workspace = true, features = ["path-bytes"] }
 
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
