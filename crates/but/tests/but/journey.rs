@@ -92,7 +92,7 @@ Caused by:
         .assert()
         .failure()
         .stdout_eq(str![[r#"
-Initiated a background fetch...
+[2mInitiated a background fetch...[0m
 
 "#]])
         .stderr_eq(str![[r#"
@@ -108,10 +108,7 @@ Caused by:
     env.but("branch new feat")
         .assert()
         .failure()
-        .stdout_eq(str![[r#"
-Initiated a background fetch...
-
-"#]])
+        .stdout_eq(str![""])
         .stderr_eq(str![[r#"
 Error: errors.projects.default_target.not_found
 
