@@ -3613,11 +3613,11 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backoff",
+ "but-testsupport",
  "gitbutler-notify-debouncer",
  "gitbutler-project",
  "gix",
  "notify",
- "tempfile",
  "thiserror 2.0.17",
  "tokio",
  "tracing",

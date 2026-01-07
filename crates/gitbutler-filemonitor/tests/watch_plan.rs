@@ -1,44 +1,61 @@
-use std::fs;
+use std::{
+    collections::BTreeSet,
+    path::{Component, Path},
+};
 
 use notify::RecursiveMode;
 
+type CanonicalWatch = (&'static str, String);
+
 #[test]
-fn compute_watch_plan_avoids_recursive_worktree_watch_and_ignored_dirs() {
-    let tmp = tempfile::tempdir().expect("tempdir available");
-    let worktree = tmp.path();
-    gix::init(worktree).expect("git repo initializes");
-
-    fs::write(worktree.join(".gitignore"), "node_modules/\n").expect("write .gitignore");
-
-    fs::create_dir_all(worktree.join("src")).expect("create src");
-    fs::write(worktree.join("src").join("app.txt"), "hi").expect("write file");
-
-    fs::create_dir_all(worktree.join("node_modules").join("pkg")).expect("create ignored dir");
-    fs::write(worktree.join("node_modules").join("pkg").join("index.js"), "x")
-        .expect("write ignored file");
+fn compute_watch_plan_respects_gitignore_for_ignored_dirs() {
+    let (repo, _tmpdir) = but_testsupport::writable_scenario("watch-plan-ignores-node-modules");
+    let worktree = repo.workdir().expect("non-bare");
 
     let plan = gitbutler_filemonitor::compute_watch_plan(worktree).expect("plan computed");
     let worktree_real = gix::path::realpath(worktree).expect("realpath worktree");
-    let src_real = gix::path::realpath(worktree.join("src")).expect("realpath src");
-    let node_modules_real =
-        gix::path::realpath(worktree.join("node_modules")).expect("realpath node_modules");
 
-    assert!(
-        !plan
-            .iter()
-            .any(|(path, mode)| path == &worktree_real && *mode == RecursiveMode::Recursive),
-        "worktree should not be watched recursively"
-    );
-    assert!(
-        plan.iter().any(|(path, mode)| path == &worktree_real && *mode == RecursiveMode::NonRecursive),
-        "worktree should be watched non-recursively"
-    );
-    assert!(
-        plan.iter().any(|(path, mode)| path == &src_real && *mode == RecursiveMode::NonRecursive),
-        "unignored directories should be watched"
-    );
-    assert!(
-        !plan.iter().any(|(path, _mode)| path == &node_modules_real),
-        "ignored directories should not be watched"
-    );
+    let actual = canonicalize_plan(&plan, &worktree_real);
+    let expected: BTreeSet<CanonicalWatch> = [
+        ("non-recursive", "."),
+        ("non-recursive", ".git"),
+        ("non-recursive", ".git/logs"),
+        ("recursive", ".git/refs/heads"),
+        ("non-recursive", "src"),
+    ]
+    .into_iter()
+    .map(|(mode, path)| (mode, path.to_string()))
+    .collect();
+
+    assert_eq!(actual, expected);
+}
+
+fn canonicalize_plan(
+    plan: &[(std::path::PathBuf, RecursiveMode)],
+    worktree: &Path,
+) -> BTreeSet<CanonicalWatch> {
+    plan.iter()
+        .map(|(path, mode)| {
+            let mode = match mode {
+                RecursiveMode::Recursive => "recursive",
+                RecursiveMode::NonRecursive => "non-recursive",
+            };
+            let relative = path
+                .strip_prefix(worktree)
+                .expect("fixture repositories keep all watched paths in the worktree");
+            let mut components = Vec::new();
+            for comp in relative.components() {
+                let Component::Normal(part) = comp else {
+                    continue;
+                };
+                components.push(part.to_string_lossy());
+            }
+            let path = if components.is_empty() {
+                ".".to_string()
+            } else {
+                components.join("/")
+            };
+            (mode, path)
+        })
+        .collect()
 }
