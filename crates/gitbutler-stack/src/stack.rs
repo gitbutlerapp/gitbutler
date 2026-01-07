@@ -851,6 +851,7 @@ impl Stack {
         // let id: CommitOrChangeId = commit.into();
         self.heads
             .iter()
+            .filter(|h| !h.archived)
             .filter(|h| h.head_oid(repo).ok() == Some(commit.id().to_gix()))
             .map(|h| h.name().clone())
             .collect_vec()
