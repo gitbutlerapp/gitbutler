@@ -58,8 +58,9 @@ impl Handler {
                     .context("failed to handle git file change event")
             }
 
-            // This event is handled in the watcher loop to add dynamic watches and is a no-op here.
-            InternalEvent::WatchPath(_, _) => Ok(()),
+            InternalEvent::WatchDirectoriesNonrecursively(_) => {
+                unreachable!("This event is handled in the watcher loop")
+            }
         }
     }
 

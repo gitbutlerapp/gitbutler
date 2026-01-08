@@ -1,8 +1,4 @@
-use std::{
-    collections::HashSet,
-    path::{Component, Path, PathBuf},
-    time::Duration,
-};
+use std::{collections::HashSet, path::Path, time::Duration};
 
 use anyhow::{Context as _, Result, anyhow};
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
@@ -12,7 +8,9 @@ use tokio::task;
 use tracing::Level;
 
 use crate::events::InternalEvent;
-use gix::bstr::{BString, ByteSlice};
+use crate::watch_plan::{
+    compute_watch_plan_for_repo, to_repo_relative_key, tracked_worktree_dir_prefixes,
+};
 
 /// We will collect notifications for up to this amount of time at a very
 /// maximum before releasing them. This duration will be hit if e.g. a build
@@ -46,38 +44,53 @@ struct RunError {
 
 const ENV_WATCH_MODE: &str = "GITBUTLER_WATCH_MODE";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum WatchMode {
-    /// Previous behavior: recursively watch the worktree (and an extra git-dir if the repo uses
-    /// a linked worktree with a git-dir outside the worktree).
-    Legacy,
+/// Control how the filesystem watch should be established.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WatchMode {
+    /// Recursively watch the worktree (and an extra git-dir if the repo uses
+    /// a linked worktree with a git-dir outside the worktree), using [`notify::RecursiveMode::Recursive`].
+    #[default]
+    Builtin,
     /// Ignore-aware watch plan: non-recursive watches of non-ignored worktree directories,
     /// plus explicit git-dir watches and dynamic watch additions for newly created directories.
+    /// Each directory is watched with [`notify::RecursiveMode::NonRecursive`].
     Plan,
     /// Automatically pick a mode based on platform heuristics.
     ///
-    /// Currently this enables `Plan` on WSL and `Legacy` elsewhere.
+    /// Currently, this enables `Plan` on WSL and `Legacy` elsewhere.
     Auto,
 }
 
+impl std::str::FromStr for WatchMode {
+    type Err = ();
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(match s.trim().to_ascii_lowercase().as_str() {
+            "builtin" => Self::Builtin,
+            "plan" => Self::Plan,
+            "auto" => Self::Auto,
+            _ => {
+                return Err(());
+            }
+        })
+    }
+}
+
 impl WatchMode {
-    fn from_env() -> Self {
+    /// Initialise the mode from the environment.
+    pub fn from_env() -> Self {
         let Ok(mode) = std::env::var(ENV_WATCH_MODE) else {
             return Self::Auto;
         };
-        match mode.trim().to_ascii_lowercase().as_str() {
-            "legacy" => Self::Legacy,
-            "plan" => Self::Plan,
-            "auto" => Self::Auto,
-            other => {
-                tracing::warn!(
-                    env = ENV_WATCH_MODE,
-                    value = other,
-                    "unknown watch mode; falling back to auto"
-                );
-                Self::Auto
-            }
-        }
+
+        mode.parse().ok().unwrap_or_else(|| {
+            tracing::warn!(
+                env = ENV_WATCH_MODE,
+                value = mode,
+                "unknown watch mode; falling back to auto"
+            );
+            WatchMode::Auto
+        })
     }
 }
 
@@ -218,6 +231,7 @@ fn setup_legacy_watch(
 /// classify them, and associate them with `project_id`.
 /// These are sent through the passed `out` channel, to indicate either **Git** repository changes
 /// or **ProjectWorktree** changes
+/// Use `watch_mode` to control how exactly the directory is watched.
 ///
 /// ### Why is this not an iterator?
 ///
@@ -233,6 +247,7 @@ pub fn spawn(
     project_id: ProjectId,
     worktree_path: &std::path::Path,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
+    watch_mode: WatchMode,
 ) -> Result<Debouncer<RecommendedWatcher, NoCache>> {
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
     let mut debouncer = new_debouncer(
@@ -250,12 +265,11 @@ pub fn spawn(
     ))?;
     let git_dir = repo.path().to_owned();
 
-    let requested_watch_mode = WatchMode::from_env();
-    let mut effective_watch_mode = requested_watch_mode;
+    let mut effective_watch_mode = watch_mode;
     let mut enable_dynamic_watches = false;
 
-    match requested_watch_mode {
-        WatchMode::Legacy => {
+    match watch_mode {
+        WatchMode::Builtin => {
             setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
         }
         WatchMode::Plan => {
@@ -276,19 +290,19 @@ pub fn spawn(
                             ?err,
                             "watch-plan setup failed; falling back to legacy watch mode"
                         );
-                        effective_watch_mode = WatchMode::Legacy;
+                        effective_watch_mode = WatchMode::Builtin;
                         setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
                     }
                 }
             } else {
-                effective_watch_mode = WatchMode::Legacy;
+                effective_watch_mode = WatchMode::Builtin;
                 setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
             }
         }
     }
     tracing::debug!(
         %project_id,
-        requested = ?requested_watch_mode,
+        requested = ?watch_mode,
         effective = ?effective_watch_mode,
         "file watcher started"
     );
@@ -364,22 +378,22 @@ pub fn spawn(
                         }
                     }
 
-                    let watch_paths: HashSet<_> = if enable_dynamic_watches && ignore_filtering_ran
-                    {
-                        classified_file_paths
-                            .iter()
-                            .filter(|(file_path, kind)| {
-                                *kind == FileKind::Project
-                                    && file_path
-                                        .symlink_metadata()
-                                        .map(|m| m.is_dir() && !m.is_symlink())
-                                        .unwrap_or(false)
-                            })
-                            .map(|(path, _)| path.clone())
-                            .collect()
-                    } else {
-                        HashSet::new()
-                    };
+                    let directories_to_watch: HashSet<_> =
+                        if enable_dynamic_watches && ignore_filtering_ran {
+                            classified_file_paths
+                                .iter()
+                                .filter(|(file_path, kind)| {
+                                    *kind == FileKind::Project
+                                        && file_path
+                                            .symlink_metadata()
+                                            .map(|m| m.is_dir() && !m.is_symlink())
+                                            .unwrap_or(false)
+                                })
+                                .map(|(path, _)| path.clone())
+                                .collect()
+                        } else {
+                            HashSet::new()
+                        };
                     let (mut stripped_git_paths, mut worktree_relative_paths) =
                         (HashSet::new(), HashSet::new());
                     for (file_path, kind) in classified_file_paths {
@@ -413,11 +427,17 @@ pub fn spawn(
                     stats.record("git", stripped_git_paths.len());
                     stats.record("project", worktree_relative_paths.len());
 
-                    for path in watch_paths {
+                    if !directories_to_watch.is_empty() {
                         // NOTE: There is an inherent race condition here where files created in the new
                         // directory before the watch is established will be missed.
-                        let event = InternalEvent::WatchPath(project_id, path);
-                        if out.send(event).is_err() {
+                        let send_failed = out
+                            .send(InternalEvent::WatchDirectoriesNonrecursively({
+                                let mut v: Vec<_> = directories_to_watch.into_iter().collect();
+                                v.sort();
+                                v
+                            }))
+                            .is_err();
+                        if send_failed {
                             tracing::info!("channel closed - stopping file watcher");
                             break 'outer;
                         }
@@ -446,118 +466,6 @@ pub fn spawn(
         }
     });
     Ok(debouncer)
-}
-
-/// Compute the paths that should be watched for `worktree_path`.
-///
-/// This is public to allow deterministic tests of the watch setup without relying on platform
-/// specific filesystem notification behaviour.
-pub fn compute_watch_plan(worktree_path: &Path) -> Result<Vec<(PathBuf, notify::RecursiveMode)>> {
-    let worktree_path = gix::path::realpath(worktree_path)?;
-    let repo = gix::open_opts(&worktree_path, gix::open::Options::isolated())?;
-    let git_dir = repo.path().to_owned();
-    compute_watch_plan_for_repo(&repo, &worktree_path, &git_dir)
-}
-
-#[tracing::instrument(skip(repo), level = "debug", err)]
-fn compute_watch_plan_for_repo(
-    repo: &gix::Repository,
-    worktree_path: &Path,
-    git_dir: &Path,
-) -> Result<Vec<(PathBuf, notify::RecursiveMode)>> {
-    let index = repo.index_or_empty()?;
-    let tracked_dirs = tracked_worktree_dir_prefixes(&index);
-    let mut excludes = repo.excludes(
-        &index,
-        None,
-        gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
-    )?;
-
-    let mut watched = Vec::new();
-    let mut visited = HashSet::new();
-    let mut stack = vec![worktree_path.to_owned()];
-    while let Some(dir) = stack.pop() {
-        if !visited.insert(dir.clone()) {
-            continue;
-        }
-        if dir.starts_with(git_dir) {
-            continue;
-        }
-        let Ok(relative) = dir.strip_prefix(worktree_path) else {
-            continue;
-        };
-        if relative
-            .components()
-            .any(|c| matches!(c, Component::Normal(name) if name == ".git"))
-        {
-            continue;
-        }
-
-        if !relative.as_os_str().is_empty() {
-            let is_excluded = excludes
-                .at_path(relative, Some(gix::index::entry::Mode::DIR))
-                .map(|platform| platform.is_excluded())
-                .unwrap_or(false);
-            if is_excluded && !tracked_dirs.contains(&to_repo_relative_key(relative)) {
-                continue;
-            }
-        }
-        watched.push((dir.clone(), notify::RecursiveMode::NonRecursive));
-
-        let Ok(entries) = std::fs::read_dir(&dir) else {
-            continue;
-        };
-        for entry in entries {
-            let Ok(entry) = entry else {
-                continue;
-            };
-            let Ok(file_type) = entry.file_type() else {
-                continue;
-            };
-            if file_type.is_dir() && !file_type.is_symlink() {
-                stack.push(entry.path());
-            }
-        }
-    }
-
-    // Watch the git directory explicitly, while avoiding recursing into `.git/objects`.
-    watched.push((git_dir.to_owned(), notify::RecursiveMode::NonRecursive));
-    let logs_dir = git_dir.join("logs");
-    if logs_dir.is_dir() {
-        watched.push((logs_dir, notify::RecursiveMode::NonRecursive));
-    }
-    let refs_heads_dir = git_dir.join("refs").join("heads");
-    if refs_heads_dir.is_dir() {
-        watched.push((refs_heads_dir, notify::RecursiveMode::Recursive));
-    }
-
-    Ok(watched)
-}
-
-fn tracked_worktree_dir_prefixes(index: &gix::index::State) -> HashSet<BString> {
-    let mut out = HashSet::new();
-    out.insert(BString::default());
-
-    for entry in index.entries() {
-        let path = entry.path(index);
-        let Some(last_slash) = path.rfind_byte(b'/') else {
-            continue;
-        };
-        let mut dir = BString::from(path[..last_slash].to_vec());
-        loop {
-            out.insert(dir.clone());
-            let Some(next_slash) = dir.rfind_byte(b'/') else {
-                break;
-            };
-            dir.truncate(next_slash);
-        }
-    }
-
-    out
-}
-
-fn to_repo_relative_key(path: &Path) -> BString {
-    gix::path::to_unix_separators_on_windows(gix::path::into_bstr(path)).into_owned()
 }
 
 #[cfg(target_family = "unix")]
