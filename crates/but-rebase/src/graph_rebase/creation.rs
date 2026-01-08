@@ -5,7 +5,7 @@ use but_graph::{Commit, CommitFlags, Graph, Segment};
 use petgraph::Direction;
 
 use crate::graph_rebase::{
-    Checkout, Edge, Editor, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
+    Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
     SuccessfulRebase,
 };
 
@@ -99,10 +99,9 @@ impl GraphExt for Graph {
                 None
             };
 
-            let mut ni = graph.add_node(Step::Pick {
-                id: c.id,
-                preserved_parents,
-            });
+            let mut pick = Pick::new_pick(c.id);
+            pick.preserved_parents = preserved_parents;
+            let mut ni = graph.add_node(Step::Pick(pick));
             let base_ni = ni;
 
             // Add and link references on top

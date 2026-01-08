@@ -41,13 +41,7 @@ fn reword_a_commit() -> Result<()> {
         .select_commit(a)
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.replace(
-        a_selector,
-        Step::Pick {
-            id: a_new,
-            preserved_parents: None,
-        },
-    )?;
+    editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
     outcome.materialize()?;
@@ -119,13 +113,7 @@ fn amend_a_commit() -> Result<()> {
         .select_commit(a.detach())
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.replace(
-        a_selector,
-        Step::Pick {
-            id: a_new,
-            preserved_parents: None,
-        },
-    )?;
+    editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
     outcome.materialize()?;
