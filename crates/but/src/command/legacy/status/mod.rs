@@ -9,6 +9,7 @@ use but_forge::ForgeReview;
 use but_oxidize::OidExt;
 use but_workspace::ui::{PushStatus, StackDetails};
 use colored::{ColoredString, Colorize};
+use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
 
@@ -56,7 +57,7 @@ fn show_edit_mode_status(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::
     crate::command::legacy::resolve::show_resolve_status(ctx, out)
 }
 
-pub(crate) fn worktree(
+pub(crate) async fn worktree(
     ctx: &mut Context,
     out: &mut OutputChannel,
     show_files: bool,
@@ -121,87 +122,113 @@ pub(crate) fn worktree(
     }
     let ci_map = ci_map(ctx, &cache_config, &stack_details)?;
 
-    // Calculate common_merge_base data
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target = stack.get_default_target()?;
-    let target_name = format!("{}/{}", target.branch.remote(), target.branch.branch());
-    let repo = ctx.repo.get()?;
-    let base_commit = repo.find_commit(target.sha.to_gix())?;
-    let base_commit_decoded = base_commit.decode()?;
-    let message = base_commit_decoded
-        .message
-        .to_string()
-        .replace('\n', " ")
-        .chars()
-        .take(50)
-        .collect::<String>();
-    let formatted_date = base_commit_decoded
-        .committer()?
-        .time()?
-        .format_or_unix(DATE_ONLY);
-    let author = base_commit_decoded.author()?;
-    let common_merge_base_data = CommonMergeBase {
-        target_name: target_name.clone(),
-        common_merge_base: target.sha.to_string()[..7].to_string(),
-        message: message.clone(),
-        commit_date: formatted_date,
-        commit_id: target.sha.to_gix(),
-        created_at: base_commit_decoded.committer()?.time()?.seconds as i128 * 1000,
-        author_name: author.name.to_string(),
-        author_email: author.email.to_string(),
+    // Calculate common_merge_base data and upstream state in a scope
+    // to ensure repo reference is dropped before any async operations
+    let (common_merge_base_data, upstream_state, last_fetched_ms, base_branch) = {
+        let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
+        let target = stack.get_default_target()?;
+        let target_name = format!("{}/{}", target.branch.remote(), target.branch.branch());
+        let repo = ctx.repo.get()?;
+        let base_commit = repo.find_commit(target.sha.to_gix())?;
+        let base_commit_decoded = base_commit.decode()?;
+        let message = base_commit_decoded
+            .message
+            .to_string()
+            .replace('\n', " ")
+            .chars()
+            .take(50)
+            .collect::<String>();
+        let formatted_date = base_commit_decoded
+            .committer()?
+            .time()?
+            .format_or_unix(DATE_ONLY);
+        let author = base_commit_decoded.author()?;
+        let common_merge_base_data = CommonMergeBase {
+            target_name: target_name.clone(),
+            common_merge_base: target.sha.to_string()[..7].to_string(),
+            message: message.clone(),
+            commit_date: formatted_date,
+            commit_id: target.sha.to_gix(),
+            created_at: base_commit_decoded.committer()?.time()?.seconds as i128 * 1000,
+            author_name: author.name.to_string(),
+            author_email: author.email.to_string(),
+        };
+
+        // Get cached upstream state information (without fetching)
+        let (upstream_state, last_fetched_ms, base_branch) =
+            but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)
+                .ok()
+                .flatten()
+                .map(|base_branch| {
+                    let last_fetched = base_branch.last_fetched_ms;
+                    let state = if base_branch.behind > 0 {
+                        // Get the latest commit on the upstream branch (current_sha is the tip of the remote branch)
+                        let commit_id = base_branch.current_sha;
+                        repo.find_commit(commit_id.to_gix())
+                            .ok()
+                            .and_then(|commit_obj| {
+                                let commit = commit_obj.decode().ok()?;
+                                let commit_message = commit
+                                    .message
+                                    .to_string()
+                                    .replace('\n', " ")
+                                    .chars()
+                                    .take(30)
+                                    .collect::<String>();
+
+                                let formatted_date = commit
+                                    .committer()
+                                    .ok()?
+                                    .time()
+                                    .ok()?
+                                    .format_or_unix(DATE_ONLY);
+
+                                let author = commit.author().ok()?;
+
+                                Some(UpstreamState {
+                                    target_name: base_branch.branch_name.clone(),
+                                    behind_count: base_branch.behind,
+                                    latest_commit: commit_id.to_string()[..7].to_string(),
+                                    message: commit_message,
+                                    commit_date: formatted_date,
+                                    last_fetched_ms: last_fetched,
+                                    commit_id: commit_id.to_gix(),
+                                    created_at: commit.committer().ok()?.time().ok()?.seconds
+                                        as i128
+                                        * 1000,
+                                    author_name: author.name.to_string(),
+                                    author_email: author.email.to_string(),
+                                })
+                            })
+                    } else {
+                        None
+                    };
+                    (state, last_fetched, Some(base_branch))
+                })
+                .unwrap_or((None, None, None));
+
+        // repo, base_commit, and base_commit_decoded are automatically dropped here at end of scope
+        (
+            common_merge_base_data,
+            upstream_state,
+            last_fetched_ms,
+            base_branch,
+        )
     };
 
-    // Get cached upstream state information (without fetching)
-    let (upstream_state, last_fetched_ms, base_branch) =
-        but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)
-            .ok()
-            .flatten()
-            .map(|base_branch| {
-                let last_fetched = base_branch.last_fetched_ms;
-                let state = if base_branch.behind > 0 {
-                    // Get the latest commit on the upstream branch (current_sha is the tip of the remote branch)
-                    let commit_id = base_branch.current_sha;
-                    repo.find_commit(commit_id.to_gix())
-                        .ok()
-                        .and_then(|commit_obj| {
-                            let commit = commit_obj.decode().ok()?;
-                            let commit_message = commit
-                                .message
-                                .to_string()
-                                .replace('\n', " ")
-                                .chars()
-                                .take(30)
-                                .collect::<String>();
+    // Compute upstream integration statuses if --upstream flag is set
+    // We need to drop locks before computing merge statuses
+    // because upstream_integration_statuses requires exclusive access
+    let branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus> = if show_upstream {
+        drop(guard);
+        drop(meta);
+        compute_branch_merge_statuses(ctx).await?
+    } else {
+        BTreeMap::new()
+    };
 
-                            let formatted_date = commit
-                                .committer()
-                                .ok()?
-                                .time()
-                                .ok()?
-                                .format_or_unix(DATE_ONLY);
-
-                            let author = commit.author().ok()?;
-
-                            Some(UpstreamState {
-                                target_name: base_branch.branch_name.clone(),
-                                behind_count: base_branch.behind,
-                                latest_commit: commit_id.to_string()[..7].to_string(),
-                                message: commit_message,
-                                commit_date: formatted_date,
-                                last_fetched_ms: last_fetched,
-                                commit_id: commit_id.to_gix(),
-                                created_at: commit.committer().ok()?.time().ok()?.seconds as i128
-                                    * 1000,
-                                author_name: author.name.to_string(),
-                                author_email: author.email.to_string(),
-                            })
-                        })
-                } else {
-                    None
-                };
-                (state, last_fetched, Some(base_branch))
-            })
-            .unwrap_or((None, None, None));
+    // Re-acquire repo for use after the async call
+    let repo = ctx.repo.get()?;
 
     if let Some(out) = out.for_json() {
         let workspace_status = json::build_workspace_status_json(
@@ -213,6 +240,7 @@ pub(crate) fn worktree(
             last_fetched_ms,
             &review_map,
             &ci_map,
+            &branch_merge_statuses,
             show_files,
             ctx.legacy_project.id,
             &repo,
@@ -228,9 +256,7 @@ pub(crate) fn worktree(
         return Ok(());
     };
 
-    // Drop base_commit_decoded, base_commit, and repo to release the borrow on ctx before we need to borrow ctx again
-    drop(base_commit_decoded);
-    drop(base_commit);
+    // Drop repo to release the borrow on ctx before the loop
     drop(repo);
 
     for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
@@ -253,6 +279,7 @@ pub(crate) fn worktree(
             i == 0,
             &review_map,
             &ci_map,
+            &branch_merge_statuses,
             out,
             &id_map,
         )?;
@@ -454,6 +481,7 @@ pub fn print_group(
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
+    branch_merge_statuses: &BTreeMap<String, UpstreamBranchStatus>,
     out: &mut dyn std::fmt::Write,
     id_map: &IdMap,
 ) -> anyhow::Result<()> {
@@ -489,6 +517,17 @@ pub fn print_group(
                 .map(|c| c.display_cli(verbose))
                 .unwrap_or_default();
 
+            let merge_status = branch_merge_statuses
+                .get(&branch.name.to_string())
+                .map(|status| match status {
+                    UpstreamBranchStatus::SaflyUpdatable => " [✓ upstream merges cleanly]".blue(),
+                    UpstreamBranchStatus::Integrated => " [⬆ integrated upstream]".purple(),
+                    UpstreamBranchStatus::Conflicted { .. } => " [⚠ upstream conflicts]".red(),
+                    UpstreamBranchStatus::Empty => " ○ empty".dimmed(),
+                })
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+
             let workspace = branch
                 .linked_worktree_id
                 .as_ref()
@@ -504,7 +543,7 @@ pub fn print_group(
                 .unwrap_or_default();
             writeln!(
                 out,
-                "┊{notch}┄{id} [{branch}{workspace}]{ci}{review} {no_commits} {stack_mark}",
+                "┊{notch}┄{id} [{branch}{workspace}]{ci}{merge_status}{review} {no_commits} {stack_mark}",
                 stack_mark = stack_mark.clone().unwrap_or_default(),
                 branch = branch.name.to_string().green().bold(),
             )?;
@@ -836,4 +875,29 @@ impl CliDisplay for CiChecks {
             "".to_string()
         }
     }
+}
+
+async fn compute_branch_merge_statuses(
+    ctx: &Context,
+) -> anyhow::Result<BTreeMap<String, UpstreamBranchStatus>> {
+    use gitbutler_branch_actions::upstream_integration::StackStatuses;
+
+    // Get upstream integration statuses using the public API
+    let statuses = but_api::legacy::virtual_branches::upstream_integration_statuses(
+        ctx.legacy_project.id,
+        None,
+    )
+    .await?;
+
+    let mut result = BTreeMap::new();
+
+    if let StackStatuses::UpdatesRequired { statuses, .. } = statuses {
+        for (_stack_id, stack_status) in statuses {
+            for branch_status in stack_status.branch_statuses {
+                result.insert(branch_status.name.clone(), branch_status.status);
+            }
+        }
+    }
+
+    Ok(result)
 }
