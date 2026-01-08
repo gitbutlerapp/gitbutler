@@ -717,6 +717,23 @@ pub mod utils {
         Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
     }
 
+    /// Returns a fixture that may be written to.
+    pub fn fixture_writable_with_signing(
+        fixture_name: &str,
+    ) -> Result<(
+        gix::Repository,
+        tempfile::TempDir,
+        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    )> {
+        let (repo, tmp) = but_testsupport::writable_scenario_with_ssh_key(fixture_name);
+        let meta = VirtualBranchesTomlMetadata::from_path(
+            repo.path()
+                .join(".git")
+                .join("should-never-be-written.toml"),
+        )?;
+        Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
+    }
+
     #[derive(Debug)]
     pub struct Commits {
         pub base: ObjectId,

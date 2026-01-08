@@ -291,6 +291,7 @@ fn rebase(
                                 repo,
                                 new_commit,
                                 DateMode::CommitterUpdateAuthorKeep,
+                                true,
                             )?);
                         }
                         None => {
@@ -325,7 +326,8 @@ fn rebase(
                 if let Some(new_message) = new_message {
                     new_commit.message = new_message;
                 }
-                *cursor = commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep)?;
+                *cursor =
+                    commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep, true)?;
             }
             RebaseStep::Reference(reference) => {
                 references.push(ReferenceSpec {
@@ -369,6 +371,7 @@ fn reword_commit(
         repo,
         new_commit,
         DateMode::CommitterUpdateAuthorKeep,
+        true,
     )?)
 }
 
@@ -384,6 +387,7 @@ pub fn replace_commit_tree(
         repo,
         new_commit,
         DateMode::CommitterUpdateAuthorKeep,
+        true,
     )?)
 }
 

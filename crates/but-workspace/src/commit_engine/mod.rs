@@ -195,6 +195,7 @@ pub fn create_commit(
                     repo,
                     commit.inner,
                     DateMode::CommitterUpdateAuthorKeep,
+                    true,
                 )?)
             }
         }
@@ -232,5 +233,5 @@ fn create_possibly_signed_commit(
             .unwrap_or_else(|| HeadersV2::from_config(&repo.config_snapshot())))
             .into(),
     };
-    but_rebase::commit::create(repo, commit, DateMode::CommitterKeepAuthorKeep)
+    but_rebase::commit::create(repo, commit, DateMode::CommitterKeepAuthorKeep, true)
 }

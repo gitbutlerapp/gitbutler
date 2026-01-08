@@ -189,7 +189,7 @@ pub(crate) mod function {
         }
         set_parent(&mut new_commit, head.id.detach())?;
         Ok(
-            crate::commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep)?
+            crate::commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep, true)?
                 .attach(repo),
         )
     }
@@ -250,10 +250,13 @@ pub(crate) mod function {
         set_parent(&mut to_rebase, head.id.detach())?;
 
         to_rebase.set_headers(&headers);
-        Ok(
-            crate::commit::create(repo, to_rebase.inner, DateMode::CommitterUpdateAuthorKeep)?
-                .attach(repo),
-        )
+        Ok(crate::commit::create(
+            repo,
+            to_rebase.inner,
+            DateMode::CommitterUpdateAuthorKeep,
+            true,
+        )?
+        .attach(repo))
     }
 
     fn extract_conflicted_files(

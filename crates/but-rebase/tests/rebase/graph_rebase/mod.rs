@@ -4,3 +4,4 @@ mod insert;
 mod multiple_operations;
 mod rebase_identities;
 mod replace;
+mod signing_preferences;

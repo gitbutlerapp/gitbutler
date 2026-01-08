@@ -47,6 +47,7 @@ pub fn cherry_pick(
     repo: &gix::Repository,
     target: gix::ObjectId,
     ontos: &[gix::ObjectId],
+    sign_if_configured: bool,
 ) -> Result<CherryPickOutcome> {
     let target = but_core::Commit::from_id(target.attach(repo))?;
     if ontos == target.parents.as_slice() {
@@ -102,13 +103,15 @@ pub fn cherry_pick(
                     base_t,
                     onto_t,
                     target_t.detach(),
+                    sign_if_configured,
                 )?;
                 Ok(CherryPickOutcome::ConflictedCommit(
                     conflicted_commit.detach(),
                 ))
             } else {
                 Ok(CherryPickOutcome::Commit(
-                    commit_from_unconflicted_tree(ontos, target, tree_id)?.detach(),
+                    commit_from_unconflicted_tree(ontos, target, tree_id, sign_if_configured)?
+                        .detach(),
                 ))
             }
         }
@@ -205,6 +208,7 @@ fn commit_from_unconflicted_tree<'repo>(
     parents: &[gix::ObjectId],
     to_rebase: but_core::Commit<'repo>,
     resolved_tree_id: gix::Id<'repo>,
+    sign_if_configured: bool,
 ) -> anyhow::Result<gix::Id<'repo>> {
     let repo = to_rebase.id.repo;
 
@@ -230,7 +234,13 @@ fn commit_from_unconflicted_tree<'repo>(
     }
     new_commit.parents = parents.into();
 
-    Ok(crate::commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep)?.attach(repo))
+    Ok(crate::commit::create(
+        repo,
+        new_commit,
+        DateMode::CommitterUpdateAuthorKeep,
+        sign_if_configured,
+    )?
+    .attach(repo))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -243,6 +253,7 @@ fn commit_from_conflicted_tree<'repo>(
     base_tree_id: gix::ObjectId,
     ours_tree_id: gix::ObjectId,
     theirs_tree_id: gix::ObjectId,
+    sign_if_configured: bool,
 ) -> anyhow::Result<gix::Id<'repo>> {
     let repo = resolved_tree_id.repo;
     // in case someone checks this out with vanilla Git, we should warn why it looks like this
@@ -290,10 +301,13 @@ fn commit_from_conflicted_tree<'repo>(
     to_rebase.parents = parents.into();
 
     to_rebase.set_headers(&headers);
-    Ok(
-        crate::commit::create(repo, to_rebase.inner, DateMode::CommitterUpdateAuthorKeep)?
-            .attach(repo),
-    )
+    Ok(crate::commit::create(
+        repo,
+        to_rebase.inner,
+        DateMode::CommitterUpdateAuthorKeep,
+        sign_if_configured,
+    )?
+    .attach(repo))
 }
 
 fn extract_conflicted_files(

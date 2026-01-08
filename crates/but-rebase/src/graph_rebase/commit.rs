@@ -25,7 +25,9 @@ impl Editor {
         commit: but_core::Commit<'_>,
         date_mode: DateMode,
     ) -> Result<gix::ObjectId> {
-        create(&self.repo, commit.inner, date_mode)
+        // TODO(GB-983): As part of moving to only signing at the materializing
+        // step, this should have sign_if_configured false here.
+        create(&self.repo, commit.inner, date_mode, true)
     }
 
     /// Creates a commit with only the signature and author set correctly.
