@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     path::{Component, Path, PathBuf},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use anyhow::{Context as _, Result, anyhow};
@@ -117,16 +117,7 @@ fn setup_watch_plan(
     worktree_path: &Path,
     git_dir: &Path,
 ) -> Result<()> {
-    let start = Instant::now();
     let watch_plan = compute_watch_plan_for_repo(repo, worktree_path, git_dir)?;
-    let duration = start.elapsed();
-    if duration > Duration::from_secs(1) {
-        tracing::warn!(
-            %project_id,
-            ?duration,
-            "compute_watch_plan_for_repo took a long time"
-        );
-    }
 
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(watch_backoff_policy(), || {
@@ -468,6 +459,7 @@ pub fn compute_watch_plan(worktree_path: &Path) -> Result<Vec<(PathBuf, notify::
     compute_watch_plan_for_repo(&repo, &worktree_path, &git_dir)
 }
 
+#[tracing::instrument(skip(repo), level = "debug", err)]
 fn compute_watch_plan_for_repo(
     repo: &gix::Repository,
     worktree_path: &Path,
