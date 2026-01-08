@@ -64,7 +64,7 @@ struct CommitAbsorption {
 #[derive(Debug, Serialize)]
 struct JsonFileAbsorption {
     path: String,
-    change_type: String,
+    hunks: Vec<String>,
 }
 
 /// JSON output structure for a commit absorption
@@ -553,6 +553,36 @@ fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyho
     Ok(message)
 }
 
+/// Format a hunk range for display
+fn format_hunk_range(hunk_header: &but_core::HunkHeader) -> String {
+    if hunk_header.old_lines == 0 {
+        // New file or added lines only
+        format!("+{},{}", hunk_header.new_start, hunk_header.new_lines)
+    } else if hunk_header.new_lines == 0 {
+        // Deleted lines only
+        format!("-{},{}", hunk_header.old_start, hunk_header.old_lines)
+    } else {
+        // Modified lines
+        format!(
+            "@{},{} +{},{}",
+            hunk_header.old_start,
+            hunk_header.old_lines,
+            hunk_header.new_start,
+            hunk_header.new_lines
+        )
+    }
+}
+
+/// Get all hunk ranges for a file
+fn get_hunk_ranges(assignment: &HunkAssignment) -> Vec<String> {
+    if let Some(hunk_header) = &assignment.hunk_header {
+        vec![format_hunk_range(hunk_header)]
+    } else {
+        // Binary file or file too large - no hunk information
+        vec!["(binary or large file)".to_string()]
+    }
+}
+
 /// Display the absorption plan to the user
 fn display_absorption_plan(
     commit_absorptions: &[CommitAbsorption],
@@ -583,17 +613,11 @@ fn display_absorption_plan(
                     .files
                     .iter()
                     .map(|file| {
-                        let change_type = if file.path.contains("new file")
-                            || !std::path::Path::new(&file.path).exists()
-                        {
-                            "A".to_string()
-                        } else {
-                            "M".to_string()
-                        };
+                        let hunks = get_hunk_ranges(&file.assignment);
 
                         JsonFileAbsorption {
                             path: file.path.clone(),
-                            change_type,
+                            hunks,
                         }
                     })
                     .collect();
@@ -635,15 +659,10 @@ fn display_absorption_plan(
             writeln!(out, "  ({})", absorption.reason.description().dimmed())?;
 
             for file in &absorption.files {
-                let change_type = if file.path.contains("new file")
-                    || !std::path::Path::new(&file.path).exists()
-                {
-                    "A"
-                } else {
-                    "M"
-                };
+                let hunks = get_hunk_ranges(&file.assignment);
+                let hunk_display = hunks.join(", ");
 
-                writeln!(out, "    {} {}", change_type.green(), file.path)?;
+                writeln!(out, "    {} {}", file.path, hunk_display.dimmed())?;
             }
             writeln!(out)?;
         }
