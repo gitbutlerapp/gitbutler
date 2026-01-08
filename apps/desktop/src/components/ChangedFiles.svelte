@@ -57,13 +57,30 @@
 	// Derive the path of the first changed file, so it can be watched reactively in a consistent way.
 	const firstChangePath = $derived(changes.at(0)?.path);
 
+	let previousSelectionKey = $state<string | undefined>();
+	let previousFirstPath = $state<string | undefined>();
+
 	let listMode: 'list' | 'tree' = $state('tree');
 
 	$effect(() => {
-		const id = readStableSelectionKey(stringSelectionKey);
+		const currentKey = stringSelectionKey;
+		const id = readStableSelectionKey(currentKey);
 		const selection = idSelection.getById(id);
+
+		// Clear selection when selectionId or first file path changes
+		// This ensures we always start fresh when switching contexts
+		const selectionChanged = previousSelectionKey && previousSelectionKey !== currentKey;
+		const firstFileChanged = previousFirstPath && previousFirstPath !== firstChangePath;
+
+		if (selectionChanged || firstFileChanged) {
+			idSelection.clear(id);
+		}
+
+		previousSelectionKey = currentKey;
+		previousFirstPath = firstChangePath;
+
 		if (firstChangePath && autoselect && selection.entries.size === 0) {
-			idSelection.set(firstChangePath, selectionId, 0);
+			idSelection.set(firstChangePath, id, 0);
 		}
 	});
 </script>
