@@ -15,13 +15,15 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_project::Project;
+use serde::Serialize;
 
 use crate::{
     CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedCliId, utils::OutputChannel,
 };
 
 /// Reason why a file is being absorbed to a particular commit
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 enum AbsorptionReason {
     /// File has hunk range overlap with this commit
     HunkDependency,
@@ -57,6 +59,36 @@ struct CommitAbsorption {
     files: Vec<FileAbsorption>,
     reason: AbsorptionReason,
 }
+
+/// JSON output structure for a file being absorbed
+#[derive(Debug, Serialize)]
+struct JsonFileAbsorption {
+    path: String,
+    change_type: String,
+}
+
+/// JSON output structure for a commit absorption
+#[derive(Debug, Serialize)]
+struct JsonCommitAbsorption {
+    commit_id: String,
+    commit_summary: String,
+    reason: AbsorptionReason,
+    reason_description: String,
+    files: Vec<JsonFileAbsorption>,
+}
+
+/// JSON output structure for the entire absorb operation
+#[derive(Debug, Serialize)]
+struct JsonAbsorbOutput {
+    total_files: usize,
+    commits: Vec<JsonCommitAbsorption>,
+}
+
+/// Type alias for grouped changes by commit
+type GroupedChanges = BTreeMap<
+    (but_core::ref_metadata::StackId, gix::ObjectId),
+    (Vec<HunkAssignment>, AbsorptionReason),
+>;
 
 /// Amends changes into the appropriate commits where they belong.
 ///
@@ -139,16 +171,42 @@ fn absorb_assignments(
     // Display the plan
     display_absorption_plan(&commit_absorptions, out)?;
 
-    // Apply each group to its target commit
+    // Apply each group to its target commit and track failures
+    let mut total_rejected = 0;
     for absorption in commit_absorptions {
-        let diff_specs = convert_assignments_to_diff_specs(&absorption.files.iter().map(|f| f.assignment.clone()).collect::<Vec<_>>())?;
-        amend_commit_silent(project, absorption.stack_id, absorption.commit_id, diff_specs)?;
+        let diff_specs = convert_assignments_to_diff_specs(
+            &absorption
+                .files
+                .iter()
+                .map(|f| f.assignment.clone())
+                .collect::<Vec<_>>(),
+        )?;
+        let rejected = amend_commit_and_count_failures(
+            project,
+            absorption.stack_id,
+            absorption.commit_id,
+            diff_specs,
+        )?;
+        total_rejected += rejected;
     }
 
     // Display completion message
     if let Some(out) = out.for_human() {
         writeln!(out)?;
-        writeln!(out, "{}: you can run `but undo` to undo these changes", "Hint".cyan())?;
+        if total_rejected > 0 {
+            writeln!(
+                out,
+                "{}: Failed to absorb {} file{}",
+                "Warning".yellow(),
+                total_rejected,
+                if total_rejected == 1 { "" } else { "s" }
+            )?;
+        }
+        writeln!(
+            out,
+            "{}: you can run `but undo` to undo these changes",
+            "Hint".cyan()
+        )?;
     }
 
     Ok(())
@@ -198,16 +256,42 @@ fn absorb_branch(
     // Display the plan
     display_absorption_plan(&commit_absorptions, out)?;
 
-    // Apply each group to its target commit
+    // Apply each group to its target commit and track failures
+    let mut total_rejected = 0;
     for absorption in commit_absorptions {
-        let diff_specs = convert_assignments_to_diff_specs(&absorption.files.iter().map(|f| f.assignment.clone()).collect::<Vec<_>>())?;
-        amend_commit_silent(project, absorption.stack_id, absorption.commit_id, diff_specs)?;
+        let diff_specs = convert_assignments_to_diff_specs(
+            &absorption
+                .files
+                .iter()
+                .map(|f| f.assignment.clone())
+                .collect::<Vec<_>>(),
+        )?;
+        let rejected = amend_commit_and_count_failures(
+            project,
+            absorption.stack_id,
+            absorption.commit_id,
+            diff_specs,
+        )?;
+        total_rejected += rejected;
     }
 
     // Display completion message
     if let Some(out) = out.for_human() {
         writeln!(out)?;
-        writeln!(out, "{}: you can run `but undo` to undo these changes", "Hint".cyan())?;
+        if total_rejected > 0 {
+            writeln!(
+                out,
+                "{}: Failed to absorb {} file{}",
+                "Warning".yellow(),
+                total_rejected,
+                if total_rejected == 1 { "" } else { "s" }
+            )?;
+        }
+        writeln!(
+            out,
+            "{}: you can run `but undo` to undo these changes",
+            "Hint".cyan()
+        )?;
     }
 
     Ok(())
@@ -236,16 +320,42 @@ fn absorb_all(
     // Display the plan
     display_absorption_plan(&commit_absorptions, out)?;
 
-    // Apply each group to its target commit
+    // Apply each group to its target commit and track failures
+    let mut total_rejected = 0;
     for absorption in commit_absorptions {
-        let diff_specs = convert_assignments_to_diff_specs(&absorption.files.iter().map(|f| f.assignment.clone()).collect::<Vec<_>>())?;
-        amend_commit_silent(project, absorption.stack_id, absorption.commit_id, diff_specs)?;
+        let diff_specs = convert_assignments_to_diff_specs(
+            &absorption
+                .files
+                .iter()
+                .map(|f| f.assignment.clone())
+                .collect::<Vec<_>>(),
+        )?;
+        let rejected = amend_commit_and_count_failures(
+            project,
+            absorption.stack_id,
+            absorption.commit_id,
+            diff_specs,
+        )?;
+        total_rejected += rejected;
     }
 
     // Display completion message
     if let Some(out) = out.for_human() {
         writeln!(out)?;
-        writeln!(out, "{}: you can run `but undo` to undo these changes", "Hint".cyan())?;
+        if total_rejected > 0 {
+            writeln!(
+                out,
+                "{}: Failed to absorb {} file{}",
+                "Warning".yellow(),
+                total_rejected,
+                if total_rejected == 1 { "" } else { "s" }
+            )?;
+        }
+        writeln!(
+            out,
+            "{}: you can run `but undo` to undo these changes",
+            "Hint".cyan()
+        )?;
     }
 
     Ok(())
@@ -256,17 +366,14 @@ fn group_changes_by_target_commit(
     project_id: gitbutler_project::ProjectId,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
-) -> anyhow::Result<BTreeMap<(but_core::ref_metadata::StackId, gix::ObjectId), (Vec<HunkAssignment>, AbsorptionReason)>>
-{
-    let mut changes_by_commit: BTreeMap<
-        (but_core::ref_metadata::StackId, gix::ObjectId),
-        (Vec<HunkAssignment>, AbsorptionReason),
-    > = BTreeMap::new();
+) -> anyhow::Result<GroupedChanges> {
+    let mut changes_by_commit: GroupedChanges = BTreeMap::new();
 
     // Process each assignment
     for assignment in assignments {
         // Determine the target commit for this assignment
-        let (stack_id, commit_id, reason) = determine_target_commit(project_id, assignment, dependencies)?;
+        let (stack_id, commit_id, reason) =
+            determine_target_commit(project_id, assignment, dependencies)?;
 
         let entry = changes_by_commit
             .entry((stack_id, commit_id))
@@ -287,7 +394,11 @@ fn determine_target_commit(
     project_id: gitbutler_project::ProjectId,
     assignment: &HunkAssignment,
     dependencies: &Option<HunkDependencies>,
-) -> anyhow::Result<(but_core::ref_metadata::StackId, gix::ObjectId, AbsorptionReason)> {
+) -> anyhow::Result<(
+    but_core::ref_metadata::StackId,
+    gix::ObjectId,
+    AbsorptionReason,
+)> {
     // Priority 1: Check if there's a dependency lock for this hunk
     if let Some(deps) = dependencies
         && let Some(_hunk_id) = assignment.id
@@ -298,7 +409,11 @@ fn determine_target_commit(
             if path == &assignment.path {
                 // If there's a lock (dependency), use the topmost commit
                 if let Some(lock) = locks.first() {
-                    return Ok((lock.stack_id, lock.commit_id, AbsorptionReason::HunkDependency));
+                    return Ok((
+                        lock.stack_id,
+                        lock.commit_id,
+                        AbsorptionReason::HunkDependency,
+                    ));
                 }
             }
         }
@@ -400,7 +515,7 @@ fn convert_assignments_to_diff_specs(
 /// Prepare commit absorptions with commit summaries
 fn prepare_commit_absorptions(
     project: &Project,
-    changes_by_commit: BTreeMap<(but_core::ref_metadata::StackId, gix::ObjectId), (Vec<HunkAssignment>, AbsorptionReason)>,
+    changes_by_commit: GroupedChanges,
 ) -> anyhow::Result<Vec<CommitAbsorption>> {
     let mut commit_absorptions = Vec::new();
 
@@ -432,10 +547,7 @@ fn prepare_commit_absorptions(
 }
 
 /// Get the commit summary message
-fn get_commit_summary(
-    repo: &gix::Repository,
-    commit_id: gix::ObjectId,
-) -> anyhow::Result<String> {
+fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyhow::Result<String> {
     let commit = repo.find_commit(commit_id)?;
     let message = commit.message()?.title.to_string();
     Ok(message)
@@ -446,11 +558,69 @@ fn display_absorption_plan(
     commit_absorptions: &[CommitAbsorption],
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    if let Some(out) = out.for_human() {
-        // Count total files
-        let total_files: usize = commit_absorptions.iter().map(|c| c.files.len()).sum();
+    // Count total files
+    let total_files: usize = commit_absorptions.iter().map(|c| c.files.len()).sum();
 
-        writeln!(out, "Found {} changed file{} to absorb:", total_files, if total_files == 1 { "" } else { "s" })?;
+    // Handle empty case
+    if commit_absorptions.is_empty() || total_files == 0 {
+        if let Some(json_out) = out.for_json() {
+            let output = JsonAbsorbOutput {
+                total_files: 0,
+                commits: vec![],
+            };
+            json_out.write_value(output)?;
+        } else if let Some(out) = out.for_human() {
+            writeln!(out, "No files to absorb")?;
+        }
+        return Ok(());
+    }
+
+    if let Some(json_out) = out.for_json() {
+        let json_commits: Vec<JsonCommitAbsorption> = commit_absorptions
+            .iter()
+            .map(|absorption| {
+                let files: Vec<JsonFileAbsorption> = absorption
+                    .files
+                    .iter()
+                    .map(|file| {
+                        let change_type = if file.path.contains("new file")
+                            || !std::path::Path::new(&file.path).exists()
+                        {
+                            "A".to_string()
+                        } else {
+                            "M".to_string()
+                        };
+
+                        JsonFileAbsorption {
+                            path: file.path.clone(),
+                            change_type,
+                        }
+                    })
+                    .collect();
+
+                JsonCommitAbsorption {
+                    commit_id: absorption.commit_id.to_hex().to_string(),
+                    commit_summary: absorption.commit_summary.clone(),
+                    reason: absorption.reason.clone(),
+                    reason_description: absorption.reason.description().to_string(),
+                    files,
+                }
+            })
+            .collect();
+
+        let output = JsonAbsorbOutput {
+            total_files,
+            commits: json_commits,
+        };
+
+        json_out.write_value(output)?;
+    } else if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "Found {} changed file{} to absorb:",
+            total_files,
+            if total_files == 1 { "" } else { "s" }
+        )?;
         writeln!(out)?;
 
         for absorption in commit_absorptions {
@@ -465,18 +635,15 @@ fn display_absorption_plan(
             writeln!(out, "  ({})", absorption.reason.description().dimmed())?;
 
             for file in &absorption.files {
-                let change_type = if file.path.contains("new file") || !std::path::Path::new(&file.path).exists() {
+                let change_type = if file.path.contains("new file")
+                    || !std::path::Path::new(&file.path).exists()
+                {
                     "A"
                 } else {
                     "M"
                 };
 
-                writeln!(
-                    out,
-                    "    {} {}",
-                    change_type.green(),
-                    file.path
-                )?;
+                writeln!(out, "    {} {}", change_type.green(), file.path)?;
             }
             writeln!(out)?;
         }
@@ -485,21 +652,21 @@ fn display_absorption_plan(
     Ok(())
 }
 
-/// Amend a commit with the given changes (silent version without output)
-fn amend_commit_silent(
+/// Amend a commit with the given changes and return the number of rejected files
+fn amend_commit_and_count_failures(
     project: &Project,
     stack_id: but_core::ref_metadata::StackId,
     commit_id: gix::ObjectId,
     diff_specs: Vec<DiffSpec>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<usize> {
     // Convert commit_id to HexHash
     let hex_hash = HexHash::from(commit_id);
 
-    let _outcome = but_api::legacy::workspace::amend_commit_from_worktree_changes(
+    let outcome = but_api::legacy::workspace::amend_commit_from_worktree_changes(
         project.id, stack_id, hex_hash, diff_specs,
     )?;
 
-    Ok(())
+    Ok(outcome.paths_to_rejected_changes.len())
 }
 
 /// Create a snapshot in the oplog before performing an operation
