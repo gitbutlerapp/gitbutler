@@ -32,6 +32,9 @@ pub struct Pick {
     /// If this is Some, the commit WILL NOT be picked onto the parents the
     /// graph implies but instead on to the parents listed here.
     pub(crate) preserved_parents: Option<Vec<gix::ObjectId>>,
+    /// If set to true, the rebase engine will try to sign the commit if it
+    /// gets cherry-picked and the user has configured signing.
+    pub sign_if_configured: bool,
 }
 
 impl Pick {
@@ -40,6 +43,7 @@ impl Pick {
         Self {
             id,
             preserved_parents: None,
+            sign_if_configured: true,
         }
     }
 }

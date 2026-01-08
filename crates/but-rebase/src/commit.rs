@@ -89,6 +89,7 @@ pub fn create(
     repo: &gix::Repository,
     mut commit: gix::objs::Commit,
     committer: DateMode,
+    sign_if_configured: bool,
 ) -> anyhow::Result<gix::ObjectId> {
     match committer {
         DateMode::CommitterUpdateAuthorKeep => {
@@ -110,7 +111,7 @@ pub fn create(
     if settings.gitbutler_gerrit_mode.unwrap_or(false) {
         but_gerrit::set_trailers(&mut commit);
     }
-    if settings.gitbutler_sign_commits.unwrap_or(false) {
+    if sign_if_configured && settings.gitbutler_sign_commits.unwrap_or(false) {
         let mut buf = Vec::new();
         commit.write_to(&mut buf)?;
         match sign_buffer(repo, &buf) {

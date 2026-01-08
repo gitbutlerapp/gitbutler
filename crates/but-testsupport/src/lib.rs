@@ -216,6 +216,19 @@ pub fn git_status_at_dir(dir: impl AsRef<Path>) -> std::io::Result<String> {
     Ok(out.stdout.to_str().expect("no illformed UTF-8").to_string())
 }
 
+/// Run cat-file -p on a particular revision in `repo`
+pub fn git_catfile(repo: &gix::Repository, arg: &str) -> std::io::Result<String> {
+    git_catfile_at_dir(repo.workdir().unwrap_or(repo.git_dir()), arg)
+}
+
+/// Run cat-file -p on a particular revision on the worktree or git_dir pointed
+/// to by `dir`
+pub fn git_catfile_at_dir(dir: impl AsRef<Path>, arg: &str) -> std::io::Result<String> {
+    let out = git_at_dir(dir).args(["cat-file", "-p", arg]).output()?;
+    assert!(out.status.success(), "STDERR: {}", out.stderr.as_bstr());
+    Ok(out.stdout.to_str().expect("no illformed UTF-8").to_string())
+}
+
 /// Show one index entry per line, without content.
 pub fn visualize_index(index: &gix::index::State) -> String {
     use std::fmt::Write;

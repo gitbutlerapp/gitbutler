@@ -47,6 +47,7 @@ impl Editor {
                 Step::Pick(Pick {
                     id,
                     preserved_parents,
+                    sign_if_configured,
                     ..
                 }) => {
                     let graph_parents = collect_ordered_parents(&self.graph, step_idx);
@@ -67,7 +68,7 @@ impl Editor {
                             .collect::<Result<Vec<_>>>()?,
                     };
 
-                    let outcome = cherry_pick(&self.repo, id, &ontos)?;
+                    let outcome = cherry_pick(&self.repo, id, &ontos, sign_if_configured)?;
 
                     match outcome {
                         CherryPickOutcome::Commit(new_id)

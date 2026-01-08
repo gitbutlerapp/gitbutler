@@ -106,6 +106,7 @@ pub fn octopus(
             repo,
             target_merge_commit,
             DateMode::CommitterUpdateAuthorKeep,
+            true,
         )
     } else {
         crate::commit::update_committer(repo, &mut target_merge_commit)?;
