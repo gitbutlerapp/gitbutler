@@ -646,9 +646,6 @@ pub enum CliId {
         id: ShortId,
     },
     /// A commit in the workspace identified by its SHA.
-    // TODO: Ensure our prefixes are unique within the set of known commits,
-    //       currently we only take the first two characters which can clash
-    //       without us noticing. See commit_ids_are_currently_ambiguous() test.
     Commit {
         /// The object ID of the commit.
         commit_id: gix::ObjectId,
