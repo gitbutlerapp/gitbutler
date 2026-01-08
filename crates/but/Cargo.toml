@@ -37,6 +37,8 @@ legacy = [
     "dep:gitbutler-branch",
     "dep:gitbutler-reference",
     "dep:gitbutler-oplog",
+    "dep:gitbutler-edit-mode",
+    "dep:gitbutler-operating-modes",
 ]
 
 [dependencies]
@@ -47,6 +49,7 @@ but-secret.workspace = true
 but-oxidize.workspace = true
 but-path.workspace = true
 but-ctx.workspace = true
+but-rebase.workspace = true
 # NOTE: "legacy" is needed as long as virtual-branches.toml is around.
 but-meta = { workspace = true, features = ["legacy"] }
 # NOTE: close to mostly 'proper', but depends on `gitbutler-user`
@@ -76,6 +79,8 @@ gitbutler-branch-actions = { workspace = true, optional = true }
 gitbutler-branch = { workspace = true, optional = true }
 gitbutler-reference = { workspace = true, optional = true }
 gitbutler-oplog = { workspace = true, optional = true }
+gitbutler-edit-mode = { workspace = true, optional = true }
+gitbutler-operating-modes = { workspace = true, optional = true }
 
 git2.workspace = true
 async-openai.workspace = true

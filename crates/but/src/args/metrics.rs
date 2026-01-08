@@ -42,6 +42,7 @@ pub enum CommandName {
     PrTemplate,
     Completions,
     RefreshRemoteData,
+    Resolve,
     #[default]
     Unknown,
 }

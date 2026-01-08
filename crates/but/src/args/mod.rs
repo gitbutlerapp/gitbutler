@@ -545,6 +545,30 @@ pub enum Subcommands {
         shell: Option<clap_complete::Shell>,
     },
 
+    /// Resolve conflicts in a commit.
+    ///
+    /// When a commit is in a conflicted state (marked with conflicts during rebase),
+    /// use this command to enter resolution mode, resolve the conflicts, and finalize.
+    ///
+    /// ## Workflow
+    ///
+    /// 1. Enter resolution mode: `but resolve <commit-id>`
+    /// 2. Resolve conflicts in your editor (remove conflict markers)
+    /// 3. Check remaining conflicts: `but resolve status`
+    /// 4. Finalize resolution: `but resolve finish`
+    ///    Or cancel: `but resolve cancel`
+    ///
+    /// When in resolution mode, `but status` will also show that you're resolving conflicts.
+    ///
+    #[cfg(feature = "legacy")]
+    Resolve {
+        /// Subcommand to run (defaults to entering resolution mode)
+        #[clap(subcommand)]
+        cmd: Option<resolve::Subcommands>,
+        /// Commit ID to enter resolution mode for (when no subcommand is provided)
+        commit: Option<String>,
+    },
+
     /// Hidden command that redirects to `but pull --check`
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
@@ -582,6 +606,8 @@ pub mod metrics;
 #[cfg(feature = "legacy")]
 pub mod oplog;
 pub mod push;
+#[cfg(feature = "legacy")]
+pub mod resolve;
 
 pub mod claude {
     #[derive(Debug, clap::Parser)]

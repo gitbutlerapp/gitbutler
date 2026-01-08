@@ -51,6 +51,11 @@ struct UpstreamState {
     author_email: String,
 }
 
+fn show_edit_mode_status(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    // Delegate to the resolve status logic to show actual conflict details
+    crate::command::legacy::resolve::show_resolve_status(ctx, out)
+}
+
 pub(crate) fn worktree(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -59,6 +64,13 @@ pub(crate) fn worktree(
     refresh_prs: bool,
     show_upstream: bool,
 ) -> anyhow::Result<()> {
+    // Check if we're in edit mode first, before doing any expensive operations
+    let mode = gitbutler_operating_modes::operating_mode(ctx);
+    if let gitbutler_operating_modes::OperatingMode::Edit(_metadata) = mode {
+        // In edit mode, show the conflict resolution status
+        return show_edit_mode_status(ctx, out);
+    }
+
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
     let guard = ctx.shared_worktree_access();
@@ -216,9 +228,11 @@ pub(crate) fn worktree(
         return Ok(());
     };
 
+    // Drop base_commit_decoded, base_commit, and repo to release the borrow on ctx before we need to borrow ctx again
     drop(base_commit_decoded);
     drop(base_commit);
     drop(repo);
+
     for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
         let mut stack_mark = stack_id.and_then(|stack_id| {
             if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {

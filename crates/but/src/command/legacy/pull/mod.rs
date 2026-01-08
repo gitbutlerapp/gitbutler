@@ -520,7 +520,22 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                                     false
                                 };
 
-                                if still_conflicted {
+                                // Also check if any commits in the branch have conflicts
+                                let has_conflicted_commits =
+                                    but_api::legacy::workspace::stack_details(
+                                        ctx.legacy_project.id,
+                                        Some(*stack_id),
+                                    )
+                                    .ok()
+                                    .map(|details| {
+                                        details
+                                            .branch_details
+                                            .iter()
+                                            .any(|bd| bd.commits.iter().any(|c| c.has_conflicts))
+                                    })
+                                    .unwrap_or(false);
+
+                                if still_conflicted || has_conflicted_commits {
                                     conflicted_rebases.push(branch_name.to_string());
                                 } else {
                                     successful_rebases.push(branch_name.to_string());
@@ -643,14 +658,19 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         writeln!(out, "{}", "To resolve conflicts:".bold())?;
                         writeln!(
                             out,
-                            "  1. Run {} to see conflicted files",
+                            "  1. Run {} to see conflicted commits",
                             "`but status`".bright_cyan()
                         )?;
-                        writeln!(out, "  2. Edit the files to resolve conflicts")?;
                         writeln!(
                             out,
-                            "  3. Run {} to commit the resolution",
-                            "`but commit`".bright_cyan()
+                            "  2. Run {} to enter resolution mode on any conflicted commit",
+                            "`but resolve <commit>`".bright_cyan()
+                        )?;
+                        writeln!(out, "  3. Edit files to resolve the conflicts")?;
+                        writeln!(
+                            out,
+                            "  4. Run {} to finalize the resolution",
+                            "`but resolve finish`".bright_cyan()
                         )?;
                     }
 

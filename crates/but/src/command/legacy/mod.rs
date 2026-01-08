@@ -15,6 +15,7 @@ pub mod oplog;
 pub mod pull;
 pub mod push;
 pub mod refresh;
+pub mod resolve;
 pub mod reword;
 pub mod rub;
 pub mod status;
