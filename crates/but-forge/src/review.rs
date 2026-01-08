@@ -391,15 +391,12 @@ fn list_forge_reviews(
             let repo = repo.clone();
             let storage = storage.clone();
 
-            let pulls = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build_local(Default::default())?
-                .block_on(but_github::pr::list(
-                    preferred_account.as_ref(),
-                    &owner,
-                    &repo,
-                    &storage,
-                ))?;
+            let pulls = block_on_tokio_future(but_github::pr::list(
+                preferred_account.as_ref(),
+                &owner,
+                &repo,
+                &storage,
+            ))??;
 
             pulls
                 .into_iter()
@@ -414,6 +411,17 @@ fn list_forge_reviews(
         }
     };
     Ok(reviews)
+}
+
+fn block_on_tokio_future<T>(f: impl Future<Output = T>) -> anyhow::Result<T> {
+    Ok(if let Ok(rt) = tokio::runtime::Handle::try_current() {
+        rt.block_on(f)
+    } else {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build_local(Default::default())?
+            .block_on(f)
+    })
 }
 
 /// Get a specific review (e.g. pull request) for a given forge repository

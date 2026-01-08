@@ -291,8 +291,12 @@ pub struct UpdatedBranch {
 }
 
 fn block_on_future_with_new_runtime<T>(f: impl Future<Output = T>) -> anyhow::Result<T> {
-    Ok(tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build_local(Default::default())?
-        .block_on(f))
+    Ok(if let Ok(rt) = tokio::runtime::Handle::try_current() {
+        rt.block_on(f)
+    } else {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build_local(Default::default())?
+            .block_on(f)
+    })
 }

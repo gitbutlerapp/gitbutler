@@ -58,10 +58,7 @@ fn ci_checks_for_ref(
             let reference = reference.to_string();
             let reference_for_checks = reference.clone();
 
-            let checks = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build_local(Default::default())?
-                .block_on(gh.list_checks_for_ref(&owner, &repo, &reference));
+            let checks = block_on_tokio_future(gh.list_checks_for_ref(&owner, &repo, &reference))?;
             checks.map(|c| {
                 c.into_iter()
                     .map(|check| {
@@ -77,6 +74,17 @@ fn ci_checks_for_ref(
             forge
         )),
     }
+}
+
+fn block_on_tokio_future<T>(f: impl Future<Output = T>) -> anyhow::Result<T> {
+    Ok(if let Ok(rt) = tokio::runtime::Handle::try_current() {
+        rt.block_on(f)
+    } else {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build_local(Default::default())?
+            .block_on(f)
+    })
 }
 
 #[derive(Debug, Clone, Serialize)]

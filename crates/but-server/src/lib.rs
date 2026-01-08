@@ -101,7 +101,7 @@ pub async fn run() {
         // the claude processes finishes.
         .route_layer(axum::middleware::from_fn(
             |req: axum::extract::Request<Body>, next: Next| async move {
-                tokio::task::spawn(next.run(req)).await.unwrap()
+                tokio::task::spawn_blocking(next.run(req)).await.unwrap()
             },
         ))
         .layer(cors)
