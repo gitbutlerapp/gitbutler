@@ -20,23 +20,38 @@ pub(crate) mod util;
 /// Utilities for testing
 pub mod testing;
 
+/// Represents a commit to be cherry-picked in a rebase operation.
+#[derive(Debug, Clone)]
+pub struct Pick {
+    /// The ID of the commit getting picked
+    pub id: gix::ObjectId,
+    /// If we are dealing with a sub-graph with an incomplete history, we
+    /// need to represent the bottom most commits in a way that we preserve
+    /// their parents.
+    ///
+    /// If this is Some, the commit WILL NOT be picked onto the parents the
+    /// graph implies but instead on to the parents listed here.
+    pub(crate) preserved_parents: Option<Vec<gix::ObjectId>>,
+}
+
+impl Pick {
+    /// Creates a pick with the expected defaults
+    pub fn new_pick(id: gix::ObjectId) -> Self {
+        Self {
+            id,
+            preserved_parents: None,
+            conflictable: true,
+            parents_must_be_references: false,
+            sign_if_configured: true,
+        }
+    }
+}
+
 /// Describes what action the engine should take
 #[derive(Debug, Clone)]
 pub enum Step {
     /// Cherry picks the given commit into the new location in the graph
-    Pick {
-        /// The ID of the commit getting picked
-        id: gix::ObjectId,
-        /// If we are dealing with a sub-graph with an incomplete history, we
-        /// need to represent the bottom most commits in a way that we preserve
-        /// their parents.
-        ///
-        /// If this is Some, the commit WILL NOT be picked onto the parents the
-        /// graph implies but instead on to the parents listed here.
-        ///
-        /// This is intended to be a private API
-        preserved_parents: Option<Vec<gix::ObjectId>>,
-    },
+    Pick(Pick),
     /// Represents applying a reference to the commit found at it's first parent
     Reference {
         /// The refname
@@ -49,10 +64,7 @@ pub enum Step {
 impl Step {
     /// Creates a pick with the expected defaults
     pub fn new_pick(id: gix::ObjectId) -> Self {
-        Self::Pick {
-            id,
-            preserved_parents: None,
-        }
+        Self::Pick(Pick::new_pick(id))
     }
 }
 
@@ -128,7 +140,7 @@ pub trait LookupStep {
     /// Look up the step a given selector and assert it's a pick.
     fn lookup_pick(&self, selector: Selector) -> Result<gix::ObjectId> {
         match self.lookup_step(selector)? {
-            Step::Pick { id, .. } => Ok(id),
+            Step::Pick(Pick { id, .. }) => Ok(id),
             _ => bail!("Expected selector to point to a pick"),
         }
     }

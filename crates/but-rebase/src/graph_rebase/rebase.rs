@@ -10,7 +10,7 @@ use gix::refs::{
 use petgraph::{Direction, visit::EdgeRef};
 
 use crate::graph_rebase::{
-    Editor, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
+    Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
     cherry_pick::{CherryPickOutcome, cherry_pick},
     util::collect_ordered_parents,
 };
@@ -44,10 +44,11 @@ impl Editor {
             // Do the frikkin rebase man!
             let step = self.graph[step_idx].clone();
             let new_idx = match step {
-                Step::Pick {
+                Step::Pick(Pick {
                     id,
                     preserved_parents,
-                } => {
+                    ..
+                }) => {
                     let graph_parents = collect_ordered_parents(&self.graph, step_idx);
                     let ontos = match preserved_parents.clone() {
                         Some(ontos) => ontos,
@@ -59,7 +60,7 @@ impl Editor {
                                 };
 
                                 match output_graph[*new_idx] {
-                                    Step::Pick { id, .. } => Ok(id),
+                                    Step::Pick(Pick { id, .. }) => Ok(id),
                                     _ => bail!("A parent in the output graph is not a pick"),
                                 }
                             })
@@ -72,10 +73,9 @@ impl Editor {
                         CherryPickOutcome::Commit(new_id)
                         | CherryPickOutcome::ConflictedCommit(new_id)
                         | CherryPickOutcome::Identity(new_id) => {
-                            let new_idx = output_graph.add_node(Step::Pick {
-                                id: new_id,
-                                preserved_parents,
-                            });
+                            let mut pick = Pick::new_pick(new_id);
+                            pick.preserved_parents = preserved_parents;
+                            let new_idx = output_graph.add_node(Step::Pick(pick));
                             graph_mapping.insert(step_idx, new_idx);
                             if id != new_id {
                                 commit_mapping.insert(id, new_id);
@@ -100,7 +100,7 @@ impl Editor {
                     };
 
                     let to_reference = match output_graph[*new_idx] {
-                        Step::Pick { id, .. } => id,
+                        Step::Pick(Pick { id, .. }) => id,
                         _ => bail!("A parent in the output graph is not a pick"),
                     };
 
@@ -268,18 +268,15 @@ mod test {
         #[test]
         fn basic_scenario() -> Result<()> {
             let mut graph = StepGraph::new();
-            let a = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let b = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let c = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
+            let a = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
+            ));
+            let b = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
+            ));
+            let c = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
+            ));
 
             graph.add_edge(a, b, Edge { order: 0 });
             graph.add_edge(b, c, Edge { order: 0 });
@@ -307,46 +304,36 @@ mod test {
         #[test]
         fn complex_scenario() -> Result<()> {
             let mut graph = StepGraph::new();
-            let a = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let b = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let c = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let d = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let e = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let f = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("6000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let g = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("7000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let h = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("8000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let i = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("8000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let j = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("8000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
+            let a = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
+            ));
+            let b = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
+            ));
+            let c = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
+            ));
+            let d = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
+            ));
+            let e = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
+            ));
+            let f = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("6000000000000000000000000000000000000000")?,
+            ));
+            let g = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("7000000000000000000000000000000000000000")?,
+            ));
+            let h = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("8000000000000000000000000000000000000000")?,
+            ));
+            let i = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("8000000000000000000000000000000000000000")?,
+            ));
+            let j = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("8000000000000000000000000000000000000000")?,
+            ));
 
             graph.add_edge(a, b, Edge { order: 0 });
             graph.add_edge(b, c, Edge { order: 0 });
@@ -392,26 +379,21 @@ mod test {
         #[test]
         fn merge_scenario() -> Result<()> {
             let mut graph = StepGraph::new();
-            let a = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let b = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let c = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let d = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let e = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
+            let a = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
+            ));
+            let b = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
+            ));
+            let c = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
+            ));
+            let d = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
+            ));
+            let e = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
+            ));
 
             graph.add_edge(a, b, Edge { order: 0 });
             graph.add_edge(b, c, Edge { order: 0 });
@@ -444,26 +426,21 @@ mod test {
         #[test]
         fn merge_flipped_scenario() -> Result<()> {
             let mut graph = StepGraph::new();
-            let a = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let b = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let c = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let d = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
-            let e = graph.add_node(Step::Pick {
-                id: gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
-                preserved_parents: None,
-            });
+            let a = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("1000000000000000000000000000000000000000")?,
+            ));
+            let b = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("2000000000000000000000000000000000000000")?,
+            ));
+            let c = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("3000000000000000000000000000000000000000")?,
+            ));
+            let d = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("4000000000000000000000000000000000000000")?,
+            ));
+            let e = graph.add_node(Step::new_pick(
+                gix::ObjectId::from_str("5000000000000000000000000000000000000000")?,
+            ));
 
             graph.add_edge(a, d, Edge { order: 0 });
             graph.add_edge(d, e, Edge { order: 0 });
