@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use petgraph::visit::EdgeRef as _;
 
-use crate::graph_rebase::{Step, StepGraph, StepGraphIndex};
+use crate::graph_rebase::{Pick, Step, StepGraph, StepGraphIndex};
 
 /// Find the parents of a given node that are commit - in correct parent
 /// ordering.
@@ -28,7 +28,7 @@ pub(crate) fn collect_ordered_parents(
     let mut parents = vec![];
 
     while let Some(candidate) = potential_parent_edges.pop() {
-        if let Step::Pick { .. } = graph[candidate.target()] {
+        if let Step::Pick(Pick { .. }) = graph[candidate.target()] {
             parents.push(candidate.target());
             // Don't pursue the children
             continue;
@@ -63,38 +63,23 @@ mod test {
         fn basic_scenario() -> Result<()> {
             let mut graph = StepGraph::new();
             let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let a = graph.add_node(Step::Pick {
-                id: a_id,
-                preserved_parents: None,
-            });
+            let a = graph.add_node(Step::new_pick(a_id));
             // First parent
             let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let b = graph.add_node(Step::Pick {
-                id: b_id,
-                preserved_parents: None,
-            });
+            let b = graph.add_node(Step::new_pick(b_id));
             // Second parent - is a reference
             let c = graph.add_node(Step::Reference {
                 refname: "refs/heads/foobar".try_into()?,
             });
             // Second parent's first child
             let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
-            let d = graph.add_node(Step::Pick {
-                id: d_id,
-                preserved_parents: None,
-            });
+            let d = graph.add_node(Step::new_pick(d_id));
             // Second parent's second child
             let e_id = gix::ObjectId::from_str("4000000000000000000000000000000000000000")?;
-            let e = graph.add_node(Step::Pick {
-                id: e_id,
-                preserved_parents: None,
-            });
+            let e = graph.add_node(Step::new_pick(e_id));
             // Third parent
             let f_id = gix::ObjectId::from_str("5000000000000000000000000000000000000000")?;
-            let f = graph.add_node(Step::Pick {
-                id: f_id,
-                preserved_parents: None,
-            });
+            let f = graph.add_node(Step::new_pick(f_id));
 
             // A's parents
             graph.add_edge(a, b, Edge { order: 0 });
@@ -115,38 +100,23 @@ mod test {
         fn insertion_order_is_irrelevant() -> Result<()> {
             let mut graph = StepGraph::new();
             let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let a = graph.add_node(Step::Pick {
-                id: a_id,
-                preserved_parents: None,
-            });
+            let a = graph.add_node(Step::new_pick(a_id));
             // First parent
             let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let b = graph.add_node(Step::Pick {
-                id: b_id,
-                preserved_parents: None,
-            });
+            let b = graph.add_node(Step::new_pick(b_id));
             // Second parent - is a reference
             let c = graph.add_node(Step::Reference {
                 refname: "refs/heads/foobar".try_into()?,
             });
             // Second parent's second child
             let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
-            let d = graph.add_node(Step::Pick {
-                id: d_id,
-                preserved_parents: None,
-            });
+            let d = graph.add_node(Step::new_pick(d_id));
             // Second parent's first child
             let e_id = gix::ObjectId::from_str("4000000000000000000000000000000000000000")?;
-            let e = graph.add_node(Step::Pick {
-                id: e_id,
-                preserved_parents: None,
-            });
+            let e = graph.add_node(Step::new_pick(e_id));
             // Third parent
             let f_id = gix::ObjectId::from_str("5000000000000000000000000000000000000000")?;
-            let f = graph.add_node(Step::Pick {
-                id: f_id,
-                preserved_parents: None,
-            });
+            let f = graph.add_node(Step::new_pick(f_id));
 
             // A's parents
             graph.add_edge(a, f, Edge { order: 2 });

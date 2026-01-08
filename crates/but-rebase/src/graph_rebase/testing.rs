@@ -3,7 +3,7 @@
 
 use petgraph::dot::{Config, Dot};
 
-use crate::graph_rebase::{Editor, Step, StepGraph, SuccessfulRebase};
+use crate::graph_rebase::{Editor, Pick, Step, StepGraph, SuccessfulRebase};
 
 /// An extension trait that adds debugging output for graphs
 pub trait TestingDot {
@@ -33,7 +33,7 @@ impl TestingDot for StepGraph {
                 &|_, v| format!("label=\"order: {}\"", v.weight().order),
                 &|_, (_, step)| {
                     match step {
-                        Step::Pick { id, .. } => format!("label=\"pick: {}\"", id),
+                        Step::Pick(Pick { id, .. }) => format!("label=\"pick: {}\"", id),
                         Step::Reference { refname } => {
                             format!("label=\"reference: {}\"", refname.as_bstr())
                         }
