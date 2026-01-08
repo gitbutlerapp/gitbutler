@@ -463,7 +463,7 @@ pub(crate) fn discard_change(
     )?)
 }
 
-pub async fn watch(args: &super::Args) -> anyhow::Result<()> {
+pub async fn watch(args: &super::Args, watch_mode: Option<&str>) -> anyhow::Result<()> {
     let (repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
     let (tx, mut rx) = unbounded_channel();
     let start = std::time::Instant::now();
@@ -474,6 +474,7 @@ pub async fn watch(args: &super::Args) -> anyhow::Result<()> {
         project.map(|p| p.id).unwrap_or(ProjectId::generate()),
         workdir,
         tx,
+        watch_mode.and_then(|m| m.parse().ok()).unwrap_or_default(),
     )?;
     let elapsed = start.elapsed();
     eprintln!(

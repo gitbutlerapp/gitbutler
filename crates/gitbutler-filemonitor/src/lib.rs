@@ -2,10 +2,12 @@
 #![deny(unsafe_code)]
 #![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
 
-mod events;
+mod watch_plan;
 
+mod events;
 pub use events::InternalEvent;
+
 mod file_monitor;
 pub use file_monitor::{
-    FETCH_HEAD, GB_FLUSH, HEAD, HEAD_ACTIVITY, INDEX, LOCAL_REFS_DIR, compute_watch_plan, spawn,
+    FETCH_HEAD, GB_FLUSH, HEAD, HEAD_ACTIVITY, INDEX, LOCAL_REFS_DIR, WatchMode, spawn,
 };

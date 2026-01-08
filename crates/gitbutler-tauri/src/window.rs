@@ -189,6 +189,7 @@ pub(crate) mod state {
                 worktree_dir,
                 project_id,
                 app_settings.clone(),
+                gitbutler_watcher::WatchMode::from_env(),
             )?;
 
             let db = ctx.db.get()?;

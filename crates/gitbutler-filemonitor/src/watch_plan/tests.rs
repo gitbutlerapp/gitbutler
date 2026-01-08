@@ -1,3 +1,5 @@
+use super::*;
+
 use std::{
     collections::BTreeSet,
     path::{Component, Path},
@@ -12,7 +14,7 @@ fn compute_watch_plan_respects_gitignore_for_ignored_dirs() {
     let (repo, _tmpdir) = but_testsupport::writable_scenario("watch-plan-ignores-node-modules");
     let worktree = repo.workdir().expect("non-bare");
 
-    let plan = gitbutler_filemonitor::compute_watch_plan(worktree).expect("plan computed");
+    let plan = compute_watch_plan(worktree).expect("plan computed");
     let worktree_real = gix::path::realpath(worktree).expect("realpath worktree");
 
     let actual = canonicalize_plan(&plan, &worktree_real);
@@ -35,7 +37,7 @@ fn compute_watch_plan_includes_ignored_but_tracked_dirs() {
     let (repo, _tmpdir) = but_testsupport::writable_scenario("watch-plan-ignored-but-tracked");
     let worktree = repo.workdir().expect("non-bare");
 
-    let plan = gitbutler_filemonitor::compute_watch_plan(worktree).expect("plan computed");
+    let plan = compute_watch_plan(worktree).expect("plan computed");
     let worktree_real = gix::path::realpath(worktree).expect("realpath worktree");
 
     let actual = canonicalize_plan(&plan, &worktree_real);
@@ -82,4 +84,17 @@ fn canonicalize_plan(
             (mode, path)
         })
         .collect()
+}
+
+/// Compute the paths that should be watched for `worktree_path`.
+///
+/// This is public to allow deterministic tests of the watch setup without relying on platform
+/// specific filesystem notification behaviour.
+fn compute_watch_plan(
+    worktree_path: &Path,
+) -> anyhow::Result<Vec<(PathBuf, notify::RecursiveMode)>> {
+    let worktree_path = gix::path::realpath(worktree_path)?;
+    let repo = gix::open_opts(&worktree_path, gix::open::Options::isolated())?;
+    let git_dir = repo.path().to_owned();
+    compute_watch_plan_for_repo(&repo, &worktree_path, &git_dir)
 }
