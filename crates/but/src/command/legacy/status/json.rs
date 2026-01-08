@@ -15,8 +15,6 @@ use but_api::diff::ComputeLineStats;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::CliId;
-
 /// JSON output for the `but status` command
 /// This represents the status of the GitButler "workspace".
 #[derive(Clone, Debug, Serialize)]
@@ -283,7 +281,7 @@ impl Branch {
             .iter()
             .map(|c| {
                 Commit::from_local_commit(
-                    CliId::Commit(c.id).to_short_string(),
+                    id_map.resolve_commit(&c.id).to_short_string(),
                     c.clone(),
                     show_files,
                     project_id,
@@ -296,7 +294,11 @@ impl Branch {
             .upstream_commits
             .iter()
             .map(|c| {
-                Commit::from_upstream_commit(CliId::Commit(c.id).to_short_string(), c.clone(), None)
+                Commit::from_upstream_commit(
+                    id_map.resolve_commit(&c.id).to_short_string(),
+                    c.clone(),
+                    None,
+                )
             })
             .collect();
 
@@ -528,7 +530,9 @@ pub(super) fn build_workspace_status_json(
     let base_commit_decoded = base_commit.decode()?;
     let author: but_workspace::ui::Author = base_commit_decoded.author()?.into();
 
-    let cli_id = CliId::Commit(common_merge_base.commit_id).to_short_string();
+    let cli_id = id_map
+        .resolve_commit(&common_merge_base.commit_id)
+        .to_short_string();
     let merge_base_commit = Commit::from_upstream_commit(
         cli_id,
         but_workspace::ui::UpstreamCommit {
@@ -546,7 +550,7 @@ pub(super) fn build_workspace_status_json(
         let upstream_commit_decoded = upstream_commit.decode()?;
         let upstream_author: but_workspace::ui::Author = upstream_commit_decoded.author()?.into();
 
-        let cli_id = CliId::Commit(upstream.commit_id).to_short_string();
+        let cli_id = id_map.resolve_commit(&upstream.commit_id).to_short_string();
         let latest_commit = Commit::from_upstream_commit(
             cli_id,
             but_workspace::ui::UpstreamCommit {
@@ -571,7 +575,7 @@ pub(super) fn build_workspace_status_json(
                         .iter()
                         .map(|remote_commit| {
                             let commit_oid = gix::ObjectId::from_hex(remote_commit.id.as_bytes())?;
-                            let cli_id = CliId::Commit(commit_oid).to_short_string();
+                            let cli_id = id_map.resolve_commit(&commit_oid).to_short_string();
                             // Convert the author manually since there's no From impl between the two Author types
                             let author = but_workspace::ui::Author {
                                 name: remote_commit.author.name.clone(),

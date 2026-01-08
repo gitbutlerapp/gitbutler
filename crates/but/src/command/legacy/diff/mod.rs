@@ -35,7 +35,7 @@ pub fn handle(
                 commit_id, path, ..
             } => show::commit(ctx, out, commit_id, Some(path)),
             CliId::Branch { name, .. } => show::branch(ctx, out, name),
-            CliId::Commit(id) => show::commit(ctx, out, id, None),
+            CliId::Commit { commit_id: id, .. } => show::commit(ctx, out, id, None),
         }
     } else {
         show::worktree(wt_changes, id_map, out, None)

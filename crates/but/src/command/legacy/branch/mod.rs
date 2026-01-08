@@ -97,7 +97,7 @@ pub fn handle(
                 // Create the anchor for create_reference
                 // as dependent branch
                 match anchor_id {
-                    CliId::Commit(oid) => {
+                    CliId::Commit { commit_id: oid, .. } => {
                         Some(but_api::legacy::stack::create_reference::Anchor::AtCommit {
                             commit_id: (*oid).into(),
                             position: but_workspace::branch::create_reference::Position::Above,

@@ -37,7 +37,7 @@ pub(crate) fn reword_target(
         CliId::Branch { name, .. } => {
             edit_branch_name(ctx, &ctx.legacy_project, name, out, message)?;
         }
-        CliId::Commit(oid) => {
+        CliId::Commit { commit_id: oid, .. } => {
             edit_commit_message_by_id(ctx, &ctx.legacy_project, *oid, out, message)?;
         }
         _ => {

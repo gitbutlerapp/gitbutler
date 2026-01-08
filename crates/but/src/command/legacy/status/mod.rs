@@ -614,7 +614,7 @@ fn print_commit(
         None
     };
 
-    let details_string = commit_details.display_cli(verbose);
+    let details_string = display_cli_commit_details(id_map, &commit_details, verbose);
 
     if verbose {
         // Verbose format: author and timestamp on first line, message on second line
@@ -670,46 +670,54 @@ impl CliDisplay for but_core::TreeChange {
     }
 }
 
-impl CliDisplay for CommitDetails {
-    fn display_cli(&self, verbose: bool) -> String {
-        let commit_id = &self.commit.id.to_string();
+fn display_cli_commit_details(
+    id_map: &IdMap,
+    commit_details: &CommitDetails,
+    verbose: bool,
+) -> String {
+    let short_id = id_map
+        .resolve_commit(&commit_details.commit.id)
+        .to_short_string();
+    let end_id = if short_id.len() >= 7 {
+        "".to_string()
+    } else {
+        let commit_id = commit_details.commit.id.to_string();
+        commit_id[short_id.len()..7].dimmed().to_string()
+    };
+    let start_id = short_id.blue().underline();
 
-        let conflicted_str = if self.conflict_entries.is_some() {
-            " {conflicted}".red()
-        } else {
-            "".normal()
-        };
+    let conflicted_str = if commit_details.conflict_entries.is_some() {
+        " {conflicted}".red()
+    } else {
+        "".normal()
+    };
 
-        let no_changes = if self.diff_with_first_parent.is_empty() {
-            " (no changes)".dimmed().italic()
-        } else {
-            "".to_string().normal()
-        };
+    let no_changes = if commit_details.diff_with_first_parent.is_empty() {
+        " (no changes)".dimmed().italic()
+    } else {
+        "".to_string().normal()
+    };
 
-        if verbose {
-            // No message when verbose since it goes to the next line
-            let created_at = self.commit.inner.committer.time;
-            let formatted_time = created_at.format_or_unix(CLI_DATE);
-            format!(
-                "{}{} {} {}{}{}",
-                commit_id[..2].blue().underline(),
-                commit_id[2..7].to_string().dimmed(),
-                self.commit.inner.author.name,
-                formatted_time.dimmed(),
-                no_changes,
-                conflicted_str,
-            )
-        } else {
-            let message = CommitMessage(self.commit.inner.message.clone()).display_cli(verbose);
-            format!(
-                "{}{} {}{}{}",
-                commit_id[..2].blue().underline(),
-                commit_id[2..7].to_string().dimmed(),
-                message,
-                no_changes,
-                conflicted_str,
-            )
-        }
+    if verbose {
+        // No message when verbose since it goes to the next line
+        let created_at = commit_details.commit.inner.committer.time;
+        let formatted_time = created_at.format_or_unix(CLI_DATE);
+        format!(
+            "{}{} {} {}{}{}",
+            start_id,
+            end_id,
+            commit_details.commit.inner.author.name,
+            formatted_time.dimmed(),
+            no_changes,
+            conflicted_str,
+        )
+    } else {
+        let message =
+            CommitMessage(commit_details.commit.inner.message.clone()).display_cli(verbose);
+        format!(
+            "{}{} {}{}{}",
+            start_id, end_id, message, no_changes, conflicted_str,
+        )
     }
 }
 

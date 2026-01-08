@@ -33,7 +33,7 @@ pub(crate) fn handle(
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::unassign_uncommitted(ctx, uncommitted_cli_id, out)?;
             }
-            (CliId::Uncommitted(uncommitted_cli_id), CliId::Commit(oid)) => {
+            (CliId::Uncommitted(uncommitted_cli_id), CliId::Commit { commit_id: oid, .. }) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::uncommitted_to_commit(ctx, uncommitted_cli_id, oid, out)?;
             }
@@ -41,7 +41,7 @@ pub(crate) fn handle(
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_uncommitted_to_branch(ctx, uncommitted_cli_id, name, out)?;
             }
-            (CliId::Unassigned { .. }, CliId::Commit(oid)) => {
+            (CliId::Unassigned { .. }, CliId::Commit { commit_id: oid, .. }) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, None, oid, out)?;
             }
@@ -49,15 +49,23 @@ pub(crate) fn handle(
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_all(ctx, None, Some(to), out)?;
             }
-            (CliId::Commit(oid), CliId::Unassigned { .. }) => {
+            (CliId::Commit { commit_id: oid, .. }, CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, OperationKind::UndoCommit);
                 undo::commit(ctx, &oid, out)?;
             }
-            (CliId::Commit(source), CliId::Commit(destination)) => {
+            (
+                CliId::Commit {
+                    commit_id: source, ..
+                },
+                CliId::Commit {
+                    commit_id: destination,
+                    ..
+                },
+            ) => {
                 create_snapshot(ctx, OperationKind::SquashCommit);
                 squash::commits(ctx, &source, destination, out)?;
             }
-            (CliId::Commit(oid), CliId::Branch { name, .. }) => {
+            (CliId::Commit { commit_id: oid, .. }, CliId::Branch { name, .. }) => {
                 create_snapshot(ctx, OperationKind::MoveCommit);
                 move_commit::to_branch(ctx, &oid, name, out)?;
             }
@@ -65,7 +73,7 @@ pub(crate) fn handle(
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_all(ctx, Some(&from), None, out)?;
             }
-            (CliId::Branch { name, .. }, CliId::Commit(oid)) => {
+            (CliId::Branch { name, .. }, CliId::Commit { commit_id: oid, .. }) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, Some(&name), oid, out)?;
             }
@@ -90,7 +98,7 @@ pub(crate) fn handle(
                     commit_id: commit_oid,
                     ..
                 },
-                CliId::Commit(oid),
+                CliId::Commit { commit_id: oid, .. },
             ) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
                 commits::commited_file_to_another_commit(
@@ -148,7 +156,7 @@ fn ids(
             let matches: Vec<String> = target_result
                 .iter()
                 .map(|id| match id {
-                    CliId::Commit(oid) => {
+                    CliId::Commit { commit_id: oid, .. } => {
                         format!(
                             "{} (commit {})",
                             id.to_short_string(),
@@ -197,7 +205,7 @@ pub(crate) fn parse_sources(
                 let matches: Vec<String> = source_result
                     .iter()
                     .map(|id| match id {
-                        CliId::Commit(oid) => {
+                        CliId::Commit { commit_id: oid, .. } => {
                             format!(
                                 "{} (commit {})",
                                 id.to_short_string(),

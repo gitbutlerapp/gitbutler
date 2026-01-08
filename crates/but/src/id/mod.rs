@@ -58,9 +58,9 @@ pub struct IdMap {
     /// Needed when adding more IDs to know which one is next.
     id_usage: IdUsage,
     /// Commit IDs reachable from workspace tips with their first parent IDs
-    workspace_commit_and_first_parent_ids: Vec<(gix::ObjectId, Option<gix::ObjectId>)>,
+    workspace_commits: HashMap<ShortId, WorkspaceCommit>,
     /// Commit IDs that are only on the remote
-    remote_commit_ids: Vec<gix::ObjectId>,
+    remote_commit_ids: HashMap<ShortId, gix::ObjectId>,
     /// The ID representing the unassigned area, i.e. uncommitted files that aren't assigned to a stack.
     unassigned: CliId,
 
@@ -71,6 +71,21 @@ pub struct IdMap {
     uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
     /// Committed files with their assigned IDs
     committed_files: BTreeSet<CommittedFile>,
+}
+
+/// Returns the length of the longest common *nybble* prefix.
+fn common_nybble_len(a: &[u8], b: &[u8]) -> usize {
+    let mut byte_len = 0usize;
+    let extra_nybble = loop {
+        let (Some(a_byte), Some(b_byte)) = (a.get(byte_len), b.get(byte_len)) else {
+            break 0;
+        };
+        if a_byte != b_byte {
+            break if a_byte & 0xf0 == b_byte & 0xf0 { 1 } else { 0 };
+        }
+        byte_len += 1;
+    };
+    byte_len * 2 + extra_nybble
 }
 
 /// Lifecycle methods for creating and initializing `IdMap` instances.
@@ -91,6 +106,56 @@ impl IdMap {
 
         let (mut id_usage, branch_name_to_cli_id, branch_auto_id_to_cli_id) =
             Self::ids_for_branch_names(branch_names, uncommitted_short_filenames)?;
+
+        // Sort all commit IDs so that we can check for collisions.
+        enum SortedCommit {
+            WorkspaceCommit {
+                first_parent_id: Option<gix::ObjectId>,
+            },
+            RemoteCommit,
+        }
+        let mut sorted_commits_map = BTreeMap::<gix::ObjectId, SortedCommit>::new();
+        for (commit_id, first_parent_id) in workspace_commit_and_first_parent_ids {
+            sorted_commits_map.insert(commit_id, SortedCommit::WorkspaceCommit { first_parent_id });
+        }
+        for commit_id in remote_commit_ids {
+            sorted_commits_map.insert(commit_id, SortedCommit::RemoteCommit);
+        }
+
+        // Compare each commit ID against the previous and next ones to
+        // determine how long its CLI ID should be. Ideally we would be able to
+        // use cursors to avoid collecting into a Vec, but that is an unstable
+        // API at the time of writing.
+        let sorted_commits = sorted_commits_map.into_iter().collect::<Vec<_>>();
+        let mut workspace_commits = HashMap::new();
+        let mut remote_commit_ids = HashMap::new();
+        let mut common_with_previous_len = 0;
+        for (i, (commit_id, sorted_commit)) in sorted_commits.iter().enumerate() {
+            let common_with_next_len =
+                sorted_commits
+                    .get(i + 1)
+                    .map_or(0, |(next_commit_id, _next_sorted_commit)| {
+                        common_nybble_len(commit_id.as_bytes(), next_commit_id.as_bytes())
+                    });
+            let short_id = commit_id
+                .to_hex_with_len(1 + 1.max(common_with_previous_len).max(common_with_next_len))
+                .to_string();
+            match sorted_commit {
+                SortedCommit::WorkspaceCommit { first_parent_id } => {
+                    workspace_commits.insert(
+                        short_id,
+                        WorkspaceCommit {
+                            commit_id: *commit_id,
+                            first_parent_id: *first_parent_id,
+                        },
+                    );
+                }
+                SortedCommit::RemoteCommit => {
+                    remote_commit_ids.insert(short_id, *commit_id);
+                }
+            };
+            common_with_previous_len = common_with_next_len;
+        }
 
         let mut uncommitted_files = BTreeMap::new();
         let mut uncommitted_hunks = HashMap::new();
@@ -115,7 +180,7 @@ impl IdMap {
             branch_name_to_cli_id,
             branch_auto_id_to_cli_id,
             id_usage,
-            workspace_commit_and_first_parent_ids,
+            workspace_commits,
             remote_commit_ids,
             unassigned: CliId::Unassigned {
                 id: UNASSIGNED.to_string(),
@@ -285,7 +350,12 @@ impl IdMap {
         F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
     {
         let FileInfo { committed_files } = FileInfo::from_workspace_commits_and_status(
-            &self.workspace_commit_and_first_parent_ids,
+            self.workspace_commits.values().map(|workspace_commit| {
+                (
+                    &workspace_commit.commit_id,
+                    &workspace_commit.first_parent_id,
+                )
+            }),
             changed_paths_in_commit_fn,
         )?;
 
@@ -354,7 +424,10 @@ impl IdMap {
                 .workspace_and_remote_commit_ids()
                 .filter(|oid| prefix.cmp_oid(oid).is_eq())
             {
-                matches.push(CliId::Commit(*oid));
+                matches.push(CliId::Commit {
+                    commit_id: *oid,
+                    id: entity.to_owned(),
+                });
             }
         }
 
@@ -429,6 +502,35 @@ impl IdMap {
             })
     }
 
+    /// Returns the [CliId::Commit] for a commit. If the ID for a commit is
+    /// not known, returns the first 2 characters of its hex representation
+    /// as fallback.
+    pub fn resolve_commit(&self, commit_id: &gix::ObjectId) -> CliId {
+        // TODO this does an inefficient linear search. This could be improved,
+        // but ultimately, IdMap should provide the commit graph information
+        // that its callers need, instead of its callers doing double work and
+        // reconciling with IdMap.
+        let id = if let Some((id, _workspace_commit)) = self
+            .workspace_commits
+            .iter()
+            .find(|(_id, workspace_commit)| *commit_id == workspace_commit.commit_id)
+        {
+            id.to_owned()
+        } else if let Some((id, _commit_id)) = self
+            .remote_commit_ids
+            .iter()
+            .find(|(_id, remote_commit_id)| *commit_id == **remote_commit_id)
+        {
+            id.to_owned()
+        } else {
+            commit_id.to_hex_with_len(2).to_string()
+        };
+        CliId::Commit {
+            commit_id: commit_id.to_owned(),
+            id,
+        }
+    }
+
     /// Returns the [`CliId::Uncommitted`] for a given hunk assignment, if it exists.
     ///
     /// Searches for a matching hunk assignment in the uncommitted hunks map and returns
@@ -473,10 +575,10 @@ impl IdMap {
     /// Returns an iterator over all commit IDs (workspace and remote) known to
     /// this ID map.
     fn workspace_and_remote_commit_ids(&self) -> impl Iterator<Item = &gix::ObjectId> {
-        self.workspace_commit_and_first_parent_ids
-            .iter()
-            .map(|(commit_id, _parent_id)| commit_id)
-            .chain(&self.remote_commit_ids)
+        self.workspace_commits
+            .values()
+            .map(|workspace_commit| &workspace_commit.commit_id)
+            .chain(self.remote_commit_ids.values())
     }
 }
 
@@ -547,7 +649,14 @@ pub enum CliId {
     // TODO: Ensure our prefixes are unique within the set of known commits,
     //       currently we only take the first two characters which can clash
     //       without us noticing. See commit_ids_are_currently_ambiguous() test.
-    Commit(gix::ObjectId),
+    Commit {
+        /// The object ID of the commit.
+        commit_id: gix::ObjectId,
+        /// The short CLI ID, a prefix of the object ID. This prefix is unique
+        /// among all commits in all stacks (but not necessarily among all
+        /// commits in the repo).
+        id: ShortId,
+    },
     /// The unassigned area, as a designated area that files can be put in.
     Unassigned {
         /// The CLI ID for the unassigned area.
@@ -565,7 +674,7 @@ impl PartialEq for CliId {
                 l_id == r_id
             }
             (Self::Branch { id: l_id, .. }, Self::Branch { id: r_id, .. }) => l_id == r_id,
-            (Self::Commit(l0), Self::Commit(r0)) => l0 == r0,
+            (Self::Commit { id: l_id, .. }, Self::Commit { id: r_id, .. }) => l_id == r_id,
             (Self::Unassigned { .. }, Self::Unassigned { .. }) => true,
             _ => false,
         }
@@ -592,11 +701,19 @@ impl CliId {
             CliId::Uncommitted(UncommittedCliId { id, .. })
             | CliId::CommittedFile { id, .. }
             | CliId::Branch { id, .. }
+            | CliId::Commit { id, .. }
             | CliId::Unassigned { id, .. } => id.clone(),
-            // TODO: make this so we can't display prefixes that are ambiguous.
-            CliId::Commit(oid) => oid.to_hex_with_len(2).to_string(),
         }
     }
+}
+
+/// Internal representation of a workspace commit.
+#[derive(Debug, Clone)]
+struct WorkspaceCommit {
+    /// The object ID of the commit.
+    commit_id: gix::ObjectId,
+    /// The ID of the first parent if the commit has parents.
+    first_parent_id: Option<gix::ObjectId>,
 }
 
 /// Internal representation of an uncommitted file.

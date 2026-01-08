@@ -42,6 +42,7 @@ There are several community-maintained distributions of GitButler. Issues with t
 ## Known issues and workarounds
 
 ### High CPU usage in WebKitGTK thread
+
 If you're exhibiting high CPU usage in a WebKit-related thread, try disabling hardware acceleration for WebKitGTK.
 
 ```bash

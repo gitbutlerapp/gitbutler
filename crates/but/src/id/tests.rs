@@ -53,12 +53,19 @@ fn commit_id_works_with_two_or_more_characters() -> anyhow::Result<()> {
     branches: [ no ]
     ");
 
-    let expected = [CliId::Commit(id1)];
+    let expected = [CliId::Commit {
+        commit_id: id1,
+        id: "01".to_string(),
+    }];
     assert_eq!(
         id_map.resolve_entity_to_ids("01")?,
         expected,
         "two characters are sufficient to parse a commit ID"
     );
+    let expected = [CliId::Commit {
+        commit_id: id1,
+        id: "010".to_string(),
+    }];
     assert_eq!(
         id_map.resolve_entity_to_ids("010")?,
         expected,
@@ -72,26 +79,31 @@ fn commit_id_works_with_two_or_more_characters() -> anyhow::Result<()> {
     Ok(())
 }
 
-// TODO: is there a way to produce globally unique ids for commits as well?
-//       Should be if we prepare them in advance.
 #[test]
-fn commit_ids_are_currently_ambiguous() -> anyhow::Result<()> {
+fn commit_ids_become_longer_if_ambiguous() -> anyhow::Result<()> {
     let id1 = hex_to_id("21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     let id2 = hex_to_id("21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-    let stacks = &[stack([segment("not-important", [id1, id2], None, [])])];
+    let id3 = hex_to_id("21bccccccccccccccccccccccccccccccccccccc");
+    let stacks = &[stack([segment("not-important", [id1, id2, id3], None, [])])];
     let id_map = IdMap::new(stacks, Vec::new())?;
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
-    workspace_and_remote_commits_count: 2
+    workspace_and_remote_commits_count: 3
     branches: [ no ]
     ");
     insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
     [
-        Commit(
-            Sha1(21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
-        ),
-        Commit(
-            Sha1(21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb),
-        ),
+        Commit {
+            commit_id: Sha1(21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
+            id: "21a",
+        },
+        Commit {
+            commit_id: Sha1(21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb),
+            id: "21bb",
+        },
+        Commit {
+            commit_id: Sha1(21bccccccccccccccccccccccccccccccccccccc),
+            id: "21bc",
+        },
         Branch {
             name: "not-important",
             id: "no",
@@ -105,8 +117,9 @@ fn commit_ids_are_currently_ambiguous() -> anyhow::Result<()> {
         .collect::<Vec<_>>();
     insta::assert_debug_snapshot!(ids_as_shown_by_consumers, @r#"
     [
-        "21",
-        "21",
+        "21a",
+        "21bb",
+        "21bc",
         "no",
     ]
     "#);
@@ -207,7 +220,7 @@ fn branches_avoid_unassigned_area_id() -> anyhow::Result<()> {
 fn branches_avoid_invalid_ids() -> anyhow::Result<()> {
     let stacks = &[stack([
         segment("x-yz_/hi", [id(1)], None, []),
-        segment("0ax", [id(1)], None, []),
+        segment("0ax", [id(2)], None, []),
     ])];
     let id_map = IdMap::new(stacks, Vec::new())?;
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
@@ -330,9 +343,10 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     ");
     insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
     [
-        Commit(
-            Sha1(0202020202020202020202020202020202020202),
-        ),
+        Commit {
+            commit_id: Sha1(0202020202020202020202020202020202020202),
+            id: "02",
+        },
         Uncommitted(
             UncommittedCliId {
                 id: "g0",
@@ -496,13 +510,14 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     uncommitted_hunks: [ i0 ]
     ");
 
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("0a")?, @r"
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("0a")?, @r#"
     [
-        Commit(
-            Sha1(0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a),
-        ),
+        Commit {
+            commit_id: Sha1(0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a),
+            id: "0a",
+        },
     ]
-    ");
+    "#);
     assert_eq!(
         id_map.resolve_entity_to_ids("0A")?,
         [],
@@ -784,8 +799,8 @@ mod util {
                 // `branch_auto_id_to_cli_id`.
                 branch_auto_id_to_cli_id: _,
                 id_usage: _,
-                workspace_commit_and_first_parent_ids: _,
-                remote_commit_ids: _,
+                workspace_commits,
+                remote_commit_ids,
                 unassigned: _,
                 uncommitted_files,
                 uncommitted_hunks,
@@ -795,6 +810,8 @@ mod util {
             branch_name_to_cli_id
                 .values()
                 .map(|id| id.to_short_string())
+                .chain(workspace_commits.keys().cloned())
+                .chain(remote_commit_ids.keys().cloned())
                 .chain(uncommitted_files.keys().cloned())
                 .chain(committed_files.iter().map(|f| f.id.clone()))
                 .chain(uncommitted_hunks.keys().cloned())
@@ -802,11 +819,6 @@ mod util {
                     self.resolve_entity_to_ids(&id)
                         .expect("BUG: valid ID means no error")
                 })
-                .chain(
-                    self.workspace_and_remote_commit_ids()
-                        .cloned()
-                        .map(CliId::Commit),
-                )
                 .sorted_by(id_cmp)
                 .collect()
         }
@@ -826,7 +838,7 @@ mod util {
                 // in `branch_auto_id_to_cli_id`.
                 branch_auto_id_to_cli_id: _,
                 id_usage: _,
-                workspace_commit_and_first_parent_ids: _,
+                workspace_commits: _,
                 remote_commit_ids: _,
                 unassigned: _,
                 uncommitted_files,

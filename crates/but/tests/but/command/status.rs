@@ -261,3 +261,81 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn long_cli_ids() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix")?;
+
+    // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
+    env.setup_metadata(&["A"])?;
+
+    // For "add A13" and "add A3", the IDs have 3 characters. The others have 2.
+    env.but("status")
+        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/long-cli-ids.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn long_cli_ids_json() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix")?;
+
+    // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
+    env.setup_metadata(&["A"])?;
+
+    // Assert a handful of commits to show that the commit CLI IDs become longer
+    // if a short ID would be ambiguous, but remain at 2 characters otherwise.
+    env.but("--json status -f")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+...
+          "commits": [
+            {
+              "cliId": "5c8",
+              "commitId": "5c88a8ec10067ef547f14b467776d3584cd683ea",
+              "createdAt": "[RFC_TIMESTAMP]",
+              "message": "add A13/n",
+...
+            {
+              "cliId": "a1",
+              "commitId": "a18ea48cd317c7c8fc9317b6f2427be4cdb2585d",
+              "createdAt": "[RFC_TIMESTAMP]",
+              "message": "add A12/n",
+...
+            {
+...
+            {
+...
+            {
+...
+            {
+...
+            {
+...
+            {
+...
+            {
+...
+            {
+...
+            {
+              "cliId": "5c7",
+              "commitId": "5c7c6d7f3854bb61978b410b1ae8146be9948b26",
+              "createdAt": "[RFC_TIMESTAMP]",
+              "message": "add A3/n",
+...
+
+"#]]);
+
+    Ok(())
+}
