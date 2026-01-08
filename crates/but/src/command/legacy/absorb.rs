@@ -10,6 +10,10 @@ use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::HunkDependencies;
 use colored::Colorize;
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 use gitbutler_project::Project;
 
 use crate::{
@@ -86,6 +90,10 @@ pub(crate) fn handle(
     let worktree_changes = diff::changes_in_worktree(ctx)?;
     let assignments = worktree_changes.assignments;
     let dependencies = worktree_changes.dependencies;
+
+    // Create a snapshot before performing absorb operations
+    // This allows the user to undo with `but undo` if needed
+    create_snapshot(ctx, OperationKind::Absorb);
 
     if let Some(source) = source {
         match source {
@@ -492,4 +500,12 @@ fn amend_commit_silent(
     )?;
 
     Ok(())
+}
+
+/// Create a snapshot in the oplog before performing an operation
+fn create_snapshot(ctx: &mut Context, operation: OperationKind) {
+    let mut guard = ctx.exclusive_worktree_access();
+    let _snapshot = ctx
+        .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
+        .ok(); // Ignore errors for snapshot creation
 }
