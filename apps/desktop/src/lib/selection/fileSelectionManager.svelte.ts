@@ -46,6 +46,10 @@ export class FileSelectionManager {
 		}
 	>;
 
+	// Track visited selections and first file paths across component instances
+	private visitedSelections = $state<Set<string>>(new Set());
+	private firstPathBySelection = $state<Map<string, string>>(new Map());
+
 	constructor(
 		private stackService: StackService,
 		private uncommittedService: UncommittedService,
@@ -277,5 +281,21 @@ export class FileSelectionManager {
 					path: selectedFile.path
 				});
 		}
+	}
+
+	isFirstVisit(key: string): boolean {
+		return !this.visitedSelections.has(key);
+	}
+
+	markAsVisited(key: string): void {
+		this.visitedSelections.add(key);
+	}
+
+	getFirstPathForSelection(key: string): string | undefined {
+		return this.firstPathBySelection.get(key);
+	}
+
+	setFirstPathForSelection(key: string, path: string): void {
+		this.firstPathBySelection.set(key, path);
 	}
 }
