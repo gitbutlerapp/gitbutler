@@ -169,6 +169,9 @@ impl Sandbox {
     pub fn assert_with_oplog_redactions(&self) -> Assert {
         let mut redactions = Redactions::new();
         redactions
+            .insert("[HASH]", regex::Regex::new(r#"\b[a-f0-9]{12}\b"#).unwrap())
+            .unwrap();
+        redactions
             .insert(
                 "[SHORTHASH]",
                 regex::Regex::new(r#"[a-f0-9]{7}\b"#).unwrap(),

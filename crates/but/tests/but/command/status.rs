@@ -21,6 +21,7 @@ fn worktrees() -> anyhow::Result<()> {
     env.setup_metadata(&["A", "B"])?;
 
     env.but("status")
+        .env("CLICOLOR_FORCE", "1")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -29,6 +30,7 @@ fn worktrees() -> anyhow::Result<()> {
         ]);
 
     env.but("status --verbose")
+        .env("CLICOLOR_FORCE", "1")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -271,7 +273,7 @@ fn long_cli_ids() -> anyhow::Result<()> {
 
     // For "add A13" and "add A3", the IDs have 3 characters. The others have 2.
     env.but("status")
-        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
+        .env("CLICOLOR_FORCE", "1")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])

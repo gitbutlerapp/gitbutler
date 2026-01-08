@@ -61,9 +61,10 @@ fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
     env.but("i0 zz")
         .assert()
         .success()
-        .stdout_eq(snapbox::file![
-            "snapshots/rub/uncommitted-file-to-unassigned.stdout.term.svg"
-        ])
+        .stdout_eq(snapbox::str![[r#"
+Unassigned all hunks in a.txt in a stack
+
+"#]])
         .stderr_eq(str![""]);
 
     Ok(())
@@ -79,9 +80,10 @@ fn uncommitted_file_to_branch() -> anyhow::Result<()> {
     env.but("rub i0 A")
         .assert()
         .success()
-        .stdout_eq(snapbox::file![
-            "snapshots/rub/uncommitted-file-to-branch.stdout.term.svg"
-        ])
+        .stdout_eq(snapbox::str![[r#"
+Assigned all hunks in a.txt in the unassigned area → [A].
+
+"#]])
         .stderr_eq(str![""]);
 
     Ok(())
@@ -180,9 +182,10 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
     env.but("j0 zz")
         .assert()
         .success()
-        .stdout_eq(snapbox::file![
-            "snapshots/rub/committed-file-to-unassigned.stdout.term.svg"
-        ])
+        .stdout_eq(snapbox::str![[r#"
+Uncommitted changes
+
+"#]])
         .stderr_eq(str![""]);
 
     // Verify that `status` reflects the move.
@@ -297,7 +300,6 @@ fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
 
     // Verify that the first hunk is j0, and move it to unassigned.
     env.but("diff i0")
-        .env_remove("CLICOLOR_FORCE")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -323,9 +325,10 @@ k0 a.txt│
     env.but("j0 zz")
         .assert()
         .success()
-        .stdout_eq(snapbox::file![
-            "snapshots/rub/uncommitted-hunk-to-unassigned.stdout.term.svg"
-        ])
+        .stdout_eq(snapbox::str![[r#"
+Unassigned a hunk in a.txt in a stack
+
+"#]])
         .stderr_eq(str![""]);
 
     // Verify that only one hunk moved back to unassigned ("a.txt" appears both in the
@@ -376,7 +379,6 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
 
     // Verify that the first hunk is j0, and move it to unassigned.
     env.but("diff a.txt")
-        .env_remove("CLICOLOR_FORCE")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -402,9 +404,10 @@ k0 a.txt│
     env.but("rub j0 A")
         .assert()
         .success()
-        .stdout_eq(snapbox::file![
-            "snapshots/rub/uncommitted-hunk-to-branch.stdout.term.svg"
-        ])
+        .stdout_eq(snapbox::str![[r#"
+Assigned a hunk in a.txt in the unassigned area → [A].
+
+"#]])
         .stderr_eq(str![""]);
 
     // Verify that only one hunk was assigned ("a.txt" appears both in the

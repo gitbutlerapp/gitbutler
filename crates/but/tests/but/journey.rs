@@ -140,22 +140,29 @@ fn from_workspace() -> anyhow::Result<()> {
     env.setup_metadata(&["A", "B"])?;
 
     env.but("status")
+        .env("CLICOLOR_FORCE", "1")
         .assert()
         .success()
         .stdout_eq(file!["snapshots/from-workspace/status01.stdout.term.svg"]);
 
-    env.but("status -v").assert().success().stdout_eq(file![
-        "snapshots/from-workspace/status01-verbose.stdout.term.svg"
-    ]);
+    env.but("status -v")
+        .env("CLICOLOR_FORCE", "1")
+        .assert()
+        .success()
+        .stdout_eq(file![
+            "snapshots/from-workspace/status01-verbose.stdout.term.svg"
+        ]);
 
     // List is the default
     env.but("branch")
+        .env("CLICOLOR_FORCE", "1")
         .assert()
         .success()
         .stdout_eq(file!["snapshots/from-workspace/branch01.stdout.term.svg"]);
 
     // But list is also explicit.
     env.but("branch list")
+        .env("CLICOLOR_FORCE", "1")
         .assert()
         .success()
         .stdout_eq(file!["snapshots/from-workspace/branch01.stdout.term.svg"]);
