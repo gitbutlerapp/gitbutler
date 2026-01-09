@@ -56,6 +56,11 @@ fn unborn() -> anyhow::Result<()> {
     └── ≡:0:main[🌳]
         └── :0:main[🌳]
     ");
+
+    assert!(
+        graph.managed_entrypoint_commit(&repo)?.is_none(),
+        "there is no commit it could return"
+    );
     Ok(())
 }
 
@@ -156,6 +161,11 @@ fn detached() -> anyhow::Result<()> {
         },
     }
     "#);
+
+    assert!(
+        graph.entrypoint_commit().map(|c| c.id).is_some(),
+        "there is an entrypoint commit, detached or not"
+    );
     Ok(())
 }
 
