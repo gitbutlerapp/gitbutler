@@ -45,3 +45,7 @@ tracing.workspace = true
 dirs-next = "2.0.0"
 serde_json.workspace = true
 tokio.workspace = true
+notify.workspace = true
+
+[dev-dependencies]
+but-testsupport.workspace = true

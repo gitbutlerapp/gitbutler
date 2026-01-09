@@ -8,8 +8,6 @@ pub enum InternalEvent {
     // From file monitor
     GitFilesChange(ProjectId, Vec<PathBuf>),
     ProjectFilesChange(ProjectId, Vec<PathBuf>),
-    /// Request that the watcher adds a non-recursive watch for the given absolute directory path.
-    WatchDirectoriesNonrecursively(Vec<PathBuf>),
 }
 
 impl Display for InternalEvent {
@@ -30,9 +28,6 @@ impl Display for InternalEvent {
                     project_id,
                     comma_separated_paths(paths)
                 )
-            }
-            InternalEvent::WatchDirectoriesNonrecursively(path) => {
-                write!(f, "WatchDirectoryNonrecursively({:?})", path)
             }
         }
     }

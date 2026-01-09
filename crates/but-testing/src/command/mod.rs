@@ -448,7 +448,7 @@ pub async fn watch(args: &super::Args, watch_mode: Option<&str>) -> anyhow::Resu
     let workdir = repo
         .workdir()
         .context("really only want to watch workdirs")?;
-    let _watcher = gitbutler_filemonitor::spawn(
+    let _monitor = gitbutler_filemonitor::spawn(
         project.map(|p| p.id).unwrap_or(ProjectId::generate()),
         workdir,
         tx,

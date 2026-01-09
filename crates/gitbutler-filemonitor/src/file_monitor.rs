@@ -33,6 +33,26 @@ const TICK_RATE: Duration = if cfg!(windows) {
 // the pending events, even if DEBOUNCE_TIMEOUT hasn't expired yet
 const FLUSH_AFTER_EMPTY: u32 = 3;
 
+enum Command {
+    Flush,
+}
+
+/// Handle for a running file monitor spawned with [`spawn()`].
+///
+/// Dropping this handle will stop the monitor.
+pub struct FileMonitor {
+    cmd_tx: std::sync::mpsc::Sender<Command>,
+}
+
+impl FileMonitor {
+    /// Request that pending filesystem events are emitted immediately.
+    pub fn flush(&self) -> Result<()> {
+        self.cmd_tx
+            .send(Command::Flush)
+            .map_err(|_| anyhow!("file monitor stopped"))
+    }
+}
+
 /// This error is required only because `anyhow::Error` isn't implementing `std::error::Error`, and [`spawn()`]
 /// needs to wrap it into a `backoff::Error` which also has to implement the `Error` trait.
 #[derive(Debug, thiserror::Error)]
@@ -130,14 +150,16 @@ fn setup_watch_plan(
     worktree_path: &Path,
     git_dir: &Path,
 ) -> Result<()> {
-    let watch_plan = compute_watch_plan_for_repo(repo, worktree_path, git_dir)?;
-
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(watch_backoff_policy(), || {
         let mut paths = debouncer.watcher().paths_mut();
-        for (path, mode) in watch_plan.iter() {
-            match paths.add(path, *mode) {
-                Ok(()) => {}
+        let mut add_error: Option<(std::path::PathBuf, notify::Error)> = None;
+        compute_watch_plan_for_repo(repo, worktree_path, git_dir, |path, mode| {
+            if add_error.is_some() {
+                return Ok(std::ops::ControlFlow::Break(()));
+            }
+            match paths.add(path, mode) {
+                Ok(()) => Ok(std::ops::ControlFlow::Continue(())),
                 Err(err) => match err.kind {
                     notify::ErrorKind::MaxFilesWatch => {
                         tracing::warn!(
@@ -145,27 +167,29 @@ fn setup_watch_plan(
                             path = %path.display(),
                             "OS file watch limit reached; continuing with partial watches. Monitoring coverage may be incomplete until restart."
                         );
-                        break;
-                    }
-                    notify::ErrorKind::PathNotFound => {
-                        return Err(backoff::Error::permanent(RunError::from(anyhow!(
-                            "{} not found",
-                            path.display()
-                        ))));
-                    }
-                    notify::ErrorKind::Io(_) | notify::ErrorKind::InvalidConfig(_) => {
-                        return Err(backoff::Error::permanent(RunError::from(
-                            anyhow::Error::from(err),
-                        )));
+                        Ok(std::ops::ControlFlow::Break(()))
                     }
                     _ => {
-                        return Err(backoff::Error::transient(RunError::from(
-                            anyhow::Error::from(err),
-                        )));
+                        add_error = Some((path.to_owned(), err));
+                        Ok(std::ops::ControlFlow::Break(()))
                     }
                 },
             }
+        })
+        .map_err(|err| backoff::Error::permanent(RunError::from(err)))?;
+
+        if let Some((path, err)) = add_error {
+            return Err(match err.kind {
+                notify::ErrorKind::PathNotFound => backoff::Error::permanent(RunError::from(
+                    anyhow!("{} not found", path.display()),
+                )),
+                notify::ErrorKind::Io(_) | notify::ErrorKind::InvalidConfig(_) => {
+                    backoff::Error::permanent(RunError::from(anyhow::Error::from(err)))
+                }
+                _ => backoff::Error::transient(RunError::from(anyhow::Error::from(err))),
+            });
         }
+
         match paths.commit() {
             Ok(()) => Ok(()),
             Err(err) => match err.kind {
@@ -248,7 +272,8 @@ pub fn spawn(
     worktree_path: &std::path::Path,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
     watch_mode: WatchMode,
-) -> Result<Debouncer<RecommendedWatcher, NoCache>> {
+) -> Result<FileMonitor> {
+    let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
     let mut debouncer = new_debouncer(
         DEBOUNCE_TIMEOUT,
@@ -312,7 +337,22 @@ pub fn spawn(
         let _runtime = tracing::span!(Level::INFO, "file monitor", %project_id ).entered();
         tracing::debug!(%project_id, "file watcher started");
 
-        'outer: for result in notify_rx {
+        let mut watched_dirs: HashSet<std::path::PathBuf> = HashSet::new();
+        'outer: loop {
+            // Handle control plane messages.
+            loop {
+                match cmd_rx.try_recv() {
+                    Ok(Command::Flush) => debouncer.flush_nonblocking(),
+                    Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => break 'outer,
+                }
+            }
+
+            let result = match notify_rx.recv_timeout(TICK_RATE) {
+                Ok(result) => result,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break 'outer,
+            };
             let stats = tracing::span!(
                 Level::INFO,
                 "handle debounced events",
@@ -363,7 +403,7 @@ pub fn spawn(
                                     .map(|platform| platform.is_excluded())
                                     .unwrap_or(false);
                                 let is_untracked = if mode.is_some() {
-                                    !tracked_dirs.contains(&to_repo_relative_key(relative_path))
+                                    !tracked_dirs.contains(to_repo_relative_key(relative_path).as_ref())
                                 } else {
                                     index
                                         .entry_by_path(&gix::path::to_unix_separators_on_windows(
@@ -430,16 +470,29 @@ pub fn spawn(
                     if !directories_to_watch.is_empty() {
                         // NOTE: There is an inherent race condition here where files created in the new
                         // directory before the watch is established will be missed.
-                        let send_failed = out
-                            .send(InternalEvent::WatchDirectoriesNonrecursively({
-                                let mut v: Vec<_> = directories_to_watch.into_iter().collect();
-                                v.sort();
-                                v
-                            }))
-                            .is_err();
-                        if send_failed {
-                            tracing::info!("channel closed - stopping file watcher");
-                            break 'outer;
+                        tracing::trace!(%project_id, ?directories_to_watch, "adding dynamic watches");
+                        let mut v: Vec<_> = directories_to_watch.into_iter().collect();
+                        v.sort();
+                        for path in v {
+                            if watched_dirs.contains(&path) {
+                                continue;
+                            }
+                            match debouncer
+                                .watcher()
+                                .watch(&path, notify::RecursiveMode::NonRecursive)
+                            {
+                                Ok(()) => {
+                                    watched_dirs.insert(path);
+                                }
+                                Err(err) => {
+                                    tracing::warn!(
+                                        %project_id,
+                                        ?path,
+                                        ?err,
+                                        "failed to add watch; changes may be missed until restart"
+                                    );
+                                }
+                            }
                         }
                     }
 
@@ -465,7 +518,7 @@ pub fn spawn(
             }
         }
     });
-    Ok(debouncer)
+    Ok(FileMonitor { cmd_tx })
 }
 
 #[cfg(target_family = "unix")]
