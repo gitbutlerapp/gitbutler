@@ -1,4 +1,5 @@
 mod cherry_pick;
+mod conflictable_restriction;
 mod editor_creation;
 mod insert;
 mod multiple_operations;

@@ -65,6 +65,15 @@ impl Editor {
                     let outcome =
                         cherry_pick(&self.repo, pick.id, &ontos, pick.sign_if_configured)?;
 
+                    if matches!(outcome, CherryPickOutcome::ConflictedCommit(_))
+                        && !pick.conflictable
+                    {
+                        bail!(
+                            "Commit {} was marked as not conflictable, but resulted in a conflicted state",
+                            pick.id
+                        );
+                    }
+
                     match outcome {
                         CherryPickOutcome::Commit(new_id)
                         | CherryPickOutcome::ConflictedCommit(new_id)
