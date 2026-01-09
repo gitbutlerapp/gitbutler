@@ -191,9 +191,10 @@ impl Graph {
         self.tip_skip_empty(self.entrypoint?.0)
     }
 
-    /// Return the first commit from the [entry-point commit](Self::entrypoint_commit()) of this graph
-    /// if it is a [managed](is_managed_workspace_by_message) workspace commit.
+    /// Return the entry-point commit of this graph if it is a
+    /// [managed](is_managed_workspace_by_message) workspace commit.
     ///
+    /// The entry-point commit is obtained via [`Self::entrypoint_commit()`].
     /// Note that managed workspace commits are owned by GitButler.
     /// The `repo` is used to look up the entrypoint commit and to obtain its message.
     pub fn managed_entrypoint_commit(
