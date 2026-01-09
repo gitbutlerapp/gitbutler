@@ -3,6 +3,7 @@ mod conflictable_restriction;
 mod editor_creation;
 mod insert;
 mod multiple_operations;
+mod parents_must_be_references_restriction;
 mod rebase_identities;
 mod replace;
 mod signing_preferences;

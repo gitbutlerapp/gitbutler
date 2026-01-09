@@ -24,6 +24,8 @@ impl Editor {
         // the reference step for `gitbutler/workspace`, but there could be
         // multiple.
 
+        validate_reference_constraints(&self.graph)?;
+
         let mut ref_edits = vec![];
         let steps_to_pick = order_steps_picking(
             &self.graph,
@@ -199,6 +201,60 @@ impl Editor {
             history,
         })
     }
+}
+
+/// Validates the `parents_must_be_references` constraint on `Pick` steps in the
+/// step graph
+fn validate_reference_constraints(graph: &StepGraph) -> Result<()> {
+    for ni in graph.node_indices() {
+        let node = &graph[ni];
+        let Step::Pick(pick) = node else {
+            continue;
+        };
+
+        if pick.parents_must_be_references && !all_parents_are_references(graph, ni) {
+            bail!("Commit {} has parents that are not referenced", pick.id);
+        }
+    }
+
+    Ok(())
+}
+
+/// Returns true if all the parents of a step reach a `Reference` step, skipping
+/// over `None`s
+pub(crate) fn all_parents_are_references(graph: &StepGraph, target: StepGraphIndex) -> bool {
+    let mut potential_parent_edges = graph
+        .edges_directed(target, petgraph::Direction::Outgoing)
+        .collect::<Vec<_>>();
+
+    let mut seen = potential_parent_edges
+        .iter()
+        .map(|e| e.target())
+        .collect::<HashSet<_>>();
+
+    while let Some(candidate) = potential_parent_edges.pop() {
+        match graph[candidate.target()] {
+            // We encountered a `pick` step before a `reference` step so we can
+            // stop the search and return false early.
+            Step::Pick(_) => return false,
+            // We can stop searching down this leg since we found a reference.
+            Step::Reference { .. } => continue,
+            // Skip over `None`s and consider their parents.
+            Step::None => {
+                let outgoings = graph
+                    .edges_directed(candidate.target(), petgraph::Direction::Outgoing)
+                    .collect::<Vec<_>>();
+
+                for edge in outgoings {
+                    if seen.insert(edge.target()) {
+                        potential_parent_edges.push(edge);
+                    }
+                }
+            }
+        }
+    }
+
+    true
 }
 
 /// Creates a list of step indicies ordered in the dependency order.
@@ -469,6 +525,182 @@ mod test {
             let ordered_from_a = order_steps_picking(&graph, &[a]);
             assert_eq!(&ordered_from_a, &[c, b, e, d, a]);
 
+            Ok(())
+        }
+    }
+
+    mod all_parents_are_references {
+        use std::str::FromStr;
+
+        use anyhow::Result;
+
+        use crate::graph_rebase::{Edge, Step, StepGraph, rebase::all_parents_are_references};
+
+        #[test]
+        fn returns_true_when_single_parent_is_reference() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "1000000000000000000000000000000000000000",
+            )?));
+            let b = graph.add_node(Step::Reference {
+                refname: "refs/heads/main".try_into()?,
+            });
+
+            graph.add_edge(a, b, Edge { order: 0 });
+
+            assert!(all_parents_are_references(&graph, a));
+            Ok(())
+        }
+
+        #[test]
+        fn returns_false_when_single_parent_is_pick() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "1000000000000000000000000000000000000000",
+            )?));
+            let b = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "2000000000000000000000000000000000000000",
+            )?));
+
+            graph.add_edge(a, b, Edge { order: 0 });
+
+            assert!(!all_parents_are_references(&graph, a));
+            Ok(())
+        }
+
+        #[test]
+        fn returns_true_when_parent_is_none_leading_to_reference() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "1000000000000000000000000000000000000000",
+            )?));
+            let b = graph.add_node(Step::None);
+            let c = graph.add_node(Step::Reference {
+                refname: "refs/heads/main".try_into()?,
+            });
+
+            graph.add_edge(a, b, Edge { order: 0 });
+            graph.add_edge(b, c, Edge { order: 0 });
+
+            assert!(all_parents_are_references(&graph, a));
+            Ok(())
+        }
+
+        #[test]
+        fn returns_false_when_parent_is_none_leading_to_pick() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "1000000000000000000000000000000000000000",
+            )?));
+            let b = graph.add_node(Step::None);
+            let c = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "2000000000000000000000000000000000000000",
+            )?));
+
+            graph.add_edge(a, b, Edge { order: 0 });
+            graph.add_edge(b, c, Edge { order: 0 });
+
+            assert!(!all_parents_are_references(&graph, a));
+            Ok(())
+        }
+
+        #[test]
+        fn returns_true_when_no_parents() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "1000000000000000000000000000000000000000",
+            )?));
+
+            assert!(all_parents_are_references(&graph, a));
+            Ok(())
+        }
+
+        #[test]
+        fn returns_true_when_all_multiple_parents_are_references() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "1000000000000000000000000000000000000000",
+            )?));
+            let b = graph.add_node(Step::Reference {
+                refname: "refs/heads/main".try_into()?,
+            });
+            let c = graph.add_node(Step::Reference {
+                refname: "refs/heads/feature".try_into()?,
+            });
+
+            graph.add_edge(a, b, Edge { order: 0 });
+            graph.add_edge(a, c, Edge { order: 1 });
+
+            assert!(all_parents_are_references(&graph, a));
+            Ok(())
+        }
+
+        #[test]
+        fn returns_false_when_one_of_multiple_parents_is_pick() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "1000000000000000000000000000000000000000",
+            )?));
+            let b = graph.add_node(Step::Reference {
+                refname: "refs/heads/main".try_into()?,
+            });
+            let c = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "2000000000000000000000000000000000000000",
+            )?));
+
+            graph.add_edge(a, b, Edge { order: 0 });
+            graph.add_edge(a, c, Edge { order: 1 });
+
+            assert!(!all_parents_are_references(&graph, a));
+            Ok(())
+        }
+
+        #[test]
+        fn returns_true_with_deep_none_chain_to_reference() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "1000000000000000000000000000000000000000",
+            )?));
+            let b = graph.add_node(Step::None);
+            let c = graph.add_node(Step::None);
+            let d = graph.add_node(Step::None);
+            let e = graph.add_node(Step::Reference {
+                refname: "refs/heads/main".try_into()?,
+            });
+
+            graph.add_edge(a, b, Edge { order: 0 });
+            graph.add_edge(b, c, Edge { order: 0 });
+            graph.add_edge(c, d, Edge { order: 0 });
+            graph.add_edge(d, e, Edge { order: 0 });
+
+            assert!(all_parents_are_references(&graph, a));
+            Ok(())
+        }
+
+        #[test]
+        fn returns_false_when_none_leads_to_pick_among_multiple_paths() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "1000000000000000000000000000000000000000",
+            )?));
+            let b = graph.add_node(Step::None);
+            let c = graph.add_node(Step::None);
+            let d = graph.add_node(Step::Reference {
+                refname: "refs/heads/main".try_into()?,
+            });
+            let e = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+                "2000000000000000000000000000000000000000",
+            )?));
+
+            // Path 1: a -> b -> d (Reference) - OK
+            graph.add_edge(a, b, Edge { order: 0 });
+            graph.add_edge(b, d, Edge { order: 0 });
+
+            // Path 2: a -> c -> e (Pick) - NOT OK
+            graph.add_edge(a, c, Edge { order: 1 });
+            graph.add_edge(c, e, Edge { order: 0 });
+
+            assert!(!all_parents_are_references(&graph, a));
             Ok(())
         }
     }
