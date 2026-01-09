@@ -6,6 +6,7 @@ pub mod actions;
 pub mod branch;
 pub mod commit;
 pub mod diff;
+pub mod discard;
 pub mod forge;
 pub mod init;
 pub mod mark;

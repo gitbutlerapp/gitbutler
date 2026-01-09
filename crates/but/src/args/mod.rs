@@ -437,6 +437,27 @@ pub enum Subcommands {
         source: Option<String>,
     },
 
+    /// Discard uncommitted changes from the worktree.
+    ///
+    /// This command permanently discards changes to files, restoring them to their
+    /// state in the HEAD commit. Use this to undo unwanted modifications.
+    ///
+    /// The ID parameter should be a file ID as shown in `but status`. You can
+    /// discard a whole file or specific hunks within a file.
+    ///
+    /// ## Examples
+    ///
+    /// Discard all changes to a file:
+    ///
+    /// ```text
+    /// but discard a1
+    /// ```
+    #[cfg(feature = "legacy")]
+    Discard {
+        /// The ID of the file or hunk to discard (as shown in `but status`)
+        id: String,
+    },
+
     /// Commands for interacting with forges like GitHub, GitLab (coming soon), etc.
     ///
     /// The `but forge` tools allow you to authenticate with a forge from the CLI,

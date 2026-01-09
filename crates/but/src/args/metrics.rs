@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum CommandName {
     Init,
     Absorb,
+    Discard,
     Status,
     Stf,
     Rub,
