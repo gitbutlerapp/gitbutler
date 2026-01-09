@@ -42,6 +42,9 @@ pub enum CommandName {
     PrNew,
     PrTemplate,
     Completions,
+    AliasCheck,
+    AliasAdd,
+    AliasRemove,
     RefreshRemoteData,
     Resolve,
     #[default]

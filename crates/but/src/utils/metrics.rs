@@ -56,7 +56,7 @@ impl Subcommands {
     fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{branch, claude, cursor, forge, worktree};
+        use crate::args::{alias as alias_args, branch, claude, cursor, forge, worktree};
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -139,6 +139,11 @@ impl Subcommands {
                 forge::integration::Subcommands::ListUsers => ForgeListUsers,
             },
             Subcommands::Completions { .. } => Completions,
+            Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
+                None | Some(alias_args::Subcommands::List) => AliasCheck,
+                Some(alias_args::Subcommands::Add { .. }) => AliasAdd,
+                Some(alias_args::Subcommands::Remove { .. }) => AliasRemove,
+            },
             Subcommands::Metrics { .. } => Unknown,
             #[cfg(feature = "legacy")]
             Subcommands::RefreshRemoteData { .. } => RefreshRemoteData,

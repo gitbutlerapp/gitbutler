@@ -112,6 +112,7 @@ fn is_known_subcommand(cmd: &str) -> bool {
             | "completions"
             | "resolve"
             | "fetch"
+            | "alias"
     )
 }
 

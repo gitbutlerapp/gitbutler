@@ -29,7 +29,8 @@ use cfg_if::cfg_if;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, branch, claude, cursor, forge, metrics, worktree,
+    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
+    metrics, worktree,
 };
 use but_settings::AppSettings;
 use colored::Colorize;
@@ -193,6 +194,19 @@ async fn match_subcommand(
         Subcommands::Completions { shell } => {
             command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
         }
+        Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
+            Some(alias_args::Subcommands::List) | None => {
+                command::alias::list(out).emit_metrics(metrics_ctx)
+            }
+            Some(alias_args::Subcommands::Add {
+                name,
+                value,
+                global,
+            }) => command::alias::add(out, &name, &value, global).emit_metrics(metrics_ctx),
+            Some(alias_args::Subcommands::Remove { name, global }) => {
+                command::alias::remove(out, &name, global).emit_metrics(metrics_ctx)
+            }
+        },
         Subcommands::Branch(branch::Platform { cmd }) => {
             cfg_if! {
                 if #[cfg(feature = "legacy")]  {

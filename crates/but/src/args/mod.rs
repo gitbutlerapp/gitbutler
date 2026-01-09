@@ -566,6 +566,34 @@ pub enum Subcommands {
         shell: Option<clap_complete::Shell>,
     },
 
+    /// Manage command aliases.
+    ///
+    /// Aliases allow you to create shortcuts for commonly used commands.
+    /// They are stored in git config under the `but.alias.*` namespace.
+    ///
+    /// ## Examples
+    ///
+    /// List all configured aliases:
+    ///
+    /// ```text
+    /// but alias
+    /// ```
+    ///
+    /// Create a new alias:
+    ///
+    /// ```text
+    /// but alias add st status
+    /// but alias add stv "status --verbose"
+    /// ```
+    ///
+    /// Remove an alias:
+    ///
+    /// ```text
+    /// but alias remove st
+    /// ```
+    ///
+    Alias(alias::Platform),
+
     /// Resolve conflicts in a commit.
     ///
     /// When a commit is in a conflicted state (marked with conflicts during rebase),
@@ -595,6 +623,8 @@ pub enum Subcommands {
     #[clap(hide = true)]
     Fetch,
 }
+
+pub mod alias;
 
 pub mod actions {
     #[derive(Debug, clap::Parser)]
