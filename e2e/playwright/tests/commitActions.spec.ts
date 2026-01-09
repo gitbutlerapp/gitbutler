@@ -190,7 +190,7 @@ test('should be able to commit a binary file', async ({ page, context }, testInf
 	const commitDrawer = await openCommitDrawer(page, commitTitle);
 	await verifyCommitDrawerContent(commitDrawer, commitTitle, commitMessage);
 
-	const stackPreview = getByTestId(page, 'stack-preview');
+	const stackPreview = getByTestId(page, 'stack');
 	// Verify the binary file is listed in the commit
 	const committedFile = stackPreview.getByTestId('file-list-item').filter({ hasText: 'lesh0.jpg' });
 	await expect(committedFile).toBeVisible();
@@ -255,7 +255,7 @@ test('should be able to commit a git submodule', async ({ page, context }, testI
 	const commitDrawer = await openCommitDrawer(page, commitTitle);
 	await verifyCommitDrawerContent(commitDrawer, commitTitle, commitMessage);
 
-	const stackPreview = getByTestId(page, 'stack-preview');
+	const stackPreview = getByTestId(page, 'stack');
 	// Verify the .gitmodules file is listed in the commit
 	const committedGitmodules = stackPreview
 		.getByTestId('file-list-item')
