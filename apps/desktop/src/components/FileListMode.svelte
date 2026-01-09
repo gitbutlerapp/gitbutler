@@ -13,11 +13,13 @@
 	let { persistId, mode = $bindable() }: Props = $props();
 
 	const userSettings = inject(SETTINGS);
-	let saved = persisted<Mode | undefined>(undefined, `file-list-mode-${persistId}`);
+	const saved = $derived(persisted<Mode | undefined>(undefined, `file-list-mode-${persistId}`));
 
-	// Initialize mode from saved value or default setting (runs once on mount)
+	// Subscribe to the saved store and update mode
 	$effect(() => {
-		mode = $saved ?? $userSettings.defaultFileListMode;
+		return saved.subscribe((value) => {
+			mode = value ?? $userSettings.defaultFileListMode;
+		});
 	});
 </script>
 
@@ -25,7 +27,7 @@
 	selected={mode}
 	onselect={(id) => {
 		// Update saved preference; the effect will sync mode
-		$saved = id as Mode;
+		saved.set(id as Mode);
 	}}
 	size="small"
 >
