@@ -6,6 +6,10 @@ use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
 use but_core::DiffSpec;
 use but_ctx::Context;
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 
 use crate::{CliId, IdMap, command::legacy::rub::parse_sources, utils::OutputChannel};
 
@@ -62,6 +66,16 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
         bail!("No changes found for the given ID");
     }
 
+    // Collect file names for the snapshot message
+    let file_names: Vec<String> = diff_specs
+        .iter()
+        .map(|spec| spec.path.to_str_lossy().to_string())
+        .collect();
+
+    // Create a snapshot before performing discard operation
+    // This allows the user to undo with `but undo` if needed
+    create_snapshot(ctx, OperationKind::Discard, &file_names);
+
     // Perform the discard operation
     let repo = ctx.repo.get()?;
     let dropped = but_workspace::discard_workspace_changes(
@@ -112,4 +126,25 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
     }
 
     Ok(())
+}
+
+/// Create a snapshot in the oplog before performing an operation
+fn create_snapshot(ctx: &mut Context, operation: OperationKind, file_names: &[String]) {
+    use gitbutler_oplog::entry::Trailer;
+
+    let mut guard = ctx.exclusive_worktree_access();
+
+    // Create trailers with file names
+    let trailers: Vec<Trailer> = file_names
+        .iter()
+        .map(|name| Trailer {
+            key: "file".to_string(),
+            value: name.clone(),
+        })
+        .collect();
+
+    let details = SnapshotDetails::new(operation).with_trailers(trailers);
+    let _snapshot = ctx
+        .create_snapshot(details, guard.write_permission())
+        .ok();
 }
