@@ -864,7 +864,6 @@
 	}
 
 	.commit-view-wrapper {
-		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 	}

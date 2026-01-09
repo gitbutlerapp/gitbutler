@@ -1,3 +1,12 @@
+<!--
+	MultiDiffView - A virtualized multi-file diff viewer
+
+	This component renders a scrollable list of file diffs for commits, branches, or worktree changes.
+	It uses VirtualList to efficiently handle large changesets by only rendering diffs that are
+	currently visible in the viewport, significantly reducing memory usage and improving performance.
+
+	@component
+-->
 <script lang="ts">
 	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';

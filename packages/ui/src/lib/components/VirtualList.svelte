@@ -526,8 +526,7 @@
 					if (index !== undefined) {
 						const firstRender = !(index in heightMap);
 
-						const prevHeight = heightMap[index];
-						if (prevHeight !== target.clientHeight) {
+						if (heightMap[index] !== target.clientHeight) {
 							heightMap[index] = target.clientHeight;
 						}
 
@@ -637,7 +636,6 @@
 	wide={grow}
 	whenToShow={visibility}
 	{padding}
-	zIndex="3"
 >
 	<div
 		data-remove-from-panning
