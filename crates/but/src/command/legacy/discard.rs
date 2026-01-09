@@ -4,6 +4,7 @@
 
 use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
+use but_api::legacy::diff;
 use but_core::DiffSpec;
 use but_ctx::Context;
 use gitbutler_oplog::{
@@ -49,7 +50,45 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                 .collect()
         }
         CliId::Unassigned { .. } => {
-            bail!("Cannot discard the unassigned area. Use a specific file or hunk ID instead.");
+            // Discard all uncommitted changes
+            let worktree_changes = diff::changes_in_worktree(ctx)?;
+            let assignments = worktree_changes.assignments;
+            let core_changes = worktree_changes.worktree_changes.changes;
+
+            // Build a map of paths to their tree status to determine if they are additions/deletions
+            let path_status: std::collections::HashMap<_, _> = core_changes
+                .iter()
+                .map(|change| (change.path.as_bstr(), &change.status))
+                .collect();
+
+            // Convert all assignments to DiffSpecs
+            // For file additions and deletions, we must use whole-file mode (empty hunk_headers)
+            assignments
+                .into_iter()
+                .map(|assignment| {
+                    let is_addition_or_deletion = path_status
+                        .get(assignment.path_bytes.as_bstr())
+                        .map(|status| {
+                            matches!(
+                                status,
+                                but_core::ui::TreeStatus::Addition { .. }
+                                    | but_core::ui::TreeStatus::Deletion { .. }
+                            )
+                        })
+                        .unwrap_or(false);
+
+                    DiffSpec {
+                        previous_path: None,
+                        path: assignment.path_bytes,
+                        // For additions/deletions, use empty hunk_headers to signal whole-file mode
+                        hunk_headers: if is_addition_or_deletion {
+                            Vec::new()
+                        } else {
+                            assignment.hunk_header.into_iter().collect()
+                        },
+                    }
+                })
+                .collect()
         }
         CliId::Branch { .. } => {
             bail!("Cannot discard a branch. Use a file or hunk ID instead.");
@@ -104,7 +143,11 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                 out,
                 "Successfully discarded changes to {} {}",
                 discarded_count,
-                if discarded_count == 1 { "item" } else { "items" }
+                if discarded_count == 1 {
+                    "item"
+                } else {
+                    "items"
+                }
             )?;
         }
         if let Some(out) = out.for_json() {
@@ -144,7 +187,5 @@ fn create_snapshot(ctx: &mut Context, operation: OperationKind, file_names: &[St
         .collect();
 
     let details = SnapshotDetails::new(operation).with_trailers(trailers);
-    let _snapshot = ctx
-        .create_snapshot(details, guard.write_permission())
-        .ok();
+    let _snapshot = ctx.create_snapshot(details, guard.write_permission()).ok();
 }
