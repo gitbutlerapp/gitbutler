@@ -28,8 +28,8 @@
 	import { AsyncButton, FileListItem, TestId } from '@gitbutler/ui';
 	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
-
 	import { untrack } from 'svelte';
+	import { get } from 'svelte/store';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 
 	type Props = {
@@ -42,7 +42,7 @@
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
 		ancestorMostConflictedCommitId?: string;
-		onselect?: (change: TreeChange) => void;
+		onselect?: (change: TreeChange, index: number) => void;
 		allowUnselect?: boolean;
 		showLockedIndicator?: boolean;
 	};
@@ -209,7 +209,7 @@
 				selectionId,
 				allowUnselect
 			);
-			onselect?.(change);
+			onselect?.(change, idx);
 			return true;
 		}
 
@@ -225,7 +225,7 @@
 			return;
 		}
 
-		return updateSelection({
+		updateSelection({
 			allowMultiple: true,
 			ctrlKey: e.ctrlKey,
 			metaKey: e.metaKey,
@@ -238,7 +238,12 @@
 			selectionId: selectionId,
 			preventDefault: () => e.preventDefault()
 		});
+		const lastAdded = get(idSelection.getById(selectionId).lastAdded);
+		if (lastAdded) {
+			onselect?.(change, lastAdded.index);
+		}
 	}
+
 	const currentSelection = $derived(idSelection.getById(selectionId));
 	const lastAdded = $derived(currentSelection.lastAdded);
 	const lastAddedIndex = $derived($lastAdded?.index);
@@ -296,7 +301,7 @@
 				selectionId,
 				allowUnselect
 			);
-			onselect?.(change);
+			onselect?.(change, idx);
 		}}
 		{conflictEntries}
 	/>
@@ -355,8 +360,10 @@
 	<!-- Other changes -->
 	{#if visibleFiles.length > 0}
 		{#if listMode === 'tree'}
-			<!-- We need to use sortedChanges here because otherwise we will end up
-		with incorrect indexes -->
+			<!--
+				We need to use sortedChanges here because otherwise we will end up
+				with incorrect indexes
+			-->
 			{@const node = abbreviateFolders(changesToFileTree(changes))}
 			<FileTreeNode
 				isRoot
@@ -378,6 +385,18 @@
 				role="listbox"
 			>
 				{#each visibleFiles as change, idx}
+					<!--
+					    There is a bug here related to the reactivity of `idSelection.has`,
+						affecting somehow the first item in the list of files.. but only where
+						used for the "assigned files" of the workspace.$$render
+
+						This unused variable is a workaround, while present the reactivity
+						works as expected.
+
+						TODO: Bisect this issue, it was introduced between nightly version
+						0.5.1705 and 0.5.1783.
+					-->
+					{@const _selected = idSelection.has(change.path, selectionId)}
 					{@render fileTemplate(change, idx)}
 				{/each}
 			</LazyloadContainer>

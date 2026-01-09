@@ -20,6 +20,7 @@
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { type Snippet } from 'svelte';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
+	import type { TreeChange } from '$lib/hunks/change';
 
 	type Props = {
 		projectId: string;
@@ -30,7 +31,7 @@
 		onDropzoneHovered?: (hovered: boolean) => void;
 		emptyPlaceholder?: Snippet;
 		foldButton?: Snippet;
-		onselect?: () => void;
+		onselect?: (change: TreeChange, index: number) => void;
 		onscrollexists?: (exists: boolean) => void;
 	};
 

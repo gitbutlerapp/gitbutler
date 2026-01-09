@@ -387,22 +387,6 @@
 	}
 
 	/**
-	 * Updates the visible range based on current scroll position.
-	 * Recalculates which chunks should be rendered and updates offsets.
-	 */
-	function updateRange(): void {
-		if (!viewport || !visibleRowElements) return;
-		visibleRange = {
-			start: calculateVisibleStartIndex(),
-			end: calculateVisibleEndIndex()
-		};
-		offset = {
-			bottom: calculateHeightSum(visibleRange.end, heightMap.length),
-			top: calculateHeightSum(0, visibleRange.start)
-		};
-	}
-
-	/**
 	 * Main layout calculation function.
 	 * Determines which chunks should be visible, sets up resize observers,
 	 * and triggers onloadmore if needed. Called on scroll and item changes.
@@ -431,7 +415,15 @@
 			const oldEnd = visibleRange.end;
 
 			// Update visible range based on scroll position
-			updateRange();
+			if (!viewport || !visibleRowElements) return;
+			visibleRange = {
+				start: calculateVisibleStartIndex(),
+				end: calculateVisibleEndIndex()
+			};
+			offset = {
+				bottom: calculateHeightSum(visibleRange.end, heightMap.length),
+				top: calculateHeightSum(0, visibleRange.start)
+			};
 
 			// Find and lock heights for chunks entering viewport
 			const newIndices = getNewlyVisibleIndices(
@@ -534,7 +526,8 @@
 					if (index !== undefined) {
 						const firstRender = !(index in heightMap);
 
-						if (heightMap[index] !== target.clientHeight) {
+						const prevHeight = heightMap[index];
+						if (prevHeight !== target.clientHeight) {
 							heightMap[index] = target.clientHeight;
 						}
 
@@ -625,6 +618,16 @@
 		if (!viewport) return;
 		viewport.scrollTop = viewport.scrollHeight - viewport.clientHeight;
 	}
+
+	/**
+	 * Scrolls to a specific chunk index in the list.
+	 * Useful for jumping to a particular item after selection changes.
+	 * @param index The chunk index to scroll to
+	 */
+	export function scrollToIndex(index: number) {
+		if (index < 0 || index >= itemChunks.length) return;
+		viewport?.scrollTo({ top: calculateHeightSum(0, index) });
+	}
 </script>
 
 <ScrollableContainer
@@ -634,6 +637,7 @@
 	wide={grow}
 	whenToShow={visibility}
 	{padding}
+	zIndex="3"
 >
 	<div
 		data-remove-from-panning
@@ -655,6 +659,7 @@
 		<div
 			class="children"
 			use:resizeObserver={({ frame: { height } }) => {
+				if (!stickToBottom) return;
 				const distance = getDistanceFromBottom();
 				if (wasNearBottom()) {
 					scrollToBottom();
@@ -699,7 +704,6 @@
 <style>
 	.list-row {
 		display: block;
-		overflow: hidden;
 		background-color: var(--clr-bg-1);
 	}
 

@@ -18,9 +18,12 @@
 		linesRemoved?: number;
 		conflicted?: boolean;
 		executable?: boolean;
-		transparent?: boolean;
+		solid?: boolean;
 		noPaddings?: boolean;
 		pathFirst?: boolean;
+		sticky?: boolean;
+		topBorder?: boolean;
+		bottomBorder?: boolean;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
 	}
@@ -35,9 +38,12 @@
 		linesRemoved = 0,
 		conflicted,
 		executable,
-		transparent,
+		solid,
 		noPaddings,
 		pathFirst = true,
+		sticky,
+		topBorder,
+		bottomBorder,
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
@@ -48,7 +54,10 @@
 	{id}
 	class="file-header"
 	class:draggable
-	class:transparent
+	class:solid
+	class:sticky
+	class:top-border={topBorder}
+	class:bottom-border={bottomBorder}
 	class:no-paddings={noPaddings}
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
@@ -100,13 +109,14 @@
 <style lang="postcss">
 	.file-header {
 		display: flex;
+		z-index: var(--z-lifted);
 		align-items: center;
 		width: 100%;
 		padding: 12px 10px 12px 14px;
 		gap: 12px;
 
-		&.transparent {
-			background-color: transparent;
+		&.solid {
+			background-color: var(--clr-bg-1);
 		}
 
 		&.draggable {
@@ -121,6 +131,19 @@
 
 		&.no-paddings {
 			padding: 0;
+		}
+
+		&.top-border {
+			border-top: solid 1px var(--clr-border-2);
+		}
+
+		&.bottom-border {
+			border-bottom: solid 1px var(--clr-border-2);
+		}
+
+		&.sticky {
+			position: sticky;
+			top: 0;
 		}
 	}
 

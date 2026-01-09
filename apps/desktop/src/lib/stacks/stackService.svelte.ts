@@ -19,7 +19,7 @@ import {
 	updateStaleProjectState,
 	updateStaleStackState
 } from '$lib/state/uiState.svelte';
-import { getBranchNameFromRef, type BranchRef } from '$lib/utils/branch';
+import { getBranchNameFromRef } from '$lib/utils/branch';
 import { InjectionToken } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -591,7 +591,7 @@ export class StackService {
 	/**
 	 * Gets the changes for a given branch.
 	 */
-	branchChanges(args: { projectId: string; stackId?: string; branch: BranchRef }) {
+	branchChanges(args: { projectId: string; stackId?: string; branch: string }) {
 		return this.api.endpoints.branchChanges.useQuery(
 			{
 				projectId: args.projectId,
@@ -606,7 +606,7 @@ export class StackService {
 		);
 	}
 
-	branchChange(args: { projectId: string; stackId?: string; branch: BranchRef; path: string }) {
+	branchChange(args: { projectId: string; stackId?: string; branch: string; path: string }) {
 		return this.api.endpoints.branchChanges.useQuery(
 			{
 				projectId: args.projectId,
@@ -620,7 +620,7 @@ export class StackService {
 	async branchChangesByPaths(args: {
 		projectId: string;
 		stackId?: string;
-		branch: BranchRef;
+		branch: string;
 		paths: string[];
 	}) {
 		const result = await this.api.endpoints.branchChanges.fetch(
@@ -1220,7 +1220,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 			}),
 			branchChanges: build.query<
 				{ changes: EntityState<TreeChange, string>; stats: TreeStats },
-				{ projectId: string; stackId?: string; branch: BranchRef }
+				{ projectId: string; stackId?: string; branch: string }
 			>({
 				extraOptions: { command: 'branch_diff' },
 				query: (args) => args,
