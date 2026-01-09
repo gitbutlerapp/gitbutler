@@ -11,7 +11,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UpstreamCommitsAction from '$components/UpstreamCommitsAction.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
-	import { commitCreatedAt, type Commit } from '$lib/branches/v3';
+	import { commitCreatedAt } from '$lib/branches/v3';
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import {
 		AmendCommitWithChangeDzHandler,
@@ -20,6 +20,7 @@
 		createCommitDropHandlers,
 		type DzCommitData
 	} from '$lib/commits/dropHandler';
+	import { findEarliestConflict } from '$lib/commits/utils';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { draggableCommitV3 } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
@@ -151,17 +152,6 @@
 			case 'interactive':
 				return 'Configure integration…';
 		}
-	}
-
-	function findFirstConflictedCommit(commits: Commit[]): Commit | undefined {
-		if (!commits.length) return undefined;
-		for (let i = commits.length - 1; i >= 0; i--) {
-			const commit = commits[i]!;
-			if ('hasConflicts' in commit && commit.hasConflicts) {
-				return commit;
-			}
-		}
-		return undefined;
 	}
 </script>
 
@@ -412,7 +402,7 @@
 												? stackService.commits(projectId, stackId, branchName)
 												: undefined}
 											{@const commits = commitsQuery?.response || []}
-											{@const firstConflictedCommitId = findFirstConflictedCommit(commits)?.id}
+											{@const firstConflictedCommitId = findEarliestConflict(commits)?.id}
 
 											<ChangedFiles
 												transparentHeader
