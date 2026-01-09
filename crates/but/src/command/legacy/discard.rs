@@ -27,45 +27,28 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
     let resolved_ids = parse_sources(ctx, &id_map, id)
         .with_context(|| format!("Could not resolve ID '{}'", id))?;
 
-    // We only support discarding uncommitted files or hunks
-    let first_id = resolved_ids
-        .into_iter()
-        .next()
-        .context("No entity found for the given ID")?;
+    if resolved_ids.is_empty() {
+        bail!("No entity found for the given ID");
+    }
 
-    // Extract DiffSpec from resolved entity
-    let diff_specs: Vec<DiffSpec> = match first_id {
-        CliId::Uncommitted(uncommitted) => {
-            // Convert hunk assignments to DiffSpecs
-            uncommitted
-                .hunk_assignments
-                .into_iter()
-                .map(|assignment| {
-                    DiffSpec {
-                        previous_path: None, // HunkAssignment doesn't track previous path (renames)
-                        path: assignment.path_bytes,
-                        hunk_headers: assignment.hunk_header.into_iter().collect(),
-                    }
-                })
-                .collect()
-        }
-        CliId::Unassigned { .. } => {
-            // Discard all uncommitted changes
-            let worktree_changes = diff::changes_in_worktree(ctx)?;
-            let assignments = worktree_changes.assignments;
-            let core_changes = worktree_changes.worktree_changes.changes;
+    // Get worktree changes once for the Unassigned case
+    // Also used to determine file status for additions/deletions
+    let worktree_changes = diff::changes_in_worktree(ctx)?;
+    let path_status: std::collections::HashMap<_, _> = worktree_changes
+        .worktree_changes
+        .changes
+        .iter()
+        .map(|change| (change.path.as_bstr(), &change.status))
+        .collect();
 
-            // Build a map of paths to their tree status to determine if they are additions/deletions
-            let path_status: std::collections::HashMap<_, _> = core_changes
-                .iter()
-                .map(|change| (change.path.as_bstr(), &change.status))
-                .collect();
+    // Extract DiffSpecs from all resolved entities
+    let mut diff_specs: Vec<DiffSpec> = Vec::new();
 
-            // Convert all assignments to DiffSpecs
-            // For file additions and deletions, we must use whole-file mode (empty hunk_headers)
-            assignments
-                .into_iter()
-                .map(|assignment| {
+    for resolved_id in resolved_ids {
+        match resolved_id {
+            CliId::Uncommitted(uncommitted) => {
+                // Convert hunk assignments to DiffSpecs
+                for assignment in uncommitted.hunk_assignments {
                     let is_addition_or_deletion = path_status
                         .get(assignment.path_bytes.as_bstr())
                         .map(|status| {
@@ -77,7 +60,37 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                         })
                         .unwrap_or(false);
 
-                    DiffSpec {
+                    diff_specs.push(DiffSpec {
+                        previous_path: None, // HunkAssignment doesn't track previous path (renames)
+                        path: assignment.path_bytes,
+                        // For additions/deletions, use empty hunk_headers to signal whole-file mode
+                        hunk_headers: if is_addition_or_deletion {
+                            Vec::new()
+                        } else {
+                            assignment.hunk_header.into_iter().collect()
+                        },
+                    });
+                }
+            }
+            CliId::Unassigned { .. } => {
+                // Discard all uncommitted changes
+                let assignments = worktree_changes.assignments.clone();
+
+                // Convert all assignments to DiffSpecs
+                // For file additions and deletions, we must use whole-file mode (empty hunk_headers)
+                for assignment in assignments {
+                    let is_addition_or_deletion = path_status
+                        .get(assignment.path_bytes.as_bstr())
+                        .map(|status| {
+                            matches!(
+                                status,
+                                but_core::ui::TreeStatus::Addition { .. }
+                                    | but_core::ui::TreeStatus::Deletion { .. }
+                            )
+                        })
+                        .unwrap_or(false);
+
+                    diff_specs.push(DiffSpec {
                         previous_path: None,
                         path: assignment.path_bytes,
                         // For additions/deletions, use empty hunk_headers to signal whole-file mode
@@ -86,30 +99,37 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                         } else {
                             assignment.hunk_header.into_iter().collect()
                         },
-                    }
-                })
-                .collect()
+                    });
+                }
+            }
+            CliId::Branch { .. } => {
+                bail!("Cannot discard a branch. Use a file or hunk ID instead.");
+            }
+            CliId::Commit { .. } => {
+                bail!("Cannot discard a commit. Use a file or hunk ID instead.");
+            }
+            CliId::CommittedFile { .. } => {
+                bail!(
+                    "Cannot discard a committed file. Use an uncommitted file or hunk ID instead."
+                );
+            }
         }
-        CliId::Branch { .. } => {
-            bail!("Cannot discard a branch. Use a file or hunk ID instead.");
-        }
-        CliId::Commit { .. } => {
-            bail!("Cannot discard a commit. Use a file or hunk ID instead.");
-        }
-        CliId::CommittedFile { .. } => {
-            bail!("Cannot discard a committed file. Use an uncommitted file or hunk ID instead.");
-        }
-    };
+    }
 
     if diff_specs.is_empty() {
         bail!("No changes found for the given ID");
     }
 
-    // Collect file names for the snapshot message
-    let file_names: Vec<String> = diff_specs
-        .iter()
-        .map(|spec| spec.path.to_str_lossy().to_string())
-        .collect();
+    // Collect unique file names for the snapshot message
+    let file_names: Vec<String> = {
+        let mut names: std::collections::HashSet<String> = diff_specs
+            .iter()
+            .map(|spec| spec.path.to_str_lossy().to_string())
+            .collect();
+        let mut names_vec: Vec<_> = names.drain().collect();
+        names_vec.sort();
+        names_vec
+    };
 
     // Create a snapshot before performing discard operation
     // This allows the user to undo with `but undo` if needed
