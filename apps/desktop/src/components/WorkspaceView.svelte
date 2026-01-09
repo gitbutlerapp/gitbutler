@@ -1,13 +1,13 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import MainViewport from '$components/MainViewport.svelte';
+	import MultiDiffView from '$components/MultiDiffView.svelte';
 	import MultiStackView from '$components/MultiStackView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import SelectionView from '$components/SelectionView.svelte';
 	import UnassignedView from '$components/UnassignedView.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { createWorktreeSelection } from '$lib/selection/key';
+	import { createWorktreeSelection, key, readKey } from '$lib/selection/key';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { TestId } from '@gitbutler/ui';
@@ -22,6 +22,7 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 
 	const selectionId = createWorktreeSelection({ stackId: undefined });
 	const worktreeSelection = $derived(idSelection.getById(selectionId));
@@ -30,25 +31,38 @@
 	const lastAdded = $derived(worktreeSelection.lastAdded);
 	const previewOpen = $derived(!!$lastAdded?.key);
 
-	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
+	// Transform unassigned changes to SelectedFile[] format
+	const unassignedFiles = $derived(
+		uncommittedService
+			.getChangesByStackId(null)
+			.map((change) => readKey(key({ type: 'worktree', stackId: undefined, path: change.path })))
+	);
+
+	let multiDiffView = $state<MultiDiffView>();
+
+	// Scroll to selected file in MultiDiffView
+	$effect(() => {
+		if ($lastAdded && multiDiffView) {
+			const selectedFile = readKey($lastAdded.key);
+			const index = unassignedFiles.findIndex((file) => file.path === selectedFile.path);
+			if (index !== -1) {
+				multiDiffView.scrollToIndex(index);
+			}
+		}
+	});
 </script>
 
 {#snippet leftPreview()}
-	<ConfigurableScrollableContainer
-		bind:viewport={selectionPreviewScrollContainer}
-		zIndex="var(--z-lifted)"
-	>
-		<SelectionView
-			bottomBorder
-			{projectId}
-			{selectionId}
-			draggableFiles
-			scrollContainer={selectionPreviewScrollContainer}
-			onclose={() => {
-				idSelection.clearPreview(selectionId);
-			}}
-		/>
-	</ConfigurableScrollableContainer>
+	<MultiDiffView
+		{projectId}
+		stackId={undefined}
+		files={unassignedFiles}
+		bind:this={multiDiffView}
+		draggable={true}
+		selectable={false}
+		showBorder={false}
+		showRoundedEdges={false}
+	/>
 {/snippet}
 
 <MainViewport

@@ -845,6 +845,7 @@
 		flex: 1;
 		flex-direction: column;
 		height: 100%;
+		gap: 12px;
 	}
 
 	.start-commit {
