@@ -38,7 +38,8 @@ pub(crate) fn compute_watch_plan_for_repo(
         return Ok(());
     }
     let refs_heads_dir = git_dir.join("refs").join("heads");
-    if refs_heads_dir.is_dir() && visit(&refs_heads_dir, notify::RecursiveMode::Recursive)?.is_break()
+    if refs_heads_dir.is_dir()
+        && visit(&refs_heads_dir, notify::RecursiveMode::Recursive)?.is_break()
     {
         return Ok(());
     }
