@@ -17,6 +17,15 @@ use crate::CLI_DATE;
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum CommitClassification {
+    Upstream,
+    LocalOnly,
+    Pushed,
+    Modified,
+    Integrated,
+}
+
 pub(crate) mod assignment;
 pub(crate) mod json;
 
@@ -268,6 +277,21 @@ pub(crate) async fn worktree(
             }
         });
 
+        // assignments to the stack
+        if details.is_some() {
+            let branch_name = details
+                .as_ref()
+                .and_then(|d| d.branch_details.first())
+                .map(|b| b.name.to_string());
+            print_assignments(
+                branch_name,
+                &assignments,
+                &worktree_changes.worktree_changes.changes,
+                false,
+                out,
+            )?;
+        }
+
         print_group(
             details,
             assignments,
@@ -422,11 +446,29 @@ fn ci_map(
 }
 
 fn print_assignments(
+    branch_name: Option<String>,
     assignments: &Vec<FileAssignment>,
     changes: &[ui::TreeChange],
-    dotted: bool,
+    unstaged: bool,
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
+    // if there are no assignments and we're in the unstaged section, print "(no changes)" and return
+    if assignments.is_empty() && unstaged {
+        writeln!(out, "┊     {}", "no changes".dimmed().italic())?;
+        return Ok(());
+    }
+
+    if !unstaged && !assignments.is_empty() {
+        writeln!(
+            out,
+            "┊  {} [{}]",
+            "╭┄".dimmed(),
+            format!("staged to {}", branch_name.unwrap_or("".to_string()))
+                .cyan()
+                .bold(),
+        )?;
+    }
+
     for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match &state {
@@ -459,11 +501,15 @@ fn print_assignments(
         if !locks.is_empty() {
             locks = format!("🔒 {locks}");
         }
-        if dotted {
+        if unstaged {
             writeln!(out, "┊   {id} {status} {path} {locks}")?;
         } else {
-            writeln!(out, "┊│   {id} {status} {path} {locks}")?;
+            writeln!(out, "┊  {} {id} {status} {path} {locks}", "│".dimmed())?;
         }
+    }
+
+    if !unstaged && !assignments.is_empty() {
+        writeln!(out, "┊  {}", "│".dimmed())?;
     }
 
     Ok(())
@@ -547,42 +593,68 @@ pub fn print_group(
                 stack_mark = stack_mark.clone().unwrap_or_default(),
                 branch = branch.name.to_string().green().bold(),
             )?;
+
             *stack_mark = None; // Only show the stack mark for the first branch
-            if first {
-                print_assignments(&assignments, changes, false, out)?;
-            }
             first = false;
-            for commit in &branch.upstream_commits {
-                let dot = "●".yellow();
-                let details = but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
-                print_commit(details, dot, false, show_files, verbose, None, id_map, out)?;
+
+            if !branch.upstream_commits.is_empty() {
+                let tracking_branch = branch
+                    .remote_tracking_branch
+                    .as_ref()
+                    .and_then(|rtb| rtb.to_str().ok())
+                    .and_then(|rtb| rtb.strip_prefix("refs/remotes/"))
+                    .unwrap_or("unknown");
+                writeln!(out, "┊┊")?;
+                writeln!(
+                    out,
+                    "┊╭┄┄{}",
+                    format!("(upstream: on {})", tracking_branch).yellow()
+                )?;
             }
-            for cli_commit in &branch.commits {
-                let commit = &cli_commit;
-                let marked =
-                    crate::command::legacy::mark::commit_marked(ctx, commit.id.to_string())
-                        .unwrap_or_default();
-                let dot = match commit.state {
-                    but_workspace::ui::CommitState::LocalOnly => "●".normal(),
-                    but_workspace::ui::CommitState::LocalAndRemote(object_id) => {
-                        if object_id == commit.id {
-                            "●".green()
-                        } else {
-                            "◐".green()
-                        }
-                    }
-                    but_workspace::ui::CommitState::Integrated => "●".purple(),
-                };
+            for commit in &branch.upstream_commits {
                 let details = but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
                 print_commit(
                     details,
-                    dot,
+                    CommitClassification::Upstream,
+                    false,
+                    show_files,
+                    verbose,
+                    None,
+                    id_map,
+                    out,
+                    true,
+                )?;
+            }
+            if !branch.upstream_commits.is_empty() {
+                writeln!(out, "┊-")?;
+            }
+            for commit in branch.commits.iter() {
+                let marked =
+                    crate::command::legacy::mark::commit_marked(ctx, commit.id.to_string())
+                        .unwrap_or_default();
+                let classification = match commit.state {
+                    but_workspace::ui::CommitState::LocalOnly => CommitClassification::LocalOnly,
+                    but_workspace::ui::CommitState::LocalAndRemote(object_id) => {
+                        if object_id == commit.id {
+                            CommitClassification::Pushed
+                        } else {
+                            CommitClassification::Modified
+                        }
+                    }
+                    but_workspace::ui::CommitState::Integrated => CommitClassification::Integrated,
+                };
+
+                let details = but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
+                print_commit(
+                    details,
+                    classification,
                     marked,
                     show_files,
                     verbose,
                     commit.gerrit_review_url.clone(),
                     id_map,
                     out,
+                    false,
                 )?;
             }
         }
@@ -592,10 +664,10 @@ pub fn print_group(
             out,
             "╭┄{} [{}] {}",
             id,
-            "Unassigned Changes".to_string().green().bold(),
+            "unstaged changes".to_string().cyan().bold(),
             stack_mark.clone().unwrap_or_default()
         )?;
-        print_assignments(&assignments, changes, true, out)?;
+        print_assignments(None, &assignments, changes, true, out)?;
     }
     if !first {
         writeln!(out, "├╯")?;
@@ -653,13 +725,14 @@ fn status_from_changes(changes: &[ui::TreeChange], path: BString) -> Option<ui::
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
     commit_details: CommitDetails,
-    dot: ColoredString,
+    classification: CommitClassification,
     marked: bool,
     show_files: bool,
     verbose: bool,
     review_url: Option<String>,
     id_map: &IdMap,
     out: &mut dyn std::fmt::Write,
+    upstream_commit: bool,
 ) -> anyhow::Result<()> {
     let mark = if marked {
         Some("◀ Marked ▶".red().bold())
@@ -667,13 +740,26 @@ fn print_commit(
         None
     };
 
+    let dot = match classification {
+        CommitClassification::Upstream => "●".yellow(),
+        CommitClassification::LocalOnly => "●".normal(),
+        CommitClassification::Pushed => "●".green(),
+        CommitClassification::Modified => "◐".green(),
+        CommitClassification::Integrated => "●".purple(),
+    };
+
     let details_string = display_cli_commit_details(id_map, &commit_details, verbose);
+    let details_string = if upstream_commit {
+        details_string.dimmed().to_string()
+    } else {
+        details_string
+    };
 
     if verbose {
         // Verbose format: author and timestamp on first line, message on second line
         writeln!(
             out,
-            "┊{dot}   {} {} {}",
+            "┊{dot} {} {} {}",
             details_string,
             review_url
                 .map(|r| format!("◖{}◗", r.underline().blue()))
@@ -681,6 +767,11 @@ fn print_commit(
             mark.unwrap_or_default()
         )?;
         let message = CommitMessage(commit_details.commit.inner.message).display_cli(verbose);
+        let message = if upstream_commit {
+            message.dimmed().to_string()
+        } else {
+            message
+        };
         writeln!(out, "┊│     {message}")?;
     } else {
         // Original format: everything on one line
