@@ -25,9 +25,19 @@
 		files?: SelectedFile[];
 		draggable?: boolean;
 		selectable: boolean;
+		showBorder?: boolean;
+		showRoundedEdges?: boolean;
 	};
 
-	let { projectId, stackId, files, draggable, selectable }: Props = $props();
+	let {
+		projectId,
+		stackId,
+		files,
+		draggable,
+		selectable,
+		showBorder = true,
+		showRoundedEdges = true
+	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const diffService = inject(DIFF_SERVICE);
@@ -39,7 +49,7 @@
 	}
 </script>
 
-<div class="selection-view">
+<div class="multi-diff-view" class:no-border={!showBorder} class:no-rounded={!showRoundedEdges}>
 	{#if files && files.length > 0}
 		<VirtualList
 			bind:this={virtualList}
@@ -91,14 +101,20 @@
 </div>
 
 <style>
-	.selection-view {
+	.multi-diff-view {
 		display: flex;
 		flex-grow: 1;
 		width: 100%;
 		height: 100%;
-		margin-top: 12px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
+		&.no-border {
+			border: none;
+		}
+
+		&.no-rounded {
+			border-radius: 0;
+		}
 	}
 </style>
