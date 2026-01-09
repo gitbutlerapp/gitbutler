@@ -35,7 +35,9 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
         ("Inspection".yellow(), vec!["status", "diff"]),
         (
             "Branching and Committing".yellow(),
-            vec!["commit", "new", "branch", "mark", "unmark"],
+            vec![
+                "commit", "new", "branch", "discard", "resolve", "mark", "unmark",
+            ],
         ),
         (
             "Server Interactions".yellow(),

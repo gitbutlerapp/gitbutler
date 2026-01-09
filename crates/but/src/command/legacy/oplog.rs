@@ -98,10 +98,12 @@ pub(crate) fn show_oplog(
                     OperationKind::UnapplyBranch => "UNAPPLY",
                     OperationKind::DeleteBranch => "DELETE",
                     OperationKind::DiscardChanges => "DISCARD",
+                    OperationKind::Discard => "DISCARD",
                     OperationKind::OnDemandSnapshot => "SNAPSHOT",
                     _ => "OTHER",
                 };
                 // For OnDemandSnapshot, show the message (body) if available
+                // For Discard, show file names from trailers if available
                 let display_title = if details.operation == OperationKind::OnDemandSnapshot {
                     details
                         .body
@@ -109,9 +111,32 @@ pub(crate) fn show_oplog(
                         .filter(|b| !b.is_empty())
                         .cloned()
                         .unwrap_or_else(|| details.title.clone())
+                } else if details.operation == OperationKind::Discard {
+                    // Extract file names from trailers
+                    let file_names: Vec<String> = details
+                        .trailers
+                        .iter()
+                        .filter(|t| t.key == "file")
+                        .map(|t| t.value.clone())
+                        .collect();
+
+                    if !file_names.is_empty() {
+                        format!("{} ({})", details.title, file_names.join(", "))
+                    } else {
+                        details.title.clone()
+                    }
                 } else {
                     details.title.clone()
                 };
+
+                // Truncate display_title to 80 characters
+                let display_title = if display_title.chars().count() > 80 {
+                    let truncated: String = display_title.chars().take(77).collect();
+                    format!("{}...", truncated)
+                } else {
+                    display_title
+                };
+
                 (op_type, display_title)
             } else {
                 ("UNKNOWN", "Unknown operation".to_string())
@@ -121,6 +146,7 @@ pub(crate) fn show_oplog(
                 "CREATE" => operation_type.green(),
                 "AMEND" | "REWORD" => operation_type.yellow(),
                 "UNDO" | "RESTORE" => operation_type.red(),
+                "DISCARD" => operation_type.red().bold(),
                 "BRANCH" | "CHECKOUT" => operation_type.purple(),
                 "MOVE" | "REORDER" | "MOVE_HUNK" => operation_type.cyan(),
                 "SNAPSHOT" => operation_type.bright_magenta(),
