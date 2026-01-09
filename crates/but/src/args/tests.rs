@@ -24,6 +24,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "test-branch", false);
@@ -44,6 +45,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "test-branch", false);
@@ -69,6 +71,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -91,6 +94,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -113,6 +117,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -146,6 +151,7 @@ mod push {
                 topic: Some("custom-topic".to_string()),
                 topic_from_branch: false,
                 private: false,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -176,6 +182,7 @@ mod push {
                 topic: None,
                 topic_from_branch: true,
                 private: false,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "my-branch-name", true);
@@ -206,6 +213,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: true,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -233,6 +241,7 @@ mod push {
                 topic: Some("custom-topic".to_string()),
                 topic_from_branch: false,
                 private: true,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -278,6 +287,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -303,6 +313,7 @@ mod push {
                 topic: Some("  ".to_string()),
                 topic_from_branch: false,
                 private: false,
+                dry_run: false,
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);

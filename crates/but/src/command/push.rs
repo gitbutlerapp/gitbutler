@@ -48,6 +48,10 @@ pub mod help {
         writeln!(out, "Options:")?;
         writeln!(
             out,
+            "  -d, --dry-run                     Show what would be pushed without actually pushing"
+        )?;
+        writeln!(
+            out,
             "  -f, --with-force                  Force push even if it's not fast-forward"
         )?;
         writeln!(

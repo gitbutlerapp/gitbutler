@@ -54,6 +54,13 @@ pub fn handle(
         repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false)
     };
 
+    // If dry-run, show what would be pushed
+    if args.dry_run {
+        let project_id = ctx.legacy_project.id;
+        let project_gb_dir = ctx.legacy_project.gb_dir().to_path_buf();
+        return handle_dry_run(ctx, project_id, &project_gb_dir, &args.branch_id, out);
+    }
+
     // If no branch_id is provided, show all branches and prompt or push all
     let branch_selection = if let Some(ref branch_id) = args.branch_id {
         // Resolve branch_id to actual branch name
@@ -77,6 +84,514 @@ pub fn handle(
             out,
         ),
     }
+}
+
+/// Information about what would be pushed for a branch
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DryRunBranchInfo {
+    /// The branch name
+    branch_name: String,
+    /// The stack this branch belongs to
+    stack_name: String,
+    /// Number of unpushed commits
+    unpushed_commits: usize,
+    /// The remote where it will be pushed
+    remote: String,
+    /// The remote ref name where it will be pushed
+    remote_ref: String,
+    /// Commit details
+    commits: Vec<DryRunCommit>,
+    /// Upstream commits that would be overwritten (requires force push)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    upstream_commits: Vec<DryRunUpstreamCommit>,
+    /// Whether this push requires force
+    requires_force: bool,
+    /// Warning message if push cannot proceed safely
+    #[serde(skip_serializing_if = "Option::is_none")]
+    warning: Option<String>,
+    /// Name of the branch this is stacked on top of (if any)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stacked_on: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DryRunCommit {
+    /// Short SHA
+    sha_short: String,
+    /// Full SHA
+    sha: String,
+    /// Commit message (first line)
+    message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DryRunUpstreamCommit {
+    /// Short SHA
+    sha_short: String,
+    /// Full SHA
+    sha: String,
+    /// Commit message (first line)
+    message: String,
+}
+
+/// Batch dry-run result for JSON output
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DryRunResult {
+    /// Branches that would be pushed
+    branches: Vec<DryRunBranchInfo>,
+}
+
+fn handle_dry_run(
+    ctx: &mut Context,
+    project_id: gitbutler_project::ProjectId,
+    project_gb_dir: &std::path::Path,
+    branch_id: &Option<String>,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let mut progress = out.progress_channel();
+
+    // Fetch from remote first to get latest state
+    if out.for_human().is_some() {
+        writeln!(progress, "Fetching from remote...")?;
+    }
+
+    but_api::legacy::virtual_branches::fetch_from_remotes(project_id, Some("dry_run_push".into()))?;
+
+    // Get all branches with info
+    let branches_with_info = get_branches_with_unpushed_info(ctx, &ctx.legacy_project)?;
+
+    // Filter based on branch_id if provided
+    let branches_to_show: Vec<_> = if let Some(branch_id) = branch_id {
+        // Resolve branch name
+        let mut id_map = IdMap::new_from_context(ctx, None)?;
+        id_map.add_committed_file_info_from_context(ctx)?;
+        let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
+
+        branches_with_info
+            .into_iter()
+            .filter(|(name, count, _)| name == &branch_name && *count > 0)
+            .collect()
+    } else {
+        // Show all branches with unpushed commits
+        branches_with_info
+            .into_iter()
+            .filter(|(_, count, _)| *count > 0)
+            .collect()
+    };
+
+    if branches_to_show.is_empty() {
+        if let Some(out) = out.for_json() {
+            out.write_value(&DryRunResult { branches: vec![] })?;
+        }
+
+        if out.for_human().is_some() {
+            writeln!(
+                progress,
+                "{}",
+                "No branches have unpushed commits.".dimmed()
+            )?;
+        }
+        return Ok(());
+    }
+
+    // Get detailed information for each branch
+    let mut dry_run_infos = Vec::new();
+
+    let stacks = but_api::legacy::workspace::stacks(
+        project_id,
+        Some(but_workspace::legacy::StacksFilter::InWorkspace),
+    )?;
+
+    // Get the default target for remote name
+    let vb_state = gitbutler_stack::VirtualBranchesHandle::new(project_gb_dir);
+    let default_target = vb_state.get_default_target()?;
+    let remote = default_target.push_remote_name();
+
+    for (branch_name, unpushed_count, stack_name) in &branches_to_show {
+        // Find the stack containing this branch
+        for stack_entry in &stacks {
+            if let Some(stack_id) = stack_entry.id {
+                let stack_details =
+                    but_api::legacy::workspace::stack_details(project_id, Some(stack_id))?;
+
+                // Find the branch details
+                if let Some(branch_detail) = stack_details
+                    .branch_details
+                    .iter()
+                    .find(|b| b.name == branch_name.as_str())
+                {
+                    // Get the actual Stack to call push_details
+                    let stack = vb_state.get_stack(stack_id)?;
+
+                    // Get push details to determine remote ref
+                    let push_details = match stack.push_details(ctx, branch_name.clone()) {
+                        Ok(details) => details,
+                        Err(_) => continue, // Skip if we can't get push details
+                    };
+
+                    // Collect commit information
+                    let commits: Vec<DryRunCommit> = branch_detail
+                        .commits
+                        .iter()
+                        .filter(|c| matches!(c.state, but_workspace::ui::CommitState::LocalOnly))
+                        .take(10) // Limit to first 10 commits for display
+                        .map(|c| {
+                            let sha = c.id.to_string();
+                            let sha_short: String = sha.chars().take(7).collect();
+                            let message = c
+                                .message
+                                .to_string()
+                                .lines()
+                                .next()
+                                .unwrap_or("")
+                                .to_string();
+                            DryRunCommit {
+                                sha_short,
+                                sha,
+                                message,
+                            }
+                        })
+                        .collect();
+
+                    // Collect upstream commits (commits on remote but not local)
+                    let upstream_commits: Vec<DryRunUpstreamCommit> = branch_detail
+                        .upstream_commits
+                        .iter()
+                        .take(10) // Limit to first 10 commits for display
+                        .map(|c| {
+                            let sha = c.id.to_string();
+                            let sha_short: String = sha.chars().take(7).collect();
+                            let message = c
+                                .message
+                                .to_string()
+                                .lines()
+                                .next()
+                                .unwrap_or("")
+                                .to_string();
+                            DryRunUpstreamCommit {
+                                sha_short,
+                                sha,
+                                message,
+                            }
+                        })
+                        .collect();
+
+                    // Determine if force push is required and generate warning
+                    let requires_force = matches!(
+                        branch_detail.push_status,
+                        but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce
+                    );
+
+                    let warning = if !upstream_commits.is_empty() && !requires_force {
+                        Some(format!(
+                            "Cannot push: {} upstream commit{} would be overwritten. Use force push to proceed.",
+                            upstream_commits.len(),
+                            if upstream_commits.len() == 1 { "" } else { "s" }
+                        ))
+                    } else if !upstream_commits.is_empty() && requires_force {
+                        Some(format!(
+                            "Force push required: {} upstream commit{} will be overwritten.",
+                            upstream_commits.len(),
+                            if upstream_commits.len() == 1 { "" } else { "s" }
+                        ))
+                    } else {
+                        None
+                    };
+
+                    // Determine if this branch is stacked on another branch
+                    // by finding a branch whose tip matches this branch's base_commit
+                    let stacked_on = stack_details
+                        .branch_details
+                        .iter()
+                        .find(|b| {
+                            b.tip == branch_detail.base_commit && b.name != branch_detail.name
+                        })
+                        .map(|b| b.name.to_string());
+
+                    dry_run_infos.push(DryRunBranchInfo {
+                        branch_name: branch_name.clone(),
+                        stack_name: stack_name.clone(),
+                        unpushed_commits: *unpushed_count,
+                        remote: remote.clone(),
+                        remote_ref: push_details.remote_refname.to_string(),
+                        commits,
+                        upstream_commits,
+                        requires_force,
+                        warning,
+                        stacked_on,
+                    });
+
+                    break;
+                }
+            }
+        }
+    }
+
+    // Output JSON if requested
+    if let Some(out) = out.for_json() {
+        out.write_value(&DryRunResult {
+            branches: dry_run_infos.clone(),
+        })?;
+    }
+
+    // Output human-readable format
+    if out.for_human().is_some() {
+        writeln!(progress)?;
+        writeln!(
+            progress,
+            "{} {}",
+            "Dry run:".bright_blue().bold(),
+            "Showing what would be pushed".dimmed()
+        )?;
+        writeln!(progress)?;
+
+        // Group branches by stack
+        let mut branches_by_stack: std::collections::HashMap<String, Vec<&DryRunBranchInfo>> =
+            std::collections::HashMap::new();
+        for info in &dry_run_infos {
+            branches_by_stack
+                .entry(info.stack_name.clone())
+                .or_default()
+                .push(info);
+        }
+
+        let mut stack_names: Vec<_> = branches_by_stack.keys().collect();
+        stack_names.sort();
+
+        for stack_name in stack_names {
+            let branches = branches_by_stack.get(stack_name).unwrap();
+
+            // Highlight stacked branches (multiple branches in same stack)
+            if branches.len() > 1 {
+                writeln!(
+                    progress,
+                    "{} {} {}",
+                    "Stack:".yellow().bold(),
+                    stack_name.cyan(),
+                    format!("({} branches)", branches.len()).dimmed()
+                )?;
+            }
+
+            // Sort branches to show stacking order (top to bottom)
+            let mut sorted_branches: Vec<_> = branches.to_vec();
+            sorted_branches.sort_by(|a, b| {
+                // If a is stacked on b, then a should come first (reverse of before)
+                if a.stacked_on.as_ref() == Some(&b.branch_name) {
+                    std::cmp::Ordering::Less
+                } else if b.stacked_on.as_ref() == Some(&a.branch_name) {
+                    std::cmp::Ordering::Greater
+                } else {
+                    a.branch_name.cmp(&b.branch_name)
+                }
+            });
+
+            for info in sorted_branches.iter() {
+                let has_stacked_on = info.stacked_on.is_some();
+                let is_stacked_on = sorted_branches
+                    .iter()
+                    .any(|b| b.stacked_on.as_ref() == Some(&info.branch_name));
+
+                let is_in_stack = has_stacked_on || is_stacked_on;
+                let is_first = has_stacked_on && !is_stacked_on;
+                let is_last = !has_stacked_on && is_stacked_on;
+                let has_next = is_in_stack && !is_last;
+
+                if is_in_stack && !is_first {
+                    writeln!(progress, "{}", "│".dimmed())?;
+                } else {
+                    writeln!(progress)?;
+                }
+
+                // Determine the gutter character
+                let gutter = if is_in_stack {
+                    if is_first {
+                        "┌─" // Top branch in stack
+                    } else if is_last {
+                        "└─" // Bottom branch in stack
+                    } else {
+                        "├─" // Middle branch
+                    }
+                } else {
+                    "  " // Base branch (no parent)
+                };
+
+                // Display branch name with stacking indicator and visual line
+                if let Some(stacked_on) = &info.stacked_on {
+                    writeln!(
+                        progress,
+                        "{} {} {} {} {}",
+                        gutter.dimmed(),
+                        "Branch:".bold(),
+                        info.branch_name.cyan().bold(),
+                        "↑".dimmed(),
+                        format!("(on top of {})", stacked_on).blue()
+                    )?;
+                } else {
+                    writeln!(
+                        progress,
+                        "{} {} {}",
+                        gutter.dimmed(),
+                        "Branch:".bold(),
+                        info.branch_name.cyan().bold()
+                    )?;
+                }
+
+                // Extract branch name from remote_ref (e.g., refs/remotes/origin/branch -> branch)
+                let branch_name = info
+                    .remote_ref
+                    .strip_prefix("refs/remotes/")
+                    .and_then(|s| s.strip_prefix(&format!("{}/", info.remote)))
+                    .unwrap_or(&info.remote_ref);
+
+                // Determine the line prefix for details (vertical line or space)
+                // Show line if there are more branches after this one
+                let line_prefix = if has_next { "│ " } else { "  " };
+
+                writeln!(
+                    progress,
+                    "{}  {} {} {}",
+                    line_prefix.dimmed(),
+                    "→".green(),
+                    "Would push to:".dimmed(),
+                    format!("{}/{}", info.remote, branch_name).yellow()
+                )?;
+                writeln!(
+                    progress,
+                    "{}  {} {}",
+                    line_prefix.dimmed(),
+                    "Commits:".dimmed(),
+                    format!(
+                        "{} unpushed commit{}",
+                        info.unpushed_commits,
+                        if info.unpushed_commits == 1 { "" } else { "s" }
+                    )
+                    .yellow()
+                )?;
+
+                if !info.commits.is_empty() {
+                    if is_in_stack {
+                        writeln!(progress, "{}", line_prefix.dimmed())?;
+                    } else {
+                        writeln!(progress)?;
+                    }
+                    for commit in &info.commits {
+                        writeln!(
+                            progress,
+                            "{}    {} {}",
+                            line_prefix.dimmed(),
+                            commit.sha_short.green(),
+                            commit.message.dimmed()
+                        )?;
+                    }
+
+                    if info.unpushed_commits > info.commits.len() {
+                        writeln!(
+                            progress,
+                            "{}    {}",
+                            line_prefix.dimmed(),
+                            format!(
+                                "... and {} more",
+                                info.unpushed_commits - info.commits.len()
+                            )
+                            .dimmed()
+                        )?;
+                    }
+                }
+
+                // Show upstream commits if any
+                if !info.upstream_commits.is_empty() {
+                    writeln!(progress)?;
+                    writeln!(
+                        progress,
+                        "{}  {} {} {}",
+                        line_prefix.dimmed(),
+                        "⚠".yellow(),
+                        "Upstream commits (on remote):".yellow(),
+                        format!(
+                            "{} commit{}",
+                            info.upstream_commits.len(),
+                            if info.upstream_commits.len() == 1 {
+                                ""
+                            } else {
+                                "s"
+                            }
+                        )
+                        .yellow()
+                    )?;
+                    writeln!(progress)?;
+                    for commit in &info.upstream_commits {
+                        writeln!(
+                            progress,
+                            "{}    {} {}",
+                            line_prefix.dimmed(),
+                            commit.sha_short.red(),
+                            commit.message.dimmed()
+                        )?;
+                    }
+                }
+
+                // Show warning if present
+                if let Some(warning) = &info.warning {
+                    writeln!(progress)?;
+                    writeln!(
+                        progress,
+                        "{}  {} {}",
+                        line_prefix.dimmed(),
+                        "⚠".red().bold(),
+                        warning.red()
+                    )?;
+                }
+
+                // Show force push indicator
+                if info.requires_force {
+                    writeln!(progress)?;
+                    writeln!(
+                        progress,
+                        "{}  {} {}",
+                        line_prefix.dimmed(),
+                        "⚡".yellow(),
+                        "Force push required".yellow()
+                    )?;
+                }
+            }
+
+            writeln!(progress)?;
+        }
+
+        let total_commits: usize = dry_run_infos.iter().map(|i| i.unpushed_commits).sum();
+        let total_branches = dry_run_infos.len();
+
+        writeln!(progress)?;
+        writeln!(
+            progress,
+            "{} Would push {} {} across {} {}",
+            "Summary:".bright_blue().bold(),
+            total_commits.to_string().yellow().bold(),
+            if total_commits == 1 {
+                "commit"
+            } else {
+                "commits"
+            },
+            total_branches.to_string().cyan().bold(),
+            if total_branches == 1 {
+                "branch"
+            } else {
+                "branches"
+            }
+        )?;
+        writeln!(progress)?;
+        writeln!(
+            progress,
+            "{}",
+            "Run without --dry-run to push these changes.".dimmed()
+        )?;
+    }
+
+    Ok(())
 }
 
 fn push_single_branch(
