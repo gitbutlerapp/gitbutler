@@ -11,6 +11,7 @@
 	import Resizer from '$components/Resizer.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
 	import { commitCreatedAt, commitStateSubject } from '$lib/branches/v3';
+	import { findEarliestConflict } from '$lib/commits/utils';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { createBranchSelection, type SelectionId } from '$lib/selection/key';
@@ -74,12 +75,11 @@
 	let renameBranchModal = $state<BranchRenameModal>();
 	let deleteBranchModal = $state<DeleteBranchModal>();
 
-	// Handler for resolving conflicts - find the first (ancestor-most) conflicted commit
+	// Handler for resolving conflicts - find the earliest conflicted commit
 	async function handleResolveConflicts() {
 		if (conflictedCommitsInBranch.length === 0 || !stackId) return;
 
-		// Find the ancestor-most conflicted commit (the last one in the array since commits are ordered from tip to base)
-		const ancestorMostConflicted = conflictedCommitsInBranch[conflictedCommitsInBranch.length - 1];
+		const ancestorMostConflicted = findEarliestConflict(conflictedCommitsInBranch);
 
 		if (!ancestorMostConflicted) return;
 

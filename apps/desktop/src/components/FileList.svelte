@@ -388,7 +388,7 @@
 					<!--
 					    There is a bug here related to the reactivity of `idSelection.has`,
 						affecting somehow the first item in the list of files.. but only where
-						used for the "assigned files" of the workspace.$$render
+						used for the "assigned files" of the workspace.
 
 						This unused variable is a workaround, while present the reactivity
 						works as expected.
