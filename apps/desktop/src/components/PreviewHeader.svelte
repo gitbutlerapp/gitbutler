@@ -7,6 +7,8 @@
 		content: Snippet;
 		actions?: Snippet<[element: HTMLElement]>;
 		headerHeight?: number;
+		transparent?: boolean;
+		sticky?: boolean;
 		onclose?: () => void;
 		/**
 		 * Called when the header is double-clicked.
@@ -15,7 +17,15 @@
 		ondblclick?: () => void;
 	}
 
-	let { content, actions, headerHeight = $bindable(), onclose, ondblclick }: Props = $props();
+	let {
+		content,
+		actions,
+		headerHeight = $bindable(),
+		transparent,
+		sticky,
+		onclose,
+		ondblclick
+	}: Props = $props();
 
 	let headerDiv = $state<HTMLDivElement>();
 </script>
@@ -24,9 +34,11 @@
 	role="presentation"
 	bind:this={headerDiv}
 	class="drawer-header"
+	class:sticky
 	bind:clientHeight={headerHeight}
 	use:focusable
 	{ondblclick}
+	style:background={transparent ? 'transparent' : undefined}
 >
 	<div class="drawer-header__title">
 		{@render content()}
@@ -62,6 +74,9 @@
 		border-bottom: 1px solid transparent;
 		border-bottom-color: var(--clr-border-2);
 		background-color: var(--clr-bg-2);
+		&.sticky {
+			position: sticky;
+		}
 	}
 
 	.drawer-header__title {

@@ -107,6 +107,7 @@ export {
 	default as Scrollbar,
 	type ScrollbarVisilitySettings
 } from '$components/scroll/Scrollbar.svelte';
+export { default as VirtualList } from '$components/VirtualList.svelte';
 
 // Segment Control Components
 export { SegmentControl, SegmentItem } from '$components/segmentControl';

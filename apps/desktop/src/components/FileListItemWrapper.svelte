@@ -78,6 +78,7 @@
 		hideBorder,
 		scrollContainer
 	}: Props = $props();
+
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
