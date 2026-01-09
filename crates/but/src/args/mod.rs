@@ -607,6 +607,50 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     Fetch,
+
+    /// Uncommit changes from a commit or file-in-commit to the unassigned area.
+    ///
+    /// Wrapper for `but rub <source> zz`.
+    #[cfg(feature = "legacy")]
+    Uncommit {
+        /// Commit ID or file-in-commit ID to uncommit
+        source: String,
+    },
+
+    /// Amend a file change into a specific commit and rebases any dependent commits.
+    ///  
+    /// Wrapper for `but rub <file> <commit>`.
+    #[cfg(feature = "legacy")]
+    Amend {
+        /// File ID to amend
+        file: String,
+        /// Commit ID to amend into
+        commit: String,
+    },
+
+    /// Stages (assigns) a file or hunk to a specific branch.
+    ///
+    /// Wrapper for `but rub <file-or-hunk> <branch>`.
+    #[cfg(feature = "legacy")]
+    Stage {
+        /// File or hunk ID to stage
+        file_or_hunk: String,
+        /// Branch ID to stage to
+        branch: String,
+    },
+
+    /// Unstages (unassigns) a file or hunk from a branch.
+    ///
+    /// Wrapper for `but rub <file-or-hunk> zz`.
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    Unstage {
+        /// File or hunk ID to unstage
+        file_or_hunk: String,
+        /// Branch ID to unstage from (optional, for validation)
+        #[clap(required = false)]
+        branch: Option<String>,
+    },
 }
 
 pub mod alias;

@@ -443,3 +443,254 @@ k0 a.txt│
 
     Ok(())
 }
+
+// Tests for convenience commands
+
+#[test]
+fn uncommit_command_on_commit() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+    // Get the commit ID from status
+    let status_output = env
+        .but("--json status")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .output()?;
+    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
+    let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
+        .as_str()
+        .unwrap();
+
+    // Test uncommit command
+    env.but(format!("uncommit {}", commit_id))
+        .assert()
+        .success();
+
+    // Verify the files are now unassigned
+    env.but("--json status -f")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [
+    {
+      "cliId": "i0",
+      "filePath": "a.txt",
+      "changeType": "added"
+    },
+    {
+      "cliId": "j0",
+      "filePath": "b.txt",
+      "changeType": "added"
+    }
+  ],
+  "stacks": [
+    {
+      "cliId": "g0",
+      "assignedChanges": [],
+      "branches": [
+...
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn uncommit_command_validation() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Test that uncommit rejects uncommitted files
+    env.but("uncommit i0")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to uncommit. Cannot uncommit [4;34mi0[0m - it is [33man uncommitted file or hunk[0m. Only commits and files-in-commits can be uncommitted.
+
+"#]]);
+
+    // Test that uncommit rejects branches
+    env.but("uncommit A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to uncommit. Cannot uncommit [4;34mg0[0m - it is [33ma branch[0m. Only commits and files-in-commits can be uncommitted.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn stage_command() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Test stage command
+    env.but("stage i0 A").assert().success();
+
+    // Verify the file is assigned to A
+    env.but("--json status -f")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [],
+  "stacks": [
+    {
+      "cliId": "g0",
+      "assignedChanges": [
+        {
+          "cliId": "i0",
+          "filePath": "a.txt",
+          "changeType": "modified"
+        }
+      ],
+...
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn unstage_command() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // First stage the file to A
+    env.but("stage i0 A").assert().success();
+
+    // Verify it's assigned
+    env.but("--json status -f")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [],
+  "stacks": [
+    {
+      "cliId": "g0",
+      "assignedChanges": [
+        {
+          "cliId": "i0",
+          "filePath": "a.txt",
+          "changeType": "modified"
+        }
+      ],
+...
+
+"#]]);
+
+    // Now unstage it
+    env.but("unstage i0").assert().success();
+
+    // Verify it's now unassigned
+    env.but("--json status -f")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [
+    {
+      "cliId": "i0",
+      "filePath": "a.txt",
+      "changeType": "modified"
+    }
+  ],
+  "stacks": [
+    {
+      "cliId": "g0",
+      "assignedChanges": [],
+...
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn unstage_command_with_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Stage the file to A
+    env.but("stage i0 A").assert().success();
+
+    // Unstage with branch parameter
+    env.but("unstage i0 A").assert().success();
+
+    // Verify it's unassigned
+    env.but("--json status -f")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [
+    {
+      "cliId": "i0",
+      "filePath": "a.txt",
+      "changeType": "modified"
+    }
+  ],
+...
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn unstage_command_validation() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+    // Get the commit ID from status
+    let status_output = env
+        .but("--json status")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .output()?;
+    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
+    let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
+        .as_str()
+        .unwrap();
+
+    // Test that unstage rejects commits
+    env.but(format!("unstage {}", commit_id))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to unstage. Cannot unstage [4;34m3f[0m - it is [33ma commit[0m. Only uncommitted files and hunks can be unstaged.
+
+"#]]);
+
+    // Test that unstage rejects non-branch as branch parameter
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "c.txt");
+    env.but(format!("unstage i0 {}", commit_id))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to unstage. Cannot unstage from [4;34m3f[0m - it is [33ma commit[0m. Target must be a branch.
+
+"#]]);
+
+    Ok(())
+}

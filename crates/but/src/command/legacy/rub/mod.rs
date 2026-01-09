@@ -347,3 +347,195 @@ fn create_snapshot(ctx: &mut Context, operation: OperationKind) {
         .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
         .ok(); // Ignore errors for snapshot creation
 }
+
+/// Handler for `but uncommit <source>` - runs `but rub <source> zz`
+/// Validates that source is a commit or file-in-commit.
+pub(crate) fn handle_uncommit(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    source_str: &str,
+) -> anyhow::Result<()> {
+    let id_map = IdMap::new_from_context(ctx, None)?;
+    let sources = parse_sources(ctx, &id_map, source_str)?;
+
+    // Validate that all sources are commits or committed files
+    for source in &sources {
+        match source {
+            CliId::Commit { .. } | CliId::CommittedFile { .. } => {
+                // Valid types for uncommit
+            }
+            _ => {
+                bail!(
+                    "Cannot uncommit {} - it is {}. Only commits and files-in-commits can be uncommitted.",
+                    source.to_short_string().blue().underline(),
+                    source.kind_for_humans().yellow()
+                );
+            }
+        }
+    }
+
+    // Call the main rub handler with "zz" as target
+    handle(ctx, out, source_str, "zz")
+}
+
+/// Handler for `but amend <file> <commit>` - runs `but rub <file> <commit>`
+/// Validates that file is an uncommitted file/hunk and commit is a commit.
+pub(crate) fn handle_amend(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    file_str: &str,
+    commit_str: &str,
+) -> anyhow::Result<()> {
+    let id_map = IdMap::new_from_context(ctx, None)?;
+    let files = parse_sources(ctx, &id_map, file_str)?;
+    let commit_matches = id_map.resolve_entity_to_ids(commit_str)?;
+
+    // Validate that all files are uncommitted
+    for file in &files {
+        match file {
+            CliId::Uncommitted(_) => {
+                // Valid type for amend
+            }
+            _ => {
+                bail!(
+                    "Cannot amend {} - it is {}. Only uncommitted files and hunks can be amended.",
+                    file.to_short_string().blue().underline(),
+                    file.kind_for_humans().yellow()
+                );
+            }
+        }
+    }
+
+    // Validate that commit is a commit
+    if commit_matches.len() != 1 {
+        if commit_matches.is_empty() {
+            bail!("Commit '{}' not found.", commit_str);
+        } else {
+            bail!("Commit '{}' is ambiguous.", commit_str);
+        }
+    }
+
+    match &commit_matches[0] {
+        CliId::Commit { .. } => {
+            // Valid type for target
+        }
+        other => {
+            bail!(
+                "Cannot amend into {} - it is {}. Target must be a commit.",
+                other.to_short_string().blue().underline(),
+                other.kind_for_humans().yellow()
+            );
+        }
+    }
+
+    // Call the main rub handler
+    handle(ctx, out, file_str, commit_str)
+}
+
+/// Handler for `but stage <file_or_hunk> <branch>` - runs `but rub <file_or_hunk> <branch>`
+/// Validates that file_or_hunk is uncommitted and branch is a branch.
+pub(crate) fn handle_stage(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    file_or_hunk_str: &str,
+    branch_str: &str,
+) -> anyhow::Result<()> {
+    let id_map = IdMap::new_from_context(ctx, None)?;
+    let files = parse_sources(ctx, &id_map, file_or_hunk_str)?;
+    let branch_matches = id_map.resolve_entity_to_ids(branch_str)?;
+
+    // Validate that all files are uncommitted
+    for file in &files {
+        match file {
+            CliId::Uncommitted(_) => {
+                // Valid type for stage
+            }
+            _ => {
+                bail!(
+                    "Cannot stage {} - it is {}. Only uncommitted files and hunks can be staged.",
+                    file.to_short_string().blue().underline(),
+                    file.kind_for_humans().yellow()
+                );
+            }
+        }
+    }
+
+    // Validate that branch is a branch
+    if branch_matches.len() != 1 {
+        if branch_matches.is_empty() {
+            bail!("Branch '{}' not found.", branch_str);
+        } else {
+            bail!("Branch '{}' is ambiguous.", branch_str);
+        }
+    }
+
+    match &branch_matches[0] {
+        CliId::Branch { .. } => {
+            // Valid type for target
+        }
+        other => {
+            bail!(
+                "Cannot stage to {} - it is {}. Target must be a branch.",
+                other.to_short_string().blue().underline(),
+                other.kind_for_humans().yellow()
+            );
+        }
+    }
+
+    // Call the main rub handler
+    handle(ctx, out, file_or_hunk_str, branch_str)
+}
+
+/// Handler for `but unstage <file_or_hunk> [branch]` - runs `but rub <file_or_hunk> zz`
+/// Validates that file_or_hunk is uncommitted. Optionally validates it's assigned to the specified branch.
+pub(crate) fn handle_unstage(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    file_or_hunk_str: &str,
+    branch_str: Option<&str>,
+) -> anyhow::Result<()> {
+    let id_map = IdMap::new_from_context(ctx, None)?;
+    let files = parse_sources(ctx, &id_map, file_or_hunk_str)?;
+
+    // Validate that all files are uncommitted
+    for file in &files {
+        match file {
+            CliId::Uncommitted(_) => {
+                // Valid type for unstage
+            }
+            _ => {
+                bail!(
+                    "Cannot unstage {} - it is {}. Only uncommitted files and hunks can be unstaged.",
+                    file.to_short_string().blue().underline(),
+                    file.kind_for_humans().yellow()
+                );
+            }
+        }
+    }
+
+    // If a branch is specified, validate it exists (but we don't strictly require the file to be assigned to it)
+    if let Some(branch_name) = branch_str {
+        let branch_matches = id_map.resolve_entity_to_ids(branch_name)?;
+        if branch_matches.is_empty() {
+            bail!("Branch '{}' not found.", branch_name);
+        }
+        if branch_matches.len() > 1 {
+            bail!("Branch '{}' is ambiguous.", branch_name);
+        }
+        match &branch_matches[0] {
+            CliId::Branch { .. } => {
+                // Valid - branch exists
+            }
+            other => {
+                bail!(
+                    "Cannot unstage from {} - it is {}. Target must be a branch.",
+                    other.to_short_string().blue().underline(),
+                    other.kind_for_humans().yellow()
+                );
+            }
+        }
+    }
+
+    // Call the main rub handler with "zz" as target to unassign
+    handle(ctx, out, file_or_hunk_str, "zz")
+}

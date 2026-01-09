@@ -552,6 +552,44 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
+        #[cfg(feature = "legacy")]
+        Subcommands::Uncommit { source } => {
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            command::legacy::rub::handle_uncommit(&mut ctx, out, &source)
+                .context("Failed to uncommit.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Amend { file, commit } => {
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            command::legacy::rub::handle_amend(&mut ctx, out, &file, &commit)
+                .context("Failed to amend.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Stage {
+            file_or_hunk,
+            branch,
+        } => {
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            command::legacy::rub::handle_stage(&mut ctx, out, &file_or_hunk, &branch)
+                .context("Failed to stage.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Unstage {
+            file_or_hunk,
+            branch,
+        } => {
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            command::legacy::rub::handle_unstage(&mut ctx, out, &file_or_hunk, branch.as_deref())
+                .context("Failed to unstage.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
     }
 }
 
