@@ -9,13 +9,13 @@ use crate::utils::OutputChannel;
 
 /// List all configured `but` aliases
 pub fn list(out: &mut OutputChannel) -> Result<()> {
-    // Use git config command to list aliases since gix config API is complex
+    // Use git config command to list user-configured aliases
     let output = std::process::Command::new("git")
         .args(["config", "--get-regexp", "^but\\.alias\\."])
         .output()
         .context("Failed to execute git config")?;
 
-    let mut aliases = Vec::new();
+    let mut user_aliases = Vec::new();
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -23,56 +23,120 @@ pub fn list(out: &mut OutputChannel) -> Result<()> {
             if let Some((key, value)) = line.split_once(' ') {
                 // key is like "but.alias.st", we want just "st"
                 if let Some(name) = key.strip_prefix("but.alias.") {
-                    aliases.push((name.to_string(), value.to_string()));
+                    user_aliases.push((name.to_string(), value.to_string()));
                 }
             }
         }
     }
 
-    if aliases.is_empty() {
+    // Get default aliases
+    let default_aliases = get_default_aliases();
+
+    // Check if we have any aliases to show
+    if user_aliases.is_empty() && default_aliases.is_empty() {
         if let Some(out) = out.for_human() {
             writeln!(out, "No aliases configured.")?;
             writeln!(out)?;
             writeln!(out, "Create an alias with:")?;
             writeln!(out, "  but alias add st status")?;
         } else if let Some(out) = out.for_json() {
-            out.write_value(serde_json::json!({}))?;
+            out.write_value(serde_json::json!({
+                "user": {},
+                "default": {}
+            }))?;
         }
         return Ok(());
     }
 
     // Sort aliases by name
-    aliases.sort_by(|a, b| a.0.cmp(&b.0));
+    user_aliases.sort_by(|a, b| a.0.cmp(&b.0));
 
     if let Some(out) = out.for_human() {
-        writeln!(out, "{}:", "Configured aliases".bold())?;
-        writeln!(out)?;
-
-        let max_name_len = aliases
+        // Calculate max name length for alignment
+        let max_name_len = user_aliases
             .iter()
+            .chain(default_aliases.iter())
             .map(|(name, _)| name.len())
             .max()
             .unwrap_or(0);
 
-        for (name, value) in &aliases {
+        // Show user-configured aliases first
+        if !user_aliases.is_empty() {
+            writeln!(out, "{}:", "User aliases".bold())?;
+            writeln!(out)?;
+
+            for (name, value) in &user_aliases {
+                writeln!(
+                    out,
+                    "  {:<width$}  {}  {}",
+                    name.green(),
+                    "→".dimmed(),
+                    value.cyan(),
+                    width = max_name_len
+                )?;
+            }
+            writeln!(out)?;
+        }
+
+        // Show default aliases
+        if !default_aliases.is_empty() {
             writeln!(
                 out,
-                "  {:<width$}  {}  {}",
-                name.green(),
-                "→".dimmed(),
-                value.cyan(),
-                width = max_name_len
+                "{} {}:",
+                "Default aliases".bold(),
+                "(overridable)".dimmed()
             )?;
+            writeln!(out)?;
+
+            for (name, value) in &default_aliases {
+                // Check if this default is overridden
+                let is_overridden = user_aliases.iter().any(|(n, _)| n == name);
+
+                if is_overridden {
+                    writeln!(
+                        out,
+                        "  {:<width$}  {}  {}  {}",
+                        name.dimmed(),
+                        "→".dimmed(),
+                        value.dimmed(),
+                        "(overridden)".dimmed(),
+                        width = max_name_len
+                    )?;
+                } else {
+                    writeln!(
+                        out,
+                        "  {:<width$}  {}  {}",
+                        name.green(),
+                        "→".dimmed(),
+                        value.cyan(),
+                        width = max_name_len
+                    )?;
+                }
+            }
         }
     } else if let Some(out) = out.for_json() {
-        let json_aliases: serde_json::Map<String, serde_json::Value> = aliases
+        let user_json: serde_json::Map<String, serde_json::Value> = user_aliases
             .into_iter()
             .map(|(k, v)| (k, serde_json::Value::String(v)))
             .collect();
-        out.write_value(serde_json::json!(json_aliases))?;
+
+        let default_json: serde_json::Map<String, serde_json::Value> = default_aliases
+            .into_iter()
+            .map(|(k, v)| (k, serde_json::Value::String(v)))
+            .collect();
+
+        out.write_value(serde_json::json!({
+            "user": user_json,
+            "default": default_json
+        }))?;
     }
 
     Ok(())
+}
+
+/// Get all default aliases
+fn get_default_aliases() -> Vec<(String, String)> {
+    vec![("stf".to_string(), "status --files".to_string())]
 }
 
 /// Add a new alias
