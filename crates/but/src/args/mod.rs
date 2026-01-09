@@ -98,21 +98,6 @@ pub enum Subcommands {
         upstream: bool,
     },
 
-    /// Overview of the uncommitted changes in the repository with files shown.
-    ///
-    /// Equivalent to `but status --files`.
-    ///
-    #[cfg(feature = "legacy")]
-    #[clap(hide = true)]
-    Stf {
-        /// Show verbose output with commit author and timestamp.
-        #[clap(short = 'v', long = "verbose", default_value_t = false)]
-        verbose: bool,
-        /// Forces a sync of pull requests from the forge before showing status.
-        #[clap(short = 'r', long = "refresh-prs", default_value_t = false)]
-        refresh_prs: bool,
-    },
-
     /// Combines two entities together to perform an operation like amend, squash, assign, or move.
     ///
     /// The `rub` command is a simple verb that helps you do a number of editing
@@ -566,6 +551,34 @@ pub enum Subcommands {
         shell: Option<clap_complete::Shell>,
     },
 
+    /// Manage command aliases.
+    ///
+    /// Aliases allow you to create shortcuts for commonly used commands.
+    /// They are stored in git config under the `but.alias.*` namespace.
+    ///
+    /// ## Examples
+    ///
+    /// List all configured aliases:
+    ///
+    /// ```text
+    /// but alias
+    /// ```
+    ///
+    /// Create a new alias:
+    ///
+    /// ```text
+    /// but alias add st status
+    /// but alias add stv "status --verbose"
+    /// ```
+    ///
+    /// Remove an alias:
+    ///
+    /// ```text
+    /// but alias remove st
+    /// ```
+    ///
+    Alias(alias::Platform),
+
     /// Resolve conflicts in a commit.
     ///
     /// When a commit is in a conflicted state (marked with conflicts during rebase),
@@ -595,6 +608,8 @@ pub enum Subcommands {
     #[clap(hide = true)]
     Fetch,
 }
+
+pub mod alias;
 
 pub mod actions {
     #[derive(Debug, clap::Parser)]

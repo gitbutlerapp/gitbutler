@@ -2,6 +2,7 @@
 #[cfg(feature = "legacy")]
 pub mod legacy;
 
+pub mod alias;
 #[cfg(not(feature = "legacy"))]
 pub mod branch;
 pub mod completions;

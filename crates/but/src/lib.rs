@@ -29,7 +29,8 @@ use cfg_if::cfg_if;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, branch, claude, cursor, forge, metrics, worktree,
+    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
+    metrics, worktree,
 };
 use but_settings::AppSettings;
 use colored::Colorize;
@@ -45,6 +46,7 @@ use crate::{
 mod id;
 pub use id::{CliId, IdMap};
 
+mod alias;
 /// A place for all command implementations.
 pub(crate) mod command;
 mod tui;
@@ -69,6 +71,9 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
+    // Expand aliases before parsing arguments
+    let args = alias::expand_aliases(args)?;
+
     // The `but push --help` output is different if gerrit mode is enabled, hence the special handling
     let args_vec: Vec<String> = std::env::args().collect();
     // TODO: handle this as part of clap, it can be told to not generate all help.
@@ -90,9 +95,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     // Determine if pager should be used based on the command
     let use_pager = match args.cmd {
         #[cfg(feature = "legacy")]
-        Some(Subcommands::Status { .. })
-        | Some(Subcommands::Stf { .. })
-        | Some(Subcommands::Oplog(..)) => false,
+        Some(Subcommands::Status { .. }) | Some(Subcommands::Oplog(..)) => false,
         _ => true,
     };
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
@@ -189,6 +192,19 @@ async fn match_subcommand(
         Subcommands::Completions { shell } => {
             command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
         }
+        Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
+            Some(alias_args::Subcommands::List) | None => {
+                command::alias::list(out).emit_metrics(metrics_ctx)
+            }
+            Some(alias_args::Subcommands::Add {
+                name,
+                value,
+                global,
+            }) => command::alias::add(out, &name, &value, global).emit_metrics(metrics_ctx),
+            Some(alias_args::Subcommands::Remove { name, global }) => {
+                command::alias::remove(out, &name, global).emit_metrics(metrics_ctx)
+            }
+        },
         Subcommands::Branch(branch::Platform { cmd }) => {
             cfg_if! {
                 if #[cfg(feature = "legacy")]  {
@@ -352,16 +368,6 @@ async fn match_subcommand(
             )
             .await
             .emit_metrics(metrics_ctx)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Stf {
-            verbose,
-            refresh_prs,
-        } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-            command::legacy::status::worktree(&mut ctx, out, true, verbose, refresh_prs, false)
-                .await
-                .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Rub { source, target } => {

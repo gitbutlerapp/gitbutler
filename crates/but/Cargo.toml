@@ -87,6 +87,7 @@ async-openai.workspace = true
 schemars.workspace = true
 posthog-rs = { version = "0.3.7" }
 serde.workspace = true
+shell-words.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
 strum = { version = "0.27", features = ["derive"] }
 clap = { workspace = true, features = [
