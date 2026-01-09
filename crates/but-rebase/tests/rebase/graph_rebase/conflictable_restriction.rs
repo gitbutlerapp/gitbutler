@@ -7,7 +7,7 @@ use but_rebase::{
     commit::DateMode,
     graph_rebase::{GraphExt as _, LookupStep, Step, mutate::InsertSide},
 };
-use but_testsupport::{git_catfile, visualize_commit_graph_all};
+use but_testsupport::{cat_commit, visualize_commit_graph_all};
 
 #[test]
 fn by_default_conflicts_are_allowed() -> Result<()> {
@@ -33,7 +33,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     outcome.materialize()?;
 
     // We expect to see conflicted headers
-    insta::assert_snapshot!(git_catfile(&repo, "c")?, @r"
+    insta::assert_snapshot!(cat_commit(&repo, "c")?, @r"
     tree 7c4363d235e51107d74c858038cfab0d192db092
     parent 5e0ba4636be91de6216903697b269915d3db6c53
     author author <author@example.com> 946684800 +0000

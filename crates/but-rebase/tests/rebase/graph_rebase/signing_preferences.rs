@@ -4,7 +4,7 @@ use std::fs;
 use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::graph_rebase::{GraphExt, Pick, Step};
-use but_testsupport::{git_catfile, visualize_commit_graph_all};
+use but_testsupport::{cat_commit, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable_with_signing, standard_options};
 
@@ -105,7 +105,7 @@ fn commits_are_signed_by_default() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    insta::assert_snapshot!(git_catfile(&repo, "c")?, @r"
+    insta::assert_snapshot!(cat_commit(&repo, "c")?, @r"
     tree ea0372ea78d32151cb4c2b6a05a084817947c8f3
     parent 3bfeb524461f65f82bf5027fc895fe9fd5f36203
     author author <author@example.com> 946684800 +0000
@@ -169,7 +169,7 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    insta::assert_snapshot!(git_catfile(&repo, "c")?, @r"
+    insta::assert_snapshot!(cat_commit(&repo, "c")?, @r"
     tree ea0372ea78d32151cb4c2b6a05a084817947c8f3
     parent 3bfeb524461f65f82bf5027fc895fe9fd5f36203
     author author <author@example.com> 946684800 +0000
