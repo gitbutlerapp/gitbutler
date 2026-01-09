@@ -166,6 +166,10 @@ fn detached() -> anyhow::Result<()> {
         graph.entrypoint_commit().map(|c| c.id).is_some(),
         "there is an entrypoint commit, detached or not"
     );
+    assert!(
+        graph.managed_entrypoint_commit(&repo)?.is_none(),
+        "but it's not managed"
+    );
     Ok(())
 }
 
