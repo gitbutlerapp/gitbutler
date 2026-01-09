@@ -110,6 +110,9 @@ struct DryRunBranchInfo {
     /// Warning message if push cannot proceed safely
     #[serde(skip_serializing_if = "Option::is_none")]
     warning: Option<String>,
+    /// Name of the branch this is stacked on top of (if any)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stacked_on: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -156,10 +159,7 @@ fn handle_dry_run(
         writeln!(progress, "Fetching from remote...")?;
     }
 
-    but_api::legacy::virtual_branches::fetch_from_remotes(
-        project_id,
-        Some("dry_run_push".into()),
-    )?;
+    but_api::legacy::virtual_branches::fetch_from_remotes(project_id, Some("dry_run_push".into()))?;
 
     // Get all branches with info
     let branches_with_info = get_branches_with_unpushed_info(ctx, &ctx.legacy_project)?;
@@ -189,7 +189,11 @@ fn handle_dry_run(
         }
 
         if out.for_human().is_some() {
-            writeln!(progress, "{}", "No branches have unpushed commits.".dimmed())?;
+            writeln!(
+                progress,
+                "{}",
+                "No branches have unpushed commits.".dimmed()
+            )?;
         }
         return Ok(());
     }
@@ -238,7 +242,8 @@ fn handle_dry_run(
                         .map(|c| {
                             let sha = c.id.to_string();
                             let sha_short: String = sha.chars().take(7).collect();
-                            let message = c.message
+                            let message = c
+                                .message
                                 .to_string()
                                 .lines()
                                 .next()
@@ -260,7 +265,8 @@ fn handle_dry_run(
                         .map(|c| {
                             let sha = c.id.to_string();
                             let sha_short: String = sha.chars().take(7).collect();
-                            let message = c.message
+                            let message = c
+                                .message
                                 .to_string()
                                 .lines()
                                 .next()
@@ -296,6 +302,16 @@ fn handle_dry_run(
                         None
                     };
 
+                    // Determine if this branch is stacked on another branch
+                    // by finding a branch whose tip matches this branch's base_commit
+                    let stacked_on = stack_details
+                        .branch_details
+                        .iter()
+                        .find(|b| {
+                            b.tip == branch_detail.base_commit && b.name != branch_detail.name
+                        })
+                        .map(|b| b.name.to_string());
+
                     dry_run_infos.push(DryRunBranchInfo {
                         branch_name: branch_name.clone(),
                         stack_name: stack_name.clone(),
@@ -306,6 +322,7 @@ fn handle_dry_run(
                         upstream_commits,
                         requires_force,
                         warning,
+                        stacked_on,
                     });
 
                     break;
@@ -359,30 +376,93 @@ fn handle_dry_run(
                 )?;
             }
 
-            for info in branches {
-                writeln!(progress)?;
-                writeln!(
-                    progress,
-                    "  {} {}",
-                    "Branch:".bold(),
-                    info.branch_name.cyan().bold()
-                )?;
+            // Sort branches to show stacking order (top to bottom)
+            let mut sorted_branches: Vec<_> = branches.to_vec();
+            sorted_branches.sort_by(|a, b| {
+                // If a is stacked on b, then a should come first (reverse of before)
+                if a.stacked_on.as_ref() == Some(&b.branch_name) {
+                    std::cmp::Ordering::Less
+                } else if b.stacked_on.as_ref() == Some(&a.branch_name) {
+                    std::cmp::Ordering::Greater
+                } else {
+                    a.branch_name.cmp(&b.branch_name)
+                }
+            });
+
+            for info in sorted_branches.iter() {
+                let has_stacked_on = info.stacked_on.is_some();
+                let is_stacked_on = sorted_branches
+                    .iter()
+                    .any(|b| b.stacked_on.as_ref() == Some(&info.branch_name));
+
+                let is_in_stack = has_stacked_on || is_stacked_on;
+                let is_first = has_stacked_on && !is_stacked_on;
+                let is_last = !has_stacked_on && is_stacked_on;
+                let has_next = is_in_stack && !is_last;
+
+                if is_in_stack && !is_first {
+                    writeln!(progress, "{}", "│".dimmed())?;
+                } else {
+                    writeln!(progress)?;
+                }
+
+                // Determine the gutter character
+                let gutter = if is_in_stack {
+                    if is_first {
+                        "┌─" // Top branch in stack
+                    } else if is_last {
+                        "└─" // Bottom branch in stack
+                    } else {
+                        "├─" // Middle branch
+                    }
+                } else {
+                    "  " // Base branch (no parent)
+                };
+
+                // Display branch name with stacking indicator and visual line
+                if let Some(stacked_on) = &info.stacked_on {
+                    writeln!(
+                        progress,
+                        "{} {} {} {} {}",
+                        gutter.dimmed(),
+                        "Branch:".bold(),
+                        info.branch_name.cyan().bold(),
+                        "↑".dimmed(),
+                        format!("(on top of {})", stacked_on).blue()
+                    )?;
+                } else {
+                    writeln!(
+                        progress,
+                        "{} {} {}",
+                        gutter.dimmed(),
+                        "Branch:".bold(),
+                        info.branch_name.cyan().bold()
+                    )?;
+                }
+
                 // Extract branch name from remote_ref (e.g., refs/remotes/origin/branch -> branch)
-                let branch_name = info.remote_ref
+                let branch_name = info
+                    .remote_ref
                     .strip_prefix("refs/remotes/")
                     .and_then(|s| s.strip_prefix(&format!("{}/", info.remote)))
                     .unwrap_or(&info.remote_ref);
 
+                // Determine the line prefix for details (vertical line or space)
+                // Show line if there are more branches after this one
+                let line_prefix = if has_next { "│ " } else { "  " };
+
                 writeln!(
                     progress,
-                    "    {} {} {}",
+                    "{}  {} {} {}",
+                    line_prefix.dimmed(),
                     "→".green(),
                     "Would push to:".dimmed(),
                     format!("{}/{}", info.remote, branch_name).yellow()
                 )?;
                 writeln!(
                     progress,
-                    "    {} {}",
+                    "{}  {} {}",
+                    line_prefix.dimmed(),
                     "Commits:".dimmed(),
                     format!(
                         "{} unpushed commit{}",
@@ -393,11 +473,16 @@ fn handle_dry_run(
                 )?;
 
                 if !info.commits.is_empty() {
-                    writeln!(progress)?;
+                    if is_in_stack {
+                        writeln!(progress, "{}", line_prefix.dimmed())?;
+                    } else {
+                        writeln!(progress)?;
+                    }
                     for commit in &info.commits {
                         writeln!(
                             progress,
-                            "      {} {}",
+                            "{}    {} {}",
+                            line_prefix.dimmed(),
                             commit.sha_short.green(),
                             commit.message.dimmed()
                         )?;
@@ -406,9 +491,13 @@ fn handle_dry_run(
                     if info.unpushed_commits > info.commits.len() {
                         writeln!(
                             progress,
-                            "      {}",
-                            format!("... and {} more", info.unpushed_commits - info.commits.len())
-                                .dimmed()
+                            "{}    {}",
+                            line_prefix.dimmed(),
+                            format!(
+                                "... and {} more",
+                                info.unpushed_commits - info.commits.len()
+                            )
+                            .dimmed()
                         )?;
                     }
                 }
@@ -418,16 +507,27 @@ fn handle_dry_run(
                     writeln!(progress)?;
                     writeln!(
                         progress,
-                        "    {} {} {}",
+                        "{}  {} {} {}",
+                        line_prefix.dimmed(),
                         "⚠".yellow(),
                         "Upstream commits (on remote):".yellow(),
-                        format!("{} commit{}", info.upstream_commits.len(), if info.upstream_commits.len() == 1 { "" } else { "s" }).yellow()
+                        format!(
+                            "{} commit{}",
+                            info.upstream_commits.len(),
+                            if info.upstream_commits.len() == 1 {
+                                ""
+                            } else {
+                                "s"
+                            }
+                        )
+                        .yellow()
                     )?;
                     writeln!(progress)?;
                     for commit in &info.upstream_commits {
                         writeln!(
                             progress,
-                            "      {} {}",
+                            "{}    {} {}",
+                            line_prefix.dimmed(),
                             commit.sha_short.red(),
                             commit.message.dimmed()
                         )?;
@@ -439,7 +539,8 @@ fn handle_dry_run(
                     writeln!(progress)?;
                     writeln!(
                         progress,
-                        "    {} {}",
+                        "{}  {} {}",
+                        line_prefix.dimmed(),
                         "⚠".red().bold(),
                         warning.red()
                     )?;
@@ -450,7 +551,8 @@ fn handle_dry_run(
                     writeln!(progress)?;
                     writeln!(
                         progress,
-                        "    {} {}",
+                        "{}  {} {}",
+                        line_prefix.dimmed(),
                         "⚡".yellow(),
                         "Force push required".yellow()
                     )?;
@@ -469,9 +571,17 @@ fn handle_dry_run(
             "{} Would push {} {} across {} {}",
             "Summary:".bright_blue().bold(),
             total_commits.to_string().yellow().bold(),
-            if total_commits == 1 { "commit" } else { "commits" },
+            if total_commits == 1 {
+                "commit"
+            } else {
+                "commits"
+            },
             total_branches.to_string().cyan().bold(),
-            if total_branches == 1 { "branch" } else { "branches" }
+            if total_branches == 1 {
+                "branch"
+            } else {
+                "branches"
+            }
         )?;
         writeln!(progress)?;
         writeln!(
