@@ -29,7 +29,7 @@ impl GraphExt for Graph {
         let mut references: BTreeMap<gix::ObjectId, Vec<gix::refs::FullName>> = BTreeMap::new();
 
         let mut head_refname = None;
-        let workspace_commit_id = self.workspace_commit(repo)?.map(|c| c.id);
+        let workspace_commit_id = self.managed_entrypoint_commit(repo)?.map(|c| c.id);
 
         self.visit_all_segments_including_start_until(
             entrypoint.segment_index,

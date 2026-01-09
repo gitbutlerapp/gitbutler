@@ -191,23 +191,22 @@ impl Graph {
         self.tip_skip_empty(self.entrypoint?.0)
     }
 
-    /// If there is a workspace integration commit it return it.
+    /// Return the first commit from the [entry-point commit](Self::entrypoint_commit()) of this graph
+    /// if it is a [managed](is_managed_workspace_by_message) workspace commit.
     ///
-    /// This makes the following assumptions about the workspace commit:
-    /// - That it is the `.entrypoint_commit()`
-    /// - That it is identifiable by `is_managed_workspace_by_message`
-    pub fn workspace_commit(&self, repo: &gix::Repository) -> anyhow::Result<Option<&Commit>> {
+    /// Note that managed workspace commits are owned by GitButler.
+    /// The `repo` is used to look up the entrypoint commit and to obtain its message.
+    pub fn managed_entrypoint_commit(
+        &self,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Option<&Commit>> {
         let Some(ec) = self.entrypoint_commit() else {
             return Ok(None);
         };
 
-        let git_ec = repo.find_commit(ec.id)?;
-        let message = git_ec.message_raw()?;
-        if is_managed_workspace_by_message(message) {
-            Ok(Some(ec))
-        } else {
-            Ok(None)
-        }
+        let commit = repo.find_commit(ec.id)?;
+        let message = commit.message_raw()?;
+        Ok(is_managed_workspace_by_message(message).then_some(ec))
     }
 
     /// Visit the ancestry of `start` along the first parents, itself excluded, until `stop` returns `true`.

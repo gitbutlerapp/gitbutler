@@ -70,6 +70,8 @@ fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
             └── ❄️73ba99d (🏘️|✓)
     ");
 
+    insta::assert_debug_snapshot!(graph.managed_entrypoint_commit(&repo)?.expect("this is managed workspace commit"), @"Commit(59a427f, ⌂|🏘|1)");
+
     Ok(())
 }
 
