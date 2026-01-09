@@ -4,7 +4,7 @@ use std::fs;
 use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::graph_rebase::{GraphExt, LookupStep, Pick, Step};
-use but_testsupport::{git_catfile, visualize_commit_graph_all};
+use but_testsupport::{cat_commit, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, fixture_writable_with_signing, standard_options};
 
@@ -127,7 +127,7 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     * 3b506ba (base) base
     ");
 
-    insta::assert_snapshot!(git_catfile(&repo, "gitbutler/workspace")?, @r"
+    insta::assert_snapshot!(cat_commit(&repo, "gitbutler/workspace")?, @r"
     tree ea0372ea78d32151cb4c2b6a05a084817947c8f3
     parent e15040cb8141e591e34472039a6a7f129f0e9003
     author author <author@example.com> 946684800 +0000
@@ -139,7 +139,7 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     ");
 
     // We expect "c" to remain signed
-    insta::assert_snapshot!(git_catfile(&repo, "c")?, @r"
+    insta::assert_snapshot!(cat_commit(&repo, "c")?, @r"
     tree ea0372ea78d32151cb4c2b6a05a084817947c8f3
     parent 5b128a2ec3b714a5f78d9f97ff6f89b416069017
     author author <author@example.com> 946684800 +0000
