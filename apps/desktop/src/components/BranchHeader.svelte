@@ -47,6 +47,7 @@
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
 		prCreation?: Snippet;
+		changedFiles?: Snippet;
 		showPrCreation?: boolean;
 		dragArgs?: DragableBranchData;
 	};
@@ -75,6 +76,7 @@
 		menu,
 		buttons,
 		prCreation,
+		changedFiles,
 		showPrCreation,
 		dragArgs
 	}: Props = $props();
@@ -188,6 +190,10 @@
 			last={isEmpty && !draft}
 			onclick={onCommitGoesHereClick}
 		/>
+	{/if}
+
+	{#if changedFiles}
+		{@render changedFiles()}
 	{/if}
 
 	{#if actionsVisible && !showPrCreation}
