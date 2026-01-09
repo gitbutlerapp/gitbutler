@@ -35,6 +35,9 @@ pub struct Pick {
     /// If set to false, a rebase will fail if this commit results in a
     /// conflicted state.
     pub conflictable: bool,
+    /// If set to true, a rebase will fail if not all of the parents (outgoing
+    /// nodes) are references.
+    pub parents_must_be_references: bool,
     /// If set to true, the rebase engine will try to sign the commit if it
     /// gets cherry-picked and the user has configured signing.
     pub sign_if_configured: bool,
@@ -47,6 +50,7 @@ impl Pick {
             id,
             preserved_parents: None,
             conflictable: true,
+            parents_must_be_references: false,
             sign_if_configured: true,
         }
     }
@@ -57,6 +61,7 @@ impl Pick {
             id,
             preserved_parents: None,
             conflictable: false,
+            parents_must_be_references: true,
             sign_if_configured: false,
         }
     }
@@ -238,6 +243,7 @@ mod test {
                 id: object_id,
                 preserved_parents: None,
                 conflictable: false,
+                parents_must_be_references: true,
                 sign_if_configured: false
             }
         );
@@ -255,6 +261,7 @@ mod test {
                 id: object_id,
                 preserved_parents: None,
                 conflictable: true,
+                parents_must_be_references: false,
                 sign_if_configured: true
             }
         );

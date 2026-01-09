@@ -248,3 +248,40 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn workspace_commit_should_not_be_allowed_to_have_non_reference_parents() -> Result<()> {
+    let (repo, _tmpdir, meta) = fixture_writable_with_signing("workspace-signed")?;
+
+    let before = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(before, @r"
+    * 8600a31 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 2b9cba3 (main, c) c
+    * 8df3400 (b) b
+    * 5b128a2 (a) a
+    * 3b506ba (base) base
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+
+    let mut editor = graph.to_editor(&repo)?;
+
+    // Replace both 'main' and 'c' references with Step::None. The commit 'c'
+    // has two references pointing to it, so we need to remove both for the
+    // workspace commit's parent path to traverse through None and hit
+    // Pick(c), violating the parents_must_be_references constraint.
+    let main_ref = editor.select_reference("refs/heads/main".try_into()?)?;
+    editor.replace(main_ref, Step::None)?;
+    let c_ref = editor.select_reference("refs/heads/c".try_into()?)?;
+    editor.replace(c_ref, Step::None)?;
+
+    // We should see an error saying the workspace commit has parents that are
+    // not references
+    insta::assert_debug_snapshot!(editor.rebase(), @r#"
+    Err(
+        "Commit 8600a31c2ef9503945e3d6e17470445196252611 has parents that are not referenced",
+    )
+    "#);
+
+    Ok(())
+}
