@@ -93,22 +93,9 @@ pnpm tauri build --features devtools --config crates/gitbutler-tauri/tauri.conf.
 
 ## Testing
 
-```bash
-# Run all tests
-pnpm test
+When asked about frontend tests please read `@frontend.md` for context.
 
-# Run tests in watch mode
-pnpm test:watch
-
-# Run E2E tests with Playwright
-pnpm test:e2e:playwright
-
-# Run Rust tests
-cargo test
-
-# Run specific crate tests
-cargo test -p gitbutler-branch-actions
-```
+To run rust tests run `cargo test`, and for specific crates `cargo test -p CRATE_NAME`
 
 ## Code Style and Linting
 
