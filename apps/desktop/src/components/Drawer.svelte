@@ -16,6 +16,7 @@
 		children: Snippet;
 		testId?: string;
 		persistId?: string;
+		topBorder?: boolean;
 		bottomBorder?: boolean;
 		grow?: boolean;
 		noshrink?: boolean;
@@ -26,6 +27,8 @@
 		childrenWrapHeight?: string;
 		childrenWrapDisplay?: 'block' | 'contents' | 'flex';
 		maxHeight?: string;
+		transparent?: boolean;
+		stickyHeader?: boolean;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -37,6 +40,7 @@
 		testId,
 		persistId,
 		bottomBorder = true,
+		topBorder = false,
 		grow,
 		noshrink,
 		resizer,
@@ -46,6 +50,8 @@
 		childrenWrapHeight,
 		childrenWrapDisplay,
 		maxHeight,
+		transparent,
+		stickyHeader,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -101,11 +107,19 @@
 	bind:clientHeight
 	class:collapsed={isCollapsed}
 	class:bottom-border={bottomBorder && !isCollapsed}
+	class:top-border={topBorder}
 	class:grow
 	class:noshrink
 	style:max-height={maxHeight}
 >
-	<PreviewHeader {actions} bind:headerHeight {onclose} ondblclick={toggleCollapsed}>
+	<PreviewHeader
+		{actions}
+		bind:headerHeight
+		{transparent}
+		sticky={stickyHeader}
+		{onclose}
+		ondblclick={toggleCollapsed}
+	>
 		{#snippet content()}
 			<button
 				type="button"
@@ -173,6 +187,9 @@
 
 		&.bottom-border {
 			border-bottom: 1px solid var(--clr-border-2);
+		}
+		&.top-border {
+			border-top: 1px solid var(--clr-border-2);
 		}
 		&.noshrink {
 			flex-shrink: 0;

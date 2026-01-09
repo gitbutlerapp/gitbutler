@@ -78,7 +78,7 @@ export function updateSelection({
 	fileIdSelection,
 	selectionId,
 	preventDefault
-}: UpdateSelectionParams): boolean | undefined {
+}: UpdateSelectionParams): void {
 	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
 
 	const firstFileId = selectedFileIds[0].path;
@@ -201,7 +201,6 @@ export function selectFilesInList(
 	selectionId: SelectionId,
 	allowUnselect?: boolean
 ) {
-	// e.stopPropagation();
 	const isAlreadySelected = idSelection.has(change.path, selectionId);
 	const isTheOnlyOneSelected = idSelection.collectionSize(selectionId) === 1 && isAlreadySelected;
 	const lastAdded = get(idSelection.getById(selectionId).lastAdded);

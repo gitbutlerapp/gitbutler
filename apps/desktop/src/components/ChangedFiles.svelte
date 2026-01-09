@@ -24,10 +24,15 @@
 		draggableFiles?: boolean;
 		grow?: boolean;
 		noshrink?: boolean;
+		maxHeight?: string;
+		topBorder?: boolean;
+		bottomBorder?: boolean;
+		transparentHeader?: boolean;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		autoselect?: boolean;
 		ancestorMostConflictedCommitId?: string;
 		ontoggle?: (collapsed: boolean) => void;
+		onselect?: (change: TreeChange, index: number) => void;
 		allowUnselect?: boolean;
 		persistId?: string;
 	};
@@ -43,10 +48,15 @@
 		draggableFiles,
 		grow,
 		noshrink,
+		maxHeight,
+		topBorder = false,
+		bottomBorder = true,
+		transparentHeader = false,
 		resizer,
 		autoselect,
 		ancestorMostConflictedCommitId,
 		ontoggle,
+		onselect,
 		allowUnselect = true,
 		persistId = 'default'
 	}: Props = $props();
@@ -73,6 +83,10 @@
 	{ontoggle}
 	{resizer}
 	{noshrink}
+	{maxHeight}
+	{bottomBorder}
+	{topBorder}
+	transparent={transparentHeader}
 	persistId={`changed-files-drawer-${projectId}-${stackId || 'default'}`}
 	childrenWrapHeight={changes.length > 0 ? 'auto' : '100%'}
 	childrenWrapDisplay={changes.length > 0 ? 'block' : 'flex'}
@@ -102,6 +116,7 @@
 				{draggableFiles}
 				{ancestorMostConflictedCommitId}
 				{allowUnselect}
+				{onselect}
 			/>
 		{:else}
 			<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
