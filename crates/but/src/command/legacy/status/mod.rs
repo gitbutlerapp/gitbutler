@@ -277,6 +277,21 @@ pub(crate) async fn worktree(
             }
         });
 
+        // assignments to the stack
+        if details.is_some() {
+            let branch_name = details
+                .as_ref()
+                .and_then(|d| d.branch_details.first())
+                .map(|b| b.name.to_string());
+            print_assignments(
+                branch_name,
+                &assignments,
+                &worktree_changes.worktree_changes.changes,
+                false,
+                out,
+            )?;
+        }
+
         print_group(
             details,
             assignments,
@@ -431,11 +446,29 @@ fn ci_map(
 }
 
 fn print_assignments(
+    branch_name: Option<String>,
     assignments: &Vec<FileAssignment>,
     changes: &[ui::TreeChange],
-    dotted: bool,
+    unstaged: bool,
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
+    // if there are no assignments and we're in the unstaged section, print "(no changes)" and return
+    if assignments.is_empty() && unstaged {
+        writeln!(out, "┊     {}", "no changes".dimmed().italic())?;
+        return Ok(());
+    }
+
+    if !unstaged && !assignments.is_empty() {
+        writeln!(
+            out,
+            "┊  {} [{}]",
+            "╭┄".dimmed(),
+            format!("staged to {}", branch_name.unwrap_or("".to_string()))
+                .cyan()
+                .bold(),
+        )?;
+    }
+
     for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match &state {
@@ -468,11 +501,15 @@ fn print_assignments(
         if !locks.is_empty() {
             locks = format!("🔒 {locks}");
         }
-        if dotted {
+        if unstaged {
             writeln!(out, "┊   {id} {status} {path} {locks}")?;
         } else {
-            writeln!(out, "┊│   {id} {status} {path} {locks}")?;
+            writeln!(out, "┊  {} {id} {status} {path} {locks}", "│".dimmed())?;
         }
+    }
+
+    if !unstaged && !assignments.is_empty() {
+        writeln!(out, "┊  {}", "│".dimmed())?;
     }
 
     Ok(())
@@ -556,11 +593,10 @@ pub fn print_group(
                 stack_mark = stack_mark.clone().unwrap_or_default(),
                 branch = branch.name.to_string().green().bold(),
             )?;
+
             *stack_mark = None; // Only show the stack mark for the first branch
-            if first {
-                print_assignments(&assignments, changes, false, out)?;
-            }
             first = false;
+
             if !branch.upstream_commits.is_empty() {
                 let tracking_branch = branch
                     .remote_tracking_branch
@@ -628,10 +664,10 @@ pub fn print_group(
             out,
             "╭┄{} [{}] {}",
             id,
-            "Unassigned Changes".to_string().green().bold(),
+            "unstaged changes".to_string().cyan().bold(),
             stack_mark.clone().unwrap_or_default()
         )?;
-        print_assignments(&assignments, changes, true, out)?;
+        print_assignments(None, &assignments, changes, true, out)?;
     }
     if !first {
         writeln!(out, "├╯")?;
@@ -744,8 +780,7 @@ fn print_commit(
             .unwrap_or_default();
         writeln!(
             out,
-            "┊{dot}  {}{} {} {}",
-            if upstream_commit { "" } else { " " },
+            "┊{dot}   {} {} {}",
             details_string,
             review_url,
             mark.unwrap_or_default()
