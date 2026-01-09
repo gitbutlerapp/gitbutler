@@ -12,9 +12,10 @@ export function getBaseURL() {
 }
 
 export function getButlerPort(): string {
-	const parallelId = process.env.TEST_PARALLEL_INDEX ?? '0';
-	const id = parseInt(parallelId, 10);
-	return `${parseInt(BUT_SERVER_PORT, 10) + id}`;
+	// Zero based parallel counter
+	const id = parseInt(process.env.TEST_PARALLEL_INDEX ?? '0', 10);
+	// Start from default + 1 to avoid interfering with dev server
+	return `${parseInt(BUT_SERVER_PORT, 10) + id + 1}`;
 }
 
 export interface GitButler {
