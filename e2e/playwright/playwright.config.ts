@@ -59,7 +59,7 @@ function projects() {
 		name: 'Chrome',
 		use: {
 			...devices['Desktop Chrome'],
-			headless: false,
+			headless: !!process.env.PLAYWRIGHT_UI,
 			channel: 'chrome'
 		}
 	});
