@@ -78,7 +78,7 @@ export function updateSelection({
 	fileIdSelection,
 	selectionId,
 	preventDefault
-}: UpdateSelectionParams): void {
+}: UpdateSelectionParams): undefined {
 	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
 
 	const firstFileId = selectedFileIds[0].path;
