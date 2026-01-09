@@ -37,21 +37,15 @@ impl Editor {
         let mut graph_mapping: HashMap<StepGraphIndex, StepGraphIndex> = HashMap::new();
         // The step graph with updated commit oids
         let mut output_graph = StepGraph::new();
-        let mut commit_mapping = HashMap::new();
         let mut unchanged_references = vec![];
 
         for step_idx in steps_to_pick {
             // Do the frikkin rebase man!
             let step = self.graph[step_idx].clone();
             let new_idx = match step {
-                Step::Pick(Pick {
-                    id,
-                    preserved_parents,
-                    sign_if_configured,
-                    ..
-                }) => {
+                Step::Pick(pick) => {
                     let graph_parents = collect_ordered_parents(&self.graph, step_idx);
-                    let ontos = match preserved_parents.clone() {
+                    let ontos = match pick.preserved_parents.clone() {
                         Some(ontos) => ontos,
                         None => graph_parents
                             .iter()
@@ -68,26 +62,24 @@ impl Editor {
                             .collect::<Result<Vec<_>>>()?,
                     };
 
-                    let outcome = cherry_pick(&self.repo, id, &ontos, sign_if_configured)?;
+                    let outcome =
+                        cherry_pick(&self.repo, pick.id, &ontos, pick.sign_if_configured)?;
 
                     match outcome {
                         CherryPickOutcome::Commit(new_id)
                         | CherryPickOutcome::ConflictedCommit(new_id)
                         | CherryPickOutcome::Identity(new_id) => {
-                            let mut pick = Pick::new_pick(new_id);
-                            pick.preserved_parents = preserved_parents;
-                            let new_idx = output_graph.add_node(Step::Pick(pick));
+                            let mut new_pick = pick.clone();
+                            new_pick.id = new_id;
+                            let new_idx = output_graph.add_node(Step::Pick(new_pick));
                             graph_mapping.insert(step_idx, new_idx);
-                            if id != new_id {
-                                commit_mapping.insert(id, new_id);
-                            }
 
                             new_idx
                         }
                         CherryPickOutcome::FailedToMergeBases => {
                             // Exit early - the rebase failed because it encountered a commit it couldn't pick
                             // TODO(CTO): Detect if this was the merge commit itself & signal that seperatly
-                            bail!("Failed to merge bases for commit {id}");
+                            bail!("Failed to merge bases for commit {}", pick.id);
                         }
                     }
                 }

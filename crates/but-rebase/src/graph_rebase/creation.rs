@@ -29,6 +29,7 @@ impl GraphExt for Graph {
         let mut references: BTreeMap<gix::ObjectId, Vec<gix::refs::FullName>> = BTreeMap::new();
 
         let mut head_refname = None;
+        let workspace_commit_id = self.workspace_commit(repo)?.map(|c| c.id);
 
         self.visit_all_segments_including_start_until(
             entrypoint.segment_index,
@@ -99,7 +100,11 @@ impl GraphExt for Graph {
                 None
             };
 
-            let mut pick = Pick::new_pick(c.id);
+            let mut pick = if Some(c.id) == workspace_commit_id {
+                Pick::new_workspace_pick(c.id)
+            } else {
+                Pick::new_pick(c.id)
+            };
             pick.preserved_parents = preserved_parents;
             let mut ni = graph.add_node(Step::Pick(pick));
             let base_ni = ni;
