@@ -182,8 +182,11 @@ Created commit [..] on branch feature-x
         .assert()
         .success()
         .stderr_eq(str![])
-        .stdout_eq(snapbox::file![
-            "snapshots/commit/with-independent-branch.stdout.term.svg"
-        ]);
+        .stdout_eq(str![[r#"
+Operations History
+──────────────────────────────────────────────────
+[HASH] 2000-01-02 00:00:00 [CREATE] CreateCommit
+
+"#]]);
     Ok(())
 }

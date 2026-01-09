@@ -30,9 +30,18 @@ fn uncommitted_file() -> anyhow::Result<()> {
     env.but("absorb i0")
         .assert()
         .success()
-        .stdout_eq(snapbox::file![
-            "snapshots/absorb/uncommitted-file.stdout.term.svg"
-        ])
+        .stdout_eq(snapbox::str![[r#"
+Found 2 changed files to absorb:
+
+Absorbed to commit: 4fa8217 a.txt
+  (files locked to commit due to hunk range overlap)
+    a.txt @1,4 +1,4
+    a.txt @6,4 +6,4
+
+
+Hint: you can run `but undo` to undo these changes
+
+"#]])
         .stderr_eq(str![""]);
 
     // Change was absorbed
@@ -75,7 +84,6 @@ fn uncommitted_hunk() -> anyhow::Result<()> {
 
     // Verify that the first hunk is j0, and absorb it.
     env.but("diff a.txt")
-        .env_remove("CLICOLOR_FORCE")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -101,9 +109,17 @@ k0 a.txt│
     env.but("absorb j0")
         .assert()
         .success()
-        .stdout_eq(snapbox::file![
-            "snapshots/absorb/uncommitted-hunk.stdout.term.svg"
-        ])
+        .stdout_eq(snapbox::str![[r#"
+Found 1 changed file to absorb:
+
+Absorbed to commit: 4fa8217 a.txt
+  (files locked to commit due to hunk range overlap)
+    a.txt @1,4 +1,4
+
+
+Hint: you can run `but undo` to undo these changes
+
+"#]])
         .stderr_eq(str![""]);
 
     // Change was partially absorbed
