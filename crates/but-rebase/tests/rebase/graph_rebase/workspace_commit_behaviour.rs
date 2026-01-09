@@ -215,3 +215,36 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
+    let (repo, _tmpdir, meta) = fixture_writable_with_signing("workspace-with-wc-content-signed")?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f7f22fe (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 734fb4e (main, c) c
+    * 17ac6d7 (b) b
+    * d8d3a16 (a) a
+    * b1b6109 (base) base
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+
+    let mut editor = graph.to_editor(&repo)?;
+
+    // Dropping c will cause the workspace commit to conflict because the WC
+    // depends on a file created in c
+    let c = repo.rev_parse_single("c")?;
+    let c_sel = editor.select_commit(c.detach())?;
+    editor.replace(c_sel, Step::None)?;
+
+    // We should see an error given saying the workspace commit ended up being
+    // conflicted
+    insta::assert_debug_snapshot!(editor.rebase(), @r#"
+    Err(
+        "Commit f7f22fe8b0257bdb8e8fc9dfdfb1976a56474e06 was marked as not conflictable, but resulted in a conflicted state",
+    )
+    "#);
+
+    Ok(())
+}
