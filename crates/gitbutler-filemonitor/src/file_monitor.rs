@@ -130,14 +130,16 @@ fn setup_watch_plan(
     worktree_path: &Path,
     git_dir: &Path,
 ) -> Result<()> {
-    let watch_plan = compute_watch_plan_for_repo(repo, worktree_path, git_dir)?;
-
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(watch_backoff_policy(), || {
         let mut paths = debouncer.watcher().paths_mut();
-        for (path, mode) in watch_plan.iter() {
-            match paths.add(path, *mode) {
-                Ok(()) => {}
+        let mut add_error: Option<(std::path::PathBuf, notify::Error)> = None;
+        compute_watch_plan_for_repo(repo, worktree_path, git_dir, |path, mode| {
+            if add_error.is_some() {
+                return Ok(std::ops::ControlFlow::Break(()));
+            }
+            match paths.add(path, mode) {
+                Ok(()) => Ok(std::ops::ControlFlow::Continue(())),
                 Err(err) => match err.kind {
                     notify::ErrorKind::MaxFilesWatch => {
                         tracing::warn!(
@@ -145,27 +147,29 @@ fn setup_watch_plan(
                             path = %path.display(),
                             "OS file watch limit reached; continuing with partial watches. Monitoring coverage may be incomplete until restart."
                         );
-                        break;
-                    }
-                    notify::ErrorKind::PathNotFound => {
-                        return Err(backoff::Error::permanent(RunError::from(anyhow!(
-                            "{} not found",
-                            path.display()
-                        ))));
-                    }
-                    notify::ErrorKind::Io(_) | notify::ErrorKind::InvalidConfig(_) => {
-                        return Err(backoff::Error::permanent(RunError::from(
-                            anyhow::Error::from(err),
-                        )));
+                        Ok(std::ops::ControlFlow::Break(()))
                     }
                     _ => {
-                        return Err(backoff::Error::transient(RunError::from(
-                            anyhow::Error::from(err),
-                        )));
+                        add_error = Some((path.to_owned(), err));
+                        Ok(std::ops::ControlFlow::Break(()))
                     }
                 },
             }
+        })
+        .map_err(|err| backoff::Error::permanent(RunError::from(err)))?;
+
+        if let Some((path, err)) = add_error {
+            return Err(match err.kind {
+                notify::ErrorKind::PathNotFound => backoff::Error::permanent(RunError::from(
+                    anyhow!("{} not found", path.display()),
+                )),
+                notify::ErrorKind::Io(_) | notify::ErrorKind::InvalidConfig(_) => {
+                    backoff::Error::permanent(RunError::from(anyhow::Error::from(err)))
+                }
+                _ => backoff::Error::transient(RunError::from(anyhow::Error::from(err))),
+            });
         }
+
         match paths.commit() {
             Ok(()) => Ok(()),
             Err(err) => match err.kind {
@@ -363,7 +367,7 @@ pub fn spawn(
                                     .map(|platform| platform.is_excluded())
                                     .unwrap_or(false);
                                 let is_untracked = if mode.is_some() {
-                                    !tracked_dirs.contains(&to_repo_relative_key(relative_path))
+                                    !tracked_dirs.contains(to_repo_relative_key(relative_path).as_ref())
                                 } else {
                                     index
                                         .entry_by_path(&gix::path::to_unix_separators_on_windows(
