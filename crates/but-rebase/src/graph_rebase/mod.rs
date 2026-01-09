@@ -21,7 +21,7 @@ pub(crate) mod util;
 pub mod testing;
 
 /// Represents a commit to be cherry-picked in a rebase operation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Pick {
     /// The ID of the commit getting picked
     pub id: gix::ObjectId,
@@ -46,10 +46,19 @@ impl Pick {
             sign_if_configured: true,
         }
     }
+
+    /// Creates a pick with the defaults set for a workspace commit
+    pub fn new_workspace_pick(id: gix::ObjectId) -> Self {
+        Self {
+            id,
+            preserved_parents: None,
+            sign_if_configured: false,
+        }
+    }
 }
 
 /// Describes what action the engine should take
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Step {
     /// Cherry picks the given commit into the new location in the graph
     Pick(Pick),
@@ -204,5 +213,45 @@ impl RevisionHistory {
 
     pub(crate) fn add_revision(&mut self, mapping: HashMap<StepGraphIndex, StepGraphIndex>) {
         self.mappings.push(mapping);
+    }
+}
+
+/// I wanted to assert _somewhere_ the defaults for non-workspace & workspace commits. It doesn't feel like the right place to do it in integration tests because we should assert behaviour rather than details there.
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+
+    use crate::graph_rebase::Pick;
+
+    #[test]
+    fn workspace_commit_defaults() -> anyhow::Result<()> {
+        let object_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
+
+        assert_eq!(
+            Pick::new_workspace_pick(object_id),
+            Pick {
+                id: object_id,
+                preserved_parents: None,
+                sign_if_configured: false
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn regular_commit_defaults() -> anyhow::Result<()> {
+        let object_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
+
+        assert_eq!(
+            Pick::new_pick(object_id),
+            Pick {
+                id: object_id,
+                preserved_parents: None,
+                sign_if_configured: true
+            }
+        );
+
+        Ok(())
     }
 }

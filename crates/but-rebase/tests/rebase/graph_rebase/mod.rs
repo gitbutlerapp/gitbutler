@@ -5,3 +5,4 @@ mod multiple_operations;
 mod rebase_identities;
 mod replace;
 mod signing_preferences;
+mod workspace_commit_behaviour;
