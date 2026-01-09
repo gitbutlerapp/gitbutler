@@ -98,21 +98,6 @@ pub enum Subcommands {
         upstream: bool,
     },
 
-    /// Overview of the uncommitted changes in the repository with files shown.
-    ///
-    /// Equivalent to `but status --files`.
-    ///
-    #[cfg(feature = "legacy")]
-    #[clap(hide = true)]
-    Stf {
-        /// Show verbose output with commit author and timestamp.
-        #[clap(short = 'v', long = "verbose", default_value_t = false)]
-        verbose: bool,
-        /// Forces a sync of pull requests from the forge before showing status.
-        #[clap(short = 'r', long = "refresh-prs", default_value_t = false)]
-        refresh_prs: bool,
-    },
-
     /// Combines two entities together to perform an operation like amend, squash, assign, or move.
     ///
     /// The `rub` command is a simple verb that helps you do a number of editing

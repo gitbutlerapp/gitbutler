@@ -61,8 +61,6 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
             #[cfg(feature = "legacy")]
-            Subcommands::Stf { .. } => Stf,
-            #[cfg(feature = "legacy")]
             Subcommands::Rub { .. } => Rub,
             #[cfg(feature = "legacy")]
             Subcommands::Diff { .. } => Diff,

@@ -95,9 +95,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     // Determine if pager should be used based on the command
     let use_pager = match args.cmd {
         #[cfg(feature = "legacy")]
-        Some(Subcommands::Status { .. })
-        | Some(Subcommands::Stf { .. })
-        | Some(Subcommands::Oplog(..)) => false,
+        Some(Subcommands::Status { .. }) | Some(Subcommands::Oplog(..)) => false,
         _ => true,
     };
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
@@ -370,16 +368,6 @@ async fn match_subcommand(
             )
             .await
             .emit_metrics(metrics_ctx)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Stf {
-            verbose,
-            refresh_prs,
-        } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-            command::legacy::status::worktree(&mut ctx, out, true, verbose, refresh_prs, false)
-                .await
-                .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Rub { source, target } => {

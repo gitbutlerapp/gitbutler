@@ -2,8 +2,6 @@
 //!
 //! Provides subcommands to list, add, and remove aliases stored in git config.
 
-use std::io::Write as _;
-
 use anyhow::{Context, Result};
 use colored::Colorize;
 
@@ -159,7 +157,6 @@ fn is_known_subcommand(cmd: &str) -> bool {
         cmd,
         "status"
             | "st"
-            | "stf"
             | "rub"
             | "diff"
             | "init"

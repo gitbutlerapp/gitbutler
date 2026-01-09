@@ -56,7 +56,13 @@ pub fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>> {
     // Try to read from git config: but.alias.<name>
     let alias_value = match read_git_config_alias(potential_alias) {
         Some(value) => value,
-        None => return Ok(args), // No alias found
+        None => {
+            // Check for default aliases that can be overridden
+            match get_default_alias(potential_alias) {
+                Some(default) => default,
+                None => return Ok(args), // No alias found
+            }
+        }
     };
 
     // Parse the alias value (may contain multiple words/args)
@@ -81,7 +87,6 @@ fn is_known_subcommand(cmd: &str) -> bool {
         cmd,
         "status"
             | "st"
-            | "stf"
             | "rub"
             | "diff"
             | "init"
@@ -114,6 +119,25 @@ fn is_known_subcommand(cmd: &str) -> bool {
             | "fetch"
             | "alias"
     )
+}
+
+/// Gets a default alias value for built-in aliases that can be overridden.
+///
+/// These are convenience aliases that ship with `but` but can be overridden
+/// by setting them in git config.
+///
+/// # Arguments
+///
+/// * `alias_name` - The name of the alias to look up
+///
+/// # Returns
+///
+/// The default alias value if one exists, or `None`
+fn get_default_alias(alias_name: &str) -> Option<String> {
+    match alias_name {
+        "stf" => Some("status --files".to_string()),
+        _ => None,
+    }
 }
 
 /// Reads a git config alias value using gix.
@@ -181,5 +205,29 @@ mod tests {
         let args = vec![OsString::from("but"), OsString::from("unknownalias")];
         let result = expand_aliases(args.clone()).unwrap();
         assert_eq!(result, args);
+    }
+
+    #[test]
+    fn test_default_alias_stf() {
+        assert_eq!(get_default_alias("stf"), Some("status --files".to_string()));
+        assert_eq!(get_default_alias("other"), None);
+    }
+
+    #[test]
+    fn test_expand_default_alias() {
+        // Test that the default stf alias expands correctly
+        let args = vec![
+            OsString::from("but"),
+            OsString::from("stf"),
+            OsString::from("--verbose"),
+        ];
+        let result = expand_aliases(args).unwrap();
+
+        // Should expand to: but status --files --verbose
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0], OsString::from("but"));
+        assert_eq!(result[1], OsString::from("status"));
+        assert_eq!(result[2], OsString::from("--files"));
+        assert_eq!(result[3], OsString::from("--verbose"));
     }
 }
