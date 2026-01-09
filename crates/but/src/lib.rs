@@ -45,6 +45,7 @@ use crate::{
 mod id;
 pub use id::{CliId, IdMap};
 
+mod alias;
 /// A place for all command implementations.
 pub(crate) mod command;
 mod tui;
@@ -68,6 +69,9 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         command::help::print_grouped(&mut out)?;
         return Ok(());
     }
+
+    // Expand aliases before parsing arguments
+    let args = alias::expand_aliases(args)?;
 
     // The `but push --help` output is different if gerrit mode is enabled, hence the special handling
     let args_vec: Vec<String> = std::env::args().collect();
