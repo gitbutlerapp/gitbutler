@@ -62,7 +62,7 @@ pub enum OutputFormat {
 pub enum Subcommands {
     /// Overview of the project workspace state.
     ///
-    /// This shows unassigned files, files assigned to stacks, all applied
+    /// This shows unstaged files, files staged to stacks, all applied
     /// branches (stacked or parallel), commits on each of those branches,
     /// upstream commits that are unintegrated, commit status (pushed or local),
     /// and base branch information.
@@ -98,12 +98,12 @@ pub enum Subcommands {
         upstream: bool,
     },
 
-    /// Combines two entities together to perform an operation like amend, squash, assign, or move.
+    /// Combines two entities together to perform an operation like amend, squash, stage, or move.
     ///
     /// The `rub` command is a simple verb that helps you do a number of editing
     /// operations by doing combinations of two things.
     ///
-    /// For example, you can "rub" a file onto a branch to assign that file to
+    /// For example, you can "rub" a file onto a branch to stage that file to
     /// the branch. You can also "rub" a commit onto another commit to squash
     /// them together. You can rub a commit onto a branch to move that commit.
     /// You can rub a file from one commit to another.
@@ -115,7 +115,7 @@ pub enum Subcommands {
     /// ──────┼───────────┼──────
     /// Amend │File,Branch│Commit
     /// Squash│Commit     │Commit
-    /// Assign│File,Branch│Branch
+    /// Stage │File,Branch│Branch
     /// Move  │Commit     │Branch
     /// ```
     ///
@@ -224,13 +224,13 @@ pub enum Subcommands {
     #[clap(hide = true)]
     Worktree(worktree::Platform),
 
-    /// Mark a commit or branch for auto-assign or auto-commit.
+    /// Mark a commit or branch for auto-stage or auto-commit.
     ///
-    /// Creates or removes a rule for auto-assigning or auto-committing changes
+    /// Creates or removes a rule for auto-staging or auto-committing changes
     /// to the specified target entity.
     ///
-    /// If you mark a branch, new unassigned changes that GitButler sees when
-    /// you run any command will be automatically assigned to that branch.
+    /// If you mark a branch, new unstaged changes that GitButler sees when
+    /// you run any command will be automatically staged to that branch.
     ///
     /// If you mark a commit, new uncommitted changes will automatically be
     /// amended into the marked commit.
@@ -274,11 +274,11 @@ pub enum Subcommands {
     /// If there are multiple branches applied, you must specify which branch to
     /// commit to, or if in interactive mode, you will be prompted to select one.
     ///
-    /// By default, all uncommitted changes and all changes already assigned to that
+    /// By default, all uncommitted changes and all changes already staged to that
     /// branch will be included in the commit. If you only want to commit the changes
-    /// that are already assigned to that branch, you can use the `--only` flag.
+    /// that are already staged to that branch, you can use the `--only` flag.
     ///
-    /// It will not commit changes assigned to other branches.
+    /// It will not commit changes staged to other branches.
     ///
     #[cfg(feature = "legacy")]
     Commit {
@@ -300,7 +300,7 @@ pub enum Subcommands {
         /// If no branch name is given, a new branch with a generated name will be created.
         #[clap(short = 'c', long = "create")]
         create: bool,
-        /// Only commit assigned files, not unassigned files
+        /// Only commit staged files, not unstaged files
         #[clap(short = 'o', long = "only")]
         only: bool,
     },
@@ -404,20 +404,20 @@ pub enum Subcommands {
     /// The semantic for finding "the appropriate commit" is as follows:
     ///
     /// - Changes are amended into the topmost commit of the leftmost (first) lane (branch)
-    /// - If a change is assigned to a particular lane (branch), it will be amended into a commit there
+    /// - If a change is staged to a particular lane (branch), it will be amended into a commit there
     /// - If there are no commits in this branch, a new commit is created
     /// - If a change has a dependency to a particular commit, it will be amended into that particular commit
     ///
     /// Optionally an identifier to an Uncommitted File or a Branch (stack) may be provided.
     ///
     /// - If an Uncommitted File id is provided, absorb will be performed for just that file
-    /// - If a Branch (stack) id is provided, absorb will be performed for all changes assigned to that stack
+    /// - If a Branch (stack) id is provided, absorb will be performed for all changes staged to that stack
     /// - If no source is provided, absorb is performed for all uncommitted changes
     ///
     #[cfg(feature = "legacy")]
     Absorb {
         /// If the Source is an uncommitted change - the change will be absorbed.
-        /// If the Source is a stack - anything assigned to the stack will be absorbed accordingly.
+        /// If the Source is a stack - anything staged to the stack will be absorbed accordingly.
         /// If not provided, everything that is uncommitted will be absorbed.
         source: Option<String>,
     },
@@ -607,6 +607,50 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     Fetch,
+
+    /// Uncommit changes from a commit or file-in-commit to the unstaged area.
+    ///
+    /// Wrapper for `but rub <source> zz`.
+    #[cfg(feature = "legacy")]
+    Uncommit {
+        /// Commit ID or file-in-commit ID to uncommit
+        source: String,
+    },
+
+    /// Amend a file change into a specific commit and rebases any dependent commits.
+    ///  
+    /// Wrapper for `but rub <file> <commit>`.
+    #[cfg(feature = "legacy")]
+    Amend {
+        /// File ID to amend
+        file: String,
+        /// Commit ID to amend into
+        commit: String,
+    },
+
+    /// Stages a file or hunk to a specific branch.
+    ///
+    /// Wrapper for `but rub <file-or-hunk> <branch>`.
+    #[cfg(feature = "legacy")]
+    Stage {
+        /// File or hunk ID to stage
+        file_or_hunk: String,
+        /// Branch ID to stage to
+        branch: String,
+    },
+
+    /// Unstages a file or hunk from a branch.
+    ///
+    /// Wrapper for `but rub <file-or-hunk> zz`.
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    Unstage {
+        /// File or hunk ID to unstage
+        file_or_hunk: String,
+        /// Branch ID to unstage from (optional, for validation)
+        #[clap(required = false)]
+        branch: Option<String>,
+    },
 }
 
 pub mod alias;

@@ -118,6 +118,10 @@ fn is_known_subcommand(cmd: &str) -> bool {
             | "resolve"
             | "fetch"
             | "alias"
+            | "uncommit"
+            | "amend"
+            | "stage"
+            | "unstage"
     )
 }
 

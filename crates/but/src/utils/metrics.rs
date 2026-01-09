@@ -147,6 +147,14 @@ impl Subcommands {
             Subcommands::RefreshRemoteData { .. } => RefreshRemoteData,
             #[cfg(feature = "legacy")]
             Subcommands::Resolve { .. } => Resolve,
+            #[cfg(feature = "legacy")]
+            Subcommands::Uncommit { .. } => Rub,
+            #[cfg(feature = "legacy")]
+            Subcommands::Amend { .. } => Rub,
+            #[cfg(feature = "legacy")]
+            Subcommands::Stage { .. } => Rub,
+            #[cfg(feature = "legacy")]
+            Subcommands::Unstage { .. } => Rub,
         }
     }
 }
