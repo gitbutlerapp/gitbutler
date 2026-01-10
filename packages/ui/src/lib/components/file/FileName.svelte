@@ -40,7 +40,7 @@
 		{#if fileNameAndPath.path && !hideFilePath}
 			<Tooltip text={filePath} delay={1200} maxWidth={320}>
 				<span class="text-12 file-name__path-container file-name__path--last truncate">
-					{fileNameAndPath.path}
+					<span class="file-name__path-inner">{fileNameAndPath.path}</span>
 				</span>
 			</Tooltip>
 		{/if}
@@ -80,7 +80,14 @@
 
 	.file-name__path--last {
 		margin-left: 6px;
+		direction: rtl;
+		text-align: left;
 		opacity: 0.4;
+	}
+
+	.file-name__path-inner {
+		direction: ltr;
+		unicode-bidi: isolate;
 	}
 
 	.file-name__name {
