@@ -871,9 +871,6 @@ impl Stack {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct PatchReferenceUpdate {
     pub name: Option<String>,
-    /// If present, this sets the value of the description field.
-    /// It is possible to set this to Some(None) which will remove an existing description.
-    pub description: Option<Option<String>>,
 }
 
 /// Request to update the target of a PatchReference.

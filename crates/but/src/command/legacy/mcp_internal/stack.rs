@@ -22,7 +22,6 @@ pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<Bran
 /// Create a new stack containing only a branch with the given name.
 pub fn create_stack_with_branch(
     name: &str,
-    description: &str,
     current_dir: &Path,
 ) -> anyhow::Result<but_workspace::legacy::ui::StackEntryNoOpt> {
     let project = super::project::project_from_path(current_dir)?;
@@ -45,7 +44,6 @@ pub fn create_stack_with_branch(
         &ctx,
         name.to_string(),
         &PatchReferenceUpdate {
-            description: Some(Some(description.to_string())),
             ..Default::default()
         },
     )?;

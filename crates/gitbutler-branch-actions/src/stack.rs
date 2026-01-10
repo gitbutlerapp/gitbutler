@@ -95,33 +95,6 @@ pub fn update_branch_name(
         branch_name,
         &PatchReferenceUpdate {
             name: Some(normalized_head_name),
-            ..Default::default()
-        },
-    )
-}
-
-/// Updates the description of an existing series in the stack.
-/// The description can be set to `None` to remove it.
-pub fn update_branch_description(
-    ctx: &Context,
-    stack_id: StackId,
-    branch_name: String,
-    description: Option<String>,
-) -> Result<()> {
-    let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::UpdateDependentBranchDescription),
-        guard.write_permission(),
-    );
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.legacy_project.virtual_branches().get_stack(stack_id)?;
-    stack.update_branch(
-        ctx,
-        branch_name,
-        &PatchReferenceUpdate {
-            description: Some(description),
-            ..Default::default()
         },
     )
 }

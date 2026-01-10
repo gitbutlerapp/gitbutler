@@ -124,21 +124,6 @@ pub struct CommitParameters {
     </important_notes>
     ")]
     pub branch_name: String,
-    /// The branch description.
-    #[schemars(description = "
-    <description>
-        The description of the branch.
-        This is a short summary of the branch's purpose.
-        If the branch already exists, this will be overwritten with this description.
-    </description>
-
-    <important_notes>
-        The branch description should be a concise summary of the branch's purpose and changes.
-        It's important to keep it clear and informative.
-        This description should also point out which kind of changes should be assigned to this branch.
-    </important_notes>
-    ")]
-    pub branch_description: String,
     /// The list of files to commit.
     #[schemars(description = "
         <description>
@@ -239,7 +224,6 @@ pub fn create_commit(
         ctx,
         params.branch_name.clone(),
         &PatchReferenceUpdate {
-            description: Some(Some(params.branch_description)),
             ..Default::default()
         },
     )?;
@@ -306,20 +290,6 @@ pub struct CreateBranchParameters {
     </important_notes>
     ")]
     pub branch_name: String,
-    /// The branch description.
-    #[schemars(description = "
-    <description>
-        The description of the branch.
-        This is a short summary of the branch's purpose.
-    </description>
-
-    <important_notes>
-        The branch description should be a concise summary of the branch's purpose and changes.
-        It's important to keep it clear and informative.
-        This description should also point out which kind of changes should be assigned to this branch.
-    </important_notes>
-    ")]
-    pub branch_description: String,
 }
 
 impl Tool for CreateBranch {
@@ -366,7 +336,6 @@ pub fn create_branch(
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let name = params.branch_name;
-    let description = params.branch_description;
 
     let branch = gitbutler_branch::BranchCreateRequest {
         name: Some(name.clone()),
@@ -381,7 +350,6 @@ pub fn create_branch(
         ctx,
         name,
         &PatchReferenceUpdate {
-            description: Some(Some(description)),
             ..Default::default()
         },
     )?;

@@ -200,24 +200,6 @@ pub fn update_branch_name(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn update_branch_description(
-    project_id: ProjectId,
-    stack_id: StackId,
-    branch_name: String,
-    description: Option<String>,
-) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    gitbutler_branch_actions::stack::update_branch_description(
-        &ctx,
-        stack_id,
-        branch_name,
-        description,
-    )?;
-    Ok(())
-}
-
-#[but_api]
-#[instrument(err(Debug))]
 pub fn update_branch_pr_number(
     project_id: ProjectId,
     stack_id: StackId,
