@@ -1,6 +1,6 @@
 <script lang="ts">
-	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
 	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
+	import FileViewHeaderWrapper from '$components/FileViewHeaderWrapper.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
 	import { isExecutableStatus } from '$lib/hunks/change';
@@ -66,16 +66,14 @@
 							data-remove-from-panning
 						>
 							{#if !diffOnly}
-								<FileListItemWrapper
+								<FileViewHeaderWrapper
 									selectionId={selectedFile}
 									projectId={env.projectId}
 									{scrollContainer}
 									{change}
 									{diff}
 									{draggable}
-									isHeader
 									executable={isExecutable}
-									listMode="list"
 									onCloseClick={onclose}
 								/>
 							{/if}

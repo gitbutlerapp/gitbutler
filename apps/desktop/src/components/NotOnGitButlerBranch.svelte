@@ -4,6 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import directionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -20,6 +21,8 @@
 	}
 
 	const { projectId, baseBranch, children }: Props = $props();
+
+	const userSettings = inject(SETTINGS);
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;

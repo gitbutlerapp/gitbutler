@@ -263,6 +263,7 @@
 								<div class="file">
 									<FileListItem
 										filePath={file.path}
+										pathFirst={$userSettings.pathFirst}
 										fileStatus={file.status}
 										{conflicted}
 										clickable={false}
