@@ -531,7 +531,6 @@ fn create_stack(
     let create_req = BranchCreateRequest {
         name: Some(branch_name),
         order: None,
-        selected_for_changes: None,
     };
     let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
     Ok(stack.id)

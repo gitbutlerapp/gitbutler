@@ -68,9 +68,6 @@ mod stack {
         pub head: gix::ObjectId,
         // order is the number by which UI should sort branches
         pub order: usize,
-        // is Some(timestamp), the branch is considered a default destination for new changes.
-        // if more than one branch is selected, the branch with the highest timestamp wins.
-        pub selected_for_changes: Option<i64>,
         #[serde(default = "default_true")]
         pub allow_rebasing: bool,
         /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
@@ -147,9 +144,6 @@ mod stack {
 
                 // Unused - everything is defined by the top-most branch name.
                 name: "".to_string(),
-
-                // Related to ownership, obsolete.
-                selected_for_changes: None,
                 // unclear, obsolete
                 not_in_workspace_wip_change_id: None,
                 // unclear

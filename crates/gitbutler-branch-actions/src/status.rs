@@ -97,16 +97,6 @@ pub fn get_applied_status_cached(
 
     let diff_dependencies = &workspace_dependencies.diffs;
 
-    let max_selected_for_changes = virtual_branches
-        .iter()
-        .filter_map(|b| b.selected_for_changes)
-        .max()
-        .unwrap_or(-1);
-    let default_vbranch_pos = virtual_branches
-        .iter()
-        .position(|b| b.selected_for_changes == Some(max_selected_for_changes))
-        .unwrap_or(0);
-
     // Everything claimed has been removed from `base_diffs`, here we just
     // process the remaining ones.
     for (filepath, hunks) in base_diffs {
@@ -118,12 +108,9 @@ pub fn get_applied_status_cached(
                 let p = virtual_branches
                     .iter()
                     .position(|vb| vb.id == locks[0].branch_id);
-                match p {
-                    Some(p) => p,
-                    _ => default_vbranch_pos,
-                }
+                p.unwrap_or_default()
             } else {
-                default_vbranch_pos
+                0
             };
 
             diffs_by_branch

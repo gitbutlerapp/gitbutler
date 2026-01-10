@@ -66,7 +66,6 @@ tree = "bc096ab1005a594d4c66dcf3d08355e1f35f9971"
 head = "e7fce5d8c8004dbe584ae752e41b2532c1733873"
 ownership = ""
 order = 0
-selected_for_changes = 1740394683827
 allow_rebasing = true
 in_workspace = true
 post_commits = false

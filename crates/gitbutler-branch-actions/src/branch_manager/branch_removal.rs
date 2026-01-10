@@ -11,7 +11,7 @@ use gitbutler_workspace::workspace_base;
 use tracing::instrument;
 
 use super::{BranchManager, checkout_remerged_head};
-use crate::{VirtualBranchesExt, r#virtual as vbranch};
+use crate::VirtualBranchesExt;
 
 impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
@@ -119,9 +119,6 @@ impl BranchManager<'_> {
         }
 
         vb_state.update_ordering()?;
-
-        vbranch::ensure_selected_for_changes(&vb_state)
-            .context("failed to ensure selected for changes")?;
 
         crate::integration::update_workspace_commit(&vb_state, self.ctx, false)
             .context("failed to update gitbutler workspace")?;

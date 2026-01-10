@@ -52,8 +52,6 @@ type BranchParams = {
 	name?: string;
 	order?: number;
 	allow_rebasing?: boolean;
-	notes?: string;
-	selected_for_changes?: boolean;
 };
 
 export type CreateCommitRequest = {

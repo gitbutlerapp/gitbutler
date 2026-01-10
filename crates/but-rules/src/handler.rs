@@ -172,7 +172,6 @@ fn create_stack(ctx: &Context) -> anyhow::Result<StackId> {
     let create_req = gitbutler_branch::BranchCreateRequest {
         name: Some(branch_name),
         order: None,
-        selected_for_changes: None,
     };
 
     let mut guard = ctx.exclusive_worktree_access();

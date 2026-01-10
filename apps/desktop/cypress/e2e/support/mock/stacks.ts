@@ -465,8 +465,6 @@ type BranchParams = {
 	name?: string;
 	order?: number;
 	allow_rebasing?: boolean;
-	notes?: string;
-	selected_for_changes?: boolean;
 };
 
 function isBranchParams(params: unknown): params is BranchParams {
@@ -478,11 +476,7 @@ function isBranchParams(params: unknown): params is BranchParams {
 		((params as BranchParams).order === undefined ||
 			typeof (params as BranchParams).order === 'number') &&
 		((params as BranchParams).allow_rebasing === undefined ||
-			typeof (params as BranchParams).allow_rebasing === 'boolean') &&
-		((params as BranchParams).notes === undefined ||
-			typeof (params as BranchParams).notes === 'string') &&
-		((params as BranchParams).selected_for_changes === undefined ||
-			typeof (params as BranchParams).selected_for_changes === 'boolean')
+			typeof (params as BranchParams).allow_rebasing === 'boolean')
 	);
 }
 export type CreateStackParams = {
