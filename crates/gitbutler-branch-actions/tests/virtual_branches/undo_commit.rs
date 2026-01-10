@@ -111,7 +111,6 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
     let default_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
-            selected_for_changes: Some(true),
             ..BranchCreateRequest::default()
         },
         ctx.exclusive_worktree_access().write_permission(),

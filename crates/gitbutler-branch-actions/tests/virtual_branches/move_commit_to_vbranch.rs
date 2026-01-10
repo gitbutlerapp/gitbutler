@@ -98,7 +98,6 @@ fn multiple_commits() {
     let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
-            selected_for_changes: Some(true),
             ..Default::default()
         },
         ctx.exclusive_worktree_access().write_permission(),
@@ -192,7 +191,6 @@ fn multiple_commits_with_diffs() {
     let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
-            selected_for_changes: Some(true),
             ..Default::default()
         },
         ctx.exclusive_worktree_access().write_permission(),
@@ -330,7 +328,6 @@ fn diffs_on_target_branch() {
     let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
-            selected_for_changes: Some(true),
             ..Default::default()
         },
         ctx.exclusive_worktree_access().write_permission(),
@@ -394,7 +391,6 @@ fn diffs_on_both_branches() {
     let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
-            selected_for_changes: Some(true),
             ..Default::default()
         },
         ctx.exclusive_worktree_access().write_permission(),

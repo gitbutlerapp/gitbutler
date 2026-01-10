@@ -216,26 +216,6 @@ impl SnapshotExt for but_ctx::Context {
                 ]
                 .concat(),
             )
-        } else if let Some(_selected_for_changes) = update.selected_for_changes {
-            SnapshotDetails::new(OperationKind::SelectDefaultVirtualBranch).with_trailers(
-                [
-                    vec![
-                        Trailer {
-                            key: "before".to_string(),
-                            value: old_stack
-                                .selected_for_changes
-                                .unwrap_or_default()
-                                .to_string(),
-                        },
-                        Trailer {
-                            key: "after".to_string(),
-                            value: old_stack.name.clone(),
-                        },
-                    ],
-                    error_trailer(error),
-                ]
-                .concat(),
-            )
         } else if let Some(upstream) = update.upstream.as_deref() {
             SnapshotDetails::new(OperationKind::UpdateBranchRemoteName).with_trailers(
                 [

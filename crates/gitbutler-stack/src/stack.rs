@@ -53,9 +53,6 @@ pub struct Stack {
     head: git2::Oid,
     // order is the number by which UI should sort branches
     pub order: usize,
-    // is Some(timestamp), the branch is considered a default destination for new changes.
-    // if more than one branch is selected, the branch with the highest timestamp wins.
-    pub selected_for_changes: Option<i64>,
     pub allow_rebasing: bool,
     /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
     /// and its effects are available to the user.
@@ -80,7 +77,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             tree,
             head,
             order,
-            selected_for_changes,
             allow_rebasing,
             in_workspace,
             not_in_workspace_wip_change_id,
@@ -99,7 +95,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             tree: tree.to_git2(),
             head: head.to_git2(),
             order,
-            selected_for_changes,
             allow_rebasing,
             in_workspace,
             not_in_workspace_wip_change_id,
@@ -122,7 +117,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             tree,
             head,
             order,
-            selected_for_changes,
             allow_rebasing,
             in_workspace,
             not_in_workspace_wip_change_id,
@@ -141,7 +135,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             tree: tree.to_gix(),
             head: head.to_gix(),
             order,
-            selected_for_changes,
             allow_rebasing,
             in_workspace,
             not_in_workspace_wip_change_id,
@@ -180,7 +173,6 @@ impl Stack {
         tree: git2::Oid,
         head: git2::Oid,
         order: usize,
-        selected_for_changes: Option<i64>,
         allow_rebasing: bool,
     ) -> Self {
         let now = gitbutler_time::time::now_ms();
@@ -195,7 +187,6 @@ impl Stack {
             tree,
             head,
             order,
-            selected_for_changes,
             allow_rebasing,
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
@@ -229,8 +220,6 @@ impl Stack {
             // Unused - everything is defined by the top-most branch name.
             name: "".to_string(),
 
-            // Related to ownership, obsolete.
-            selected_for_changes: None,
             // unclear, obsolete
             not_in_workspace_wip_change_id: None,
             // unclear
@@ -287,7 +276,6 @@ impl Stack {
         tree: git2::Oid,
         head: git2::Oid,
         order: usize,
-        selected_for_changes: Option<i64>,
         allow_rebasing: bool,
         allow_duplicate_refs: bool,
     ) -> Result<Self> {
@@ -301,7 +289,6 @@ impl Stack {
             tree,
             head,
             order,
-            selected_for_changes,
             allow_rebasing,
         );
         branch.initialize(ctx, allow_duplicate_refs)?;

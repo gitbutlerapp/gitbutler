@@ -19,13 +19,12 @@ use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{RepositoryExt as _, rebase::gitbutler_merge_commits};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Stack, StackId};
-use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use serde::Serialize;
 use tracing::instrument;
 
 use super::BranchManager;
-use crate::{VirtualBranchesExt, integration::update_workspace_commit, r#virtual as vbranch};
+use crate::{VirtualBranchesExt, integration::update_workspace_commit};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -88,24 +87,6 @@ impl BranchManager<'_> {
 
         let order = create.order.unwrap_or(vb_state.next_order_index()?);
 
-        let selected_for_changes = if let Some(selected_for_changes) = create.selected_for_changes {
-            if selected_for_changes {
-                for mut other_branch in vb_state
-                    .list_stacks_in_workspace()
-                    .context("failed to read virtual branches")?
-                {
-                    other_branch.selected_for_changes = None;
-                    vb_state.set_stack(other_branch.clone())?;
-                }
-                Some(now_since_unix_epoch_ms())
-            } else {
-                None
-            }
-        } else {
-            (!all_stacks.iter().any(|b| b.selected_for_changes.is_some()))
-                .then_some(now_since_unix_epoch_ms())
-        };
-
         // make space for the new branch
         for (i, branch) in all_stacks.iter().enumerate() {
             let mut branch = branch.clone();
@@ -125,7 +106,6 @@ impl BranchManager<'_> {
             tree.id(),
             default_target.sha,
             order,
-            selected_for_changes,
             self.ctx.legacy_project.ok_with_force_push.into(),
             false, // disallow duplicate branch names on creation
         )?;
@@ -252,16 +232,7 @@ impl BranchManager<'_> {
             .context("failed to peel to commit")?;
         let head_commit_tree = head_commit.tree().context("failed to find tree")?;
 
-        let stacks = vb_state
-            .list_stacks_in_workspace()
-            .context("failed to read virtual branches")?
-            .into_iter()
-            .collect::<Vec<Stack>>();
-
         let order = vb_state.next_order_index()?;
-
-        let selected_for_changes = (!stacks.iter().any(|b| b.selected_for_changes.is_some()))
-            .then_some(now_since_unix_epoch_ms());
 
         let mut branch = if let Some(mut branch) = vb_state
             .find_by_top_reference_name_where_not_in_workspace(&target.to_string())?
@@ -270,7 +241,6 @@ impl BranchManager<'_> {
             branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
             branch.upstream = upstream_branch; // Used as remote when listing commits.
             branch.order = order;
-            branch.selected_for_changes = selected_for_changes;
             branch.allow_rebasing = self.ctx.legacy_project.ok_with_force_push.into();
             branch.in_workspace = true;
 
@@ -289,7 +259,6 @@ impl BranchManager<'_> {
                 head_commit_tree.id(),
                 head_commit.id(),
                 order,
-                selected_for_changes,
                 self.ctx.legacy_project.ok_with_force_push.into(),
                 true, // allow duplicate branch name if created from an existing branch
             )?
@@ -436,9 +405,6 @@ impl BranchManager<'_> {
 
         // apply the branch
         vb_state.set_stack(stack.clone())?;
-
-        vbranch::ensure_selected_for_changes(&vb_state)
-            .context("failed to ensure selected for changes")?;
 
         {
             if let Some(wip_commit_to_unapply) = &stack.not_in_workspace_wip_change_id {

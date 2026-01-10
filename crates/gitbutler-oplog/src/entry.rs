@@ -130,7 +130,6 @@ pub enum OperationKind {
     UpdateBranchName,
     UpdateBranchNotes,
     ReorderBranches,
-    SelectDefaultVirtualBranch,
     UpdateBranchRemoteName,
     GenericBranchUpdate,
     DeleteBranch,

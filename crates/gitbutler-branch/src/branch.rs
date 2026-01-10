@@ -10,7 +10,6 @@ pub struct BranchUpdateRequest {
     pub name: Option<String>,
     pub order: Option<usize>,
     pub upstream: Option<String>, // just the branch name, so not refs/remotes/origin/branchA, just branchA
-    pub selected_for_changes: Option<bool>,
     pub allow_rebasing: Option<bool>,
 }
 
@@ -18,7 +17,6 @@ pub struct BranchUpdateRequest {
 pub struct BranchCreateRequest {
     pub name: Option<String>,
     pub order: Option<usize>,
-    pub selected_for_changes: Option<bool>,
 }
 
 /// The identity of a branch as to allow to group similar branches together.
