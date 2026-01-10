@@ -134,7 +134,6 @@ pub fn branch_details(
         reference: name.into(),
         linked_worktree_id: None, /* probably not needed here */
         remote_tracking_branch: remote_tracking_branch.map(|b| b.name().as_bstr().to_owned()),
-        description: meta.description.clone(),
         pr_number: meta.review.pull_request,
         review_id: meta.review.review_id.clone(),
         base_commit,

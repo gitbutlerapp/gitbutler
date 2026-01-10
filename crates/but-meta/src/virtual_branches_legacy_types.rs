@@ -172,8 +172,6 @@ mod stack {
         /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
         /// The name must be unique within the repository.
         pub name: String,
-        /// Optional description of the series. This could be markdown or anything our hearts desire.
-        pub description: Option<String>,
         /// The pull request associated with the branch, or None if a pull request has not been created.
         #[serde(default)]
         pub pr_number: Option<usize>,
@@ -189,14 +187,12 @@ mod stack {
     impl StackBranch {
         pub fn new_with_zero_head(
             name: String,
-            description: Option<String>,
             pr_number: Option<usize>,
             review_id: Option<String>,
             archived: bool,
         ) -> Self {
             StackBranch {
                 name,
-                description,
                 pr_number,
                 archived,
                 review_id,

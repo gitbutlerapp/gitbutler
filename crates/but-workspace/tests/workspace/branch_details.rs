@@ -306,7 +306,6 @@ mod with_workspace {
                     created_at: None,
                     updated_at: Some(gix::date::Time::new(56, 0)),
                 },
-                description: Some(format!("{short_name}: description")),
                 review: Review {
                     pull_request: Some(42),
                     review_id: Some("uuid".into()),

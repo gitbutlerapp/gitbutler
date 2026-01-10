@@ -1680,8 +1680,6 @@ impl From<but_workspace::ui::Commit> for SimpleCommit {
 pub struct SimpleBranch {
     /// The name of the branch.
     pub name: String,
-    /// The description of the branch.
-    pub description: Option<String>,
     /// The commits in the branch.
     pub commits: Vec<SimpleCommit>,
 }
@@ -1837,7 +1835,6 @@ fn entries_to_simple_stacks(
 
             simple_branches.push(SimpleBranch {
                 name: branch.name.to_string(),
-                description: branch.description.clone(),
                 commits: simple_commits,
             });
         }

@@ -185,7 +185,7 @@ fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
 pub fn series(project: Project, stack_name: String, new_series_name: String) -> Result<()> {
     let mut stack = stack_by_name(&project, &stack_name)?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
-    stack.add_series_top_of_stack(&ctx, new_series_name, None)?;
+    stack.add_series_top_of_stack(&ctx, new_series_name)?;
     Ok(())
 }
 

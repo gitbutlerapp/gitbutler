@@ -303,7 +303,6 @@ pub mod stacks {
     ) -> anyhow::Result<ui::StackEntry> {
         let creation_request = gitbutler_branch_actions::stack::CreateSeriesRequest {
             name: name.to_string(),
-            description: None,
             target_patch: None,
             preceding_head: None,
         };

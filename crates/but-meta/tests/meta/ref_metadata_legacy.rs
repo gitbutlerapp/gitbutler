@@ -574,7 +574,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     assert!(!toml_path.exists(), "file wasn't written yet");
     assert_eq!(branch.stack_id(), None, "default values have no stack-id");
 
-    branch.description = Some("mine".into());
     branch.review = but_core::ref_metadata::Review {
         pull_request: Some(42),
         review_id: Some("review-id".into()),

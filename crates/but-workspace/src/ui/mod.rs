@@ -215,9 +215,6 @@ pub struct BranchDetails {
     #[serde(with = "but_serde::bstring_opt_lossy")]
     #[ts(type = "string | null")]
     pub remote_tracking_branch: Option<BString>,
-    /// Description of the branch.
-    /// Can include arbitrary utf8 data, eg. markdown etc.
-    pub description: Option<String>,
     /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
     pub pr_number: Option<usize>,
     /// A unique identifier for the GitButler review associated with the branch, if any.
@@ -274,9 +271,6 @@ pub struct Branch {
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
     #[serde(with = "but_serde::bstring_opt_lossy")]
     pub remote_tracking_branch: Option<BString>,
-    /// Description of the branch.
-    /// Can include arbitrary utf8 data, eg. markdown etc.
-    pub description: Option<String>,
     /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
     pub pr_number: Option<usize>,
     /// A unique identifier for the GitButler review associated with the branch, if any.

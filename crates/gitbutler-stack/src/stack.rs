@@ -430,7 +430,7 @@ impl Stack {
         let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;
 
         validate_name(&name, &state)?;
-        let reference = StackBranch::new(commit, name, None, &repo)?;
+        let reference = StackBranch::new(commit, name, &repo)?;
 
         Ok(reference)
     }
@@ -513,19 +513,13 @@ impl Stack {
     }
 
     /// A convenience method just like `add_series`, but adds a new branch on top of the stack.
-    pub fn add_series_top_of_stack(
-        &mut self,
-        ctx: &Context,
-        name: String,
-        description: Option<String>,
-    ) -> Result<()> {
+    pub fn add_series_top_of_stack(&mut self, ctx: &Context, name: String) -> Result<()> {
         self.ensure_initialized()?;
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
         let repo = ctx.repo.get()?;
-        let new_head =
-            StackBranch::new(current_top_head.head_oid(&repo)?, name, description, &repo)?;
+        let new_head = StackBranch::new(current_top_head.head_oid(&repo)?, name, &repo)?;
         self.add_series(ctx, new_head, Some(current_top_head.name().clone()))
     }
 
@@ -572,14 +566,6 @@ impl Stack {
                 validate_name(&name, &state)?;
                 head.set_name(name, &*ctx.repo.get()?)?;
                 head.pr_number = None; // reset pr_number
-            }
-        }
-
-        // Handle description updates
-        if let Some(description) = update.description.clone() {
-            let head = updated_heads.iter_mut().find(|h| *h.name() == branch_name);
-            if let Some(head) = head {
-                head.description = description;
             }
         }
         self.heads = updated_heads;

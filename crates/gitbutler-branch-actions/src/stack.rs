@@ -43,11 +43,11 @@ pub fn create_branch(ctx: &Context, stack_id: StackId, req: CreateSeriesRequest)
     if let Some(target_patch) = req.target_patch {
         stack.add_series(
             ctx,
-            StackBranch::new(target_patch, normalized_head_name, req.description, &repo)?,
+            StackBranch::new(target_patch, normalized_head_name, &repo)?,
             req.preceding_head,
         )
     } else {
-        stack.add_series_top_of_stack(ctx, normalized_head_name, req.description)
+        stack.add_series_top_of_stack(ctx, normalized_head_name)
     }
 }
 
@@ -56,8 +56,6 @@ pub fn create_branch(ctx: &Context, stack_id: StackId, req: CreateSeriesRequest)
 pub struct CreateSeriesRequest {
     /// Name of the new series
     pub name: String,
-    /// Description of the new series - can be markdown or anything really
-    pub description: Option<String>,
     /// The target patch (head) to create these series for. If let None, the new series will be at the top of the stack
     pub target_patch: Option<gitbutler_stack::CommitOrChangeId>,
     /// The name of the series that preceded the newly created series.

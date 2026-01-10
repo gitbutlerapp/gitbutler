@@ -222,7 +222,6 @@ impl Snapshot {
                 vb_stack.heads.push(StackBranch {
                     head: CommitOrChangeId::CommitId(first_commit_or_null),
                     name: segment_name.shorten().to_string(),
-                    description: None,
                     pr_number: None,
                     archived: false,
                     review_id: None,
@@ -540,7 +539,6 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             stack_id: Some(stack.id).into(),
             value: Branch {
                 ref_info,
-                description: branch.description.clone(),
                 review: but_core::ref_metadata::Review {
                     pull_request: branch.pr_number,
                     review_id: branch.review_id.clone(),
@@ -740,7 +738,6 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
 
                 let short_name = ref_name.shorten();
                 let StackBranch {
-                    description,
                     pr_number,
                     archived,
                     review_id,
@@ -757,7 +754,6 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 let metadata_stack_indices =
                     ws.find_owner_indexes_by_name(ref_name, AppliedAndUnapplied);
                 self.snapshot.changed_at = Some(Instant::now());
-                *description = value.description.clone();
                 *pr_number = value.review.pull_request;
                 *review_id = value.review.review_id.clone();
                 if let Some((stack_idx, segment_idx)) = metadata_stack_indices {
@@ -998,14 +994,12 @@ fn branch_to_stack_branch(
     ref_name: &gix::refs::FullNameRef,
     Branch {
         ref_info: _, // TODO: should change parent stack if it's the top.
-        description,
         review,
     }: &Branch,
     archived: bool,
 ) -> StackBranch {
     StackBranch::new_with_zero_head(
         ref_name.shorten().to_string(),
-        description.clone(),
         review.pull_request,
         review.review_id.clone(),
         archived,
