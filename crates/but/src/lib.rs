@@ -590,6 +590,14 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
+        #[cfg(feature = "legacy")]
+        Subcommands::Stack { source, target } => {
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            command::legacy::rub::handle(&mut ctx, out, &source, &target)
+                .context("Failed to stack branches.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
     }
 }
 
