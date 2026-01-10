@@ -66,7 +66,7 @@
 		 * Snippet template for rendering a chunk of items.
 		 * Receives an array of items to render as a batch.
 		 */
-		chunkTemplate: Snippet<[T[]]>;
+		chunkTemplate: Snippet<[T[], number]>;
 		/**
 		 * Number of items to group together in a single chunk.
 		 * Larger values improve performance but may cause jumpier scrolling.
@@ -651,7 +651,7 @@
 					? `${lockedHeights[i + visibleRange.start]}px`
 					: undefined}
 			>
-				{@render chunkTemplate(chunk.data)}
+				{@render chunkTemplate(chunk.data, visibleRange.start + i)}
 			</div>
 		{/each}
 		<div
