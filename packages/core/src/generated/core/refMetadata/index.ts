@@ -9,10 +9,6 @@ export type Branch = {
 	 */
 	refInfo: RefInfo;
 	/**
-	 * More details about the branch.
-	 */
-	description: string | null;
-	/**
 	 * Information about possibly ongoing reviews in various forges.
 	 */
 	review: Review;
