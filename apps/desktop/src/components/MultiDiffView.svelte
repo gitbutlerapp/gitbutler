@@ -43,9 +43,15 @@
 	const diffService = inject(DIFF_SERVICE);
 
 	let virtualList = $state<VirtualList<SelectedFile>>();
+	let highlightedIndex = $state<number | null>(null);
 
 	export function scrollToIndex(index: number) {
 		virtualList?.scrollToIndex(index);
+		// Trigger highlight, then clear after animation.
+		highlightedIndex = index;
+		setTimeout(() => {
+			highlightedIndex = null;
+		}, 1000);
 	}
 </script>
 
@@ -59,8 +65,8 @@
 			defaultHeight={500}
 			visibility="scroll"
 		>
-			{#snippet chunkTemplate(files)}
-				{#each files as file, i}
+			{#snippet chunkTemplate(items, chunkIndex)}
+				{#each items as file}
 					{@const changeQuery = idSelection.changeByKey(projectId, file)}
 					<ReduxResult {projectId} result={changeQuery.result}>
 						{#snippet children(change)}
@@ -71,12 +77,13 @@
 							<FileViewHeader
 								solid
 								bottomBorder
-								topBorder={i !== 0}
+								topBorder={chunkIndex !== 0}
 								filePath={change.path}
 								fileStatus={computeChangeStatus(change)}
 								linesAdded={patchData?.linesAdded}
 								linesRemoved={patchData?.linesRemoved}
 								executable={isExecutable}
+								highlighted={highlightedIndex === chunkIndex}
 								sticky
 							/>
 							<UnifiedDiffView
