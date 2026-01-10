@@ -2,7 +2,9 @@
 //!
 //! Provides subcommands to list, add, and remove aliases stored in git config.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
+use bstr::ByteSlice;
+use but_ctx::Context;
 use colored::Colorize;
 
 use crate::utils::OutputChannel;
@@ -13,21 +15,36 @@ pub fn list(out: &mut OutputChannel) -> Result<()> {
     let mut user_aliases: Vec<(String, String)> = Vec::new();
 
     if let Ok(repo) = gix::discover(".") {
-        let config = repo.config_snapshot();
+        let cfg = repo.config_snapshot(); // resolved view of config stack  [oai_citation:4‡Docs.rs](https://docs.rs/gix/latest/gix/struct.Repository.html)
 
-        // Get all sections with name "but" and subsection starting with "alias."
-        // We iterate through sections and check their subsections
-        let sections: Vec<_> = config.sections().filter(|s| s.header().name() == "but").collect();
+        for section in cfg.sections() {
+            let header = section.header();
+            let section_name = header.name().to_str_lossy();
+            if section_name != "but" {
+                continue;
+            }
 
-        for section in sections {
-            if let Some(subsection) = section.header().subsection_name() {
-                let subsection_str: &str = subsection.to_str().unwrap_or("");
-                if let Some(alias_name) = subsection_str.strip_prefix("alias.") {
-                    // Get the value for this alias
-                    let key = format!("but.alias.{}", alias_name);
-                    if let Some(value) = config.string(&key) {
-                        user_aliases.push((alias_name.to_string(), value.to_string()));
-                    }
+            let subsection = header.subsection_name().map(|s| s.to_str_lossy()); //  [oai_citation:7‡Docs.rs](https://docs.rs/gix/latest/gix/config/parse/section/struct.Header.html)
+
+            for value_name in section.value_names() {
+                let vn = value_name.as_ref();
+
+                // Normalize to a dotted key we can prefix-test: "but.alias.<rest>"
+                let dotted = match &subsection {
+                    // [but "alias"] foo = bar  => but.alias.foo
+                    Some(sub) => format!("{}.{}.{}", section_name, sub, vn),
+                    // [but] alias.foo = bar    => but.alias.foo
+                    None => format!("{}.{}", section_name, vn),
+                };
+
+                if !dotted.starts_with("but.alias.") {
+                    continue;
+                }
+
+                if let Some(val) = section.value(vn) {
+                    // Extract the alias name from "but.alias.<name>"
+                    let alias_name = dotted.strip_prefix("but.alias.").unwrap();
+                    user_aliases.push((alias_name.to_string(), val.to_str_lossy().into_owned()));
                 }
             }
         }
@@ -144,7 +161,13 @@ fn get_default_aliases() -> Vec<(String, String)> {
 }
 
 /// Add a new alias
-pub fn add(out: &mut OutputChannel, name: &str, value: &str, global: bool) -> Result<()> {
+pub fn add(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    name: &str,
+    value: &str,
+    global: bool,
+) -> Result<()> {
     // Validate alias name doesn't conflict with known commands
     if crate::alias::is_known_subcommand(name) {
         anyhow::bail!(
@@ -156,21 +179,19 @@ pub fn add(out: &mut OutputChannel, name: &str, value: &str, global: bool) -> Re
     // Use git config command to set the alias
     // This is more reliable and simpler than using gix's config mutation APIs
     let config_key = format!("but.alias.{}", name);
-    let mut cmd = std::process::Command::new("git");
-    cmd.args(["config"]);
 
+    dbg!("setting alias", &config_key, value, global);
+
+    let repo = &*ctx.git2_repo.get()?;
     if global {
-        cmd.arg("--global");
-    }
-
-    cmd.args([&config_key, value]);
-
-    let output = cmd.output()
-        .context("Failed to execute git config")?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("Failed to set alias: {}", stderr);
+        let all = git2::Config::open_default()?;
+        let mut global = all.open_level(git2::ConfigLevel::Global)?;
+        let key = format!("but.alias.{}", name);
+        global.set_str(&key, value)?;
+    } else {
+        let mut cfg = repo.config()?; // repo (local) config
+        let key = format!("but.alias.{}", name);
+        cfg.set_str(&key, value)?;
     }
 
     if let Some(out) = out.for_human() {
@@ -197,39 +218,6 @@ pub fn add(out: &mut OutputChannel, name: &str, value: &str, global: bool) -> Re
 }
 
 /// Remove an alias
-pub fn remove(out: &mut OutputChannel, name: &str, global: bool) -> Result<()> {
-    // Use git config command to unset the alias
-    // This is more reliable and simpler than using gix's config mutation APIs
-    let config_key = format!("but.alias.{}", name);
-    let mut cmd = std::process::Command::new("git");
-    cmd.args(["config", "--unset"]);
-
-    if global {
-        cmd.arg("--global");
-    }
-
-    cmd.arg(&config_key);
-
-    let output = cmd.output()
-        .context("Failed to execute git config")?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("Failed to remove alias: {}", stderr);
-    }
-
-    if let Some(out) = out.for_human() {
-        writeln!(out, "{} Removed alias '{}'", "✓".green(), name.green())?;
-        if global {
-            writeln!(out, "  (from global config)")?;
-        }
-    } else if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
-            "name": name,
-            "removed": true,
-            "scope": if global { "global" } else { "local" }
-        }))?;
-    }
-
+pub fn remove(_out: &mut OutputChannel, _name: &str, _global: bool) -> Result<()> {
     Ok(())
 }

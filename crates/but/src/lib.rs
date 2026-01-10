@@ -197,6 +197,11 @@ async fn match_subcommand(
         Subcommands::Completions { shell } => {
             command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
         }
+        Subcommands::Help => {
+            command::help::print_grouped(out)?;
+            Ok(())
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
             Some(alias_args::Subcommands::List) | None => {
                 command::alias::list(out).emit_metrics(metrics_ctx)
@@ -205,7 +210,10 @@ async fn match_subcommand(
                 name,
                 value,
                 global,
-            }) => command::alias::add(out, &name, &value, global).emit_metrics(metrics_ctx),
+            }) => {
+                let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+                command::alias::add(&mut ctx, out, &name, &value, global).emit_metrics(metrics_ctx)
+            }
             Some(alias_args::Subcommands::Remove { name, global }) => {
                 command::alias::remove(out, &name, global).emit_metrics(metrics_ctx)
             }

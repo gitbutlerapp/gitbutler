@@ -23,6 +23,13 @@ use std::ffi::OsString;
 
 use anyhow::Result;
 
+/// Default aliases that ship with `but` and can be overridden by git config.
+const DEFAULT_ALIASES: &[(&str, &str)] = &[
+    ("default", "status --hint"),
+    ("st", "status"),
+    ("stf", "status --files"),
+];
+
 /// Expands command aliases before argument parsing.
 ///
 /// If the first argument after "but" is an alias defined in git config
@@ -97,11 +104,10 @@ pub fn is_known_subcommand(cmd: &str) -> bool {
 /// These are convenience aliases that ship with `but` but can be overridden
 /// by setting them in git config.
 pub fn get_all_default_aliases() -> Vec<(String, String)> {
-    vec![
-        ("default".to_string(), "status --hint".to_string()),
-        ("st".to_string(), "status".to_string()),
-        ("stf".to_string(), "status --files".to_string()),
-    ]
+    DEFAULT_ALIASES
+        .iter()
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .collect()
 }
 
 /// Gets a default alias value for built-in aliases that can be overridden.
@@ -117,10 +123,10 @@ pub fn get_all_default_aliases() -> Vec<(String, String)> {
 ///
 /// The default alias value if one exists, or `None`
 pub fn get_default_alias(alias_name: &str) -> Option<String> {
-    get_all_default_aliases()
-        .into_iter()
-        .find(|(name, _)| name == alias_name)
-        .map(|(_, value)| value)
+    DEFAULT_ALIASES
+        .iter()
+        .find(|(name, _)| *name == alias_name)
+        .map(|(_, value)| value.to_string())
 }
 
 /// Reads a git config alias value using gix.
