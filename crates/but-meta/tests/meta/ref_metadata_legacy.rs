@@ -180,7 +180,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:17 +0000" },
-                description: None,
                 review: Review { pull_request: 12, review_id: None },
             },
         ),
@@ -191,7 +190,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -202,7 +200,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -213,7 +210,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -224,7 +220,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -235,7 +230,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -246,7 +240,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -257,7 +250,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -268,7 +260,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -279,7 +270,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -290,7 +280,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -301,7 +290,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -312,7 +300,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -323,7 +310,6 @@ fn read_only() -> anyhow::Result<()> {
             ),
             Branch {
                 ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 11:00:01 +0000" },
-                description: None,
                 review: Review { pull_request: None, review_id: None },
             },
         ),
@@ -574,7 +560,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     assert!(!toml_path.exists(), "file wasn't written yet");
     assert_eq!(branch.stack_id(), None, "default values have no stack-id");
 
-    branch.description = Some("mine".into());
     branch.review = but_core::ref_metadata::Review {
         pull_request: Some(42),
         review_id: Some("review-id".into()),
@@ -694,7 +679,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     [branches.1]
     id = "1"
     name = "feat-on-top"
-    notes = ""
     created_timestamp_ms = 12345
     updated_timestamp_ms = 12345
     tree = "0000000000000000000000000000000000000000"
@@ -707,7 +691,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
 
     [[branches.1.heads]]
     name = "feat"
-    description = "mine"
     pr_number = 42
     archived = false
     review_id = "review-id"

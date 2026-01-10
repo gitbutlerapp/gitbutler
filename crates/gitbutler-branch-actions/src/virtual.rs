@@ -113,10 +113,6 @@ pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack
         stack.upstream = Some(remote_branch);
     };
 
-    if let Some(notes) = update.notes.clone() {
-        stack.notes = notes;
-    };
-
     if let Some(order) = update.order {
         stack.order = order;
     };

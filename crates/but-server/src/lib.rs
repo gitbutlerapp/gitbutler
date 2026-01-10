@@ -383,7 +383,6 @@ async fn handle_command(
         "create_reference" => legacy::stack::create_reference_cmd(request.params),
         "remove_branch" => legacy::stack::remove_branch_cmd(request.params),
         "update_branch_name" => legacy::stack::update_branch_name_cmd(request.params),
-        "update_branch_description" => legacy::stack::update_branch_description_cmd(request.params),
         "update_branch_pr_number" => legacy::stack::update_branch_pr_number_cmd(request.params),
         "push_stack" => legacy::stack::push_stack_cmd(request.params),
         "push_stack_to_review" => legacy::stack::push_stack_to_review_cmd(request.params),

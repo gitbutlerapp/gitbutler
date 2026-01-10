@@ -781,10 +781,6 @@ export class StackService {
 		return this.api.endpoints.removeBranch.useMutation();
 	}
 
-	get updateBranchDescription() {
-		return this.api.endpoints.updateBranchDescription.useMutation();
-	}
-
 	get reorderStack() {
 		return this.api.endpoints.reorderStack.mutate;
 	}
@@ -1502,20 +1498,6 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					// Removing a branch won't change the sha if the branch is empty
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.HeadSha),
-					invalidatesList(ReduxTag.BranchListing)
-				]
-			}),
-			updateBranchDescription: build.mutation<
-				void,
-				{ projectId: string; stackId: string; branchName: string; description: string }
-			>({
-				extraOptions: {
-					command: 'update_branch_description',
-					actionName: 'Update Branch Description'
-				},
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.StackDetails, args.stackId), // This is probably still needed
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),

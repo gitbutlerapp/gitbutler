@@ -38,7 +38,6 @@ pub struct Stack {
     /// A user-specified name with no restrictions.
     /// It will be normalized except to be a valid ref-name if named `refs/gitbutler/<normalize(name)>`.
     pub name: String,
-    pub notes: String,
     /// If set, this means this virtual branch was originally created from `Some(branch)`.
     /// It can be *any* branch.
     pub source_refname: Option<Refname>,
@@ -75,7 +74,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
         virtual_branches_legacy_types::Stack {
             id,
             name,
-            notes,
             source_refname,
             upstream,
             upstream_head,
@@ -96,7 +94,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
         Stack {
             id,
             name,
-            notes,
             source_refname,
             upstream,
             upstream_head: upstream_head.map(|id| id.to_git2()),
@@ -121,7 +118,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
         Stack {
             id,
             name,
-            notes,
             source_refname,
             upstream,
             upstream_head,
@@ -142,7 +138,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
         virtual_branches_legacy_types::Stack {
             id,
             name,
-            notes,
             source_refname,
             upstream,
             upstream_head: upstream_head.map(|id| id.to_gix()),
@@ -198,7 +193,6 @@ impl Stack {
         Self {
             id: StackId::generate(),
             name,
-            notes: String::new(),
             source_refname,
             upstream,
             upstream_head,
@@ -241,7 +235,6 @@ impl Stack {
 
             // Unused - everything is defined by the top-most branch name.
             name: "".to_string(),
-            notes: "".to_string(),
 
             // Related to ownership, obsolete.
             selected_for_changes: None,
@@ -437,7 +430,7 @@ impl Stack {
         let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;
 
         validate_name(&name, &state)?;
-        let reference = StackBranch::new(commit, name, None, &repo)?;
+        let reference = StackBranch::new(commit, name, &repo)?;
 
         Ok(reference)
     }
@@ -520,19 +513,13 @@ impl Stack {
     }
 
     /// A convenience method just like `add_series`, but adds a new branch on top of the stack.
-    pub fn add_series_top_of_stack(
-        &mut self,
-        ctx: &Context,
-        name: String,
-        description: Option<String>,
-    ) -> Result<()> {
+    pub fn add_series_top_of_stack(&mut self, ctx: &Context, name: String) -> Result<()> {
         self.ensure_initialized()?;
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
         let repo = ctx.repo.get()?;
-        let new_head =
-            StackBranch::new(current_top_head.head_oid(&repo)?, name, description, &repo)?;
+        let new_head = StackBranch::new(current_top_head.head_oid(&repo)?, name, &repo)?;
         self.add_series(ctx, new_head, Some(current_top_head.name().clone()))
     }
 
@@ -579,14 +566,6 @@ impl Stack {
                 validate_name(&name, &state)?;
                 head.set_name(name, &*ctx.repo.get()?)?;
                 head.pr_number = None; // reset pr_number
-            }
-        }
-
-        // Handle description updates
-        if let Some(description) = update.description.clone() {
-            let head = updated_heads.iter_mut().find(|h| *h.name() == branch_name);
-            if let Some(head) = head {
-                head.description = description;
             }
         }
         self.heads = updated_heads;
@@ -892,9 +871,6 @@ impl Stack {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct PatchReferenceUpdate {
     pub name: Option<String>,
-    /// If present, this sets the value of the description field.
-    /// It is possible to set this to Some(None) which will remove an existing description.
-    pub description: Option<Option<String>>,
 }
 
 /// Request to update the target of a PatchReference.

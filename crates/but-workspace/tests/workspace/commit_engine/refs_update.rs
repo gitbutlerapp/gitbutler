@@ -1669,7 +1669,7 @@ mod utils {
         head: gix::ObjectId,
         repo: &gix::Repository,
     ) -> anyhow::Result<gitbutler_stack::StackBranch> {
-        gitbutler_stack::StackBranch::new(head, name.into(), None, repo)
+        gitbutler_stack::StackBranch::new(head, name.into(), repo)
     }
 
     /// Turn all heads from `vbranches` into an aptly named standard reference.

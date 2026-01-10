@@ -111,11 +111,10 @@ pub fn add_stack_with_segments(
             .iter()
             .rev()
             .map(|stack_name| {
-                StackBranch::new_with_zero_head((*stack_name).into(), None, None, None, false)
+                StackBranch::new_with_zero_head((*stack_name).into(), None, None, false)
             })
             .chain(std::iter::once(StackBranch::new_with_zero_head(
                 stack_name.into(),
-                None,
                 None,
                 None,
                 false,

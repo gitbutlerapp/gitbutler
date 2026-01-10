@@ -40,11 +40,6 @@ export type BranchDetails = {
 	 */
 	remoteTrackingBranch: string | null;
 	/**
-	 * Description of the branch.
-	 * Can include arbitrary utf8 data, eg. markdown etc.
-	 */
-	description: string | null;
-	/**
 	 * The pull(merge) request associated with the branch, or None if no such entity has not been created.
 	 */
 	prNumber: number | null;

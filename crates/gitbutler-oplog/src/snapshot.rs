@@ -210,8 +210,6 @@ impl SnapshotExt for but_ctx::Context {
                 ]
                 .concat(),
             )
-        } else if update.notes.is_some() {
-            SnapshotDetails::new(OperationKind::UpdateBranchNotes)
         } else if let Some(order) = update.order {
             SnapshotDetails::new(OperationKind::ReorderBranches).with_trailers(
                 [

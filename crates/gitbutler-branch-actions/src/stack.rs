@@ -43,11 +43,11 @@ pub fn create_branch(ctx: &Context, stack_id: StackId, req: CreateSeriesRequest)
     if let Some(target_patch) = req.target_patch {
         stack.add_series(
             ctx,
-            StackBranch::new(target_patch, normalized_head_name, req.description, &repo)?,
+            StackBranch::new(target_patch, normalized_head_name, &repo)?,
             req.preceding_head,
         )
     } else {
-        stack.add_series_top_of_stack(ctx, normalized_head_name, req.description)
+        stack.add_series_top_of_stack(ctx, normalized_head_name)
     }
 }
 
@@ -56,8 +56,6 @@ pub fn create_branch(ctx: &Context, stack_id: StackId, req: CreateSeriesRequest)
 pub struct CreateSeriesRequest {
     /// Name of the new series
     pub name: String,
-    /// Description of the new series - can be markdown or anything really
-    pub description: Option<String>,
     /// The target patch (head) to create these series for. If let None, the new series will be at the top of the stack
     pub target_patch: Option<gitbutler_stack::CommitOrChangeId>,
     /// The name of the series that preceded the newly created series.
@@ -97,33 +95,6 @@ pub fn update_branch_name(
         branch_name,
         &PatchReferenceUpdate {
             name: Some(normalized_head_name),
-            ..Default::default()
-        },
-    )
-}
-
-/// Updates the description of an existing series in the stack.
-/// The description can be set to `None` to remove it.
-pub fn update_branch_description(
-    ctx: &Context,
-    stack_id: StackId,
-    branch_name: String,
-    description: Option<String>,
-) -> Result<()> {
-    let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::UpdateDependentBranchDescription),
-        guard.write_permission(),
-    );
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.legacy_project.virtual_branches().get_stack(stack_id)?;
-    stack.update_branch(
-        ctx,
-        branch_name,
-        &PatchReferenceUpdate {
-            description: Some(description),
-            ..Default::default()
         },
     )
 }

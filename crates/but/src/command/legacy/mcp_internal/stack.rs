@@ -22,7 +22,6 @@ pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<Bran
 /// Create a new stack containing only a branch with the given name.
 pub fn create_stack_with_branch(
     name: &str,
-    description: &str,
     current_dir: &Path,
 ) -> anyhow::Result<but_workspace::legacy::ui::StackEntryNoOpt> {
     let project = super::project::project_from_path(current_dir)?;
@@ -45,7 +44,6 @@ pub fn create_stack_with_branch(
         &ctx,
         name.to_string(),
         &PatchReferenceUpdate {
-            description: Some(Some(description.to_string())),
             ..Default::default()
         },
     )?;
@@ -125,9 +123,6 @@ pub struct BranchDetails {
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
     #[serde(with = "but_serde::bstring_opt_lossy")]
     pub remote_tracking_branch: Option<BString>,
-    /// Description of the branch.
-    /// Can include arbitrary utf8 data, eg. markdown etc.
-    pub description: Option<String>,
     /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
     pub pr_number: Option<usize>,
     /// A unique identifier for the GitButler review associated with the branch, if any.
@@ -155,7 +150,6 @@ fn parse_branch_details(
     BranchDetails {
         name: details.name,
         remote_tracking_branch: details.remote_tracking_branch,
-        description: details.description,
         pr_number: details.pr_number,
         review_id: details.review_id,
         tip: details.tip,
