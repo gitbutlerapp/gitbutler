@@ -61,7 +61,6 @@ pub struct Stack {
     /// Represents the Stack state of pseudo-references ("heads").
     /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
     pub heads: Vec<StackBranch>,
-    pub post_commits: bool,
 }
 
 impl From<virtual_branches_legacy_types::Stack> for Stack {
@@ -81,7 +80,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             in_workspace,
             not_in_workspace_wip_change_id,
             heads,
-            post_commits,
         }: virtual_branches_legacy_types::Stack,
     ) -> Self {
         Stack {
@@ -99,7 +97,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             in_workspace,
             not_in_workspace_wip_change_id,
             heads: heads.into_iter().map(Into::into).collect(),
-            post_commits,
         }
     }
 }
@@ -121,7 +118,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             in_workspace,
             not_in_workspace_wip_change_id,
             heads,
-            post_commits,
         }: Stack,
     ) -> Self {
         virtual_branches_legacy_types::Stack {
@@ -139,7 +135,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             in_workspace,
             not_in_workspace_wip_change_id,
             heads: heads.into_iter().map(Into::into).collect(),
-            post_commits,
         }
     }
 }
@@ -191,7 +186,6 @@ impl Stack {
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
             heads: Default::default(),
-            post_commits: false,
         }
     }
 
@@ -222,8 +216,6 @@ impl Stack {
 
             // unclear, obsolete
             not_in_workspace_wip_change_id: None,
-            // unclear
-            post_commits: false,
         }
     }
 

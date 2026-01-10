@@ -80,8 +80,6 @@ mod stack {
         /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
         #[serde(default)]
         pub heads: Vec<StackBranch>,
-        #[serde(default = "default_false")]
-        pub post_commits: bool,
     }
 
     impl Stack {
@@ -97,10 +95,6 @@ mod stack {
 
     fn default_true() -> bool {
         true
-    }
-
-    fn default_false() -> bool {
-        false
     }
 
     fn serialize_u128<S>(x: &u128, s: S) -> anyhow::Result<S::Ok, S::Error>
@@ -146,8 +140,6 @@ mod stack {
                 name: "".to_string(),
                 // unclear, obsolete
                 not_in_workspace_wip_change_id: None,
-                // unclear
-                post_commits: false,
             }
         }
     }

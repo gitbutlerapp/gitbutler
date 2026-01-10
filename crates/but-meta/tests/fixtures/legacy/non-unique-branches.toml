@@ -24,7 +24,6 @@ ownership = ""
 order = 0
 allow_rebasing = true
 in_workspace = true
-post_commits = false
 
 [[branches.1819a203-26ef-477c-ac56-2d07a034ddb8.heads]]
 name = "confidence"
@@ -52,7 +51,6 @@ ownership = ""
 order = 0
 allow_rebasing = true
 in_workspace = false
-post_commits = false
 
 [[branches.a3102d3c-4c62-4a8a-955c-421f72d4df74.heads]]
 name = "confidence"
