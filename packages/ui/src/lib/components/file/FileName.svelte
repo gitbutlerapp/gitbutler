@@ -32,9 +32,7 @@
 			</Tooltip>
 		{/if}
 		<div class="text-{textSize} text-semibold file-name__name truncate">
-			<span class="file-name__inner">
-				{fileNameAndPath.filename}
-			</span>
+			{fileNameAndPath.filename}
 		</div>
 	{:else}
 		<span class="text-{textSize} text-semibold file-name__name truncate">
