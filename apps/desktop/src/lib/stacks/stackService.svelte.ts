@@ -50,7 +50,6 @@ import type { ReduxError } from '$lib/state/reduxError';
 
 type BranchParams = {
 	name?: string;
-	ownership?: string;
 	order?: number;
 	allow_rebasing?: boolean;
 	notes?: string;

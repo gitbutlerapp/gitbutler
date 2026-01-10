@@ -683,7 +683,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     updated_timestamp_ms = 12345
     tree = "0000000000000000000000000000000000000000"
     head = "0000000000000000000000000000000000000000"
-    ownership = ""
     order = 0
     allow_rebasing = true
     in_workspace = true

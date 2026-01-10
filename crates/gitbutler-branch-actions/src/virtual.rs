@@ -17,9 +17,7 @@ use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{
-    BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle, reconcile_claims,
-};
+use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use itertools::Itertools;
 use serde::Serialize;
@@ -71,11 +69,6 @@ impl From<but_workspace::ui::Author> for crate::author::Author {
 pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack> {
     let vb_state = ctx.legacy_project.virtual_branches();
     let mut stack = vb_state.get_stack_in_workspace(update.id.context("BUG(opt-stack-id)")?)?;
-
-    if let Some(ownership) = update.ownership.clone() {
-        let claim = ownership.into();
-        set_ownership(&vb_state, &mut stack, &claim).context("failed to set ownership")?;
-    }
 
     if let Some(name) = &update.name {
         let all_virtual_branches = vb_state
@@ -161,36 +154,6 @@ pub(crate) fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> R
 
     stacks[0].selected_for_changes = Some(now_since_unix_epoch_ms());
     vb_state.set_stack(stacks[0].clone())?;
-    Ok(())
-}
-
-pub(crate) fn set_ownership(
-    vb_state: &VirtualBranchesHandle,
-    target_branch: &mut Stack,
-    ownership: &BranchOwnershipClaims,
-) -> Result<()> {
-    if target_branch.ownership.eq(ownership) {
-        // nothing to update
-        return Ok(());
-    }
-
-    let stacks = vb_state
-        .list_stacks_in_workspace()
-        .context("failed to read virtual branches")?;
-
-    let mut claim_outcomes = reconcile_claims(stacks, target_branch, &ownership.claims)?;
-    for claim_outcome in &mut claim_outcomes {
-        if !claim_outcome.removed_claims.is_empty() {
-            vb_state
-                .set_stack(claim_outcome.updated_branch.clone())
-                .context("failed to write ownership for branch".to_string())?;
-        }
-    }
-
-    // Updates the claiming branch that was passed as mutable state with the new ownership claims
-    // TODO: remove mutable reference to target_branch
-    target_branch.ownership = ownership.clone();
-
     Ok(())
 }
 

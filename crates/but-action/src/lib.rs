@@ -252,7 +252,6 @@ fn stacks_creating_if_none(
         )?;
         let create_req = BranchCreateRequest {
             name: Some(branch_name),
-            ownership: None,
             order: None,
             selected_for_changes: None,
         };

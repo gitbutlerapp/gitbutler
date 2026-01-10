@@ -66,7 +66,6 @@ mod stack {
         /// head is id of the last "virtual" commit in this branch
         #[serde(with = "but_serde::object_id")]
         pub head: gix::ObjectId,
-        pub ownership: BranchOwnershipClaims,
         // order is the number by which UI should sort branches
         pub order: usize,
         // is Some(timestamp), the branch is considered a default destination for new changes.
@@ -155,7 +154,6 @@ mod stack {
                 not_in_workspace_wip_change_id: None,
                 // unclear
                 post_commits: false,
-                ownership: Default::default(),
             }
         }
     }

@@ -6,7 +6,7 @@ mod state;
 mod target;
 
 pub use file_ownership::OwnershipClaim;
-pub use ownership::{BranchOwnershipClaims, ClaimOutcome, reconcile_claims};
+pub use ownership::{BranchOwnershipClaims, ClaimOutcome};
 pub use stack::{Stack, StackId};
 pub use state::{VirtualBranches as VirtualBranchesState, VirtualBranchesHandle};
 pub use target::Target;
