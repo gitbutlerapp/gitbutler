@@ -100,9 +100,6 @@
 		flex: 1;
 	}
 
-	.file-name__path-last-part {
-	}
-
 	.file-name__name {
 		overflow: hidden;
 		color: var(--clr-text-1);
