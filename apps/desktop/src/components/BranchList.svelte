@@ -8,6 +8,7 @@
 	import BranchInsertion from '$components/BranchInsertion.svelte';
 	import CodegenRow from '$components/CodegenRow.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
+	import MergeButton from '$components/MergeButton.svelte';
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
@@ -19,6 +20,7 @@
 	import { REORDER_DROPZONE_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import type { MergeMethod } from '$lib/forge/interface/types';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { branchLastUpdatedAt, type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -27,7 +29,7 @@
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { ensureValue } from '$lib/utils/validation';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, TestId } from '@gitbutler/ui';
+	import { AsyncButton, Button, Modal, TestId } from '@gitbutler/ui';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import { tick } from 'svelte';
@@ -47,6 +49,8 @@
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const prService = $derived(forge.current.prService);
+	const repoService = $derived(forge.current.repoService);
 	const urlService = inject(URL_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
@@ -133,6 +137,13 @@
 	const canPublishPR = $derived(forge.current.authenticated);
 	const baseBranchNameResponse = $derived(baseBranchService.baseBranchShortName(projectId));
 	const baseBranchName = $derived(baseBranchNameResponse.response);
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchQuery.response);
+	const baseBranchRepoQuery = $derived(baseBranchService.repo(projectId));
+	const baseBranchRepo = $derived(baseBranchRepoQuery.response);
+	const repoQuery = $derived(repoService?.getInfo());
+	const repoInfo = $derived(repoQuery?.response);
+	const prUnit = $derived(prService?.unit.abbr);
 </script>
 
 <div class="branches-wrapper">
@@ -286,7 +297,104 @@
 									{`Create ${forge.current.name === 'gitlab' ? 'MR' : 'PR'}`}
 								</Button>
 							{:else}
-								{@const prUrl = prQuery?.response?.htmlUrl}
+								{@const pr = prQuery?.response}
+								{@const prUrl = pr?.htmlUrl}
+								{@const parentQuery =
+									stackId ? stackService.branchParentByName(projectId, stackId, branchName) : undefined}
+								{@const parent = parentQuery?.response}
+								{@const parentBranchDetailsQuery = parent
+									? stackService.branchDetails(projectId, stackId, parent.name)
+									: undefined}
+								{@const parentBranchDetails = parentBranchDetailsQuery?.response}
+								{@const parentIsPushed =
+									parentBranchDetails?.pushStatus !== 'completelyUnpushed'}
+								{@const hasParent = !!parent}
+								{@const childQuery =
+									stackId ? stackService.branchChildByName(projectId, stackId, branchName) : undefined}
+								{@const child = childQuery?.response}
+								{@const isPushed = pushStatus !== 'completelyUnpushed'}
+								{@const baseIsTargetBranch = (() => {
+									if (forge.current.name === 'gitlab') return true;
+									return pr
+										? baseBranch?.shortName === pr.baseBranch &&
+												baseBranchRepo?.hash === pr.baseRepo?.hash
+										: false;
+								})()}
+								{@const shouldUpdateTargetBaseBranch =
+									repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber}
+								{@const mergeStatus = (() => {
+									let disabled = true;
+									let tooltip: string | undefined;
+									if (isPushed && hasParent && !parentIsPushed) {
+										tooltip = 'Remote parent branch seems to have been deleted';
+									} else if (!baseIsTargetBranch) {
+										tooltip = `${prService?.unit.name ?? 'PR'} is not next in stack`;
+									} else if (!pr?.permissions?.canMerge) {
+										tooltip = `${prService?.unit.name ?? 'PR'} requires push permissions`;
+									} else if (pr?.draft) {
+										tooltip = `${prService?.unit.name ?? 'PR'} is a draft`;
+									} else if (pr?.mergeableState === 'blocked') {
+										tooltip = `${prService?.unit.name ?? 'PR'} needs approval`;
+									} else if (pr?.mergeableState === 'unknown') {
+										tooltip = `${prService?.unit.name ?? 'PR'} mergeability is unknown`;
+									} else if (pr?.mergeableState === 'behind') {
+										tooltip = `${prService?.unit.name ?? 'PR'} base is too far behind`;
+									} else if (pr?.mergeableState === 'dirty') {
+										tooltip = `${prService?.unit.name ?? 'PR'} has conflicts`;
+									} else if (!pr?.mergeable) {
+										tooltip = `${prService?.unit.name ?? 'PR'} is not mergeable`;
+									} else {
+										disabled = false;
+									}
+									return { disabled, tooltip };
+								})()}
+								{@const reopenStatus = (() => {
+									let disabled = true;
+									let tooltip: string | undefined;
+									if (isPushed && hasParent && !parentIsPushed) {
+										tooltip = 'Remote parent branch seems to have been deleted';
+									} else {
+										disabled = false;
+									}
+									return { disabled, tooltip };
+								})()}
+								{@const handleMerge = async (method: MergeMethod) => {
+									if (!pr) return;
+									await prService?.merge(method, pr.number);
+									if (baseBranch && shouldUpdateTargetBaseBranch && prService && child?.prNumber) {
+										const targetBase = baseBranch.branchName.replace(
+											`${baseBranch.remoteName}/`,
+											''
+										);
+										await prService.update(child.prNumber, { targetBase });
+									}
+									await Promise.all([
+										baseBranchService.fetchFromRemotes(projectId),
+										baseBranchService.refreshBaseBranch(projectId)
+									]);
+								}}
+								{@const handleReopen = async () => {
+									if (!pr) return;
+									await prService?.reopen(pr.number);
+								}}
+								{#if pr && pr.state === 'open' && !isReadOnly}
+									<MergeButton
+										wide
+										{projectId}
+										disabled={mergeStatus.disabled}
+										tooltip={mergeStatus.tooltip}
+										onclick={handleMerge}
+									/>
+								{:else if pr && !pr.merged && !isReadOnly}
+									<AsyncButton
+										kind="outline"
+										disabled={reopenStatus.disabled}
+										tooltip={reopenStatus.tooltip}
+										action={handleReopen}
+									>
+										{`Reopen ${prUnit ?? 'PR'}`}
+									</AsyncButton>
+								{/if}
 								<Button
 									size="tag"
 									kind="outline"
