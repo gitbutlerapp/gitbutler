@@ -33,6 +33,7 @@
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import {
 		createBranchSelection,
 		createCommitSelection,
@@ -91,6 +92,7 @@
 	const uiState = inject(UI_STATE);
 	const hooksService = inject(HOOKS_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
+	const userSettings = inject(SETTINGS);
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stableStackId);
@@ -799,6 +801,7 @@
 																	linesRemoved={diffData?.type === 'Patch'
 																		? diffData.subject.linesRemoved
 																		: undefined}
+																	pathFirst={$userSettings.pathFirst}
 																/>
 															{/snippet}
 															{@render otherChangePreview(selectedFile)}
@@ -860,6 +863,7 @@
 																linesRemoved={diffData?.type === 'Patch'
 																	? diffData.subject.linesRemoved
 																	: undefined}
+																pathFirst={$userSettings.pathFirst}
 															/>
 														{/snippet}
 														{@render otherChangePreview(selectedFile)}

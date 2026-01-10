@@ -12,6 +12,10 @@
 
 	let { filePath, textSize = '12', hideFilePath, pathFirst = true }: Props = $props();
 	const fileNameAndPath = $derived(splitFilePath(filePath));
+	const filePathParts = $derived({
+		first: fileNameAndPath.path.split('/').slice(0, -1).join('/'),
+		last: fileNameAndPath.path.split('/').slice(-1).join('/')
+	});
 </script>
 
 <div class="file-name">
@@ -40,7 +44,15 @@
 		{#if fileNameAndPath.path && !hideFilePath}
 			<Tooltip text={filePath} delay={1200} maxWidth={320}>
 				<span class="text-12 file-name__path-container file-name__path--last truncate">
-					<span class="file-name__path-inner">{fileNameAndPath.path}</span>
+					{#if filePathParts.first}
+						<span class="file-name__path-first-part truncate">
+							{filePathParts.first}
+						</span>
+						/
+					{/if}
+					<span class="file-name__path-last-part truncate">
+						{filePathParts.last}
+					</span>
 				</span>
 			</Tooltip>
 		{/if}
@@ -79,15 +91,19 @@
 	}
 
 	.file-name__path--last {
+		display: flex;
+		align-items: center;
+		max-width: max-content;
 		margin-left: 6px;
-		direction: rtl;
 		text-align: left;
 		opacity: 0.4;
 	}
 
-	.file-name__path-inner {
-		direction: ltr;
-		unicode-bidi: isolate;
+	.file-name__path-first-part {
+		flex: 1;
+	}
+
+	.file-name__path-last-part {
 	}
 
 	.file-name__name {
