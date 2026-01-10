@@ -39,22 +39,15 @@
 	);
 
 	let multiDiffView = $state<MultiDiffView>();
+	let startIndex = $state(0);
 
-	// Scroll to selected file in MultiDiffView
-	$effect(() => {
-		if ($lastAdded && multiDiffView) {
-			const selectedFile = readKey($lastAdded.key);
-			const index = unassignedFiles.findIndex((file) => file.path === selectedFile.path);
-			if (index !== -1) {
-				multiDiffView.scrollToIndex(index);
-			}
-		}
-	});
+	$inspect({ startIndex });
 </script>
 
 {#snippet leftPreview()}
 	<MultiDiffView
 		{projectId}
+		{startIndex}
 		stackId={undefined}
 		files={unassignedFiles}
 		bind:this={multiDiffView}
@@ -74,7 +67,13 @@
 	rightWidth={{ default: 320, min: 220 }}
 >
 	{#snippet left()}
-		<UnassignedView {projectId} />
+		<UnassignedView
+			{projectId}
+			onselect={(_change, index) => {
+				startIndex = index;
+				multiDiffView?.scrollToIndex(index);
+			}}
+		/>
 	{/snippet}
 	{#snippet middle()}
 		<ReduxResult {projectId} result={stacksQuery?.result}>

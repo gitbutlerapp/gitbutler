@@ -600,7 +600,9 @@
 									})
 								: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined }}
 						{#if branchName && commitId}
-							{@const commitFiles = stackService.commitChanges(projectId, commitId)}
+							{@const commitFiles = commitId
+								? stackService.commitChanges(projectId, commitId)
+								: undefined}
 							<Dropzone
 								handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}
 								fillHeight
@@ -631,22 +633,27 @@
 											onclose={onclosePreview}
 										/>
 									</div>
-									<ReduxResult {projectId} {stackId} result={commitFiles.result}>
-										{#snippet children(commitFiles)}
-											<MultiDiffView
-												{stackId}
-												bind:this={multiDiffView}
-												projectId={stableProjectId}
-												files={commitFiles.changes.map((change) => ({
-													type: 'commit' as const,
-													commitId,
-													path: change.path
-												}))}
-												draggable={true}
-												selectable={false}
-											/>
-										{/snippet}
-									</ReduxResult>
+									{#if commitFiles}
+										{@const commitResult = commitFiles?.result}
+										{#if commitResult}
+											<ReduxResult {projectId} {stackId} result={commitResult}>
+												{#snippet children(commitFiles)}
+													<MultiDiffView
+														{stackId}
+														bind:this={multiDiffView}
+														projectId={stableProjectId}
+														files={commitFiles?.changes.map((change) => ({
+															type: 'commit' as const,
+															commitId,
+															path: change.path
+														}))}
+														draggable={true}
+														selectable={false}
+													/>
+												{/snippet}
+											</ReduxResult>
+										{/if}
+									{/if}
 								</div>
 							</Dropzone>
 						{:else if branchName}
@@ -670,7 +677,7 @@
 									{#snippet children(result)}
 										<MultiDiffView
 											{stackId}
-											files={result.changes.map((change) => ({
+											files={result?.changes.map((change) => ({
 												type: 'branch' as const,
 												branchName,
 												remote: undefined,
