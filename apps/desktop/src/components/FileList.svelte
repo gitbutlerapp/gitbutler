@@ -231,22 +231,25 @@
 			return;
 		}
 
-		updateSelection({
-			allowMultiple: true,
-			ctrlKey: e.ctrlKey,
-			metaKey: e.metaKey,
-			shiftKey: e.shiftKey,
-			key: e.key,
-			targetElement: e.currentTarget as HTMLElement,
-			files: changes,
-			selectedFileIds,
-			fileIdSelection: idSelection,
-			selectionId: selectionId,
-			preventDefault: () => e.preventDefault()
-		});
-		const lastAdded = get(idSelection.getById(selectionId).lastAdded);
-		if (lastAdded) {
-			onselect?.(change, lastAdded.index);
+		if (
+			updateSelection({
+				allowMultiple: true,
+				ctrlKey: e.ctrlKey,
+				metaKey: e.metaKey,
+				shiftKey: e.shiftKey,
+				key: e.key,
+				targetElement: e.currentTarget as HTMLElement,
+				files: changes,
+				selectedFileIds,
+				fileIdSelection: idSelection,
+				selectionId: selectionId,
+				preventDefault: () => e.preventDefault()
+			})
+		) {
+			const lastAdded = get(idSelection.getById(selectionId).lastAdded);
+			if (lastAdded) {
+				onselect?.(change, lastAdded.index);
+			}
 		}
 	}
 
