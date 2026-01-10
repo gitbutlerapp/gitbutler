@@ -9,21 +9,25 @@ use crate::utils::OutputChannel;
 
 /// List all configured `but` aliases
 pub fn list(out: &mut OutputChannel) -> Result<()> {
-    // Use git config command to list user-configured aliases
-    let output = std::process::Command::new("git")
-        .args(["config", "--get-regexp", "^but\\.alias\\."])
-        .output()
-        .context("Failed to execute git config")?;
+    // Use gix to read aliases from git config
+    let mut user_aliases: Vec<(String, String)> = Vec::new();
 
-    let mut user_aliases = Vec::new();
+    if let Ok(repo) = gix::discover(".") {
+        let config = repo.config_snapshot();
 
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        for line in stdout.lines() {
-            if let Some((key, value)) = line.split_once(' ') {
-                // key is like "but.alias.st", we want just "st"
-                if let Some(name) = key.strip_prefix("but.alias.") {
-                    user_aliases.push((name.to_string(), value.to_string()));
+        // Get all sections with name "but" and subsection starting with "alias."
+        // We iterate through sections and check their subsections
+        let sections: Vec<_> = config.sections().filter(|s| s.header().name() == "but").collect();
+
+        for section in sections {
+            if let Some(subsection) = section.header().subsection_name() {
+                let subsection_str: &str = subsection.to_str().unwrap_or("");
+                if let Some(alias_name) = subsection_str.strip_prefix("alias.") {
+                    // Get the value for this alias
+                    let key = format!("but.alias.{}", alias_name);
+                    if let Some(value) = config.string(&key) {
+                        user_aliases.push((alias_name.to_string(), value.to_string()));
+                    }
                 }
             }
         }
@@ -136,13 +140,13 @@ pub fn list(out: &mut OutputChannel) -> Result<()> {
 
 /// Get all default aliases
 fn get_default_aliases() -> Vec<(String, String)> {
-    vec![("stf".to_string(), "status --files".to_string())]
+    crate::alias::get_all_default_aliases()
 }
 
 /// Add a new alias
 pub fn add(out: &mut OutputChannel, name: &str, value: &str, global: bool) -> Result<()> {
     // Validate alias name doesn't conflict with known commands
-    if is_known_subcommand(name) {
+    if crate::alias::is_known_subcommand(name) {
         anyhow::bail!(
             "Cannot create alias '{}': it conflicts with a built-in command",
             name
@@ -150,16 +154,23 @@ pub fn add(out: &mut OutputChannel, name: &str, value: &str, global: bool) -> Re
     }
 
     // Use git config command to set the alias
+    // This is more reliable and simpler than using gix's config mutation APIs
     let config_key = format!("but.alias.{}", name);
-    let scope = if global { "--global" } else { "--local" };
+    let mut cmd = std::process::Command::new("git");
+    cmd.args(["config"]);
 
-    let status = std::process::Command::new("git")
-        .args(["config", scope, &config_key, value])
-        .status()
+    if global {
+        cmd.arg("--global");
+    }
+
+    cmd.args([&config_key, value]);
+
+    let output = cmd.output()
         .context("Failed to execute git config")?;
 
-    if !status.success() {
-        anyhow::bail!("Failed to set alias in git config");
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("Failed to set alias: {}", stderr);
     }
 
     if let Some(out) = out.for_human() {
@@ -187,16 +198,24 @@ pub fn add(out: &mut OutputChannel, name: &str, value: &str, global: bool) -> Re
 
 /// Remove an alias
 pub fn remove(out: &mut OutputChannel, name: &str, global: bool) -> Result<()> {
+    // Use git config command to unset the alias
+    // This is more reliable and simpler than using gix's config mutation APIs
     let config_key = format!("but.alias.{}", name);
-    let scope = if global { "--global" } else { "--local" };
+    let mut cmd = std::process::Command::new("git");
+    cmd.args(["config", "--unset"]);
 
-    let status = std::process::Command::new("git")
-        .args(["config", scope, "--unset", &config_key])
-        .status()
+    if global {
+        cmd.arg("--global");
+    }
+
+    cmd.arg(&config_key);
+
+    let output = cmd.output()
         .context("Failed to execute git config")?;
 
-    if !status.success() {
-        anyhow::bail!("Alias '{}' not found", name);
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("Failed to remove alias: {}", stderr);
     }
 
     if let Some(out) = out.for_human() {
@@ -213,44 +232,4 @@ pub fn remove(out: &mut OutputChannel, name: &str, global: bool) -> Result<()> {
     }
 
     Ok(())
-}
-
-/// Check if a name conflicts with a known subcommand
-fn is_known_subcommand(cmd: &str) -> bool {
-    matches!(
-        cmd,
-        "status"
-            | "st"
-            | "rub"
-            | "diff"
-            | "init"
-            | "pull"
-            | "branch"
-            | "worktree"
-            | "mark"
-            | "unmark"
-            | "gui"
-            | "."
-            | "commit"
-            | "push"
-            | "new"
-            | "reword"
-            | "oplog"
-            | "restore"
-            | "undo"
-            | "absorb"
-            | "discard"
-            | "forge"
-            | "pr"
-            | "review"
-            | "mcp"
-            | "claude"
-            | "cursor"
-            | "actions"
-            | "metrics"
-            | "completions"
-            | "resolve"
-            | "fetch"
-            | "alias" // Don't allow aliasing the alias command itself!
-    )
 }

@@ -64,13 +64,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
-    // Check if help is requested with no subcommand
-    if args.len() == 1 || args.iter().any(|arg| arg == "--help" || arg == "-h") && args.len() == 2 {
-        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
-        command::help::print_grouped(&mut out)?;
-        return Ok(());
-    }
-
     // Expand aliases before parsing arguments
     let args = alias::expand_aliases(args)?;
 
@@ -153,9 +146,21 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             Ok(())
         }
         None => {
-            // No subcommand and no source/target means help was requested
-            command::help::print_grouped(&mut out)?;
-            Ok(())
+            // No subcommand and no source/target means run the default alias
+            // The default alias expands to "status --hint" which provides a helpful entry point
+            let default_args = vec![OsString::from("but"), OsString::from("default")];
+            let expanded = alias::expand_aliases(default_args)?;
+            let mut new_args: Args = clap::Parser::parse_from(expanded);
+
+            // Take the command from the newly parsed args and execute it
+            match new_args.cmd.take() {
+                Some(cmd) => match_subcommand(cmd, new_args, app_settings, out).await,
+                None => {
+                    // Fallback to help if default alias somehow doesn't resolve
+                    command::help::print_grouped(&mut out)?;
+                    Ok(())
+                }
+            }
         }
         Some(cmd) => match_subcommand(cmd, args, app_settings, out).await,
     }
@@ -361,10 +366,11 @@ async fn match_subcommand(
             verbose,
             refresh_prs: sync_prs,
             upstream,
+            hint,
         } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::status::worktree(
-                &mut ctx, out, show_files, verbose, sync_prs, upstream,
+                &mut ctx, out, show_files, verbose, sync_prs, upstream, hint,
             )
             .await
             .emit_metrics(metrics_ctx)

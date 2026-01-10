@@ -73,6 +73,7 @@ pub(crate) async fn worktree(
     verbose: bool,
     refresh_prs: bool,
     show_upstream: bool,
+    hint: bool,
 ) -> anyhow::Result<()> {
     // Check if we're in edit mode first, before doing any expensive operations
     let mode = gitbutler_operating_modes::operating_mode(ctx);
@@ -417,6 +418,12 @@ pub(crate) async fn worktree(
             String::new()
         }
     )?;
+
+    if hint {
+        writeln!(out)?;
+        writeln!(out, "{}", "Hint: run but help for all commands".dimmed())?;
+    }
+
     Ok(())
 }
 
