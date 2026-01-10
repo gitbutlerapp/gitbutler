@@ -49,6 +49,9 @@
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
+
+	// Derived variable only emits when value changes.
+	const stableHighlighted = $derived(highlighted);
 </script>
 
 <div
@@ -61,7 +64,7 @@
 	class:top-border={topBorder}
 	class:bottom-border={bottomBorder}
 	class:no-paddings={noPaddings}
-	class:highlighted
+	class:highlighted={stableHighlighted}
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();
@@ -146,7 +149,7 @@
 
 		&.sticky {
 			position: sticky;
-			top: 0;
+			top: -1px;
 		}
 	}
 

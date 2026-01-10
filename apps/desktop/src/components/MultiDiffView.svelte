@@ -27,6 +27,7 @@
 		selectable: boolean;
 		showBorder?: boolean;
 		showRoundedEdges?: boolean;
+		startIndex?: number;
 	};
 
 	let {
@@ -36,7 +37,8 @@
 		draggable,
 		selectable,
 		showBorder = true,
-		showRoundedEdges = true
+		showRoundedEdges = true,
+		startIndex
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -47,11 +49,7 @@
 
 	export function scrollToIndex(index: number) {
 		virtualList?.scrollToIndex(index);
-		// Trigger highlight, then clear after animation.
 		highlightedIndex = index;
-		setTimeout(() => {
-			highlightedIndex = null;
-		}, 1000);
 	}
 </script>
 
@@ -59,6 +57,7 @@
 	{#if files && files.length > 0}
 		<VirtualList
 			bind:this={virtualList}
+			{startIndex}
 			grow
 			items={files}
 			batchSize={1}

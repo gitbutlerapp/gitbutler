@@ -19,9 +19,12 @@
 	});
 
 	let container = $state<HTMLDivElement>();
+	let selector = $state<HTMLSelectElement>();
 </script>
 
 <script lang="ts">
+	import AsyncContent from '../helpers/AsyncContent.svelte';
+
 	let toggle = $state(false);
 	let virtualList = $state<VirtualList<any>>();
 </script>
@@ -79,10 +82,45 @@
 	{/snippet}
 </Story>
 
+<Story name="Start index">
+	{#snippet template(args)}
+		<div class="container" bind:this={container}>
+			<VirtualList bind:this={virtualList} {...args} defaultHeight={150} startIndex={4}>
+				{#snippet chunkTemplate(chunk)}
+					{#each chunk as item}
+						<div class="item" style="min-height: 150px;">
+							<div>{item}</div>
+							<AsyncContent delay={500}>
+								<div class="async-content">async content</div>
+							</AsyncContent>
+						</div>
+					{/each}
+				{/snippet}
+			</VirtualList>
+		</div>
+		<select bind:this={selector}>
+			{#each args.items as _, i}
+				<option>
+					{i}
+				</option>
+			{/each}
+		</select>
+		<button
+			type="button"
+			onclick={() => {
+				if (!virtualList || !selector) return;
+				virtualList.scrollToIndex(parseInt(selector.value));
+			}}
+		>
+			goto
+		</button>
+	{/snippet}
+</Story>
+
 <style>
 	.container {
 		display: flex;
-		height: 320px;
+		height: 480px;
 	}
 
 	.actions {
@@ -93,9 +131,18 @@
 
 	.item {
 		display: flex;
+		flex-direction: column;
+		width: 300px;
+		padding: 12px;
+		gap: 12px;
+		border: 1px solid lightgrey;
+	}
+	.async-content {
+		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 300px;
+		height: 200px;
+		padding: 12px;
 		border: 1px solid lightgrey;
 	}
 </style>
