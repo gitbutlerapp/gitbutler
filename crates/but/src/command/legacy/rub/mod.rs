@@ -8,6 +8,7 @@ mod assign;
 mod commits;
 mod move_commit;
 mod squash;
+mod stack;
 mod undo;
 pub(crate) use assign::branch_name_to_stack_id;
 use gitbutler_oplog::{
@@ -78,8 +79,8 @@ pub(crate) fn handle(
                 amend::assignments_to_commit(ctx, Some(&name), oid, out)?;
             }
             (CliId::Branch { name: from, .. }, CliId::Branch { name: to, .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, Some(&from), Some(to), out)?;
+                create_snapshot(ctx, OperationKind::MoveCommit);
+                stack::stack_branch_on_top(ctx, out, &from, to)?;
             }
             (
                 CliId::CommittedFile {

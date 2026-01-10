@@ -651,6 +651,35 @@ pub enum Subcommands {
         #[clap(required = false)]
         branch: Option<String>,
     },
+
+    /// Stack one branch on top of another.
+    ///
+    /// This command reorders branches so that the source branch is stacked
+    /// on top of the target branch. This is useful for organizing branches
+    /// in a specific order or creating dependent feature branches.
+    ///
+    /// ## Examples
+    ///
+    /// Stack feature-b on top of feature-a:
+    ///
+    /// ```text
+    /// but stack feature-b feature-a
+    /// ```
+    ///
+    /// Stack a branch using CLI IDs:
+    ///
+    /// ```text
+    /// but stack bu aa
+    /// ```
+    ///
+    /// Wrapper for `but rub <source-branch> <target-branch>`.
+    #[cfg(feature = "legacy")]
+    Stack {
+        /// Source branch to stack on top
+        source: String,
+        /// Target branch to stack on (the base)
+        target: String,
+    },
 }
 
 pub mod alias;
