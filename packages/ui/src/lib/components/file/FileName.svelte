@@ -75,7 +75,6 @@
 
 	.file-name__path-container {
 		flex: 1;
-		justify-content: flex-start;
 		min-width: 2ch;
 		overflow: hidden;
 		line-height: 120%;
