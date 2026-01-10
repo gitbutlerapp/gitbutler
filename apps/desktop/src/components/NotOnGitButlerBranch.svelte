@@ -4,7 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import directionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { MODE_SERVICE } from '$lib/mode/modeService.svelte';
+	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { AsyncButton, RadioButton, FileListItem, Link } from '@gitbutler/ui';
