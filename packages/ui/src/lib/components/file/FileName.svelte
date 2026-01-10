@@ -31,9 +31,9 @@
 				</span>
 			</Tooltip>
 		{/if}
-		<div class="text-{textSize} text-semibold file-name__name truncate">
+		<span class="text-{textSize} text-semibold file-name__name truncate">
 			{fileNameAndPath.filename}
-		</div>
+		</span>
 	{:else}
 		<span class="text-{textSize} text-semibold file-name__name truncate">
 			{fileNameAndPath.filename}
