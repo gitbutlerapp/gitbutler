@@ -41,7 +41,6 @@ mod stack {
         /// A user-specified name with no restrictions.
         /// It will be normalized except to be a valid ref-name if named `refs/gitbutler/<normalize(name)>`.
         pub name: String,
-        pub notes: String,
         /// If set, this means this virtual branch was originally created from `Some(branch)`.
         /// It can be *any* branch.
         pub source_refname: Option<Refname>,
@@ -149,7 +148,6 @@ mod stack {
 
                 // Unused - everything is defined by the top-most branch name.
                 name: "".to_string(),
-                notes: "".to_string(),
 
                 // Related to ownership, obsolete.
                 selected_for_changes: None,
