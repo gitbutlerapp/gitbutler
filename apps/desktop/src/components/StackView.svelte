@@ -33,7 +33,6 @@
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
 	import {
 		createBranchSelection,
 		createCommitSelection,
@@ -42,6 +41,7 @@
 		type SelectionId
 	} from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';

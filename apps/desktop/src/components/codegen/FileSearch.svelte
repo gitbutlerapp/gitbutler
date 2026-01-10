@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { inject } from '@gitbutler/core/context';
 	import { SETTINGS } from '$lib/settings/userSettings';
+	import { inject } from '@gitbutler/core/context';
 	import { FileListItem, Icon } from '@gitbutler/ui';
 	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
 	import { fly } from 'svelte/transition';

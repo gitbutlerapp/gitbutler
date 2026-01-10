@@ -251,13 +251,6 @@
 </Modal>
 
 <style lang="postcss">
-	.organizations-list,
-	.projects-list {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
 	.org-info,
 	.project-info {
 		flex: 1;
