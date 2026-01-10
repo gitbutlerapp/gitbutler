@@ -146,7 +146,7 @@
 
 		&.sticky {
 			position: sticky;
-			top: 0;
+			top: -1px;
 		}
 	}
 
