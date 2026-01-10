@@ -46,9 +46,6 @@ mod with_workspace {
             ),
             linked_worktree_id: None,
             remote_tracking_branch: None,
-            description: Some(
-                "A: description",
-            ),
             pr_number: Some(
                 42,
             ),
@@ -99,9 +96,6 @@ mod with_workspace {
             linked_worktree_id: None,
             remote_tracking_branch: Some(
                 "refs/remotes/origin/A",
-            ),
-            description: Some(
-                "A: description",
             ),
             pr_number: Some(
                 42,
@@ -156,9 +150,6 @@ mod with_workspace {
             remote_tracking_branch: Some(
                 "refs/remotes/origin/A",
             ),
-            description: Some(
-                "A: description",
-            ),
             pr_number: Some(
                 42,
             ),
@@ -195,7 +186,6 @@ mod with_workspace {
             ),
             linked_worktree_id: None,
             remote_tracking_branch: None,
-            description: None,
             pr_number: None,
             review_id: None,
             tip: Sha1(89cc2d303514654e9cab2d05b9af08b420a740c1),
@@ -242,9 +232,6 @@ mod with_workspace {
             linked_worktree_id: None,
             remote_tracking_branch: Some(
                 "refs/remotes/origin/A",
-            ),
-            description: Some(
-                "A: description",
             ),
             pr_number: Some(
                 42,
@@ -306,7 +293,6 @@ mod with_workspace {
                     created_at: None,
                     updated_at: Some(gix::date::Time::new(56, 0)),
                 },
-                description: Some(format!("{short_name}: description")),
                 review: Review {
                     pull_request: Some(42),
                     review_id: Some("uuid".into()),

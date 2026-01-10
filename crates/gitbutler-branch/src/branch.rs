@@ -1,7 +1,6 @@
 use std::ops::Deref;
 
 use bstr::{BStr, ByteSlice};
-use but_meta::virtual_branches_legacy_types;
 use gitbutler_stack::StackId;
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -9,20 +8,15 @@ use serde::{Deserialize, Serialize, Serializer};
 pub struct BranchUpdateRequest {
     pub id: Option<StackId>,
     pub name: Option<String>,
-    pub notes: Option<String>,
-    pub ownership: Option<virtual_branches_legacy_types::BranchOwnershipClaims>,
     pub order: Option<usize>,
     pub upstream: Option<String>, // just the branch name, so not refs/remotes/origin/branchA, just branchA
-    pub selected_for_changes: Option<bool>,
     pub allow_rebasing: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct BranchCreateRequest {
     pub name: Option<String>,
-    pub ownership: Option<virtual_branches_legacy_types::BranchOwnershipClaims>,
     pub order: Option<usize>,
-    pub selected_for_changes: Option<bool>,
 }
 
 /// The identity of a branch as to allow to group similar branches together.

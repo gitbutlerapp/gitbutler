@@ -41,7 +41,6 @@ mod stack {
         /// A user-specified name with no restrictions.
         /// It will be normalized except to be a valid ref-name if named `refs/gitbutler/<normalize(name)>`.
         pub name: String,
-        pub notes: String,
         /// If set, this means this virtual branch was originally created from `Some(branch)`.
         /// It can be *any* branch.
         pub source_refname: Option<Refname>,
@@ -67,12 +66,8 @@ mod stack {
         /// head is id of the last "virtual" commit in this branch
         #[serde(with = "but_serde::object_id")]
         pub head: gix::ObjectId,
-        pub ownership: BranchOwnershipClaims,
         // order is the number by which UI should sort branches
         pub order: usize,
-        // is Some(timestamp), the branch is considered a default destination for new changes.
-        // if more than one branch is selected, the branch with the highest timestamp wins.
-        pub selected_for_changes: Option<i64>,
         #[serde(default = "default_true")]
         pub allow_rebasing: bool,
         /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
@@ -85,8 +80,6 @@ mod stack {
         /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
         #[serde(default)]
         pub heads: Vec<StackBranch>,
-        #[serde(default = "default_false")]
-        pub post_commits: bool,
     }
 
     impl Stack {
@@ -102,10 +95,6 @@ mod stack {
 
     fn default_true() -> bool {
         true
-    }
-
-    fn default_false() -> bool {
-        false
     }
 
     fn serialize_u128<S>(x: &u128, s: S) -> anyhow::Result<S::Ok, S::Error>
@@ -149,15 +138,8 @@ mod stack {
 
                 // Unused - everything is defined by the top-most branch name.
                 name: "".to_string(),
-                notes: "".to_string(),
-
-                // Related to ownership, obsolete.
-                selected_for_changes: None,
                 // unclear, obsolete
                 not_in_workspace_wip_change_id: None,
-                // unclear
-                post_commits: false,
-                ownership: Default::default(),
             }
         }
     }
@@ -174,8 +156,6 @@ mod stack {
         /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
         /// The name must be unique within the repository.
         pub name: String,
-        /// Optional description of the series. This could be markdown or anything our hearts desire.
-        pub description: Option<String>,
         /// The pull request associated with the branch, or None if a pull request has not been created.
         #[serde(default)]
         pub pr_number: Option<usize>,
@@ -191,14 +171,12 @@ mod stack {
     impl StackBranch {
         pub fn new_with_zero_head(
             name: String,
-            description: Option<String>,
             pr_number: Option<usize>,
             review_id: Option<String>,
             archived: bool,
         ) -> Self {
             StackBranch {
                 name,
-                description,
                 pr_number,
                 archived,
                 review_id,

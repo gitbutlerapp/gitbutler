@@ -514,7 +514,7 @@ fn uncommit_command_validation() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to uncommit. Cannot uncommit [4;34mi0[0m - it is [33man uncommitted file or hunk[0m. Only commits and files-in-commits can be uncommitted.
+Failed to uncommit. Cannot uncommit i0 - it is an uncommitted file or hunk. Only commits and files-in-commits can be uncommitted.
 
 "#]]);
 
@@ -523,7 +523,7 @@ Failed to uncommit. Cannot uncommit [4;34mi0[0m - it is [33man uncommitted fi
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to uncommit. Cannot uncommit [4;34mg0[0m - it is [33ma branch[0m. Only commits and files-in-commits can be uncommitted.
+Failed to uncommit. Cannot uncommit g0 - it is a branch. Only commits and files-in-commits can be uncommitted.
 
 "#]]);
 
@@ -681,7 +681,7 @@ fn unstage_command_validation() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to unstage. Cannot unstage [4;34m3f[0m - it is [33ma commit[0m. Only uncommitted files and hunks can be unstaged.
+Failed to unstage. Cannot unstage 3f - it is a commit. Only uncommitted files and hunks can be unstaged.
 
 "#]]);
 
@@ -691,7 +691,7 @@ Failed to unstage. Cannot unstage [4;34m3f[0m - it is [33ma commit[0m. Only 
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to unstage. Cannot unstage from [4;34m3f[0m - it is [33ma commit[0m. Target must be a branch.
+Failed to unstage. Cannot unstage from 3f - it is a commit. Target must be a branch.
 
 "#]]);
 

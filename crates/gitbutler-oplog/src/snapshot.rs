@@ -182,18 +182,7 @@ impl SnapshotExt for but_ctx::Context {
         error: Option<&anyhow::Error>,
         perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()> {
-        let details = if update.ownership.is_some() {
-            SnapshotDetails::new(OperationKind::MoveHunk).with_trailers(
-                [
-                    vec![Trailer {
-                        key: "name".to_string(),
-                        value: old_stack.name.to_string(),
-                    }],
-                    error_trailer(error),
-                ]
-                .concat(),
-            )
-        } else if let Some(name) = update.name.as_deref() {
+        let details = if let Some(name) = update.name.as_deref() {
             SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers(
                 [
                     vec![
@@ -210,8 +199,6 @@ impl SnapshotExt for but_ctx::Context {
                 ]
                 .concat(),
             )
-        } else if update.notes.is_some() {
-            SnapshotDetails::new(OperationKind::UpdateBranchNotes)
         } else if let Some(order) = update.order {
             SnapshotDetails::new(OperationKind::ReorderBranches).with_trailers(
                 [
@@ -223,26 +210,6 @@ impl SnapshotExt for but_ctx::Context {
                         Trailer {
                             key: "after".to_string(),
                             value: order.to_string(),
-                        },
-                    ],
-                    error_trailer(error),
-                ]
-                .concat(),
-            )
-        } else if let Some(_selected_for_changes) = update.selected_for_changes {
-            SnapshotDetails::new(OperationKind::SelectDefaultVirtualBranch).with_trailers(
-                [
-                    vec![
-                        Trailer {
-                            key: "before".to_string(),
-                            value: old_stack
-                                .selected_for_changes
-                                .unwrap_or_default()
-                                .to_string(),
-                        },
-                        Trailer {
-                            key: "after".to_string(),
-                            value: old_stack.name.clone(),
                         },
                     ],
                     error_trailer(error),

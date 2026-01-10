@@ -118,11 +118,6 @@ pub fn update_workspace_commit(
                 message.push_str(&branch.head_oid(&gix_repo)?.to_string());
                 message.push('\n');
             }
-            for file in &branch.ownership.claims {
-                message.push_str("   - ");
-                message.push_str(&file.file_path.display().to_string());
-                message.push('\n');
-            }
         }
     }
     if let Some(prev_branch) = prev_branch {

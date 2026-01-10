@@ -24,7 +24,6 @@ use serde::{Deserialize, Serialize};
 use crate::{
     StackBranch, VirtualBranchesHandle,
     heads::{add_head, get_head, remove_head},
-    ownership::BranchOwnershipClaims,
     stack_branch::{CommitOrChangeId, remote_reference},
 };
 
@@ -38,7 +37,6 @@ pub struct Stack {
     /// A user-specified name with no restrictions.
     /// It will be normalized except to be a valid ref-name if named `refs/gitbutler/<normalize(name)>`.
     pub name: String,
-    pub notes: String,
     /// If set, this means this virtual branch was originally created from `Some(branch)`.
     /// It can be *any* branch.
     pub source_refname: Option<Refname>,
@@ -53,12 +51,8 @@ pub struct Stack {
     tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
     head: git2::Oid,
-    pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches
     pub order: usize,
-    // is Some(timestamp), the branch is considered a default destination for new changes.
-    // if more than one branch is selected, the branch with the highest timestamp wins.
-    pub selected_for_changes: Option<i64>,
     pub allow_rebasing: bool,
     /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
     /// and its effects are available to the user.
@@ -67,7 +61,6 @@ pub struct Stack {
     /// Represents the Stack state of pseudo-references ("heads").
     /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
     pub heads: Vec<StackBranch>,
-    pub post_commits: bool,
 }
 
 impl From<virtual_branches_legacy_types::Stack> for Stack {
@@ -75,7 +68,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
         virtual_branches_legacy_types::Stack {
             id,
             name,
-            notes,
             source_refname,
             upstream,
             upstream_head,
@@ -83,20 +75,16 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             updated_timestamp_ms,
             tree,
             head,
-            ownership,
             order,
-            selected_for_changes,
             allow_rebasing,
             in_workspace,
             not_in_workspace_wip_change_id,
             heads,
-            post_commits,
         }: virtual_branches_legacy_types::Stack,
     ) -> Self {
         Stack {
             id,
             name,
-            notes,
             source_refname,
             upstream,
             upstream_head: upstream_head.map(|id| id.to_git2()),
@@ -104,14 +92,11 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             updated_timestamp_ms,
             tree: tree.to_git2(),
             head: head.to_git2(),
-            ownership: ownership.into(),
             order,
-            selected_for_changes,
             allow_rebasing,
             in_workspace,
             not_in_workspace_wip_change_id,
             heads: heads.into_iter().map(Into::into).collect(),
-            post_commits,
         }
     }
 }
@@ -121,7 +106,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
         Stack {
             id,
             name,
-            notes,
             source_refname,
             upstream,
             upstream_head,
@@ -129,20 +113,16 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             updated_timestamp_ms,
             tree,
             head,
-            ownership,
             order,
-            selected_for_changes,
             allow_rebasing,
             in_workspace,
             not_in_workspace_wip_change_id,
             heads,
-            post_commits,
         }: Stack,
     ) -> Self {
         virtual_branches_legacy_types::Stack {
             id,
             name,
-            notes,
             source_refname,
             upstream,
             upstream_head: upstream_head.map(|id| id.to_gix()),
@@ -150,14 +130,11 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             updated_timestamp_ms,
             tree: tree.to_gix(),
             head: head.to_gix(),
-            ownership: ownership.into(),
             order,
-            selected_for_changes,
             allow_rebasing,
             in_workspace,
             not_in_workspace_wip_change_id,
             heads: heads.into_iter().map(Into::into).collect(),
-            post_commits,
         }
     }
 }
@@ -191,14 +168,12 @@ impl Stack {
         tree: git2::Oid,
         head: git2::Oid,
         order: usize,
-        selected_for_changes: Option<i64>,
         allow_rebasing: bool,
     ) -> Self {
         let now = gitbutler_time::time::now_ms();
         Self {
             id: StackId::generate(),
             name,
-            notes: String::new(),
             source_refname,
             upstream,
             upstream_head,
@@ -206,14 +181,11 @@ impl Stack {
             updated_timestamp_ms: now,
             tree,
             head,
-            ownership: BranchOwnershipClaims::default(),
             order,
-            selected_for_changes,
             allow_rebasing,
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
             heads: Default::default(),
-            post_commits: false,
         }
     }
 
@@ -241,15 +213,9 @@ impl Stack {
 
             // Unused - everything is defined by the top-most branch name.
             name: "".to_string(),
-            notes: "".to_string(),
 
-            // Related to ownership, obsolete.
-            selected_for_changes: None,
             // unclear, obsolete
             not_in_workspace_wip_change_id: None,
-            // unclear
-            post_commits: false,
-            ownership: Default::default(),
         }
     }
 
@@ -302,7 +268,6 @@ impl Stack {
         tree: git2::Oid,
         head: git2::Oid,
         order: usize,
-        selected_for_changes: Option<i64>,
         allow_rebasing: bool,
         allow_duplicate_refs: bool,
     ) -> Result<Self> {
@@ -316,7 +281,6 @@ impl Stack {
             tree,
             head,
             order,
-            selected_for_changes,
             allow_rebasing,
         );
         branch.initialize(ctx, allow_duplicate_refs)?;
@@ -437,7 +401,7 @@ impl Stack {
         let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;
 
         validate_name(&name, &state)?;
-        let reference = StackBranch::new(commit, name, None, &repo)?;
+        let reference = StackBranch::new(commit, name, &repo)?;
 
         Ok(reference)
     }
@@ -520,19 +484,13 @@ impl Stack {
     }
 
     /// A convenience method just like `add_series`, but adds a new branch on top of the stack.
-    pub fn add_series_top_of_stack(
-        &mut self,
-        ctx: &Context,
-        name: String,
-        description: Option<String>,
-    ) -> Result<()> {
+    pub fn add_series_top_of_stack(&mut self, ctx: &Context, name: String) -> Result<()> {
         self.ensure_initialized()?;
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
         let repo = ctx.repo.get()?;
-        let new_head =
-            StackBranch::new(current_top_head.head_oid(&repo)?, name, description, &repo)?;
+        let new_head = StackBranch::new(current_top_head.head_oid(&repo)?, name, &repo)?;
         self.add_series(ctx, new_head, Some(current_top_head.name().clone()))
     }
 
@@ -579,14 +537,6 @@ impl Stack {
                 validate_name(&name, &state)?;
                 head.set_name(name, &*ctx.repo.get()?)?;
                 head.pr_number = None; // reset pr_number
-            }
-        }
-
-        // Handle description updates
-        if let Some(description) = update.description.clone() {
-            let head = updated_heads.iter_mut().find(|h| *h.name() == branch_name);
-            if let Some(head) = head {
-                head.description = description;
             }
         }
         self.heads = updated_heads;
@@ -892,9 +842,6 @@ impl Stack {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct PatchReferenceUpdate {
     pub name: Option<String>,
-    /// If present, this sets the value of the description field.
-    /// It is possible to set this to Some(None) which will remove an existing description.
-    pub description: Option<Option<String>>,
 }
 
 /// Request to update the target of a PatchReference.

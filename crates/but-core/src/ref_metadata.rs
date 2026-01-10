@@ -301,8 +301,6 @@ impl Workspace {
 pub struct Branch {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
-    /// More details about the branch.
-    pub description: Option<String>,
     /// Information about possibly ongoing reviews in various forges.
     pub review: Review,
 }
@@ -334,11 +332,9 @@ impl std::fmt::Debug for Branch {
                 .ref_info
                 .updated_at
                 .is_some_and(|t| t != DEFAULT_IN_TESTSUITE)
-            || self.description.is_some()
             || self.review.pull_request.is_some()
         {
             d.field("ref_info", &self.ref_info)
-                .field("description", &MaybeDebug(&self.description))
                 .field("review", &self.review);
         }
         d.finish()

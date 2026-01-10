@@ -171,9 +171,7 @@ fn create_stack(ctx: &Context) -> anyhow::Result<StackId> {
         gitbutler_stack::Stack::next_available_name(&*ctx.repo.get()?, vb_state, template, false)?;
     let create_req = gitbutler_branch::BranchCreateRequest {
         name: Some(branch_name),
-        ownership: None,
         order: None,
-        selected_for_changes: None,
     };
 
     let mut guard = ctx.exclusive_worktree_access();

@@ -38,7 +38,6 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	commits: [MOCK_COMMIT_A],
 	upstreamCommits: [MOCK_UPSTREAM_COMMIT_A],
 	remoteTrackingBranch: null,
-	description: null,
 	prNumber: null,
 	reviewId: null,
 	tip: 'tip-commit-a',

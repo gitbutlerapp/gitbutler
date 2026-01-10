@@ -35,7 +35,12 @@
 			{log.from}: {log.message}
 			{#if change && diff.diff}
 				<div class="extra">
-					<FileListItem filePath={change.path} listMode="list" hideBorder />
+					<FileListItem
+						filePath={change.path}
+						pathFirst={$userSettings.pathFirst}
+						listMode="list"
+						hideBorder
+					/>
 					<div class="diff">
 						<HunkDiff
 							draggingDisabled={true}

@@ -29,8 +29,6 @@ pub struct StackBranch {
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
     /// The name must be unique within the repository.
     pub name: String,
-    /// Optional description of the series. This could be markdown or anything our hearts desire.
-    pub description: Option<String>,
     /// The pull request associated with the branch, or None if a pull request has not been created.
     pub pr_number: Option<usize>,
     /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
@@ -45,7 +43,6 @@ impl From<virtual_branches_legacy_types::StackBranch> for StackBranch {
         virtual_branches_legacy_types::StackBranch {
             head,
             name,
-            description,
             pr_number,
             archived,
             review_id,
@@ -54,7 +51,6 @@ impl From<virtual_branches_legacy_types::StackBranch> for StackBranch {
         StackBranch {
             head: head.into(),
             name,
-            description,
             pr_number,
             archived,
             review_id,
@@ -67,7 +63,6 @@ impl From<StackBranch> for virtual_branches_legacy_types::StackBranch {
         StackBranch {
             head,
             name,
-            description,
             pr_number,
             archived,
             review_id,
@@ -76,7 +71,6 @@ impl From<StackBranch> for virtual_branches_legacy_types::StackBranch {
         virtual_branches_legacy_types::StackBranch {
             head: head.into(),
             name,
-            description,
             pr_number,
             archived,
             review_id,
@@ -153,13 +147,11 @@ impl StackBranch {
     pub fn new<T: Into<CommitOrChangeId>>(
         head: T,
         name: String,
-        description: Option<String>,
         repo: &gix::Repository,
     ) -> Result<Self> {
         let branch = StackBranch {
             head: head.into(),
             name,
-            description,
             pr_number: None,
             archived: false,
             review_id: None,
@@ -170,14 +162,12 @@ impl StackBranch {
 
     pub fn new_with_zero_head(
         name: String,
-        description: Option<String>,
         pr_number: Option<usize>,
         review_id: Option<String>,
         archived: bool,
     ) -> Self {
         StackBranch {
             name,
-            description,
             pr_number,
             archived,
             review_id,

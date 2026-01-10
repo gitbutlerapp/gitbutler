@@ -202,12 +202,8 @@ impl Mcp {
         let start_time = std::time::Instant::now();
         let params = params.0;
         let project_path = std::path::PathBuf::from(&params.current_working_directory);
-        let stack_entry = stack::create_stack_with_branch(
-            &params.branch_name,
-            &params.description,
-            &project_path,
-        )
-        .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
+        let stack_entry = stack::create_stack_with_branch(&params.branch_name, &project_path)
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
 
         let mut event: metrics::Event = metrics::EventKind::McpInternal.into();
         event.insert_prop("endpoint", "create_branch");
@@ -296,10 +292,6 @@ pub struct CreateBranchParams {
 
     #[schemars(description = "The name of the new branch to create")]
     pub branch_name: String,
-
-    #[schemars(description = "Description of the branch.
-    It's important to be detailed about the branch's purpose and any relevant context so that it's easy to determine where changes should be applied.")]
-    pub description: String,
 }
 
 #[tool_handler]

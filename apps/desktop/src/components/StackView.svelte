@@ -40,6 +40,7 @@
 		type SelectionId
 	} from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -86,6 +87,7 @@
 	const uiState = inject(UI_STATE);
 	const hooksService = inject(HOOKS_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
+	const userSettings = inject(SETTINGS);
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stableStackId);

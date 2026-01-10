@@ -187,7 +187,6 @@ fn inject_branch_steps_into_destination(
     let mut new_head = StackBranch::new(
         CommitOrChangeId::CommitId(target_branch_head.to_string()),
         subject_branch_name.to_string(),
-        None,
         repo,
     )?;
 

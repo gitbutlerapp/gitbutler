@@ -19,7 +19,6 @@ ownership = ""
 order = 3
 allow_rebasing = true
 in_workspace = true
-post_commits = false
 
 [[branches.702ffd01-134b-46a1-9230-56d01c210ad0.heads]]
 name = "D"
@@ -47,7 +46,6 @@ ownership = ""
 order = 4
 allow_rebasing = true
 in_workspace = true
-post_commits = false
 
 [[branches.ed8161c6-0559-4265-9fb5-baa0267b7654.heads]]
 name = "E"
@@ -66,10 +64,8 @@ tree = "bc096ab1005a594d4c66dcf3d08355e1f35f9971"
 head = "e7fce5d8c8004dbe584ae752e41b2532c1733873"
 ownership = ""
 order = 0
-selected_for_changes = 1740394683827
 allow_rebasing = true
 in_workspace = true
-post_commits = false
 
 [[branches.c9ec92d4-caa9-457c-bfd8-2f60a6f57fd1.heads]]
 name = "A"
@@ -91,7 +87,6 @@ ownership = ""
 order = 2
 allow_rebasing = true
 in_workspace = true
-post_commits = false
 
 [[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads]]
 name = "D-empty"
@@ -147,7 +142,6 @@ ownership = ""
 order = 1
 allow_rebasing = true
 in_workspace = true
-post_commits = false
 
 [[branches.f6291523-56b1-45fc-85ac-8782b2f13227.heads]]
 name = "C-empty"

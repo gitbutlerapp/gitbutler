@@ -224,7 +224,6 @@ pub fn split_into_dependent_branch(
         StackBranch::new(
             CommitOrChangeId::CommitId(branch_head.to_string()),
             new_branch_name,
-            None,
             &repository,
         )?,
         Some(source_branch_name),

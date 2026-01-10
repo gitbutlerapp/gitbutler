@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { inject } from '@gitbutler/core/context';
 	import { FileListItem, Icon } from '@gitbutler/ui';
 	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
 	import { fly } from 'svelte/transition';
@@ -13,6 +15,8 @@
 	};
 
 	const { onselect, files, loading, onexit, indexOfSelectedFile, query }: Props = $props();
+
+	const userSettings = inject(SETTINGS);
 
 	const shouldShow = $derived(files !== undefined);
 </script>
@@ -45,6 +49,7 @@
 				{#each files as file, i}
 					<FileListItem
 						filePath={file}
+						pathFirst={$userSettings.pathFirst}
 						onclick={() => onselect(file)}
 						selected={i === indexOfSelectedFile}
 						active={i === indexOfSelectedFile}

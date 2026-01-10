@@ -385,11 +385,10 @@ impl ui::BranchDetails {
         let ref_info = ref_info
             .clone()
             .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
-        let (description, updated_at, review_id, pr_number) = metadata
+        let (updated_at, review_id, pr_number) = metadata
             .clone()
             .map(|meta| {
                 (
-                    meta.description,
                     meta.ref_info.updated_at,
                     meta.review.review_id,
                     meta.review.pull_request,
@@ -411,7 +410,6 @@ impl ui::BranchDetails {
             remote_tracking_branch: remote_tracking_ref_name
                 .as_ref()
                 .map(|full_name| full_name.as_bstr().into()),
-            description,
             pr_number,
             review_id,
             tip: commits_unique_from_tip
@@ -467,7 +465,6 @@ pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui
         let result = ui::Branch {
             name: internal.name().to_owned().into(),
             remote_tracking_branch: upstream_reference.map(Into::into),
-            description: internal.description.clone(),
             pr_number: internal.pr_number,
             review_id: internal.review_id.clone(),
             archived: internal.archived,

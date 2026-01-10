@@ -7,7 +7,7 @@ use gitbutler_branch::BranchCreateRequest;
 use gitbutler_diff::{Hunk, diff_files_into_hunks};
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
-use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, Stack, StackId};
+use gitbutler_stack::{Stack, StackId};
 use tracing::instrument;
 
 use crate::{
@@ -64,7 +64,7 @@ pub fn get_applied_status_cached(
             skipped_files.push(file_diff.clone());
         }
     }
-    let mut base_diffs: HashMap<_, _> = diff_files_into_hunks(worktree_changes).collect();
+    let base_diffs: HashMap<_, _> = diff_files_into_hunks(worktree_changes).collect();
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));
@@ -97,76 +97,6 @@ pub fn get_applied_status_cached(
 
     let diff_dependencies = &workspace_dependencies.diffs;
 
-    for branch in &mut virtual_branches {
-        // This should never be invoked. But if it is, dont try to  make the branch name unique
-        if let Err(e) = branch.initialize(ctx, true) {
-            tracing::warn!("failed to initialize stack: {:?}", e);
-        }
-        let old_claims = branch.ownership.claims.clone();
-        let new_claims = old_claims
-            .iter()
-            .filter_map(|claim| {
-                let git_diff_hunks = match base_diffs.get_mut(&claim.file_path) {
-                    None => return None,
-                    Some(hunks) => hunks,
-                };
-
-                let claimed_hunks: Vec<Hunk> = claim
-                    .hunks
-                    .iter()
-                    .filter_map(|claimed_hunk| {
-                        // if any of the current hunks intersects with the owned hunk, we want to keep it
-                        for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
-                            if claimed_hunk.intersects(git_diff_hunk) {
-                                let hash = Hunk::hash_diff(&git_diff_hunk.diff_lines);
-                                if diff_dependencies.contains_key(&hash) {
-                                    return None; // Defer allocation to unclaimed hunks processing
-                                }
-                                diffs_by_branch
-                                    .entry(branch.id)
-                                    .or_default()
-                                    .entry(claim.file_path.clone())
-                                    .or_default()
-                                    .push(git_diff_hunk.clone());
-                                let updated_hunk = Hunk {
-                                    start: git_diff_hunk.new_start,
-                                    end: git_diff_hunk.new_start + git_diff_hunk.new_lines,
-                                    hash: Some(hash),
-                                    hunk_header: None,
-                                };
-                                git_diff_hunks.remove(i);
-                                return Some(updated_hunk);
-                            }
-                        }
-                        None
-                    })
-                    .collect();
-
-                if claimed_hunks.is_empty() {
-                    // No need for an empty claim
-                    None
-                } else {
-                    Some(OwnershipClaim {
-                        file_path: claim.file_path.clone(),
-                        hunks: claimed_hunks,
-                    })
-                }
-            })
-            .collect();
-
-        branch.ownership = BranchOwnershipClaims { claims: new_claims };
-    }
-
-    let max_selected_for_changes = virtual_branches
-        .iter()
-        .filter_map(|b| b.selected_for_changes)
-        .max()
-        .unwrap_or(-1);
-    let default_vbranch_pos = virtual_branches
-        .iter()
-        .position(|b| b.selected_for_changes == Some(max_selected_for_changes))
-        .unwrap_or(0);
-
     // Everything claimed has been removed from `base_diffs`, here we just
     // process the remaining ones.
     for (filepath, hunks) in base_diffs {
@@ -178,18 +108,10 @@ pub fn get_applied_status_cached(
                 let p = virtual_branches
                     .iter()
                     .position(|vb| vb.id == locks[0].branch_id);
-                match p {
-                    Some(p) => p,
-                    _ => default_vbranch_pos,
-                }
+                p.unwrap_or_default()
             } else {
-                default_vbranch_pos
+                0
             };
-
-            virtual_branches[vbranch_pos].ownership.put(OwnershipClaim {
-                file_path: filepath.clone(),
-                hunks: vec![Hunk::from(&hunk).with_hash(Hunk::hash_diff(&hunk.diff_lines))],
-            });
 
             diffs_by_branch
                 .entry(virtual_branches[vbranch_pos].id)

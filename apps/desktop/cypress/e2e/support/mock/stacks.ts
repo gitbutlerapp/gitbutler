@@ -98,7 +98,6 @@ export const MOCK_BRANCH_DETAILS: Workspace.BranchDetails = {
 	reference: 'refs/heads/branch-a',
 	linkedWorktreeId: null,
 	remoteTrackingBranch: null,
-	description: null,
 	prNumber: null,
 	reviewId: null,
 	tip: '1234123',
@@ -117,7 +116,6 @@ export const MOCK_BRANCH_DETAILS_BRAND_NEW: Workspace.BranchDetails = {
 	reference: `refs/heads/${MOCK_BRAND_NEW_BRANCH_NAME}`,
 	remoteTrackingBranch: null,
 	linkedWorktreeId: null,
-	description: null,
 	prNumber: null,
 	reviewId: null,
 	tip: '1234123',
@@ -465,11 +463,8 @@ export function isCreateBranchParams(params: unknown): params is CreateBranchPar
 
 type BranchParams = {
 	name?: string;
-	ownership?: string;
 	order?: number;
 	allow_rebasing?: boolean;
-	notes?: string;
-	selected_for_changes?: boolean;
 };
 
 function isBranchParams(params: unknown): params is BranchParams {
@@ -478,16 +473,10 @@ function isBranchParams(params: unknown): params is BranchParams {
 		params !== null &&
 		((params as BranchParams).name === undefined ||
 			typeof (params as BranchParams).name === 'string') &&
-		((params as BranchParams).ownership === undefined ||
-			typeof (params as BranchParams).ownership === 'string') &&
 		((params as BranchParams).order === undefined ||
 			typeof (params as BranchParams).order === 'number') &&
 		((params as BranchParams).allow_rebasing === undefined ||
-			typeof (params as BranchParams).allow_rebasing === 'boolean') &&
-		((params as BranchParams).notes === undefined ||
-			typeof (params as BranchParams).notes === 'string') &&
-		((params as BranchParams).selected_for_changes === undefined ||
-			typeof (params as BranchParams).selected_for_changes === 'boolean')
+			typeof (params as BranchParams).allow_rebasing === 'boolean')
 	);
 }
 export type CreateStackParams = {

@@ -174,7 +174,6 @@ mod stacks {
                     ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
@@ -202,7 +201,6 @@ mod stacks {
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
                     ),
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
@@ -297,7 +295,6 @@ mod stack_details {
                     ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
@@ -321,7 +318,6 @@ mod stack_details {
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/advanced-lane",
                     ),
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
@@ -378,7 +374,6 @@ mod stack_details {
                     ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
@@ -406,7 +401,6 @@ mod stack_details {
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
                     ),
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
@@ -443,7 +437,6 @@ mod stack_details {
                     ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
@@ -471,7 +464,6 @@ mod stack_details {
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
                     ),
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),

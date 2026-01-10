@@ -208,13 +208,12 @@ async fn main() -> Result<()> {
         args::Subcommands::StackBranches {
             id,
             branch_name,
-            description,
+            description: _,
             remote,
         } => match (branch_name, id) {
             (Some(branch_name), maybe_id) => command::stacks::create_branch(
                 *maybe_id,
                 branch_name,
-                description.as_deref(),
                 &args.current_dir,
                 *remote,
                 args.json,

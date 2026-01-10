@@ -237,7 +237,6 @@ pub mod stacks {
         ctx: &Context,
         name: &str,
         remote: bool,
-        description: Option<&str>,
     ) -> anyhow::Result<ui::StackEntry> {
         let repo = ctx.repo.get()?;
         let remotes = repo.remote_names();
@@ -281,15 +280,6 @@ pub mod stacks {
             ctx.exclusive_worktree_access().write_permission(),
         )?;
 
-        if description.is_some() {
-            gitbutler_branch_actions::stack::update_branch_description(
-                ctx,
-                stack_entry.id,
-                name.to_string(),
-                description.map(ToOwned::to_owned),
-            )?;
-        }
-
         Ok(stack_entry.into())
     }
 
@@ -298,12 +288,10 @@ pub mod stacks {
         ctx: &Context,
         stack_id: StackId,
         name: &str,
-        description: Option<&str>,
         repo: &gix::Repository,
     ) -> anyhow::Result<ui::StackEntry> {
         let creation_request = gitbutler_branch_actions::stack::CreateSeriesRequest {
             name: name.to_string(),
-            description: None,
             target_patch: None,
             preceding_head: None,
         };
@@ -319,15 +307,6 @@ pub mod stacks {
             .into_iter()
             .find(|entry| entry.id == Some(stack_id))
             .ok_or_else(|| anyhow::anyhow!("Failed to find stack with ID: {stack_id}"))?;
-
-        if description.is_some() {
-            gitbutler_branch_actions::stack::update_branch_description(
-                ctx,
-                stack_entry.id.context("BUG(opt-stack-id)")?,
-                name.to_string(),
-                description.map(ToOwned::to_owned),
-            )?;
-        }
 
         Ok(stack_entry)
     }
@@ -393,7 +372,6 @@ pub mod stacks {
     pub fn create_branch(
         id: Option<StackId>,
         name: &str,
-        description: Option<&str>,
         current_dir: &Path,
         remote: bool,
         use_json: bool,
@@ -415,8 +393,8 @@ pub mod stacks {
         let repo = ctx.repo.get()?;
 
         let stack_entry = match id {
-            Some(id) => add_branch_to_stack(&ctx, id, name, description, &repo)?,
-            None => create_stack_with_branch(&ctx, name, remote, description)?,
+            Some(id) => add_branch_to_stack(&ctx, id, name, &repo)?,
+            None => create_stack_with_branch(&ctx, name, remote)?,
         };
 
         if use_json {
