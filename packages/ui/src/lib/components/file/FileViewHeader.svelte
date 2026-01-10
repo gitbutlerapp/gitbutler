@@ -24,6 +24,7 @@
 		sticky?: boolean;
 		topBorder?: boolean;
 		bottomBorder?: boolean;
+		highlighted?: boolean;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
 	}
@@ -44,6 +45,7 @@
 		sticky,
 		topBorder,
 		bottomBorder,
+		highlighted,
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
@@ -59,6 +61,7 @@
 	class:top-border={topBorder}
 	class:bottom-border={bottomBorder}
 	class:no-paddings={noPaddings}
+	class:highlighted
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();
@@ -172,5 +175,18 @@
 		transition:
 			width var(--transition-fast),
 			opacity var(--transition-fast);
+	}
+
+	.file-header.highlighted {
+		animation: highlight-flash 1s ease-out;
+	}
+
+	@keyframes highlight-flash {
+		0% {
+			background-color: rgba(255, 200, 0, 0.3);
+		}
+		100% {
+			background-color: transparent;
+		}
 	}
 </style>
