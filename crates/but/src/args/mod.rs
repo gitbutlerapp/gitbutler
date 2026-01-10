@@ -9,7 +9,12 @@
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Parser)]
-#[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("VERSION").unwrap_or("dev"))]
+#[clap(
+    name = "but",
+    about = "A GitButler CLI tool",
+    version = option_env!("VERSION").unwrap_or("dev"),
+    disable_help_subcommand = true
+)]
 pub struct Args {
     /// Enable tracing for debug and performance information printed to stderr.
     #[clap(short = 't', long, action = clap::ArgAction::Count, hide = true, env = "BUT_TRACE")]
@@ -653,6 +658,14 @@ pub enum Subcommands {
         #[clap(required = false)]
         branch: Option<String>,
     },
+
+    /// Show help information grouped by category.
+    ///
+    /// Displays all available commands organized into functional categories
+    /// such as Inspection, Branching and Committing, Server Interactions, etc.
+    ///
+    /// This is equivalent to running `but -h` to see the command overview.
+    Help,
 }
 
 pub mod alias;

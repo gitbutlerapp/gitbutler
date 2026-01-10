@@ -89,6 +89,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let use_pager = match args.cmd {
         #[cfg(feature = "legacy")]
         Some(Subcommands::Status { .. }) | Some(Subcommands::Oplog(..)) => false,
+        Some(Subcommands::Help) => false,
         _ => true,
     };
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
@@ -215,7 +216,8 @@ async fn match_subcommand(
                 command::alias::add(&mut ctx, out, &name, &value, global).emit_metrics(metrics_ctx)
             }
             Some(alias_args::Subcommands::Remove { name, global }) => {
-                command::alias::remove(out, &name, global).emit_metrics(metrics_ctx)
+                let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+                command::alias::remove(&mut ctx, out, &name, global).emit_metrics(metrics_ctx)
             }
         },
         Subcommands::Branch(branch::Platform { cmd }) => {

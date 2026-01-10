@@ -137,6 +137,7 @@ impl Subcommands {
                 forge::integration::Subcommands::ListUsers => ForgeListUsers,
             },
             Subcommands::Completions { .. } => Completions,
+            Subcommands::Help => Unknown,
             Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
                 None | Some(alias_args::Subcommands::List) => AliasCheck,
                 Some(alias_args::Subcommands::Add { .. }) => AliasAdd,
