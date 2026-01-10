@@ -199,12 +199,6 @@
 		font-size: 18px;
 	}
 
-	.organizations-list {
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-	}
-
 	.organization-card {
 		display: flex;
 		flex-grow: 1;

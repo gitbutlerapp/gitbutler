@@ -20,6 +20,7 @@
 		executable?: boolean;
 		transparent?: boolean;
 		noPaddings?: boolean;
+		pathFirst?: boolean;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
 	}
@@ -36,6 +37,7 @@
 		executable,
 		transparent,
 		noPaddings,
+		pathFirst = true,
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
@@ -63,7 +65,7 @@
 	{/if}
 
 	<div class="file-header__name">
-		<FileName {filePath} textSize="13" />
+		<FileName {filePath} {pathFirst} textSize="13" />
 	</div>
 
 	<div class="file-header__statuses">

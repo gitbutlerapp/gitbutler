@@ -19,6 +19,7 @@
 		fileStatus?: FileStatus;
 		fileStatusTooltip?: string;
 		fileStatusStyle?: 'dot' | 'full';
+		pathFirst?: boolean;
 		draggable?: boolean;
 		selected?: boolean;
 		focused?: boolean;
@@ -59,6 +60,7 @@
 		fileStatusTooltip,
 		hideBorder,
 		fileStatusStyle = 'dot',
+		pathFirst = true,
 		draggable = false,
 		selected = false,
 		focused = false,
@@ -135,7 +137,7 @@
 		</div>
 	{/if}
 
-	<FileName {filePath} hideFilePath={listMode === 'tree'} />
+	<FileName {filePath} hideFilePath={listMode === 'tree'} {pathFirst} />
 
 	<div class="file-list-item__details">
 		{#if executable}

@@ -87,28 +87,4 @@
 	.scale-name {
 		color: var(--card-ui-color);
 	}
-
-	.scale-actions {
-		display: flex;
-		justify-content: flex-end;
-		width: 100%;
-		gap: 4px;
-	}
-
-	.scale-control {
-		display: flex;
-		align-items: center;
-		padding: 4px;
-		border-radius: var(--radius-btn);
-		color: var(--card-ui-color);
-		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: color-mix(
-				in srgb,
-				#000 calc((var(--opacity-btn-solid-hover) * 100%)),
-				transparent
-			);
-		}
-	}
 </style>

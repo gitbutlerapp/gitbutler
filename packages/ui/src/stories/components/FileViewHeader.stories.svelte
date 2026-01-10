@@ -16,6 +16,7 @@
 		draggable: true,
 		linesAdded: 10,
 		linesRemoved: 5,
+		pathFirst: true,
 		oncloseclick: () => {
 			alert('close clicked');
 		}

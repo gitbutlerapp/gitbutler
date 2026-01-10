@@ -335,43 +335,6 @@
 		gap: 2px;
 	}
 
-	/* USER BUTTON */
-	.user-button {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		width: 34px;
-		padding: 4px;
-		gap: 4px;
-	}
-
-	.user-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 26px;
-		height: 26px;
-		overflow: hidden;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-core-pop-50);
-		color: var(--clr-core-gray-100);
-	}
-
-	.user-icon__image {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-
-	.user-button__select-icon {
-		color: var(--label-clr);
-		opacity: var(--icon-opacity);
-		transition:
-			opacity var(--transition-fast),
-			color var(--transition-fast);
-	}
-
 	.active-page-indicator {
 		position: absolute;
 		left: 0;

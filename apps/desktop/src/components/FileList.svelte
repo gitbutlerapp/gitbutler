@@ -22,6 +22,7 @@
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/fileSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/core/context';
 	import { AsyncButton, FileListItem, TestId } from '@gitbutler/ui';
@@ -67,6 +68,7 @@
 	const actionService = inject(ACTION_SERVICE);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
 	const dependencyService = inject(DEPENDENCY_SERVICE);
+	const userSettings = inject(SETTINGS);
 
 	const [autoCommit] = actionService.autoCommit;
 	const [branchChanges] = actionService.branchChanges;
@@ -313,6 +315,7 @@
 				<FileListItem
 					draggable={draggableFiles}
 					filePath={path}
+					pathFirst={$userSettings.pathFirst}
 					{active}
 					conflicted
 					conflictHint={conflictEntryHint(kind)}

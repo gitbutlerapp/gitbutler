@@ -86,6 +86,27 @@
 	{/snippet}
 </CardGroup.Item>
 
+<CardGroup.Item labelFor="pathFirst" standalone>
+	{#snippet title()}
+		File path first
+	{/snippet}
+	{#snippet caption()}
+		Display the full file path before the file name in file lists.
+	{/snippet}
+	{#snippet actions()}
+		<Toggle
+			id="pathFirst"
+			checked={$userSettings.pathFirst}
+			onclick={() => {
+				userSettings.update((s) => ({
+					...s,
+					pathFirst: !s.pathFirst
+				}));
+			}}
+		/>
+	{/snippet}
+</CardGroup.Item>
+
 <CardGroup>
 	<CardGroup.Item alignment="center">
 		{#snippet title()}
