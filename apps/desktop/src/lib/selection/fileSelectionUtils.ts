@@ -78,8 +78,8 @@ export function updateSelection({
 	fileIdSelection,
 	selectionId,
 	preventDefault
-}: UpdateSelectionParams): undefined {
-	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
+}: UpdateSelectionParams): boolean {
+	if (!selectedFileIds[0] || selectedFileIds.length === 0) return false;
 
 	const firstFileId = selectedFileIds[0].path;
 	const lastFileId = selectedFileIds.at(-1)!.path;
@@ -186,8 +186,11 @@ export function updateSelection({
 			preventDefault();
 			fileIdSelection.clearPreview(selectionId);
 			targetElement.blur();
-			break;
+			return false;
+		default:
+			return false;
 	}
+	return true;
 }
 
 export function selectFilesInList(
