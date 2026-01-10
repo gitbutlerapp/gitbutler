@@ -14,15 +14,12 @@ use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{
-    BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle, canned_branch_name,
-};
+use gitbutler_stack::{Stack, Target, VirtualBranchesHandle, canned_branch_name};
 use serde::Serialize;
 use tracing::instrument;
 
 use crate::{
     VirtualBranchesExt,
-    hunk::VirtualBranchHunk,
     integration::update_workspace_commit,
     remote::{RemoteCommit, commit_to_remote_commit},
 };
@@ -183,25 +180,6 @@ pub(crate) fn set_base_branch(
 
         let wd_diff = gitbutler_diff::workdir(repo, current_head_commit.id())?;
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
-            // assign ownership to the branch
-            let ownership = wd_diff.iter().fold(
-                BranchOwnershipClaims::default(),
-                |mut ownership, (file_path, diff)| {
-                    for hunk in &diff.hunks {
-                        ownership.put(
-                            format!(
-                                "{}:{}",
-                                file_path.display(),
-                                VirtualBranchHunk::gen_id(hunk.new_start, hunk.new_lines)
-                            )
-                            .parse()
-                            .unwrap(),
-                        );
-                    }
-                    ownership
-                },
-            );
-
             let (upstream, upstream_head, branch_matches_target) =
                 if let Refname::Local(head_name) = &head_name {
                     let upstream_name = target_branch_ref.with_branch(head_name.branch());
@@ -236,7 +214,7 @@ pub(crate) fn set_base_branch(
                 head_name.to_string().replace("refs/heads/", "")
             };
 
-            let mut branch = Stack::create(
+            let branch = Stack::create(
                 ctx,
                 branch_name,
                 Some(head_name),
@@ -249,7 +227,6 @@ pub(crate) fn set_base_branch(
                 ctx.legacy_project.ok_with_force_push.into(),
                 !branch_matches_target, // allow duplicate name since here we are creating a lane from an existing branch
             )?;
-            branch.ownership = ownership;
 
             vb_state.set_stack(branch)?;
         }

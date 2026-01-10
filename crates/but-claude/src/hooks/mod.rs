@@ -530,7 +530,6 @@ fn create_stack(
         gitbutler_stack::Stack::next_available_name(&*ctx.repo.get()?, vb_state, template, false)?;
     let create_req = BranchCreateRequest {
         name: Some(branch_name),
-        ownership: None,
         order: None,
         selected_for_changes: None,
     };

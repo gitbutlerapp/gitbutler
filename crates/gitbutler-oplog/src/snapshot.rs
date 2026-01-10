@@ -182,18 +182,7 @@ impl SnapshotExt for but_ctx::Context {
         error: Option<&anyhow::Error>,
         perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()> {
-        let details = if update.ownership.is_some() {
-            SnapshotDetails::new(OperationKind::MoveHunk).with_trailers(
-                [
-                    vec![Trailer {
-                        key: "name".to_string(),
-                        value: old_stack.name.to_string(),
-                    }],
-                    error_trailer(error),
-                ]
-                .concat(),
-            )
-        } else if let Some(name) = update.name.as_deref() {
+        let details = if let Some(name) = update.name.as_deref() {
             SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers(
                 [
                     vec![

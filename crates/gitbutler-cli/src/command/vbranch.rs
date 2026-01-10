@@ -173,7 +173,6 @@ fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
         BranchUpdateRequest {
             id: Some(stack.id),
             name: None,
-            ownership: None,
             order: None,
             upstream: None,
             selected_for_changes: Some(true),

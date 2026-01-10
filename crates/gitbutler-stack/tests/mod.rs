@@ -1,5 +1,4 @@
 mod file_ownership;
-mod ownership;
 
 use anyhow::Result;
 use but_core::Reference;

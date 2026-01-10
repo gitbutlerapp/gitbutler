@@ -463,7 +463,6 @@ export function isCreateBranchParams(params: unknown): params is CreateBranchPar
 
 type BranchParams = {
 	name?: string;
-	ownership?: string;
 	order?: number;
 	allow_rebasing?: boolean;
 	notes?: string;
@@ -476,8 +475,6 @@ function isBranchParams(params: unknown): params is BranchParams {
 		params !== null &&
 		((params as BranchParams).name === undefined ||
 			typeof (params as BranchParams).name === 'string') &&
-		((params as BranchParams).ownership === undefined ||
-			typeof (params as BranchParams).ownership === 'string') &&
 		((params as BranchParams).order === undefined ||
 			typeof (params as BranchParams).order === 'number') &&
 		((params as BranchParams).allow_rebasing === undefined ||

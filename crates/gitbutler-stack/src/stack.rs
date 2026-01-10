@@ -24,7 +24,6 @@ use serde::{Deserialize, Serialize};
 use crate::{
     StackBranch, VirtualBranchesHandle,
     heads::{add_head, get_head, remove_head},
-    ownership::BranchOwnershipClaims,
     stack_branch::{CommitOrChangeId, remote_reference},
 };
 
@@ -52,7 +51,6 @@ pub struct Stack {
     tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
     head: git2::Oid,
-    pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches
     pub order: usize,
     // is Some(timestamp), the branch is considered a default destination for new changes.
@@ -81,7 +79,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             updated_timestamp_ms,
             tree,
             head,
-            ownership,
             order,
             selected_for_changes,
             allow_rebasing,
@@ -101,7 +98,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             updated_timestamp_ms,
             tree: tree.to_git2(),
             head: head.to_git2(),
-            ownership: ownership.into(),
             order,
             selected_for_changes,
             allow_rebasing,
@@ -125,7 +121,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             updated_timestamp_ms,
             tree,
             head,
-            ownership,
             order,
             selected_for_changes,
             allow_rebasing,
@@ -145,7 +140,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             updated_timestamp_ms,
             tree: tree.to_gix(),
             head: head.to_gix(),
-            ownership: ownership.into(),
             order,
             selected_for_changes,
             allow_rebasing,
@@ -200,7 +194,6 @@ impl Stack {
             updated_timestamp_ms: now,
             tree,
             head,
-            ownership: BranchOwnershipClaims::default(),
             order,
             selected_for_changes,
             allow_rebasing,
@@ -242,7 +235,6 @@ impl Stack {
             not_in_workspace_wip_change_id: None,
             // unclear
             post_commits: false,
-            ownership: Default::default(),
         }
     }
 
