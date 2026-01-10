@@ -20,8 +20,6 @@
 	}
 
 	const { projectId, baseBranch, children }: Props = $props();
-
-
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
