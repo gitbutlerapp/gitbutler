@@ -5,6 +5,8 @@
 	import { BACKEND } from '$lib/backend';
 	import { CLI_MANAGER } from '$lib/cli/cli';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
+	import { supportedLocales } from '$lib/i18n/locales';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { SETTINGS, type CodeEditorSettings } from '$lib/settings/userSettings';
@@ -38,6 +40,17 @@
 
 	const backend = inject(BACKEND);
 	const platformName = backend.platformName;
+
+	const i18nService = inject(I18N_SERVICE);
+	const currentLocale = i18nService.locale;
+	const { t } = i18nService;
+
+	const localeOptions = supportedLocales.map((locale) => {
+		return {
+			label: locale.nativeName,
+			value: locale.code
+		};
+	});
 
 	const appSettings = settingsService.appSettings;
 
@@ -180,6 +193,30 @@
 <WelcomeSigninAction />
 
 <Spacer />
+
+<CardGroup>
+	<CardGroup.Item alignment="center">
+		{#snippet title()}
+			{$t('settings.language')}
+		{/snippet}
+		{#snippet actions()}
+			<Select
+				value={$currentLocale}
+				options={localeOptions}
+				onselect={(value) => {
+					i18nService.setLocale(value);
+					chipToasts.success($t('notifications.languageChanged'));
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === $currentLocale} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		{/snippet}
+	</CardGroup.Item>
+</CardGroup>
 
 <CardGroup>
 	<CardGroup.Item alignment="center">
