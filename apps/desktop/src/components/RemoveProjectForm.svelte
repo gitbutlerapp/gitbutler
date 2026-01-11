@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
@@ -11,6 +12,8 @@
 
 	const { projectId }: { projectId: string } = $props();
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectsService.getProject(projectId));
 	const { closeSettings } = useSettingsModal();
@@ -23,10 +26,10 @@
 			await projectsService.deleteProject(projectId);
 			closeSettings();
 			goto('/');
-			chipToasts.success('Project deleted');
+			chipToasts.success($t('settings.project.remove.success'));
 		} catch (err: any) {
 			console.error(err);
-			showError('Failed to delete project', err);
+			showError($t('settings.project.remove.error'), err);
 		} finally {
 			isDeleting = false;
 		}
@@ -37,10 +40,10 @@
 	{#snippet children(project)}
 		<CardGroup.Item standalone>
 			{#snippet title()}
-				Remove project
+				{$t('settings.project.remove.title')}
 			{/snippet}
 			{#snippet caption()}
-				Removing projects only clears configuration — your code stays safe.
+				{$t('settings.project.remove.caption')}
 			{/snippet}
 
 			<div>

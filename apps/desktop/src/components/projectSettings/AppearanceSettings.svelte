@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ThemeSelector from '$components/ThemeSelector.svelte';
 	import { stagingBehaviorFeature, type StagingBehavior } from '$lib/config/uiFeatureFlags';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/core/context';
 	import {
@@ -13,6 +14,9 @@
 		Toggle
 	} from '@gitbutler/ui';
 	import type { ScrollbarVisilitySettings } from '@gitbutler/ui/components/scroll/Scrollbar.svelte';
+
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 
 	const userSettings = inject(SETTINGS);
 	const diff = `@@ -56,10 +56,10 @@
@@ -46,30 +50,38 @@
 		if (!selectedStagingBehavior) return;
 		stagingBehaviorFeature.set(selectedStagingBehavior);
 	}
+
+	const fileListModeOptions = $derived([
+		{ label: $t('settings.general.appearance.fileListMode.listView'), value: 'list' },
+		{ label: $t('settings.general.appearance.fileListMode.treeView'), value: 'tree' }
+	]);
+
+	const linesContrastOptions = $derived([
+		{ label: $t('settings.general.appearance.linesContrast.light'), value: 'light' },
+		{ label: $t('settings.general.appearance.linesContrast.medium'), value: 'medium' },
+		{ label: $t('settings.general.appearance.linesContrast.strong'), value: 'strong' }
+	]);
 </script>
 
 <CardGroup.Item standalone>
 	{#snippet title()}
-		Theme
+		{$t('settings.general.appearance.theme.title')}
 	{/snippet}
 	<ThemeSelector {userSettings} />
 </CardGroup.Item>
 
 <CardGroup.Item alignment="center" standalone>
 	{#snippet title()}
-		Default file list mode
+		{$t('settings.general.appearance.fileListMode.title')}
 	{/snippet}
 	{#snippet caption()}
-		Set the default file list view (can be changed per location).
+		{$t('settings.general.appearance.fileListMode.caption')}
 	{/snippet}
 	{#snippet actions()}
 		<Select
 			maxWidth={120}
 			value={$userSettings.defaultFileListMode}
-			options={[
-				{ label: 'List view', value: 'list' },
-				{ label: 'Tree view', value: 'tree' }
-			]}
+			options={fileListModeOptions}
 			onselect={(value) => {
 				userSettings.update((s) => ({
 					...s,
@@ -88,10 +100,10 @@
 
 <CardGroup.Item labelFor="pathFirst" standalone>
 	{#snippet title()}
-		File path first
+		{$t('settings.general.appearance.filePathFirst.title')}
 	{/snippet}
 	{#snippet caption()}
-		Display the full file path before the file name in file lists.
+		{$t('settings.general.appearance.filePathFirst.caption')}
 	{/snippet}
 	{#snippet actions()}
 		<Toggle
@@ -110,7 +122,7 @@
 <CardGroup>
 	<CardGroup.Item alignment="center">
 		{#snippet title()}
-			Diff preview
+			{$t('settings.general.appearance.diffPreview.title')}
 		{/snippet}
 
 		<HunkDiff
@@ -128,10 +140,10 @@
 
 	<CardGroup.Item>
 		{#snippet title()}
-			Font family
+			{$t('settings.general.appearance.diffFont.title')}
 		{/snippet}
 		{#snippet caption()}
-			Sets the font for the diff view. The first font name is the default, others are fallbacks.
+			{$t('settings.general.appearance.diffFont.caption')}
 		{/snippet}
 
 		<Textbox
@@ -149,7 +161,7 @@
 
 	<CardGroup.Item labelFor="allowDiffLigatures">
 		{#snippet title()}
-			Allow font ligatures
+			{$t('settings.general.appearance.diffLigatures.title')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -167,10 +179,10 @@
 
 	<CardGroup.Item alignment="center">
 		{#snippet title()}
-			Tab size
+			{$t('settings.general.appearance.tabSize.title')}
 		{/snippet}
 		{#snippet caption()}
-			Number of spaces per tab in the diff view.
+			{$t('settings.general.appearance.tabSize.caption')}
 		{/snippet}
 
 		{#snippet actions()}
@@ -195,10 +207,10 @@
 
 	<CardGroup.Item labelFor="wrapText">
 		{#snippet title()}
-			Soft wrap
+			{$t('settings.general.appearance.softWrap.title')}
 		{/snippet}
 		{#snippet caption()}
-			Soft wrap long lines in the diff view to fit within the viewport.
+			{$t('settings.general.appearance.softWrap.caption')}
 		{/snippet}
 
 		{#snippet actions()}
@@ -217,20 +229,16 @@
 
 	<CardGroup.Item>
 		{#snippet title()}
-			Lines contrast
+			{$t('settings.general.appearance.linesContrast.title')}
 		{/snippet}
 		{#snippet caption()}
-			The contrast for added, deleted, and context lines in diffs.
+			{$t('settings.general.appearance.linesContrast.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Select
 				maxWidth={110}
 				value={$userSettings.diffContrast}
-				options={[
-					{ label: 'Light', value: 'light' },
-					{ label: 'Medium', value: 'medium' },
-					{ label: 'Strong', value: 'strong' }
-				]}
+				options={linesContrastOptions}
 				onselect={(value) => {
 					userSettings.update((s) => ({
 						...s,
@@ -249,12 +257,10 @@
 
 	<CardGroup.Item labelFor="colorBlindFriendly">
 		{#snippet title()}
-			Color blind-friendly colors
+			{$t('settings.general.appearance.colorBlindFriendly.title')}
 		{/snippet}
 		{#snippet caption()}
-			Use blue and orange colors instead of green and red for better
-			<br />
-			accessibility with color vision deficiency.
+			{@html $t('settings.general.appearance.colorBlindFriendly.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -272,11 +278,10 @@
 
 	<CardGroup.Item labelFor="inlineUnifiedDiffs">
 		{#snippet title()}
-			Display word diffs inline
+			{$t('settings.general.appearance.inlineWordDiffs.title')}
 		{/snippet}
 		{#snippet caption()}
-			Instead of separate lines for removals and additions, this feature shows a single line with
-			both added and removed words highlighted.
+			{$t('settings.general.appearance.inlineWordDiffs.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -297,10 +302,10 @@
 	<form class="stack-v" onchange={(e) => onScrollbarFormChange(e.currentTarget)}>
 		<CardGroup.Item labelFor="scrollbar-on-scroll">
 			{#snippet title()}
-				Scrollbar-On-Scroll
+				{$t('settings.general.appearance.scrollbarOnScroll.title')}
 			{/snippet}
 			{#snippet caption()}
-				Only show the scrollbar when you are scrolling.
+				{$t('settings.general.appearance.scrollbarOnScroll.caption')}
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton
@@ -314,10 +319,10 @@
 
 		<CardGroup.Item labelFor="scrollbar-on-hover">
 			{#snippet title()}
-				Scrollbar-On-Hover
+				{$t('settings.general.appearance.scrollbarOnHover.title')}
 			{/snippet}
 			{#snippet caption()}
-				Show the scrollbar only when you hover over the scrollable area.
+				{$t('settings.general.appearance.scrollbarOnHover.caption')}
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton
@@ -331,7 +336,7 @@
 
 		<CardGroup.Item labelFor="scrollbar-always">
 			{#snippet title()}
-				Always show scrollbar
+				{$t('settings.general.appearance.scrollbarAlways.title')}
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton
@@ -349,11 +354,10 @@
 	<form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
 		<CardGroup.Item labelFor="stage-all">
 			{#snippet title()}
-				Stage all files
+				{$t('settings.general.appearance.stagingBehavior.stageAll.title')}
 			{/snippet}
 			{#snippet caption()}
-				Stage all files assigned to the stack on commit. If no files are staged, all unassigned
-				files will be staged.
+				{$t('settings.general.appearance.stagingBehavior.stageAll.caption')}
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton
@@ -367,13 +371,10 @@
 
 		<CardGroup.Item labelFor="stage-selection">
 			{#snippet title()}
-				Stage selected files
+				{$t('settings.general.appearance.stagingBehavior.stageSelection.title')}
 			{/snippet}
 			{#snippet caption()}
-				Stage the selected assigned files to the stack on commit. If no files are selected, stage
-				all files. If there are no assigned files, stage all selected unassigned files.
-				<br />
-				And if no files are selected, stage all unassigned files.
+				{@html $t('settings.general.appearance.stagingBehavior.stageSelection.caption')}
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton
@@ -387,12 +388,10 @@
 
 		<CardGroup.Item labelFor="stage-none">
 			{#snippet title()}
-				Don't stage files automatically
+				{$t('settings.general.appearance.stagingBehavior.stageNone.title')}
 			{/snippet}
 			{#snippet caption()}
-				Do not stage any files automatically.
-				<br />
-				You're more of a DIY developer in that way.
+				{@html $t('settings.general.appearance.stagingBehavior.stageNone.caption')}
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton

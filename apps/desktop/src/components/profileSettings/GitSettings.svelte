@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Link, Select, SelectItem, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Select, SelectItem, Toggle } from '@gitbutler/ui';
 	import { onMount } from 'svelte';
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settings = settingsService.appSettings;
@@ -12,13 +15,13 @@
 	let annotateCommits = $state(true);
 	let fetchFrequency = $state<number>(-1);
 
-	const fetchFrequencyOptions = [
-		{ label: '1 minute', value: '1', minutes: 1 },
-		{ label: '5 minutes', value: '5', minutes: 5 },
-		{ label: '10 minutes', value: '10', minutes: 10 },
-		{ label: '15 minutes', value: '15', minutes: 15 },
-		{ label: 'None', value: 'none', minutes: -1 }
-	] as const;
+	const fetchFrequencyOptions = $derived([
+		{ label: $t('settings.general.git.autoFetch.oneMinute'), value: '1', minutes: 1 },
+		{ label: $t('settings.general.git.autoFetch.fiveMinutes'), value: '5', minutes: 5 },
+		{ label: $t('settings.general.git.autoFetch.tenMinutes'), value: '10', minutes: 10 },
+		{ label: $t('settings.general.git.autoFetch.fifteenMinutes'), value: '15', minutes: 15 },
+		{ label: $t('settings.general.git.autoFetch.none'), value: 'none', minutes: -1 }
+	] as const);
 
 	function toggleCommitterSigning() {
 		annotateCommits = !annotateCommits;
@@ -50,16 +53,10 @@
 
 <CardGroup.Item standalone labelFor="committerSigning">
 	{#snippet title()}
-		Credit GitButler as the committer
+		{$t('settings.general.git.committerCredit.title')}
 	{/snippet}
 	{#snippet caption()}
-		By default, everything in the GitButler client is free to use. You can opt in to crediting us as
-		the committer in your virtual branch commits to help spread the word.
-		<Link
-			href="https://github.com/gitbutlerapp/gitbutler-docs/blob/d81a23779302c55f8b20c75bf7842082815b4702/content/docs/features/virtual-branches/committer-mark.mdx"
-		>
-			Learn more
-		</Link>
+		{@html $t('settings.general.git.committerCredit.caption')}
 	{/snippet}
 	{#snippet actions()}
 		<Toggle id="committerSigning" checked={annotateCommits} onclick={toggleCommitterSigning} />
@@ -68,7 +65,7 @@
 
 <CardGroup.Item standalone labelFor="fetchFrequency" alignment="center">
 	{#snippet title()}
-		Auto-fetch frequency
+		{$t('settings.general.git.autoFetch.title')}
 	{/snippet}
 	{#snippet actions()}
 		<Select

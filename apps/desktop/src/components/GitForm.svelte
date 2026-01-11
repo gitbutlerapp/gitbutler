@@ -4,12 +4,16 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SettingsSection from '$components/SettingsSection.svelte';
 	import { BACKEND } from '$lib/backend';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
 	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
 	import type { Project } from '$lib/project/project';
 
 	const { projectId }: { projectId: string } = $props();
+
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectsService.getProject(projectId));
 	const backend = inject(BACKEND);
@@ -36,11 +40,10 @@
 			<CardGroup>
 				<CardGroup.Item labelFor="allowForcePush">
 					{#snippet title()}
-						Allow force pushing
+						{$t('settings.project.git.allowForcePush.title')}
 					{/snippet}
 					{#snippet caption()}
-						Force pushing allows GitButler to override branches even if they were pushed to remote.
-						GitButler will never force push to the target branch.
+						{$t('settings.project.git.allowForcePush.caption')}
 					{/snippet}
 					{#snippet actions()}
 						<Toggle
@@ -52,11 +55,10 @@
 				</CardGroup.Item>
 				<CardGroup.Item labelFor="forcePushProtection">
 					{#snippet title()}
-						Force push protection
+						{$t('settings.project.git.forcePushProtection.title')}
 					{/snippet}
 					{#snippet caption()}
-						Protect remote commits during force pushes. This will use Git's safer force push flags
-						to avoid overwriting remote commit history.
+						{$t('settings.project.git.forcePushProtection.caption')}
 					{/snippet}
 					{#snippet actions()}
 						<Toggle

@@ -10,6 +10,7 @@
 	import OrganisationSettings from '$components/profileSettings/OrganisationSettings.svelte';
 	import TelemetrySettings from '$components/profileSettings/TelemetrySettings.svelte';
 	import AppearanceSettings from '$components/projectSettings/AppearanceSettings.svelte';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
@@ -23,58 +24,60 @@
 
 	const { data }: Props = $props();
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 	const urlService = inject(URL_SERVICE);
 
-	const pages = [
+	const pages = $derived([
 		{
 			id: 'general',
-			label: 'General',
+			label: $t('settings.general.general.label'),
 			icon: 'settings' as keyof typeof iconsJson
 		},
 		{
 			id: 'appearance',
-			label: 'Appearance',
+			label: $t('settings.general.appearance.label'),
 			icon: 'appearance' as keyof typeof iconsJson
 		},
 		{
 			id: 'lanes-and-branches',
-			label: 'Lanes & branches',
+			label: $t('settings.general.lanesAndBranches.label'),
 			icon: 'lanes' as keyof typeof iconsJson
 		},
 		{
 			id: 'git',
-			label: 'Git stuff',
+			label: $t('settings.general.git.label'),
 			icon: 'git' as keyof typeof iconsJson
 		},
 		{
 			id: 'integrations',
-			label: 'Integrations',
+			label: $t('settings.general.integrations.label'),
 			icon: 'integrations' as keyof typeof iconsJson
 		},
 		{
 			id: 'ai',
-			label: 'AI Options',
+			label: $t('settings.general.ai.label'),
 			icon: 'ai' as keyof typeof iconsJson
 		},
 		{
 			id: 'telemetry',
-			label: 'Telemetry',
+			label: $t('settings.general.telemetry.label'),
 			icon: 'stat' as keyof typeof iconsJson
 		},
 		{
 			id: 'experimental',
-			label: 'Experimental',
+			label: $t('settings.general.experimental.label'),
 			icon: 'idea' as keyof typeof iconsJson
 		},
 		{
 			id: 'organizations',
-			label: 'Organizations',
+			label: $t('settings.general.organizations.label'),
 			icon: 'idea' as keyof typeof iconsJson,
 			adminOnly: true
 		}
-	];
+	]);
 
 	let currentSelectedId = $state(data.selectedId || pages[0]!.id);
 
@@ -84,7 +87,7 @@
 </script>
 
 <SettingsModalLayout
-	title="Global settings"
+	title={$t('settings.general.title')}
 	{pages}
 	selectedId={data.selectedId}
 	isAdmin={$user?.role === 'admin'}
@@ -111,10 +114,10 @@
 			{:else if currentPage.id === 'organizations'}
 				<OrganisationSettings />
 			{:else}
-				Settings page {currentPage.id} not Found.
+				{$t('settings.error.notFound', { id: currentPage.id })}
 			{/if}
 		{:else}
-			Settings page {currentSelectedId} not Found.
+			{$t('settings.error.notFound', { id: currentSelectedId })}
 		{/if}
 	{/snippet}
 
@@ -126,7 +129,7 @@
 				onclick={async () => await urlService.openExternalUrl('https://docs.gitbutler.com/')}
 			>
 				<Icon name="docs" />
-				<span class="text-13 text-bold">Docs</span>
+				<span class="text-13 text-bold">{$t('settings.general.footer.social.docs')}</span>
 				<div class="text-13 open-link-icon">↗</div>
 			</button>
 			<button
@@ -135,7 +138,7 @@
 				onclick={async () => await urlService.openExternalUrl('https://discord.gg/MmFkmaJ42D')}
 			>
 				<Icon name="discord" />
-				<span class="text-13 text-bold">Our Discord</span>
+				<span class="text-13 text-bold">{$t('settings.general.footer.social.discord')}</span>
 				<div class="text-13 open-link-icon">↗</div>
 			</button>
 		</div>

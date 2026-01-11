@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { inject } from '@gitbutler/core/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -11,6 +12,8 @@
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { Button, CardGroup } from '@gitbutler/ui';
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const organizationService = inject(ORGANIZATION_SERVICE);
 	const appState = inject(APP_STATE);
 	const httpClient = inject(HTTP_CLIENT);
@@ -29,7 +32,9 @@
 <CreateOrganizationModal bind:this={createOrganizationModal} />
 
 <JoinOrganizationModal />
-<Button onclick={() => createOrganizationModal?.show()}>Create an Organizaton</Button>
+<Button onclick={() => createOrganizationModal?.show()}
+	>{$t('settings.general.organizations.createButton')}</Button
+>
 
 <CardGroup>
 	{#each organizations as loadableOrganization}

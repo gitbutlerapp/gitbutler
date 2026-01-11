@@ -2,9 +2,12 @@
 	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { newlineOnEnter } from '$lib/config/uiFeatureFlags';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Link, Spacer, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
 
@@ -57,21 +60,17 @@
 </CardGroup.Item>
 
 <p class="text-13 text-body clr-text-2">
-	Get the full guide to Agents in GitButler in <Link
-		href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
-		>our documentation
-	</Link>
+	{@html $t('settings.project.agent.guideText')}
 </p>
 
 <Spacer margin={10} dotted />
 
 <CardGroup.Item standalone labelFor="autoCommitAfterCompletion">
 	{#snippet title()}
-		Auto-commit after completion
+		{$t('settings.project.agent.autoCommit.title')}
 	{/snippet}
 	{#snippet caption()}
-		Automatically commit and rename branches when Claude Code finishes. Disable to review manually
-		before committing.
+		{$t('settings.project.agent.autoCommit.caption')}
 	{/snippet}
 	{#snippet actions()}
 		<Toggle
@@ -84,10 +83,10 @@
 
 <CardGroup.Item standalone labelFor="useConfiguredModel">
 	{#snippet title()}
-		Use configured model
+		{$t('settings.project.agent.useConfiguredModel.title')}
 	{/snippet}
 	{#snippet caption()}
-		Use the model configured in .claude/settings.json.
+		{$t('settings.project.agent.useConfiguredModel.caption')}
 	{/snippet}
 	{#snippet actions()}
 		<Toggle
@@ -100,10 +99,10 @@
 
 <CardGroup.Item standalone labelFor="newlineOnEnter">
 	{#snippet title()}
-		Newline on Enter
+		{$t('settings.project.agent.newlineOnEnter.title')}
 	{/snippet}
 	{#snippet caption()}
-		Use Enter for line breaks and Cmd+Enter to submit.
+		{$t('settings.project.agent.newlineOnEnter.caption')}
 	{/snippet}
 	{#snippet actions()}
 		<Toggle
@@ -117,7 +116,7 @@
 <CardGroup>
 	<CardGroup.Item labelFor="notifyOnCompletion">
 		{#snippet title()}
-			Notify when finishes
+			{$t('settings.project.agent.notifyOnCompletion')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -129,7 +128,7 @@
 	</CardGroup.Item>
 	<CardGroup.Item labelFor="notifyOnPermissionRequest">
 		{#snippet title()}
-			Notify when needs permission
+			{$t('settings.project.agent.notifyOnPermissionRequest')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -145,11 +144,10 @@
 
 <CardGroup.Item standalone labelFor="dangerouslyAllowAllPermissions">
 	{#snippet title()}
-		⚠ Dangerously allow all permissions
+		{$t('settings.project.agent.dangerousPermissions.title')}
 	{/snippet}
 	{#snippet caption()}
-		Skips all permission prompts and allows Claude Code unrestricted access. Use with extreme
-		caution.
+		{$t('settings.project.agent.dangerousPermissions.caption')}
 	{/snippet}
 	{#snippet actions()}
 		<Toggle

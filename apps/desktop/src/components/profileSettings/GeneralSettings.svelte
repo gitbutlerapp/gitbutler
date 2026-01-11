@@ -43,6 +43,7 @@
 
 	const i18nService = inject(I18N_SERVICE);
 	const currentLocale = i18nService.locale;
+	const { t } = i18nService;
 
 	const localeOptions = supportedLocales.map((locale) => {
 		return {
@@ -113,11 +114,11 @@
 				picture: selectedPictureFile
 			});
 			userService.setUser(updatedUser);
-			chipToasts.success('Profile updated');
+			chipToasts.success($t('settings.general.general.profileUpdate.success'));
 			selectedPictureFile = undefined;
 		} catch (err: any) {
 			console.error(err);
-			showError('Failed to update user', err);
+			showError($t('settings.general.general.profileUpdate.errorFailedUpdate'), err);
 		}
 		saving = false;
 	}
@@ -134,11 +135,11 @@
 			projectsService.unsetLastOpenedProject();
 			await userService.logout();
 			// TODO: Delete user from observable!!!
-			chipToasts.success('All data deleted');
+			chipToasts.success($t('settings.general.general.removeProjects.success'));
 			goto('/', { replaceState: true, invalidateAll: true });
 		} catch (err: any) {
 			console.error(err);
-			showError('Failed to delete project', err);
+			showError($t('settings.general.general.removeProjects.errorFailedDelete'), err);
 		} finally {
 			deleteConfirmationModal?.close();
 			isDeleting = false;
@@ -154,16 +155,27 @@
 			<ProfilePictureUpload
 				bind:picture={userPicture}
 				onFileSelect={onPictureChange}
-				onInvalidFileType={() => chipToasts.error('Please use a valid image file')}
+				onInvalidFileType={() =>
+					chipToasts.error($t('settings.general.general.profileUpdate.errorInvalidFile'))}
 			/>
 
 			<div id="contact-info" class="contact-info">
 				<div class="contact-info__fields">
-					<Textbox label="Full name" bind:value={newName} required />
-					<Textbox label="Email" bind:value={$user.email} readonly />
+					<Textbox
+						label={$t('settings.general.general.profileUpdate.fullName')}
+						bind:value={newName}
+						required
+					/>
+					<Textbox
+						label={$t('settings.general.general.profileUpdate.email')}
+						bind:value={$user.email}
+						readonly
+					/>
 				</div>
 
-				<Button type="submit" style="pop" loading={saving}>Update profile</Button>
+				<Button type="submit" style="pop" loading={saving}
+					>{$t('settings.general.general.profileUpdate.updateButton')}</Button
+				>
 			</div>
 		</form>
 	</CardGroup>
@@ -171,10 +183,10 @@
 	<CardGroup>
 		<CardGroup.Item>
 			{#snippet title()}
-				Signing out
+				{$t('settings.general.general.signingOut.title')}
 			{/snippet}
 			{#snippet caption()}
-				Ready to take a break? Click here to log out and unwind.
+				{$t('settings.general.general.signingOut.caption')}
 			{/snippet}
 			{#snippet actions()}
 				<Button
@@ -182,7 +194,7 @@
 					icon="signout"
 					onclick={async () => {
 						await userService.logout();
-					}}>Log out</Button
+					}}>{$t('settings.general.general.signingOut.button')}</Button
 				>
 			{/snippet}
 		</CardGroup.Item>
@@ -196,7 +208,7 @@
 <CardGroup>
 	<CardGroup.Item alignment="center">
 		{#snippet title()}
-      Language
+			{$t('settings.general.general.language.title')}
 		{/snippet}
 		{#snippet actions()}
 			<Select
@@ -206,7 +218,7 @@
 					if (i18nService.getLocale() !== value) {
 						i18nService.setLocale(value);
 						userSettings.update((s) => ({ ...s, locale: value }));
-						chipToasts.success('Language changed successfully');
+						chipToasts.success($t('settings.general.general.language.changeSuccess'));
 					}
 				}}
 			>
@@ -223,7 +235,7 @@
 <CardGroup>
 	<CardGroup.Item alignment="center">
 		{#snippet title()}
-			Default code editor
+			{$t('settings.general.general.codeEditor.title')}
 		{/snippet}
 		{#snippet actions()}
 			<Select
@@ -252,11 +264,11 @@
 <CardGroup>
 	<CardGroup.Item labelFor="disable-auto-checks">
 		{#snippet title()}
-			Automatically check for updates
+			{$t('settings.general.general.autoUpdate.title')}
 		{/snippet}
 
 		{#snippet caption()}
-			Automatically check for updates. You can still check manually when needed.
+			{$t('settings.general.general.autoUpdate.caption')}
 		{/snippet}
 
 		{#snippet actions()}
@@ -272,20 +284,16 @@
 <CardGroup>
 	<CardGroup.Item>
 		{#snippet title()}
-			Install the GitButler CLI <code class="code-string">but</code>
+			{@html $t('settings.general.general.cliInstall.title')}
 		{/snippet}
 
 		{#snippet caption()}
 			{#if $appSettings?.ui.cliIsManagedByPackageManager}
-				The <code>but</code> CLI is managed by your package manager. Please use your package manager to
-				install, update, or remove it.
+				{@html $t('settings.general.general.cliInstall.captionPackageManager')}
 			{:else if platformName === 'windows'}
-				On Windows, you can manually copy the executable (<code>`but`</code>) to a directory in your
-				PATH. Click "Show Command" for instructions.
+				{@html $t('settings.general.general.cliInstall.captionWindows')}
 			{:else}
-				Installs the GitButler CLI (<code>`but`</code>) in your PATH, allowing you to use it from
-				the terminal. This action will request admin privileges. Alternatively, you could create a
-				symlink manually.
+				{@html $t('settings.general.general.cliInstall.captionUnix')}
 			{/if}
 		{/snippet}
 
@@ -299,14 +307,15 @@
 							onclick={async () => await instalCLI()}
 							loading={installingCLI.current.isLoading}
 						>
-							Install But CLI</Button
+							{$t('settings.general.general.cliInstall.installButton')}</Button
 						>
 					{/if}
 					<Button
 						style="gray"
 						kind="outline"
 						disabled={showSymlink}
-						onclick={() => (showSymlink = !showSymlink)}>Show command</Button
+						onclick={() => (showSymlink = !showSymlink)}
+						>{$t('settings.general.general.cliInstall.showCommandButton')}</Button
 					>
 				</div>
 			</div>
@@ -323,17 +332,15 @@
 <CardGroup>
 	<CardGroup.Item>
 		{#snippet title()}
-			Remove all projects
+			{$t('settings.general.general.removeProjects.title')}
 		{/snippet}
 		{#snippet caption()}
-			You can delete all projects from the GitButler app.
-			<br />
-			Your code remains safe. it only clears the configuration.
+			{@html $t('settings.general.general.removeProjects.caption')}
 		{/snippet}
 
 		{#snippet actions()}
 			<Button style="danger" kind="outline" onclick={() => deleteConfirmationModal?.show()}>
-				Remove projects…
+				{$t('settings.general.general.removeProjects.button')}
 			</Button>
 		{/snippet}
 	</CardGroup.Item>
@@ -342,14 +349,18 @@
 <Modal
 	bind:this={deleteConfirmationModal}
 	width="small"
-	title="Remove all projects"
+	title={$t('settings.general.general.removeProjects.modalTitle')}
 	onSubmit={onDeleteClicked}
 >
-	<p>Are you sure you want to remove all GitButler projects?</p>
+	<p>{$t('settings.general.general.removeProjects.modalMessage')}</p>
 
 	{#snippet controls(close)}
-		<Button style="danger" kind="outline" loading={isDeleting} type="submit">Remove</Button>
-		<Button style="pop" onclick={close}>Cancel</Button>
+		<Button style="danger" kind="outline" loading={isDeleting} type="submit"
+			>{$t('settings.general.general.removeProjects.removeButton')}</Button
+		>
+		<Button style="pop" onclick={close}
+			>{$t('settings.general.general.removeProjects.cancelButton')}</Button
+		>
 	{/snippet}
 </Modal>
 

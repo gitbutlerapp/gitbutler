@@ -6,10 +6,13 @@
 		fModeEnabled,
 		useNewRebaseEngine
 	} from '$lib/config/uiFeatureFlags';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
 	import { CardGroup, Textbox, Toggle } from '@gitbutler/ui';
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
 
@@ -17,18 +20,16 @@
 </script>
 
 <p class="text-12 text-body experimental-settings__text">
-	Flags for features in development or beta. Features may not work fully.
-	<br />
-	Use at your own risk.
+	{@html $t('settings.general.experimental.about')}
 </p>
 
 <CardGroup>
 	<CardGroup.Item labelFor="apply3">
 		{#snippet title()}
-			New apply to workspace
+			{$t('settings.general.experimental.apply3.title')}
 		{/snippet}
 		{#snippet caption()}
-			Use the V3 version of apply and unapply operations for workspace changes.
+			{$t('settings.general.experimental.apply3.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -41,10 +42,10 @@
 	</CardGroup.Item>
 	<CardGroup.Item labelFor="f-mode">
 		{#snippet title()}
-			F Mode Navigation
+			{$t('settings.general.experimental.fMode.title')}
 		{/snippet}
 		{#snippet caption()}
-			Enable F mode for quick keyboard navigation to buttons using two-letter shortcuts.
+			{$t('settings.general.experimental.fMode.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -56,10 +57,10 @@
 	</CardGroup.Item>
 	<CardGroup.Item labelFor="new-rebase-engine">
 		{#snippet title()}
-			New rebase engine
+			{$t('settings.general.experimental.newRebase.title')}
 		{/snippet}
 		{#snippet caption()}
-			Use the new graph-based rebase engine for stack operations.
+			{$t('settings.general.experimental.newRebase.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -73,10 +74,10 @@
 	{#if $user?.role === 'admin'}
 		<CardGroup.Item labelFor="single-branch">
 			{#snippet title()}
-				Single-branch mode
+				{$t('settings.general.experimental.singleBranch.title')}
 			{/snippet}
 			{#snippet caption()}
-				Stay in the workspace view when leaving the gitbutler/workspace branch.
+				{$t('settings.general.experimental.singleBranch.caption')}
 			{/snippet}
 			{#snippet actions()}
 				<Toggle
@@ -92,10 +93,10 @@
 
 		<CardGroup.Item labelFor="irc">
 			{#snippet title()}
-				IRC
+				{$t('settings.general.experimental.irc.title')}
 			{/snippet}
 			{#snippet caption()}
-				Enable experimental in-app chat.
+				{$t('settings.general.experimental.irc.caption')}
 			{/snippet}
 			{#snippet actions()}
 				<Toggle id="irc" checked={$ircEnabled} onclick={() => ($ircEnabled = !$ircEnabled)} />
@@ -106,7 +107,7 @@
 				<Textbox
 					value={$ircServer}
 					size="large"
-					label="Server"
+					label={$t('settings.general.experimental.irc.serverLabel')}
 					placeholder="wss://irc.gitbutler.com:443"
 					onchange={(value) => ($ircServer = value)}
 				/>

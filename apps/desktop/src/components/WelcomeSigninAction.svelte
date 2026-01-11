@@ -1,5 +1,6 @@
 <script lang="ts">
 	import signinSvg from '$lib/assets/signin.svg?raw';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { AsyncButton, Button, CardGroup } from '@gitbutler/ui';
@@ -10,6 +11,8 @@
 	let cancelClicked = $state(false);
 	let showCancel = $state(false);
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const userService = inject(USER_SERVICE);
 	const loading = userService.loading;
 	const user = userService.user;
@@ -19,10 +22,9 @@
 	<CardGroup>
 		<section class="welcome-signin-action">
 			<div class="stack-v gap-8">
-				<h3 class="text-18 text-bold">Log in or Sign up</h3>
+				<h3 class="text-18 text-bold">{$t('welcome.auth.title')}</h3>
 				<p class="text-12 text-body clr-text-2">
-					Log in to access smart automation features, including intelligent branch creation and
-					commit message generation.
+					{$t('welcome.auth.description')}
 				</p>
 
 				<div class="flex gap-8 m-t-8">
@@ -44,7 +46,7 @@
 
 								// TODO: Track login calls
 								await userService.login(aborted);
-							}}>Log in / Sign up</Button
+							}}>{$t('welcome.auth.loginButton')}</Button
 						>
 					{/if}
 
@@ -58,7 +60,7 @@
 								cancelClicked = true;
 								showCancel = false;
 								$aborted = true;
-							}}>Cancel</AsyncButton
+							}}>{$t('welcome.auth.cancel')}</AsyncButton
 						>
 					{/if}
 					<Button
@@ -78,7 +80,7 @@
 							}, 3000);
 
 							await userService.loginAndCopyLink(aborted);
-						}}>Copy login link</Button
+						}}>{$t('welcome.auth.copyLoginLink')}</Button
 					>
 				</div>
 			</div>

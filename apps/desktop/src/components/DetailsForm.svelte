@@ -1,12 +1,15 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
 	import { CardGroup, Spacer, Textarea, Textbox, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectsService.getProject(projectId));
 
@@ -17,12 +20,17 @@
 	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<div class="fields-wrapper">
-				<Textbox label="Project path" readonly id="path" value={project?.path} />
+				<Textbox
+					label={$t('settings.project.details.projectPath')}
+					readonly
+					id="path"
+					value={project?.path}
+				/>
 				<div class="description-wrapper">
 					<Textbox
-						label="Project name"
+						label={$t('settings.project.details.projectName')}
 						id="name"
-						placeholder="Project name can't be empty"
+						placeholder={$t('settings.project.details.projectNamePlaceholder')}
 						value={project.title}
 						required
 						onchange={(value: string) => {
@@ -33,7 +41,7 @@
 						id="description"
 						minRows={3}
 						maxRows={6}
-						placeholder="Project description"
+						placeholder={$t('settings.project.details.projectDescription')}
 						value={project.description}
 						oninput={(e: Event) => {
 							const target = e.currentTarget as HTMLTextAreaElement;
@@ -51,11 +59,10 @@
 <CardGroup>
 	<CardGroup.Item labelFor="runHooks">
 		{#snippet title()}
-			Run Git hooks
+			{$t('settings.project.details.runGitHooks.title')}
 		{/snippet}
 		{#snippet caption()}
-			Enabling this will run git pre-push, pre and post commit, and commit-msg hooks you have
-			configured in your repository.
+			{$t('settings.project.details.runGitHooks.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle id="runHooks" bind:checked={$runCommitHooks} />

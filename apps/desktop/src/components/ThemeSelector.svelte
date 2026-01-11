@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
+	import { inject } from '@gitbutler/core/context';
 	import { Icon } from '@gitbutler/ui';
 	import type { Settings } from '$lib/settings/userSettings';
 	import type { Writable } from 'svelte/store';
@@ -9,23 +11,26 @@
 
 	const { userSettings }: Props = $props();
 
-	const themes = [
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
+
+	const themes = $derived([
 		{
-			name: 'Light',
+			name: $t('settings.general.appearance.theme.light'),
 			value: 'light',
 			preview: '/images/theme-previews/light.svg'
 		},
 		{
-			name: 'Dark',
+			name: $t('settings.general.appearance.theme.dark'),
 			value: 'dark',
 			preview: '/images/theme-previews/dark.svg'
 		},
 		{
-			name: 'System preference',
+			name: $t('settings.general.appearance.theme.system'),
 			value: 'system',
 			preview: '/images/theme-previews/system.svg'
 		}
-	];
+	]);
 </script>
 
 <fieldset class="cards-group">

@@ -3,19 +3,23 @@
 		autoSelectBranchNameFeature,
 		autoSelectBranchCreationFeature
 	} from '$lib/config/uiFeatureFlags';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
+	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { CardGroup, Toggle } from '@gitbutler/ui';
+
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 
 	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
 </script>
 
 <CardGroup.Item standalone labelFor="add-leftmost">
 	{#snippet title()}
-		Place new lanes on the left side
+		{$t('settings.general.lanesAndBranches.newLanesPlacement.title')}
 	{/snippet}
 	{#snippet caption()}
-		By default, new lanes are added to the rightmost position. Enable this to add them to the
-		leftmost position instead.
+		{$t('settings.general.lanesAndBranches.newLanesPlacement.caption')}
 	{/snippet}
 	{#snippet actions()}
 		<Toggle
@@ -29,11 +33,10 @@
 <CardGroup>
 	<CardGroup.Item labelFor="auto-select-creation">
 		{#snippet title()}
-			Auto-select text on branch creation
+			{$t('settings.general.lanesAndBranches.autoSelectCreation.title')}
 		{/snippet}
 		{#snippet caption()}
-			Automatically select the pre-populated text in the branch name field when creating a new
-			branch, making it easier to type your own name.
+			{$t('settings.general.lanesAndBranches.autoSelectCreation.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -45,11 +48,10 @@
 	</CardGroup.Item>
 	<CardGroup.Item labelFor="auto-select-rename">
 		{#snippet title()}
-			Auto-select text on branch rename
+			{$t('settings.general.lanesAndBranches.autoSelectRename.title')}
 		{/snippet}
 		{#snippet caption()}
-			Automatically select the text when renaming a branch or lane, making it easier to replace the
-			entire name.
+			{$t('settings.general.lanesAndBranches.autoSelectRename.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle

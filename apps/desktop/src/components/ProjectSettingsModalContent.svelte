@@ -6,6 +6,8 @@
 	import AgentSettings from '$components/projectSettings/AgentSettings.svelte';
 	import GeneralSettings from '$components/projectSettings/GeneralSettings.svelte';
 	import { projectDisableCodegen } from '$lib/config/config';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
+	import { inject } from '@gitbutler/core/context';
 	import iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ProjectSettingsModalState } from '$lib/state/uiState.svelte';
 
@@ -15,36 +17,39 @@
 
 	const { data }: Props = $props();
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
+
 	const codegenDisabled = $derived(projectDisableCodegen(data.projectId));
 
-	const allPages = [
+	const allPages = $derived([
 		{
 			id: 'project',
-			label: 'Project',
+			label: $t('settings.project.project.label'),
 			icon: 'profile' as keyof typeof iconsJson
 		},
 		{
 			id: 'git',
-			label: 'Git stuff',
+			label: $t('settings.project.git.label'),
 			icon: 'git' as keyof typeof iconsJson
 		},
 		{
 			id: 'ai',
-			label: 'AI options',
+			label: $t('settings.project.ai.label'),
 			icon: 'ai' as keyof typeof iconsJson
 		},
 		{
 			id: 'agent',
-			label: 'Agent',
+			label: $t('settings.project.agent.label'),
 			icon: 'ai-agent' as keyof typeof iconsJson,
 			requireCodegen: true
 		},
 		{
 			id: 'experimental',
-			label: 'Experimental',
+			label: $t('settings.project.experimental.label'),
 			icon: 'idea' as keyof typeof iconsJson
 		}
-	];
+	]);
 
 	const pages = $derived(allPages.filter((page) => !page.requireCodegen || !$codegenDisabled));
 
@@ -56,7 +61,7 @@
 </script>
 
 <SettingsModalLayout
-	title="Project settings"
+	title={$t('settings.project.title')}
 	{pages}
 	selectedId={data.selectedId}
 	onSelectPage={selectPage}
@@ -74,10 +79,10 @@
 			{:else if currentPage.id === 'experimental'}
 				<PreferencesForm projectId={data.projectId} />
 			{:else}
-				Settings page {currentPage.id} not Found.
+				{$t('settings.error.notFound', { id: currentPage.id })}
 			{/if}
 		{:else}
-			Settings page {currentSelectedId} not Found.
+			{$t('settings.error.notFound', { id: currentSelectedId })}
 		{/if}
 	{/snippet}
 </SettingsModalLayout>

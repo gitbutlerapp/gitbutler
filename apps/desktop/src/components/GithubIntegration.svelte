@@ -5,6 +5,7 @@
 	import githubLogoSvg from '$lib/assets/unsized-logos/github.svg?raw';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 
@@ -14,12 +15,13 @@
 		ContextMenu,
 		ContextMenuItem,
 		ContextMenuSection,
-		Link,
 		Textbox,
 		chipToasts as toasts
 	} from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const githubUserService = inject(GITHUB_USER_SERVICE);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
@@ -93,10 +95,10 @@
 		loading = true;
 		try {
 			await githubUserService.checkAuthStatus({ deviceCode });
-			toasts.success('GitHub authenticated');
+			toasts.success($t('settings.general.integrations.github.authenticated'));
 		} catch (err: any) {
 			console.error(err);
-			toasts.error('GitHub authentication failed');
+			toasts.error($t('settings.general.integrations.github.authFailed'));
 			posthog.captureOnboarding(OnboardingEvent.GitHubOAuthFailed);
 		} finally {
 			// Reset the auth flow on completion
@@ -122,7 +124,7 @@
 			cleanupPatFlow();
 		} catch (err: any) {
 			console.error('Failed to store GitHub PAT:', err);
-			patError = 'Invalid token or network error';
+			patError = $t('settings.general.integrations.github.invalidToken');
 			posthog.captureOnboarding(OnboardingEvent.GitHubStorePatFailed);
 		}
 	}
@@ -141,7 +143,7 @@
 			cleanupGheFlow();
 		} catch (err: any) {
 			console.error('Failed to store GitHub Enterprise PAT:', err);
-			ghePatError = 'Invalid token or host';
+			ghePatError = $t('settings.general.integrations.github.invalidTokenOrHost');
 			posthog.captureOnboarding(OnboardingEvent.GitHubStoreGHEPatFailed);
 		}
 	}
@@ -154,12 +156,14 @@
 			{#snippet error()}
 				<CardGroup.Item>
 					{#snippet title()}
-						Failed to load GitHub accounts
+						{$t('settings.general.integrations.github.loadFailed')}
 					{/snippet}
 					<Button
 						style="pop"
 						onclick={deleteAllGitHubAccounts}
-						loading={clearingAllResult.current.isLoading}>Try again</Button
+						loading={clearingAllResult.current.isLoading}
+						>{$t('settings.general.integrations.github.tryAgain')}</Button
+					>
 					>
 				</CardGroup.Item>
 			{/snippet}
@@ -183,7 +187,7 @@
 					{/snippet}
 
 					{#snippet caption()}
-						Allows you to create Pull Requests
+						{$t('settings.general.integrations.github.caption')}
 					{/snippet}
 
 					{#snippet actions()}
@@ -202,7 +206,7 @@
 					<div class="step-section">
 						<div class="step-line"></div>
 						<div class="step-section__content">
-							<p class="text-13 text-body">Copy the following verification code:</p>
+							<p class="text-13 text-body">{$t('settings.general.integrations.github.copyCode')}</p>
 
 							<div class="code-wrapper">
 								<span class="text-head-20">
@@ -218,7 +222,7 @@
 										codeCopied = true;
 									}}
 								>
-									Copy to Clipboard
+									{$t('settings.general.integrations.github.copyToClipboard')}
 								</Button>
 							</div>
 						</div>
@@ -229,7 +233,7 @@
 							<div class="step-line step-line-default"></div>
 							<div class="step-section__content">
 								<p class="text-13 text-body">
-									Navigate to the GitHub activation page and paste the code you copied.
+									{$t('settings.general.integrations.github.navigateToGitHub')}
 								</p>
 								<Button
 									style="pop"
@@ -245,7 +249,7 @@
 										}, 500);
 									}}
 								>
-									Open GitHub activation page
+									{$t('settings.general.integrations.github.openGitHub')}
 								</Button>
 							</div>
 						</div>
@@ -263,7 +267,7 @@
 										await gitHubOauthCheckStatus(deviceCode);
 									}}
 								>
-									Check the status
+									{$t('settings.general.integrations.github.checkStatus')}
 								</Button>
 							</div>
 						</div>
@@ -277,7 +281,7 @@
 		<CardGroup>
 			<CardGroup.Item>
 				{#snippet title()}
-					Add Personal Access Token
+					{$t('settings.general.integrations.github.addPat')}
 				{/snippet}
 
 				<Textbox
@@ -291,14 +295,16 @@
 			</CardGroup.Item>
 			<CardGroup.Item>
 				<div class="flex justify-end gap-6">
-					<Button style="gray" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
+					<Button style="gray" kind="outline" onclick={cleanupPatFlow}
+						>{$t('settings.general.integrations.github.cancel')}</Button
+					>
 					<Button
 						style="pop"
 						disabled={!patInput}
 						loading={storePatResult.current.isLoading}
 						onclick={storePersonalAccessToken}
 					>
-						Add account
+						{$t('settings.general.integrations.github.addAccount')}
 					</Button>
 				</div>
 			</CardGroup.Item>
@@ -307,27 +313,23 @@
 		<CardGroup>
 			<CardGroup.Item>
 				{#snippet title()}
-					Add GitHub Enterprise Account
+					{$t('settings.general.integrations.github.addGhe')}
 				{/snippet}
 
 				{#snippet caption()}
-					To connect to your GitHub Enterprise API, allow-list it in the app’s CSP settings.
-					<br />
-					See <Link href="https://docs.gitbutler.com/troubleshooting/custom-csp"
-						>docs for details</Link
-					>
+					{$t('settings.general.integrations.github.gheCaption')}
 				{/snippet}
 
 				<Textbox
-					label="API Base URL"
+					label={$t('settings.general.integrations.github.apiBaseUrl')}
 					size="large"
 					value={gheHostInput}
 					oninput={(value) => (gheHostInput = value)}
-					helperText="This should be the root URL of the API. For example, if your GitHub Enterprise Server's hostname is github.acme-inc.com, then set the base URL to https://github.acme-inc.com/api/v3"
+					helperText={$t('settings.general.integrations.github.apiBaseUrlHelper')}
 					error={gheHostError}
 				/>
 				<Textbox
-					label="Personal Access Token"
+					label={$t('settings.general.integrations.github.personalAccessToken')}
 					placeholder="ghp_************************"
 					size="large"
 					type="password"
@@ -338,14 +340,16 @@
 			</CardGroup.Item>
 			<CardGroup.Item>
 				<div class="flex justify-end gap-6">
-					<Button style="gray" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
+					<Button style="gray" kind="outline" onclick={cleanupGheFlow}
+						>{$t('settings.general.integrations.github.cancel')}</Button
+					>
 					<Button
 						style="pop"
 						disabled={!gheHostInput || !ghePatInput}
 						loading={storeGhePatResult.current.isLoading}
 						onclick={storeGitHubEnterpriseToken}
 					>
-						Add account
+						{$t('settings.general.integrations.github.addAccount')}
 					</Button>
 				</div>
 			</CardGroup.Item>
@@ -354,12 +358,14 @@
 </div>
 
 <p class="text-12 text-body github-integration-settings__text">
-	🔒 Credentials are persisted locally in your OS Keychain / Credential Manager.
+	{$t('settings.general.integrations.github.credentialsPersisted')}
 </p>
 
 {#snippet addProfileButton(noAccounts: boolean)}
 	{@const buttonStyle = noAccounts ? 'pop' : 'gray'}
-	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
+	{@const buttonText = noAccounts
+		? $t('settings.general.integrations.github.addAccount')
+		: $t('settings.general.integrations.github.addAnotherAccount')}
 	<Button
 		bind:el={addProfileButtonRef}
 		style={buttonStyle}
@@ -374,7 +380,7 @@
 	<ContextMenu bind:this={addAccountContextMenu} leftClickTrigger={addProfileButtonRef}>
 		<ContextMenuSection>
 			<ContextMenuItem
-				label="Authorize GitHub Account"
+				label={$t('settings.general.integrations.github.authorizeAccount')}
 				icon="connect-github"
 				onclick={() => {
 					gitHubStartOauth();
@@ -382,7 +388,7 @@
 				}}
 			/>
 			<ContextMenuItem
-				label="Add Personal Access Token"
+				label={$t('settings.general.integrations.github.addPat')}
 				icon="token-lock"
 				onclick={() => {
 					startPatFlow();
@@ -390,7 +396,7 @@
 				}}
 			/>
 			<ContextMenuItem
-				label="Add GitHub Enterprise Account"
+				label={$t('settings.general.integrations.github.addGhe')}
 				icon="enterprise"
 				onclick={() => {
 					startGitHubEnterpriseFlow();

@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { APP_SETTINGS } from '$lib/config/appSettings';
+	import { I18N_SERVICE } from '$lib/i18n/i18nService';
 	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Link, TestId, Toggle } from '@gitbutler/ui';
+	import { CardGroup, TestId, Toggle } from '@gitbutler/ui';
 
+	const i18nService = inject(I18N_SERVICE);
+	const { t } = i18nService;
 	const appSettings = inject(APP_SETTINGS);
 	const errorReportingEnabled = appSettings.appErrorReportingEnabled;
 	const metricsEnabled = appSettings.appMetricsEnabled;
@@ -11,28 +14,20 @@
 
 <div class="analytics-settings__content">
 	<p class="text-13 text-body analytics-settings__text">
-		GitButler uses telemetry strictly to help us improve the client. We do not collect any personal
-		information, unless explicitly allowed below. <Link href="https://gitbutler.com/privacy">
-			Privacy policy
-		</Link>
+		{@html $t('settings.general.telemetry.description')}
 	</p>
 	<p class="text-13 text-body analytics-settings__text">
-		We kindly ask you to consider keeping these settings enabled as it helps us catch issues more
-		quickly. If you choose to disable them, please feel free to share your feedback on our <Link
-			href="https://discord.gg/MmFkmaJ42D"
-		>
-			Discord
-		</Link>.
+		{@html $t('settings.general.telemetry.request')}
 	</p>
 </div>
 
 <CardGroup testId={TestId.OnboardingPageAnalyticsSettings}>
 	<CardGroup.Item labelFor="errorReportingToggle">
 		{#snippet title()}
-			Error reporting
+			{$t('settings.general.telemetry.errorReporting.title')}
 		{/snippet}
 		{#snippet caption()}
-			Toggle reporting of application crashes and errors.
+			{$t('settings.general.telemetry.errorReporting.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -46,10 +41,10 @@
 
 	<CardGroup.Item labelFor="metricsEnabledToggle">
 		{#snippet title()}
-			Usage metrics
+			{$t('settings.general.telemetry.usageMetrics.title')}
 		{/snippet}
 		{#snippet caption()}
-			Toggle sharing of usage statistics.
+			{$t('settings.general.telemetry.usageMetrics.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -63,10 +58,10 @@
 
 	<CardGroup.Item labelFor="nonAnonMetricsEnabledToggle">
 		{#snippet title()}
-			Non-anonymous usage metrics
+			{$t('settings.general.telemetry.nonAnonMetrics.title')}
 		{/snippet}
 		{#snippet caption()}
-			Toggle sharing of identifiable usage statistics.
+			{$t('settings.general.telemetry.nonAnonMetrics.caption')}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
