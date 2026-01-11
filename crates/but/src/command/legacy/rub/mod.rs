@@ -539,3 +539,63 @@ pub(crate) fn handle_unstage(
     // Call the main rub handler with "zz" as target to unassign
     handle(ctx, out, file_or_hunk_str, "zz")
 }
+
+/// Handler for `but squash <commit1> <commit2>` - runs `but rub <commit1> <commit2>`
+/// Validates that both arguments are commits.
+pub(crate) fn handle_squash(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    commit1_str: &str,
+    commit2_str: &str,
+) -> anyhow::Result<()> {
+    let id_map = IdMap::new_from_context(ctx, None)?;
+    let commit1_matches = id_map.resolve_entity_to_ids(commit1_str)?;
+    let commit2_matches = id_map.resolve_entity_to_ids(commit2_str)?;
+
+    // Validate that commit1 is a commit
+    if commit1_matches.len() != 1 {
+        if commit1_matches.is_empty() {
+            bail!("First commit '{}' not found.", commit1_str);
+        } else {
+            bail!("First commit '{}' is ambiguous.", commit1_str);
+        }
+    }
+
+    match &commit1_matches[0] {
+        CliId::Commit { .. } => {
+            // Valid type for source
+        }
+        other => {
+            bail!(
+                "Cannot squash {} - it is {}. First argument must be a commit.",
+                other.to_short_string().blue().underline(),
+                other.kind_for_humans().yellow()
+            );
+        }
+    }
+
+    // Validate that commit2 is a commit
+    if commit2_matches.len() != 1 {
+        if commit2_matches.is_empty() {
+            bail!("Second commit '{}' not found.", commit2_str);
+        } else {
+            bail!("Second commit '{}' is ambiguous.", commit2_str);
+        }
+    }
+
+    match &commit2_matches[0] {
+        CliId::Commit { .. } => {
+            // Valid type for target
+        }
+        other => {
+            bail!(
+                "Cannot squash into {} - it is {}. Second argument must be a commit.",
+                other.to_short_string().blue().underline(),
+                other.kind_for_humans().yellow()
+            );
+        }
+    }
+
+    // Call the main rub handler
+    handle(ctx, out, commit1_str, commit2_str)
+}

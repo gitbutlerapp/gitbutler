@@ -615,6 +615,20 @@ pub enum Subcommands {
     #[clap(hide = true)]
     Fetch,
 
+    /// Squash two commits together.
+    ///
+    /// Wrapper for `but rub <commit1> <commit2>`.
+    #[cfg(feature = "legacy")]
+    Squash {
+        /// First commit ID (will be squashed into the second)
+        commit1: String,
+        /// Second commit ID (target commit)
+        commit2: String,
+        /// Drop the first commit's message and keep only the second commit's message
+        #[clap(long)]
+        drop_message: bool,
+    },
+
     /// Uncommit changes from a commit or file-in-commit to the unstaged area.
     ///
     /// Wrapper for `but rub <source> zz`.

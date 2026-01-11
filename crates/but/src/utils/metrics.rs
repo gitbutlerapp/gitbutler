@@ -156,6 +156,8 @@ impl Subcommands {
             Subcommands::Stage { .. } => Rub,
             #[cfg(feature = "legacy")]
             Subcommands::Unstage { .. } => Rub,
+            #[cfg(feature = "legacy")]
+            Subcommands::Squash { .. } => Rub,
         }
     }
 }
