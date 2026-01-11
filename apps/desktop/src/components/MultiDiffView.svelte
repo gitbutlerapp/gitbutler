@@ -28,6 +28,7 @@
 		showBorder?: boolean;
 		showRoundedEdges?: boolean;
 		startIndex?: number;
+		scrollPastBottom?: boolean;
 	};
 
 	let {
@@ -38,7 +39,8 @@
 		selectable,
 		showBorder = true,
 		showRoundedEdges = true,
-		startIndex
+		startIndex,
+		scrollPastBottom
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -51,7 +53,6 @@
 		virtualList?.scrollToIndex(index);
 		highlightedIndex = index;
 	}
-	$inspect({ startIndex });
 </script>
 
 <div class="multi-diff-view" class:no-border={!showBorder} class:no-rounded={!showRoundedEdges}>
@@ -59,6 +60,7 @@
 		<VirtualList
 			bind:this={virtualList}
 			{startIndex}
+			{scrollPastBottom}
 			grow
 			items={files}
 			batchSize={1}

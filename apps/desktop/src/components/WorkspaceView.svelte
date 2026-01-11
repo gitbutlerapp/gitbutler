@@ -40,8 +40,6 @@
 
 	let multiDiffView = $state<MultiDiffView>();
 	let startIndex = $state(0);
-
-	$inspect({ startIndex });
 </script>
 
 {#snippet leftPreview()}

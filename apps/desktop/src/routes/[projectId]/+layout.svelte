@@ -346,6 +346,7 @@
 <ReduxResult {projectId} result={combineResults(baseBranchQuery.result, modeQuery.result)}>
 	{#snippet children([baseBranch, mode], { projectId })}
 		{#if !baseBranch}
+			{console.log(baseBranch)}
 			<NoBaseBranch {projectId} />
 		{:else if baseBranch}
 			{#if mode.type === 'OpenWorkspace' || mode.type === 'Edit' || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}

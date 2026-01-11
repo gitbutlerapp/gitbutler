@@ -225,22 +225,25 @@
 			return;
 		}
 
-		updateSelection({
-			allowMultiple: true,
-			ctrlKey: e.ctrlKey,
-			metaKey: e.metaKey,
-			shiftKey: e.shiftKey,
-			key: e.key,
-			targetElement: e.currentTarget as HTMLElement,
-			files: changes,
-			selectedFileIds,
-			fileIdSelection: idSelection,
-			selectionId: selectionId,
-			preventDefault: () => e.preventDefault()
-		});
-		const lastAdded = get(idSelection.getById(selectionId).lastAdded);
-		if (lastAdded) {
-			onselect?.(change, lastAdded.index);
+		if (
+			updateSelection({
+				allowMultiple: true,
+				ctrlKey: e.ctrlKey,
+				metaKey: e.metaKey,
+				shiftKey: e.shiftKey,
+				key: e.key,
+				targetElement: e.currentTarget as HTMLElement,
+				files: changes,
+				selectedFileIds,
+				fileIdSelection: idSelection,
+				selectionId: selectionId,
+				preventDefault: () => e.preventDefault()
+			})
+		) {
+			const lastAdded = get(idSelection.getById(selectionId).lastAdded);
+			if (lastAdded) {
+				onselect?.(change, lastAdded.index);
+			}
 		}
 	}
 
@@ -388,7 +391,7 @@
 					<!--
 					    There is a bug here related to the reactivity of `idSelection.has`,
 						affecting somehow the first item in the list of files.. but only where
-						used for the "assigned files" of the workspace.
+						used for the "assigned files" of the workspace.$$render
 
 						This unused variable is a workaround, while present the reactivity
 						works as expected.

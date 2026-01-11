@@ -111,6 +111,7 @@
 			bottom?: number;
 		};
 		startIndex?: number;
+		scrollPastBottom?: boolean;
 	};
 
 	const {
@@ -124,7 +125,8 @@
 		visibility,
 		defaultHeight,
 		stickToBottom,
-		startIndex
+		startIndex,
+		scrollPastBottom
 	}: Props = $props();
 
 	// Tuning constants
@@ -162,7 +164,6 @@
 	/** Previous viewport height to detect resize. */
 	let previousViewportHeight = 0;
 
-	const stableStartIndex = $derived(startIndex);
 	// Virtual scrolling state
 	/**
 	 * Range of visible chunk indices.
@@ -182,7 +183,6 @@
 	// 	});
 	// });
 
-	$inspect(visibleRange);
 	/** Top and bottom padding to simulate off-screen content. */
 	let offset = $state({ top: 0, bottom: 0 });
 	/** Distance from bottom during last calculation (used for sticky scroll). */
@@ -205,8 +205,6 @@
 			.slice(visibleRange.start, visibleRange.end)
 			.map((data, i) => ({ id: i + visibleRange.start, data }))
 	);
-
-	$inspect({ visibleChunks });
 
 	// ============================================================================
 	// Helper functions
@@ -331,18 +329,19 @@
 	 * Initializes visible range from the top.
 	 * Measures chunks starting from the first item until viewport is filled.
 	 */
-	async function initialize() {
+	async function initializeAt(startingAt: number) {
 		if (!viewport) return;
+		lastScrollToIndex = startingAt;
 
-		visibleRange.start = startIndex || 0;
-		for (let i = startIndex || 0; i < itemChunks.length; i++) {
+		visibleRange.start = startingAt;
+		for (let i = startingAt; i < itemChunks.length; i++) {
 			visibleRange.end = i + 1;
-			await sleep(100);
-			const element = visibleRowElements?.item(i - (startIndex || 0));
+			await tick();
+			const element = visibleRowElements?.item(i - startingAt);
 			if (element) {
 				heightMap[i] = element.clientHeight;
 			}
-			if (calculateHeightSum(startIndex || 0, visibleRange.end) > viewport.clientHeight) {
+			if (calculateHeightSum(startingAt, visibleRange.end) > viewport.clientHeight) {
 				break;
 			}
 		}
@@ -350,7 +349,7 @@
 		if (calculateHeightSum(visibleRange.start, visibleRange.end) < viewport.clientHeight) {
 			for (let i = visibleRange.start - 1; i >= 0; i--) {
 				visibleRange.start = i;
-				await sleep(100);
+				await tick();
 				const element = visibleRowElements?.item(0);
 				if (element) {
 					heightMap[i] = element.clientHeight;
@@ -362,16 +361,13 @@
 			}
 		}
 
-		offset = {
-			top: calculateHeightSum(0, visibleRange.start),
-			bottom: calculateHeightSum(visibleRange.end, itemChunks.length)
-		};
-		await tick();
+		updateOffsets();
 
-		if (startIndex && startIndex > 0) {
-			viewport.scrollTop = calculateHeightSum(0, startIndex);
-		}
-		isInitialized = true;
+		await tick();
+		viewport.scrollTop = calculateHeightSum(0, startingAt);
+		await tick();
+		subscribeToElements();
+		ignoreScroll = true;
 	}
 
 	/**
@@ -425,6 +421,9 @@
 		return newIndices;
 	}
 
+	let lastScrollTop: number | undefined = undefined;
+	let lastScrollDirection: 'up' | 'down' | undefined;
+
 	/**
 	 * Main layout calculation function.
 	 * Determines which chunks should be visible, sets up resize observers,
@@ -448,7 +447,11 @@
 				scrollTop = viewport.scrollHeight;
 				scrollToBottom();
 			} else {
-				await initialize();
+				await initializeAt(startIndex || 0);
+				isInitialized = true;
+				// if (startIndex > 0) {
+				// 	viewport.scrollTop = calculateHeightSum(0, startIndex);
+				// }
 			}
 			updateOffsets();
 		} else {
@@ -502,6 +505,15 @@
 			debouncedLoadMore();
 		}
 
+		subscribeToElements();
+
+		// Saved distance is necessary when sticking to bottom.
+		previousDistance = getDistanceFromBottom();
+		isRecalculating = false;
+	}
+
+	function subscribeToElements() {
+		if (!viewport || !visibleRowElements) return;
 		// Unobserve elements that are no longer in the visible range
 		for (let i = 0; i < observedElements.length; i++) {
 			const element = observedElements[i];
@@ -521,16 +533,16 @@
 				observedElements[index] = rowElement;
 			}
 		}
-
-		// Saved distance is necessary when sticking to bottom.
-		previousDistance = getDistanceFromBottom();
-		isRecalculating = false;
 	}
 
 	function updateOffsets() {
 		offset = {
-			bottom: calculateHeightSum(visibleRange.end, heightMap.length),
-			top: calculateHeightSum(0, visibleRange.start)
+			top: calculateHeightSum(0, visibleRange.start),
+			bottom:
+				calculateHeightSum(visibleRange.end, heightMap.length) +
+				(scrollPastBottom
+					? Math.max((viewport?.clientHeight ?? 0) - (heightMap.at(-1) ?? 0), 0)
+					: 0)
 		};
 	}
 
@@ -562,6 +574,7 @@
 
 		itemObserver = new ResizeObserver((entries) =>
 			untrack(() => {
+				if (!viewport) return;
 				let shouldRecalculate = false;
 				for (const entry of entries) {
 					const { target } = entry;
@@ -578,45 +591,33 @@
 						}
 
 						if (firstRender) {
-							// In tail mode, adjust scroll when top item's height is measured
-							if (stickToBottom && index === visibleRange.start) {
-								const heightDiff = target.clientHeight - defaultHeight;
-								if (heightDiff !== 0 && viewport && target.clientTop <= viewport.scrollTop) {
-									viewport.scrollBy({ top: heightDiff });
-								}
-							}
 							// Scroll to bottom when last item resizes during initialization or sticky mode
 							if (stickToBottom && index === visibleRange.end - 1) {
 								scrollToBottom();
 							}
 						}
 
-						if (index === visibleRange.start) {
+						if (
+							lastScrollDirection === 'up' &&
+							calculateHeightSum(0, visibleRange.start) !== viewport.scrollTop
+						) {
 							viewport?.scrollBy({ top: heightMap[index] - oldHeight });
+						} else if (index < visibleRange.end - 1 && lastScrollDirection === 'down') {
+							viewport?.scrollBy({ top: heightMap[index] - oldHeight });
+						} else if (lastScrollToIndex && lastScrollDirection === undefined) {
+							viewport?.scrollTo({ top: calculateHeightSum(0, lastScrollToIndex) });
+							ignoreScroll = true;
 						}
 
-						shouldRecalculate = true;
-					}
-
-					if (viewport && wasNearBottom()) {
-						if (stickToBottom) {
-							const hasGrown = getDistanceFromBottom() > previousDistance;
-							if (hasGrown) {
+						if (stickToBottom && wasNearBottom()) {
+							if (getDistanceFromBottom() > previousDistance) {
 								scrollToBottom();
 							}
-						} else if (
-							index &&
-							index === lastScrollToIndex &&
-							getDistanceFromBottom() > previousDistance
-						) {
-							scrollToIndex(index);
-						} else if (!isInitialized && startIndex && startIndex > visibleRange.start) {
-							viewport.scrollTop = calculateHeightSum(0, startIndex);
 						}
+						shouldRecalculate = true;
 					}
 				}
 
-				// Auto-scroll if content grew while user is near bottom
 				if (shouldRecalculate) {
 					recalculateVisibleRange();
 				}
@@ -681,26 +682,51 @@
 	}
 
 	let lastScrollToIndex: number | undefined;
+	let ignoreScroll = false;
 	/**
 	 * Scrolls to a specific chunk index in the list.
 	 * Useful for jumping to a particular item after selection changes.
 	 * @param index The chunk index to scroll to
 	 */
-	export function scrollToIndex(index: number) {
-		if (index < 0 || index >= itemChunks.length) return;
-		viewport?.scrollTo({ top: calculateHeightSum(0, index) });
+	export async function scrollToIndex(index: number) {
+		unobserveAll();
+		lastScrollDirection = undefined;
+		initializeAt(index);
 		lastScrollToIndex = index;
+		// setTimeout(() => {
+		// 	lastScrollToIndex = undefined;
+		// }, 1000);
 	}
 
-	function sleep(ms: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, ms));
+	function unobserveAll() {
+		for (let i = 0; i < observedElements.length; i++) {
+			const element = observedElements[i];
+			if (element) {
+				itemObserver?.unobserve(element);
+				observedElements[i] = undefined;
+			}
+		}
 	}
 </script>
 
 <ScrollableContainer
 	bind:viewportHeight
 	bind:viewport
-	onscroll={recalculateVisibleRange}
+	onscroll={() => {
+		if (!viewport) return;
+		if (ignoreScroll) {
+			ignoreScroll = false;
+			return;
+		}
+		const scrollTop = viewport?.scrollTop;
+		if (lastScrollTop && lastScrollTop > scrollTop) {
+			lastScrollDirection = 'up';
+		} else if (lastScrollTop && lastScrollTop < scrollTop) {
+			lastScrollDirection = 'down';
+		}
+		recalculateVisibleRange();
+		lastScrollTop = viewport.scrollTop;
+	}}
 	wide={grow}
 	whenToShow={visibility}
 	{padding}
