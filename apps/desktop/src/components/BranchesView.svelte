@@ -407,6 +407,7 @@
 										laneId="branches-view"
 										branchName={current.branchName}
 										stackId={current.stackId}
+										showChangedFiles
 										active
 										{onerror}
 									/>
