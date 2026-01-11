@@ -19,5 +19,6 @@ pub mod refresh;
 pub mod resolve;
 pub mod reword;
 pub mod rub;
+pub mod show;
 pub mod status;
 pub mod worktree;

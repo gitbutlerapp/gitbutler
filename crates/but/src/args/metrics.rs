@@ -10,6 +10,7 @@ pub enum CommandName {
     Stf,
     Rub,
     Diff,
+    Show,
     Commit,
     Push,
     New,
