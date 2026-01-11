@@ -625,7 +625,7 @@ pub enum Subcommands {
         /// Second commit ID (target commit)
         commit2: String,
         /// Drop the first commit's message and keep only the second commit's message
-        #[clap(long)]
+        #[clap(long, short = 'd')]
         drop_message: bool,
     },
 
