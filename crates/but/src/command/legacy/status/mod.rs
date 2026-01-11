@@ -13,7 +13,7 @@ use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBran
 use gix::date::time::CustomFormat;
 use serde::Serialize;
 
-use crate::CLI_DATE;
+use crate::{CLI_DATE, utils::time::format_relative_time_verbose};
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
@@ -312,34 +312,7 @@ pub(crate) async fn worktree(
     // Format the last fetched time as relative time
     let last_checked_text = last_fetched_ms
         .map(|ms| {
-            let now_ms = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis();
-            let elapsed_ms = now_ms.saturating_sub(ms);
-            let elapsed_secs = elapsed_ms / 1000;
-
-            let relative_time = if elapsed_secs < 60 {
-                format!("{} seconds ago", elapsed_secs)
-            } else if elapsed_secs < 3600 {
-                let minutes = elapsed_secs / 60;
-                format!(
-                    "{} {} ago",
-                    minutes,
-                    if minutes == 1 { "minute" } else { "minutes" }
-                )
-            } else if elapsed_secs < 86400 {
-                let hours = elapsed_secs / 3600;
-                format!(
-                    "{} {} ago",
-                    hours,
-                    if hours == 1 { "hour" } else { "hours" }
-                )
-            } else {
-                let days = elapsed_secs / 86400;
-                format!("{} {} ago", days, if days == 1 { "day" } else { "days" })
-            };
-
+            let relative_time = format_relative_time_verbose(ms);
             format!(" (checked {})", relative_time)
         })
         .unwrap_or_default();

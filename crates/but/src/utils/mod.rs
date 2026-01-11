@@ -8,6 +8,8 @@ pub mod metrics;
 pub use metrics::types::BackgroundMetrics;
 pub use metrics::types::OneshotMetricsContext;
 
+pub mod time;
+
 /// Utilities attached to `anyhow::Result<impl serde::Serialize>`.
 pub trait ResultJsonExt {
     /// Write this value as pretty `JSON` to stdout if `json` is `true`.

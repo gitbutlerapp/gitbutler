@@ -4,38 +4,7 @@ use but_ctx::Context;
 use colored::Colorize;
 use gix::prelude::ObjectIdExt;
 
-use crate::{CLI_DATE, CliId, IdMap, utils::OutputChannel};
-
-/// Format a timestamp as a relative time string (e.g., "2 days ago")
-fn format_relative_time(timestamp_seconds: i64) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
-
-    let seconds_ago = now.saturating_sub(timestamp_seconds);
-
-    if seconds_ago < 60 {
-        format!("{}s ago", seconds_ago)
-    } else if seconds_ago < 3600 {
-        format!("{}m ago", seconds_ago / 60)
-    } else if seconds_ago < 86400 {
-        format!("{}h ago", seconds_ago / 3600)
-    } else if seconds_ago < 604800 {
-        let days = seconds_ago / 86400;
-        if days == 1 {
-            "yesterday".to_string()
-        } else {
-            format!("{}d ago", days)
-        }
-    } else if seconds_ago < 2592000 {
-        format!("{}w ago", seconds_ago / 604800)
-    } else if seconds_ago < 31536000 {
-        format!("{}mo ago", seconds_ago / 2592000)
-    } else {
-        format!("{}y ago", seconds_ago / 31536000)
-    }
-}
+use crate::{CLI_DATE, CliId, IdMap, utils::{OutputChannel, time::format_relative_time}};
 
 pub(crate) fn show_commit(
     ctx: &mut Context,
