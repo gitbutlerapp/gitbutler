@@ -124,12 +124,33 @@ mod tests {
             .unwrap()
             .as_millis();
 
-        assert_eq!(format_relative_time_verbose(now_ms - 30_000), "30 seconds ago");
-        assert_eq!(format_relative_time_verbose(now_ms - 60_000), "1 minute ago");
-        assert_eq!(format_relative_time_verbose(now_ms - 120_000), "2 minutes ago");
-        assert_eq!(format_relative_time_verbose(now_ms - 3_600_000), "1 hour ago");
-        assert_eq!(format_relative_time_verbose(now_ms - 7_200_000), "2 hours ago");
-        assert_eq!(format_relative_time_verbose(now_ms - 86_400_000), "1 day ago");
-        assert_eq!(format_relative_time_verbose(now_ms - 172_800_000), "2 days ago");
+        assert_eq!(
+            format_relative_time_verbose(now_ms - 30_000),
+            "30 seconds ago"
+        );
+        assert_eq!(
+            format_relative_time_verbose(now_ms - 60_000),
+            "1 minute ago"
+        );
+        assert_eq!(
+            format_relative_time_verbose(now_ms - 120_000),
+            "2 minutes ago"
+        );
+        assert_eq!(
+            format_relative_time_verbose(now_ms - 3_600_000),
+            "1 hour ago"
+        );
+        assert_eq!(
+            format_relative_time_verbose(now_ms - 7_200_000),
+            "2 hours ago"
+        );
+        assert_eq!(
+            format_relative_time_verbose(now_ms - 86_400_000),
+            "1 day ago"
+        );
+        assert_eq!(
+            format_relative_time_verbose(now_ms - 172_800_000),
+            "2 days ago"
+        );
     }
 }
