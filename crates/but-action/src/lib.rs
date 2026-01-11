@@ -24,6 +24,7 @@ mod action;
 mod auto_commit;
 mod branch_changes;
 pub mod cli;
+mod commit_format;
 mod generate;
 mod grouping;
 pub mod rename_branch;
