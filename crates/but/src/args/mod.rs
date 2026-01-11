@@ -388,8 +388,11 @@ pub enum Subcommands {
         /// Commit ID to edit the message for, or branch ID to rename
         target: String,
         /// The new commit message or branch name. If not provided, opens an editor.
-        #[clap(short = 'm', long = "message")]
+        #[clap(short = 'm', long = "message", conflicts_with = "format")]
         message: Option<String>,
+        /// Format the existing commit message to 72-char line wrapping without opening an editor
+        #[clap(short = 'f', long = "format", conflicts_with = "message")]
+        format: bool,
     },
 
     /// Commands for viewing and managing operation history.

@@ -123,13 +123,19 @@ mod tests {
 
     #[test]
     fn test_wrap_long_paragraph() {
-        let input = "Add feature\n\nThis is a very long paragraph that definitely exceeds eighty characters and should be wrapped into multiple lines when formatted properly according to email RFC standards.";
+        let input = "Add feature\n\nThis is a very long paragraph that definitely exceeds 72 characters and should be wrapped into multiple lines when formatted properly according to email RFC standards.";
         let output = format_commit_message(input);
 
-        // Check that body lines don't exceed 80 characters
+        // Check that body lines don't exceed 72 characters
         for (i, line) in output.lines().enumerate() {
             if i > 1 && !line.is_empty() {
-                assert!(line.len() <= 80, "Line {} too long: '{}' ({})", i, line, line.len());
+                assert!(
+                    line.len() <= 72,
+                    "Line {} too long: '{}' ({})",
+                    i,
+                    line,
+                    line.len()
+                );
             }
         }
     }

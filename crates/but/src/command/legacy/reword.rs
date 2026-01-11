@@ -12,6 +12,7 @@ pub(crate) fn reword_target(
     out: &mut OutputChannel,
     target: &str,
     message: Option<&str>,
+    format: bool,
 ) -> Result<()> {
     let mut id_map = IdMap::new_from_context(ctx, None)?;
     id_map.add_committed_file_info_from_context(ctx)?;
@@ -35,10 +36,13 @@ pub(crate) fn reword_target(
 
     match cli_id {
         CliId::Branch { name, .. } => {
+            if format {
+                bail!("--format flag can only be used with commits, not branches");
+            }
             edit_branch_name(ctx, &ctx.legacy_project, name, out, message)?;
         }
         CliId::Commit { commit_id: oid, .. } => {
-            edit_commit_message_by_id(ctx, &ctx.legacy_project, *oid, out, message)?;
+            edit_commit_message_by_id(ctx, &ctx.legacy_project, *oid, out, message, format)?;
         }
         _ => {
             bail!(
@@ -104,6 +108,7 @@ fn edit_commit_message_by_id(
     commit_oid: gix::ObjectId,
     out: &mut OutputChannel,
     message: Option<&str>,
+    format: bool,
 ) -> Result<()> {
     // Find which stack this commit belongs to
     let stacks = but_api::legacy::workspace::stacks(project.id, None)?;
@@ -155,14 +160,23 @@ fn edit_commit_message_by_id(
     // Get current commit message
     let current_message = commit_message.to_string();
 
-    // Get new message from provided argument or editor
-    let new_message = prepare_provided_message(message, "commit message").unwrap_or_else(|| {
-        let commit_details = but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
-        let changed_files = get_changed_files_from_commit_details(&commit_details);
+    // Get new message from provided argument, format flag, or editor
+    let new_message = if format {
+        if message.is_some() {
+            bail!("Cannot use both --format and --message flags together");
+        }
+        // Format the current message without opening an editor
+        but_action::commit_format::format_commit_message(&current_message)
+    } else {
+        prepare_provided_message(message, "commit message").unwrap_or_else(|| {
+            let commit_details =
+                but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
+            let changed_files = get_changed_files_from_commit_details(&commit_details);
 
-        // Open editor with current message and file list
-        get_commit_message_from_editor(&current_message, &changed_files)
-    })?;
+            // Open editor with current message and file list
+            get_commit_message_from_editor(&current_message, &changed_files)
+        })?
+    };
 
     if new_message.trim() == current_message.trim() {
         if let Some(out) = out.for_human() {
