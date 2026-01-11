@@ -6,6 +6,37 @@ use gix::prelude::ObjectIdExt;
 
 use crate::{CLI_DATE, CliId, IdMap, utils::OutputChannel};
 
+/// Format a timestamp as a relative time string (e.g., "2 days ago")
+fn format_relative_time(timestamp_seconds: i64) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+
+    let seconds_ago = now.saturating_sub(timestamp_seconds);
+
+    if seconds_ago < 60 {
+        format!("{}s ago", seconds_ago)
+    } else if seconds_ago < 3600 {
+        format!("{}m ago", seconds_ago / 60)
+    } else if seconds_ago < 86400 {
+        format!("{}h ago", seconds_ago / 3600)
+    } else if seconds_ago < 604800 {
+        let days = seconds_ago / 86400;
+        if days == 1 {
+            "yesterday".to_string()
+        } else {
+            format!("{}d ago", days)
+        }
+    } else if seconds_ago < 2592000 {
+        format!("{}w ago", seconds_ago / 604800)
+    } else if seconds_ago < 31536000 {
+        format!("{}mo ago", seconds_ago / 2592000)
+    } else {
+        format!("{}y ago", seconds_ago / 31536000)
+    }
+}
+
 pub(crate) fn show_commit(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -55,11 +86,23 @@ pub(crate) fn show_commit(
     let parent_id = raw_commit.parent_ids().next().map(|id| id.detach());
     let tree_changes = but_core::diff::TreeChanges::from_trees(&repo, parent_id, commit_id)?;
 
+    // Extract change-id if present (try both header names)
+    let change_id = decoded
+        .extra_headers()
+        .find("change-id")
+        .or_else(|| decoded.extra_headers().find("gitbutler-change-id"))
+        .map(|v| v.to_str_lossy().to_string());
+
     // Display commit information
     if let Some(out) = out.for_human() {
         // Commit SHA
         let short_id = commit_id.attach(&repo).shorten_or_id();
         writeln!(out, "{} {}", "commit".yellow().bold(), short_id.to_string().yellow())?;
+
+        // Change ID (if present)
+        if let Some(ref change_id) = change_id {
+            writeln!(out, "{} {}", "Change-ID:".bold(), change_id)?;
+        }
 
         // Author
         let author_sig = decoded.author()?;
@@ -71,9 +114,11 @@ pub(crate) fn show_commit(
             author_sig.email.to_str_lossy()
         )?;
 
-        // Date
-        let date_str = raw_commit.time()?.format(CLI_DATE)?;
-        writeln!(out, "{}  {}", "Date:".bold(), date_str)?;
+        // Date with relative time
+        let commit_time = raw_commit.time()?;
+        let date_str = commit_time.format(CLI_DATE)?;
+        let relative = format_relative_time(commit_time.seconds);
+        writeln!(out, "{}  {} ({})", "Date:".bold(), date_str, relative)?;
 
         // Committer (only if different from author)
         let committer_sig = decoded.committer()?;
@@ -89,9 +134,15 @@ pub(crate) fn show_commit(
 
         writeln!(out)?;
 
-        // Commit message (indented)
-        for line in decoded.message.to_str_lossy().lines() {
-            writeln!(out, "    {}", line)?;
+        // Commit message - first line bold, rest normal, no indentation
+        let message = decoded.message.to_str_lossy();
+        let mut lines = message.lines();
+        if let Some(first_line) = lines.next() {
+            writeln!(out, "{}", first_line.bold())?;
+            // Print remaining lines without indentation
+            for line in lines {
+                writeln!(out, "{}", line)?;
+            }
         }
 
         writeln!(out)?;
@@ -138,7 +189,7 @@ pub(crate) fn show_commit(
         let committer_sig = decoded.committer()?;
         let date_str = raw_commit.time()?.format(CLI_DATE)?;
 
-        let json_output = serde_json::json!({
+        let mut json_output = serde_json::json!({
             "commit": commit_id.to_string(),
             "author": {
                 "name": author_sig.name.to_str_lossy(),
@@ -152,6 +203,11 @@ pub(crate) fn show_commit(
             "message": decoded.message.to_str_lossy(),
             "files": files
         });
+
+        // Add change-id if present
+        if let Some(ref change_id) = change_id {
+            json_output["changeId"] = serde_json::json!(change_id);
+        }
 
         out.write_value(json_output)?;
     }
