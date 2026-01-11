@@ -127,7 +127,7 @@ pub(crate) async fn worktree(
     let mut original_stack_details: Vec<(Option<gitbutler_stack::StackId>, Option<StackDetails>)> =
         vec![(None, None)];
 
-    for stack in stacks {
+    for stack in &stacks {
         let details = but_api::legacy::workspace::stack_details(ctx.legacy_project.id, stack.id)?;
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
         original_stack_details.push((stack.id, Some(details.clone())));
