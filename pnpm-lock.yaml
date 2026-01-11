@@ -195,6 +195,9 @@ importers:
       '@gitbutler/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@intlify/core':
+        specifier: ^11.2.8
+        version: 11.2.8
       '@octokit/rest':
         specifier: ^20.1.2
         version: 20.1.2
@@ -1945,6 +1948,22 @@ packages:
     peerDependenciesMeta:
       '@types/node':
         optional: true
+
+  '@intlify/core-base@11.2.8':
+    resolution: {integrity: sha512-nBq6Y1tVkjIUsLsdOjDSJj4AsjvD0UG3zsg9Fyc+OivwlA/oMHSKooUy9tpKj0HqZ+NWFifweHavdljlBLTwdA==}
+    engines: {node: '>= 16'}
+
+  '@intlify/core@11.2.8':
+    resolution: {integrity: sha512-su9kRlQAkG+SBP5cufTYmwPnqjur8etZVa2lnR80CgE5JqA0pXwGUF7W08dR/a6T2oDoYPh53/S8O0CGbfx1qg==}
+    engines: {node: '>= 16'}
+
+  '@intlify/message-compiler@11.2.8':
+    resolution: {integrity: sha512-A5n33doOjmHsBtCN421386cG1tWp5rpOjOYPNsnpjIJbQ4POF0QY2ezhZR9kr0boKwaHjbOifvyQvHj2UTrDFQ==}
+    engines: {node: '>= 16'}
+
+  '@intlify/shared@11.2.8':
+    resolution: {integrity: sha512-l6e4NZyUgv8VyXXH4DbuucFOBmxLF56C/mqh2tvApbzl2Hrhi1aTDcuv5TKdxzfHYmpO3UB0Cz04fgDT9vszfw==}
+    engines: {node: '>= 16'}
 
   '@isaacs/balanced-match@4.0.1':
     resolution: {integrity: sha512-yzMTt9lEb8Gv7zRioUilSglI0c0smZ9k5D65677DLWLtWJaXIS3CqcGyUFByYKlnUj6TkjLVs54fBl6+TiGQDQ==}
@@ -8724,6 +8743,23 @@ snapshots:
   '@inquirer/type@3.0.10(@types/node@24.10.4)':
     optionalDependencies:
       '@types/node': 24.10.4
+
+  '@intlify/core-base@11.2.8':
+    dependencies:
+      '@intlify/message-compiler': 11.2.8
+      '@intlify/shared': 11.2.8
+
+  '@intlify/core@11.2.8':
+    dependencies:
+      '@intlify/core-base': 11.2.8
+      '@intlify/shared': 11.2.8
+
+  '@intlify/message-compiler@11.2.8':
+    dependencies:
+      '@intlify/shared': 11.2.8
+      source-map-js: 1.2.1
+
+  '@intlify/shared@11.2.8': {}
 
   '@isaacs/balanced-match@4.0.1': {}
 

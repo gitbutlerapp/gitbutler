@@ -33,6 +33,7 @@ export interface Settings {
 	defaultCodeEditor: CodeEditorSettings;
 	defaultFileListMode: 'tree' | 'list';
 	pathFirst: boolean;
+	locale?: string;
 }
 
 const defaults: Settings = {
@@ -56,7 +57,8 @@ const defaults: Settings = {
 	colorBlindFriendly: false,
 	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
 	defaultFileListMode: 'list',
-	pathFirst: true
+	pathFirst: true,
+	locale: 'en-US'
 };
 
 export function loadUserSettings(): Writable<Settings> {
