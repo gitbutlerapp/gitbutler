@@ -64,6 +64,16 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
+    // Check if help is requested and show grouped help instead of clap's default
+    // Only intercept top-level help (but -h or but --help), not subcommand help
+    let has_help_flag = args.iter().any(|arg| arg == "--help" || arg == "-h");
+    let has_subcommand = args.len() > 2 && args[1] != "--help" && args[1] != "-h";
+    if has_help_flag && !has_subcommand {
+        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        command::help::print_grouped(&mut out)?;
+        return Ok(());
+    }
+
     // Expand aliases before parsing arguments
     let args = alias::expand_aliases(args)?;
 
@@ -75,6 +85,15 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     {
         let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
         command::push::help::print(&mut out)?;
+        return Ok(());
+    }
+
+    // Handle `but help -h` and `but help --help` to show the grouped help output
+    if args_vec.iter().any(|arg| arg == "help")
+        && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
+    {
+        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        command::help::print_grouped(&mut out)?;
         return Ok(());
     }
 
