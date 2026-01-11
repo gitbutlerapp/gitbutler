@@ -8,6 +8,7 @@ use anyhow::Result;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_project::ProjectId;
 pub use handler::Handler;
+use notify::{RecursiveMode, Watcher as _};
 use tokio::{
     sync::mpsc::{UnboundedSender, unbounded_channel},
     task,
@@ -15,10 +16,14 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 mod events;
+
 pub use events::Change;
 use gitbutler_filemonitor::InternalEvent;
 
 mod handler;
+
+/// Re-export for convenience
+pub use gitbutler_filemonitor::WatchMode;
 
 /// An abstraction over a link to the spawned watcher, which runs in the background.
 pub struct WatcherHandle {
@@ -67,12 +72,17 @@ pub fn watch_in_background(
     worktree_path: impl AsRef<Path>,
     project_id: ProjectId,
     app_settings: AppSettingsWithDiskSync,
+    watch_mode: WatchMode,
 ) -> Result<WatcherHandle, anyhow::Error> {
     let (events_out, mut events_in) = unbounded_channel();
     let (flush_tx, mut flush_rx) = unbounded_channel();
 
-    let debounce =
-        gitbutler_filemonitor::spawn(project_id, worktree_path.as_ref(), events_out.clone())?;
+    let mut debounce = gitbutler_filemonitor::spawn(
+        project_id,
+        worktree_path.as_ref(),
+        events_out.clone(),
+        watch_mode,
+    )?;
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
@@ -96,7 +106,24 @@ pub fn watch_in_background(
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                Some(event) = events_in.recv() => handle_event(event, app_settings.clone())?,
+                Some(event) = events_in.recv() => match event {
+                    InternalEvent::WatchDirectoriesNonrecursively(paths) => {
+                        // NOTE: There is an inherent race condition here where files created in the new
+                        // directory before the watch is established will be missed.
+                        tracing::trace!(%project_id, ?paths, "adding dynamic watches");
+                        for path in paths {
+                            if let Err(err) = debounce.watcher().watch(&path, RecursiveMode::NonRecursive) {
+                                tracing::warn!(
+                                    %project_id,
+                                    ?path,
+                                    ?err,
+                                    "failed to add watch; changes may be missed until restart"
+                                );
+                            }
+                        }
+                    }
+                    event => handle_event(event, app_settings.clone())?,
+                },
                 Some(_signal_flush) = flush_rx.recv() => {
                     debounce.flush_nonblocking();
                 }

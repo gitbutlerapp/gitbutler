@@ -130,7 +130,11 @@ pub enum Subcommands {
         #[clap(long, default_value_t = false)]
         simple: bool,
     },
-    Watch,
+    Watch {
+        /// How to watch the current working directory.
+        #[clap(long, short = 'm', value_parser = ["builtin", "plan", "auto"], env = "GITBUTLER_WATCH_MODE")]
+        mode: Option<String>,
+    },
     WatchDb,
     #[clap(visible_alias = "operating-mode", alias = "opmode")]
     OpMode,

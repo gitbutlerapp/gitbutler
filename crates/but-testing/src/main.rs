@@ -133,7 +133,7 @@ async fn main() -> Result<()> {
             previous_commit.as_deref(),
             *unified_diff,
         ),
-        args::Subcommands::Watch => command::watch(&args).await,
+        args::Subcommands::Watch { mode } => command::watch(&args, mode.as_deref()).await,
         args::Subcommands::WatchDb => command::watch_db(&args),
         args::Subcommands::Stacks { workspace_only } => {
             command::stacks::list(&args.current_dir, args.json, *workspace_only)
