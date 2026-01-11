@@ -14,7 +14,6 @@
 		type Row,
 		SectionType
 	} from '$lib/utils/diffParsing';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import type { LineSelectionParams } from '$components/hunkDiff/lineSelection.svelte';
 	import type { Snippet } from 'svelte';
 
@@ -143,47 +142,6 @@
 	});
 
 	const commentRow = $derived(commentRows?.[0]);
-
-	/* TODO: Move utility function from `apps/desktop` into this UI library. */
-	function chunk<T>(arr: T[], size: number) {
-		return Array.from({ length: Math.ceil(arr.length / size) }, (_v, i) =>
-			arr.slice(i * size, i * size + size)
-		);
-	}
-
-	/* Number of lines grouped together for intersection observer purposes. */
-	const chunkLength = 25;
-	/* The assumed height of a row, used to set height before rows have rendered. */
-	const defaultChunkHeight = 18;
-
-	const { firstRow, restRows } = $derived.by(() => {
-		if (renderRows.length === 0) return { firstRow: undefined, restRows: [] };
-		const [firstRow, ...restRows] = renderRows;
-		return { firstRow, restRows };
-	});
-
-	const chunkedRows = $derived(chunk(restRows, chunkLength));
-
-	/* Bound array of booleans used to control rendering of rows. */
-	let chunkVisibility = $state<boolean[]>([]);
-	/* Bound array of chunk heights, for accurate scrolling. */
-	let chunkHeight = $state<number[]>([]);
-
-	$effect(() => {
-		if (chunkedRows) {
-			chunkVisibility.length = chunkedRows.length;
-			chunkHeight.length = chunkedRows.length;
-		}
-	});
-
-	/**
-	 * Get the index of a row in the full list of rows.
-	 *
-	 * Take into account the the chunk index, the row index within the chunk, and the first row that's rendered separately.
-	 */
-	function getRowIndex(chunkIndex: number, rowIndex: number) {
-		return chunkIndex * chunkLength + rowIndex + 1;
-	}
 </script>
 
 {#if commentRow}
@@ -197,20 +155,22 @@
 	</tbody>
 {/if}
 
-<!-- Render always the first row if there's any. -->
-<!-- This is needed in order for the header dimensions to be calculated correctly -->
-{#if firstRow}
-	<tbody
-		onmouseenter={() => (hoveringOverTable = true)}
-		onmouseleave={() => (hoveringOverTable = false)}
-		ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
-		ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
-		ontouchend={() => lineSelection.onEnd()}
-	>
+<tbody
+	onmouseenter={() => (hoveringOverTable = true)}
+	onmouseleave={() => (hoveringOverTable = false)}
+	ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
+	ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
+	ontouchend={() => lineSelection.onEnd()}
+	use:clickOutside={{
+		handler: handleClearSelection,
+		excludeElement: clickOutsideExcludeElements
+	}}
+>
+	{#each renderRows as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
 		<HunkDiffRow
 			{minWidth}
-			idx={0}
-			row={firstRow}
+			{idx}
+			{row}
 			{clickable}
 			{lineSelection}
 			{tabSize}
@@ -221,70 +181,14 @@
 			{onCopySelection}
 			clearLineSelection={handleClearSelection}
 			{hoveringOverTable}
-			staged={getStageState(firstRow)}
+			staged={getStageState(row)}
 			{hideCheckboxes}
 			{handleLineContextMenu}
 			{lockWarning}
 			hunkHasLocks={lineLocks && lineLocks.length > 0}
 		/>
-	</tbody>
-{/if}
-
-{#each chunkedRows as chunk, chunkIdx}
-	<tbody
-		onmouseenter={() => (hoveringOverTable = true)}
-		onmouseleave={() => (hoveringOverTable = false)}
-		ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
-		ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
-		ontouchend={() => lineSelection.onEnd()}
-		bind:clientHeight={chunkHeight[chunkIdx]}
-		use:clickOutside={{
-			handler: handleClearSelection,
-			excludeElement: clickOutsideExcludeElements
-		}}
-		use:intersectionObserver={{
-			callback: (entries) => {
-				chunkVisibility[chunkIdx] = !!entries?.isIntersecting;
-			},
-			options: { threshold: 0 }
-		}}
-	>
-		{#if chunkVisibility[chunkIdx]}
-			{#each chunk as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
-				{@const rowIdx = getRowIndex(chunkIdx, idx)}
-				<HunkDiffRow
-					{minWidth}
-					idx={rowIdx}
-					{row}
-					{clickable}
-					{lineSelection}
-					{tabSize}
-					{wrapText}
-					{diffFont}
-					{numberHeaderWidth}
-					{onQuoteSelection}
-					{onCopySelection}
-					clearLineSelection={handleClearSelection}
-					{hoveringOverTable}
-					staged={getStageState(row)}
-					{hideCheckboxes}
-					{handleLineContextMenu}
-					{lockWarning}
-					hunkHasLocks={lineLocks && lineLocks.length > 0}
-				/>
-			{/each}
-		{:else}
-			<tr>
-				<td
-					style:height={chunkHeight[chunkIdx]
-						? chunkHeight[chunkIdx] + 'px'
-						: chunkLength * defaultChunkHeight + 'px'}
-				>
-				</td>
-			</tr>
-		{/if}
-	</tbody>
-{/each}
+	{/each}
+</tbody>
 
 <style lang="postcss">
 	tbody {

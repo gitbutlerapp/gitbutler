@@ -20,3 +20,18 @@ export function changesToDiffSpec(
 		};
 	});
 }
+
+export function findEarliestConflict<T extends { hasConflicts?: boolean }>(
+	commits: T[]
+): T | undefined {
+	if (!commits.length) return undefined;
+
+	for (let i = commits.length - 1; i >= 0; i--) {
+		const commit = commits[i]!;
+		if (commit.hasConflicts) {
+			return commit;
+		}
+	}
+
+	return undefined;
+}
