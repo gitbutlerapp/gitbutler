@@ -169,6 +169,31 @@ pub enum Subcommands {
         target: Option<String>,
     },
 
+    /// Shows detailed information about a commit.
+    ///
+    /// Displays the full commit message, author information, committer information
+    /// (if different from author), and the list of files modified in the commit.
+    ///
+    /// ## Examples
+    ///
+    /// Show commit details by short commit ID:
+    ///
+    /// ```text
+    /// but show a1b2c3d
+    /// ```
+    ///
+    /// Show commit details by CLI ID:
+    ///
+    /// ```text
+    /// but show c5
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    Show {
+        /// The commit ID (short or full SHA) or CLI ID to show details for
+        commit: String,
+    },
+
     /// Initializes a GitButler project from a git repository in the current directory.
     ///
     /// If you have an existing Git repository and want to start using GitButler

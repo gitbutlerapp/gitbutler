@@ -1,0 +1,160 @@
+use anyhow::{Result, bail};
+use bstr::ByteSlice;
+use but_ctx::Context;
+use colored::Colorize;
+use gix::prelude::ObjectIdExt;
+
+use crate::{CLI_DATE, CliId, IdMap, utils::OutputChannel};
+
+pub(crate) fn show_commit(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    commit_id_str: &str,
+) -> Result<()> {
+    // Try to resolve the commit ID through the IdMap
+    let mut id_map = IdMap::new_from_context(ctx, None)?;
+    id_map.add_committed_file_info_from_context(ctx)?;
+
+    let cli_ids = id_map.resolve_entity_to_ids(commit_id_str)?;
+
+    let commit_id = if cli_ids.is_empty() {
+        // If not found in IdMap, try to parse as a git commit ID directly
+        let repo = ctx.repo.get()?;
+        let obj = repo
+            .rev_parse_single(commit_id_str)
+            .map_err(|_| anyhow::anyhow!("Commit '{}' not found", commit_id_str))?;
+        let commit = obj
+            .object()?
+            .try_into_commit()
+            .map_err(|_| anyhow::anyhow!("'{}' is not a commit", commit_id_str))?;
+        commit.id
+    } else if cli_ids.len() > 1 {
+        bail!(
+            "Commit ID '{}' is ambiguous. Found {} matches",
+            commit_id_str,
+            cli_ids.len()
+        );
+    } else {
+        match &cli_ids[0] {
+            CliId::Commit { commit_id, .. } => *commit_id,
+            _ => {
+                bail!(
+                    "Target must be a commit ID, not {}",
+                    cli_ids[0].kind_for_humans()
+                );
+            }
+        }
+    };
+
+    // Get commit and file details
+    let repo = ctx.repo.get()?;
+    let raw_commit = repo.find_commit(commit_id)?;
+    let decoded = raw_commit.decode()?;
+
+    // Get diff with first parent
+    let parent_id = raw_commit.parent_ids().next().map(|id| id.detach());
+    let tree_changes = but_core::diff::TreeChanges::from_trees(&repo, parent_id, commit_id)?;
+
+    // Display commit information
+    if let Some(out) = out.for_human() {
+        // Commit SHA
+        let short_id = commit_id.attach(&repo).shorten_or_id();
+        writeln!(out, "{} {}", "commit".yellow().bold(), short_id.to_string().yellow())?;
+
+        // Author
+        let author_sig = decoded.author()?;
+        writeln!(
+            out,
+            "{} {} <{}>",
+            "Author:".bold(),
+            author_sig.name.to_str_lossy(),
+            author_sig.email.to_str_lossy()
+        )?;
+
+        // Date
+        let date_str = raw_commit.time()?.format(CLI_DATE)?;
+        writeln!(out, "{}  {}", "Date:".bold(), date_str)?;
+
+        // Committer (only if different from author)
+        let committer_sig = decoded.committer()?;
+        if committer_sig.name != author_sig.name || committer_sig.email != author_sig.email {
+            writeln!(
+                out,
+                "{} {} <{}>",
+                "Commit:".bold(),
+                committer_sig.name.to_str_lossy(),
+                committer_sig.email.to_str_lossy()
+            )?;
+        }
+
+        writeln!(out)?;
+
+        // Commit message (indented)
+        for line in decoded.message.to_str_lossy().lines() {
+            writeln!(out, "    {}", line)?;
+        }
+
+        writeln!(out)?;
+
+        // File list
+        let changes = tree_changes.into_tree_changes();
+        if !changes.is_empty() {
+            writeln!(out, "{}", "Files changed:".bold())?;
+            for change in &changes {
+                let (status_char, status_color) = match &change.status {
+                    but_core::TreeStatus::Addition { .. } => ("A", "green"),
+                    but_core::TreeStatus::Deletion { .. } => ("D", "red"),
+                    but_core::TreeStatus::Modification { .. } => ("M", "yellow"),
+                    but_core::TreeStatus::Rename { .. } => ("R", "cyan"),
+                };
+
+                writeln!(
+                    out,
+                    "  {} {}",
+                    status_char.color(status_color),
+                    change.path.to_str_lossy()
+                )?;
+            }
+        }
+    } else if let Some(out) = out.for_json() {
+        // JSON output
+        let changes = tree_changes.into_tree_changes();
+        let mut files = Vec::new();
+        for change in &changes {
+            let status = match &change.status {
+                but_core::TreeStatus::Addition { .. } => "added",
+                but_core::TreeStatus::Deletion { .. } => "deleted",
+                but_core::TreeStatus::Modification { .. } => "modified",
+                but_core::TreeStatus::Rename { .. } => "renamed",
+            };
+
+            files.push(serde_json::json!({
+                "path": change.path.to_str_lossy(),
+                "status": status
+            }));
+        }
+
+        let author_sig = decoded.author()?;
+        let committer_sig = decoded.committer()?;
+        let date_str = raw_commit.time()?.format(CLI_DATE)?;
+
+        let json_output = serde_json::json!({
+            "commit": commit_id.to_string(),
+            "author": {
+                "name": author_sig.name.to_str_lossy(),
+                "email": author_sig.email.to_str_lossy()
+            },
+            "committer": {
+                "name": committer_sig.name.to_str_lossy(),
+                "email": committer_sig.email.to_str_lossy()
+            },
+            "date": date_str,
+            "message": decoded.message.to_str_lossy(),
+            "files": files
+        });
+
+        out.write_value(json_output)?;
+    }
+
+    Ok(())
+}

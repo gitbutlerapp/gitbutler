@@ -420,6 +420,13 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::Show { commit } => {
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            command::legacy::show::show_commit(&mut ctx, out, &commit)
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Mark { target, delete } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::mark::handle(&mut ctx, out, &target, delete)

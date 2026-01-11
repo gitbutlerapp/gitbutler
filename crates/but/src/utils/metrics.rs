@@ -65,6 +65,8 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Diff { .. } => Diff,
             #[cfg(feature = "legacy")]
+            Subcommands::Show { .. } => Show,
+            #[cfg(feature = "legacy")]
             Subcommands::Pull { .. } => Pull,
             #[cfg(feature = "legacy")]
             Subcommands::Fetch => Pull,
