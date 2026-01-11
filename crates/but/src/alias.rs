@@ -23,6 +23,13 @@ use std::ffi::OsString;
 
 use anyhow::Result;
 
+/// Default aliases that ship with `but` and can be overridden by git config.
+const DEFAULT_ALIASES: &[(&str, &str)] = &[
+    ("default", "status --hint"),
+    ("st", "status"),
+    ("stf", "status --files"),
+];
+
 /// Expands command aliases before argument parsing.
 ///
 /// If the first argument after "but" is an alias defined in git config
@@ -82,47 +89,25 @@ pub fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>> {
 /// Checks if a command is a known subcommand (not an alias).
 ///
 /// This prevents known commands from being treated as aliases.
-fn is_known_subcommand(cmd: &str) -> bool {
-    matches!(
-        cmd,
-        "status"
-            | "st"
-            | "rub"
-            | "diff"
-            | "init"
-            | "pull"
-            | "branch"
-            | "worktree"
-            | "mark"
-            | "unmark"
-            | "gui"
-            | "."
-            | "commit"
-            | "push"
-            | "new"
-            | "reword"
-            | "oplog"
-            | "restore"
-            | "undo"
-            | "absorb"
-            | "discard"
-            | "forge"
-            | "pr"
-            | "review"
-            | "mcp"
-            | "claude"
-            | "cursor"
-            | "actions"
-            | "metrics"
-            | "completions"
-            | "resolve"
-            | "fetch"
-            | "alias"
-            | "uncommit"
-            | "amend"
-            | "stage"
-            | "unstage"
-    )
+/// Extracts subcommand names directly from clap's Command structure.
+pub fn is_known_subcommand(cmd: &str) -> bool {
+    use clap::CommandFactory;
+
+    let command = crate::args::Args::command();
+    command.get_subcommands().any(|subcmd| {
+        subcmd.get_name() == cmd || subcmd.get_all_aliases().any(|alias| alias == cmd)
+    })
+}
+
+/// Gets all default aliases as a vector of (name, value) tuples.
+///
+/// These are convenience aliases that ship with `but` but can be overridden
+/// by setting them in git config.
+pub fn get_all_default_aliases() -> Vec<(String, String)> {
+    DEFAULT_ALIASES
+        .iter()
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .collect()
 }
 
 /// Gets a default alias value for built-in aliases that can be overridden.
@@ -137,11 +122,11 @@ fn is_known_subcommand(cmd: &str) -> bool {
 /// # Returns
 ///
 /// The default alias value if one exists, or `None`
-fn get_default_alias(alias_name: &str) -> Option<String> {
-    match alias_name {
-        "stf" => Some("status --files".to_string()),
-        _ => None,
-    }
+pub fn get_default_alias(alias_name: &str) -> Option<String> {
+    DEFAULT_ALIASES
+        .iter()
+        .find(|(name, _)| *name == alias_name)
+        .map(|(_, value)| value.to_string())
 }
 
 /// Reads a git config alias value using gix.
@@ -174,12 +159,12 @@ mod tests {
     #[test]
     fn test_is_known_subcommand() {
         assert!(is_known_subcommand("status"));
-        assert!(is_known_subcommand("st"));
         assert!(is_known_subcommand("commit"));
         assert!(is_known_subcommand("push"));
         assert!(is_known_subcommand("gui"));
         assert!(!is_known_subcommand("unknown"));
         assert!(!is_known_subcommand("co"));
+        assert!(!is_known_subcommand("st"));
     }
 
     #[test]

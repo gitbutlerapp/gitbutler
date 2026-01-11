@@ -64,8 +64,11 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
-    // Check if help is requested with no subcommand
-    if args.len() == 1 || args.iter().any(|arg| arg == "--help" || arg == "-h") && args.len() == 2 {
+    // Check if help is requested and show grouped help instead of clap's default
+    // Only intercept top-level help (but -h or but --help), not subcommand help
+    let has_help_flag = args.iter().any(|arg| arg == "--help" || arg == "-h");
+    let has_subcommand = args.len() > 2 && args[1] != "--help" && args[1] != "-h";
+    if has_help_flag && !has_subcommand {
         let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
         command::help::print_grouped(&mut out)?;
         return Ok(());
@@ -85,6 +88,15 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
+    // Handle `but help -h` and `but help --help` to show the grouped help output
+    if args_vec.iter().any(|arg| arg == "help")
+        && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
+    {
+        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        command::help::print_grouped(&mut out)?;
+        return Ok(());
+    }
+
     let mut args: Args = clap::Parser::parse_from(args);
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let output_format = if args.json {
@@ -96,6 +108,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let use_pager = match args.cmd {
         #[cfg(feature = "legacy")]
         Some(Subcommands::Status { .. }) | Some(Subcommands::Oplog(..)) => false,
+        Some(Subcommands::Help) => false,
         _ => true,
     };
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
@@ -153,9 +166,21 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             Ok(())
         }
         None => {
-            // No subcommand and no source/target means help was requested
-            command::help::print_grouped(&mut out)?;
-            Ok(())
+            // No subcommand and no source/target means run the default alias
+            // The default alias expands to "status --hint" which provides a helpful entry point
+            let default_args = vec![OsString::from("but"), OsString::from("default")];
+            let expanded = alias::expand_aliases(default_args)?;
+            let mut new_args: Args = clap::Parser::parse_from(expanded);
+
+            // Take the command from the newly parsed args and execute it
+            match new_args.cmd.take() {
+                Some(cmd) => match_subcommand(cmd, new_args, app_settings, out).await,
+                None => {
+                    // Fallback to help if default alias somehow doesn't resolve
+                    command::help::print_grouped(&mut out)?;
+                    Ok(())
+                }
+            }
         }
         Some(cmd) => match_subcommand(cmd, args, app_settings, out).await,
     }
@@ -192,6 +217,11 @@ async fn match_subcommand(
         Subcommands::Completions { shell } => {
             command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
         }
+        Subcommands::Help => {
+            command::help::print_grouped(out)?;
+            Ok(())
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
             Some(alias_args::Subcommands::List) | None => {
                 command::alias::list(out).emit_metrics(metrics_ctx)
@@ -200,9 +230,13 @@ async fn match_subcommand(
                 name,
                 value,
                 global,
-            }) => command::alias::add(out, &name, &value, global).emit_metrics(metrics_ctx),
+            }) => {
+                let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+                command::alias::add(&mut ctx, out, &name, &value, global).emit_metrics(metrics_ctx)
+            }
             Some(alias_args::Subcommands::Remove { name, global }) => {
-                command::alias::remove(out, &name, global).emit_metrics(metrics_ctx)
+                let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+                command::alias::remove(&mut ctx, out, &name, global).emit_metrics(metrics_ctx)
             }
         },
         Subcommands::Branch(branch::Platform { cmd }) => {
@@ -361,10 +395,11 @@ async fn match_subcommand(
             verbose,
             refresh_prs: sync_prs,
             upstream,
+            hint,
         } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::status::worktree(
-                &mut ctx, out, show_files, verbose, sync_prs, upstream,
+                &mut ctx, out, show_files, verbose, sync_prs, upstream, hint,
             )
             .await
             .emit_metrics(metrics_ctx)
@@ -587,6 +622,18 @@ async fn match_subcommand(
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::rub::handle_unstage(&mut ctx, out, &file_or_hunk, branch.as_deref())
                 .context("Failed to unstage.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Squash {
+            commit1,
+            commit2,
+            drop_message,
+        } => {
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            command::legacy::rub::handle_squash(&mut ctx, out, &commit1, &commit2, drop_message)
+                .context("Failed to squash commits.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }

@@ -9,7 +9,12 @@
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Parser)]
-#[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("VERSION").unwrap_or("dev"))]
+#[clap(
+    name = "but",
+    about = "A GitButler CLI tool",
+    version = option_env!("VERSION").unwrap_or("dev"),
+    disable_help_subcommand = true
+)]
 pub struct Args {
     /// Enable tracing for debug and performance information printed to stderr.
     #[clap(short = 't', long, action = clap::ArgAction::Count, hide = true, env = "BUT_TRACE")]
@@ -82,7 +87,6 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(alias = "st")]
     Status {
         /// Determines whether the committed files should be shown as well.
         #[clap(short = 'f', alias = "files", default_value_t = false)]
@@ -96,6 +100,9 @@ pub enum Subcommands {
         /// Show detailed list of upstream commits that haven't been integrated yet.
         #[clap(short = 'u', long = "upstream", default_value_t = false)]
         upstream: bool,
+        /// Show a hint about available commands at the end of output.
+        #[clap(long = "hint", default_value_t = false)]
+        hint: bool,
     },
 
     /// Combines two entities together to perform an operation like amend, squash, stage, or move.
@@ -608,6 +615,20 @@ pub enum Subcommands {
     #[clap(hide = true)]
     Fetch,
 
+    /// Squash two commits together.
+    ///
+    /// Wrapper for `but rub <commit1> <commit2>`.
+    #[cfg(feature = "legacy")]
+    Squash {
+        /// First commit ID (will be squashed into the second)
+        commit1: String,
+        /// Second commit ID (target commit)
+        commit2: String,
+        /// Drop the first commit's message and keep only the second commit's message
+        #[clap(long, short = 'd')]
+        drop_message: bool,
+    },
+
     /// Uncommit changes from a commit or file-in-commit to the unstaged area.
     ///
     /// Wrapper for `but rub <source> zz`.
@@ -651,6 +672,14 @@ pub enum Subcommands {
         #[clap(required = false)]
         branch: Option<String>,
     },
+
+    /// Show help information grouped by category.
+    ///
+    /// Displays all available commands organized into functional categories
+    /// such as Inspection, Branching and Committing, Server Interactions, etc.
+    ///
+    /// This is equivalent to running `but -h` to see the command overview.
+    Help,
 }
 
 pub mod alias;
