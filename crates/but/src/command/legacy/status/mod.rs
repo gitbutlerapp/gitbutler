@@ -313,7 +313,7 @@ pub(crate) async fn worktree(
     let last_checked_text = last_fetched_ms
         .map(|ms| {
             let relative_time = format_relative_time_verbose(ms);
-            format!(" (checked {})", relative_time)
+            format!("\n (upstream checked {})", relative_time)
         })
         .unwrap_or_default();
 

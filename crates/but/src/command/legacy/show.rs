@@ -2,7 +2,6 @@ use anyhow::{Result, bail};
 use bstr::ByteSlice;
 use but_ctx::Context;
 use colored::Colorize;
-use gix::prelude::ObjectIdExt;
 
 use crate::{CLI_DATE, CliId, IdMap, utils::{OutputChannel, time::format_relative_time}};
 
@@ -64,9 +63,8 @@ pub(crate) fn show_commit(
 
     // Display commit information
     if let Some(out) = out.for_human() {
-        // Commit SHA
-        let short_id = commit_id.attach(&repo).shorten_or_id();
-        writeln!(out, "{} {}", "commit".yellow().bold(), short_id.to_string().yellow())?;
+        // Commit SHA - full hash
+        writeln!(out, "{} {}", "Commit:".yellow().bold(), commit_id.to_string().yellow())?;
 
         // Change ID (if present)
         if let Some(ref change_id) = change_id {
@@ -79,15 +77,15 @@ pub(crate) fn show_commit(
             out,
             "{} {} <{}>",
             "Author:".bold(),
-            author_sig.name.to_str_lossy(),
-            author_sig.email.to_str_lossy()
+            author_sig.name.to_str_lossy().cyan(),
+            author_sig.email.to_str_lossy().cyan()
         )?;
 
         // Date with relative time
         let commit_time = raw_commit.time()?;
         let date_str = commit_time.format(CLI_DATE)?;
         let relative = format_relative_time(commit_time.seconds);
-        writeln!(out, "{}  {} ({})", "Date:".bold(), date_str, relative)?;
+        writeln!(out, "{}  {} {}", "Date:".bold(), date_str.green(), format!("({})", relative).dimmed())?;
 
         // Committer (only if different from author)
         let committer_sig = decoded.committer()?;
@@ -95,9 +93,9 @@ pub(crate) fn show_commit(
             writeln!(
                 out,
                 "{} {} <{}>",
-                "Commit:".bold(),
-                committer_sig.name.to_str_lossy(),
-                committer_sig.email.to_str_lossy()
+                "Committer:".bold(),
+                committer_sig.name.to_str_lossy().cyan(),
+                committer_sig.email.to_str_lossy().cyan()
             )?;
         }
 
