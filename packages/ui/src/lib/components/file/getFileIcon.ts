@@ -1,6 +1,5 @@
 import { fileIcons } from '$components/file/fileIcons';
 import { symbolFileExtensionsToIcons, symbolFileNamesToIcons } from '$components/file/typeMap';
-import { convertToBase64 } from '$lib/utils/convertToBase64';
 
 export function getFileIcon(fileName: string) {
 	fileName = fileName.toLowerCase();
@@ -28,5 +27,5 @@ export function getFileIcon(fileName: string) {
 	if (!icon) {
 		icon = fileIcons['document'] as string;
 	}
-	return `data:image/svg+xml;base64,${convertToBase64(icon)}`;
+	return icon;
 }

@@ -90,7 +90,7 @@
 	class:diff-section__header_sticked={isHeaderSticked}
 >
 	<div class="diff-section__header__file-info">
-		<FileIcon fileName={filePath} size={16} />
+		<FileIcon fileName={filePath} />
 		<p title={filePath} class="text-12 text-body file-path">
 			{#if filePathInfo}
 				<span class="directory-path">{filePathInfo.directoryPath}/</span>{filePathInfo.fileName}
