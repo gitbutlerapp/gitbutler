@@ -2,6 +2,7 @@ use std::path::{self};
 
 use anyhow::{Error, Result};
 use but_fs::list_files;
+use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 
 use crate::forge::ForgeName;
@@ -417,6 +418,90 @@ fn list_forge_reviews(
         }
     };
     Ok(reviews)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ForgeReviewFilter {
+    Today,
+    ThisWeek,
+    ThisMonth,
+    #[default]
+    All,
+}
+
+pub async fn list_forge_reviews_for_branch(
+    preferred_forge_user: Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    branch: &str,
+    storage: &but_forge_storage::Controller,
+    filter: Option<ForgeReviewFilter>,
+) -> Result<Vec<ForgeReview>> {
+    let filter = filter.unwrap_or_default();
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.github().cloned());
+            let prs = but_github::pr::list_all_for_branch(
+                preferred_account.as_ref(),
+                owner,
+                repo,
+                branch,
+                storage,
+            )
+            .await?;
+
+            let prs = filter_prs(prs, &filter);
+
+            Ok(prs.into_iter().map(ForgeReview::from).collect())
+        }
+        _ => Err(Error::msg(format!(
+            "Listing reviews for forge {:?} is not implemented yet.",
+            forge,
+        ))),
+    }
+}
+
+fn filter_prs(
+    prs: Vec<but_github::PullRequest>,
+    filter: &ForgeReviewFilter,
+) -> Vec<but_github::PullRequest> {
+    let now = chrono::Utc::now();
+    prs.into_iter()
+        .filter(|pr| match filter {
+            ForgeReviewFilter::Today => {
+                if let Some(created_at_str) = &pr.created_at
+                    && let Ok(created_at) = chrono::DateTime::parse_from_rfc3339(created_at_str)
+                {
+                    return created_at.date_naive() == now.date_naive();
+                }
+                false
+            }
+            ForgeReviewFilter::ThisWeek => {
+                if let Some(created_at_str) = &pr.created_at
+                    && let Ok(created_at) = chrono::DateTime::parse_from_rfc3339(created_at_str)
+                {
+                    let week_start =
+                        now - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
+                    return created_at.date_naive() >= week_start.date_naive();
+                }
+                false
+            }
+            ForgeReviewFilter::ThisMonth => {
+                if let Some(created_at_str) = &pr.created_at
+                    && let Ok(created_at) = chrono::DateTime::parse_from_rfc3339(created_at_str)
+                {
+                    return created_at.year() == now.year() && created_at.month() == now.month();
+                }
+                false
+            }
+            ForgeReviewFilter::All => true,
+        })
+        .collect()
 }
 
 /// Get a specific review (e.g. pull request) for a given forge repository

@@ -127,6 +127,36 @@ impl GitHubClient {
         Ok(pulls)
     }
 
+    pub async fn list_pulls_for_base(
+        &self,
+        owner: &str,
+        repo: &str,
+        base: &str,
+    ) -> Result<Vec<PullRequest>> {
+        // For now, list 100 PRs
+        let pulls = self
+            .github
+            .pulls()
+            .list(
+                owner,
+                repo,
+                octorust::types::IssuesListState::All,
+                "",
+                base,
+                octorust::types::PullsListSort::Updated,
+                octorust::types::Order::Desc,
+                100,
+                1,
+            )
+            .await
+            .map(|response| response.body)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+
+        Ok(pulls)
+    }
+
     pub async fn create_pull_request(
         &self,
         params: &CreatePullRequestParams<'_>,
@@ -271,10 +301,10 @@ impl From<octorust::types::PullRequestSimple> for PullRequest {
             source_branch: pr.head.ref_,
             target_branch: pr.base.ref_,
             sha: pr.head.sha,
-            created_at: pr.created_at.map(|d| d.to_string()),
-            modified_at: pr.updated_at.map(|d| d.to_string()),
-            merged_at: pr.merged_at.map(|d| d.to_string()),
-            closed_at: pr.closed_at.map(|d| d.to_string()),
+            created_at: pr.created_at.map(|d| d.to_rfc3339()),
+            modified_at: pr.updated_at.map(|d| d.to_rfc3339()),
+            merged_at: pr.merged_at.map(|d| d.to_rfc3339()),
+            closed_at: pr.closed_at.map(|d| d.to_rfc3339()),
             repository_ssh_url: pr
                 .base
                 .repo
@@ -319,10 +349,10 @@ impl From<octorust::types::PullRequestData> for PullRequest {
             source_branch: pr.head.ref_,
             target_branch: pr.base.ref_,
             sha: pr.head.sha,
-            created_at: pr.created_at.map(|d| d.to_string()),
-            modified_at: pr.updated_at.map(|d| d.to_string()),
-            merged_at: pr.merged_at.map(|d| d.to_string()),
-            closed_at: pr.closed_at.map(|d| d.to_string()),
+            created_at: pr.created_at.map(|d| d.to_rfc3339()),
+            modified_at: pr.updated_at.map(|d| d.to_rfc3339()),
+            merged_at: pr.merged_at.map(|d| d.to_rfc3339()),
+            closed_at: pr.closed_at.map(|d| d.to_rfc3339()),
             repository_ssh_url: pr
                 .base
                 .repo

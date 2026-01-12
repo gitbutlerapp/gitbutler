@@ -179,7 +179,9 @@ pub fn list_reviews(
             ctx.legacy_project,
         )
     };
+
     let db = &mut *ctx.db.get_mut()?;
+
     but_forge::list_forge_reviews_with_cache(
         project.preferred_forge_user,
         &base_branch
@@ -240,6 +242,34 @@ pub async fn publish_review(
             .context("No forge could be determined for this repository branch")?,
         &params,
         &storage,
+    )
+    .await
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub async fn list_reviews_for_branch(
+    project_id: ProjectId,
+    branch: String,
+    filter: Option<but_forge::ForgeReviewFilter>,
+) -> Result<Vec<but_forge::ForgeReview>> {
+    let (storage, base_branch, project) = {
+        let ctx = Context::new_from_legacy_project_id(project_id)?;
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project,
+        )
+    };
+    but_forge::list_forge_reviews_for_branch(
+        project.preferred_forge_user,
+        &base_branch
+            .forge_repo_info
+            .context("No forge could be determined for this repository branch")?,
+        &branch,
+        &storage,
+        filter,
     )
     .await
 }
