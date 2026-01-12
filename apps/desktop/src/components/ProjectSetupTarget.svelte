@@ -192,7 +192,7 @@
 				</svg>
 
 				<h3 class="text-13 text-body text-semibold">
-					Gitbutler switches your active branch to <span class="text-bold">gitbutler/workspace</span
+					GitButler switches your active branch to <span class="text-bold">gitbutler/workspace</span
 					>
 				</h3>
 			</div>
