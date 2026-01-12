@@ -61,7 +61,6 @@ pub fn remerged_workspace_tree_v2(
     let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     let merge_tree_id = repo.find_commit(target.sha)?.tree_id().to_gix();
     for stack in stacks.iter_mut() {
-        stack.migrate_change_ids(ctx).ok(); // If it fails that's ok - best effort migration
         let branch_head = repo.find_commit(stack.head_oid(gix_repo)?.to_git2())?;
         let branch_tree_id = repo
             .find_real_tree(&branch_head, Default::default())?
