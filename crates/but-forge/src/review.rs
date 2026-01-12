@@ -1,4 +1,7 @@
-use std::path::{self};
+use std::{
+    fmt::Display,
+    path::{self},
+};
 
 use anyhow::{Error, Result};
 use but_fs::list_files;
@@ -211,6 +214,17 @@ pub struct ForgeUser {
     pub is_bot: bool,
 }
 
+impl Display for ForgeUser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "login: {}, name: {} ",
+            self.login,
+            self.name.as_deref().unwrap_or("N/A")
+        )
+    }
+}
+
 impl From<but_github::GitHubUser> for ForgeUser {
     fn from(user: but_github::GitHubUser) -> Self {
         ForgeUser {
@@ -296,6 +310,24 @@ impl ForgeReview {
     /// The struct version for persistence compatibility purposes
     pub fn struct_version() -> i32 {
         1
+    }
+}
+
+impl Display for ForgeReview {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}: {}\n - author: {}\n - description: {}\n - created at: {}\n",
+            self.unit_symbol,
+            self.number,
+            self.title,
+            self.author
+                .as_ref()
+                .map(|a| a.to_string())
+                .unwrap_or("-unknown-".to_string()),
+            self.body.as_deref().unwrap_or("-no description-"),
+            self.created_at.as_deref().unwrap_or("-unknown-"),
+        )
     }
 }
 
@@ -472,34 +504,39 @@ fn filter_prs(
 ) -> Vec<but_github::PullRequest> {
     let now = chrono::Utc::now();
     prs.into_iter()
-        .filter(|pr| match filter {
-            ForgeReviewFilter::Today => {
-                if let Some(created_at_str) = &pr.created_at
-                    && let Ok(created_at) = chrono::DateTime::parse_from_rfc3339(created_at_str)
-                {
-                    return created_at.date_naive() == now.date_naive();
-                }
-                false
+        .filter(|pr| {
+            if pr.merged_at.is_none() {
+                return false;
             }
-            ForgeReviewFilter::ThisWeek => {
-                if let Some(created_at_str) = &pr.created_at
-                    && let Ok(created_at) = chrono::DateTime::parse_from_rfc3339(created_at_str)
-                {
-                    let week_start =
-                        now - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
-                    return created_at.date_naive() >= week_start.date_naive();
+            match filter {
+                ForgeReviewFilter::Today => {
+                    if let Some(merged_at_str) = &pr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        return merged_at.date_naive() == now.date_naive();
+                    }
+                    false
                 }
-                false
-            }
-            ForgeReviewFilter::ThisMonth => {
-                if let Some(created_at_str) = &pr.created_at
-                    && let Ok(created_at) = chrono::DateTime::parse_from_rfc3339(created_at_str)
-                {
-                    return created_at.year() == now.year() && created_at.month() == now.month();
+                ForgeReviewFilter::ThisWeek => {
+                    if let Some(merged_at_str) = &pr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        let week_start = now
+                            - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
+                        return merged_at.date_naive() >= week_start.date_naive();
+                    }
+                    false
                 }
-                false
+                ForgeReviewFilter::ThisMonth => {
+                    if let Some(merged_at_str) = &pr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        return merged_at.year() == now.year() && merged_at.month() == now.month();
+                    }
+                    false
+                }
+                ForgeReviewFilter::All => true,
             }
-            ForgeReviewFilter::All => true,
         })
         .collect()
 }

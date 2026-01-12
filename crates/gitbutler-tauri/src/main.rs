@@ -386,6 +386,7 @@ fn main() -> anyhow::Result<()> {
                 settings::update_reviews,
                 settings::update_ui,
                 bot::bot,
+                bot::forge_branch_chat,
                 // Debug-only - not for production!
                 #[cfg(debug_assertions)]
                 env::env_vars,
