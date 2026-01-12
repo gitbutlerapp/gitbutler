@@ -57,7 +57,6 @@ pub struct Stack {
     /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
     /// and its effects are available to the user.
     pub in_workspace: bool,
-    pub not_in_workspace_wip_change_id: Option<String>,
     /// Represents the Stack state of pseudo-references ("heads").
     /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
     pub heads: Vec<StackBranch>,
@@ -78,7 +77,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             order,
             allow_rebasing,
             in_workspace,
-            not_in_workspace_wip_change_id,
             heads,
         }: virtual_branches_legacy_types::Stack,
     ) -> Self {
@@ -95,7 +93,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             order,
             allow_rebasing,
             in_workspace,
-            not_in_workspace_wip_change_id,
             heads: heads.into_iter().map(Into::into).collect(),
         }
     }
@@ -116,7 +113,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             order,
             allow_rebasing,
             in_workspace,
-            not_in_workspace_wip_change_id,
             heads,
         }: Stack,
     ) -> Self {
@@ -133,7 +129,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             order,
             allow_rebasing,
             in_workspace,
-            not_in_workspace_wip_change_id,
             heads: heads.into_iter().map(Into::into).collect(),
         }
     }
@@ -184,7 +179,6 @@ impl Stack {
             order,
             allow_rebasing,
             in_workspace: true,
-            not_in_workspace_wip_change_id: None,
             heads: Default::default(),
         }
     }
@@ -213,9 +207,7 @@ impl Stack {
 
             // Unused - everything is defined by the top-most branch name.
             name: "".to_string(),
-
             // unclear, obsolete
-            not_in_workspace_wip_change_id: None,
         }
     }
 
