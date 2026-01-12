@@ -163,6 +163,8 @@ impl Subcommands {
             Subcommands::SwitchBack => SwitchBackToWorkspace,
             #[cfg(feature = "legacy")]
             Subcommands::Squash { .. } => Rub,
+            #[cfg(feature = "legacy")]
+            Subcommands::Merge { .. } => Merge,
         }
     }
 }

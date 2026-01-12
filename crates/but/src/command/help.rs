@@ -36,9 +36,10 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
         (
             "Branching and Committing".yellow(),
             vec![
-                "commit", "stage", "new", "branch", "discard", "resolve", "mark", "unmark",
+                "commit", "stage", "new", "branch", "merge", "discard", "resolve",
             ],
         ),
+        ("Rules".yellow(), vec!["mark", "unmark"]),
         (
             "Server Interactions".yellow(),
             vec!["push", "pull", "base", "pr", "forge"],

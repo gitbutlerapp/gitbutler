@@ -50,6 +50,7 @@ pub enum CommandName {
     Resolve,
     SwitchBackToWorkspace,
     Update,
+    Merge,
     #[default]
     Unknown,
 }
