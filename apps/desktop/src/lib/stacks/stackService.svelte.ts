@@ -51,7 +51,6 @@ import type { ReduxError } from '$lib/state/reduxError';
 type BranchParams = {
 	name?: string;
 	order?: number;
-	allow_rebasing?: boolean;
 };
 
 export type CreateCommitRequest = {
