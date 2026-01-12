@@ -23,7 +23,7 @@
 
 <div class="diff-selection">
 	<div class="diff-selection__content">
-		<FileIcon fileName={diffSelection.fileName} size={16} />
+		<FileIcon fileName={diffSelection.fileName} />
 		<p class="text-12 text-body file-name">
 			{selectionLabel}
 		</p>

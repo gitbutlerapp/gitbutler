@@ -14,7 +14,7 @@
 <div class="chat-message__diff-section">
 	<div class="chat-message__diff-section__header">
 		<div class="chat-message__diff-section__title">
-			<FileIcon fileName={diffPath} size={16} />
+			<FileIcon fileName={diffPath} />
 			<p title={diffPath} class="text-12 text-body file-name">{diffPath}</p>
 		</div>
 
