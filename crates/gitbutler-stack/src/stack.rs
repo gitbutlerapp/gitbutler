@@ -76,6 +76,7 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             order,
             in_workspace,
             heads,
+            ..
         }: virtual_branches_legacy_types::Stack,
     ) -> Self {
         Stack {
@@ -125,6 +126,15 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             order,
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
+            // Dummy values for backwards compatibility
+            #[allow(deprecated)]
+            notes: String::new(),
+            #[allow(deprecated)]
+            ownership: virtual_branches_legacy_types::BranchOwnershipClaims::default(),
+            #[allow(deprecated)]
+            allow_rebasing: true,
+            #[allow(deprecated)]
+            post_commits: false,
         }
     }
 }

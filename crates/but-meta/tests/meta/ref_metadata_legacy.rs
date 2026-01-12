@@ -685,6 +685,10 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     head = "0000000000000000000000000000000000000000"
     order = 0
     in_workspace = true
+    notes = ""
+    ownership = ""
+    allow_rebasing = true
+    post_commits = false
 
     [[branches.1.heads]]
     name = "feat"
