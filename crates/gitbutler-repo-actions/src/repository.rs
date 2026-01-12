@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use anyhow::{Context as _, Result, anyhow, bail};
+use but_core::commit::Headers;
 use but_ctx::Context;
 use but_error::Code;
 use but_oxidize::ObjectIdExt;
-use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -33,7 +33,7 @@ pub trait RepoActionsExt {
         message: &str,
         tree: &git2::Tree,
         parents: &[&git2::Commit],
-        commit_headers: Option<CommitHeadersV2>,
+        commit_headers: Option<Headers>,
     ) -> Result<git2::Oid>;
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32>;
     fn delete_branch_reference(&self, stack: &Stack) -> Result<()>;
@@ -148,7 +148,7 @@ impl RepoActionsExt for Context {
         message: &str,
         tree: &git2::Tree,
         parents: &[&git2::Commit],
-        commit_headers: Option<CommitHeadersV2>,
+        commit_headers: Option<Headers>,
     ) -> Result<git2::Oid> {
         let git2_repo = self.git2_repo.get()?;
         let (author, committer) = git2_repo.signatures().context("failed to get signatures")?;

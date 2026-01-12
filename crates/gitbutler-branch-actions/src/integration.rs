@@ -7,7 +7,7 @@ use but_ctx::{Context, access::WorktreeWritePermission};
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
-use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
 use gitbutler_repo::{
     RepositoryExt, SignaturePurpose,

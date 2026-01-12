@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use anyhow::{Context as _, Result};
-use but_oxidize::git2_to_gix_object_id;
+use but_oxidize::{ObjectIdExt as _, OidExt, RepoExt};
 use gitbutler_commit::commit_ext::CommitExt;
 
 mod repository_ext;
@@ -50,17 +50,6 @@ pub trait RepositoryExt {
 }
 
 pub trait GixRepositoryExt {
-    /// Cherry-pick, but understands GitButler conflicted states.
-    /// Note that it will automatically resolve conflicts in *our* favor, so any tree produced
-    /// here can be used.
-    ///
-    /// This method *should* always be used in favour of native functions.
-    fn cherry_pick_gitbutler<'repo>(
-        &'repo self,
-        head: &git2::Commit,
-        to_rebase: &git2::Commit,
-    ) -> Result<gix::merge::tree::Outcome<'repo>>;
-
     /// Find the real tree of a commit, which is the tree of the commit if it's not in a conflicted state
     /// or the tree according to `side` if it is conflicted.
     ///
@@ -79,57 +68,15 @@ impl RepositoryExt for git2::Repository {
         commit: &git2::Commit,
         side: ConflictedTreeKey,
     ) -> Result<git2::Tree<'_>> {
-        let tree = commit.tree()?;
-        if commit.is_conflicted() {
-            let conflicted_side = tree
-                .get_name(&side)
-                .context("Failed to get conflicted side of commit")?;
-            self.find_tree(conflicted_side.id())
-                .context("failed to find subtree")
-        } else {
-            self.find_tree(tree.id()).context("failed to find subtree")
-        }
+        let gix_repo = self.to_gix_repo()?;
+        let tree_id = gix_repo
+            .find_real_tree(&commit.id().to_gix(), side)?
+            .to_git2();
+        Ok(self.find_tree(tree_id)?)
     }
 }
 
 impl GixRepositoryExt for gix::Repository {
-    fn cherry_pick_gitbutler<'repo>(
-        &'repo self,
-        head: &git2::Commit,
-        to_rebase: &git2::Commit,
-    ) -> Result<gix::merge::tree::Outcome<'repo>> {
-        // we need to do a manual 3-way patch merge
-        // find the base, which is the parent of to_rebase
-        let base = if to_rebase.is_conflicted() {
-            // Use to_rebase's recorded base
-            self.find_real_tree(
-                &git2_to_gix_object_id(to_rebase.id()),
-                ConflictedTreeKey::Base,
-            )?
-        } else {
-            let base_commit = to_rebase.parent(0)?;
-            // Use the parent's auto-resolution
-            self.find_real_tree(&git2_to_gix_object_id(base_commit.id()), Default::default())?
-        };
-        // Get the auto-resolution
-        let ours = self.find_real_tree(&git2_to_gix_object_id(head.id()), Default::default())?;
-        // Get the original theirs
-        let theirs = self.find_real_tree(
-            &git2_to_gix_object_id(to_rebase.id()),
-            ConflictedTreeKey::Theirs,
-        )?;
-
-        use but_core::RepositoryExt;
-        self.merge_trees(
-            base,
-            ours,
-            theirs,
-            self.default_merge_labels(),
-            self.merge_options_force_ours()?,
-        )
-        .context("failed to merge trees for cherry pick")
-    }
-
     fn find_real_tree<'repo>(
         &'repo self,
         commit_id: &gix::oid,

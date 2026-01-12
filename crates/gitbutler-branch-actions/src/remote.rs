@@ -2,10 +2,11 @@ use std::path::Path;
 
 use anyhow::Result;
 use but_ctx::Context;
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_serde::BStringForFrontend;
 use git2::BranchType;
 use gitbutler_branch::ReferenceExt;
-use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt};
 use gitbutler_repo_actions::RepoActionsExt;
@@ -88,19 +89,22 @@ pub fn find_git_branches(ctx: &Context, branch_name: &str) -> Result<Vec<RemoteB
         .collect())
 }
 
-pub(crate) fn get_commit_data(ctx: &Context, sha: git2::Oid) -> Result<Option<RemoteCommit>> {
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let commit = match git2_repo.find_commit(sha) {
+pub(crate) fn get_commit_data(ctx: &Context, sha: gix::ObjectId) -> Result<Option<RemoteCommit>> {
+    let repo = &*ctx.repo.get()?;
+    let commit = match repo.find_commit(sha) {
         Ok(commit) => commit,
         Err(error) => {
-            if error.code() == git2::ErrorCode::NotFound {
+            if matches!(
+                error,
+                gix::object::find::existing::with_conversion::Error::Find(_)
+            ) {
                 return Ok(None);
             } else {
                 anyhow::bail!(error);
             }
         }
     };
-    Ok(Some(commit_to_remote_commit(&commit)))
+    Ok(Some(commit_to_remote_commit(&commit)?))
 }
 
 pub(crate) fn branch_to_remote_branch(
@@ -117,6 +121,7 @@ pub(crate) fn branch_to_remote_branch(
     let is_remote = reference.is_remote();
 
     let git2_repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     let base = default_target(&ctx.project_data_dir())?.remote_head(git2_repo)?;
     let ahead = git2_repo.log(sha, LogUntil::Commit(base), false)?;
     let fork_point = ahead.last().and_then(|c| c.parent(0).ok()).map(|c| c.id());
@@ -130,8 +135,11 @@ pub(crate) fn branch_to_remote_branch(
 
     let commits = ahead
         .into_iter()
-        .map(|commit| commit_to_remote_commit(&commit))
-        .collect::<Vec<_>>();
+        .map(|commit| {
+            let gix_commit = repo.find_commit(commit.id().to_gix())?;
+            commit_to_remote_commit(&gix_commit)
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(RemoteBranchData {
         name,
@@ -145,17 +153,17 @@ pub(crate) fn branch_to_remote_branch(
     })
 }
 
-pub(crate) fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
-    let parent_ids = commit.parents().map(|c| c.id()).collect();
-    RemoteCommit {
+pub(crate) fn commit_to_remote_commit(commit: &gix::Commit) -> Result<RemoteCommit> {
+    let parent_ids = commit.parent_ids().map(|id| id.to_git2()).collect();
+    Ok(RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message_bstr().into(),
-        created_at: commit.time().seconds().try_into().unwrap(),
-        author: commit.author().into(),
-        change_id: commit.change_id(),
+        created_at: commit.time()?.seconds.try_into().unwrap(),
+        author: commit.author()?.into(),
+        change_id: commit.change_id().map(|c| c.to_string()),
         parent_ids,
         conflicted: commit.is_conflicted(),
-    }
+    })
 }
 
 fn default_target(base_path: &Path) -> Result<Target> {

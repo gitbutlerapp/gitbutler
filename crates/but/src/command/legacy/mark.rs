@@ -42,9 +42,11 @@ fn mark_commit(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     if delete {
+        let repo = ctx.repo.get()?.clone();
+        let commit = repo.find_commit(oid)?;
         let rules = but_rules::list_rules(ctx)?;
         for rule in rules {
-            if rule.target_commit_id() == Some(oid.to_string()) {
+            if rule.target_change_id() == commit.change_id() {
                 but_rules::delete_rule(ctx, &rule.id())?;
             }
         }
@@ -137,7 +139,7 @@ pub(crate) fn commit_marked(ctx: &mut Context, commit_id: String) -> anyhow::Res
     };
     let rules = but_rules::list_rules(ctx)?
         .iter()
-        .any(|r| r.target_commit_id() == Some(change_id.clone()));
+        .any(|r| r.target_change_id() == Some(change_id.clone()));
     Ok(rules)
 }
 

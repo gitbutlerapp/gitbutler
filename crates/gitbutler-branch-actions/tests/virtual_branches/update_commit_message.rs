@@ -1,4 +1,4 @@
-use but_oxidize::ObjectIdExt;
+use but_oxidize::OidExt as _;
 use but_workspace::ui::PushStatus;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -9,6 +9,7 @@ use super::*;
 #[test]
 fn head() {
     let Test { repo, ctx, .. } = &Test::default();
+    let gix_repo = ctx.repo.get().unwrap();
 
     gitbutler_branch_actions::set_base_branch(
         ctx,
@@ -38,7 +39,7 @@ fn head() {
         fs::write(repo.path().join("file three.txt"), "").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap()
     };
-    let commit_three = repo.find_commit(commit_three_oid).unwrap();
+    let commit_three = gix_repo.find_commit(commit_three_oid.to_gix()).unwrap();
     let before_change_id = &commit_three.change_id();
 
     gitbutler_branch_actions::update_commit_message(
@@ -60,8 +61,8 @@ fn head() {
         .collect::<Vec<_>>();
 
     // get the last commit
-    let commit = repo
-        .find_commit(b.branch_details[0].commits[0].id.to_git2())
+    let commit = gix_repo
+        .find_commit(b.branch_details[0].commits[0].id)
         .unwrap();
 
     // make sure the SHA changed, but the change ID did not

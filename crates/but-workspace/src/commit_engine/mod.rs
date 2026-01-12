@@ -3,7 +3,7 @@
 use anyhow::bail;
 use but_core::{
     DiffSpec, RepositoryExt,
-    commit::HeadersV2,
+    commit::Headers,
     ref_metadata::StackId,
     tree::{CreateTreeOutcome, create_tree, create_tree::RejectionReason},
 };
@@ -220,7 +220,7 @@ fn create_possibly_signed_commit(
     message: &str,
     tree: gix::ObjectId,
     parents: impl IntoIterator<Item = impl Into<gix::ObjectId>>,
-    commit_headers: Option<but_core::commit::HeadersV2>,
+    commit_headers: Option<but_core::commit::Headers>,
 ) -> anyhow::Result<gix::ObjectId> {
     let commit = gix::objs::Commit {
         message: message.into(),
@@ -230,7 +230,7 @@ fn create_possibly_signed_commit(
         encoding: None,
         parents: parents.into_iter().map(Into::into).collect(),
         extra_headers: (&commit_headers
-            .unwrap_or_else(|| HeadersV2::from_config(&repo.config_snapshot())))
+            .unwrap_or_else(|| Headers::from_config(&repo.config_snapshot())))
             .into(),
     };
     but_rebase::commit::create(repo, commit, DateMode::CommitterKeepAuthorKeep, true)

@@ -27,7 +27,7 @@ pub(crate) mod function {
 
     use anyhow::{Context as _, bail};
     use bstr::BString;
-    use but_core::commit::{HEADERS_CONFLICTED_FIELD, HeadersV2, TreeKind};
+    use but_core::commit::{HEADERS_CONFLICTED_FIELD, Headers, TreeKind};
     use gix::{object::tree::EntryKind, prelude::ObjectIdExt};
     use serde::Serialize;
 
@@ -183,7 +183,7 @@ pub(crate) mod function {
         } else if headers.is_none() {
             new_commit
                 .extra_headers
-                .extend(Vec::<(BString, BString)>::from(&HeadersV2::from_config(
+                .extend(Vec::<(BString, BString)>::from(&Headers::from_config(
                     &repo.config_snapshot(),
                 )));
         }
@@ -244,7 +244,7 @@ pub(crate) mod function {
 
         let mut headers = to_rebase
             .headers()
-            .unwrap_or_else(|| HeadersV2::from_config(&repo.config_snapshot()));
+            .unwrap_or_else(|| Headers::from_config(&repo.config_snapshot()));
         headers.conflicted = conflicted_files.conflicted_header_field();
         to_rebase.tree = tree.write().context("failed to write tree")?.detach();
         set_parent(&mut to_rebase, head.id.detach())?;

@@ -305,7 +305,7 @@ fn lookup_similar<'a>(
         .change_id
         .as_ref()
         .filter(|_| matches!(change_id, ChangeId::Use))
-        .and_then(|cid| map.get(&Identifier::ChangeId(*cid)))
+        .and_then(|cid| map.get(&Identifier::ChangeId(cid.clone())))
         .or_else(|| commit_data_id(commit).ok().and_then(|id| map.get(&id)))
         .or_else(|| map.get(expensive?))
 }
@@ -339,7 +339,7 @@ fn create_similarity_lut(
                     // so just keep the (typically top-most/first) commit with a changeset ID instead.
                     return;
                 }
-                ambiguous_commits.insert(*ambiguous.key());
+                ambiguous_commits.insert(ambiguous.key().clone());
                 ambiguous.remove();
             }
             Entry::Vacant(entry) => {
@@ -353,7 +353,7 @@ fn create_similarity_lut(
         for (idx, commit) in commits.enumerate() {
             let commit = commit.borrow();
             if let Some(change_id) = &commit.change_id {
-                insert_or_expell_ambiguous(Identifier::ChangeId(*change_id), commit.id);
+                insert_or_expell_ambiguous(Identifier::ChangeId(change_id.clone()), commit.id);
             }
             insert_or_expell_ambiguous(commit_data_id(commit)?, commit.id);
 
@@ -409,7 +409,7 @@ fn create_similarity_lut(
         for (idx, commit) in commits.enumerate() {
             let commit = commit.borrow();
             if let Some(change_id) = &commit.change_id {
-                insert_or_expell_ambiguous(Identifier::ChangeId(*change_id), commit.id);
+                insert_or_expell_ambiguous(Identifier::ChangeId(change_id.clone()), commit.id);
             }
             insert_or_expell_ambiguous(commit_data_id(commit)?, commit.id);
 
@@ -627,9 +627,9 @@ fn hash_change_state(h: &mut gix::hash::Hasher, ChangeState { id, kind }: Change
     }]);
 }
 
-#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Hash, Clone, Eq, PartialEq)]
 enum Identifier {
-    ChangeId(but_core::commit::ChangeId),
+    ChangeId(but_core::change_id::ChangeId),
     CommitData(CommitDataId),
     ChangesetId(ChangesetID),
 }

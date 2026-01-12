@@ -978,6 +978,7 @@ dependencies = [
  "gix",
  "insta",
  "parking_lot",
+ "rand 0.9.2",
  "serde",
  "serde_json",
  "toml 0.9.10+spec-1.1.0",
@@ -3561,6 +3562,7 @@ name = "gitbutler-commit"
 version = "0.0.0"
 dependencies = [
  "bstr",
+ "but-core",
  "git2",
  "gix",
  "uuid",
@@ -3854,6 +3856,7 @@ name = "gitbutler-sync"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-ctx",
  "but-error",
  "but-oxidize",

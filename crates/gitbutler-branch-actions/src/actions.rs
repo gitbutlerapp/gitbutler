@@ -400,7 +400,7 @@ pub fn update_commit_message(
 }
 
 pub fn find_commit(ctx: &Context, commit_oid: git2::Oid) -> Result<Option<RemoteCommit>> {
-    remote::get_commit_data(ctx, commit_oid)
+    remote::get_commit_data(ctx, commit_oid.to_gix())
 }
 
 pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<FetchResult> {

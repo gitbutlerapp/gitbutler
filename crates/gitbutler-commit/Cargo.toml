@@ -18,3 +18,4 @@ git2.workspace = true
 gix.workspace = true
 bstr.workspace = true
 uuid.workspace = true
+but-core.workspace = true

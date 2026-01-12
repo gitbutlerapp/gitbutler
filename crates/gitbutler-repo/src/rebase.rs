@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
-use but_core::{RepositoryExt, commit::ConflictEntries};
+use but_core::{
+    RepositoryExt,
+    commit::{ConflictEntries, Headers},
+};
 use but_oxidize::{ObjectIdExt as _, OidExt as _};
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
-use gitbutler_commit::commit_headers::CommitHeadersV2;
 
 use crate::RepositoryExt as _;
 
@@ -147,7 +149,7 @@ pub fn merge_commits(
         conflicted_files.to_headers()
     } else {
         tree_oid = merged_tree_id.to_git2();
-        CommitHeadersV2::default()
+        Headers::new()
     };
 
     let (author, committer) = repo.signatures()?;
@@ -189,17 +191,17 @@ trait ToHeaders {
     /// removed the path that would otherwise be conflicting.
     /// In other words: conflicting index entries aren't reliable when conflicts were resolved
     /// with the 'ours' strategy.
-    fn to_headers(&self) -> CommitHeadersV2;
+    fn to_headers(&self) -> Headers;
 }
 
 impl ToHeaders for ConflictEntries {
-    fn to_headers(&self) -> CommitHeadersV2 {
-        CommitHeadersV2 {
+    fn to_headers(&self) -> Headers {
+        Headers {
             conflicted: Some({
                 let entries = self.total_entries();
                 if entries > 0 { entries as u64 } else { 1 }
             }),
-            ..Default::default()
+            ..Headers::new()
         }
     }
 }

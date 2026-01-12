@@ -40,7 +40,7 @@ pub struct Commit {
     pub has_conflicts: bool,
     /// The GitButler assigned change-id that we hold on to for convenience to avoid duplicate decoding of commits
     /// when trying to associate remote commits with local ones.
-    pub change_id: Option<but_core::commit::ChangeId>,
+    pub change_id: Option<but_core::change_id::ChangeId>,
 }
 
 impl std::fmt::Debug for Commit {
@@ -58,7 +58,7 @@ impl std::fmt::Debug for Commit {
 impl From<but_core::Commit<'_>> for Commit {
     fn from(value: but_core::Commit<'_>) -> Self {
         let has_conflicts = value.is_conflicted();
-        let change_id = value.headers().map(|hdr| hdr.change_id);
+        let change_id = value.headers().and_then(|hdr| hdr.change_id);
         Commit {
             id: value.id.into(),
             tree_id: value.tree,
@@ -79,7 +79,7 @@ impl Commit {
         commit: gix::objs::Commit,
         graph_commit: &but_graph::Commit,
     ) -> Self {
-        let hdr = but_core::commit::HeadersV2::try_from_commit(&commit);
+        let hdr = but_core::commit::Headers::try_from_commit(&commit);
         Commit {
             id: graph_commit.id,
             parent_ids: commit.parents.into_iter().collect(),
@@ -92,7 +92,7 @@ impl Commit {
                 .into(),
             refs: graph_commit.refs.clone(),
             flags: graph_commit.flags.into(),
-            change_id: hdr.map(|hdr| hdr.change_id),
+            change_id: hdr.and_then(|hdr| hdr.change_id),
         }
     }
 }

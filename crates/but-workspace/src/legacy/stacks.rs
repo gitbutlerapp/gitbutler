@@ -7,7 +7,7 @@ use but_core::RefMetadata;
 use but_ctx::Context;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{OidExt, git2_signature_to_gix_signature};
-use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_stack::{Stack, StackId};
 use gix::date::parse::TimeBuf;
 use tracing::instrument;
@@ -548,6 +548,9 @@ pub fn local_and_remote_commits(
             .ok()
             .and_then(|data| remote_commit_data.get(&data).copied());
 
+        let gix_commit = repo.find_commit(commit.id().to_gix())?;
+        let change_id = gix_commit.change_id();
+
         let state = if is_integrated {
             CommitState::Integrated
         } else {
@@ -560,7 +563,16 @@ pub fn local_and_remote_commits(
             } else if let Some(remote_id) = branch_commits
                 .remote_commits
                 .iter()
-                .find(|c| c.id() == commit.id() || c.change_id() == commit.change_id())
+                .find(|c| {
+                    if c.id() == commit.id() {
+                        return true;
+                    }
+
+                    repo.find_commit(c.id().to_gix())
+                        .ok()
+                        .map(|c| c.change_id() == change_id)
+                        .unwrap_or(false)
+                })
                 .map(|c| c.id())
             {
                 CommitState::LocalAndRemote(remote_id.to_gix())
@@ -574,8 +586,8 @@ pub fn local_and_remote_commits(
         let api_commit = ui::Commit {
             id: commit.id().to_gix(),
             parent_ids: commit.parents().map(|p| p.id().to_gix()).collect(),
-            message: commit.message_bstr().into(),
-            has_conflicts: commit.is_conflicted(),
+            message: gix_commit.message_bstr().into(),
+            has_conflicts: gix_commit.is_conflicted(),
             state,
             created_at,
             author: commit.author().into(),

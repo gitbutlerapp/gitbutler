@@ -31,7 +31,7 @@ gix = { workspace = true, features = [
     "parallel",
     "serde",
     "status",
-    "merge"
+    "merge",
 ] }
 # for V1 conflict commits
 toml.workspace = true
@@ -44,6 +44,9 @@ uuid.workspace = true
 fslock = "0.2.1"
 parking_lot = { workspace = true, features = ["arc_lock"] }
 ts-rs.workspace = true
+
+# For generating change-ids
+rand.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true

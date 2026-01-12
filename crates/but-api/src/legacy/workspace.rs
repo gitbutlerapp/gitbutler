@@ -178,7 +178,7 @@ fn handle_gerrit(
             .map_err(anyhow::Error::from)
             .and_then(|c| c.change_id().ok_or(anyhow::anyhow!("no change-id")));
         if let Ok(change_id) = change_id
-            && let Some(meta) = db.get(&change_id)?
+            && let Some(meta) = db.get(&change_id.to_string())?
         {
             commit.gerrit_review_url = Some(meta.review_url.clone());
             if matches!(commit.state, but_workspace::ui::CommitState::Integrated) {

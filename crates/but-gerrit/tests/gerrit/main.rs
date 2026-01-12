@@ -23,17 +23,18 @@ fn record_push_metadata_fallback_url() -> anyhow::Result<()> {
         processing_info: None,
     };
 
-    let change_uuid = but_core::Commit::from_id(commit_id)?
+    let change_id = but_core::Commit::from_id(commit_id)?
         .headers()
         .expect("gb header are set")
-        .change_id;
+        .change_id
+        .expect("commit has change id");
     let mut ctx = but_ctx::Context::from_repo(repo)?;
     record_push_metadata(&mut ctx, candidate_ids, push_output)?;
 
     let mut db = ctx.db.get_mut()?;
     let mut db = db.gerrit_metadata();
     let meta = db
-        .get(&change_uuid.to_string())?
+        .get(&change_id.to_string())?
         .expect("Metadata should be recorded");
 
     snapbox::assert_data_eq!(

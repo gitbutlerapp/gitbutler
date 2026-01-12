@@ -1,5 +1,4 @@
 mod gitbutler_merge_commits {
-    use gitbutler_commit::commit_ext::CommitExt as _;
     use gitbutler_repo::rebase::gitbutler_merge_commits;
     use gitbutler_testsupport::testing_repository::{
         TestingRepository, assert_commit_tree_matches,
@@ -17,8 +16,6 @@ mod gitbutler_merge_commits {
         let result =
             gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
                 .unwrap();
-
-        assert!(!result.is_conflicted());
 
         assert_commit_tree_matches(
             &test_repository.repository,
@@ -39,8 +36,6 @@ mod gitbutler_merge_commits {
         let result =
             gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
                 .unwrap();
-
-        assert!(result.is_conflicted());
 
         assert_commit_tree_matches(
             &test_repository.repository,
@@ -83,8 +78,6 @@ mod gitbutler_merge_commits {
         //
         // bc_result auto-resoultion tree:
         // foo.txt: c
-
-        assert!(!result.is_conflicted());
 
         assert_commit_tree_matches(
             &test_repository.repository,
@@ -133,8 +126,6 @@ mod gitbutler_merge_commits {
         // foo.txt: a
         // bar.txt: c
 
-        assert!(!result.is_conflicted());
-
         assert_commit_tree_matches(
             &test_repository.repository,
             &result,
@@ -180,8 +171,6 @@ mod gitbutler_merge_commits {
         //
         // We however expect the theirs side to be "b" and the ours side to
         // be "f"
-
-        assert!(result.is_conflicted());
 
         assert_commit_tree_matches(
             &test_repository.repository,

@@ -110,7 +110,7 @@ impl TryFrom<gix::Commit<'_>> for Commit {
 
 impl From<but_core::CommitOwned> for Commit {
     fn from(CommitOwned { id, inner }: CommitOwned) -> Self {
-        let headers = commit::HeadersV2::try_from_commit(&inner);
+        let headers = commit::Headers::try_from_commit(&inner);
         let gix::objs::Commit {
             tree: _,
             parents,

@@ -2,7 +2,7 @@ use std::str;
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::BString;
-use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix};
+use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix, commit::Headers};
 use but_error::Code;
 use but_oxidize::{
     ObjectIdExt as _, git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid,
@@ -11,7 +11,6 @@ use but_oxidize::{
 use but_rebase::commit::sign_buffer;
 use but_status::create_wd_tree;
 use git2::Tree;
-use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::objs::WriteTo;
 use tracing::instrument;
@@ -66,7 +65,7 @@ pub trait RepositoryExt {
         message: &str,
         tree: &git2::Tree<'_>,
         parents: &[&git2::Commit<'_>],
-        commit_headers: Option<CommitHeadersV2>,
+        commit_headers: Option<Headers>,
     ) -> Result<git2::Oid>;
 }
 
@@ -149,7 +148,7 @@ impl RepositoryExt for git2::Repository {
         message: &str,
         tree: &git2::Tree<'_>,
         parents: &[&git2::Commit<'_>],
-        commit_headers: Option<CommitHeadersV2>,
+        commit_headers: Option<Headers>,
     ) -> Result<git2::Oid> {
         let repo = gix::open(self.path())?;
         let mut commit = gix::objs::Commit {
@@ -162,7 +161,7 @@ impl RepositoryExt for git2::Repository {
                 .iter()
                 .map(|commit| git2_to_gix_object_id(commit.id()))
                 .collect(),
-            extra_headers: commit_headers.unwrap_or_default().into(),
+            extra_headers: commit_headers.map(|h| (&h).into()).unwrap_or_default(),
         };
 
         if repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false) {
