@@ -20,7 +20,7 @@
 
 <div class="file-name">
 	<div class="file-name__icon-container">
-		<FileIcon fileName={fileNameAndPath.filename} size={16} />
+		<FileIcon fileName={fileNameAndPath.filename} />
 	</div>
 
 	{#if pathFirst}
@@ -70,7 +70,7 @@
 	.file-name__icon-container {
 		display: flex;
 		flex-shrink: 0;
-		margin-right: 6px;
+		margin-right: 8px;
 	}
 
 	.file-name__path-container {
