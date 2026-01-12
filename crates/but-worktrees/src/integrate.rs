@@ -200,7 +200,7 @@ fn worktree_integration_inner(
     // Does the new stack tip conflict with any of the other stacks.
     let tip_tree = repo.find_commit(output.top_commit)?.tree_id()?;
     for stack in stacks.iter().filter(|s| s.id != stack.id) {
-        let head_id = stack.head_oid(&repo)?;
+        let head_id = stack.head_oid(ctx)?;
         let head_tree = repo.find_commit(head_id)?.tree_id()?;
         let merge_base = repo.merge_base(head_id, output.top_commit)?;
         let merge_base_tree = repo.find_commit(merge_base)?.tree_id()?;
@@ -244,14 +244,14 @@ fn worktree_integration_inner(
     let working_dir_conflicts = {
         let before_heads = stacks
             .iter()
-            .map(|s| s.head_oid(&repo))
+            .map(|s| s.head_oid(ctx))
             .collect::<Result<Vec<_>>>()?;
         let before = WorkspaceState::create_from_heads(ctx, perm, &before_heads)?;
         let before = merge_workspace(&*ctx.git2_repo.get()?, before)?;
         let mut after_heads = stacks
             .iter()
             .filter(|s| s.id != stack.id)
-            .map(|s| s.head_oid(&repo))
+            .map(|s| s.head_oid(ctx))
             .collect::<Result<Vec<_>>>()?;
         after_heads.push(output.top_commit);
         let after = WorkspaceState::create_from_heads(ctx, perm, &after_heads)?;

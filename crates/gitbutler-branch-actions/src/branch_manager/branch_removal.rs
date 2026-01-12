@@ -95,7 +95,7 @@ impl BranchManager<'_> {
                 .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
                 .tree_id()?;
             let stack_head =
-                gix_repo.find_real_tree(&stack.head_oid(&gix_repo)?, Default::default())?;
+                gix_repo.find_real_tree(&stack.head_oid(self.ctx)?, Default::default())?;
 
             let mut merge = gix_repo.merge_trees(
                 stack_head,

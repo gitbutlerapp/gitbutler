@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, RepoExt};
+use but_oxidize::ObjectIdExt;
 use git2::Oid;
 use gitbutler_branch_actions::{SeriesOrder, StackOrder, reorder_stack};
 use gitbutler_stack::VirtualBranchesHandle;
@@ -324,10 +324,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // Verify the initial order
     assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]);
     assert_eq!(commits[1].conflicted(), vec![false, false]); // no conflicts
-    assert_eq!(
-        file(&ctx, test.stack.head_oid(&repo.to_gix_repo()?)?),
-        "y\n"
-    ); // y is the last version
+    assert_eq!(file(&ctx, test.stack.head_oid(&ctx)?), "y\n"); // y is the last version
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     // Reorder the stack in a way that will cause a conflict
@@ -345,10 +342,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // Verify that the commits are now in the updated order
     assert_eq!(commits[1].msgs(), vec!["commit 1", "commit 2"]); // swapped
     assert_eq!(commits[1].conflicted(), vec![false, true]); // bottom commit is now conflicted
-    assert_eq!(
-        file(&ctx, test.stack.head_oid(&repo.to_gix_repo()?)?),
-        "x\n"
-    ); // x is the last version
+    assert_eq!(file(&ctx, test.stack.head_oid(&ctx)?), "x\n"); // x is the last version
     // assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order NB: This assertion started failing after switching to ws3
 
     let commit_1_prime = repo.find_commit(commits[1].ids()[0])?;
@@ -382,10 +376,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // Verify that the commits are now in the updated order
     assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]); // swapped
     assert_eq!(commits[1].conflicted(), vec![false, false]); // conflicts are gone
-    assert_eq!(
-        file(&ctx, test.stack.head_oid(&repo.to_gix_repo()?)?),
-        "y\n"
-    ); // y is the last version again
+    assert_eq!(file(&ctx, test.stack.head_oid(&ctx)?), "y\n"); // y is the last version again
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     let commit_2_prime_prime = repo.find_commit(commits[1].ids()[0])?;

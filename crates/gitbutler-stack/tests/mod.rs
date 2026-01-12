@@ -54,7 +54,7 @@ fn add_series_top_base() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let git2_repo = ctx.git2_repo.get()?;
     let merge_base = git2_repo.find_commit(git2_repo.merge_base(
-        test_ctx.stack.head_oid(&*ctx.repo.get()?)?.to_git2(),
+        test_ctx.stack.head_oid(&ctx)?.to_git2(),
         test_ctx.default_target.sha,
     )?)?;
     let reference = StackBranch::new(
@@ -602,7 +602,7 @@ fn set_stack_head() -> Result<()> {
             .into()
     );
     assert_eq!(
-        test_ctx.stack.head_oid(&*ctx.repo.get()?)?,
+        test_ctx.stack.head_oid(&ctx)?,
         test_ctx.other_commits.last().unwrap().id().to_gix()
     );
     Ok(())
@@ -772,16 +772,15 @@ fn test_ctx(ctx: &Context) -> Result<TestContext> {
     let stack = stacks.iter().find(|b| b.name == "virtual").unwrap();
     let other_stack = stacks.iter().find(|b| b.name != "virtual").unwrap();
     let target = handle.get_default_target()?;
-    let repo = ctx.repo.get()?;
     let git2_repo = ctx.git2_repo.get()?;
     let mut branch_commits = git2_repo.log(
-        stack.head_oid(&repo)?.to_git2(),
+        stack.head_oid(ctx)?.to_git2(),
         LogUntil::Commit(target.sha),
         false,
     )?;
     branch_commits.reverse();
     let mut other_commits = git2_repo.log(
-        other_stack.head_oid(&repo)?.to_git2(),
+        other_stack.head_oid(ctx)?.to_git2(),
         LogUntil::Commit(target.sha),
         false,
     )?;

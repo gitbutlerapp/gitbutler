@@ -113,9 +113,9 @@ pub fn update_workspace_commit(
             message.push_str(format!(" ({})", &branch.refname()?).as_str());
             message.push('\n');
 
-            if branch.head_oid(&gix_repo)? != target.sha.to_gix() {
+            if branch.head_oid(ctx)? != target.sha.to_gix() {
                 message.push_str("   branch head: ");
-                message.push_str(&branch.head_oid(&gix_repo)?.to_string());
+                message.push_str(&branch.head_oid(ctx)?.to_string());
                 message.push('\n');
             }
         }
@@ -284,7 +284,7 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut WorktreeWritePermission) -> Re
 
     // rebasing the extra commits onto the new branch
     let gix_repo = git2_repo.to_gix_repo()?;
-    let mut head = new_branch.head_oid(&gix_repo)?.to_git2();
+    let mut head = new_branch.head_oid(ctx)?.to_git2();
     for commit in extra_commits {
         let new_branch_head = git2_repo
             .find_commit(head)

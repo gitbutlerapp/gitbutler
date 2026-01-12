@@ -19,6 +19,7 @@ impl ReferenceFrame {
         vb: &VirtualBranchesState,
         mode: InferenceMode,
     ) -> anyhow::Result<Self> {
+        let ctx = but_ctx::Context::try_from(repo.clone())?;
         let head_id = repo.head_id()?;
         let workspace_commit = head_id.object()?.into_commit().decode()?.to_owned()?;
 
@@ -47,12 +48,12 @@ impl ReferenceFrame {
                     .context("Didn't find stack - was it deleted just now?")?;
                 Ok(ReferenceFrame {
                     workspace_tip: Some(head_id.detach()),
-                    branch_tip: Some(stack.head_oid(repo)?),
+                    branch_tip: Some(stack.head_oid(&ctx)?),
                 })
             }
             InferenceMode::CommitIdInStack(commit_id) => {
                 for stack in vb.branches.values() {
-                    let stack_tip = stack.head_oid(repo)?;
+                    let stack_tip = stack.head_oid(&ctx)?;
                     if stack_tip
                         .attach(repo)
                         .ancestors()

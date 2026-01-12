@@ -584,7 +584,7 @@ pub fn stash_into_branch(
         perm,
     )?;
 
-    let parent_commit_id = stack.head_oid(&repo)?;
+    let parent_commit_id = stack.head_oid(&ctx)?;
     let branch_name = stack.derived_name()?;
 
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(

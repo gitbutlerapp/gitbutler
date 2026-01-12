@@ -163,22 +163,19 @@ pub fn commit(
                 Some((file.path, hunks))
             }
         });
-        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head_oid(&gix_repo)?.to_git2(), files)?
+        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head_oid(ctx)?.to_git2(), files)?
     } else {
         let files = files
             .into_iter()
             .map(|file| (file.path, file.hunks))
             .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
-        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head_oid(&gix_repo)?.to_git2(), files)?
+        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head_oid(ctx)?.to_git2(), files)?
     };
 
     let git_repo = &*ctx.git2_repo.get()?;
     let parent_commit = git_repo
-        .find_commit(branch.head_oid(&gix_repo)?.to_git2())
-        .context(format!(
-            "failed to find commit {:?}",
-            branch.head_oid(&gix_repo)
-        ))?;
+        .find_commit(branch.head_oid(ctx)?.to_git2())
+        .context(format!("failed to find commit {:?}", branch.head_oid(ctx)))?;
     let tree = git_repo
         .find_tree(tree_oid)
         .context(format!("failed to find tree {tree_oid:?}"))?;
@@ -451,7 +448,7 @@ pub(crate) fn update_commit_message(
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let branch_commit_oids = ctx.git2_repo.get()?.l(
-        stack.head_oid(&gix_repo)?.to_git2(),
+        stack.head_oid(ctx)?.to_git2(),
         LogUntil::Commit(default_target.sha),
         false,
     )?;
