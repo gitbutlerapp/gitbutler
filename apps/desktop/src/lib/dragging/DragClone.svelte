@@ -3,8 +3,7 @@
 	import { getColorFromCommitState } from '$components/lib';
 	import { type CommitStatusType } from '$lib/commits/commit';
 	import { type PushStatus } from '$lib/stacks/stack';
-	import { Icon } from '@gitbutler/ui';
-	import { getFileIcon } from '@gitbutler/ui/components/file/getFileIcon';
+	import { Icon, FileIcon } from '@gitbutler/ui';
 	import { type DragStateService } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { readable } from 'svelte/store';
 
@@ -34,7 +33,6 @@
 	const commitColor = $derived(
 		type === 'commit' && commitType ? getColorFromCommitState(commitType, false) : undefined
 	);
-	const fileIcon = $derived(filePath ? getFileIcon(filePath) : undefined);
 </script>
 
 {#snippet dropLabelSnippet(opt: { label?: string; amount?: number })}
@@ -113,9 +111,7 @@
 			<div class="dragchip">
 				{#if type === 'file'}
 					<div class="dragchip-file-container">
-						{#if fileIcon}
-							<img src={fileIcon} alt="" class="dragchip-file-icon" />
-						{/if}
+						<FileIcon fileName={filePath || ''} />
 						<span class="text-12 text-semibold truncate dragchip-file-name">
 							{label || 'Empty file'}
 						</span>
@@ -280,13 +276,6 @@
 
 	.dragchip-file-name {
 		color: var(--clr-text-1);
-	}
-
-	.dragchip-file-icon {
-		flex-shrink: 0;
-		width: 16px;
-		height: 16px;
-		color: var(--clr-text-2);
 	}
 
 	/* HUNK DRAG */
