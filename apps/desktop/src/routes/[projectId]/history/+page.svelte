@@ -191,7 +191,12 @@
 		{#if selectedFile}
 			<div class="history-view__preview-file">
 				<ConfigurableScrollableContainer bind:viewport={scrollContainer}>
-					<SelectionView {projectId} {scrollContainer} selectionId={currentSelectionId} />
+					<SelectionView
+						{projectId}
+						{scrollContainer}
+						selectionId={currentSelectionId}
+						targetBranch={undefined}
+					/>
 				</ConfigurableScrollableContainer>
 			</div>
 		{:else}
