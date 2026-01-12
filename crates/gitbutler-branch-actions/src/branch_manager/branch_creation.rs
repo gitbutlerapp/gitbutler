@@ -12,7 +12,7 @@ use but_workspace::{
 };
 use gitbutler_branch::{self, BranchCreateRequest, dedup};
 use gitbutler_cherry_pick::RepositoryExt as _;
-use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -405,31 +405,6 @@ impl BranchManager<'_> {
 
         // apply the branch
         vb_state.set_stack(stack.clone())?;
-
-        {
-            if let Some(wip_commit_to_unapply) = &stack.not_in_workspace_wip_change_id {
-                let potential_wip_commit =
-                    repo.find_commit(stack.head_oid(&gix_repo)?.to_git2())?;
-
-                // Don't try to undo commit if its conflicted
-                if !potential_wip_commit.is_conflicted() {
-                    if let Some(headers) = potential_wip_commit.gitbutler_headers()
-                        && headers.change_id == wip_commit_to_unapply.clone()
-                    {
-                        stack = crate::undo_commit::undo_commit(
-                            self.ctx,
-                            stack.id,
-                            stack.head_oid(&gix_repo)?.to_git2(),
-                            perm,
-                        )?;
-                    }
-
-                    stack.not_in_workspace_wip_change_id = None;
-
-                    vb_state.set_stack(stack.clone())?;
-                }
-            }
-        }
 
         // Permissions here might be wonky, just go with it though.
         let new_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;

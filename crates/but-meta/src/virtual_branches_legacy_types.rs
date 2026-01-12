@@ -74,8 +74,6 @@ mod stack {
         /// and its effects are available to the user.
         #[serde(default = "default_true")]
         pub in_workspace: bool,
-        #[serde(default)]
-        pub not_in_workspace_wip_change_id: Option<String>,
         /// Represents the Stack state of pseudo-references ("heads").
         /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
         #[serde(default)]
@@ -139,7 +137,6 @@ mod stack {
                 // Unused - everything is defined by the top-most branch name.
                 name: "".to_string(),
                 // unclear, obsolete
-                not_in_workspace_wip_change_id: None,
             }
         }
     }
