@@ -697,26 +697,6 @@ impl Stack {
         self.set_all_heads(&*ctx.repo.get()?, &ctx.project_data_dir(), new_heads)
     }
 
-    /// Migrates all change IDs in stack heads to commit IDs.
-    pub fn migrate_change_ids(&mut self, ctx: &Context) -> Result<()> {
-        // If all the heads are already commit IDs, there is nothing to do
-        if self.heads.iter().all(|h| !h.uses_change_id()) {
-            return Ok(());
-        }
-
-        let stack_head = self.head; // Use the field directly because here the stack heads have not been migrated yet
-        let virtual_branch_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-        let target = virtual_branch_state.get_default_target()?;
-        let merge_base = ctx.git2_repo.get()?.merge_base(stack_head, target.sha)?;
-
-        for head in self.heads.iter_mut() {
-            head.migrate_change_id(&*ctx.git2_repo.get()?, stack_head, merge_base);
-        }
-
-        let state = branch_state(ctx);
-        state.set_stack(self.clone())
-    }
-
     /// Sets the forge identifier for a given series/branch.
     /// Existing value is overwritten - passing `None` sets the forge identifier to `None`.
     ///

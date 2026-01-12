@@ -452,7 +452,7 @@ pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui
         .push_remote_name();
 
     let mut stack_branches = vec![];
-    let mut stack = state.get_stack(stack_id)?;
+    let stack = state.get_stack(stack_id)?;
     let mut current_base = stack.merge_base(ctx)?;
     let repo = ctx.repo.get()?;
     for internal in stack.branches() {
@@ -474,7 +474,6 @@ pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui
         current_base = internal.head_oid(&repo)?;
         stack_branches.push(result);
     }
-    stack.migrate_change_ids(ctx).ok(); // If it fails that's ok - best effort migration
     stack_branches.reverse();
     Ok(stack_branches)
 }
