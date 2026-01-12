@@ -211,10 +211,13 @@ impl Stack {
 
     pub fn head_oid(&self, ctx: &Context) -> Result<gix::ObjectId> {
         let repo = ctx.repo.get()?;
-        self.heads
-            .last()
-            .map(|branch| branch.head_oid(&repo))
-            .ok_or_else(|| anyhow!("head_oid: Stack is uninitialized"))?
+        if let Some(branch) = self.heads.last() {
+            branch.head_oid(&repo)
+        } else {
+            let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+            let default_target = vb_state.get_default_target()?;
+            Ok(default_target.sha.to_gix())
+        }
     }
 
     pub fn tree(&self, ctx: &Context) -> Result<git2::Oid> {
