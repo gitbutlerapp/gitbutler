@@ -110,6 +110,9 @@ pub(crate) async fn worktree(
     let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
     let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
 
+    // Store the count of stacks for hint logic later
+    let has_branches = !stacks.is_empty();
+
     let mut id_map = IdMap::new(&head_info.stacks, worktree_changes.assignments.clone())?;
     id_map.add_committed_file_info_from_context(ctx)?;
 
@@ -394,7 +397,26 @@ pub(crate) async fn worktree(
 
     if hint {
         writeln!(out)?;
-        writeln!(out, "{}", "Hint: run but help for all commands".dimmed())?;
+
+        // Determine what hint to show based on workspace state
+        let has_uncommitted_files = !worktree_changes.worktree_changes.changes.is_empty();
+
+        if !has_branches {
+            writeln!(
+                out,
+                "{}",
+                "Hint: run `but branch new` to create a new branch to work on".dimmed()
+            )?;
+        } else if has_uncommitted_files {
+            writeln!(
+                out,
+                "{}",
+                "Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch"
+                    .dimmed()
+            )?;
+        } else {
+            writeln!(out, "{}", "Hint: run `but help` for all commands".dimmed())?;
+        }
     }
 
     Ok(())
