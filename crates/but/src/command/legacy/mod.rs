@@ -12,6 +12,7 @@ pub mod init;
 pub mod mark;
 pub mod mcp;
 pub mod mcp_internal;
+pub mod merge;
 pub mod oplog;
 pub mod pull;
 pub mod push;

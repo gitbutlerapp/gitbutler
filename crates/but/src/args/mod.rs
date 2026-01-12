@@ -692,6 +692,32 @@ pub enum Subcommands {
         commit: String,
     },
 
+    /// Merge a branch into your local target branch.
+    ///
+    /// If the target branch is local (`gb-local`), finds the local branch that the target
+    /// references (e.g., `gb-local/master` becomes `master`) and merges the specified
+    /// branch into that local branch. After merging, runs the equivalent of `but pull`
+    /// to update all branches.
+    ///
+    /// ## Examples
+    ///
+    /// Merge a branch by its CLI ID:
+    ///
+    /// ```text
+    /// but merge bu
+    /// ```
+    ///
+    /// Merge a branch by name:
+    ///
+    /// ```text
+    /// but merge my-feature-branch
+    /// ```
+    #[cfg(feature = "legacy")]
+    Merge {
+        /// Branch ID or name to merge
+        branch: String,
+    },
+
     /// Stages a file or hunk to a specific branch.
     ///
     /// Wrapper for `but rub <file-or-hunk> <branch>`.

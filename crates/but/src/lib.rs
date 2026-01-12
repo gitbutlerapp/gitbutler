@@ -667,6 +667,15 @@ async fn match_subcommand(
             let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::switch::handle(&mut ctx, out).emit_metrics(metrics_ctx)
         }
+        #[cfg(feature = "legacy")]
+        Subcommands::Merge { branch } => {
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
+            command::legacy::merge::handle(&mut ctx, out, &branch)
+                .await
+                .context("Failed to merge branch.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
     }
 }
 
