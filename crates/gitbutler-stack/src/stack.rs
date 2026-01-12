@@ -53,7 +53,6 @@ pub struct Stack {
     head: git2::Oid,
     // order is the number by which UI should sort branches
     pub order: usize,
-    pub allow_rebasing: bool,
     /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
     /// and its effects are available to the user.
     pub in_workspace: bool,
@@ -75,7 +74,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             tree,
             head,
             order,
-            allow_rebasing,
             in_workspace,
             heads,
         }: virtual_branches_legacy_types::Stack,
@@ -91,7 +89,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             tree: tree.to_git2(),
             head: head.to_git2(),
             order,
-            allow_rebasing,
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
         }
@@ -111,7 +108,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             tree,
             head,
             order,
-            allow_rebasing,
             in_workspace,
             heads,
         }: Stack,
@@ -127,7 +123,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             tree: tree.to_gix(),
             head: head.to_gix(),
             order,
-            allow_rebasing,
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
         }
@@ -153,7 +148,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
 /// If there are multiple heads that point to the same patch, the `add` and `update` operations can specify the intended order.
 impl Stack {
     /// Creates a new `Branch` with the given name. The `in_workspace` flag is set to `true`.
-    #[expect(clippy::too_many_arguments)]
     #[deprecated(note = "DO NOT USE THIS DIRECTLY, use `stack_ext::StackExt::create` instead.")]
     pub fn new(
         name: String,
@@ -163,7 +157,6 @@ impl Stack {
         tree: git2::Oid,
         head: git2::Oid,
         order: usize,
-        allow_rebasing: bool,
     ) -> Self {
         let now = gitbutler_time::time::now_ms();
         Self {
@@ -177,7 +170,6 @@ impl Stack {
             tree,
             head,
             order,
-            allow_rebasing,
             in_workspace: true,
             heads: Default::default(),
         }
@@ -194,7 +186,6 @@ impl Stack {
             created_timestamp_ms: created_ms,
             updated_timestamp_ms: created_ms,
             order,
-            allow_rebasing: true, //  default in V2
             in_workspace,
             heads,
 
@@ -260,7 +251,6 @@ impl Stack {
         tree: git2::Oid,
         head: git2::Oid,
         order: usize,
-        allow_rebasing: bool,
         allow_duplicate_refs: bool,
     ) -> Result<Self> {
         #[expect(deprecated)]
@@ -273,7 +263,6 @@ impl Stack {
             tree,
             head,
             order,
-            allow_rebasing,
         );
         branch.initialize(ctx, allow_duplicate_refs)?;
         Ok(branch)

@@ -163,13 +163,7 @@ fn do_squash_commits(
         .filter_map(|id| repo.find_commit(*id).ok())
         .collect::<Vec<_>>();
 
-    validate(
-        ctx,
-        &stack,
-        &branch_commit_oids,
-        &source_commits,
-        destination_commit,
-    )?;
+    validate(&branch_commit_oids, &source_commits, destination_commit)?;
 
     // Having all the source commits in in the right order, sitting directly on top of the destination commit
     // means that we just need to take the tree of the child most source commit (most recent change) and
@@ -271,8 +265,6 @@ fn do_squash_commits(
 }
 
 fn validate(
-    ctx: &Context,
-    stack: &gitbutler_stack::Stack,
     branch_commit_oids: &[git2::Oid],
     commits_to_squash_together: &[git2::Commit<'_>],
     destination_commit: &git2::Commit<'_>,
@@ -295,32 +287,6 @@ fn validate(
 
     if destination_commit.is_conflicted() {
         bail!("cannot squash into conflicted destination commit",);
-    }
-
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let remote_commits = stack
-        .branches()
-        .iter()
-        .flat_map(|b| b.commits(git2_repo, ctx, stack))
-        .flat_map(|c| c.remote_commits)
-        .map(|c| c.id())
-        .collect_vec();
-
-    if !stack.allow_rebasing {
-        for source_commit in commits_to_squash_together {
-            if remote_commits.contains(&source_commit.id()) {
-                bail!(
-                    "Force push is now allowed. Source commits with id {} has already been pushed",
-                    source_commit.id()
-                );
-            }
-        }
-        if remote_commits.contains(&destination_commit.id()) {
-            bail!(
-                "Force push is now allowed. Destination commit with id {} has already been pushed",
-                destination_commit.id()
-            );
-        }
     }
 
     Ok(())

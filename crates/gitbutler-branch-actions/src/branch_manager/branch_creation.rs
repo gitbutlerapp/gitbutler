@@ -16,7 +16,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{RepositoryExt as _, rebase::gitbutler_merge_commits};
+use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Stack, StackId};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
@@ -106,8 +106,7 @@ impl BranchManager<'_> {
             tree.id(),
             default_target.sha,
             order,
-            self.ctx.legacy_project.ok_with_force_push.into(),
-            false, // disallow duplicate branch names on creation
+            false,
         )?;
 
         vb_state.set_stack(branch.clone())?;
@@ -241,7 +240,6 @@ impl BranchManager<'_> {
             branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
             branch.upstream = upstream_branch; // Used as remote when listing commits.
             branch.order = order;
-            branch.allow_rebasing = self.ctx.legacy_project.ok_with_force_push.into();
             branch.in_workspace = true;
 
             // This seems to ensure that there is at least one head.
@@ -259,7 +257,6 @@ impl BranchManager<'_> {
                 head_commit_tree.id(),
                 head_commit.id(),
                 order,
-                self.ctx.legacy_project.ok_with_force_push.into(),
                 true, // allow duplicate branch name if created from an existing branch
             )?
         };
@@ -370,26 +367,13 @@ impl BranchManager<'_> {
         // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
         // This way stacking functionality which relies on change IDs will work as expected
         if merge_base != default_target.sha || !has_change_id {
-            let mut rebase_output = None;
-            let new_head = if stack.allow_rebasing {
-                let gix_repo = self.ctx.repo.get()?;
-                let steps = stack.as_rebase_steps(self.ctx, &gix_repo)?;
-                let mut rebase =
-                    but_rebase::Rebase::new(&gix_repo, default_target.sha.to_gix(), None)?;
-                rebase.steps(steps)?;
-                rebase.rebase_noops(true);
-                let output = rebase.rebase()?;
-                rebase_output = Some(output.clone());
-                repo.find_commit(output.top_commit.to_git2())?
-            } else {
-                gitbutler_merge_commits(
-                    repo,
-                    repo.find_commit(stack.head_oid(&gix_repo)?.to_git2())?,
-                    repo.find_commit(default_target.sha)?,
-                    &stack.name,
-                    default_target.branch.branch(),
-                )?
-            };
+            let gix_repo = self.ctx.repo.get()?;
+            let steps = stack.as_rebase_steps(self.ctx, &gix_repo)?;
+            let mut rebase = but_rebase::Rebase::new(&gix_repo, default_target.sha.to_gix(), None)?;
+            rebase.steps(steps)?;
+            rebase.rebase_noops(true);
+            let output = rebase.rebase()?;
+            let new_head = repo.find_commit(output.top_commit.to_git2())?;
 
             stack.set_stack_head(
                 &vb_state,
@@ -398,9 +382,7 @@ impl BranchManager<'_> {
                 Some(repo.find_real_tree(&new_head, Default::default())?.id()),
             )?;
 
-            if let Some(output) = rebase_output {
-                stack.set_heads_from_rebase_output(self.ctx, output.references)?;
-            }
+            stack.set_heads_from_rebase_output(self.ctx, output.references)?;
         }
 
         // apply the branch

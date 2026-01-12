@@ -684,7 +684,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     tree = "0000000000000000000000000000000000000000"
     head = "0000000000000000000000000000000000000000"
     order = 0
-    allow_rebasing = true
     in_workspace = true
 
     [[branches.1.heads]]

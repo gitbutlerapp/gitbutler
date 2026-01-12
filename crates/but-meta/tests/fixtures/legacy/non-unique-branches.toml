@@ -22,7 +22,6 @@ tree = "086076eb7dc19973afeef1ee031aa279ec8700e7"
 head = "50c1d2e8298877802fcbcda10af7df748ae90611"
 ownership = ""
 order = 0
-allow_rebasing = true
 in_workspace = true
 
 [[branches.1819a203-26ef-477c-ac56-2d07a034ddb8.heads]]
@@ -49,7 +48,6 @@ tree = "0000000000000000000000000000000000000000"
 head = "33ce4486eea72dd513505f857e54e235cb2d2616"
 ownership = ""
 order = 0
-allow_rebasing = true
 in_workspace = false
 
 [[branches.a3102d3c-4c62-4a8a-955c-421f72d4df74.heads]]

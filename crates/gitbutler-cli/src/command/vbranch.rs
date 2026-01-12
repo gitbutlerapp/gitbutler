@@ -175,7 +175,6 @@ fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
             name: None,
             order: None,
             upstream: None,
-            allow_rebasing: None,
         },
     )
 }

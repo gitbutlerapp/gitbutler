@@ -109,10 +109,6 @@ pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack
         stack.order = order;
     };
 
-    if let Some(allow_rebasing) = update.allow_rebasing {
-        stack.allow_rebasing = allow_rebasing;
-    };
-
     vb_state.set_stack(stack.clone())?;
     Ok(stack)
 }
@@ -462,20 +458,6 @@ pub(crate) fn update_commit_message(
 
     if !branch_commit_oids.contains(&commit_id) {
         bail!("commit {commit_id} not in the branch");
-    }
-
-    let pushed_commit_oids = stack.upstream_head.map_or_else(
-        || Ok(vec![]),
-        |upstream_head| {
-            ctx.git2_repo
-                .get()?
-                .l(upstream_head, LogUntil::Commit(default_target.sha), false)
-        },
-    )?;
-
-    if pushed_commit_oids.contains(&commit_id) && !stack.allow_rebasing {
-        // updating the message of a pushed commit will cause a force push that is not allowed
-        bail!("force push not allowed");
     }
 
     let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;

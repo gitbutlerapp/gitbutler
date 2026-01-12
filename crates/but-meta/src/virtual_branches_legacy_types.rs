@@ -68,8 +68,6 @@ mod stack {
         pub head: gix::ObjectId,
         // order is the number by which UI should sort branches
         pub order: usize,
-        #[serde(default = "default_true")]
-        pub allow_rebasing: bool,
         /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
         /// and its effects are available to the user.
         #[serde(default = "default_true")]
@@ -123,7 +121,6 @@ mod stack {
                 created_timestamp_ms: created_ms,
                 updated_timestamp_ms: created_ms,
                 order,
-                allow_rebasing: true, //  default in V2
                 in_workspace,
                 heads,
 
