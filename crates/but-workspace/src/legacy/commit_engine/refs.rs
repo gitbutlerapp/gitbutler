@@ -19,6 +19,7 @@ pub fn rewrite(
     updated_refs: &mut Vec<UpdatedReference>,
     stack_segment: Option<&StackSegmentId>,
 ) -> anyhow::Result<()> {
+    let ctx = but_ctx::Context::try_from(repo.clone())?;
     let mut ref_edits = Vec::new();
     let changed_commits: Vec<_> = changed_commits.into_iter().collect();
     let mut stacks_ordered: Vec<_> = state
@@ -35,7 +36,7 @@ pub fn rewrite(
             {
                 continue; // Dont rewrite refs for other stacks
             }
-            if stack.head_oid(repo)? == old {
+            if stack.head_oid(&ctx)? == old {
                 // The actual head will be updated later.
                 updated_refs.push(UpdatedReference {
                     old_commit_id: old,

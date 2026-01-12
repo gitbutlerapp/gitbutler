@@ -61,7 +61,7 @@ pub fn remerged_workspace_tree_v2(
     let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     let merge_tree_id = repo.find_commit(target.sha)?.tree_id().to_gix();
     for stack in stacks.iter_mut() {
-        let branch_head = repo.find_commit(stack.head_oid(gix_repo)?.to_git2())?;
+        let branch_head = repo.find_commit(stack.head_oid(ctx)?.to_git2())?;
         let branch_tree_id = repo
             .find_real_tree(&branch_head, Default::default())?
             .id()
@@ -106,7 +106,7 @@ pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<git2::Oid> {
     let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
     let mut heads: Vec<git2::Commit<'_>> = stacks
         .iter()
-        .filter_map(|stack| stack.head_oid(&gix_repo).ok())
+        .filter_map(|stack| stack.head_oid(ctx).ok())
         .filter_map(|h| repo.find_commit(h.to_git2()).ok())
         .collect();
 

@@ -311,8 +311,7 @@ pub fn insert_blank_commit(
         None => {
             let state = VirtualBranchesHandle::new(ctx.project_data_dir());
             let stack = state.get_stack(stack_id)?;
-            let gix_repo = ctx.repo.get()?;
-            (stack.head_oid(&gix_repo)?.to_git2(), -1)
+            (stack.head_oid(&ctx)?.to_git2(), -1)
         }
     };
     gitbutler_branch_actions::insert_blank_commit(&ctx, stack_id, commit_id, offset, None)?;

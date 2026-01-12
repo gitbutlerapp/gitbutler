@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_ctx::{Context, access::WorktreeWritePermission};
-use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
@@ -85,8 +85,7 @@ fn get_source_branch_diffs(
     source_stack: &gitbutler_stack::Stack,
 ) -> Result<BranchStatus> {
     let repo = &*ctx.git2_repo.get()?;
-    let source_stack_head =
-        repo.find_commit(source_stack.head_oid(&repo.to_gix_repo()?)?.to_git2())?;
+    let source_stack_head = repo.find_commit(source_stack.head_oid(ctx)?.to_git2())?;
     let source_stack_head_tree = source_stack_head.tree()?;
     let uncommitted_changes_tree = repo.find_tree(source_stack.tree(ctx)?)?;
 

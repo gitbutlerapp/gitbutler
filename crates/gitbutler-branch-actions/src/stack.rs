@@ -145,9 +145,7 @@ pub fn push_stack(
     let default_target = state.get_default_target()?;
     let gix_repo = ctx.clone_repo_for_merging_non_persisting()?;
     let merge_base_id = git2_repo
-        .find_commit(
-            git2_repo.merge_base(stack.head_oid(&gix_repo)?.to_git2(), default_target.sha)?,
-        )?
+        .find_commit(git2_repo.merge_base(stack.head_oid(ctx)?.to_git2(), default_target.sha)?)?
         .id()
         .to_gix();
 

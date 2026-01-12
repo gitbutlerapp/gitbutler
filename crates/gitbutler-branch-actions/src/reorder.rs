@@ -39,10 +39,7 @@ pub fn reorder_stack(
     let default_target_commit = repo
         .find_reference(&default_target.branch.to_string())?
         .peel_to_commit()?;
-    let merge_base = repo.merge_base(
-        default_target_commit.id(),
-        stack.head_oid(&gix_repo)?.to_git2(),
-    )?;
+    let merge_base = repo.merge_base(default_target_commit.id(), stack.head_oid(ctx)?.to_git2())?;
 
     let mut steps: Vec<RebaseStep> = Vec::new();
     for series in new_order.series.iter().rev() {

@@ -120,6 +120,7 @@ pub fn create_commit_and_update_refs(
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<CreateCommitOutcome> {
+    let ctx = but_ctx::Context::try_from(repo.clone())?;
     let mut out = create_commit(repo, destination.clone(), changes.clone(), context_lines)?;
 
     let Some(new_commit) = out.new_commit else {
@@ -282,7 +283,7 @@ pub fn create_commit_and_update_refs(
                         && !wsc.inner.parents.contains(&branch_tip) /* the branch tip we know isn't yet merged */
                         // but the tip is known to the workspace
                         && vb.branches.values().any(|s| {
-                        s.head_oid(repo)
+                        s.head_oid(&ctx)
                             .is_ok_and(|head_id| head_id == branch_tip)
                     }) {
                         let mut stacks: Vec<_> = vb

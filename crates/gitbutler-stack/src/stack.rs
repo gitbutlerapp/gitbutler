@@ -9,7 +9,7 @@ use but_core::Reference;
 pub use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::ReferenceSpec;
 use git2::Commit;
 use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_branch_name};
@@ -209,16 +209,17 @@ impl Stack {
         self.try_into()
     }
 
-    pub fn head_oid(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
+    pub fn head_oid(&self, ctx: &Context) -> Result<gix::ObjectId> {
+        let repo = ctx.repo.get()?;
         self.heads
             .last()
-            .map(|branch| branch.head_oid(repo))
+            .map(|branch| branch.head_oid(&repo))
             .ok_or_else(|| anyhow!("head_oid: Stack is uninitialized"))?
     }
 
     pub fn tree(&self, ctx: &Context) -> Result<git2::Oid> {
         let repo = ctx.repo.get()?;
-        repo.find_commit(self.head_oid(&repo)?)?
+        repo.find_commit(self.head_oid(ctx)?)?
             .tree()
             .map(|tree| tree.id.to_git2())
             .map_err(Into::into)
@@ -268,7 +269,7 @@ impl Stack {
     pub fn commits(&self, ctx: &Context) -> Result<Vec<git2::Oid>> {
         let repo = &*ctx.git2_repo.get()?;
         let stack_commits = repo.l(
-            self.head_oid(&repo.to_gix_repo()?)?.to_git2(),
+            self.head_oid(ctx)?.to_git2(),
             LogUntil::Commit(self.merge_base(ctx)?.to_git2()),
             false,
         )?;
@@ -297,17 +298,14 @@ impl Stack {
     /// - If a target is not set for the project
     /// - If the head commit of the stack is not found
     pub fn merge_base(&self, ctx: &Context) -> Result<gix::ObjectId> {
-        self.merge_base_plumbing(&ctx.project_data_dir(), &*ctx.repo.get()?)
+        self.merge_base_plumbing(ctx)
     }
 
-    pub fn merge_base_plumbing(
-        &self,
-        project_data_dir: &Path,
-        gix_repo: &gix::Repository,
-    ) -> Result<gix::ObjectId> {
-        let virtual_branch_state = VirtualBranchesHandle::new(project_data_dir);
+    pub fn merge_base_plumbing(&self, ctx: &Context) -> Result<gix::ObjectId> {
+        let virtual_branch_state = VirtualBranchesHandle::new(ctx.project_data_dir());
         let target = virtual_branch_state.get_default_target()?;
-        let merge_base = gix_repo.merge_base(self.head_oid(gix_repo)?, target.sha.to_gix())?;
+        let gix_repo = ctx.repo.get()?;
+        let merge_base = gix_repo.merge_base(self.head_oid(ctx)?, target.sha.to_gix())?;
         Ok(merge_base.detach())
     }
 
@@ -357,7 +355,7 @@ impl Stack {
         let head = if self.heads.is_empty() {
             self.head
         } else {
-            self.head_oid(&repo)?.to_git2()
+            self.head_oid(ctx)?.to_git2()
         };
         let git2_repo = ctx.git2_repo.get()?;
         let commit = git2_repo.find_commit(head)?;
@@ -439,7 +437,7 @@ impl Stack {
         validate_target(
             new_head.head_oid(&gix_repo)?.to_git2(),
             &*ctx.git2_repo.get()?,
-            self.head_oid(&gix_repo)?.to_git2(),
+            self.head_oid(ctx)?.to_git2(),
             &state,
         )?;
         let updated_heads = add_head(

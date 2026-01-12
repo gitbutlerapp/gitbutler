@@ -79,7 +79,7 @@ pub fn create_virtual_branch(
     Ok(ui::StackEntryNoOpt {
         id: stack.id,
         heads: stack_heads_info(&stack, &repo)?,
-        tip: stack.head_oid(&repo)?,
+        tip: stack.head_oid(ctx)?,
         order: Some(stack.order),
         is_checked_out: false,
     })

@@ -375,9 +375,7 @@ impl StackBranch {
         ctx: &Context,
         stack: &Stack,
     ) -> Result<BranchCommits<'a>> {
-        let merge_base = stack
-            .merge_base_plumbing(&ctx.project_data_dir(), &*ctx.repo.get()?)?
-            .to_git2();
+        let merge_base = stack.merge_base_plumbing(ctx)?.to_git2();
 
         let gix_repo = repo.to_gix_repo()?;
         let head_commit = gix_repo.find_commit(self.head_oid(&gix_repo)?);

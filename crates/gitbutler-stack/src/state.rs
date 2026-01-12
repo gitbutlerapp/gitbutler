@@ -328,8 +328,9 @@ impl VirtualBranchesHandle {
             .collect_vec();
         let mut to_remove: Vec<StackId> = vec![];
         let gix_repo = repo.to_gix_repo()?;
+        let ctx = but_ctx::Context::try_from(gix_repo)?;
         for branch in stacks_not_in_workspace {
-            if let Ok(branch_head) = branch.head_oid(&gix_repo).map(|h| h.to_git2()) {
+            if let Ok(branch_head) = branch.head_oid(&ctx).map(|h| h.to_git2()) {
                 if repo.find_commit(branch_head).is_err() {
                     // if the head commit can't be found, we can GC the branch
                     to_remove.push(branch.id);

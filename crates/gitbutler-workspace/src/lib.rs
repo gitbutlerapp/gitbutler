@@ -20,7 +20,7 @@ pub fn workspace_base(ctx: &Context, _perm: &WorktreeReadPermission) -> Result<g
     let stacks = vb_state.list_stacks_in_workspace()?;
     let stack_heads = stacks
         .iter()
-        .map(|b| b.head_oid(&gix_repo))
+        .map(|b| b.head_oid(ctx))
         .collect::<Result<Vec<_>>>()?;
     let merge_base_id = gix_repo
         .merge_base_octopus([stack_heads, vec![target_branch_commit]].concat())?

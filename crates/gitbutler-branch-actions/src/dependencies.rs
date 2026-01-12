@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, RepoExt};
+use but_oxidize::ObjectIdExt;
 use gitbutler_hunk_dependency::{
     HunkDependencyOptions, InputCommit, InputDiff, InputFile, InputStack,
     calculate_hunk_dependencies, locks::HunkDependencyResult,
@@ -17,12 +17,11 @@ pub fn compute_workspace_dependencies(
     stacks: &Vec<Stack>,
 ) -> Result<HunkDependencyResult> {
     let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = repo.to_gix_repo()?;
 
     let mut stacks_input: Vec<InputStack> = vec![];
     for stack in stacks {
         let mut commits_input: Vec<InputCommit> = vec![];
-        let commit_ids = get_commits_to_process(repo, &gix_repo, stack, target_sha)?;
+        let commit_ids = get_commits_to_process(repo, ctx, stack, target_sha)?;
         for commit_id in commit_ids {
             let mut files_input: Vec<InputFile> = vec![];
             let commit = repo.find_commit(commit_id)?;
@@ -67,13 +66,13 @@ pub fn compute_workspace_dependencies(
 /// Merge commits to the target branch are not included.
 fn get_commits_to_process<'a>(
     repo: &'a git2::Repository,
-    gix_repo: &'a gix::Repository,
+    ctx: &'a Context,
     stack: &'a Stack,
     target_sha: &'a git2::Oid,
 ) -> Result<impl Iterator<Item = git2::Oid> + 'a, anyhow::Error> {
     let commit_ids = repo
         .l(
-            stack.head_oid(gix_repo)?.to_git2(),
+            stack.head_oid(ctx)?.to_git2(),
             LogUntil::Commit(*target_sha),
             false,
         )

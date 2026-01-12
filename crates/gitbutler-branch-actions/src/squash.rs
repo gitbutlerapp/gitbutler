@@ -67,7 +67,7 @@ fn do_squash_commits(
 
     let default_target = vb_state.get_default_target()?;
     let repo = ctx.git2_repo.get()?;
-    let merge_base = repo.merge_base(stack.head_oid(&gix_repo)?.to_git2(), default_target.sha)?;
+    let merge_base = repo.merge_base(stack.head_oid(ctx)?.to_git2(), default_target.sha)?;
 
     // =========== Step 1: Reorder
 
@@ -141,7 +141,7 @@ fn do_squash_commits(
     // stack was updated by reorder_stack, therefore it is reloaded
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let branch_commit_oids = repo.l(
-        stack.head_oid(&gix_repo)?.to_git2(),
+        stack.head_oid(ctx)?.to_git2(),
         LogUntil::Commit(merge_base),
         false,
     )?;

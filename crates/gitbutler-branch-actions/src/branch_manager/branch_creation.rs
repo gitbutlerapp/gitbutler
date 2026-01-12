@@ -289,13 +289,12 @@ impl BranchManager<'_> {
         // calculate the merge base and make sure it's the same as the target commit
         // if not, we need to merge or rebase the branch to get it up to date
 
-        let gix_repo = repo.to_gix_repo()?;
         let merge_base = repo
-            .merge_base(default_target.sha, stack.head_oid(&gix_repo)?.to_git2())
+            .merge_base(default_target.sha, stack.head_oid(self.ctx)?.to_git2())
             .context(format!(
                 "failed to find merge base between {} and {}",
                 default_target.sha,
-                stack.head_oid(&gix_repo)?
+                stack.head_oid(self.ctx)?
             ))?;
 
         // Branch is out of date, merge or rebase it
@@ -343,7 +342,7 @@ impl BranchManager<'_> {
         // Do we need to rebase the branch on top of the default target?
 
         let has_change_id = repo
-            .find_commit(stack.head_oid(&gix_repo)?.to_git2())?
+            .find_commit(stack.head_oid(self.ctx)?.to_git2())?
             .change_id()
             .is_some();
         // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same

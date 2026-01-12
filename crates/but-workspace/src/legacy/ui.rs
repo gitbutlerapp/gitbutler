@@ -152,10 +152,11 @@ impl From<StackEntryNoOpt> for StackEntry {
 
 impl StackEntryNoOpt {
     pub(crate) fn try_new(repo: &gix::Repository, stack: &Stack) -> anyhow::Result<Self> {
+        let ctx = but_ctx::Context::try_from(repo.clone())?;
         Ok(StackEntryNoOpt {
             id: stack.id,
             heads: crate::legacy::stacks::stack_heads_info(stack, repo)?,
-            tip: stack.head_oid(repo)?,
+            tip: stack.head_oid(&ctx)?,
             order: Some(stack.order),
             is_checked_out: false,
         })
