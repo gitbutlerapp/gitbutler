@@ -1,4 +1,5 @@
 import { ActionService, ACTION_SERVICE } from '$lib/actions/actionService.svelte';
+import { BUTBOT_SERVICE, ButbotService } from '$lib/ai/butbot.svelte';
 import {
 	PromptService as AIPromptService,
 	PROMPT_SERVICE as AI_PROMPT_SERVICE
@@ -170,6 +171,7 @@ export function initDependencies(args: {
 	const aiPromptService = new AIPromptService();
 	const aiService = new AIService(gitConfig, secretsService, httpClient, tokenMemoryService);
 	const claudeCodeService = new ClaudeCodeService(clientState['backendApi']);
+	const butbotService = new ButbotService(clientState['backendApi'], backend);
 
 	// ============================================================================
 	// FORGE FACTORY
@@ -384,6 +386,7 @@ export function initDependencies(args: {
 		[USER, userService.user],
 		[USER_SERVICE, userService],
 		[WORKTREE_SERVICE, worktreeService],
-		[EXTERNAL_LINK_SERVICE, externalLinkService]
+		[EXTERNAL_LINK_SERVICE, externalLinkService],
+		[BUTBOT_SERVICE, butbotService]
 	]);
 }
