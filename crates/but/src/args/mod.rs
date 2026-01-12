@@ -222,18 +222,8 @@ pub enum Subcommands {
     /// This is automatically run when you run any other `but` command in
     /// a git repository that is not yet initialized with GitButler.
     ///
-    /// Note: Currently, if there is no Git repository already, you will need to
-    /// initialize it with `git init` and add a remote first, as GitButler needs
-    /// a remote to base the branches on.
-    ///
-    /// We are working on removing this limitation, but for now this is something
-    /// to be aware of.
     #[cfg(feature = "legacy")]
-    Init {
-        /// Also initializes a git repository in the current directory if one does not exist.
-        #[clap(long, short = 'r')]
-        repo: bool,
-    },
+    Init,
 
     /// Updates all applied branches to be up to date with the target branch.
     ///

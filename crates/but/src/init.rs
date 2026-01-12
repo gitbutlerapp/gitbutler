@@ -1,4 +1,5 @@
 use std::fmt::Write;
+use std::path::Path;
 
 use but_core::sync::LockScope;
 use but_ctx::Context;
@@ -56,7 +57,32 @@ pub fn init_ctx(
     background_sync: BackgroundSync,
     out: &mut OutputChannel,
 ) -> anyhow::Result<Context> {
-    let repo = gix::discover(&args.current_dir)?;
+    // lets try to get the repo from the current directory
+    // if it fails, we try to set up a new repo interactively
+    let repo = match gix::discover(&args.current_dir) {
+        Ok(repo) => repo,
+        Err(_) => {
+            // If for humans, try to set up a new repo interactively
+            if out.for_human().is_some() {
+                match setup_new_repo(&args.current_dir, out) {
+                    Ok(repo) => repo,
+                    Err(e) => {
+                        if let Some(out) = out.for_human() {
+                            writeln!(
+                                out,
+                                "{}",
+                                format!("Failed to initialize repository: {}", e).red()
+                            )?;
+                        }
+                        anyhow::bail!("No git repository found and failed to initialize one.");
+                    }
+                }
+            } else {
+                anyhow::bail!("No git repository found.");
+            }
+        }
+    };
+
     let (ctx, fetch_interval_minutes, last_fetch) = {
         let Some(workdir) = repo.workdir() else {
             anyhow::bail!("Bare repositories are not supported.");
@@ -70,11 +96,21 @@ pub fn init_ctx(
                     crate::command::legacy::init::repo(
                         workdir,
                         &mut OutputChannel::new_without_pager_non_json(args.format),
-                        false,
                     )?;
                     LegacyProject::find_by_worktree_dir(workdir)
                 }
             }?;
+
+            // if the default target is not set, reinitialize the project
+            let default_target =
+                but_api::legacy::virtual_branches::get_base_branch_data(project.id)?;
+            if default_target.is_none() {
+                crate::command::legacy::init::repo(
+                    workdir,
+                    &mut OutputChannel::new_without_pager_non_json(args.format),
+                )?;
+            }
+
             let ctx = Context::new_from_legacy_project(project)?;
             let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
             let last_fetch = ctx
@@ -104,7 +140,7 @@ pub fn init_ctx(
                 return Ok(ctx);
             }
 
-            // Determine what needs to be synced based on intervals and lock availability
+            // e what needs to be synced based on intervals and lock availability
             let sync_operations =
                 determine_sync_operations(&ctx, fetch_interval_minutes, last_fetch);
 
@@ -269,4 +305,52 @@ fn spawn_background_sync(
         )
         .ok();
     }
+}
+
+/// Sets up a new git repository and creates an initial empty commit.
+fn setup_new_repo(current_dir: &Path, out: &mut OutputChannel) -> anyhow::Result<gix::Repository> {
+    use std::fmt::Write as FmtWrite;
+
+    let mut progress = out.progress_channel();
+    if let Some(mut inout) = out.prepare_for_terminal_input() {
+        writeln!(
+            &mut progress as &mut dyn FmtWrite,
+            "{}",
+            "No git repository found.".red()
+        )?;
+
+        let input = inout.prompt(format!(
+            "Would you like to initialize a new one?\n{}\n[y/N]",
+            "(this will also create an empty first commit)".dimmed()
+        ))?;
+        if input.as_deref() == Some("y") {
+            writeln!(
+                &mut progress as &mut dyn FmtWrite,
+                "{}",
+                "Initializing new repository and creating an empty first commit...".dimmed()
+            )?;
+            let repo = gix::init(current_dir)?;
+            // Create an initial empty commit using git CLI as a workaround
+            let status = std::process::Command::new("git")
+                .arg("-C")
+                .arg(current_dir)
+                .arg("commit")
+                .arg("--allow-empty")
+                .arg("-m")
+                .arg("Initial commit")
+                .status()?;
+            writeln!(
+                &mut progress as &mut dyn FmtWrite,
+                "{}",
+                "Initialized a new repository and created an empty first commit.\n".green()
+            )?;
+
+            if !status.success() {
+                anyhow::bail!("Failed to create initial commit");
+            }
+            return Ok(repo);
+        }
+    }
+
+    Err(anyhow::anyhow!("No git repository found."))
 }

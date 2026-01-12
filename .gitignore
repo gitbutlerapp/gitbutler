@@ -62,6 +62,7 @@ packages/ui/tests/.cache
 # Rust analyzer
 .rust-analyzer/
 .aider*
+*.pending-snap
 
 # Claude
 .swarm

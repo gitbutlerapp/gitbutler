@@ -547,7 +547,7 @@ async fn match_subcommand(
             command::legacy::discard::handle(&mut ctx, out, &id).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Init { repo } => command::legacy::init::repo(&args.current_dir, out, repo)
+        Subcommands::Init => command::legacy::init::repo(&args.current_dir, out)
             .context("Failed to initialize GitButler project.")
             .emit_metrics(metrics_ctx),
         #[cfg(feature = "legacy")]
