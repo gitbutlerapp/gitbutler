@@ -113,6 +113,9 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                     "Cannot discard a committed file. Use an uncommitted file or hunk ID instead."
                 );
             }
+            CliId::Stack { .. } => {
+                bail!("Cannot discard a stack. Use a file or hunk ID instead.");
+            }
         }
     }
 

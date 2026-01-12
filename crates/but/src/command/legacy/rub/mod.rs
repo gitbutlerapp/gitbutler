@@ -15,7 +15,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 
-use crate::{CliId, IdMap, utils::OutputChannel};
+use crate::{CliId, IdMap, command::legacy::rub::assign::assign_all, utils::OutputChannel};
 
 pub(crate) fn handle(
     ctx: &mut Context,
@@ -41,13 +41,44 @@ pub(crate) fn handle(
                 create_snapshot(ctx, OperationKind::MoveHunk);
                 assign::assign_uncommitted_to_branch(ctx, uncommitted_cli_id, name, out)?;
             }
+            (CliId::Uncommitted(uncommitted_cli_id), CliId::Stack { stack_id, .. }) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_uncommitted_to_stack(ctx, uncommitted_cli_id, stack_id, out)?;
+            }
+            (CliId::Stack { stack_id, .. }, CliId::Unassigned { .. }) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(ctx, Some(assign::AssignTarget::Stack(&stack_id)), None, out)?;
+            }
+            (CliId::Stack { stack_id: from, .. }, CliId::Stack { stack_id: to, .. }) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(
+                    ctx,
+                    Some(assign::AssignTarget::Stack(&from)),
+                    Some(assign::AssignTarget::Stack(to)),
+                    out,
+                )?;
+            }
+            (CliId::Stack { stack_id: from, .. }, CliId::Branch { name: to, .. }) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(
+                    ctx,
+                    Some(assign::AssignTarget::Stack(&from)),
+                    Some(assign::AssignTarget::Branch(to)),
+                    out,
+                )?;
+            }
+
             (CliId::Unassigned { .. }, CliId::Commit { commit_id: oid, .. }) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, None, oid, out)?;
             }
             (CliId::Unassigned { .. }, CliId::Branch { name: to, .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, None, Some(to), out)?;
+                assign::assign_all(ctx, None, Some(assign::AssignTarget::Branch(to)), out)?;
+            }
+            (CliId::Unassigned { .. }, CliId::Stack { stack_id: to, .. }) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(ctx, None, Some(assign::AssignTarget::Stack(to)), out)?;
             }
             (CliId::Commit { commit_id: oid, .. }, CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, OperationKind::UndoCommit);
@@ -71,7 +102,16 @@ pub(crate) fn handle(
             }
             (CliId::Branch { name: from, .. }, CliId::Unassigned { .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, Some(&from), None, out)?;
+                assign::assign_all(ctx, Some(assign::AssignTarget::Branch(&from)), None, out)?;
+            }
+            (CliId::Branch { name: from, .. }, CliId::Stack { stack_id, .. }) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign_all(
+                    ctx,
+                    Some(assign::AssignTarget::Branch(&from)),
+                    Some(assign::AssignTarget::Stack(stack_id)),
+                    out,
+                )?;
             }
             (CliId::Branch { name, .. }, CliId::Commit { commit_id: oid, .. }) => {
                 create_snapshot(ctx, OperationKind::AmendCommit);
@@ -79,7 +119,12 @@ pub(crate) fn handle(
             }
             (CliId::Branch { name: from, .. }, CliId::Branch { name: to, .. }) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, Some(&from), Some(to), out)?;
+                assign::assign_all(
+                    ctx,
+                    Some(assign::AssignTarget::Branch(&from)),
+                    Some(assign::AssignTarget::Branch(to)),
+                    out,
+                )?;
             }
             (
                 CliId::CommittedFile {

@@ -46,7 +46,7 @@ fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
   "unassignedChanges": [],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "l0",
       "assignedChanges": [
         {
           "cliId": "i0",
@@ -108,7 +108,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
   "unassignedChanges": [],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "i0",
       "assignedChanges": [],
       "branches": [
         {
@@ -119,29 +119,14 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "m0",
+                  "cliId": "o0",
                   "filePath": "a.txt",
                   "changeType": "modified"
                 },
                 {
-                  "cliId": "n0",
+                  "cliId": "p0",
                   "filePath": "b.txt",
                   "changeType": "modified"
-                }
-              ]
-            },
-            {
-...
-              "changes": [
-                {
-                  "cliId": "i0",
-                  "filePath": "a.txt",
-                  "changeType": "added"
-                },
-                {
-                  "cliId": "j0",
-                  "filePath": "b.txt",
-                  "changeType": "added"
                 }
               ]
             },
@@ -150,6 +135,21 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
               "changes": [
                 {
                   "cliId": "k0",
+                  "filePath": "a.txt",
+                  "changeType": "added"
+                },
+                {
+                  "cliId": "l0",
+                  "filePath": "b.txt",
+                  "changeType": "added"
+                }
+              ]
+            },
+            {
+...
+              "changes": [
+                {
+                  "cliId": "m0",
                   "filePath": "A",
                   "changeType": "added"
                 }
@@ -158,7 +158,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
     },
     {
-      "cliId": "h0",
+      "cliId": "j0",
       "assignedChanges": [],
       "branches": [
         {
@@ -169,7 +169,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "l0",
+                  "cliId": "n0",
                   "filePath": "B",
                   "changeType": "added"
                 }
@@ -183,7 +183,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Uncommitted changes
+Unassigned all [B] changes.
 
 "#]])
         .stderr_eq(str![""]);
@@ -196,16 +196,10 @@ Uncommitted changes
         .stderr_eq(snapbox::str![""])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
-    {
-      "cliId": "i0",
-      "filePath": "b.txt",
-      "changeType": "added"
-    }
-  ],
+  "unassignedChanges": [],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "i0",
       "assignedChanges": [],
       "branches": [
         {
@@ -213,26 +207,32 @@ Uncommitted changes
           "name": "A",
           "commits": [
             {
+              "cliId": "e4",
+              "commitId": "e402775bc9360fa967ed55b98aaa4b5a12da4e20",
+              "createdAt": "2000-01-01T00:00:00+00:00",
+              "message": "create a.txt and b.txt",
+              "authorName": "author",
+              "authorEmail": "author@example.com",
+...
+              "changes": [
+                {
+                  "cliId": "o0",
+                  "filePath": "a.txt",
+                  "changeType": "modified"
+                },
+                {
+                  "cliId": "p0",
+                  "filePath": "b.txt",
 ...
               "changes": [
                 {
                   "cliId": "k0",
                   "filePath": "a.txt",
-                  "changeType": "modified"
-                }
-              ]
-            },
-            {
-...
-              "changes": [
+                  "changeType": "added"
+                },
                 {
                   "cliId": "l0",
-                  "filePath": "a.txt",
-                  "changeType": "added"
-                }
-              ]
-            },
-            {
+                  "filePath": "b.txt",
 ...
               "changes": [
                 {
@@ -243,7 +243,7 @@ Uncommitted changes
 ...
     },
     {
-      "cliId": "h0",
+      "cliId": "j0",
       "assignedChanges": [],
       "branches": [
         {
@@ -286,7 +286,7 @@ fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
   "unassignedChanges": [],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "l0",
       "assignedChanges": [
         {
           "cliId": "i0",
@@ -349,7 +349,7 @@ Unassigned a hunk in a.txt in a stack
   ],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "m0",
       "assignedChanges": [
         {
           "cliId": "j0",
@@ -428,7 +428,7 @@ Assigned a hunk in a.txt in the unassigned area → [A].
   ],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "m0",
       "assignedChanges": [
         {
           "cliId": "j0",
@@ -492,7 +492,7 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
   ],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "m0",
       "assignedChanges": [],
       "branches": [
 ...
@@ -550,7 +550,7 @@ fn stage_command() -> anyhow::Result<()> {
   "unassignedChanges": [],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "l0",
       "assignedChanges": [
         {
           "cliId": "i0",
@@ -585,7 +585,7 @@ fn unstage_command() -> anyhow::Result<()> {
   "unassignedChanges": [],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "l0",
       "assignedChanges": [
         {
           "cliId": "i0",
@@ -616,7 +616,7 @@ fn unstage_command() -> anyhow::Result<()> {
   ],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "l0",
       "assignedChanges": [],
 ...
 

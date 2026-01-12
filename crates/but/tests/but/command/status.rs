@@ -100,7 +100,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
   ],
   "stacks": [
     {
-      "cliId": "g0",
+      "cliId": "k0",
       "assignedChanges": [],
       "branches": [
         {
@@ -127,7 +127,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
       ]
     },
     {
-      "cliId": "h0",
+      "cliId": "l0",
       "assignedChanges": [],
       "branches": [
         {
@@ -232,12 +232,12 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "q0",
+                  "cliId": "s0",
                   "filePath": "a.txt",
                   "changeType": "modified"
                 },
                 {
-                  "cliId": "r0",
+                  "cliId": "t0",
                   "filePath": "b.txt",
                   "changeType": "modified"
                 }
@@ -247,12 +247,12 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "n0",
+                  "cliId": "p0",
                   "filePath": "a.txt",
                   "changeType": "added"
                 },
                 {
-                  "cliId": "o0",
+                  "cliId": "q0",
                   "filePath": "b.txt",
                   "changeType": "added"
                 }

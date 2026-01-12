@@ -10,6 +10,7 @@ use but_oxidize::OidExt;
 use but_workspace::ui::{PushStatus, StackDetails};
 use colored::{ColoredString, Colorize};
 use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
+use gitbutler_stack::StackId;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
 
@@ -288,6 +289,8 @@ pub(crate) async fn worktree(
                 .and_then(|d| d.branch_details.first())
                 .map(|b| b.name.to_string());
             print_assignments(
+                stack_id,
+                &id_map,
                 branch_name,
                 &assignments,
                 &worktree_changes.worktree_changes.changes,
@@ -448,6 +451,8 @@ fn ci_map(
 }
 
 fn print_assignments(
+    stack: Option<StackId>,
+    id_map: &IdMap,
     branch_name: Option<String>,
     assignments: &Vec<FileAssignment>,
     changes: &[ui::TreeChange],
@@ -460,12 +465,19 @@ fn print_assignments(
         return Ok(());
     }
 
+    let id = stack
+        .and_then(|s| id_map.resolve_stack(s))
+        .map(|s| s.to_short_string().underline().blue())
+        .unwrap_or_default();
+
     if !unstaged && !assignments.is_empty() {
         writeln!(
             out,
-            "┊  {} [{}]",
-            "╭┄".dimmed(),
-            format!("staged to {}", branch_name.unwrap_or("".to_string()))
+            "┊  ╭┄{id} [{}]",
+            branch_name
+                .as_ref()
+                .map(|name| format!("staged to {name}"))
+                .unwrap_or_else(|| "staged to ".to_string())
                 .cyan()
                 .bold(),
         )?;
@@ -669,7 +681,7 @@ pub fn print_group(
             "unstaged changes".to_string().cyan().bold(),
             stack_mark.clone().unwrap_or_default()
         )?;
-        print_assignments(None, &assignments, changes, true, out)?;
+        print_assignments(None, id_map, None, &assignments, changes, true, out)?;
     }
     if !first {
         writeln!(out, "├╯")?;

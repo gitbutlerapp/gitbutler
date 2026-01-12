@@ -31,6 +31,36 @@ pub(crate) fn assign_uncommitted_to_branch(
     Ok(())
 }
 
+pub(crate) fn assign_uncommitted_to_stack(
+    ctx: &mut Context,
+    uncommitted_cli_id: UncommittedCliId,
+    stack_id: &StackId,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let description = uncommitted_cli_id.describe();
+    let assignments = uncommitted_cli_id
+        .hunk_assignments
+        .into_iter()
+        .map(|hunk_assignment| (hunk_assignment.hunk_header, hunk_assignment.path_bytes));
+    let reqs = to_assignment_request(ctx, assignments, None)?
+        .into_iter()
+        .map(|mut req| {
+            req.stack_id = Some(*stack_id);
+            req
+        })
+        .collect();
+    do_assignments(ctx, reqs, out)?;
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "Assigned {} → stack {}.",
+            description,
+            format!("[{}]", stack_id).green()
+        )?;
+    }
+    Ok(())
+}
+
 pub(crate) fn unassign_uncommitted(
     ctx: &mut Context,
     uncommitted_cli_id: UncommittedCliId,
@@ -49,15 +79,55 @@ pub(crate) fn unassign_uncommitted(
     Ok(())
 }
 
+/// Target for hunk assignment operations.
+///
+/// This enum identifies where hunks should be assigned or moved to/from:
+/// either a branch, referenced by its name, or a stack, referenced by its [`StackId`].
+pub enum AssignTarget<'a> {
+    /// A branch, identified by its name.
+    Branch(&'a str),
+    /// A stack, identified by its [`StackId`].
+    Stack(&'a StackId),
+}
+
 pub(crate) fn assign_all(
     ctx: &mut Context,
-    from_branch: Option<&str>,
-    to_branch: Option<&str>,
+    from: Option<AssignTarget>,
+    to: Option<AssignTarget>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let from_stack_id = branch_name_to_stack_id(ctx, from_branch)?;
-    let to_stack_id = branch_name_to_stack_id(ctx, to_branch)?;
+    let (from_branch, from_stack_id) = match from {
+        Some(AssignTarget::Branch(name)) => (
+            Some(name.to_string()),
+            branch_name_to_stack_id(ctx, Some(name))?,
+        ),
+        Some(AssignTarget::Stack(stack_id)) => {
+            (stack_id_to_branch_name(ctx, stack_id), Some(*stack_id))
+        }
 
+        None => (None, None),
+    };
+    let (to_branch, to_stack_id) = match to {
+        Some(AssignTarget::Branch(name)) => (
+            Some(name.to_string()),
+            branch_name_to_stack_id(ctx, Some(name))?,
+        ),
+        Some(AssignTarget::Stack(stack_id)) => {
+            (stack_id_to_branch_name(ctx, stack_id), Some(*stack_id))
+        }
+        None => (None, None),
+    };
+    assign_all_inner(ctx, from_branch, from_stack_id, to_branch, to_stack_id, out)
+}
+
+fn assign_all_inner(
+    ctx: &mut Context,
+    from_branch: Option<String>,
+    from_stack_id: Option<StackId>,
+    to_branch: Option<String>,
+    to_stack_id: Option<StackId>,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     // Get all assignment requests from the from_stack_id
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
         ctx.legacy_project.worktree_dir()?.into(),
@@ -129,6 +199,14 @@ pub(crate) fn branch_name_to_stack_id(
         None
     };
     Ok(stack_id)
+}
+
+fn stack_id_to_branch_name(ctx: &Context, stack_id: &StackId) -> Option<String> {
+    crate::legacy::commits::stacks(ctx)
+        .ok()?
+        .into_iter()
+        .find(|s| s.id.as_ref() == Some(stack_id))
+        .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
 }
 
 fn to_assignment_request(
