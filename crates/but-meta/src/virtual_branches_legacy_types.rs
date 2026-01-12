@@ -76,6 +76,21 @@ mod stack {
         /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
         #[serde(default)]
         pub heads: Vec<StackBranch>,
+
+        // For serialization backwards compatibility
+        // These should not be read, it's just to satisfy past versions of the app
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(default)]
+        pub notes: String,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(default)]
+        pub ownership: BranchOwnershipClaims,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(default = "default_true")]
+        pub allow_rebasing: bool,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(default = "default_false")]
+        pub post_commits: bool,
     }
 
     impl Stack {
@@ -91,6 +106,9 @@ mod stack {
 
     fn default_true() -> bool {
         true
+    }
+    fn default_false() -> bool {
+        false
     }
 
     fn serialize_u128<S>(x: &u128, s: S) -> anyhow::Result<S::Ok, S::Error>
@@ -134,6 +152,16 @@ mod stack {
                 // Unused - everything is defined by the top-most branch name.
                 name: "".to_string(),
                 // unclear, obsolete
+
+                // For serialization backwards compatibility
+                #[allow(deprecated)]
+                notes: String::new(),
+                #[allow(deprecated)]
+                ownership: BranchOwnershipClaims::default(),
+                #[allow(deprecated)]
+                allow_rebasing: true,
+                #[allow(deprecated)]
+                post_commits: false,
             }
         }
     }
