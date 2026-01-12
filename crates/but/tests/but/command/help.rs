@@ -1,6 +1,6 @@
 use snapbox::str;
 
-use crate::utils::Sandbox;
+use crate::utils::{CommandExt as _, Sandbox};
 
 #[cfg(feature = "legacy")]
 #[test]
@@ -9,14 +9,14 @@ fn rub_looks_good() -> anyhow::Result<()> {
 
     // The help should be nice, as it's a complex command.
     env.but("rub --help")
-        .env("CLICOLOR_FORCE", "1")
+        .with_color_for_svg()
         .assert()
         .success()
         .stdout_eq(snapbox::file![
             "snapshots/help/rub-long-help.stdout.term.svg"
         ]);
     env.but("rub -h")
-        .env("CLICOLOR_FORCE", "1")
+        .with_color_for_svg()
         .assert()
         .success()
         .stdout_eq(snapbox::file![

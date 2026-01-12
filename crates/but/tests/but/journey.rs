@@ -1,7 +1,7 @@
 //! Tests for various nice user-journeys, from different starting points, performing multiple common steps in sequence.
 use snapbox::str;
 
-use crate::utils::Sandbox;
+use crate::utils::{CommandExt as _, Sandbox};
 
 #[cfg(not(feature = "legacy"))]
 #[test]
@@ -140,13 +140,13 @@ fn from_workspace() -> anyhow::Result<()> {
     env.setup_metadata(&["A", "B"])?;
 
     env.but("status")
-        .env("CLICOLOR_FORCE", "1")
+        .with_color_for_svg()
         .assert()
         .success()
         .stdout_eq(file!["snapshots/from-workspace/status01.stdout.term.svg"]);
 
     env.but("status -v")
-        .env("CLICOLOR_FORCE", "1")
+        .with_color_for_svg()
         .assert()
         .success()
         .stdout_eq(file![
@@ -155,14 +155,14 @@ fn from_workspace() -> anyhow::Result<()> {
 
     // List is the default
     env.but("branch")
-        .env("CLICOLOR_FORCE", "1")
+        .with_color_for_svg()
         .assert()
         .success()
         .stdout_eq(file!["snapshots/from-workspace/branch01.stdout.term.svg"]);
 
     // But list is also explicit.
     env.but("branch list")
-        .env("CLICOLOR_FORCE", "1")
+        .with_color_for_svg()
         .assert()
         .success()
         .stdout_eq(file!["snapshots/from-workspace/branch01.stdout.term.svg"]);
