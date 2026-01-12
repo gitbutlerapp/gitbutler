@@ -4,6 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
 	import { BUTBOT_SERVICE, type ForgeReviewFilter } from '$lib/ai/butbot.svelte';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import { isExecutableStatus } from '$lib/hunks/change';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
@@ -56,6 +57,7 @@
 
 	const messageId = $derived(`branch-chat-${projectId}-${targetBranch}`);
 
+	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 	const butbotService = inject(BUTBOT_SERVICE);
 	const [chatWithBranch, result] = butbotService.forgeBranchChat;
 
@@ -168,7 +170,7 @@
 		{#if !answerStream}
 			<FilePreviewPlaceholder />
 		{/if}
-		{#if targetBranch}
+		{#if targetBranch && $aiGenEnabled}
 			<div class="select-some__input-wrapper">
 				<span class="text-13 select-some__caption">Summarize changes in this branch</span>
 				<div>
