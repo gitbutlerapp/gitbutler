@@ -892,6 +892,7 @@ dependencies = [
  "but-ctx",
  "but-forge",
  "but-tools",
+ "chrono",
  "gitbutler-project",
  "gix",
  "schemars 1.2.0",

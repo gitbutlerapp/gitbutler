@@ -39,10 +39,15 @@ pub fn forge_branch_chat(
         .collect::<Vec<String>>()
         .join("\n\n");
 
+    let current_time = chrono::Utc::now().to_rfc3339();
     let sys_prompt = format!(
         "<tone>
     You are an AI assistant specialized in explaining code changes made in the git branch '{branch}'.
 </tone>
+
+<current_time>
+    {current_time}
+</current_time>
 
 <task>
     Answer the user's questions about the code changes made in the branch '{branch}'.
