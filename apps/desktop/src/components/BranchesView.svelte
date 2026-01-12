@@ -449,6 +449,7 @@
 									{projectId}
 									{selectionId}
 									bottomBorder
+									targetBranch={isTargetBranch ? baseBranch.shortName : undefined}
 								/>
 							</ConfigurableScrollableContainer>
 						</div>

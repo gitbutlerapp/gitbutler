@@ -52,6 +52,7 @@ function injectEndpoints(api: BackendApi) {
 					messageId: string;
 					chatMessages: ChatMessage[];
 					filter: ForgeReviewFilter | null;
+					model: string;
 				}
 			>({
 				extraOptions: {
