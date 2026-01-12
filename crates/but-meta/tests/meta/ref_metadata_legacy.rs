@@ -681,7 +681,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     name = "feat-on-top"
     created_timestamp_ms = 12345
     updated_timestamp_ms = 12345
-    tree = "0000000000000000000000000000000000000000"
     head = "0000000000000000000000000000000000000000"
     order = 0
     in_workspace = true
@@ -689,6 +688,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     ownership = ""
     allow_rebasing = true
     post_commits = false
+    tree = "0000000000000000000000000000000000000000"
 
     [[branches.1.heads]]
     name = "feat"

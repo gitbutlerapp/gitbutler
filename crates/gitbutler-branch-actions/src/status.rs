@@ -2,7 +2,6 @@ use std::{collections::HashMap, path::PathBuf, vec};
 
 use anyhow::{Context as _, Result, bail};
 use but_ctx::{Context, access::WorktreeWritePermission};
-use but_oxidize::ObjectIdExt;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_diff::{Hunk, diff_files_into_hunks};
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
@@ -137,13 +136,7 @@ pub fn get_applied_status_cached(
         .collect::<Vec<_>>();
 
     // write updated state if not resolving
-    let repo = ctx.repo.get()?;
-    for (vbranch, files) in &mut hunks_by_branch {
-        vbranch.set_tree(gitbutler_diff::write::hunks_onto_oid(
-            ctx,
-            vbranch.head_oid(&repo)?.to_git2(),
-            files,
-        )?);
+    for (vbranch, _) in &mut hunks_by_branch {
         vb_state
             .set_stack(vbranch.clone())
             .context(format!("failed to write virtual branch {}", vbranch.name))?;

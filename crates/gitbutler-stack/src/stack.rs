@@ -47,8 +47,6 @@ pub struct Stack {
     pub upstream_head: Option<git2::Oid>,
     pub created_timestamp_ms: u128,
     pub updated_timestamp_ms: u128,
-    /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
-    tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
     head: git2::Oid,
     // order is the number by which UI should sort branches
@@ -71,7 +69,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             upstream_head,
             created_timestamp_ms,
             updated_timestamp_ms,
-            tree,
             head,
             order,
             in_workspace,
@@ -87,7 +84,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             upstream_head: upstream_head.map(|id| id.to_git2()),
             created_timestamp_ms,
             updated_timestamp_ms,
-            tree: tree.to_git2(),
             head: head.to_git2(),
             order,
             in_workspace,
@@ -106,7 +102,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             upstream_head,
             created_timestamp_ms,
             updated_timestamp_ms,
-            tree,
             head,
             order,
             in_workspace,
@@ -121,7 +116,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             upstream_head: upstream_head.map(|id| id.to_gix()),
             created_timestamp_ms,
             updated_timestamp_ms,
-            tree: tree.to_gix(),
             head: head.to_gix(),
             order,
             in_workspace,
@@ -135,6 +129,8 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             allow_rebasing: true,
             #[allow(deprecated)]
             post_commits: false,
+            #[allow(deprecated)]
+            tree: gix::hash::Kind::Sha1.null(),
         }
     }
 }
@@ -164,7 +160,6 @@ impl Stack {
         source_refname: Option<Refname>,
         upstream: Option<RemoteRefname>,
         upstream_head: Option<git2::Oid>,
-        tree: git2::Oid,
         head: git2::Oid,
         order: usize,
     ) -> Self {
@@ -177,7 +172,6 @@ impl Stack {
             upstream_head,
             created_timestamp_ms: now,
             updated_timestamp_ms: now,
-            tree,
             head,
             order,
             in_workspace: true,
@@ -200,7 +194,6 @@ impl Stack {
             heads,
 
             // Don't keep redundant information
-            tree: git2::Oid::zero(),
             head: git2::Oid::zero(),
             source_refname: None,
             upstream: None,
@@ -221,11 +214,6 @@ impl Stack {
             .last()
             .map(|branch| branch.head_oid(repo))
             .ok_or_else(|| anyhow!("head_oid: Stack is uninitialized"))?
-    }
-
-    // This should not be needed in v3
-    pub fn set_tree(&mut self, tree: git2::Oid) {
-        self.tree = tree;
     }
 
     pub fn tree(&self, ctx: &Context) -> Result<git2::Oid> {
@@ -258,22 +246,13 @@ impl Stack {
         source_refname: Option<Refname>,
         upstream: Option<RemoteRefname>,
         upstream_head: Option<git2::Oid>,
-        tree: git2::Oid,
         head: git2::Oid,
         order: usize,
         allow_duplicate_refs: bool,
     ) -> Result<Self> {
         #[expect(deprecated)]
         // this should be the only place (other than tests) where this is allowed
-        let mut branch = Stack::new(
-            name,
-            source_refname,
-            upstream,
-            upstream_head,
-            tree,
-            head,
-            order,
-        );
+        let mut branch = Stack::new(name, source_refname, upstream, upstream_head, head, order);
         branch.initialize(ctx, allow_duplicate_refs)?;
         Ok(branch)
     }
@@ -566,18 +545,8 @@ impl Stack {
         state: &VirtualBranchesHandle,
         gix_repo: &gix::Repository,
         commit_id: git2::Oid,
-        tree: Option<git2::Oid>,
     ) -> Result<()> {
-        self.set_stack_head_inner(Some(state), gix_repo, commit_id, tree)
-    }
-
-    pub fn set_stack_head_without_persisting(
-        &mut self,
-        gix_repo: &gix::Repository,
-        commit_id: git2::Oid,
-        tree: Option<git2::Oid>,
-    ) -> Result<()> {
-        self.set_stack_head_inner(None, gix_repo, commit_id, tree)
+        self.set_stack_head_inner(Some(state), gix_repo, commit_id)
     }
 
     fn set_stack_head_inner(
@@ -585,14 +554,10 @@ impl Stack {
         state: Option<&VirtualBranchesHandle>,
         gix_repo: &gix::Repository,
         commit_id: git2::Oid,
-        tree: Option<git2::Oid>,
     ) -> Result<()> {
         self.ensure_initialized()?;
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         self.set_head(commit_id);
-        if let Some(tree) = tree {
-            self.tree = tree;
-        }
 
         let commit = gix_repo.find_commit(commit_id.to_gix())?;
 

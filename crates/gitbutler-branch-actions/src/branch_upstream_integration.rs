@@ -170,7 +170,7 @@ pub fn integrate_branch_with_steps(
     let result = rebase.rebase()?;
     let head = result.top_commit.to_git2();
 
-    source_stack.set_stack_head(&vb_state, &repository, head, None)?;
+    source_stack.set_stack_head(&vb_state, &repository, head)?;
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     source_stack.set_heads_from_rebase_output(ctx, result.references)?;

@@ -220,7 +220,6 @@ pub(crate) fn set_base_branch(
                 Some(head_name),
                 upstream,
                 upstream_head,
-                current_head_commit.tree_id(),
                 current_head_commit.id(),
                 0,
                 !branch_matches_target, // allow duplicate name since here we are creating a lane from an existing branch

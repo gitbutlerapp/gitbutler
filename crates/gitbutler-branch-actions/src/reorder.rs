@@ -64,7 +64,7 @@ pub fn reorder_stack(
     let new_head = output.top_commit.to_git2();
 
     // Ensure the stack head is set to the new oid after rebasing
-    stack.set_stack_head(&state, &gix_repo, new_head, None)?;
+    stack.set_stack_head(&state, &gix_repo, new_head)?;
 
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 

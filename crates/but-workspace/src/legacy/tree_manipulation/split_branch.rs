@@ -3,7 +3,6 @@ use but_core::Reference;
 use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{Rebase, RebaseStep, ReferenceSpec};
-use gitbutler_cherry_pick::GixRepositoryExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::{CommitOrChangeId, StackBranch, StackId, VirtualBranchesHandle};
 
@@ -229,16 +228,7 @@ pub fn split_into_dependent_branch(
         Some(source_branch_name),
     )?;
 
-    source_stack.set_stack_head(
-        &vb_state,
-        &repository,
-        new_head.id().to_git2(),
-        Some(
-            repository
-                .find_real_tree(&new_head.id(), Default::default())?
-                .to_git2(),
-        ),
-    )?;
+    source_stack.set_stack_head(&vb_state, &repository, new_head.id().to_git2())?;
     source_stack.set_heads_from_rebase_output(ctx, source_result.clone().references)?;
 
     let move_changes_result = MoveChangesResult {
