@@ -60,9 +60,6 @@ mod stack {
             deserialize_with = "deserialize_u128"
         )]
         pub updated_timestamp_ms: u128,
-        /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
-        #[serde(with = "but_serde::object_id")]
-        pub tree: gix::ObjectId,
         /// head is id of the last "virtual" commit in this branch
         #[serde(with = "but_serde::object_id")]
         pub head: gix::ObjectId,
@@ -91,6 +88,10 @@ mod stack {
         #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
         #[serde(default = "default_false")]
         pub post_commits: bool,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(with = "but_serde::object_id")]
+        #[serde(default = "default_null_object_id")]
+        pub tree: gix::ObjectId,
     }
 
     impl Stack {
@@ -102,6 +103,10 @@ mod stack {
                 .map(|head| head.name.clone())
                 .ok_or_else(|| anyhow!("but_meta::Stack::derived_name: Stack is uninitialized"))
         }
+    }
+
+    fn default_null_object_id() -> gix::ObjectId {
+        gix::hash::Kind::Sha1.null()
     }
 
     fn default_true() -> bool {
@@ -143,7 +148,6 @@ mod stack {
                 heads,
 
                 // Don't keep redundant information
-                tree: gix::hash::Kind::Sha1.null(),
                 head: gix::hash::Kind::Sha1.null(),
                 source_refname: None,
                 upstream: None,
@@ -162,6 +166,8 @@ mod stack {
                 allow_rebasing: true,
                 #[allow(deprecated)]
                 post_commits: false,
+                #[allow(deprecated)]
+                tree: gix::hash::Kind::Sha1.null(),
             }
         }
     }

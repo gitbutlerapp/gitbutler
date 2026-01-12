@@ -155,7 +155,6 @@ pub struct Resolution {
 enum IntegrationResult {
     UpdatedObjects {
         head: git2::Oid,
-        tree: Option<git2::Oid>,
         rebase_output: Option<RebaseOutput>,
         for_archival: Vec<Reference>,
     },
@@ -591,7 +590,6 @@ pub(crate) fn integrate_upstream(
         for (maybe_stack_id, integration_result) in &integration_results {
             let IntegrationResult::UpdatedObjects {
                 head,
-                tree,
                 rebase_output,
                 for_archival,
             } = integration_result
@@ -623,7 +621,7 @@ pub(crate) fn integrate_upstream(
                 }
             }
 
-            stack.set_stack_head(&virtual_branches_state, &gix_repo, *head, *tree)?;
+            stack.set_stack_head(&virtual_branches_state, &gix_repo, *head)?;
 
             let delete_local_refs = resolutions
                 .iter()
@@ -749,7 +747,6 @@ fn compute_resolutions(
                         stack.id,
                         IntegrationResult::UpdatedObjects {
                             head: new_head.id(),
-                            tree: None,
                             rebase_output: None,
                             for_archival: vec![],
                         },
@@ -824,7 +821,6 @@ fn compute_resolutions(
                         stack.id,
                         IntegrationResult::UpdatedObjects {
                             head: new_head,
-                            tree: None,
                             rebase_output: Some(output),
                             for_archival,
                         },

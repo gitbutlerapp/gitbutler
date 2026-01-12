@@ -254,7 +254,7 @@ fn do_squash_commits(
 
     let new_stack_head = output.top_commit.to_git2();
 
-    stack.set_stack_head(&vb_state, &gix_repo, new_stack_head, None)?;
+    stack.set_stack_head(&vb_state, &gix_repo, new_stack_head)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;

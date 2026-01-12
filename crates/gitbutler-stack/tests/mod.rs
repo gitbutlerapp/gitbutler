@@ -576,7 +576,7 @@ fn set_stack_head_commit_invalid() -> Result<()> {
     let gix_repo = ctx.repo.get()?;
     let result = test_ctx
         .stack
-        .set_stack_head(&vb_state, &gix_repo, git2::Oid::zero(), None);
+        .set_stack_head(&vb_state, &gix_repo, git2::Oid::zero());
     assert!(result.is_err());
     Ok(())
 }
@@ -590,7 +590,7 @@ fn set_stack_head() -> Result<()> {
     let gix_repo = ctx.repo.get()?;
     let result = test_ctx
         .stack
-        .set_stack_head(&vb_state, &gix_repo, commit.id(), None);
+        .set_stack_head(&vb_state, &gix_repo, commit.id());
     assert!(result.is_ok());
     let branches = test_ctx.stack.branches();
     assert_eq!(

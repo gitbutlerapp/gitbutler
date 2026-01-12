@@ -11,7 +11,6 @@ use but_workspace::{
     legacy::stack_ext::StackExt,
 };
 use gitbutler_branch::{self, BranchCreateRequest, dedup};
-use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
@@ -60,15 +59,6 @@ impl BranchManager<'_> {
         let vb_state = self.ctx.legacy_project.virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
-        let git2_repo = self.ctx.git2_repo.get()?;
-        let commit = git2_repo
-            .find_commit(default_target.sha)
-            .context("failed to find default target commit")?;
-
-        let tree = commit
-            .tree()
-            .context("failed to find default target commit tree")?;
-
         let mut all_stacks = vb_state
             .list_stacks_in_workspace()
             .context("failed to read virtual branches")?;
@@ -103,7 +93,6 @@ impl BranchManager<'_> {
             None,
             None,
             None,
-            tree.id(),
             default_target.sha,
             order,
             false,
@@ -229,7 +218,6 @@ impl BranchManager<'_> {
         let head_commit = head_reference
             .peel_to_commit()
             .context("failed to peel to commit")?;
-        let head_commit_tree = head_commit.tree().context("failed to find tree")?;
 
         let order = vb_state.next_order_index()?;
 
@@ -254,7 +242,6 @@ impl BranchManager<'_> {
                 Some(target.clone()),
                 upstream_branch,
                 upstream_head,
-                head_commit_tree.id(),
                 head_commit.id(),
                 order,
                 true, // allow duplicate branch name if created from an existing branch
@@ -264,12 +251,7 @@ impl BranchManager<'_> {
         if let (Some(pr_number), Some(head)) = (pr_number, branch.heads(false).last()) {
             branch.set_pr_number(self.ctx, head, Some(pr_number))?;
         }
-        branch.set_stack_head(
-            &vb_state,
-            &(&*repo).to_gix_repo()?,
-            head_commit.id(),
-            Some(head_commit_tree.id()),
-        )?;
+        branch.set_stack_head(&vb_state, &(&*repo).to_gix_repo()?, head_commit.id())?;
         self.ctx.add_branch_reference(&branch)?;
 
         match self.apply_branch(branch.id, perm, old_workspace, old_cwd) {
@@ -375,12 +357,7 @@ impl BranchManager<'_> {
             let output = rebase.rebase()?;
             let new_head = repo.find_commit(output.top_commit.to_git2())?;
 
-            stack.set_stack_head(
-                &vb_state,
-                &gix_repo,
-                new_head.id(),
-                Some(repo.find_real_tree(&new_head, Default::default())?.id()),
-            )?;
+            stack.set_stack_head(&vb_state, &gix_repo, new_head.id())?;
 
             stack.set_heads_from_rebase_output(self.ctx, output.references)?;
         }

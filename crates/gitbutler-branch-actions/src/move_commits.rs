@@ -174,7 +174,7 @@ fn take_commit_from_source_stack(
 
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
     let vb_state = ctx.legacy_project.virtual_branches();
-    source_stack.set_stack_head(&vb_state, &gix_repo, new_source_head, None)?;
+    source_stack.set_stack_head(&vb_state, &gix_repo, new_source_head)?;
     Ok(None)
 }
 
@@ -203,6 +203,6 @@ fn move_commit_to_destination_stack(
     let new_destination_head_oid = output.top_commit.to_git2();
 
     destination_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    destination_stack.set_stack_head(vb_state, &gix_repo, new_destination_head_oid, None)?;
+    destination_stack.set_stack_head(vb_state, &gix_repo, new_destination_head_oid)?;
     Ok(())
 }

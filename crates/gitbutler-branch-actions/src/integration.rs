@@ -309,12 +309,7 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut WorktreeWritePermission) -> Re
             "failed to find rebased commit {rebased_commit_oid}"
         ))?;
 
-        new_branch.set_stack_head(
-            &vb_handle,
-            &gix_repo,
-            rebased_commit.id(),
-            Some(rebased_commit.tree_id()),
-        )?;
+        new_branch.set_stack_head(&vb_handle, &gix_repo, rebased_commit.id())?;
 
         head = rebased_commit.id();
     }

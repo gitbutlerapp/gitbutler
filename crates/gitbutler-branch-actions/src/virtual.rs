@@ -186,7 +186,7 @@ pub fn commit(
     let commit_oid = ctx.commit(message, &tree, &[&parent_commit], None)?;
 
     let vb_state = ctx.legacy_project.virtual_branches();
-    branch.set_stack_head(&vb_state, &gix_repo, commit_oid, Some(tree_oid))?;
+    branch.set_stack_head(&vb_state, &gix_repo, commit_oid)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
@@ -416,7 +416,7 @@ pub(crate) fn insert_blank_commit(
         .collect::<Vec<_>>();
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
-    stack.set_stack_head(&vb_state, &repo, output.top_commit.to_git2(), None)?;
+    stack.set_stack_head(&vb_state, &repo, output.top_commit.to_git2())?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
@@ -479,7 +479,7 @@ pub(crate) fn update_commit_message(
     let output = rebase.rebase()?;
 
     let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(&vb_state, &gix_repo, new_head, None)?;
+    stack.set_stack_head(&vb_state, &gix_repo, new_head)?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx, false)
