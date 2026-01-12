@@ -10,7 +10,7 @@
 	const { fileName, size = 14 }: Props = $props();
 </script>
 
-<i class="file-icon" style="--file-icon-size: {pxToRem(size)}rem;">
+<i class="file-icon" style="--file-icon-size: {pxToRem(size)}rem;" aria-hidden="true">
 	{@html getFileIcon(fileName)}
 </i>
 
