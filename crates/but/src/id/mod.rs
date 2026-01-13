@@ -15,7 +15,7 @@ use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
-use but_workspace::branch::Stack;
+use but_workspace::{branch::Stack, ref_info::LocalCommitRelation};
 use nonempty::NonEmpty;
 
 use crate::id::{
@@ -45,6 +45,8 @@ pub struct WorkspaceCommitWithId {
     pub commit_id: gix::ObjectId,
     /// The ID of the first parent if the commit has parents.
     pub first_parent_id: Option<gix::ObjectId>,
+    /// State in relation to its remote tracking branch.
+    pub relation: LocalCommitRelation,
 }
 
 /// A remote commit with its short ID.
@@ -72,11 +74,30 @@ pub struct SegmentWithId {
     pub remote_commits: Vec<RemoteCommitWithId>,
 }
 impl SegmentWithId {
-    fn branch_name(&self) -> Option<&BStr> {
+    /// Returns the branch name.
+    pub fn branch_name(&self) -> Option<&BStr> {
         self.inner
             .ref_info
             .as_ref()
             .map(|ref_info| ref_info.ref_name.shorten())
+    }
+    /// Returns the linked worktree ID.
+    pub fn linked_worktree_id(&self) -> Option<&BStr> {
+        if let Some(ref_info) = &self.inner.ref_info
+            && let Some(but_graph::Worktree::LinkedId(id)) = &ref_info.worktree
+        {
+            Some(id.as_bstr())
+        } else {
+            None
+        }
+    }
+    /// Returns the PR number.
+    pub fn pr_number(&self) -> Option<usize> {
+        if let Some(metadata) = &self.inner.metadata {
+            metadata.review.pull_request
+        } else {
+            None
+        }
     }
 }
 
@@ -168,10 +189,7 @@ impl IdMap {
                 );
             }
             for remote_commit in segment.remote_commits.iter() {
-                remote_commit_ids.insert(
-                    remote_commit.short_id.clone(),
-                    remote_commit.commit_id,
-                );
+                remote_commit_ids.insert(remote_commit.short_id.clone(), remote_commit.commit_id);
             }
         }
 
@@ -194,7 +212,7 @@ impl IdMap {
             }
         }
         let mut stack_ids = BTreeMap::new();
-        for stack in stacks {
+        for stack in &stacks {
             if let Some(id) = stack.id {
                 stack_ids.insert(
                     id,

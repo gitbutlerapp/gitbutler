@@ -1,12 +1,13 @@
 use std::collections::BTreeMap;
 
 use assignment::FileAssignment;
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
 use but_core::{TreeStatus, diff::CommitDetails, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_oxidize::OidExt;
+use but_workspace::ref_info::LocalCommitRelation;
 use but_workspace::ui::{PushStatus, StackDetails};
 use colored::{ColoredString, Colorize};
 use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
@@ -14,6 +15,7 @@ use gitbutler_stack::StackId;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
 
+use crate::id::{SegmentWithId, StackWithId};
 use crate::{CLI_DATE, utils::time::format_relative_time_verbose};
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
@@ -33,7 +35,7 @@ pub(crate) mod json;
 use crate::command::legacy::forge::review;
 use crate::{IdMap, utils::OutputChannel};
 
-type StackDetail = (Option<StackDetails>, Vec<FileAssignment>);
+type StackDetail = (Option<StackWithId>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
 
 #[derive(Serialize)]
@@ -88,7 +90,8 @@ pub(crate) async fn worktree(
     let guard = ctx.shared_worktree_access();
     let meta = ctx.meta(guard.read_permission())?;
 
-    // TODO: use this for status information instead.
+    // TODO: use this for JSON status information (regular status information
+    // already uses this)
     let head_info = but_workspace::head_info(
         &*ctx.repo.get()?,
         &meta,
@@ -110,10 +113,7 @@ pub(crate) async fn worktree(
 
     let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
 
-    let mut id_map = IdMap::new(
-        head_info.stacks.clone(),
-        worktree_changes.assignments.clone(),
-    )?;
+    let mut id_map = IdMap::new(head_info.stacks, worktree_changes.assignments.clone())?;
     id_map.add_committed_file_info_from_context(ctx)?;
 
     let stacks = &id_map.stacks;
@@ -134,8 +134,8 @@ pub(crate) async fn worktree(
     for stack in stacks {
         let details = but_api::legacy::workspace::stack_details(ctx.legacy_project.id, stack.id)?;
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
-        original_stack_details.push((stack.id, Some(details.clone())));
-        stack_details.push((stack.id, (Some(details), assignments)));
+        original_stack_details.push((stack.id, Some(details)));
+        stack_details.push((stack.id, (Some(stack.clone()), assignments)));
     }
     let ci_map = ci_map(ctx, &cache_config, &stack_details)?;
 
@@ -276,7 +276,7 @@ pub(crate) async fn worktree(
     // Drop repo to release the borrow on ctx before the loop
     drop(repo);
 
-    for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
+    for (i, (stack_id, (stack_with_id, assignments))) in stack_details.into_iter().enumerate() {
         let mut stack_mark = stack_id.and_then(|stack_id| {
             if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
                 Some("◀ Marked ▶".red().bold())
@@ -286,11 +286,11 @@ pub(crate) async fn worktree(
         });
 
         // assignments to the stack
-        if details.is_some() {
-            let branch_name = details
-                .as_ref()
-                .and_then(|d| d.branch_details.first())
-                .map(|b| b.name.to_string());
+        if let Some(stack_with_id) = &stack_with_id {
+            let branch_name = stack_with_id
+                .segments
+                .first()
+                .map_or(Some(BStr::new(b"")), SegmentWithId::branch_name);
             print_assignments(
                 stack_id,
                 &id_map,
@@ -303,7 +303,7 @@ pub(crate) async fn worktree(
         }
 
         print_group(
-            details,
+            &stack_with_id,
             assignments,
             &worktree_changes.worktree_changes.changes,
             show_files,
@@ -434,18 +434,19 @@ fn ci_map(
     stack_details: &[StackEntry],
 ) -> Result<BTreeMap<String, Vec<but_forge::CiCheck>>, anyhow::Error> {
     let mut ci_map = BTreeMap::new();
-    for (_, (details, _)) in stack_details {
-        if let Some(details) = details {
-            for branch in &details.branch_details {
-                if branch.pr_number.is_some()
-                    && !matches!(branch.push_status, PushStatus::Integrated)
+    for (_, (stack_with_id, _)) in stack_details {
+        if let Some(stack_with_id) = stack_with_id {
+            for segment in &stack_with_id.segments {
+                if segment.pr_number().is_some()
+                    && !matches!(segment.inner.push_status, PushStatus::Integrated)
+                    && let Some(branch_name) = segment.branch_name()
                     && let Ok(checks) = but_api::legacy::forge::list_ci_checks(
                         ctx,
-                        branch.name.to_string(),
+                        branch_name.to_string(),
                         Some(cache_config.clone()),
                     )
                 {
-                    ci_map.insert(branch.name.to_string(), checks);
+                    ci_map.insert(branch_name.to_string(), checks);
                 }
             }
         }
@@ -456,7 +457,7 @@ fn ci_map(
 fn print_assignments(
     stack: Option<StackId>,
     id_map: &IdMap,
-    branch_name: Option<String>,
+    branch_name: Option<&BStr>,
     assignments: &Vec<FileAssignment>,
     changes: &[ui::TreeChange],
     unstaged: bool,
@@ -534,7 +535,7 @@ fn print_assignments(
 
 #[expect(clippy::too_many_arguments)]
 pub fn print_group(
-    group: Option<StackDetails>,
+    stack_with_id: &Option<StackWithId>,
     assignments: Vec<FileAssignment>,
     changes: &[ui::TreeChange],
     show_files: bool,
@@ -549,20 +550,16 @@ pub fn print_group(
     id_map: &IdMap,
 ) -> anyhow::Result<()> {
     let repo = ctx.legacy_project.open_isolated_repo()?;
-    if let Some(group) = &group {
+    if let Some(stack_with_id) = stack_with_id {
         let mut first = true;
-        for branch in &group.branch_details {
-            let id = id_map
-                .resolve_branch(branch.name.as_ref())
-                .to_short_string()
-                .underline()
-                .blue();
+        for segment in &stack_with_id.segments {
+            let id = segment.short_id.underline().blue();
             let notch = if first { "╭" } else { "├" };
             if !first {
                 writeln!(out, "┊│")?;
             }
 
-            let no_commits = if branch.commits.is_empty() {
+            let no_commits = if segment.workspace_commits.is_empty() {
                 "(no commits)".to_string()
             } else {
                 "".to_string()
@@ -570,18 +567,24 @@ pub fn print_group(
             .dimmed()
             .italic();
 
-            let review = review::from_branch_details(review_map, branch)
+            let review = segment
+                .branch_name()
+                .and_then(|branch_name| {
+                    review::from_branch_details(review_map, branch_name, segment.pr_number())
+                })
                 .map(|r| format!(" {} ", r.display_cli(verbose)))
                 .unwrap_or_default();
 
-            let ci = ci_map
-                .get(&branch.name.to_string())
+            let ci = segment
+                .branch_name()
+                .and_then(|branch_name| ci_map.get(&branch_name.to_string()))
                 .map(CiChecks::from)
                 .map(|c| c.display_cli(verbose))
                 .unwrap_or_default();
 
-            let merge_status = branch_merge_statuses
-                .get(&branch.name.to_string())
+            let merge_status = segment
+                .branch_name()
+                .and_then(|branch_name| branch_merge_statuses.get(&branch_name.to_string()))
                 .map(|status| match status {
                     UpstreamBranchStatus::SaflyUpdatable => " [✓ upstream merges cleanly]".blue(),
                     UpstreamBranchStatus::Integrated => " [⬆ integrated upstream]".purple(),
@@ -591,9 +594,8 @@ pub fn print_group(
                 .map(|s| s.to_string())
                 .unwrap_or_default();
 
-            let workspace = branch
-                .linked_worktree_id
-                .as_ref()
+            let workspace = segment
+                .linked_worktree_id()
                 .and_then(|id| {
                     let ws = repo.worktree_proxy_by_id(id.as_bstr())?;
                     let base = ws.base().ok()?;
@@ -608,28 +610,34 @@ pub fn print_group(
                 out,
                 "┊{notch}┄{id} [{branch}{workspace}]{ci}{merge_status}{review} {no_commits} {stack_mark}",
                 stack_mark = stack_mark.clone().unwrap_or_default(),
-                branch = branch.name.to_string().green().bold(),
+                branch = segment
+                    .branch_name()
+                    .unwrap_or(BStr::new(""))
+                    .to_string()
+                    .green()
+                    .bold(),
             )?;
 
             *stack_mark = None; // Only show the stack mark for the first branch
             first = false;
 
-            if !branch.upstream_commits.is_empty() {
-                let tracking_branch = branch
-                    .remote_tracking_branch
+            if !segment.remote_commits.is_empty() {
+                let tracking_branch = segment
+                    .inner
+                    .remote_tracking_ref_name
                     .as_ref()
-                    .and_then(|rtb| rtb.to_str().ok())
-                    .and_then(|rtb| rtb.strip_prefix("refs/remotes/"))
-                    .unwrap_or("unknown");
+                    .and_then(|rtb| rtb.as_bstr().strip_prefix(b"refs/remotes/"))
+                    .unwrap_or(b"unknown");
                 writeln!(out, "┊┊")?;
                 writeln!(
                     out,
                     "┊╭┄┄{}",
-                    format!("(upstream: on {})", tracking_branch).yellow()
+                    format!("(upstream: on {})", BStr::new(tracking_branch)).yellow()
                 )?;
             }
-            for commit in &branch.upstream_commits {
-                let details = but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
+            for commit in &segment.remote_commits {
+                let details =
+                    but_api::diff::commit_details(ctx, commit.commit_id, ComputeLineStats::No)?;
                 print_commit(
                     details,
                     CommitClassification::Upstream,
@@ -642,33 +650,37 @@ pub fn print_group(
                     true,
                 )?;
             }
-            if !branch.upstream_commits.is_empty() {
+            if !segment.remote_commits.is_empty() {
                 writeln!(out, "┊-")?;
             }
-            for commit in branch.commits.iter() {
+            for commit in segment.workspace_commits.iter() {
                 let marked =
-                    crate::command::legacy::mark::commit_marked(ctx, commit.id.to_string())
+                    crate::command::legacy::mark::commit_marked(ctx, commit.commit_id.to_string())
                         .unwrap_or_default();
-                let classification = match commit.state {
-                    but_workspace::ui::CommitState::LocalOnly => CommitClassification::LocalOnly,
-                    but_workspace::ui::CommitState::LocalAndRemote(object_id) => {
-                        if object_id == commit.id {
+                let classification = match commit.relation {
+                    LocalCommitRelation::LocalOnly => CommitClassification::LocalOnly,
+                    LocalCommitRelation::LocalAndRemote(object_id) => {
+                        if object_id == commit.commit_id {
                             CommitClassification::Pushed
                         } else {
                             CommitClassification::Modified
                         }
                     }
-                    but_workspace::ui::CommitState::Integrated => CommitClassification::Integrated,
+                    LocalCommitRelation::Integrated(_) => CommitClassification::Integrated,
                 };
 
-                let details = but_api::diff::commit_details(ctx, commit.id, ComputeLineStats::No)?;
+                let details =
+                    but_api::diff::commit_details(ctx, commit.commit_id, ComputeLineStats::No)?;
                 print_commit(
                     details,
                     classification,
                     marked,
                     show_files,
                     verbose,
-                    commit.gerrit_review_url.clone(),
+                    // TODO: populate the Gerrit review URL. It
+                    // seems to be populated in handle_gerrit in
+                    // crates/but-api/src/legacy/workspace.rs
+                    None,
                     id_map,
                     out,
                     false,

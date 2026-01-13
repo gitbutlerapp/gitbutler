@@ -26,6 +26,7 @@ fn stacks_info_without_short_ids(stacks: Vec<Stack>) -> StacksInfo {
                     short_id: ShortId::default(),
                     commit_id: commit.id,
                     first_parent_id: commit.parent_ids.first().copied(),
+                    relation: commit.relation,
                 })
                 .collect::<Vec<_>>();
             let remote_commits = segment
