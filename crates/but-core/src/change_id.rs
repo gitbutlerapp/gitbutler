@@ -7,8 +7,10 @@ use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// How long a reverse hex change id should be if stored in actual reverse hex
-/// ASCII characters, ranging from `z` to `k`.
-const CHANGE_ID_REVERSE_HEX_LEN: usize = 40;
+/// ASCII characters, ranging from `z` to `k`. In accordance with the standard
+/// discussed together with the Jujutsu and Gerrit projects, it is 32.
+/// <https://lore.kernel.org/git/CAESOdVAspxUJKGAA58i0tvks4ZOfoGf1Aa5gPr0FXzdcywqUUw@mail.gmail.com>
+const CHANGE_ID_REVERSE_HEX_LEN: usize = 32;
 /// How long a reverse hex change id should be if stored compactly in bytes.
 const CHANGE_ID_REVERSE_BYTE_LEN: usize = CHANGE_ID_REVERSE_HEX_LEN / 2;
 
@@ -25,7 +27,7 @@ impl ChangeId {
         ChangeId(value.to_string().into())
     }
 
-    /// Creates a random length 40 reverse hex ChangeId.
+    /// Creates a random length 32 reverse hex ChangeId.
     pub fn generate() -> Self {
         let mut rng = rand::rng();
         let bytes: [u8; CHANGE_ID_REVERSE_BYTE_LEN] = rng.random();

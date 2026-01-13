@@ -49,12 +49,11 @@ mod headers {
 
         #[test]
         fn with_reverse_hex_change_id() {
-            let commit =
-                commit_with_header([("change-id", "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx")]);
+            let commit = commit_with_header([("change-id", "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx")]);
             insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("reverse hex is parsed as well"), @r#"
             Headers {
                 change_id: Some(
-                    "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx",
+                    "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx",
                 ),
                 conflicted: None,
             }
@@ -77,13 +76,13 @@ mod headers {
         #[test]
         fn with_conflict_header_and_reverse_hex_change_id() {
             let commit = commit_with_header([
-                ("change-id", "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx"),
+                ("change-id", "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx"),
                 ("gitbutler-conflicted", "128"),
             ]);
             insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("both fields are parsed"), @r#"
             Headers {
                 change_id: Some(
-                    "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx",
+                    "zxzxzxzxzxzxzxzxzxzxzxzxzxzxzxzx",
                 ),
                 conflicted: Some(
                     128,
