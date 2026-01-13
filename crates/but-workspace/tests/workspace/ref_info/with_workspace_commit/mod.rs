@@ -3876,7 +3876,6 @@ pub(crate) mod utils {
                     false,
                 )))
                 .collect(),
-            0,
             meta.data().branches.len(),
             match state {
                 StackState::InWorkspace => true,

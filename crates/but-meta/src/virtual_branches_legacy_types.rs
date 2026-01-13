@@ -50,16 +50,6 @@ mod stack {
         // upstream_head is the last commit on we've pushed to the upstream branch
         #[serde(with = "but_serde::object_id_opt", default)]
         pub upstream_head: Option<gix::ObjectId>,
-        #[serde(
-            serialize_with = "serialize_u128",
-            deserialize_with = "deserialize_u128"
-        )]
-        pub created_timestamp_ms: u128,
-        #[serde(
-            serialize_with = "serialize_u128",
-            deserialize_with = "deserialize_u128"
-        )]
-        pub updated_timestamp_ms: u128,
         /// head is id of the last "virtual" commit in this branch
         #[serde(with = "but_serde::object_id")]
         pub head: gix::ObjectId,
@@ -92,6 +82,20 @@ mod stack {
         #[serde(with = "but_serde::object_id")]
         #[serde(default = "default_null_object_id")]
         pub tree: gix::ObjectId,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(
+            serialize_with = "serialize_u128",
+            deserialize_with = "deserialize_u128"
+        )]
+        #[serde(default)]
+        pub created_timestamp_ms: u128,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(
+            serialize_with = "serialize_u128",
+            deserialize_with = "deserialize_u128"
+        )]
+        #[serde(default)]
+        pub updated_timestamp_ms: u128,
     }
 
     impl Stack {
@@ -135,14 +139,11 @@ mod stack {
     impl Stack {
         pub fn new_with_just_heads(
             heads: Vec<StackBranch>,
-            created_ms: u128,
             order: usize,
             in_workspace: bool,
         ) -> Self {
             Stack {
                 id: StackId::generate(),
-                created_timestamp_ms: created_ms,
-                updated_timestamp_ms: created_ms,
                 order,
                 in_workspace,
                 heads,
@@ -168,6 +169,10 @@ mod stack {
                 post_commits: false,
                 #[allow(deprecated)]
                 tree: gix::hash::Kind::Sha1.null(),
+                #[allow(deprecated)]
+                created_timestamp_ms: 0,
+                #[allow(deprecated)]
+                updated_timestamp_ms: 0,
             }
         }
     }

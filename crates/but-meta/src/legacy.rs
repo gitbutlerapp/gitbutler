@@ -10,7 +10,6 @@ use but_core::{
 };
 use gitbutler_reference::RemoteRefname;
 use gix::{
-    date::SecondsSinceUnixEpoch,
     reference::Category,
     refs::{FullName, FullNameRef},
 };
@@ -311,12 +310,7 @@ impl Snapshot {
                 .entry(in_workspace_stack_id)
                 .or_insert_with(|| {
                     inserted_new_stack = true;
-                    let mut stack = Stack::new_with_just_heads(
-                        vec![],
-                        gix::date::Time::now_utc().seconds as u128 * 1000,
-                        ws_stack_idx,
-                        true,
-                    );
+                    let mut stack = Stack::new_with_just_heads(vec![], ws_stack_idx, true);
                     stack.id = in_workspace_stack_id;
                     stack
                 });
@@ -528,10 +522,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             // keep None, as otherwise it means we created it, which allows us to delete the ref.
             // However, for it's too early for that logic.
             created_at: None,
-            updated_at: Some(gix::date::Time {
-                seconds: (stack.updated_timestamp_ms / 1000) as SecondsSinceUnixEpoch,
-                ..gix::date::Time::now_utc()
-            }),
+            updated_at: None,
         };
         Ok(VBTomlMetadataHandle {
             is_default: false,
@@ -764,10 +755,8 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 Ok(())
             }
             None => {
-                let now_ms = (gix::date::Time::now_utc().seconds * 1000) as u128;
                 let stack = Stack::new_with_just_heads(
                     vec![branch_to_stack_branch(ref_name, value, false)],
-                    now_ms,
                     self.data().branches.len(),
                     ws.contains_ref(ref_name, Applied),
                 );
