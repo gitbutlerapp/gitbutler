@@ -3,7 +3,7 @@
 	import Header from '$lib/components/marketing/Header.svelte';
 	import ReleaseCard from '$lib/components/marketing/ReleaseCard.svelte';
 	import osIcons from '$lib/data/os-icons.json';
-	import { marked } from '@gitbutler/ui/utils/marked';
+	import Markdown from 'svelte-exmarkdown';
 	import type { Release } from '$lib/types/releases';
 	import type { LatestReleaseBuilds } from '$lib/utils/releaseUtils';
 
@@ -150,7 +150,7 @@
 
 		{#if latestRelease.notes}
 			<div class="release-notes-content">
-				{@html marked(latestRelease.notes)}
+				<Markdown md={latestRelease.notes} />
 			</div>
 		{/if}
 
