@@ -121,19 +121,19 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 959e2d8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * e15040c (main, c) c
+    * 04c2142 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * f5d7b3a (main, c) c
     * 5b128a2 (b, a) a
     * 3b506ba (base) base
     ");
 
     insta::assert_snapshot!(cat_commit(&repo, "gitbutler/workspace")?, @r"
     tree ea0372ea78d32151cb4c2b6a05a084817947c8f3
-    parent e15040cb8141e591e34472039a6a7f129f0e9003
+    parent f5d7b3afc9bb95d2e6658923dce0c9b0193fe3d8
     author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
 
     GitButler Workspace Commit
     ");
@@ -145,7 +145,7 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
     gpgsig -----BEGIN SSH SIGNATURE-----
      U1NIU0lHAAAAAQAAARcAAAAHc3NoLXJzYQAAAAMBAAEAAAEBAOj1xLJULJE7SBNLxGjuro
      io0elMRrvwflDkg+jK3bG9FNuAx+Bdvt6EXVUIDx9kPb+hwTw9ozSXTfYRRlLa+dZEIMuE
@@ -153,12 +153,12 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
      BlT/sJeqdwkYu4TffidBfo8OHJA1BngkwvTCKYG+v9s9udZO0seBIuClKplgQgbi1OtHZB
      +5usAsxZ839PWNZWet8O98bhIe0/gop/DYCN/okBc7e2x5VgiLPZLnHBbHog/JV5dMxNtY
      8SXYY5ldUNe+gLLVeN0AnVDPvC3TzUo4QnlC+1qpkAAAADZ2l0AAAAAAAAAAZzaGE1MTIA
-     AAEUAAAADHJzYS1zaGEyLTUxMgAAAQBNbYKjqDniGBtM8BYGD4kBX+au4A99bzK9JmKWyA
-     IBm18OOtazZu+Pu91opFp8+OMeSY8uTJJrEW+Tu8N7a5JK+CyrmUgZWVOkv0WVkxbRfQfW
-     iWz5xfLblK1ZLebO9e5EMN7rBMMugAyu6/lx2XcyUobzwg6hux0nPNW1e1QC19qDR4ZTZV
-     V/ynV7EAuLc5B2BKNIK1jZJkWsJl0IA2NyWpp+ELdmvBZ8cb2eAJMi8hq8QuRn/YxB+Jt9
-     EFkBS3EoJqdZCfMsyHJE0QVnOAGxXII3XfGd6anBafYCBXt/5/cqtKWbNhfUNcTAw5Lm1J
-     kfoK8UfwdQ7EQzuZ2ATjiQ
+     AAEUAAAADHJzYS1zaGEyLTUxMgAAAQBDztvWxtfbQJjo1DrnWN+tRTsDA9g2fHwhJyYB34
+     kLPvpIw0Xo3QfpkZhLz56PXUQ4NdFrOP9U+3OmS76XqoE0zAqmkHBv5Oi1g52vK2ATu8+B
+     UNYiQG6peixN/xrVS169cFKZFfiwheJ0s6YWBE2wF1yY7MHKyQ4u79qbj+6yN8Ok4gr/72
+     583FAsVuJPIenCHRYuCzf6JquB2dssk67xhJqwyPGn2KgvzFH+xFgcPP0I0vJ72hLVYcea
+     yxMeDMLe9nvl5lH6t6qVlCVOmv8KSFrKl2OPy+PZd9AVigu4zBPio3OTsiXsmkwtYnfNzy
+     KheAQ+TQz3F/EYi5kASp6s
      -----END SSH SIGNATURE-----
 
     c

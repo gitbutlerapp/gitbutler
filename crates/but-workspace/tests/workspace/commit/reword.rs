@@ -51,7 +51,7 @@ fn reword_middle_commit() -> Result<()> {
         .materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 47ef8b7 (HEAD -> three) commit three
+    * 9feebdd (HEAD -> three) commit three
     * ada51de (two) New name
     | * 16fd221 (origin/two) commit two
     |/  
@@ -83,8 +83,8 @@ fn reword_base_commit() -> Result<()> {
     // We end up with two divergent histories here. This is to be expected if we
     // rewrite the very bottom commit in a repository.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 3c0bed8 (HEAD -> three) commit three
-    * 6618289 (two) commit two
+    * fe9fe7a (HEAD -> three) commit three
+    * 096a124 (two) commit two
     * 1121ebc (one) New name
     * 16fd221 (origin/two) commit two
     * 8b426d0 commit one

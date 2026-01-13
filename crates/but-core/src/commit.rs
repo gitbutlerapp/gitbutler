@@ -68,6 +68,10 @@ impl Headers {
             .find(HEADERS_CONFLICTED_FIELD)
             .and_then(|value| value.to_str().ok()?.parse::<u64>().ok());
 
+        if change_id.is_none() && conflicted.is_none() {
+            return None;
+        }
+
         Some(Headers {
             change_id,
             conflicted,

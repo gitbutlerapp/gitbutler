@@ -45,9 +45,9 @@ fn insert_below_merge_commit() -> Result<()> {
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * dca85f5 (HEAD -> with-inner-merge) on top of inner merge
-    * dfff8d1 Merge branch 'B' into with-inner-merge
-    *   f593b23 Commit below the merge commit
+    * ceb4158 (HEAD -> with-inner-merge) on top of inner merge
+    * ea55b6e Merge branch 'B' into with-inner-merge
+    *   ec48031 Commit below the merge commit
     |\  
     | * 984fd1c (B) C: new file with 10 lines
     * | add59d2 (A) A: 10 lines on top
@@ -98,13 +98,13 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * a371fba (HEAD -> with-inner-merge) on top of inner merge
-    *   b311d2a Merge branch 'B' into with-inner-merge
+    * 9d2b9d9 (HEAD -> with-inner-merge) on top of inner merge
+    *   8502201 Merge branch 'B' into with-inner-merge
     |\  
-    | * 5101a39 (B) C: new file with 10 lines
-    * | 2bb9fcc (A) A: 10 lines on top
+    | * 97c7cc6 (B) C: new file with 10 lines
+    * | 0379d6c (A) A: 10 lines on top
     |/  
-    * 1f3bf7d (tag: base, main) Commit above base commit
+    * 055ead5 (tag: base, main) Commit above base commit
     * 8f0d338 base
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");

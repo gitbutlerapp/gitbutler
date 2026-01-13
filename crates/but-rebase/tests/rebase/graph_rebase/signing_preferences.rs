@@ -100,7 +100,7 @@ fn commits_are_signed_by_default() -> Result<()> {
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 0e3a49e (HEAD -> main, c) c
+    * de980c3 (HEAD -> main, c) c
     * 3bfeb52 (b, a) a
     * b6e2f57 (base) base
     ");
@@ -111,7 +111,7 @@ fn commits_are_signed_by_default() -> Result<()> {
     author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
     gpgsig -----BEGIN SSH SIGNATURE-----
      U1NIU0lHAAAAAQAAARcAAAAHc3NoLXJzYQAAAAMBAAEAAAEBALgYZ0wtPvJyZ40qWRIe8A
      bAYhKYgt0bWX3Z16PyZjWEF+FFx9bRSThY0Bc45TNzon133/aaTWMBnO9RDPw50wZH2ULI
@@ -119,12 +119,12 @@ fn commits_are_signed_by_default() -> Result<()> {
      jf8ezbO+kZg8+J1HMS83gOxhxj15Gwf1cCJAInXr/phYX8BmAZWSHZHu8foy6IG1g1dutr
      2QyAGFddwDKObsrbejsOhwbF7u7PTEGWWO63ZlKS5/QfXg4hCoyWsrTW7lVqI6Xgxk4zOa
      U+EnrNSr2BBXGSSgAqe1vo8TVWggNh/ACdnZa4Y6EAAAADZ2l0AAAAAAAAAAZzaGE1MTIA
-     AAEUAAAADHJzYS1zaGEyLTUxMgAAAQBQttFHnDf0WFY4pmCG2X1gE2An415/DQstH7g2Ei
-     V4cLghc6+50sngUNt75JtBexJ8T6c/EOR7Yw//lFdex2D1M0kihaLEj63tS4IFWsM3spvp
-     5gVHrGKFF92Kq5GnaJKACOBFAjskrrOvWYiOATQfcOov085GMAeSDKwA2vx29NVSdepYFk
-     p12AMVyusxFkl+TTqm7VIqcrb43t84PqnX6L7U42Pmuzh9gR84Roz3sQgoMNlC37wWUoGg
-     uBEmtyPHLL/5AMKE/GGNmDZgiofsKfdyrRWEBmWbBcPt293hIQm4zDJghwB7H8w5fU3Buz
-     DtgrahrnNvZB2Y4QeGVoTc
+     AAEUAAAADHJzYS1zaGEyLTUxMgAAAQCzgTRGROlhLbgBHE+/7Kp1Iy5zhO3KCQUqL1mxoN
+     MIP2YYq26jA7Xqxd5ZXBmQ/GjuPUb9SRiYt3gGQ24XuE3IPfMk4KEgR+ko/NyDWAx1M/kk
+     J4Kc6h7JoxNFDQFDY1Lj8BXNJ/DemHEHd6ncjBjdZlSlDpeB+x4Lv1fSnRF3RKhzXTA+sZ
+     aHOH9hZhWAftrV1IyG4JOfNeMaaHXt8HEuEPNUvCEajqqFCaQK9jBf3hd7biPUd/fQ2XUm
+     UfWrxBKP4ZKbO+/JQLmtJfIsxev6no7pF2nxnbmX+ivzE8n/TZJR3xuzBtXNsc1zBdkApM
+     LXBDTIkoN64ekxY0tJjYsE
      -----END SSH SIGNATURE-----
 
     c
@@ -164,7 +164,7 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 38e3281 (HEAD -> main, c) c
+    * 06fee46 (HEAD -> main, c) c
     * 3bfeb52 (b, a) a
     * b6e2f57 (base) base
     ");
@@ -175,7 +175,7 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
 
     c
     ");

@@ -33,7 +33,7 @@ fn uncommitted_file() -> anyhow::Result<()> {
         .stdout_eq(snapbox::str![[r#"
 Found 2 changed files to absorb:
 
-Absorbed to commit: 4fa8217 a.txt
+Absorbed to commit: f4ea7f8 a.txt
   (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
     a.txt @6,4 +6,4
@@ -112,7 +112,7 @@ k0 a.txt│
         .stdout_eq(snapbox::str![[r#"
 Found 1 changed file to absorb:
 
-Absorbed to commit: 4fa8217 a.txt
+Absorbed to commit: f4ea7f8 a.txt
   (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
 

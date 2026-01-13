@@ -39,7 +39,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
     gitbutler-conflicted 1
 
     c
@@ -126,8 +126,8 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
 
     // The rebase is successful because `c` remained unconflicted
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 3ac884c (HEAD -> main, c) c
-    * 80401d2 (b) I'm a new commit! Hello there
+    * 00c31ec (HEAD -> main, c) c
+    * 7762cf9 (b) I'm a new commit! Hello there
     * 3b3bd41 b
     * 5e0ba46 (a) a
     * 6155f21 (base) base

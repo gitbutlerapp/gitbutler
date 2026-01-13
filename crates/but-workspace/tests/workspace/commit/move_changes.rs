@@ -92,7 +92,7 @@ fn move_file_from_head_to_parent() -> Result<()> {
 
     // Graph structure should be maintained (commit hashes will change)
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 5da338c (HEAD -> three) commit three
+    * 95562c2 (HEAD -> three) commit three
     * 88ba151 (two) commit two
     | * 16fd221 (origin/two) commit two
     |/  
@@ -151,7 +151,7 @@ fn move_file_from_parent_to_head() -> Result<()> {
 
     // Graph structure should be maintained
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * f29793d (HEAD -> three) commit three
+    * c7eb64b (HEAD -> three) commit three
     * 0f198e0 (two) commit two
     | * 16fd221 (origin/two) commit two
     |/  
@@ -208,8 +208,8 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
 
     // Graph structure should be maintained
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * ae26c3e (HEAD -> three) commit three
-    * 9477193 (two) commit two
+    * 4d3039f (HEAD -> three) commit three
+    * 364d4a2 (two) commit two
     * 9bc8248 (one) commit one
     * 16fd221 (origin/two) commit two
     * 8b426d0 commit one

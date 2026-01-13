@@ -43,7 +43,7 @@ fn record_push_metadata_fallback_url() -> anyhow::Result<()> {
 GerritMeta {
     change_id: "00000000-0000-0000-0000-000000000001",
     commit_id: "7923faec4760ee74d7ad794892766d1b9b00ca96",
-    review_url: "https://gerrithost/q/I88685c90d4ac9d24be7595ba23ac90d3a06bd474",
+    review_url: "https://gerrithost/q/I10c56efd90c998f406d4e0b99d9c58feeaf896c5",
 ...
 }
 "#]]

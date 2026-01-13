@@ -49,8 +49,8 @@ fn reword_a_commit() -> Result<()> {
     assert_eq!(head_tree, repo.head_tree()?.id);
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * b09eadd (HEAD -> with-inner-merge) on top of inner merge
-    *   0d7d445 Merge branch 'B' into with-inner-merge
+    * b475cbc (HEAD -> with-inner-merge) on top of inner merge
+    *   3d1e2c5 Merge branch 'B' into with-inner-merge
     |\  
     | * 984fd1c (B) C: new file with 10 lines
     * | 6de6b92 (A) A: a second coming
@@ -119,8 +119,8 @@ fn amend_a_commit() -> Result<()> {
     outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * ca40fe2 (HEAD -> with-inner-merge) on top of inner merge
-    *   1c3ebbd Merge branch 'B' into with-inner-merge
+    * 4772ab7 (HEAD -> with-inner-merge) on top of inner merge
+    *   e7d8400 Merge branch 'B' into with-inner-merge
     |\  
     | * 984fd1c (B) C: new file with 10 lines
     * | f1905a8 (A) A: a second coming
