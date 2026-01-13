@@ -28,9 +28,12 @@ impl ChangesSource {
         match self {
             ChangesSource::Commit { id } => {
                 let commit = repository.find_commit(*id)?;
-                let parent_id = commit.parent_ids().next().context("no parent")?;
-                let parent = repository.find_commit(parent_id)?;
-                Ok(parent.tree()?)
+                if let Some(parent_id) = commit.parent_ids().next() {
+                    let parent = repository.find_commit(parent_id)?;
+                    Ok(parent.tree()?)
+                } else {
+                    Ok(repository.empty_tree())
+                }
             }
             ChangesSource::Tree { before_id, .. } => Ok(repository.find_tree(*before_id)?),
         }
