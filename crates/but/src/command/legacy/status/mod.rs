@@ -108,14 +108,17 @@ pub(crate) async fn worktree(
         Some(cache_config.clone()),
     )?;
 
-    let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
     let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
 
+    let mut id_map = IdMap::new(
+        head_info.stacks.clone(),
+        worktree_changes.assignments.clone(),
+    )?;
+    id_map.add_committed_file_info_from_context(ctx)?;
+
+    let stacks = &id_map.stacks;
     // Store the count of stacks for hint logic later
     let has_branches = !stacks.is_empty();
-
-    let mut id_map = IdMap::new(&head_info.stacks, worktree_changes.assignments.clone())?;
-    id_map.add_committed_file_info_from_context(ctx)?;
 
     let assignments_by_file: BTreeMap<BString, FileAssignment> =
         FileAssignment::get_assignments_by_file(&id_map);
