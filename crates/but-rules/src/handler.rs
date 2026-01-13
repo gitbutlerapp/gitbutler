@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use but_core::{DiffSpec, ref_metadata::StackId};
+use but_core::{ChangeId, DiffSpec, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
@@ -65,7 +65,7 @@ pub fn process_workspace_rules(
             }
             super::Action::Explicit(super::Operation::Amend { change_id }) => {
                 let assignments = matching(assignments, rule.filters.clone());
-                handle_amend(ctx, assignments, change_id).unwrap_or_default();
+                handle_amend(ctx, assignments, &change_id).unwrap_or_default();
             }
             _ => continue,
         };
@@ -76,7 +76,7 @@ pub fn process_workspace_rules(
 fn handle_amend(
     ctx: &mut Context,
     assignments: Vec<HunkAssignment>,
-    change_id: String,
+    change_id: &ChangeId,
 ) -> anyhow::Result<()> {
     let changes: Vec<DiffSpec> = assignments.into_iter().map(|a| a.into()).collect();
     let mut guard = ctx.exclusive_worktree_access();
@@ -94,7 +94,7 @@ fn handle_amend(
     'outer: for stack in info.stacks {
         for segment in stack.segments {
             for commit in segment.commits {
-                if Some(change_id.clone()) == commit.change_id.map(|c| c.to_string()) {
+                if Some(change_id) == commit.change_id.as_ref() {
                     commit_id = Some(commit.id);
                     break 'outer;
                 }

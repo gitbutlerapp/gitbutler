@@ -1,4 +1,4 @@
-use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use snapbox::str;
 
 use crate::utils::Sandbox;

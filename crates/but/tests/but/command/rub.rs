@@ -119,14 +119,29 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "o0",
+                  "cliId": "m0",
                   "filePath": "a.txt",
                   "changeType": "modified"
                 },
                 {
-                  "cliId": "p0",
+                  "cliId": "n0",
                   "filePath": "b.txt",
                   "changeType": "modified"
+                }
+              ]
+            },
+            {
+...
+              "changes": [
+                {
+                  "cliId": "o0",
+                  "filePath": "a.txt",
+                  "changeType": "added"
+                },
+                {
+                  "cliId": "p0",
+                  "filePath": "b.txt",
+                  "changeType": "added"
                 }
               ]
             },
@@ -135,21 +150,6 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
               "changes": [
                 {
                   "cliId": "k0",
-                  "filePath": "a.txt",
-                  "changeType": "added"
-                },
-                {
-                  "cliId": "l0",
-                  "filePath": "b.txt",
-                  "changeType": "added"
-                }
-              ]
-            },
-            {
-...
-              "changes": [
-                {
-                  "cliId": "m0",
                   "filePath": "A",
                   "changeType": "added"
                 }
@@ -169,7 +169,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "n0",
+                  "cliId": "l0",
                   "filePath": "B",
                   "changeType": "added"
                 }
@@ -207,8 +207,8 @@ Unassigned all [B] changes.
           "name": "A",
           "commits": [
             {
-              "cliId": "e4",
-              "commitId": "e402775bc9360fa967ed55b98aaa4b5a12da4e20",
+              "cliId": "e8",
+              "commitId": "e8818283e5e0b903cefc4a27b77b1fec084ea268",
               "createdAt": "2000-01-01T00:00:00+00:00",
               "message": "create a.txt and b.txt",
               "authorName": "author",
@@ -216,9 +216,19 @@ Unassigned all [B] changes.
 ...
               "changes": [
                 {
-                  "cliId": "o0",
+                  "cliId": "m0",
                   "filePath": "a.txt",
                   "changeType": "modified"
+                },
+                {
+                  "cliId": "n0",
+                  "filePath": "b.txt",
+...
+              "changes": [
+                {
+                  "cliId": "o0",
+                  "filePath": "a.txt",
+                  "changeType": "added"
                 },
                 {
                   "cliId": "p0",
@@ -227,16 +237,6 @@ Unassigned all [B] changes.
               "changes": [
                 {
                   "cliId": "k0",
-                  "filePath": "a.txt",
-                  "changeType": "added"
-                },
-                {
-                  "cliId": "l0",
-                  "filePath": "b.txt",
-...
-              "changes": [
-                {
-                  "cliId": "m0",
                   "filePath": "A",
                   "changeType": "added"
                 }
@@ -254,7 +254,7 @@ Unassigned all [B] changes.
 ...
               "changes": [
                 {
-                  "cliId": "n0",
+                  "cliId": "l0",
                   "filePath": "B",
                   "changeType": "added"
                 }
@@ -681,7 +681,7 @@ fn unstage_command_validation() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to unstage. Cannot unstage 3f - it is a commit. Only uncommitted files and hunks can be unstaged.
+Failed to unstage. Cannot unstage fc - it is a commit. Only uncommitted files and hunks can be unstaged.
 
 "#]]);
 
@@ -691,7 +691,7 @@ Failed to unstage. Cannot unstage 3f - it is a commit. Only uncommitted files an
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to unstage. Cannot unstage from 3f - it is a commit. Target must be a branch.
+Failed to unstage. Cannot unstage from fc - it is a commit. Target must be a branch.
 
 "#]]);
 

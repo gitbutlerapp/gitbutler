@@ -95,20 +95,20 @@ fn single_stack_journey() -> Result<()> {
     // The base remains unchanged, and two commits remain: a squash commit and a merge with
     // the original `c` commit.
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    * 8e7cee3 second step: squash b into a
+    * 0fce812 second step: squash b into a
     * 35b8235 base
     ");
 
     // The reference points to the commit and correctly refers to the one that was fixed up.
     insta::assert_debug_snapshot!(out, @r#"
     RebaseOutput {
-        top_commit: Sha1(8e7cee304de489eb7a5f9e7b22f0f3fa8e0bfe71),
+        top_commit: Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
         references: [
             ReferenceSpec {
                 reference: Virtual(
                     "anchor",
                 ),
-                commit_id: Sha1(8e7cee304de489eb7a5f9e7b22f0f3fa8e0bfe71),
+                commit_id: Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
                 previous_commit_id: Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
             },
         ],
@@ -118,21 +118,21 @@ fn single_stack_journey() -> Result<()> {
                     Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
                 ),
                 Sha1(d591dfed1777b8f00f5b7b6f427537eeb5878178),
-                Sha1(9e26ae2636cf1c04e687b89f424001188113b79d),
+                Sha1(8ccdf30390de9029cb5726a046783992c5f67067),
             ),
             (
                 Some(
                     Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
                 ),
                 Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
-                Sha1(8e7cee304de489eb7a5f9e7b22f0f3fa8e0bfe71),
+                Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
             ),
             (
                 Some(
                     Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
                 ),
                 Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
-                Sha1(8e7cee304de489eb7a5f9e7b22f0f3fa8e0bfe71),
+                Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
             ),
         ],
     }
@@ -181,9 +181,9 @@ fn amended_commit() -> Result<()> {
         .rebase()?;
     // Note how the `C` isn't visible anymore as we don't rewrite reference here.
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *-.   cd4a908 Merge branches 'A', 'B' and 'C' - rewritten
+    *-.   6a38e67 Merge branches 'A', 'B' and 'C' - rewritten
     |\ \  
-    | | * 23e5d5a C: add another 10 lines to new file - amended
+    | | * 806db8c C: add another 10 lines to new file - amended
     | | * 68a2fc3 C: add 10 lines to new file
     | | * 984fd1c C: new file with 10 lines
     | * | a748762 (B) B: another 10 lines at the bottom
@@ -196,7 +196,7 @@ fn amended_commit() -> Result<()> {
     // This time without anchor.
     insta::assert_debug_snapshot!(out, @r"
     RebaseOutput {
-        top_commit: Sha1(cd4a9086ff050875eca86b5927cc4eeee5098401),
+        top_commit: Sha1(6a38e6718b008686a81969c07f8654dd68f7b824),
         references: [],
         commit_mapping: [
             (
@@ -204,14 +204,14 @@ fn amended_commit() -> Result<()> {
                     Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
                 ),
                 Sha1(930563a048351f05b14cc7b9c0a48640e5a306b0),
-                Sha1(23e5d5a11e06c92ff3110fed5e08a02f9bbcbeba),
+                Sha1(806db8cb9559776b351f5dd222755793a465fe87),
             ),
             (
                 Some(
                     Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
                 ),
                 Sha1(134887021e06909021776c023a608f8ef179e859),
-                Sha1(cd4a9086ff050875eca86b5927cc4eeee5098401),
+                Sha1(6a38e6718b008686a81969c07f8654dd68f7b824),
             ),
         ],
     }
@@ -257,9 +257,9 @@ fn reorder_merge_in_reverse() -> Result<()> {
         .expect("the first parent of a merge is replaced unconditionally");
     // Note that we don't rewrite references here.
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    * 4611df5 was dd59d2 below merge
-    * 4a25782 was e8ee978 on top
-    *   9f77fe6 was merge 2fc288c one below top
+    * eb90e58 was dd59d2 below merge
+    * 5d38e6f was e8ee978 on top
+    *   418a03b was merge 2fc288c one below top
     |\  
     | * 984fd1c (B) C: new file with 10 lines
     |/  
@@ -267,7 +267,7 @@ fn reorder_merge_in_reverse() -> Result<()> {
     ");
     insta::assert_debug_snapshot!(out, @r"
     RebaseOutput {
-        top_commit: Sha1(4611df58147262208248be2c77d7ae173670a67e),
+        top_commit: Sha1(eb90e584f71ba2b0f122d9778abd0225bde3c669),
         references: [],
         commit_mapping: [
             (
@@ -275,21 +275,21 @@ fn reorder_merge_in_reverse() -> Result<()> {
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b),
-                Sha1(9f77fe6da4d9092fdcaeea5340856cdf9cf708f3),
+                Sha1(418a03b1f9da47d9c4cbb3aeea0222899dc0c9c4),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(e8ee978dac10e6a85006543ef08be07c5824b4f7),
-                Sha1(4a25782693456e93b6159e22a5a3c4d4eb83d451),
+                Sha1(5d38e6f5ca16c627bb1f45485dda9b7012287f13),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(add59d26b2ffd7468fcb44c2db48111dd8f481e5),
-                Sha1(4611df58147262208248be2c77d7ae173670a67e),
+                Sha1(eb90e584f71ba2b0f122d9778abd0225bde3c669),
             ),
         ],
     }
@@ -340,7 +340,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
         .rebase()?;
     insta::assert_debug_snapshot!(out, @r"
     RebaseOutput {
-        top_commit: Sha1(25ee4c11b0ebaa246e1d70274365bd4efc091822),
+        top_commit: Sha1(3ccc6a6db258bc7deed5a08efc892de13ba21746),
         references: [],
         commit_mapping: [
             (
@@ -348,38 +348,38 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(984fd1c6d3975901147b1f02aae6ef0a16e5904e),
-                Sha1(a14fc6b3ad4345310b4df2faaba45e12ace092d9),
+                Sha1(a037d4a2c1313b991c91f8bd0086643f8f39f0ea),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(930563a048351f05b14cc7b9c0a48640e5a306b0),
-                Sha1(e61d7bf736e00fdfb86dd31e26ce1d80e9ce2e24),
+                Sha1(eebaa8b32984736d7a835f805724c66a3988f01b),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
-                Sha1(1b36ea26d3a5c161ec7c41f7a9a54e17811fb759),
+                Sha1(c4a99d5da6b9e2c434563ae56ab51b85f03587d5),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(134887021e06909021776c023a608f8ef179e859),
-                Sha1(25ee4c11b0ebaa246e1d70274365bd4efc091822),
+                Sha1(3ccc6a6db258bc7deed5a08efc892de13ba21746),
             ),
         ],
     }
     ");
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *-.   25ee4c1 Re-merge branches 'A', 'B' and 'C'
+    *-.   3ccc6a6 Re-merge branches 'A', 'B' and 'C'
     |\ \  
-    | | * 1b36ea2 C~1
-    | | * e61d7bf C
-    | | * a14fc6b C~2
+    | | * c4a99d5 C~1
+    | | * eebaa8b C
+    | | * a037d4a C~2
     | * | a748762 (B) B: another 10 lines at the bottom
     | * | 62e05ba B: 10 lines at the bottom
     | |/  
@@ -422,11 +422,11 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     // gitbutler headers were added here to indicate conflict (change-id is frozen for testing)
     insta::assert_snapshot!(conflict_commit_id.object()?.data.as_bstr(), @r"
     tree db4a5b82b209e5165cdf8d04ff4328ec1fc2526d
-    parent e61d7bf736e00fdfb86dd31e26ce1d80e9ce2e24
+    parent eebaa8b32984736d7a835f805724c66a3988f01b
     author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
     gitbutler-conflicted 1
 
     C~1
@@ -437,11 +437,11 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     tree 6abc3da6f1642bfd5543ef97f98b924f4f232a96
     parent add59d26b2ffd7468fcb44c2db48111dd8f481e5
     parent a7487625f079bedf4d20e48f052312c010117b38
-    parent 1b36ea26d3a5c161ec7c41f7a9a54e17811fb759
+    parent c4a99d5da6b9e2c434563ae56ab51b85f03587d5
     author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
 
     Re-merge branches 'A', 'B' and 'C'
     ");
@@ -454,7 +454,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
 
     C~2
     ");
@@ -585,11 +585,11 @@ fn reversible_conflicts() -> anyhow::Result<()> {
 
     let conflict_tip = repo.rev_parse_single(format!("{}^3", out.top_commit).as_str())?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *-.   25ee4c1 Re-merge branches 'A', 'B' and 'C'
+    *-.   3ccc6a6 Re-merge branches 'A', 'B' and 'C'
     |\ \  
-    | | * 1b36ea2 C~1
-    | | * e61d7bf C
-    | | * a14fc6b C~2
+    | | * c4a99d5 C~1
+    | | * eebaa8b C
+    | | * a037d4a C~2
     | * | a748762 (B) B: another 10 lines at the bottom
     | * | 62e05ba B: 10 lines at the bottom
     | |/  
@@ -654,10 +654,10 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
             },
         ])?
         .rebase()?;
-    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @"* 807436b reworded base after squash");
+    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @"* e380582 reworded base after squash");
     insta::assert_debug_snapshot!(out, @r"
     RebaseOutput {
-        top_commit: Sha1(807436b307ac7bd8dbbf98cedb63abb7d51591c1),
+        top_commit: Sha1(e3805829c98eb212c529d5e853a94283ed32747c),
         references: [],
         commit_mapping: [
             (
@@ -668,7 +668,7 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
             (
                 None,
                 Sha1(d591dfed1777b8f00f5b7b6f427537eeb5878178),
-                Sha1(807436b307ac7bd8dbbf98cedb63abb7d51591c1),
+                Sha1(e3805829c98eb212c529d5e853a94283ed32747c),
             ),
         ],
     }

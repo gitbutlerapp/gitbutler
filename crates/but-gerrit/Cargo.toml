@@ -16,8 +16,6 @@ but-ctx.workspace = true
 
 gitbutler-commit.workspace = true
 
-sha-1 = "0.10.1"
-uuid.workspace = true
 anyhow.workspace = true
 bstr.workspace = true
 chrono.workspace = true

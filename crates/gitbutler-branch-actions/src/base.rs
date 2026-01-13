@@ -288,6 +288,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 
 pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<BaseBranch> {
     let repo = &*ctx.git2_repo.get()?;
+    let gix_repo = &*ctx.repo.get()?;
     let target_branch = repo
         .maybe_find_branch_by_refname(&target.branch.clone().into())?
         .ok_or(anyhow!("failed to get branch"))?;
@@ -320,19 +321,25 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
 
     // gather a list of commits between oid and target.sha
     let upstream_commits = repo
-        .log(target_commit_id, LogUntil::Commit(target.sha), false)
+        .l(target_commit_id, LogUntil::Commit(target.sha), false)
         .context("failed to get upstream commits")?
         .iter()
-        .map(commit_to_remote_commit)
-        .collect::<Vec<_>>();
+        .map(|id| {
+            let commit = gix_repo.find_commit(id.to_gix())?;
+            commit_to_remote_commit(&commit)
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     // get some recent commits
     let recent_commits = repo
-        .log(target.sha, LogUntil::Take(20), false)
+        .l(target.sha, LogUntil::Take(20), false)
         .context("failed to get recent commits")?
         .iter()
-        .map(commit_to_remote_commit)
-        .collect::<Vec<_>>();
+        .map(|id| {
+            let commit = gix_repo.find_commit(id.to_gix())?;
+            commit_to_remote_commit(&commit)
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     // we assume that only local commits can be conflicted
     let conflicted = recent_commits.iter().any(|commit| commit.conflicted);

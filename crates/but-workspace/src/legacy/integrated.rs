@@ -41,7 +41,12 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
         let upstream_change_ids = upstream_commits
             .iter()
-            .filter_map(|commit| commit.change_id())
+            .filter_map(|commit| {
+                repo.find_commit(commit.id().to_gix())
+                    .ok()
+                    .and_then(|c| c.change_id())
+                    .map(|cid| cid.to_string())
+            })
             .sorted()
             .collect();
         let upstream_commits = upstream_commits
@@ -75,8 +80,13 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             return Ok(false);
         }
 
-        if let Some(change_id) = commit.change_id()
-            && self.upstream_change_ids.binary_search(&change_id).is_ok()
+        let gix_commit = self.repo.find_commit(commit.id().to_gix())?;
+
+        if let Some(change_id) = gix_commit.change_id()
+            && self
+                .upstream_change_ids
+                .binary_search(&change_id.to_string())
+                .is_ok()
         {
             return Ok(true);
         }

@@ -1,12 +1,13 @@
 use std::{fmt::Display, str::FromStr};
 
 use anyhow::{Ok, Result};
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
+use but_core::ChangeId;
 use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::{ObjectIdExt, RepoExt};
+use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use git2::Commit;
-use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gix::refs::{
     Target,
@@ -493,13 +494,6 @@ pub struct BranchCommits<'a> {
     pub upstream_only: Vec<Commit<'a>>,
 }
 
-impl BranchCommits<'_> {
-    /// Returns `true` if the provided commit is part of the remote commits in this series (i.e. has been pushed).
-    pub fn remote(&self, commit: &Commit<'_>) -> bool {
-        self.remote_commits.contains_by_commit_or_change_id(commit)
-    }
-}
-
 // NB: There can be multiple commits with the same change id on the same branch id.
 // This is an error condition but we must handle it.
 // If there are multiple commits, they are ordered newest to oldest.
@@ -538,16 +532,15 @@ fn commit_by_branch_id_and_change_id<'a>(
         commits.push(repo.find_commit(merge_base)?);
         commits
     };
-    let commits = commits
-        .into_iter()
-        .filter(|c| c.change_id().as_deref() == Some(change_id))
-        .collect_vec();
-    if let Some(head) = commits.first() {
-        Ok(head.clone())
-    } else {
-        Err(anyhow::anyhow!(
-            "No commit with change id {} found",
-            change_id
-        ))
+    let gix_repo = repo.to_gix_repo()?;
+    for commit in commits {
+        let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
+        if gix_commit.change_id() == Some(ChangeId::from(BStr::new(change_id.as_bytes()))) {
+            return Ok(commit);
+        }
     }
+    Err(anyhow::anyhow!(
+        "No commit with change id {} found",
+        change_id
+    ))
 }

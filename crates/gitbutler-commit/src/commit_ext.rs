@@ -1,45 +1,25 @@
-use bstr::BStr;
-
-use crate::commit_headers::HasCommitHeaders;
+use bstr::{BStr, ByteSlice};
+use but_core::{ChangeId, commit::Headers};
 
 /// Extension trait for `git2::Commit`.
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Commit`
 pub trait CommitExt {
-    /// Obtain the commit-message as bytes, but without assuming any encoding.
-    fn message_bstr(&self) -> &BStr;
-    fn change_id(&self) -> Option<String>;
+    fn change_id(&self) -> Option<ChangeId>;
     fn is_signed(&self) -> bool;
     fn is_conflicted(&self) -> bool;
 }
 
-impl CommitExt for git2::Commit<'_> {
-    fn message_bstr(&self) -> &BStr {
-        self.message_bytes().as_ref()
-    }
-
-    fn change_id(&self) -> Option<String> {
-        self.gitbutler_headers().map(|headers| headers.change_id)
-    }
-    fn is_signed(&self) -> bool {
-        self.header_field_bytes("gpgsig").is_ok()
-    }
-
-    fn is_conflicted(&self) -> bool {
-        self.gitbutler_headers()
-            .and_then(|headers| headers.conflicted.map(|conflicted| conflicted > 0))
-            .unwrap_or(false)
-    }
+pub trait CommitMessageBstr {
+    /// Obtain the commit-message as bytes, but without assuming any encoding.
+    fn message_bstr(&self) -> &BStr;
 }
 
 impl CommitExt for gix::Commit<'_> {
-    fn message_bstr(&self) -> &BStr {
-        self.message_raw()
-            .expect("valid commit that can be parsed: TODO - allow it to return errors?")
-    }
-
-    fn change_id(&self) -> Option<String> {
-        self.gitbutler_headers().map(|headers| headers.change_id)
+    fn change_id(&self) -> Option<ChangeId> {
+        let commit = self.decode().ok()?;
+        let commit = commit.to_owned().ok()?;
+        Headers::try_from_commit(&commit)?.change_id
     }
 
     fn is_signed(&self) -> bool {
@@ -48,33 +28,26 @@ impl CommitExt for gix::Commit<'_> {
     }
 
     fn is_conflicted(&self) -> bool {
-        self.gitbutler_headers()
-            .and_then(|headers| headers.conflicted.map(|conflicted| conflicted > 0))
+        self.decode()
+            .ok()
+            .and_then(|commit| {
+                let commit = commit.to_owned().ok()?;
+                let headers = Headers::try_from_commit(&commit)?;
+                Some(headers.conflicted? > 0)
+            })
             .unwrap_or(false)
     }
 }
 
-fn contains<'a, I>(iter: I, item: &git2::Commit<'a>) -> bool
-where
-    I: IntoIterator<Item = git2::Commit<'a>>,
-{
-    iter.into_iter().any(|iter_item| {
-        // Return true if the commits match by commit id, or alternatively if both have a change id and they match.
-        if iter_item.id() == item.id() {
-            return true;
-        }
-        matches!((iter_item.change_id(), item.change_id()), (Some(iter_item_id), Some(iter_id)) if iter_item_id == iter_id)
-    })
+impl CommitMessageBstr for gix::Commit<'_> {
+    fn message_bstr(&self) -> &BStr {
+        self.message_raw()
+            .expect("valid commit that can be parsed: TODO - allow it to return errors?")
+    }
 }
 
-pub trait CommitVecExt {
-    /// Returns `true` if the provided commit is part of the commits in this series.
-    /// Compares the commits by commit id first and also by change ID
-    fn contains_by_commit_or_change_id(&self, commit: &git2::Commit) -> bool;
-}
-
-impl CommitVecExt for Vec<git2::Commit<'_>> {
-    fn contains_by_commit_or_change_id(&self, commit: &git2::Commit) -> bool {
-        contains(self.iter().cloned(), commit)
+impl CommitMessageBstr for git2::Commit<'_> {
+    fn message_bstr(&self) -> &BStr {
+        self.message_bytes().as_bstr()
     }
 }

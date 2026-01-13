@@ -24,9 +24,9 @@ fn insert_below_commit() -> Result<()> {
         .materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 507be22 (HEAD -> three) commit three
-    * b63edf0 (two) commit two
-    * 335e397 
+    * 70ba329 (HEAD -> three) commit three
+    * 0f4f9d0 (two) commit two
+    * b3b14c2 
     | * 16fd221 (origin/two) commit two
     |/  
     * 8b426d0 (one) commit one
@@ -56,8 +56,8 @@ fn insert_above_commit() -> Result<()> {
         .materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 3513948 (HEAD -> three) commit three
-    * c5af9ae (two) 
+    * 8e87ff3 (HEAD -> three) commit three
+    * 024b774 (two) 
     * 16fd221 (origin/two) commit two
     * 8b426d0 (one) commit one
     ");
@@ -90,8 +90,8 @@ fn insert_below_reference() -> Result<()> {
     .materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 3513948 (HEAD -> three) commit three
-    * c5af9ae (two) 
+    * 8e87ff3 (HEAD -> three) commit three
+    * 024b774 (two) 
     * 16fd221 (origin/two) commit two
     * 8b426d0 (one) commit one
     ");
@@ -124,8 +124,8 @@ fn insert_above_reference() -> Result<()> {
     .materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 3513948 (HEAD -> three) commit three
-    * c5af9ae 
+    * 8e87ff3 (HEAD -> three) commit three
+    * 024b774 
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
     ");

@@ -1,3 +1,4 @@
+use but_core::ChangeId;
 use but_ctx::Context;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use serde::{Deserialize, Serialize};
@@ -46,7 +47,7 @@ impl WorkspaceRule {
         }
     }
 
-    pub fn target_commit_id(&self) -> Option<String> {
+    pub fn target_change_id(&self) -> Option<ChangeId> {
         if let Action::Explicit(Operation::Amend { change_id }) = &self.action {
             Some(change_id.clone())
         } else {
@@ -147,7 +148,7 @@ pub enum Operation {
     /// Assign the matched changes to a specific stack ID.
     Assign { target: StackTarget },
     /// Amend the matched changes into a specific commit.
-    Amend { change_id: String },
+    Amend { change_id: ChangeId },
     /// Create a new commit with the matched changes on a specific branch.
     NewCommit { branch_name: String },
 }

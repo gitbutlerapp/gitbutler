@@ -78,6 +78,9 @@ pub mod ui;
 mod id;
 pub use id::Id;
 
+mod change_id;
+pub use change_id::ChangeId;
+
 /// utility types
 pub mod unified_diff;
 

@@ -7,8 +7,9 @@ use but_api::legacy::modes::{
     save_edit_and_return_to_workspace_with_output,
 };
 use but_ctx::Context;
+use but_oxidize::OidExt;
 use colored::Colorize;
-use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::OperatingMode;
 use std::fmt::Write;
 
@@ -72,8 +73,9 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
 
     // Get the commit and check if it's conflicted
     let git2_repo = ctx.git2_repo.get()?;
-    let commit = git2_repo
-        .find_commit(commit_oid)
+    let repo = ctx.repo.get()?;
+    let commit = repo
+        .find_commit(commit_oid.to_gix())
         .context("Failed to find commit")?;
 
     if !commit.is_conflicted() {
@@ -124,6 +126,7 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     // Drop the git2 objects to release the borrow
     drop(commit);
     drop(git2_repo);
+    drop(repo);
 
     // Show checkout message
     if let Some(out) = out.for_human() {
@@ -473,6 +476,7 @@ fn check_for_new_conflicts_after_rebase(
 fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<ConflictedCommit>>> {
     let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
     let git2_repo = ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     let mut conflicts_by_branch: BTreeMap<String, Vec<ConflictedCommit>> = BTreeMap::new();
 
     for stack in &stacks {
@@ -488,15 +492,15 @@ fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<Con
 
             for oid_result in revwalk {
                 let oid = oid_result?;
-                let commit = git2_repo.find_commit(oid)?;
+                let commit = repo.find_commit(oid.to_gix())?;
 
                 if commit.is_conflicted() {
                     let message = commit
-                        .message()
-                        .unwrap_or("")
+                        .message_bstr()
+                        .to_string()
                         .lines()
                         .next()
-                        .unwrap_or("")
+                        .context("Commit has no message")?
                         .chars()
                         .take(50)
                         .collect::<String>();

@@ -13,6 +13,7 @@ doctest = false
 but-error.workspace = true
 but-oxidize.workspace = true
 but-ctx.workspace = true
+but-core.workspace = true
 
 gitbutler-oplog.workspace = true
 gitbutler-project.workspace = true

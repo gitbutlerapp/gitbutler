@@ -1,8 +1,9 @@
 use anyhow::{Context as _, Ok, Result, bail};
+use but_core::commit::Headers;
 use but_ctx::{Context, access::WorktreeWritePermission};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
-use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
@@ -163,7 +164,12 @@ fn do_squash_commits(
         .filter_map(|id| repo.find_commit(*id).ok())
         .collect::<Vec<_>>();
 
-    validate(&branch_commit_oids, &source_commits, destination_commit)?;
+    validate(
+        &gix_repo,
+        &branch_commit_oids,
+        &source_commits,
+        destination_commit,
+    )?;
 
     // Having all the source commits in in the right order, sitting directly on top of the destination commit
     // means that we just need to take the tree of the child most source commit (most recent change) and
@@ -209,6 +215,10 @@ fn do_squash_commits(
         .join("\n");
     let parents: Vec<_> = parent_most_source_commit.parents().collect();
 
+    let gix_destination = gix_repo.find_commit(destination_commit.id().to_gix())?;
+    let obj = gix_destination.decode()?.into_owned()?;
+    let headers = Headers::try_from_commit(&obj);
+
     // Create a new commit with the final tree
     let new_commit_oid = repo
         .commit_with_signature(
@@ -218,7 +228,7 @@ fn do_squash_commits(
             &new_message,
             &final_tree,
             &parents.iter().collect::<Vec<_>>(),
-            destination_commit.gitbutler_headers(),
+            headers,
         )
         .context("Failed to create a squash commit")?;
 
@@ -265,6 +275,7 @@ fn do_squash_commits(
 }
 
 fn validate(
+    repo: &gix::Repository,
     branch_commit_oids: &[git2::Oid],
     commits_to_squash_together: &[git2::Commit<'_>],
     destination_commit: &git2::Commit<'_>,
@@ -280,12 +291,14 @@ fn validate(
     }
 
     for c in commits_to_squash_together {
-        if c.is_conflicted() {
+        let gix_c = repo.find_commit(c.id().to_gix())?;
+        if gix_c.is_conflicted() {
             bail!("cannot squash conflicted source commit {}", c.id());
         }
     }
 
-    if destination_commit.is_conflicted() {
+    let gix_dest = repo.find_commit(destination_commit.id().to_gix())?;
+    if gix_dest.is_conflicted() {
         bail!("cannot squash into conflicted destination commit",);
     }
 

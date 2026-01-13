@@ -1,8 +1,8 @@
 use anyhow::{Result, bail};
-// A happy little module for uploading stacks.
+use but_core::commit::Headers;
 use but_ctx::Context;
+// A happy little module for uploading stacks.
 use but_oxidize::{ObjectIdExt, OidExt as _, git2_signature_to_gix_signature};
-use gitbutler_commit::commit_headers::HasCommitHeaders as _;
 use gitbutler_oplog::reflog::{ReflogCommits, set_reference_to_oplog};
 use gitbutler_repo::{commit_message::CommitMessage, signature};
 use gitbutler_stack::{Stack, StackId, VirtualBranchesHandle};
@@ -139,14 +139,15 @@ fn format_stack_for_review(
         let decoded_commit = commit.decode()?;
         let mut message = CommitMessage::new(decoded_commit.clone());
         let mut object: gix::objs::Commit = decoded_commit.try_into()?;
+        let headers = Headers::try_from_commit(&object);
 
         message
             .trailers
             .push(("Original-Commit".into(), commit_id.to_string().into()));
 
-        let change_id = commit
-            .gitbutler_headers()
-            .map(|headers| headers.change_id)
+        let change_id = headers
+            .and_then(|h| h.change_id)
+            .map(|c| c.to_string())
             .unwrap_or_else(|| commit.id.to_string());
         message
             .trailers

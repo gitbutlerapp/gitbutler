@@ -340,15 +340,14 @@ impl BranchManager<'_> {
         }
 
         // Do we need to rebase the branch on top of the default target?
-
-        let has_change_id = repo
-            .find_commit(stack.head_oid(self.ctx)?.to_git2())?
+        let gix_repo = self.ctx.repo.get()?;
+        let has_change_id = gix_repo
+            .find_commit(stack.head_oid(self.ctx)?)?
             .change_id()
             .is_some();
         // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
         // This way stacking functionality which relies on change IDs will work as expected
         if merge_base != default_target.sha || !has_change_id {
-            let gix_repo = self.ctx.repo.get()?;
             let steps = stack.as_rebase_steps(self.ctx, &gix_repo)?;
             let mut rebase = but_rebase::Rebase::new(&gix_repo, default_target.sha.to_gix(), None)?;
             rebase.steps(steps)?;

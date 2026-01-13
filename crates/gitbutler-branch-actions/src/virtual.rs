@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use but_core::RepositoryExt;
+use but_core::{RepositoryExt, commit::Headers};
 use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::RebaseStep;
@@ -224,7 +224,13 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
         let upstream_change_ids = upstream_commits
             .iter()
-            .filter_map(|commit| commit.change_id())
+            .filter_map(|commit| {
+                gix_repo
+                    .find_commit(commit.id().to_gix())
+                    .ok()
+                    .and_then(|c| c.change_id())
+                    .map(|c| c.to_string())
+            })
             .sorted()
             .collect();
         let upstream_commits = upstream_commits
@@ -255,8 +261,13 @@ impl IsCommitIntegrated<'_, '_, '_> {
             return Ok(false);
         }
 
-        if let Some(change_id) = commit.change_id()
-            && self.upstream_change_ids.binary_search(&change_id).is_ok()
+        let gix_commit = self.gix_repo.find_commit(commit.id().to_gix())?;
+
+        if let Some(change_id) = gix_commit.change_id()
+            && self
+                .upstream_change_ids
+                .binary_search(&change_id.to_string())
+                .is_ok()
         {
             return Ok(true);
         }
@@ -373,8 +384,12 @@ pub(crate) fn insert_blank_commit(
     let message = message.unwrap_or_default();
 
     let commit_tree = repo.find_real_tree(&commit, Default::default()).unwrap();
-    let blank_commit_oid =
-        ctx.commit(message, &commit_tree, &[&commit], Some(Default::default()))?;
+    let blank_commit_oid = ctx.commit(
+        message,
+        &commit_tree,
+        &[&commit],
+        Some(Headers::new_with_random_change_id()),
+    )?;
 
     let merge_base = stack.merge_base(ctx)?;
     let repo = ctx.repo.get()?;

@@ -25,7 +25,7 @@ fn basic_cherry_pick_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(54848c290a08fe833a4cbc6a58f0fcaf3bbf6e08),
+        Sha1(023c575a8c22020139844490ba2e8f333fcec85c),
     )
     ");
 
@@ -56,7 +56,7 @@ fn basic_cherry_pick_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(8ae3b596cae568f23d89dab540bfc8e97d6beb70),
+        Sha1(92a5de18951fc289787883411346bf5151f9c854),
     )
     ");
 
@@ -117,7 +117,7 @@ fn single_parent_to_multiple_parents_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(042e97dd9f0cace4fd03a8876a0ec05da996f15f),
+        Sha1(39763a0f3cb7ca0f3eac78368173aa6367aeffcf),
     )
     ");
 
@@ -151,7 +151,7 @@ fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(65ebb926505ce670f16d179118f006b5e140aa44),
+        Sha1(e0da7f3ff8f416b3f93c84a5e737b265021897f1),
     )
     ");
 
@@ -213,7 +213,7 @@ fn multiple_parents_to_single_parent_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(f402cc4dedc672129e7265fa8d19e0b55e5c6918),
+        Sha1(1327f60f892048e2dd2c96c639e6b6aa750bdbe3),
     )
     ");
 
@@ -245,7 +245,7 @@ fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(b03f2d364398cad85e2a518a10d5acdde44ca96e),
+        Sha1(b31d986b2deb4337c487ae0f431fe37688fa2197),
     )
     ");
 
@@ -309,7 +309,7 @@ fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(6de4f47ea11937579c6dab87cf53821a05fd171a),
+        Sha1(819265d9df0efd0ecba56b9f930f16eea335d329),
     )
     ");
 
@@ -343,7 +343,7 @@ fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(219e13bf40e6451d281759652bfd2c4c665ea717),
+        Sha1(ef56061bb8c852be7983011e1a59fe80eefcf31d),
     )
     ");
 
@@ -460,7 +460,7 @@ fn single_parent_to_no_parents_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(8349ba92f5c1de9187b7a581a26439d5c57b8181),
+        Sha1(756d7a456e069d4553d52d339158135390d3780e),
     )
     ");
 
@@ -490,7 +490,7 @@ fn no_parents_to_single_parent_clean() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(88ff3dede1088638d76d2fff43f175f4e9169f38),
+        Sha1(f3555f184de4e805e12a6ee83e406f3a39eb2091),
     )
     ");
 
@@ -521,7 +521,7 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(b92ddaf506b9ba53051a04403c15bd5cd2025024),
+        Sha1(fc01136874918a3912b3a5ff76e625d46dda7cb6),
     )
     ");
 
@@ -563,7 +563,7 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     ConflictedCommit(
-        Sha1(219e13bf40e6451d281759652bfd2c4c665ea717),
+        Sha1(ef56061bb8c852be7983011e1a59fe80eefcf31d),
     )
     ");
 
@@ -577,7 +577,7 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @r"
     Commit(
-        Sha1(01d8bb8621c478c98db95e38b8c6ad5e5607d572),
+        Sha1(3d7dfa09a071658d3b84eb1ee195ea0ebfeb601f),
     )
     ");
 

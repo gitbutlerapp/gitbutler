@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
-use but_core::{RepositoryExt, TreeChange, ref_metadata::StackId};
+use but_core::{RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId};
 use but_ctx::{
     Context,
     access::{WorktreeReadPermission, WorktreeWritePermission},
@@ -12,10 +12,7 @@ use but_workspace::legacy::stack_ext::StackExt;
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
-use gitbutler_commit::{
-    commit_ext::CommitExt,
-    commit_headers::{CommitHeadersV2, HasCommitHeaders},
-};
+use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF, operating_mode,
     read_edit_mode_metadata, write_edit_mode_metadata,
@@ -34,8 +31,10 @@ const UNCOMMITTED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommitted-changes";
 /// during the merge.
 fn get_commit_index(ctx: &Context, commit: &git2::Commit) -> Result<git2::Index> {
     let commit_tree = commit.tree().context("Failed to get commit's tree")?;
+    let gix_repo = ctx.clone_repo_for_merging()?;
+    let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
     // Checkout the commit as unstaged changes
-    if commit.is_conflicted() {
+    if gix_commit.is_conflicted() {
         let base = commit_tree
             .get_name(".conflict-base-0")
             .context("Failed to get base")?
@@ -97,8 +96,16 @@ fn find_or_create_base_commit<'a>(
     repository: &'a git2::Repository,
     commit: &git2::Commit<'a>,
 ) -> Result<git2::Commit<'a>> {
-    let is_conflicted = commit.is_conflicted();
-    let is_parent_conflicted = commit.parent(0)?.is_conflicted();
+    let gix_repo = repository.to_gix_repo()?;
+    let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
+    let is_conflicted = gix_commit.is_conflicted();
+    let parent = gix_commit
+        .parent_ids()
+        .next()
+        .context("Expected commit to have a single parent")?
+        .object()?
+        .into_commit();
+    let is_parent_conflicted = parent.is_conflicted();
 
     // If neither is conflicted, we can use the old parent.
     if !(is_conflicted || is_parent_conflicted) {
@@ -217,6 +224,7 @@ pub(crate) fn save_and_return_to_workspace(
 ) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
     let repository = &*ctx.git2_repo.get()?;
+    let gix_repo = &*ctx.repo.get()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
@@ -225,6 +233,8 @@ pub(crate) fn save_and_return_to_workspace(
     let commit = repository
         .find_commit(edit_mode_metadata.commit_oid)
         .context("Failed to find commit")?;
+    let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
+    let commit_obj = gix_commit.decode()?.into_owned()?;
 
     let mut stack = vb_state.get_stack_in_workspace(edit_mode_metadata.stack_id)?;
 
@@ -237,12 +247,10 @@ pub(crate) fn save_and_return_to_workspace(
     let tree = repository.create_wd_tree(0)?;
 
     let (_, committer) = repository.signatures()?;
-    let commit_headers = commit
-        .gitbutler_headers()
-        .map(|commit_headers| CommitHeadersV2 {
-            conflicted: None,
-            ..commit_headers
-        });
+    let commit_headers = Headers::try_from_commit(&commit_obj).map(|commit_headers| Headers {
+        conflicted: None,
+        ..commit_headers
+    });
     let new_commit_oid = ctx
         .git2_repo
         .get()?
@@ -322,9 +330,11 @@ pub(crate) fn starting_index_state(
     };
 
     let repository = &*ctx.git2_repo.get()?;
+    let gix_repo = &*ctx.repo.get()?;
 
     let commit = repository.find_commit(metadata.commit_oid)?;
-    let commit_parent_tree = if commit.is_conflicted() {
+    let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
+    let commit_parent_tree = if gix_commit.is_conflicted() {
         repository.find_real_tree(&commit, ConflictedTreeKey::Base)?
     } else {
         commit.parent(0)?.tree()?

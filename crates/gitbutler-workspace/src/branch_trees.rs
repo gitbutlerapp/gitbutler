@@ -5,9 +5,8 @@ use but_ctx::{
 };
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::RepositoryExt;
-use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_repo::RepositoryExt as _;
-use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gitbutler_stack::VirtualBranchesHandle;
 
 use crate::{workspace_base, workspace_base_from_heads};
 
@@ -188,96 +187,4 @@ pub fn merge_workspace(repo: &git2::Repository, workspace: WorkspaceState) -> Re
     }
 
     Ok(output)
-}
-
-pub struct BranchHeadAndTree {
-    /// This is a commit Oid.
-    ///
-    /// This should be used as the new head Oid for the branch.
-    pub head: git2::Oid,
-    /// This is a tree Oid.
-    ///
-    /// This should be used as the new tree Oid for the branch.
-    pub tree: git2::Oid,
-}
-
-/// Given a new head for a branch, this computes how the tree should be
-/// rebased on top of the new head. If the rebased tree is conflicted, then
-/// the function will return a new head commit which is the conflicted
-/// tree commit, and the the tree oid will be the auto-resolved tree.
-///
-/// This does not mutate the branch, or update the virtual_branches.toml.
-/// You probably also want to call `checkout_branch_trees` after you have
-/// mutated the virtual_branches.toml.
-#[deprecated = "not needed after v3 is out"]
-pub fn compute_updated_branch_head(
-    repo: &git2::Repository,
-    gix_repo: &gix::Repository,
-    stack: &Stack,
-    new_head: git2::Oid,
-    ctx: &Context,
-) -> Result<BranchHeadAndTree> {
-    #[expect(deprecated)]
-    compute_updated_branch_head_for_commits(
-        repo,
-        gix_repo,
-        stack.head_oid(ctx)?.to_git2(),
-        stack.tree(ctx)?,
-        new_head,
-    )
-}
-
-/// Given a new head for a branch, this computes how the tree should be
-/// rebased on top of the new head. If the rebased tree is conflicted, then
-/// the function will return a new head commit which is the conflicted
-/// tree commit, and the tree oid will be the auto-resolved tree.
-///
-/// If you have access to a [`Stack`] object, it's probably preferable to
-/// use [`compute_updated_branch_head`] instead to prevent programmer error.
-///
-/// This does not mutate the branch, or update the virtual_branches.toml.
-/// You probably also want to call `checkout_branch_trees` after you have
-/// mutated the virtual_branches.toml.
-#[deprecated = "not needed after v3 is out"]
-pub fn compute_updated_branch_head_for_commits(
-    repo: &git2::Repository,
-    gix_repo: &gix::Repository,
-    old_head: git2::Oid,
-    old_tree: git2::Oid,
-    new_head: git2::Oid,
-) -> Result<BranchHeadAndTree> {
-    let (author, committer) = repo.signatures()?;
-
-    let commited_tree = repo.commit_with_signature(
-        None,
-        &author,
-        &committer,
-        "Uncommitted changes",
-        &repo.find_tree(old_tree)?,
-        &[&repo.find_commit(old_head)?],
-        Default::default(),
-    )?;
-
-    let mut rebase = but_rebase::Rebase::new(gix_repo, Some(new_head.to_gix()), None)?;
-    rebase.steps(Some(but_rebase::RebaseStep::Pick {
-        commit_id: commited_tree.to_gix(),
-        new_message: None,
-    }))?;
-    rebase.rebase_noops(false);
-    let output = rebase.rebase()?;
-    let rebased_tree = repo.find_commit(output.top_commit.to_git2())?;
-
-    if rebased_tree.is_conflicted() {
-        let auto_tree_id = repo.find_real_tree(&rebased_tree, Default::default())?.id();
-
-        Ok(BranchHeadAndTree {
-            head: rebased_tree.id(),
-            tree: auto_tree_id,
-        })
-    } else {
-        Ok(BranchHeadAndTree {
-            head: new_head,
-            tree: rebased_tree.tree_id(),
-        })
-    }
 }

@@ -13,7 +13,7 @@ doctest = false
 [dependencies]
 but-error.workspace = true
 but-rebase.workspace = true
-but-core.workspace = true
+but-core = { workspace = true, features = ["legacy"] }
 but-status.workspace = true
 but-gerrit.workspace = true
 but-oxidize.workspace = true
@@ -21,7 +21,6 @@ but-ctx.workspace = true
 
 gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
-gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-diff.workspace = true
