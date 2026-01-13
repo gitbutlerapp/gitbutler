@@ -179,7 +179,7 @@ fn read_only() -> anyhow::Result<()> {
                 "refs/heads/A",
             ),
             Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:17 +0000" },
+                ref_info: RefInfo { created_at: None, updated_at: None },
                 review: Review { pull_request: 12, review_id: None },
             },
         ),
@@ -188,130 +188,91 @@ fn read_only() -> anyhow::Result<()> {
             FullName(
                 "refs/heads/B-top",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             2,
             FullName(
                 "refs/heads/B",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             2,
             FullName(
                 "refs/heads/C-top-empty",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             2,
             FullName(
                 "refs/heads/C-empty",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/C-top",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/C-middle",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/C",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/D-top-empty",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/D-middle-empty",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/D-empty",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             4,
             FullName(
                 "refs/heads/D-top",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             4,
             FullName(
                 "refs/heads/D",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             5,
             FullName(
                 "refs/heads/E",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 11:00:01 +0000" },
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
     ]
     "#);
@@ -679,8 +640,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     [branches.1]
     id = "1"
     name = "feat-on-top"
-    created_timestamp_ms = 12345
-    updated_timestamp_ms = 12345
     head = "0000000000000000000000000000000000000000"
     order = 0
     in_workspace = true
@@ -689,6 +648,8 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     allow_rebasing = true
     post_commits = false
     tree = "0000000000000000000000000000000000000000"
+    created_timestamp_ms = "0"
+    updated_timestamp_ms = "0"
 
     [[branches.1.heads]]
     name = "feat"

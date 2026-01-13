@@ -1661,7 +1661,7 @@ mod utils {
             .map(|(name, target_id)| new_stack_branch(name, target_id, repo))
             .filter_map(Result::ok)
             .collect();
-        gitbutler_stack::Stack::new_with_just_heads(heads, 0, 0, true)
+        gitbutler_stack::Stack::new_with_just_heads(heads, 0, true)
     }
 
     fn new_stack_branch(

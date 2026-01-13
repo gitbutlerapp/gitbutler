@@ -45,8 +45,6 @@ pub struct Stack {
     pub upstream: Option<RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     pub upstream_head: Option<git2::Oid>,
-    pub created_timestamp_ms: u128,
-    pub updated_timestamp_ms: u128,
     /// head is id of the last "virtual" commit in this branch
     head: git2::Oid,
     // order is the number by which UI should sort branches
@@ -67,8 +65,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             source_refname,
             upstream,
             upstream_head,
-            created_timestamp_ms,
-            updated_timestamp_ms,
             head,
             order,
             in_workspace,
@@ -82,8 +78,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             source_refname,
             upstream,
             upstream_head: upstream_head.map(|id| id.to_git2()),
-            created_timestamp_ms,
-            updated_timestamp_ms,
             head: head.to_git2(),
             order,
             in_workspace,
@@ -100,8 +94,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             source_refname,
             upstream,
             upstream_head,
-            created_timestamp_ms,
-            updated_timestamp_ms,
             head,
             order,
             in_workspace,
@@ -114,8 +106,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             source_refname,
             upstream,
             upstream_head: upstream_head.map(|id| id.to_gix()),
-            created_timestamp_ms,
-            updated_timestamp_ms,
             head: head.to_gix(),
             order,
             in_workspace,
@@ -131,6 +121,10 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             post_commits: false,
             #[allow(deprecated)]
             tree: gix::hash::Kind::Sha1.null(),
+            #[allow(deprecated)]
+            created_timestamp_ms: 0,
+            #[allow(deprecated)]
+            updated_timestamp_ms: 0,
         }
     }
 }
@@ -163,15 +157,12 @@ impl Stack {
         head: git2::Oid,
         order: usize,
     ) -> Self {
-        let now = gitbutler_time::time::now_ms();
         Self {
             id: StackId::generate(),
             name,
             source_refname,
             upstream,
             upstream_head,
-            created_timestamp_ms: now,
-            updated_timestamp_ms: now,
             head,
             order,
             in_workspace: true,
@@ -179,16 +170,9 @@ impl Stack {
         }
     }
 
-    pub fn new_with_just_heads(
-        heads: Vec<StackBranch>,
-        created_ms: u128,
-        order: usize,
-        in_workspace: bool,
-    ) -> Self {
+    pub fn new_with_just_heads(heads: Vec<StackBranch>, order: usize, in_workspace: bool) -> Self {
         Stack {
             id: StackId::generate(),
-            created_timestamp_ms: created_ms,
-            updated_timestamp_ms: created_ms,
             order,
             in_workspace,
             heads,
@@ -557,7 +541,6 @@ impl Stack {
         commit_id: git2::Oid,
     ) -> Result<()> {
         self.ensure_initialized()?;
-        self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         self.set_head(commit_id);
 
         let commit = gix_repo.find_commit(commit_id.to_gix())?;
@@ -586,7 +569,6 @@ impl Stack {
 
         let mut deleted_branches = vec![];
 
-        self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
         for head in self.heads.iter_mut() {
             let full_name = head.full_name()?;

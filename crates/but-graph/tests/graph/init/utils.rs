@@ -120,7 +120,6 @@ pub fn add_stack_with_segments(
                 false,
             )))
             .collect(),
-        0,
         meta.data().branches.len(),
         match state {
             StackState::InWorkspace => true,

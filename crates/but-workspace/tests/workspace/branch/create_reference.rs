@@ -1534,7 +1534,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     ");
     let md = meta.branch(new_name)?;
     assert!(!md.is_default(), "It should have set the date at least");
-    assert!(md.ref_info.updated_at.is_some());
+    assert!(md.ref_info.updated_at.is_none());
     assert!(
         md.ref_info.created_at.is_none(),
         "It marks the creation date as well.\

@@ -179,9 +179,7 @@ mod stacks {
                     tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                     base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     push_status: CompletelyUnpushed,
-                    last_updated_at: Some(
-                        0,
-                    ),
+                    last_updated_at: None,
                     authors: [
                         author <author@example.com>,
                     ],
@@ -300,9 +298,7 @@ mod stack_details {
                     tip: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
                     base_commit: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
                     push_status: CompletelyUnpushed,
-                    last_updated_at: Some(
-                        0,
-                    ),
+                    last_updated_at: None,
                     authors: [],
                     is_conflicted: false,
                     commits: [],
@@ -323,9 +319,7 @@ mod stack_details {
                     tip: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
                     base_commit: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     push_status: NothingToPush,
-                    last_updated_at: Some(
-                        0,
-                    ),
+                    last_updated_at: None,
                     authors: [
                         author <author@example.com>,
                     ],
@@ -379,9 +373,7 @@ mod stack_details {
                     tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
                     base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     push_status: CompletelyUnpushed,
-                    last_updated_at: Some(
-                        0,
-                    ),
+                    last_updated_at: None,
                     authors: [
                         author <author@example.com>,
                     ],
@@ -442,9 +434,7 @@ mod stack_details {
                     tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                     base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     push_status: CompletelyUnpushed,
-                    last_updated_at: Some(
-                        0,
-                    ),
+                    last_updated_at: None,
                     authors: [
                         author <author@example.com>,
                     ],
