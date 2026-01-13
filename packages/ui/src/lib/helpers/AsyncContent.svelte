@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 
 	type Props = {
-		delay: number;
+		delay?: number;
 		children: Snippet;
 	};
 
@@ -21,7 +21,7 @@
 	});
 </script>
 
-{#if delay === undefined || (delay && visible)}
+{#if !delay || (delay && visible)}
 	{@render children()}
 {/if}
 
