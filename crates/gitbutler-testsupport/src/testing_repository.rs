@@ -1,6 +1,6 @@
 use std::fs;
 
-use but_core::{change_id::ChangeId, commit::Headers};
+use but_core::{ChangeId, commit::Headers};
 use but_oxidize::git2_to_gix_object_id;
 use gitbutler_repo::RepositoryExt;
 use gix_testtools::bstr::ByteSlice as _;
@@ -154,10 +154,11 @@ impl TestingRepository {
         index.write().unwrap();
 
         let signature = git2::Signature::now("Caleb", "caleb@gitbutler.com").unwrap();
-        let commit_headers = change_id.map_or(Headers::new(), |change_id| Headers {
-            change_id: Some(ChangeId::from(change_id.as_bytes().as_bstr())),
-            conflicted: None,
-        });
+        let commit_headers =
+            change_id.map_or(Headers::new_with_random_change_id(), |change_id| Headers {
+                change_id: Some(ChangeId::from(change_id.as_bytes().as_bstr())),
+                conflicted: None,
+            });
 
         let commit = self
             .repository

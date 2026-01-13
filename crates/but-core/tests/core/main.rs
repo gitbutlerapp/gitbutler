@@ -1,4 +1,5 @@
 mod branch;
+mod change_id;
 mod cmd;
 mod commit;
 mod diff;

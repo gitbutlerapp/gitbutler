@@ -384,7 +384,12 @@ pub(crate) fn insert_blank_commit(
     let message = message.unwrap_or_default();
 
     let commit_tree = repo.find_real_tree(&commit, Default::default()).unwrap();
-    let blank_commit_oid = ctx.commit(message, &commit_tree, &[&commit], Some(Headers::new()))?;
+    let blank_commit_oid = ctx.commit(
+        message,
+        &commit_tree,
+        &[&commit],
+        Some(Headers::new_with_random_change_id()),
+    )?;
 
     let merge_base = stack.merge_base(ctx)?;
     let repo = ctx.repo.get()?;

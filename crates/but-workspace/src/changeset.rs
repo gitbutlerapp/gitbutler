@@ -629,7 +629,7 @@ fn hash_change_state(h: &mut gix::hash::Hasher, ChangeState { id, kind }: Change
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
 enum Identifier {
-    ChangeId(but_core::change_id::ChangeId),
+    ChangeId(but_core::ChangeId),
     CommitData(CommitDataId),
     ChangesetId(ChangesetID),
 }

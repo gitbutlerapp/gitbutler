@@ -5,10 +5,10 @@ use bstr::{BString, ByteSlice};
 use gix::prelude::ObjectIdExt;
 use serde::{Deserialize, Serialize};
 
-use crate::{Commit, CommitOwned, change_id::ChangeId};
+use crate::{ChangeId, Commit, CommitOwned};
 
 /// A collection of all the extra information we keep in the headers of a commit.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Headers {
     /// A property we can use to determine if two different commits are
     /// actually the same "patch" at different points in time. We carry it
@@ -27,9 +27,11 @@ pub struct Headers {
 
 /// Lifecycle
 impl Headers {
-    #[expect(clippy::new_without_default)]
     /// Creates a new set of headers with a randomly generated change_id.
-    pub fn new() -> Self {
+    ///
+    /// # Note - use [Self::from_config()] instead
+    #[cfg(feature = "legacy")]
+    pub fn new_with_random_change_id() -> Self {
         Self {
             change_id: Some(ChangeId::generate()),
             conflicted: None,

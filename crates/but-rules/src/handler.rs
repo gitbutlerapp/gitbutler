@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use but_core::{DiffSpec, change_id::ChangeId, ref_metadata::StackId};
+use but_core::{ChangeId, DiffSpec, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;

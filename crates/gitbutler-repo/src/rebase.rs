@@ -149,7 +149,7 @@ pub fn merge_commits(
         conflicted_files.to_headers()
     } else {
         tree_oid = merged_tree_id.to_git2();
-        Headers::new()
+        Headers::new_with_random_change_id()
     };
 
     let (author, committer) = repo.signatures()?;
@@ -201,7 +201,7 @@ impl ToHeaders for ConflictEntries {
                 let entries = self.total_entries();
                 if entries > 0 { entries as u64 } else { 1 }
             }),
-            ..Headers::new()
+            ..Headers::new_with_random_change_id()
         }
     }
 }

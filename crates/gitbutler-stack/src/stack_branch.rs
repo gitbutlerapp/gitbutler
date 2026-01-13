@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use anyhow::{Ok, Result};
 use bstr::{BStr, BString, ByteSlice};
-use but_core::change_id::ChangeId;
+use but_core::ChangeId;
 use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};

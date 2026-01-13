@@ -1117,9 +1117,7 @@ dependencies = [
  "gitbutler-commit",
  "gix",
  "serde",
- "sha-1",
  "snapbox",
- "uuid",
 ]
 
 [[package]]
@@ -3505,7 +3503,6 @@ dependencies = [
  "gitbutler-repo-actions",
  "gitbutler-stack",
  "gitbutler-testsupport",
- "gitbutler-time",
  "gitbutler-url",
  "gitbutler-workspace",
  "gix",
@@ -3777,7 +3774,6 @@ dependencies = [
  "git2",
  "git2-hooks",
  "gitbutler-cherry-pick",
- "gitbutler-commit",
  "gitbutler-diff",
  "gitbutler-project",
  "gitbutler-reference",
@@ -9292,17 +9288,6 @@ checksum = "d52aa42f8fdf0fed91e5ce7f23d8138441002fa31dca008acf47e6fd4721f741"
 dependencies = [
  "nodrop",
  "stable_deref_trait",
-]
-
-[[package]]
-name = "sha-1"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5058ada175748e33390e40e872bd0fe59a19f265d0158daa551c5a88a76009c"
-dependencies = [
- "cfg-if",
- "cpufeatures",
- "digest",
 ]
 
 [[package]]

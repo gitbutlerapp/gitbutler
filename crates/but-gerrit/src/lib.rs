@@ -1,11 +1,10 @@
 use std::fmt::Display;
 
 use bstr::{BString, ByteSlice};
-use but_core::{change_id::ChangeId, commit::Headers};
+use but_core::{ChangeId, commit::Headers};
 use but_ctx::Context;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use serde::{Deserialize, Serialize};
-use sha1::{Digest, Sha1};
 
 use crate::parse::PushOutput;
 
@@ -35,11 +34,14 @@ impl Display for PushFlag {
 #[derive(Clone, Debug)]
 pub struct GerritChangeId(String);
 
-impl From<ChangeId> for GerritChangeId {
-    fn from(value: ChangeId) -> Self {
-        let mut hasher = Sha1::new();
-        hasher.update((*value).as_bytes());
-        Self(format!("I{:x}", hasher.finalize()))
+impl From<&ChangeId> for GerritChangeId {
+    fn from(value: &ChangeId) -> Self {
+        let mut hash = gix::hash::hasher(gix::hash::Kind::Sha1);
+        hash.update((*value).as_bytes());
+        Self(format!(
+            "I{hex_hash_of_change_id}",
+            hex_hash_of_change_id = hash.try_finalize().expect("no SHATTERED attack").to_hex()
+        ))
     }
 }
 impl Display for GerritChangeId {
@@ -57,7 +59,7 @@ pub fn set_trailers(commit: &mut gix::objs::Commit) {
 }
 
 fn with_change_id_trailer(msg: BString, change_id: ChangeId) -> BString {
-    let change_id = GerritChangeId::from(change_id);
+    let change_id = GerritChangeId::from(&change_id);
     let change_id_line = format!("Change-Id: {change_id}");
     let msg_bytes = msg.as_slice();
 
@@ -228,7 +230,7 @@ fn mappings(
             });
         } else if let (Some(change_id), Some(host)) = (commit.change_id(), host.as_ref()) {
             // Fallback: generate review URL if we have a change ID and a host
-            let gerrit_change_id = GerritChangeId::from(change_id.clone());
+            let gerrit_change_id = GerritChangeId::from(&change_id);
             let review_url = format!("https://{}/q/{}", host, gerrit_change_id);
             mappings.push(ChangeIdMapping {
                 commit_id: id,
@@ -260,7 +262,7 @@ mod tests {
     #[test]
     fn output_is_41_characters_long() {
         let commit_change_id = ChangeId::generate();
-        let change_id = GerritChangeId::from(commit_change_id);
+        let change_id = GerritChangeId::from(&commit_change_id);
         let output = format!("{change_id}");
         assert_eq!(output.len(), 41); // "I" + 40 hex chars
         assert!(output.starts_with('I'));
@@ -269,7 +271,7 @@ mod tests {
     #[test]
     fn test_add_trailer_no_existing_trailers() {
         let commit_change_id = ChangeId::generate();
-        let change_id = GerritChangeId::from(commit_change_id.clone());
+        let change_id = GerritChangeId::from(&commit_change_id);
         let change_id_line = format!("Change-Id: {change_id}\n");
 
         let msg = BString::from("Initial commit\n");
@@ -285,7 +287,7 @@ mod tests {
     #[test]
     fn test_add_trailer_already_has_change_id() {
         let commit_change_id = ChangeId::generate();
-        let change_id = GerritChangeId::from(commit_change_id.clone());
+        let change_id = GerritChangeId::from(&commit_change_id);
         let change_id_line = format!("Change-Id: {change_id}\n");
 
         let msg_with_change_id = BString::from(format!("Initial commit\n{change_id_line}"));
@@ -296,7 +298,7 @@ mod tests {
     #[test]
     fn test_add_trailer_with_signed_off_by() {
         let commit_change_id = ChangeId::generate();
-        let change_id = GerritChangeId::from(commit_change_id.clone());
+        let change_id = GerritChangeId::from(&commit_change_id);
         let change_id_line = format!("Change-Id: {change_id}\n");
 
         let msg_with_signed_off =
@@ -335,8 +337,7 @@ mod tests {
              Acked-by: Reviewer <reviewer@example.com>\n\
              Signed-off-by: Author <author@example.com>\n",
         );
-        let updated_msg =
-            with_change_id_trailer(msg_with_multiple.clone(), commit_change_id.clone());
+        let updated_msg = with_change_id_trailer(msg_with_multiple.clone(), commit_change_id);
         let updated_msg_str = updated_msg.to_string();
 
         let acked_by_idx = updated_msg_str.find("Acked-by:").unwrap();

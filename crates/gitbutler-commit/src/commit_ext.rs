@@ -1,5 +1,5 @@
 use bstr::{BStr, ByteSlice};
-use but_core::{change_id::ChangeId, commit::Headers};
+use but_core::{ChangeId, commit::Headers};
 
 /// Extension trait for `git2::Commit`.
 ///
@@ -17,11 +17,9 @@ pub trait CommitMessageBstr {
 
 impl CommitExt for gix::Commit<'_> {
     fn change_id(&self) -> Option<ChangeId> {
-        self.decode().ok().and_then(|commit| {
-            let commit = commit.to_owned().ok()?;
-            let headers = Headers::try_from_commit(&commit)?;
-            headers.change_id
-        })
+        let commit = self.decode().ok()?;
+        let commit = commit.to_owned().ok()?;
+        Headers::try_from_commit(&commit)?.change_id
     }
 
     fn is_signed(&self) -> bool {

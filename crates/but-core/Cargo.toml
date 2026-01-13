@@ -12,6 +12,8 @@ doctest = false
 
 [features]
 export-ts = []
+## Make legacy functionality available.
+legacy = []
 
 [dependencies]
 but-error.workspace = true
