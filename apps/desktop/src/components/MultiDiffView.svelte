@@ -47,8 +47,8 @@
 	let virtualList = $state<VirtualList<SelectedFile>>();
 	let highlightedIndex = $state<number | null>(null);
 
-	export function scrollToIndex(index: number) {
-		virtualList?.scrollToIndex(index);
+	export function jumpToIndex(index: number) {
+		virtualList?.jumpToIndex(index);
 		highlightedIndex = index;
 	}
 </script>
@@ -60,45 +60,42 @@
 			{startIndex}
 			grow
 			items={files}
-			batchSize={1}
 			defaultHeight={500}
 			visibility="scroll"
 		>
-			{#snippet chunkTemplate(items, chunkIndex)}
-				{#each items as file}
-					{@const changeQuery = idSelection.changeByKey(projectId, file)}
-					<ReduxResult {projectId} result={changeQuery.result}>
-						{#snippet children(change)}
-							{@const diffQuery = diffService.getDiff(projectId, change)}
-							{@const diffData = diffQuery.response}
-							{@const isExecutable = isExecutableStatus(change.status)}
-							{@const patchData = diffData?.type === 'Patch' ? diffData.subject : null}
-							<FileViewHeader
-								solid
-								bottomBorder
-								topBorder={chunkIndex !== 0}
-								filePath={change.path}
-								fileStatus={computeChangeStatus(change)}
-								linesAdded={patchData?.linesAdded}
-								linesRemoved={patchData?.linesRemoved}
-								executable={isExecutable}
-								highlighted={highlightedIndex === chunkIndex}
-								sticky
-							/>
-							<UnifiedDiffView
-								{projectId}
-								{stackId}
-								commitId={file.type === 'commit' ? file.commitId : undefined}
-								{draggable}
-								{change}
-								diff={diffData || null}
-								{selectable}
-								selectionId={file}
-								topPadding
-							/>
-						{/snippet}
-					</ReduxResult>
-				{/each}
+			{#snippet template(file, index)}
+				{@const changeQuery = idSelection.changeByKey(projectId, file)}
+				<ReduxResult {projectId} result={changeQuery.result}>
+					{#snippet children(change)}
+						{@const diffQuery = diffService.getDiff(projectId, change)}
+						{@const diffData = diffQuery.response}
+						{@const isExecutable = isExecutableStatus(change.status)}
+						{@const patchData = diffData?.type === 'Patch' ? diffData.subject : null}
+						<FileViewHeader
+							solid
+							bottomBorder
+							topBorder={index !== 0}
+							filePath={change.path}
+							fileStatus={computeChangeStatus(change)}
+							linesAdded={patchData?.linesAdded}
+							linesRemoved={patchData?.linesRemoved}
+							executable={isExecutable}
+							highlighted={highlightedIndex === index}
+							sticky
+						/>
+						<UnifiedDiffView
+							{projectId}
+							{stackId}
+							commitId={file.type === 'commit' ? file.commitId : undefined}
+							{draggable}
+							{change}
+							diff={diffData || null}
+							{selectable}
+							selectionId={file}
+							topPadding
+						/>
+					{/snippet}
+				</ReduxResult>
 			{/snippet}
 		</VirtualList>
 	{:else}

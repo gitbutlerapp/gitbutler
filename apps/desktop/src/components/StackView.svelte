@@ -453,7 +453,7 @@
 									onselect={(change, index) => {
 										// Clear one selection when you modify the other.
 										laneState?.selection.set(undefined);
-										multiDiffView?.scrollToIndex(index);
+										multiDiffView?.jumpToIndex(index);
 									}}
 								>
 									{#snippet emptyPlaceholder()}
@@ -505,10 +505,10 @@
 								idSelection.clear({ type: 'worktree', stackId: stableStackId });
 							}}
 							onCommitFileClick={(commitId, path, index) => {
-								multiDiffView?.scrollToIndex(index);
+								multiDiffView?.jumpToIndex(index);
 							}}
 							onBranchFileClick={(branchName, path, index) => {
-								multiDiffView?.scrollToIndex(index);
+								multiDiffView?.jumpToIndex(index);
 							}}
 						/>
 					</div>

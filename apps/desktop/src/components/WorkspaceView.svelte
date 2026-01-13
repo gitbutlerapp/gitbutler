@@ -69,7 +69,7 @@
 			{projectId}
 			onselect={(_change, index) => {
 				startIndex = index;
-				multiDiffView?.scrollToIndex(index);
+				multiDiffView?.jumpToIndex(index);
 			}}
 		/>
 	{/snippet}
