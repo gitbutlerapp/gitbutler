@@ -27,7 +27,7 @@ pub fn rewrite(
         .values_mut()
         .filter(|stack| stack.in_workspace)
         .collect();
-    stacks_ordered.sort_by(|a, b| a.name.cmp(&b.name));
+    stacks_ordered.sort_by_key(|a| a.name());
     for (old, new) in changed_commits {
         let mut already_updated_refs = Vec::<BString>::new();
         for stack in &mut stacks_ordered {
@@ -41,7 +41,7 @@ pub fn rewrite(
                 updated_refs.push(UpdatedReference {
                     old_commit_id: old,
                     new_commit_id: new,
-                    reference: but_core::Reference::Virtual(stack.name.clone()),
+                    reference: but_core::Reference::Virtual(stack.name()),
                 });
             }
             let update_up_to_idx =

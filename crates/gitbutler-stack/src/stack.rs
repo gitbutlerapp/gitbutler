@@ -36,7 +36,7 @@ pub struct Stack {
     pub id: StackId,
     /// A user-specified name with no restrictions.
     /// It will be normalized except to be a valid ref-name if named `refs/gitbutler/<normalize(name)>`.
-    pub name: String,
+    name: String,
     /// If set, this means this virtual branch was originally created from `Some(branch)`.
     /// It can be *any* branch.
     pub source_refname: Option<Refname>,
@@ -168,6 +168,14 @@ impl Stack {
             in_workspace: true,
             heads: Default::default(),
         }
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
     }
 
     pub fn new_with_just_heads(heads: Vec<StackBranch>, order: usize, in_workspace: bool) -> Self {
@@ -350,7 +358,7 @@ impl Stack {
         let name = if let Some(refname) = self.upstream.as_ref() {
             refname.branch().to_string()
         } else {
-            self.name.clone()
+            self.name()
         };
 
         let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;
@@ -701,7 +709,7 @@ impl Stack {
             None => bail!(
                 "Series {} does not exist on stack {}",
                 branch_name,
-                self.name
+                self.name()
             ),
         }
     }
@@ -787,7 +795,7 @@ impl TryFrom<&Stack> for VirtualRefname {
 
     fn try_from(value: &Stack) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
-            branch: normalize_branch_name(&value.name)?,
+            branch: normalize_branch_name(&value.name())?,
         })
     }
 }

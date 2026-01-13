@@ -63,11 +63,10 @@ impl BranchManager<'_> {
             .list_stacks_in_workspace()
             .context("failed to read virtual branches")?;
 
+        let stack_names: Vec<String> = all_stacks.iter().map(|b| b.name()).collect();
+        let stack_name_refs: Vec<&str> = stack_names.iter().map(|s| s.as_str()).collect();
         let name = dedup(
-            &all_stacks
-                .iter()
-                .map(|b| b.name.as_str())
-                .collect::<Vec<_>>(),
+            &stack_name_refs,
             create.name.as_ref().unwrap_or(&"Lane".to_string()),
         );
 
@@ -381,6 +380,6 @@ impl BranchManager<'_> {
 
         update_workspace_commit(&vb_state, self.ctx, false)?;
 
-        Ok((stack.name, unapplied_stacks))
+        Ok((stack.name(), unapplied_stacks))
     }
 }

@@ -76,14 +76,13 @@ pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack
 
         ctx.delete_branch_reference(&stack)?;
 
-        stack.name = dedup(
-            &all_virtual_branches
-                .iter()
-                .filter(|b| Some(b.id) != update.id)
-                .map(|b| b.name.as_str())
-                .collect::<Vec<_>>(),
-            name,
-        );
+        let names: Vec<String> = all_virtual_branches
+            .iter()
+            .filter(|b| Some(b.id) != update.id)
+            .map(|b| b.name())
+            .collect();
+        let name_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+        stack.set_name(dedup(&name_refs, name));
 
         ctx.add_branch_reference(&stack)?;
     };

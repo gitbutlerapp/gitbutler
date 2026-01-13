@@ -712,7 +712,7 @@ fn set_pr_numberentifiers_series_not_found_fails() -> Result<()> {
         result.err().unwrap().to_string(),
         format!(
             "Series does-not-exist does not exist on stack {}",
-            test_ctx.stack.name
+            test_ctx.stack.name()
         )
     );
     Ok(())
@@ -769,8 +769,8 @@ fn head_names(test_ctx: &TestContext) -> Vec<String> {
 fn test_ctx(ctx: &Context) -> Result<TestContext> {
     let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks = handle.list_all_stacks()?;
-    let stack = stacks.iter().find(|b| b.name == "virtual").unwrap();
-    let other_stack = stacks.iter().find(|b| b.name != "virtual").unwrap();
+    let stack = stacks.iter().find(|b| b.name() == "virtual").unwrap();
+    let other_stack = stacks.iter().find(|b| b.name() != "virtual").unwrap();
     let target = handle.get_default_target()?;
     let git2_repo = ctx.git2_repo.get()?;
     let mut branch_commits = git2_repo.log(

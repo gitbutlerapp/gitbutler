@@ -36,7 +36,7 @@ impl BranchManager<'_> {
                 .to_string());
         }
 
-        _ = self.ctx.snapshot_branch_deletion(stack.name.clone(), perm);
+        _ = self.ctx.snapshot_branch_deletion(stack.name(), perm);
 
         let repo = self.ctx.git2_repo.get()?;
 

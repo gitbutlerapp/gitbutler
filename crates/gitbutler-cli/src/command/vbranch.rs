@@ -50,7 +50,7 @@ pub fn list(project: Project) -> Result<()> {
             "{active} {id} {name} {upstream} {default}",
             active = if stack.in_workspace { "✔️" } else { "⛌" },
             id = stack.id,
-            name = stack.name,
+            name = stack.name(),
             upstream = stack
                 .upstream
                 .map_or_else(Default::default, |b| b.to_string()),
@@ -235,7 +235,7 @@ fn find_all_stacks_by_name(project: &Project, name: &str) -> Result<Vec<Stack>> 
     let found = VirtualBranchesHandle::new(project.gb_dir())
         .list_all_stacks()?
         .into_iter()
-        .filter(|b| b.name == name)
+        .filter(|b| b.name() == name)
         .collect();
     Ok(found)
 }
