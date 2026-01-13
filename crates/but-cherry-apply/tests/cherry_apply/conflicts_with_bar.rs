@@ -16,7 +16,7 @@ fn status_is_locked_to_bar() -> anyhow::Result<()> {
         .handle
         .list_stacks_in_workspace()?
         .iter()
-        .find(|s| s.name == "bar")
+        .find(|s| s.name() == "bar")
         .unwrap()
         .id;
 
@@ -38,7 +38,7 @@ fn can_only_apply_to_bar_stack() -> anyhow::Result<()> {
         .handle
         .list_stacks_in_workspace()?
         .iter()
-        .find(|s| s.name == "bar")
+        .find(|s| s.name() == "bar")
         .unwrap()
         .id;
 

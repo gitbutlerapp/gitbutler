@@ -79,7 +79,7 @@ pub fn remerged_workspace_tree_v2(
             workspace_tree_id = merge.tree.write()?.detach();
         } else {
             // This branch should have already been unapplied during the "update" command but for some reason that failed
-            tracing::warn!("Merge conflict between base and {:?}", stack.name);
+            tracing::warn!("Merge conflict between base and {:?}", stack.name());
             stack.in_workspace = false;
             vb_state.set_stack(stack.clone())?;
         }

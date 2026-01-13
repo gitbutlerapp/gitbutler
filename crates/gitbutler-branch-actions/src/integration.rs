@@ -109,7 +109,7 @@ pub fn update_workspace_commit(
         message.push_str("Here are the branches that are currently applied:\n");
         for branch in &virtual_branches {
             message.push_str(" - ");
-            message.push_str(branch.name.as_str());
+            message.push_str(&branch.name());
             message.push_str(format!(" ({})", &branch.refname()?).as_str());
             message.push('\n');
 

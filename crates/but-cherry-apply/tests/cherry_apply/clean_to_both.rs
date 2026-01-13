@@ -30,7 +30,7 @@ fn can_apply_to_foo_stack() -> anyhow::Result<()> {
         .handle
         .list_stacks_in_workspace()?
         .iter()
-        .find(|s| s.name == "foo")
+        .find(|s| s.name() == "foo")
         .unwrap()
         .id;
 
@@ -79,7 +79,7 @@ fn can_apply_to_bar_stack() -> anyhow::Result<()> {
         .handle
         .list_stacks_in_workspace()?
         .iter()
-        .find(|s| s.name == "bar")
+        .find(|s| s.name() == "bar")
         .unwrap()
         .id;
 

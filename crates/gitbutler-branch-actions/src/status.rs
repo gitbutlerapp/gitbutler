@@ -139,7 +139,7 @@ pub fn get_applied_status_cached(
     for (vbranch, _) in &mut hunks_by_branch {
         vb_state
             .set_stack(vbranch.clone())
-            .context(format!("failed to write virtual branch {}", vbranch.name))?;
+            .context(format!("failed to write virtual branch {}", vbranch.name()))?;
     }
 
     let worktree_dir = ctx.legacy_project.worktree_dir()?;

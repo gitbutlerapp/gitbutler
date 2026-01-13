@@ -431,7 +431,7 @@ fn command_ctx() -> Result<(Context, TempDir)> {
 fn test_ctx(ctx: &Context) -> Result<TestContext> {
     let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks = handle.list_all_stacks()?;
-    let stack = stacks.iter().find(|b| b.name == "my_stack").unwrap();
+    let stack = stacks.iter().find(|b| b.name() == "my_stack").unwrap();
     let branches = stack.branches();
     let branch_1 = branches.iter().find(|b| b.name() == "my_stack").unwrap();
     let git2_repo = &*ctx.git2_repo.get()?;

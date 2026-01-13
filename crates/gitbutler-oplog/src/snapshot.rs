@@ -188,7 +188,7 @@ impl SnapshotExt for but_ctx::Context {
                     vec![
                         Trailer {
                             key: "before".to_string(),
-                            value: old_stack.name.clone(),
+                            value: old_stack.name(),
                         },
                         Trailer {
                             key: "after".to_string(),
