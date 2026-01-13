@@ -637,7 +637,7 @@ pub fn print_group(
             }
             for commit in &segment.remote_commits {
                 let details =
-                    but_api::diff::commit_details(ctx, commit.commit_id, ComputeLineStats::No)?;
+                    but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
                 print_commit(
                     details,
                     CommitClassification::Upstream,
@@ -654,13 +654,15 @@ pub fn print_group(
                 writeln!(out, "┊-")?;
             }
             for commit in segment.workspace_commits.iter() {
-                let marked =
-                    crate::command::legacy::mark::commit_marked(ctx, commit.commit_id.to_string())
-                        .unwrap_or_default();
-                let classification = match commit.relation {
+                let marked = crate::command::legacy::mark::commit_marked(
+                    ctx,
+                    commit.commit_id().to_string(),
+                )
+                .unwrap_or_default();
+                let classification = match commit.relation() {
                     LocalCommitRelation::LocalOnly => CommitClassification::LocalOnly,
                     LocalCommitRelation::LocalAndRemote(object_id) => {
-                        if object_id == commit.commit_id {
+                        if object_id == commit.commit_id() {
                             CommitClassification::Pushed
                         } else {
                             CommitClassification::Modified
@@ -670,7 +672,7 @@ pub fn print_group(
                 };
 
                 let details =
-                    but_api::diff::commit_details(ctx, commit.commit_id, ComputeLineStats::No)?;
+                    but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
                 print_commit(
                     details,
                     classification,

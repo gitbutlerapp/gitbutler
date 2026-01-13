@@ -41,12 +41,22 @@ const UNASSIGNED: &str = "zz";
 pub struct WorkspaceCommitWithId {
     /// The short ID.
     pub short_id: ShortId,
+    /// The original workspace commit.
+    pub inner: but_workspace::ref_info::LocalCommit,
+}
+impl WorkspaceCommitWithId {
     /// The object ID of the commit.
-    pub commit_id: gix::ObjectId,
+    pub fn commit_id(&self) -> gix::ObjectId {
+        self.inner.inner.id
+    }
     /// The ID of the first parent if the commit has parents.
-    pub first_parent_id: Option<gix::ObjectId>,
+    pub fn first_parent_id(&self) -> Option<gix::ObjectId> {
+        self.inner.inner.parent_ids.first().cloned()
+    }
     /// State in relation to its remote tracking branch.
-    pub relation: LocalCommitRelation,
+    pub fn relation(&self) -> LocalCommitRelation {
+        self.inner.relation
+    }
 }
 
 /// A remote commit with its short ID.
@@ -54,8 +64,14 @@ pub struct WorkspaceCommitWithId {
 pub struct RemoteCommitWithId {
     /// The short ID.
     pub short_id: ShortId,
+    /// The original remote commit.
+    pub inner: but_workspace::ref_info::Commit,
+}
+impl RemoteCommitWithId {
     /// The object ID of the commit.
-    pub commit_id: gix::ObjectId,
+    pub fn commit_id(&self) -> gix::ObjectId {
+        self.inner.id
+    }
 }
 
 /// A segment with its short ID and commit IDs.
@@ -66,11 +82,12 @@ pub struct SegmentWithId {
     /// True iff `short_id` was generated from scratch (and not from a substring
     /// of the branch name).
     pub is_auto_id: bool,
-    /// The original segment.
+    /// The original segment except that `commits` and `commits_on_remote` are
+    /// blank to save memory.
     pub inner: but_workspace::ref_info::Segment,
-    /// Parallel to `inner.commits`.
+    /// The original `inner.commits` with additional information.
     pub workspace_commits: Vec<WorkspaceCommitWithId>,
-    /// Parallel to `inner.commits_on_remote`.
+    /// The original `inner.commits_on_remote` with additional information.
     pub remote_commits: Vec<RemoteCommitWithId>,
 }
 impl SegmentWithId {
@@ -183,13 +200,13 @@ impl IdMap {
                 workspace_commits.insert(
                     workspace_commit.short_id.clone(),
                     WorkspaceCommit {
-                        commit_id: workspace_commit.commit_id,
-                        first_parent_id: workspace_commit.first_parent_id,
+                        commit_id: workspace_commit.commit_id(),
+                        first_parent_id: workspace_commit.first_parent_id(),
                     },
                 );
             }
             for remote_commit in segment.remote_commits.iter() {
-                remote_commit_ids.insert(remote_commit.short_id.clone(), remote_commit.commit_id);
+                remote_commit_ids.insert(remote_commit.short_id.clone(), remote_commit.commit_id());
             }
         }
 
