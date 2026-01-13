@@ -203,29 +203,6 @@ pub fn integrate_branch_with_steps(
     )
 }
 
-pub fn update_virtual_branch(ctx: &Context, branch_update: BranchUpdateRequest) -> Result<()> {
-    let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Updating a branch requires open workspace mode")?;
-    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
-    let old_branch = ctx
-        .legacy_project
-        .virtual_branches()
-        .get_stack_in_workspace(branch_update.id.context("BUG(opt-stack-id)")?)?;
-    let result = vbranch::update_stack(ctx, &branch_update);
-    let _ = snapshot_tree.and_then(|snapshot_tree| {
-        ctx.snapshot_branch_update(
-            snapshot_tree,
-            &old_branch,
-            &branch_update,
-            result.as_ref().err(),
-            guard.write_permission(),
-        )
-    });
-    result?;
-    Ok(())
-}
-
 pub fn update_stack_order(ctx: &Context, updates: Vec<BranchUpdateRequest>) -> Result<()> {
     ctx.verify(ctx.exclusive_worktree_access().write_permission())?;
     ensure_open_workspace_mode(ctx)

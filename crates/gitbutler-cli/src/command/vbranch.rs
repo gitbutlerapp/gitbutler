@@ -4,7 +4,7 @@ use but_ctx::Context;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::ObjectIdExt;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
-use gitbutler_branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
+use gitbutler_branch::{BranchCreateRequest, BranchIdentity};
 use gitbutler_branch_actions::{BranchManagerExt, get_branch_listing_details, list_branches};
 use gitbutler_project::Project;
 use gitbutler_reference::{LocalRefname, Refname};
@@ -144,7 +144,7 @@ fn apply_from_branch(project: Project, branch_name: String) -> Result<()> {
     )?)
 }
 
-pub fn create(project: Project, branch_name: String, set_default: bool) -> Result<()> {
+pub fn create(project: Project, branch_name: String) -> Result<()> {
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let new_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         &ctx,
@@ -154,29 +154,7 @@ pub fn create(project: Project, branch_name: String, set_default: bool) -> Resul
         },
         ctx.exclusive_worktree_access().write_permission(),
     )?;
-    if set_default {
-        let new = VirtualBranchesHandle::new(project.gb_dir()).get_stack(new_stack_entry.id)?;
-        set_default_branch(&project, &new)?;
-    }
     debug_print(new_stack_entry)
-}
-
-pub fn set_default(project: Project, branch_name: String) -> Result<()> {
-    let stack = stack_by_name(&project, &branch_name)?;
-    set_default_branch(&project, &stack)
-}
-
-fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    gitbutler_branch_actions::update_virtual_branch(
-        &ctx,
-        BranchUpdateRequest {
-            id: Some(stack.id),
-            name: None,
-            order: None,
-            upstream: None,
-        },
-    )
 }
 
 pub fn series(project: Project, stack_name: String, new_series_name: String) -> Result<()> {

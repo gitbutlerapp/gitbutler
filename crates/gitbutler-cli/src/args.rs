@@ -64,11 +64,6 @@ pub mod vbranch {
             /// The hex-id of the commit to produce information for.
             commit_id: String,
         },
-        /// Make the named branch the default so all worktree or index changes are associated with it automatically.
-        SetDefault {
-            /// The name of the new default virtual branch.
-            name: String,
-        },
         /// Remove a branch from the workspace.
         Unapply {
             /// The name of the virtual branch to unapply.
