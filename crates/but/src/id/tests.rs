@@ -3,7 +3,7 @@ use bstr::BString;
 use but_hunk_assignment::HunkAssignment;
 use but_testsupport::{hex_to_id, hunk_header};
 
-use crate::{CliId, IdMap, id::UintId};
+use crate::{CliId, IdMap, id::id_usage::UintId};
 
 #[test]
 fn uint_id_from_short_id() -> anyhow::Result<()> {
@@ -46,7 +46,7 @@ fn uint_id_to_short_id() -> anyhow::Result<()> {
 #[test]
 fn commit_id_works_with_two_or_more_characters() -> anyhow::Result<()> {
     let id1 = id(1);
-    let stacks = &[stack([segment("not-important", [id1], None, [])])];
+    let stacks = vec![stack([segment("not-important", [id1], None, [])])];
     let id_map = IdMap::new(stacks, Vec::new())?;
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
     workspace_and_remote_commits_count: 1
@@ -84,7 +84,7 @@ fn commit_ids_become_longer_if_ambiguous() -> anyhow::Result<()> {
     let id1 = hex_to_id("21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     let id2 = hex_to_id("21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
     let id3 = hex_to_id("21bccccccccccccccccccccccccccccccccccccc");
-    let stacks = &[stack([segment("not-important", [id1, id2, id3], None, [])])];
+    let stacks = vec![stack([segment("not-important", [id1, id2, id3], None, [])])];
     let id_map = IdMap::new(stacks, Vec::new())?;
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
     workspace_and_remote_commits_count: 3
@@ -128,7 +128,7 @@ fn commit_ids_become_longer_if_ambiguous() -> anyhow::Result<()> {
 
 #[test]
 fn branches_work_with_single_character() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("f", [id(1)], None, [])])];
+    let stacks = vec![stack([segment("f", [id(1)], None, [])])];
     let id_map = IdMap::new(stacks, Vec::new())?;
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
     workspace_and_remote_commits_count: 1
@@ -154,7 +154,7 @@ fn branches_work_with_single_character() -> anyhow::Result<()> {
 
 #[test]
 fn branches_match_by_substring() -> anyhow::Result<()> {
-    let stacks = &[stack([
+    let stacks = vec![stack([
         segment("foo-bar", [id(1)], None, []),
         segment("bar", [id(2)], None, []),
         segment("foo", [id(3)], None, []),
@@ -197,7 +197,7 @@ fn branches_match_by_substring() -> anyhow::Result<()> {
 
 #[test]
 fn branches_avoid_unassigned_area_id() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("zza", [id(1)], None, [])])];
+    let stacks = vec![stack([segment("zza", [id(1)], None, [])])];
     let id_map = IdMap::new(stacks, Vec::new())?;
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
     workspace_and_remote_commits_count: 1
@@ -218,7 +218,7 @@ fn branches_avoid_unassigned_area_id() -> anyhow::Result<()> {
 
 #[test]
 fn branches_avoid_invalid_ids() -> anyhow::Result<()> {
-    let stacks = &[stack([
+    let stacks = vec![stack([
         segment("x-yz_/hi", [id(1)], None, []),
         segment("0ax", [id(2)], None, []),
     ])];
@@ -251,7 +251,7 @@ fn branches_avoid_invalid_ids() -> anyhow::Result<()> {
 
 #[test]
 fn branches_avoid_uncommitted_filenames() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("ghij", [id(1)], None, [])])];
+    let stacks = vec![stack([segment("ghij", [id(1)], None, [])])];
     let hunk_assignments = vec![hunk_assignment("gh", None), hunk_assignment("hi", None)];
     let id_map = IdMap::new(stacks, hunk_assignments)?;
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
@@ -275,7 +275,7 @@ fn branches_avoid_uncommitted_filenames() -> anyhow::Result<()> {
 
 #[test]
 fn branch_cannot_generate_id() -> anyhow::Result<()> {
-    let stacks = &[
+    let stacks = vec![
         stack([segment("substring", [id(1)], None, [])]),
         stack([segment("supersubstring", [id(2)], None, [])]),
     ];
@@ -308,7 +308,7 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
 
 #[test]
 fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("h0", [id(2)], Some(id(1)), [])])];
+    let stacks = vec![stack([segment("h0", [id(2)], Some(id(1)), [])])];
     let hunk_assignments = vec![
         HunkAssignment {
             hunk_header: Some(hunk_header("-1,2", "+1,2")),
@@ -489,7 +489,7 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
 
 #[test]
 fn ids_are_case_sensitive() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("h0", [id(10)], Some(id(9)), [])])];
+    let stacks = vec![stack([segment("h0", [id(10)], Some(id(9)), [])])];
     let hunk_assignments = vec![hunk_assignment("uncommitted.txt", None)];
     let mut id_map = IdMap::new(stacks, hunk_assignments)?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -603,7 +603,7 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
 
 #[test]
 fn branch_and_file_by_name() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("foo", [id(1)], None, [])])];
+    let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
     let hunk_assignments = vec![hunk_assignment("foo", None)];
     let mut id_map = IdMap::new(stacks, hunk_assignments)?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -654,7 +654,7 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
 
 #[test]
 fn committed_files_are_deduplicated_by_commit_oid_path() -> anyhow::Result<()> {
-    let stacks = &[stack([segment("branch", [id(2)], Some(id(1)), [])])];
+    let stacks = vec![stack([segment("branch", [id(2)], Some(id(1)), [])])];
     let mut id_map = IdMap::new(stacks, Vec::new())?;
 
     // Simulate a changed_paths function that returns the same file twice
@@ -793,6 +793,7 @@ mod util {
         /// Return a sorted list of all CliIds we can provide, excluding unassigned.
         pub fn all_ids(&self) -> Vec<CliId> {
             let IdMap {
+                stacks: _,
                 branch_name_to_cli_id,
                 // All branch IDs are already obtained from
                 // `branch_name_to_cli_id`, so we don't need the keys in
@@ -833,6 +834,7 @@ mod util {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             use itertools::Itertools;
             let IdMap {
+                stacks: _,
                 branch_name_to_cli_id,
                 // All branch IDs are already obtained from
                 // `branch_name_to_cli_id`, so we don't need to print the keys

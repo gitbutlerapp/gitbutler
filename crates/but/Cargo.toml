@@ -58,6 +58,7 @@ but-github.workspace = true
 but-forge.workspace = true
 but-workspace = { workspace = true }
 but-api = { workspace = true, features = ["path-bytes"] }
+but-graph.workspace = true
 
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
