@@ -549,9 +549,7 @@
 							if (stickToBottom && index === visibleRange.end - 1) {
 								scrollToBottom();
 							}
-						}
-
-						if (
+						} else if (
 							lastScrollDirection === 'up' &&
 							calculateHeightSum(0, visibleRange.start) !== viewport.scrollTop
 						) {
@@ -562,12 +560,9 @@
 							// After jumpToIndex, maintain position as items measure themselves
 							viewport?.scrollTo({ top: calculateHeightSum(0, lastJumpToIndex) });
 							ignoreScroll = true;
-						}
-
-						if (stickToBottom && wasNearBottom()) {
-							if (getDistanceFromBottom() > previousDistance) {
-								scrollToBottom();
-							}
+						} else if (stickToBottom && wasNearBottom()) {
+							ignoreScroll = true;
+							scrollToBottom();
 						}
 						shouldRecalculate = true;
 					}
@@ -615,7 +610,6 @@
 						const count = items.length;
 						hasNewItemsAtBottom = count > previousCount && count > visibleRange.end;
 					}
-					recalculateVisibleRange();
 				}
 			});
 		}
@@ -640,6 +634,9 @@
 	 * Scrolls to a specific item index in the list by reinitializing the list.
 	 */
 	export async function jumpToIndex(index: number) {
+		if (index < 0 || index > items.length - 1) {
+			return;
+		}
 		unobserveAll();
 		lastScrollDirection = undefined;
 		initializeAt(index);
@@ -671,6 +668,8 @@
 			lastScrollDirection = 'up';
 		} else if (lastScrollTop && lastScrollTop < scrollTop) {
 			lastScrollDirection = 'down';
+		} else {
+			lastScrollDirection = undefined;
 		}
 		recalculateVisibleRange();
 		lastScrollTop = viewport.scrollTop;
@@ -723,7 +722,9 @@
 				type="button"
 				class="text-12 feed-actions__new-messages"
 				transition:fade={{ duration: 150 }}
-				onclick={scrollToBottom}
+				onclick={() => {
+					jumpToIndex(items.length - 1);
+				}}
 			>
 				New unread
 			</button>
