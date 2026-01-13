@@ -96,34 +96,31 @@
 		</div>
 		<VirtualList
 			items={commits}
-			batchSize={10}
 			defaultHeight={45}
 			visibility={$userSettings.scrollbarVisibilityState}
 			onloadmore={async () => await loadMore()}
 		>
-			{#snippet chunkTemplate(commits)}
-				{#each commits as commit}
-					{@const selected = commit.id === branchesState?.current.commitId}
-					<CommitRow
-						disableCommitActions
-						type="LocalAndRemote"
-						diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
-						{selected}
-						commitId={commit.id}
-						branchName={baseBranch.branchName}
-						commitMessage={commit.message}
-						gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
-						createdAt={commitCreatedAt(commit)}
-						author={commit.author}
-						onclick={() => {
-							BranchesSelectionActions.selectTargetCommit(branchesState, {
-								commitId: commit.id,
-								branchName: baseBranch.shortName,
-								remote: baseBranch.remoteName
-							});
-						}}
-					/>
-				{/each}
+			{#snippet template(commit)}
+				{@const selected = commit.id === branchesState?.current.commitId}
+				<CommitRow
+					disableCommitActions
+					type="LocalAndRemote"
+					diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
+					{selected}
+					commitId={commit.id}
+					branchName={baseBranch.branchName}
+					commitMessage={commit.message}
+					gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
+					createdAt={commitCreatedAt(commit)}
+					author={commit.author}
+					onclick={() => {
+						BranchesSelectionActions.selectTargetCommit(branchesState, {
+							commitId: commit.id,
+							branchName: baseBranch.shortName,
+							remote: baseBranch.remoteName
+						});
+					}}
+				/>
 			{/snippet}
 		</VirtualList>
 	{/snippet}
