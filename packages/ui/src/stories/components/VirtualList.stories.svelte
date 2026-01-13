@@ -1,6 +1,7 @@
 <script module lang="ts">
 	import Button from '$components/Button.svelte';
 	import VirtualList from '$lib/components/VirtualList.svelte';
+	import AsyncContent from '$lib/helpers/AsyncContent.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import type { Component, ComponentProps } from 'svelte';
 
@@ -12,7 +13,6 @@
 		component: VirtualList as Component<ComponentProps<VirtualList<string>>>,
 		args: {
 			items,
-			batchSize: 1,
 			visibility: 'hover',
 			defaultHeight
 		}
@@ -23,22 +23,26 @@
 </script>
 
 <script lang="ts">
-	import AsyncContent from '../helpers/AsyncContent.svelte';
-
 	let toggle = $state(false);
 	let virtualList = $state<VirtualList<any>>();
+
+	function randomDelay(maxMs: number) {
+		return Math.round(Math.random() * maxMs);
+	}
 </script>
 
 <Story name="Initial bottom">
 	{#snippet template(args)}
 		<div class="container" bind:this={container}>
 			<VirtualList bind:this={virtualList} {...args}>
-				{#snippet chunkTemplate(chunk)}
-					{#each chunk as item}
-						<div class="item" style:height={defaultHeight + 'px'}>
-							{item || 'empty'}
-						</div>
-					{/each}
+				{#snippet template(item)}
+					{@const delay = randomDelay(2500)}
+					<div class="item" style:min-height={defaultHeight + 'px'}>
+						{item || 'empty'}
+						<AsyncContent {delay}>
+							<div class="async-content">async content delay: {delay}</div>
+						</AsyncContent>
+					</div>
 				{/snippet}
 				{#if toggle}
 					Hello world!
@@ -86,15 +90,13 @@
 	{#snippet template(args)}
 		<div class="container" bind:this={container}>
 			<VirtualList bind:this={virtualList} {...args} defaultHeight={150} startIndex={4}>
-				{#snippet chunkTemplate(chunk)}
-					{#each chunk as item}
-						<div class="item" style="min-height: 150px;">
-							<div>{item}</div>
-							<AsyncContent delay={500}>
-								<div class="async-content">async content</div>
-							</AsyncContent>
-						</div>
-					{/each}
+				{#snippet template(item)}
+					<div class="item" style="min-height: 150px;">
+						<div>{item}</div>
+						<AsyncContent delay={500}>
+							<div class="async-content">async content</div>
+						</AsyncContent>
+					</div>
 				{/snippet}
 			</VirtualList>
 		</div>
@@ -109,7 +111,7 @@
 			type="button"
 			onclick={() => {
 				if (!virtualList || !selector) return;
-				virtualList.scrollToIndex(parseInt(selector.value));
+				virtualList.jumpToIndex(parseInt(selector.value));
 			}}
 		>
 			goto

@@ -216,7 +216,7 @@ export async function waitForScrollStability(
 		checkInterval?: number;
 	} = {}
 ): Promise<void> {
-	const { timeout = 1000, requiredStableChecks = 3, checkInterval = 50 } = options;
+	const { timeout = 2000, requiredStableChecks = 3, checkInterval = 100 } = options;
 
 	await viewport.evaluate(
 		async (
@@ -434,6 +434,81 @@ export async function waitUntilIdle(
 
 	// Timeout reached - browser might still be busy but we've waited long enough
 	// This is acceptable for test stability
+}
+
+/**
+ * Scroll viewport to a specific percentage (0-100)
+ * Useful for testing scroll behavior at different positions
+ */
+export async function scrollToPercentage(viewport: any, percent: number): Promise<void> {
+	const { scrollHeight, clientHeight } = await getScrollProperties(viewport);
+	const maxScroll = scrollHeight - clientHeight;
+	const targetScroll = (maxScroll * percent) / 100;
+	await scrollTo(viewport, targetScroll);
+}
+
+/**
+ * Get the current scroll percentage (0-100)
+ */
+export async function getScrollPercentage(viewport: any): Promise<number> {
+	const { scrollTop, scrollHeight, clientHeight } = await getScrollProperties(viewport);
+	const maxScroll = scrollHeight - clientHeight;
+	if (maxScroll === 0) return 100; // Already at bottom if no scrollable area
+	return (scrollTop / maxScroll) * 100;
+}
+
+/**
+ * Check if viewport is at the bottom within a tolerance threshold
+ */
+export async function isAtBottom(viewport: any, tolerance = 10): Promise<boolean> {
+	const distance = await getDistanceFromBottom(viewport);
+	return distance < tolerance;
+}
+
+/**
+ * Wait for an action that changes scroll height and ensure the change completes
+ * Useful for operations that add/remove items from a scrollable list
+ */
+export async function waitForScrollHeightChange(
+	viewport: any,
+	action: () => Promise<void>,
+	timeout = 2000
+): Promise<void> {
+	const { scrollHeight: before } = await getScrollProperties(viewport);
+	await action();
+	await waitForScrollHeightIncrease(viewport, before, timeout);
+}
+
+/**
+ * Assert that the viewport is scrolled to the bottom within a tolerance threshold
+ * @param viewport - The scrollable viewport element
+ * @param tolerance - Maximum distance from bottom (in px) to be considered "at bottom"
+ */
+export async function expectAtBottom(viewport: any, tolerance = 10): Promise<void> {
+	expect(await getDistanceFromBottom(viewport)).toBeLessThan(tolerance);
+}
+
+/**
+ * Assert that the viewport is NOT at the bottom
+ * @param viewport - The scrollable viewport element
+ * @param minDistance - Minimum distance from bottom (in px) to be considered "not at bottom"
+ */
+export async function expectNotAtBottom(viewport: any, minDistance = 100): Promise<void> {
+	expect(await getDistanceFromBottom(viewport)).toBeGreaterThan(minDistance);
+}
+
+/**
+ * Get all visible items in a virtual list by their data-index attribute
+ * Returns an array of index numbers for items currently rendered in the DOM
+ */
+export async function getVisibleItemIndices(viewport: any): Promise<number[]> {
+	return await viewport.evaluate((el: HTMLElement) => {
+		const items = el.querySelectorAll('[data-index]');
+		return Array.from(items).map((item) => {
+			const index = item.getAttribute('data-index');
+			return index ? parseInt(index, 10) : -1;
+		});
+	});
 }
 
 /**
