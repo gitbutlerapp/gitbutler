@@ -156,34 +156,14 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
               ]
             }
 ...
-    },
-    {
-      "cliId": "j0",
-      "assignedChanges": [],
-      "branches": [
-        {
-          "cliId": "h0",
-          "name": "B",
-          "commits": [
-            {
-...
-              "changes": [
-                {
-                  "cliId": "l0",
-                  "filePath": "B",
-                  "changeType": "added"
-                }
-              ]
-            }
-...
 
 "#]]);
 
-    env.but("j0 zz")
+    env.but("p0 zz")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Unassigned all [B] changes.
+Uncommitted changes
 
 "#]])
         .stderr_eq(str![""]);
@@ -196,10 +176,16 @@ Unassigned all [B] changes.
         .stderr_eq(snapbox::str![""])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [],
-  "stacks": [
+  "unassignedChanges": [
     {
       "cliId": "i0",
+      "filePath": "b.txt",
+      "changeType": "added"
+    }
+  ],
+  "stacks": [
+    {
+      "cliId": "k0",
       "assignedChanges": [],
       "branches": [
         {
@@ -207,43 +193,37 @@ Unassigned all [B] changes.
           "name": "A",
           "commits": [
             {
-              "cliId": "e8",
-              "commitId": "e8818283e5e0b903cefc4a27b77b1fec084ea268",
-              "createdAt": "2000-01-01T00:00:00+00:00",
-              "message": "create a.txt and b.txt",
-              "authorName": "author",
-              "authorEmail": "author@example.com",
 ...
               "changes": [
                 {
                   "cliId": "m0",
                   "filePath": "a.txt",
                   "changeType": "modified"
-                },
-                {
-                  "cliId": "n0",
-                  "filePath": "b.txt",
+                }
+              ]
+            },
+            {
 ...
               "changes": [
                 {
                   "cliId": "o0",
                   "filePath": "a.txt",
                   "changeType": "added"
-                },
-                {
-                  "cliId": "p0",
-                  "filePath": "b.txt",
+                }
+              ]
+            },
+            {
 ...
               "changes": [
                 {
-                  "cliId": "k0",
+                  "cliId": "n0",
                   "filePath": "A",
                   "changeType": "added"
                 }
 ...
     },
     {
-      "cliId": "j0",
+      "cliId": "l0",
       "assignedChanges": [],
       "branches": [
         {
@@ -254,7 +234,7 @@ Unassigned all [B] changes.
 ...
               "changes": [
                 {
-                  "cliId": "l0",
+                  "cliId": "p0",
                   "filePath": "B",
                   "changeType": "added"
                 }
