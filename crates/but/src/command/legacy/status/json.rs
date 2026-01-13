@@ -553,11 +553,10 @@ pub(super) fn build_workspace_status_json(
 
         if stack_id.is_none() {
             json_unassigned_changes = convert_file_assignments(assignments, worktree_changes);
-        } else if let Some(details) = original_details {
-            let stack_cli_id = details
-                .branch_details
-                .first()
-                .map(|b| id_map.resolve_branch(b.name.as_ref()).to_short_string())
+        } else if let (Some(details), Some(stack_id)) = (original_details, stack_id) {
+            let stack_cli_id = id_map
+                .resolve_stack(*stack_id)
+                .map(|id| id.to_short_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
             let json_assigned_changes = convert_file_assignments(assignments, worktree_changes);

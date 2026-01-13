@@ -4,6 +4,7 @@ use bstr::BString;
 use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
 use but_hunk_assignment::WorktreeChanges;
+use gitbutler_stack::StackId;
 
 use super::display::{DiffDisplay, TreeChangeWithPatch};
 use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
@@ -12,6 +13,7 @@ use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
 pub(crate) enum Filter {
     Unassigned,
     Uncommitted(UncommittedCliId),
+    Stack(StackId),
 }
 
 pub(crate) fn worktree(
@@ -33,6 +35,7 @@ pub(crate) fn worktree(
                     a == &id.hunk_assignments.first()
                 }
             }
+            Some(Filter::Stack(stack_id)) => a.stack_id.as_ref() == Some(stack_id),
         })
         .collect();
 

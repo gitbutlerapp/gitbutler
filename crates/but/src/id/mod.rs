@@ -59,6 +59,8 @@ pub struct IdMap {
     id_usage: IdUsage,
     /// Commit IDs reachable from workspace tips with their first parent IDs
     workspace_commits: HashMap<ShortId, WorkspaceCommit>,
+    /// Mapping from stack IDs to their corresponding stack CLI IDs.
+    stack_ids: BTreeMap<StackId, CliId>,
     /// Commit IDs that are only on the remote
     remote_commit_ids: HashMap<ShortId, gix::ObjectId>,
     /// The ID representing the unassigned area, i.e. uncommitted files that aren't assigned to a stack.
@@ -175,12 +177,25 @@ impl IdMap {
                 );
             }
         }
+        let mut stack_ids = BTreeMap::new();
+        for stack in stacks {
+            if let Some(id) = stack.id {
+                stack_ids.insert(
+                    id,
+                    CliId::Stack {
+                        id: id_usage.next_available()?.to_short_id(),
+                        stack_id: id,
+                    },
+                );
+            }
+        }
 
         Ok(Self {
             branch_name_to_cli_id,
             branch_auto_id_to_cli_id,
             id_usage,
             workspace_commits,
+            stack_ids,
             remote_commit_ids,
             unassigned: CliId::Unassigned {
                 id: UNASSIGNED.to_string(),
@@ -431,6 +446,15 @@ impl IdMap {
             }
         }
 
+        // handle stack_ids as well
+        if let Some(cli_id) = self
+            .stack_ids
+            .values()
+            .find(|cli_id| matches!(cli_id, CliId::Stack { id, .. } if id == entity))
+        {
+            matches.push(cli_id.clone());
+        }
+
         // Then try CliId matching
         if let Some(cli_id) = self.branch_auto_id_to_cli_id.get(entity) {
             matches.push(cli_id.clone());
@@ -529,6 +553,11 @@ impl IdMap {
             commit_id: commit_id.to_owned(),
             id,
         }
+    }
+
+    /// Returns the [`CliId::Stack`] for a given `stack_id`, if it exists.
+    pub fn resolve_stack(&self, stack_id: StackId) -> Option<&CliId> {
+        self.stack_ids.get(&stack_id)
     }
 
     /// Returns the [`CliId::Uncommitted`] for a given hunk assignment, if it exists.
@@ -659,6 +688,13 @@ pub enum CliId {
         /// The CLI ID for the unassigned area.
         id: ShortId,
     },
+    /// A stack in the workspace.
+    Stack {
+        /// The short CLI ID for this stack (typically 2 characters)
+        id: ShortId,
+        /// The stack ID.
+        stack_id: StackId,
+    },
 }
 impl PartialEq for CliId {
     fn eq(&self, other: &Self) -> bool {
@@ -689,6 +725,7 @@ impl CliId {
             CliId::Branch { .. } => "a branch",
             CliId::Commit { .. } => "a commit",
             CliId::Unassigned { .. } => "the unassigned area",
+            CliId::Stack { .. } => "a stack",
         }
     }
 
@@ -699,6 +736,7 @@ impl CliId {
             | CliId::CommittedFile { id, .. }
             | CliId::Branch { id, .. }
             | CliId::Commit { id, .. }
+            | CliId::Stack { id, .. }
             | CliId::Unassigned { id, .. } => id.clone(),
         }
     }
