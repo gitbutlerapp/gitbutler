@@ -2,6 +2,8 @@ use anyhow::bail;
 use bstr::BString;
 use but_hunk_assignment::HunkAssignment;
 use but_testsupport::{hex_to_id, hunk_header};
+use but_workspace::branch::Stack;
+use gitbutler_stack::StackId;
 
 use crate::{CliId, IdMap, id::id_usage::UintId};
 
@@ -308,7 +310,10 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
 
 #[test]
 fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
-    let stacks = vec![stack([segment("h0", [id(2)], Some(id(1)), [])])];
+    let stacks = vec![Stack {
+        id: Some(StackId::from_number_for_testing(1)),
+        ..stack([segment("h0", [id(2)], Some(id(1)), [])])
+    }];
     let hunk_assignments = vec![
         HunkAssignment {
             hunk_header: Some(hunk_header("-1,2", "+1,2")),
@@ -338,8 +343,9 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     workspace_and_remote_commits_count: 1
     branches: [ h0 ]
     uncommitted_files: [ g0, i0 ]
-    committed_files: [ m0, n0 ]
+    committed_files: [ n0, o0 ]
     uncommitted_hunks: [ j0, k0, l0 ]
+    stacks: [ m0 ]
     ");
     insta::assert_debug_snapshot!(id_map.all_ids(), @r#"
     [
@@ -471,15 +477,19 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
                 is_entire_file: false,
             },
         ),
+        Stack {
+            id: "m0",
+            stack_id: 00000000-0000-0000-0000-000000000001,
+        },
         CommittedFile {
             commit_id: Sha1(0202020202020202020202020202020202020202),
             path: "committed1.txt",
-            id: "m0",
+            id: "n0",
         },
         CommittedFile {
             commit_id: Sha1(0202020202020202020202020202020202020202),
             path: "committed2.txt",
-            id: "n0",
+            id: "o0",
         },
     ]
     "#);
@@ -801,7 +811,7 @@ mod util {
                 branch_auto_id_to_cli_id: _,
                 id_usage: _,
                 workspace_commits,
-                stack_ids: _,
+                stack_ids,
                 remote_commit_ids,
                 unassigned: _,
                 uncommitted_files,
@@ -811,6 +821,7 @@ mod util {
 
             branch_name_to_cli_id
                 .values()
+                .chain(stack_ids.values())
                 .map(|id| id.to_short_string())
                 .chain(workspace_commits.keys().cloned())
                 .chain(remote_commit_ids.keys().cloned())
@@ -842,7 +853,7 @@ mod util {
                 branch_auto_id_to_cli_id: _,
                 id_usage: _,
                 workspace_commits: _,
-                stack_ids: _,
+                stack_ids,
                 remote_commit_ids: _,
                 unassigned: _,
                 uncommitted_files,
@@ -869,6 +880,11 @@ mod util {
                 f,
                 "uncommitted_hunks",
                 uncommitted_hunks.keys().sorted().cloned(),
+            )?;
+            id_list_if_not_empty(
+                f,
+                "stacks",
+                stack_ids.values().map(|id| id.to_short_string()).sorted(),
             )?;
             Ok(())
         }
