@@ -1,6 +1,7 @@
 mod insert_blank_commit;
 mod move_changes;
 mod reword;
+mod uncommit_changes;
 
 mod from_new_merge_with_metadata {
     use bstr::ByteSlice;

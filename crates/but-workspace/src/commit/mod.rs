@@ -10,6 +10,8 @@ pub mod insert_blank_commit;
 pub use insert_blank_commit::function::insert_blank_commit;
 pub mod move_changes;
 pub use move_changes::function::{MoveChangesOutcome, move_changes_between_commits};
+pub mod uncommit_changes;
+pub use uncommit_changes::function::{UncommitChangesOutcome, uncommit_changes};
 
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
 #[derive(Clone)]
