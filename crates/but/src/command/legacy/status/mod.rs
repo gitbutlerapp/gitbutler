@@ -400,7 +400,19 @@ pub(crate) async fn worktree(
         // Determine what hint to show based on workspace state
         let has_uncommitted_files = !worktree_changes.worktree_changes.changes.is_empty();
 
-        if !has_branches {
+        // Check whether we're inside the workspace
+        if let gitbutler_operating_modes::OperatingMode::OutsideWorkspace(metadata) = mode {
+            let message = if let Some(branch_name) = metadata.branch_name {
+                format!(
+                    "Hint: you are outside workspace mode on branch '{}'. Run `but switch-back` to enter the workspace on this branch",
+                    branch_name
+                )
+            } else {
+                "Hint: you are outside workspace mode. Run `but switch-back` to enter the workspace"
+                    .to_string()
+            };
+            writeln!(out, "{}", message.dimmed())?;
+        } else if !has_branches {
             writeln!(
                 out,
                 "{}",

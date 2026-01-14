@@ -48,6 +48,7 @@ pub enum CommandName {
     AliasRemove,
     RefreshRemoteData,
     Resolve,
+    SwitchBackToWorkspace,
     #[default]
     Unknown,
 }

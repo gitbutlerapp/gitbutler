@@ -21,4 +21,5 @@ pub mod reword;
 pub mod rub;
 pub mod show;
 pub mod status;
+pub mod switch;
 pub mod worktree;

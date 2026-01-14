@@ -644,6 +644,11 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
+        #[cfg(feature = "legacy")]
+        Subcommands::SwitchBack => {
+            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            command::legacy::switch::handle(&mut ctx, out).emit_metrics(metrics_ctx)
+        }
     }
 }
 
