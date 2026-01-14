@@ -26,13 +26,6 @@ pub fn git_get_local_config(project_id: ProjectId, key: String) -> Result<Option
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn git_set_local_config(project_id: ProjectId, key: String, value: String) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    project.set_local_config(&key, &value)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
 pub fn check_signing_settings(project_id: ProjectId) -> Result<bool> {
     let project = gitbutler_project::get(project_id)?;
     project.check_signing_settings()

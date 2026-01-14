@@ -151,7 +151,6 @@ pub trait RepoCommands {
     fn add_remote(&self, name: &str, url: &str) -> Result<()>;
     fn remotes(&self) -> Result<Vec<GitRemote>>;
     fn get_local_config(&self, key: &str) -> Result<Option<String>>;
-    fn set_local_config(&self, key: &str, value: &str) -> Result<()>;
     fn check_signing_settings(&self) -> Result<bool>;
 
     /// Read `path` from the tree of the given commit.
@@ -185,12 +184,6 @@ impl RepoCommands for Project {
         let repo = &self.open_git2()?;
         let config: Config = repo.into();
         config.get_local(key)
-    }
-
-    fn set_local_config(&self, key: &str, value: &str) -> Result<()> {
-        let repo = &self.open_git2()?;
-        let config: Config = repo.into();
-        config.set_local(key, value)
     }
 
     fn check_signing_settings(&self) -> Result<bool> {

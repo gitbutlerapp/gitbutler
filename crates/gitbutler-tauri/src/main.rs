@@ -247,7 +247,6 @@ fn main() -> anyhow::Result<()> {
                 legacy::projects::tauri_delete_project::delete_project,
                 legacy::projects::tauri_is_gerrit::is_gerrit,
                 legacy::repo::tauri_git_get_local_config::git_get_local_config,
-                legacy::repo::tauri_git_set_local_config::git_set_local_config,
                 legacy::repo::tauri_check_signing_settings::check_signing_settings,
                 legacy::repo::tauri_git_clone_repository::git_clone_repository,
                 legacy::repo::tauri_get_commit_file::get_commit_file,
