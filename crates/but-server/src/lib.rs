@@ -299,7 +299,6 @@ async fn handle_command(
         "can_apply_remote_branch" => {
             legacy::virtual_branches::can_apply_remote_branch_cmd(request.params)
         }
-        "list_commit_files" => legacy::virtual_branches::list_commit_files_cmd(request.params),
         "amend_virtual_branch" => {
             legacy::virtual_branches::amend_virtual_branch_cmd(request.params)
         }
