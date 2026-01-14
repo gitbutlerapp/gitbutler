@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
 use but_ctx::Context;
-use gitbutler_project::Project;
 use gitbutler_reference::RemoteRefname;
 
 use crate::command::debug_print;
@@ -36,13 +35,4 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
         )?;
     };
     debug_print(project)
-}
-
-pub fn switch_to_workspace(project: Project, refname: RemoteRefname) -> Result<()> {
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    debug_print(gitbutler_branch_actions::set_base_branch(
-        &ctx,
-        &refname,
-        ctx.exclusive_worktree_access().write_permission(),
-    )?)
 }

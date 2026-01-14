@@ -2,46 +2,14 @@ use anyhow::{Context as _, Result, bail};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_meta::VirtualBranchesTomlMetadata;
-use but_oxidize::ObjectIdExt;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
-use gitbutler_branch::{BranchCreateRequest, BranchIdentity};
-use gitbutler_branch_actions::{BranchManagerExt, get_branch_listing_details, list_branches};
+use gitbutler_branch::BranchCreateRequest;
+use gitbutler_branch_actions::BranchManagerExt;
 use gitbutler_project::Project;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 
 use crate::command::debug_print;
-
-pub fn list_commit_files(project: Project, commit_id_hex: String) -> Result<()> {
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    let commit_id = gix::ObjectId::from_hex(commit_id_hex.as_bytes())?;
-    debug_print(gitbutler_branch_actions::list_commit_files(
-        &ctx,
-        commit_id.to_git2(),
-    )?)
-}
-
-pub fn set_base(project: Project, short_tracking_branch_name: String) -> Result<()> {
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    let branch_name = format!("refs/remotes/{short_tracking_branch_name}")
-        .parse()
-        .context("Invalid branch name")?;
-    debug_print(gitbutler_branch_actions::set_base_branch(
-        &ctx,
-        &branch_name,
-        ctx.exclusive_worktree_access().write_permission(),
-    )?)
-}
-
-pub fn list_all(project: Project) -> Result<()> {
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    debug_print(list_branches(&ctx, None, None)?)
-}
-
-pub fn details(project: Project, branch_names: Vec<BranchIdentity>) -> Result<()> {
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    debug_print(get_branch_listing_details(&ctx, branch_names)?)
-}
 
 pub fn list(project: Project) -> Result<()> {
     let stacks = VirtualBranchesHandle::new(project.gb_dir()).list_all_stacks()?;
@@ -58,11 +26,6 @@ pub fn list(project: Project) -> Result<()> {
         );
     }
     Ok(())
-}
-
-pub fn status(project: Project) -> Result<()> {
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    debug_print(stacks(&ctx))
 }
 
 pub(crate) fn stacks(ctx: &Context) -> Result<Vec<(StackId, StackDetails)>> {
@@ -86,16 +49,6 @@ pub(crate) fn stacks(ctx: &Context) -> Result<Vec<(StackId, StackDetails)>> {
         }?));
     }
     Ok(details)
-}
-
-pub fn unapply(project: Project, branch_name: String) -> Result<()> {
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    let stack = stack_by_name(&project, &branch_name)?;
-    debug_print(gitbutler_branch_actions::unapply_stack(
-        &ctx,
-        stack.id,
-        Vec::new(),
-    )?)
 }
 
 pub fn apply(project: Project, branch_name: String, from_branch: bool) -> Result<()> {
@@ -122,7 +75,6 @@ fn apply_by_name(project: Project, branch_name: String) -> Result<()> {
         )?,
     )
 }
-
 fn apply_from_branch(project: Project, branch_name: String) -> Result<()> {
     let refname = Refname::Local(LocalRefname::new(&branch_name, None));
     let target = if let Some(stack) = stack_by_refname(&project, &refname)? {
