@@ -5,10 +5,14 @@
 
 set -eu -o pipefail
 
-git init
+git init submodule-repo
+(cd submodule-repo
+  mkdir dir
+  echo content >dir/submodule-file
+  git add . && git commit -m "init"
+)
 
-# These should already exist after `git init`, but keep the fixture deterministic.
-mkdir -p .git/logs .git/refs/heads
+git init
 
 cat >.gitignore <<'EOF'
 node_modules/
@@ -19,4 +23,6 @@ echo "hi" >src/app.txt
 
 mkdir -p node_modules/pkg
 echo "x" >node_modules/pkg/index.js
+
+git submodule add ./submodule-repo submodule-worktree
 

@@ -9,5 +9,6 @@ pub use events::InternalEvent;
 
 mod file_monitor;
 pub use file_monitor::{
-    FETCH_HEAD, FileMonitor, GB_FLUSH, HEAD, HEAD_ACTIVITY, INDEX, LOCAL_REFS_DIR, WatchMode, spawn,
+    FETCH_HEAD, FileMonitorHandle, GB_FLUSH, HEAD, HEAD_ACTIVITY, INDEX, LOCAL_REFS_DIR, WatchMode,
+    spawn,
 };

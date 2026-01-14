@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-
 use gitbutler_reference::RemoteRefname;
 use gitbutler_stack::StackId;
+use std::path::PathBuf;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "gitbutler-cli", about = "A CLI for GitButler", version = option_env!("GIX_VERSION"))]
@@ -132,7 +131,7 @@ pub enum Subcommands {
     },
     Watch {
         /// How to watch the current working directory.
-        #[clap(long, short = 'm', value_parser = ["builtin", "plan", "auto"], env = "GITBUTLER_WATCH_MODE")]
+        #[clap(long, short = 'm', value_parser = ["legacy", "modern", "auto"], env = "GITBUTLER_WATCH_MODE")]
         mode: Option<String>,
     },
     WatchDb,

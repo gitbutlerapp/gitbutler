@@ -5,18 +5,28 @@
 
 set -eu -o pipefail
 
+git init submodule-repo
+(cd submodule-repo
+  mkdir dir
+  echo content >dir/submodule-file
+  git add . && git commit -m "init"
+)
+
 git init
 
-# These should already exist after `git init`, but keep the fixture deterministic.
-mkdir -p .git/logs .git/refs/heads
+git submodule add ./submodule-repo submodule-worktree
 
 cat >.gitignore <<'EOF'
-ignored_dir/
+ignored_but_tracked_dir/
+submodule-repo/
+submodule-worktree/
 EOF
 
-mkdir -p ignored_dir
-echo "tracked" >ignored_dir/tracked_file
-git add -f ignored_dir/tracked_file
+mkdir -p ignored_but_tracked_dir
+echo "tracked" >ignored_but_tracked_dir/tracked_file
+git add -f ignored_but_tracked_dir/tracked_file
 
 mkdir -p normal_dir
 echo "hi" >normal_dir/file.txt
+
+git commit -m "this creates a reflog folder"
