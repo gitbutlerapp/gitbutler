@@ -166,6 +166,35 @@ pub fn integrate_branch_with_steps(
 
 #[but_api]
 #[instrument(err(Debug))]
+pub fn switch_back_to_workspace(project_id: ProjectId) -> Result<BaseBranch> {
+    let mut ctx = Context::new_from_legacy_project_id(project_id)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)
+        .context("Failed to get base branch data")?;
+
+    let branch_name = format!("refs/remotes/{}", base_branch.branch_name)
+        .parse()
+        .context("Invalid branch name")?;
+
+    gitbutler_branch_actions::set_base_branch(
+        &ctx,
+        &branch_name,
+        ctx.exclusive_worktree_access().write_permission(),
+    )?;
+
+    {
+        let mut guard = ctx.exclusive_worktree_access();
+        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(
+            &mut ctx,
+            guard.write_permission(),
+        )
+        .ok();
+    }
+
+    Ok(base_branch)
+}
+
+#[but_api]
+#[instrument(err(Debug))]
 pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     if let Ok(base_branch) = gitbutler_branch_actions::base::get_base_branch_data(&ctx) {

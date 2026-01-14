@@ -293,6 +293,9 @@ async fn handle_command(
             legacy::virtual_branches::get_base_branch_data_cmd(request.params)
         }
         "set_base_branch" => legacy::virtual_branches::set_base_branch_cmd(request.params),
+        "switch_back_to_workspace" => {
+            legacy::virtual_branches::switch_back_to_workspace_cmd(request.params)
+        }
         "push_base_branch" => legacy::virtual_branches::push_base_branch_cmd(request.params),
         "update_stack_order" => legacy::virtual_branches::update_stack_order_cmd(request.params),
         "unapply_stack" => legacy::virtual_branches::unapply_stack_cmd(request.params),
