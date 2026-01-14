@@ -661,34 +661,7 @@ export class StackService {
 	}
 
 	get insertBlankCommit() {
-		const [newMutate, status] = this.api.endpoints.insertBlankCommit.useMutation();
-
-		async function mutate(args: {
-			projectId: string;
-			stackId: string;
-			commitId: string | undefined;
-			offset: number;
-			reference?: string;
-		}) {
-			const side = args.offset < 0 ? 'above' : 'below';
-			if (args.commitId !== undefined) {
-				// Insert relative to a commit
-				return newMutate({
-					projectId: args.projectId,
-					relativeTo: { type: 'commit', subject: args.commitId },
-					side
-				});
-			} else if (args.reference !== undefined) {
-				// Insert relative to a branch reference
-				return newMutate({
-					projectId: args.projectId,
-					relativeTo: { type: 'reference', subject: args.reference },
-					side
-				});
-			}
-		}
-
-		return [mutate, reactive(() => status.current)] as const;
+		return this.api.endpoints.insertBlankCommit;
 	}
 
 	get unapply() {
