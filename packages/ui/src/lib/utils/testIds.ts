@@ -147,6 +147,7 @@ export enum TestId {
 	ChromeHeaderProjectSelectorAddLocalProject = 'chrome-header-project-selector-add-local-project',
 	ChromeHeaderCreateBranchButton = 'chrome-header-create-branch-button',
 	ChromeHeaderCreateCodegenSessionButton = 'chrome-header-create-codegen-session-button',
+	ChromeHeaderSwitchBackToWorkspaceButton = 'chrome-header-switch-back-to-workspace-button',
 	ChromeSideBarProjectSettingsButton = 'chrome-sidebar-project-settings-button',
 	ProjectSettingsModal = 'project-settings-modal',
 	GeneralSettingsModal = 'general-settings-modal',

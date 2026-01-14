@@ -239,6 +239,7 @@
 			<Tooltip text="Switch back to gitbutler/workspace">
 				<Button
 					kind="outline"
+					testId={TestId.ChromeHeaderSwitchBackToWorkspaceButton}
 					icon="undo"
 					style="warning"
 					onclick={switchToWorkspace}
