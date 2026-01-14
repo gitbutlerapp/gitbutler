@@ -23,6 +23,8 @@
 		size = 'small'
 	}: Props = $props();
 
+	const shouldShowImage = $derived(!!srcUrl && !hasError);
+
 	// Reset error state when srcUrl changes
 	$effect(() => {
 		if (srcUrl) {
@@ -45,20 +47,20 @@
 <Tooltip text={tooltip ?? username} align={tooltipAlign} position={tooltipPosition}>
 	<div
 		class="image-wrapper {size}"
-		style:background-color={stringToColor(username || (srcUrl ?? undefined))}
+		style:background-color={stringToColor(username || srcUrl || undefined)}
 	>
-		{#if srcUrl && srcUrl !== '' && !hasError}
+		{#if shouldShowImage}
 			<img
 				class="avatar"
 				alt={tooltip}
-				src={srcUrl ?? ''}
+				src={srcUrl}
 				loading="lazy"
 				onload={() => (isLoaded = true)}
 				onerror={() => (hasError = true)}
 				class:show={isLoaded}
 			/>
 		{/if}
-		{#if !srcUrl || srcUrl === '' || hasError}
+		{#if !shouldShowImage}
 			<span class="initials">{getInitials(username)}</span>
 		{/if}
 	</div>
