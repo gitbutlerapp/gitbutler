@@ -31,3 +31,39 @@ pub fn bot(
         ))),
     }
 }
+
+#[tauri::command(async)]
+#[instrument(skip(app_handle), err(Debug))]
+pub async fn forge_branch_chat(
+    app_handle: tauri::AppHandle,
+    project_id: ProjectId,
+    branch: String,
+    message_id: String,
+    chat_messages: Vec<but_action::ChatMessage>,
+    filter: Option<but_forge::ForgeReviewFilter>,
+) -> anyhow::Result<String, Error> {
+    let reviews =
+        but_api::legacy::forge::list_reviews_for_branch(project_id, branch.clone(), filter).await?;
+    let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
+        app_handle.emit(name, payload).unwrap_or_else(|e| {
+            tracing::error!("Failed to emit event '{}': {}", name, e);
+        });
+    });
+
+    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
+    match openai {
+        Some(openai) => but_bot::forge_branch_chat(
+            project_id,
+            branch,
+            message_id,
+            emitter,
+            &openai,
+            chat_messages,
+            reviews,
+        )
+        .map_err(|e| Error::from(anyhow::anyhow!(e))),
+        None => Err(Error::from(anyhow::anyhow!(
+            "No valid credentials found for AI provider. Please configure your GitButler account credentials."
+        ))),
+    }
+}

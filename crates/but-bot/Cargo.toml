@@ -14,6 +14,7 @@ test = false
 but-tools.workspace = true
 but-action.workspace = true
 but-ctx.workspace = true
+but-forge.workspace = true
 
 gitbutler-project.workspace = true
 
@@ -23,3 +24,4 @@ serde_json.workspace = true
 anyhow.workspace = true
 uuid.workspace = true
 gix.workspace = true
+chrono.workspace = true

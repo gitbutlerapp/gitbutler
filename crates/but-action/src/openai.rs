@@ -211,6 +211,73 @@ pub async fn tool_calling(
     Ok(response)
 }
 
+pub async fn stream_response(
+    client: &Client<OpenAIConfig>,
+    messages: Vec<ChatCompletionRequestMessage>,
+    model: Option<String>,
+    on_token: impl Fn(&str) + Send + Sync + 'static,
+) -> anyhow::Result<Option<String>> {
+    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
+    let request = CreateChatCompletionRequestArgs::default()
+        .model(model)
+        .messages(messages.clone())
+        .build()?;
+
+    let mut stream = client.chat().create_stream(request).await?;
+
+    let mut response_text: Option<String> = None;
+
+    while let Some(result) = stream.next().await {
+        let response = result.context("Failed to receive response from OpenAI stream")?;
+        if let Some(chat_choice) = response.choices.first() {
+            // If there is any text content in the response, call the on_token callback
+            if let Some(content) = &chat_choice.delta.content {
+                if response_text.is_none() {
+                    response_text = Some(String::new());
+                }
+
+                if let Some(text) = response_text.as_mut() {
+                    text.push_str(content);
+                }
+
+                let content_str = content.as_str();
+                on_token(content_str);
+            }
+        }
+    }
+
+    Ok(response_text)
+}
+
+pub fn stream_response_blocking(
+    client: &OpenAiProvider,
+    system_message: &str,
+    chat_messages: Vec<ChatMessage>,
+    model: Option<String>,
+    on_token: Box<dyn Fn(&str) + Send + Sync + 'static>,
+) -> anyhow::Result<Option<String>> {
+    let mut messages: Vec<ChatCompletionRequestMessage> =
+        vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
+
+    messages.extend(
+        chat_messages
+            .into_iter()
+            .map(ChatCompletionRequestMessage::from)
+            .collect::<Vec<_>>(),
+    );
+
+    let client = client.client()?;
+    let messages_owned = messages.clone();
+
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(stream_response(&client, messages_owned, model, on_token))
+    })
+    .join()
+    .unwrap()
+}
+
 pub struct ToolCall {
     pub id: String,
     pub name: String,

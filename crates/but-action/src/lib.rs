@@ -33,8 +33,8 @@ pub use action::{ActionListing, Source, list_actions};
 use but_core::ref_metadata::StackId;
 use but_meta::VirtualBranchesTomlMetadata;
 pub use openai::{
-    ChatMessage, ToolCallContent, ToolResponseContent, structured_output_blocking,
-    tool_calling_loop, tool_calling_loop_stream,
+    ChatMessage, ToolCallContent, ToolResponseContent, stream_response_blocking,
+    structured_output_blocking, tool_calling_loop, tool_calling_loop_stream,
 };
 use strum::EnumString;
 use uuid::Uuid;
