@@ -2,6 +2,7 @@ use std::{fs, path, path::PathBuf, str::FromStr};
 
 use but_ctx::Context;
 use but_error::Marker;
+use but_oxidize::OidExt;
 use but_settings::AppSettings;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
@@ -78,3 +79,16 @@ mod unapply_without_saving_virtual_branch;
 mod undo_commit;
 mod update_commit_message;
 mod workspace_migration;
+
+pub fn list_commit_files(
+    ctx: &Context,
+    commit_oid: git2::Oid,
+) -> anyhow::Result<Vec<but_core::TreeChange>> {
+    let repo = ctx.repo.get()?;
+    let commit_id = commit_oid.to_gix();
+    but_core::diff::CommitDetails::from_commit_id(
+        gix::prelude::ObjectIdExt::attach(commit_id, &repo),
+        false,
+    )
+    .map(|d| d.diff_with_first_parent)
+}

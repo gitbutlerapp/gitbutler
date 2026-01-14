@@ -9,7 +9,7 @@ use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
     BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, MoveBranchResult,
-    MoveCommitIllegalAction, RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder,
+    MoveCommitIllegalAction, RemoteBranchData, RemoteCommit, StackOrder,
     branch_upstream_integration::IntegrationStrategy,
     upstream_integration::{
         BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
@@ -256,17 +256,6 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
 pub fn can_apply_remote_branch(project_id: ProjectId, branch: RemoteRefname) -> Result<bool> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::can_apply_remote_branch(&ctx, &branch)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn list_commit_files(
-    project_id: ProjectId,
-    commit_id: String,
-) -> Result<Vec<RemoteBranchFile>> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
-    gitbutler_branch_actions::list_commit_files(&ctx, commit_id)
 }
 
 #[but_api]

@@ -122,10 +122,6 @@ pub fn delete_local_branch(ctx: &Context, refname: &Refname, given_name: String)
     Ok(())
 }
 
-pub fn list_commit_files(ctx: &Context, commit_oid: git2::Oid) -> Result<Vec<RemoteBranchFile>> {
-    crate::file::list_commit_files(&*ctx.git2_repo.get()?, commit_oid)
-}
-
 pub fn set_base_branch(
     ctx: &Context,
     target_branch: &RemoteRefname,

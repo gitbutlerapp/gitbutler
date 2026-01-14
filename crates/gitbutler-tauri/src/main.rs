@@ -272,7 +272,6 @@ fn main() -> anyhow::Result<()> {
                 legacy::virtual_branches::tauri_unapply_stack::unapply_stack,
                 legacy::virtual_branches::tauri_create_virtual_branch_from_branch::create_virtual_branch_from_branch,
                 legacy::virtual_branches::tauri_can_apply_remote_branch::can_apply_remote_branch,
-                legacy::virtual_branches::tauri_list_commit_files::list_commit_files,
                 legacy::virtual_branches::tauri_amend_virtual_branch::amend_virtual_branch,
                 legacy::virtual_branches::tauri_undo_commit::undo_commit,
                 legacy::virtual_branches::tauri_insert_blank_commit::insert_blank_commit,

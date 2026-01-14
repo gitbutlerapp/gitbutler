@@ -3,7 +3,7 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, Result};
 use but_ctx::Context;
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_diff::FileDiff;
@@ -43,33 +43,6 @@ impl From<FileDiff> for RemoteBranchFile {
             large,
         }
     }
-}
-
-pub fn list_commit_files(
-    repo: &git2::Repository,
-    commit_id: git2::Oid,
-) -> Result<Vec<RemoteBranchFile>> {
-    let commit = repo
-        .find_commit(commit_id)
-        .map_err(|err| match err.code() {
-            git2::ErrorCode::NotFound => anyhow!("commit {commit_id} not found"),
-            _ => err.into(),
-        })?;
-
-    // If it's a merge commit, we list nothing. In the future we could to a fork exec of `git diff-tree --cc`
-    if commit.parent_count() != 1 {
-        return Ok(vec![]);
-    }
-
-    let parent = commit.parent(0).context("failed to get parent commit")?;
-    let commit_tree = repo
-        .find_real_tree(&commit, Default::default())
-        .context("failed to get commit tree")?;
-    let parent_tree = repo
-        .find_real_tree(&parent, Default::default())
-        .context("failed to get parent tree")?;
-    let diff_files = gitbutler_diff::trees(repo, &parent_tree, &commit_tree, true)?;
-    Ok(diff_files.into_values().map(|file| file.into()).collect())
 }
 
 // this struct is a mapping to the view `File` type in Typescript
