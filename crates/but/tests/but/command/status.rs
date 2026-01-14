@@ -155,7 +155,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
     }
   ],
   "mergeBase": {
-    "cliId": "0d",
+    "cliId": "",
     "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
     "createdAt": "2000-01-02T00:00:00+00:00",
     "message": "add M ",
@@ -168,7 +168,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
   "upstreamState": {
     "behind": 0,
     "latestCommit": {
-      "cliId": "0d",
+      "cliId": "",
       "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
       "createdAt": "2000-01-02T00:00:00+00:00",
       "message": "add M ",

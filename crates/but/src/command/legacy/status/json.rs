@@ -15,6 +15,8 @@ use but_api::diff::ComputeLineStats;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
+use crate::id::{RemoteCommitWithId, SegmentWithId, WorkspaceCommitWithId};
+
 /// JSON output for the `but status` command
 /// This represents the status of the GitButler "workspace".
 #[derive(Clone, Debug, Serialize)]
@@ -291,7 +293,7 @@ impl Branch {
     #[allow(clippy::too_many_arguments)]
     pub fn from_branch_details(
         cli_id: String,
-        branch: but_workspace::ui::BranchDetails,
+        segment: SegmentWithId,
         review_id: Option<String>,
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
@@ -299,12 +301,12 @@ impl Branch {
         ci: Option<Vec<but_forge::CiCheck>>,
         merge_status: Option<MergeStatus>,
     ) -> anyhow::Result<Self> {
-        let commits = branch
-            .commits
+        let commits = segment
+            .workspace_commits
             .iter()
             .map(|c| {
                 Commit::from_local_commit(
-                    id_map.resolve_commit(&c.id).to_short_string(),
+                    c.short_id.clone(),
                     c.clone(),
                     show_files,
                     project_id,
@@ -313,24 +315,18 @@ impl Branch {
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
-        let upstream_commits = branch
-            .upstream_commits
+        let upstream_commits = segment
+            .remote_commits
             .iter()
-            .map(|c| {
-                Commit::from_upstream_commit(
-                    id_map.resolve_commit(&c.id).to_short_string(),
-                    c.clone(),
-                    None,
-                )
-            })
+            .map(|c| Commit::from_remote_commit(c.short_id.clone(), c.clone(), None))
             .collect();
 
         Ok(Branch {
             cli_id,
-            name: branch.name.to_string(),
+            name: segment.branch_name().unwrap_or_default().to_string(),
             commits,
             upstream_commits,
-            branch_status: branch.push_status.into(),
+            branch_status: segment.inner.push_status.into(),
             review_id,
             ci: ci.map(Ci::from),
             merge_status,
@@ -351,7 +347,7 @@ impl FileChange {
 impl Commit {
     pub fn from_local_commit(
         cli_id: String,
-        commit: but_workspace::ui::Commit,
+        commit: WorkspaceCommitWithId,
         show_files: bool,
         project_id: gitbutler_project::ProjectId,
         id_map: &crate::IdMap,
@@ -360,14 +356,15 @@ impl Commit {
             // TODO: we should get the `ctx` as parameter.
             let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
             let commit_details: but_api::diff::json::CommitDetails =
-                but_api::diff::commit_details(&ctx, commit.id, ComputeLineStats::No)?.into();
+                but_api::diff::commit_details(&ctx, commit.commit_id(), ComputeLineStats::No)?
+                    .into();
             Some(
                 commit_details
                     .changes
                     .into_iter()
                     .map(|change| {
                         let cli_id = id_map.resolve_file_changed_in_commit_or_unassigned(
-                            commit.id,
+                            commit.commit_id(),
                             change.path.as_ref(),
                         );
                         FileChange::from_tree_change(cli_id.to_short_string(), change)
@@ -378,25 +375,47 @@ impl Commit {
             None
         };
 
+        let commit = &commit.inner.inner;
         Ok(Commit {
             cli_id,
             commit_id: commit.id.to_string(),
-            created_at: i128_to_rfc3339(commit.created_at),
+            created_at: gix_time_to_rfc3339(&commit.author.time),
             message: commit.message.to_string(),
-            author_name: commit.author.name,
-            author_email: commit.author.email,
+            author_name: commit.author.name.to_string(),
+            author_email: commit.author.email.to_string(),
             conflicted: Some(commit.has_conflicts),
-            review_id: commit.gerrit_review_url,
+            // TODO: populate but_workspace::ref_info::LocalCommit with the
+            // Gerrit URL
+            review_id: None,
             changes,
         })
     }
-    pub fn from_upstream_commit(
+    pub fn from_remote_commit(
         cli_id: String,
+        commit: RemoteCommitWithId,
+        changes: Option<Vec<FileChange>>,
+    ) -> Self {
+        let commit = &commit.inner;
+        Commit {
+            cli_id,
+            commit_id: commit.id.to_string(),
+            created_at: gix_time_to_rfc3339(&commit.author.time),
+            message: commit.message.to_string(),
+            author_name: commit.author.name.to_string(),
+            author_email: commit.author.email.to_string(),
+            conflicted: None,
+            review_id: None,
+            changes,
+        }
+    }
+    /// A commit not obtained from a stack. `IdMap` does not know
+    /// about this commit, so it will not have a CLI ID.
+    pub fn from_upstream_commit(
         commit: but_workspace::ui::UpstreamCommit,
         changes: Option<Vec<FileChange>>,
     ) -> Self {
         Commit {
-            cli_id,
+            cli_id: String::new(),
             commit_id: commit.id.to_string(),
             created_at: i128_to_rfc3339(commit.created_at),
             message: commit.message.to_string(),
@@ -443,6 +462,14 @@ pub(crate) fn i128_to_rfc3339(ts_millis: i128) -> String {
         .unwrap_or_default()
 }
 
+pub(crate) fn gix_time_to_rfc3339(time: &gix::date::Time) -> String {
+    let seconds = time.seconds;
+
+    DateTime::<Utc>::from_timestamp(seconds, 0)
+        .map(|dt| dt.to_rfc3339())
+        .unwrap_or_default()
+}
+
 /// Convert file assignments to JSON FileChange objects
 fn convert_file_assignments(
     assignments: &[super::assignment::FileAssignment],
@@ -460,7 +487,7 @@ fn convert_file_assignments(
 
 /// Convert a BranchDetails to the JSON Branch type
 fn convert_branch_to_json(
-    branch: &but_workspace::ui::BranchDetails,
+    segment: &SegmentWithId,
     show_files: bool,
     project_id: gitbutler_project::ProjectId,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
@@ -471,14 +498,12 @@ fn convert_branch_to_json(
     >,
     id_map: &crate::IdMap,
 ) -> anyhow::Result<Branch> {
-    let cli_id = id_map
-        .resolve_branch(branch.name.as_ref())
-        .to_short_string();
+    let cli_id = segment.short_id.clone();
 
     let review_id = {
         crate::command::legacy::forge::review::get_review_numbers(
-            &branch.name.to_string(),
-            &branch.pr_number,
+            &segment.branch_name().unwrap_or_default().to_string(),
+            &segment.pr_number(),
             review_map,
         )
         .split_whitespace()
@@ -486,11 +511,13 @@ fn convert_branch_to_json(
         .map(|s| s.to_string())
     };
 
-    let ci = ci_map.get(&branch.name.to_string()).cloned();
+    let ci = segment
+        .branch_name()
+        .and_then(|name| ci_map.get(&name.to_string()).cloned());
 
-    let merge_status =
+    let merge_status = segment.branch_name().and_then(|name| {
         branch_merge_statuses
-            .get(&branch.name.to_string())
+            .get(&name.to_string())
             .map(|status| match status {
                 gitbutler_branch_actions::upstream_integration::BranchStatus::SaflyUpdatable => {
                     MergeStatus::Clean
@@ -506,11 +533,12 @@ fn convert_branch_to_json(
                 gitbutler_branch_actions::upstream_integration::BranchStatus::Empty => {
                     MergeStatus::Empty
                 }
-            });
+            })
+    });
 
     Branch::from_branch_details(
-        cli_id.to_string(),
-        branch.clone(),
+        cli_id,
+        segment.clone(),
         review_id,
         show_files,
         project_id,
@@ -523,10 +551,6 @@ fn convert_branch_to_json(
 /// Build the complete WorkspaceStatus JSON structure
 #[expect(clippy::too_many_arguments)]
 pub(super) fn build_workspace_status_json(
-    original_stack_details: &[(
-        Option<gitbutler_stack::StackId>,
-        Option<but_workspace::ui::StackDetails>,
-    )],
     stack_details: &[super::StackEntry],
     worktree_changes: &[but_core::ui::TreeChange],
     common_merge_base: &super::CommonMergeBase,
@@ -548,12 +572,10 @@ pub(super) fn build_workspace_status_json(
     let mut json_stacks = Vec::new();
     let mut json_unassigned_changes = Vec::new();
 
-    for (idx, (stack_id, original_details)) in original_stack_details.iter().enumerate() {
-        let (_, (_, assignments)) = &stack_details[idx];
-
+    for (stack_id, (stack_with_id, assignments)) in stack_details {
         if stack_id.is_none() {
             json_unassigned_changes = convert_file_assignments(assignments, worktree_changes);
-        } else if let (Some(details), Some(stack_id)) = (original_details, stack_id) {
+        } else if let (Some(stack_id), Some(stack_with_id)) = (stack_id, stack_with_id) {
             let stack_cli_id = id_map
                 .resolve_stack(*stack_id)
                 .map(|id| id.to_short_string())
@@ -561,12 +583,12 @@ pub(super) fn build_workspace_status_json(
 
             let json_assigned_changes = convert_file_assignments(assignments, worktree_changes);
 
-            let json_branches = details
-                .branch_details
+            let json_branches = stack_with_id
+                .segments
                 .iter()
-                .map(|branch| {
+                .map(|segment| {
                     convert_branch_to_json(
-                        branch,
+                        segment,
                         show_files,
                         project_id,
                         review_map,
@@ -588,11 +610,7 @@ pub(super) fn build_workspace_status_json(
     let base_commit_decoded = base_commit.decode()?;
     let author: but_workspace::ui::Author = base_commit_decoded.author()?.into();
 
-    let cli_id = id_map
-        .resolve_commit(&common_merge_base.commit_id)
-        .to_short_string();
     let merge_base_commit = Commit::from_upstream_commit(
-        cli_id,
         but_workspace::ui::UpstreamCommit {
             id: common_merge_base.commit_id,
             created_at: common_merge_base.created_at,
@@ -608,9 +626,7 @@ pub(super) fn build_workspace_status_json(
         let upstream_commit_decoded = upstream_commit.decode()?;
         let upstream_author: but_workspace::ui::Author = upstream_commit_decoded.author()?.into();
 
-        let cli_id = id_map.resolve_commit(&upstream.commit_id).to_short_string();
         let latest_commit = Commit::from_upstream_commit(
-            cli_id,
             but_workspace::ui::UpstreamCommit {
                 id: upstream.commit_id,
                 created_at: upstream.created_at,
@@ -633,7 +649,6 @@ pub(super) fn build_workspace_status_json(
                         .iter()
                         .map(|remote_commit| {
                             let commit_oid = gix::ObjectId::from_hex(remote_commit.id.as_bytes())?;
-                            let cli_id = id_map.resolve_commit(&commit_oid).to_short_string();
                             // Convert the author manually since there's no From impl between the two Author types
                             let author = but_workspace::ui::Author {
                                 name: remote_commit.author.name.clone(),
@@ -641,7 +656,6 @@ pub(super) fn build_workspace_status_json(
                                 gravatar_url: remote_commit.author.gravatar_url.clone(),
                             };
                             Ok(Commit::from_upstream_commit(
-                                cli_id,
                                 but_workspace::ui::UpstreamCommit {
                                     id: commit_oid,
                                     created_at: remote_commit.created_at as i128,

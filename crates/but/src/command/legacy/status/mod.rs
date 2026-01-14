@@ -8,7 +8,7 @@ use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_oxidize::OidExt;
 use but_workspace::ref_info::LocalCommitRelation;
-use but_workspace::ui::{PushStatus, StackDetails};
+use but_workspace::ui::PushStatus;
 use colored::{ColoredString, Colorize};
 use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
 use gitbutler_stack::StackId;
@@ -127,14 +127,8 @@ pub(crate) async fn worktree(
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
 
-    // For JSON output, we'll need the original StackDetails to avoid redundant conversions
-    let mut original_stack_details: Vec<(Option<gitbutler_stack::StackId>, Option<StackDetails>)> =
-        vec![(None, None)];
-
     for stack in stacks {
-        let details = but_api::legacy::workspace::stack_details(ctx.legacy_project.id, stack.id)?;
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
-        original_stack_details.push((stack.id, Some(details)));
         stack_details.push((stack.id, (Some(stack.clone()), assignments)));
     }
     let ci_map = ci_map(ctx, &cache_config, &stack_details)?;
@@ -249,7 +243,6 @@ pub(crate) async fn worktree(
 
     if let Some(out) = out.for_json() {
         let workspace_status = json::build_workspace_status_json(
-            &original_stack_details,
             &stack_details,
             &worktree_changes.worktree_changes.changes,
             &common_merge_base_data,
@@ -639,6 +632,7 @@ pub fn print_group(
                 let details =
                     but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
                 print_commit(
+                    commit.short_id.clone(),
                     details,
                     CommitClassification::Upstream,
                     false,
@@ -674,6 +668,7 @@ pub fn print_group(
                 let details =
                     but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
                 print_commit(
+                    commit.short_id.clone(),
                     details,
                     classification,
                     marked,
@@ -755,6 +750,7 @@ fn status_from_changes(changes: &[ui::TreeChange], path: BString) -> Option<ui::
 
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
+    short_id: String,
     commit_details: CommitDetails,
     classification: CommitClassification,
     marked: bool,
@@ -779,7 +775,7 @@ fn print_commit(
         CommitClassification::Integrated => "●".purple(),
     };
 
-    let details_string = display_cli_commit_details(id_map, &commit_details, verbose);
+    let details_string = display_cli_commit_details(short_id, &commit_details, verbose);
     let details_string = if upstream_commit {
         details_string.dimmed().to_string()
     } else {
@@ -846,13 +842,10 @@ impl CliDisplay for but_core::TreeChange {
 }
 
 fn display_cli_commit_details(
-    id_map: &IdMap,
+    short_id: String,
     commit_details: &CommitDetails,
     verbose: bool,
 ) -> String {
-    let short_id = id_map
-        .resolve_commit(&commit_details.commit.id)
-        .to_short_string();
     let end_id = if short_id.len() >= 7 {
         "".to_string()
     } else {
