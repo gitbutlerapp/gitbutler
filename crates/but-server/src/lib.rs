@@ -367,7 +367,6 @@ async fn handle_command(
         "edit_initial_index_state" => legacy::modes::edit_initial_index_state_cmd(request.params),
         "edit_changes_from_initial" => legacy::modes::edit_changes_from_initial_cmd(request.params),
         // Repository commands
-        "git_get_local_config" => legacy::repo::git_get_local_config_cmd(request.params),
         "check_signing_settings" => legacy::repo::check_signing_settings_cmd(request.params),
         "git_clone_repository" => legacy::repo::git_clone_repository_cmd(request.params).await,
         "get_commit_file" => legacy::repo::get_commit_file_cmd(request.params),

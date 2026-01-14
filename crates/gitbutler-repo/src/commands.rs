@@ -11,7 +11,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use tracing::warn;
 
-use crate::{Config, RepositoryExt, remote::GitRemote};
+use crate::{RepositoryExt, remote::GitRemote};
 
 #[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -150,7 +150,6 @@ fn calculate_filename_bonus(matcher: &SkimMatcherV2, filename: &str, pattern: &s
 pub trait RepoCommands {
     fn add_remote(&self, name: &str, url: &str) -> Result<()>;
     fn remotes(&self) -> Result<Vec<GitRemote>>;
-    fn get_local_config(&self, key: &str) -> Result<Option<String>>;
     fn check_signing_settings(&self) -> Result<bool>;
 
     /// Read `path` from the tree of the given commit.
@@ -180,12 +179,6 @@ pub trait RepoCommands {
 }
 
 impl RepoCommands for Project {
-    fn get_local_config(&self, key: &str) -> Result<Option<String>> {
-        let repo = &self.open_git2()?;
-        let config: Config = repo.into();
-        config.get_local(key)
-    }
-
     fn check_signing_settings(&self) -> Result<bool> {
         let signed = self.open_git2()?.sign_buffer(b"test");
         match signed {

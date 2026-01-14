@@ -19,13 +19,6 @@ use crate::json::HexHash;
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn git_get_local_config(project_id: ProjectId, key: String) -> Result<Option<String>> {
-    let project = gitbutler_project::get(project_id)?;
-    project.get_local_config(&key)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
 pub fn check_signing_settings(project_id: ProjectId) -> Result<bool> {
     let project = gitbutler_project::get(project_id)?;
     project.check_signing_settings()
