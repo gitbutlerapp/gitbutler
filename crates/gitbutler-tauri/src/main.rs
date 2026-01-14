@@ -314,7 +314,6 @@ fn main() -> anyhow::Result<()> {
                 legacy::open::tauri_show_in_finder::show_in_finder,
                 legacy::forge::tauri_pr_templates::pr_templates,
                 legacy::forge::tauri_pr_template::pr_template,
-                legacy::forge::tauri_determine_forge_from_url::determine_forge_from_url,
                 legacy::forge::tauri_list_reviews::list_reviews,
                 legacy::forge::tauri_publish_review::publish_review,
                 legacy::cli::tauri_install_cli::install_cli,

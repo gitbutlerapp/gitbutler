@@ -42,9 +42,3 @@ pub fn derive_forge_repo_info(url: &str) -> Option<ForgeRepoInfo> {
         protocol: protocol.to_string(),
     })
 }
-
-/// Determine the forge type from a given URL.
-pub fn determine_forge_from_url(url: &str) -> Option<ForgeName> {
-    let repo_info = derive_forge_repo_info(url)?;
-    Some(repo_info.forge)
-}

@@ -450,7 +450,6 @@ async fn handle_command(
         // Forge commands
         "pr_templates" => legacy::forge::pr_templates_cmd(request.params),
         "pr_template" => legacy::forge::pr_template_cmd(request.params),
-        "determine_forge_from_url" => legacy::forge::determine_forge_from_url_cmd(request.params),
         "list_reviews" => {
             let params = deserialize_json(request.params);
             match params {
