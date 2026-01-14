@@ -6,11 +6,9 @@ publish = false
 rust-version.workspace = true
 
 [lib]
-test = false
 doctest = false
 
 [dependencies]
-thiserror.workspace = true
 anyhow.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
 tracing.workspace = true
@@ -25,3 +23,8 @@ gitbutler-project.workspace = true
 all = "deny"
 perf = "deny"
 correctness = "deny"
+
+[dev-dependencies]
+but-testsupport.workspace = true
+insta = "1.46.0"
+is_ci = "1.2.0"

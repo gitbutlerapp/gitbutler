@@ -15,10 +15,14 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 mod events;
+
 pub use events::Change;
 use gitbutler_filemonitor::InternalEvent;
 
 mod handler;
+
+/// Re-export for convenience
+pub use gitbutler_filemonitor::WatchMode;
 
 /// An abstraction over a link to the spawned watcher, which runs in the background.
 pub struct WatcherHandle {
@@ -67,12 +71,17 @@ pub fn watch_in_background(
     worktree_path: impl AsRef<Path>,
     project_id: ProjectId,
     app_settings: AppSettingsWithDiskSync,
+    watch_mode: WatchMode,
 ) -> Result<WatcherHandle, anyhow::Error> {
     let (events_out, mut events_in) = unbounded_channel();
     let (flush_tx, mut flush_rx) = unbounded_channel();
 
-    let debounce =
-        gitbutler_filemonitor::spawn(project_id, worktree_path.as_ref(), events_out.clone())?;
+    let monitor = gitbutler_filemonitor::spawn(
+        project_id,
+        worktree_path.as_ref(),
+        events_out.clone(),
+        watch_mode,
+    )?;
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
@@ -98,7 +107,7 @@ pub fn watch_in_background(
             tokio::select! {
                 Some(event) = events_in.recv() => handle_event(event, app_settings.clone())?,
                 Some(_signal_flush) = flush_rx.recv() => {
-                    debounce.flush_nonblocking();
+                    monitor.flush()?;
                 }
                 () = cancellation_token.cancelled() => {
                     tracing::debug!(%project_id, "stopped watcher");

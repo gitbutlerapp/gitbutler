@@ -95,6 +95,7 @@ impl ActiveProjects {
             project.worktree_dir()?,
             project.id,
             app_settings_sync.clone(),
+            gitbutler_watcher::WatchMode::from_env(),
         )?;
 
         // Set up database watcher for database changes

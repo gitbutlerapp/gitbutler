@@ -240,9 +240,15 @@ where
                 let mut system = sysinfo::System::new();
                 system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
-                // We can ignore clippy here since the type is different depending on the platform.
+                #[cfg(unix)]
+                let peer_pid_u32: u32 = peer_pid
+                    .try_into()
+                    .map_err(|_| Error::<E>::NoSuchPid(peer_pid))?;
+                #[cfg(windows)]
+                let peer_pid_u32: u32 = peer_pid;
+
                 let peer_path = system
-                    .process(sysinfo::Pid::from_u32(peer_pid.try_into().map_err(|_| Error::<E>::NoSuchPid(peer_pid))?))
+                    .process(sysinfo::Pid::from_u32(peer_pid_u32))
                     .and_then(|p| p.exe().map(|exe| exe.to_string_lossy().into_owned()))
                     .ok_or(Error::<E>::NoSuchPid(peer_pid))?;
 
