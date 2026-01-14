@@ -20,7 +20,7 @@
 	aria-label="Profile button"
 	onclick={async () => onclick()}
 >
-	{#if srcUrl}
+	{#if srcUrl && !imageLoadingState.hasError}
 		<img
 			bind:this={imageLoadingState.imgElement}
 			src={srcUrl}
@@ -28,12 +28,15 @@
 			class="hidden-preload"
 			referrerpolicy="no-referrer"
 			onload={imageLoadingState.handleImageLoad}
+			onerror={imageLoadingState.handleImageError}
 		/>
 	{/if}
 	<div
 		class="profile-image"
-		class:loaded={imageLoadingState.imageLoaded || !srcUrl}
-		style:background-image={srcUrl ? `url(${srcUrl})` : `url("${placeholderUrl}")`}
+		class:loaded={imageLoadingState.imageLoaded || !srcUrl || imageLoadingState.hasError}
+		style:background-image={srcUrl && !imageLoadingState.hasError
+			? `url(${srcUrl})`
+			: `url("${placeholderUrl}")`}
 	></div>
 </button>
 

@@ -12,6 +12,7 @@
 	}
 
 	let isLoaded = $state(false);
+	let hasError = $state(false);
 
 	const {
 		srcUrl,
@@ -21,6 +22,14 @@
 		tooltipPosition,
 		size = 'small'
 	}: Props = $props();
+
+	// Reset error state when srcUrl changes
+	$effect(() => {
+		if (srcUrl) {
+			hasError = false;
+			isLoaded = false;
+		}
+	});
 
 	// Extract initials from name (first letter of each word, max 2 letters)
 	function getInitials(name: string): string {
@@ -38,16 +47,18 @@
 		class="image-wrapper {size}"
 		style:background-color={stringToColor(username || (srcUrl ?? undefined))}
 	>
-		{#if srcUrl && srcUrl !== ''}
+		{#if srcUrl && srcUrl !== '' && !hasError}
 			<img
 				class="avatar"
 				alt={tooltip}
 				src={srcUrl ?? ''}
 				loading="lazy"
 				onload={() => (isLoaded = true)}
+				onerror={() => (hasError = true)}
 				class:show={isLoaded}
 			/>
-		{:else}
+		{/if}
+		{#if !srcUrl || srcUrl === '' || hasError}
 			<span class="initials">{getInitials(username)}</span>
 		{/if}
 	</div>

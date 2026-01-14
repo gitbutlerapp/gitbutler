@@ -54,13 +54,13 @@
 		class="hidden-input"
 	/>
 
-	{#if !previewUrl || !imageLoadingState.imageLoaded}
+	{#if !previewUrl || !imageLoadingState.imageLoaded || imageLoadingState.hasError}
 		<div class="profile-pic-skeleton">
 			<SkeletonBone width="100%" height="100%" radius="var(--radius-m)" />
 		</div>
 	{/if}
 
-	{#if previewUrl}
+	{#if previewUrl && !imageLoadingState.hasError}
 		<img
 			bind:this={imageLoadingState.imgElement}
 			class="profile-pic"
@@ -69,6 +69,7 @@
 			{alt}
 			referrerpolicy="no-referrer"
 			onload={imageLoadingState.handleImageLoad}
+			onerror={imageLoadingState.handleImageError}
 		/>
 	{/if}
 
