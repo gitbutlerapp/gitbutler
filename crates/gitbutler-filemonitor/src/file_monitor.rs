@@ -361,21 +361,23 @@ pub fn spawn(
                         let mut tracked_dirs = None;
                         let mut is_untracked = |relative_path: &BStr, is_dir: bool| -> bool {
                             if is_dir {
-                                !tracked_dirs.get_or_insert_with(|| {
+                                let is_tracked = tracked_dirs.get_or_insert_with(|| {
                                     // This is slow so we only do it on demand.
                                     // TODO(gix): Use a built-in lookup that works for directories so we don't have to extract all data.
                                     //            Then we don't need that tracked_worktree_directories at all.
-                                    tracked_worktree_directories(&index)}).contains(relative_path)
+                                    tracked_worktree_directories(&index)
+                                }).contains(relative_path);
+                                !is_tracked
                             } else {
-                                index
+                                let is_tracked = index
                                     .entry_by_path(relative_path)
-                                    .is_none()
+                                    .is_some();
+                                !is_tracked
                             }
                         };
                         for (file_path, kind) in classified_file_paths.iter_mut() {
                             if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
-                                let is_dir = file_path
-                                    .is_dir();
+                                let is_dir = file_path.is_dir();
                                 let is_excluded = excludes
                                     .at_path(relative_path, is_dir
                                         .then_some(gix::index::entry::Mode::DIR))
@@ -520,6 +522,8 @@ fn is_interesting_kind(kind: notify::EventKind) -> bool {
             notify::event::CreateKind::File | notify::event::CreateKind::Folder
         ) | notify::EventKind::Modify(notify::event::ModifyKind::Data(_))
             | notify::EventKind::Modify(notify::event::ModifyKind::Name(_))
+            // This makes many more events happen, but we won't miss `touch this && rm this` kind of events.
+            | notify::EventKind::Modify(notify::event::ModifyKind::Metadata(_))
             | notify::EventKind::Remove(
                 notify::event::RemoveKind::File | notify::event::RemoveKind::Folder
             )

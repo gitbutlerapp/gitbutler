@@ -3622,6 +3622,7 @@ dependencies = [
  "gitbutler-project",
  "gix",
  "insta",
+ "is_ci",
  "notify",
  "tokio",
  "tracing",

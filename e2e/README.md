@@ -113,11 +113,11 @@ test('should do something amazing', async ({ page, context }, testInfo) => {
 	await gitbutler.runScript('your-setup-script.sh');
 
 	await page.goto('/');
-	
+
 	// Your test logic here
 	await waitForTestId(page, 'your-element');
 	await clickByTestId(page, 'your-button');
-	
+
 	// Assertions
 	expect(await page.locator('[data-testid="result"]').textContent()).toBe('expected');
 });
@@ -148,10 +148,10 @@ describe('Your Feature', () => {
 
 	it('should perform an action', async () => {
 		await findAndClick('button[data-testid="your-button"]');
-		
+
 		const element = $('input[data-testid="your-input"]');
 		await setElementValue(await element.getElement(), 'test value');
-		
+
 		// Add assertions
 		const result = await $('div[data-testid="result"]').getElement();
 		await expect(result).toExist();
@@ -188,6 +188,7 @@ pnpm test:e2e:playwright:open
 ```
 
 This opens Playwright's UI where you can:
+
 - Run tests step by step
 - See the browser in real-time
 - Inspect the DOM at any point
@@ -228,6 +229,7 @@ Add breakpoints in your test files and use VSCode's built-in debugger:
 #### 5. Screenshots and Videos
 
 Tests automatically capture:
+
 - **Traces**: Enabled by default (see `playwright.config.ts`)
 - **Videos**: Captured on failure (retained on failure)
 - **Screenshots**: Can be added manually in tests
@@ -256,7 +258,7 @@ Edit timeouts in `blackbox/wdio.blackbox.conf.ts`:
 
 ```typescript
 mochaOpts: {
-	timeout: 120000  // Increase for debugging
+	timeout: 120000; // Increase for debugging
 }
 ```
 
@@ -282,21 +284,25 @@ it('should do something', async () => {
 ### Common Debugging Issues
 
 **Tests timing out:**
+
 - Increase timeout in config files
 - Check if elements are actually rendered (use browser DevTools)
 - Verify `data-testid` attributes exist
 
 **Cannot find elements:**
+
 - Check that the element has a `data-testid` attribute
 - Use `page.locator()` with a more general selector to verify element exists
 - Check if element is in an iframe or shadow DOM
 
 **Flaky tests:**
+
 - Add proper waits (`waitForTestId`, `waitForSelector`)
 - Avoid hardcoded sleeps - use proper wait conditions
 - Check for race conditions in the application
 
 **Application not starting:**
+
 - Verify application is built: `cargo build`
 - Check logs in terminal output
 - Ensure no other instances are running on the same port
@@ -344,16 +350,18 @@ e2e/
 ## Configuration Files
 
 - `playwright/playwright.config.ts`: Playwright test configuration
-- `blackbox/wdio.blackbox.conf.ts`: WebdriverIO blackbox test configuration  
+- `blackbox/wdio.blackbox.conf.ts`: WebdriverIO blackbox test configuration
 - `package.json`: Test scripts and dependencies
 
 ## CI/CD
 
 E2E tests run in CI via GitHub Actions:
+
 - `.github/workflows/test-e2e-playwright.yml`: Playwright tests
 - `.github/workflows/test-e2e-blackbox.yml`: Blackbox tests
 
 Tests run on push and pull requests with:
+
 - Automatic retries on CI (2 retries)
 - Video capture on failures
 - Trace collection for debugging

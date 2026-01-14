@@ -178,9 +178,6 @@ mod compute_watch_plan {
     }
 
     /// Compute the paths that should be watched for `worktree_path`.
-    ///
-    /// This is public to allow deterministic tests of the watch setup without relying on platform
-    /// specific filesystem notification behaviour.
     fn compute_watch_plan(worktree_path: &Path) -> anyhow::Result<Vec<(PathBuf, RecursiveMode)>> {
         let worktree_path = gix::path::realpath(worktree_path)?;
         let repo = gix::open_opts(&worktree_path, gix::open::Options::isolated())?;
