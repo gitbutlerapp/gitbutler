@@ -15,7 +15,6 @@
 	import Button from '$components/Button.svelte';
 	import Icon from '$components/Icon.svelte';
 	import InfoButton from '$components/InfoButton.svelte';
-	import { isTouchDevice } from '$lib/utils/browserAgent';
 	import {
 		CountColumnSide,
 		isDeltaLine,
@@ -46,6 +45,7 @@
 		minWidth: number;
 		lockWarning?: Snippet<[DependencyLock[]]>;
 		hunkHasLocks?: boolean;
+		touchDevice?: boolean;
 	}
 
 	const {
@@ -66,49 +66,12 @@
 		handleLineContextMenu,
 		minWidth,
 		lockWarning,
-		hunkHasLocks
+		hunkHasLocks,
+		touchDevice
 	}: Props = $props();
 
-	const touchDevice = isTouchDevice();
-
-	let rowElement = $state<HTMLTableRowElement>();
 	let overflowMenuHeight = $state<number>(0);
 	let stagingColumnWidth = $state<number>(0);
-
-	const rowTop = $derived(rowElement?.getBoundingClientRect().top);
-	const rowLeft = $derived(rowElement?.getBoundingClientRect().left);
-	const rowWidth = $derived(rowElement?.getBoundingClientRect().width);
-	const rowHeight = $derived(rowElement?.getBoundingClientRect().height);
-
-	$effect(() => {
-		if (
-			lineSelection.touchStart !== undefined &&
-			rowTop !== undefined &&
-			rowLeft !== undefined &&
-			numberHeaderWidth !== undefined &&
-			rowHeight !== undefined
-		) {
-			const rowTouchStartY =
-				lineSelection.touchStart.y > rowTop && lineSelection.touchStart.y < rowTop + rowHeight;
-			const rowTouchStartX =
-				lineSelection.touchStart.x > rowLeft &&
-				lineSelection.touchStart.x < rowLeft + numberHeaderWidth;
-			if (rowTouchStartY && rowTouchStartX) {
-				lineSelection.touchSelectionStart(row, idx);
-			}
-
-			if (lineSelection.touchMove !== undefined) {
-				const rowTouchEndsY =
-					lineSelection.touchMove.y > rowTop && lineSelection.touchMove.y < rowTop + rowHeight;
-				const rowTouchEndsX =
-					lineSelection.touchMove.x > rowLeft &&
-					lineSelection.touchMove.x < rowLeft + numberHeaderWidth;
-				if (rowTouchEndsY && rowTouchEndsX) {
-					lineSelection.touchSelectionEnd(row, idx);
-				}
-			}
-		}
-	});
 
 	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
 	const clickable = $derived(isClickable);
@@ -150,7 +113,6 @@
 {/snippet}
 
 <tr
-	bind:this={rowElement}
 	id={getHunkLineId(row.encodedLineId)}
 	class="table__row"
 	class:selected={row.isSelected}
@@ -259,7 +221,7 @@
 					class="table__selected-row-overlay"
 					class:is-first={row.isFirstOfSelectionGroup}
 					class:is-last={row.isLastOfSelectionGroup}
-					style="--number-col-width: {numberHeaderWidth}px; --width: {rowWidth}px; --height: {rowHeight}px;"
+					style="--number-col-width: {numberHeaderWidth}px; "
 				></div>
 			{/if}
 
@@ -268,7 +230,7 @@
 					bind:clientHeight={overflowMenuHeight}
 					class="table__selected-row-overflow-menu"
 					class:visible={hoveringOverTable || touchDevice}
-					style="--number-col-width: {numberHeaderWidth}px; --height: {rowHeight}px; --overflow-menu-height: {overflowMenuHeight}px;"
+					style="--number-col-width: {numberHeaderWidth}px; --overflow-menu-height: {overflowMenuHeight}px;"
 				>
 					{#if onQuoteSelection}
 						<div class="button-wrapper">
