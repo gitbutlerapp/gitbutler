@@ -1,5 +1,4 @@
 use anyhow::Result;
-use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
 use but_serde::BStringForFrontend;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
@@ -34,24 +33,6 @@ pub struct RemoteCommit {
     #[serde(with = "but_serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
     pub conflicted: bool,
-}
-
-pub(crate) fn get_commit_data(ctx: &Context, sha: gix::ObjectId) -> Result<Option<RemoteCommit>> {
-    let repo = &*ctx.repo.get()?;
-    let commit = match repo.find_commit(sha) {
-        Ok(commit) => commit,
-        Err(error) => {
-            if matches!(
-                error,
-                gix::object::find::existing::with_conversion::Error::Find(_)
-            ) {
-                return Ok(None);
-            } else {
-                anyhow::bail!(error);
-            }
-        }
-    };
-    Ok(Some(commit_to_remote_commit(&commit)?))
 }
 
 pub(crate) fn commit_to_remote_commit(commit: &gix::Commit) -> Result<RemoteCommit> {

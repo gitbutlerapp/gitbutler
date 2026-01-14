@@ -317,7 +317,6 @@ async fn handle_command(
         "update_commit_message" => {
             legacy::virtual_branches::update_commit_message_cmd(request.params)
         }
-        "find_commit" => legacy::virtual_branches::find_commit_cmd(request.params),
         "upstream_integration_statuses" => {
             let params = deserialize_json(request.params);
             match params {

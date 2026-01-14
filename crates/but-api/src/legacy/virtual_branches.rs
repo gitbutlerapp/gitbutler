@@ -8,7 +8,7 @@ use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
     BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, MoveBranchResult,
-    MoveCommitIllegalAction, RemoteCommit, StackOrder,
+    MoveCommitIllegalAction, StackOrder,
     branch_upstream_integration::IntegrationStrategy,
     upstream_integration::{
         BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
@@ -443,14 +443,6 @@ pub fn update_commit_message(
     let new_commit_id =
         gitbutler_branch_actions::update_commit_message(&ctx, stack_id, commit_id, &message)?;
     Ok(new_commit_id.to_string())
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn find_commit(project_id: ProjectId, commit_id: String) -> Result<Option<RemoteCommit>> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
-    gitbutler_branch_actions::find_commit(&ctx, commit_id)
 }
 
 #[but_api]

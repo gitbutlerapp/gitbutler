@@ -25,8 +25,6 @@ use crate::{
     branch_upstream_integration::IntegrationStrategy,
     move_branch::MoveBranchResult,
     move_commits::{self, MoveCommitIllegalAction},
-    remote,
-    remote::RemoteCommit,
     reorder::{self, StackOrder},
     upstream_integration::{
         self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
@@ -316,10 +314,6 @@ pub fn update_commit_message(
         guard.write_permission(),
     );
     vbranch::update_commit_message(ctx, stack_id, commit_oid, message)
-}
-
-pub fn find_commit(ctx: &Context, commit_oid: git2::Oid) -> Result<Option<RemoteCommit>> {
-    remote::get_commit_data(ctx, commit_oid.to_gix())
 }
 
 pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<FetchResult> {
