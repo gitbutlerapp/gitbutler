@@ -20,6 +20,7 @@ jobs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
       ui: ${{ steps.filter.outputs.ui }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -51,14 +52,14 @@ jobs:
 
   prettier:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'false' &&  needs.changes.outputs.docs == 'true'}}
+    if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
-      - run: pnpm prettier
+      - run: pnpm prettier .
 
   generate-ts-definitions:
     needs: changes
