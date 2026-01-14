@@ -83,20 +83,27 @@
 							highlighted={highlightedIndex === index}
 							sticky
 						/>
-						<UnifiedDiffView
-							{projectId}
-							{stackId}
-							commitId={file.type === 'commit' ? file.commitId : undefined}
-							{draggable}
-							{change}
-							diff={diffData || null}
-							{selectable}
-							selectionId={file}
-							topPadding
-						/>
+						<ReduxResult {projectId} hideLoading result={diffQuery.result}>
+							{#snippet children(diff)}
+								<UnifiedDiffView
+									{projectId}
+									{stackId}
+									commitId={file.type === 'commit' ? file.commitId : undefined}
+									{draggable}
+									{change}
+									{diff}
+									{selectable}
+									selectionId={file}
+									topPadding
+								/>
+							{/snippet}
+							{#snippet loading()}
+								<div style="height: 200px">loading</div>
+							{/snippet}
+						</ReduxResult>
 					{/snippet}
 					{#snippet loading()}
-						<div style="height: 200px">loading</div>
+						<div style="height: 242px">loading</div>
 					{/snippet}
 				</ReduxResult>
 			{/snippet}
