@@ -1262,7 +1262,7 @@ fn errors() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
     ");
 
@@ -1296,7 +1296,7 @@ fn errors() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
             └── ·c166d42
     ");
@@ -1396,7 +1396,7 @@ fn errors() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:A <> ✓!
-    └── ≡:0:A
+    └── ≡:0:A {0}
         ├── :0:A
         │   ├── ·89cc2d3
         │   └── ·d79bba9
@@ -1448,7 +1448,7 @@ fn errors() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:A <> ✓! on 89cc2d3
-    └── ≡:0:A
+    └── ≡:0:A {0}
         └── :0:A
     ");
 
@@ -1502,7 +1502,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
             ├── ·281da94
             ├── ·12995d7
@@ -1525,7 +1525,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     // We always add metadata to new branches.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         ├── :0:main[🌳]
         │   └── ·281da94
         └── 📙:1:below-main
@@ -1558,7 +1558,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         ├── :0:main[🌳]
         │   └── ·281da94
         └── 📙:1:below-main
@@ -1579,7 +1579,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         ├── :0:main[🌳]
         │   └── ·281da94
         ├── 📙:1:below-main
@@ -1624,7 +1624,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     );
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         ├── :0:main[🌳]
         │   └── ·281da94
         ├── 📙:1:below-main
@@ -1654,7 +1654,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     );
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡📙:0:main[🌳]
+    └── ≡📙:0:main[🌳] {0}
         ├── 📙:0:main[🌳]
         │   └── ·281da94
         ├── 📙:1:below-main
@@ -1681,7 +1681,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:DETACHED <> ✓!
-    └── ≡:0:anon:
+    └── ≡:0:anon: {0}
         └── :0:anon:
             ├── ·12995d7
             └── ·3d57fc1
@@ -1704,7 +1704,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:DETACHED <> ✓!
-    └── ≡:0:anon:
+    └── ≡:0:anon: {0}
         ├── :0:anon:
         │   └── ·12995d7
         └── 📙:1:first
@@ -1746,7 +1746,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:second <> ✓!
-    └── ≡📙:0:second
+    └── ≡📙:0:second {0}
         ├── 📙:0:second
         │   └── ·12995d7
         └── 📙:1:first
@@ -1785,7 +1785,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     // And the extra-target serves as base also in single-branch mode.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:second <> ✓! on 3d57fc1
-    └── ≡📙:0:second on 3d57fc1
+    └── ≡📙:0:second on 3d57fc1 {0}
         └── 📙:0:second
             └── ·12995d7
     ");

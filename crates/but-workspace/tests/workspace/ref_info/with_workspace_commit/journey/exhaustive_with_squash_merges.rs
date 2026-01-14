@@ -35,7 +35,9 @@ fn j01_unborn() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
-                    id: None,
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
                     base: None,
                     segments: [
                         ref_info::ui::Segment {
@@ -88,7 +90,9 @@ fn j02_first_commit() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
-                    id: None,
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
                     base: None,
                     segments: [
                         ref_info::ui::Segment {
@@ -147,7 +151,9 @@ fn j03_main_pushed() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
-                    id: None,
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
                     base: None,
                     segments: [
                         ref_info::ui::Segment {
@@ -199,7 +205,9 @@ fn j03_main_pushed() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
-                    id: None,
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
                     base: None,
                     segments: [
                         ref_info::ui::Segment {
