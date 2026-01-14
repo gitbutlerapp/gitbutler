@@ -290,21 +290,20 @@ pub fn create_commit_from_worktree_changes(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn amend_commit_from_worktree_changes(
-    project_id: ProjectId,
+    ctx: &Context,
     stack_id: StackId,
-    commit_id: HexHash,
+    commit_id: gix::ObjectId,
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut guard = but_core::sync::exclusive_worktree_access(project.git_dir());
-    let repo = project.open_repo_for_merging()?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        &project.gb_dir(),
+        &ctx.project_data_dir(),
         Some(stack_id),
         commit_engine::Destination::AmendCommit {
-            commit_id: commit_id.into(),
+            commit_id,
             // TODO: Expose this in the UI for 'edit message' functionality.
             new_message: None,
         },

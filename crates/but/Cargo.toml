@@ -126,6 +126,7 @@ unicode-width = "0.2"
 cfg-if = "1.0.4"
 tempfile.workspace = true
 nonempty.workspace = true
+itertools.workspace = true
 
 [dev-dependencies]
 but-graph.workspace = true
@@ -134,4 +135,3 @@ but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
 snapbox = { workspace = true, features = ["term-svg"] }
 shell-words.workspace = true
 insta.workspace = true
-itertools.workspace = true

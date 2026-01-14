@@ -1,23 +1,54 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use bstr::{BString, ByteSlice};
-use but_api::{commit::commit_insert_blank_only, json::HexHash, legacy::diff};
+use but_api::{commit::commit_insert_blank_only, legacy::diff};
 use but_core::DiffSpec;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
-use but_hunk_dependency::ui::HunkDependencies;
+use but_hunk_dependency::ui::{HunkDependencies, HunkLock};
 use but_rebase::graph_rebase::mutate::InsertSide;
+use but_workspace::{commit_engine::ui::CreateCommitOutcome, ui::StackDetails};
 use colored::Colorize;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_project::Project;
+use gitbutler_project::{Project, ProjectId};
+use gitbutler_stack::StackId;
+use gix::ObjectId;
+use itertools::Itertools;
 use serde::Serialize;
 
 use crate::{
     CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedCliId, utils::OutputChannel,
 };
+
+/// Tracks mappings between old and new commit IDs during rebase operations
+struct CommitMap {
+    map: HashMap<ObjectId, ObjectId>,
+}
+
+impl CommitMap {
+    fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    /// Find the final mapped commit ID by following the chain of mappings
+    fn find_mapped_id(&self, commit_id: ObjectId) -> ObjectId {
+        let mut current_id = commit_id;
+        while let Some(mapped_id) = self.map.get(&current_id) {
+            current_id = *mapped_id;
+        }
+        current_id
+    }
+
+    /// Add a mapping from old commit ID to new commit ID
+    fn add_mapping(&mut self, old_commit_id: ObjectId, new_commit_id: ObjectId) {
+        self.map.insert(old_commit_id, new_commit_id);
+    }
+}
 
 /// Reason why a file is being absorbed to a particular commit
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -172,6 +203,8 @@ fn absorb_assignments(
 
     // Apply each group to its target commit and track failures
     let mut total_rejected = 0;
+    let mut commit_map = CommitMap::new();
+
     for absorption in commit_absorptions {
         let diff_specs = convert_assignments_to_diff_specs(
             &absorption
@@ -180,13 +213,13 @@ fn absorb_assignments(
                 .map(|f| f.assignment.clone())
                 .collect::<Vec<_>>(),
         )?;
-        let rejected = amend_commit_and_count_failures(
-            project,
-            absorption.stack_id,
-            absorption.commit_id,
-            diff_specs,
-        )?;
-        total_rejected += rejected;
+        let commit_id = commit_map.find_mapped_id(absorption.commit_id);
+        let outcome =
+            amend_commit_and_count_failures(ctx, absorption.stack_id, commit_id, diff_specs)?;
+        for mapping in &outcome.commit_mapping {
+            commit_map.add_mapping(mapping.0, mapping.1);
+        }
+        total_rejected += outcome.paths_to_rejected_changes.len();
     }
 
     // Display completion message
@@ -257,6 +290,8 @@ fn absorb_branch(
 
     // Apply each group to its target commit and track failures
     let mut total_rejected = 0;
+    let mut commit_map = CommitMap::new();
+
     for absorption in commit_absorptions {
         let diff_specs = convert_assignments_to_diff_specs(
             &absorption
@@ -265,13 +300,13 @@ fn absorb_branch(
                 .map(|f| f.assignment.clone())
                 .collect::<Vec<_>>(),
         )?;
-        let rejected = amend_commit_and_count_failures(
-            project,
-            absorption.stack_id,
-            absorption.commit_id,
-            diff_specs,
-        )?;
-        total_rejected += rejected;
+        let commit_id = commit_map.find_mapped_id(absorption.commit_id);
+        let outcome =
+            amend_commit_and_count_failures(ctx, absorption.stack_id, commit_id, diff_specs)?;
+        for mapping in &outcome.commit_mapping {
+            commit_map.add_mapping(mapping.0, mapping.1);
+        }
+        total_rejected += outcome.paths_to_rejected_changes.len();
     }
 
     // Display completion message
@@ -322,6 +357,8 @@ fn absorb_all(
 
     // Apply each group to its target commit and track failures
     let mut total_rejected = 0;
+    let mut commit_map = CommitMap::new();
+
     for absorption in commit_absorptions {
         let diff_specs = convert_assignments_to_diff_specs(
             &absorption
@@ -330,13 +367,15 @@ fn absorb_all(
                 .map(|f| f.assignment.clone())
                 .collect::<Vec<_>>(),
         )?;
-        let rejected = amend_commit_and_count_failures(
-            project,
-            absorption.stack_id,
-            absorption.commit_id,
-            diff_specs,
-        )?;
-        total_rejected += rejected;
+
+        let commit_id = commit_map.find_mapped_id(absorption.commit_id);
+
+        let outcome =
+            amend_commit_and_count_failures(ctx, absorption.stack_id, commit_id, diff_specs)?;
+        for mapping in &outcome.commit_mapping {
+            commit_map.add_mapping(mapping.0, mapping.1);
+        }
+        total_rejected += outcome.paths_to_rejected_changes.len();
     }
 
     // Display completion message
@@ -365,14 +404,17 @@ fn absorb_all(
 fn group_changes_by_target_commit(
     ctx: &Context,
     assignments: &[HunkAssignment],
-    dependencies: &Option<HunkDependencies>,
+    _dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<GroupedChanges> {
     let mut changes_by_commit: GroupedChanges = BTreeMap::new();
+
+    let mut stack_details_cache = HashMap::<StackId, StackDetails>::new();
 
     // Process each assignment
     for assignment in assignments {
         // Determine the target commit for this assignment
-        let (stack_id, commit_id, reason) = determine_target_commit(ctx, assignment, dependencies)?;
+        let (stack_id, commit_id, reason) =
+            determine_target_commit(ctx, assignment, &mut stack_details_cache)?;
 
         let entry = changes_by_commit
             .entry((stack_id, commit_id))
@@ -388,11 +430,47 @@ fn group_changes_by_target_commit(
     Ok(changes_by_commit)
 }
 
+// Find the lock that is highest in the application order (child-most commit)
+fn find_top_most_lock<'a>(
+    locks: &'a [HunkLock],
+    project_id: ProjectId,
+    stack_details_cache: &'a mut HashMap<StackId, StackDetails>,
+) -> Option<&'a HunkLock> {
+    // These are all the stack IDs that the hunk is dependent on.
+    // If there are multiple, then the absorb will fail.
+    let all_stack_ids = locks
+        .iter()
+        .map(|lock| lock.stack_id)
+        .unique()
+        .collect::<Vec<_>>();
+    for stack_id in &all_stack_ids {
+        let stack_details = if let Some(details) = stack_details_cache.get(stack_id) {
+            details.clone()
+        } else {
+            let details =
+                but_api::legacy::workspace::stack_details(project_id, Some(*stack_id)).ok()?;
+            stack_details_cache.insert(*stack_id, details.clone());
+            details
+        };
+        for branch in stack_details.branch_details.iter() {
+            for commit in branch.commits.iter() {
+                if let Some(lock) = locks
+                    .iter()
+                    .find(|l| l.commit_id == commit.id && l.stack_id == *stack_id)
+                {
+                    return Some(lock);
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Determine the target commit for an assignment based on dependencies and assignments
 fn determine_target_commit(
     ctx: &Context,
     assignment: &HunkAssignment,
-    dependencies: &Option<HunkDependencies>,
+    stack_details_cache: &mut HashMap<StackId, StackDetails>,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     gix::ObjectId,
@@ -401,22 +479,18 @@ fn determine_target_commit(
     let project_id = ctx.legacy_project.id;
 
     // Priority 1: Check if there's a dependency lock for this hunk
-    if let Some(deps) = dependencies
-        && let Some(_hunk_id) = assignment.id
-    {
-        // Find the dependency for this hunk
-        for (path, _hunk, locks) in &deps.diffs {
-            // Match by path and hunk content
-            if path == &assignment.path {
-                // If there's a lock (dependency), use the topmost commit
-                if let Some(lock) = locks.first() {
-                    return Ok((
-                        lock.stack_id,
-                        lock.commit_id,
-                        AbsorptionReason::HunkDependency,
-                    ));
-                }
-            }
+    if let Some(locks) = &assignment.hunk_locks {
+        if let Some(lock) = find_top_most_lock(locks, project_id, stack_details_cache) {
+            return Ok((
+                lock.stack_id,
+                lock.commit_id,
+                AbsorptionReason::HunkDependency,
+            ));
+        } else {
+            anyhow::bail!(
+                "Failed to determine target commit for hunk absorption due to ambiguous dependencies in path: {}",
+                assignment.path
+            );
         }
     }
 
@@ -530,6 +604,8 @@ fn convert_assignments_to_diff_specs(
 }
 
 /// Prepare commit absorptions with commit summaries
+///
+/// This returns a vector of absorption information, sorted and ready for processing.
 fn prepare_commit_absorptions(
     project: &Project,
     changes_by_commit: GroupedChanges,
@@ -539,25 +615,45 @@ fn prepare_commit_absorptions(
     // Open the repository to read commit messages
     let repo = project.open_repo()?;
 
-    for ((stack_id, commit_id), (assignments, reason)) in changes_by_commit {
-        // Get commit summary from the git commit
-        let commit_summary = get_commit_summary(&repo, commit_id)?;
+    // Cache the stack details to determine the commit order
+    let mut stack_details_map = HashMap::<StackId, StackDetails>::new();
+    let all_stack_ids = changes_by_commit
+        .keys()
+        .map(|(stack_id, _)| *stack_id)
+        .unique()
+        .collect::<Vec<_>>();
 
-        let mut files = Vec::new();
-        for assignment in assignments {
-            files.push(FileAbsorption {
-                path: assignment.path.clone(),
-                assignment,
-            });
+    for stack_id in &all_stack_ids {
+        if let std::collections::hash_map::Entry::Vacant(e) = stack_details_map.entry(*stack_id) {
+            let details = but_api::legacy::workspace::stack_details(project.id, Some(*stack_id))?;
+            e.insert(details);
         }
-
-        commit_absorptions.push(CommitAbsorption {
-            stack_id,
-            commit_id,
-            commit_summary,
-            files,
-            reason,
-        });
+    }
+    // Iterate through the stacks' commits in application order (parent to child)
+    for stack_id in all_stack_ids {
+        if let Some(stack_details) = stack_details_map.get(&stack_id) {
+            for branch in stack_details.branch_details.iter().rev() {
+                for commit in branch.commits.iter().rev() {
+                    let key = (stack_id, commit.id);
+                    if let Some((assignments, reason)) = changes_by_commit.get(&key) {
+                        let mut files = Vec::new();
+                        for assignment in assignments {
+                            files.push(FileAbsorption {
+                                path: assignment.path.clone(),
+                                assignment: assignment.clone(),
+                            });
+                        }
+                        commit_absorptions.push(CommitAbsorption {
+                            stack_id,
+                            commit_id: commit.id,
+                            commit_summary: get_commit_summary(&repo, commit.id)?,
+                            files,
+                            reason: reason.clone(),
+                        });
+                    }
+                }
+            }
+        }
     }
 
     Ok(commit_absorptions)
@@ -690,19 +786,14 @@ fn display_absorption_plan(
 
 /// Amend a commit with the given changes and return the number of rejected files
 fn amend_commit_and_count_failures(
-    project: &Project,
+    ctx: &Context,
     stack_id: but_core::ref_metadata::StackId,
     commit_id: gix::ObjectId,
     diff_specs: Vec<DiffSpec>,
-) -> anyhow::Result<usize> {
-    // Convert commit_id to HexHash
-    let hex_hash = HexHash::from(commit_id);
-
-    let outcome = but_api::legacy::workspace::amend_commit_from_worktree_changes(
-        project.id, stack_id, hex_hash, diff_specs,
-    )?;
-
-    Ok(outcome.paths_to_rejected_changes.len())
+) -> anyhow::Result<CreateCommitOutcome> {
+    but_api::legacy::workspace::amend_commit_from_worktree_changes(
+        ctx, stack_id, commit_id, diff_specs,
+    )
 }
 
 /// Create a snapshot in the oplog before performing an operation
