@@ -53,11 +53,13 @@ pub fn commit_reword(
     res
 }
 
-mod ui {
+/// UI types for commit insertion
+pub mod ui {
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+    /// Specifies where to insert a blank commit
     pub enum RelativeTo {
         /// Relative to a commit
         #[serde(with = "but_serde::object_id")]

@@ -1,14 +1,12 @@
 use std::collections::BTreeMap;
 
 use bstr::{BString, ByteSlice};
-use but_api::{
-    json::HexHash,
-    legacy::{diff, virtual_branches},
-};
+use but_api::{commit::commit_insert_blank_only, json::HexHash, legacy::diff};
 use but_core::DiffSpec;
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::HunkDependencies;
+use but_rebase::graph_rebase::mutate::InsertSide;
 use colored::Colorize;
 use gitbutler_oplog::{
     OplogExt,
@@ -134,7 +132,7 @@ pub(crate) fn handle(
             }) => {
                 // Absorb this particular file
                 absorb_assignments(
-                    &ctx.legacy_project,
+                    ctx,
                     hunk_assignments.into_iter().collect::<Vec<_>>().as_slice(),
                     &dependencies,
                     out,
@@ -142,7 +140,7 @@ pub(crate) fn handle(
             }
             CliId::Branch { name, .. } => {
                 // Absorb everything that is assigned to this lane
-                absorb_branch(&ctx.legacy_project, &name, &assignments, &dependencies, out)?;
+                absorb_branch(ctx, &name, &assignments, &dependencies, out)?;
             }
             _ => {
                 anyhow::bail!("Invalid source: expected an uncommitted file or branch");
@@ -150,20 +148,21 @@ pub(crate) fn handle(
         }
     } else {
         // Try to absorb everything uncommitted
-        absorb_all(&ctx.legacy_project, &assignments, &dependencies, out)?;
+        absorb_all(ctx, &ctx.legacy_project, &assignments, &dependencies, out)?;
     }
     Ok(())
 }
 
 /// Absorb a single file into the appropriate commit
 fn absorb_assignments(
-    project: &Project,
+    ctx: &Context,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
+    let project = &ctx.legacy_project;
     // Group changes by their target commit
-    let changes_by_commit = group_changes_by_target_commit(project.id, assignments, dependencies)?;
+    let changes_by_commit = group_changes_by_target_commit(ctx, assignments, dependencies)?;
 
     // Prepare commit absorptions for display
     let commit_absorptions = prepare_commit_absorptions(project, changes_by_commit)?;
@@ -214,12 +213,13 @@ fn absorb_assignments(
 
 /// Absorb all files assigned to a specific branch/stack
 fn absorb_branch(
-    project: &Project,
+    ctx: &Context,
     branch_name: &str,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
+    let project = &ctx.legacy_project;
     // Get the stack ID for this branch
     let stacks = but_api::legacy::workspace::stacks(project.id, None)?;
 
@@ -247,8 +247,7 @@ fn absorb_branch(
     }
 
     // Group changes by their target commit
-    let changes_by_commit =
-        group_changes_by_target_commit(project.id, &stack_assignments, dependencies)?;
+    let changes_by_commit = group_changes_by_target_commit(ctx, &stack_assignments, dependencies)?;
 
     // Prepare commit absorptions for display
     let commit_absorptions = prepare_commit_absorptions(project, changes_by_commit)?;
@@ -299,6 +298,7 @@ fn absorb_branch(
 
 /// Absorb all uncommitted changes
 fn absorb_all(
+    ctx: &Context,
     project: &Project,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
@@ -312,7 +312,7 @@ fn absorb_all(
     }
 
     // Group all changes by their target commit
-    let changes_by_commit = group_changes_by_target_commit(project.id, assignments, dependencies)?;
+    let changes_by_commit = group_changes_by_target_commit(ctx, assignments, dependencies)?;
 
     // Prepare commit absorptions for display
     let commit_absorptions = prepare_commit_absorptions(project, changes_by_commit)?;
@@ -363,7 +363,7 @@ fn absorb_all(
 
 /// Group changes by their target commit based on dependencies and assignments
 fn group_changes_by_target_commit(
-    project_id: gitbutler_project::ProjectId,
+    ctx: &Context,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<GroupedChanges> {
@@ -372,8 +372,7 @@ fn group_changes_by_target_commit(
     // Process each assignment
     for assignment in assignments {
         // Determine the target commit for this assignment
-        let (stack_id, commit_id, reason) =
-            determine_target_commit(project_id, assignment, dependencies)?;
+        let (stack_id, commit_id, reason) = determine_target_commit(ctx, assignment, dependencies)?;
 
         let entry = changes_by_commit
             .entry((stack_id, commit_id))
@@ -391,7 +390,7 @@ fn group_changes_by_target_commit(
 
 /// Determine the target commit for an assignment based on dependencies and assignments
 fn determine_target_commit(
-    project_id: gitbutler_project::ProjectId,
+    ctx: &Context,
     assignment: &HunkAssignment,
     dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<(
@@ -399,6 +398,8 @@ fn determine_target_commit(
     gix::ObjectId,
     AbsorptionReason,
 )> {
+    let project_id = ctx.legacy_project.id;
+
     // Priority 1: Check if there's a dependency lock for this hunk
     if let Some(deps) = dependencies
         && let Some(_hunk_id) = assignment.id
@@ -432,7 +433,15 @@ fn determine_target_commit(
         }
 
         // If there are no commits in the stack, create a blank commit first
-        virtual_branches::insert_blank_commit(project_id, stack_id, None, -1)?;
+        let branch = stack_details
+            .branch_details
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
+        commit_insert_blank_only(
+            ctx,
+            but_api::commit::ui::RelativeTo::Reference(branch.reference.clone()),
+            InsertSide::Below,
+        )?;
 
         // Now fetch the stack details again to get the newly created commit
         let stack_details = but_api::legacy::workspace::stack_details(project_id, Some(stack_id))?;
@@ -459,7 +468,15 @@ fn determine_target_commit(
         }
 
         // If the first stack has no commits, create a blank commit first
-        virtual_branches::insert_blank_commit(project_id, stack_id, None, -1)?;
+        let branch = stack_details
+            .branch_details
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
+        commit_insert_blank_only(
+            ctx,
+            but_api::commit::ui::RelativeTo::Reference(branch.reference.clone()),
+            InsertSide::Below,
+        )?;
 
         // Now fetch the stack details again to get the newly created commit
         let stack_details = but_api::legacy::workspace::stack_details(project_id, Some(stack_id))?;
