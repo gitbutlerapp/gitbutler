@@ -69,13 +69,12 @@
 	const isNotInWorkspace = $derived(
 		currentMode?.type !== 'OpenWorkspace' && currentMode?.type !== 'Edit'
 	);
-	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
+	const [switchBackToWorkspace, workspaceSwitch] = baseBranchService.switchBackToWorkspace;
 
 	async function switchToWorkspace() {
 		if (base) {
-			await setBaseBranchTarget({
-				projectId,
-				branch: base.branchName
+			await switchBackToWorkspace({
+				projectId
 			});
 		}
 	}
@@ -244,7 +243,7 @@
 					style="warning"
 					onclick={switchToWorkspace}
 					reversedDirection
-					disabled={targetBranchSwitch.current.isLoading}
+					disabled={workspaceSwitch.current.isLoading}
 				>
 					Back to workspace
 				</Button>
