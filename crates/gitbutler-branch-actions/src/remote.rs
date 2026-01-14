@@ -1,16 +1,9 @@
-use std::path::Path;
-
 use anyhow::Result;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 use but_serde::BStringForFrontend;
-use git2::BranchType;
-use gitbutler_branch::ReferenceExt;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::logging::{LogUntil, RepositoryExt};
-use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::Serialize;
 
 use crate::author::Author;
@@ -43,52 +36,6 @@ pub struct RemoteCommit {
     pub conflicted: bool,
 }
 
-/// Finds all branches matching a given name, which can be at most one local branch,
-/// and any number of branches (on different remotes).
-///
-/// # Previous notes
-/// For legacy purposes, this is still named "remote" branches, but it's actually
-/// a list of all the normal (non-gitbutler) git branches.
-pub fn find_git_branches(ctx: &Context, branch_name: &str) -> Result<Vec<RemoteBranchData>> {
-    let repo = &*ctx.git2_repo.get()?;
-    let remotes_raw = repo.remotes()?;
-    let remotes: Vec<_> = remotes_raw.iter().flatten().collect();
-
-    // We since we are testing for the presence of branches we swallow any errors
-    // from both finding the branch, and looking up the branch commit data. The
-    // latter can fail if/when a ref points to a object that doesn't exist.
-    let mut all_branches: Vec<RemoteBranchData> = remotes
-        .iter()
-        .filter_map(|remote_name| {
-            let branch_name = format!("{remote_name}/{branch_name}");
-
-            repo.find_branch(&branch_name, BranchType::Remote)
-                .ok()
-                .and_then(|branch| branch_to_remote_branch(ctx, &branch, &[remote_name]).ok())
-        })
-        .collect();
-
-    if let Some(local_branch) = repo
-        .find_branch(branch_name, BranchType::Local)
-        .ok()
-        .and_then(|branch| branch_to_remote_branch(ctx, &branch, &remotes).ok())
-    {
-        all_branches.push(local_branch);
-    }
-
-    let target_branch = &default_target(&ctx.project_data_dir())?.branch;
-    Ok(all_branches
-        .into_iter()
-        .filter(|branch| {
-            branch.name != target_branch.into() &&
-            branch.name.branch() != Some("gitbutler/integration") && // Remove after rename migration complete.
-            branch.name.branch() != Some("gitbutler/workspace") &&
-            branch.name.branch() != Some("gitbutler/target") &&
-            branch.name.branch() != Some("gitbutler/edit")
-        })
-        .collect())
-}
-
 pub(crate) fn get_commit_data(ctx: &Context, sha: gix::ObjectId) -> Result<Option<RemoteCommit>> {
     let repo = &*ctx.repo.get()?;
     let commit = match repo.find_commit(sha) {
@@ -107,52 +54,6 @@ pub(crate) fn get_commit_data(ctx: &Context, sha: gix::ObjectId) -> Result<Optio
     Ok(Some(commit_to_remote_commit(&commit)?))
 }
 
-pub(crate) fn branch_to_remote_branch(
-    ctx: &Context,
-    branch: &git2::Branch<'_>,
-    remotes: &[&str],
-) -> Result<RemoteBranchData> {
-    let reference = branch.get();
-    let name = Refname::try_from(branch)?;
-    let given_name = reference.given_name(remotes)?;
-
-    let commit = reference.peel_to_commit()?;
-    let sha = commit.id();
-    let is_remote = reference.is_remote();
-
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let repo = ctx.repo.get()?;
-    let base = default_target(&ctx.project_data_dir())?.remote_head(git2_repo)?;
-    let ahead = git2_repo.log(sha, LogUntil::Commit(base), false)?;
-    let fork_point = ahead.last().and_then(|c| c.parent(0).ok()).map(|c| c.id());
-    let behind = ctx.distance(base, sha)?;
-
-    let upstream = if let Refname::Local(local_name) = &name {
-        local_name.remote().cloned()
-    } else {
-        None
-    };
-
-    let commits = ahead
-        .into_iter()
-        .map(|commit| {
-            let gix_commit = repo.find_commit(commit.id().to_gix())?;
-            commit_to_remote_commit(&gix_commit)
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    Ok(RemoteBranchData {
-        name,
-        sha,
-        behind,
-        upstream,
-        fork_point,
-        commits,
-        is_remote,
-        given_name,
-    })
-}
-
 pub(crate) fn commit_to_remote_commit(commit: &gix::Commit) -> Result<RemoteCommit> {
     let parent_ids = commit.parent_ids().map(|id| id.to_git2()).collect();
     Ok(RemoteCommit {
@@ -164,8 +65,4 @@ pub(crate) fn commit_to_remote_commit(commit: &gix::Commit) -> Result<RemoteComm
         parent_ids,
         conflicted: commit.is_conflicted(),
     })
-}
-
-fn default_target(base_path: &Path) -> Result<Target> {
-    VirtualBranchesHandle::new(base_path).get_default_target()
 }

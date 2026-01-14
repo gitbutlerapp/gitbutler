@@ -305,7 +305,6 @@ async fn handle_command(
         "undo_commit" => legacy::virtual_branches::undo_commit_cmd(request.params),
         "reorder_stack" => legacy::virtual_branches::reorder_stack_cmd(request.params),
         "commit_insert_blank" => but_api::commit::commit_insert_blank_cmd(request.params),
-        "find_git_branches" => legacy::virtual_branches::find_git_branches_cmd(request.params),
         "list_branches" => legacy::virtual_branches::list_branches_cmd(request.params),
         "get_branch_listing_details" => {
             legacy::virtual_branches::get_branch_listing_details_cmd(request.params)

@@ -8,7 +8,7 @@ use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
     BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, MoveBranchResult,
-    MoveCommitIllegalAction, RemoteBranchData, RemoteCommit, StackOrder,
+    MoveCommitIllegalAction, RemoteCommit, StackOrder,
     branch_upstream_integration::IntegrationStrategy,
     upstream_integration::{
         BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
@@ -312,17 +312,6 @@ pub fn reorder_stack(
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::reorder_stack(&ctx, stack_id, stack_order)?;
     Ok(())
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn find_git_branches(
-    project_id: ProjectId,
-    branch_name: String,
-) -> Result<Vec<RemoteBranchData>> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let branches = gitbutler_branch_actions::find_git_branches(&ctx, &branch_name)?;
-    Ok(branches)
 }
 
 #[but_api]

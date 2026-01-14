@@ -26,7 +26,7 @@ use crate::{
     move_branch::MoveBranchResult,
     move_commits::{self, MoveCommitIllegalAction},
     remote,
-    remote::{RemoteBranchData, RemoteCommit},
+    remote::RemoteCommit,
     reorder::{self, StackOrder},
     upstream_integration::{
         self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
@@ -281,10 +281,6 @@ pub fn reorder_stack(ctx: &Context, stack_id: StackId, stack_order: StackOrder) 
     );
     reorder::reorder_stack(ctx, stack_id, stack_order, guard.write_permission())?;
     Ok(())
-}
-
-pub fn find_git_branches(ctx: &Context, branch_name: &str) -> Result<Vec<RemoteBranchData>> {
-    remote::find_git_branches(ctx, branch_name)
 }
 
 pub fn squash_commits(
