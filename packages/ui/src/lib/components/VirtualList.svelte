@@ -171,7 +171,7 @@
 				) {
 					viewport.scrollTop = calculateHeightSum(0, lastJumpToIndex || startIndex || 0);
 					ignoreScroll = true;
-				} else if (stickToBottom && wasNearBottom()) {
+				} else if (stickToBottom && previousDistance < STICKY_DISTANCE) {
 					ignoreScroll = true;
 					scrollToBottom();
 				}
@@ -222,27 +222,16 @@
 		return distance >= 0 && distance < LOAD_MORE_THRESHOLD;
 	}
 
-	function wasNearBottom(): boolean {
-		return previousDistance < STICKY_DISTANCE;
-	}
-
 	function lockRowHeight(index: number): void {
 		const cachedHeight = heightMap[index];
 		if (!cachedHeight) return;
 
 		lockedHeights[index] = cachedHeight;
-
-		const existingTimeout = heightUnlockTimeouts[index];
-		if (existingTimeout) {
-			clearTimeout(existingTimeout);
-		}
-
-		const timeoutId = window.setTimeout(() => {
+		clearTimeout(heightUnlockTimeouts[index]);
+		heightUnlockTimeouts[index] = window.setTimeout(() => {
 			delete lockedHeights[index];
 			delete heightUnlockTimeouts[index];
 		}, HEIGHT_LOCK_DURATION);
-
-		heightUnlockTimeouts[index] = timeoutId;
 	}
 
 	function updateOffsets() {
@@ -252,19 +241,11 @@
 		};
 	}
 
-	function newIndexArr(oldStart: number, oldEnd: number, newStart: number, newEnd: number) {
-		function pushRange(arr: number[], start: number, end: number) {
-			for (let i = start; i < end; i++) arr.push(i);
-		}
-
-		const newMinusOld: number[] = [];
-		if (newStart < oldStart) {
-			pushRange(newMinusOld, newStart, Math.min(newEnd, oldStart));
-		}
-		if (newEnd > oldEnd) {
-			pushRange(newMinusOld, Math.max(newStart, oldEnd), newEnd);
-		}
-		return newMinusOld;
+	function getNewIndices(oldStart: number, oldEnd: number, newStart: number, newEnd: number) {
+		const result: number[] = [];
+		for (let i = newStart; i < Math.min(newEnd, oldStart); i++) result.push(i);
+		for (let i = Math.max(newStart, oldEnd); i < newEnd; i++) result.push(i);
+		return result;
 	}
 
 	function calculateVisibleStartIndex(): number {
@@ -347,14 +328,13 @@
 		const oldEnd = visibleRange.end;
 		const bottomDistance = getDistanceFromBottom();
 
-		if (!viewport || !visibleRowElements) return;
 		visibleRange = {
 			start: calculateVisibleStartIndex(),
 			end: calculateVisibleEndIndex()
 		};
 		updateOffsets();
 
-		const newIndices = newIndexArr(oldStart, oldEnd, visibleRange.start, visibleRange.end);
+		const newIndices = getNewIndices(oldStart, oldEnd, visibleRange.start, visibleRange.end);
 		for (const index of newIndices) {
 			if (heightMap[index]) {
 				lockRowHeight(index);
@@ -395,12 +375,11 @@
 			for (const el of container.querySelectorAll(':scope > [data-index]')) {
 				itemObserver.observe(el);
 			}
-			return () => mutationObserver.disconnect();
 		}
-	});
-
-	$effect(() => {
-		return () => itemObserver.disconnect();
+		return () => {
+			mutationObserver.disconnect();
+			itemObserver.disconnect();
+		};
 	});
 
 	$effect(() => {
@@ -411,7 +390,7 @@
 	$effect(() => {
 		if (viewportHeight && previousViewportHeight !== viewportHeight) {
 			untrack(async () => {
-				const nearBottom = wasNearBottom();
+				const nearBottom = previousDistance < STICKY_DISTANCE;
 				await recalculateVisibleRange();
 				if (stickToBottom && nearBottom) {
 					scrollToBottom();
@@ -434,7 +413,7 @@
 				}
 
 				if (stickToBottom) {
-					if (wasNearBottom()) {
+					if (previousDistance < STICKY_DISTANCE) {
 						await recalculateVisibleRange();
 						if (getDistanceFromBottom() !== 0) {
 							scrollToBottom();
@@ -502,8 +481,7 @@
 		<div
 			class="children"
 			use:resizeObserver={() => {
-				if (!stickToBottom) return;
-				if (wasNearBottom()) {
+				if (stickToBottom && previousDistance < STICKY_DISTANCE) {
 					scrollToBottom();
 				}
 			}}
