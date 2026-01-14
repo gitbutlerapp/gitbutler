@@ -174,10 +174,6 @@ impl Stack {
         self.name.clone()
     }
 
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
-    }
-
     pub fn new_with_just_heads(heads: Vec<StackBranch>, order: usize, in_workspace: bool) -> Self {
         Stack {
             id: StackId::generate(),

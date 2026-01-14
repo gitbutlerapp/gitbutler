@@ -6,12 +6,12 @@ use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
-use gitbutler_branch::{BranchUpdateRequest, dedup};
+use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_diff::GitHunk;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
-use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name};
+use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
     RepositoryExt as _,
     logging::{LogUntil, RepositoryExt as _},
@@ -68,41 +68,6 @@ impl From<but_workspace::ui::Author> for crate::author::Author {
 pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack> {
     let vb_state = ctx.legacy_project.virtual_branches();
     let mut stack = vb_state.get_stack_in_workspace(update.id.context("BUG(opt-stack-id)")?)?;
-
-    if let Some(name) = &update.name {
-        let all_virtual_branches = vb_state
-            .list_stacks_in_workspace()
-            .context("failed to read virtual branches")?;
-
-        ctx.delete_branch_reference(&stack)?;
-
-        let names: Vec<String> = all_virtual_branches
-            .iter()
-            .filter(|b| Some(b.id) != update.id)
-            .map(|b| b.name())
-            .collect();
-        let name_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
-        stack.set_name(dedup(&name_refs, name));
-
-        ctx.add_branch_reference(&stack)?;
-    };
-
-    if let Some(updated_upstream) = &update.upstream {
-        let default_target = vb_state.get_default_target()?;
-        let upstream_remote = match default_target.push_remote_name {
-            Some(remote) => remote.clone(),
-            None => default_target.branch.remote().to_owned(),
-        };
-
-        let remote_branch = format!(
-            "refs/remotes/{}/{}",
-            upstream_remote,
-            normalize_branch_name(updated_upstream)?
-        )
-        .parse::<RemoteRefname>()
-        .unwrap();
-        stack.upstream = Some(remote_branch);
-    };
 
     if let Some(order) = update.order {
         stack.order = order;
