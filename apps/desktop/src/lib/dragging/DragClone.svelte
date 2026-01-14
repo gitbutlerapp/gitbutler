@@ -118,7 +118,7 @@
 					</div>
 				{:else if type === 'folder'}
 					<div class="dragchip-file-container">
-						<Icon name="folder" />
+						<Icon name="folder" color="var(--clr-text-2)" />
 						<span class="text-12 text-semibold truncate dragchip-file-name">
 							{label || 'Empty folder'}
 						</span>
