@@ -299,9 +299,6 @@ async fn handle_command(
         "push_base_branch" => legacy::virtual_branches::push_base_branch_cmd(request.params),
         "update_stack_order" => legacy::virtual_branches::update_stack_order_cmd(request.params),
         "unapply_stack" => legacy::virtual_branches::unapply_stack_cmd(request.params),
-        "can_apply_remote_branch" => {
-            legacy::virtual_branches::can_apply_remote_branch_cmd(request.params)
-        }
         "amend_virtual_branch" => {
             legacy::virtual_branches::amend_virtual_branch_cmd(request.params)
         }

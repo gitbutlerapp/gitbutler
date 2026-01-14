@@ -281,13 +281,6 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn can_apply_remote_branch(project_id: ProjectId, branch: RemoteRefname) -> Result<bool> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    gitbutler_branch_actions::can_apply_remote_branch(&ctx, &branch)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
 pub fn amend_virtual_branch(
     project_id: ProjectId,
     stack_id: StackId,

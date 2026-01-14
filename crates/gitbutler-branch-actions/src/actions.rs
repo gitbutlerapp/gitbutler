@@ -34,12 +34,6 @@ use crate::{
     },
 };
 
-pub fn can_apply_remote_branch(ctx: &Context, branch_name: &RemoteRefname) -> Result<bool> {
-    ensure_open_workspace_mode(ctx)
-        .context("Testing branch mergability requires open workspace mode")?;
-    vbranch::is_remote_branch_mergeable(ctx, branch_name)
-}
-
 pub fn create_virtual_branch(
     ctx: &Context,
     create: &BranchCreateRequest,
