@@ -19,7 +19,6 @@ use but_ctx::Context;
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use gitbutler_stack::VirtualBranchesHandle;
 use itertools::Itertools;
 use reconcile::MultipleOverlapping;
 use serde::{Deserialize, Serialize};
@@ -244,14 +243,14 @@ impl HunkAssignment {
 /// The provided hunk dependnecies should be computed for all workspace changes.
 pub fn assign(
     ctx: &mut Context,
+    workspace: &but_graph::projection::Workspace,
     requests: Vec<HunkAssignmentRequest>,
     deps: Option<&HunkDependencies>,
 ) -> Result<Vec<AssignmentRejection>> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let applied_stacks = vb_state
-        .list_stacks_in_workspace()?
+    let applied_stacks = workspace
+        .stacks
         .iter()
-        .map(|s| s.id)
+        .filter_map(|s| s.id)
         .collect::<Vec<_>>();
 
     let deps = if let Some(deps) = deps {
@@ -329,12 +328,14 @@ pub fn assign(
 /// TODO: figure out a better name for this function
 pub fn assignments_with_fallback(
     ctx: &mut Context,
+    workspace: &but_graph::projection::Workspace,
     set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     deps: Option<&HunkDependencies>,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
     let hunk_assignments = reconcile_worktree_changes_with_worktree_and_locks(
         ctx,
+        workspace,
         set_assignment_from_locks,
         worktree_changes,
         deps,
@@ -344,6 +345,7 @@ pub fn assignments_with_fallback(
 
 fn reconcile_worktree_changes_with_worktree_and_locks(
     ctx: &mut Context,
+    workspace: &but_graph::projection::Workspace,
     set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     deps: Option<&HunkDependencies>,
@@ -376,6 +378,7 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
     drop(repo);
     let reconciled = reconcile_with_worktree_and_locks(
         ctx,
+        workspace,
         set_assignment_from_locks,
         &worktree_assignments,
         deps,
@@ -408,15 +411,15 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
 #[instrument(skip(ctx, worktree_assignments, deps), err(Debug))]
 fn reconcile_with_worktree_and_locks(
     ctx: &mut Context,
+    workspace: &but_graph::projection::Workspace,
     set_assignment_from_locks: bool,
     worktree_assignments: &[HunkAssignment],
     deps: &HunkDependencies,
 ) -> Result<Vec<HunkAssignment>> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let applied_stacks = vb_state
-        .list_stacks_in_workspace()?
+    let applied_stacks = workspace
+        .stacks
         .iter()
-        .map(|s| s.id)
+        .filter_map(|s| s.id)
         .collect::<Vec<_>>();
 
     let db = &mut *ctx.db.get_mut()?;

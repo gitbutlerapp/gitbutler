@@ -14,9 +14,9 @@ but-core.workspace = true
 but-hunk-dependency.workspace = true
 but-db.workspace = true
 but-ctx.workspace = true
+but-graph.workspace = true
 
-gitbutler-stack.workspace = true
-
+gix.workspace = true
 anyhow.workspace = true
 itertools.workspace = true
 serde.workspace = true
