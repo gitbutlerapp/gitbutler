@@ -595,10 +595,8 @@
 					const index = stickToBottom ? items.length - 1 : startIndex || 0;
 					await initializeAt(index);
 					if (!isInitialized()) {
-						log('initialized failed');
 						return;
 					}
-					log('initialized');
 				}
 
 				if (stickToBottom) {

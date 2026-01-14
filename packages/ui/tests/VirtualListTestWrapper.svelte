@@ -24,6 +24,7 @@
 	let container = $state<HTMLDivElement>();
 	let loadMoreCallCount = $state(0);
 	let virtualList = $state<any>();
+	let showFooter = $state(false);
 
 	// Wrap the onloadmore prop to track call count
 	async function handleLoadMore() {
@@ -75,6 +76,10 @@
 			virtualList.scrollToBottom();
 		}
 	}
+
+	function toggleFooter() {
+		showFooter = !showFooter;
+	}
 </script>
 
 <div
@@ -103,10 +108,18 @@
 				{/if}
 			</div>
 		{/snippet}
+		{#snippet children()}
+			{#if showFooter}
+				<div class="footer" data-testid="footer">Footer Content</div>
+			{/if}
+		{/snippet}
 	</VirtualList>
 	<div class="controls">
 		<button type="button" onclick={addItem}>Add Item</button>
 		<button type="button" onclick={expandLast}>Expand Last</button>
+		<button type="button" onclick={toggleFooter} data-testid="toggle-footer-button">
+			Toggle Footer
+		</button>
 		<input
 			type="number"
 			bind:value={jumpToIndexValue}
@@ -168,5 +181,16 @@
 
 	button:hover {
 		background: #0056b3;
+	}
+
+	.footer {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 200px;
+		padding: 12px;
+		border: 2px solid blue;
+		background: lightblue;
+		font-weight: bold;
 	}
 </style>
