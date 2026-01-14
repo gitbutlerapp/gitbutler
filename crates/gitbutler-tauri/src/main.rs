@@ -265,6 +265,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::virtual_branches::tauri_delete_local_branch::delete_local_branch,
                 legacy::virtual_branches::tauri_get_base_branch_data::get_base_branch_data,
                 legacy::virtual_branches::tauri_set_base_branch::set_base_branch,
+                legacy::virtual_branches::tauri_switch_back_to_workspace::switch_back_to_workspace,
                 legacy::virtual_branches::tauri_push_base_branch::push_base_branch,
                 legacy::virtual_branches::tauri_integrate_upstream_commits::integrate_upstream_commits,
                 legacy::virtual_branches::tauri_get_initial_integration_steps_for_branch::get_initial_integration_steps_for_branch,

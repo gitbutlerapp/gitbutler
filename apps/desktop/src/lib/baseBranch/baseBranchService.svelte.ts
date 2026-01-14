@@ -125,6 +125,10 @@ export default class BaseBranchService {
 		return this.api.endpoints.setTarget.useMutation();
 	}
 
+	get switchBackToWorkspace() {
+		return this.api.endpoints.switchBackToWorkspace.useMutation();
+	}
+
 	get push() {
 		return this.api.endpoints.push.useMutation();
 	}
@@ -161,6 +165,15 @@ function injectEndpoints(api: BackendApi) {
 				{ projectId: string; branch: string; pushRemote?: string; stashUncommitted?: boolean }
 			>({
 				extraOptions: { command: 'set_base_branch' },
+				query: (args) => args,
+				invalidatesTags: [
+					invalidatesType(ReduxTag.BaseBranchData),
+					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
+					invalidatesList(ReduxTag.StackDetails) // Probably this is still needed??
+				]
+			}),
+			switchBackToWorkspace: build.mutation<BaseBranch, { projectId: string }>({
+				extraOptions: { command: 'switch_back_to_workspace' },
 				query: (args) => args,
 				invalidatesTags: [
 					invalidatesType(ReduxTag.BaseBranchData),
