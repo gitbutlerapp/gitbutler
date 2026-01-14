@@ -15,22 +15,22 @@
 </script>
 
 <GithubIntegration />
-
 <Spacer />
-
-<CardGroup.Item labelFor="autoFillPrDescription">
-	{#snippet title()}
-		Auto-fill PR/MR descriptions from commit
-	{/snippet}
-	{#snippet caption()}
-		When creating a pull request or merge request for a branch with just one commit, automatically
-		use that commit's message as the PR/MR title and description.
-	{/snippet}
-	{#snippet actions()}
-		<Toggle
-			id="autoFillPrDescription"
-			checked={$appSettings?.reviews.autoFillPrDescriptionFromCommit ?? true}
-			onclick={toggleAutoFillPrDescription}
-		/>
-	{/snippet}
-</CardGroup.Item>
+<CardGroup>
+	<CardGroup.Item labelFor="autoFillPrDescription">
+		{#snippet title()}
+			Auto-fill PR/MR descriptions from commit
+		{/snippet}
+		{#snippet caption()}
+			When creating a pull request or merge request for a branch with just one commit, automatically
+			use that commit's message as the PR/MR title and description.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="autoFillPrDescription"
+				checked={$appSettings?.reviews.autoFillPrDescriptionFromCommit ?? true}
+				onclick={toggleAutoFillPrDescription}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+</CardGroup>
