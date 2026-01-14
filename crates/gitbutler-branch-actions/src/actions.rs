@@ -35,27 +35,6 @@ use crate::{
     },
 };
 
-/// Only used in tests
-pub fn create_commit(ctx: &Context, stack_id: StackId, message: &str) -> Result<git2::Oid> {
-    let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Creating a commit requires open workspace mode")?;
-    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
-    let result = vbranch::commit(ctx, stack_id, message);
-
-    let _ = snapshot_tree.and_then(|snapshot_tree| {
-        ctx.snapshot_commit_creation(
-            snapshot_tree,
-            result.as_ref().err(),
-            message.to_owned(),
-            None,
-            guard.write_permission(),
-        )
-    });
-
-    result
-}
-
 pub fn can_apply_remote_branch(ctx: &Context, branch_name: &RemoteRefname) -> Result<bool> {
     ensure_open_workspace_mode(ctx)
         .context("Testing branch mergability requires open workspace mode")?;

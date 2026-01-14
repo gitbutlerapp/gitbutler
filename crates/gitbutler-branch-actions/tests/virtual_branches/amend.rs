@@ -45,8 +45,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
-    let commit_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one").unwrap();
+    let commit_id = super::create_commit(ctx, stack_entry.id, "commit one").unwrap();
 
     gitbutler_branch_actions::stack::push_stack(
         ctx,
@@ -108,8 +107,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
-    let commit_oid =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one").unwrap();
+    let commit_oid = super::create_commit(ctx, stack_entry.id, "commit one").unwrap();
 
     let (_, b) = stack_details(ctx)
         .into_iter()
@@ -166,8 +164,7 @@ fn non_existing_ownership() {
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
-    let commit_oid =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one").unwrap();
+    let commit_oid = super::create_commit(ctx, stack_entry.id, "commit one").unwrap();
 
     let (_, b) = stack_details(ctx)
         .into_iter()

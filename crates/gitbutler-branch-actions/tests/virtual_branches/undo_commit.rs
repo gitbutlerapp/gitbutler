@@ -24,19 +24,16 @@ fn undo_commit_simple() -> anyhow::Result<()> {
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
-    let _commit1_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one").unwrap();
+    let _commit1_id = super::create_commit(ctx, stack_entry.id, "commit one").unwrap();
 
     // create commit
     fs::write(repo.path().join("file2.txt"), "content2").unwrap();
     fs::write(repo.path().join("file3.txt"), "content3").unwrap();
-    let commit2_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two").unwrap();
+    let commit2_id = super::create_commit(ctx, stack_entry.id, "commit two").unwrap();
 
     // create commit
     fs::write(repo.path().join("file4.txt"), "content4").unwrap();
-    let _commit3_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three").unwrap();
+    let _commit3_id = super::create_commit(ctx, stack_entry.id, "commit three").unwrap();
 
     gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id).unwrap();
 
@@ -91,19 +88,16 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
-    let _commit1_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one").unwrap();
+    let _commit1_id = super::create_commit(ctx, stack_entry.id, "commit one").unwrap();
 
     // create commit
     fs::write(repo.path().join("file2.txt"), "content2").unwrap();
     fs::write(repo.path().join("file3.txt"), "content3").unwrap();
-    let commit2_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two").unwrap();
+    let commit2_id = super::create_commit(ctx, stack_entry.id, "commit two").unwrap();
 
     // create commit
     fs::write(repo.path().join("file4.txt"), "content4").unwrap();
-    let _commit3_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three").unwrap();
+    let _commit3_id = super::create_commit(ctx, stack_entry.id, "commit three").unwrap();
 
     // create default branch
     // this branch should not be affected by the undo

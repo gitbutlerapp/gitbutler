@@ -40,7 +40,7 @@ fn rebase_commit() {
         .unwrap();
         fs::write(repo.path().join("another_file.txt"), "virtual").unwrap();
 
-        gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "virtual commit").unwrap();
+        super::create_commit(ctx, stack_entry_1.id, "virtual commit").unwrap();
 
         let stacks = stack_details(ctx);
         assert_eq!(stacks.len(), 1);
@@ -153,7 +153,7 @@ fn upstream_integration_status_without_review_map() {
         .unwrap();
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
+        super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
 
         stack_entry.id
     };
@@ -217,8 +217,7 @@ fn upstream_integration_status_with_merged_pr() {
         .unwrap();
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
-        let commit_id =
-            gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
+        let commit_id = super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
 
         (stack_entry.id, commit_id)
     };
@@ -311,7 +310,7 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
         .unwrap();
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
+        super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
 
         stack_entry.id
     };
@@ -404,7 +403,7 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
         .unwrap();
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
+        super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
 
         stack_entry.id
     };
@@ -497,7 +496,7 @@ fn upstream_integration_status_with_different_branch_pr() {
         .unwrap();
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
+        super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
 
         stack_entry.id
     };
