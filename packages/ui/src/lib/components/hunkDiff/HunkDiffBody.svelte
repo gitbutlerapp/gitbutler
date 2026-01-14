@@ -1,6 +1,7 @@
 <script lang="ts">
 	import HunkDiffRow, { type ContextMenuParams } from '$components/hunkDiff/HunkDiffRow.svelte';
 	import LineSelection from '$components/hunkDiff/lineSelection.svelte';
+	import { isTouchDevice } from '$lib/utils/browserAgent';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import {
 		type ContentSection,
@@ -142,6 +143,7 @@
 	});
 
 	const commentRow = $derived(commentRows?.[0]);
+	const touchDevice = isTouchDevice();
 </script>
 
 {#if commentRow}
@@ -185,6 +187,7 @@
 			{hideCheckboxes}
 			{handleLineContextMenu}
 			{lockWarning}
+			{touchDevice}
 			hunkHasLocks={lineLocks && lineLocks.length > 0}
 		/>
 	{/each}
