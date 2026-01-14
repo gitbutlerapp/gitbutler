@@ -312,9 +312,7 @@
 				throw new Error('Expected to find element in loop 1.');
 			}
 			heightMap[i] = element.clientHeight;
-			const height = calculateHeightSum(startingAt, visibleRange.end);
-			log('loop 1', i, height);
-			if (height > viewport.clientHeight) {
+			if (calculateHeightSum(startingAt, visibleRange.end) > viewport.clientHeight) {
 				break;
 			}
 		}
@@ -328,9 +326,7 @@
 					throw new Error('Expected to find element in loop2.');
 				}
 				heightMap[i] = element.clientHeight;
-				const height = calculateHeightSum(visibleRange.start, visibleRange.end);
-				log('loop 2', i, height);
-				if (height > viewport.clientHeight) {
+				if (calculateHeightSum(visibleRange.start, visibleRange.end) > viewport.clientHeight) {
 					break;
 				}
 			}
@@ -342,9 +338,7 @@
 
 		updateOffsets();
 		await tick();
-		const scrollTop = calculateHeightSum(0, startingAt);
-		viewport.scrollTop = scrollTop;
-		log('initialized at', scrollTop, viewport.scrollTop);
+		viewport.scrollTop = calculateHeightSum(0, startingAt);
 
 		return true;
 	}
@@ -356,7 +350,6 @@
 	 */
 	async function recalculateVisibleRange(): Promise<void> {
 		if (!viewport || !visibleRowElements || !isInitialized() || isRecalculating) return;
-		log('recalculating visible range', viewport.offsetTop, viewport.offsetHeight);
 
 		isRecalculating = true;
 
@@ -385,7 +378,6 @@
 		await tick();
 
 		if (stickToBottom && bottomDistance === 0 && bottomDistance !== getDistanceFromBottom()) {
-			log('path 11');
 			scrollToBottom();
 		}
 
@@ -482,17 +474,14 @@
 					lastScrollDirection === 'up' &&
 					calculateHeightSum(0, visibleRange.start) !== viewport.scrollTop
 				) {
-					log('path 1');
 					viewport.scrollBy({ top: heightMap[index] - oldHeight });
 				} else if (
 					(lastJumpToIndex !== undefined || startIndex) &&
 					lastScrollDirection === undefined
 				) {
-					log('path 2');
 					viewport.scrollTop = calculateHeightSum(0, lastJumpToIndex || startIndex || 0);
 					ignoreScroll = true;
 				} else if (stickToBottom && wasNearBottom()) {
-					log('path 3');
 					ignoreScroll = true;
 					scrollToBottom();
 				}
@@ -570,25 +559,13 @@
 		}
 	});
 
-	$inspect(visibleRange);
-	$inspect(visible);
-	let containerHeight = $state(0);
-	$inspect({
-		containerHeight,
-		scrollHeight: viewport?.scrollHeight,
-		scrollTop: viewport?.scrollTop
-	});
-	/**
+/**
 	 * Handles new items being added to the list.
 	 * Auto-scrolls if sticky bottom is enabled, otherwise shows notification.
 	 */
 	$effect(() => {
 		if (items && viewport) {
 			untrack(async () => {
-				log('items changed', {
-					previousDistance,
-					distance: getDistanceFromBottom()
-				});
 				heightMap.length = items.length;
 				// First-time initialization for tail mode
 				if (!isInitialized() && items.length > 0) {
@@ -600,15 +577,9 @@
 				}
 
 				if (stickToBottom) {
-					log('stick to bottom', {
-						previousDistance,
-						distance: getDistanceFromBottom(),
-						nearBottom: wasNearBottom()
-					});
 					if (wasNearBottom()) {
 						await recalculateVisibleRange();
 						if (getDistanceFromBottom() !== 0) {
-							log('path 8');
 							scrollToBottom();
 						}
 					} else {
@@ -629,11 +600,6 @@
 			hasNewItemsAtBottom = false;
 		}
 	});
-
-	export function log(...args: any[]): void {
-		// eslint-disable-next-line no-console
-		console.log(`[${Date.now().toString().slice(-5)}]`, ...args);
-	}
 </script>
 
 <ScrollableContainer
@@ -648,10 +614,8 @@
 		}
 		const scrollTop = viewport?.scrollTop;
 		if (lastScrollTop && lastScrollTop > scrollTop) {
-			log('up scroll detected', scrollTop, lastScrollTop);
 			lastScrollDirection = 'up';
 		} else if (lastScrollTop && lastScrollTop < scrollTop) {
-			log('down scroll detected', scrollTop, lastScrollTop);
 			lastScrollDirection = 'down';
 		} else {
 			lastScrollDirection = undefined;
@@ -665,7 +629,6 @@
 >
 	<div
 		bind:this={container}
-		bind:clientHeight={containerHeight}
 		data-remove-from-panning
 		class="padded-contents"
 		style:padding-top={offset.top + 'px'}
@@ -686,7 +649,6 @@
 			class="children"
 			use:resizeObserver={({ frame: { height } }) => {
 				if (!stickToBottom) return;
-				console.log('blah', { previousDistance, distance: getDistanceFromBottom() });
 				const distance = getDistanceFromBottom();
 				if (wasNearBottom()) {
 					scrollToBottom();
