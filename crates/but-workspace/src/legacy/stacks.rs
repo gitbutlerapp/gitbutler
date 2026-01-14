@@ -312,7 +312,7 @@ pub fn stack_details_v3(
                 })?;
             let full_name = gix::refs::FullName::try_from(format!(
                 "refs/heads/{shortname}",
-                shortname = vb_stack.derived_name()?
+                shortname = vb_stack.name()
             ))?;
             let existing_ref = repo.find_reference(&full_name)?;
             let ref_info = ref_info(existing_ref, meta, ref_info_options)?;
