@@ -240,3 +240,69 @@ test('should call onloadmore callback when scrolled to bottom', async ({ mount }
 	// Verify the callback was called
 	expect(loadMoreCalled).toBe(true);
 });
+
+test('should initialize at bottom with very tall items when stickToBottom enabled', async ({
+	mount
+}) => {
+	// This tests the scenario where items are much taller than the viewport
+	// The list should still initialize at the bottom correctly
+	const component = await mount(VirtualListTestWrapper, {
+		props: {
+			itemCount: 10,
+			defaultHeight: 500, // Very tall items (viewport is only 400px)
+			stickToBottom: true,
+			asyncContent: undefined // No async content to keep test simple
+		}
+	});
+
+	const viewport = component.locator('.viewport');
+	await waitForScrollStability(viewport);
+
+	// Should be scrolled to the bottom
+	await expectAtBottom(viewport);
+
+	// The last item should be visible
+	const visibleIndices = await getVisibleItemIndices(viewport);
+	expect(visibleIndices).toContain(9); // Last item (0-indexed)
+
+	// Verify scroll position is not at top
+	const { scrollTop } = await getScrollProperties(viewport);
+	expect(scrollTop).toBeGreaterThan(0);
+});
+
+test('should stick to bottom when footer toggled in children snippet', async ({ mount }) => {
+	// This tests that stickToBottom works correctly when content is added to the children snippet
+	const component = await mount(VirtualListTestWrapper, {
+		props: {
+			...config,
+			stickToBottom: true
+		}
+	});
+
+	const viewport = component.locator('.viewport');
+	await waitForScrollStability(viewport);
+
+	// Initially at bottom
+	await expectAtBottom(viewport);
+
+	// Record scrollHeight before toggling footer
+	const { scrollHeight: scrollHeightBefore } = await getScrollProperties(viewport);
+
+	// Toggle footer on (adds 200px element)
+	const toggleButton = component.getByTestId('toggle-footer-button');
+	await toggleButton.click();
+
+	// Wait for footer to appear
+	const footer = component.getByTestId('footer');
+	await expect(footer).toBeVisible();
+
+	// Wait for scroll to stabilize
+	await waitForScrollStability(viewport);
+
+	// Verify scrollHeight increased (footer was added)
+	const { scrollHeight: scrollHeightAfter } = await getScrollProperties(viewport);
+	expect(scrollHeightAfter).toBeGreaterThan(scrollHeightBefore);
+
+	// Should STILL be at bottom (stickToBottom should have auto-scrolled)
+	await expectAtBottom(viewport);
+});
