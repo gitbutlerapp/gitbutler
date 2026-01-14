@@ -108,11 +108,9 @@
 				{/if}
 			</div>
 		{/snippet}
-		{#snippet children()}
-			{#if showFooter}
-				<div class="footer" data-testid="footer">Footer Content</div>
-			{/if}
-		{/snippet}
+		{#if showFooter}
+			<div class="footer" data-testid="footer">Footer Content</div>
+		{/if}
 	</VirtualList>
 	<div class="controls">
 		<button type="button" onclick={addItem}>Add Item</button>
