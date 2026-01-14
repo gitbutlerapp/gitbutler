@@ -60,7 +60,7 @@
 			{startIndex}
 			grow
 			items={files}
-			defaultHeight={500}
+			defaultHeight={200}
 			visibility="scroll"
 		>
 			{#snippet template(file, index)}
@@ -94,6 +94,9 @@
 							selectionId={file}
 							topPadding
 						/>
+					{/snippet}
+					{#snippet loading()}
+						<div style="height: 200px">loading</div>
 					{/snippet}
 				</ReduxResult>
 			{/snippet}

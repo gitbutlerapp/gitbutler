@@ -36,7 +36,7 @@
 		<div class="container" bind:this={container}>
 			<VirtualList bind:this={virtualList} {...args}>
 				{#snippet template(item)}
-					{@const delay = randomDelay(2500)}
+					{@const delay = randomDelay(500)}
 					<div class="item" style:min-height={defaultHeight + 'px'}>
 						{item || 'empty'}
 						<AsyncContent {delay}>
@@ -45,11 +45,21 @@
 					</div>
 				{/snippet}
 				{#if toggle}
-					Hello world!
+					<div class="child-content">Hello world!</div>
 				{/if}
 			</VirtualList>
 		</div>
 		<div class="actions">
+			<Button
+				onclick={() => {
+					setTimeout(() => {
+						items.push('new item ' + (items.length + 1));
+					}, 2);
+					toggle = !toggle;
+				}}
+			>
+				Do both
+			</Button>
 			<Button
 				onclick={() => {
 					items.push('new item ' + (items.length + 1));
@@ -93,7 +103,7 @@
 				{#snippet template(item)}
 					<div class="item" style="min-height: 150px;">
 						<div>{item}</div>
-						<AsyncContent delay={500}>
+						<AsyncContent delay={200}>
 							<div class="async-content">async content</div>
 						</AsyncContent>
 					</div>
@@ -141,6 +151,16 @@
 	}
 	.async-content {
 		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 200px;
+		padding: 12px;
+		border: 1px solid lightgrey;
+	}
+
+	.child-content {
+		display: flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		height: 200px;

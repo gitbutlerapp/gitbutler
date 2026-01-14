@@ -460,7 +460,7 @@ export async function getScrollPercentage(viewport: any): Promise<number> {
 /**
  * Check if viewport is at the bottom within a tolerance threshold
  */
-export async function isAtBottom(viewport: any, tolerance = 10): Promise<boolean> {
+export async function isAtBottom(viewport: any, tolerance = 0): Promise<boolean> {
 	const distance = await getDistanceFromBottom(viewport);
 	return distance < tolerance;
 }
