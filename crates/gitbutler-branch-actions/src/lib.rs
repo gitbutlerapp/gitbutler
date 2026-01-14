@@ -49,7 +49,6 @@ mod undo_commit;
 
 mod author;
 mod gravatar;
-mod status;
 use gitbutler_stack::VirtualBranchesHandle;
 trait VirtualBranchesExt {
     fn virtual_branches(&self) -> VirtualBranchesHandle;

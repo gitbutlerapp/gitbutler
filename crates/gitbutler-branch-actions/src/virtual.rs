@@ -20,7 +20,7 @@ use gitbutler_stack::{Stack, StackId, Target};
 use itertools::Itertools;
 use serde::Serialize;
 
-use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, status::get_applied_status_cached};
+use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,50 +78,6 @@ pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack
 
 pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
 pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
-
-/// Only used in tests
-pub fn commit(ctx: &Context, stack_id: StackId, message: &str) -> Result<git2::Oid> {
-    // get the files to commit
-    let diffs = gitbutler_diff::workdir(
-        &*ctx.git2_repo.get()?,
-        but_workspace::legacy::remerged_workspace_commit_v2(ctx)?,
-    )?;
-    let statuses = get_applied_status_cached(ctx, None, &diffs)
-        .context("failed to get status by branch")?
-        .branches;
-
-    let (ref mut branch, files) = statuses
-        .into_iter()
-        .find(|(stack, _)| stack.id == stack_id)
-        .with_context(|| format!("stack {stack_id} not found"))?;
-
-    let gix_repo = ctx.repo.get()?;
-
-    let files = files
-        .into_iter()
-        .map(|file| (file.path, file.hunks))
-        .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
-    let tree_oid =
-        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head_oid(ctx)?.to_git2(), files)?;
-
-    let git_repo = &*ctx.git2_repo.get()?;
-    let parent_commit = git_repo
-        .find_commit(branch.head_oid(ctx)?.to_git2())
-        .context(format!("failed to find commit {:?}", branch.head_oid(ctx)))?;
-    let tree = git_repo
-        .find_tree(tree_oid)
-        .context(format!("failed to find tree {tree_oid:?}"))?;
-
-    let commit_oid = ctx.commit(message, &tree, &[&parent_commit], None)?;
-
-    let vb_state = ctx.legacy_project.virtual_branches();
-    branch.set_stack_head(&vb_state, &gix_repo, commit_oid)?;
-
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
-        .context("failed to update gitbutler workspace")?;
-
-    Ok(commit_oid)
-}
 
 type MergeBaseCommitGraph<'repo, 'cache> = gix::revwalk::Graph<
     'repo,
