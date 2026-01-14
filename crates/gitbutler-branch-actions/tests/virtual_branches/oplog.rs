@@ -36,12 +36,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             },
             ctx.exclusive_worktree_access().write_permission(),
         )?;
-        gitbutler_branch_actions::create_commit(
-            ctx,
-            stack_entry.id,
-            &format!("commit {round}"),
-            None,
-        )?;
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, &format!("commit {round}"))?;
         assert_eq!(
             wd_file_count(&worktree_dir)?,
             round + 1,
@@ -107,8 +102,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content")?;
-    let _commit1_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None)?;
+    let _commit1_id = gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one")?;
 
     // dont store large files
     let file_path = repo.path().join("large.txt");
@@ -122,8 +116,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     // create commit with large file
     fs::write(repo.path().join("file2.txt"), "content2")?;
     fs::write(repo.path().join("file3.txt"), "content3")?;
-    let commit2_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None)?;
+    let commit2_id = gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two")?;
 
     // Create conflict state
     let conflicts_path = repo.path().join(".git").join("conflicts");
@@ -142,8 +135,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     std::fs::remove_file(&conflicts_path)?;
 
     fs::write(repo.path().join("file4.txt"), "content4")?;
-    let _commit3_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None)?;
+    let _commit3_id = gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three")?;
 
     let (_, b) = stack_details(ctx)
         .into_iter()
@@ -271,8 +263,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content")?;
-    let _commit1_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None)?;
+    let _commit1_id = gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one")?;
 
     let repo = project.open_git2()?;
 
@@ -285,8 +276,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 
     // create second commit
     fs::write(repo.path().join("file.txt"), "changed content")?;
-    let _commit2_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None)?;
+    let _commit2_id = gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two")?;
 
     // check the workspace commit changed
     let head = repo.head().expect("never unborn");
@@ -416,8 +406,7 @@ fn first_snapshot_diff_works() -> anyhow::Result<()> {
 
     // create first commit to create the very first snapshot
     fs::write(repo.path().join("file.txt"), "content")?;
-    let _commit_id =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "first commit", None)?;
+    let _commit_id = gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "first commit")?;
 
     let snapshots = ctx.list_snapshots(10, None, Vec::new(), None)?;
     assert!(!snapshots.is_empty(), "Should have at least one snapshot");
