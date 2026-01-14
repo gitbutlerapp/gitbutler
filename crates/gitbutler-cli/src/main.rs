@@ -40,17 +40,14 @@ fn main() -> Result<()> {
                 Some(vbranch::SubCommands::Apply { name, branch }) => {
                     command::vbranch::apply(project, name, branch)
                 }
-                Some(vbranch::SubCommands::SetDefault { name }) => {
-                    command::vbranch::set_default(project, name)
-                }
                 Some(vbranch::SubCommands::Commit { message, name }) => {
                     command::vbranch::commit(project, name, message)
                 }
                 Some(vbranch::SubCommands::Series { name, series_name }) => {
                     command::vbranch::series(project, name, series_name)
                 }
-                Some(vbranch::SubCommands::Create { set_default, name }) => {
-                    command::vbranch::create(project, name, set_default)
+                Some(vbranch::SubCommands::Create { name, .. }) => {
+                    command::vbranch::create(project, name)
                 }
                 Some(vbranch::SubCommands::Details { names }) => {
                     command::vbranch::details(project, names)

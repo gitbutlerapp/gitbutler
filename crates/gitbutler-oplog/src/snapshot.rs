@@ -182,24 +182,7 @@ impl SnapshotExt for but_ctx::Context {
         error: Option<&anyhow::Error>,
         perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()> {
-        let details = if let Some(name) = update.name.as_deref() {
-            SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers(
-                [
-                    vec![
-                        Trailer {
-                            key: "before".to_string(),
-                            value: old_stack.name(),
-                        },
-                        Trailer {
-                            key: "after".to_string(),
-                            value: name.to_owned(),
-                        },
-                    ],
-                    error_trailer(error),
-                ]
-                .concat(),
-            )
-        } else if let Some(order) = update.order {
+        let details = if let Some(order) = update.order {
             SnapshotDetails::new(OperationKind::ReorderBranches).with_trailers(
                 [
                     vec![
@@ -210,27 +193,6 @@ impl SnapshotExt for but_ctx::Context {
                         Trailer {
                             key: "after".to_string(),
                             value: order.to_string(),
-                        },
-                    ],
-                    error_trailer(error),
-                ]
-                .concat(),
-            )
-        } else if let Some(upstream) = update.upstream.as_deref() {
-            SnapshotDetails::new(OperationKind::UpdateBranchRemoteName).with_trailers(
-                [
-                    vec![
-                        Trailer {
-                            key: "before".to_string(),
-                            value: old_stack
-                                .upstream
-                                .as_ref()
-                                .map(|r| r.to_string())
-                                .unwrap_or_default(),
-                        },
-                        Trailer {
-                            key: "after".to_string(),
-                            value: upstream.to_owned(),
                         },
                     ],
                     error_trailer(error),

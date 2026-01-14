@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize, Serializer};
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct BranchUpdateRequest {
     pub id: Option<StackId>,
-    pub name: Option<String>,
     pub order: Option<usize>,
-    pub upstream: Option<String>, // just the branch name, so not refs/remotes/origin/branchA, just branchA
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
