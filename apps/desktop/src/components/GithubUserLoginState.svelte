@@ -116,7 +116,6 @@
 	{/snippet}
 	{#snippet children(user)}
 		{@render row(user)}
-		<!-- {@render loadingRow()} -->
 	{/snippet}
 </ReduxResult>
 
