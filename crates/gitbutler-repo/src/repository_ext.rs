@@ -111,7 +111,7 @@ impl RepositoryExt for git2::Repository {
 
     /// Creates a tree containing the uncommitted changes in the project.
     /// This includes files in the index that are considered conflicted.
-    #[instrument(level = tracing::Level::DEBUG, skip(self, untracked_limit_in_bytes), err(Debug))]
+    #[instrument(level = "debug", skip(self, untracked_limit_in_bytes), err(Debug))]
     fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree<'_>> {
         let repo = gix::open_opts(
             self.path(),

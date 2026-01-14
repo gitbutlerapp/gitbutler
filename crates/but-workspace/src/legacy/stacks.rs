@@ -238,7 +238,7 @@ pub fn stacks_v3(
 // TODO: StackId shouldn't be used, instead use the ref-name or stack index as universal tip identifier.
 //       It's notable that there isn't always a ref-name available right now in case the ref advanced, but maybe this is something
 //       we can pull out of the metadata information.
-#[instrument(level = tracing::Level::DEBUG, skip(meta), err(Debug))]
+#[instrument(level = "debug", skip(meta), err(Debug))]
 pub fn stack_details_v3(
     stack_id: Option<StackId>,
     repo: &gix::Repository,

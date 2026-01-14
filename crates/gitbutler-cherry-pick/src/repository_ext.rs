@@ -14,7 +14,7 @@ pub trait RepositoryExtLite {
 }
 
 impl RepositoryExtLite for git2::Repository {
-    #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
+    #[instrument(level = "debug", skip(self), err(Debug))]
     fn ignore_large_files_in_diffs(&self, limit_in_bytes: u64) -> Result<()> {
         if limit_in_bytes == 0 {
             return Ok(());

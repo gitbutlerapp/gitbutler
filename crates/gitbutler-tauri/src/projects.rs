@@ -114,7 +114,7 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
 }
 
 /// Fatal errors are returned as error, fixed errors for tracing will be `Some(err)`
-#[instrument(level = tracing::Level::DEBUG)]
+#[instrument(level = "debug")]
 fn assure_database_valid(data_dir: PathBuf) -> anyhow::Result<Option<String>> {
     if let Err(err) = but_db::DbHandle::new_in_directory(&data_dir) {
         let db_path = but_db::DbHandle::db_file_path(&data_dir);

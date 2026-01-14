@@ -379,7 +379,7 @@ pub(crate) mod function {
     /// ### Performance
     ///
     /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
-    #[instrument(level = tracing::Level::DEBUG, skip(meta), err(Debug))]
+    #[instrument(level = "debug", skip(meta), err(Debug))]
     pub fn ref_info(
         mut existing_ref: gix::Reference<'_>,
         meta: &impl but_core::RefMetadata,

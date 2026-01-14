@@ -135,7 +135,7 @@ pub struct FileDiff {
     pub new_size_bytes: u64,
 }
 
-#[instrument(level = tracing::Level::DEBUG, skip(repo))]
+#[instrument(level = "debug", skip(repo))]
 pub fn workdir(repo: &git2::Repository, commit_oid: git2::Oid) -> Result<DiffByPathMap> {
     let commit = repo
         .find_commit(commit_oid)

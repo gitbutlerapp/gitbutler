@@ -95,7 +95,7 @@ pub fn remerged_workspace_tree_v2(
 /// This should be used to update the `gitbutler/workspace` ref with, which is usually
 /// done from `update_workspace_commit()`, after any of its input changes.
 /// This is namely the conflicting state, or any head of the virtual branches.
-#[instrument(level = tracing::Level::DEBUG, skip(ctx))]
+#[instrument(level = "debug", skip(ctx))]
 pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<git2::Oid> {
     let repo = &*ctx.git2_repo.get()?;
     let gix_repo = ctx.clone_repo_for_merging()?;

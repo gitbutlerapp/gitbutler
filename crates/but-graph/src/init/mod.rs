@@ -242,7 +242,7 @@ impl Graph {
     /// * The traversal is cut short when there is only tips which are integrated
     /// * The traversal is always as long as it needs to be to fully reconcile possibly disjoint branches, despite
     ///   this sometimes costing some time when the remote is far ahead in a huge repository.
-    #[instrument(level = tracing::Level::DEBUG, skip_all, fields(tip = ?tip, options = ?options, ref_name), err(Debug))]
+    #[instrument(level = "debug", skip_all, fields(tip = ?tip, options = ?options, ref_name), err(Debug))]
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
