@@ -378,7 +378,6 @@ async fn handle_command(
         "update_branch_name" => legacy::stack::update_branch_name_cmd(request.params),
         "update_branch_pr_number" => legacy::stack::update_branch_pr_number_cmd(request.params),
         "push_stack" => legacy::stack::push_stack_cmd(request.params),
-        "push_stack_to_review" => legacy::stack::push_stack_to_review_cmd(request.params),
         // Undo/Snapshot commands
         "list_snapshots" => legacy::oplog::list_snapshots_cmd(request.params),
         "restore_snapshot" => legacy::oplog::restore_snapshot_cmd(request.params),
