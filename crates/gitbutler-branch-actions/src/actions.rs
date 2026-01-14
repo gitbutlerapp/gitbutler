@@ -13,7 +13,7 @@ use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{BranchOwnershipClaims, StackId};
+use gitbutler_stack::StackId;
 use tracing::instrument;
 
 use super::r#virtual as vbranch;
@@ -34,31 +34,6 @@ use crate::{
         StackStatuses, UpstreamIntegrationContext,
     },
 };
-
-pub fn create_commit(
-    ctx: &Context,
-    stack_id: StackId,
-    message: &str,
-    ownership: Option<&BranchOwnershipClaims>,
-) -> Result<git2::Oid> {
-    let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Creating a commit requires open workspace mode")?;
-    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
-    let result = vbranch::commit(ctx, stack_id, message, ownership);
-
-    let _ = snapshot_tree.and_then(|snapshot_tree| {
-        ctx.snapshot_commit_creation(
-            snapshot_tree,
-            result.as_ref().err(),
-            message.to_owned(),
-            None,
-            guard.write_permission(),
-        )
-    });
-
-    result
-}
 
 pub fn can_apply_remote_branch(ctx: &Context, branch_name: &RemoteRefname) -> Result<bool> {
     ensure_open_workspace_mode(ctx)

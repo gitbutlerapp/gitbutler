@@ -66,7 +66,7 @@ mod go_back_to_workspace {
         .unwrap();
 
         std::fs::write(repo.path().join("another file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "one", None).unwrap();
+        super::create_commit(ctx, stack_entry.id, "one").unwrap();
 
         let stacks = stack_details(ctx);
         assert_eq!(stacks.len(), 1);

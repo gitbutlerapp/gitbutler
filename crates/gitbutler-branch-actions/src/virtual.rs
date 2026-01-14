@@ -9,7 +9,6 @@ use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_diff::GitHunk;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -17,11 +16,11 @@ use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId, Target};
+use gitbutler_stack::{Stack, StackId, Target};
 use itertools::Itertools;
 use serde::Serialize;
 
-use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, status::get_applied_status_cached};
+use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -79,81 +78,6 @@ pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack
 
 pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
 pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
-
-pub fn commit(
-    ctx: &Context,
-    stack_id: StackId,
-    message: &str,
-    ownership: Option<&BranchOwnershipClaims>,
-) -> Result<git2::Oid> {
-    // get the files to commit
-    let diffs = gitbutler_diff::workdir(
-        &*ctx.git2_repo.get()?,
-        but_workspace::legacy::remerged_workspace_commit_v2(ctx)?,
-    )?;
-    let statuses = get_applied_status_cached(ctx, None, &diffs)
-        .context("failed to get status by branch")?
-        .branches;
-
-    let (ref mut branch, files) = statuses
-        .into_iter()
-        .find(|(stack, _)| stack.id == stack_id)
-        .with_context(|| format!("stack {stack_id} not found"))?;
-
-    let gix_repo = ctx.repo.get()?;
-
-    let tree_oid = if let Some(ownership) = ownership {
-        let files = files.into_iter().filter_map(|file| {
-            let hunks = file
-                .hunks
-                .into_iter()
-                .filter(|hunk| {
-                    let hunk: GitHunk = hunk.clone().into();
-                    ownership
-                        .claims
-                        .iter()
-                        .find(|f| f.file_path.eq(&file.path))
-                        .is_some_and(|f| {
-                            f.hunks.iter().any(|h| {
-                                h.start == hunk.new_start
-                                    && h.end == hunk.new_start + hunk.new_lines
-                            })
-                        })
-                })
-                .collect::<Vec<_>>();
-            if hunks.is_empty() {
-                None
-            } else {
-                Some((file.path, hunks))
-            }
-        });
-        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head_oid(ctx)?.to_git2(), files)?
-    } else {
-        let files = files
-            .into_iter()
-            .map(|file| (file.path, file.hunks))
-            .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
-        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head_oid(ctx)?.to_git2(), files)?
-    };
-
-    let git_repo = &*ctx.git2_repo.get()?;
-    let parent_commit = git_repo
-        .find_commit(branch.head_oid(ctx)?.to_git2())
-        .context(format!("failed to find commit {:?}", branch.head_oid(ctx)))?;
-    let tree = git_repo
-        .find_tree(tree_oid)
-        .context(format!("failed to find tree {tree_oid:?}"))?;
-
-    let commit_oid = ctx.commit(message, &tree, &[&parent_commit], None)?;
-
-    let vb_state = ctx.legacy_project.virtual_branches();
-    branch.set_stack_head(&vb_state, &gix_repo, commit_oid)?;
-
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
-        .context("failed to update gitbutler workspace")?;
-
-    Ok(commit_oid)
-}
 
 type MergeBaseCommitGraph<'repo, 'cache> = gix::revwalk::Graph<
     'repo,

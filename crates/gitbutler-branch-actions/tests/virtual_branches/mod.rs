@@ -2,11 +2,13 @@ use std::{fs, path, path::PathBuf, str::FromStr};
 
 use but_ctx::Context;
 use but_error::Marker;
-use but_oxidize::OidExt;
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_settings::AppSettings;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
+use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::{self as projects, Project, ProjectId};
+use gitbutler_stack::StackId;
 use gitbutler_testsupport::{TestProject, VAR_NO_CLEANUP, paths};
 use tempfile::TempDir;
 
@@ -91,4 +93,53 @@ pub fn list_commit_files(
         false,
     )
     .map(|d| d.diff_with_first_parent)
+}
+
+pub fn create_commit(ctx: &Context, stack_id: StackId, message: &str) -> anyhow::Result<git2::Oid> {
+    let mut guard = ctx.exclusive_worktree_access();
+
+    let repo = ctx.repo.get()?;
+    let worktree = but_core::diff::worktree_changes(&repo)?;
+    let file_changes: Vec<but_core::DiffSpec> =
+        worktree.changes.iter().map(Into::into).collect::<Vec<_>>();
+
+    let meta = ctx.legacy_meta(guard.read_permission())?;
+    let stacks = but_workspace::legacy::stacks_v3(
+        &repo,
+        &meta,
+        but_workspace::legacy::StacksFilter::InWorkspace,
+        None,
+    )?;
+
+    let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
+
+    let stack_branch_name = stacks
+        .iter()
+        .find(|s| s.id == Some(stack_id))
+        .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
+        .ok_or(anyhow::anyhow!("Could not find associated reference name"))?;
+
+    let outcome = but_workspace::legacy::commit_engine::create_commit_simple(
+        ctx,
+        stack_id,
+        None,
+        file_changes,
+        message.to_string(),
+        stack_branch_name,
+        guard.write_permission(),
+    );
+
+    let _ = snapshot_tree.and_then(|snapshot_tree| {
+        ctx.snapshot_commit_creation(
+            snapshot_tree,
+            outcome.as_ref().err(),
+            message.to_owned(),
+            None,
+            guard.write_permission(),
+        )
+    });
+    outcome?
+        .new_commit
+        .map(|c| c.to_git2())
+        .ok_or(anyhow::anyhow!("No new commit created"))
 }

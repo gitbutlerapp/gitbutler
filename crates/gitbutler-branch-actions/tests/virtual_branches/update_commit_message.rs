@@ -27,17 +27,17 @@ fn head() {
 
     {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
+        super::create_commit(ctx, stack_entry.id, "commit one").unwrap()
     };
 
     {
         fs::write(repo.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None).unwrap()
+        super::create_commit(ctx, stack_entry.id, "commit two").unwrap()
     };
 
     let commit_three_oid = {
         fs::write(repo.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap()
+        super::create_commit(ctx, stack_entry.id, "commit three").unwrap()
     };
     let commit_three = gix_repo.find_commit(commit_three_oid.to_gix()).unwrap();
     let before_change_id = &commit_three.change_id();
@@ -95,17 +95,17 @@ fn middle() {
 
     {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
+        super::create_commit(ctx, stack_entry.id, "commit one").unwrap()
     };
 
     let commit_two_oid = {
         fs::write(repo.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None).unwrap()
+        super::create_commit(ctx, stack_entry.id, "commit two").unwrap()
     };
 
     {
         fs::write(repo.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap()
+        super::create_commit(ctx, stack_entry.id, "commit three").unwrap()
     };
 
     gitbutler_branch_actions::update_commit_message(
@@ -165,7 +165,7 @@ fn forcepush_allowed() {
 
     let commit_one_oid = {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
+        super::create_commit(ctx, stack_entry.id, "commit one").unwrap()
     };
 
     gitbutler_branch_actions::stack::push_stack(
@@ -224,17 +224,17 @@ fn root() {
 
     let commit_one_oid = {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch_id.id, "commit one", None).unwrap()
+        super::create_commit(ctx, branch_id.id, "commit one").unwrap()
     };
 
     {
         fs::write(repo.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch_id.id, "commit two", None).unwrap()
+        super::create_commit(ctx, branch_id.id, "commit two").unwrap()
     };
 
     {
         fs::write(repo.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch_id.id, "commit three", None).unwrap()
+        super::create_commit(ctx, branch_id.id, "commit three").unwrap()
     };
 
     gitbutler_branch_actions::update_commit_message(
@@ -281,7 +281,7 @@ fn empty() {
 
     let commit_one_oid = {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, branch_id.id, "commit one", None).unwrap()
+        super::create_commit(ctx, branch_id.id, "commit one").unwrap()
     };
 
     assert_eq!(

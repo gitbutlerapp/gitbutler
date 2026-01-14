@@ -23,7 +23,7 @@ fn should_unapply_diff() {
     )
     .unwrap();
     let stacks = stack_details(ctx);
-    let c = gitbutler_branch_actions::create_commit(ctx, stacks[0].0, "asdf", None);
+    let c = super::create_commit(ctx, stacks[0].0, "asdf");
     assert!(c.is_ok());
 
     gitbutler_branch_actions::unapply_stack(ctx, stacks[0].0, Vec::new()).unwrap();

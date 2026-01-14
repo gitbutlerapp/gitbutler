@@ -129,7 +129,7 @@ fn conflicts_with_commited() {
         let stacks = stack_details(ctx);
         assert_eq!(stacks.len(), 1);
 
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "hej", None).unwrap();
+        super::create_commit(ctx, stack_entry.id, "hej").unwrap();
     };
 
     // branch should be created unapplied, because of the conflict
