@@ -23,7 +23,6 @@ use crate::{
     branch_manager::BranchManagerExt,
     branch_upstream_integration,
     branch_upstream_integration::IntegrationStrategy,
-    file::RemoteBranchFile,
     move_branch::MoveBranchResult,
     move_commits::{self, MoveCommitIllegalAction},
     remote,
@@ -444,11 +443,6 @@ pub fn create_virtual_branch_from_branch(
         pr_number,
         guard.write_permission(),
     )
-}
-
-pub fn get_uncommitted_files(ctx: &Context) -> Result<Vec<RemoteBranchFile>> {
-    let guard = ctx.exclusive_worktree_access();
-    crate::branch::get_uncommitted_files(ctx, guard.read_permission())
 }
 
 pub fn upstream_integration_statuses(

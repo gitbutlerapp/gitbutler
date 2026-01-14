@@ -6,7 +6,7 @@ use but_core::DiffSpec;
 use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types::BranchOwnershipClaims;
 use but_oxidize::ObjectIdExt;
-use gitbutler_branch_actions::{RemoteBranchFile, hooks};
+use gitbutler_branch_actions::hooks;
 use gitbutler_project::ProjectId;
 use gitbutler_repo::{
     FileInfo, RepoCommands,
@@ -58,13 +58,6 @@ async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> 
     askpass::get_broker()
         .submit_prompt(prompt, askpass::Context::Clone { url })
         .await
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn get_uncommitted_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFile>> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    gitbutler_branch_actions::get_uncommitted_files(&ctx)
 }
 
 #[but_api]
