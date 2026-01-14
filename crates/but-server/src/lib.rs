@@ -373,7 +373,6 @@ async fn handle_command(
         "get_workspace_file" => legacy::repo::get_workspace_file_cmd(request.params),
         "get_blob_file" => legacy::repo::get_blob_file_cmd(request.params),
         "find_files" => legacy::repo::find_files_cmd(request.params),
-        "pre_commit_hook" => legacy::repo::pre_commit_hook_cmd(request.params),
         "pre_commit_hook_diffspecs" => legacy::repo::pre_commit_hook_diffspecs_cmd(request.params),
         "post_commit_hook" => legacy::repo::post_commit_hook_cmd(request.params),
         "message_hook" => legacy::repo::message_hook_cmd(request.params),

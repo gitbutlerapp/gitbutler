@@ -4,7 +4,6 @@ use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::DiffSpec;
 use but_ctx::Context;
-use but_meta::virtual_branches_legacy_types::BranchOwnershipClaims;
 use but_oxidize::ObjectIdExt;
 use gitbutler_branch_actions::hooks;
 use gitbutler_project::ProjectId;
@@ -84,17 +83,6 @@ pub fn get_blob_file(
     let object = repo.find_object(blob_id).context("Failed to find blob")?;
     let blob = object.try_into_blob().context("Object is not a blob")?;
     Ok(FileInfo::from_content(&relative_path, &blob.data))
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn pre_commit_hook(
-    project_id: ProjectId,
-    ownership: BranchOwnershipClaims,
-) -> Result<HookResult> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let claim = ownership.into();
-    hooks::pre_commit(&ctx, &claim)
 }
 
 #[but_api]

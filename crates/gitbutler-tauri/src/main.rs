@@ -252,7 +252,6 @@ fn main() -> anyhow::Result<()> {
                 legacy::repo::tauri_get_workspace_file::get_workspace_file,
                 legacy::repo::tauri_get_blob_file::get_blob_file,
                 legacy::repo::tauri_find_files::find_files,
-                legacy::repo::tauri_pre_commit_hook::pre_commit_hook,
                 legacy::repo::tauri_pre_commit_hook_diffspecs::pre_commit_hook_diffspecs,
                 legacy::repo::tauri_post_commit_hook::post_commit_hook,
                 legacy::repo::tauri_message_hook::message_hook,
