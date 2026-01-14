@@ -1,5 +1,6 @@
 use gix::refs::FullNameRef;
 use ts_rs::TS;
+use uuid::Uuid;
 
 use crate::Id;
 
@@ -408,6 +409,13 @@ impl RefInfo {
 
 /// The ID of a stack for somewhat stable identification of ever-changing stacks.
 pub type StackId = Id<'S'>;
+
+impl StackId {
+    /// A special fixed ID use to represent the lane of single branch mode.
+    pub fn single_branch_id() -> Self {
+        Self::from(Uuid::from_u128(0))
+    }
+}
 
 /// A stack that was, at some point in time, applied to the workspace, i.e. a parent of the *workspace commit*.
 /// Note that if `in_workspace` is `false`, it's not considered unapplied.
