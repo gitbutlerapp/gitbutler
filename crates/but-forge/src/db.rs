@@ -43,7 +43,10 @@ impl TryFrom<but_db::ForgeReview> for ForgeReview {
     type Error = anyhow::Error;
     fn try_from(value: but_db::ForgeReview) -> anyhow::Result<Self, Self::Error> {
         fn to_iso_8601(datetime: &Option<chrono::NaiveDateTime>) -> Option<String> {
-            datetime.map(|dt| dt.format("%+").to_string())
+            datetime.map(|dt| {
+                chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(dt, chrono::Utc)
+                    .to_rfc3339()
+            })
         }
         if value.struct_version != ForgeReview::struct_version() {
             return Err(anyhow::Error::msg(format!(
