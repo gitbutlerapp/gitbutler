@@ -25,6 +25,33 @@
 	const isLoading = $derived(ghUser.result?.status === QueryStatus.pending);
 </script>
 
+{#snippet loadingRow()}
+	<CardGroup.Item>
+		{#snippet iconSide()}
+			<div class="avatar">
+				<Avatar size="large" username={account.info.username} srcUrl={undefined} />
+			</div>
+		{/snippet}
+
+		{#snippet title()}
+			{account.info.username}
+			<GitHubAccountBadge {account} class="m-l-4" />
+		{/snippet}
+		{#snippet caption()}
+			Loading...
+		{/snippet}
+
+		{#snippet actions()}
+			<Button
+				kind="outline"
+				icon="bin-small"
+				onclick={() => forget(account)}
+				loading={forgetting.current.isLoading}>Forget</Button
+			>
+		{/snippet}
+	</CardGroup.Item>
+{/snippet}
+
 {#snippet row(user: AuthenticatedUser | null)}
 	<CardGroup.Item>
 		{#snippet iconSide()}
@@ -81,11 +108,15 @@
 {/snippet}
 
 <ReduxResult result={ghUser.result}>
+	{#snippet loading()}
+		{@render loadingRow()}
+	{/snippet}
 	{#snippet error()}
 		{@render row(null)}
 	{/snippet}
 	{#snippet children(user)}
 		{@render row(user)}
+		<!-- {@render loadingRow()} -->
 	{/snippet}
 </ReduxResult>
 
