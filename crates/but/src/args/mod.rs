@@ -664,7 +664,7 @@ pub enum Subcommands {
     },
 
     /// Amend a file change into a specific commit and rebases any dependent commits.
-    ///  
+    ///
     /// Wrapper for `but rub <file> <commit>`.
     #[cfg(feature = "legacy")]
     Amend {
@@ -697,6 +697,12 @@ pub enum Subcommands {
         #[clap(required = false)]
         branch: Option<String>,
     },
+
+    /// Switch back to the workspace
+    ///
+    /// If in single-branch mode, switches back to the main workspace.
+    #[cfg(feature = "legacy")]
+    SwitchBack,
 
     /// Show help information grouped by category.
     ///

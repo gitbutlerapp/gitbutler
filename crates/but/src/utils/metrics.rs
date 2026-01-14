@@ -159,6 +159,8 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Unstage { .. } => Rub,
             #[cfg(feature = "legacy")]
+            Subcommands::SwitchBack => SwitchBackToWorkspace,
+            #[cfg(feature = "legacy")]
             Subcommands::Squash { .. } => Rub,
         }
     }
