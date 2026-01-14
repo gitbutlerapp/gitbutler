@@ -4,7 +4,6 @@ use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
 use but_core::DiffSpec;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
@@ -18,7 +17,7 @@ use gitbutler_branch_actions::{
 };
 use gitbutler_project::{FetchResult, ProjectId};
 use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name as normalize_name};
-use gitbutler_stack::{StackId, VirtualBranchesHandle};
+use gitbutler_stack::StackId;
 use gix::reference::Category;
 use tracing::instrument;
 
@@ -278,32 +277,6 @@ pub fn undo_commit(project_id: ProjectId, stack_id: StackId, commit_id: String) 
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::undo_commit(&ctx, stack_id, commit_id)?;
-    Ok(())
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn insert_blank_commit(
-    project_id: ProjectId,
-    stack_id: StackId,
-    commit_id: Option<String>,
-    offset: i32,
-) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    // This code is really bad, but the TLDR is that if you have no commit_id
-    // passed, we always want the offset to be -1, because we default to the
-    // stack head and we want the commit to be above that. Is this _actually_
-    // what we want? No, but it's been this way for months & we're hopfully
-    // going to move off it soon so I'm not going to change it.
-    let (commit_id, offset) = match commit_id {
-        Some(oid) => (git2::Oid::from_str(&oid).map_err(|e| anyhow!(e))?, offset),
-        None => {
-            let state = VirtualBranchesHandle::new(ctx.project_data_dir());
-            let stack = state.get_stack(stack_id)?;
-            (stack.head_oid(&ctx)?.to_git2(), -1)
-        }
-    };
-    gitbutler_branch_actions::insert_blank_commit(&ctx, stack_id, commit_id, offset, None)?;
     Ok(())
 }
 

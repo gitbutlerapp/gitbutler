@@ -70,7 +70,6 @@ mod amend;
 mod apply_virtual_branch;
 mod create_virtual_branch_from_branch;
 mod init;
-mod insert_blank_commit;
 mod list;
 mod list_details;
 mod move_commit_to_vbranch;
