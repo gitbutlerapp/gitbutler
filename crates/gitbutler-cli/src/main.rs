@@ -19,24 +19,9 @@ fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match args.cmd {
-        args::Subcommands::IntegrateUpstream { mode } => {
-            let project = command::prepare::project_from_path(args.current_dir)?;
-            command::workspace::update(project, mode)
-        }
         args::Subcommands::Branch(vbranch::Platform { cmd }) => {
             let project = command::prepare::project_from_path(args.current_dir)?;
             match cmd {
-                Some(vbranch::SubCommands::ListCommitFiles { commit_id }) => {
-                    command::vbranch::list_commit_files(project, commit_id)
-                }
-                Some(vbranch::SubCommands::SetBase {
-                    short_tracking_branch_name,
-                }) => command::vbranch::set_base(project, short_tracking_branch_name),
-                Some(vbranch::SubCommands::List) => command::vbranch::list_all(project),
-                Some(vbranch::SubCommands::Status) => command::vbranch::status(project),
-                Some(vbranch::SubCommands::Unapply { name }) => {
-                    command::vbranch::unapply(project, name)
-                }
                 Some(vbranch::SubCommands::Apply { name, branch }) => {
                     command::vbranch::apply(project, name, branch)
                 }
@@ -49,10 +34,6 @@ fn main() -> Result<()> {
                 Some(vbranch::SubCommands::Create { name, .. }) => {
                     command::vbranch::create(project, name)
                 }
-                Some(vbranch::SubCommands::Details { names }) => {
-                    command::vbranch::details(project, names)
-                }
-                Some(vbranch::SubCommands::ListAll) => command::vbranch::list_all(project),
                 None => command::vbranch::list(project),
             }
         }
@@ -61,10 +42,6 @@ fn main() -> Result<()> {
             app_suffix,
             cmd,
         }) => match cmd {
-            Some(project::SubCommands::SwitchToWorkspace { remote_ref_name }) => {
-                let project = command::prepare::project_from_path(args.current_dir)?;
-                command::project::switch_to_workspace(project, remote_ref_name)
-            }
             Some(project::SubCommands::Add {
                 switch_to_workspace,
                 path,
