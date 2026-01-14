@@ -4,9 +4,8 @@ use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::DiffSpec;
 use but_ctx::Context;
-use but_meta::virtual_branches_legacy_types::BranchOwnershipClaims;
 use but_oxidize::ObjectIdExt;
-use gitbutler_branch_actions::{RemoteBranchFile, hooks};
+use gitbutler_branch_actions::hooks;
 use gitbutler_project::ProjectId;
 use gitbutler_repo::{
     FileInfo, RepoCommands,
@@ -16,20 +15,6 @@ use gitbutler_repo_actions::askpass;
 use tracing::instrument;
 
 use crate::json::HexHash;
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn git_get_local_config(project_id: ProjectId, key: String) -> Result<Option<String>> {
-    let project = gitbutler_project::get(project_id)?;
-    project.get_local_config(&key)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn git_set_local_config(project_id: ProjectId, key: String, value: String) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    project.set_local_config(&key, &value)
-}
 
 #[but_api]
 #[instrument(err(Debug))]
@@ -58,13 +43,6 @@ async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> 
     askpass::get_broker()
         .submit_prompt(prompt, askpass::Context::Clone { url })
         .await
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn get_uncommitted_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFile>> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    gitbutler_branch_actions::get_uncommitted_files(&ctx)
 }
 
 #[but_api]
@@ -105,17 +83,6 @@ pub fn get_blob_file(
     let object = repo.find_object(blob_id).context("Failed to find blob")?;
     let blob = object.try_into_blob().context("Object is not a blob")?;
     Ok(FileInfo::from_content(&relative_path, &blob.data))
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn pre_commit_hook(
-    project_id: ProjectId,
-    ownership: BranchOwnershipClaims,
-) -> Result<HookResult> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let claim = ownership.into();
-    hooks::pre_commit(&ctx, &claim)
 }
 
 #[but_api]

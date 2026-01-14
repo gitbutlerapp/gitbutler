@@ -299,16 +299,12 @@ async fn handle_command(
         "push_base_branch" => legacy::virtual_branches::push_base_branch_cmd(request.params),
         "update_stack_order" => legacy::virtual_branches::update_stack_order_cmd(request.params),
         "unapply_stack" => legacy::virtual_branches::unapply_stack_cmd(request.params),
-        "can_apply_remote_branch" => {
-            legacy::virtual_branches::can_apply_remote_branch_cmd(request.params)
-        }
         "amend_virtual_branch" => {
             legacy::virtual_branches::amend_virtual_branch_cmd(request.params)
         }
         "undo_commit" => legacy::virtual_branches::undo_commit_cmd(request.params),
         "reorder_stack" => legacy::virtual_branches::reorder_stack_cmd(request.params),
         "commit_insert_blank" => but_api::commit::commit_insert_blank_cmd(request.params),
-        "find_git_branches" => legacy::virtual_branches::find_git_branches_cmd(request.params),
         "list_branches" => legacy::virtual_branches::list_branches_cmd(request.params),
         "get_branch_listing_details" => {
             legacy::virtual_branches::get_branch_listing_details_cmd(request.params)
@@ -321,7 +317,6 @@ async fn handle_command(
         "update_commit_message" => {
             legacy::virtual_branches::update_commit_message_cmd(request.params)
         }
-        "find_commit" => legacy::virtual_branches::find_commit_cmd(request.params),
         "upstream_integration_statuses" => {
             let params = deserialize_json(request.params);
             match params {
@@ -367,16 +362,12 @@ async fn handle_command(
         "edit_initial_index_state" => legacy::modes::edit_initial_index_state_cmd(request.params),
         "edit_changes_from_initial" => legacy::modes::edit_changes_from_initial_cmd(request.params),
         // Repository commands
-        "git_get_local_config" => legacy::repo::git_get_local_config_cmd(request.params),
-        "git_set_local_config" => legacy::repo::git_set_local_config_cmd(request.params),
         "check_signing_settings" => legacy::repo::check_signing_settings_cmd(request.params),
         "git_clone_repository" => legacy::repo::git_clone_repository_cmd(request.params).await,
-        "get_uncommitted_files" => legacy::repo::get_uncommitted_files_cmd(request.params),
         "get_commit_file" => legacy::repo::get_commit_file_cmd(request.params),
         "get_workspace_file" => legacy::repo::get_workspace_file_cmd(request.params),
         "get_blob_file" => legacy::repo::get_blob_file_cmd(request.params),
         "find_files" => legacy::repo::find_files_cmd(request.params),
-        "pre_commit_hook" => legacy::repo::pre_commit_hook_cmd(request.params),
         "pre_commit_hook_diffspecs" => legacy::repo::pre_commit_hook_diffspecs_cmd(request.params),
         "post_commit_hook" => legacy::repo::post_commit_hook_cmd(request.params),
         "message_hook" => legacy::repo::message_hook_cmd(request.params),
@@ -387,7 +378,6 @@ async fn handle_command(
         "update_branch_name" => legacy::stack::update_branch_name_cmd(request.params),
         "update_branch_pr_number" => legacy::stack::update_branch_pr_number_cmd(request.params),
         "push_stack" => legacy::stack::push_stack_cmd(request.params),
-        "push_stack_to_review" => legacy::stack::push_stack_to_review_cmd(request.params),
         // Undo/Snapshot commands
         "list_snapshots" => legacy::oplog::list_snapshots_cmd(request.params),
         "restore_snapshot" => legacy::oplog::restore_snapshot_cmd(request.params),
@@ -460,7 +450,6 @@ async fn handle_command(
         // Forge commands
         "pr_templates" => legacy::forge::pr_templates_cmd(request.params),
         "pr_template" => legacy::forge::pr_template_cmd(request.params),
-        "determine_forge_from_url" => legacy::forge::determine_forge_from_url_cmd(request.params),
         "list_reviews" => {
             let params = deserialize_json(request.params);
             match params {

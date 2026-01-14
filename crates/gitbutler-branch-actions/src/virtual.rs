@@ -8,8 +8,7 @@ use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
-use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_reference::Refname;
 use gitbutler_repo::{
     RepositoryExt as _,
     logging::{LogUntil, RepositoryExt as _},
@@ -31,25 +30,6 @@ pub struct PushResult {
     /// Format: (branch_name, before_sha, after_sha)
     /// SHAs are stored as hex strings for serialization
     pub branch_sha_updates: Vec<(String, String, String)>,
-}
-
-fn find_base_tree<'a>(
-    repo: &'a git2::Repository,
-    branch_commit: &'a git2::Commit<'a>,
-    target_commit: &'a git2::Commit<'a>,
-) -> Result<git2::Tree<'a>> {
-    // find merge base between target_commit and branch_commit
-    let merge_base = repo
-        .merge_base(target_commit.id(), branch_commit.id())
-        .context("failed to find merge base")?;
-    // turn oid into a commit
-    let merge_base_commit = repo
-        .find_commit(merge_base)
-        .context("failed to find merge base commit")?;
-    let base_tree = merge_base_commit
-        .tree()
-        .context("failed to get base tree object")?;
-    Ok(base_tree)
 }
 
 impl From<but_workspace::ui::Author> for crate::author::Author {
@@ -202,45 +182,6 @@ impl IsCommitIntegrated<'_, '_, '_> {
         // then the vbranch is fully merged
         Ok(merge_tree_id == self.upstream_tree_id)
     }
-}
-
-pub fn is_remote_branch_mergeable(ctx: &Context, branch_name: &RemoteRefname) -> Result<bool> {
-    let vb_state = ctx.legacy_project.virtual_branches();
-
-    let default_target = vb_state.get_default_target()?;
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let target_commit = git2_repo
-        .find_commit(default_target.sha)
-        .context("failed to find target commit")?;
-
-    let branch = git2_repo
-        .maybe_find_branch_by_refname(&branch_name.into())?
-        .ok_or(anyhow!("branch not found"))?;
-    let branch_oid = branch.get().target().context("detached head")?;
-    let branch_commit = git2_repo
-        .find_commit(branch_oid)
-        .context("failed to find branch commit")?;
-
-    let base_tree = find_base_tree(git2_repo, &branch_commit, &target_commit)?;
-
-    let wd_tree = git2_repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
-
-    let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
-    let gix_repo_in_memory = ctx.clone_repo_for_merging()?.with_object_memory();
-    let (merge_options_fail_fast, conflict_kind) =
-        gix_repo_in_memory.merge_options_no_rewrites_fail_fast()?;
-    let mergeable = !gix_repo_in_memory
-        .merge_trees(
-            git2_to_gix_object_id(base_tree.id()),
-            git2_to_gix_object_id(branch_tree.id()),
-            git2_to_gix_object_id(wd_tree.id()),
-            Default::default(),
-            merge_options_fail_fast,
-        )
-        .context("failed to merge trees")?
-        .has_unresolved_conflicts(conflict_kind);
-
-    Ok(mergeable)
 }
 
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful

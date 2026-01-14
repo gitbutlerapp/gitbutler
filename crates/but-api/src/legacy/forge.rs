@@ -160,12 +160,6 @@ pub fn set_review_template(project_id: ProjectId, template_path: Option<String>)
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>> {
-    Ok(but_forge::determine_forge_from_url(&url))
-}
-
-#[but_api]
-#[instrument(err(Debug))]
 pub fn list_reviews(
     project_id: ProjectId,
     cache_config: Option<but_forge::CacheConfig>,

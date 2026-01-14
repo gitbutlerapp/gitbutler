@@ -23,23 +23,14 @@ use crate::{
     branch_manager::BranchManagerExt,
     branch_upstream_integration,
     branch_upstream_integration::IntegrationStrategy,
-    file::RemoteBranchFile,
     move_branch::MoveBranchResult,
     move_commits::{self, MoveCommitIllegalAction},
-    remote,
-    remote::{RemoteBranchData, RemoteCommit},
     reorder::{self, StackOrder},
     upstream_integration::{
         self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
         StackStatuses, UpstreamIntegrationContext,
     },
 };
-
-pub fn can_apply_remote_branch(ctx: &Context, branch_name: &RemoteRefname) -> Result<bool> {
-    ensure_open_workspace_mode(ctx)
-        .context("Testing branch mergability requires open workspace mode")?;
-    vbranch::is_remote_branch_mergeable(ctx, branch_name)
-}
 
 pub fn create_virtual_branch(
     ctx: &Context,
@@ -290,10 +281,6 @@ pub fn reorder_stack(ctx: &Context, stack_id: StackId, stack_order: StackOrder) 
     Ok(())
 }
 
-pub fn find_git_branches(ctx: &Context, branch_name: &str) -> Result<Vec<RemoteBranchData>> {
-    remote::find_git_branches(ctx, branch_name)
-}
-
 pub fn squash_commits(
     ctx: &Context,
     stack_id: StackId,
@@ -327,10 +314,6 @@ pub fn update_commit_message(
         guard.write_permission(),
     );
     vbranch::update_commit_message(ctx, stack_id, commit_oid, message)
-}
-
-pub fn find_commit(ctx: &Context, commit_oid: git2::Oid) -> Result<Option<RemoteCommit>> {
-    remote::get_commit_data(ctx, commit_oid.to_gix())
 }
 
 pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<FetchResult> {
@@ -444,11 +427,6 @@ pub fn create_virtual_branch_from_branch(
         pr_number,
         guard.write_permission(),
     )
-}
-
-pub fn get_uncommitted_files(ctx: &Context) -> Result<Vec<RemoteBranchFile>> {
-    let guard = ctx.exclusive_worktree_access();
-    crate::branch::get_uncommitted_files(ctx, guard.read_permission())
 }
 
 pub fn upstream_integration_statuses(

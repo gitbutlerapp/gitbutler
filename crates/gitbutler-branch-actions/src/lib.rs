@@ -2,9 +2,8 @@
 mod actions;
 // This is our API
 pub use actions::{
-    amend, can_apply_remote_branch, create_virtual_branch, create_virtual_branch_from_branch,
-    delete_local_branch, fetch_from_remotes, find_commit, find_git_branches,
-    get_initial_integration_steps_for_branch, get_uncommitted_files, integrate_branch_with_steps,
+    amend, create_virtual_branch, create_virtual_branch_from_branch, delete_local_branch,
+    fetch_from_remotes, get_initial_integration_steps_for_branch, integrate_branch_with_steps,
     integrate_upstream, integrate_upstream_commits, move_branch, move_commit, push_base_branch,
     reorder_stack, resolve_upstream_integration, set_base_branch, set_target_push_remote,
     squash_commits, tear_off_branch, unapply_stack, undo_commit, update_commit_message,
@@ -17,7 +16,7 @@ pub use r#virtual::{BranchStatus, VirtualBranchHunksByPathMap};
 /// Avoid using these!
 /// This was previously `pub use r#virtual::*;`
 pub mod internal {
-    pub use super::{branch_upstream_integration, remote::find_git_branches, r#virtual::*};
+    pub use super::{branch_upstream_integration, r#virtual::*};
 }
 
 mod branch_manager;

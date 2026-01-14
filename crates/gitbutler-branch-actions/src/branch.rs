@@ -9,42 +9,16 @@ use std::{
 
 use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
-use but_ctx::{Context, access::WorktreeReadPermission};
+use but_ctx::Context;
 use but_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use but_serde::BStringForFrontend;
 use gitbutler_branch::{BranchIdentity, ReferenceExtGix};
-use gitbutler_diff::DiffByPathMap;
 use gitbutler_reference::{RemoteRefname, normalize_branch_name};
 use gitbutler_stack::{StackId, Target};
 use gix::{object::tree::diff::Action, prelude::TreeDiffChangeExt, reference::Category};
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
 
-use crate::{RemoteBranchFile, VirtualBranchesExt, gravatar::gravatar_url_from_email};
-
-#[instrument(level = "debug", skip(ctx, _permission))]
-pub(crate) fn get_uncommitted_files_raw(
-    ctx: &Context,
-    _permission: &WorktreeReadPermission,
-) -> Result<DiffByPathMap> {
-    gitbutler_diff::workdir(
-        &*ctx.git2_repo.get()?,
-        ctx.git2_repo.get()?.head()?.peel_to_commit()?.id(),
-    )
-    .context("Failed to list uncommitted files")
-}
-
-pub(crate) fn get_uncommitted_files(
-    context: &Context,
-    _permission: &WorktreeReadPermission,
-) -> Result<Vec<RemoteBranchFile>> {
-    let files = get_uncommitted_files_raw(context, _permission)?
-        .into_values()
-        .map(|file| file.into())
-        .collect();
-
-    Ok(files)
-}
+use crate::{VirtualBranchesExt, gravatar::gravatar_url_from_email};
 
 /// Returns a list of branches associated with this project.
 pub fn list_branches(

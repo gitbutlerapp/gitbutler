@@ -7,7 +7,6 @@ use gitbutler_branch_actions::{internal::PushResult, stack::CreateSeriesRequest}
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
-use gitbutler_user::User;
 use gix::refs::Category;
 use tracing::instrument;
 
@@ -238,19 +237,4 @@ pub fn push_stack(
         run_hooks,
         push_opts,
     )
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn push_stack_to_review(
-    project_id: ProjectId,
-    stack_id: StackId,
-    top_branch: String,
-    user: User,
-) -> Result<String> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let review_id =
-        gitbutler_sync::stack_upload::push_stack_to_review(&ctx, &user, stack_id, top_branch)?;
-
-    Ok(review_id)
 }
