@@ -4,7 +4,6 @@ use anyhow::{Context as _, Result, bail};
 use but_ctx::{Context, access::WorktreeWritePermission};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_diff::{Hunk, diff_files_into_hunks};
-use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_stack::{Stack, StackId};
 use tracing::instrument;
@@ -22,21 +21,6 @@ use crate::{
 pub struct VirtualBranchesStatus {
     /// A collection of branches and their associated uncommitted file changes.
     pub branches: Vec<(Stack, Vec<VirtualBranchFile>)>,
-    /// A collection of files that were skipped during the diffing process (due to being very large and unprocessable).
-    pub skipped_files: Vec<gitbutler_diff::FileDiff>,
-    /// The dependency result for the workspace.
-    pub workspace_dependencies: HunkDependencyResult,
-}
-
-pub fn get_applied_status(
-    ctx: &Context,
-    perm: Option<&mut WorktreeWritePermission>,
-) -> Result<VirtualBranchesStatus> {
-    let diffs = gitbutler_diff::workdir(
-        &*ctx.git2_repo.get()?,
-        but_workspace::legacy::remerged_workspace_commit_v2(ctx)?,
-    )?;
-    get_applied_status_cached(ctx, perm, &diffs)
 }
 
 /// Returns branches and their associated file changes, in addition to a list
@@ -161,7 +145,5 @@ pub fn get_applied_status_cached(
 
     Ok(VirtualBranchesStatus {
         branches: files_by_branch,
-        skipped_files,
-        workspace_dependencies,
     })
 }

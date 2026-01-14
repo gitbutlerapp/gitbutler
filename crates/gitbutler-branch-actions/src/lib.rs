@@ -52,7 +52,6 @@ mod author;
 mod gravatar;
 mod status;
 use gitbutler_stack::VirtualBranchesHandle;
-pub use status::get_applied_status;
 trait VirtualBranchesExt {
     fn virtual_branches(&self) -> VirtualBranchesHandle;
 }
