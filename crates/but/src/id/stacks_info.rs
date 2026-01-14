@@ -18,23 +18,19 @@ fn stacks_info_without_short_ids(stacks: Vec<Stack>) -> StacksInfo {
             id: stack.id,
             segments: Vec::with_capacity(stack.segments.len()),
         };
-        for segment in stack.segments {
-            let workspace_commits = segment
-                .commits
-                .iter()
+        for mut segment in stack.segments {
+            let workspace_commits = std::mem::take(&mut segment.commits)
+                .into_iter()
                 .map(|commit| WorkspaceCommitWithId {
                     short_id: ShortId::default(),
-                    commit_id: commit.id,
-                    first_parent_id: commit.parent_ids.first().copied(),
-                    relation: commit.relation,
+                    inner: commit,
                 })
                 .collect::<Vec<_>>();
-            let remote_commits = segment
-                .commits_on_remote
-                .iter()
+            let remote_commits = std::mem::take(&mut segment.commits_on_remote)
+                .into_iter()
                 .map(|commit| RemoteCommitWithId {
                     short_id: ShortId::default(),
-                    commit_id: commit.id,
+                    inner: commit,
                 })
                 .collect::<Vec<_>>();
             stack_with_id.segments.push(SegmentWithId {
@@ -160,10 +156,10 @@ fn populate_commit_short_ids(stacks: &mut [StackWithId]) {
                 workspace_commits
                     .iter_mut()
                     .map(|workspace_commit| {
-                        (&workspace_commit.commit_id, &mut workspace_commit.short_id)
+                        (workspace_commit.commit_id(), &mut workspace_commit.short_id)
                     })
                     .chain(remote_commits.iter_mut().map(|remote_commit| {
-                        (&remote_commit.commit_id, &mut remote_commit.short_id)
+                        (remote_commit.commit_id(), &mut remote_commit.short_id)
                     }))
             })
             .collect::<Vec<_>>();

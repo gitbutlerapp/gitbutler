@@ -41,12 +41,22 @@ const UNASSIGNED: &str = "zz";
 pub struct WorkspaceCommitWithId {
     /// The short ID.
     pub short_id: ShortId,
+    /// The original workspace commit.
+    pub inner: but_workspace::ref_info::LocalCommit,
+}
+impl WorkspaceCommitWithId {
     /// The object ID of the commit.
-    pub commit_id: gix::ObjectId,
+    pub fn commit_id(&self) -> gix::ObjectId {
+        self.inner.inner.id
+    }
     /// The ID of the first parent if the commit has parents.
-    pub first_parent_id: Option<gix::ObjectId>,
+    pub fn first_parent_id(&self) -> Option<gix::ObjectId> {
+        self.inner.inner.parent_ids.first().cloned()
+    }
     /// State in relation to its remote tracking branch.
-    pub relation: LocalCommitRelation,
+    pub fn relation(&self) -> LocalCommitRelation {
+        self.inner.relation
+    }
 }
 
 /// A remote commit with its short ID.
@@ -54,8 +64,14 @@ pub struct WorkspaceCommitWithId {
 pub struct RemoteCommitWithId {
     /// The short ID.
     pub short_id: ShortId,
+    /// The original remote commit.
+    pub inner: but_workspace::ref_info::Commit,
+}
+impl RemoteCommitWithId {
     /// The object ID of the commit.
-    pub commit_id: gix::ObjectId,
+    pub fn commit_id(&self) -> gix::ObjectId {
+        self.inner.id
+    }
 }
 
 /// A segment with its short ID and commit IDs.
@@ -66,11 +82,12 @@ pub struct SegmentWithId {
     /// True iff `short_id` was generated from scratch (and not from a substring
     /// of the branch name).
     pub is_auto_id: bool,
-    /// The original segment.
+    /// The original segment except that `commits` and `commits_on_remote` are
+    /// blank to save memory.
     pub inner: but_workspace::ref_info::Segment,
-    /// Parallel to `inner.commits`.
+    /// The original `inner.commits` with additional information.
     pub workspace_commits: Vec<WorkspaceCommitWithId>,
-    /// Parallel to `inner.commits_on_remote`.
+    /// The original `inner.commits_on_remote` with additional information.
     pub remote_commits: Vec<RemoteCommitWithId>,
 }
 impl SegmentWithId {
@@ -117,8 +134,8 @@ pub struct StackWithId {
 /// 1. Create an `IdMap` for example using [IdMap::new]
 /// 2. Optionally add file information for example using [IdMap::add_committed_file_info_from_context]
 /// 3. Use [IdMap::resolve_entity_to_ids] to parse user input into matching IDs
-/// 4. Use specific methods like [IdMap::resolve_branch]
-///    or [IdMap::resolve_file_changed_in_commit_or_unassigned] to get IDs for specific entities
+/// 4. Use specific methods like
+///    [IdMap::resolve_file_changed_in_commit_or_unassigned] to get IDs for specific entities
 #[derive(Debug)]
 pub struct IdMap {
     /// Stacks with segment and commit IDs.
@@ -183,13 +200,13 @@ impl IdMap {
                 workspace_commits.insert(
                     workspace_commit.short_id.clone(),
                     WorkspaceCommit {
-                        commit_id: workspace_commit.commit_id,
-                        first_parent_id: workspace_commit.first_parent_id,
+                        commit_id: workspace_commit.commit_id(),
+                        first_parent_id: workspace_commit.first_parent_id(),
                     },
                 );
             }
             for remote_commit in segment.remote_commits.iter() {
-                remote_commit_ids.insert(remote_commit.short_id.clone(), remote_commit.commit_id);
+                remote_commit_ids.insert(remote_commit.short_id.clone(), remote_commit.commit_id());
             }
         }
 
@@ -455,49 +472,6 @@ impl IdMap {
                 path: sought.1,
                 id: "00".to_string(),
             }
-        }
-    }
-
-    /// Returns the [`CliId::Branch`] for a branch by its short `name`.
-    ///
-    /// If the branch already has an assigned ID, return it. Otherwise, returns
-    /// `00` as fallback.
-    pub fn resolve_branch(&self, name: &BStr) -> CliId {
-        self.branch_name_to_cli_id
-            .get(name)
-            .cloned()
-            .unwrap_or_else(|| CliId::Branch {
-                name: name.to_string(),
-                id: "00".to_string(),
-            })
-    }
-
-    /// Returns the [CliId::Commit] for a commit. If the ID for a commit is
-    /// not known, returns the first 2 characters of its hex representation
-    /// as fallback.
-    pub fn resolve_commit(&self, commit_id: &gix::ObjectId) -> CliId {
-        // TODO this does an inefficient linear search. This could be improved,
-        // but ultimately, IdMap should provide the commit graph information
-        // that its callers need, instead of its callers doing double work and
-        // reconciling with IdMap.
-        let id = if let Some((id, _workspace_commit)) = self
-            .workspace_commits
-            .iter()
-            .find(|(_id, workspace_commit)| *commit_id == workspace_commit.commit_id)
-        {
-            id.to_owned()
-        } else if let Some((id, _commit_id)) = self
-            .remote_commit_ids
-            .iter()
-            .find(|(_id, remote_commit_id)| *commit_id == **remote_commit_id)
-        {
-            id.to_owned()
-        } else {
-            commit_id.to_hex_with_len(2).to_string()
-        };
-        CliId::Commit {
-            commit_id: commit_id.to_owned(),
-            id,
         }
     }
 
