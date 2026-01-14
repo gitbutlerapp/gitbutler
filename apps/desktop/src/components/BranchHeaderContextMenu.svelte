@@ -58,7 +58,7 @@
 	const promptService = inject(PROMPT_SERVICE);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
-	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
+	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit.useMutation();
 	const [updateBranchNameMutation] = stackService.updateBranchName;
 	const [createRef, refCreation] = stackService.createReference;
 
@@ -215,10 +215,8 @@
 						onclick={async () => {
 							await insertBlankCommitInBranch({
 								projectId,
-								stackId,
-								commitId: undefined,
-								offset: 1,
-								reference: contextData.branch.reference
+								relativeTo: { type: 'reference', subject: contextData.branch.reference },
+								side: 'below'
 							});
 							close();
 						}}

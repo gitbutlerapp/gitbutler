@@ -97,7 +97,10 @@ export function getStackServiceMock() {
 	];
 	StackServiceMock.prototype.newBranch = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.uncommit = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
-	StackServiceMock.prototype.insertBlankCommit = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
+	StackServiceMock.prototype.insertBlankCommit = {
+		useMutation: vi.fn(() => [vi.fn(), reactive(() => mockReduxFulfilled({}))]),
+		mutate: vi.fn()
+	};
 	StackServiceMock.prototype.unapply = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.publishBranch = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.amendCommit = [vi.fn(), reactive(() => mockReduxFulfilled({}))];

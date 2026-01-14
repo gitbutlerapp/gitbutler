@@ -278,24 +278,6 @@ pub fn undo_commit(ctx: &Context, stack_id: StackId, commit_oid: git2::Oid) -> R
     result
 }
 
-pub fn insert_blank_commit(
-    ctx: &Context,
-    stack_id: StackId,
-    commit_oid: git2::Oid,
-    offset: i32,
-    message: Option<&str>,
-) -> Result<(gix::ObjectId, Vec<(gix::ObjectId, gix::ObjectId)>)> {
-    let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
-        .context("Inserting a blank commit requires open workspace mode")?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::InsertBlankCommit),
-        guard.write_permission(),
-    );
-    vbranch::insert_blank_commit(ctx, stack_id, commit_oid, offset, message)
-}
-
 pub fn reorder_stack(ctx: &Context, stack_id: StackId, stack_order: StackOrder) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;

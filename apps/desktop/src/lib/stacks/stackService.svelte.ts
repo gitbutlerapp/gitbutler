@@ -29,7 +29,7 @@ import {
 	type ThunkDispatch,
 	type UnknownAction
 } from '@reduxjs/toolkit';
-import { fromStore, get } from 'svelte/store';
+import { get } from 'svelte/store';
 import type { StackOrder } from '$lib/branches/branch';
 import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
 import type { MoveCommitIllegalAction } from '$lib/commits/commit';
@@ -661,50 +661,7 @@ export class StackService {
 	}
 
 	get insertBlankCommit() {
-		const [legacyMutate, legacyStatus] = this.api.endpoints.legacyInsertBlankCommit.useMutation();
-		const [newMutate, newStatus] = this.api.endpoints.insertBlankCommit.useMutation();
-
-		async function mutate(args: {
-			projectId: string;
-			stackId: string;
-			commitId: string | undefined;
-			offset: number;
-			reference?: string;
-		}) {
-			if (get(useNewRebaseEngine)) {
-				const side = args.offset < 0 ? 'above' : 'below';
-				if (args.commitId !== undefined) {
-					// Insert relative to a commit
-					return newMutate({
-						projectId: args.projectId,
-						relativeTo: { type: 'commit', subject: args.commitId },
-						side
-					});
-				} else if (args.reference !== undefined) {
-					// Insert relative to a branch reference
-					return newMutate({
-						projectId: args.projectId,
-						relativeTo: { type: 'reference', subject: args.reference },
-						side
-					});
-				}
-			}
-			// Fall back to legacy API
-			return legacyMutate(args);
-		}
-
-		const newRebaseEngine = fromStore(useNewRebaseEngine);
-
-		const status = $derived.by(() => {
-			if (newRebaseEngine.current) {
-				return newStatus.current;
-			} else {
-				return legacyStatus.current;
-			}
-		});
-
-		// Return a tuple matching the useMutation pattern
-		return [mutate, reactive(() => status)] as const;
+		return this.api.endpoints.insertBlankCommit;
 	}
 
 	get unapply() {
@@ -1300,17 +1257,6 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesItem(ReduxTag.BranchChanges, args.stackId),
 					invalidatesList(ReduxTag.HeadSha)
 				]
-			}),
-			legacyInsertBlankCommit: build.mutation<
-				void,
-				{ projectId: string; stackId: string; commitId: string | undefined; offset: number }
-			>({
-				extraOptions: {
-					command: 'insert_blank_commit',
-					actionName: 'Insert Blank Commit'
-				},
-				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.HeadSha)]
 			}),
 			insertBlankCommit: build.mutation<
 				string,

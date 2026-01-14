@@ -1,13 +1,12 @@
-use std::{collections::HashMap, path::PathBuf, vec};
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use but_core::{RepositoryExt, commit::Headers};
+use but_core::RepositoryExt;
 use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch::BranchUpdateRequest;
-use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -15,7 +14,6 @@ use gitbutler_repo::{
     RepositoryExt as _,
     logging::{LogUntil, RepositoryExt as _},
 };
-use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Stack, StackId, Target};
 use itertools::Itertools;
 use serde::Serialize;
@@ -243,96 +241,6 @@ pub fn is_remote_branch_mergeable(ctx: &Context, branch_name: &RemoteRefname) ->
         .has_unresolved_conflicts(conflict_kind);
 
     Ok(mergeable)
-}
-
-// create and insert a blank commit (no tree change) either above or below a commit
-// if offset is positive, insert below, if negative, insert above
-// return map of the updated commit ids
-pub(crate) fn insert_blank_commit(
-    ctx: &Context,
-    stack_id: StackId,
-    commit_oid: git2::Oid,
-    offset: i32,
-    message: Option<&str>,
-) -> Result<(gix::ObjectId, Vec<(gix::ObjectId, gix::ObjectId)>)> {
-    let vb_state = ctx.legacy_project.virtual_branches();
-
-    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    // find the commit to offset from
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let mut commit = git2_repo
-        .find_commit(commit_oid)
-        .context("failed to find commit")?;
-
-    if offset > 0 {
-        commit = commit.parent(0).context("failed to find parent")?;
-    }
-
-    let repo = git2_repo;
-    let message = message.unwrap_or_default();
-
-    let commit_tree = repo.find_real_tree(&commit, Default::default()).unwrap();
-    let blank_commit_oid = ctx.commit(
-        message,
-        &commit_tree,
-        &[&commit],
-        Some(Headers::new_with_random_change_id()),
-    )?;
-
-    let merge_base = stack.merge_base(ctx)?;
-    let repo = ctx.repo.get()?;
-    let steps = stack.as_rebase_steps(ctx, &repo)?;
-    let mut updated_steps = vec![];
-    for step in steps.iter() {
-        updated_steps.push(step.clone());
-        if let RebaseStep::Pick { commit_id, .. } = step
-            && commit_id == &commit.id().to_gix()
-        {
-            updated_steps.push(RebaseStep::Pick {
-                commit_id: blank_commit_oid.to_gix(),
-                new_message: None,
-            });
-        }
-    }
-    // if the  commit is the merge_base, then put the blank commit at the beginning
-    if commit.id().to_gix() == merge_base {
-        updated_steps.insert(
-            0,
-            RebaseStep::Pick {
-                commit_id: blank_commit_oid.to_gix(),
-                new_message: None,
-            },
-        );
-    }
-
-    let mut rebase = but_rebase::Rebase::new(&repo, merge_base, None)?;
-    rebase.steps(updated_steps)?;
-    rebase.rebase_noops(false);
-    let output = rebase.rebase()?;
-    let commit_map = output
-        .commit_mapping
-        .into_iter()
-        .map(|(_, old, new)| (old, new))
-        .collect::<Vec<_>>();
-    stack.set_heads_from_rebase_output(ctx, output.references)?;
-
-    stack.set_stack_head(&vb_state, &repo, output.top_commit.to_git2())?;
-
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
-        .context("failed to update gitbutler workspace")?;
-
-    let blank_commit_id = commit_map
-        .iter()
-        .find_map(|(old, new)| {
-            if *old == blank_commit_oid.to_gix() {
-                Some(*new)
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| anyhow!("failed to find the blank commit id after rebasing"))?;
-
-    Ok((blank_commit_id, commit_map))
 }
 
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful
