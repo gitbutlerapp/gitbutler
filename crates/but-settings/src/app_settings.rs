@@ -46,6 +46,12 @@ pub struct FeatureFlags {
     pub rules: bool,
     /// Enable single branch mode.
     pub single_branch: bool,
+    /// Control how the filesystem watch should be established.
+    /// Possible values: "auto", "legacy", "modern".
+    /// "auto" automatically picks based on platform heuristics (default).
+    /// "legacy" uses recursive watching.
+    /// "modern" uses ignore-aware non-recursive watching.
+    pub watch_mode: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

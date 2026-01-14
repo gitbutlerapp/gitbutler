@@ -90,12 +90,15 @@ impl ActiveProjects {
             }
         });
 
+        let watch_mode = gitbutler_watcher::WatchMode::from_feature_flag(
+            &app_settings_sync.get()?.feature_flags.watch_mode,
+        );
         let file_watcher = gitbutler_watcher::watch_in_background(
             handler,
             project.worktree_dir()?,
             project.id,
             app_settings_sync.clone(),
-            gitbutler_watcher::WatchMode::from_env(),
+            watch_mode,
         )?;
 
         // Set up database watcher for database changes

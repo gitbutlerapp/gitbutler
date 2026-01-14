@@ -29,7 +29,10 @@
 		/// Enable processing of workspace rules.
 		"rules": false,
 		/// Enable single branch mode.
-		"singleBranch": false
+		"singleBranch": false,
+		/// Control how the filesystem watch should be established.
+		/// Possible values: "auto", "legacy", "modern".
+		"watchMode": "auto"
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {

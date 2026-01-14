@@ -184,12 +184,15 @@ pub(crate) mod state {
             let handler = handler_from_app(&self.app_handle)?;
             let worktree_dir = project.worktree_dir()?;
             let project_id = project.id;
+            let watch_mode = gitbutler_watcher::WatchMode::from_feature_flag(
+                &app_settings.get()?.feature_flags.watch_mode,
+            );
             let watcher = gitbutler_watcher::watch_in_background(
                 handler,
                 worktree_dir,
                 project_id,
                 app_settings.clone(),
-                gitbutler_watcher::WatchMode::from_env(),
+                watch_mode,
             )?;
 
             let db = ctx.db.get()?;
