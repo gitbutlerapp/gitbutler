@@ -41,10 +41,12 @@ export class InlineCodeNode extends TextNode {
 		this.__code = code;
 	}
 
-	createDOM(_config: EditorConfig): HTMLElement {
+	createDOM(config: EditorConfig): HTMLElement {
 		const dom = document.createElement('code');
+		const inner = super.createDOM(config);
 		dom.className = 'inline-code';
-		dom.textContent = this.__code;
+		inner.className = 'inline-code-inner';
+		dom.appendChild(inner);
 		return dom;
 	}
 
@@ -65,10 +67,12 @@ export class InlineCodeNode extends TextNode {
 		};
 	}
 
-	updateDOM(prevNode: this, dom: HTMLElement, _config: EditorConfig): boolean {
-		if (prevNode.__code !== this.__code) {
-			dom.textContent = this.__code;
+	updateDOM(prevNode: this, dom: HTMLElement, config: EditorConfig): boolean {
+		const inner = dom.firstChild;
+		if (inner === null) {
+			return true;
 		}
+		super.updateDOM(prevNode, inner as HTMLElement, config);
 		return false;
 	}
 
@@ -104,7 +108,7 @@ export class InlineCodeNode extends TextNode {
 }
 
 export function createInlineCodeNode(code: string): InlineCodeNode {
-	return new InlineCodeNode(code);
+	return new InlineCodeNode(code).setMode('token');
 }
 
 export function isInlineCodeNode(node: LexicalNode): node is InlineCodeNode {
