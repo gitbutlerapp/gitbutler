@@ -14,7 +14,7 @@ use super::{BranchManager, checkout_remerged_head};
 use crate::VirtualBranchesExt;
 
 impl BranchManager<'_> {
-    #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
+    #[instrument(level = "debug", skip(self, perm), err(Debug))]
     pub fn unapply(
         &self,
         stack_id: StackId,

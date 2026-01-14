@@ -359,7 +359,12 @@ pub mod merge {
         /// In order to find out exactly which branches conflicts, we repeat the whole operations with different configuration.
         /// One could be better and only repeat what didn't change, to avoid repeating unnecessarily.
         /// But that shouldn't usually matter unless in the biggest repositories with tree-merge times past a 500ms or so.
-        #[instrument(name = "re-merge workspace commit", level = tracing::Level::DEBUG, skip(stacks, anon_stacks, graph, repo), err(Debug))]
+        #[instrument(
+            name = "re-merge workspace commit",
+            level = "debug",
+            skip(stacks, anon_stacks, graph, repo),
+            err(Debug)
+        )]
         pub fn from_new_merge_with_metadata<'a>(
             stacks: impl IntoIterator<Item = &'a but_core::ref_metadata::WorkspaceStack>,
             anon_stacks: impl IntoIterator<Item = (usize, Tip)>,

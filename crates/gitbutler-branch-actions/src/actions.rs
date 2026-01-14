@@ -469,7 +469,7 @@ pub fn tear_off_branch(
     )
 }
 
-#[instrument(level = tracing::Level::DEBUG, skip(ctx), err(Debug))]
+#[instrument(level = "debug", skip(ctx), err(Debug))]
 pub fn create_virtual_branch_from_branch(
     ctx: &Context,
     branch: &Refname,

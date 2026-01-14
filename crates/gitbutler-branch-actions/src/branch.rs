@@ -22,7 +22,7 @@ use tracing::instrument;
 
 use crate::{RemoteBranchFile, VirtualBranchesExt, gravatar::gravatar_url_from_email};
 
-#[instrument(level = tracing::Level::DEBUG, skip(ctx, _permission))]
+#[instrument(level = "debug", skip(ctx, _permission))]
 pub(crate) fn get_uncommitted_files_raw(
     ctx: &Context,
     _permission: &WorktreeReadPermission,

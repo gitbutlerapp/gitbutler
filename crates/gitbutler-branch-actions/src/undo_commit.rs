@@ -19,7 +19,7 @@ use crate::VirtualBranchesExt as _;
 ///
 /// This may create conflicted commits above the commit that is getting
 /// undone.
-#[instrument(level = tracing::Level::DEBUG, skip(ctx, _perm))]
+#[instrument(level = "debug", skip(ctx, _perm))]
 pub(crate) fn undo_commit(
     ctx: &Context,
     stack_id: StackId,

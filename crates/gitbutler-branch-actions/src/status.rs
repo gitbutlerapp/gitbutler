@@ -45,7 +45,7 @@ pub fn get_applied_status(
 /// against the current working tree directory, and it's used to avoid double-computing
 /// this expensive information.
 // TODO(kv): make this side effect free
-#[instrument(level = tracing::Level::DEBUG, skip(ctx, perm, worktree_changes))]
+#[instrument(level = "debug", skip(ctx, perm, worktree_changes))]
 pub fn get_applied_status_cached(
     ctx: &Context,
     perm: Option<&mut WorktreeWritePermission>,

@@ -217,7 +217,7 @@ impl Rebase<'_> {
     }
 }
 
-#[instrument(level = tracing::Level::DEBUG, skip(repo))]
+#[instrument(level = "debug", skip(repo))]
 fn rebase(
     repo: &gix::Repository,
     base: Option<gix::ObjectId>,

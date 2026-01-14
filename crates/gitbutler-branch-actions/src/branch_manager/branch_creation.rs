@@ -50,7 +50,7 @@ impl From<(StackId, Vec<StackId>, Vec<String>)> for CreateBranchFromBranchOutcom
 }
 
 impl BranchManager<'_> {
-    #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
+    #[instrument(level = "debug", skip(self, perm), err(Debug))]
     pub fn create_virtual_branch(
         &self,
         create: &BranchCreateRequest,
@@ -270,7 +270,7 @@ impl BranchManager<'_> {
 
 /// Holding private methods associated to branch creation
 impl BranchManager<'_> {
-    #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
+    #[instrument(level = "debug", skip(self, perm), err(Debug))]
     fn apply_branch(
         &self,
         stack_id: StackId,
