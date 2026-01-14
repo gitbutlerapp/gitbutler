@@ -50,3 +50,25 @@ $ WEBKIT_DISABLE_COMPOSITING_MODE=1 gitbutler-tauri
 ```
 
 See https://github.com/gitbutlerapp/gitbutler/issues/11602 for details.
+
+### Blank screen or crash with NVIDIA GPU
+
+There are known incompatibilities between NVIDIA's proprietary drivers and WebKitGTK that may cause issues ranging from a blank screen to an immediate crash. These issues appear to be most prevalent on Wayland.
+
+Known errors include:
+
+- `KMS: DRM_IOCTL_MODE_CREATE_DUMB failed: Permission denied`
+  - Typically causes a blank screen
+- `Error 71 (Protocol error) dispatching to Wayland display`
+  - Typically causes an immediate crash
+  - Only visible if you run with the environment variable `WAYLAND_DEBUG=1`
+
+There are a few workarounds to try:
+
+- Disabling hardware acceleration with `WEBKIT_DISABLE_COMPOSITING_MODE=1`
+  - This is our recommended solution
+- Using the Nouveau driver instead of the proprietary NVIDIA driver
+- Using [PRIME offloading](https://wiki.archlinux.org/title/PRIME) so GitButler runs on your iGPU instead
+  - You may still want to disable hardware acceleration due to performance issues
+
+See https://github.com/gitbutlerapp/gitbutler/issues/11761 for details.
