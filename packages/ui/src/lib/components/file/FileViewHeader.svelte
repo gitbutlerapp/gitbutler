@@ -186,10 +186,10 @@
 
 	@keyframes highlight-flash {
 		0% {
-			background-color: rgba(255, 200, 0, 0.3);
+			background-color: rgba(255, 250, 200, 1);
 		}
 		100% {
-			background-color: transparent;
+			background-color: var(--clr-bg-1);
 		}
 	}
 </style>

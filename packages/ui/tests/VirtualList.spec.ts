@@ -190,8 +190,7 @@ test('should initialize at top by default', async ({ mount }) => {
 	const component = await mount(VirtualListTestWrapper, {
 		props: {
 			...config,
-			stickToBottom: false,
-			startIndex: undefined
+			stickToBottom: false
 		}
 	});
 
