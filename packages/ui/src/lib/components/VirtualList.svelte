@@ -98,6 +98,7 @@
 	const LOAD_MORE_THRESHOLD = 300;
 	const DEBOUNCE_DELAY = 50;
 	const HEIGHT_LOCK_DURATION = 1000;
+	const RENDER_THRESHOLD = 250;
 
 	const {
 		items,
@@ -256,7 +257,7 @@
 			const rowHeight = visibleRowElements?.[i - visibleRange.start]?.clientHeight;
 			const heightToUse = rowHeight || heightMap[i] || defaultHeight;
 			accumulatedHeight += heightToUse;
-			if (accumulatedHeight > viewport.scrollTop) {
+			if (accumulatedHeight > viewport.scrollTop - RENDER_THRESHOLD) {
 				return i;
 			}
 		}
@@ -269,7 +270,7 @@
 		let accumulatedHeight = offset.top - viewport.scrollTop;
 		for (let i = visibleRange.start; i < items.length; i++) {
 			accumulatedHeight += heightMap[i] || defaultHeight;
-			if (accumulatedHeight > viewport.clientHeight) {
+			if (accumulatedHeight > viewport.clientHeight + RENDER_THRESHOLD) {
 				return i + 1;
 			}
 		}

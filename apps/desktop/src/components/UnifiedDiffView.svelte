@@ -352,6 +352,7 @@
 	}
 
 	.hunk-content {
+		min-height: 42px;
 		user-select: text;
 	}
 </style>
