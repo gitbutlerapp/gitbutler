@@ -29,10 +29,12 @@
 		ContextMenuSection,
 		FileListItem,
 		Modal,
+		ScrollableContainer,
 		chipToasts
 	} from '@gitbutler/ui';
-
+	import { tick } from 'svelte';
 	import type { SelectionId } from '$lib/selection/key';
+	import type { HunkAssignment } from '@gitbutler/core/api';
 
 	const DEFAULT_MODEL = 'gpt-4';
 
@@ -80,6 +82,7 @@
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
 	const [splitOffChanges] = stackService.splitBranch;
 	const [splitBranchIntoDependentBranch] = stackService.splitBrancIntoDependentBranch;
+	const [absorb, absorbingChanges] = stackService.absorb;
 
 	const projectService = inject(PROJECTS_SERVICE);
 
@@ -104,6 +107,7 @@
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let stashConfirmationModal: ReturnType<typeof Modal> | undefined;
+	let absorbPlanModal = $state<ReturnType<typeof Modal> | undefined>();
 	let contextMenu: ReturnType<typeof ContextMenu>;
 	let aiConfigurationValid = $state(false);
 
@@ -150,6 +154,7 @@
 	let stashBranchName = $state<string>();
 	let slugifiedRefName: string | undefined = $state();
 	let stashBranchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
+	let absorbPlan = $state<HunkAssignment.CommitAbsorption[]>([]);
 
 	async function confirmStashIntoBranch(item: ChangedFilesItem, branchName: string | undefined) {
 		if (!branchName) {
@@ -228,11 +233,22 @@
 		}
 	}
 
-	async function triggerAbsorbChanges(_: TreeChange[]) {
-		if (!canUseGBAI) {
-			chipToasts.error('GitButler AI is not configured or enabled for this project.');
+	async function triggerAbsorbChanges(changes: TreeChange[]) {
+		const changesToAbsorb = $state.snapshot(changes);
+		const plan = await stackService.fetchAbsorbPlan(projectId, {
+			type: 'treeChanges',
+			subject: {
+				changes: changesToAbsorb,
+				assigned_stack_id: stackId ?? null
+			}
+		});
+		if (!plan || plan.length === 0) {
+			chipToasts.error('No suitable commits found to absorb changes into.');
 			return;
 		}
+		absorbPlan = plan;
+		await tick();
+		absorbPlanModal?.show(null);
 	}
 
 	async function split(changes: TreeChange[]) {
@@ -338,8 +354,6 @@
 								contextMenu.close();
 							}}
 						/>
-					{/if}
-					{#if isUncommitted}
 						<ContextMenuItem
 							label="Stash into branch…"
 							icon="stash"
@@ -352,6 +366,15 @@
 								}
 								contextMenu.close();
 							}}
+						/>
+						<ContextMenuItem
+							label="Absorb changes"
+							tooltip="Try to find the best commit in the workspace to amend the changes into."
+							onclick={() => {
+								triggerAbsorbChanges(item.changes);
+								contextMenu.close();
+							}}
+							disabled={absorbingChanges.current.isLoading}
 						/>
 					{/if}
 					{#if selectionId.type === 'commit' && stackId && !editMode}
@@ -503,16 +526,6 @@
 									}}
 									disabled={branchingChanges.current.isLoading}
 								/>
-								<ContextMenuItem
-									label="Absorb changes"
-									tooltip="Try to find the best place to absorb the changes into."
-									onclick={() => {
-										closeSubmenu();
-										contextMenu.close();
-										triggerAbsorbChanges(item.changes);
-									}}
-									disabled
-								/>
 							</ContextMenuSection>
 						{/snippet}
 					</ContextMenuItemSubmenu>
@@ -627,6 +640,80 @@
 	{/snippet}
 </Modal>
 
+<Modal
+	width="small"
+	type="info"
+	title="Absorb Plan"
+	bind:this={absorbPlanModal}
+	onSubmit={async () => {
+		try {
+			await chipToasts.promise(absorb({ projectId, absorptionPlan: absorbPlan }), {
+				loading: 'Absorbing changes',
+				success: 'Changes absorbed successfully',
+				error: 'Failed to absorb changes'
+			});
+			absorbPlanModal?.close();
+		} catch (error) {
+			console.error('Failed to absorb changes:', error);
+		}
+	}}
+>
+	<div class="absorb-plan-content">
+		<ScrollableContainer>
+			{#if absorbPlan.length === 0}
+				<p class="text-13 clr-text-2">No changes to absorb.</p>
+			{:else}
+				<p class="text-13 clr-text-2">
+					The following changes will be absorbed into their respective commits:
+				</p>
+				<div class="commit-absorptions">
+					{#each absorbPlan as commitAbsorption}
+						<div class="commit-absorption">
+							<div class="commit-header">
+								<span class="commit-summary text-semibold">{commitAbsorption.commitSummary}</span>
+								->
+								<span class="commit-id text-11 clr-text-3"
+									>{commitAbsorption.commitId.substring(0, 7)}</span
+								>
+							</div>
+							{#if commitAbsorption.reason !== 'default_stack'}
+								<div class="reason text-12 clr-text-2">
+									{#if commitAbsorption.reason === 'hunk_dependency'}
+										📍 Files locked to commit due to hunk range overlap
+									{:else if commitAbsorption.reason === 'stack_assignment'}
+										🔖 Files assigned to this stack
+									{/if}
+								</div>
+							{/if}
+							<ul class="file-list">
+								{#each commitAbsorption.files as file, i}
+									<FileListItem
+										filePath={file.path}
+										clickable={false}
+										listMode="list"
+										hideBorder={i === commitAbsorption.files.length - 1}
+									/>
+								{/each}
+							</ul>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</ScrollableContainer>
+	</div>
+	{#snippet controls(close)}
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button
+			style="pop"
+			type="submit"
+			loading={absorbingChanges.current.isLoading}
+			disabled={absorbPlan.length === 0 || absorbingChanges.current.isLoading}
+		>
+			Absorb
+		</Button>
+	{/snippet}
+</Modal>
+
 <style lang="postcss">
 	.discard-caption {
 		color: var(--clr-text-2);
@@ -645,5 +732,34 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
+	}
+	.absorb-plan-content {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	.commit-absorptions {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+	.commit-absorption {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.commit-header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.commit-summary {
+		color: var(--clr-text-1);
+	}
+	.commit-id {
+		font-family: var(--font-mono);
+	}
+	.reason {
+		margin-top: 4px;
 	}
 </style>

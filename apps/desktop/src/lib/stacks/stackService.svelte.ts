@@ -47,6 +47,7 @@ import type {
 	GerritPushFlag
 } from '$lib/stacks/stack';
 import type { ReduxError } from '$lib/state/reduxError';
+import type { HunkAssignment } from '@gitbutler/core/api';
 
 type BranchParams = {
 	name?: string;
@@ -926,6 +927,14 @@ export class StackService {
 	get createReference() {
 		return this.api.endpoints.createReference.useMutation();
 	}
+
+	get absorb() {
+		return this.api.endpoints.absorb.useMutation();
+	}
+
+	async fetchAbsorbPlan(projectId: string, target: HunkAssignment.AbsorptionTarget) {
+		return await this.api.endpoints.absorbPlan.fetch({ projectId, target });
+	}
 }
 
 function transformStacksResponse(response: Stack[]) {
@@ -1255,6 +1264,27 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.BranchChanges, args.stackId),
+					invalidatesList(ReduxTag.HeadSha)
+				]
+			}),
+			absorbPlan: build.query<
+				HunkAssignment.CommitAbsorption[],
+				{ projectId: string; target: HunkAssignment.AbsorptionTarget }
+			>({
+				extraOptions: { command: 'absorption_plan' },
+				query: (args) => args
+			}),
+			absorb: build.mutation<
+				void,
+				{ projectId: string; absorptionPlan: HunkAssignment.CommitAbsorption[] }
+			>({
+				extraOptions: {
+					command: 'absorb',
+					actionName: 'Absorb changes v2'
+				},
+				query: (args) => args,
+				invalidatesTags: () => [
+					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.HeadSha)
 				]
 			}),
