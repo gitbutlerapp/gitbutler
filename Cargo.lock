@@ -1061,7 +1061,6 @@ dependencies = [
  "bitflags 2.10.0",
  "chrono",
  "diesel",
- "diesel_migrations",
  "insta",
  "libc",
  "rusqlite",
@@ -2504,17 +2503,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.112",
-]
-
-[[package]]
-name = "diesel_migrations"
-version = "2.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "745fd255645f0f1135f9ec55c7b00e0882192af9683ab4731e4bba3da82b8f9c"
-dependencies = [
- "diesel",
- "migrations_internals",
- "migrations_macros",
 ]
 
 [[package]]
@@ -6688,27 +6676,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "migrations_internals"
-version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36c791ecdf977c99f45f23280405d7723727470f6689a5e6dbf513ac547ae10d"
-dependencies = [
- "serde",
- "toml 0.9.10+spec-1.1.0",
-]
-
-[[package]]
-name = "migrations_macros"
-version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36fc5ac76be324cfd2d3f2cf0fdf5d5d3c4f14ed8aaebadb09e304ba42282703"
-dependencies = [
- "migrations_internals",
- "proc-macro2",
- "quote",
 ]
 
 [[package]]

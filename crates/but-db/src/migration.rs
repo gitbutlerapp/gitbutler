@@ -1,10 +1,14 @@
 use crate::M;
+use tracing::instrument;
+
+/// The error produced when running migrations.
+pub type Error = backoff::Error<rusqlite::Error>;
 
 /// Return a sequence of our own, well known migrations.
 ///
 /// Note that these will be ordered by [`run()`].
 pub fn ours() -> impl Iterator<Item = M<'static>> {
-    crate::MIGRATIONS2
+    crate::MIGRATIONS
         .iter()
         .flat_map(|per_table| per_table.iter())
         .copied()
@@ -16,10 +20,11 @@ pub fn ours() -> impl Iterator<Item = M<'static>> {
 /// for an intermediate failure related to databases.
 ///
 /// Currently, either all migrations succeed, or all fail.
+#[instrument(level = "debug", skip(conn, migrations), err(Debug))]
 pub fn run<'m>(
     conn: &mut rusqlite::Connection,
     migrations: impl IntoIterator<Item = M<'m>>,
-) -> Result<usize, backoff::Error<rusqlite::Error>> {
+) -> Result<usize, Error> {
     let trans = conn
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(backoff::Error::transient)?;
@@ -51,7 +56,7 @@ pub fn run<'m>(
 
         let err: Option<String> = if idx >= migrations.len() {
             format!(
-                "migration count reduced, wanted at least {num_existing}, but got {actual}",
+                "Cannot reduce migration count: database has {num_existing} migrations but only {actual} provided",
                 actual = migrations.len(),
                 num_existing = existing_versions.len()
             )

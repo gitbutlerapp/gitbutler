@@ -22,12 +22,8 @@ pub use table::{
     ci_checks::CiCheck,
 };
 
-use diesel_migrations::{EmbeddedMigrations, embed_migrations};
-
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
-
-/// All migrations to run, in any order, a ordering is maintained by their date string.
-pub const MIGRATIONS2: &[&[M<'static>]] = &[
+/// The migrations to run, in any order, as ordering is maintained by their date number.
+pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::hunk_assignments::M,
     table::butler_actions::M,
     table::workflows::M,

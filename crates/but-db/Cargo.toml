@@ -17,12 +17,13 @@ diesel = { version = "2.3.5", features = [
     "chrono",
 ] }
 # Bundled rusqlite for Windows, and exactly this version to match the one of `diesel`!
-# rusqlite is used for caches, exposing a rusty API for sqlite, while using `libsqlite3-sys`@v0.30, which is needed by diesel.
+# `rusqlite` is used for running SQLite migrations and other low-level operations,
+# exposing a rusty API for sqlite, while using `libsqlite3-sys`@v0.30,
+# which is needed by diesel for the main database operations.
 rusqlite = { version = "0.32.1", features = ["bundled"] }
 bitflags.workspace = true
 serde.workspace = true
 anyhow.workspace = true
-diesel_migrations = { version = "2.3.1", features = ["sqlite"] }
 chrono = { workspace = true, features = ["serde"] }
 # other things
 tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time", "sync", "macros"] }

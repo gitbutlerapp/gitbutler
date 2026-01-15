@@ -1,8 +1,8 @@
-use crate::{DbHandle, FILE_NAME, MIGRATIONS};
+use crate::{DbHandle, FILE_NAME, migration};
 use diesel::connection::SimpleConnection;
 use diesel::{Connection, SqliteConnection};
-use diesel_migrations::MigrationHarness;
 use std::path::{Path, PathBuf};
+use tracing::instrument;
 
 impl std::fmt::Debug for DbHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -31,11 +31,12 @@ impl DbHandle {
     }
 
     /// A new instance connecting to the database at the given `url`.
+    #[instrument(level = "debug", skip(url), err(Debug))]
     pub fn new_at_url(url: impl Into<String>) -> anyhow::Result<Self> {
         let url = url.into();
         let mut conn = SqliteConnection::establish(&url)?;
         improve_concurrency(&mut conn)?;
-        run_migrations(&mut conn)?;
+        run_migrations(&url)?;
         Ok(DbHandle { conn, url })
     }
 
@@ -64,11 +65,17 @@ fn improve_concurrency(conn: &mut SqliteConnection) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_migrations(
-    connection: &mut SqliteConnection,
-) -> anyhow::Result<Vec<diesel::migration::MigrationVersion<'_>>> {
-    match connection.run_pending_migrations(MIGRATIONS) {
-        Ok(migrations) => Ok(migrations),
-        Err(e) => anyhow::bail!("Failed to run migrations: {}", e),
-    }
+fn run_migrations(url: &str) -> anyhow::Result<()> {
+    let mut db = rusqlite::Connection::open(url)?;
+    let policy = backoff::ExponentialBackoffBuilder::new()
+        .with_max_elapsed_time(Some(std::time::Duration::from_millis(500)))
+        .build();
+
+    Ok(backoff::retry(policy, || {
+        let count = migration::run(&mut db, migration::ours())?;
+        if count > 0 {
+            tracing::info!("Database updated with {count} migrations");
+        }
+        Ok::<_, backoff::Error<migration::Error>>(())
+    })?)
 }
