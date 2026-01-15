@@ -85,7 +85,7 @@ impl BranchManager<'_> {
             }
         }
 
-        let branch = Stack::create(self.ctx, name.clone(), None, None, None, None, order, false)?;
+        let branch = Stack::create(self.ctx, name.clone(), None, None, None, order, false)?;
 
         vb_state.set_stack(branch.clone())?;
         self.ctx.add_branch_reference(&branch)?;
@@ -214,7 +214,6 @@ impl BranchManager<'_> {
             .find_by_top_reference_name_where_not_in_workspace(&target.to_string())?
             .or(vb_state.find_by_source_refname_where_not_in_workspace(target)?)
         {
-            branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
             branch.upstream = upstream_branch; // Used as remote when listing commits.
             branch.order = order;
             branch.in_workspace = true;
@@ -224,13 +223,11 @@ impl BranchManager<'_> {
             vb_state.set_stack(branch.clone())?;
             branch
         } else {
-            let upstream_head = upstream_branch.is_some().then_some(head_commit.id());
             Stack::create(
                 self.ctx,
                 branch_name.clone(),
                 Some(target.clone()),
                 upstream_branch,
-                upstream_head,
                 None,
                 order,
                 true, // allow duplicate branch name if created from an existing branch
