@@ -75,6 +75,25 @@ Error: No push remote set
 }
 
 #[test]
+fn remote_and_local_files() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("remote-local-divergence")?;
+
+    // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
+    env.setup_metadata(&["main"])?;
+
+    env.but("status --files")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/remote-and-local-files.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
 fn json_shows_paths_as_strings() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
