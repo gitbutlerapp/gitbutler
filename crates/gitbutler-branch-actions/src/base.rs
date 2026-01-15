@@ -180,33 +180,21 @@ pub(crate) fn set_base_branch(
 
         let wd_diff = gitbutler_diff::workdir(repo, current_head_commit.id())?;
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
-            let (upstream, upstream_head, branch_matches_target) =
-                if let Refname::Local(head_name) = &head_name {
-                    let upstream_name = target_branch_ref.with_branch(head_name.branch());
-                    if upstream_name.eq(target_branch_ref) {
-                        (None, None, true)
-                    } else {
-                        match repo.find_reference(&Refname::from(&upstream_name).to_string()) {
-                            Ok(upstream) => {
-                                let head = upstream
-                                    .peel_to_commit()
-                                    .map(|commit| commit.id())
-                                    .context(format!(
-                                        "failed to peel upstream {} to commit",
-                                        upstream.name().unwrap()
-                                    ))?;
-                                Ok((Some(upstream_name), Some(head), false))
-                            }
-                            Err(err) if err.code() == git2::ErrorCode::NotFound => {
-                                Ok((None, None, false))
-                            }
-                            Err(error) => Err(error),
-                        }
-                        .context(format!("failed to find upstream for {head_name}"))?
-                    }
+            let (upstream, branch_matches_target) = if let Refname::Local(head_name) = &head_name {
+                let upstream_name = target_branch_ref.with_branch(head_name.branch());
+                if upstream_name.eq(target_branch_ref) {
+                    (None, true)
                 } else {
-                    (None, None, false)
-                };
+                    match repo.find_reference(&Refname::from(&upstream_name).to_string()) {
+                        Ok(_upstream) => Ok((Some(upstream_name), false)),
+                        Err(err) if err.code() == git2::ErrorCode::NotFound => Ok((None, false)),
+                        Err(error) => Err(error),
+                    }
+                    .context(format!("failed to find upstream for {head_name}"))?
+                }
+            } else {
+                (None, false)
+            };
 
             let branch_name = if branch_matches_target {
                 canned_branch_name(repo)?
@@ -219,7 +207,6 @@ pub(crate) fn set_base_branch(
                 branch_name,
                 Some(head_name),
                 upstream,
-                upstream_head,
                 Some(current_head_commit.id()),
                 0,
                 !branch_matches_target, // allow duplicate name since here we are creating a lane from an existing branch

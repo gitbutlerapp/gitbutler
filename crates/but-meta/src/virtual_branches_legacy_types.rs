@@ -44,9 +44,6 @@ mod stack {
         /// Upstream tracking branch reference, added when creating a stack from a branch.
         /// Used e.g. when listing commits from a fork.
         pub upstream: Option<RemoteRefname>,
-        // upstream_head is the last commit on we've pushed to the upstream branch
-        #[serde(with = "but_serde::object_id_opt", default)]
-        pub upstream_head: Option<gix::ObjectId>,
         // order is the number by which UI should sort branches
         pub order: usize,
         /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
@@ -152,7 +149,6 @@ mod stack {
                 // Don't keep redundant information
                 source_refname: None,
                 upstream: None,
-                upstream_head: None,
 
                 // For serialization backwards compatibility
                 #[allow(deprecated)]
