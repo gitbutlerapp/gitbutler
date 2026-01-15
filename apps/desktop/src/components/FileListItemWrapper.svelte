@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
+	import { targetEqual, type HunkLockTarget } from '$lib/dependencies/dependencies';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { FileChangeDropData } from '$lib/dragging/draggables';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
@@ -35,7 +36,7 @@
 		active?: boolean;
 		locked?: boolean;
 		lockedCommitIds?: string[];
-		lockedStackIds?: string[];
+		lockedTargets?: HunkLockTarget[];
 		isLast?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
@@ -58,7 +59,7 @@
 		active,
 		locked,
 		lockedCommitIds = [],
-		lockedStackIds = [],
+		lockedTargets = [],
 		isLast = false,
 		onclick,
 		onkeydown
@@ -104,16 +105,24 @@
 	const draggableDisabled = $derived(!draggable || showCheckbox);
 
 	const lockText = $derived.by(() => {
-		if (!locked || lockedStackIds.length === 0) return undefined;
+		if (!locked || lockedTargets.length === 0) return undefined;
 
 		const stacks = stackService.stacks(projectId).result.data ?? [];
 		const stackNames = stacks
-			.filter((stack) => stack.id && lockedStackIds.includes(stack.id))
+			.filter(
+				(stack) =>
+					stack.id &&
+					lockedTargets.some((t) => targetEqual(t, { type: 'stack', subject: stack.id! }))
+			)
 			.map(getStackName);
 
-		return stackNames.length === 1
-			? `Depends on changes in:\n '${stackNames[0]}'`
-			: `Depends on changes in:\n ${stackNames.join(', ')}`;
+		if (stackNames.length === 0) {
+			return 'Depends on changes in an unidentified stack';
+		} else if (stackNames.length === 1) {
+			return `Depends on changes in:\n '${stackNames[0]}'`;
+		} else {
+			return `Depends on changes in:\n ${stackNames.join(', ')}`;
+		}
 	});
 
 	function handleLockHover() {

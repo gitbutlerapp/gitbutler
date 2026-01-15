@@ -1,6 +1,7 @@
 use anyhow::Context as _;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
+use but_hunk_dependency::ui::HunkLockTarget;
 use but_oxidize::ObjectIdExt;
 use but_tools::{
     emit::Emitter,
@@ -159,13 +160,15 @@ fn absorb_locked_changes(
             }
         }
 
-        if let Some(hunk_lock) = hunk_lock {
+        if let Some(hunk_lock) = hunk_lock
+            && let HunkLockTarget::Stack(stack_id) = hunk_lock.target
+        {
             // File is locked to a single commit, add it to the absorb group.
             let group = absorb_groups
                 .entry(hunk_lock.commit_id)
                 .or_insert_with(|| AbsorbGroup {
                     commit_id: hunk_lock.commit_id,
-                    stack_id: hunk_lock.stack_id,
+                    stack_id,
                     files: Vec::new(),
                 });
 

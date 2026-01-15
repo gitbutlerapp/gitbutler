@@ -15,7 +15,11 @@
 
 	const stackService = inject(STACK_SERVICE);
 
-	const lockedToStackIds = $derived(locks.map((lock) => lock.stackId));
+	const lockedToStackIds = $derived(
+		locks
+			.filter((lock) => lock.target.type === 'stack')
+			.map((lock) => (lock.target as { type: 'stack'; subject: string }).subject)
+	);
 	const stacksQuery = $derived(stackService.stacks(projectId));
 </script>
 
@@ -33,7 +37,7 @@
 			{:else if stackNames.length === 1}
 				<p>This line depends on changes inside <b>'{stackNames[0]}'</b></p>
 			{:else}
-				<p>This is weird and shouldn't happen</p>
+				<p>This line depends on changes inside an unidentifiable stack</p>
 			{/if}
 		</div>
 	{/snippet}

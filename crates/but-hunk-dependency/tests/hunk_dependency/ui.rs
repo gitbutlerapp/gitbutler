@@ -4,7 +4,7 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
         "complex-file-manipulation-multiple-hunks-with-changes",
     )?;
     let actual_str = serde_json::to_string_pretty(&actual).unwrap();
-    let stack_ids = stack_ids_by_diffs(&actual);
+    let stack_ids = targets_by_diffs(&actual);
     let actual_str = simplify_stack_ids_in_string(stack_ids.iter(), actual_str);
     insta::assert_snapshot!(actual_str, @r#"
     {
@@ -20,7 +20,10 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           },
           [
             {
-              "stackId": "stack_1",
+              "target": {
+                "type": "stack",
+                "subject": "stack_1"
+              },
               "commitId": "9dd99b79687c4b67024d0855c08a6ad55bfa6632"
             }
           ]
@@ -36,11 +39,17 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           },
           [
             {
-              "stackId": "stack_1",
+              "target": {
+                "type": "stack",
+                "subject": "stack_1"
+              },
               "commitId": "9c7ad9af048c7b9ad1e84b0c17641347b84db1d1"
             },
             {
-              "stackId": "stack_1",
+              "target": {
+                "type": "stack",
+                "subject": "stack_1"
+              },
               "commitId": "500b70982f4576f707583412a28a6797211d180a"
             }
           ]
@@ -56,11 +65,17 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           },
           [
             {
-              "stackId": "stack_1",
+              "target": {
+                "type": "stack",
+                "subject": "stack_1"
+              },
               "commitId": "9dd99b79687c4b67024d0855c08a6ad55bfa6632"
             },
             {
-              "stackId": "stack_1",
+              "target": {
+                "type": "stack",
+                "subject": "stack_1"
+              },
               "commitId": "9c7ad9af048c7b9ad1e84b0c17641347b84db1d1"
             }
           ]
@@ -93,15 +108,21 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 "),
                 [
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
                     },
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(c85aaba55013536a1d44d8972d0b9fe9e484eb6f),
                     },
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
                     },
                 ],
@@ -114,11 +135,15 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 "),
                 [
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
                     },
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
                     },
                 ],
@@ -147,7 +172,9 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 "),
                 [
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                     },
                 ],
@@ -161,11 +188,15 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 "),
                 [
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                     },
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(500b70982f4576f707583412a28a6797211d180a),
                     },
                 ],
@@ -179,11 +210,15 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 "),
                 [
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                     },
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                     },
                 ],
@@ -209,7 +244,9 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
                 "),
                 [
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(e418c1bb8d15211edb026fa562fb4c83199d8481),
                     },
                 ],
@@ -222,7 +259,9 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
                 "),
                 [
                     HunkLock {
-                        stack_id: stack_1,
+                        target: Stack(
+                            stack_1,
+                        ),
                         commit_id: Sha1(df241a53d1a4dae37f16def5f6d9405ea236fbf6),
                     },
                 ],
@@ -240,14 +279,14 @@ mod util {
     use but_core::unified_diff::DiffHunk;
     use but_ctx::Context;
     use but_hunk_dependency::ui::{
-        HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
+        HunkDependencies, HunkLock, HunkLockTarget,
+        hunk_dependencies_for_workspace_changes_by_worktree_dir,
     };
     use but_testsupport::gix_testtools::tempfile;
-    use gitbutler_stack::StackId;
     use itertools::Itertools;
 
     pub fn to_stable_string(deps: HunkDependencies) -> String {
-        let stack_ids = stack_ids_by_diffs(&deps);
+        let stack_ids = targets_by_diffs(&deps);
         let deps: StableHunkDependencies = deps.into();
         simplify_stack_ids(stack_ids, &deps)
     }
@@ -351,13 +390,13 @@ mod util {
         }
     }
 
-    pub fn stack_ids_by_diffs(deps: &HunkDependencies) -> HashSet<StackId> {
+    pub fn targets_by_diffs(deps: &HunkDependencies) -> HashSet<HunkLockTarget> {
         deps.diffs
             .iter()
-            .flat_map(|(_, _, locks)| locks.iter().map(|lock| lock.stack_id))
+            .flat_map(|(_, _, locks)| locks.iter().map(|lock| lock.target))
             .collect()
     }
 }
-use util::{simplify_stack_ids_in_string, stack_ids_by_diffs, to_stable_string};
+use util::{simplify_stack_ids_in_string, targets_by_diffs, to_stable_string};
 
 use crate::ui::util::hunk_dependencies_for_workspace_separated;
