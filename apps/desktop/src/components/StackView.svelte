@@ -28,14 +28,12 @@
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
-	import { type TreeChange } from '$lib/hunks/change';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import {
 		createBranchSelection,
 		createCommitSelection,
 		createWorktreeSelection,
-		key,
 		readKey,
 		type SelectionId
 	} from '$lib/selection/key';
@@ -358,18 +356,7 @@
 		attachmentService.clearByBranch(branchName);
 	}
 
-	function toSelectedFile(change: TreeChange) {
-		return readKey(
-			key({
-				...createWorktreeSelection({ stackId }),
-				path: change.path
-			})
-		);
-	}
-
-	const assignedFiles = $derived(
-		uncommittedService.getChangesByStackId(stackId || null).map(toSelectedFile)
-	);
+	const assignedFiles = $derived(uncommittedService.getChangesByStackId(stackId || null));
 
 	let multiDiffView = $state<MultiDiffView>();
 </script>
@@ -635,16 +622,13 @@
 										{@const commitResult = commitFiles?.result}
 										{#if commitResult}
 											<ReduxResult {projectId} {stackId} result={commitResult}>
-												{#snippet children(commitFiles)}
+												{#snippet children(commit)}
 													<MultiDiffView
 														{stackId}
+														selectionId={{ type: 'commit', commitId }}
 														bind:this={multiDiffView}
 														projectId={stableProjectId}
-														files={commitFiles?.changes.map((change) => ({
-															type: 'commit' as const,
-															commitId,
-															path: change.path
-														}))}
+														changes={commit.changes}
 														draggable={true}
 														selectable={false}
 													/>
@@ -675,12 +659,8 @@
 									{#snippet children(result)}
 										<MultiDiffView
 											{stackId}
-											files={result?.changes.map((change) => ({
-												type: 'branch' as const,
-												branchName,
-												remote: undefined,
-												path: change.path
-											}))}
+											selectionId={{ type: 'branch', branchName, remote: undefined }}
+											changes={result.changes}
 											bind:this={multiDiffView}
 											projectId={stableProjectId}
 											draggable={true}
@@ -692,7 +672,8 @@
 						{:else if $activeLastAdded}
 							<MultiDiffView
 								{stackId}
-								files={assignedFiles}
+								selectionId={{ type: 'worktree', stackId }}
+								changes={assignedFiles}
 								bind:this={multiDiffView}
 								projectId={stableProjectId}
 								draggable={true}
