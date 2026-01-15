@@ -639,7 +639,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
 
     [branches.1]
     id = "1"
-    head = "0000000000000000000000000000000000000000"
     order = 0
     in_workspace = true
     notes = ""
@@ -650,6 +649,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     created_timestamp_ms = "0"
     updated_timestamp_ms = "0"
     name = ""
+    head = "0000000000000000000000000000000000000000"
 
     [[branches.1.heads]]
     name = "feat"

@@ -57,7 +57,6 @@ impl BranchManager<'_> {
         perm: &mut WorktreeWritePermission,
     ) -> Result<Stack> {
         let vb_state = self.ctx.legacy_project.virtual_branches();
-        let default_target = vb_state.get_default_target()?;
 
         let mut all_stacks = vb_state
             .list_stacks_in_workspace()
@@ -86,16 +85,7 @@ impl BranchManager<'_> {
             }
         }
 
-        let branch = Stack::create(
-            self.ctx,
-            name.clone(),
-            None,
-            None,
-            None,
-            default_target.sha,
-            order,
-            false,
-        )?;
+        let branch = Stack::create(self.ctx, name.clone(), None, None, None, None, order, false)?;
 
         vb_state.set_stack(branch.clone())?;
         self.ctx.add_branch_reference(&branch)?;
@@ -230,7 +220,7 @@ impl BranchManager<'_> {
             branch.in_workspace = true;
 
             // This seems to ensure that there is at least one head.
-            branch.initialize(self.ctx, true, branch_name.clone())?;
+            branch.initialize(self.ctx, true, branch_name.clone(), None)?;
             vb_state.set_stack(branch.clone())?;
             branch
         } else {
@@ -241,7 +231,7 @@ impl BranchManager<'_> {
                 Some(target.clone()),
                 upstream_branch,
                 upstream_head,
-                head_commit.id(),
+                None,
                 order,
                 true, // allow duplicate branch name if created from an existing branch
             )?
