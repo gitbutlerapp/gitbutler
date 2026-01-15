@@ -463,14 +463,15 @@ pub fn spawn(
                                     "failed to add or remove watch; changes may be missed until restart"
                                 )
                             });
-                            if res.is_ok() {
-                                match mode {
-                                    Mode::AddWatch => {
-                                        dynamically_watched_dirs.insert(path);
-                                    }
-                                    Mode::RemoveWatch => {
-                                        dynamically_watched_dirs.remove(&path);
-                                    }
+                            match mode {
+                                Mode::AddWatch if res.is_ok() => {
+                                    dynamically_watched_dirs.insert(path);
+                                }
+                                _ => {
+                                    // If adding OR removing a watch didn't work, just remove it from our list.
+                                    // On linux, it seems to manage to remove the watch, but fails to communicate it,
+                                    // so our own tracking list would be stale.
+                                    dynamically_watched_dirs.remove(&path);
                                 }
                             }
                         }
