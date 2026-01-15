@@ -86,15 +86,7 @@ impl BranchManager<'_> {
             }
         }
 
-        let branch = Stack::create(
-            self.ctx,
-            name.clone(),
-            None,
-            None,
-            default_target.sha,
-            order,
-            false,
-        )?;
+        let branch = Stack::new_empty(self.ctx, name, default_target.sha, order)?;
 
         vb_state.set_stack(branch.clone())?;
         self.ctx.add_branch_reference(&branch)?;
@@ -224,24 +216,22 @@ impl BranchManager<'_> {
         let mut branch = if let Some(mut branch) = vb_state
             .find_by_top_reference_name_where_not_in_workspace(&target.to_string())?
             .or(vb_state.find_by_source_refname_where_not_in_workspace(target)?)
+            && branch.is_initialized()
         {
             branch.upstream = upstream_branch; // Used as remote when listing commits.
             branch.order = order;
             branch.in_workspace = true;
 
-            // This seems to ensure that there is at least one head.
-            branch.initialize(self.ctx, true)?;
             vb_state.set_stack(branch.clone())?;
             branch
         } else {
-            Stack::create(
+            Stack::new_from_existing(
                 self.ctx,
                 branch_name.clone(),
                 Some(target.clone()),
                 upstream_branch,
                 head_commit.id(),
                 order,
-                true, // allow duplicate branch name if created from an existing branch
             )?
         };
 

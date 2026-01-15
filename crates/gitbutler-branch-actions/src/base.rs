@@ -202,15 +202,18 @@ pub(crate) fn set_base_branch(
                 head_name.to_string().replace("refs/heads/", "")
             };
 
-            let branch = Stack::create(
-                ctx,
-                branch_name,
-                Some(head_name),
-                upstream,
-                current_head_commit.id(),
-                0,
-                !branch_matches_target, // allow duplicate name since here we are creating a lane from an existing branch
-            )?;
+            let branch = if branch_matches_target {
+                Stack::new_empty(ctx, branch_name, current_head_commit.id(), 0)
+            } else {
+                Stack::new_from_existing(
+                    ctx,
+                    branch_name,
+                    Some(head_name),
+                    upstream,
+                    current_head_commit.id(),
+                    0,
+                )
+            }?;
 
             vb_state.set_stack(branch)?;
         }
