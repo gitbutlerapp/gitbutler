@@ -128,8 +128,13 @@ pub mod assignment {
         let project = project_from_path(current_dir)?;
         let ctx =
             &mut Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let guard = ctx.exclusive_worktree_access();
+        let repo = ctx.repo.get()?.clone();
+        let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
             ctx,
+            &repo,
+            &workspace,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
@@ -151,7 +156,11 @@ pub mod assignment {
         let project = project_from_path(current_dir)?;
         let ctx =
             &mut Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
-        let rejections = but_hunk_assignment::assign(ctx, vec![assignment], None)?;
+        let guard = ctx.exclusive_worktree_access();
+        let repo = ctx.repo.get()?.clone();
+        let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+        let rejections =
+            but_hunk_assignment::assign(ctx, &repo, &workspace, vec![assignment], None)?;
         if use_json {
             let json = serde_json::to_string_pretty(&rejections)?;
             println!("{json}");

@@ -80,8 +80,17 @@ fn wt_assignments(ctx: &mut Context) -> anyhow::Result<Vec<HunkAssignment>> {
         ctx.legacy_project.worktree_dir()?.into(),
     )?
     .changes;
-    let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
+    let guard = ctx.shared_worktree_access();
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+        ctx,
+        &repo,
+        &workspace,
+        false,
+        Some(changes.clone()),
+        None,
+    )?;
     Ok(assignments)
 }
 

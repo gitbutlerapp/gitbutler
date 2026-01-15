@@ -1,18 +1,20 @@
 use std::fmt::Display;
 
-use but_core::{UnifiedPatch, unified_diff::DiffHunk};
+use but_core::{RepositoryExt, UnifiedPatch, unified_diff::DiffHunk};
 use but_ctx::Context;
 use but_oxidize::OidExt;
 use gitbutler_stack::StackId;
 use serde::{Deserialize, Serialize};
 
 /// Compute the hunk dependencies of a set of tree changes.
-pub fn hunk_dependencies_for_changes(
+fn hunk_dependencies_for_changes(
     ctx: &Context,
+    repo: &gix::Repository,
+    _workspace: &but_graph::projection::Workspace,
     changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<HunkDependencies> {
     // accelerate tree-tree-diffs
-    let repo = ctx.clone_repo_for_merging_non_persisting()?;
+    let repo = repo.clone().for_tree_diffing()?.with_object_memory();
     let project_data_dir = &ctx.project_data_dir();
     let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
         ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
@@ -31,13 +33,14 @@ pub fn hunk_dependencies_for_changes(
 /// and `gitbutler_dir` for obtaining stack information.
 pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
     ctx: &Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     worktree_changes: Option<Vec<but_core::TreeChange>>,
 ) -> anyhow::Result<HunkDependencies> {
-    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let worktree_changes = worktree_changes
         .map(Ok)
-        .unwrap_or_else(|| but_core::diff::worktree_changes(&repo).map(|wtc| wtc.changes))?;
-    hunk_dependencies_for_changes(ctx, worktree_changes)
+        .unwrap_or_else(|| but_core::diff::worktree_changes(repo).map(|wtc| wtc.changes))?;
+    hunk_dependencies_for_changes(ctx, repo, workspace, worktree_changes)
 }
 
 /// A way to represent all hunk dependencies that would make it possible to know what can be applied, and were.

@@ -31,18 +31,36 @@ fn unapply_with_data() -> anyhow::Result<()> {
     )
     .unwrap()
     .changes;
-    let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)
-            .unwrap();
+
+    let gix_repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(
+        ctx.exclusive_worktree_access().read_permission(),
+    )?;
+
+    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+        ctx,
+        &gix_repo,
+        &workspace,
+        false,
+        Some(changes.clone()),
+        None,
+    )
+    .unwrap();
     let req = HunkAssignmentRequest {
         hunk_header: assignments[0].hunk_header,
         path_bytes: assignments[0].path_bytes.clone(),
         stack_id: Some(stacks[0].0),
     };
-    but_hunk_assignment::assign(ctx, vec![req], None).unwrap();
-    let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)
-            .unwrap();
+    but_hunk_assignment::assign(ctx, &gix_repo, &workspace, vec![req], None).unwrap();
+    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+        ctx,
+        &gix_repo,
+        &workspace,
+        false,
+        Some(changes.clone()),
+        None,
+    )
+    .unwrap();
     let assigned_diffspec = but_workspace::flatten_diff_specs(
         assignments
             .into_iter()
@@ -51,7 +69,13 @@ fn unapply_with_data() -> anyhow::Result<()> {
             .collect::<Vec<DiffSpec>>(),
     );
 
-    gitbutler_branch_actions::unapply_stack(ctx, stacks[0].0, assigned_diffspec).unwrap();
+    gitbutler_branch_actions::unapply_stack(
+        ctx,
+        ctx.exclusive_worktree_access().write_permission(),
+        stacks[0].0,
+        assigned_diffspec,
+    )
+    .unwrap();
 
     assert!(!repo.path().join("file.txt").exists());
 
@@ -82,7 +106,13 @@ fn delete_if_empty() {
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
 
-    gitbutler_branch_actions::unapply_stack(ctx, stacks[0].0, Vec::new()).unwrap();
+    gitbutler_branch_actions::unapply_stack(
+        ctx,
+        ctx.exclusive_worktree_access().write_permission(),
+        stacks[0].0,
+        Vec::new(),
+    )
+    .unwrap();
 
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 0);

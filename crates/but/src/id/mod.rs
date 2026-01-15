@@ -272,8 +272,13 @@ impl IdMap {
                 if let Some(worktree_dir) = ctx.workdir()? {
                     let changes =
                         but_core::diff::ui::worktree_changes_by_worktree_dir(worktree_dir)?.changes;
+                    let repo = ctx.repo.get()?.clone();
+                    let (_, workspace) =
+                        ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
                     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
                         ctx,
+                        &repo,
+                        &workspace,
                         false,
                         Some(changes),
                         None,

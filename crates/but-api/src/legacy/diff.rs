@@ -6,7 +6,6 @@ use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeCh
 use but_hunk_dependency::ui::{
     HunkDependencies, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use gitbutler_project::ProjectId;
 use tracing::instrument;
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
@@ -34,22 +33,33 @@ pub fn tree_change_diffs(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges> {
-    let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?;
+    let guard = ctx.shared_worktree_access();
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    let changes = but_core::diff::worktree_changes(&repo)?;
 
-    let dependencies =
-        hunk_dependencies_for_workspace_changes_by_worktree_dir(ctx, Some(changes.changes.clone()));
+    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
+        ctx,
+        &repo,
+        &workspace,
+        Some(changes.changes.clone()),
+    );
 
     // If the dependencies calculation failed, we still want to try to get assignments
     // so we pass an empty HunkDependencies in that case.
     let (assignments, assignments_error) = match &dependencies {
         Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
             ctx,
+            &repo,
+            &workspace,
             false,
             Some(changes.changes.clone()),
             Some(dependencies),
         )?,
         Err(_) => but_hunk_assignment::assignments_with_fallback(
             ctx,
+            &repo,
+            &workspace,
             false,
             Some(changes.changes.clone()),
             Some(&HunkDependencies::default()), // empty dependencies on error
@@ -58,6 +68,8 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
 
     but_rules::handler::process_workspace_rules(
         ctx,
+        &repo,
+        &workspace,
         &assignments,
         &dependencies.as_ref().ok().cloned(),
     )
@@ -78,11 +90,12 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
 #[but_api]
 #[instrument(err(Debug))]
 pub fn assign_hunk(
-    project_id: ProjectId,
+    ctx: &mut Context,
     assignments: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<Vec<AssignmentRejection>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let rejections = but_hunk_assignment::assign(ctx, assignments, None)?;
+    let guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    let rejections = but_hunk_assignment::assign(ctx, &repo, &workspace, assignments, None)?;
     Ok(rejections)
 }

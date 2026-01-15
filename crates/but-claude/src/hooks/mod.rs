@@ -142,13 +142,21 @@ pub async fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookO
         });
     }
 
+    // Create repo and workspace once at the entry point
+    let guard = defer.ctx.exclusive_worktree_access();
+    let repo = defer.ctx.repo.get()?.clone();
+    let (_, workspace) = defer
+        .ctx
+        .workspace_and_read_only_meta_from_head(guard.read_permission())?;
+
     let vb_state = &VirtualBranchesHandle::new(defer.ctx.project_data_dir());
 
     let stacks = list_stacks(defer.ctx)?;
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
     // If the session is already persisted, we just retrieve it.
-    let stack_id = get_or_create_session(defer.ctx, &session_id, stacks, vb_state)?;
+    let stack_id =
+        get_or_create_session(defer.ctx, &repo, &workspace, &session_id, stacks, vb_state)?;
 
     let (id, outcome) = but_action::handle_changes(
         defer.ctx,
@@ -421,17 +429,27 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
         file_path: Some(input.tool_response.file_path.clone()),
     };
 
+    // Create repo and workspace once at the entry point
+    let guard = defer.ctx.exclusive_worktree_access();
+    let repo = defer.ctx.repo.get()?.clone();
+    let (_, workspace) = defer
+        .ctx
+        .workspace_and_read_only_meta_from_head(guard.read_permission())?;
+
     let stacks = list_stacks(defer.ctx)?;
 
     let vb_state = &VirtualBranchesHandle::new(defer.ctx.project_data_dir());
 
-    let stack_id = get_or_create_session(defer.ctx, &session_id, stacks, vb_state)?;
+    let stack_id =
+        get_or_create_session(defer.ctx, &repo, &workspace, &session_id, stacks, vb_state)?;
 
     let changes =
         but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
             .changes;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         defer.ctx,
+        &repo,
+        &workspace,
         true,
         Some(changes.clone()),
         None,
@@ -463,7 +481,8 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
         })
         .collect();
 
-    let _rejections = but_hunk_assignment::assign(defer.ctx, assignment_reqs, None)?;
+    let _rejections =
+        but_hunk_assignment::assign(defer.ctx, &repo, &workspace, assignment_reqs, None)?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,
@@ -484,6 +503,8 @@ fn original_session_id(ctx: &mut Context, current_id: String) -> Result<String> 
 
 pub fn get_or_create_session(
     ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     session_id: &str,
     stacks: Vec<but_workspace::legacy::ui::StackEntry>,
     vb_state: &VirtualBranchesHandle,
@@ -506,14 +527,22 @@ pub fn get_or_create_session(
             stack_id
         } else {
             let stack_id = create_stack(ctx, vb_state, perm)?;
-            crate::rules::update_claude_assignment_rule_target(ctx, rule.id, stack_id)?;
+            crate::rules::update_claude_assignment_rule_target(
+                ctx, repo, workspace, rule.id, stack_id,
+            )?;
             stack_id
         }
     } else {
         // If the session is not in the list of sessions, then create a new stack + session entry
         // Create a new stack
         let stack_id = create_stack(ctx, vb_state, perm)?;
-        crate::rules::create_claude_assignment_rule(ctx, Uuid::parse_str(session_id)?, stack_id)?;
+        crate::rules::create_claude_assignment_rule(
+            ctx,
+            repo,
+            workspace,
+            Uuid::parse_str(session_id)?,
+            stack_id,
+        )?;
         stack_id
     };
     Ok(stack_id)

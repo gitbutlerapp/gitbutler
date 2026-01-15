@@ -257,8 +257,13 @@ pub fn update_stack_order(project_id: ProjectId, stacks: Vec<BranchUpdateRequest
 pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
+        &repo,
+        &workspace,
         false,
         Some(
             but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
@@ -273,7 +278,12 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
             .map(|a| a.into())
             .collect::<Vec<DiffSpec>>(),
     );
-    gitbutler_branch_actions::unapply_stack(ctx, stack_id, assigned_diffspec)?;
+    gitbutler_branch_actions::unapply_stack(
+        ctx,
+        guard.write_permission(),
+        stack_id,
+        assigned_diffspec,
+    )?;
     Ok(())
 }
 

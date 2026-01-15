@@ -321,7 +321,16 @@ mod util {
     fn hunk_dependencies_for_workspace_by_ctx(
         command_context: &Context,
     ) -> anyhow::Result<HunkDependencies> {
-        hunk_dependencies_for_workspace_changes_by_worktree_dir(command_context, None)
+        let guard = command_context.exclusive_worktree_access();
+        let (_meta, workspace) =
+            command_context.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+        let repo = &*command_context.repo.get()?;
+        hunk_dependencies_for_workspace_changes_by_worktree_dir(
+            command_context,
+            repo,
+            &workspace,
+            None,
+        )
     }
 
     #[derive(Debug)]
