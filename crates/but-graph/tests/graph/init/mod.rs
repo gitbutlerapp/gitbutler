@@ -53,7 +53,7 @@ fn unborn() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
     ");
 
@@ -84,7 +84,7 @@ fn detached() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:DETACHED <> ✓!
-    └── ≡:0:anon:
+    └── ≡:0:anon: {0}
         ├── :0:anon:
         │   └── ·541396b ►tags/annotated, ►tags/release/v1, ►main
         └── :1:other
@@ -199,7 +199,7 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣1 on ce09734
-    └── ≡:0:main[🌳] <> origin/main →:1:⇡1⇣1 on ce09734
+    └── ≡:0:main[🌳] <> origin/main →:1:⇡1⇣1 on ce09734 {0}
         └── :0:main[🌳] <> origin/main →:1:⇡1⇣1
             ├── 🟣5d29d62
             └── ·971953d
@@ -237,7 +237,7 @@ fn only_remote_advanced() -> anyhow::Result<()> {
     //       which is strange but maybe can work?
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-    └── ≡:0:main[🌳] <> origin/main →:1:⇣1
+    └── ≡:0:main[🌳] <> origin/main →:1:⇣1 {0}
         └── :0:main[🌳] <> origin/main →:1:⇣1
             └── 🟣085535d
     ");
@@ -276,7 +276,7 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     //       Right now we are missing dd9f8d9.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-    └── ≡:0:main[🌳] <> origin/main →:1:⇣1
+    └── ≡:0:main[🌳] <> origin/main →:1:⇣1 {0}
         └── :0:main[🌳] <> origin/main →:1:⇣1
             └── 🟣085535d
     ");
@@ -330,7 +330,7 @@ fn multi_root() -> anyhow::Result<()> {
     );
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
             ├── ·c6c8c05
             ├── ·76fc5c4
@@ -397,7 +397,7 @@ fn four_diamond() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:merged[🌳] <> ✓!
-    └── ≡:0:merged[🌳]
+    └── ≡:0:merged[🌳] {0}
         ├── :0:merged[🌳]
         │   └── ·8a6c109
         ├── :1:A
@@ -442,7 +442,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     // 'main' is frozen because it connects to a 'foreign' remote, the commit was pushed.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣2 on fafd9d0
-    └── ≡:0:B[🌳] <> origin/B →:1:⇡1⇣1 on fafd9d0
+    └── ≡:0:B[🌳] <> origin/B →:1:⇡1⇣1 on fafd9d0 {0}
         ├── :0:B[🌳] <> origin/B →:1:⇡1⇣1
         │   ├── 🟣682be32
         │   └── ·312f819
@@ -471,7 +471,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     // And if it's weird, it's due to the hard limit
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣1 on 312f819
-    └── ≡:0:B[🌳] <> origin/B →:1:⇣1 on e255adc
+    └── ≡:0:B[🌳] <> origin/B →:1:⇣1 on e255adc {0}
         └── :0:B[🌳] <> origin/B →:1:⇣1
             └── 🟣682be32
     ");
@@ -508,7 +508,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:A <> ✓refs/remotes/origin/A⇣1 on fafd9d0
-    └── ≡:0:A <> origin/A →:1:⇡1⇣1 on fafd9d0
+    └── ≡:0:A <> origin/A →:1:⇡1⇣1 on fafd9d0 {0}
         └── :0:A <> origin/A →:1:⇡1⇣1
             ├── 🟣e29c23d
             └── ·e255adc
@@ -570,7 +570,7 @@ fn with_limits() -> anyhow::Result<()> {
     // No limits list the first parent everywhere.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:C[🌳] <> ✓!
-    └── ≡:0:C[🌳]
+    └── ≡:0:C[🌳] {0}
         ├── :0:C[🌳]
         │   ├── ·2a95729
         │   ├── ·6861158
@@ -596,7 +596,7 @@ fn with_limits() -> anyhow::Result<()> {
     // The cut by limit is also represented here.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:C[🌳] <> ✓!
-    └── ≡:0:C[🌳]
+    └── ≡:0:C[🌳] {0}
         └── :0:C[🌳]
             └── ✂️·2a95729
     ");
@@ -617,7 +617,7 @@ fn with_limits() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:C[🌳] <> ✓!
-    └── ≡:0:C[🌳]
+    └── ≡:0:C[🌳] {0}
         └── :0:C[🌳]
             ├── ·2a95729
             └── ✂️·6861158
@@ -642,7 +642,7 @@ fn with_limits() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:C[🌳] <> ✓!
-    └── ≡:0:C[🌳]
+    └── ≡:0:C[🌳] {0}
         └── :0:C[🌳]
             ├── ·2a95729
             ├── ·6861158
@@ -676,7 +676,7 @@ fn with_limits() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:C[🌳] <> ✓!
-    └── ≡:0:C[🌳]
+    └── ≡:0:C[🌳] {0}
         └── :0:C[🌳]
             ├── ·2a95729
             ├── ·6861158
@@ -715,7 +715,7 @@ fn with_limits() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:C[🌳] <> ✓!
-    └── ≡:0:C[🌳]
+    └── ≡:0:C[🌳] {0}
         └── :0:C[🌳]
             ├── ·2a95729
             ├── ·6861158
@@ -808,7 +808,7 @@ fn with_limits() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:C[🌳] <> ✓! on edc4dee
-    └── ≡:0:C[🌳] on edc4dee
+    └── ≡:0:C[🌳] on edc4dee {0}
         └── :0:C[🌳]
             ├── ·2a95729
             ├── ·6861158
@@ -842,7 +842,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     // But special handling for workspace views.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
             ├── ·3686017
             ├── ·9725482
@@ -865,7 +865,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
             └── ·85efbe4 ►wt-inside-ambiguous-worktree[📁], ►wt-outside-ambiguous-worktree[📁]
     ");

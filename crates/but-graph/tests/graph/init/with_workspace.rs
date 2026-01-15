@@ -773,7 +773,7 @@ fn minimal_merge_no_refs() -> anyhow::Result<()> {
     // if the workspace commit is actually managed before proceeding.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:gitbutler/workspace[🌳] <> ✓!
-    └── ≡:0:gitbutler/workspace[🌳]
+    └── ≡:0:gitbutler/workspace[🌳] {0}
         └── :0:gitbutler/workspace[🌳]
             ├── ·47e1cf1
             ├── ·f40fb16
@@ -823,7 +823,7 @@ fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
     // This is an unmanaged workspace, even though commits from a workspace flow into it.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:entrypoint <> ✓!
-    └── ≡:0:entrypoint
+    └── ≡:0:entrypoint {0}
         └── :0:entrypoint
             ├── ·98c5aba
             ├── ·807b6ce
@@ -881,7 +881,7 @@ fn minimal_merge() -> anyhow::Result<()> {
     // Without workspace data this becomes a single-branch workspace, with `main` as normal segment.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:gitbutler/workspace[🌳] <> ✓!
-    └── ≡:0:gitbutler/workspace[🌳]
+    └── ≡:0:gitbutler/workspace[🌳] {0}
         ├── :0:gitbutler/workspace[🌳]
         │   └── ·47e1cf1
         ├── :1:merge-2
@@ -1041,7 +1041,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     // outside the workspace.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] <> origin/main →:2:
+    └── ≡:0:main[🌳] <> origin/main →:2: {0}
         └── :0:main[🌳] <> origin/main →:2:
             └── ❄️fafd9d0 (🏘️|✓) ►A, ►B, ►C, ►D, ►E, ►F
     ");
@@ -1086,7 +1086,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     // ~~There is no segmentation outside the workspace.~~ workspace segmentation always happens so the view is consistent.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] <> origin/main →:2:
+    └── ≡:0:main[🌳] <> origin/main →:2: {0}
         └── :0:main[🌳] <> origin/main →:2:
             └── ❄️fafd9d0 (🏘️|✓)
     ");
@@ -1507,7 +1507,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
     // This is special as other segments still are.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main <> ✓!
-    └── ≡:0:main <> origin/main →:2:⇣2
+    └── ≡:0:main <> origin/main →:2:⇣2 {0}
         └── :0:main <> origin/main →:2:⇣2
             ├── 🟣ca7baa7 (✓)
             ├── 🟣7ea1468 (✓)
@@ -2166,7 +2166,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     // It looks like some commits are missing, but it's a first-parent traversal.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:A <> ✓!
-    └── ≡:0:A
+    └── ≡:0:A {0}
         ├── :0:A
         │   ├── ·79bbb29 (🏘️|✓)
         │   ├── ·fc98174 (🏘️|✓)
@@ -2217,7 +2217,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     // Because the branch is integrated, the surrounding workspace isn't shown.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:A <> ✓!
-    └── ≡:0:A
+    └── ≡:0:A {0}
         └── :0:A
             ├── ·79bbb29 (🏘️|✓)
             ├── ·fc98174 (🏘️|✓)
@@ -2274,7 +2274,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:DETACHED <> ✓! on 79bbb29
-    └── ≡:0:anon:
+    └── ≡:0:anon: {0}
         ├── :0:anon:
         │   ├── ·d0df794 (✓)
         │   ├── ·09c6e08 (✓)
@@ -2333,7 +2333,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:DETACHED <> ✓! on 79bbb29
-    └── ≡:0:anon:
+    └── ≡:0:anon: {0}
         ├── :0:anon:
         │   ├── ·d0df794 (✓)
         │   ├── ·09c6e08 (✓)
@@ -2483,7 +2483,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     // The entrypoint isn't contained in the workspace anymore, so it's standalone.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:A <> ✓!
-    └── ≡:0:A
+    └── ≡:0:A {0}
         ├── :0:A
         │   ├── ❄79bbb29 (🏘️|✓)
         │   ├── ❄fc98174 (🏘️|✓)
@@ -2530,7 +2530,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     // When the branch is below the forkpoint, the workspace also isn't shown anymore.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main <> ✓!
-    └── ≡:0:main <> origin/main →:2:⇣3
+    └── ≡:0:main <> origin/main →:2:⇣3 {0}
         └── :0:main <> origin/main →:2:⇣3
             ├── 🟣d0df794 (✓)
             ├── 🟣09c6e08 (✓)
@@ -2545,7 +2545,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     // Detached states are also possible.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:DETACHED <> ✓!
-    └── ≡:0:anon:
+    └── ≡:0:anon: {0}
         └── :0:anon:
             ├── ·34d0715 (🏘️|✓)
             └── ·eb5f731 (🏘️|✓)
@@ -2982,7 +2982,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     // Entrypoint is outside of workspace.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main <> ✓!
-    └── ≡:0:main
+    └── ≡:0:main {0}
         └── :0:main
             ├── ·2438292 (🏘️|✓)
             ├── ·c056b75 (🏘️|✓)
@@ -3049,7 +3049,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     // The limit is visible as well.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main <> ✓!
-    └── ≡:0:main
+    └── ≡:0:main {0}
         └── :0:main
             ├── ·2438292 (🏘️|✓)
             ├── ·c056b75 (🏘️|✓)
@@ -3271,7 +3271,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     // `main` is integrated, but the entrypoint so it's shown.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main <> ✓!
-    └── ≡:0:main
+    └── ≡:0:main {0}
         └── :0:main
             ├── ·bce0c5e (🏘️|✓)
             └── ·3183e43 (🏘️|✓) ►A, ►B

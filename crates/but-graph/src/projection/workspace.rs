@@ -700,8 +700,8 @@ impl Graph {
         } else {
             let start = ws_tip_segment;
             let has_seen_base = RefCell::new(false);
-            ws.stacks.extend(
-                self.collect_stack_segments(
+            if let Some(stack) = self
+                .collect_stack_segments(
                     start.id,
                     None,
                     |s| {
@@ -724,8 +724,16 @@ impl Graph {
                     // Never discard stacks
                     |_s| false,
                 )?
-                .map(|segments| Stack::from_base_and_segments(&self.inner, segments, None)),
-            );
+                .map(|segments| {
+                    Stack::from_base_and_segments(
+                        &self.inner,
+                        segments,
+                        Some(StackId::single_branch_id()),
+                    )
+                })
+            {
+                ws.stacks.push(stack);
+            }
         }
 
         if let Some(target) = ws.target_ref.as_mut() {

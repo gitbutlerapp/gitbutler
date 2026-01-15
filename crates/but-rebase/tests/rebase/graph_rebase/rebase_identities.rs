@@ -48,7 +48,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&workspace), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
             ├── ·120e3a9
             └── ❌·a96434e

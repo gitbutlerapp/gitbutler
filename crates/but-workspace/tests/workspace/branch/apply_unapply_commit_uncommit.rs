@@ -138,7 +138,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
     // note how the remote isn't interesting as we have no target configured, nor an extra target.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓! on 3183e43
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
     ");
 
@@ -356,7 +356,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
             └── ·e5d0542 ►A, ►B
     ");
@@ -502,7 +502,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
             └── ·e5d0542 ►A, ►B
     ");
@@ -585,7 +585,7 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
     // Note how the existing `gitbutler/workspace` disappears, which is expected here.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:1:B <> ✓!
-    └── ≡:1:B
+    └── ≡:1:B {0}
         └── :1:B
             └── ·e5d0542 ►A, ►main
     ");
@@ -638,7 +638,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
             ├── ·b1540e5
             └── ·e31e6ca
@@ -738,7 +738,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓! on 3183e43
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
     ");
 
@@ -894,7 +894,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:DETACHED <> ✓! on 3183e43
-    └── ≡:0:anon: on 3183e43
+    └── ≡:0:anon: on 3183e43 {0}
         └── :0:anon:
             └── ·aaa195b ►C
     ");
@@ -1029,7 +1029,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓! on 85efbe4
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
     ");
 
@@ -1134,7 +1134,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓! on 85efbe4
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
     ");
 
@@ -1811,7 +1811,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
     ");
 
@@ -1851,7 +1851,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
     let ws = out.graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳]
+    └── ≡:0:main[🌳] {0}
         └── :0:main[🌳]
     ");
 
