@@ -69,6 +69,7 @@ gitbutler-stack = { path = "crates/gitbutler-stack" }
 gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 
+backoff = "0.4.0"
 bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 gix = { version = "0.77.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }

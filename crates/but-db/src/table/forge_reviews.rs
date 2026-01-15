@@ -4,7 +4,35 @@ use diesel::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::DbHandle;
+use crate::{DbHandle, M};
+
+pub(crate) const M: &[M<'static>] = &[M::up(
+    20260101223932,
+    "-- Your SQL goes here
+CREATE TABLE `forge_reviews`(
+	`html_url` TEXT NOT NULL,
+	`number` BIGINT NOT NULL PRIMARY KEY,
+	`title` TEXT NOT NULL,
+	`body` TEXT,
+	`author` TEXT,
+	`labels` TEXT NOT NULL,
+	`draft` BOOL NOT NULL,
+	`source_branch` TEXT NOT NULL,
+	`target_branch` TEXT NOT NULL,
+	`sha` TEXT NOT NULL,
+	`created_at` TIMESTAMP,
+	`modified_at` TIMESTAMP,
+	`merged_at` TIMESTAMP,
+	`closed_at` TIMESTAMP,
+	`repository_ssh_url` TEXT,
+	`repository_https_url` TEXT,
+	`repo_owner` TEXT,
+	`reviewers` TEXT NOT NULL,
+	`unit_symbol` TEXT NOT NULL,
+	`last_sync_at` TIMESTAMP NOT NULL,
+	`struct_version` INTEGER NOT NULL
+);",
+)];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::forge_reviews)]

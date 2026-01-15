@@ -4,7 +4,20 @@ use diesel::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, schema::workspace_rules::dsl::workspace_rules};
+use crate::{DbHandle, M, schema::workspace_rules::dsl::workspace_rules};
+
+pub(crate) const M: &[M<'static>] = &[M::up(
+    20250717150441,
+    "CREATE TABLE `workspace_rules`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`enabled` BOOL NOT NULL,
+	`trigger` TEXT NOT NULL,
+	`filters` TEXT NOT NULL,
+	`action` TEXT NOT NULL
+);",
+)];
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::workspace_rules)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]

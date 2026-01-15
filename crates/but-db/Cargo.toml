@@ -27,9 +27,12 @@ chrono = { workspace = true, features = ["serde"] }
 # other things
 tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time", "sync", "macros"] }
 tracing.workspace = true
+backoff.workspace = true
 
 [dev-dependencies]
 tempfile = "3.24.0"
+insta.workspace = true
 
+# for multi-process migration testing.
 [target."cfg(unix)".dev-dependencies]
 libc = "0.2.180"

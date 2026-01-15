@@ -7,10 +7,23 @@ use diesel::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DbHandle,
+    DbHandle, M,
     schema::{workflows as schema, workflows::dsl::workflows},
 };
 
+pub(crate) const M: &[M<'static>] = &[M::up(
+    20250619192246,
+    "CREATE TABLE `workflows`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`kind` TEXT NOT NULL,
+	`triggered_by` TEXT NOT NULL,
+	`status` TEXT NOT NULL,
+	`input_commits` TEXT NOT NULL,
+	`output_commits` TEXT NOT NULL,
+	`summary` TEXT
+);",
+)];
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::workflows)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]

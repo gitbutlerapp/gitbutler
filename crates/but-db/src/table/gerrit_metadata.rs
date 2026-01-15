@@ -4,8 +4,18 @@ use diesel::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, schema::gerrit_metadata::dsl::gerrit_metadata};
+use crate::{DbHandle, M, schema::gerrit_metadata::dsl::gerrit_metadata};
 
+pub(crate) const M: &[M<'static>] = &[M::up(
+    20251015212443,
+    "CREATE TABLE `gerrit_metadata`(
+	`change_id` TEXT NOT NULL PRIMARY KEY,
+	`commit_id` TEXT NOT NULL,
+	`review_url` TEXT NOT NULL,
+	`created_at` TIMESTAMP NOT NULL,
+	`updated_at` TIMESTAMP NOT NULL
+);",
+)];
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::gerrit_metadata)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]

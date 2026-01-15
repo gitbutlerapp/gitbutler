@@ -4,7 +4,30 @@ use diesel::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::M;
 use crate::{DbHandle, schema::hunk_assignments::dsl::*};
+
+pub(crate) const M: &[M<'static>] = &[
+    M::up(
+        20250526145725,
+        "CREATE TABLE `hunk_assignments`(
+	`hunk_header` TEXT,
+	`path` TEXT NOT NULL,
+	`path_bytes` BINARY NOT NULL,
+	`stack_id` TEXT,
+	`hunk_locks` TEXT NOT NULL,
+	PRIMARY KEY(`path`, `hunk_header`)
+);",
+    ),
+    M::up(
+        20250603111503,
+        "ALTER TABLE `hunk_assignments` ADD COLUMN `id` TEXT;",
+    ),
+    M::up(
+        20250607113323,
+        "ALTER TABLE `hunk_assignments` DROP COLUMN `hunk_locks`;",
+    ),
+];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::hunk_assignments)]

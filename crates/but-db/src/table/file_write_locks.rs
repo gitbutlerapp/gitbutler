@@ -4,7 +4,17 @@ use diesel::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, schema::file_write_locks::dsl::file_write_locks};
+use crate::{DbHandle, M, schema::file_write_locks::dsl::file_write_locks};
+
+pub(crate) const M: &[M<'static>] = &[M::up(
+    20250704130757,
+    "CREATE TABLE `file_write_locks`(
+	`path` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`owner` TEXT NOT NULL
+);",
+)];
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::file_write_locks)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
