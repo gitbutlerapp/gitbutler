@@ -31,7 +31,7 @@
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 
-	const LARGE_DIFF_THRESHOLD = 2500;
+	const LARGE_DIFF_THRESHOLD = 1000;
 
 	type Props = {
 		projectId: string;
