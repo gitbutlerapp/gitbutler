@@ -52,8 +52,13 @@ fn rebase_commit() {
 
     let unapplied_branch = {
         // unapply first vbranch
-        let unapplied_branch =
-            gitbutler_branch_actions::unapply_stack(ctx, stack_1_id, Vec::new()).unwrap();
+        let unapplied_branch = gitbutler_branch_actions::unapply_stack(
+            ctx,
+            ctx.exclusive_worktree_access().write_permission(),
+            stack_1_id,
+            Vec::new(),
+        )
+        .unwrap();
 
         assert_eq!(
             fs::read_to_string(repo.path().join("another_file.txt")).unwrap(),

@@ -61,6 +61,8 @@ pub(crate) fn list_claude_assignment_rules(
 /// Updates the target stack ID of an existing Claude session assignment rule.
 pub(crate) fn update_claude_assignment_rule_target(
     ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     rule_id: String,
     stack_id: StackId,
 ) -> anyhow::Result<ClaudeSessionAssignmentRule> {
@@ -73,7 +75,7 @@ pub(crate) fn update_claude_assignment_rule_target(
         }
         _ => None,
     });
-    let rule = but_rules::update_rule(ctx, req)?;
+    let rule = but_rules::update_rule(ctx, repo, workspace, req)?;
     rule.try_into()
 }
 
@@ -82,6 +84,8 @@ pub(crate) fn update_claude_assignment_rule_target(
 /// Errors out if there is another rule referencing the same session ID in a filter.
 pub(crate) fn create_claude_assignment_rule(
     ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     session_id: Uuid,
     stack_id: StackId,
 ) -> anyhow::Result<ClaudeSessionAssignmentRule> {
@@ -111,6 +115,6 @@ pub(crate) fn create_claude_assignment_rule(
             target: but_rules::StackTarget::StackId(stack_id.to_string()),
         }),
     };
-    let rule = but_rules::create_rule(ctx, req)?;
+    let rule = but_rules::create_rule(ctx, repo, workspace, req)?;
     ClaudeSessionAssignmentRule::try_from(rule)
 }

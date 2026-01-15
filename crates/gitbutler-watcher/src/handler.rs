@@ -48,13 +48,21 @@ impl Handler {
             InternalEvent::ProjectFilesChange(project_id, paths) => {
                 let ctx =
                     &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
-                self.project_files_change(paths, ctx)
+                let guard = ctx.exclusive_worktree_access();
+                let repo = ctx.repo.get()?.clone();
+                let (_, workspace) =
+                    ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+                self.project_files_change(paths, ctx, &repo, &workspace)
             }
 
             InternalEvent::GitFilesChange(project_id, paths) => {
                 let ctx =
                     &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
-                self.git_files_change(paths, ctx)
+                let guard = ctx.exclusive_worktree_access();
+                let repo = ctx.repo.get()?.clone();
+                let (_, workspace) =
+                    ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+                self.git_files_change(paths, ctx, &repo, &workspace)
                     .context("failed to handle git file change event")
             }
         }
@@ -77,22 +85,40 @@ impl Handler {
     }
 
     #[instrument(skip(self, paths, ctx), fields(paths = paths.len()))]
-    fn project_files_change(&self, paths: Vec<PathBuf>, ctx: &mut Context) -> Result<()> {
-        let _ = self.emit_worktree_changes(ctx);
+    fn project_files_change(
+        &self,
+        paths: Vec<PathBuf>,
+        ctx: &mut Context,
+        repo: &gix::Repository,
+        workspace: &but_graph::projection::Workspace,
+    ) -> Result<()> {
+        let _ = self.emit_worktree_changes(ctx, repo, workspace);
 
         Ok(())
     }
 
-    fn emit_worktree_changes(&self, ctx: &mut Context) -> Result<()> {
-        let wt_changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?;
+    fn emit_worktree_changes(
+        &self,
+        ctx: &mut Context,
+        repo: &gix::Repository,
+        workspace: &but_graph::projection::Workspace,
+    ) -> Result<()> {
+        let wt_changes = but_core::diff::worktree_changes(repo)?;
 
         let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
             ctx,
+            repo,
+            workspace,
             Some(wt_changes.changes.clone()),
         );
 
-        let (assignments, assignments_error) =
-            assignments_and_errors(ctx, wt_changes.changes.clone(), &dependencies)?;
+        let (assignments, assignments_error) = assignments_and_errors(
+            ctx,
+            repo,
+            workspace,
+            wt_changes.changes.clone(),
+            &dependencies,
+        )?;
 
         let mut changes = but_hunk_assignment::WorktreeChanges {
             worktree_changes: wt_changes.clone().into(),
@@ -106,13 +132,20 @@ impl Handler {
         };
         if let Ok(update_count) = but_rules::handler::process_workspace_rules(
             ctx,
+            repo,
+            workspace,
             &assignments,
             &dependencies.as_ref().ok().cloned(),
         ) && update_count > 0
         {
             // Getting these again since they were updated
-            let (assignments, assignments_error) =
-                assignments_and_errors(ctx, wt_changes.changes.clone(), &dependencies)?;
+            let (assignments, assignments_error) = assignments_and_errors(
+                ctx,
+                repo,
+                workspace,
+                wt_changes.changes.clone(),
+                &dependencies,
+            )?;
             changes = but_hunk_assignment::WorktreeChanges {
                 worktree_changes: wt_changes.into(),
                 assignments,
@@ -131,7 +164,13 @@ impl Handler {
         Ok(())
     }
 
-    pub fn git_files_change(&self, paths: Vec<PathBuf>, ctx: &mut Context) -> Result<()> {
+    pub fn git_files_change(
+        &self,
+        paths: Vec<PathBuf>,
+        ctx: &mut Context,
+        repo: &gix::Repository,
+        workspace: &but_graph::projection::Workspace,
+    ) -> Result<()> {
         let (head_ref_name, head_sha) = head_info(ctx)?;
 
         for path in paths {
@@ -156,7 +195,7 @@ impl Handler {
                     })?;
                 }
                 INDEX => {
-                    let _ = self.emit_worktree_changes(ctx);
+                    let _ = self.emit_worktree_changes(ctx, repo, workspace);
                 }
                 HEAD => {
                     let git2_repo = ctx.git2_repo.get()?;
@@ -190,12 +229,16 @@ fn head_info(ctx: &mut Context) -> Result<(String, String)> {
 
 fn assignments_and_errors(
     ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     tree_changes: Vec<TreeChange>,
     dependencies: &Result<but_hunk_dependency::ui::HunkDependencies>,
 ) -> Result<(Vec<HunkAssignment>, Option<serde_error::Error>)> {
     let (assignments, assignments_error) = match &dependencies {
         Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
             ctx,
+            repo,
+            workspace,
             false,
             Some(tree_changes),
             Some(dependencies),
