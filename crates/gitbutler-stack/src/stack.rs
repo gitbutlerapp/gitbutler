@@ -43,8 +43,6 @@ pub struct Stack {
     /// Upstream tracking branch reference, added when creating a stack from a branch.
     /// Used e.g. when listing commits from a fork.
     pub upstream: Option<RemoteRefname>,
-    // upstream_head is the last commit on we've pushed to the upstream branch
-    pub upstream_head: Option<git2::Oid>,
     /// head is id of the last "virtual" commit in this branch
     head: git2::Oid,
     // order is the number by which UI should sort branches
@@ -64,7 +62,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             name,
             source_refname,
             upstream,
-            upstream_head,
             head,
             order,
             in_workspace,
@@ -77,7 +74,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             name,
             source_refname,
             upstream,
-            upstream_head: upstream_head.map(|id| id.to_git2()),
             head: head.to_git2(),
             order,
             in_workspace,
@@ -93,7 +89,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             name,
             source_refname,
             upstream,
-            upstream_head,
             head,
             order,
             in_workspace,
@@ -105,7 +100,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             name,
             source_refname,
             upstream,
-            upstream_head: upstream_head.map(|id| id.to_gix()),
             head: head.to_gix(),
             order,
             in_workspace,
@@ -153,7 +147,6 @@ impl Stack {
         name: String,
         source_refname: Option<Refname>,
         upstream: Option<RemoteRefname>,
-        upstream_head: Option<git2::Oid>,
         head: git2::Oid,
         order: usize,
     ) -> Self {
@@ -162,7 +155,6 @@ impl Stack {
             name,
             source_refname,
             upstream,
-            upstream_head,
             head,
             order,
             in_workspace: true,
@@ -185,7 +177,6 @@ impl Stack {
             head: git2::Oid::zero(),
             source_refname: None,
             upstream: None,
-            upstream_head: None,
 
             // Unused - everything is defined by the top-most branch name.
             name: "".to_string(),
@@ -231,20 +222,18 @@ impl Stack {
     // TODO: When this is stable, make it error out on initialization failure
     /// Constructs and initializes a new Stack.
     /// If initialization fails, a warning is logged and the stack is returned as is.
-    #[expect(clippy::too_many_arguments)]
     pub fn create(
         ctx: &Context,
         name: String,
         source_refname: Option<Refname>,
         upstream: Option<RemoteRefname>,
-        upstream_head: Option<git2::Oid>,
         head: git2::Oid,
         order: usize,
         allow_duplicate_refs: bool,
     ) -> Result<Self> {
         #[expect(deprecated)]
         // this should be the only place (other than tests) where this is allowed
-        let mut branch = Stack::new(name, source_refname, upstream, upstream_head, head, order);
+        let mut branch = Stack::new(name, source_refname, upstream, head, order);
         branch.initialize(ctx, allow_duplicate_refs)?;
         Ok(branch)
     }
