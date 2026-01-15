@@ -13,11 +13,10 @@ pub use repository_ext::RepositoryExt;
 pub mod credentials;
 
 mod config;
+use config::Config;
 pub mod hooks;
 mod remote;
 pub mod staging;
-
-pub use config::Config;
 
 pub mod temporary_workdir;
 
