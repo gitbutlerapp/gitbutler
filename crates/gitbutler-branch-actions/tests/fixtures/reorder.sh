@@ -28,6 +28,10 @@ git clone remote multiple-commits
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
+  $CLI branch create --set-default other_stack
+  echo change0 >> other_file
+  $CLI branch commit other_stack -m "commit 0"
+
   $CLI branch create --set-default my_stack
   echo change1 >> file
   $CLI branch commit my_stack -m "commit 1"
@@ -38,11 +42,11 @@ git clone remote multiple-commits
 
   $CLI branch series my_stack -s "top-series"
   echo change4 >> file
-  $CLI branch commit top-series -m "commit 4"
+  $CLI branch commit my_stack -m "commit 4"
   echo change5 >> file
-  $CLI branch commit top-series -m "commit 5"
+  $CLI branch commit my_stack -m "commit 5"
   echo change6 >> file
-  $CLI branch commit top-series -m "commit 6"
+  $CLI branch commit my_stack -m "commit 6"
 )
 
 git clone remote multiple-commits-small
@@ -53,13 +57,17 @@ git clone remote multiple-commits-small
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
+  $CLI branch create --set-default other_stack
+  echo change0 >> other_file
+  $CLI branch commit other_stack -m "commit 0"
+
   $CLI branch create --set-default my_stack
   echo change1 >> file
   $CLI branch commit my_stack -m "commit 1"
 
   $CLI branch series my_stack -s "top-series"
   echo change4 >> file
-  $CLI branch commit top-series -m "commit 2"
+  $CLI branch commit my_stack -m "commit 2"
 )
 
 git clone remote multiple-commits-empty-top
@@ -69,6 +77,10 @@ git clone remote multiple-commits-empty-top
 
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
+
+  $CLI branch create --set-default other_stack
+  echo change0 >> other_file
+  $CLI branch commit other_stack -m "commit 0"
 
   $CLI branch create --set-default my_stack
   echo change1 >> file
@@ -85,6 +97,10 @@ tick
   
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
+
+  $CLI branch create --set-default other_stack
+  echo change0 >> other_file
+  $CLI branch commit other_stack -m "commit 0"
 
   $CLI branch create --set-default my_stack
   echo x > file

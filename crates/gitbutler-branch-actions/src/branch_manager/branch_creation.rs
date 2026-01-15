@@ -230,7 +230,7 @@ impl BranchManager<'_> {
             branch.in_workspace = true;
 
             // This seems to ensure that there is at least one head.
-            branch.initialize(self.ctx, true, branch_name.clone())?;
+            branch.initialize(self.ctx, true)?;
             vb_state.set_stack(branch.clone())?;
             branch
         } else {
