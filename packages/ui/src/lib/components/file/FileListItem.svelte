@@ -104,6 +104,12 @@
 	class:conflicted
 	class:hide-border={hideBorder}
 	class:list-mode={listMode === 'list'}
+	style:--file-list-item-selected-fg={selected && active
+		? 'var(--clr-theme-pop-on-element)'
+		: undefined}
+	style:--file-list-item-selected-bg={selected && active
+		? 'var(--clr-theme-pop-element)'
+		: undefined}
 	aria-selected={selected}
 	role="option"
 	tabindex="0"
@@ -119,74 +125,98 @@
 		}
 	}}
 >
-	{#if draggable && !showCheckbox}
-		<div class="draggable-handle">
+	<div class="file-list-item__background"></div>
+
+	<div class="file-list-item__content">
+		{#if draggable && !showCheckbox}
+			<!-- <div class="draggable-handle">
 			<Icon name="draggable-narrow" />
-		</div>
-	{/if}
+		</div> -->
 
-	{#if showIndent || showCheckbox}
-		<div class="file-list-item__indicators">
-			{#if showIndent}
-				<FileIndent {depth} />
+			<div class="draggable-handle-2"></div>
+		{/if}
+
+		{#if showIndent || showCheckbox}
+			<div class="file-list-item__indicators">
+				{#if showIndent}
+					<FileIndent {depth} />
+				{/if}
+
+				{#if showCheckbox}
+					<Checkbox
+						small
+						{checked}
+						{indeterminate}
+						onchange={oncheck}
+						onclick={oncheckclick}
+						invertColors={selected && active}
+					/>
+				{/if}
+			</div>
+		{/if}
+
+		<FileName
+			{filePath}
+			hideFilePath={listMode === 'tree'}
+			{pathFirst}
+			color="var(--file-list-item-selected-fg)"
+		/>
+
+		<div class="file-list-item__details">
+			{#if executable}
+				<ExecutableLabel />
 			{/if}
 
-			{#if showCheckbox}
-				<Checkbox small {checked} {indeterminate} onchange={oncheck} onclick={oncheckclick} />
-			{/if}
-		</div>
-	{/if}
-
-	<FileName {filePath} hideFilePath={listMode === 'tree'} {pathFirst} />
-
-	<div class="file-list-item__details">
-		{#if executable}
-			<ExecutableLabel />
-		{/if}
-
-		{#if conflicted}
-			<Tooltip text={conflictHint}>
-				<div class="conflicted-icon">
-					<Icon name="warning-small" color="danger" />
-				</div>
-			</Tooltip>
-		{:else if fileStatus}
-			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style={fileStatusStyle} />
-		{/if}
-
-		{#if locked}
-			<Tooltip text={lockText}>
-				<div
-					class="locked"
-					role="img"
-					aria-label="File is locked due to dependencies"
-					onmouseenter={() => onlockhover?.()}
-					onmouseleave={() => onlockunhover?.()}
-				>
-					<Icon name="locked" />
-				</div>
-			</Tooltip>
-		{/if}
-		{#if onresolveclick}
-			{#if !conflicted}
-				<Tooltip text="Conflict resolved">
-					<Badge style="safe">Resolved</Badge>
+			{#if conflicted}
+				<Tooltip text={conflictHint}>
+					<div class="conflicted-icon">
+						<Icon name="warning-small" />
+					</div>
 				</Tooltip>
-			{:else}
-				<Button
-					type="button"
-					class="mark-resolved-btn"
-					size="tag"
-					onclick={(e) => {
-						e.stopPropagation();
-						onresolveclick?.(e);
-					}}
-					icon="tick-small"
-				>
-					Mark resolved
-				</Button>
+			{:else if fileStatus}
+				<FileStatusBadge
+					tooltip={fileStatusTooltip}
+					status={fileStatus}
+					style={fileStatusStyle}
+					color="var(--file-list-item-selected-fg)"
+				/>
 			{/if}
-		{/if}
+
+			{#if locked}
+				<Tooltip text={lockText}>
+					<div
+						class="locked"
+						role="img"
+						aria-label="File is locked due to dependencies"
+						onmouseenter={() => onlockhover?.()}
+						onmouseleave={() => onlockunhover?.()}
+					>
+						<Icon name="locked" />
+					</div>
+				</Tooltip>
+			{/if}
+
+			{#if onresolveclick}
+				{#if !conflicted}
+					<Tooltip text="Conflict resolved">
+						<Badge style="safe">Resolved</Badge>
+					</Tooltip>
+				{:else}
+					<Button
+						type="button"
+						class="m-l-4 m-r-4"
+						size="tag"
+						onclick={(e) => {
+							e.stopPropagation();
+							onresolveclick?.(e);
+						}}
+						icon="tick-small"
+					>
+						Mark resolved
+					</Button>
+				{/if}
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -196,70 +226,116 @@
 		position: relative;
 		align-items: center;
 		height: 32px;
-		padding: 0 10px 0 14px;
-		overflow: hidden;
-		gap: 8px;
-		outline: none;
-		background-color: var(--clr-bg-1);
 		text-align: left;
 		user-select: none;
 
-		& :global(.mark-resolved-btn) {
-			margin: 0 4px;
+		&:focus-visible {
+			outline: none;
 		}
 
 		&.clickable {
 			cursor: pointer;
 
+			&:hover {
+				& .draggable-handle-2 {
+					opacity: 0.6;
+				}
+			}
+
 			&:not(.selected):hover {
-				background-color: var(--hover-bg-1);
+				& .file-list-item__background {
+					background-color: var(--hover-bg-1);
+				}
 			}
 
 			&.conflicted:not(.selected):hover {
-				background-color: var(--hover-danger-bg);
+				& .file-list-item__background {
+					background-color: var(--hover-danger-bg);
+				}
 			}
 		}
 
 		&.conflicted {
-			background-color: var(--clr-theme-danger-bg);
+			& .file-list-item__background {
+				background-color: var(--clr-theme-danger-bg);
+			}
+
+			&.selected {
+				& .file-list-item__background {
+					background-color: var(--clr-theme-danger-element);
+				}
+			}
 		}
 
 		&.selected {
-			background-color: var(--clr-selected-not-in-focus-bg);
+			& .file-list-item__background {
+				background-color: var(--clr-bg-2);
+			}
 		}
 
 		&.active.selected {
-			background-color: var(--clr-selected-in-focus-bg);
+			& .file-list-item__background {
+				background-color: var(--file-list-item-selected-bg);
+			}
 		}
 
-		&.list-mode:not(.hide-border) {
-			border-bottom: 1px solid var(--clr-border-3);
-		}
-
-		.draggable-handle {
+		.file-list-item__content {
 			display: flex;
-			position: absolute;
-			left: 0;
+			z-index: 2;
+			position: relative;
+			flex-grow: 1;
 			align-items: center;
-			justify-content: center;
-			height: 24px;
-			color: var(--clr-text-3);
+			min-width: 0; /* Allow truncation to work properly */
+			padding: 0 6px 0 6px;
+			overflow: hidden;
+			gap: 8px;
+		}
+
+		.draggable-handle-2 {
+			position: relative;
+			margin: 0 -4px 0 -2px;
 			opacity: 0;
 			transition: opacity var(--transition-fast);
 		}
 
-		&.draggable {
-			&:hover {
-				& .draggable-handle {
-					opacity: 1;
-				}
-			}
+		.draggable-handle-2,
+		.draggable-handle-2::after,
+		.draggable-handle-2::before {
+			width: 2px;
+			height: 2px;
+			border-radius: 2px;
+			background-color: var(--file-list-item-selected-fg, var(--clr-text-2));
+		}
+
+		.draggable-handle-2::before {
+			position: absolute;
+			top: 4px;
+			content: '';
+		}
+
+		.draggable-handle-2::after {
+			position: absolute;
+			bottom: 4px;
+			content: '';
 		}
 
 		.conflicted-icon {
 			display: flex;
 			margin-right: -2px;
+			color: var(--file-list-item-selected-fg, var(--clr-theme-danger-element));
 		}
+	}
+
+	.file-list-item__background {
+		z-index: 1;
+		position: absolute;
+		height: 28px;
+		inset: 0;
+		top: 2px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
+		pointer-events: none;
+		/* transition: background-color var(--transition-fast); */
 	}
 
 	.file-list-item__indicators {
@@ -276,7 +352,7 @@
 
 		& .locked {
 			display: flex;
-			color: var(--clr-change-icon-modification);
+			color: var(--file-list-item-selected-fg, var(--clr-change-icon-modification));
 		}
 	}
 </style>

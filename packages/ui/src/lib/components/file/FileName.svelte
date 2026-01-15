@@ -8,9 +8,10 @@
 		hideFilePath?: boolean;
 		textSize?: '12' | '13';
 		pathFirst?: boolean;
+		color?: string;
 	}
 
-	let { filePath, textSize = '12', hideFilePath, pathFirst = true }: Props = $props();
+	let { filePath, textSize = '12', hideFilePath, pathFirst = true, color }: Props = $props();
 	const fileNameAndPath = $derived(splitFilePath(filePath));
 	const filePathParts = $derived({
 		first: fileNameAndPath.path.split('/').slice(0, -1).join('/'),
@@ -18,9 +19,9 @@
 	});
 </script>
 
-<div class="file-name">
+<div class="file-name" style:--filename-color={color}>
 	<div class="file-name__icon-container">
-		<FileIcon fileName={fileNameAndPath.filename} />
+		<FileIcon fileName={fileNameAndPath.filename} {color} />
 	</div>
 
 	{#if pathFirst}
@@ -65,6 +66,7 @@
 		width: 100%;
 		min-width: 32px;
 		overflow: hidden;
+		color: var(--filename-color, var(--clr-text-1));
 	}
 
 	.file-name__icon-container {
@@ -102,7 +104,6 @@
 
 	.file-name__name {
 		overflow: hidden;
-		color: var(--clr-text-1);
 		white-space: nowrap;
 		pointer-events: none;
 	}

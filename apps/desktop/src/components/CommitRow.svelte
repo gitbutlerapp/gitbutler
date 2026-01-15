@@ -296,7 +296,7 @@
 		flex: 1;
 		align-items: center;
 		min-width: 0; /* Allow truncation to work properly */
-		padding: 14px 0 14px 0;
+		padding: 12px 0;
 		gap: 6px;
 	}
 
