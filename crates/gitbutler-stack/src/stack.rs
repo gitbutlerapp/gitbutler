@@ -11,7 +11,7 @@ use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::ReferenceSpec;
-use git2::Commit;
+use git2::{Commit, Oid};
 use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_branch_name};
 use gitbutler_repo::{
     RepositoryExt,
@@ -42,8 +42,6 @@ pub struct Stack {
     pub upstream: Option<RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     pub upstream_head: Option<git2::Oid>,
-    /// head is id of the last "virtual" commit in this branch
-    head: git2::Oid,
     // order is the number by which UI should sort branches
     pub order: usize,
     /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
@@ -61,7 +59,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             source_refname,
             upstream,
             upstream_head,
-            head,
             order,
             in_workspace,
             heads,
@@ -73,7 +70,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             source_refname,
             upstream,
             upstream_head: upstream_head.map(|id| id.to_git2()),
-            head: head.to_git2(),
             order,
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
@@ -88,7 +84,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             source_refname,
             upstream,
             upstream_head,
-            head,
             order,
             in_workspace,
             heads,
@@ -99,7 +94,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             source_refname,
             upstream,
             upstream_head: upstream_head.map(|id| id.to_gix()),
-            head: head.to_gix(),
             order,
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
@@ -120,6 +114,8 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             updated_timestamp_ms: 0,
             #[allow(deprecated)]
             name: String::default(),
+            #[allow(deprecated)]
+            head: gix::hash::Kind::Sha1.null(),
         }
     }
 }
@@ -148,7 +144,6 @@ impl Stack {
         source_refname: Option<Refname>,
         upstream: Option<RemoteRefname>,
         upstream_head: Option<git2::Oid>,
-        head: git2::Oid,
         order: usize,
     ) -> Self {
         Self {
@@ -156,7 +151,6 @@ impl Stack {
             source_refname,
             upstream,
             upstream_head,
-            head,
             order,
             in_workspace: true,
             heads: Default::default(),
@@ -180,7 +174,6 @@ impl Stack {
             heads,
 
             // Don't keep redundant information
-            head: git2::Oid::zero(),
             source_refname: None,
             upstream: None,
             upstream_head: None,
@@ -210,10 +203,6 @@ impl Stack {
             .map_err(Into::into)
     }
 
-    fn set_head(&mut self, head: git2::Oid) {
-        self.head = head;
-    }
-
     /// This is the name of the top-most branch, provided by the API for convenience
     pub fn derived_name(&self) -> Result<String> {
         self.heads
@@ -232,14 +221,14 @@ impl Stack {
         source_refname: Option<Refname>,
         upstream: Option<RemoteRefname>,
         upstream_head: Option<git2::Oid>,
-        head: git2::Oid,
+        head: Option<Oid>,
         order: usize,
         allow_duplicate_refs: bool,
     ) -> Result<Self> {
         #[expect(deprecated)]
         // this should be the only place (other than tests) where this is allowed
-        let mut branch = Stack::new(source_refname, upstream, upstream_head, head, order);
-        branch.initialize(ctx, allow_duplicate_refs, name)?;
+        let mut branch = Stack::new(source_refname, upstream, upstream_head, order);
+        branch.initialize(ctx, allow_duplicate_refs, name, head)?;
         Ok(branch)
     }
 
@@ -321,6 +310,7 @@ impl Stack {
         ctx: &Context,
         allow_duplicate_refs: bool,
         name: String,
+        head: Option<Oid>,
     ) -> Result<()> {
         // If the branch is already initialized, don't do anything
         if self.is_initialized() {
@@ -328,7 +318,7 @@ impl Stack {
         }
 
         let empty_reference =
-            self.make_new_empty_reference(ctx, allow_duplicate_refs, Some(name))?;
+            self.make_new_empty_reference(ctx, allow_duplicate_refs, Some(name), head)?;
 
         self.heads = vec![empty_reference];
         let state = branch_state(ctx);
@@ -340,25 +330,31 @@ impl Stack {
         ctx: &Context,
         allow_duplicate_refs: bool,
         name: Option<String>,
+        head_override: Option<Oid>,
     ) -> Result<StackBranch> {
         let state = branch_state(ctx);
         let repo = ctx.repo.get()?;
-        // If the stack is created for the first time, this will be the default target sha
-        let head = if self.heads.is_empty() {
-            self.head
-        } else {
-            self.head_oid(ctx)?.to_git2()
-        };
         let git2_repo = ctx.git2_repo.get()?;
-        let commit = git2_repo.find_commit(head)?;
 
-        let name = if let Some(refname) = self.upstream.as_ref() {
-            refname.branch().to_string()
+        let (name, head) = if let Some(refname) = self.upstream.as_ref() {
+            let name = refname.branch().to_string();
+            let mut reference = repo.find_reference(&name)?;
+            let head = reference.peel_to_commit()?.id().to_git2();
+            (name, head)
         } else if let Some(name) = name {
-            name
+            let head = self.head_oid(ctx)?.to_git2();
+            (name, head)
         } else {
-            canned_branch_name(&git2_repo)?
+            let head = self.head_oid(ctx)?.to_git2();
+            (canned_branch_name(&git2_repo)?, head)
         };
+        let head = if let Some(head_override) = head_override {
+            head_override
+        } else {
+            head
+        };
+
+        let commit = git2_repo.find_commit(head)?;
 
         let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;
 
@@ -548,7 +544,6 @@ impl Stack {
         commit_id: git2::Oid,
     ) -> Result<()> {
         self.ensure_initialized()?;
-        self.set_head(commit_id);
 
         let commit = gix_repo.find_commit(commit_id.to_gix())?;
 
@@ -604,7 +599,7 @@ impl Stack {
                 head.pr_number = None;
             }
 
-            let new_head = self.make_new_empty_reference(ctx, false, None)?;
+            let new_head = self.make_new_empty_reference(ctx, false, None, None)?;
             self.heads.push(new_head);
         }
 
