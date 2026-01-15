@@ -178,8 +178,8 @@ pub(crate) fn set_base_branch(
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 
-        let wd_diff = gitbutler_diff::workdir(repo, current_head_commit.id())?;
-        if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
+        let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?.changes;
+        if !changes.is_empty() || current_head_commit.id() != target.sha {
             let (upstream, branch_matches_target) = if let Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
                 if upstream_name.eq(target_branch_ref) {
