@@ -329,20 +329,24 @@
 		const oldEnd = visibleRange.end;
 		const bottomDistance = getDistanceFromBottom();
 
-		visibleRange = {
-			start: calculateVisibleStartIndex(),
-			end: calculateVisibleEndIndex()
-		};
-		updateOffsets();
+		const newStartIndex = calculateVisibleStartIndex();
+		const newEndIndex = calculateVisibleEndIndex();
+		if (newStartIndex !== visibleRange.start || newEndIndex !== visibleRange.end) {
+			visibleRange = {
+				start: calculateVisibleStartIndex(),
+				end: calculateVisibleEndIndex()
+			};
+			updateOffsets();
 
-		const newIndices = getNewIndices(oldStart, oldEnd, visibleRange.start, visibleRange.end);
-		for (const index of newIndices) {
-			if (heightMap[index]) {
-				lockRowHeight(index);
+			const newIndices = getNewIndices(oldStart, oldEnd, visibleRange.start, visibleRange.end);
+			for (const index of newIndices) {
+				if (heightMap[index]) {
+					lockRowHeight(index);
+				}
 			}
-		}
 
-		await tick();
+			await tick();
+		}
 
 		if (stickToBottom && bottomDistance === 0 && bottomDistance !== getDistanceFromBottom()) {
 			scrollToBottom();
