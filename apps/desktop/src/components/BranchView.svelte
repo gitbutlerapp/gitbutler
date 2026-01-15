@@ -34,6 +34,7 @@
 		clientHeight?: number;
 		showChangedFiles?: boolean;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
+		rounded?: boolean;
 		ontoggle?: (collapsed: boolean) => void;
 		onerror?: (err: unknown) => void;
 		onclose?: () => void;
@@ -48,6 +49,7 @@
 		clientHeight = $bindable(),
 		showChangedFiles = false,
 		resizer,
+		rounded,
 		ontoggle,
 		onerror,
 		onclose
@@ -109,6 +111,7 @@
 			{grow}
 			{onclose}
 			{ontoggle}
+			{rounded}
 			noshrink
 		>
 			{#snippet header()}
