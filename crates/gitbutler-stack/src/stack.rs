@@ -40,8 +40,6 @@ pub struct Stack {
     /// Upstream tracking branch reference, added when creating a stack from a branch.
     /// Used e.g. when listing commits from a fork.
     pub upstream: Option<RemoteRefname>,
-    /// head is id of the last "virtual" commit in this branch
-    head: git2::Oid,
     // order is the number by which UI should sort branches
     pub order: usize,
     /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
@@ -58,7 +56,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             id,
             source_refname,
             upstream,
-            head,
             order,
             in_workspace,
             heads,
@@ -69,7 +66,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             id,
             source_refname,
             upstream,
-            head: head.to_git2(),
             order,
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
@@ -83,7 +79,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             id,
             source_refname,
             upstream,
-            head,
             order,
             in_workspace,
             heads,
@@ -93,7 +88,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             id,
             source_refname,
             upstream,
-            head: head.to_gix(),
             order,
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
@@ -114,6 +108,8 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             updated_timestamp_ms: 0,
             #[allow(deprecated)]
             name: String::default(),
+            #[allow(deprecated)]
+            head: gix::hash::Kind::Sha1.null(),
         }
     }
 }
@@ -153,7 +149,6 @@ impl Stack {
             heads,
 
             // Don't keep redundant information
-            head: git2::Oid::zero(),
             source_refname: None,
             upstream: None,
         }
@@ -182,10 +177,6 @@ impl Stack {
             .map_err(Into::into)
     }
 
-    fn set_head(&mut self, head: git2::Oid) {
-        self.head = head;
-    }
-
     /// This is the name of the top-most branch, provided by the API for convenience
     pub fn derived_name(&self) -> Result<String> {
         self.heads
@@ -210,7 +201,6 @@ impl Stack {
             id: StackId::generate(),
             source_refname,
             upstream,
-            head,
             order,
             in_workspace: true,
             heads: vec![stack_branch],
@@ -226,7 +216,6 @@ impl Stack {
             id: StackId::generate(),
             source_refname: None,
             upstream: None,
-            head,
             order,
             in_workspace: true,
             heads: vec![stack_branch],
@@ -509,7 +498,6 @@ impl Stack {
         commit_id: git2::Oid,
     ) -> Result<()> {
         self.ensure_initialized()?;
-        self.set_head(commit_id);
 
         let commit = gix_repo.find_commit(commit_id.to_gix())?;
 
