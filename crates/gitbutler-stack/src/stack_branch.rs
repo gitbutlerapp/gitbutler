@@ -1,13 +1,11 @@
 use std::{fmt::Display, str::FromStr};
 
 use anyhow::{Ok, Result};
-use bstr::{BStr, BString, ByteSlice};
-use but_core::ChangeId;
+use bstr::{BString, ByteSlice};
 use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
+use but_oxidize::{ObjectIdExt, RepoExt};
 use git2::Commit;
-use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gix::refs::{
     Target,
@@ -85,9 +83,6 @@ impl From<StackBranch> for virtual_branches_legacy_types::StackBranch {
 pub enum CommitOrChangeId {
     /// A reference that points directly to a commit.
     CommitId(String),
-    /// A reference that points to a change (patch) through which a valid commit can be derived.
-    #[deprecated(note = "Use CommitId instead")]
-    ChangeId(String),
 }
 
 impl From<virtual_branches_legacy_types::CommitOrChangeId> for CommitOrChangeId {
@@ -95,9 +90,6 @@ impl From<virtual_branches_legacy_types::CommitOrChangeId> for CommitOrChangeId 
         match value {
             virtual_branches_legacy_types::CommitOrChangeId::CommitId(v) => {
                 CommitOrChangeId::CommitId(v)
-            }
-            virtual_branches_legacy_types::CommitOrChangeId::ChangeId(v) => {
-                CommitOrChangeId::ChangeId(v)
             }
         }
     }
@@ -109,9 +101,6 @@ impl From<CommitOrChangeId> for virtual_branches_legacy_types::CommitOrChangeId 
             CommitOrChangeId::CommitId(v) => {
                 virtual_branches_legacy_types::CommitOrChangeId::CommitId(v)
             }
-            CommitOrChangeId::ChangeId(v) => {
-                virtual_branches_legacy_types::CommitOrChangeId::ChangeId(v)
-            }
         }
     }
 }
@@ -120,8 +109,6 @@ impl Display for CommitOrChangeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommitOrChangeId::CommitId(id) => write!(f, "CommitId: {id}"),
-            #[expect(deprecated)]
-            CommitOrChangeId::ChangeId(id) => write!(f, "ChangeId: {id}"),
         }
     }
 }
@@ -180,25 +167,6 @@ impl StackBranch {
         qualified_reference_name(&self.name)
             .try_into()
             .map_err(Into::into)
-    }
-
-    pub fn uses_change_id(&self) -> bool {
-        matches!(self.head, CommitOrChangeId::ChangeId(_))
-    }
-
-    pub fn migrate_change_id(
-        &mut self,
-        repo: &git2::Repository,
-        stack_head: git2::Oid,
-        merge_base: git2::Oid,
-    ) {
-        #[expect(deprecated)]
-        if let CommitOrChangeId::ChangeId(_) = &self.head
-            && let core::result::Result::Ok(commit) =
-                commit_by_oid_or_change_id(&self.head.clone(), repo, stack_head, merge_base)
-        {
-            self.head = CommitOrChangeId::CommitId(commit.id().to_string());
-        };
     }
 
     /// This will update the commit that real git reference points to, so it points to `target`,
@@ -301,7 +269,6 @@ impl StackBranch {
         // let new_head = *new_head.to_owned();
         let new_oid = match new_head.clone().into() {
             CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
-            CommitOrChangeId::ChangeId(_) => return Ok(None), // noop
         };
         let reference = repo.reference(
             qualified_reference_name(self.name()),
@@ -316,15 +283,10 @@ impl StackBranch {
         if let Some(mut reference) = repo.try_find_reference(&self.name)? {
             let commit = reference.peel_to_commit()?;
             Ok(commit.id)
-        } else if let CommitOrChangeId::CommitId(id) = &self.head {
+        } else {
+            let CommitOrChangeId::CommitId(id) = &self.head;
             self.set_real_reference(repo, &self.head)?;
             Ok(gix::ObjectId::from_str(id)?)
-        } else {
-            Err(anyhow::anyhow!(
-                "No reference found for branch {}. CommitOrChangeId is {}",
-                &self.name,
-                &self.head
-            ))
         }
     }
 
@@ -344,10 +306,6 @@ impl StackBranch {
     pub fn sync_with_reference(&mut self, repo: &gix::Repository) -> Result<bool> {
         let oid_from_ref = self.head_oid(repo)?;
         match self.head {
-            CommitOrChangeId::ChangeId(_) => {
-                self.head = CommitOrChangeId::CommitId(oid_from_ref.to_string());
-                Ok(true)
-            }
             CommitOrChangeId::CommitId(_) => {
                 if oid_from_ref.to_string() != self.head.to_string() {
                     self.head = CommitOrChangeId::CommitId(oid_from_ref.to_string());
@@ -492,55 +450,4 @@ pub struct BranchCommits<'a> {
     /// This does **not** include the commits that are in the commits list (local)
     /// This is effectively the list of commits that are on the remote branch but are not in the working copy.
     pub upstream_only: Vec<Commit<'a>>,
-}
-
-// NB: There can be multiple commits with the same change id on the same branch id.
-// This is an error condition but we must handle it.
-// If there are multiple commits, they are ordered newest to oldest.
-fn commit_by_oid_or_change_id<'a>(
-    reference_target: &'a CommitOrChangeId,
-    repo: &'a git2::Repository,
-    stack_head: git2::Oid,
-    merge_base: git2::Oid,
-) -> Result<Commit<'a>> {
-    Ok(match reference_target {
-        CommitOrChangeId::CommitId(commit_id) => repo.find_commit(commit_id.parse()?)?,
-        #[expect(deprecated)]
-        CommitOrChangeId::ChangeId(change_id) => {
-            commit_by_branch_id_and_change_id(repo, stack_head, merge_base, change_id)?
-        }
-    })
-}
-
-/// Given a branch id and a change id, returns the commit associated with the change id.
-// TODO: We need a more efficient way of getting a commit by change id.
-// NB: There can be multiple commits with the same change id on the same branch id.
-// This is an error condition but we must handle it.
-// If there are multiple commits, they are ordered newest to oldest.
-fn commit_by_branch_id_and_change_id<'a>(
-    repo: &'a git2::Repository,
-    stack_head: git2::Oid, // branch.head
-    merge_base: git2::Oid,
-    change_id: &str,
-) -> Result<Commit<'a>> {
-    let commits = if stack_head == merge_base {
-        vec![repo.find_commit(stack_head)?]
-    } else {
-        // Include the merge base, in case the change ID being searched for is the merge base itself.
-        // TODO: Use the Stack `commits_with_merge_base` method instead.
-        let mut commits = repo.log(stack_head, LogUntil::Commit(merge_base), false)?;
-        commits.push(repo.find_commit(merge_base)?);
-        commits
-    };
-    let gix_repo = repo.to_gix_repo()?;
-    for commit in commits {
-        let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
-        if gix_commit.change_id() == Some(ChangeId::from(BStr::new(change_id.as_bytes()))) {
-            return Ok(commit);
-        }
-    }
-    Err(anyhow::anyhow!(
-        "No commit with change id {} found",
-        change_id
-    ))
 }

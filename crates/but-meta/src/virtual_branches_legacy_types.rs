@@ -223,8 +223,6 @@ mod stack {
     pub enum CommitOrChangeId {
         /// A reference that points directly to a commit.
         CommitId(String),
-        /// A reference that points to a change (patch) through which a valid commit can be derived.
-        ChangeId(String),
     }
 
     #[derive(Debug, PartialEq, Default, Clone)]
