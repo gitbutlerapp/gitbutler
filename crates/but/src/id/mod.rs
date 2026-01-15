@@ -161,7 +161,7 @@ pub struct IdMap {
     /// It's public for convenience in `but rub` currently.
     pub uncommitted_files: BTreeMap<ShortId, UncommittedFile>,
     /// Uncommitted hunks.
-    uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
+    pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
     /// Committed files with their assigned IDs
     committed_files: BTreeSet<CommittedFile>,
 }
@@ -480,22 +480,6 @@ impl IdMap {
         self.stack_ids.get(&stack_id)
     }
 
-    /// Returns the [`CliId::Uncommitted`] for a given hunk assignment, if it exists.
-    ///
-    /// Searches for a matching hunk assignment in the uncommitted hunks map and returns
-    /// its corresponding CLI ID if found.
-    pub fn resolve_uncommitted_hunk(&self, hunk: &HunkAssignment) -> Option<CliId> {
-        self.uncommitted_hunks.iter().find_map(|(id, uh)| {
-            (uh.hunk_assignment == *hunk).then(|| {
-                CliId::Uncommitted(UncommittedCliId {
-                    id: id.clone(),
-                    hunk_assignments: NonEmpty::new(hunk.clone()),
-                    is_entire_file: false, // TODO: figure out if we can know this here
-                })
-            })
-        })
-    }
-
     /// Returns the [`CliId::Unassigned`] for the unassigned area, which is useful as an
     /// ID for a destination of operations.
     ///
@@ -742,7 +726,9 @@ impl Borrow<str> for CommittedFile {
     }
 }
 
+/// An uncommitted hunk.
 #[derive(Debug)]
-struct UncommittedHunk {
-    hunk_assignment: HunkAssignment,
+pub struct UncommittedHunk {
+    /// The hunk assignment.
+    pub hunk_assignment: HunkAssignment,
 }

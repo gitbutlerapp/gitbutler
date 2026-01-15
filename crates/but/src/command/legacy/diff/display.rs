@@ -12,34 +12,12 @@ use crate::command::legacy::status::{path_with_color_ui, status_letter_ui};
 /// - Red text for removed lines
 /// - Dimmed text for context lines
 /// - Support for binary files and large files
-///
-/// # Example
-///
-/// ```ignore
-/// use crate::command::diff::display::DiffDisplay;
-///
-/// impl DiffDisplay for MyType {
-///     fn print_diff(&self, cli_id: Option<&crate::id::CliId>) -> String {
-///         let mut output = String::new();
-///         if let Some(id) = cli_id {
-///             output.push_str(&format!(" [{}] ", id.to_short_string()));
-///         }
-///         output.push_str(&format!(" {}\n", self.title));
-///         // Add more diff formatting here
-///         output
-///     }
-/// }
-///
-/// // Usage:
-/// let diff_output = my_value.print_diff(Some(&cli_id));
-/// write!(out, "{}", diff_output)?;
-/// ```
 pub(crate) trait DiffDisplay {
     /// Format this diff and return it as a String.
     ///
     /// This method generates a nicely formatted diff with colored output.
     /// If `cli_id` is provided, it will be displayed first in the output.
-    fn print_diff(&self, cli_id: Option<&crate::id::CliId>) -> String;
+    fn print_diff(&self, short_id: Option<&str>) -> String;
 }
 
 #[derive(Debug)]
@@ -55,7 +33,7 @@ impl TreeChangeWithPatch {
 }
 
 impl DiffDisplay for TreeChangeWithPatch {
-    fn print_diff(&self, _cli_id: Option<&crate::id::CliId>) -> String {
+    fn print_diff(&self, _cli_id: Option<&str>) -> String {
         // Note: CLI IDs are per-hunk, so we don't display them for TreeChangeWithPatch
         // which shows file-level diffs with potentially multiple hunks.
         let mut output = String::new();
@@ -200,21 +178,18 @@ fn fmt_hunk(hunk: &DiffHunk) -> String {
 }
 
 impl DiffDisplay for HunkAssignment {
-    fn print_diff(&self, cli_id: Option<&crate::id::CliId>) -> String {
+    fn print_diff(&self, short_id: Option<&str>) -> String {
         let mut output = String::new();
 
-        // Format CLI ID prefix if provided
-        let id_str = cli_id.map(|id| id.to_short_string());
-
         // Calculate the width needed for the box (id + space + filename)
-        let content_width = id_str.as_ref().map_or(0, |s| s.len() + 1) + self.path.len();
+        let content_width = short_id.as_ref().map_or(0, |s| s.len() + 1) + self.path.len();
 
         // Render box-style header:
         // ────────╮
         // <id> file│
         // ────────╯
         output.push_str(&format!("{}╮\n", "─".repeat(content_width).dimmed()));
-        if let Some(id) = &id_str {
+        if let Some(id) = &short_id {
             output.push_str(&format!(
                 "{} {}│\n",
                 id.blue().underline(),

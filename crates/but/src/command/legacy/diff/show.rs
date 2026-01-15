@@ -3,7 +3,7 @@ use std::fmt::Write;
 use bstr::BString;
 use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
-use but_hunk_assignment::WorktreeChanges;
+use but_hunk_assignment::HunkAssignment;
 use gitbutler_stack::StackId;
 
 use super::display::{DiffDisplay, TreeChangeWithPatch};
@@ -17,34 +17,47 @@ pub(crate) enum Filter {
 }
 
 pub(crate) fn worktree(
-    wt_changes: WorktreeChanges,
     id_map: IdMap,
     out: &mut OutputChannel,
     filter: Option<Filter>,
 ) -> anyhow::Result<()> {
-    let assignments: Vec<_> = wt_changes
-        .assignments
+    let mut short_id_assignment_pairs: Vec<(&str, &HunkAssignment)> = id_map
+        .uncommitted_hunks
         .iter()
-        .filter(|a| match &filter {
-            None => true,
-            Some(Filter::Unassigned) => a.stack_id.is_none(),
-            Some(Filter::Uncommitted(id)) => {
-                if id.is_entire_file {
-                    a.path_bytes == id.hunk_assignments.first().path_bytes
-                } else {
-                    a == &id.hunk_assignments.first()
+        .filter(|(_, uncommitted_hunk)| {
+            let a = &uncommitted_hunk.hunk_assignment;
+            match &filter {
+                None => true,
+                Some(Filter::Unassigned) => a.stack_id.is_none(),
+                Some(Filter::Uncommitted(id)) => {
+                    if id.is_entire_file {
+                        a.path_bytes == id.hunk_assignments.first().path_bytes
+                    } else {
+                        a.eq(id.hunk_assignments.first())
+                    }
                 }
+                Some(Filter::Stack(stack_id)) => a.stack_id.as_ref() == Some(stack_id),
             }
-            Some(Filter::Stack(stack_id)) => a.stack_id.as_ref() == Some(stack_id),
         })
+        .map(|(short_id, uncommitted_hunk)| (short_id.as_str(), &uncommitted_hunk.hunk_assignment))
         .collect();
+    short_id_assignment_pairs.sort_by(|(_, a_assignment), (_, b_assignment)| {
+        a_assignment
+            .stack_id
+            .cmp(&b_assignment.stack_id)
+            .then_with(|| {
+                a_assignment
+                    .path_bytes
+                    .cmp(&b_assignment.path_bytes)
+                    .then_with(|| a_assignment.hunk_header.cmp(&b_assignment.hunk_header))
+            })
+    });
 
-    if assignments.is_empty() {
+    if short_id_assignment_pairs.is_empty() {
         writeln!(out, "No diffs to show.")?;
     } else {
-        for assignment in assignments {
-            let cli_id = id_map.resolve_uncommitted_hunk(assignment);
-            write!(out, "{}", assignment.print_diff(cli_id.as_ref()))?;
+        for (short_id, assignment) in short_id_assignment_pairs {
+            write!(out, "{}", assignment.print_diff(Some(short_id)))?;
         }
     }
     Ok(())

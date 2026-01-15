@@ -25,22 +25,18 @@ pub fn handle(
             .ok_or_else(|| anyhow::anyhow!("No ID found for entity"))?;
 
         match id {
-            CliId::Uncommitted(id) => {
-                show::worktree(wt_changes, id_map, out, Some(Filter::Uncommitted(id)))
-            }
-            CliId::Unassigned { .. } => {
-                show::worktree(wt_changes, id_map, out, Some(Filter::Unassigned))
-            }
+            CliId::Uncommitted(id) => show::worktree(id_map, out, Some(Filter::Uncommitted(id))),
+            CliId::Unassigned { .. } => show::worktree(id_map, out, Some(Filter::Unassigned)),
             CliId::CommittedFile {
                 commit_id, path, ..
             } => show::commit(ctx, out, commit_id, Some(path)),
             CliId::Branch { name, .. } => show::branch(ctx, out, name),
             CliId::Commit { commit_id: id, .. } => show::commit(ctx, out, id, None),
             CliId::Stack { id: _, stack_id } => {
-                show::worktree(wt_changes, id_map, out, Some(Filter::Stack(stack_id)))
+                show::worktree(id_map, out, Some(Filter::Stack(stack_id)))
             }
         }
     } else {
-        show::worktree(wt_changes, id_map, out, None)
+        show::worktree(id_map, out, None)
     }
 }
