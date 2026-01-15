@@ -348,17 +348,15 @@ impl IdMap {
     }
 }
 
-/// Methods for parsing and generating CLI IDs.
+/// Private methods to individually parse what can appear on both side of a
+/// colon. (They can also appear alone.)
 impl IdMap {
-    /// Parses a user-provided `entity` name into matching CLI IDs, with each ID matching a single entity.
-    /// Multiple IDs may be returned if the entity matches multiple items.
-    ///
-    /// Besides generated IDs, this method also accepts filenames, which are
-    /// interpreted as uncommitted, unassigned files.
-    pub fn resolve_entity_to_ids(&self, entity: &str) -> anyhow::Result<Vec<CliId>> {
-        let mut matches = Vec::<CliId>::new();
+    // TODO add colon parsing to `resolve_entity_to_ids`
 
-        // Branches match if they match exactly. Likewise for uncommitted, unassigned files.
+    /// Parses "long" IDs, which take precedence over any "regular" ID.
+    fn parse_long_lhs(&self, entity: &str) -> Vec<CliId> {
+        let mut matches = Vec::<CliId>::new();
+        // Branches match if they match exactly.
         if let Some((_, cli_id)) = self
             .branch_name_to_cli_id
             .iter()
@@ -366,25 +364,11 @@ impl IdMap {
         {
             matches.push(cli_id.clone());
         }
-        for uncommitted_file in self.uncommitted_files.values() {
-            let hunk_assignment = uncommitted_file.hunk_assignments.first();
-            // TODO once the set of allowed CLI IDs is determined and the
-            // access patterns of `uncommitted_files` are known, change its data
-            // structure to be more efficient than the current linear search.
-            if hunk_assignment.stack_id.is_none() && hunk_assignment.path_bytes == entity.as_bytes()
-            {
-                matches.push(uncommitted_file.to_cli_id(entity.to_owned()));
-            }
-        }
-        if !matches.is_empty() {
-            return Ok(matches);
-        }
-
-        if entity.len() < 2 {
-            return Err(anyhow::anyhow!(
-                "Id needs to be at least 2 characters long: '{entity}'"
-            ));
-        }
+        matches
+    }
+    /// Parses "regular" IDs.
+    fn parse_regular_lhs(&self, entity: &str) -> Vec<CliId> {
+        let mut matches = Vec::<CliId>::new();
 
         // First, try partial branch name match
         matches.extend(
@@ -422,6 +406,56 @@ impl IdMap {
         if let Some(cli_id) = self.branch_auto_id_to_cli_id.get(entity) {
             matches.push(cli_id.clone());
         }
+        if entity == UNASSIGNED {
+            matches.push(self.unassigned.clone());
+        }
+        matches
+    }
+    /// Parses filenames of uncommitted files.
+    fn parse_uncommitted_filename_rhs(
+        &self,
+        stack_id: Option<StackId>,
+        entity: &str,
+    ) -> Vec<CliId> {
+        let mut matches = Vec::<CliId>::new();
+        for uncommitted_file in self.uncommitted_files.values() {
+            let hunk_assignment = uncommitted_file.hunk_assignments.first();
+            // TODO once the set of allowed CLI IDs is determined and the
+            // access patterns of `uncommitted_files` are known, change its data
+            // structure to be more efficient than the current linear search.
+            if hunk_assignment.stack_id == stack_id
+                && hunk_assignment.path_bytes == entity.as_bytes()
+            {
+                matches.push(uncommitted_file.to_cli_id(entity.to_owned()));
+            }
+        }
+        matches
+    }
+    // TODO make a method that parses committed files, and use it in `resolve_entity_to_ids`
+}
+
+/// Methods for parsing and generating CLI IDs.
+impl IdMap {
+    /// Parses a user-provided `entity` name into matching CLI IDs, with each ID matching a single entity.
+    /// Multiple IDs may be returned if the entity matches multiple items.
+    ///
+    /// Besides generated IDs, this method also accepts filenames, which are
+    /// interpreted as uncommitted, unassigned files.
+    pub fn resolve_entity_to_ids(&self, entity: &str) -> anyhow::Result<Vec<CliId>> {
+        // Branches match if they match exactly. Likewise for uncommitted, unassigned files.
+        let mut matches = self.parse_long_lhs(entity);
+        matches.append(&mut self.parse_uncommitted_filename_rhs(None, entity));
+        if !matches.is_empty() {
+            return Ok(matches);
+        }
+
+        if entity.len() < 2 {
+            return Err(anyhow::anyhow!(
+                "Id needs to be at least 2 characters long: '{entity}'"
+            ));
+        }
+
+        matches = self.parse_regular_lhs(entity);
         if let Some(uncommitted_file) = self.uncommitted_files.get(entity) {
             matches.push(uncommitted_file.to_cli_id(entity.to_owned()));
         }
@@ -442,9 +476,6 @@ impl IdMap {
                 hunk_assignments: NonEmpty::new(uncommitted_hunk.hunk_assignment.clone()),
                 is_entire_file: false,
             }));
-        }
-        if entity == UNASSIGNED {
-            matches.push(self.unassigned.clone());
         }
 
         Ok(matches)
