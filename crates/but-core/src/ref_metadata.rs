@@ -411,9 +411,15 @@ impl RefInfo {
 pub type StackId = Id<'S'>;
 
 impl StackId {
-    /// A special fixed ID use to represent the lane of single branch mode.
+    /// A special fixed ID used to represent the lane in single branch mode.
+    ///
+    /// It can be used like an ordinary ID, with the note that the contents of said stack
+    /// can change drastically with each checkout.
+    ///
+    /// Single branch mode happens when no `gitbutler/workspace` reference is checked out,
+    /// or any branch that is between that and the lowest base of the workspace.
     pub fn single_branch_id() -> Self {
-        Self::from(Uuid::from_u128(0))
+        Self::from(Uuid::from_u128(1))
     }
 }
 

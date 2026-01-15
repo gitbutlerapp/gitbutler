@@ -700,7 +700,7 @@ impl Graph {
         } else {
             let start = ws_tip_segment;
             let has_seen_base = RefCell::new(false);
-            if let Some(stack) = self
+            let maybe_stack = self
                 .collect_stack_segments(
                     start.id,
                     None,
@@ -730,9 +730,14 @@ impl Graph {
                         segments,
                         Some(StackId::single_branch_id()),
                     )
-                })
-            {
+                });
+            if let Some(stack) = maybe_stack {
                 ws.stacks.push(stack);
+            } else {
+                tracing::warn!(
+                    ?ws,
+                    "Didn't get a single stack for AdHoc workspace - this is unexpected"
+                );
             }
         }
 

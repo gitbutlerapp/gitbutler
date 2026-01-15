@@ -2847,7 +2847,7 @@ fn disjoint() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: None,
                 segments: [
@@ -3584,7 +3584,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: None,
                 segments: [

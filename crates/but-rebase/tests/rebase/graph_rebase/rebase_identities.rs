@@ -46,9 +46,9 @@ fn four_commits_with_short_traversal() -> Result<()> {
     let graph = Graph::from_head(&repo, &*meta, options)?.validated()?;
     let workspace = graph.to_workspace()?;
 
-    insta::assert_snapshot!(graph_workspace(&workspace), @r"
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
             ├── ·120e3a9
             └── ❌·a96434e
