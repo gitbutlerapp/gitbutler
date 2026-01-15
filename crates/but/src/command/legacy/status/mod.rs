@@ -850,15 +850,19 @@ fn print_commit(
     }
     if show_files {
         for change in &commit_details.diff_with_first_parent {
-            let cid = id_map
-                .resolve_file_changed_in_commit_or_unassigned(
-                    commit_details.commit.id,
-                    change.path.as_ref(),
-                )
-                .to_short_string()
-                .blue()
-                .underline();
-            writeln!(out, "┊│     {cid} {}", change.display_cli(false))?;
+            if upstream_commit {
+                writeln!(out, "┊│     {}", change.display_cli(false))?;
+            } else {
+                let cid = id_map
+                    .resolve_file_changed_in_commit_or_unassigned(
+                        commit_details.commit.id,
+                        change.path.as_ref(),
+                    )
+                    .to_short_string()
+                    .blue()
+                    .underline();
+                writeln!(out, "┊│     {cid} {}", change.display_cli(false))?;
+            }
         }
     }
     Ok(())
