@@ -6,7 +6,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UnassignedView from '$components/UnassignedView.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { createWorktreeSelection, key, readKey } from '$lib/selection/key';
+	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -32,11 +32,7 @@
 	const previewOpen = $derived(!!$lastAdded?.key);
 
 	// Transform unassigned changes to SelectedFile[] format
-	const unassignedFiles = $derived(
-		uncommittedService
-			.getChangesByStackId(null)
-			.map((change) => readKey(key({ type: 'worktree', stackId: undefined, path: change.path })))
-	);
+	const unassignedChanges = $derived(uncommittedService.getChangesByStackId(null));
 
 	let multiDiffView = $state<MultiDiffView>();
 	let startIndex = $state(0);
@@ -46,8 +42,9 @@
 	<MultiDiffView
 		{projectId}
 		{startIndex}
+		selectionId={{ type: 'worktree' }}
 		stackId={undefined}
-		files={unassignedFiles}
+		changes={unassignedChanges}
 		bind:this={multiDiffView}
 		draggable={true}
 		selectable={false}
