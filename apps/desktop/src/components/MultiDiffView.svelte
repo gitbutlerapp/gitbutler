@@ -8,6 +8,7 @@
 	@component
 -->
 <script lang="ts">
+	import Drawer from '$components/Drawer.svelte';
 	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
@@ -17,7 +18,7 @@
 	import { type SelectedFile } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/core/context';
-	import { FileViewHeader, VirtualList } from '@gitbutler/ui';
+	import { Button, FileViewHeader, VirtualList } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -47,13 +48,17 @@
 	let virtualList = $state<VirtualList<SelectedFile>>();
 	let highlightedIndex = $state<number | null>(null);
 
-	export function jumpToIndex(index: number) {
-		virtualList?.jumpToIndex(index);
+	export function scrollToIndex(index: number) {
+		virtualList?.scrollToIndex(index);
 		highlightedIndex = index;
 	}
 </script>
 
 <div class="multi-diff-view" class:no-border={!showBorder} class:no-rounded={!showRoundedEdges}>
+	<div class="floating-close">
+		<Button kind="ghost" icon="cross" size="tag" />
+	</div>
+
 	{#if files && files.length > 0}
 		<VirtualList
 			bind:this={virtualList}
@@ -63,7 +68,7 @@
 			defaultHeight={200}
 			visibility="scroll"
 		>
-			{#snippet template(file, index)}
+			{#snippet template(file: SelectedFile, index: number)}
 				{@const changeQuery = idSelection.changeByKey(projectId, file)}
 				<ReduxResult {projectId} result={changeQuery.result}>
 					{#snippet children(change)}
@@ -71,39 +76,37 @@
 						{@const diffData = diffQuery.response}
 						{@const isExecutable = isExecutableStatus(change.status)}
 						{@const patchData = diffData?.type === 'Patch' ? diffData.subject : null}
-						<FileViewHeader
-							solid
-							bottomBorder
-							topBorder={index !== 0}
-							filePath={change.path}
-							fileStatus={computeChangeStatus(change)}
-							linesAdded={patchData?.linesAdded}
-							linesRemoved={patchData?.linesRemoved}
-							executable={isExecutable}
-							highlighted={highlightedIndex === index}
-							sticky
-						/>
-						<ReduxResult {projectId} hideLoading result={diffQuery.result}>
-							{#snippet children(diff)}
-								<UnifiedDiffView
-									{projectId}
-									{stackId}
-									commitId={file.type === 'commit' ? file.commitId : undefined}
+
+						<Drawer noshrink stickyHeader closeButtonPlaceholder>
+							{#snippet header()}
+								<FileViewHeader
+									filePath={change.path}
+									fileStatus={computeChangeStatus(change)}
+									linesAdded={patchData?.linesAdded}
+									linesRemoved={patchData?.linesRemoved}
+									executable={isExecutable}
+									highlighted={highlightedIndex === index}
+									class="m-l-4"
 									{draggable}
-									{change}
-									{diff}
-									{selectable}
-									selectionId={file}
-									topPadding
 								/>
 							{/snippet}
-							{#snippet loading()}
-								<div style="height: 200px">loading</div>
+
+							{#snippet actions()}
+								<Button kind="ghost" icon="kebab" size="tag" />
 							{/snippet}
-						</ReduxResult>
-					{/snippet}
-					{#snippet loading()}
-						<div style="height: 242px">loading</div>
+
+							<UnifiedDiffView
+								{projectId}
+								{stackId}
+								commitId={file.type === 'commit' ? file.commitId : undefined}
+								{draggable}
+								{change}
+								diff={diffData || null}
+								{selectable}
+								selectionId={file}
+								topPadding
+							/>
+						</Drawer>
 					{/snippet}
 				</ReduxResult>
 			{/snippet}
@@ -116,6 +119,7 @@
 <style>
 	.multi-diff-view {
 		display: flex;
+		position: relative;
 		flex-grow: 1;
 		width: 100%;
 		height: 100%;
@@ -129,5 +133,18 @@
 		&.no-rounded {
 			border-radius: 0;
 		}
+	}
+
+	.floating-close {
+		display: flex;
+		z-index: var(--z-lifted);
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		/* padding: 2px; */
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
+		box-shadow: var(--fx-shadow-s);
 	}
 </style>

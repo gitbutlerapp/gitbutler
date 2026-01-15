@@ -23,6 +23,7 @@
 						linesAdded={10}
 						linesRemoved={5}
 						pathFirst={true}
+						sticky={true}
 					/>
 					<p class="content-example">some content</p>
 				</div>

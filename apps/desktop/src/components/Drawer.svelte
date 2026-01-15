@@ -29,6 +29,7 @@
 		maxHeight?: string;
 		transparent?: boolean;
 		stickyHeader?: boolean;
+		closeButtonPlaceholder?: boolean;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -52,6 +53,7 @@
 		maxHeight,
 		transparent,
 		stickyHeader,
+		closeButtonPlaceholder,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -119,6 +121,7 @@
 		sticky={stickyHeader}
 		{onclose}
 		ondblclick={toggleCollapsed}
+		{closeButtonPlaceholder}
 	>
 		{#snippet content()}
 			<button
@@ -182,7 +185,6 @@
 		flex-direction: column;
 		width: 100%;
 		max-height: 100%;
-		overflow: hidden;
 		background-color: var(--clr-bg-1);
 
 		&.bottom-border {
