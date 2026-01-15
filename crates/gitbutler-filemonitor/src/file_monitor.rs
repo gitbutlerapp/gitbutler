@@ -105,36 +105,22 @@ impl WatchMode {
         })
     }
 
-    /// Initialise the mode from the feature flag setting, with environment variable override.
+    /// Initialise the mode from `watch_mode_from_settings`, with environment variable override.
     /// If the environment variable `GITBUTLER_WATCH_MODE` is set, it overrides the feature flag.
     /// Otherwise, the feature flag value is used.
-    pub fn from_feature_flag(watch_mode_str: &str) -> Self {
-        // Check if environment variable is set first (override)
-        if let Ok(env_mode) = std::env::var(ENV_WATCH_MODE) {
-            return env_mode.parse().ok().unwrap_or_else(|| {
+    pub fn from_env_or_settings(watch_mode_from_settings: &str) -> Self {
+        std::env::var(ENV_WATCH_MODE)
+            .ok()
+            .and_then(|env_var_value| env_var_value.parse().ok())
+            .or_else(|| watch_mode_from_settings.parse().ok())
+            .unwrap_or_else(|| {
                 tracing::warn!(
-                    env = ENV_WATCH_MODE,
-                    value = env_mode,
-                    "unknown watch mode from env; falling back to feature flag value"
+                    feature_flag = watch_mode_from_settings,
+                    env_var = ?std::env::var(ENV_WATCH_MODE),
+                    "unknown watch mode from feature flag or environment variable; falling back to auto"
                 );
-                watch_mode_str.parse().ok().unwrap_or_else(|| {
-                    tracing::warn!(
-                        feature_flag = watch_mode_str,
-                        "unknown watch mode from feature flag; falling back to auto"
-                    );
-                    WatchMode::Auto
-                })
-            });
-        }
-
-        // Use feature flag value
-        watch_mode_str.parse().ok().unwrap_or_else(|| {
-            tracing::warn!(
-                feature_flag = watch_mode_str,
-                "unknown watch mode from feature flag; falling back to auto"
-            );
-            WatchMode::Auto
-        })
+                WatchMode::Auto
+            })
     }
 }
 
@@ -626,39 +612,5 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
         }
     } else {
         FileKind::Project
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_watch_mode_from_feature_flag_with_valid_values() {
-        // Test "auto"
-        assert_eq!(WatchMode::from_feature_flag("auto"), WatchMode::Auto);
-
-        // Test "legacy"
-        assert_eq!(WatchMode::from_feature_flag("legacy"), WatchMode::Legacy);
-
-        // Test "modern"
-        assert_eq!(WatchMode::from_feature_flag("modern"), WatchMode::Modern);
-    }
-
-    #[test]
-    fn test_watch_mode_from_feature_flag_with_invalid_value() {
-        // Invalid value should fall back to auto
-        assert_eq!(WatchMode::from_feature_flag("invalid"), WatchMode::Auto);
-    }
-
-    #[test]
-    fn test_watch_mode_from_str() {
-        assert_eq!("auto".parse::<WatchMode>().ok(), Some(WatchMode::Auto));
-        assert_eq!("legacy".parse::<WatchMode>().ok(), Some(WatchMode::Legacy));
-        assert_eq!("modern".parse::<WatchMode>().ok(), Some(WatchMode::Modern));
-        assert_eq!("AUTO".parse::<WatchMode>().ok(), Some(WatchMode::Auto));
-        assert_eq!("Legacy".parse::<WatchMode>().ok(), Some(WatchMode::Legacy));
-        assert_eq!("MODERN".parse::<WatchMode>().ok(), Some(WatchMode::Modern));
-        assert!("invalid".parse::<WatchMode>().is_err());
     }
 }

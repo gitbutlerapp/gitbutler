@@ -90,7 +90,7 @@ impl ActiveProjects {
             }
         });
 
-        let watch_mode = gitbutler_watcher::WatchMode::from_feature_flag(
+        let watch_mode = gitbutler_watcher::WatchMode::from_env_or_settings(
             &app_settings_sync.get()?.feature_flags.watch_mode,
         );
         let file_watcher = gitbutler_watcher::watch_in_background(

@@ -417,6 +417,7 @@ impl Sandbox {
                 undo: true,
                 rules: true,
                 single_branch: true,
+                watch_mode: "auto".into(),
             },
             extra_csp: ExtraCsp {
                 hosts: vec![],
