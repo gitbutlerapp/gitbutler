@@ -47,9 +47,6 @@ mod stack {
         /// Upstream tracking branch reference, added when creating a stack from a branch.
         /// Used e.g. when listing commits from a fork.
         pub upstream: Option<RemoteRefname>,
-        // upstream_head is the last commit on we've pushed to the upstream branch
-        #[serde(with = "but_serde::object_id_opt", default)]
-        pub upstream_head: Option<gix::ObjectId>,
         /// head is id of the last "virtual" commit in this branch
         #[serde(with = "but_serde::object_id")]
         pub head: gix::ObjectId,
@@ -152,7 +149,6 @@ mod stack {
                 head: gix::hash::Kind::Sha1.null(),
                 source_refname: None,
                 upstream: None,
-                upstream_head: None,
 
                 // Unused - everything is defined by the top-most branch name.
                 name: "".to_string(),
