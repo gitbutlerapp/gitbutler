@@ -20,6 +20,7 @@ use crate::{Stack, VirtualBranchesHandle};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StackBranch {
     /// The target of the reference - the commit ID that this branch points to.
+    /// This value is serialized and used when restoring from snapshots (via set_reference_to_head_value)
     #[deprecated(note = "Use the git reference instead")]
     head: gix::ObjectId, // needs to stay private
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
