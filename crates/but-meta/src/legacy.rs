@@ -25,7 +25,7 @@ use std::{
 };
 use tracing::instrument;
 
-use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
+use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
 
 #[derive(Debug, Clone)]
 struct Snapshot {
@@ -116,7 +116,7 @@ impl Snapshot {
 
     /// Return `true` if any of the heads needs fixing because it's null.
     fn has_null_head_hash(&self) -> bool {
-        let null_id = CommitOrChangeId::CommitId(gix::hash::Kind::Sha1.null().to_string());
+        let null_id = gix::hash::Kind::Sha1.null();
         self.content
             .branches
             .values()
@@ -155,7 +155,7 @@ impl Snapshot {
             }
 
             if let Some(repo) = repo {
-                let null_id = CommitOrChangeId::CommitId(gix::hash::Kind::Sha1.null().to_string());
+                let null_id = gix::hash::Kind::Sha1.null();
 
                 for segment in &mut stack.heads {
                     if segment.head == null_id {
@@ -163,7 +163,7 @@ impl Snapshot {
                             continue;
                         };
                         if let Ok(id) = r.peel_to_id() {
-                            segment.head = CommitOrChangeId::CommitId(id.to_string());
+                            segment.head = id.detach();
                             changed = true;
                         }
                     }
@@ -205,11 +205,10 @@ impl Snapshot {
                 let first_commit_or_null = segment
                     .commits
                     .first()
-                    .map_or(gix::hash::Kind::Sha1.null(), |c| c.id)
-                    .to_string();
-                tracing::warn!(segment_name=%segment_name.shorten(), %first_commit_or_null, stack_id=?vb_stack.id, "Adding head to stack");
+                    .map_or(gix::hash::Kind::Sha1.null(), |c| c.id);
+                tracing::warn!(segment_name=%segment_name.shorten(), first_commit_or_null=%first_commit_or_null, stack_id=?vb_stack.id, "Adding head to stack");
                 vb_stack.heads.push(StackBranch {
-                    head: CommitOrChangeId::CommitId(first_commit_or_null),
+                    head: first_commit_or_null,
                     name: segment_name.shorten().to_string(),
                     pr_number: None,
                     archived: false,

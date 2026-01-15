@@ -184,7 +184,8 @@ mod stack {
     pub struct StackBranch {
         /// The target of the reference - this can be a commit or a change that points to a commit.
         #[serde(alias = "target")]
-        pub head: CommitOrChangeId, // needs to stay private
+        #[serde(with = "commit_id_serde")]
+        pub head: gix::ObjectId,
         /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
         /// The name must be unique within the repository.
         pub name: String,
@@ -212,19 +213,60 @@ mod stack {
                 pr_number,
                 archived,
                 review_id,
-                head: CommitOrChangeId::CommitId(gix::hash::Kind::Sha1.null().to_string()),
+                head: gix::hash::Kind::Sha1.null(),
+            }
+        }
+    }
+
+    /// Custom serde module for handling the legacy CommitOrChangeId format.
+    /// This deserializes the old enum format but stores it as a gix::ObjectId.
+    mod commit_id_serde {
+        use serde::{Deserialize, Deserializer, Serialize, Serializer};
+        use std::str::FromStr;
+
+        #[derive(Deserialize)]
+        enum CommitOrChangeIdHelper {
+            CommitId(String),
+            #[allow(dead_code)]
+            ChangeId(String),
+        }
+
+        pub fn serialize<S>(value: &gix::ObjectId, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            #[derive(Serialize)]
+            enum CommitOrChangeId {
+                CommitId(String),
+            }
+            CommitOrChangeId::CommitId(value.to_string()).serialize(serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<gix::ObjectId, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            match CommitOrChangeIdHelper::deserialize(deserializer)? {
+                CommitOrChangeIdHelper::CommitId(id) => {
+                    gix::ObjectId::from_str(&id).map_err(serde::de::Error::custom)
+                }
+                CommitOrChangeIdHelper::ChangeId(_) => Err(serde::de::Error::custom(
+                    "ChangeId variant is no longer supported",
+                )),
             }
         }
     }
 
     /// A patch identifier which is either `CommitId` or a `ChangeId`.
     /// ChangeId should always be used if available.
+    ///
+    /// DEPRECATED: This enum is kept only for backwards compatibility during deserialization.
+    /// New code should use `gix::ObjectId` directly.
     #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+    #[deprecated(note = "Use gix::ObjectId directly instead")]
     pub enum CommitOrChangeId {
         /// A reference that points directly to a commit.
         CommitId(String),
-        /// A reference that points to a change (patch) through which a valid commit can be derived.
-        ChangeId(String),
     }
 
     #[derive(Debug, PartialEq, Default, Clone)]

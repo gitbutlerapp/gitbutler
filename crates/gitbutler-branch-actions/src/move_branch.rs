@@ -1,7 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::ref_metadata::StackId;
 use but_ctx::{Context, access::WorktreeWritePermission};
-use but_meta::virtual_branches_legacy_types::CommitOrChangeId;
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::legacy::stack_ext::StackExt;
@@ -183,11 +182,7 @@ fn inject_branch_steps_into_destination(
 
     let target_branch_head = target_branch_reference.commit_id;
 
-    let mut new_head = StackBranch::new(
-        CommitOrChangeId::CommitId(target_branch_head.to_string()),
-        subject_branch_name.to_string(),
-        repo,
-    )?;
+    let mut new_head = StackBranch::new(target_branch_head, subject_branch_name.to_string(), repo)?;
 
     new_head.pr_number = subject_branch_pr_number;
 

@@ -4,7 +4,7 @@ use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{Rebase, RebaseStep, ReferenceSpec};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
-use gitbutler_stack::{CommitOrChangeId, StackBranch, StackId, VirtualBranchesHandle};
+use gitbutler_stack::{StackBranch, StackId, VirtualBranchesHandle};
 
 use crate::legacy::{
     MoveChangesResult,
@@ -220,11 +220,7 @@ pub fn split_into_dependent_branch(
 
     source_stack.add_series(
         ctx,
-        StackBranch::new(
-            CommitOrChangeId::CommitId(branch_head.to_string()),
-            new_branch_name,
-            &repository,
-        )?,
+        StackBranch::new(branch_head.to_gix(), new_branch_name, &repository)?,
         Some(source_branch_name),
     )?;
 
