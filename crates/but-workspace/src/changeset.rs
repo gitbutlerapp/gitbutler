@@ -529,7 +529,7 @@ fn id_for_tree_diff(
             });
 
             if change.entry_mode().is_tree() {
-                return visit::Action::Continue;
+                return std::ops::ControlFlow::Continue(());
             }
 
             // must hash all fields, even if None for unambiguous hashes.
@@ -583,7 +583,7 @@ fn id_for_tree_diff(
                     );
                 }
             }
-            visit::Action::Continue
+            std::ops::ControlFlow::Continue(())
         }
     }
 

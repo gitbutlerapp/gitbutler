@@ -21,7 +21,7 @@ pub fn apply_lhs_to_rhs(
         rhs,
         |change| -> Result<_, std::convert::Infallible> {
             changes.push(change.into_owned());
-            Ok(gix::diff::index::Action::Continue)
+            Ok(std::ops::ControlFlow::Continue(()))
         },
         None::<gix::diff::index::RewriteOptions<'_, gix::Repository>>,
         &mut gix::pathspec::Search::from_specs(None, None, workdir)?,

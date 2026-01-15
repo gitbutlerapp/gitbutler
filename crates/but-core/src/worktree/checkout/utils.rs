@@ -187,7 +187,7 @@ impl gix::diff::tree::Visit for Delegate {
         if change.entry_mode().is_no_tree() {
             self.changed_files.push((change.kind(), self.path.clone()));
         }
-        visit::Action::Continue
+        std::ops::ControlFlow::Continue(())
     }
 }
 
