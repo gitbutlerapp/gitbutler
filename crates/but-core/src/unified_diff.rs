@@ -4,12 +4,12 @@ use gix::diff::blob::{
     platform::prepare_diff::Operation,
     unified_diff::{ConsumeBinaryHunk, ContextSize, HunkHeader},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::{ChangeState, UnifiedPatch};
 
 /// A hunk as used in a [UnifiedPatch], which also contains all added and removed lines.
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffHunk {
     /// The 1-based line number at which the previous version of the file started.

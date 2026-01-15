@@ -875,6 +875,7 @@ dependencies = [
  "gitbutler-sync",
  "gitbutler-user",
  "gix",
+ "itertools",
  "open",
  "schemars 1.2.0",
  "serde",

@@ -74,6 +74,7 @@ but-meta = { workspace = true, features = ["legacy"] }
 # 'legacy' is needed while this is only a sketch of what the oplog could be.
 # For single-branch testing, we also want the oplog and just take it as it is.
 but-oplog = { workspace = true, features = ["legacy"] }
+itertools.workspace = true
 
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.

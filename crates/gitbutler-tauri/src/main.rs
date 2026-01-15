@@ -336,6 +336,8 @@ fn main() -> anyhow::Result<()> {
                 legacy::workspace::tauri_uncommit_changes::uncommit_changes,
                 legacy::workspace::tauri_split_branch::split_branch,
                 legacy::workspace::tauri_split_branch_into_dependent_branch::split_branch_into_dependent_branch,
+                legacy::absorb::tauri_absorb::absorb,
+                legacy::absorb::tauri_absorption_plan::absorption_plan,
                 legacy::diff::tauri_changes_in_worktree::changes_in_worktree,
                 legacy::diff::tauri_tree_change_diffs::tree_change_diffs,
                 legacy::diff::tauri_assign_hunk::assign_hunk,
