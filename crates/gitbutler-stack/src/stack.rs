@@ -34,9 +34,6 @@ use crate::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct Stack {
     pub id: StackId,
-    /// A user-specified name with no restrictions.
-    /// It will be normalized except to be a valid ref-name if named `refs/gitbutler/<normalize(name)>`.
-    name: String,
     /// If set, this means this virtual branch was originally created from `Some(branch)`.
     /// It can be *any* branch.
     pub source_refname: Option<Refname>,
@@ -59,7 +56,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
     fn from(
         virtual_branches_legacy_types::Stack {
             id,
-            name,
             source_refname,
             upstream,
             head,
@@ -71,7 +67,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
     ) -> Self {
         Stack {
             id,
-            name,
             source_refname,
             upstream,
             head: head.to_git2(),
@@ -86,7 +81,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
     fn from(
         Stack {
             id,
-            name,
             source_refname,
             upstream,
             head,
@@ -97,7 +91,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
     ) -> Self {
         virtual_branches_legacy_types::Stack {
             id,
-            name,
             source_refname,
             upstream,
             head: head.to_gix(),
@@ -119,6 +112,8 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             created_timestamp_ms: 0,
             #[allow(deprecated)]
             updated_timestamp_ms: 0,
+            #[allow(deprecated)]
+            name: String::default(),
         }
     }
 }
@@ -161,10 +156,6 @@ impl Stack {
             head: git2::Oid::zero(),
             source_refname: None,
             upstream: None,
-
-            // Unused - everything is defined by the top-most branch name.
-            name: "".to_string(),
-            // unclear, obsolete
         }
     }
 
@@ -217,7 +208,6 @@ impl Stack {
         let stack_branch = Stack::create_stack_branch(&repo, head.to_gix(), name.clone())?;
         Ok(Self {
             id: StackId::generate(),
-            name,
             source_refname,
             upstream,
             head,
@@ -234,7 +224,6 @@ impl Stack {
         let stack_branch = Stack::create_stack_branch(&repo, head.to_gix(), name.clone())?;
         Ok(Self {
             id: StackId::generate(),
-            name,
             source_refname: None,
             upstream: None,
             head,

@@ -154,16 +154,6 @@ impl Snapshot {
                 changed = true;
             }
 
-            if stack.name.is_empty() {
-                stack.name = stack
-                    .heads
-                    // experiments show this is the bottom-most branch
-                    .last()
-                    .map(|h| h.name.as_str())
-                    .unwrap_or_default()
-                    .to_string();
-                changed = true;
-            }
             if let Some(repo) = repo {
                 let null_id = CommitOrChangeId::CommitId(gix::hash::Kind::Sha1.null().to_string());
 
@@ -997,6 +987,8 @@ fn branch_to_stack_branch(
 
 /// Deterministically compare two stacks by their `order` field, using `name` and `id` as a tiebreaker.
 fn order_then_name(a: &&Stack, b: &&Stack) -> Ordering {
+    #[allow(deprecated)]
+    // TODO: Need to remove the name ordering - no such field will be persisted.
     a.order
         .cmp(&b.order)
         .then_with(|| a.name.cmp(&b.name).then_with(|| a.id.cmp(&b.id)))
