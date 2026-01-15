@@ -772,7 +772,7 @@ pub fn get_branch_listing_details(
                 // NOTE: `stats(head_tree)` is also possible, but we have a separate thread for that.
                 .for_each_to_obtain_tree(&head_tree, move |change| -> anyhow::Result<Action> {
                     change_tx.send(change.detach()).ok();
-                    Ok(Action::Continue)
+                    Ok(std::ops::ControlFlow::Continue(()))
                 })?;
             let (number_of_files, lines_added, lines_removed) = rex_rx.recv()?;
 

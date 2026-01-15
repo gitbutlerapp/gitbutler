@@ -1,7 +1,7 @@
 use crate::events::InternalEvent;
 use crate::watch_plan::{
-    compute_watch_plan_for_repo, is_watchable_directory, to_repo_relative_path,
-    tracked_worktree_directories,
+    build_index_icase_accelerator_if_needed, compute_watch_plan_for_repo, is_tracked_in_index,
+    is_watchable_directory, to_repo_relative_path,
 };
 use anyhow::{Context as _, Result, anyhow};
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
@@ -376,22 +376,9 @@ pub fn spawn(
                         )
                     {
                         ignore_filtering_ran = true;
-                        let mut tracked_dirs = None;
-                        let mut is_untracked = |relative_path: &BStr, is_dir: bool| -> bool {
-                            if is_dir {
-                                let is_tracked = tracked_dirs.get_or_insert_with(|| {
-                                    // This is slow so we only do it on demand.
-                                    // TODO(gix): Use a built-in lookup that works for directories so we don't have to extract all data.
-                                    //            Then we don't need that tracked_worktree_directories at all.
-                                    tracked_worktree_directories(&index)
-                                }).contains(relative_path);
-                                !is_tracked
-                            } else {
-                                let is_tracked = index
-                                    .entry_by_path(relative_path)
-                                    .is_some();
-                                !is_tracked
-                            }
+                        let icase_acc = build_index_icase_accelerator_if_needed(&repo, &index);
+                        let is_untracked = |relative_path: &BStr, is_dir: bool| -> bool {
+                            !is_tracked_in_index(relative_path, is_dir, &index, icase_acc.as_ref())
                         };
                         for (file_path, kind) in classified_file_paths.iter_mut() {
                             if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
@@ -494,14 +481,15 @@ pub fn spawn(
                                     "failed to add or remove watch; changes may be missed until restart"
                                 )
                             });
-                            if res.is_ok() {
-                                match mode {
-                                    Mode::AddWatch => {
-                                        dynamically_watched_dirs.insert(path);
-                                    }
-                                    Mode::RemoveWatch => {
-                                        dynamically_watched_dirs.remove(&path);
-                                    }
+                            match mode {
+                                Mode::AddWatch if res.is_ok() => {
+                                    dynamically_watched_dirs.insert(path);
+                                }
+                                _ => {
+                                    // If adding OR removing a watch didn't work, just remove it from our list.
+                                    // On linux, it seems to manage to remove the watch, but fails to communicate it,
+                                    // so our own tracking list would be stale.
+                                    dynamically_watched_dirs.remove(&path);
                                 }
                             }
                         }

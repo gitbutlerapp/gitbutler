@@ -1,4 +1,4 @@
-use gix::bstr::{BStr, ByteSlice};
+use gix::bstr::BStr;
 use notify::RecursiveMode;
 use std::borrow::Cow;
 use std::collections::{BTreeSet, HashSet};
@@ -21,7 +21,7 @@ pub(crate) fn compute_watch_plan_for_repo(
     mut visit_dir: impl FnMut(&Path, notify::RecursiveMode) -> anyhow::Result<ControlFlow<()>>,
 ) -> anyhow::Result<()> {
     let index = repo.index_or_empty()?;
-    let tracked_dirs = tracked_worktree_directories(&index);
+    let icase_acc = build_index_icase_accelerator_if_needed(repo, &index);
     let mut excludes = repo.excludes(
         &index,
         None,
@@ -73,7 +73,14 @@ pub(crate) fn compute_watch_plan_for_repo(
             let is_excluded = excludes
                 .at_path(relative, Some(gix::index::entry::Mode::DIR))
                 .is_ok_and(|platform| platform.is_excluded());
-            if is_excluded && !tracked_dirs.contains(to_repo_relative_path(relative).as_ref()) {
+            if is_excluded
+                && !is_tracked_in_index(
+                    to_repo_relative_path(relative).as_ref(),
+                    true,
+                    &index,
+                    icase_acc.as_ref(),
+                )
+            {
                 continue;
             }
         }
@@ -135,27 +142,37 @@ pub(crate) fn is_watchable_directory(file_type: FileType) -> bool {
     file_type.is_dir() && !file_type.is_symlink()
 }
 
-/// Return all directories that are stored in `index`, including the directories leading to them.
-/// For example, a single file like `dir/subdir/file` would yield `[dir/subdir, dir]` in any order.
-pub(crate) fn tracked_worktree_directories(index: &gix::index::State) -> HashSet<&BStr> {
-    let mut out = HashSet::new();
-    out.insert("".into());
+pub(crate) fn build_index_icase_accelerator_if_needed<'index>(
+    repo: &gix::Repository,
+    index: &'index gix::index::State,
+) -> Option<gix::index::AccelerateLookup<'index>> {
+    repo.filesystem_options()
+        .ok()
+        .and_then(|opts| opts.ignore_case.then(|| index.prepare_icase_backing()))
+}
 
-    for entry in index.entries() {
-        let mut path = entry.path(index);
-        let is_tree_we_should_insert = entry.mode.is_sparse() || entry.mode.is_submodule();
-        if is_tree_we_should_insert && !out.insert(path) {
-            continue;
+/// `relative_path` is a `/` separated repo-relative path, which is considered a directory if
+/// `is_dir` is `true`.
+/// If `icase_acc` is set, the lookup will be case-insensitive.
+pub(crate) fn is_tracked_in_index(
+    relative_path: &BStr,
+    is_dir: bool,
+    index: &gix::index::State,
+    icase_acc: Option<&gix::index::AccelerateLookup>,
+) -> bool {
+    if let Some(icase_acc) = icase_acc {
+        if is_dir {
+            index.path_is_directory_icase(relative_path, true, icase_acc)
+        } else {
+            index
+                .entry_by_path_icase(relative_path, true, icase_acc)
+                .is_some()
         }
-        while let Some(last_slash_pos) = path.rfind_byte(b'/') {
-            path = &path[..last_slash_pos];
-            if !out.insert(path) {
-                break;
-            }
-        }
+    } else if is_dir {
+        index.path_is_directory(relative_path)
+    } else {
+        index.entry_by_path(relative_path).is_some()
     }
-
-    out
 }
 
 pub(crate) fn to_repo_relative_path(path: &Path) -> Cow<'_, BStr> {
