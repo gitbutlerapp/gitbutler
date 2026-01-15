@@ -148,6 +148,12 @@ pub enum AbsorptionTarget {
     HunkAssignments {
         assignments: Vec<HunkAssignment>,
     },
+    TreeChanges {
+        changes: Vec<but_core::ui::TreeChange>,
+        // Optionally, the stack to which the changes are assigned
+        #[ts(type = "string | null")]
+        assigned_stack_id: Option<StackId>,
+    },
     #[default]
     All,
 }
