@@ -31,6 +31,7 @@
 		grow?: boolean;
 		clientHeight?: number;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
+		rounded?: boolean;
 		ontoggle?: (collapsed: boolean) => void;
 		onerror: (err: unknown) => void;
 		onclose?: () => void;
@@ -44,6 +45,7 @@
 		grow,
 		clientHeight = $bindable(),
 		resizer,
+		rounded,
 		ontoggle,
 		onerror,
 		onclose
@@ -150,6 +152,7 @@
 			persistId="commit-view-drawer-{projectId}-{stackId}-{commitKey.commitId}"
 			{resizer}
 			{grow}
+			{rounded}
 			{ontoggle}
 			onclose={() => {
 				// When the commit view is closed, we also want to unset the

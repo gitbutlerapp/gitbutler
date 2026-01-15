@@ -602,22 +602,21 @@
 									<CardOverlay {hovered} {activated} {label} />
 								{/snippet}
 								<div class="details-view__inner">
-									<div class="commit-view-wrapper">
-										<CommitView
-											projectId={stableProjectId}
-											stackId={stableStackId}
-											{laneId}
-											commitKey={{
-												stackId: stableStackId,
-												branchName,
-												commitId,
-												upstream: !!upstream
-											}}
-											draggableFiles
-											{onerror}
-											onclose={onclosePreview}
-										/>
-									</div>
+									<CommitView
+										projectId={stableProjectId}
+										stackId={stableStackId}
+										{laneId}
+										commitKey={{
+											stackId: stableStackId,
+											branchName,
+											commitId,
+											upstream: !!upstream
+										}}
+										draggableFiles
+										rounded
+										{onerror}
+										onclose={onclosePreview}
+									/>
 									{#if commitFiles}
 										{@const commitResult = commitFiles?.result}
 										{#if commitResult}
@@ -653,8 +652,8 @@
 									{branchName}
 									{onerror}
 									onclose={onclosePreview}
+									rounded
 								/>
-
 								<ReduxResult {projectId} {stackId} result={changesQuery.result}>
 									{#snippet children(result)}
 										<MultiDiffView
@@ -848,10 +847,5 @@
 		gap: 12px;
 		background-color: var(--clr-bg-2);
 		transition: background-color var(--transition-fast);
-	}
-
-	.commit-view-wrapper {
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
 	}
 </style>

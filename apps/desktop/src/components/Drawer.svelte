@@ -29,6 +29,7 @@
 		maxHeight?: string;
 		transparent?: boolean;
 		stickyHeader?: boolean;
+		rounded?: boolean;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -52,6 +53,7 @@
 		maxHeight,
 		transparent,
 		stickyHeader,
+		rounded,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -110,6 +112,7 @@
 	class:top-border={topBorder}
 	class:grow
 	class:noshrink
+	class:rounded
 	style:max-height={maxHeight}
 >
 	<PreviewHeader
@@ -227,5 +230,11 @@
 		&.expanded {
 			transform: rotate(90deg);
 		}
+	}
+
+	.rounded {
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 	}
 </style>
