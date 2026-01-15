@@ -54,16 +54,17 @@
 				commits = commits.concat(await getPage(nextId));
 				loadedIds.push(nextId);
 			}
-			if (throttled) {
-				loadMore();
-			}
 		} finally {
 			loading = false;
+			if (throttled) {
+				throttled = false;
+				loadMore();
+			}
 		}
 	}
 
 	async function getPage(commitId: string | undefined) {
-		const result = await stackService.targetCommits(projectId, commitId, 20);
+		const result = await stackService.targetCommits(projectId, commitId, 50);
 		return result || [];
 	}
 
