@@ -122,3 +122,31 @@ mod spawn {
         Ok(())
     }
 }
+
+mod watch_mode {
+    use gitbutler_filemonitor::WatchMode;
+
+    #[test]
+    fn from_env_or_settings() {
+        assert_eq!(WatchMode::from_env_or_settings("auto"), WatchMode::Auto);
+        assert_eq!(WatchMode::from_env_or_settings("legacy"), WatchMode::Legacy);
+        assert_eq!(WatchMode::from_env_or_settings("modern"), WatchMode::Modern);
+
+        assert_eq!(
+            WatchMode::from_env_or_settings("invalid"),
+            WatchMode::Auto,
+            "Invalid value should fall back to auto"
+        );
+    }
+
+    #[test]
+    fn from_str() {
+        assert_eq!("auto".parse::<WatchMode>().ok(), Some(WatchMode::Auto));
+        assert_eq!("legacy".parse::<WatchMode>().ok(), Some(WatchMode::Legacy));
+        assert_eq!("modern".parse::<WatchMode>().ok(), Some(WatchMode::Modern));
+        assert_eq!("AUTO".parse::<WatchMode>().ok(), Some(WatchMode::Auto));
+        assert_eq!("Legacy".parse::<WatchMode>().ok(), Some(WatchMode::Legacy));
+        assert_eq!("MODERN".parse::<WatchMode>().ok(), Some(WatchMode::Modern));
+        assert!("invalid".parse::<WatchMode>().is_err());
+    }
+}

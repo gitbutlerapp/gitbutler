@@ -326,6 +326,7 @@ pub mod stacks {
                 undo: false,
                 rules: false,
                 single_branch: false,
+                watch_mode: "auto".into(),
             },
             ..AppSettings::default()
         };
@@ -385,6 +386,7 @@ pub mod stacks {
                 undo: false,
                 rules: false,
                 single_branch: false,
+                watch_mode: "auto".into(),
             },
             ..AppSettings::default()
         };

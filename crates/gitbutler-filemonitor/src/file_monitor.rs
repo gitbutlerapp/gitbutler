@@ -104,6 +104,24 @@ impl WatchMode {
             WatchMode::Auto
         })
     }
+
+    /// Initialise the mode from `watch_mode_from_settings`, with environment variable override.
+    /// If the environment variable `GITBUTLER_WATCH_MODE` is set, it overrides the feature flag.
+    /// Otherwise, the feature flag value is used.
+    pub fn from_env_or_settings(watch_mode_from_settings: &str) -> Self {
+        std::env::var(ENV_WATCH_MODE)
+            .ok()
+            .and_then(|env_var_value| env_var_value.parse().ok())
+            .or_else(|| watch_mode_from_settings.parse().ok())
+            .unwrap_or_else(|| {
+                tracing::warn!(
+                    feature_flag = watch_mode_from_settings,
+                    env_var = ?std::env::var(ENV_WATCH_MODE),
+                    "unknown watch mode from feature flag or environment variable; falling back to auto"
+                );
+                WatchMode::Auto
+            })
+    }
 }
 
 #[cfg(target_os = "linux")]
