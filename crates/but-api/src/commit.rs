@@ -16,8 +16,9 @@ pub fn commit_reword_only(
     commit_id: gix::ObjectId,
     message: BString,
 ) -> anyhow::Result<gix::ObjectId> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let (repo, _, graph) = ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let guard = ctx.exclusive_worktree_access();
+    let (_, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let repo = ctx.repo.get()?;
     let editor = graph.to_editor(&repo)?;
 
     let (outcome, edited_commit_selector) =
@@ -102,8 +103,9 @@ pub fn commit_insert_blank_only(
     relative_to: ui::RelativeTo,
     side: InsertSide,
 ) -> anyhow::Result<gix::ObjectId> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let (repo, _, graph) = ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let guard = ctx.exclusive_worktree_access();
+    let (_, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let repo = ctx.repo.get()?;
     let editor = graph.to_editor(&repo)?;
 
     let relative_to = (&relative_to).into();
@@ -155,8 +157,9 @@ pub fn commit_move_changes_between_only(
     destination_commit_id: json::HexHash,
     changes: Vec<but_core::DiffSpec>,
 ) -> anyhow::Result<json::UIMoveChangesResult> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let (repo, _, graph) = ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let guard = ctx.exclusive_worktree_access();
+    let (_, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let repo = ctx.repo.get()?;
     let editor = graph.to_editor(&repo)?;
 
     let outcome = move_changes_between_commits(
