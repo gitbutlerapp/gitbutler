@@ -359,7 +359,6 @@ fn main() -> anyhow::Result<()> {
                 action::list_workflows,
                 action::auto_commit,
                 action::auto_branch_changes,
-                action::absorb,
                 action::freestyle,
                 askpass::submit_prompt_response,
                 menu::menu_item_set_enabled,
