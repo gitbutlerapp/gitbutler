@@ -304,7 +304,9 @@
 				selectionId,
 				allowUnselect
 			);
-			onselect?.(change, idx);
+			if (idSelection.has(change.path, selectionId)) {
+				onselect?.(change, idx);
+			}
 		}}
 		{conflictEntries}
 	/>
