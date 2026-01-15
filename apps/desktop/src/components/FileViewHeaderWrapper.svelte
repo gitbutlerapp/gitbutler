@@ -13,7 +13,6 @@
 	import { FileViewHeader, TestId } from '@gitbutler/ui';
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { sticky as stickyAction } from '@gitbutler/ui/utils/sticky';
-	import type { Rename } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 
 	interface Props {
@@ -50,8 +49,8 @@
 	let isStuck = $state(false);
 
 	const previousTooltipText = $derived(
-		(change.status.subject as Rename).previousPath
-			? `${(change.status.subject as Rename).previousPath} →\n${change.path}`
+		change.status.type === 'Rename' && change.status.subject.previousPath
+			? `${change.status.subject.previousPath} →\n${change.path}`
 			: undefined
 	);
 
