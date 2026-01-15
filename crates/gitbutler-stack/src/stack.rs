@@ -34,9 +34,6 @@ use crate::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct Stack {
     pub id: StackId,
-    /// A user-specified name with no restrictions.
-    /// It will be normalized except to be a valid ref-name if named `refs/gitbutler/<normalize(name)>`.
-    name: String,
     /// If set, this means this virtual branch was originally created from `Some(branch)`.
     /// It can be *any* branch.
     pub source_refname: Option<Refname>,
@@ -59,7 +56,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
     fn from(
         virtual_branches_legacy_types::Stack {
             id,
-            name,
             source_refname,
             upstream,
             head,
@@ -71,7 +67,6 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
     ) -> Self {
         Stack {
             id,
-            name,
             source_refname,
             upstream,
             head: head.to_git2(),
@@ -86,7 +81,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
     fn from(
         Stack {
             id,
-            name,
             source_refname,
             upstream,
             head,
@@ -97,7 +91,6 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
     ) -> Self {
         virtual_branches_legacy_types::Stack {
             id,
-            name,
             source_refname,
             upstream,
             head: head.to_gix(),
@@ -119,6 +112,8 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             created_timestamp_ms: 0,
             #[allow(deprecated)]
             updated_timestamp_ms: 0,
+            #[allow(deprecated)]
+            name: String::default(),
         }
     }
 }
@@ -141,29 +136,13 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
 /// Similarly, heads that point to earlier commits are first in the order, and the last head always points to the most recent patch.
 /// If there are multiple heads that point to the same patch, the `add` and `update` operations can specify the intended order.
 impl Stack {
-    /// Creates a new `Branch` with the given name. The `in_workspace` flag is set to `true`.
-    #[deprecated(note = "DO NOT USE THIS DIRECTLY, use `stack_ext::StackExt::create` instead.")]
-    pub fn new(
-        name: String,
-        source_refname: Option<Refname>,
-        upstream: Option<RemoteRefname>,
-        head: git2::Oid,
-        order: usize,
-    ) -> Self {
-        Self {
-            id: StackId::generate(),
-            name,
-            source_refname,
-            upstream,
-            head,
-            order,
-            in_workspace: true,
-            heads: Default::default(),
-        }
-    }
-
+    /// The name of the stack, defined as the name of the first head (branch) in the stack.
+    /// The usage of this is discouraged
     pub fn name(&self) -> String {
-        self.name.clone()
+        self.heads
+            .first()
+            .map(|head| head.name.clone())
+            .unwrap_or_default()
     }
 
     pub fn new_with_just_heads(heads: Vec<StackBranch>, order: usize, in_workspace: bool) -> Self {
@@ -177,10 +156,6 @@ impl Stack {
             head: git2::Oid::zero(),
             source_refname: None,
             upstream: None,
-
-            // Unused - everything is defined by the top-most branch name.
-            name: "".to_string(),
-            // unclear, obsolete
         }
     }
 
@@ -219,23 +194,43 @@ impl Stack {
             .ok_or_else(|| anyhow!("Stack::derived_name: Stack is uninitialized"))
     }
 
-    // TODO: When this is stable, make it error out on initialization failure
-    /// Constructs and initializes a new Stack.
-    /// If initialization fails, a warning is logged and the stack is returned as is.
-    pub fn create(
+    pub fn new_from_existing(
         ctx: &Context,
         name: String,
         source_refname: Option<Refname>,
         upstream: Option<RemoteRefname>,
         head: git2::Oid,
         order: usize,
-        allow_duplicate_refs: bool,
     ) -> Result<Self> {
-        #[expect(deprecated)]
-        // this should be the only place (other than tests) where this is allowed
-        let mut branch = Stack::new(name, source_refname, upstream, head, order);
-        branch.initialize(ctx, allow_duplicate_refs)?;
-        Ok(branch)
+        let state = branch_state(ctx);
+        let repo = ctx.repo.get()?;
+        let name = Stack::new_name(&repo, &state, upstream.clone(), name, true)?;
+        let stack_branch = Stack::create_stack_branch(&repo, head.to_gix(), name.clone())?;
+        Ok(Self {
+            id: StackId::generate(),
+            source_refname,
+            upstream,
+            head,
+            order,
+            in_workspace: true,
+            heads: vec![stack_branch],
+        })
+    }
+
+    pub fn new_empty(ctx: &Context, name: String, head: git2::Oid, order: usize) -> Result<Self> {
+        let state = branch_state(ctx);
+        let repo = ctx.repo.get()?;
+        let name = Stack::new_name(&repo, &state, None, name, false)?;
+        let stack_branch = Stack::create_stack_branch(&repo, head.to_gix(), name.clone())?;
+        Ok(Self {
+            id: StackId::generate(),
+            source_refname: None,
+            upstream: None,
+            head,
+            order,
+            in_workspace: true,
+            heads: vec![stack_branch],
+        })
     }
 
     /// Returns the commits between the stack head (including) and the merge base (not including) for the stack.
@@ -305,52 +300,32 @@ impl Stack {
         !self.heads.is_empty()
     }
 
-    /// Initializes a new stack.
-    /// An initialized stack means that the heads will always have at least one entry.
-    /// When initialized, first stack head will point to the "Branch" head.
-    /// Errors out if the stack has already been initialized.
-    ///
-    /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    pub fn initialize(&mut self, ctx: &Context, allow_duplicate_refs: bool) -> Result<()> {
-        // If the branch is already initialized, don't do anything
-        if self.is_initialized() {
-            return Ok(());
-        }
-
-        let empty_reference = self.make_new_empty_reference(ctx, allow_duplicate_refs)?;
-
-        self.heads = vec![empty_reference];
-        let state = branch_state(ctx);
-        state.set_stack(self.clone())
-    }
-
-    fn make_new_empty_reference(
-        &mut self,
-        ctx: &Context,
+    fn new_name(
+        repo: &gix::Repository,
+        state: &VirtualBranchesHandle,
+        upstream: Option<RemoteRefname>,
+        fallback: String,
         allow_duplicate_refs: bool,
-    ) -> Result<StackBranch> {
-        let state = branch_state(ctx);
-        let repo = ctx.repo.get()?;
-        // If the stack is created for the first time, this will be the default target sha
-        let head = if self.heads.is_empty() {
-            self.head
-        } else {
-            self.head_oid(ctx)?.to_git2()
-        };
-        let git2_repo = ctx.git2_repo.get()?;
-        let commit = git2_repo.find_commit(head)?;
-
-        let name = if let Some(refname) = self.upstream.as_ref() {
+    ) -> Result<String> {
+        let name = if let Some(refname) = upstream.as_ref() {
             refname.branch().to_string()
         } else {
-            self.name()
+            fallback
         };
+        let name = Stack::next_available_name(repo, state, name, allow_duplicate_refs)?;
+        validate_name(&name, state)?;
+        Ok(name)
+    }
 
-        let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;
-
-        validate_name(&name, &state)?;
-        let reference = StackBranch::new(commit, name, &repo)?;
-
+    /// Creates a new StackBranch pointing to the given head commit with the given name.
+    /// This also creates a git reference in the repository.
+    fn create_stack_branch(
+        repo: &gix::Repository,
+        head: gix::ObjectId,
+        name: String,
+    ) -> Result<StackBranch> {
+        let commit = repo.find_commit(head)?;
+        let reference = StackBranch::new(commit.id, name, repo)?;
         Ok(reference)
     }
 
@@ -590,8 +565,10 @@ impl Stack {
                 head.pr_number = None;
             }
 
-            let new_head = self.make_new_empty_reference(ctx, false)?;
-            self.heads.push(new_head);
+            let new_name =
+                Stack::new_name(repo, &state, self.upstream.clone(), self.name(), false)?;
+            let new_branch = Stack::create_stack_branch(repo, self.head_oid(ctx)?, new_name)?;
+            self.heads.push(new_branch);
         }
 
         state.set_stack(self.clone())?;

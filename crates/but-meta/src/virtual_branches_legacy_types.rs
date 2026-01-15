@@ -38,9 +38,6 @@ mod stack {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Stack {
         pub id: StackId,
-        /// A user-specified name with no restrictions.
-        /// It will be normalized except to be a valid ref-name if named `refs/gitbutler/<normalize(name)>`.
-        pub name: String,
         /// If set, this means this virtual branch was originally created from `Some(branch)`.
         /// It can be *any* branch.
         pub source_refname: Option<Refname>,
@@ -93,6 +90,9 @@ mod stack {
         )]
         #[serde(default)]
         pub updated_timestamp_ms: u128,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(default)]
+        pub name: String,
     }
 
     impl Stack {
@@ -151,7 +151,6 @@ mod stack {
                 upstream: None,
 
                 // Unused - everything is defined by the top-most branch name.
-                name: "".to_string(),
                 // unclear, obsolete
 
                 // For serialization backwards compatibility
@@ -169,6 +168,8 @@ mod stack {
                 created_timestamp_ms: 0,
                 #[allow(deprecated)]
                 updated_timestamp_ms: 0,
+                #[allow(deprecated)]
+                name: String::default(),
             }
         }
     }
