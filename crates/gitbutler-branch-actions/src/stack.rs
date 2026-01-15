@@ -41,9 +41,10 @@ pub fn create_branch(ctx: &Context, stack_id: StackId, req: CreateSeriesRequest)
     let repo = ctx.repo.get()?;
     // If target_patch is None, create a new head that points to the top of the stack (most recent patch)
     if let Some(target_patch) = req.target_patch {
+        let target_oid = gix::ObjectId::from_hex(target_patch.as_bytes())?;
         stack.add_series(
             ctx,
-            StackBranch::new(target_patch, normalized_head_name, &repo)?,
+            StackBranch::new(target_oid, normalized_head_name, &repo)?,
             req.preceding_head,
         )
     } else {
@@ -57,7 +58,7 @@ pub struct CreateSeriesRequest {
     /// Name of the new series
     pub name: String,
     /// The target patch (head) to create these series for. If let None, the new series will be at the top of the stack
-    pub target_patch: Option<gitbutler_stack::CommitOrChangeId>,
+    pub target_patch: Option<String>,
     /// The name of the series that preceded the newly created series.
     /// This is used to disambiguate the order when they point to the same patch
     pub preceding_head: Option<String>,

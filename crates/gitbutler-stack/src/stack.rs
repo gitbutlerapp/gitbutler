@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     StackBranch, VirtualBranchesHandle,
     heads::{add_head, get_head, remove_head},
-    stack_branch::{CommitOrChangeId, remote_reference},
+    stack_branch::remote_reference,
 };
 
 // this is the struct for the virtual branch data that is stored in our data
@@ -615,7 +615,7 @@ impl Stack {
         }
         for head in &mut self.heads {
             if let Some(commit) = new_heads.get(head.name()) {
-                head.set_head(commit.clone(), gix_repo)?;
+                head.set_head(commit.id().to_gix(), gix_repo)?;
             }
         }
         state.set_stack(self.clone())?;
@@ -688,29 +688,14 @@ impl Stack {
 
     /// Returns the list of patches between the stack head and the merge base.
     /// The most recent patch is at the top of the 'stack' (i.e. the last element in the vector)
-    fn stack_patches(
-        &self,
-        ctx: &Context,
-        include_merge_base: bool,
-    ) -> Result<Vec<CommitOrChangeId>> {
-        let repo = &*ctx.git2_repo.get()?;
-
+    fn stack_patches(&self, ctx: &Context, include_merge_base: bool) -> Result<Vec<gix::ObjectId>> {
         let commits = if include_merge_base {
             self.commits_with_merge_base(ctx)?
         } else {
             self.commits(ctx)?
         };
-        let patches: Vec<CommitOrChangeId> = commits
-            .into_iter()
-            .rev()
-            .filter_map(
-                |oid| {
-                    repo.find_commit(oid)
-                        .ok()
-                        .map(|c| CommitOrChangeId::CommitId(c.id().to_string()))
-                }, // repository.lookup_change_id_or_oid(commit).ok()
-            )
-            .collect();
+        let patches: Vec<gix::ObjectId> =
+            commits.into_iter().rev().map(|oid| oid.to_gix()).collect();
         Ok(patches)
     }
 }
@@ -724,8 +709,9 @@ pub struct PatchReferenceUpdate {
 /// Request to update the target of a PatchReference.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TargetUpdate {
-    /// The new patch (commit or change ID) that the reference should point to.
-    pub target: CommitOrChangeId,
+    /// The new patch (commit ID) that the reference should point to.
+    #[serde(with = "but_serde::object_id")]
+    pub target: gix::ObjectId,
     /// If there are multiple heads that point to the same patch, the order can be disambiguated by specifying the `preceding_head`.
     /// Leaving this field empty will make the new head first in relation to other references pointing to this commit.
     pub preceding_head_name: Option<String>,

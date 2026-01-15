@@ -1,5 +1,3 @@
-use std::{fmt::Display, str::FromStr};
-
 use anyhow::{Ok, Result};
 use bstr::{BString, ByteSlice};
 use but_ctx::Context;
@@ -12,7 +10,6 @@ use gix::refs::{
     transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
 };
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
 
 use crate::{Stack, VirtualBranchesHandle};
 
@@ -22,9 +19,9 @@ use crate::{Stack, VirtualBranchesHandle};
 /// Because this is **NOT** a regular git reference, it will not be found in the `.git/refs`. It is instead managed by GitButler.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StackBranch {
-    /// The target of the reference - this can be a commit or a change that points to a commit.
+    /// The target of the reference - the commit ID that this branch points to.
     #[deprecated(note = "Use the git reference instead")]
-    head: CommitOrChangeId, // needs to stay private
+    head: gix::ObjectId, // needs to stay private
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
     /// The name must be unique within the repository.
     pub name: String,
@@ -48,7 +45,7 @@ impl From<virtual_branches_legacy_types::StackBranch> for StackBranch {
         }: virtual_branches_legacy_types::StackBranch,
     ) -> Self {
         StackBranch {
-            head: head.into(),
+            head,
             name,
             pr_number,
             archived,
@@ -68,7 +65,7 @@ impl From<StackBranch> for virtual_branches_legacy_types::StackBranch {
         }: StackBranch,
     ) -> Self {
         virtual_branches_legacy_types::StackBranch {
-            head: head.into(),
+            head,
             name,
             pr_number,
             archived,
@@ -77,68 +74,10 @@ impl From<StackBranch> for virtual_branches_legacy_types::StackBranch {
     }
 }
 
-/// A patch identifier which is either `CommitId` or a `ChangeId`.
-/// ChangeId should always be used if available.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum CommitOrChangeId {
-    /// A reference that points directly to a commit.
-    CommitId(String),
-}
-
-impl From<virtual_branches_legacy_types::CommitOrChangeId> for CommitOrChangeId {
-    fn from(value: virtual_branches_legacy_types::CommitOrChangeId) -> Self {
-        match value {
-            virtual_branches_legacy_types::CommitOrChangeId::CommitId(v) => {
-                CommitOrChangeId::CommitId(v)
-            }
-        }
-    }
-}
-
-impl From<CommitOrChangeId> for virtual_branches_legacy_types::CommitOrChangeId {
-    fn from(value: CommitOrChangeId) -> Self {
-        match value {
-            CommitOrChangeId::CommitId(v) => {
-                virtual_branches_legacy_types::CommitOrChangeId::CommitId(v)
-            }
-        }
-    }
-}
-
-impl Display for CommitOrChangeId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CommitOrChangeId::CommitId(id) => write!(f, "CommitId: {id}"),
-        }
-    }
-}
-
-impl From<git2::Commit<'_>> for CommitOrChangeId {
-    fn from(commit: git2::Commit) -> Self {
-        CommitOrChangeId::CommitId(commit.id().to_string())
-    }
-}
-
-impl From<git2::Oid> for CommitOrChangeId {
-    fn from(oid: git2::Oid) -> Self {
-        CommitOrChangeId::CommitId(oid.to_string())
-    }
-}
-
-impl From<gix::ObjectId> for CommitOrChangeId {
-    fn from(oid: gix::ObjectId) -> Self {
-        CommitOrChangeId::CommitId(oid.to_string())
-    }
-}
-
 impl StackBranch {
-    pub fn new<T: Into<CommitOrChangeId>>(
-        head: T,
-        name: String,
-        repo: &gix::Repository,
-    ) -> Result<Self> {
+    pub fn new(head: gix::ObjectId, name: String, repo: &gix::Repository) -> Result<Self> {
         let branch = StackBranch {
-            head: head.into(),
+            head,
             name,
             pr_number: None,
             archived: false,
@@ -159,7 +98,7 @@ impl StackBranch {
             pr_number,
             archived,
             review_id,
-            head: CommitOrChangeId::CommitId(git2::Oid::zero().to_string()),
+            head: gix::hash::Kind::Sha1.null(),
         }
     }
 
@@ -172,14 +111,13 @@ impl StackBranch {
     /// This will update the commit that real git reference points to, so it points to `target`,
     /// as well as the cached data in this instance.
     /// Returns the full reference name like `refs/heads/name`.
-    /// If this points to a change id, it's a noop operation. In practice, moving forward, new
-    /// `CommitOrChangeId` entries will always be CommitId and ChangeId may only appear in deserialized data.
-    pub fn set_head<T>(&mut self, target: T, repo: &gix::Repository) -> Result<Option<BString>>
-    where
-        T: Into<CommitOrChangeId> + Clone,
-    {
+    pub fn set_head(
+        &mut self,
+        target: gix::ObjectId,
+        repo: &gix::Repository,
+    ) -> Result<Option<BString>> {
         let refname = self.set_real_reference(repo, &target)?;
-        self.head = target.into();
+        self.head = target;
         Ok(refname)
     }
 
@@ -261,18 +199,14 @@ impl StackBranch {
     /// Creates or updates a real git reference using the head information (target commit, name)
     /// NB: If the operation is an update of an existing reference, the operation will only succeed if the old reference matches the expected value.
     ///     Therefore this should be invoked before `self.head` has been updated.
-    /// If the head is expressed as a change id, this is a noop
-    fn set_real_reference<T>(&self, repo: &gix::Repository, new_head: &T) -> Result<Option<BString>>
-    where
-        T: Into<CommitOrChangeId> + Clone,
-    {
-        // let new_head = *new_head.to_owned();
-        let new_oid = match new_head.clone().into() {
-            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
-        };
+    fn set_real_reference(
+        &self,
+        repo: &gix::Repository,
+        new_head: &gix::ObjectId,
+    ) -> Result<Option<BString>> {
         let reference = repo.reference(
             qualified_reference_name(self.name()),
-            new_oid,
+            *new_head,
             PreviousValue::Any,
             "GitButler reference",
         )?;
@@ -284,9 +218,8 @@ impl StackBranch {
             let commit = reference.peel_to_commit()?;
             Ok(commit.id)
         } else {
-            let CommitOrChangeId::CommitId(id) = &self.head;
             self.set_real_reference(repo, &self.head)?;
-            Ok(gix::ObjectId::from_str(id)?)
+            Ok(self.head)
         }
     }
 
@@ -305,15 +238,11 @@ impl StackBranch {
     /// Snapshot restoring is the only place where we read the value from the persisted struct to update the reference so we want to be sure that the reference is in sync on snapshot creation.
     pub fn sync_with_reference(&mut self, repo: &gix::Repository) -> Result<bool> {
         let oid_from_ref = self.head_oid(repo)?;
-        match self.head {
-            CommitOrChangeId::CommitId(_) => {
-                if oid_from_ref.to_string() != self.head.to_string() {
-                    self.head = CommitOrChangeId::CommitId(oid_from_ref.to_string());
-                    Ok(true)
-                } else {
-                    Ok(false)
-                }
-            }
+        if oid_from_ref != self.head {
+            self.head = oid_from_ref;
+            Ok(true)
+        } else {
+            Ok(false)
         }
     }
 
