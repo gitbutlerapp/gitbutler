@@ -44,9 +44,6 @@ mod stack {
         /// Upstream tracking branch reference, added when creating a stack from a branch.
         /// Used e.g. when listing commits from a fork.
         pub upstream: Option<RemoteRefname>,
-        /// head is id of the last "virtual" commit in this branch
-        #[serde(with = "but_serde::object_id")]
-        pub head: gix::ObjectId,
         // order is the number by which UI should sort branches
         pub order: usize,
         /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
@@ -93,6 +90,10 @@ mod stack {
         #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
         #[serde(default)]
         pub name: String,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(with = "but_serde::object_id")]
+        #[serde(default = "default_null_object_id")]
+        pub head: gix::ObjectId,
     }
 
     impl Stack {
@@ -146,7 +147,6 @@ mod stack {
                 heads,
 
                 // Don't keep redundant information
-                head: gix::hash::Kind::Sha1.null(),
                 source_refname: None,
                 upstream: None,
 
@@ -170,6 +170,8 @@ mod stack {
                 updated_timestamp_ms: 0,
                 #[allow(deprecated)]
                 name: String::default(),
+                #[allow(deprecated)]
+                head: gix::hash::Kind::Sha1.null(),
             }
         }
     }
