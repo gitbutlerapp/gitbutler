@@ -79,8 +79,6 @@ impl Context {
     ///
     /// The write-permission is required to obtain a mutable metadata instance. Note that it must be held
     /// for until the end of the operation for the protection to be effective.
-    ///
-    /// Use [`Self::graph_and_meta_and_repo_from_head()`] if control over the repository configuration is needed.
     pub fn graph_and_legacy_meta_mut_and_repo_from_reference(
         &self,
         ref_name: &gix::refs::FullNameRef,

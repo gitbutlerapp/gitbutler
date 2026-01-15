@@ -74,9 +74,9 @@ pub fn create_reference(
         })
         .transpose()?;
 
-    let mut guard = ctx.exclusive_worktree_access();
-    let (repo, mut meta, graph) =
-        ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let guard = ctx.exclusive_worktree_access();
+    let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let repo = ctx.repo.get()?;
     let graph = but_workspace::branch::create_reference(
         new_ref.clone(),
         anchor,
@@ -105,8 +105,8 @@ pub fn create_branch(
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     use but_workspace::branch::create_reference::Position::Above;
     let mut guard = ctx.exclusive_worktree_access();
-    let (repo, mut meta, graph) =
-        ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let repo = ctx.repo.get()?;
     let ws = graph.to_workspace()?;
     let stack = ws.try_find_stack_by_id(stack_id)?;
     let new_ref = Category::LocalBranch
@@ -160,8 +160,8 @@ pub fn create_branch(
 pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: String) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let (repo, mut meta, graph) =
-        ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+    let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let repo = ctx.repo.get()?;
     let ws = graph.to_workspace()?;
     let ref_name = Category::LocalBranch
         .to_full_name(branch_name.as_str())

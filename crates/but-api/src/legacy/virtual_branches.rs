@@ -38,9 +38,9 @@ pub fn create_virtual_branch(
 ) -> Result<StackEntryNoOpt> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let stack_entry = {
-        let mut guard = ctx.exclusive_worktree_access();
-        let (repo, mut meta, graph) =
-            ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
+        let guard = ctx.exclusive_worktree_access();
+        let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+        let repo = ctx.repo.get()?;
         let ws = graph.to_workspace()?;
         let new_ref = Category::LocalBranch
             .to_full_name(
