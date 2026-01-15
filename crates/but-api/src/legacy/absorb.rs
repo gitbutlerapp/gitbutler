@@ -1,8 +1,9 @@
 use but_api_macros::but_api;
 use but_ctx::Context;
-use but_hunk_assignment::HunkAssignment;
+use but_hunk_assignment::{
+    AbsorptionReason, AbsorptionTarget, CommitAbsorption, FileAbsorption, HunkAssignment,
+};
 use gix::ObjectId;
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use tracing::instrument;
 
@@ -50,19 +51,6 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
         total_rejected += outcome.paths_to_rejected_changes.len();
     }
     Ok(total_rejected)
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
-pub enum AbsorptionTarget {
-    Branch {
-        branch_name: String,
-    },
-    HunkAssignments {
-        assignments: Vec<HunkAssignment>,
-    },
-    #[default]
-    All,
 }
 
 /// Group changes by target commit and prepare absorptions for display
@@ -432,70 +420,6 @@ impl CommitMap {
     fn add_mapping(&mut self, old_commit_id: ObjectId, new_commit_id: ObjectId) {
         self.map.insert(old_commit_id, new_commit_id);
     }
-}
-
-/// Reason why a file is being absorbed to a particular commit
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AbsorptionReason {
-    /// File has hunk range overlap with this commit
-    HunkDependency,
-    /// File is assigned to this stack and this is the topmost commit
-    StackAssignment,
-    /// Default to leftmost stack's topmost commit
-    DefaultStack,
-}
-
-impl AbsorptionReason {
-    pub fn description(&self) -> &str {
-        match self {
-            AbsorptionReason::HunkDependency => "files locked to commit due to hunk range overlap",
-            AbsorptionReason::StackAssignment => "last commit in the assigned stack",
-            AbsorptionReason::DefaultStack => "last commit in the primary lane",
-        }
-    }
-}
-
-/// Information about a file being absorbed
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileAbsorption {
-    pub path: String,
-    pub assignment: HunkAssignment,
-}
-
-/// Information about absorptions grouped by commit
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CommitAbsorption {
-    pub stack_id: but_core::ref_metadata::StackId,
-    pub commit_id: gix::ObjectId,
-    pub commit_summary: String,
-    pub files: Vec<FileAbsorption>,
-    pub reason: AbsorptionReason,
-}
-
-/// JSON output structure for a file being absorbed
-#[derive(Debug, Serialize)]
-pub struct JsonFileAbsorption {
-    pub path: String,
-    pub hunks: Vec<String>,
-}
-
-/// JSON output structure for a commit absorption
-#[derive(Debug, Serialize)]
-pub struct JsonCommitAbsorption {
-    pub commit_id: String,
-    pub commit_summary: String,
-    pub reason: AbsorptionReason,
-    pub reason_description: String,
-    pub files: Vec<JsonFileAbsorption>,
-}
-
-/// JSON output structure for the entire absorb operation
-#[derive(Debug, Serialize)]
-pub struct JsonAbsorbOutput {
-    pub total_files: usize,
-    pub commits: Vec<JsonCommitAbsorption>,
 }
 
 /// Type alias for grouped changes by commit

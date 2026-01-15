@@ -50,7 +50,6 @@ legacy = [
     "dep:url",
 ]
 
-
 [dependencies]
 but-serde.workspace = true
 but-path.workspace = true

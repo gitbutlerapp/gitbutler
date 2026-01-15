@@ -1,8 +1,8 @@
-use but_api::legacy::absorb::{
-    AbsorptionTarget, CommitAbsorption, JsonAbsorbOutput, JsonCommitAbsorption, JsonFileAbsorption,
-};
 use but_ctx::Context;
-use but_hunk_assignment::HunkAssignment;
+use but_hunk_assignment::{
+    AbsorptionTarget, CommitAbsorption, HunkAssignment, JsonAbsorbOutput, JsonCommitAbsorption,
+    JsonFileAbsorption,
+};
 use colored::Colorize;
 
 use crate::{

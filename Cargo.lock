@@ -1182,12 +1182,15 @@ dependencies = [
  "but-ctx",
  "but-db",
  "but-hunk-dependency",
+ "but-serde",
  "gitbutler-stack",
+ "gix",
  "itertools",
  "serde",
  "serde-error",
  "serde_json",
  "tracing",
+ "ts-rs",
  "uuid",
 ]
 

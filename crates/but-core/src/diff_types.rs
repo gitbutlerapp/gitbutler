@@ -1,5 +1,6 @@
 use bstr::BString;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::TreeChange;
 
@@ -43,8 +44,9 @@ impl From<TreeChange> for DiffSpec {
 }
 
 /// The header of a hunk that represents a change to a file.
-#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/diffTypes.ts"))]
 pub struct HunkHeader {
     /// The 1-based line number at which the previous version of the file started.
     pub old_start: u32,
