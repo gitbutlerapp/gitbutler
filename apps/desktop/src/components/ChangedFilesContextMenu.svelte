@@ -76,7 +76,6 @@
 	const backend = inject(BACKEND);
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
-	const [absorbChanges, absorbingChanges] = actionService.absorb;
 	const [splitOffChanges] = stackService.splitBranch;
 	const [splitBranchIntoDependentBranch] = stackService.splitBrancIntoDependentBranch;
 
@@ -227,20 +226,10 @@
 		}
 	}
 
-	async function triggerAbsorbChanges(changes: TreeChange[]) {
+	async function triggerAbsorbChanges(_: TreeChange[]) {
 		if (!canUseGBAI) {
 			chipToasts.error('GitButler AI is not configured or enabled for this project.');
 			return;
-		}
-
-		try {
-			await chipToasts.promise(absorbChanges({ projectId, changes }), {
-				loading: 'Looking for the best place to absorb the changes',
-				success: 'Absorbing changes succeeded',
-				error: 'Absorbing changes failed'
-			});
-		} catch (error) {
-			console.error('Absorbing changes failed:', error);
 		}
 	}
 
@@ -520,7 +509,7 @@
 										contextMenu.close();
 										triggerAbsorbChanges(item.changes);
 									}}
-									disabled={absorbingChanges.current.isLoading}
+									disabled
 								/>
 							</ContextMenuSection>
 						{/snippet}

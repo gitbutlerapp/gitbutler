@@ -9,13 +9,19 @@ rust-version.workspace = true
 [lib]
 doctest = false
 
+[features]
+export-ts = []
+
 [dependencies]
 but-core.workspace = true
 but-hunk-dependency.workspace = true
 but-db.workspace = true
+but-serde.workspace = true
 but-ctx.workspace = true
 
 gitbutler-stack.workspace = true
+
+gix.workspace = true
 
 anyhow.workspace = true
 itertools.workspace = true
@@ -25,6 +31,7 @@ serde_json.workspace = true
 uuid.workspace = true
 bstr.workspace = true
 tracing.workspace = true
+ts-rs.workspace = true
 
 [dev-dependencies]
 uuid.workspace = true

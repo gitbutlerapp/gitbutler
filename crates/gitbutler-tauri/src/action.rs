@@ -109,34 +109,6 @@ pub fn auto_branch_changes(
 
 #[tauri::command(async)]
 #[instrument(skip(app_handle), err(Debug))]
-pub fn absorb(
-    app_handle: tauri::AppHandle,
-    project_id: ProjectId,
-    changes: Vec<TreeChange>,
-) -> anyhow::Result<(), Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let changes: Vec<but_core::TreeChange> =
-        changes.into_iter().map(|change| change.into()).collect();
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
-
-    let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
-        app_handle.emit(name, payload).unwrap_or_else(|e| {
-            tracing::error!("Failed to emit event '{}': {}", name, e);
-        });
-    });
-
-    match openai {
-        Some(openai) => but_action::absorb(emitter, ctx, &openai, changes)
-            .map_err(|e| Error::from(anyhow::anyhow!(e))),
-        None => Err(Error::from(anyhow::anyhow!(
-            "No valid credentials found for AI provider. Please configure your GitButler account credentials."
-        ))),
-    }
-}
-
-#[tauri::command(async)]
-#[instrument(skip(app_handle), err(Debug))]
 pub fn freestyle(
     app_handle: tauri::AppHandle,
     project_id: ProjectId,

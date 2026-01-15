@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use but_core::{TreeStatusKind, ref_metadata::StackId};
 use gix::bstr::BString;
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{InputCommit, InputDiffHunk, InputStack};
 
@@ -22,7 +22,7 @@ pub struct WorkspaceRanges {
 }
 
 /// An error that can say what went wrong when computing the hunk ranges for a commit in a stack at a given path.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[expect(missing_docs)]
 pub struct CalculationError {
