@@ -1,5 +1,6 @@
-import { clickByTestId, getByTestId, waitForTestId } from './util.ts';
+import { clickByTestId, getByTestId, sleep, waitForTestId } from './util.ts';
 import { expect, Page } from '@playwright/test';
+import { execSync } from 'child_process';
 
 export async function openBranchContextMenu(page: Page, branchName: string) {
 	const branchHeader = getByTestId(page, 'branch-header').filter({
@@ -46,4 +47,21 @@ export async function createNewBranch(page: Page, branchName: string) {
 	const input = modal.locator('#new-branch-name-input');
 	await input.fill(branchName);
 	await clickByTestId(page, 'confirm-submit');
+}
+
+export async function assertBranch(branchName: string, pathToRepo: string): Promise<void> {
+	let count = 0;
+	const maxRetries = 5;
+	let currentBranchName: string | null = null;
+	while (currentBranchName !== branchName && count < maxRetries) {
+		await sleep(500);
+		currentBranchName = execSync(`git branch --show-current`, { cwd: pathToRepo })
+			.toString()
+			.trim();
+		count++;
+	}
+	expect(
+		currentBranchName,
+		`Expected branch to be ${branchName} but was ${currentBranchName} in ${pathToRepo}`
+	).toBe(branchName);
 }
