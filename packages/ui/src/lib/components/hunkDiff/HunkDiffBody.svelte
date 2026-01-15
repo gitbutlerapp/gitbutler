@@ -144,6 +144,14 @@
 
 	const commentRow = $derived(commentRows?.[0]);
 	const touchDevice = isTouchDevice();
+
+	function divideIntoChunks<T>(array: T[], size: number): T[][] {
+		return Array.from({ length: Math.ceil(array.length / size) }, (_v, i) =>
+			array.slice(i * size, size * (i + 1))
+		);
+	}
+
+	const renderChunks = $derived(divideIntoChunks(renderRows, 10));
 </script>
 
 {#if commentRow}
@@ -157,41 +165,43 @@
 	</tbody>
 {/if}
 
-<tbody
-	onmouseenter={() => (hoveringOverTable = true)}
-	onmouseleave={() => (hoveringOverTable = false)}
-	ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
-	ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
-	ontouchend={() => lineSelection.onEnd()}
-	use:clickOutside={{
-		handler: handleClearSelection,
-		excludeElement: clickOutsideExcludeElements
-	}}
->
-	{#each renderRows as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
-		<HunkDiffRow
-			{minWidth}
-			{idx}
-			{row}
-			{clickable}
-			{lineSelection}
-			{tabSize}
-			{wrapText}
-			{diffFont}
-			{numberHeaderWidth}
-			{onQuoteSelection}
-			{onCopySelection}
-			clearLineSelection={handleClearSelection}
-			{hoveringOverTable}
-			staged={getStageState(row)}
-			{hideCheckboxes}
-			{handleLineContextMenu}
-			{lockWarning}
-			{touchDevice}
-			hunkHasLocks={lineLocks && lineLocks.length > 0}
-		/>
-	{/each}
-</tbody>
+{#each renderChunks as chunkRows}
+	<tbody
+		onmouseenter={() => (hoveringOverTable = true)}
+		onmouseleave={() => (hoveringOverTable = false)}
+		ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
+		ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
+		ontouchend={() => lineSelection.onEnd()}
+		use:clickOutside={{
+			handler: handleClearSelection,
+			excludeElement: clickOutsideExcludeElements
+		}}
+	>
+		{#each chunkRows as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
+			<HunkDiffRow
+				{minWidth}
+				{idx}
+				{row}
+				{clickable}
+				{lineSelection}
+				{tabSize}
+				{wrapText}
+				{diffFont}
+				{numberHeaderWidth}
+				{onQuoteSelection}
+				{onCopySelection}
+				clearLineSelection={handleClearSelection}
+				{hoveringOverTable}
+				staged={getStageState(row)}
+				{hideCheckboxes}
+				{handleLineContextMenu}
+				{lockWarning}
+				{touchDevice}
+				hunkHasLocks={lineLocks && lineLocks.length > 0}
+			/>
+		{/each}
+	</tbody>
+{/each}
 
 <style lang="postcss">
 	tbody {
