@@ -37,18 +37,18 @@ git clone remote multiple-commits
 
   # Changes 2 and 3 are in the same file, with 3 overwriting 2
   echo change2 > file2_3
-  $CLI branch commit my_stack -m "commit 2"
+  $CLI branch commit a-branch-2 -m "commit 2"
   echo change3 > file2_3
-  $CLI branch commit my_stack -m "commit 3"
+  $CLI branch commit a-branch-2 -m "commit 3"
 
   # Commit 4 is in a different file
   echo change4 > file4
-  $CLI branch commit my_stack -m "commit 4"
+  $CLI branch commit a-branch-2 -m "commit 4"
 
   # Create a new stacked branch
-  $CLI branch series my_stack -s "a-branch-3"
+  $CLI branch series a-branch-2 -s "a-branch-3"
 
   # Commit 5 is in a different file
   echo change5 >> file5
-  $CLI branch commit my_stack -m "commit 5"
+  $CLI branch commit a-branch-3 -m "commit 5"
 )

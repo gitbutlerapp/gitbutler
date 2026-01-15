@@ -38,9 +38,6 @@ mod stack {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Stack {
         pub id: StackId,
-        /// A user-specified name with no restrictions.
-        /// It will be normalized except to be a valid ref-name if named `refs/gitbutler/<normalize(name)>`.
-        pub name: String,
         /// If set, this means this virtual branch was originally created from `Some(branch)`.
         /// It can be *any* branch.
         pub source_refname: Option<Refname>,
@@ -96,16 +93,19 @@ mod stack {
         )]
         #[serde(default)]
         pub updated_timestamp_ms: u128,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(default)]
+        pub name: String,
     }
 
     impl Stack {
-        /// This is the name of the top-most branch, provided by the API for convenience
-        /// Copy of `gitbutler-stack::Stack::derived_name()`.
-        pub fn derived_name(&self) -> anyhow::Result<String> {
+        /// The Stack name is derived from the top-most branch name.
+        /// If the stack has no heads, returns an empty string.
+        pub fn name(&self) -> String {
             self.heads
                 .last()
                 .map(|head| head.name.clone())
-                .ok_or_else(|| anyhow!("but_meta::Stack::derived_name: Stack is uninitialized"))
+                .unwrap_or_default()
         }
     }
 
@@ -154,10 +154,6 @@ mod stack {
                 upstream: None,
                 upstream_head: None,
 
-                // Unused - everything is defined by the top-most branch name.
-                name: "".to_string(),
-                // unclear, obsolete
-
                 // For serialization backwards compatibility
                 #[allow(deprecated)]
                 notes: String::new(),
@@ -173,6 +169,8 @@ mod stack {
                 created_timestamp_ms: 0,
                 #[allow(deprecated)]
                 updated_timestamp_ms: 0,
+                #[allow(deprecated)]
+                name: String::default(),
             }
         }
     }

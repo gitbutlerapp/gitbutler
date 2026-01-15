@@ -138,7 +138,7 @@ fn every_commit_is_sequentially_dependent_multi_stack() -> Result<()> {
     let other_stack = test_ctx
         .all_stacks
         .iter()
-        .find(|s| s.name() == "other_stack")
+        .find(|s| s.branches().iter().any(|b| b.name() == "other_stack"))
         .unwrap();
 
     let dependencies = compute_workspace_dependencies(
@@ -237,7 +237,7 @@ fn delete_and_recreate_file_multi_stack() -> Result<()> {
     let other_stack = test_ctx
         .all_stacks
         .iter()
-        .find(|s| s.name() == "other_stack")
+        .find(|s| s.branches().iter().any(|b| b.name() == "other_stack"))
         .unwrap();
 
     let dependencies = compute_workspace_dependencies(
@@ -801,7 +801,10 @@ fn command_ctx(name: &str) -> Result<Context> {
 fn test_ctx(ctx: &Context) -> Result<TestContext> {
     let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
     let branches = handle.list_all_stacks()?;
-    let stack = branches.iter().find(|b| b.name() == "my_stack").unwrap();
+    let stack = branches
+        .iter()
+        .find(|s| s.branches().iter().any(|b| b.name() == "my_stack"))
+        .unwrap();
 
     Ok(TestContext {
         stack: stack.clone(),
