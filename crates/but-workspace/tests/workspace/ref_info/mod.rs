@@ -29,7 +29,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: None,
                 segments: [
@@ -124,7 +124,7 @@ fn detached() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: None,
                 segments: [
@@ -187,7 +187,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: None,
                 segments: [
@@ -302,7 +302,7 @@ fn single_branch() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: None,
                 segments: [
@@ -426,7 +426,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: None,
                 segments: [

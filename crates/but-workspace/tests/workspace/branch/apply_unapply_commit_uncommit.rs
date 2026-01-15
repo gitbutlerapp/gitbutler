@@ -136,9 +136,9 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
     ));
     let ws = graph.to_workspace()?;
     // note how the remote isn't interesting as we have no target configured, nor an extra target.
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓! on 3183e43
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
     ");
 
@@ -354,9 +354,9 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let graph = but_graph::Graph::from_head(&repo, &meta, standard_traversal_options())?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> main, origin/main, B, A) A");
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
             └── ·e5d0542 ►A, ►B
     ");
@@ -500,9 +500,9 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     let graph = but_graph::Graph::from_head(&repo, &meta, standard_traversal_options())?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> main, origin/main, B, A) A");
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
             └── ·e5d0542 ►A, ►B
     ");
@@ -583,9 +583,9 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
     let graph = but_graph::Graph::from_commit_traversal(b_id, b_ref, &meta, Default::default())?;
     let ws = graph.to_workspace()?;
     // Note how the existing `gitbutler/workspace` disappears, which is expected here.
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:1:B <> ✓!
-    └── ≡:1:B {0}
+    └── ≡:1:B {1}
         └── :1:B
             └── ·e5d0542 ►A, ►main
     ");
@@ -636,9 +636,9 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     graph.options.extra_target_commit_id = None;
     let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
             ├── ·b1540e5
             └── ·e31e6ca
@@ -736,9 +736,9 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     ");
 
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓! on 3183e43
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
     ");
 
@@ -892,9 +892,9 @@ fn detached_head_journey() -> anyhow::Result<()> {
     * 3183e43 (main) M1
     ");
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:DETACHED <> ✓! on 3183e43
-    └── ≡:0:anon: on 3183e43 {0}
+    └── ≡:0:anon: on 3183e43 {1}
         └── :0:anon:
             └── ·aaa195b ►C
     ");
@@ -1027,9 +1027,9 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     ");
 
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓! on 85efbe4
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
     ");
 
@@ -1132,9 +1132,9 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
     ");
 
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓! on 85efbe4
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
     ");
 
@@ -1809,9 +1809,9 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
 
     let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
     ");
 
@@ -1849,9 +1849,9 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
     "#);
 
     let ws = out.graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
     ");
 

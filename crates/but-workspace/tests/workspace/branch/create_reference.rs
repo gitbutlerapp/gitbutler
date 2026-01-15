@@ -1260,9 +1260,9 @@ fn errors() -> anyhow::Result<()> {
     let (repo, mut meta) = named_read_only_in_memory_scenario("unborn-empty", "")?;
     let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
     ");
 
@@ -1294,9 +1294,9 @@ fn errors() -> anyhow::Result<()> {
     let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
     let ws = graph.to_workspace()?;
 
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
             └── ·c166d42
     ");
@@ -1394,9 +1394,9 @@ fn errors() -> anyhow::Result<()> {
 
     let graph = but_graph::Graph::from_commit_traversal(a_id, a_ref, &*meta, Options::limited())?;
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:A <> ✓!
-    └── ≡:0:A {0}
+    └── ≡:0:A {1}
         ├── :0:A
         │   ├── ·89cc2d3
         │   └── ·d79bba9
@@ -1446,9 +1446,9 @@ fn errors() -> anyhow::Result<()> {
         },
     )?;
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:A <> ✓! on 89cc2d3
-    └── ≡:0:A {0}
+    └── ≡:0:A {1}
         └── :0:A
     ");
 
@@ -1500,9 +1500,9 @@ fn journey_with_commits() -> anyhow::Result<()> {
     let graph = but_graph::Graph::from_head(&repo, &meta, Default::default())?;
     let ws = graph.to_workspace()?;
 
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
             ├── ·281da94
             ├── ·12995d7
@@ -1523,9 +1523,9 @@ fn journey_with_commits() -> anyhow::Result<()> {
     .expect("this works as the branch is unique");
 
     // We always add metadata to new branches.
-    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         ├── :0:main[🌳]
         │   └── ·281da94
         └── 📙:1:below-main
@@ -1556,9 +1556,9 @@ fn journey_with_commits() -> anyhow::Result<()> {
         None,
     )?;
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         ├── :0:main[🌳]
         │   └── ·281da94
         └── 📙:1:below-main
@@ -1577,9 +1577,9 @@ fn journey_with_commits() -> anyhow::Result<()> {
         None,
     )?;
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         ├── :0:main[🌳]
         │   └── ·281da94
         ├── 📙:1:below-main
@@ -1622,9 +1622,9 @@ fn journey_with_commits() -> anyhow::Result<()> {
         "no data was stored, it wasn't stored before either, for independent branches\
             There should be no benefit doing that."
     );
-    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {0}
+    └── ≡:0:main[🌳] {1}
         ├── :0:main[🌳]
         │   └── ·281da94
         ├── 📙:1:below-main
@@ -1652,9 +1652,9 @@ fn journey_with_commits() -> anyhow::Result<()> {
         "Data is created/updated for dependent branches though,
             which is a way to make segments appear if there were not visible before due to ambiguity."
     );
-    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"
     ⌂:0:main[🌳] <> ✓!
-    └── ≡📙:0:main[🌳] {0}
+    └── ≡📙:0:main[🌳] {1}
         ├── 📙:0:main[🌳]
         │   └── ·281da94
         ├── 📙:1:below-main
@@ -1679,9 +1679,9 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     let graph = but_graph::Graph::from_commit_traversal(id, None, &meta, Default::default())?;
     let ws = graph.to_workspace()?;
 
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:DETACHED <> ✓!
-    └── ≡:0:anon: {0}
+    └── ≡:0:anon: {1}
         └── :0:anon:
             ├── ·12995d7
             └── ·3d57fc1
@@ -1702,9 +1702,9 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         None,
     )?;
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:DETACHED <> ✓!
-    └── ≡:0:anon: {0}
+    └── ≡:0:anon: {1}
         ├── :0:anon:
         │   └── ·12995d7
         └── 📙:1:first
@@ -1744,9 +1744,9 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         None,
     )?;
     let ws = graph.to_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:second <> ✓!
-    └── ≡📙:0:second {0}
+    └── ≡📙:0:second {1}
         ├── 📙:0:second
         │   └── ·12995d7
         └── 📙:1:first
@@ -1783,9 +1783,9 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     )?;
     let ws = graph.to_workspace()?;
     // And the extra-target serves as base also in single-branch mode.
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:second <> ✓! on 3d57fc1
-    └── ≡📙:0:second on 3d57fc1 {0}
+    └── ≡📙:0:second on 3d57fc1 {1}
         └── 📙:0:second
             └── ·12995d7
     ");
