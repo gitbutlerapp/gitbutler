@@ -141,8 +141,13 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
 /// Similarly, heads that point to earlier commits are first in the order, and the last head always points to the most recent patch.
 /// If there are multiple heads that point to the same patch, the `add` and `update` operations can specify the intended order.
 impl Stack {
+    /// The name of the stack, defined as the name of the first head (branch) in the stack.
+    /// The usage of this is discouraged
     pub fn name(&self) -> String {
-        self.name.clone()
+        self.heads
+            .first()
+            .map(|head| head.name.clone())
+            .unwrap_or_default()
     }
 
     pub fn new_with_just_heads(heads: Vec<StackBranch>, order: usize, in_workspace: bool) -> Self {
