@@ -639,6 +639,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
 
     [branches.1]
     id = "1"
+    name = "feat-on-top"
     head = "0000000000000000000000000000000000000000"
     order = 0
     in_workspace = true
@@ -649,7 +650,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     tree = "0000000000000000000000000000000000000000"
     created_timestamp_ms = "0"
     updated_timestamp_ms = "0"
-    name = ""
 
     [[branches.1.heads]]
     name = "feat"
@@ -1192,20 +1192,6 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
             branches: [
                 WorkspaceStackBranch {
                     ref_name: "refs/heads/main",
-                    archived: true,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/confidence",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 2,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/main",
                     archived: false,
                 },
                 WorkspaceStackBranch {
@@ -1214,6 +1200,20 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
                 },
             ],
             workspacecommit_relation: Outside,
+        },
+        WorkspaceStack {
+            id: 2,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/main",
+                    archived: true,
+                },
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
         },
     ]
     "#);
@@ -1231,14 +1231,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
     // picked up. But… it also listed as stack (which shouldn't happen), which gets it the stack-id association.
     // Finally, we end up with nothing as that one segment is also marked archived, which leads to it being truncated
     // and fully empty stacks are removed. OMG.
-    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.to_workspace()?), @r"
-    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-    ├── ≡📙:5:main[🌳] <> origin/main →:1: on 3183e43 {1}
-    │   └── 📙:5:main[🌳] <> origin/main →:1:
-    │       └── ❄️bce0c5e (🏘️|✓)
-    └── ≡📙:4:confidence on 3183e43
-        └── 📙:4:confidence
-    ");
+    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
 
     let path = store.path().to_owned();
     store.write_reconciled(&repo)?;
@@ -1254,7 +1247,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
                 branch: "main",
             },
             remote_url: "https://github.com/A2va/dlib-rs",
-            sha: Sha1(3183e43ff482a2c4c8ff531d595453b64f58d90b),
+            sha: Sha1(bce0c5efc577b90e52a8ba20c4c41621af3134d3),
             push_remote_name: Some(
                 "origin",
             ),
@@ -1269,12 +1262,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
         &store,
         but_graph::init::Options::limited(),
     )?;
-    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.to_workspace()?), @r"
-    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-    └── ≡📙:2:main[🌳] <> origin/main →:1: on 3183e43 {1}
-        └── 📙:2:main[🌳] <> origin/main →:1:
-            └── ❄️bce0c5e (🏘️|✓)
-    ");
+    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
 
     let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     // Now both stacks are outside workspace, as is indicated by the workspace above.
@@ -1286,14 +1274,14 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
             branches: [
                 WorkspaceStackBranch {
                     ref_name: "refs/heads/main",
-                    archived: true,
+                    archived: false,
                 },
                 WorkspaceStackBranch {
                     ref_name: "refs/heads/confidence",
                     archived: false,
                 },
             ],
-            workspacecommit_relation: Merged,
+            workspacecommit_relation: Outside,
         },
     ]
     "#);
@@ -1311,7 +1299,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
         debug_str(&store.data().branches),
         snapbox::str![[r#"
 {
-    1819a203-26ef-477c-ac56-2d07a034ddb8: Stack {
+    a3102d3c-4c62-4a8a-955c-421f72d4df74: Stack {
 ...
         id: 00000000-0000-0000-0000-000000000008,
 ...
@@ -1327,9 +1315,9 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
         debug_str(&store.data().branches),
         snapbox::str![[r#"
 {
-    00000000-0000-0000-0000-000000000008: Stack {
+    a3102d3c-4c62-4a8a-955c-421f72d4df74: Stack {
 ...
-        id: 00000000-0000-0000-0000-000000000008,
+        id: a3102d3c-4c62-4a8a-955c-421f72d4df74,
 ...
 }
 "#]],

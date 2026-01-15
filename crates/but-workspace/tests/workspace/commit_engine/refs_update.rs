@@ -622,6 +622,13 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
         ),
         references: [
             UpdatedReference {
+                reference: Virtual(
+                    "",
+                ),
+                old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
+                new_commit_id: Sha1(fd16d0f85b06da434c1e78cadb7396e333642742),
+            },
+            UpdatedReference {
                 reference: Git(
                     FullName(
                         "refs/heads/main",
@@ -629,13 +636,6 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
                 ),
                 old_commit_id: Sha1(8b9db8455554fe317ea3ab86b9a042805326b493),
                 new_commit_id: Sha1(33f337f4eea67195cd0ead15edb24cb9176762ab),
-            },
-            UpdatedReference {
-                reference: Virtual(
-                    "s1-b/init",
-                ),
-                old_commit_id: Sha1(ecd67221705b069c4f46365a46c8f2cd8a97ec19),
-                new_commit_id: Sha1(fd16d0f85b06da434c1e78cadb7396e333642742),
             },
             UpdatedReference {
                 reference: Virtual(
