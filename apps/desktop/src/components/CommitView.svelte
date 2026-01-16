@@ -236,7 +236,6 @@
 		position: relative;
 		/* Limit the commit view to at most 40vh to ensure other sections remain visible */
 		max-height: 50vh;
-		padding-bottom: 12px;
 		background-color: var(--clr-bg-1);
 	}
 
