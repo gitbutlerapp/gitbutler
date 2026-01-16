@@ -265,7 +265,7 @@
 		position: absolute;
 		top: 50%;
 		left: 0;
-		width: 4px;
+		width: 6px;
 		height: 45%;
 		transform: translateY(-50%);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
