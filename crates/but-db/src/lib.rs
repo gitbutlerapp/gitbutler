@@ -1,4 +1,4 @@
-//! # vORM - a vibe-code friendly ORM
+//! # VORM - a vibe-code friendly ORM
 //!
 //! There are a couple of layers that work together to make this possible.
 //!
@@ -18,13 +18,33 @@
 //!
 //! All ORM types are split into read-only and mutating versions, and they are thin wrappers around a
 //! [`Connection`](rusqlite::Connection) or a [`SavePoint`](rusqlite::Savepoint).
-//! A savepoint is only used when changes need the transaction-like ability to be committed all at once.
+//! A *savepoint* is only used when changes need the transaction-like ability to be committed all at once.
 //!
 //! Read-only methods are implemented on read-only ORM types, and mutating methods
 //! of any complexity are implemented on mutating types. Tests exists for each method just for basic
 //! insurance they actually work.
 //!
 //! Mutating types can always turn themselves into the read-only counterparts, but not vice versa.
+//!
+//! # How to make changes
+//!
+//! Just ask your favorite LLM to make the changes for you, and they usually figure out how to do it
+//! based on the existing tables.
+//!
+//! All of these have been proven to work perfectly, including migrations and tests.
+//!
+//! #### Add a new table
+//!
+//! ```text
+//! Use @crates/but-db/src/lib.rs as starting point to add a new table with all information
+//! one would need to list, insert, update and delete TODO list items. Do write tests.
+//! ```
+//!
+//! #### Add a new field
+//!
+//! ```text
+//! Add a new optional string named 'note' to ClaudePermissionRequest in @crates/but-db/tests/db/table/claude.rs
+//! ```
 pub mod migration;
 
 mod handle;
