@@ -3,16 +3,14 @@
 
 	interface Props {
 		fileName: string;
-		size?: number;
 		color?: string;
 	}
 
-	const { fileName, size = 0.875, color }: Props = $props();
+	const { fileName, color }: Props = $props();
 </script>
 
 <i
 	class="file-icon"
-	style:--file-icon-size="{size}rem"
 	style:--file-icon-custom-color={color ? color : 'currentColor'}
 	aria-hidden="true"
 >
@@ -22,8 +20,8 @@
 <style lang="postcss">
 	.file-icon {
 		display: flex;
-		width: var(--file-icon-size);
-		height: var(--file-icon-size);
+		width: 14px;
+		height: 14px;
 
 		--file-icon-gray: var(--file-icon-custom-color, #807976);
 		--file-icon-green: var(--file-icon-custom-color, #16a34a);
