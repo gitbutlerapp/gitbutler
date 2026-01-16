@@ -70,9 +70,9 @@ pub struct HunkAssignmentsHandleMut<'conn> {
 impl HunkAssignmentsHandle<'_> {
     /// Lists all hunk assignments in the database.
     pub fn list_all(&self) -> anyhow::Result<Vec<HunkAssignment>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, hunk_header, path, path_bytes, stack_id FROM hunk_assignments",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, hunk_header, path, path_bytes, stack_id FROM hunk_assignments")?;
 
         let results = stmt.query_map([], |row| {
             Ok(HunkAssignment {

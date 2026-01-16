@@ -89,7 +89,9 @@ impl WorkflowsHandle<'_> {
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
-        let total: i64 = self.conn.query_row("SELECT COUNT(*) FROM workflows", [], |row| row.get(0))?;
+        let total: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM workflows", [], |row| row.get(0))?;
 
         Ok((total, workflows))
     }

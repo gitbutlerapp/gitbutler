@@ -1,5 +1,6 @@
 use but_db::DbHandle;
 
+mod butler_actions;
 mod ci_check;
 mod file_write_lock;
 mod forge_review;

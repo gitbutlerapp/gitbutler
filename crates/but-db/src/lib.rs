@@ -16,11 +16,15 @@
 //!
 //! ## ORM Types - for `Connection` and `Transaction`
 //!
-//! All ORM types are split into read-only and write versions, and they are thin wrappers around a
+//! All ORM types are split into read-only and mutating versions, and they are thin wrappers around a
 //! [`Connection`](rusqlite::Connection) or a [`SavePoint`](rusqlite::Savepoint).
-//!
 //! A savepoint is only used when changes need the transaction-like ability to be committed all at once.
-//! TODO: continue
+//!
+//! Read-only methods are implemented on read-only ORM types, and mutating methods
+//! of any complexity are implemented on mutating types. Tests exists for each method just for basic
+//! insurance they actually work.
+//!
+//! Mutating types can always turn themselves into the read-only counterparts, but not vice versa.
 use diesel::SqliteConnection;
 
 pub mod migration;

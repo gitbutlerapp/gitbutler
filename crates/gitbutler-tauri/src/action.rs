@@ -14,7 +14,7 @@ pub fn list_actions(
     limit: i64,
 ) -> anyhow::Result<but_action::ActionListing, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
+    let ctx = &Context::new_from_legacy_project(project.clone())?;
     but_action::list_actions(ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
 

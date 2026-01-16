@@ -269,8 +269,8 @@ async fn match_subcommand(
                 command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)
             }
             None => {
-                let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
-                command::legacy::actions::list_actions(&mut ctx, out, 0, 10)
+                let ctx = init::init_ctx(&args, Fetch::None, out)?;
+                command::legacy::actions::list_actions(&ctx, out, 0, 10)
             }
         },
         #[cfg(feature = "legacy")]
