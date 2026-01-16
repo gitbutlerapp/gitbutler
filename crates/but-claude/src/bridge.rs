@@ -210,8 +210,8 @@ impl Claudes {
             let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
 
             let session = upsert_session(&mut ctx, session_id, stack_id)?;
-            let mut ctx = sync_ctx.clone().into_thread_local();
-            let messages = list_messages_by_session(&mut ctx, session.id)?;
+            let ctx = sync_ctx.clone().into_thread_local();
+            let messages = list_messages_by_session(&ctx, session.id)?;
 
             let summary = if let Some(ClaudeMessage { payload, .. }) = messages.last() {
                 match payload {
@@ -287,8 +287,8 @@ impl Claudes {
         // (e.g., commit created notification from the Stop hook)
         let project_id = sync_ctx.legacy_project.id;
         let all_messages = {
-            let mut ctx = sync_ctx.clone().into_thread_local();
-            db::list_messages_by_session(&mut ctx, session_id)
+            let ctx = sync_ctx.clone().into_thread_local();
+            db::list_messages_by_session(&ctx, session_id)
         };
         if let Ok(all_messages) = all_messages {
             let new_messages: Vec<_> = all_messages
@@ -878,7 +878,7 @@ fn spawn_response_streaming(
                         .unwrap()
                         .parse()
                         .unwrap();
-                    let session = db::get_session_by_id(&mut ctx, session_id).unwrap();
+                    let session = db::get_session_by_id(&ctx, session_id).unwrap();
                     if session.is_some() {
                         db::add_session_id(&mut ctx, session_id, current_session_id).unwrap();
                     }

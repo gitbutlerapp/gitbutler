@@ -30,7 +30,7 @@ impl DbHandle {
         interval: std::time::Duration,
     ) -> anyhow::Result<std::sync::mpsc::Receiver<anyhow::Result<ItemKind>>> {
         let (tx, rx) = std::sync::mpsc::channel();
-        let mut db = DbHandle::new_at_url(&self.url)?;
+        let db = DbHandle::new_at_url(&self.url)?;
         std::thread::Builder::new()
             .name("Gitbutler-DB-watcher".into())
             .spawn(move || {
@@ -105,7 +105,7 @@ impl DbHandle {
                                         continue;
                                     }
                                 }
-                                Err(e) => tx.send(Err(anyhow::Error::from(e))),
+                                Err(e) => tx.send(Err(e)),
                             }
                         } else {
                             eprintln!("BUG: didn't implement a branch for {to_check:?}");
@@ -130,7 +130,7 @@ impl DbHandle {
         let (tx, rx) = tokio::sync::mpsc::channel(8);
         let url = self.url.clone();
         tokio::spawn(async move {
-            let mut this = match DbHandle::new_at_url(&url) {
+            let this = match DbHandle::new_at_url(&url) {
                 Ok(db) => db,
                 Err(e) => {
                     let _ = tx.send(Err(e)).await;
@@ -209,7 +209,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(anyhow::Error::from(e))).await,
+                            Err(e) => tx.send(Err(e)).await,
                         }
                     } else {
                         eprintln!("BUG: didn't implement a branch for {to_check:?}");

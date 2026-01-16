@@ -1,13 +1,8 @@
-use diesel::{
-    ExpressionMethods, QueryDsl, RunQueryDsl,
-    prelude::{Insertable, Queryable, Selectable, *},
-};
+use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    DbHandle, M,
-    schema::{claude_messages::dsl::claude_messages, claude_sessions::dsl::claude_sessions},
-};
+use crate::Transaction;
+use crate::{DbHandle, M};
 
 pub(crate) const M: &[M<'static>] = &[
     M::up(
@@ -96,11 +91,8 @@ ALTER TABLE `claude_permission_requests` ADD COLUMN `use_wildcard` BOOLEAN NOT N
     ),
 ];
 
-#[derive(
-    Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable, Identifiable,
-)]
-#[diesel(table_name = crate::schema::claude_sessions)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+/// Tests are in `but-db/tests/db/table/claude.rs`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ClaudeSession {
     pub id: String,
     pub current_id: String,
@@ -112,21 +104,7 @@ pub struct ClaudeSession {
     pub denied_permissions: String,
 }
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    Queryable,
-    Selectable,
-    Insertable,
-    Identifiable,
-    Associations,
-)]
-#[diesel(belongs_to(ClaudeSession, foreign_key = session_id))]
-#[diesel(table_name = crate::schema::claude_messages)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ClaudeMessage {
     pub id: String,
     pub session_id: String,
@@ -135,11 +113,7 @@ pub struct ClaudeMessage {
     pub content: String,
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable, Identifiable,
-)]
-#[diesel(table_name = crate::schema::claude_permission_requests)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ClaudePermissionRequest {
     pub id: String,
     pub created_at: chrono::NaiveDateTime,
@@ -151,76 +125,175 @@ pub struct ClaudePermissionRequest {
 }
 
 impl DbHandle {
-    pub fn claude_sessions(&mut self) -> ClaudeSessionsHandle<'_> {
-        ClaudeSessionsHandle { db: self }
+    pub fn claude_sessions(&self) -> ClaudeSessionsHandle<'_> {
+        ClaudeSessionsHandle { conn: &self.conn }
     }
 
-    pub fn claude_messages(&mut self) -> ClaudeMessagesHandle<'_> {
-        ClaudeMessagesHandle { db: self }
+    pub fn claude_sessions_mut(&mut self) -> ClaudeSessionsHandleMut<'_> {
+        ClaudeSessionsHandleMut { conn: &self.conn }
     }
 
-    pub fn claude_permission_requests(&mut self) -> ClaudePermissionRequestsHandle<'_> {
-        ClaudePermissionRequestsHandle { db: self }
+    pub fn claude_messages(&self) -> ClaudeMessagesHandle<'_> {
+        ClaudeMessagesHandle { conn: &self.conn }
     }
 
-    pub fn delete_session_and_messages(
-        &mut self,
-        session_id: &str,
-    ) -> Result<(), diesel::result::Error> {
-        self.diesel
-            .transaction::<(), diesel::result::Error, _>(|conn| {
-                diesel::delete(
-                    claude_messages
-                        .filter(crate::schema::claude_messages::session_id.eq(session_id)),
-                )
-                .execute(conn)?;
-                diesel::delete(
-                    claude_sessions.filter(crate::schema::claude_sessions::id.eq(session_id)),
-                )
-                .execute(conn)?;
-                Ok(())
-            })
+    pub fn claude_messages_mut(&mut self) -> ClaudeMessagesHandleMut<'_> {
+        ClaudeMessagesHandleMut { conn: &self.conn }
+    }
+
+    pub fn claude_permission_requests(&self) -> ClaudePermissionRequestsHandle<'_> {
+        ClaudePermissionRequestsHandle { conn: &self.conn }
+    }
+
+    pub fn claude_permission_requests_mut(&mut self) -> ClaudePermissionRequestsHandleMut<'_> {
+        ClaudePermissionRequestsHandleMut { conn: &self.conn }
+    }
+
+    // TODO: move all this into the single 'claude' handle.
+    pub fn delete_session_and_messages(&mut self, session_id: &str) -> anyhow::Result<()> {
+        self.conn.execute(
+            "DELETE FROM claude_messages WHERE session_id = ?1",
+            [session_id],
+        )?;
+        self.conn
+            .execute("DELETE FROM claude_sessions WHERE id = ?1", [session_id])?;
+        Ok(())
     }
 }
 
-pub struct ClaudeSessionsHandle<'a> {
-    db: &'a mut DbHandle,
+impl<'conn> Transaction<'conn> {
+    pub fn claude_sessions(&self) -> ClaudeSessionsHandle<'_> {
+        ClaudeSessionsHandle { conn: &self.0 }
+    }
+
+    pub fn claude_sessions_mut(&mut self) -> ClaudeSessionsHandleMut<'_> {
+        ClaudeSessionsHandleMut { conn: &self.0 }
+    }
+
+    pub fn claude_messages(&self) -> ClaudeMessagesHandle<'_> {
+        ClaudeMessagesHandle { conn: &self.0 }
+    }
+
+    pub fn claude_messages_mut(&mut self) -> ClaudeMessagesHandleMut<'_> {
+        ClaudeMessagesHandleMut { conn: &self.0 }
+    }
+
+    pub fn claude_permission_requests(&self) -> ClaudePermissionRequestsHandle<'_> {
+        ClaudePermissionRequestsHandle { conn: &self.0 }
+    }
+
+    pub fn claude_permission_requests_mut(&mut self) -> ClaudePermissionRequestsHandleMut<'_> {
+        ClaudePermissionRequestsHandleMut { conn: &self.0 }
+    }
+
+    pub fn delete_session_and_messages(&mut self, session_id: &str) -> anyhow::Result<()> {
+        self.0.execute(
+            "DELETE FROM claude_messages WHERE session_id = ?1",
+            [session_id],
+        )?;
+        self.0
+            .execute("DELETE FROM claude_sessions WHERE id = ?1", [session_id])?;
+        Ok(())
+    }
 }
 
-pub struct ClaudeMessagesHandle<'a> {
-    db: &'a mut DbHandle,
+pub struct ClaudeSessionsHandle<'conn> {
+    conn: &'conn rusqlite::Connection,
 }
 
-pub struct ClaudePermissionRequestsHandle<'a> {
-    db: &'a mut DbHandle,
+pub struct ClaudeSessionsHandleMut<'conn> {
+    conn: &'conn rusqlite::Connection,
+}
+
+pub struct ClaudeMessagesHandle<'conn> {
+    conn: &'conn rusqlite::Connection,
+}
+
+pub struct ClaudeMessagesHandleMut<'conn> {
+    conn: &'conn rusqlite::Connection,
+}
+
+pub struct ClaudePermissionRequestsHandle<'conn> {
+    conn: &'conn rusqlite::Connection,
+}
+
+pub struct ClaudePermissionRequestsHandleMut<'conn> {
+    conn: &'conn rusqlite::Connection,
 }
 
 impl ClaudePermissionRequestsHandle<'_> {
-    pub fn insert(
-        &mut self,
-        request: ClaudePermissionRequest,
-    ) -> Result<(), diesel::result::Error> {
-        diesel::insert_into(crate::schema::claude_permission_requests::table)
-            .values(request)
-            .execute(&mut self.db.diesel)?;
+    pub fn get(&self, id: &str) -> anyhow::Result<Option<ClaudePermissionRequest>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, created_at, updated_at, tool_name, input, decision, use_wildcard \
+             FROM claude_permission_requests WHERE id = ?1",
+        )?;
+
+        let result = stmt
+            .query_row([id], |row| {
+                Ok(ClaudePermissionRequest {
+                    id: row.get(0)?,
+                    created_at: row.get(1)?,
+                    updated_at: row.get(2)?,
+                    tool_name: row.get(3)?,
+                    input: row.get(4)?,
+                    decision: row.get(5)?,
+                    use_wildcard: row.get(6)?,
+                })
+            })
+            .optional()?;
+
+        Ok(result)
+    }
+
+    pub fn list(&self) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, created_at, updated_at, tool_name, input, decision, use_wildcard \
+             FROM claude_permission_requests",
+        )?;
+
+        let results = stmt.query_map([], |row| {
+            Ok(ClaudePermissionRequest {
+                id: row.get(0)?,
+                created_at: row.get(1)?,
+                updated_at: row.get(2)?,
+                tool_name: row.get(3)?,
+                input: row.get(4)?,
+                decision: row.get(5)?,
+                use_wildcard: row.get(6)?,
+            })
+        })?;
+
+        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+}
+
+impl ClaudePermissionRequestsHandleMut<'_> {
+    pub fn to_ref(&self) -> ClaudePermissionRequestsHandle<'_> {
+        ClaudePermissionRequestsHandle { conn: self.conn }
+    }
+
+    pub fn insert(&mut self, request: ClaudePermissionRequest) -> anyhow::Result<()> {
+        self.conn.execute(
+            "INSERT INTO claude_permission_requests (id, created_at, updated_at, tool_name, input, decision, use_wildcard) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![
+                request.id,
+                request.created_at,
+                request.updated_at,
+                request.tool_name,
+                request.input,
+                request.decision,
+                request.use_wildcard,
+            ],
+        )?;
         Ok(())
     }
 
-    pub fn set_decision(
-        &mut self,
-        id: &str,
-        decision: Option<String>,
-    ) -> Result<(), diesel::result::Error> {
-        diesel::update(
-            crate::schema::claude_permission_requests::table
-                .filter(crate::schema::claude_permission_requests::id.eq(id)),
-        )
-        .set((
-            crate::schema::claude_permission_requests::decision.eq(decision),
-            crate::schema::claude_permission_requests::updated_at
-                .eq(chrono::Local::now().naive_local()),
-        ))
-        .execute(&mut self.db.diesel)?;
+    pub fn set_decision(&mut self, id: &str, decision: Option<String>) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_permission_requests SET decision = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![decision, chrono::Local::now().naive_local(), id],
+        )?;
         Ok(())
     }
 
@@ -229,91 +302,137 @@ impl ClaudePermissionRequestsHandle<'_> {
         id: &str,
         decision: Option<String>,
         use_wildcard: bool,
-    ) -> Result<(), diesel::result::Error> {
-        diesel::update(
-            crate::schema::claude_permission_requests::table
-                .filter(crate::schema::claude_permission_requests::id.eq(id)),
-        )
-        .set((
-            crate::schema::claude_permission_requests::decision.eq(decision),
-            crate::schema::claude_permission_requests::use_wildcard.eq(use_wildcard),
-            crate::schema::claude_permission_requests::updated_at
-                .eq(chrono::Local::now().naive_local()),
-        ))
-        .execute(&mut self.db.diesel)?;
+    ) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_permission_requests SET decision = ?1, use_wildcard = ?2, updated_at = ?3 WHERE id = ?4",
+            rusqlite::params![decision, use_wildcard, chrono::Local::now().naive_local(), id],
+        )?;
         Ok(())
     }
 
-    pub fn get(
-        &mut self,
-        id: &str,
-    ) -> Result<Option<ClaudePermissionRequest>, diesel::result::Error> {
-        let request = crate::schema::claude_permission_requests::table
-            .filter(crate::schema::claude_permission_requests::id.eq(id))
-            .first::<ClaudePermissionRequest>(&mut self.db.diesel)
-            .optional()?;
-        Ok(request)
-    }
-
-    pub fn delete(&mut self, id: &str) -> Result<(), diesel::result::Error> {
-        diesel::delete(
-            crate::schema::claude_permission_requests::table
-                .filter(crate::schema::claude_permission_requests::id.eq(id)),
-        )
-        .execute(&mut self.db.diesel)?;
+    pub fn delete(&mut self, id: &str) -> anyhow::Result<()> {
+        self.conn
+            .execute("DELETE FROM claude_permission_requests WHERE id = ?1", [id])?;
         Ok(())
-    }
-
-    pub fn list(&mut self) -> Result<Vec<ClaudePermissionRequest>, diesel::result::Error> {
-        let requests = crate::schema::claude_permission_requests::table
-            .load::<ClaudePermissionRequest>(&mut self.db.diesel)?;
-        Ok(requests)
     }
 }
 
 impl ClaudeSessionsHandle<'_> {
-    pub fn insert(&mut self, session: ClaudeSession) -> Result<(), diesel::result::Error> {
-        diesel::insert_into(claude_sessions)
-            .values(session)
-            .execute(&mut self.db.diesel)?;
+    pub fn get(&self, id: &str) -> anyhow::Result<Option<ClaudeSession>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions \
+             FROM claude_sessions WHERE id = ?1",
+        )?;
+
+        let result = stmt
+            .query_row([id], |row| {
+                Ok(ClaudeSession {
+                    id: row.get(0)?,
+                    current_id: row.get(1)?,
+                    session_ids: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                    in_gui: row.get(5)?,
+                    approved_permissions: row.get(6)?,
+                    denied_permissions: row.get(7)?,
+                })
+            })
+            .optional()?;
+
+        Ok(result)
+    }
+
+    pub fn get_by_current_id(&self, current_id: &str) -> anyhow::Result<Option<ClaudeSession>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions \
+             FROM claude_sessions WHERE current_id = ?1",
+        )?;
+
+        let result = stmt
+            .query_row([current_id], |row| {
+                Ok(ClaudeSession {
+                    id: row.get(0)?,
+                    current_id: row.get(1)?,
+                    session_ids: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                    in_gui: row.get(5)?,
+                    approved_permissions: row.get(6)?,
+                    denied_permissions: row.get(7)?,
+                })
+            })
+            .optional()?;
+
+        Ok(result)
+    }
+
+    pub fn list(&self) -> anyhow::Result<Vec<ClaudeSession>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions \
+             FROM claude_sessions",
+        )?;
+
+        let results = stmt.query_map([], |row| {
+            Ok(ClaudeSession {
+                id: row.get(0)?,
+                current_id: row.get(1)?,
+                session_ids: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+                in_gui: row.get(5)?,
+                approved_permissions: row.get(6)?,
+                denied_permissions: row.get(7)?,
+            })
+        })?;
+
+        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+}
+
+impl ClaudeSessionsHandleMut<'_> {
+    pub fn to_ref(&self) -> ClaudeSessionsHandle<'_> {
+        ClaudeSessionsHandle { conn: self.conn }
+    }
+
+    pub fn insert(&mut self, session: ClaudeSession) -> anyhow::Result<()> {
+        self.conn.execute(
+            "INSERT INTO claude_sessions (id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            rusqlite::params![
+                session.id,
+                session.current_id,
+                session.session_ids,
+                session.created_at,
+                session.updated_at,
+                session.in_gui,
+                session.approved_permissions,
+                session.denied_permissions,
+            ],
+        )?;
         Ok(())
     }
 
-    pub fn update_current_id(
-        &mut self,
-        id: &str,
-        current_id: &str,
-    ) -> Result<(), diesel::result::Error> {
-        diesel::update(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
-            .set((
-                crate::schema::claude_sessions::current_id.eq(current_id),
-                crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
-            ))
-            .execute(&mut self.db.diesel)?;
+    pub fn update_current_id(&mut self, id: &str, current_id: &str) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_sessions SET current_id = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![current_id, chrono::Local::now().naive_local(), id],
+        )?;
         Ok(())
     }
 
-    pub fn update_session_ids(
-        &mut self,
-        id: &str,
-        session_ids: &str,
-    ) -> Result<(), diesel::result::Error> {
-        diesel::update(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
-            .set((
-                crate::schema::claude_sessions::session_ids.eq(session_ids),
-                crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
-            ))
-            .execute(&mut self.db.diesel)?;
+    pub fn update_session_ids(&mut self, id: &str, session_ids: &str) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_sessions SET session_ids = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![session_ids, chrono::Local::now().naive_local(), id],
+        )?;
         Ok(())
     }
 
-    pub fn update_in_gui(&mut self, id: &str, in_gui: bool) -> Result<(), diesel::result::Error> {
-        diesel::update(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
-            .set((
-                crate::schema::claude_sessions::in_gui.eq(in_gui),
-                crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
-            ))
-            .execute(&mut self.db.diesel)?;
+    pub fn update_in_gui(&mut self, id: &str, in_gui: bool) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_sessions SET in_gui = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![in_gui, chrono::Local::now().naive_local(), id],
+        )?;
         Ok(())
     }
 
@@ -322,91 +441,96 @@ impl ClaudeSessionsHandle<'_> {
         id: &str,
         approved_permissions: &str,
         denied_permissions: &str,
-    ) -> Result<(), diesel::result::Error> {
-        diesel::update(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
-            .set((
-                crate::schema::claude_sessions::approved_permissions.eq(approved_permissions),
-                crate::schema::claude_sessions::denied_permissions.eq(denied_permissions),
-                crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
-            ))
-            .execute(&mut self.db.diesel)?;
+    ) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_sessions SET approved_permissions = ?1, denied_permissions = ?2, updated_at = ?3 WHERE id = ?4",
+            rusqlite::params![approved_permissions, denied_permissions, chrono::Local::now().naive_local(), id],
+        )?;
         Ok(())
     }
 
     /// If you intend delete the messages AND the session, you should use `delete_session_and_messages` instead, which does it all in a single transaction.
-    pub fn delete(&mut self, id: &str) -> Result<(), diesel::result::Error> {
-        diesel::delete(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
-            .execute(&mut self.db.diesel)?;
+    pub fn delete(&mut self, id: &str) -> anyhow::Result<()> {
+        self.conn
+            .execute("DELETE FROM claude_sessions WHERE id = ?1", [id])?;
         Ok(())
-    }
-
-    pub fn get(&mut self, id: &str) -> Result<Option<ClaudeSession>, diesel::result::Error> {
-        let session = claude_sessions
-            .filter(crate::schema::claude_sessions::id.eq(id))
-            .first::<ClaudeSession>(&mut self.db.diesel)
-            .optional()?;
-        Ok(session)
-    }
-
-    pub fn get_by_current_id(
-        &mut self,
-        current_id: &str,
-    ) -> Result<Option<ClaudeSession>, diesel::result::Error> {
-        let session = claude_sessions
-            .filter(crate::schema::claude_sessions::current_id.eq(current_id))
-            .first::<ClaudeSession>(&mut self.db.diesel)
-            .optional()?;
-        Ok(session)
-    }
-
-    pub fn list(&mut self) -> Result<Vec<ClaudeSession>, diesel::result::Error> {
-        let sessions = claude_sessions.load::<ClaudeSession>(&mut self.db.diesel)?;
-        Ok(sessions)
     }
 }
 
 impl ClaudeMessagesHandle<'_> {
-    pub fn insert(&mut self, message: ClaudeMessage) -> Result<(), diesel::result::Error> {
-        diesel::insert_into(claude_messages)
-            .values(message)
-            .execute(&mut self.db.diesel)?;
-        Ok(())
-    }
+    pub fn list_by_session(&self, session_id: &str) -> anyhow::Result<Vec<ClaudeMessage>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, session_id, created_at, content_type, content \
+             FROM claude_messages WHERE session_id = ?1 ORDER BY created_at ASC",
+        )?;
 
-    pub fn list_by_session(
-        &mut self,
-        session_id: &str,
-    ) -> Result<Vec<ClaudeMessage>, diesel::result::Error> {
-        let messages = claude_messages
-            .filter(crate::schema::claude_messages::session_id.eq(session_id))
-            .order(crate::schema::claude_messages::created_at.asc())
-            .load::<ClaudeMessage>(&mut self.db.diesel)?;
-        Ok(messages)
-    }
+        let results = stmt.query_map([session_id], |row| {
+            Ok(ClaudeMessage {
+                id: row.get(0)?,
+                session_id: row.get(1)?,
+                created_at: row.get(2)?,
+                content_type: row.get(3)?,
+                content: row.get(4)?,
+            })
+        })?;
 
-    /// If you intend delete the messages AND the session, you should use `delete_session_and_messages` instead, which does it all in a single transaction.
-    pub fn delete_by_session(&mut self, session_id: &str) -> Result<(), diesel::result::Error> {
-        diesel::delete(
-            claude_messages.filter(crate::schema::claude_messages::session_id.eq(session_id)),
-        )
-        .execute(&mut self.db.diesel)?;
-        Ok(())
+        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
 
     /// Gets the most recent message matching a provided content type
     pub fn get_message_of_type(
-        &mut self,
+        &self,
         content_type: String,
         offset: Option<i64>,
-    ) -> Result<Option<ClaudeMessage>, diesel::result::Error> {
+    ) -> anyhow::Result<Option<ClaudeMessage>> {
         let offset = offset.unwrap_or(0);
-        let message = claude_messages
-            .filter(crate::schema::claude_messages::content_type.eq(content_type))
-            .order(crate::schema::claude_messages::created_at.desc())
-            .offset(offset)
-            .limit(1)
-            .first::<ClaudeMessage>(&mut self.db.diesel)
+        let mut stmt = self.conn.prepare(
+            "SELECT id, session_id, created_at, content_type, content \
+             FROM claude_messages WHERE content_type = ?1 ORDER BY created_at DESC LIMIT 1 OFFSET ?2",
+        )?;
+
+        let result = stmt
+            .query_row(rusqlite::params![content_type, offset], |row| {
+                Ok(ClaudeMessage {
+                    id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    created_at: row.get(2)?,
+                    content_type: row.get(3)?,
+                    content: row.get(4)?,
+                })
+            })
             .optional()?;
-        Ok(message)
+
+        Ok(result)
+    }
+}
+
+impl ClaudeMessagesHandleMut<'_> {
+    pub fn to_ref(&self) -> ClaudeMessagesHandle<'_> {
+        ClaudeMessagesHandle { conn: self.conn }
+    }
+
+    pub fn insert(&mut self, message: ClaudeMessage) -> anyhow::Result<()> {
+        self.conn.execute(
+            "INSERT INTO claude_messages (id, session_id, created_at, content_type, content) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                message.id,
+                message.session_id,
+                message.created_at,
+                message.content_type,
+                message.content,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// If you intend delete the messages AND the session, you should use `delete_session_and_messages` instead, which does it all in a single transaction.
+    pub fn delete_by_session(&mut self, session_id: &str) -> anyhow::Result<()> {
+        self.conn.execute(
+            "DELETE FROM claude_messages WHERE session_id = ?1",
+            [session_id],
+        )?;
+        Ok(())
     }
 }

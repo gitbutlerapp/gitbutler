@@ -297,8 +297,8 @@ async fn match_subcommand(
                     but_claude::mcp::start(&args.current_dir, &session_id).await
                 }
                 claude::Subcommands::Last { offset } => {
-                    let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
-                    let message = but_claude::db::get_user_message(&mut ctx, Some(offset as i64))?;
+                    let ctx = init::init_ctx(&args, Fetch::None, out)?;
+                    let message = but_claude::db::get_user_message(&ctx, Some(offset as i64))?;
                     match message {
                         Some(msg) => {
                             if args.json {

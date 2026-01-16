@@ -78,6 +78,7 @@ pub struct M<'a> {
 /// The underlying sqlite database is set up to use Rusts borrow-checker,
 /// so a mutable borrow is required to start transactions or to make changes to any data.
 pub struct DbHandle {
+    #[expect(dead_code)]
     diesel: SqliteConnection,
     conn: rusqlite::Connection,
     /// The URL at which the connection was opened, mainly for debugging.
