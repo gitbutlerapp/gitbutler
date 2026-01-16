@@ -1,4 +1,4 @@
-<svg width="740px" height="398px" xmlns="http://www.w3.org/2000/svg">
+<svg width="740px" height="434px" xmlns="http://www.w3.org/2000/svg">
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
@@ -63,6 +63,10 @@
     <tspan x="10px" y="370px"><tspan>┴ </tspan><tspan class="dimmed">0dc3733</tspan><tspan> (common base) [</tspan><tspan class="fg-green bold">origin/main</tspan><tspan>] </tspan><tspan class="dimmed">2000-01-02</tspan><tspan> add M </tspan>
 </tspan>
     <tspan x="10px" y="388px">
+</tspan>
+    <tspan x="10px" y="406px"><tspan class="dimmed">Hint: run `but help` for all commands</tspan>
+</tspan>
+    <tspan x="10px" y="424px">
 </tspan>
   </text>
 
