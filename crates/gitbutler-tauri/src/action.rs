@@ -47,7 +47,7 @@ pub fn list_workflows(
     limit: i64,
 ) -> anyhow::Result<but_action::WorkflowList, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
+    let ctx = &Context::new_from_legacy_project(project.clone())?;
     but_action::list_workflows(ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
 

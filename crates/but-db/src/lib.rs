@@ -16,7 +16,10 @@
 //!
 //! ## ORM Types - for `Connection` and `Transaction`
 //!
-//! All ORM types are split into read-only and write versions.
+//! All ORM types are split into read-only and write versions, and they are thin wrappers around a
+//! [`Connection`](rusqlite::Connection) or a [`SavePoint`](rusqlite::Savepoint).
+//!
+//! A savepoint is only used when changes need the transaction-like ability to be committed all at once.
 //! TODO: continue
 use diesel::SqliteConnection;
 
