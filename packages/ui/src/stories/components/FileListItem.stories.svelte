@@ -56,7 +56,7 @@
 
 <Story name="File List">
 	{#snippet template()}
-		{@const showCheckbox = false}
+		{@const showCheckbox = true}
 		<div
 			style="width: 500px; display: flex; flex-direction: column; border: 1px solid var(--clr-border-3); border-radius: var(--radius-m); overflow: hidden;"
 		>
@@ -67,6 +67,7 @@
 				clickable={true}
 				{showCheckbox}
 				checked={true}
+				draggable={true}
 			/>
 			<FileListItem
 				filePath="src/lib/utils/helper.html"
@@ -75,6 +76,7 @@
 				clickable={true}
 				{showCheckbox}
 				checked={false}
+				draggable={true}
 			/>
 			<FileListItem
 				filePath="package.avi"
@@ -83,6 +85,7 @@
 				clickable={true}
 				{showCheckbox}
 				checked={true}
+				draggable={true}
 			/>
 			<FileListItem
 				filePath="README.md"
@@ -91,6 +94,7 @@
 				clickable={true}
 				{showCheckbox}
 				checked={true}
+				draggable={true}
 			/>
 			<FileListItem
 				filePath="src/styles/main.css"
@@ -99,6 +103,7 @@
 				clickable={true}
 				{showCheckbox}
 				checked={false}
+				draggable={true}
 			/>
 			<FileListItem
 				filePath="config/database.ts"
@@ -107,6 +112,7 @@
 				clickable={true}
 				{showCheckbox}
 				checked={true}
+				draggable={true}
 			/>
 			<FileListItem
 				filePath="src/App.svelte"
@@ -114,16 +120,21 @@
 				fileStatusStyle="dot"
 				clickable={true}
 				selected={true}
+				active={true}
 				{showCheckbox}
 				checked={true}
+				draggable={true}
 			/>
 			<FileListItem
 				filePath="tests/unit/helper.test.ts"
 				fileStatus="addition"
 				fileStatusStyle="dot"
 				clickable={true}
+				selected={true}
+				active={true}
 				{showCheckbox}
 				checked={true}
+				draggable={true}
 			/>
 			<FileListItem
 				filePath="src/routes/index.svelte"
@@ -132,6 +143,7 @@
 				clickable={true}
 				{showCheckbox}
 				checked={false}
+				draggable={true}
 			/>
 			<FileListItem
 				filePath=".gitignore"
@@ -140,6 +152,7 @@
 				clickable={true}
 				{showCheckbox}
 				checked={true}
+				draggable={true}
 			/>
 		</div>
 	{/snippet}

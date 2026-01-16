@@ -92,19 +92,18 @@
 </script>
 
 {#snippet fileList()}
-	<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
-		<FileList
-			draggableFiles
-			{selectionId}
-			showCheckboxes={isCommitting}
-			changes={changes.current}
-			{projectId}
-			{listMode}
-			{stackId}
-			{onselect}
-			showLockedIndicator={mode === 'unassigned'}
-		/>
-	</div>
+	<FileList
+		dataTestId={TestId.UncommittedChanges_FileList}
+		draggableFiles
+		{selectionId}
+		showCheckboxes={isCommitting}
+		changes={changes.current}
+		{projectId}
+		{listMode}
+		{stackId}
+		{onselect}
+		showLockedIndicator={mode === 'unassigned'}
+	/>
 {/snippet}
 
 <Dropzone
@@ -175,7 +174,7 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
-		min-height: 42px;
+		height: 42px;
 		padding: 0 10px 0 14px;
 		gap: 6px;
 		border-bottom: 1px solid var(--clr-border-2);
@@ -194,10 +193,6 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-	}
-
-	.uncommitted-changes {
-		display: block;
 	}
 
 	/* MODIFIERS */

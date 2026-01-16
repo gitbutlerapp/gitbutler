@@ -9,9 +9,10 @@
 		status: FileStatus;
 		style?: 'dot' | 'full' | 'full-large';
 		tooltip?: string;
+		color?: string;
 	}
 
-	const { status, style = 'full', tooltip }: Props = $props();
+	const { status, style = 'full', tooltip, color }: Props = $props();
 
 	const TOOLTIP_MAX_WIDTH = 320;
 
@@ -50,6 +51,7 @@
 	<Tooltip text={!tooltip ? getFullStatusText(status) : tooltip} maxWidth={TOOLTIP_MAX_WIDTH}>
 		<div
 			class="status-dot-wrap"
+			style:--custom-file-dot-color={color}
 			class:added={status === 'addition'}
 			class:modified={status === 'modification'}
 			class:deleted={status === 'deletion'}
@@ -85,7 +87,7 @@
 		width: fit-content;
 		width: 16px;
 		height: 16px;
-		color: var(--file-dot-color);
+		color: var(--custom-file-dot-color, var(--file-dot-color));
 	}
 
 	/* MODIFIERS */

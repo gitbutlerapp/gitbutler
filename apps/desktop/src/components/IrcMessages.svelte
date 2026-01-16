@@ -39,7 +39,7 @@
 						filePath={change.path}
 						pathFirst={$userSettings.pathFirst}
 						listMode="list"
-						hideBorder
+						isLast
 					/>
 					<div class="diff">
 						<HunkDiff
