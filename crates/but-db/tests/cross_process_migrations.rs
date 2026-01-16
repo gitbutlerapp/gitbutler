@@ -50,7 +50,7 @@ fn migrations_in_parallel_with_processes() -> anyhow::Result<()> {
         }
         assert!(
             libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0,
-            "child exited unsuccessfully: {:?}",
+            "FLAKY (try again): child exited unsuccessfully: {:?}",
             std::process::ExitStatus::from_raw(status)
         );
     }

@@ -83,7 +83,7 @@ impl TryFrom<but_db::ForgeReview> for ForgeReview {
     }
 }
 
-pub(crate) fn reviews_from_cache(db: &mut but_db::DbHandle) -> anyhow::Result<Vec<ForgeReview>> {
+pub(crate) fn reviews_from_cache(db: &but_db::DbHandle) -> anyhow::Result<Vec<ForgeReview>> {
     let db_reviews = db.forge_reviews().list_all()?;
     let reviews: Vec<ForgeReview> = db_reviews
         .into_iter()
@@ -101,7 +101,7 @@ pub(crate) fn cache_reviews(
         .map(|r| r.clone().try_into())
         .collect::<anyhow::Result<Vec<but_db::ForgeReview>>>(
     )?;
-    db.forge_reviews().set_all(db_reviews)
+    db.forge_reviews_mut()?.set_all(db_reviews)
 }
 
 use super::CiCheck;
