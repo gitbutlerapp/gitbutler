@@ -35,6 +35,7 @@
 		lockText?: string;
 		active?: boolean;
 		executable?: boolean;
+		isLast?: boolean;
 		actionOpts?: FocusableOptions;
 		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
@@ -74,6 +75,7 @@
 		listMode = 'list',
 		depth,
 		executable,
+		isLast = false,
 		actionOpts,
 		oncheck,
 		oncheckclick,
@@ -101,6 +103,7 @@
 	class:draggable
 	class:conflicted
 	class:list-mode={listMode === 'list'}
+	class:is-last={isLast}
 	style:--file-list-item-selected-fg={selected && active
 		? 'var(--clr-theme-pop-on-element)'
 		: undefined}
@@ -230,6 +233,10 @@
 
 		&.list-mode {
 			border-bottom: 1px solid var(--clr-border-3);
+
+			&.is-last {
+				border-bottom: none;
+			}
 		}
 
 		&.clickable {

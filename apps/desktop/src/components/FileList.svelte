@@ -265,6 +265,7 @@
 	{@const lockedStackIds = showLockedIndicator
 		? getLockedStackIds(change.path, fileDependencies)
 		: []}
+	{@const isLast = listMode === 'list' && idx === changes.length - 1}
 	<FileListItemWrapper
 		{selectionId}
 		{change}
@@ -277,6 +278,7 @@
 		{locked}
 		{lockedCommitIds}
 		{lockedStackIds}
+		{isLast}
 		draggable={draggableFiles}
 		executable={isExecutable}
 		showCheckbox={showCheckboxes}
@@ -314,7 +316,8 @@
 	<!-- Conflicted changes -->
 	{#if Object.keys(unrepresentedConflictedEntries).length > 0}
 		<div class="conflicted-entries">
-			{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
+			{#each Object.entries(unrepresentedConflictedEntries) as [path, kind], i}
+				{@const entries = Object.entries(unrepresentedConflictedEntries)}
 				<FileListItem
 					draggable={draggableFiles}
 					filePath={path}
@@ -323,6 +326,7 @@
 					conflicted
 					conflictHint={conflictEntryHint(kind)}
 					listMode="list"
+					isLast={!ancestorMostConflictedCommitId && i === entries.length - 1}
 					onclick={(e) => {
 						e.stopPropagation();
 						showEditPatchConfirmation(path);
@@ -400,10 +404,6 @@
 	.file-list {
 		display: flex;
 		flex-direction: column;
-
-		& :global(.filelistitem-wrapper:last-child .file-list-item) {
-			border-bottom: none;
-		}
 	}
 
 	.conflicted-entries {

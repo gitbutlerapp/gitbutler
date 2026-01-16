@@ -36,6 +36,7 @@
 		locked?: boolean;
 		lockedCommitIds?: string[];
 		lockedStackIds?: string[];
+		isLast?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		conflictEntries?: ConflictEntriesObj;
@@ -58,6 +59,7 @@
 		locked,
 		lockedCommitIds = [],
 		lockedStackIds = [],
+		isLast = false,
 		onclick,
 		onkeydown
 	}: Props = $props();
@@ -171,6 +173,7 @@
 		{onkeydown}
 		locked={locked || false}
 		{lockText}
+		{isLast}
 		onlockhover={handleLockHover}
 		onlockunhover={handleLockUnhover}
 		conflicted={!!conflict}
