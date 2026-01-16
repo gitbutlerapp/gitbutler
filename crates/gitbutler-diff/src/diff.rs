@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use but_serde::BStringForFrontend;
 use git2::DiffHunk;
 use serde::{Deserialize, Serialize};
@@ -51,13 +49,6 @@ pub struct GitHunk {
     pub change_type: ChangeType,
 }
 
-/// Access
-impl GitHunk {
-    pub(crate) fn contains(&self, line: u32) -> bool {
-        self.new_start <= line && self.new_start + self.new_lines >= line
-    }
-}
-
 /// Comparison
 impl GitHunk {
     /// workspace_intersects_unapplied is used to determine if a hunk from a diff between workspace
@@ -82,19 +73,4 @@ impl PartialEq<DiffHunk<'_>> for &GitHunk {
             && self.old_start == other.old_start()
             && self.old_lines == other.old_lines()
     }
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct FileDiff {
-    pub path: PathBuf,
-    /// Hunks might be empty if nothing about the files content is known, which happens
-    /// if the content is skipped due to it being a large file.
-    pub hunks: Vec<GitHunk>,
-    pub skipped: bool,
-    /// This is `true` if this is a file with undiffable content. Then, `hunks` might be a single
-    /// hunk that is the hash of the binary blob in Git.
-    pub binary: bool,
-    pub old_size_bytes: u64,
-    pub new_size_bytes: u64,
 }

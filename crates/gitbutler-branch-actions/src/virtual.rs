@@ -1,5 +1,3 @@
-use std::{collections::HashMap, path::PathBuf};
-
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::RepositoryExt;
 use but_ctx::Context;
@@ -53,8 +51,6 @@ pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack
     vb_state.set_stack(stack.clone())?;
     Ok(stack)
 }
-
-pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
 
 type MergeBaseCommitGraph<'repo, 'cache> = gix::revwalk::Graph<
     'repo,
