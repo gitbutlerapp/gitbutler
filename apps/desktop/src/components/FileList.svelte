@@ -10,7 +10,7 @@
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import {
 		getLockedCommitIds,
-		getLockedStackIds,
+		getLockedTargets,
 		isFileLocked
 	} from '$lib/dependencies/dependencies';
 	import { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
@@ -262,8 +262,8 @@
 	{@const lockedCommitIds = showLockedIndicator
 		? getLockedCommitIds(change.path, fileDependencies)
 		: []}
-	{@const lockedStackIds = showLockedIndicator
-		? getLockedStackIds(change.path, fileDependencies)
+	{@const lockedTargets = showLockedIndicator
+		? getLockedTargets(change.path, fileDependencies)
 		: []}
 	{@const isLast = listMode === 'list' && idx === visibleFiles.length - 1}
 	<FileListItemWrapper
@@ -277,7 +277,7 @@
 		{active}
 		{locked}
 		{lockedCommitIds}
-		{lockedStackIds}
+		{lockedTargets}
 		{isLast}
 		draggable={draggableFiles}
 		executable={isExecutable}

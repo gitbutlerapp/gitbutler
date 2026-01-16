@@ -6,14 +6,9 @@ import {
 	type LineId,
 	type LineLock
 } from '@gitbutler/ui/utils/diffParsing';
-import type { HunkLocks } from '$lib/dependencies/dependencies';
+import type { HunkLock, HunkLocks } from '$lib/dependencies/dependencies';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 import 'reflect-metadata';
-
-export type HunkLock = {
-	branchId: string;
-	commitId: string;
-};
 
 export type DiffSpec = {
 	/** lossless version of `previous_path` if this was a rename. */

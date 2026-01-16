@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use but_core::{UnifiedPatch, unified_diff::DiffHunk};
 use but_ctx::Context;
 use but_oxidize::OidExt;
@@ -72,7 +74,7 @@ impl HunkDependencies {
                         .into_iter()
                         .map(|dependency| HunkLock {
                             commit_id: dependency.commit_id,
-                            stack_id: dependency.stack_id,
+                            target: HunkLockTarget::Stack(dependency.stack_id),
                         })
                         .collect();
                     diffs.push((change.path.to_string(), hunk, locks));
@@ -93,9 +95,42 @@ impl HunkDependencies {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
-    /// The ID of the stack that contains [`commit_id`](Self::commit_id).
-    pub stack_id: StackId,
+    /// The ID if available of the stack that contains
+    /// [`commit_id`](Self::commit_id).
+    pub target: HunkLockTarget,
     /// The commit the hunk applies to.
     #[serde(with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,
+}
+
+/// The target of a hunk lock. If a stack is identifiable, then it's StackId
+/// will be provided.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum HunkLockTarget {
+    /// References a stack that has a StackId.
+    Stack(StackId),
+    /// The hunk is locked to a stack that we can't reference because it didn't
+    /// have a StackId. This is likely because the stack that the change is
+    /// locked to doesn't have any associated metadata or doesn't have anything
+    /// we can use to associate it with metadata.
+    Unidentified,
+}
+
+impl From<HunkLockTarget> for Option<StackId> {
+    fn from(val: HunkLockTarget) -> Self {
+        match val {
+            HunkLockTarget::Stack(s) => Some(s),
+            HunkLockTarget::Unidentified => None,
+        }
+    }
+}
+
+impl Display for HunkLockTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stack(s) => write!(f, "{}", s),
+            Self::Unidentified => write!(f, "unidentified"),
+        }
+    }
 }

@@ -328,22 +328,30 @@ describe('getLineLocks', () => {
 	const locks = [
 		{
 			hunk: { oldStart: 2, oldLines: 1, newStart: 2, newLines: 1, diff },
-			locks: [{ stackId: 'stack1', commitId: 'commit1' }]
+			locks: [{ target: { type: 'stack' as const, subject: 'stack1' }, commitId: 'commit1' }]
 		}
 	];
 	test('returns line locks for lines covered by locks', () => {
 		const [fullyLocked, lineLocks] = getLineLocks(hunk, locks);
 		expect(fullyLocked).toBe(true);
 		expect(lineLocks).toEqual([
-			{ oldLine: 2, newLine: undefined, locks: [{ stackId: 'stack1', commitId: 'commit1' }] },
-			{ oldLine: undefined, newLine: 2, locks: [{ stackId: 'stack1', commitId: 'commit1' }] }
+			{
+				oldLine: 2,
+				newLine: undefined,
+				locks: [{ target: { type: 'stack', subject: 'stack1' }, commitId: 'commit1' }]
+			},
+			{
+				oldLine: undefined,
+				newLine: 2,
+				locks: [{ target: { type: 'stack', subject: 'stack1' }, commitId: 'commit1' }]
+			}
 		]);
 	});
 	test('returns empty array if no locks match', () => {
 		const noLocks = [
 			{
 				hunk: { oldStart: 10, oldLines: 1, newStart: 10, newLines: 1, diff: '' },
-				locks: [{ stackId: 'stack2', commitId: 'commit2' }]
+				locks: [{ target: { type: 'stack' as const, subject: 'stack2' }, commitId: 'commit2' }]
 			}
 		];
 		const [fullyLocked, lineLocks] = getLineLocks(hunk, noLocks);
@@ -358,15 +366,23 @@ describe('getLineLocks', () => {
 		const partialLocks = [
 			{
 				hunk: { oldStart: 3, oldLines: 1, newStart: 3, newLines: 1, diff: partialDiff },
-				locks: [{ stackId: 'stack1', commitId: 'commit1' }]
+				locks: [{ target: { type: 'stack' as const, subject: 'stack1' }, commitId: 'commit1' }]
 			}
 		];
 		// Only line 3 is locked, lines 2 and 4 are not
 		const [fullyLocked, lineLocks] = getLineLocks(partialHunk, partialLocks);
 		expect(fullyLocked).toBe(false);
 		expect(lineLocks).toEqual([
-			{ oldLine: 3, newLine: undefined, locks: [{ stackId: 'stack1', commitId: 'commit1' }] },
-			{ oldLine: undefined, newLine: 3, locks: [{ stackId: 'stack1', commitId: 'commit1' }] }
+			{
+				oldLine: 3,
+				newLine: undefined,
+				locks: [{ target: { type: 'stack', subject: 'stack1' }, commitId: 'commit1' }]
+			},
+			{
+				oldLine: undefined,
+				newLine: 3,
+				locks: [{ target: { type: 'stack', subject: 'stack1' }, commitId: 'commit1' }]
+			}
 		]);
 	});
 });

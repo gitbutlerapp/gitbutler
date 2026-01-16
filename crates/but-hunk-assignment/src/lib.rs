@@ -552,11 +552,11 @@ fn hunk_dependency_assignments(deps: &HunkDependencies) -> Vec<HunkAssignment> {
         // If there are locks towards more than one stack, this means double locking and the assignment None - the user can resolve this by partial committing.
         let locked_to_stack_ids_count = locks
             .iter()
-            .map(|lock| lock.stack_id)
+            .map(|lock| lock.target)
             .collect::<std::collections::HashSet<_>>()
             .len();
-        let stack_id = if locked_to_stack_ids_count == 1 {
-            Some(locks[0].stack_id)
+        let stack_id: Option<StackId> = if locked_to_stack_ids_count == 1 {
+            locks[0].target.into()
         } else {
             None
         };
