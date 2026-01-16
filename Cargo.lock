@@ -872,7 +872,6 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-stack",
- "gitbutler-sync",
  "gitbutler-user",
  "gix",
  "itertools",
@@ -2518,15 +2517,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
 
 [[package]]
-name = "diffy"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b545b8c50194bdd008283985ab0b31dba153cfd5b3066a92770634fbc0d7d291"
-dependencies = [
- "nu-ansi-term",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3486,7 +3476,6 @@ dependencies = [
  "bstr",
  "but-meta",
  "git2",
- "gitbutler-diff",
  "gitbutler-reference",
  "gitbutler-stack",
  "gix",
@@ -3520,7 +3509,6 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-cherry-pick",
  "gitbutler-commit",
- "gitbutler-diff",
  "gitbutler-git",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
@@ -3590,23 +3578,6 @@ dependencies = [
  "git2",
  "gix",
  "uuid",
-]
-
-[[package]]
-name = "gitbutler-diff"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bstr",
- "but-ctx",
- "but-serde",
- "diffy",
- "git2",
- "gitbutler-cherry-pick",
- "hex",
- "md5",
- "serde",
- "tracing",
 ]
 
 [[package]]
@@ -3790,7 +3761,6 @@ dependencies = [
  "git2",
  "git2-hooks",
  "gitbutler-cherry-pick",
- "gitbutler-diff",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-testsupport",
@@ -3828,7 +3798,6 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
- "gitbutler-time",
  "log",
  "serde",
  "tokio",
@@ -3851,41 +3820,15 @@ dependencies = [
  "but-serde",
  "git2",
  "gitbutler-commit",
- "gitbutler-diff",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-testsupport",
- "gitbutler-time",
  "gix",
  "itertools",
  "serde",
  "tempfile",
  "toml 0.9.10+spec-1.1.0",
-]
-
-[[package]]
-name = "gitbutler-sync"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-core",
- "but-ctx",
- "but-error",
- "but-oxidize",
- "git2",
- "gitbutler-commit",
- "gitbutler-oplog",
- "gitbutler-project",
- "gitbutler-reference",
- "gitbutler-repo",
- "gitbutler-stack",
- "gitbutler-url",
- "gitbutler-user",
- "gix",
- "itertools",
- "rand 0.9.2",
- "tracing",
 ]
 
 [[package]]
@@ -3976,10 +3919,6 @@ dependencies = [
  "termtree",
  "uuid",
 ]
-
-[[package]]
-name = "gitbutler-time"
-version = "0.0.0"
 
 [[package]]
 name = "gitbutler-url"

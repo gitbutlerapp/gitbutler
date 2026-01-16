@@ -1,10 +1,9 @@
-use std::{io::Write, path::PathBuf, process::Stdio};
+use std::{io::Write, process::Stdio};
 
 use anyhow::Result;
 use bstr::ByteSlice;
 use but_ctx::Context;
 use git2_hooks::{self, HookResult as H};
-use gitbutler_diff::GitHunk;
 use serde::Serialize;
 
 use crate::staging;
@@ -60,36 +59,6 @@ pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResul
             Ok(MessageHookResult::Failure(ErrorData { error }))
         }
     }
-}
-
-pub fn pre_commit(ctx: &Context, selected_hunks: &[(PathBuf, Vec<GitHunk>)]) -> Result<HookResult> {
-    let repo = &*ctx.git2_repo.get()?;
-    let original_tree = repo.index()?.write_tree()?;
-
-    // Scope guard that resets the index at the end, even under panic.
-    let _guard = scopeguard::guard((), |_| {
-        match staging::reset_index(repo, original_tree) {
-            Ok(()) => (),
-            Err(err) => tracing::error!("Failed to reset index: {}", err),
-        };
-    });
-
-    staging::stage(ctx, selected_hunks)?;
-    Ok(
-        match git2_hooks::hooks_pre_commit(&*ctx.git2_repo.get()?, Some(&["../.husky"]))? {
-            H::Ok { hook: _ } => HookResult::Success,
-            H::NoHookFound => HookResult::NotConfigured,
-            H::RunNotSuccessful {
-                stdout,
-                stderr,
-                code,
-                ..
-            } => {
-                let error = join_output(stdout, stderr, code);
-                HookResult::Failure(ErrorData { error })
-            }
-        },
-    )
 }
 
 pub fn pre_commit_with_tree(ctx: &Context, tree_id: git2::Oid) -> Result<HookResult> {

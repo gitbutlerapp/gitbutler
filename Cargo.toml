@@ -50,7 +50,6 @@ gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-filemonitor = { path = "crates/gitbutler-filemonitor" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 gitbutler-branch-actions = { path = "crates/gitbutler-branch-actions" }
-gitbutler-sync = { path = "crates/gitbutler-sync" }
 gitbutler-oplog = { path = "crates/gitbutler-oplog" }
 gitbutler-repo = { path = "crates/gitbutler-repo" }
 gitbutler-repo-actions = { path = "crates/gitbutler-repo-actions" }
@@ -58,10 +57,8 @@ gitbutler-project = { path = "crates/gitbutler-project" }
 gitbutler-user = { path = "crates/gitbutler-user" }
 gitbutler-branch = { path = "crates/gitbutler-branch" }
 gitbutler-reference = { path = "crates/gitbutler-reference" }
-gitbutler-time = { path = "crates/gitbutler-time" }
 gitbutler-commit = { path = "crates/gitbutler-commit" }
 gitbutler-url = { path = "crates/gitbutler-url" }
-gitbutler-diff = { path = "crates/gitbutler-diff" }
 gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
 gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
 gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }

@@ -31,7 +31,6 @@ gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
-gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-stack.workspace = true
