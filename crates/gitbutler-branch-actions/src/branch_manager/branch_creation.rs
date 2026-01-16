@@ -112,9 +112,7 @@ impl BranchManager<'_> {
         // Assume that this is always about 'apply' and hijack the entire method.
         // That way we'd learn what's missing.
         if self.ctx.settings().feature_flags.apply3 {
-            let (mut meta, ws) = self
-                .ctx
-                .workspace_and_meta_from_head(perm.read_permission())?;
+            let (mut meta, ws) = self.ctx.workspace_and_meta_from_head(perm)?;
             let repo = self.ctx.repo.get()?;
 
             let target = target.to_string();

@@ -4,6 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
+use but_core::sync::WorktreeWritePermission;
 use but_core::{RepositoryExt, sync::WorktreeReadPermission};
 use but_settings::AppSettings;
 
@@ -229,8 +230,24 @@ impl Context {
     /// Create a new workspace as seen from the current HEAD and return it,
     /// along with read-only metadata.
     ///
-    /// The read-permission is required to obtain a shared metadata instance.
+    /// The write-permission is required to obtain an exclusive metadata instance.
     pub fn workspace_and_meta_from_head(
+        &self,
+        _exclusive_access: &WorktreeWritePermission,
+    ) -> anyhow::Result<(
+        impl but_core::RefMetadata + 'static,
+        but_graph::projection::Workspace,
+    )> {
+        let (meta, graph) =
+            self.graph_and_read_only_meta_from_head(_exclusive_access.read_permission())?;
+        Ok((meta, graph.into_workspace()?))
+    }
+
+    /// Create a new workspace as seen from the current HEAD and return it,
+    /// along with read-only metadata.
+    ///
+    /// The read-permission is required to obtain a shared metadata instance.
+    pub fn workspace_and_read_only_meta_from_head(
         &self,
         _read_only: &WorktreeReadPermission,
     ) -> anyhow::Result<(
