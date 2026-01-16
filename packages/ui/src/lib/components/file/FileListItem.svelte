@@ -126,7 +126,7 @@
 	}}
 >
 	{#if draggable && !showCheckbox}
-		<div class="draggable-handle-2">
+		<div class="draggable-handle">
 			<Icon name="draggable-narrow" />
 		</div>
 	{/if}
@@ -243,7 +243,7 @@
 			cursor: pointer;
 
 			&:hover {
-				& .draggable-handle-2 {
+				& .draggable-handle {
 					display: flex;
 				}
 			}
@@ -274,7 +274,7 @@
 			background-color: var(--file-list-item-selected-bg);
 		}
 
-		.draggable-handle-2 {
+		.draggable-handle {
 			display: none;
 			position: absolute;
 			top: 50%;
