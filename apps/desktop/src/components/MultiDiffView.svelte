@@ -27,9 +27,9 @@
 		selectable: boolean;
 		showBorder?: boolean;
 		showRoundedEdges?: boolean;
-		showFloatingClose?: boolean;
 		startIndex?: number;
 		selectionId: SelectionId;
+		onclose?: () => void;
 	};
 
 	let {
@@ -40,9 +40,9 @@
 		selectable,
 		showBorder = true,
 		showRoundedEdges = true,
-		showFloatingClose = false,
 		startIndex,
-		selectionId
+		selectionId,
+		onclose
 	}: Props = $props();
 
 	const diffService = inject(DIFF_SERVICE);
@@ -63,9 +63,9 @@
 	class:no-border={!showBorder}
 	class:no-rounded={!showRoundedEdges}
 >
-	{#if showFloatingClose}
+	{#if onclose}
 		<div class="floating-close">
-			<Button kind="ghost" icon="cross" size="tag" />
+			<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
 		</div>
 	{/if}
 
@@ -86,7 +86,7 @@
 				<Drawer
 					noshrink
 					stickyHeader
-					reserveSpaceOnStuck={showFloatingClose}
+					reserveSpaceOnStuck={!!onclose}
 					closeButtonPlaceholder
 					scrollRoot={scrollContainer}
 				>

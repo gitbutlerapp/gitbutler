@@ -677,7 +677,7 @@
 								projectId={stableProjectId}
 								draggable={true}
 								selectable={false}
-								showFloatingClose
+								onclose={onclosePreview}
 							/>
 						{/if}
 					{/if}

@@ -50,7 +50,9 @@
 		selectable={false}
 		showBorder={false}
 		showRoundedEdges={false}
-		showFloatingClose
+		onclose={() => {
+			idSelection.clear(selectionId);
+		}}
 	/>
 {/snippet}
 
