@@ -1,11 +1,7 @@
-use diesel::{
-    RunQueryDsl,
-    prelude::{Insertable, Queryable, Selectable},
-};
 use serde::{Deserialize, Serialize};
 
-use crate::M;
-use crate::{DbHandle, schema::hunk_assignments::dsl::*};
+use crate::Transaction;
+use crate::{DbHandle, M};
 
 pub(crate) const M: &[M<'static>] = &[
     M::up(
@@ -29,9 +25,8 @@ pub(crate) const M: &[M<'static>] = &[
     ),
 ];
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::hunk_assignments)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+/// Tests are in `but-db/tests/db/table/hunk_assignments.rs`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HunkAssignment {
     pub id: Option<String>,
     pub hunk_header: Option<String>,
@@ -41,41 +36,84 @@ pub struct HunkAssignment {
 }
 
 impl DbHandle {
-    pub fn hunk_assignments(&mut self) -> HunkAssignmentsHandle<'_> {
-        HunkAssignmentsHandle { db: self }
+    pub fn hunk_assignments(&self) -> HunkAssignmentsHandle<'_> {
+        HunkAssignmentsHandle { conn: &self.conn }
+    }
+
+    pub fn hunk_assignments_mut(&mut self) -> anyhow::Result<HunkAssignmentsHandleMut<'_>> {
+        Ok(HunkAssignmentsHandleMut {
+            sp: self.conn.savepoint()?,
+        })
     }
 }
 
-pub struct HunkAssignmentsHandle<'a> {
-    db: &'a mut DbHandle,
+impl<'conn> Transaction<'conn> {
+    pub fn hunk_assignments(&self) -> HunkAssignmentsHandle<'_> {
+        HunkAssignmentsHandle { conn: &self.0 }
+    }
+
+    pub fn hunk_assignments_mut(&mut self) -> anyhow::Result<HunkAssignmentsHandleMut<'_>> {
+        Ok(HunkAssignmentsHandleMut {
+            sp: self.0.savepoint()?,
+        })
+    }
+}
+
+pub struct HunkAssignmentsHandle<'conn> {
+    conn: &'conn rusqlite::Connection,
+}
+
+pub struct HunkAssignmentsHandleMut<'conn> {
+    sp: rusqlite::Savepoint<'conn>,
 }
 
 impl HunkAssignmentsHandle<'_> {
     /// Lists all hunk assignments in the database.
-    pub fn list_all(&mut self) -> anyhow::Result<Vec<HunkAssignment>> {
-        let results = hunk_assignments.load::<HunkAssignment>(&mut self.db.diesel)?;
-        Ok(results)
+    pub fn list_all(&self) -> anyhow::Result<Vec<HunkAssignment>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, hunk_header, path, path_bytes, stack_id FROM hunk_assignments",
+        )?;
+
+        let results = stmt.query_map([], |row| {
+            Ok(HunkAssignment {
+                id: row.get(0)?,
+                hunk_header: row.get(1)?,
+                path: row.get(2)?,
+                path_bytes: row.get(3)?,
+                stack_id: row.get(4)?,
+            })
+        })?;
+
+        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+}
+
+impl HunkAssignmentsHandleMut<'_> {
+    /// Enable read-only access functions.
+    pub fn to_ref(&self) -> HunkAssignmentsHandle<'_> {
+        HunkAssignmentsHandle { conn: &self.sp }
     }
 
-    /// Sets the hunk assignments in the database to the provided values. Any existing entries
-    /// that are not in the provided values are deleted.
-    pub fn set_all(&mut self, assignments: Vec<HunkAssignment>) -> anyhow::Result<()> {
-        // Set the hunk_assignments table to the values in `assignments`.
-        // Any existing entries that are not in `assignments` are deleted.
-        use diesel::prelude::*;
+    /// Sets the hunk assignments table to the provided values.
+    /// Any existing entries that are not in the provided values are deleted.
+    pub fn set_all(self, assignments: Vec<HunkAssignment>) -> anyhow::Result<()> {
+        self.sp.execute("DELETE FROM hunk_assignments", [])?;
 
-        use crate::schema::hunk_assignments::dsl::hunk_assignments as all_assignments;
-        self.db.diesel.transaction(|conn| {
-            // Delete all existing assignments
-            diesel::delete(all_assignments).execute(conn)?;
-            // Insert the new assignments
-            for assignment in assignments {
-                diesel::insert_into(hunk_assignments)
-                    .values(&assignment)
-                    .execute(conn)?;
-            }
-            diesel::result::QueryResult::Ok(())
-        })?;
+        for assignment in assignments {
+            self.sp.execute(
+                "INSERT INTO hunk_assignments (id, hunk_header, path, path_bytes, stack_id) \
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                rusqlite::params![
+                    assignment.id,
+                    assignment.hunk_header,
+                    assignment.path,
+                    assignment.path_bytes,
+                    assignment.stack_id,
+                ],
+            )?;
+        }
+
+        self.sp.commit()?;
         Ok(())
     }
 }

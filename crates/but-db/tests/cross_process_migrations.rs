@@ -21,7 +21,7 @@ fn migrations_in_parallel_with_processes() -> anyhow::Result<()> {
             if pid == 0 {
                 // child
                 for _round in 0..10 {
-                    let mut handle = match DbHandle::new_in_directory(tmp.path()) {
+                    let handle = match DbHandle::new_in_directory(tmp.path()) {
                         Ok(h) => h,
                         Err(err) => {
                             eprintln!("Failed to open DB: {err}");

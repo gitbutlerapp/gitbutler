@@ -4,7 +4,7 @@ use but_db::DbHandle;
 
 use crate::HunkAssignment;
 
-pub fn assignments(db: &mut DbHandle) -> Result<Vec<HunkAssignment>> {
+pub fn assignments(db: &DbHandle) -> Result<Vec<HunkAssignment>> {
     let assignments = db
         .hunk_assignments()
         .list_all()?
@@ -20,5 +20,5 @@ pub fn set_assignments(db: &mut DbHandle, assignments: Vec<HunkAssignment>) -> R
         .map(|a| a.try_into())
         .collect::<Result<Vec<but_db::HunkAssignment>>>(
     )?;
-    db.hunk_assignments().set_all(assignments)
+    db.hunk_assignments_mut()?.set_all(assignments)
 }
