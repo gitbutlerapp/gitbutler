@@ -986,11 +986,12 @@ fn branch_to_stack_branch(
 
 /// Deterministically compare two stacks by their `order` field, using `name` and `id` as a tiebreaker.
 fn order_then_name(a: &&Stack, b: &&Stack) -> Ordering {
-    #[allow(deprecated)]
-    // TODO: Need to remove the name ordering - no such field will be persisted.
-    a.order
-        .cmp(&b.order)
-        .then_with(|| a.name.cmp(&b.name).then_with(|| a.id.cmp(&b.id)))
+    a.order.cmp(&b.order).then_with(|| {
+        a.derived_name()
+            .ok()
+            .cmp(&b.derived_name().ok())
+            .then_with(|| a.id.cmp(&b.id))
+    })
 }
 
 /// Copied from `gitbutler-fs` - shouldn't be needed anymore in future.
