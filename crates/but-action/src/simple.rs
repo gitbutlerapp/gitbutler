@@ -98,14 +98,17 @@ fn handle_changes_simple_inner(
     }
 
     // Get any assignments that may have been made, which also includes any hunk locks. Assignments should be updated according to locks where applicable.
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(perm.read_permission())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
+        &repo,
+        &workspace,
         true,
         None::<Vec<but_core::TreeChange>>,
         None,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;
-    let repo = ctx.repo.get()?;
     if assignments.is_empty() {
         return Ok(Outcome {
             updated_branches: vec![],

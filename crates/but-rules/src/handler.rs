@@ -12,6 +12,8 @@ use crate::{Filter, StackTarget};
 
 pub fn process_workspace_rules(
     ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<usize> {
@@ -39,12 +41,11 @@ pub fn process_workspace_rules(
         return Ok(updates);
     }
 
-    let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let stacks_in_ws = {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project_data_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)
+        but_workspace::legacy::stacks_v3(repo, &meta, StacksFilter::InWorkspace, None)
     }?;
 
     for rule in rules {
@@ -60,7 +61,8 @@ pub fn process_workspace_rules(
                         })
                         .collect_vec();
                     updates +=
-                        handle_assign(ctx, assignments, dependencies.as_ref()).unwrap_or_default();
+                        handle_assign(ctx, repo, workspace, assignments, dependencies.as_ref())
+                            .unwrap_or_default();
                 }
             }
             super::Action::Explicit(super::Operation::Amend { change_id }) => {
@@ -183,11 +185,21 @@ fn create_stack(ctx: &Context) -> anyhow::Result<StackId> {
 
 fn handle_assign(
     ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     assignments: Vec<HunkAssignment>,
     deps: Option<&HunkDependencies>,
 ) -> anyhow::Result<usize> {
     let len = assignments.len();
-    if assign(ctx, assignments_to_requests(assignments), deps).is_ok() {
+    if assign(
+        ctx,
+        repo,
+        workspace,
+        assignments_to_requests(assignments),
+        deps,
+    )
+    .is_ok()
+    {
         Ok(len)
     } else {
         Ok(0)
