@@ -18,13 +18,10 @@
 		linesRemoved?: number;
 		conflicted?: boolean;
 		executable?: boolean;
-		solid?: boolean;
 		noPaddings?: boolean;
 		pathFirst?: boolean;
-		sticky?: boolean;
-		topBorder?: boolean;
-		bottomBorder?: boolean;
 		highlighted?: boolean;
+		class?: string;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
 	}
@@ -39,13 +36,10 @@
 		linesRemoved = 0,
 		conflicted,
 		executable,
-		solid,
 		noPaddings,
 		pathFirst = true,
-		sticky,
-		topBorder,
-		bottomBorder,
 		highlighted,
+		class: className,
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
@@ -57,12 +51,8 @@
 <div
 	role="presentation"
 	{id}
-	class="file-header"
+	class="file-header {className}"
 	class:draggable
-	class:solid
-	class:sticky
-	class:top-border={topBorder}
-	class:bottom-border={bottomBorder}
 	class:no-paddings={noPaddings}
 	class:highlighted={stableHighlighted}
 	oncontextmenu={(e) => {
@@ -118,38 +108,15 @@
 		z-index: var(--z-lifted);
 		align-items: center;
 		width: 100%;
-		padding: 12px 10px 12px 14px;
 		gap: 12px;
-
-		&.solid {
-			background-color: var(--clr-bg-1);
-		}
+		background-color: var(--clr-bg-2);
 
 		&.draggable {
 			cursor: grab;
-
-			&:hover {
-				& .file-header__drag-handle {
-					opacity: 1;
-				}
-			}
 		}
 
 		&.no-paddings {
 			padding: 0;
-		}
-
-		&.top-border {
-			border-top: solid 1px var(--clr-border-2);
-		}
-
-		&.bottom-border {
-			border-bottom: solid 1px var(--clr-border-2);
-		}
-
-		&.sticky {
-			position: sticky;
-			top: -1px;
 		}
 	}
 
@@ -161,7 +128,6 @@
 
 	.file-header__name {
 		display: flex;
-		flex: 1;
 		align-items: center;
 		overflow: hidden;
 	}
@@ -170,14 +136,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 10px;
-		margin-right: -10px;
-		margin-left: -8px;
+		margin-right: -6px;
+		margin-left: -6px;
 		color: var(--clr-text-3);
-		opacity: 0;
-		transition:
-			width var(--transition-fast),
-			opacity var(--transition-fast);
 	}
 
 	.file-header.highlighted {

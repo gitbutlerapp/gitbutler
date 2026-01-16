@@ -30,6 +30,8 @@
 		transparent?: boolean;
 		stickyHeader?: boolean;
 		rounded?: boolean;
+		closeButtonPlaceholder?: boolean;
+		scrollRoot?: HTMLElement | null;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -54,6 +56,8 @@
 		transparent,
 		stickyHeader,
 		rounded,
+		closeButtonPlaceholder,
+		scrollRoot,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -120,8 +124,10 @@
 		bind:headerHeight
 		{transparent}
 		sticky={stickyHeader}
+		{scrollRoot}
 		{onclose}
 		ondblclick={toggleCollapsed}
+		{closeButtonPlaceholder}
 	>
 		{#snippet content()}
 			<button
@@ -185,7 +191,6 @@
 		flex-direction: column;
 		width: 100%;
 		max-height: 100%;
-		overflow: hidden;
 		background-color: var(--clr-bg-1);
 
 		&.bottom-border {

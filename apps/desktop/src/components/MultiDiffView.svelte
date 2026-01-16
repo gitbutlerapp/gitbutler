@@ -8,6 +8,7 @@
 	@component
 -->
 <script lang="ts">
+	import Drawer from '$components/Drawer.svelte';
 	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
@@ -16,7 +17,7 @@
 	import { type SelectionId } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/core/context';
-	import { FileViewHeader, VirtualList } from '@gitbutler/ui';
+	import { Button, FileViewHeader, VirtualList } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -45,6 +46,7 @@
 	const diffService = inject(DIFF_SERVICE);
 
 	let virtualList = $state<VirtualList<TreeChange>>();
+	let scrollContainer = $state<HTMLElement | null>(null);
 	let highlightedIndex = $state<number | null>(null);
 
 	export function jumpToIndex(index: number) {
@@ -53,7 +55,16 @@
 	}
 </script>
 
-<div class="multi-diff-view" class:no-border={!showBorder} class:no-rounded={!showRoundedEdges}>
+<div
+	class="multi-diff-view"
+	bind:this={scrollContainer}
+	class:no-border={!showBorder}
+	class:no-rounded={!showRoundedEdges}
+>
+	<div class="floating-close">
+		<Button kind="ghost" icon="cross" size="tag" />
+	</div>
+
 	{#if changes && changes.length > 0}
 		<VirtualList
 			bind:this={virtualList}
@@ -68,36 +79,41 @@
 				{@const diffData = diffQuery.response}
 				{@const isExecutable = isExecutableStatus(change.status)}
 				{@const patchData = diffData?.type === 'Patch' ? diffData.subject : null}
-				<FileViewHeader
-					solid
-					bottomBorder
-					topBorder={index !== 0}
-					filePath={change.path}
-					fileStatus={computeChangeStatus(change)}
-					linesAdded={patchData?.linesAdded}
-					linesRemoved={patchData?.linesRemoved}
-					executable={isExecutable}
-					highlighted={highlightedIndex === index}
-					sticky
-				/>
-				<ReduxResult {projectId} hideLoading result={diffQuery.result}>
-					{#snippet children(diff)}
-						<UnifiedDiffView
-							{projectId}
-							{stackId}
-							commitId={selectionId.type === 'commit' ? selectionId.commitId : undefined}
-							{draggable}
-							{change}
-							{diff}
-							{selectable}
-							{selectionId}
-							topPadding
+				<Drawer noshrink stickyHeader closeButtonPlaceholder scrollRoot={scrollContainer}>
+					{#snippet header()}
+						<FileViewHeader
+							filePath={change.path}
+							fileStatus={computeChangeStatus(change)}
+							linesAdded={patchData?.linesAdded}
+							linesRemoved={patchData?.linesRemoved}
+							executable={isExecutable}
+							highlighted={highlightedIndex === index}
 						/>
 					{/snippet}
-					{#snippet loading()}
-						<div style="height: 200px">loading</div>
+
+					{#snippet actions()}
+						<Button kind="ghost" icon="kebab" size="tag" />
 					{/snippet}
-				</ReduxResult>
+
+					<ReduxResult {projectId} hideLoading result={diffQuery.result}>
+						{#snippet children(diff)}
+							<UnifiedDiffView
+								{projectId}
+								{stackId}
+								commitId={selectionId.type === 'commit' ? selectionId.commitId : undefined}
+								{draggable}
+								{change}
+								{diff}
+								{selectable}
+								{selectionId}
+								topPadding
+							/>
+						{/snippet}
+						{#snippet loading()}
+							<div style="height: 200px">loading</div>
+						{/snippet}
+					</ReduxResult>
+				</Drawer>
 			{/snippet}
 		</VirtualList>
 	{:else}
@@ -121,5 +137,17 @@
 		&.no-rounded {
 			border-radius: 0;
 		}
+	}
+
+	.floating-close {
+		display: flex;
+		z-index: var(--z-lifted);
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
+		box-shadow: var(--fx-shadow-s);
 	}
 </style>
