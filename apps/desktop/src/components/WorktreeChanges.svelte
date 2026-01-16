@@ -173,6 +173,7 @@
 	/* HEADER */
 	.worktree-header {
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		width: 100%;
 		height: 42px;
