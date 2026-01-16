@@ -30,7 +30,7 @@
 		showCheckbox,
 		checked = $bindable(),
 		indeterminate,
-		isExpanded = true,
+		isExpanded = $bindable(true),
 		depth,
 		transparent,
 		draggable = false,
@@ -41,8 +41,6 @@
 		oncontextmenu,
 		testId
 	}: Props = $props();
-
-	let isFolderExpanded = $derived(isExpanded);
 </script>
 
 <div
@@ -78,11 +76,11 @@
 			type="button"
 			aria-label="Toggle folder"
 			class="folder-list-item__arrow"
-			class:expanded={isFolderExpanded}
+			class:expanded={isExpanded}
 			onclick={(e) => {
 				e.stopPropagation();
-				isFolderExpanded = !isFolderExpanded;
-				ontoggle?.(isFolderExpanded);
+				isExpanded = !isExpanded;
+				ontoggle?.(isExpanded);
 			}}
 		>
 			<svg
@@ -105,7 +103,7 @@
 		{/if}
 
 		<div class="folder-list-item__icon">
-			<FileIcon fileName={isFolderExpanded ? 'folder-open' : 'folder-close'} />
+			<FileIcon fileName={isExpanded ? 'folder-open' : 'folder-close'} />
 		</div>
 	</div>
 	<p class="text-12 text-semibold truncate">{name}</p>
