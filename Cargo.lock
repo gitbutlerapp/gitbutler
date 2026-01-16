@@ -3522,7 +3522,6 @@ dependencies = [
  "gitbutler-commit",
  "gitbutler-diff",
  "gitbutler-git",
- "gitbutler-hunk-dependency",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-project",
@@ -3672,19 +3671,6 @@ dependencies = [
  "tracing",
  "uuid",
  "windows 0.62.2",
-]
-
-[[package]]
-name = "gitbutler-hunk-dependency"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-serde",
- "git2",
- "gitbutler-diff",
- "gitbutler-stack",
- "itertools",
- "serde",
 ]
 
 [[package]]

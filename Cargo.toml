@@ -66,12 +66,12 @@ gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
 gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
 gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
-gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 
 bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { version = "0.77.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }
+gix = { version = "0.77.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [
+] }
 ts-rs = { version = "11.1.0", features = ["serde-compat", "no-serde-warnings"] }
 gix-testtools = "0.17.0"
 insta = "1.45.1"
