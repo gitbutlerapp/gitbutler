@@ -677,7 +677,9 @@
 								projectId={stableProjectId}
 								draggable={true}
 								selectable={false}
-								onclose={onclosePreview}							startIndex={$activeLastAdded.index}							/>
+								onclose={onclosePreview}
+								startIndex={$activeLastAdded.index}
+							/>
 						{/if}
 					{/if}
 				</div>
