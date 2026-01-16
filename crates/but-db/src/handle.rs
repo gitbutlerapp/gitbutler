@@ -1,6 +1,4 @@
 use crate::{DbHandle, Transaction, migration};
-use diesel::connection::SimpleConnection;
-use diesel::{Connection, SqliteConnection};
 use std::path::{Path, PathBuf};
 use tracing::instrument;
 
@@ -48,10 +46,10 @@ impl DbHandle {
     #[instrument(level = "debug", skip(url), err(Debug))]
     pub fn new_at_url(url: impl Into<String>) -> anyhow::Result<Self> {
         let url = url.into();
-        let mut diesel = SqliteConnection::establish(&url)?;
-        improve_concurrency(&mut diesel)?;
-        let conn = run_migrations(&url)?;
-        Ok(DbHandle { diesel, conn, url })
+        let mut conn = rusqlite::Connection::open(&url)?;
+        improve_concurrency(&conn)?;
+        run_migrations(&mut conn)?;
+        Ok(DbHandle { conn, url })
     }
 
     /// Return the path to the standard database file.
@@ -75,7 +73,7 @@ impl DbHandle {
 /// Also, it's a known issue, maybe order matters?
 /// https://github.com/diesel-rs/diesel/issues/2365#issuecomment-2899347817
 /// TODO: the busy_timeout doesn't seem to be effective.
-fn improve_concurrency(conn: &mut SqliteConnection) -> anyhow::Result<()> {
+fn improve_concurrency(conn: &rusqlite::Connection) -> anyhow::Result<()> {
     // For safety, execute them one by one. Otherwise, they can individually fail, silently (at least the `busy_timeout`.
     for query in [
         "PRAGMA busy_timeout = 30000;        -- wait X milliseconds, but not all at once, before for timing out with error.",
@@ -84,23 +82,22 @@ fn improve_concurrency(conn: &mut SqliteConnection) -> anyhow::Result<()> {
         "PRAGMA wal_autocheckpoint = 1000;   -- write WAL changes back every 1000 pages, for an in average 1MB WAL file.",
         "PRAGMA wal_checkpoint(TRUNCATE);    -- free some space by truncating possibly massive WAL files from the last run.",
     ] {
-        conn.batch_execute(query)?;
+        conn.execute_batch(query)?;
     }
     Ok(())
 }
 
-fn run_migrations(url: &str) -> anyhow::Result<rusqlite::Connection> {
-    let mut db = rusqlite::Connection::open(url)?;
+fn run_migrations(conn: &mut rusqlite::Connection) -> anyhow::Result<()> {
     let policy = backoff::ExponentialBackoffBuilder::new()
         .with_max_elapsed_time(Some(std::time::Duration::from_millis(500)))
         .build();
 
     backoff::retry(policy, || {
-        let count = migration::run(&mut db, migration::ours())?;
+        let count = migration::run(conn, migration::ours())?;
         if count > 0 {
             tracing::info!("Database updated with {count} migrations");
         }
         Ok::<_, backoff::Error<migration::Error>>(())
     })?;
-    Ok(db)
+    Ok(())
 }

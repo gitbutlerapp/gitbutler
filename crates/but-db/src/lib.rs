@@ -25,13 +25,10 @@
 //! insurance they actually work.
 //!
 //! Mutating types can always turn themselves into the read-only counterparts, but not vice versa.
-use diesel::SqliteConnection;
-
 pub mod migration;
 
 mod handle;
 pub mod poll;
-mod schema;
 
 mod table;
 #[rustfmt::skip]
@@ -78,8 +75,6 @@ pub struct M<'a> {
 /// The underlying sqlite database is set up to use Rusts borrow-checker,
 /// so a mutable borrow is required to start transactions or to make changes to any data.
 pub struct DbHandle {
-    #[expect(dead_code)]
-    diesel: SqliteConnection,
     conn: rusqlite::Connection,
     /// The URL at which the connection was opened, mainly for debugging.
     url: String,

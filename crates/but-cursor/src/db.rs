@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use anyhow::Result;
-use diesel::{prelude::*, sql_query, sql_types::Text};
 use serde::{Deserialize, Serialize};
 
 use crate::workspace_identifier::get_single_folder_workspace_identifier;
@@ -79,13 +78,6 @@ fn parse_generations_json(json_str: &str) -> Result<Vec<Generation>> {
     Ok(generations)
 }
 
-/// Result struct for SQL query
-#[derive(QueryableByName)]
-struct GenerationQueryResult {
-    #[diesel(sql_type = Text)]
-    value: String,
-}
-
 /// Get AI service generations from the Cursor database for the given repository
 pub fn get_generations(repo_path: &Path, nightly: bool) -> Result<Vec<Generation>> {
     let db_path = get_cursor_db_path(repo_path, nightly)?;
@@ -94,24 +86,27 @@ pub fn get_generations(repo_path: &Path, nightly: bool) -> Result<Vec<Generation
         return Ok(Vec::new());
     }
 
-    let db_url = format!("file:{}", db_path.to_string_lossy());
-    let mut conn = SqliteConnection::establish(&db_url)
+    let conn = rusqlite::Connection::open(&db_path)
         .map_err(|e| anyhow::anyhow!("Failed to connect to database at {:?}: {}", db_path, e))?;
 
-    let query_result: Result<Vec<GenerationQueryResult>, diesel::result::Error> =
-        sql_query("SELECT value FROM ItemTable WHERE key = ?")
-            .bind::<Text, _>("aiService.generations")
-            .load(&mut conn);
+    let mut stmt = conn
+        .prepare("SELECT value FROM ItemTable WHERE key = ?")
+        .map_err(|e| anyhow::anyhow!("Failed to prepare statement: {}", e))?;
 
-    match query_result {
-        Ok(results) => {
-            if let Some(result) = results.first() {
-                parse_generations_json(&result.value)
-            } else {
-                Ok(Vec::new()) // Key not found
-            }
-        }
-        Err(e) => Err(anyhow::anyhow!("Database query failed: {}", e)),
+    let mut rows = stmt
+        .query([&"aiService.generations"])
+        .map_err(|e| anyhow::anyhow!("Database query failed: {}", e))?;
+
+    if let Some(row) = rows
+        .next()
+        .map_err(|e| anyhow::anyhow!("Failed to fetch row: {}", e))?
+    {
+        let value: String = row
+            .get(0)
+            .map_err(|e| anyhow::anyhow!("Failed to get value: {}", e))?;
+        parse_generations_json(&value)
+    } else {
+        Ok(Vec::new()) // Key not found
     }
 }
 
@@ -120,7 +115,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_cursor_base_dir_regular() {
+    fn get_cursor_base_dir_regular() {
         let result = get_cursor_base_dir(false);
         assert!(result.is_ok());
         let path = result.unwrap();
@@ -142,7 +137,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_cursor_base_dir_nightly() {
+    fn get_cursor_base_dir_nightly() {
         let result = get_cursor_base_dir(true);
         assert!(result.is_ok());
         let path = result.unwrap();
@@ -150,7 +145,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_generations_json() {
+    fn parse_generations_json_works() {
         let json_str = r#"[{
             "generationUUID": "ade2d936-9af0-457d-b16a-7293ec309f5f",
             "textDescription": "Add Esteban 6",
@@ -178,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_cursor_db_path() {
+    fn get_cursor_db_path_works() {
         // Use current directory which should exist
         let repo_path = std::env::current_dir().unwrap();
         let result = get_cursor_db_path(&repo_path, false);
@@ -192,7 +187,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_generations_nonexistent_db() {
+    fn get_generations_nonexistent_db() {
         // Use current directory but the database file won't exist
         let repo_path = std::env::current_dir().unwrap();
         let result = get_generations(&repo_path, false);

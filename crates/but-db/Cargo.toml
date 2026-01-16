@@ -11,16 +11,7 @@ doctest = false
 test = false
 
 [dependencies]
-diesel = { version = "2.3.5", features = [
-    "sqlite",
-    "returning_clauses_for_sqlite_3_35",
-    "chrono",
-] }
-# Bundled rusqlite for Windows, and exactly this version to match the one of `diesel`!
-# `rusqlite` is used for running SQLite migrations and other low-level operations,
-# exposing a rusty API for sqlite, while using `libsqlite3-sys`@v0.30,
-# which is needed by diesel for the main database operations.
-rusqlite = { version = "0.32.1", features = ["bundled", "chrono"] }
+rusqlite = { workspace = true, features = ["chrono"] }
 bitflags.workspace = true
 serde.workspace = true
 anyhow.workspace = true
