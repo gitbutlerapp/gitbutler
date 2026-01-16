@@ -17,7 +17,6 @@ use gitbutler_stack::{Target, VirtualBranchesHandle};
 pub use openai::{CredentialsKind, OpenAiProvider};
 use serde::{Deserialize, Serialize};
 
-mod absorb;
 mod action;
 mod auto_commit;
 mod branch_changes;
@@ -137,15 +136,6 @@ pub fn freestyle(
     )?;
 
     Ok(response)
-}
-
-pub fn absorb(
-    emitter: Arc<Emitter>,
-    ctx: &mut Context,
-    openai: &OpenAiProvider,
-    changes: Vec<TreeChange>,
-) -> anyhow::Result<()> {
-    absorb::absorb(emitter, ctx, openai, changes)
 }
 
 pub fn branch_changes(
