@@ -265,7 +265,7 @@
 	{@const lockedStackIds = showLockedIndicator
 		? getLockedStackIds(change.path, fileDependencies)
 		: []}
-	{@const isLast = listMode === 'list' && idx === changes.length - 1}
+	{@const isLast = listMode === 'list' && idx === visibleFiles.length - 1}
 	<FileListItemWrapper
 		{selectionId}
 		{change}
