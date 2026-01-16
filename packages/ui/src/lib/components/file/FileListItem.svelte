@@ -274,6 +274,10 @@
 			background-color: var(--file-list-item-selected-bg);
 		}
 
+		&.active.selected.list-mode.is-last {
+			border-bottom: none;
+		}
+
 		.draggable-handle {
 			display: none;
 			position: absolute;
