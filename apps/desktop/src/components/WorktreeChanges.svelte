@@ -195,10 +195,6 @@
 		gap: 6px;
 	}
 
-	.uncommitted-changes {
-		display: block;
-	}
-
 	/* MODIFIERS */
 	.sticked-top {
 		border-bottom-color: var(--clr-border-2);

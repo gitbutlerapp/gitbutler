@@ -56,7 +56,7 @@
 
 <Story name="File List">
 	{#snippet template()}
-		{@const showCheckbox = false}
+		{@const showCheckbox = true}
 		<div
 			style="width: 500px; display: flex; flex-direction: column; border: 1px solid var(--clr-border-3); border-radius: var(--radius-m); overflow: hidden;"
 		>

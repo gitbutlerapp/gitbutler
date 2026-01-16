@@ -9,11 +9,7 @@
 	const { fileName, color }: Props = $props();
 </script>
 
-<i
-	class="file-icon"
-	style:--file-icon-custom-color={color}
-	aria-hidden="true"
->
+<i class="file-icon" style:--file-icon-custom-color={color} aria-hidden="true">
 	{@html getFileIcon(fileName)}
 </i>
 

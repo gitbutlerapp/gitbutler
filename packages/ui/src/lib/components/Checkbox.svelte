@@ -32,8 +32,8 @@
 	}: Props = $props();
 
 	function getCheckmarkColor(): string {
-		if (!checked) return 'var(--clr-text-2)';
 		if (disabled) return 'var(--clr-text-2)';
+		if (!checked) return 'var(--clr-text-2)';
 		if (invertColors) return 'var(--clr-theme-pop-element)';
 		return 'var(--clr-theme-pop-on-element)';
 	}
@@ -177,7 +177,7 @@
 
 			&.invert-colors {
 				background-color: var(--clr-theme-pop-on-element);
-				/* box-shadow: inset 0 0 0 var(--border-width) var(--clr-theme-pop-on-element); */
+				box-shadow: none;
 			}
 		}
 
