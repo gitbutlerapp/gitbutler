@@ -101,9 +101,9 @@ pub enum Subcommands {
         /// Show detailed list of upstream commits that haven't been integrated yet.
         #[clap(short = 'u', long = "upstream", default_value_t = false)]
         upstream: bool,
-        /// Show a hint about available commands at the end of output.
-        #[clap(long = "hint", default_value_t = false)]
-        hint: bool,
+        /// Disable hints about available commands at the end of output.
+        #[clap(long = "no-hint", default_value_t = false)]
+        no_hint: bool,
     },
 
     /// Combines two entities together to perform an operation like amend, squash, stage, or move.
