@@ -36,8 +36,8 @@ impl DbHandle {
         let url = url.into();
         let mut conn = SqliteConnection::establish(&url)?;
         improve_concurrency(&mut conn)?;
-        run_migrations(&url)?;
-        Ok(DbHandle { conn, url })
+        let rsconn = run_migrations(&url)?;
+        Ok(DbHandle { conn, rsconn, url })
     }
 
     /// Return the path to the standard database file.
@@ -65,17 +65,18 @@ fn improve_concurrency(conn: &mut SqliteConnection) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_migrations(url: &str) -> anyhow::Result<()> {
+fn run_migrations(url: &str) -> anyhow::Result<rusqlite::Connection> {
     let mut db = rusqlite::Connection::open(url)?;
     let policy = backoff::ExponentialBackoffBuilder::new()
         .with_max_elapsed_time(Some(std::time::Duration::from_millis(500)))
         .build();
 
-    Ok(backoff::retry(policy, || {
+    backoff::retry(policy, || {
         let count = migration::run(&mut db, migration::ours())?;
         if count > 0 {
             tracing::info!("Database updated with {count} migrations");
         }
         Ok::<_, backoff::Error<migration::Error>>(())
-    })?)
+    })?;
+    Ok(db)
 }
