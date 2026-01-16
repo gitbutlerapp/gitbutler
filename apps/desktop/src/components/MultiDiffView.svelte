@@ -153,8 +153,8 @@
 		display: flex;
 		z-index: var(--z-lifted);
 		position: absolute;
-		top: 8px;
-		right: 8px;
+		top: 9px;
+		right: 9px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
