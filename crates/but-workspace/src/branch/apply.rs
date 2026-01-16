@@ -36,7 +36,7 @@ impl<'a> Outcome<'a> {
     /// Convert this instance into a fully-owned one.
     pub fn into_owned(self) -> Outcome<'static> {
         let Outcome {
-            workspace: graph,
+            workspace,
             applied_branches,
             workspace_ref_created,
             workspace_merge,
@@ -44,7 +44,7 @@ impl<'a> Outcome<'a> {
         } = self;
 
         Outcome {
-            workspace: Cow::Owned(graph.into_owned()),
+            workspace: Cow::Owned(workspace.into_owned()),
             applied_branches,
             workspace_ref_created,
             workspace_merge,

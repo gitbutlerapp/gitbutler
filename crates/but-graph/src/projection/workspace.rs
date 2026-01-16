@@ -1310,7 +1310,6 @@ impl Workspace {
 
     /// Return the name of the workspace reference by looking our segment up in `graph`.
     /// Note that for managed workspaces, this can be retrieved via [`WorkspaceKind::Managed`].
-    /// Note that it can be expected to be set on any workspace, but the data would allow it to not be set.
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.graph[self.id].ref_name()
     }
