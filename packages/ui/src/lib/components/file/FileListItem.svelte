@@ -301,7 +301,9 @@
 	.file-list-item__indicators {
 		display: flex;
 		align-items: center;
+		height: 100%;
 		gap: 6px;
+		/* background-color: rgba(64, 224, 208, 0.218); */
 	}
 
 	.file-list-item__details {

@@ -150,6 +150,7 @@
 	.folder-list-item__indicators {
 		display: flex;
 		align-items: center;
+		height: 100%;
 		gap: 6px;
 		color: var(--clr-text-2);
 	}
