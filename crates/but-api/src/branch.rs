@@ -13,8 +13,8 @@ pub fn apply_only(
     ctx: &but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
 ) -> anyhow::Result<but_workspace::branch::apply::Outcome<'static>> {
-    let guard = ctx.exclusive_worktree_access();
-    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.read_permission())?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.write_permission())?;
     let repo = ctx.repo.get()?;
     let out = but_workspace::branch::apply(
         existing_branch,
@@ -64,7 +64,7 @@ pub fn apply(
 #[instrument(err(Debug))]
 pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges> {
     let guard = ctx.shared_worktree_access();
-    let (_, ws) = ctx.workspace_and_meta_from_head(guard.read_permission())?;
+    let (_, ws) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
     let reference = repo.find_reference(&branch)?;
     but_workspace::ui::diff::changes_in_branch(&repo, &ws, reference.name())
