@@ -786,14 +786,14 @@ impl Graph {
 
     /// Like [`Self::redo_traversal_with_overlay()`], but replaces this instance, without overlay, and returns
     /// a newly computed workspace for it.
-    pub fn workspace_of_redone_traversal(
-        &mut self,
+    pub fn into_workspace_of_redone_traversal(
+        mut self,
         repo: &gix::Repository,
         meta: &impl RefMetadata,
-    ) -> anyhow::Result<crate::projection::Workspace<'_>> {
+    ) -> anyhow::Result<crate::projection::Workspace> {
         let new = self.redo_traversal_with_overlay(repo, meta, Default::default())?;
-        *self = new;
-        self.to_workspace()
+        self = new;
+        self.into_workspace()
     }
 }
 

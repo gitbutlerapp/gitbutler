@@ -1231,7 +1231,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
     // picked up. But… it also listed as stack (which shouldn't happen), which gets it the stack-id association.
     // Finally, we end up with nothing as that one segment is also marked archived, which leads to it being truncated
     // and fully empty stacks are removed. OMG.
-    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
+    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
 
     let path = store.path().to_owned();
     store.write_reconciled(&repo)?;
@@ -1262,7 +1262,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
         &store,
         but_graph::init::Options::limited(),
     )?;
-    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
+    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
 
     let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     // Now both stacks are outside workspace, as is indicated by the workspace above.

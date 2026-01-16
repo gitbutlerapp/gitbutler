@@ -16,7 +16,7 @@ pub fn apply_only(
     let guard = ctx.exclusive_worktree_access();
     let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
     let out = but_workspace::branch::apply(
         existing_branch,
         &ws,
@@ -68,6 +68,6 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
     let (_, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
     let reference = repo.find_reference(&branch)?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
     but_workspace::ui::diff::changes_in_branch(&repo, &ws, reference.name())
 }

@@ -23,7 +23,7 @@ pub fn worktree_new(
     let repo = &*ctx.repo.get()?;
 
     let (_, graph) = ctx.graph_and_meta_from_head(perm)?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
     if !ws.refname_is_segment(refname) {
         bail!("Branch not found in workspace");
     }

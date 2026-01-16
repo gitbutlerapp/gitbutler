@@ -5,10 +5,10 @@ use but_core::{ref_metadata::StackId, worktree::checkout::UncommitedWorktreeChan
 use crate::branch::OnWorkspaceMergeConflict;
 
 /// Returned by [function::apply()].
-pub struct Outcome<'graph> {
-    /// The newly created graph, if owned, useful to project a workspace and see how the workspace looks like with the branch applied.
+pub struct Outcome<'workspace> {
+    /// The newly created workspace, if owned, useful to project a workspace and see how the workspace looks like with the branch applied.
     /// If borrowed, the graph already contains the desired branch and nothing had to be applied.
-    pub graph: Cow<'graph, but_graph::Graph>,
+    pub workspace: Cow<'workspace, but_graph::projection::Workspace>,
     /// The name of the branch(es) that were actually applied.
     ///
     /// If a remote tracking branch is given to apply, it will actually apply its local tracking branch, which is created on demand as well.
@@ -28,7 +28,7 @@ impl Outcome<'_> {
     /// Return `true` if a new graph traversal was performed, which always is a sign for an operation which changed the workspace.
     /// This is `false` if the to be applied branch was already contained in the current workspace.
     pub fn workspace_changed(&self) -> bool {
-        matches!(self.graph, Cow::Owned(_))
+        matches!(self.workspace, Cow::Owned(_))
     }
 }
 
@@ -36,7 +36,7 @@ impl<'a> Outcome<'a> {
     /// Convert this instance into a fully-owned one.
     pub fn into_owned(self) -> Outcome<'static> {
         let Outcome {
-            graph,
+            workspace: graph,
             applied_branches,
             workspace_ref_created,
             workspace_merge,
@@ -44,7 +44,7 @@ impl<'a> Outcome<'a> {
         } = self;
 
         Outcome {
-            graph: Cow::Owned(graph.into_owned()),
+            workspace: Cow::Owned(graph.into_owned()),
             applied_branches,
             workspace_ref_created,
             workspace_merge,
@@ -56,7 +56,7 @@ impl<'a> Outcome<'a> {
 impl std::fmt::Debug for Outcome<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Outcome {
-            graph: _,
+            workspace: _,
             workspace_ref_created,
             workspace_merge: _,
             conflicting_stack_ids,
@@ -177,9 +177,9 @@ pub(crate) mod function {
     /// Note that options have no effect if `branch` is already in the workspace, so `apply` is *not* a way
     /// to alter certain aspects of the workspace by applying the same branch again.
     #[instrument(skip(workspace, repo, meta), err(Debug))]
-    pub fn apply<'graph>(
+    pub fn apply<'ws>(
         branch: &FullNameRef,
-        workspace: &but_graph::projection::Workspace<'graph>,
+        workspace: &'ws but_graph::projection::Workspace,
         repo: &gix::Repository,
         meta: &mut impl RefMetadata,
         Options {
@@ -190,15 +190,16 @@ pub(crate) mod function {
             order,
             new_stack_id,
         }: Options,
-    ) -> anyhow::Result<Outcome<'graph>> {
+    ) -> anyhow::Result<Outcome<'ws>> {
+        let ws = workspace;
         let new_stack_id = new_stack_id.unwrap_or(generate_new_stack_id);
         let branch_orig = branch;
-        let mut branch_ref = try_find_validated_ref(repo, branch)?;
-        if workspace.is_branch_the_target_or_its_local_tracking_branch(branch) {
+        let (mut branch_ref, mut incoming_branch_is_remote_tracking_without_local_tracking) =
+            (try_find_validated_ref(repo, branch)?, false);
+        if ws.is_branch_the_target_or_its_local_tracking_branch(branch) {
             bail!("Cannot add the target '{branch}' branch to its own workspace");
         }
-        let branch_storage: gix::refs::FullName;
-        let mut branch = branch;
+        let mut branch = branch.to_owned();
         if branch
             .category()
             .is_some_and(|c| c == Category::RemoteBranch)
@@ -206,33 +207,33 @@ pub(crate) mod function {
             // TODO(gix): we really want to have a function to return the local tracking branch
             //            fix this in other places, too.
             let Some((upstream_branch_name, _remote_name)) =
-                repo.upstream_branch_and_remote_for_tracking_branch(branch)?
+                repo.upstream_branch_and_remote_for_tracking_branch(branch.as_ref())?
             else {
                 // TODO: actually create a local trakcing branch with proper configuration.
                 bail!("Couldn't find remote refspecs that would match {branch}");
             };
-            branch_storage = upstream_branch_name;
             // Pretend the upstream branch is also the local tracking name.
-            branch = branch_storage.as_ref();
-            branch_ref = try_find_validated_ref(repo, branch)?;
+            incoming_branch_is_remote_tracking_without_local_tracking = true;
+            branch = upstream_branch_name;
+            branch_ref = try_find_validated_ref(repo, branch.as_ref())?;
         }
         let conflicting_stack_ids = Vec::new();
-        if workspace.is_reachable_from_entrypoint(branch) {
+        if ws.is_reachable_from_entrypoint(branch.as_ref()) {
             let workspace_ref_created = false;
             // When exiting early, don't try to adjust the ws commit.
             return Ok(Outcome {
-                graph: Cow::Borrowed(workspace.graph),
+                workspace: Cow::Borrowed(ws),
                 workspace_ref_created,
                 workspace_merge: None,
                 conflicting_stack_ids,
                 applied_branches: vec![branch.to_owned()],
             });
-        } else if workspace.refname_is_segment(branch) {
+        } else if ws.refname_is_segment(branch.as_ref()) {
             // This means our workspace encloses the desired branch, but it's not checked out yet.
-            let commit_to_checkout = workspace
+            let commit_to_checkout = ws
                 .tip_commit()
                 .context("Workspace must point to a commit to check out")?;
-            let current_head_commit = workspace
+            let current_head_commit = ws
                 .graph
                 .entrypoint_commit()
                 .context("The entrypoint must have a commit - it's equal to HEAD, and we skipped unborn earlier")?;
@@ -245,18 +246,21 @@ pub(crate) mod function {
                     skip_head_update: false,
                 },
             )?;
-            let graph = workspace.graph.redo_traversal_with_overlay(
-                repo,
-                meta,
-                Overlay::default().with_entrypoint(
-                    commit_to_checkout.id,
-                    workspace.ref_name().map(|rn| rn.to_owned()),
-                ),
-            )?;
+            let ws = ws
+                .graph
+                .redo_traversal_with_overlay(
+                    repo,
+                    meta,
+                    Overlay::default().with_entrypoint(
+                        commit_to_checkout.id,
+                        ws.ref_name().map(|rn| rn.to_owned()),
+                    ),
+                )?
+                .into_workspace()?;
 
             // When exiting early, don't try to adjust the ws commit.
             return Ok(Outcome {
-                graph: Cow::Owned(graph),
+                workspace: Cow::Owned(ws),
                 workspace_ref_created: false,
                 workspace_merge: None,
                 conflicting_stack_ids,
@@ -264,7 +268,7 @@ pub(crate) mod function {
             });
         };
 
-        if let Some(ws_ref_name) = workspace.ref_name()
+        if let Some(ws_ref_name) = ws.ref_name()
             && repo.try_find_reference(ws_ref_name)?.is_none()
         {
             // The workspace is the probably ad-hoc, and doesn't exist, *assume* unborn.
@@ -274,11 +278,11 @@ pub(crate) mod function {
             );
         }
 
-        if workspace.has_workspace_commit_in_ancestry(repo) {
+        if ws.has_workspace_commit_in_ancestry(repo) {
             bail!("Refusing to work on workspace whose workspace commit isn't at the top");
         }
 
-        if meta.workspace_opt(branch)?.is_some() {
+        if meta.workspace_opt(branch.as_ref())?.is_some() {
             bail!(
                 "Refusing to apply a reference that already is a workspace: '{}'",
                 branch.shorten()
@@ -289,10 +293,10 @@ pub(crate) mod function {
         //  - the current one and the one to apply, if these are different.
         // The returned workspace ref name will be set to the new merge commit, if created, or it may not change
         // at all if the workspace can be created by just setting metadata.
-        let (workspace_ref_name_to_update, branches_to_apply) = match &workspace.kind {
+        let (workspace_ref_name_to_update, branches_to_apply) = match &ws.kind {
             WorkspaceKind::Managed { ref_info }
             | WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info } => {
-                (ref_info.ref_name.clone(), vec![branch])
+                (ref_info.ref_name.clone(), vec![branch.clone()])
             }
             WorkspaceKind::AdHoc => {
                 // We need to switch over to a possibly existing workspace.
@@ -305,17 +309,20 @@ pub(crate) mod function {
                     }
                     WorkspaceReferenceNaming::Given(name) => name,
                 };
-                let mut current_unmanaged_head_branch_name = workspace.ref_name();
-                if let Some(current_head_ref) = current_unmanaged_head_branch_name
+                let mut current_unmanaged_head_branch_name = ws.ref_name().map(|rn| rn.to_owned());
+                if let Some(ref current_head_ref) = current_unmanaged_head_branch_name
                     && let Some(next_ws_md) = meta.workspace_opt(next_ws_ref_name.as_ref())?
                 {
                     // If our current branch is related to the next workspace's target, don't add it to the
                     // soon-to-be-created workspace.
                     // This is a 'trick' to allow callers to prevent 'main' to be added to the workspace automatically
                     // even though the new workspace is supposed to have it as target.
-                    if next_ws_md
-                        .is_branch_the_target_or_its_local_tracking_branch(current_head_ref, repo)?
-                    {
+                    let is_branch_target = next_ws_md
+                        .is_branch_the_target_or_its_local_tracking_branch(
+                            current_head_ref.as_ref(),
+                            repo,
+                        )?;
+                    if is_branch_target {
                         current_unmanaged_head_branch_name.take();
                     }
                 }
@@ -324,7 +331,7 @@ pub(crate) mod function {
                     next_ws_ref_name,
                     current_unmanaged_head_branch_name
                         .into_iter()
-                        .chain(Some(branch))
+                        .chain(Some(branch.clone()))
                         .collect(),
                 )
             }
@@ -336,7 +343,7 @@ pub(crate) mod function {
         {
             None => {
                 // Pretend to create a workspace reference later at the current AdHoc workspace id
-                let tip = workspace.tip_commit().map(|c| c.id).context(
+                let tip = ws.tip_commit().map(|c| c.id).context(
                     "BUG: how can an empty ad-hoc workspace exist? Should have at least one stack-segment with commit",
                 )?;
                 (tip, false)
@@ -352,15 +359,13 @@ pub(crate) mod function {
         {
             let ws_mut: &mut Workspace = &mut ws_md;
             for rn in &branches_to_apply {
-                add_branch_as_stack_forcefully(ws_mut, rn, order, new_stack_id);
+                add_branch_as_stack_forcefully(ws_mut, rn.as_ref(), order, new_stack_id);
             }
         }
 
-        let incoming_branch_is_remote_tracking_without_local_tracking =
-            !std::ptr::eq(branch_orig, branch);
         let (local_tracking_config_and_ref_info, commit_to_create_branch_at) =
             if incoming_branch_is_remote_tracking_without_local_tracking {
-                setup_local_tracking_configuration(repo, branch, branch_orig)?
+                setup_local_tracking_configuration(repo, branch.as_ref(), branch_orig)?
                     .map(|(config, commit)| (Some(config), Some(commit)))
                     .unwrap_or_default()
             } else {
@@ -369,8 +374,10 @@ pub(crate) mod function {
         let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
         let branch_mds = branches_to_apply
             .iter()
-            .copied()
-            .map(|rn| meta.branch(rn).map(|md| (rn.to_owned(), (*md).clone())))
+            .map(|rn| {
+                meta.branch(rn.as_ref())
+                    .map(|md| (rn.to_owned(), (*md).clone()))
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         let overlay = Overlay::default()
@@ -384,20 +391,21 @@ pub(crate) mod function {
             }))
             .with_branch_metadata_override(branch_mds)
             .with_workspace_metadata_override(ws_md_override);
-        let graph = workspace
+        let ws = ws
             .graph
-            .redo_traversal_with_overlay(repo, meta, overlay.clone())?;
+            .redo_traversal_with_overlay(repo, meta, overlay.clone())?
+            .into_workspace()?;
 
-        let workspace = graph.to_workspace()?;
         let all_applied_branches_are_already_visible = branches_to_apply.iter().all(|rn| {
-            workspace
-                .find_segment_and_stack_by_refname(rn)
-                .is_some_and(|(_stack, segment)| !segment.is_projected_from_outside(&graph))
+            ws.find_segment_and_stack_by_refname(rn.as_ref())
+                .is_some_and(|(_stack, segment)| !segment.is_projected_from_outside(&ws.graph))
         });
         let needs_ws_ref_creation = !ws_ref_exists;
-        let local_tracking_config_and_ref_info = local_tracking_config_and_ref_info.zip(
-            commit_to_create_branch_at.map(|commit| (branch, branch_orig, commit.attach(repo))),
-        );
+        let local_tracking_config_and_ref_info =
+            local_tracking_config_and_ref_info.zip(commit_to_create_branch_at.map({
+                let branch = branch.clone();
+                |commit| (branch, branch_orig, commit.attach(repo))
+            }));
         let applied_branches = branches_to_apply
             .iter()
             .map(|rn| (*rn).to_owned())
@@ -416,16 +424,16 @@ pub(crate) mod function {
                 local_tracking_config_and_ref_info,
             )?;
             let ws_commit_with_new_message = WorkspaceCommit::from_graph_workspace_and_tree(
-                &workspace,
+                &ws,
                 repo,
                 head_id.object()?.peel_to_tree()?.id,
             )?;
             let ws_commit_with_new_message = ws_commit_with_new_message.id.detach();
             let (graph, new_head_id) = if (ws_commit_with_new_message != head_id
-                && workspace.kind.has_managed_commit())
-                || needs_workspace_commit_without_remerge(&workspace, integration_mode)
+                && ws.kind.has_managed_commit())
+                || needs_workspace_commit_without_remerge(&ws, integration_mode)
             {
-                let graph = graph.redo_traversal_with_overlay(
+                let graph = ws.graph.redo_traversal_with_overlay(
                     repo,
                     meta,
                     overlay.with_entrypoint(
@@ -435,7 +443,7 @@ pub(crate) mod function {
                 )?;
                 (graph, ws_commit_with_new_message)
             } else {
-                (graph, ws_ref_id)
+                (ws.graph, ws_ref_id)
             };
 
             set_head_to_reference(
@@ -444,7 +452,7 @@ pub(crate) mod function {
                 (!ws_ref_exists).then_some(workspace_ref_name_to_update.as_ref()),
             )?;
             return Ok(Outcome {
-                graph: Cow::Owned(graph),
+                workspace: Cow::Owned(graph.into_workspace()?),
                 workspace_ref_created: needs_ws_ref_creation,
                 workspace_merge: None,
                 conflicting_stack_ids,
@@ -460,7 +468,7 @@ pub(crate) mod function {
         }
 
         let existing_stacks_superseded_by_branch =
-            find_superseded_stacks(branch, &workspace, &mut ws_md);
+            find_superseded_stacks(branch.as_ref(), &ws, &mut ws_md);
         // At this point, the workspace-metadata already knows the new branch(es), but the workspace itself
         // doesn't see one or more of to-be-applied branches (to become stacks).
         // These are, however, part of the graph by now, and we want to try to create a workspace
@@ -472,12 +480,12 @@ pub(crate) mod function {
                 &existing_stacks_superseded_by_branch,
             ),
             filter_superseded_anon_stacks(
-                anon_stacks(&workspace.stacks),
+                anon_stacks(&ws.stacks),
                 &existing_stacks_superseded_by_branch,
             ),
-            &graph,
+            &ws.graph,
             &in_memory_repo,
-            Some(branch),
+            Some(branch.as_ref()),
         )?;
         ensure_no_missing_stacks(&merge_result)?;
         drop(existing_stacks_superseded_by_branch);
@@ -486,7 +494,7 @@ pub(crate) mod function {
             let conflicting_stack_ids =
                 correlate_conflicting_stack_ids(&ws_md, &merge_result.conflicting_stacks);
             return Ok(Outcome {
-                graph: Cow::Owned(graph),
+                workspace: Cow::Owned(ws),
                 workspace_ref_created: needs_ws_ref_creation,
                 workspace_merge: Some(merge_result),
                 conflicting_stack_ids,
@@ -494,7 +502,8 @@ pub(crate) mod function {
             });
         }
 
-        let prev_head_id = graph
+        let prev_head_id = ws
+            .graph
             .entrypoint_commit()
             .context("BUG: how is it possible that there is no head commit?")?
             .id;
@@ -507,14 +516,15 @@ pub(crate) mod function {
         let overlay = overlay
             .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
             .with_workspace_metadata_override(ws_md_override);
-        let mut graph =
-            graph.redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
+        let graph = ws
+            .graph
+            .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
 
-        let workspace = graph.to_workspace()?;
+        let mut workspace = graph.into_workspace()?;
         let collect_unapplied_branches = |workspace: &but_graph::projection::Workspace| {
             branches_to_apply
                 .iter()
-                .filter(|rn| !workspace.refname_is_segment(rn))
+                .filter(|rn| !workspace.refname_is_segment(rn.as_ref()))
                 .collect::<Vec<_>>()
         };
         let unapplied_branches = collect_unapplied_branches(&workspace);
@@ -527,7 +537,7 @@ pub(crate) mod function {
                 .iter()
                 .filter(|rn| !unapplied_branches.contains(rn))
             {
-                add_branch_as_stack_forcefully(ws_mut, branch_to_add, order, new_stack_id);
+                add_branch_as_stack_forcefully(ws_mut, branch_to_add.as_ref(), order, new_stack_id);
             }
             for rn in &unapplied_branches {
                 // Here we have to check if the new ref would be able to become its own stack,
@@ -542,16 +552,17 @@ pub(crate) mod function {
                         .find_map(|segment| {
                             segment.commits.iter().flat_map(|c| c.ref_iter()).find_map(
                                 |ambiguous_rn| {
-                                    (ambiguous_rn == **rn)
+                                    (ambiguous_rn == rn.as_ref())
                                         .then_some(segment.ref_name())
                                         .flatten()
                                 },
                             )
                         })
                 {
-                    match ws_mut
-                        .insert_new_segment_above_anchor_if_not_present(rn, segment_to_insert_above)
-                    {
+                    match ws_mut.insert_new_segment_above_anchor_if_not_present(
+                        rn.as_ref(),
+                        segment_to_insert_above,
+                    ) {
                         None => {
                             // For now bail, until we know it's worth fixing this case automatically.
                             bail!(
@@ -560,9 +571,9 @@ pub(crate) mod function {
                         }
                         Some(false) => {
                             // The branch already existed, probably as stack, but it didn't come through. Remove it and use the anchor.
-                            ws_mut.remove_segment(rn);
+                            ws_mut.remove_segment(rn.as_ref());
                             if ws_mut.insert_new_segment_above_anchor_if_not_present(
-                                rn,
+                                rn.as_ref(),
                                 segment_to_insert_above,
                             ) != Some(true)
                             {
@@ -583,7 +594,7 @@ pub(crate) mod function {
             // Redo the merge, with the different stack configuration.
             // Note that this is the exception, typically using stacks will be fine.
             let existing_stacks_superseded_by_branch =
-                find_superseded_stacks(branch, &workspace, &mut ws_md);
+                find_superseded_stacks(branch.as_ref(), &workspace, &mut ws_md);
             merge_result = WorkspaceCommit::from_new_merge_with_metadata(
                 filter_superseded_metadata_stacks(
                     ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
@@ -593,9 +604,9 @@ pub(crate) mod function {
                     anon_stacks(&workspace.stacks),
                     &existing_stacks_superseded_by_branch,
                 ),
-                &graph,
+                &workspace.graph,
                 &in_memory_repo,
-                Some(branch),
+                Some(branch.as_ref()),
             )?;
             ensure_no_missing_stacks(&merge_result)?;
 
@@ -603,7 +614,7 @@ pub(crate) mod function {
                 let conflicting_stack_ids =
                     correlate_conflicting_stack_ids(&ws_md, &merge_result.conflicting_stacks);
                 return Ok(Outcome {
-                    graph: Cow::Owned(graph),
+                    workspace: Cow::Owned(workspace),
                     workspace_ref_created: needs_ws_ref_creation,
                     workspace_merge: Some(merge_result),
                     conflicting_stack_ids,
@@ -616,14 +627,16 @@ pub(crate) mod function {
                 &merge_result.conflicting_stacks,
             );
             let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
-            graph = graph.redo_traversal_with_overlay(
-                &in_memory_repo,
-                meta,
-                overlay
-                    .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
-                    .with_workspace_metadata_override(ws_md_override),
-            )?;
-            let workspace = graph.to_workspace()?;
+            workspace = workspace
+                .graph
+                .redo_traversal_with_overlay(
+                    &in_memory_repo,
+                    meta,
+                    overlay
+                        .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
+                        .with_workspace_metadata_override(ws_md_override),
+                )?
+                .into_workspace()?;
             let unapplied_branches = collect_unapplied_branches(&workspace);
 
             if !unapplied_branches.is_empty() {
@@ -668,7 +681,7 @@ pub(crate) mod function {
             (!ws_ref_exists).then_some(workspace_ref_name_to_update.as_ref()),
         )?;
         Ok(Outcome {
-            graph: Cow::Owned(graph),
+            workspace: Cow::Owned(workspace),
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: Some(merge_result),
             conflicting_stack_ids,
@@ -749,7 +762,7 @@ pub(crate) mod function {
         Option<gix::refs::FullName>,
         Option<gix::ObjectId>,
     )> {
-        let graph = workspace.graph;
+        let graph = &workspace.graph;
         let superseded = if let Some(branch_segment) = graph.named_segment_by_ref_name(branch) {
             // At this stage we know first segment isn't in the workspace, so exclude it.
             let _tip_commit_ids_and_sidx: Vec<_> = workspace
@@ -900,16 +913,19 @@ pub(crate) mod function {
 
     fn persist_metadata_and_gitconfig<T: RefMetadata>(
         meta: &mut T,
-        branches_to_apply: &Vec<&FullNameRef>,
+        branches_to_apply: &[gix::refs::FullName],
         ws_md: &T::Handle<Workspace>,
-        config_and_ref: Option<(gix::config::File, (&FullNameRef, &FullNameRef, gix::Id))>,
+        config_and_ref: Option<(
+            gix::config::File,
+            (gix::refs::FullName, &gix::refs::FullNameRef, gix::Id),
+        )>,
     ) -> anyhow::Result<()> {
         meta.set_workspace(ws_md)?;
         // Always re-obtain the branch information after it was set
         // or stuff will go wrong right now.
         // TODO: remove this note and keep using existing handles once vb.toml is gone.
         for rn in branches_to_apply {
-            let mut md = meta.branch(rn)?;
+            let mut md = meta.branch(rn.as_ref())?;
             md.update_times(false /* is new ref */);
             meta.set_branch(&md)?;
         }
@@ -990,7 +1006,7 @@ pub(crate) mod function {
     }
 
     fn needs_workspace_commit_without_remerge(
-        ws: &but_graph::projection::Workspace<'_>,
+        ws: &but_graph::projection::Workspace,
         integration_mode: WorkspaceMerge,
     ) -> bool {
         match integration_mode {

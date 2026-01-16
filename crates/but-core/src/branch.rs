@@ -12,7 +12,8 @@ pub struct SafeDelete {
 /// The outcome of [`SafeDelete::delete_reference()`]
 #[derive(Debug, Clone)]
 pub struct SafeDeleteOutcome<'parent> {
-    /// The paths to the worktrees that have the to-be-deleted reference checked out.
+    /// The paths to the worktrees that have the to-be-deleted reference checked out,
+    /// which is why the reference wasn't actually deleted.
     pub checked_out_in_worktree_dirs: Option<&'parent [PathBuf]>,
 }
 

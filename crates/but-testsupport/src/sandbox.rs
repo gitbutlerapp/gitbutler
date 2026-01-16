@@ -272,7 +272,7 @@ impl Sandbox {
     /// Return a worktree visualisation, freshly read from [Self::graph_at_head()].
     pub fn workspace_debug_at_head(&self) -> anyhow::Result<String> {
         let (graph, _repo, _meta) = self.graph_at_head()?;
-        Ok(graph_workspace_determinisitcally(&graph.to_workspace()?).to_string())
+        Ok(graph_workspace_determinisitcally(&graph.into_workspace()?).to_string())
     }
 
     /// Open the graph at `HEAD` as SVG for debugging.

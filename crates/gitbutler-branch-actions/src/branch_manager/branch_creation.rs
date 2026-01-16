@@ -123,7 +123,7 @@ impl BranchManager<'_> {
             let (mut meta, graph) = self.ctx.graph_and_meta_from_head(perm.read_permission())?;
             let repo = self.ctx.repo.get()?;
 
-            let ws = graph.to_workspace()?;
+            let ws = graph.into_workspace()?;
             let target = target.to_string();
             let branch_to_apply = target.as_str().try_into()?;
             let mut out = but_workspace::branch::apply(
@@ -141,11 +141,11 @@ impl BranchManager<'_> {
                     new_stack_id: None,
                 },
             )?;
-            let ws = out.graph.to_workspace()?;
+            let ws = out.workspace.into_owned();
             let applied_branch_stack_id = ws
                 .find_segment_and_stack_by_refname(out.applied_branches.pop().context("BUG: must mention the actually applied branch last")?.as_ref())
-                .with_context(||
-                    format!("BUG: Can't find the branch to apply in workspace, but the 'apply' function should have failed instead \n{out:?}")
+                .context(
+                    "BUG: Can't find the branch to apply in workspace, but the 'apply' function should have failed instead"
                 )?
                 .0
                 .id
