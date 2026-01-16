@@ -9,7 +9,7 @@
 		invertColors?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onchange?: (
-			e: Event & {
+			e: (Event | KeyboardEvent) & {
 				currentTarget: EventTarget & HTMLInputElement;
 			}
 		) => void;
@@ -55,7 +55,7 @@
 			e.preventDefault();
 			e.stopPropagation();
 			checked = !checked;
-			onchange?.(e as any);
+			onchange?.(e);
 		}
 	}
 
