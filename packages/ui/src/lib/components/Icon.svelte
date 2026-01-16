@@ -48,10 +48,6 @@
 				return color;
 		}
 	}
-
-	// const predefinedColors = ['safe', 'danger', 'pop', 'warning'];
-	// const isPredefinedColor = color && predefinedColors.includes(color as string);
-	// const customColor = !isPredefinedColor ? color : undefined;
 </script>
 
 <svg
