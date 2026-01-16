@@ -23,7 +23,6 @@ gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-url.workspace = true
 gitbutler-cherry-pick.workspace = true
-gitbutler-diff.workspace = true
 
 git2.workspace = true
 git2-hooks.workspace = true
