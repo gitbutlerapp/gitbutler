@@ -315,9 +315,9 @@
 >
 	<!-- Conflicted changes -->
 	{#if Object.keys(unrepresentedConflictedEntries).length > 0}
+		{@const entries = Object.entries(unrepresentedConflictedEntries)}
 		<div class="conflicted-entries">
-			{#each Object.entries(unrepresentedConflictedEntries) as [path, kind], i}
-				{@const entries = Object.entries(unrepresentedConflictedEntries)}
+			{#each entries as [path, kind], i}
 				<FileListItem
 					draggable={draggableFiles}
 					filePath={path}
