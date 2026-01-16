@@ -88,8 +88,6 @@
 	{topBorder}
 	transparent={transparentHeader}
 	persistId={`changed-files-drawer-${projectId}-${stackId || 'default'}`}
-	childrenWrapHeight={changes.length > 0 ? 'auto' : '100%'}
-	childrenWrapDisplay={changes.length > 0 ? 'block' : 'flex'}
 >
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
