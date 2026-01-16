@@ -872,7 +872,6 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-stack",
- "gitbutler-sync",
  "gitbutler-user",
  "gix",
  "itertools",
@@ -3799,7 +3798,6 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
- "gitbutler-time",
  "log",
  "serde",
  "tokio",
@@ -3826,36 +3824,11 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-testsupport",
- "gitbutler-time",
  "gix",
  "itertools",
  "serde",
  "tempfile",
  "toml 0.9.10+spec-1.1.0",
-]
-
-[[package]]
-name = "gitbutler-sync"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-core",
- "but-ctx",
- "but-error",
- "but-oxidize",
- "git2",
- "gitbutler-commit",
- "gitbutler-oplog",
- "gitbutler-project",
- "gitbutler-reference",
- "gitbutler-repo",
- "gitbutler-stack",
- "gitbutler-url",
- "gitbutler-user",
- "gix",
- "itertools",
- "rand 0.9.2",
- "tracing",
 ]
 
 [[package]]
@@ -3946,10 +3919,6 @@ dependencies = [
  "termtree",
  "uuid",
 ]
-
-[[package]]
-name = "gitbutler-time"
-version = "0.0.0"
 
 [[package]]
 name = "gitbutler-url"

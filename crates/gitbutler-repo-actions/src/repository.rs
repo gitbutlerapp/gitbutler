@@ -12,6 +12,7 @@ use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_stack::{Stack, StackId};
+use std::time::UNIX_EPOCH;
 
 use crate::askpass;
 #[allow(clippy::too_many_arguments)]
@@ -46,6 +47,17 @@ pub trait RepoActionsExt {
     ) -> Result<()>;
 }
 
+/// Gets the number of milliseconds since the Unix epoch.
+///
+/// # Panics
+/// Panics if the system time is set before the Unix epoch.
+pub fn now_ms() -> u128 {
+    UNIX_EPOCH
+        .elapsed()
+        .expect("system time is set before the Unix epoch")
+        .as_millis()
+}
+
 impl RepoActionsExt for Context {
     fn git_test_push(
         &self,
@@ -62,7 +74,7 @@ impl RepoActionsExt for Context {
 
         let commit_id: git2::Oid = branch.get().peel_to_commit()?.id();
 
-        let now = gitbutler_time::time::now_ms();
+        let now = now_ms();
         let branch_name = format!("test-push-{now}");
 
         let refname =

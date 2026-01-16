@@ -18,8 +18,6 @@ pub mod hooks;
 mod remote;
 pub mod staging;
 
-pub mod temporary_workdir;
-
 pub mod logging;
 
 pub mod commit_message;
