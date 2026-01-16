@@ -58,7 +58,7 @@
 	{#snippet template()}
 		{@const showCheckbox = false}
 		<div
-			style="width: 500px; padding: 6px; display: flex; flex-direction: column; border: 1px solid var(--clr-border-3); border-radius: var(--radius-m); overflow: hidden;"
+			style="width: 500px; display: flex; flex-direction: column; border: 1px solid var(--clr-border-3); border-radius: var(--radius-m); overflow: hidden;"
 		>
 			<FileListItem
 				filePath="src/components/Header.svelte"
@@ -130,6 +130,8 @@
 				fileStatus="addition"
 				fileStatusStyle="dot"
 				clickable={true}
+				selected={true}
+				active={true}
 				{showCheckbox}
 				checked={true}
 				draggable={true}

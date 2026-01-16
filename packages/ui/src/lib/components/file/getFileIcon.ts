@@ -3,6 +3,12 @@ import { symbolFileExtensionsToIcons, symbolFileNamesToIcons } from '$components
 
 export function getFileIcon(fileName: string) {
 	fileName = fileName.toLowerCase();
+	
+	// Check if fileName is directly an icon name
+	if (fileIcons[fileName]) {
+		return fileIcons[fileName] as string;
+	}
+	
 	const splitName = fileName.split('.');
 	let iconName = '';
 

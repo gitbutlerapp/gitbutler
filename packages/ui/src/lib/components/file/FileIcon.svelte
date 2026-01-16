@@ -7,13 +7,13 @@
 		color?: string;
 	}
 
-	const { fileName, size = 0.875, color = 'red' }: Props = $props();
+	const { fileName, size = 0.875, color }: Props = $props();
 </script>
 
 <i
 	class="file-icon"
 	style:--file-icon-size="{size}rem"
-	style:--file-icon-custom-color={color}
+	style:--file-icon-custom-color={color ? color : 'currentColor'}
 	aria-hidden="true"
 >
 	{@html getFileIcon(fileName)}

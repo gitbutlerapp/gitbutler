@@ -277,7 +277,6 @@
 		{locked}
 		{lockedCommitIds}
 		{lockedStackIds}
-		hideBorder={idx === visibleFiles.length - 1}
 		draggable={draggableFiles}
 		executable={isExecutable}
 		showCheckbox={showCheckboxes}
@@ -315,23 +314,22 @@
 	<!-- Conflicted changes -->
 	{#if Object.keys(unrepresentedConflictedEntries).length > 0}
 		<div class="conflicted-entries">
-			<div class="p-6">
-				{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
-					<FileListItem
-						draggable={draggableFiles}
-						filePath={path}
-						pathFirst={$userSettings.pathFirst}
-						{active}
-						conflicted
-						conflictHint={conflictEntryHint(kind)}
-						listMode="list"
-						onclick={(e) => {
-							e.stopPropagation();
-							showEditPatchConfirmation(path);
-						}}
-					/>
-				{/each}
-			</div>
+			{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
+				<FileListItem
+					draggable={draggableFiles}
+					filePath={path}
+					pathFirst={$userSettings.pathFirst}
+					{active}
+					conflicted
+					conflictHint={conflictEntryHint(kind)}
+					listMode="list"
+					onclick={(e) => {
+						e.stopPropagation();
+						showEditPatchConfirmation(path);
+					}}
+				/>
+			{/each}
+
 			{#if ancestorMostConflictedCommitId}
 				<div class="conflicted-entries__action">
 					<p class="text-12 text-body clr-text-2">
@@ -360,36 +358,34 @@
 
 	<!-- Other changes -->
 	{#if visibleFiles.length > 0}
-		<div class="p-6">
-			{#if listMode === 'tree'}
-				<!-- We need to use sortedChanges here because otherwise we will end up
+		{#if listMode === 'tree'}
+			<!-- We need to use sortedChanges here because otherwise we will end up
 		with incorrect indexes -->
-				{@const node = abbreviateFolders(changesToFileTree(changes))}
-				<FileTreeNode
-					isRoot
-					{projectId}
-					{selectionId}
-					{stackId}
-					{node}
-					{showCheckboxes}
-					{draggableFiles}
-					{changes}
-					{fileTemplate}
-				/>
-			{:else}
-				<LazyloadContainer
-					minTriggerCount={80}
-					ontrigger={() => {
-						loadMore();
-					}}
-					role="listbox"
-				>
-					{#each visibleFiles as change, idx}
-						{@render fileTemplate(change, idx)}
-					{/each}
-				</LazyloadContainer>
-			{/if}
-		</div>
+			{@const node = abbreviateFolders(changesToFileTree(changes))}
+			<FileTreeNode
+				isRoot
+				{projectId}
+				{selectionId}
+				{stackId}
+				{node}
+				{showCheckboxes}
+				{draggableFiles}
+				{changes}
+				{fileTemplate}
+			/>
+		{:else}
+			<LazyloadContainer
+				minTriggerCount={80}
+				ontrigger={() => {
+					loadMore();
+				}}
+				role="listbox"
+			>
+				{#each visibleFiles as change, idx}
+					{@render fileTemplate(change, idx)}
+				{/each}
+			</LazyloadContainer>
+		{/if}
 	{/if}
 </div>
 
@@ -405,92 +401,8 @@
 		display: flex;
 		flex-direction: column;
 
-		/* Remove bottom radius from first selected item in a group */
-		&
-			:global(
-				.filelistitem-wrapper:has(+ .filelistitem-wrapper .selected)
-					.file-list-item.selected
-					.file-list-item__background
-			) {
-			border-bottom-right-radius: 0;
-			border-bottom-left-radius: 0;
-		}
-
-		/* Remove top radius from last selected item in a group (but not single items) */
-		&
-			:global(
-				.filelistitem-wrapper:has(.selected)
-					+ .filelistitem-wrapper
-					.file-list-item.selected
-					.file-list-item__background
-			) {
-			border-top-right-radius: 0;
-			border-top-left-radius: 0;
-		}
-
-		/* Remove all radius from items in the middle of a selection group */
-		&
-			:global(
-				.filelistitem-wrapper:has(.selected)
-					+ .filelistitem-wrapper:has(+ .filelistitem-wrapper .selected)
-					.file-list-item.selected
-					.file-list-item__background
-			) {
-			border-radius: 0;
-		}
-
-		/* Make background 100% height for selected items following another selected item */
-		&
-			:global(
-				.filelistitem-wrapper:has(.selected)
-					+ .filelistitem-wrapper
-					.file-list-item.selected
-					.file-list-item__background
-			) {
-			height: 100%;
-		}
-
-		/* Make background 100% height for selected items preceding another selected item */
-		&
-			:global(
-				.filelistitem-wrapper:has(+ .filelistitem-wrapper .selected)
-					.file-list-item.selected
-					.file-list-item__background
-			) {
-			height: 100%;
-		}
-
-		/* Last selected item in a group should have 30px height (but not single items) */
-		&
-			:global(
-				.filelistitem-wrapper:has(.selected)
-					+ .filelistitem-wrapper:not(:has(+ .filelistitem-wrapper .selected))
-					.file-list-item.selected
-					.file-list-item__background
-			) {
-			top: 0;
-			height: 30px;
-		}
-
-		/* Add divider between consecutive selected items */
-		&
-			:global(
-				.filelistitem-wrapper:has(.selected)
-					+ .filelistitem-wrapper
-					.file-list-item.selected::before
-			) {
-			z-index: 2;
-			position: absolute;
-			top: 0;
-			right: 0;
-			left: 0;
-			height: 1px;
-			background-color: color-mix(
-				in srgb,
-				var(--file-list-item-selected-bg),
-				var(--clr-core-pop-95) 40%
-			);
-			content: '';
+		& :global(.filelistitem-wrapper:last-child .file-list-item) {
+			border-bottom: none;
 		}
 	}
 

@@ -39,7 +39,6 @@
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		conflictEntries?: ConflictEntriesObj;
-		hideBorder?: boolean;
 	}
 
 	const {
@@ -60,8 +59,7 @@
 		lockedCommitIds = [],
 		lockedStackIds = [],
 		onclick,
-		onkeydown,
-		hideBorder
+		onkeydown
 	}: Props = $props();
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
@@ -171,7 +169,6 @@
 		{executable}
 		draggable={!draggableDisabled}
 		{onkeydown}
-		{hideBorder}
 		locked={locked || false}
 		{lockText}
 		onlockhover={handleLockHover}

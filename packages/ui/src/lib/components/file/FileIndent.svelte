@@ -18,9 +18,9 @@
 	.indent-wrapper {
 		display: flex;
 		align-items: center;
-		/* background-color: rgba(0, 0, 0, 0.1); */
-		/* height: 100%; */
+		/* height: 10px; */
 		gap: 6px;
+		/* background-color: rgba(0, 0, 0, 0.1); */
 	}
 
 	.indent-wrapper__line {
