@@ -1,4 +1,4 @@
-use crate::{DbHandle, FILE_NAME, migration};
+use crate::{DbHandle, FILE_NAME, Transaction, migration};
 use diesel::connection::SimpleConnection;
 use diesel::{Connection, SqliteConnection};
 use std::path::{Path, PathBuf};
@@ -9,9 +9,6 @@ impl std::fmt::Debug for DbHandle {
         f.debug_struct("DbHandle").field("db", &self.url).finish()
     }
 }
-
-/// A wrapper for a [`rusqlite::Transaction`] to allow ORM handles to be created more easily.
-pub struct Transaction<'conn>(pub(crate) rusqlite::Transaction<'conn>);
 
 impl Transaction<'_> {
     /// Consume the transaction and commit it, without recovery.

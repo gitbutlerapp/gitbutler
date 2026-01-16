@@ -116,7 +116,7 @@ pub fn stack_details(
     stack_id: Option<StackId>,
 ) -> Result<but_workspace::ui::StackDetails> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(&ctx.legacy_project)?;
@@ -124,10 +124,10 @@ pub fn stack_details(
     }?;
     let repo = ctx.repo.get()?;
     let gerrit_mode = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
-    let mut db = ctx.db.get_mut()?;
+    let db = ctx.db.get()?;
     if gerrit_mode {
         for branch in details.branch_details.iter_mut() {
-            handle_gerrit(branch, &repo, &mut db)?;
+            handle_gerrit(branch, &repo, &db)?;
             update_push_status(branch);
         }
     }
@@ -169,9 +169,9 @@ fn update_push_status(branch: &mut but_workspace::ui::BranchDetails) {
 fn handle_gerrit(
     branch: &mut but_workspace::ui::BranchDetails,
     repo: &gix::Repository,
-    db: &mut but_db::DbHandle,
+    db: &but_db::DbHandle,
 ) -> anyhow::Result<()> {
-    let mut db = db.gerrit_metadata();
+    let db = db.gerrit_metadata();
     for commit in branch.commits.iter_mut() {
         let change_id = repo
             .find_commit(commit.id)
@@ -205,7 +205,7 @@ pub fn branch_details(
     remote: Option<String>,
 ) -> Result<but_workspace::ui::BranchDetails> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(&ctx.legacy_project)?;
@@ -222,7 +222,7 @@ pub fn branch_details(
         but_workspace::branch_details(&repo, ref_name.as_ref(), &meta)
     }?;
     let repo = ctx.repo.get()?;
-    let mut db = ctx.db.get_mut()?;
+    let db = ctx.db.get()?;
     let gerrit_mode = ctx
         .repo
         .get()?
@@ -230,7 +230,7 @@ pub fn branch_details(
         .gitbutler_gerrit_mode
         .unwrap_or(false);
     if gerrit_mode {
-        handle_gerrit(&mut details, &repo, &mut db)?;
+        handle_gerrit(&mut details, &repo, &db)?;
         update_push_status(&mut details);
     }
     Ok(details)

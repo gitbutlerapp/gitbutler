@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::handle::Transaction;
+use crate::Transaction;
 use crate::{DbHandle, M};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
