@@ -1,0 +1,117 @@
+use crate::M;
+use tracing::instrument;
+
+/// The error produced when running migrations.
+pub type Error = backoff::Error<rusqlite::Error>;
+
+/// Return a sequence of our own, well known migrations.
+///
+/// Note that these will be ordered by [`run()`].
+pub fn ours() -> impl Iterator<Item = M<'static>> {
+    crate::MIGRATIONS
+        .iter()
+        .flat_map(|per_table| per_table.iter())
+        .copied()
+}
+
+/// Run the given `migrations` on `conn`, returning the amount of migrations that ran.
+///
+/// Note that some errors can be retried, but for now there is no recovery beyond hoping
+/// for an intermediate failure related to databases.
+///
+/// Currently, either all migrations succeed, or all fail.
+#[instrument(level = "debug", skip(conn, migrations), err(Debug))]
+pub fn run<'m>(
+    conn: &mut rusqlite::Connection,
+    migrations: impl IntoIterator<Item = M<'m>>,
+) -> Result<usize, Error> {
+    let trans = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(backoff::Error::transient)?;
+    trans
+        .execute_batch(DIESEL_SCHEMA_MIGRATION_TABLE)
+        .map_err(backoff::Error::transient)?;
+
+    let mut count = 0;
+    let migrations = {
+        let mut v: Vec<_> = migrations.into_iter().collect();
+        v.sort_by_key(|m| m.up_created_at);
+        v
+    };
+
+    let existing_versions = {
+        let mut stmt =
+            trans.prepare("SELECT version FROM __diesel_schema_migrations ORDER BY version")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        rows.into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(backoff::Error::permanent)?
+    };
+
+    // Validate that existing migrations match the provided migrations list
+    for (idx, existing_version) in existing_versions.iter().enumerate() {
+        let existing_version: u64 = existing_version
+            .parse()
+            .map_err(|_| backoff::Error::permanent(rusqlite::Error::InvalidQuery))?;
+
+        let err: Option<String> = if idx >= migrations.len() {
+            format!(
+                "Cannot reduce migration count: database has {num_existing} migrations but only {actual} provided",
+                actual = migrations.len(),
+                num_existing = existing_versions.len()
+            )
+            .into()
+        } else {
+            let candidate_m = migrations[idx];
+            (candidate_m.up_created_at != existing_version).then(|| {
+                format!(
+                    "Migration {idx} should be of version {expected}, but got {actual}",
+                    expected = existing_version,
+                    actual = candidate_m.up_created_at
+                )
+            })
+        };
+        if let Some(err) = err {
+            return Err(backoff::Error::permanent(
+                rusqlite::Error::ToSqlConversionFailure(err.into()),
+            ));
+        }
+    }
+
+    // Run only new migrations (after all existing ones)
+    for migration in migrations.iter().skip(existing_versions.len()) {
+        trans
+            .execute_batch(migration.up)
+            .map_err(backoff::Error::permanent)?;
+
+        let version = migration.up_created_at.to_string();
+        trans
+            .execute(
+                "INSERT INTO __diesel_schema_migrations (version) VALUES (?1)",
+                [&version],
+            )
+            .map_err(backoff::Error::permanent)?;
+
+        count += 1;
+    }
+
+    trans.commit().map_err(backoff::Error::transient)?;
+    Ok(count)
+}
+
+impl<'a> M<'a> {
+    /// Create a new migration with `created_at_for_sorting` in a format like `20250529110746`, and the `up_sql`
+    /// which is Sqlite compatible SQL to create or update tables.
+    pub const fn up(created_at_for_sorting: u64, up_sql: &'a str) -> Self {
+        M {
+            up: up_sql,
+            up_created_at: created_at_for_sorting,
+        }
+    }
+}
+
+const DIESEL_SCHEMA_MIGRATION_TABLE: &str =
+    "CREATE TABLE IF NOT EXISTS __diesel_schema_migrations (
+       version VARCHAR(50) PRIMARY KEY NOT NULL,
+       run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+)";
