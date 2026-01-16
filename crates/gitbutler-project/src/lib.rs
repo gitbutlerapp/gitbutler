@@ -8,9 +8,8 @@ mod storage;
 use std::path::Path;
 
 use controller::Controller;
-pub use project::{
-    AddProjectOutcome, ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId,
-};
+use project::ApiProject;
+pub use project::{AddProjectOutcome, AuthKey, CodePushState, FetchResult, Project, ProjectId};
 pub use storage::UpdateRequest;
 
 /// A utility to be used from applications to optimize `git2` configuration.

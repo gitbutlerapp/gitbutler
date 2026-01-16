@@ -1,5 +1,3 @@
-use std::{collections::HashMap, path::PathBuf};
-
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::RepositoryExt;
 use but_ctx::Context;
@@ -17,7 +15,7 @@ use gitbutler_stack::{Stack, StackId, Target};
 use itertools::Itertools;
 use serde::Serialize;
 
-use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk};
+use crate::VirtualBranchesExt;
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -53,9 +51,6 @@ pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack
     vb_state.set_stack(stack.clone())?;
     Ok(stack)
 }
-
-pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
-pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 
 type MergeBaseCommitGraph<'repo, 'cache> = gix::revwalk::Graph<
     'repo,

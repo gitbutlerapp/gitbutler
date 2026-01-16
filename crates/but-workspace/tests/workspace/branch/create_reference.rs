@@ -50,7 +50,7 @@ mod with_workspace {
                 ..Options::limited()
             },
         )?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
 
         // And even though setting an extra-target works like it should, i.e a simulated target
         // which we can store in absence of a selected target branch…
@@ -63,7 +63,7 @@ mod with_workspace {
             .expect("always set to have workspace")
             .sha = gix::hash::Kind::Sha1.null();
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓!
         └── ≡:1:main
@@ -100,12 +100,12 @@ mod with_workspace {
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD -> gitbutler/workspace, origin/main, main) M1");
 
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
 
         insta::assert_snapshot!(graph_workspace(&ws), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43");
 
         let a_ref = r("refs/heads/A");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             a_ref,
             None, /* anchor */
             &repo,
@@ -115,7 +115,6 @@ mod with_workspace {
             None,
         )
         .expect("it updates the workspace metadata legitimate the new ref at base");
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         └── ≡📙:3:A on 3183e43 {41}
@@ -129,7 +128,7 @@ mod with_workspace {
         );
 
         let b_ref = r("refs/heads/B");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             b_ref,
             None, /* anchor */
             &repo,
@@ -138,7 +137,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:4:B on 3183e43 {42}
@@ -148,7 +146,7 @@ mod with_workspace {
         ");
 
         // Idempotency
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             b_ref,
             None, /* anchor */
             &repo,
@@ -157,7 +155,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:4:B on 3183e43 {42}
@@ -167,7 +164,7 @@ mod with_workspace {
         ");
 
         let above_a = rc("refs/heads/above-A");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             above_a,
             Anchor::AtSegment {
                 ref_name: Cow::Borrowed(a_ref),
@@ -179,7 +176,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:5:B on 3183e43 {42}
@@ -190,7 +186,7 @@ mod with_workspace {
         ");
 
         let below_b = rc("refs/heads/below-B");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             below_b,
             Anchor::AtSegment {
                 ref_name: Cow::Borrowed(b_ref),
@@ -202,7 +198,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:5:B on 3183e43 {42}
@@ -218,7 +213,7 @@ mod with_workspace {
         drop(meta);
         let meta = VirtualBranchesTomlMetadata::from_path(path)?;
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:5:B on 3183e43 {42}
@@ -246,7 +241,7 @@ mod with_workspace {
         ");
 
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
 
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
@@ -258,7 +253,7 @@ mod with_workspace {
 
         let above_bottom_ref = r("refs/heads/above-bottom");
         let bottom_id = id_by_rev(&repo, ":/A1");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             above_bottom_ref,
             Anchor::AtCommit {
                 commit_id: bottom_id.detach(),
@@ -270,7 +265,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         // It handles this special case, by creating the necessary workspace metadata
         // if for some reason (like manual building) it's not set.
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -283,7 +277,7 @@ mod with_workspace {
         ");
 
         let bottom_ref = rc("refs/heads/bottom");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             bottom_ref,
             Anchor::AtSegment {
                 ref_name: Cow::Borrowed(above_bottom_ref),
@@ -296,7 +290,6 @@ mod with_workspace {
             None,
         )?;
 
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
         └── ≡:4:A on bce0c5e {4cf}
@@ -309,7 +302,7 @@ mod with_workspace {
 
         let above_a_commit_ref = r("refs/heads/above-A-commit");
         let a_id = id_by_rev(&repo, ":/A");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             above_a_commit_ref,
             Anchor::AtCommit {
                 commit_id: a_id.detach(),
@@ -323,7 +316,6 @@ mod with_workspace {
         )?;
 
         // Note how 'Above' *a commit* means directly above, not on top of everything.
-        let ws = graph.to_workspace()?;
         // And as there are now two references on one commit, and one has metadata, the other one doesn't,
         // 'A' is moved to the background.
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -338,7 +330,7 @@ mod with_workspace {
 
         // We can, however, restore it simply by putting idempotency.
         let a_ref = rc("refs/heads/A");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             a_ref,
             Anchor::AtCommit {
                 commit_id: a_id.detach(),
@@ -351,7 +343,6 @@ mod with_workspace {
             None,
         )?;
 
-        let ws = graph.to_workspace()?;
         // And 'A' is back, with the desired order correctly restored.
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
@@ -366,7 +357,7 @@ mod with_workspace {
 
         let above_a_ref = rc("refs/heads/above-A");
         let a_ref = rc("refs/heads/A");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             above_a_ref,
             Anchor::AtSegment {
                 ref_name: a_ref,
@@ -380,7 +371,6 @@ mod with_workspace {
         )?;
 
         // *Above a segment means what one would expect though.
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
         └── ≡📙:5:above-A-commit on bce0c5e {4cf}
@@ -394,7 +384,7 @@ mod with_workspace {
         ");
 
         let below_a_commit_ref = rc("refs/heads/below-A-commit");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             below_a_commit_ref,
             Anchor::AtCommit {
                 commit_id: a_id.detach(),
@@ -407,7 +397,6 @@ mod with_workspace {
             None,
         )?;
 
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
         └── ≡📙:5:above-A-commit on bce0c5e {4cf}
@@ -422,7 +411,7 @@ mod with_workspace {
         ");
 
         let below_a_ref = rc("refs/heads/below-A");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             below_a_ref,
             Anchor::AtSegment {
                 ref_name: Cow::Borrowed(above_a_commit_ref),
@@ -434,7 +423,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
         └── ≡📙:5:above-A-commit on bce0c5e {4cf}
@@ -451,7 +439,7 @@ mod with_workspace {
 
         // create a new stack for good measure.
         let b_ref = r("refs/heads/B");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             b_ref,
             None,
             &repo,
@@ -460,7 +448,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
         ├── ≡📙:5:B on bce0c5e {42}
@@ -479,7 +466,7 @@ mod with_workspace {
 
         // create a new dependent branch by segment above (commit can't be done).
         let above_b_ref = rc("refs/heads/above-B");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             above_b_ref,
             Anchor::AtSegment {
                 ref_name: Cow::Borrowed(b_ref),
@@ -491,7 +478,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
         ├── ≡📙:5:above-B on bce0c5e {42}
@@ -513,7 +499,7 @@ mod with_workspace {
         // (which somewhat counter-intuitively works here) because it's a completely new
         // independent branch.
         let below_b_ref = rc("refs/heads/below-B");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             below_b_ref,
             Anchor::AtSegment {
                 ref_name: Cow::Borrowed(b_ref),
@@ -525,7 +511,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
         ├── ≡📙:5:above-B on bce0c5e {42}
@@ -549,7 +534,7 @@ mod with_workspace {
         drop(meta);
         let meta = VirtualBranchesTomlMetadata::from_path(path)?;
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
         ├── ≡📙:5:above-B on bce0c5e {42}
@@ -591,7 +576,7 @@ mod with_workspace {
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
 
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
@@ -603,7 +588,7 @@ mod with_workspace {
 
         let above_bottom_ref = r("refs/heads/above-bottom");
         let bottom_id = id_by_rev(&repo, ":/A1");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             above_bottom_ref,
             Anchor::AtCommit {
                 commit_id: bottom_id.detach(),
@@ -615,7 +600,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         └── ≡📙:4:A on 3183e43 {0}
@@ -626,7 +610,7 @@ mod with_workspace {
         ");
 
         let bottom_ref = rc("refs/heads/bottom");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             bottom_ref,
             Anchor::AtSegment {
                 ref_name: Cow::Borrowed(above_bottom_ref),
@@ -639,7 +623,6 @@ mod with_workspace {
             None,
         )?;
 
-        let ws = graph.to_workspace()?;
         // We can create branches that would be on the base.
         // There are
         insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -654,7 +637,7 @@ mod with_workspace {
 
         let above_a_commit_ref = r("refs/heads/above-A-commit");
         let a_id = id_by_rev(&repo, ":/A");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             above_a_commit_ref,
             Anchor::AtCommit {
                 commit_id: a_id.detach(),
@@ -668,7 +651,6 @@ mod with_workspace {
         )?;
 
         // Note how 'Above' *a commit* means directly above, not on top of everything.
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         └── ≡📙:5:A on 3183e43 {0}
@@ -682,7 +664,7 @@ mod with_workspace {
 
         let above_a_ref = rc("refs/heads/above-A");
         let a_ref = rc("refs/heads/A");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             above_a_ref,
             Anchor::AtSegment {
                 ref_name: a_ref,
@@ -696,7 +678,6 @@ mod with_workspace {
         )?;
 
         // *Above a segment means what one would expect though.
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         └── ≡📙:5:above-A on 3183e43 {0}
@@ -712,7 +693,7 @@ mod with_workspace {
         // Idempotency!
         let above_a_ref = rc("refs/heads/above-A");
         let a_ref = rc("refs/heads/A");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             above_a_ref,
             Anchor::AtSegment {
                 ref_name: a_ref,
@@ -725,7 +706,6 @@ mod with_workspace {
             None,
         )?;
 
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         └── ≡📙:5:above-A on 3183e43 {0}
@@ -739,7 +719,7 @@ mod with_workspace {
         ");
 
         let below_a_commit_ref = rc("refs/heads/below-A-commit");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             below_a_commit_ref,
             Anchor::AtCommit {
                 commit_id: a_id.detach(),
@@ -752,7 +732,6 @@ mod with_workspace {
             None,
         )?;
 
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         └── ≡📙:5:above-A on 3183e43 {0}
@@ -767,7 +746,7 @@ mod with_workspace {
         ");
 
         let below_a_ref = rc("refs/heads/below-A");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             below_a_ref,
             Anchor::AtSegment {
                 ref_name: Cow::Borrowed(above_a_commit_ref),
@@ -779,7 +758,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         └── ≡📙:5:above-A on 3183e43 {0}
@@ -796,7 +774,7 @@ mod with_workspace {
 
         // create a new stack for good measure.
         let b_ref = r("refs/heads/B");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             b_ref,
             None,
             &repo,
@@ -805,7 +783,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:5:B on 3183e43 {42}
@@ -824,7 +801,7 @@ mod with_workspace {
 
         // create a new dependent branch by segment above (commit can't be done).
         let above_b_ref = rc("refs/heads/above-B");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             above_b_ref,
             Anchor::AtSegment {
                 ref_name: Cow::Borrowed(b_ref),
@@ -836,7 +813,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:5:above-B on 3183e43 {42}
@@ -858,7 +834,7 @@ mod with_workspace {
         // (which somewhat counter-intuitively works here) because it's a completely new
         // independent branch.
         let below_b_ref = rc("refs/heads/below-B");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             below_b_ref,
             Anchor::AtSegment {
                 ref_name: Cow::Borrowed(b_ref),
@@ -870,7 +846,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:5:above-B on 3183e43 {42}
@@ -894,7 +869,7 @@ mod with_workspace {
         drop(meta);
         let meta = VirtualBranchesTomlMetadata::from_path(path)?;
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:5:above-B on 3183e43 {42}
@@ -934,7 +909,7 @@ mod with_workspace {
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
 
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
@@ -946,7 +921,7 @@ mod with_workspace {
 
         let bottom_ref = rc("refs/heads/bottom");
         let bottom_id = id_by_rev(&repo, ":/A1");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             bottom_ref,
             Anchor::AtCommit {
                 commit_id: bottom_id.detach(),
@@ -959,7 +934,6 @@ mod with_workspace {
             None,
         )?;
 
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         └── ≡📙:3:A on 3183e43 {0}
@@ -987,7 +961,7 @@ mod with_workspace {
         add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
 
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
 
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
@@ -1001,7 +975,7 @@ mod with_workspace {
 
         let bottom_ref_a = rc("refs/heads/a-bottom");
         let bottom_a_id = id_by_rev(&repo, ":/A1");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             bottom_ref_a,
             Anchor::AtCommit {
                 commit_id: bottom_a_id.detach(),
@@ -1013,7 +987,6 @@ mod with_workspace {
             stack_id_for_name,
             None,
         )?;
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:4:B on 3183e43 {1}
@@ -1027,7 +1000,7 @@ mod with_workspace {
 
         let bottom_ref_b = rc("refs/heads/b-bottom");
         let bottom_b_id = id_by_rev(&repo, ":/B1");
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             bottom_ref_b,
             Anchor::AtCommit {
                 commit_id: bottom_b_id.detach(),
@@ -1040,7 +1013,6 @@ mod with_workspace {
             None,
         )?;
 
-        let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
         ├── ≡📙:4:B on 3183e43 {1}
@@ -1067,7 +1039,7 @@ mod with_workspace {
         ");
 
         let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
 
         insta::assert_snapshot!(graph_workspace(&ws), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on bce0c5e");
 
@@ -1127,7 +1099,7 @@ mod with_workspace {
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
         let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
 
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
@@ -1259,7 +1231,7 @@ mod with_workspace {
 fn errors() -> anyhow::Result<()> {
     let (repo, mut meta) = named_read_only_in_memory_scenario("unborn-empty", "")?;
     let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡:0:main[🌳] {1}
@@ -1292,7 +1264,7 @@ fn errors() -> anyhow::Result<()> {
     ");
 
     let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
@@ -1393,7 +1365,7 @@ fn errors() -> anyhow::Result<()> {
     }
 
     let graph = but_graph::Graph::from_commit_traversal(a_id, a_ref, &*meta, Options::limited())?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:A <> ✓!
     └── ≡:0:A {1}
@@ -1445,7 +1417,7 @@ fn errors() -> anyhow::Result<()> {
             ..Options::limited()
         },
     )?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:A <> ✓! on 89cc2d3
     └── ≡:0:A {1}
@@ -1498,7 +1470,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     ");
 
     let graph = but_graph::Graph::from_head(&repo, &meta, Default::default())?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
@@ -1511,7 +1483,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
 
     let (main_id, main_ref) = id_at(&repo, "main");
     let new_name = r("refs/heads/below-main");
-    let graph = but_workspace::branch::create_reference(
+    let ws = but_workspace::branch::create_reference(
         new_name,
         Anchor::at_segment(main_ref.as_ref(), Below),
         &repo,
@@ -1523,7 +1495,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     .expect("this works as the branch is unique");
 
     // We always add metadata to new branches.
-    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡:0:main[🌳] {1}
         ├── :0:main[🌳]
@@ -1546,7 +1518,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     );
 
     // Creating the same reference again is idempotent.
-    let graph = but_workspace::branch::create_reference(
+    let ws = but_workspace::branch::create_reference(
         new_name,
         Anchor::at_id(main_id, Below),
         &repo,
@@ -1555,7 +1527,6 @@ fn journey_with_commits() -> anyhow::Result<()> {
         stack_id_for_name,
         None,
     )?;
-    let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡:0:main[🌳] {1}
@@ -1567,7 +1538,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     ");
 
     // the last possible branch without a workspace.
-    let graph = but_workspace::branch::create_reference(
+    let ws = but_workspace::branch::create_reference(
         rc("refs/heads/two-below-main"),
         Anchor::at_segment(r("refs/heads/below-main"), Below),
         &repo,
@@ -1576,7 +1547,6 @@ fn journey_with_commits() -> anyhow::Result<()> {
         stack_id_for_name,
         None,
     )?;
-    let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡:0:main[🌳] {1}
@@ -1607,7 +1577,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
 
     // branch already exists in the workspace, all good.
     let main_ref = r("refs/heads/main");
-    let graph = but_workspace::branch::create_reference(
+    let ws = but_workspace::branch::create_reference(
         main_ref,
         None,
         &repo,
@@ -1622,7 +1592,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         "no data was stored, it wasn't stored before either, for independent branches\
             There should be no benefit doing that."
     );
-    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡:0:main[🌳] {1}
         ├── :0:main[🌳]
@@ -1634,7 +1604,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     ");
 
     // However, creating a dependent branch creates metadata as well.
-    let graph = but_workspace::branch::create_reference(
+    let ws = but_workspace::branch::create_reference(
         main_ref,
         Anchor::AtCommit {
             commit_id: main_id.detach(),
@@ -1652,7 +1622,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         "Data is created/updated for dependent branches though,
             which is a way to make segments appear if there were not visible before due to ambiguity."
     );
-    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡📙:0:main[🌳] {1}
         ├── 📙:0:main[🌳]
@@ -1677,7 +1647,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
 
     let id = id_by_rev(&repo, "@~1");
     let graph = but_graph::Graph::from_commit_traversal(id, None, &meta, Default::default())?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:DETACHED <> ✓!
@@ -1689,7 +1659,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
 
     let first_ref = rc("refs/heads/first");
     let first_id = id_by_rev(&repo, "@~2");
-    let graph = but_workspace::branch::create_reference(
+    let ws = but_workspace::branch::create_reference(
         first_ref,
         Anchor::AtCommit {
             commit_id: first_id.detach(),
@@ -1701,7 +1671,6 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         stack_id_for_name,
         None,
     )?;
-    let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:DETACHED <> ✓!
     └── ≡:0:anon: {1}
@@ -1731,7 +1700,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
 
     let second_ref = rc("refs/heads/second");
     let second_id = id_by_rev(&repo, "@~1");
-    let graph = but_workspace::branch::create_reference(
+    let ws = but_workspace::branch::create_reference(
         second_ref,
         Anchor::AtCommit {
             commit_id: second_id.detach(),
@@ -1743,7 +1712,6 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         stack_id_for_name,
         None,
     )?;
-    let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:second <> ✓!
     └── ≡📙:0:second {1}
@@ -1781,7 +1749,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
             ..Default::default()
         },
     )?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
     // And the extra-target serves as base also in single-branch mode.
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:second <> ✓! on 3d57fc1

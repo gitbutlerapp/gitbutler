@@ -34,20 +34,26 @@
 	}: Props = $props();
 
 	// Check if color is a predefined type or custom color
-	const predefinedColors = ['safe', 'danger', 'pop', 'warning'];
-	const isPredefinedColor = color && predefinedColors.includes(color as string);
-	const customColor = !isPredefinedColor ? color : undefined;
+	function getGenericColors(): string | undefined {
+		switch (color) {
+			case 'safe':
+				return 'var(--clr-theme-safe-element)';
+			case 'danger':
+				return 'var(--clr-theme-danger-element)';
+			case 'pop':
+				return 'var(--clr-theme-pop-element)';
+			case 'warning':
+				return 'var(--clr-theme-warn-element)';
+			default:
+				return color;
+		}
+	}
 </script>
 
 <svg
 	viewBox="0 0 16 16"
 	fill-rule="evenodd"
 	class="icon-wrapper"
-	class:safe={color === 'safe'}
-	class:danger={color === 'danger'}
-	class:pop={color === 'pop'}
-	class:warning={color === 'warning'}
-	class:custom={customColor}
 	class:default={!color}
 	style:fill-opacity={opacity}
 	style:width="{pxToRem(size)}rem"
@@ -56,7 +62,7 @@
 	style:vertical-align={verticalAlign}
 	style:z-index={zIndex}
 	style:pointer-events={noEvents ? 'none' : undefined}
-	style="--spinner-radius: {spinnerRadius}; --custom-color: {customColor || 'currentColor'}"
+	style="--spinner-radius: {spinnerRadius}; --custom-icon-color: {getGenericColors()};"
 >
 	{#if name === 'spinner'}
 		<g class:spinner={name === 'spinner'}>
@@ -80,22 +86,7 @@
 		--spinner-stroke-width: 1.5;
 		display: inline-block;
 		flex-shrink: 0;
-	}
-
-	.safe {
-		color: var(--clr-theme-safe-element);
-	}
-	.danger {
-		color: var(--clr-theme-danger-element);
-	}
-	.pop {
-		color: var(--clr-theme-pop-element);
-	}
-	.warning {
-		color: var(--clr-theme-warn-element);
-	}
-	.custom {
-		color: var(--custom-color);
+		color: var(--custom-icon-color, currentColor);
 	}
 
 	.spinner {

@@ -374,13 +374,13 @@
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight="15rem">
 						{@const conflicts = branchStatuses?.worktreeConflicts}
-						{#each conflicts as file}
+						{#each conflicts as file, i}
 							<FileListItem
 								listMode="list"
 								filePath={file}
 								clickable={false}
 								conflicted
-								hideBorder={file === conflicts[conflicts.length - 1]}
+								isLast={i === conflicts.length - 1}
 							/>
 						{/each}
 					</ScrollableContainer>

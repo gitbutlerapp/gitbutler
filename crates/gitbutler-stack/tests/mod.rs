@@ -1,5 +1,3 @@
-mod file_ownership;
-
 use anyhow::Result;
 use but_core::Reference;
 use but_ctx::Context;

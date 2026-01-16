@@ -591,7 +591,7 @@ impl Graph {
             ws_low_bound_in_ws_sidx,
             ws_low_bound,
         )) = self
-            .to_workspace_inner(workspace::Downgrade::Disallow)
+            .to_workspace_state(workspace::Downgrade::Disallow)
             .ok()
             .and_then(|mut ws| {
                 let md = ws.metadata.take();

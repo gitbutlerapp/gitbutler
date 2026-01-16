@@ -136,15 +136,15 @@ pub(super) mod function {
     ///  - if there is a workspace, we store the order in workspace metadata and expect an `anchor` that names a segment.
     ///
     /// Return a regenerated Graph that contains the new reference, and from which a new workspace can be derived.
-    pub fn create_reference<'name, T: RefMetadata>(
+    pub fn create_reference<'ws, 'name, T: RefMetadata>(
         ref_name: impl Borrow<gix::refs::FullNameRef>,
         anchor: impl Into<Option<Anchor<'name>>>,
         repo: &gix::Repository,
-        workspace: &but_graph::projection::Workspace<'_>,
+        workspace: &'ws but_graph::projection::Workspace,
         meta: &mut T,
         new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
         order: impl Into<Option<usize>>,
-    ) -> anyhow::Result<but_graph::Graph> {
+    ) -> anyhow::Result<Cow<'ws, but_graph::projection::Workspace>> {
         let anchor = anchor.into();
         let order = order.into();
 
@@ -168,7 +168,7 @@ pub(super) mod function {
                         .find_segment_and_stack_by_refname(ref_name)
                         .is_some()
                     {
-                        return Ok(workspace.graph.clone());
+                        return Ok(Cow::Borrowed(workspace));
                     }
                     let base = ws_base.with_context(|| {
                         format!(
@@ -295,7 +295,7 @@ pub(super) mod function {
             )?
         };
 
-        let updated_workspace = graph_with_new_ref.to_workspace()?;
+        let updated_workspace = graph_with_new_ref.into_workspace()?;
         let has_new_ref_as_standalone_segment = updated_workspace
             .find_segment_and_stack_by_refname(ref_name)
             .is_some();
@@ -345,7 +345,7 @@ pub(super) mod function {
         update_branch_metadata(ref_name, repo, &mut branch_md)?;
         meta.set_branch(&branch_md)?;
 
-        Ok(graph_with_new_ref)
+        Ok(Cow::Owned(updated_workspace))
     }
 
     fn update_branch_metadata(
@@ -448,7 +448,7 @@ pub(super) mod function {
     /// `position` indicates where, in relation to `anchor_id`, the ref name should be inserted.
     /// The first name that is also in `ws_meta` will be used.
     fn instruction_by_named_anchor_for_commit(
-        ws: &but_graph::projection::Workspace<'_>,
+        ws: &but_graph::projection::Workspace,
         anchor_id: gix::ObjectId,
     ) -> anyhow::Result<Instruction<'static>> {
         use Position::*;

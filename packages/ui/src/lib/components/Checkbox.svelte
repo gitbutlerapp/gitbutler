@@ -6,9 +6,10 @@
 		checked?: boolean;
 		value?: string;
 		indeterminate?: boolean;
+		invertColors?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onchange?: (
-			e: Event & {
+			e: (Event | KeyboardEvent) & {
 				currentTarget: EventTarget & HTMLInputElement;
 			}
 		) => void;
@@ -25,9 +26,38 @@
 		checked = $bindable(),
 		value = '',
 		indeterminate = false,
+		invertColors,
 		onclick,
 		onchange
 	}: Props = $props();
+
+	function getCheckmarkColor(): string {
+		if (disabled) return 'var(--clr-text-2)';
+		if (!checked) return 'var(--clr-text-2)';
+		if (invertColors) return 'var(--clr-theme-pop-element)';
+		return 'var(--clr-theme-pop-on-element)';
+	}
+
+	const checkmarkColor = $derived(getCheckmarkColor());
+
+	function handleClick(e: MouseEvent) {
+		e.stopPropagation();
+		onclick?.(e);
+	}
+
+	function handleChange(e: Event & { currentTarget: EventTarget & HTMLInputElement }) {
+		e.stopPropagation();
+		onchange?.(e);
+	}
+
+	function handleKeydown(e: KeyboardEvent & { currentTarget: EventTarget & HTMLInputElement }) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			e.stopPropagation();
+			checked = !checked;
+			onchange?.(e);
+		}
+	}
 
 	$effect(() => {
 		if (input) input.indeterminate = indeterminate;
@@ -40,7 +70,8 @@
 	class:small
 	class:disabled
 	class:indeterminate
-	style:--checkmark-color="var(--clr-theme-pop-on-element)"
+	class:invert-colors={invertColors}
+	style:--checkmark-color={checkmarkColor}
 >
 	<div class="checkbox-checkmark">
 		{#if !indeterminate}
@@ -69,23 +100,9 @@
 		bind:this={input}
 		bind:checked
 		tabindex="0"
-		onclick={(e) => {
-			e.stopPropagation();
-			onclick?.(e);
-		}}
-		onchange={(e) => {
-			e.stopPropagation();
-			onchange?.(e);
-		}}
-		onkeydown={(e) => {
-			if (e.key === 'Enter') {
-				e.preventDefault();
-				e.stopPropagation();
-
-				checked = !checked;
-				onchange?.(e);
-			}
-		}}
+		onclick={handleClick}
+		onchange={handleChange}
+		onkeydown={handleKeydown}
 		type="checkbox"
 		class="checkbox-input"
 		{value}
@@ -96,12 +113,10 @@
 </div>
 
 <style lang="postcss">
-	.checkbox-wrapper,
-	.checkbox-input {
-		border-radius: var(--radius-s);
-	}
-
 	.checkbox-wrapper {
+		--border-width: 1px;
+		--disabled-opacity: 50%;
+
 		display: flex;
 		position: relative;
 		flex-shrink: 0;
@@ -109,87 +124,91 @@
 		justify-content: center;
 		width: 16px;
 		height: 16px;
+		border-radius: var(--radius-s);
 		background-color: var(--clr-bg-1);
-		box-shadow: inset 0 0 0 1px var(--clr-border-2);
+		box-shadow: inset 0 0 0 var(--border-width) var(--clr-border-2);
 		transition:
 			background-color var(--transition-fast),
-			border-color var(--transition-fast);
+			box-shadow var(--transition-fast);
 
-		/* NOT CHECKED */
-		&:not(.checked):not(.disabled) {
-			& .checkbox-checkmark {
-				--checkmark-color: var(--clr-text-2);
-			}
+		&.small {
+			width: 14px;
+			height: 14px;
 		}
-		/* NOT CHECKED. HOVER */
-		&:not(.checked):not(.disabled):hover {
-			box-shadow: inset 0 0 0 1px var(--clr-border-1);
+
+		/* Inverted colors removes border */
+		&.invert-colors {
+			box-shadow: none;
+		}
+
+		/* Unchecked states */
+		&:not(.checked):not(.disabled):not(.invert-colors):hover {
+			box-shadow: inset 0 0 0 var(--border-width) var(--clr-border-1);
+
 			& .checkbox-checkmark {
 				opacity: 1;
 			}
 		}
-		/* NOT CHECKED. FOCUS */
+
 		&:not(.checked):not(.disabled):has(.checkbox-input:focus-visible) {
 			outline: 2px solid var(--clr-theme-pop-element);
 			outline-offset: -2px;
 		}
-		/* CHECKED */
-		&:not(.disabled).checked {
+
+		/* Checked states */
+		&.checked:not(.disabled) {
 			background-color: var(--clr-theme-pop-element);
-			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
+			box-shadow: inset 0 0 0 var(--border-width) var(--clr-theme-pop-element);
+
 			& .checkbox-checkmark {
 				transform: scale(1);
 				opacity: 1;
 			}
-		}
-		/* CHECKED. HOVER */
-		&:not(.disabled).checked:hover {
-			background-color: var(--hover-pop);
-			box-shadow: inset 0 0 0 1px var(--hover-pop);
-			& .checkbox-checkmark {
-				opacity: 1;
+
+			&:hover:not(.invert-colors) {
+				background-color: var(--hover-pop);
+				box-shadow: inset 0 0 0 var(--border-width) var(--hover-pop);
 			}
-		}
-		/* CHECKED. FOCUS */
-		&:not(.disabled).checked:has(.checkbox-input:focus-visible) {
-			outline: 2px solid color-mix(in srgb, var(--clr-theme-pop-element) 80%, var(--clr-text-1));
-			outline-offset: -2px;
-			background-color: var(--clr-theme-pop-element);
-		}
-		/* CURSOR */
-		&:not(.disabled) {
-			& .checkbox-input {
-				cursor: pointer;
+
+			&:has(.checkbox-input:focus-visible) {
+				outline: 2px solid color-mix(in srgb, var(--clr-theme-pop-element) 80%, var(--clr-text-1));
+				outline-offset: -2px;
 			}
-		}
-		&.disabled {
-			& .checkbox-input {
-				cursor: not-allowed;
+
+			&.invert-colors {
+				background-color: var(--clr-theme-pop-on-element);
+				box-shadow: none;
 			}
 		}
 
-		/* DISABLED */
-		&:not(.checked).disabled {
-			background-color: color-mix(in srgb, var(--clr-border-2) 50%, var(--clr-bg-1));
-			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--clr-border-2) 50%, var(--clr-bg-1));
+		/* Disabled states */
+		&.disabled .checkbox-input {
+			cursor: not-allowed;
 		}
-		/* DISABLED. CHECKED */
+
+		&.disabled:not(.checked) {
+			background-color: color-mix(
+				in srgb,
+				var(--clr-border-2) var(--disabled-opacity),
+				var(--clr-bg-1)
+			);
+			box-shadow: inset 0 0 0 var(--border-width)
+				color-mix(in srgb, var(--clr-border-2) var(--disabled-opacity), var(--clr-bg-1));
+		}
+
+		&.disabled.checked .checkbox-checkmark {
+			transform: scale(1);
+			opacity: 1;
+		}
+
 		&.disabled.checked {
-			--checkmark-color: var(--clr-text-2);
-			background-color: color-mix(in srgb, var(--clr-theme-pop-element) 50%, var(--clr-bg-1));
-			box-shadow: inset 0 0 0 1px
-				color-mix(in srgb, var(--clr-theme-pop-element) 50%, var(--clr-bg-1));
-
-			& .checkbox-checkmark {
-				transform: scale(1);
-				opacity: 1;
-			}
-		}
-
-		/* MODIFIERS */
-		&.small {
-			width: 14px;
-			height: 14px;
+			background-color: color-mix(
+				in srgb,
+				var(--clr-theme-pop-element) var(--disabled-opacity),
+				var(--clr-bg-1)
+			);
+			box-shadow: inset 0 0 0 var(--border-width)
+				color-mix(in srgb, var(--clr-theme-pop-element) var(--disabled-opacity), var(--clr-bg-1));
 		}
 	}
 
@@ -197,7 +216,7 @@
 		display: flex;
 		transform: scale(0.8);
 		opacity: 0;
-		pointer-events: none; /* Prevents the checkmark from blocking clicks */
+		pointer-events: none;
 		transition:
 			opacity var(--transition-fast),
 			transform var(--transition-fast);
@@ -207,19 +226,8 @@
 		appearance: none;
 		z-index: 1;
 		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-
-		&:not(:disabled):not(:checked):focus-visible {
-			outline: 2px solid var(--clr-theme-pop-element);
-			outline-offset: -2px;
-		}
-
-		&:checked:focus-visible {
-			outline: 2px solid color-mix(in srgb, var(--clr-theme-pop-element) 60%, var(--clr-text-1));
-			outline-offset: -2px;
-		}
+		inset: 0;
+		border-radius: var(--radius-s);
+		cursor: pointer;
 	}
 </style>

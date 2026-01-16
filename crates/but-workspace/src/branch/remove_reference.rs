@@ -15,7 +15,6 @@ pub struct Options {
 pub(crate) mod function {
     use anyhow::{Context as _, bail};
     use but_core::RefMetadata;
-    use but_graph::Graph;
     use gix::refs::transaction::PreviousValue;
 
     use super::Options;
@@ -30,13 +29,13 @@ pub(crate) mod function {
     pub fn remove_reference(
         ref_name: &gix::refs::FullNameRef,
         repo: &gix::Repository,
-        workspace: &but_graph::projection::Workspace<'_>,
+        workspace: &but_graph::projection::Workspace,
         meta: &mut impl RefMetadata,
         Options {
             avoid_anonymous_stacks,
             keep_metadata,
         }: Options,
-    ) -> anyhow::Result<Option<Graph>> {
+    ) -> anyhow::Result<Option<but_graph::projection::Workspace>> {
         // We assume the stack-idx can't change by deleting
         let Some((stack, _segment)) = workspace.find_segment_and_stack_by_refname(ref_name) else {
             return Ok(None);
@@ -89,11 +88,11 @@ pub(crate) mod function {
             workspace
                 .graph
                 .redo_traversal_with_overlay(repo, meta, Default::default())?;
+        let workspace = graph.into_workspace()?;
         if avoid_anonymous_stacks {
-            let workspace = graph.to_workspace()?;
             let Some(stack) = workspace.stacks.iter().find(|s| s.id == stack_id) else {
                 // The whole stack is gone, so nothing that could be anonymous.
-                return Ok(Some(graph));
+                return Ok(Some(workspace));
             };
             if avoid_anonymous_stacks
                 && let Some(commit) = stack
@@ -119,10 +118,16 @@ pub(crate) mod function {
                     PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
                     "move segment reference up to avoid anonymous stack",
                 )?;
-                graph = graph.redo_traversal_with_overlay(repo, meta, Default::default())?;
+                graph =
+                    workspace
+                        .graph
+                        .redo_traversal_with_overlay(repo, meta, Default::default())?;
+                Ok(Some(graph.into_workspace()?))
+            } else {
+                Ok(Some(workspace))
             }
+        } else {
+            Ok(Some(workspace))
         }
-
-        Ok(Some(graph))
     }
 }

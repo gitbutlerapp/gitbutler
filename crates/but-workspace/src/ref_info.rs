@@ -194,10 +194,10 @@ pub trait WorkspaceExt {
     fn has_workspace_commit_in_ancestry(&self, repo: &gix::Repository) -> bool;
 }
 
-impl WorkspaceExt for but_graph::projection::Workspace<'_> {
+impl WorkspaceExt for but_graph::projection::Workspace {
     fn has_workspace_commit_in_ancestry(&self, repo: &Repository) -> bool {
         function::find_ancestor_workspace_commit(
-            self.graph,
+            &self.graph,
             repo,
             self.id,
             self.lower_bound_segment_id,
@@ -452,13 +452,13 @@ pub(crate) mod function {
             metadata,
             lower_bound: _,
             lower_bound_segment_id,
-        } = graph.to_workspace()?;
+        } = graph.into_workspace()?;
 
         let (workspace_ref_info, is_managed_commit, ancestor_workspace_commit) = match kind {
             WorkspaceKind::Managed { ref_info } => (Some(ref_info), true, None),
             WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info: ref_name } => {
                 let maybe_ancestor_workspace_commit =
-                    find_ancestor_workspace_commit(graph, repo, id, lower_bound_segment_id);
+                    find_ancestor_workspace_commit(&graph, repo, id, lower_bound_segment_id);
                 (Some(ref_name), false, maybe_ancestor_workspace_commit)
             }
             WorkspaceKind::AdHoc => (graph[id].ref_info.clone(), false, None),
@@ -502,7 +502,7 @@ pub(crate) mod function {
             msg.push_str(&format!("    git reset --soft {ws_commit_id}"));
             bail!("{msg}");
         }
-        info.compute_similarity(graph, repo, opts.expensive_commit_info)?;
+        info.compute_similarity(&graph, repo, opts.expensive_commit_info)?;
         Ok(info)
     }
 

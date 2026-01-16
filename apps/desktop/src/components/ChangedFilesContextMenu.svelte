@@ -551,7 +551,7 @@
 								fileStatus={computeChangeStatus(change)}
 								clickable={false}
 								listMode="list"
-								hideBorder={i === changes.length - 1}
+								isLast={i === changes.length - 1}
 							/>
 						{/each}
 					</ul>

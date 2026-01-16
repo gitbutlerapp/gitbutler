@@ -6,7 +6,7 @@ use but_core::ui;
 //       that way computations of merge-bases/commits don't have to be aligned.
 pub fn changes_in_branch(
     repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace<'_>,
+    workspace: &but_graph::projection::Workspace,
     branch: &gix::refs::FullNameRef,
 ) -> anyhow::Result<ui::TreeChanges> {
     let commits = if let Some((_, segment)) = workspace.find_segment_and_stack_by_refname(branch) {

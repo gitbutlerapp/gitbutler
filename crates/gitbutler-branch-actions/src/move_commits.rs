@@ -1,19 +1,13 @@
-use std::collections::HashMap;
-
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_ctx::{Context, access::WorktreeWritePermission};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
-use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use serde::Serialize;
 
-use crate::{
-    BranchStatus, VirtualBranchesExt, compute_workspace_dependencies,
-    dependencies::commit_dependencies_from_workspace,
-};
+use crate::VirtualBranchesExt;
 
 /// move a commit from one stack to another
 ///
@@ -37,8 +31,6 @@ pub(crate) fn move_commit(
         bail!("Destination branch not found");
     }
 
-    let default_target = vb_state.get_default_target()?;
-
     let mut source_stack = vb_state
         .try_stack(source_stack_id)?
         .ok_or(anyhow!("Source stack not found"))?;
@@ -51,23 +43,7 @@ pub(crate) fn move_commit(
         .find_commit(subject_commit_oid)
         .with_context(|| format!("commit {subject_commit_oid} to be moved could not be found"))?;
 
-    let source_branch_diffs = get_source_branch_diffs(ctx, &source_stack)?;
-
-    let workspace_dependencies = compute_workspace_dependencies(
-        ctx,
-        &default_target.sha,
-        &source_branch_diffs,
-        &applied_stacks,
-    )?;
-
-    if let Some(illegal_action) = take_commit_from_source_stack(
-        ctx,
-        &mut source_stack,
-        subject_commit,
-        &workspace_dependencies,
-    )? {
-        return Ok(Some(illegal_action));
-    }
+    take_commit_from_source_stack(ctx, &mut source_stack, subject_commit)?;
 
     move_commit_to_destination_stack(&vb_state, ctx, destination_stack, subject_commit_oid)?;
 
@@ -78,26 +54,6 @@ pub(crate) fn move_commit(
         .context("failed to update gitbutler workspace")?;
 
     Ok(None)
-}
-
-fn get_source_branch_diffs(
-    ctx: &Context,
-    source_stack: &gitbutler_stack::Stack,
-) -> Result<BranchStatus> {
-    let repo = &*ctx.git2_repo.get()?;
-    let source_stack_head = repo.find_commit(source_stack.head_oid(ctx)?.to_git2())?;
-    let source_stack_head_tree = source_stack_head.tree()?;
-    let uncommitted_changes_tree = repo.find_tree(source_stack.tree(ctx)?)?;
-
-    let uncommitted_changes_diff = gitbutler_diff::trees(
-        repo,
-        &source_stack_head_tree,
-        &uncommitted_changes_tree,
-        true,
-    )
-    .map(|diff| gitbutler_diff::diff_files_into_hunks(&diff).collect::<HashMap<_, _>>())?;
-
-    Ok(uncommitted_changes_diff)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -118,40 +74,7 @@ fn take_commit_from_source_stack(
     ctx: &Context,
     source_stack: &mut gitbutler_stack::Stack,
     subject_commit: git2::Commit<'_>,
-    workspace_dependencies: &HunkDependencyResult,
 ) -> Result<Option<MoveCommitIllegalAction>, anyhow::Error> {
-    let commit_dependencies = commit_dependencies_from_workspace(
-        workspace_dependencies,
-        source_stack.id,
-        subject_commit.id(),
-    );
-
-    if !commit_dependencies.dependencies.is_empty() {
-        return Ok(Some(MoveCommitIllegalAction::DependsOnCommits(
-            commit_dependencies
-                .dependencies
-                .iter()
-                .map(|d| d.to_string())
-                .collect(),
-        )));
-    }
-
-    if !commit_dependencies.reverse_dependencies.is_empty() {
-        return Ok(Some(MoveCommitIllegalAction::HasDependentChanges(
-            commit_dependencies
-                .reverse_dependencies
-                .iter()
-                .map(|d| d.to_string())
-                .collect(),
-        )));
-    }
-
-    if !commit_dependencies.dependent_diffs.is_empty() {
-        return Ok(Some(
-            MoveCommitIllegalAction::HasDependentUncommittedChanges,
-        ));
-    }
-
     let merge_base = source_stack.merge_base(ctx)?;
     let gix_repo = ctx.repo.get()?;
     let steps = source_stack

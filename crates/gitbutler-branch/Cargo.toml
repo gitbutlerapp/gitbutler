@@ -14,7 +14,6 @@ doctest = false
 but-meta.workspace = true
 
 gitbutler-reference.workspace = true
-gitbutler-diff.workspace = true
 gitbutler-stack.workspace = true
 
 anyhow.workspace = true

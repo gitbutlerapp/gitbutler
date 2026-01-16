@@ -12,7 +12,6 @@ pub use actions::{
 mod squash;
 
 mod r#virtual;
-pub use r#virtual::{BranchStatus, VirtualBranchHunksByPathMap};
 /// Avoid using these!
 /// This was previously `pub use r#virtual::*;`
 pub mod internal {
@@ -20,30 +19,23 @@ pub mod internal {
 }
 
 mod branch_manager;
-pub use branch_manager::{BranchManager, BranchManagerExt, CreateBranchFromBranchOutcome};
+pub use branch_manager::{BranchManagerExt, CreateBranchFromBranchOutcome};
 
 pub mod base;
 pub use base::BaseBranch;
 
-mod dependencies;
-pub use dependencies::compute_workspace_dependencies;
-
 pub mod upstream_integration;
 
 mod integration;
-pub use integration::{update_workspace_commit, verify_branch};
-
-mod file;
-pub use file::{Get, RemoteBranchFile};
+pub use integration::{GITBUTLER_WORKSPACE_COMMIT_TITLE, update_workspace_commit};
 
 mod remote;
-pub use remote::{RemoteBranchData, RemoteCommit};
 
 pub mod branch_upstream_integration;
 mod move_branch;
 mod move_commits;
 pub mod reorder;
-pub use reorder::{SeriesOrder, StackOrder};
+pub use reorder::StackOrder;
 mod undo_commit;
 
 mod author;
@@ -60,13 +52,10 @@ impl VirtualBranchesExt for gitbutler_project::Project {
 }
 
 mod branch;
-mod hunk;
 pub use branch::{
     Author, BranchListing, BranchListingDetails, BranchListingFilter, get_branch_listing_details,
     list_branches,
 };
-pub use hunk::{VirtualBranchHunkRange, VirtualBranchHunkRangeMap};
-pub use integration::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 pub use move_branch::MoveBranchResult;
 pub use move_commits::MoveCommitIllegalAction;
 

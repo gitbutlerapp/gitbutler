@@ -45,6 +45,7 @@
 		onselect?: (change: TreeChange, index: number) => void;
 		allowUnselect?: boolean;
 		showLockedIndicator?: boolean;
+		dataTestId?: string;
 	};
 
 	const {
@@ -59,7 +60,8 @@
 		ancestorMostConflictedCommitId,
 		onselect,
 		allowUnselect = true,
-		showLockedIndicator = false
+		showLockedIndicator = false,
+		dataTestId
 	}: Props = $props();
 
 	const focusManager = inject(FOCUS_MANAGER);
@@ -271,6 +273,7 @@
 	{@const lockedStackIds = showLockedIndicator
 		? getLockedStackIds(change.path, fileDependencies)
 		: []}
+	{@const isLast = listMode === 'list' && idx === visibleFiles.length - 1}
 	<FileListItemWrapper
 		{selectionId}
 		{change}
@@ -283,7 +286,7 @@
 		{locked}
 		{lockedCommitIds}
 		{lockedStackIds}
-		hideBorder={idx === visibleFiles.length - 1}
+		{isLast}
 		draggable={draggableFiles}
 		executable={isExecutable}
 		showCheckbox={showCheckboxes}
@@ -313,6 +316,8 @@
 {/snippet}
 
 <div
+	data-testid={dataTestId}
+	class="file-list"
 	use:focusable={{
 		vertical: true,
 		onActive: (value) => (active = value)
@@ -320,8 +325,9 @@
 >
 	<!-- Conflicted changes -->
 	{#if Object.keys(unrepresentedConflictedEntries).length > 0}
+		{@const entries = Object.entries(unrepresentedConflictedEntries)}
 		<div class="conflicted-entries">
-			{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
+			{#each entries as [path, kind], i}
 				<FileListItem
 					draggable={draggableFiles}
 					filePath={path}
@@ -330,12 +336,14 @@
 					conflicted
 					conflictHint={conflictEntryHint(kind)}
 					listMode="list"
+					isLast={!ancestorMostConflictedCommitId && i === entries.length - 1}
 					onclick={(e) => {
 						e.stopPropagation();
 						showEditPatchConfirmation(path);
 					}}
 				/>
 			{/each}
+
 			{#if ancestorMostConflictedCommitId}
 				<div class="conflicted-entries__action">
 					<p class="text-12 text-body clr-text-2">
@@ -417,6 +425,11 @@
 />
 
 <style lang="postcss">
+	.file-list {
+		display: flex;
+		flex-direction: column;
+	}
+
 	.conflicted-entries {
 		display: flex;
 		flex-direction: column;
@@ -427,6 +440,7 @@
 		flex-direction: column;
 		justify-content: center;
 		padding: 12px;
+		padding-top: 4px;
 		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}

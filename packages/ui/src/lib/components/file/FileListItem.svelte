@@ -34,8 +34,8 @@
 		locked?: boolean;
 		lockText?: string;
 		active?: boolean;
-		hideBorder?: boolean;
 		executable?: boolean;
+		isLast?: boolean;
 		actionOpts?: FocusableOptions;
 		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
@@ -58,7 +58,6 @@
 		filePath,
 		fileStatus,
 		fileStatusTooltip,
-		hideBorder,
 		fileStatusStyle = 'dot',
 		pathFirst = true,
 		draggable = false,
@@ -76,6 +75,7 @@
 		listMode = 'list',
 		depth,
 		executable,
+		isLast = false,
 		actionOpts,
 		oncheck,
 		oncheckclick,
@@ -102,8 +102,14 @@
 	class:focused
 	class:draggable
 	class:conflicted
-	class:hide-border={hideBorder}
 	class:list-mode={listMode === 'list'}
+	class:is-last={isLast}
+	style:--file-list-item-selected-fg={selected && active
+		? 'var(--clr-theme-pop-on-element)'
+		: undefined}
+	style:--file-list-item-selected-bg={selected && active
+		? 'var(--clr-theme-pop-element)'
+		: undefined}
 	aria-selected={selected}
 	role="option"
 	tabindex="0"
@@ -132,12 +138,24 @@
 			{/if}
 
 			{#if showCheckbox}
-				<Checkbox small {checked} {indeterminate} onchange={oncheck} onclick={oncheckclick} />
+				<Checkbox
+					small
+					{checked}
+					{indeterminate}
+					onchange={oncheck}
+					onclick={oncheckclick}
+					invertColors={selected && active}
+				/>
 			{/if}
 		</div>
 	{/if}
 
-	<FileName {filePath} hideFilePath={listMode === 'tree'} {pathFirst} />
+	<FileName
+		{filePath}
+		hideFilePath={listMode === 'tree'}
+		{pathFirst}
+		color="var(--file-list-item-selected-fg)"
+	/>
 
 	<div class="file-list-item__details">
 		{#if executable}
@@ -147,11 +165,16 @@
 		{#if conflicted}
 			<Tooltip text={conflictHint}>
 				<div class="conflicted-icon">
-					<Icon name="warning-small" color="danger" />
+					<Icon name="warning-small" />
 				</div>
 			</Tooltip>
 		{:else if fileStatus}
-			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style={fileStatusStyle} />
+			<FileStatusBadge
+				tooltip={fileStatusTooltip}
+				status={fileStatus}
+				style={fileStatusStyle}
+				color="var(--file-list-item-selected-fg)"
+			/>
 		{/if}
 
 		{#if locked}
@@ -167,6 +190,7 @@
 				</div>
 			</Tooltip>
 		{/if}
+
 		{#if onresolveclick}
 			{#if !conflicted}
 				<Tooltip text="Conflict resolved">
@@ -175,7 +199,7 @@
 			{:else}
 				<Button
 					type="button"
-					class="mark-resolved-btn"
+					class="m-l-4 m-r-4"
 					size="tag"
 					onclick={(e) => {
 						e.stopPropagation();
@@ -195,21 +219,34 @@
 		display: flex;
 		position: relative;
 		align-items: center;
-		height: 32px;
-		padding: 0 10px 0 14px;
-		overflow: hidden;
+		height: 30px;
+		padding: 0 8px 0 14px;
 		gap: 8px;
-		outline: none;
+
 		background-color: var(--clr-bg-1);
 		text-align: left;
 		user-select: none;
 
-		& :global(.mark-resolved-btn) {
-			margin: 0 4px;
+		&:focus-visible {
+			outline: none;
+		}
+
+		&.list-mode {
+			border-bottom: 1px solid var(--clr-border-3);
+
+			&.is-last {
+				border-bottom: none;
+			}
 		}
 
 		&.clickable {
 			cursor: pointer;
+
+			&:hover {
+				& .draggable-handle {
+					display: flex;
+				}
+			}
 
 			&:not(.selected):hover {
 				background-color: var(--hover-bg-1);
@@ -222,50 +259,51 @@
 
 		&.conflicted {
 			background-color: var(--clr-theme-danger-bg);
+
+			&.selected {
+				background-color: var(--clr-theme-danger-element);
+			}
 		}
 
 		&.selected {
-			background-color: var(--clr-selected-not-in-focus-bg);
+			background-color: var(--clr-bg-2);
 		}
 
 		&.active.selected {
-			background-color: var(--clr-selected-in-focus-bg);
+			border-bottom: 1px solid color-mix(in srgb, var(--file-list-item-selected-bg) 70%, white);
+			background-color: var(--file-list-item-selected-bg);
 		}
 
-		&.list-mode:not(.hide-border) {
-			border-bottom: 1px solid var(--clr-border-3);
+		&.active.selected.list-mode.is-last {
+			border-bottom: none;
 		}
 
 		.draggable-handle {
-			display: flex;
+			display: none;
 			position: absolute;
-			left: 0;
+			top: 50%;
+			left: 4px;
 			align-items: center;
 			justify-content: center;
-			height: 24px;
-			color: var(--clr-text-3);
-			opacity: 0;
-			transition: opacity var(--transition-fast);
-		}
-
-		&.draggable {
-			&:hover {
-				& .draggable-handle {
-					opacity: 1;
-				}
-			}
+			width: 6px;
+			transform: translateY(-50%);
+			color: var(--file-list-item-selected-fg, var(--clr-text-2));
+			opacity: 0.6;
 		}
 
 		.conflicted-icon {
 			display: flex;
 			margin-right: -2px;
+			color: var(--file-list-item-selected-fg, var(--clr-theme-danger-element));
 		}
 	}
 
 	.file-list-item__indicators {
 		display: flex;
 		align-items: center;
+		height: 100%;
 		gap: 6px;
+		/* background-color: rgba(64, 224, 208, 0.218); */
 	}
 
 	.file-list-item__details {
@@ -276,7 +314,7 @@
 
 		& .locked {
 			display: flex;
-			color: var(--clr-change-icon-modification);
+			color: var(--file-list-item-selected-fg, var(--clr-change-icon-modification));
 		}
 	}
 </style>

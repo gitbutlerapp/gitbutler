@@ -95,11 +95,11 @@
 								You have uncommitted changes:
 							</p>
 							<div class="switchrepo__file-list">
-								{#each uncommittedChanges as change}
+								{#each uncommittedChanges as change, i}
 									<FileListItem
 										filePath={change.path}
 										clickable={false}
-										hideBorder={change === uncommittedChanges[uncommittedChanges.length - 1]}
+										isLast={i === uncommittedChanges.length - 1}
 									/>
 								{/each}
 							</div>
@@ -111,16 +111,13 @@
 									<ReduxResult result={mode.result} {projectId}>
 										{#snippet children(mode, _env)}
 											{#if mode.type === 'OutsideWorkspace'}
-												{#each mode.subject.worktreeConflicts || [] as path}
+												{#each mode.subject.worktreeConflicts || [] as path, i}
 													<FileListItem
 														filePath={path}
 														clickable={false}
 														conflicted
 														conflictHint="Resolve to apply"
-														hideBorder={path ===
-															mode.subject.worktreeConflicts[
-																mode.subject.worktreeConflicts.length - 1
-															]}
+														isLast={i === (mode.subject.worktreeConflicts?.length ?? 0) - 1}
 													/>
 												{/each}
 											{/if}

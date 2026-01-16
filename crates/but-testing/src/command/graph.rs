@@ -71,36 +71,31 @@ pub fn doit(
         eprintln!("{:#?}", graph.statistics());
     }
 
-    let workspace = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
     if no_debug_workspace {
         eprintln!(
             "Workspace with {} stacks and {} segments across all stacks with {} commits total",
-            workspace.stacks.len(),
-            workspace
-                .stacks
-                .iter()
-                .map(|s| s.segments.len())
-                .sum::<usize>(),
-            workspace
-                .stacks
+            ws.stacks.len(),
+            ws.stacks.iter().map(|s| s.segments.len()).sum::<usize>(),
+            ws.stacks
                 .iter()
                 .flat_map(|s| s.segments.iter().map(|s| s.commits.len()))
                 .sum::<usize>(),
         );
     } else {
-        eprintln!("{workspace:#?}");
+        eprintln!("{ws:#?}");
     }
 
     match dot {
         Some(Dot::Print) => {
-            stdout().write_all(graph.dot_graph().as_bytes())?;
+            stdout().write_all(ws.graph.dot_graph().as_bytes())?;
         }
         Some(Dot::OpenAsSVG) => {
             #[cfg(unix)]
-            graph.open_as_svg();
+            ws.graph.open_as_svg();
         }
         Some(Dot::Debug) => {
-            eprintln!("{graph:#?}");
+            eprintln!("{graph:#?}", graph = ws.graph);
         }
         None => {}
     }

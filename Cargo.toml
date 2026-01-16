@@ -50,7 +50,6 @@ gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-filemonitor = { path = "crates/gitbutler-filemonitor" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 gitbutler-branch-actions = { path = "crates/gitbutler-branch-actions" }
-gitbutler-sync = { path = "crates/gitbutler-sync" }
 gitbutler-oplog = { path = "crates/gitbutler-oplog" }
 gitbutler-repo = { path = "crates/gitbutler-repo" }
 gitbutler-repo-actions = { path = "crates/gitbutler-repo-actions" }
@@ -58,20 +57,19 @@ gitbutler-project = { path = "crates/gitbutler-project" }
 gitbutler-user = { path = "crates/gitbutler-user" }
 gitbutler-branch = { path = "crates/gitbutler-branch" }
 gitbutler-reference = { path = "crates/gitbutler-reference" }
-gitbutler-time = { path = "crates/gitbutler-time" }
 gitbutler-commit = { path = "crates/gitbutler-commit" }
 gitbutler-url = { path = "crates/gitbutler-url" }
-gitbutler-diff = { path = "crates/gitbutler-diff" }
 gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
 gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
 gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
-gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 
+backoff = "0.4.0"
 bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { version = "0.77.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }
+gix = { version = "0.77.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [
+] }
 ts-rs = { version = "11.1.0", features = ["serde-compat", "no-serde-warnings"] }
 gix-testtools = "0.17.0"
 insta = "1.45.1"
