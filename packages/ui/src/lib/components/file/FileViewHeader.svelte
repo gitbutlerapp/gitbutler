@@ -108,6 +108,7 @@
 		z-index: var(--z-lifted);
 		align-items: center;
 		width: 100%;
+		overflow: hidden;
 		gap: 12px;
 		background-color: var(--clr-bg-2);
 

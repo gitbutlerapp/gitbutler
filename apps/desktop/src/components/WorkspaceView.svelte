@@ -50,6 +50,7 @@
 		selectable={false}
 		showBorder={false}
 		showRoundedEdges={false}
+		showFloatingClose
 	/>
 {/snippet}
 

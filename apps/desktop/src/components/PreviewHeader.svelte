@@ -10,6 +10,7 @@
 		headerHeight?: number;
 		transparent?: boolean;
 		sticky?: boolean;
+		reserveSpaceOnStuck?: boolean;
 		closeButtonPlaceholder?: boolean;
 		scrollRoot?: HTMLElement | null;
 		onclose?: () => void;
@@ -26,6 +27,7 @@
 		headerHeight = $bindable(),
 		transparent,
 		sticky,
+		reserveSpaceOnStuck,
 		closeButtonPlaceholder,
 		scrollRoot,
 		onclose,
@@ -37,7 +39,7 @@
 	let isStuck = $state(false);
 
 	onMount(() => {
-		if (!sticky || !sentinelDiv) return;
+		if (!reserveSpaceOnStuck || !sentinelDiv) return;
 
 		const observer = new IntersectionObserver(
 			([entry]) => {
@@ -59,7 +61,7 @@
 	});
 </script>
 
-{#if sticky}
+{#if reserveSpaceOnStuck}
 	<div bind:this={sentinelDiv} class="sticky-sentinel"></div>
 {/if}
 
@@ -68,6 +70,7 @@
 	bind:this={headerDiv}
 	class="drawer-header"
 	class:sticky
+	class:stuck={isStuck}
 	bind:clientHeight={headerHeight}
 	use:focusable
 	{ondblclick}
@@ -78,9 +81,11 @@
 	</div>
 
 	{#if actions || onclose || closeButtonPlaceholder}
-		<div class="drawer-header__actions actions-with-separators">
+		<div class="drawer-header__actions">
 			{#if actions}
-				{@render actions(headerDiv)}
+				<div class="drawer-header__optional-actions">
+					{@render actions(headerDiv)}
+				</div>
 			{/if}
 
 			{#if (onclose && actions) || (closeButtonPlaceholder && isStuck)}
@@ -102,7 +107,7 @@
 	.sticky-sentinel {
 		visibility: hidden;
 		position: absolute;
-		top: -20px;
+		top: -26px;
 		width: 1px;
 		height: 1px;
 		pointer-events: none;
@@ -116,14 +121,18 @@
 		height: 42px;
 		padding: 0 12px 0 14px;
 		gap: 8px;
-		border-bottom: 1px solid transparent;
-		border-bottom-color: var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
+		transition: box-shadow var(--transition-medium);
 
 		&.sticky {
 			z-index: var(--z-ground);
 			position: sticky;
 			top: 0;
+		}
+
+		&.stuck {
+			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
 		}
 	}
 
@@ -142,6 +151,12 @@
 		align-items: center;
 		margin-right: -2px; /* buttons have some paddings that look not aligned. With this we "remove" them */
 		gap: 10px;
+	}
+
+	.drawer-header__optional-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
 	}
 
 	.drawer-header__actions :global(.divider) {

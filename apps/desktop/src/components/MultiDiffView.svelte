@@ -27,6 +27,7 @@
 		selectable: boolean;
 		showBorder?: boolean;
 		showRoundedEdges?: boolean;
+		showFloatingClose?: boolean;
 		startIndex?: number;
 		selectionId: SelectionId;
 	};
@@ -39,6 +40,7 @@
 		selectable,
 		showBorder = true,
 		showRoundedEdges = true,
+		showFloatingClose = false,
 		startIndex,
 		selectionId
 	}: Props = $props();
@@ -61,9 +63,11 @@
 	class:no-border={!showBorder}
 	class:no-rounded={!showRoundedEdges}
 >
-	<div class="floating-close">
-		<Button kind="ghost" icon="cross" size="tag" />
-	</div>
+	{#if showFloatingClose}
+		<div class="floating-close">
+			<Button kind="ghost" icon="cross" size="tag" />
+		</div>
+	{/if}
 
 	{#if changes && changes.length > 0}
 		<VirtualList
@@ -79,7 +83,13 @@
 				{@const diffData = diffQuery.response}
 				{@const isExecutable = isExecutableStatus(change.status)}
 				{@const patchData = diffData?.type === 'Patch' ? diffData.subject : null}
-				<Drawer noshrink stickyHeader closeButtonPlaceholder scrollRoot={scrollContainer}>
+				<Drawer
+					noshrink
+					stickyHeader
+					reserveSpaceOnStuck={showFloatingClose}
+					closeButtonPlaceholder
+					scrollRoot={scrollContainer}
+				>
 					{#snippet header()}
 						<FileViewHeader
 							filePath={change.path}
