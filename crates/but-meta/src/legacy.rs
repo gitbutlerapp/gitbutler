@@ -253,7 +253,7 @@ impl Snapshot {
             but_graph::init::Options::limited(),
         )?;
 
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
         let mut seen = BTreeSet::new();
 
         if let Some((computed_lower_bound, target)) =

@@ -9,19 +9,19 @@ use termtree::Tree;
 type StringTree = Tree<String>;
 
 /// Visualize `graph` as a tree.
-pub fn graph_workspace(workspace: &but_graph::projection::Workspace<'_>) -> StringTree {
+pub fn graph_workspace(workspace: &but_graph::projection::Workspace) -> StringTree {
     graph_workspace_inner(workspace, None)
 }
 
 /// Visualize `graph` as a tree, and remap random stack ids to something deterministic.
 pub fn graph_workspace_determinisitcally(
-    workspace: &but_graph::projection::Workspace<'_>,
+    workspace: &but_graph::projection::Workspace,
 ) -> StringTree {
     graph_workspace_inner(workspace, Some(Default::default()))
 }
 
 fn graph_workspace_inner(
-    workspace: &but_graph::projection::Workspace<'_>,
+    workspace: &but_graph::projection::Workspace,
     mut stack_id_map: Option<BTreeMap<StackId, StackId>>,
 ) -> StringTree {
     let commit_flags = if workspace.graph.hard_limit_hit() {

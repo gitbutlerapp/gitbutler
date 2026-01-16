@@ -226,13 +226,26 @@ impl Context {
 
 /// Trampolines that create new uncached instances of major types.
 impl Context {
-    /// Create a new Graph traversal from the current HEAD.
+    /// Create a new workspace as seen from the current HEAD and return it,
+    /// along with read-only metadata.
     ///
-    /// Returns a new metadata instance, and the graph itself.
+    /// The read-permission is required to obtain a shared metadata instance.
+    pub fn workspace_and_meta_from_head(
+        &self,
+        _read_only: &WorktreeReadPermission,
+    ) -> anyhow::Result<(
+        impl but_core::RefMetadata + 'static,
+        but_graph::projection::Workspace,
+    )> {
+        let (meta, graph) = self.graph_and_read_only_meta_from_head(_read_only)?;
+        Ok((meta, graph.into_workspace()?))
+    }
+
+    /// Create a new graph as seen from the current HEAD and return it,
+    /// along with read-only metadata.
     ///
-    /// The read-permission is required to obtain a shared metadata instance. Note that it must be held
-    /// for until the end of the operation for the protection to be effective.
-    pub fn graph_and_meta_from_head(
+    /// The read-permission is required to obtain a shared metadata instance.
+    pub fn graph_and_read_only_meta_from_head(
         &self,
         _read_only: &WorktreeReadPermission,
     ) -> anyhow::Result<(impl but_core::RefMetadata + 'static, but_graph::Graph)> {

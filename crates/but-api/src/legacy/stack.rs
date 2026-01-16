@@ -75,20 +75,19 @@ pub fn create_reference(
         .transpose()?;
 
     let guard = ctx.exclusive_worktree_access();
-    let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
-    let graph = but_workspace::branch::create_reference(
+    let ws = but_workspace::branch::create_reference(
         new_ref.clone(),
         anchor,
         &repo,
-        &graph.to_workspace()?,
+        &ws,
         &mut meta,
         |_| StackId::generate(),
         None,
     )?;
 
-    let workspace = graph.to_workspace()?;
-    let stack_id = workspace
+    let stack_id = ws
         .find_segment_and_stack_by_refname(new_ref.as_ref())
         .and_then(|(stack, _)| stack.id);
 
@@ -105,9 +104,8 @@ pub fn create_branch(
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     use but_workspace::branch::create_reference::Position::Above;
     let mut guard = ctx.exclusive_worktree_access();
-    let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
-    let ws = graph.to_workspace()?;
     let stack = ws.try_find_stack_by_id(stack_id)?;
     let new_ref = Category::LocalBranch
         .to_full_name(request.name.as_str())
@@ -135,7 +133,7 @@ pub fn create_branch(
                 )
                 .or_else(|| {
                     Some(but_workspace::branch::create_reference::Anchor::AtCommit {
-                        commit_id: graph.tip_skip_empty(segment.id)?.id,
+                        commit_id: ws.graph.tip_skip_empty(segment.id)?.id,
                         position: Above,
                     })
                 })
@@ -160,9 +158,8 @@ pub fn create_branch(
 pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: String) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
-    let ws = graph.to_workspace()?;
     let ref_name = Category::LocalBranch
         .to_full_name(branch_name.as_str())
         .map_err(anyhow::Error::from)?;

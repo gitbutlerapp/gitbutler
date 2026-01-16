@@ -17,7 +17,7 @@ mod changes_in_branch {
         ");
 
         let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
 
         insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/A"))?, @r#"
         TreeChanges {

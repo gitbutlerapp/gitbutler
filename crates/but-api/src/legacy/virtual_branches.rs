@@ -39,9 +39,8 @@ pub fn create_virtual_branch(
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let stack_entry = {
         let guard = ctx.exclusive_worktree_access();
-        let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+        let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.read_permission())?;
         let repo = ctx.repo.get()?;
-        let ws = graph.to_workspace()?;
         let new_ref = Category::LocalBranch
             .to_full_name(
                 branch
@@ -52,7 +51,7 @@ pub fn create_virtual_branch(
             )
             .map_err(anyhow::Error::from)?;
 
-        let graph = but_workspace::branch::create_reference(
+        let ws = but_workspace::branch::create_reference(
             new_ref.as_ref(),
             None,
             &repo,
@@ -62,7 +61,6 @@ pub fn create_virtual_branch(
             branch.order,
         )?;
 
-        let ws = graph.to_workspace()?;
         let (stack_idx, segment_idx) = ws
             .find_segment_owner_indexes_by_refname(new_ref.as_ref())
             .context("BUG: didn't find a stack that was just created")?;

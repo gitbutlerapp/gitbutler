@@ -538,7 +538,7 @@ pub fn remove_reference(
     let deleted = but_workspace::branch::remove_reference(
         ref_name.as_ref(),
         &repo,
-        &graph.to_workspace()?,
+        &graph.into_workspace()?,
         &mut *meta,
         opts,
     )?
@@ -556,10 +556,9 @@ pub fn remove_reference(
 pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyhow::Result<()> {
     let ctx = but_ctx::Context::discover(&args.current_dir)?;
     let guard = ctx.exclusive_worktree_access();
-    let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
     let branch = repo.find_reference(short_name)?;
-    let ws = graph.to_workspace()?;
     let apply_outcome = but_workspace::branch::apply(
         branch.name(),
         &ws,
@@ -604,7 +603,7 @@ pub fn create_reference(
         .transpose()?;
 
     let new_ref = Category::LocalBranch.to_full_name(short_name)?;
-    let ws = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
     _ = but_workspace::branch::create_reference(
         new_ref.as_ref(),
         anchor,

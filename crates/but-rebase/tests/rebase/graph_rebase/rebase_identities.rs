@@ -44,9 +44,9 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     let options = standard_options().with_hard_limit(4);
     let graph = Graph::from_head(&repo, &*meta, options)?.validated()?;
-    let workspace = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
 
-    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
@@ -54,7 +54,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
             └── ❌·a96434e
     ");
 
-    let editor = graph.to_editor(&repo)?;
+    let editor = ws.graph.to_editor(&repo)?;
     let outcome = editor.rebase()?;
     outcome.materialize()?;
 
