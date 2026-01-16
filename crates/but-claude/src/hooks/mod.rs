@@ -369,7 +369,7 @@ pub fn handle_pre_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHo
         });
     }
 
-    file_lock::obtain(ctx, session_id, input.tool_input.file_path.clone())?;
+    file_lock::obtain_or_insert(ctx, session_id, input.tool_input.file_path.clone())?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,

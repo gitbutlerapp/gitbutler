@@ -1,10 +1,7 @@
-use diesel::{
-    ExpressionMethods, QueryDsl, RunQueryDsl,
-    prelude::{Insertable, Queryable, Selectable},
-};
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, M, schema::file_write_locks::dsl::file_write_locks};
+use crate::handle::Transaction;
+use crate::{DbHandle, M};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
     20250704130757,
@@ -15,9 +12,8 @@ pub(crate) const M: &[M<'static>] = &[M::up(
 );",
 )];
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::file_write_locks)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+/// Tests are in `but-db/tests/db/table/file_write_lock.rs`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FileWriteLock {
     pub path: String,
     pub created_at: chrono::NaiveDateTime,
@@ -25,31 +21,71 @@ pub struct FileWriteLock {
 }
 
 impl DbHandle {
-    pub fn file_write_locks(&mut self) -> FileWriteLocksHandle<'_> {
-        FileWriteLocksHandle { db: self }
+    pub fn file_write_locks(&self) -> FileWriteLocksHandle<'_> {
+        FileWriteLocksHandle { conn: &self.conn }
+    }
+
+    pub fn file_write_locks_mut(&mut self) -> FileWriteLocksHandleMut<'_> {
+        FileWriteLocksHandleMut { conn: &self.conn }
     }
 }
 
-pub struct FileWriteLocksHandle<'a> {
-    db: &'a mut DbHandle,
+impl<'conn> Transaction<'conn> {
+    pub fn file_write_locks(&self) -> FileWriteLocksHandle<'_> {
+        FileWriteLocksHandle { conn: &self.0 }
+    }
+
+    pub fn file_write_locks_mut(&mut self) -> FileWriteLocksHandleMut<'_> {
+        FileWriteLocksHandleMut { conn: &self.0 }
+    }
+}
+
+pub struct FileWriteLocksHandle<'conn> {
+    conn: &'conn rusqlite::Connection,
+}
+
+pub struct FileWriteLocksHandleMut<'conn> {
+    conn: &'conn rusqlite::Connection,
 }
 
 impl FileWriteLocksHandle<'_> {
-    pub fn insert(&mut self, lock: FileWriteLock) -> Result<(), diesel::result::Error> {
-        diesel::insert_into(file_write_locks)
-            .values(lock)
-            .execute(&mut self.db.diesel)?;
+    /// Lists all file write locks.
+    pub fn list(&self) -> anyhow::Result<Vec<FileWriteLock>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT path, created_at, owner FROM file_write_locks")?;
+
+        let results = stmt.query_map([], |row| {
+            Ok(FileWriteLock {
+                path: row.get(0)?,
+                created_at: row.get(1)?,
+                owner: row.get(2)?,
+            })
+        })?;
+
+        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+}
+
+impl FileWriteLocksHandleMut<'_> {
+    /// Enable read-only access functions.
+    pub fn to_ref(&self) -> FileWriteLocksHandle<'_> {
+        FileWriteLocksHandle { conn: self.conn }
+    }
+
+    /// Inserts or replaces a file write lock.
+    pub fn insert(&mut self, lock: FileWriteLock) -> anyhow::Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO file_write_locks (path, created_at, owner) VALUES (?1, ?2, ?3)",
+            rusqlite::params![lock.path, lock.created_at, lock.owner],
+        )?;
         Ok(())
     }
 
-    pub fn delete(&mut self, path: &str) -> Result<(), diesel::result::Error> {
-        diesel::delete(file_write_locks.filter(crate::schema::file_write_locks::path.eq(path)))
-            .execute(&mut self.db.diesel)?;
+    /// Deletes a file write lock by path.
+    pub fn delete(&mut self, path: &str) -> anyhow::Result<()> {
+        self.conn
+            .execute("DELETE FROM file_write_locks WHERE path = ?1", [path])?;
         Ok(())
-    }
-
-    pub fn list(&mut self) -> Result<Vec<FileWriteLock>, diesel::result::Error> {
-        let locks = file_write_locks.load::<FileWriteLock>(&mut self.db.diesel)?;
-        Ok(locks)
     }
 }

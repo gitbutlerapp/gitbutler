@@ -1,5 +1,7 @@
 //! Use this file only for this one tests, as it **fork-execs**!
 //! Otherwise, some tools may have problems, or it seems to hang there.
+//!
+//! # WARNING: Flaky the first time it runs locally
 use but_db::DbHandle;
 
 #[cfg(unix)]
