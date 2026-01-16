@@ -86,8 +86,8 @@ impl Claudes {
         self.requests.lock().await.remove(&stack_id);
         if let Err(res) = res {
             let rule = {
-                let mut ctx = sync_ctx.clone().into_thread_local();
-                list_claude_assignment_rules(&mut ctx)
+                let ctx = sync_ctx.clone().into_thread_local();
+                list_claude_assignment_rules(&ctx)
                     .ok()
                     .and_then(|rules| rules.into_iter().find(|rule| rule.stack_id == stack_id))
             };
@@ -122,7 +122,7 @@ impl Claudes {
         let (rule, session) = {
             let mut ctx = sync_ctx.clone().into_thread_local();
             let rule = {
-                list_claude_assignment_rules(&mut ctx)?
+                list_claude_assignment_rules(&ctx)?
                     .into_iter()
                     .find(|rule| rule.stack_id == stack_id)
             };
@@ -168,7 +168,7 @@ impl Claudes {
         let messages = {
             let mut ctx = sync_ctx.clone().into_thread_local();
             let rule = {
-                list_claude_assignment_rules(&mut ctx)?
+                list_claude_assignment_rules(&ctx)?
                     .into_iter()
                     .find(|rule| rule.stack_id == stack_id)
             };

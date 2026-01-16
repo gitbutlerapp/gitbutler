@@ -1,8 +1,10 @@
-use crate::{DbHandle, FILE_NAME, Transaction, migration};
+use crate::{DbHandle, Transaction, migration};
 use diesel::connection::SimpleConnection;
 use diesel::{Connection, SqliteConnection};
 use std::path::{Path, PathBuf};
 use tracing::instrument;
+
+const FILE_NAME: &str = "but.sqlite";
 
 impl std::fmt::Debug for DbHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

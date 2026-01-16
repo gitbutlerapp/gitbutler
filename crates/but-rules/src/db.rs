@@ -29,10 +29,10 @@ impl TryFrom<crate::WorkspaceRule> for but_db::WorkspaceRule {
     }
 }
 
-pub fn workspace_rules(ctx: &mut Context) -> Result<Vec<crate::WorkspaceRule>> {
+pub fn workspace_rules(ctx: &Context) -> Result<Vec<crate::WorkspaceRule>> {
     let rules = ctx
         .db
-        .get_mut()?
+        .get()?
         .workspace_rules()
         .list()?
         .into_iter()

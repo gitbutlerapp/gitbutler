@@ -5,6 +5,7 @@ mod file_write_lock;
 mod forge_review;
 mod gerrit_metadata;
 mod hunk_assignments;
+mod workspace_rules;
 
 /// Return a valid DB handle with all migations applied, ready for use, and *in-memory* only.
 fn in_memory_db() -> DbHandle {

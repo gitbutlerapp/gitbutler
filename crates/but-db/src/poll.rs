@@ -92,7 +92,7 @@ impl DbHandle {
                                         continue;
                                     }
                                 }
-                                Err(e) => tx.send(Err(anyhow::Error::from(e))),
+                                Err(e) => tx.send(Err(e)),
                             }
                         } else if kind & to_check == ItemKind::ClaudePermissionRequests {
                             let res = db.claude_permission_requests().list();
@@ -196,7 +196,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(anyhow::Error::from(e))).await,
+                            Err(e) => tx.send(Err(e)).await,
                         }
                     } else if kind & to_check == ItemKind::ClaudePermissionRequests {
                         let res = this.claude_permission_requests().list();

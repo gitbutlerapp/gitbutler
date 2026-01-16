@@ -199,20 +199,14 @@ pub fn create_rule(ctx: &mut Context, req: CreateRuleRequest) -> anyhow::Result<
 
     ctx.db
         .get_mut()?
-        .workspace_rules()
-        .insert(rule.clone().try_into()?)
-        .map_err(|e| anyhow::anyhow!("Failed to insert workspace rule: {}", e))?;
+        .workspace_rules_mut()
+        .insert(rule.clone().try_into()?)?;
     process_rules(ctx).ok(); // Reevaluate rules after creating
     Ok(rule)
 }
 
-/// Deletes an existing workspace rule by its ID.
 pub fn delete_rule(ctx: &mut Context, id: &str) -> anyhow::Result<()> {
-    ctx.db
-        .get_mut()?
-        .workspace_rules()
-        .delete(id)
-        .map_err(|e| anyhow::anyhow!("Failed to delete workspace rule: {}", e))?;
+    ctx.db.get_mut()?.workspace_rules_mut().delete(id)?;
     Ok(())
 }
 
@@ -246,13 +240,13 @@ impl From<WorkspaceRule> for UpdateRuleRequest {
 
 /// Updates an existing workspace rule with the provided request data.
 pub fn update_rule(ctx: &mut Context, req: UpdateRuleRequest) -> anyhow::Result<WorkspaceRule> {
-    let mut rule: WorkspaceRule = ctx
-        .db
-        .get_mut()?
-        .workspace_rules()
-        .get(&req.id)?
-        .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", req.id))?
-        .try_into()?;
+    let mut rule: WorkspaceRule = {
+        let db = ctx.db.get_mut()?;
+        db.workspace_rules()
+            .get(&req.id)?
+            .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", req.id))?
+            .try_into()?
+    };
 
     if let Some(enabled) = req.enabled {
         rule.enabled = enabled;
@@ -269,18 +263,17 @@ pub fn update_rule(ctx: &mut Context, req: UpdateRuleRequest) -> anyhow::Result<
 
     ctx.db
         .get_mut()?
-        .workspace_rules()
-        .update(&req.id, rule.clone().try_into()?)
-        .map_err(|e| anyhow::anyhow!("Failed to update workspace rule: {}", e))?;
+        .workspace_rules_mut()
+        .update(&req.id, rule.clone().try_into()?)?;
     process_rules(ctx).ok(); // Reevaluate rules after updating
     Ok(rule)
 }
 
 /// Retrieves a workspace rule by its ID.
-pub fn get_rule(ctx: &mut Context, id: &str) -> anyhow::Result<WorkspaceRule> {
+pub fn get_rule(ctx: &Context, id: &str) -> anyhow::Result<WorkspaceRule> {
     let rule = ctx
         .db
-        .get_mut()?
+        .get()?
         .workspace_rules()
         .get(id)?
         .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", id))?
@@ -289,10 +282,10 @@ pub fn get_rule(ctx: &mut Context, id: &str) -> anyhow::Result<WorkspaceRule> {
 }
 
 /// Lists all workspace rules in the database.
-pub fn list_rules(ctx: &mut Context) -> anyhow::Result<Vec<WorkspaceRule>> {
+pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
     let rules = ctx
         .db
-        .get_mut()?
+        .get()?
         .workspace_rules()
         .list()?
         .into_iter()
