@@ -440,7 +440,7 @@ impl ClaudeMut<'_> {
     }
 
     pub fn delete_session_and_messages(&mut self, session_id: &str) -> anyhow::Result<()> {
-        // Here we'd have to use a changepoint, but the abstraction is a bit cumbersome
+        // Here we'd have to use a savepoint, but the abstraction is a bit cumbersome
         // to use for *all other cases*, so we do a hand-rolled implementation here.
         self.conn
             .execute("SAVEPOINT delete_session_and_messages", [])?;

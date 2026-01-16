@@ -61,6 +61,7 @@ impl DbHandle {
 /// Utilities
 impl DbHandle {
     /// Create a new transaction which can be used to create new table handles on.
+    /// # IMPORTANT
     /// Don't forget to call [commit()](rusqlite::Transaction::commit()) to actually persist the result.
     /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
     pub fn transaction(&mut self) -> anyhow::Result<Transaction<'_>> {

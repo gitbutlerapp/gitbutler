@@ -190,6 +190,7 @@ pub fn record_push_metadata(
             }
         }
     }
+    trans.commit()?;
 
     Ok(())
 }

@@ -72,5 +72,6 @@ pub fn clear(
             .delete(&lock.path)
             .map_err(|e| anyhow::anyhow!("Failed to remove lock for path {}: {}", lock.path, e))?;
     }
+    trans.commit()?;
     Ok(())
 }

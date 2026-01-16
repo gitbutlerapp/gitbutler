@@ -140,7 +140,8 @@ impl CiChecksHandleMut<'_> {
     /// Sets the ci_checks table for a specific reference to the provided values.
     /// Any existing entries for this reference are deleted.
     ///
-    /// Can only happen once as we use a transaction internally.
+    /// Consumes this handle because it commits the internal savepoint/transaction,
+    /// which is also consuming.
     pub fn set_for_reference(self, ref_name: &str, checks: Vec<CiCheck>) -> anyhow::Result<()> {
         let sp = self.sp;
 
@@ -150,10 +151,10 @@ impl CiChecksHandleMut<'_> {
         // Insert new entries
         if !checks.is_empty() {
             let mut stmt = sp.prepare(
-                "INSERT INTO ci_checks (id, name, output_summary, output_text, output_title, 
-                                       started_at, status_type, status_conclusion, status_completed_at, 
-                                       head_sha, url, html_url, details_url, pull_requests, 
-                                       reference, last_sync_at, struct_version) 
+                "INSERT INTO ci_checks (id, name, output_summary, output_text, output_title,
+                                       started_at, status_type, status_conclusion, status_completed_at,
+                                       head_sha, url, html_url, details_url, pull_requests,
+                                       reference, last_sync_at, struct_version)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)"
             )?;
 
