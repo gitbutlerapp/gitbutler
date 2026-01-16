@@ -175,7 +175,7 @@
 		align-items: center;
 		width: 100%;
 		height: 42px;
-		padding: 0 10px 0 12px;
+		padding: 0 10px 0 14px;
 		gap: 6px;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
