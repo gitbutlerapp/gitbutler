@@ -30,6 +30,7 @@
 		transparent?: boolean;
 		stickyHeader?: boolean;
 		rounded?: boolean;
+		reserveSpaceOnStuck?: boolean;
 		closeButtonPlaceholder?: boolean;
 		scrollRoot?: HTMLElement | null;
 		onclose?: () => void;
@@ -56,6 +57,7 @@
 		transparent,
 		stickyHeader,
 		rounded,
+		reserveSpaceOnStuck,
 		closeButtonPlaceholder,
 		scrollRoot,
 		ontoggle,
@@ -124,6 +126,7 @@
 		bind:headerHeight
 		{transparent}
 		sticky={stickyHeader}
+		{reserveSpaceOnStuck}
 		{scrollRoot}
 		{onclose}
 		ondblclick={toggleCollapsed}
