@@ -44,7 +44,7 @@ impl WorkspaceRulesHandle<'_> {
     pub fn insert(&mut self, rule: WorkspaceRule) -> Result<(), diesel::result::Error> {
         diesel::insert_into(workspace_rules)
             .values(rule)
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -56,25 +56,25 @@ impl WorkspaceRulesHandle<'_> {
                 crate::schema::workspace_rules::filters.eq(rule.filters),
                 crate::schema::workspace_rules::action.eq(rule.action),
             ))
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
     pub fn delete(&mut self, id: &str) -> Result<(), diesel::result::Error> {
         diesel::delete(workspace_rules.filter(crate::schema::workspace_rules::id.eq(id)))
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
     pub fn list(&mut self) -> Result<Vec<WorkspaceRule>, diesel::result::Error> {
-        let rules = workspace_rules.load::<WorkspaceRule>(&mut self.db.conn)?;
+        let rules = workspace_rules.load::<WorkspaceRule>(&mut self.db.diesel)?;
         Ok(rules)
     }
 
     pub fn get(&mut self, id: &str) -> Result<Option<WorkspaceRule>, diesel::result::Error> {
         let rule = workspace_rules
             .filter(crate::schema::workspace_rules::id.eq(id))
-            .first::<WorkspaceRule>(&mut self.db.conn)
+            .first::<WorkspaceRule>(&mut self.db.diesel)
             .optional()?;
         Ok(rule)
     }

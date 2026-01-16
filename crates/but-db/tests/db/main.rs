@@ -1,5 +1,7 @@
 mod migration;
 
+mod table;
+
 mod init {
     use but_db::DbHandle;
 

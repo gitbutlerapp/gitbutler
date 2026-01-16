@@ -38,18 +38,18 @@ impl FileWriteLocksHandle<'_> {
     pub fn insert(&mut self, lock: FileWriteLock) -> Result<(), diesel::result::Error> {
         diesel::insert_into(file_write_locks)
             .values(lock)
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
     pub fn delete(&mut self, path: &str) -> Result<(), diesel::result::Error> {
         diesel::delete(file_write_locks.filter(crate::schema::file_write_locks::path.eq(path)))
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
     pub fn list(&mut self) -> Result<Vec<FileWriteLock>, diesel::result::Error> {
-        let locks = file_write_locks.load::<FileWriteLock>(&mut self.db.conn)?;
+        let locks = file_write_locks.load::<FileWriteLock>(&mut self.db.diesel)?;
         Ok(locks)
     }
 }

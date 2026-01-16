@@ -60,7 +60,7 @@ impl WorkflowsHandle<'_> {
     pub fn insert(&mut self, workflow: Workflow) -> anyhow::Result<()> {
         diesel::insert_into(workflows)
             .values(&workflow)
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -69,10 +69,10 @@ impl WorkflowsHandle<'_> {
             .order(schema::created_at.desc())
             .limit(limit)
             .offset(offset)
-            .load::<Workflow>(&mut self.db.conn)?;
+            .load::<Workflow>(&mut self.db.diesel)?;
         let total = workflows::table()
             .select(count_star())
-            .first::<i64>(&mut self.db.conn)?;
+            .first::<i64>(&mut self.db.diesel)?;
         Ok((total, out))
     }
 }

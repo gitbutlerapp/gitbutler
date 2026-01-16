@@ -10,7 +10,22 @@ impl std::fmt::Debug for DbHandle {
     }
 }
 
-/// A handle to the database connection.
+/// A wrapper for a [`rusqlite::Transaction`] to allow ORM handles to be created more easily.
+pub struct Transaction<'conn>(pub(crate) rusqlite::Transaction<'conn>);
+
+impl Transaction<'_> {
+    /// Consume the transaction and commit it, without recovery.
+    pub fn commit(self) -> Result<(), rusqlite::Error> {
+        self.0.commit()
+    }
+
+    /// Roll all changes so far back, making this instance unusable.
+    pub fn rollback(self) -> Result<(), rusqlite::Error> {
+        self.0.rollback()
+    }
+}
+
+/// Lifecycle
 impl DbHandle {
     /// Create a new instance connecting to a file-based database contained in `db_dir`.
     /// It will be created or updated automatically.
@@ -34,15 +49,25 @@ impl DbHandle {
     #[instrument(level = "debug", skip(url), err(Debug))]
     pub fn new_at_url(url: impl Into<String>) -> anyhow::Result<Self> {
         let url = url.into();
-        let mut conn = SqliteConnection::establish(&url)?;
-        improve_concurrency(&mut conn)?;
-        let rsconn = run_migrations(&url)?;
-        Ok(DbHandle { conn, rsconn, url })
+        let mut diesel = SqliteConnection::establish(&url)?;
+        improve_concurrency(&mut diesel)?;
+        let conn = run_migrations(&url)?;
+        Ok(DbHandle { diesel, conn, url })
     }
 
     /// Return the path to the standard database file.
     pub fn db_file_path(db_dir: impl AsRef<Path>) -> PathBuf {
         db_dir.as_ref().join(FILE_NAME)
+    }
+}
+
+/// Utilities
+impl DbHandle {
+    /// Create a new transaction which can be used to create new table handles on.
+    /// Don't forget to call [commit()](rusqlite::Transaction::commit()) to actually persist the result.
+    /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
+    pub fn transaction(&mut self) -> anyhow::Result<Transaction<'_>> {
+        Ok(Transaction(self.conn.transaction()?))
     }
 }
 

@@ -53,7 +53,7 @@ pub struct HunkAssignmentsHandle<'a> {
 impl HunkAssignmentsHandle<'_> {
     /// Lists all hunk assignments in the database.
     pub fn list_all(&mut self) -> anyhow::Result<Vec<HunkAssignment>> {
-        let results = hunk_assignments.load::<HunkAssignment>(&mut self.db.conn)?;
+        let results = hunk_assignments.load::<HunkAssignment>(&mut self.db.diesel)?;
         Ok(results)
     }
 
@@ -65,7 +65,7 @@ impl HunkAssignmentsHandle<'_> {
         use diesel::prelude::*;
 
         use crate::schema::hunk_assignments::dsl::hunk_assignments as all_assignments;
-        self.db.conn.transaction(|conn| {
+        self.db.diesel.transaction(|conn| {
             // Delete all existing assignments
             diesel::delete(all_assignments).execute(conn)?;
             // Insert the new assignments

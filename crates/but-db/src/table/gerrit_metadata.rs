@@ -49,7 +49,7 @@ impl GerritMetadataHandle<'_> {
 
         let result = gerrit_metadata
             .filter(change_id_col.eq(change_id))
-            .first::<GerritMeta>(&mut self.db.conn)
+            .first::<GerritMeta>(&mut self.db.diesel)
             .optional()?;
 
         Ok(result)
@@ -59,7 +59,7 @@ impl GerritMetadataHandle<'_> {
     pub fn insert(&mut self, meta: GerritMeta) -> anyhow::Result<()> {
         diesel::insert_into(gerrit_metadata)
             .values(&meta)
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -73,7 +73,7 @@ impl GerritMetadataHandle<'_> {
                 review_url.eq(&meta.review_url),
                 updated_at.eq(&meta.updated_at),
             ))
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 }

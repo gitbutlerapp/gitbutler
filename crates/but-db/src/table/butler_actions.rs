@@ -87,7 +87,7 @@ impl ButlerActionsHandle<'_> {
     pub fn insert(&mut self, action: ButlerAction) -> anyhow::Result<()> {
         diesel::insert_into(butler_actions)
             .values(&action)
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -96,10 +96,10 @@ impl ButlerActionsHandle<'_> {
             .order(schema::created_at.desc())
             .limit(limit)
             .offset(offset)
-            .load::<ButlerAction>(&mut self.db.conn)?;
+            .load::<ButlerAction>(&mut self.db.diesel)?;
         let total = butler_actions::table()
             .select(count_star())
-            .first::<i64>(&mut self.db.conn)?;
+            .first::<i64>(&mut self.db.diesel)?;
         Ok((total, actions))
     }
 }

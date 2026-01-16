@@ -224,7 +224,7 @@ impl TryFrom<but_db::CiCheck> for CiCheck {
 }
 
 pub(crate) fn ci_checks_from_cache(
-    db: &mut but_db::DbHandle,
+    db: &but_db::DbHandle,
     reference: &str,
 ) -> anyhow::Result<Vec<CiCheck>> {
     let db_checks = db.ci_checks().list_for_reference(reference)?;
@@ -244,5 +244,5 @@ pub(crate) fn cache_ci_checks(
         .iter()
         .map(|c| c.clone().try_into())
         .collect::<anyhow::Result<Vec<but_db::CiCheck>>>()?;
-    db.ci_checks().set_for_reference(reference, db_checks)
+    db.ci_checks_mut()?.set_for_reference(reference, db_checks)
 }

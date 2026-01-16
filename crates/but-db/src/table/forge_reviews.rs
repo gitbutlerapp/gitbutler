@@ -74,7 +74,7 @@ impl ForgeReviewsHandle<'_> {
     /// Lists all forge reviews in the database.
     pub fn list_all(&mut self) -> anyhow::Result<Vec<ForgeReview>> {
         use crate::schema::forge_reviews::dsl::forge_reviews as all_reviews;
-        let results = all_reviews.load::<ForgeReview>(&mut self.db.conn)?;
+        let results = all_reviews.load::<ForgeReview>(&mut self.db.diesel)?;
         Ok(results)
     }
     // Sets the forge_reviews table to the provided values.
@@ -83,7 +83,7 @@ impl ForgeReviewsHandle<'_> {
         use crate::schema::forge_reviews::dsl::forge_reviews as all_reviews;
         use diesel::prelude::*;
 
-        self.db.conn.transaction(|conn| {
+        self.db.diesel.transaction(|conn| {
             diesel::delete(all_reviews).execute(conn)?;
             for review in reviews {
                 diesel::insert_into(all_reviews)

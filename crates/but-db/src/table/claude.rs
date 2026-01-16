@@ -167,7 +167,7 @@ impl DbHandle {
         &mut self,
         session_id: &str,
     ) -> Result<(), diesel::result::Error> {
-        self.conn
+        self.diesel
             .transaction::<(), diesel::result::Error, _>(|conn| {
                 diesel::delete(
                     claude_messages
@@ -202,7 +202,7 @@ impl ClaudePermissionRequestsHandle<'_> {
     ) -> Result<(), diesel::result::Error> {
         diesel::insert_into(crate::schema::claude_permission_requests::table)
             .values(request)
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -220,7 +220,7 @@ impl ClaudePermissionRequestsHandle<'_> {
             crate::schema::claude_permission_requests::updated_at
                 .eq(chrono::Local::now().naive_local()),
         ))
-        .execute(&mut self.db.conn)?;
+        .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -240,7 +240,7 @@ impl ClaudePermissionRequestsHandle<'_> {
             crate::schema::claude_permission_requests::updated_at
                 .eq(chrono::Local::now().naive_local()),
         ))
-        .execute(&mut self.db.conn)?;
+        .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -250,7 +250,7 @@ impl ClaudePermissionRequestsHandle<'_> {
     ) -> Result<Option<ClaudePermissionRequest>, diesel::result::Error> {
         let request = crate::schema::claude_permission_requests::table
             .filter(crate::schema::claude_permission_requests::id.eq(id))
-            .first::<ClaudePermissionRequest>(&mut self.db.conn)
+            .first::<ClaudePermissionRequest>(&mut self.db.diesel)
             .optional()?;
         Ok(request)
     }
@@ -260,13 +260,13 @@ impl ClaudePermissionRequestsHandle<'_> {
             crate::schema::claude_permission_requests::table
                 .filter(crate::schema::claude_permission_requests::id.eq(id)),
         )
-        .execute(&mut self.db.conn)?;
+        .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
     pub fn list(&mut self) -> Result<Vec<ClaudePermissionRequest>, diesel::result::Error> {
         let requests = crate::schema::claude_permission_requests::table
-            .load::<ClaudePermissionRequest>(&mut self.db.conn)?;
+            .load::<ClaudePermissionRequest>(&mut self.db.diesel)?;
         Ok(requests)
     }
 }
@@ -275,7 +275,7 @@ impl ClaudeSessionsHandle<'_> {
     pub fn insert(&mut self, session: ClaudeSession) -> Result<(), diesel::result::Error> {
         diesel::insert_into(claude_sessions)
             .values(session)
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -289,7 +289,7 @@ impl ClaudeSessionsHandle<'_> {
                 crate::schema::claude_sessions::current_id.eq(current_id),
                 crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
             ))
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -303,7 +303,7 @@ impl ClaudeSessionsHandle<'_> {
                 crate::schema::claude_sessions::session_ids.eq(session_ids),
                 crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
             ))
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -313,7 +313,7 @@ impl ClaudeSessionsHandle<'_> {
                 crate::schema::claude_sessions::in_gui.eq(in_gui),
                 crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
             ))
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -329,21 +329,21 @@ impl ClaudeSessionsHandle<'_> {
                 crate::schema::claude_sessions::denied_permissions.eq(denied_permissions),
                 crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
             ))
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
     /// If you intend delete the messages AND the session, you should use `delete_session_and_messages` instead, which does it all in a single transaction.
     pub fn delete(&mut self, id: &str) -> Result<(), diesel::result::Error> {
         diesel::delete(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
     pub fn get(&mut self, id: &str) -> Result<Option<ClaudeSession>, diesel::result::Error> {
         let session = claude_sessions
             .filter(crate::schema::claude_sessions::id.eq(id))
-            .first::<ClaudeSession>(&mut self.db.conn)
+            .first::<ClaudeSession>(&mut self.db.diesel)
             .optional()?;
         Ok(session)
     }
@@ -354,13 +354,13 @@ impl ClaudeSessionsHandle<'_> {
     ) -> Result<Option<ClaudeSession>, diesel::result::Error> {
         let session = claude_sessions
             .filter(crate::schema::claude_sessions::current_id.eq(current_id))
-            .first::<ClaudeSession>(&mut self.db.conn)
+            .first::<ClaudeSession>(&mut self.db.diesel)
             .optional()?;
         Ok(session)
     }
 
     pub fn list(&mut self) -> Result<Vec<ClaudeSession>, diesel::result::Error> {
-        let sessions = claude_sessions.load::<ClaudeSession>(&mut self.db.conn)?;
+        let sessions = claude_sessions.load::<ClaudeSession>(&mut self.db.diesel)?;
         Ok(sessions)
     }
 }
@@ -369,7 +369,7 @@ impl ClaudeMessagesHandle<'_> {
     pub fn insert(&mut self, message: ClaudeMessage) -> Result<(), diesel::result::Error> {
         diesel::insert_into(claude_messages)
             .values(message)
-            .execute(&mut self.db.conn)?;
+            .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -380,7 +380,7 @@ impl ClaudeMessagesHandle<'_> {
         let messages = claude_messages
             .filter(crate::schema::claude_messages::session_id.eq(session_id))
             .order(crate::schema::claude_messages::created_at.asc())
-            .load::<ClaudeMessage>(&mut self.db.conn)?;
+            .load::<ClaudeMessage>(&mut self.db.diesel)?;
         Ok(messages)
     }
 
@@ -389,7 +389,7 @@ impl ClaudeMessagesHandle<'_> {
         diesel::delete(
             claude_messages.filter(crate::schema::claude_messages::session_id.eq(session_id)),
         )
-        .execute(&mut self.db.conn)?;
+        .execute(&mut self.db.diesel)?;
         Ok(())
     }
 
@@ -405,7 +405,7 @@ impl ClaudeMessagesHandle<'_> {
             .order(crate::schema::claude_messages::created_at.desc())
             .offset(offset)
             .limit(1)
-            .first::<ClaudeMessage>(&mut self.db.conn)
+            .first::<ClaudeMessage>(&mut self.db.diesel)
             .optional()?;
         Ok(message)
     }

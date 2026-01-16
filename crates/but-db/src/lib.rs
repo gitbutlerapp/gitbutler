@@ -48,8 +48,8 @@ pub struct M<'a> {
 }
 
 pub struct DbHandle {
-    conn: SqliteConnection,
-    rsconn: rusqlite::Connection,
+    diesel: SqliteConnection,
+    conn: rusqlite::Connection,
     /// The URL at which the connection was opened, mainly for debugging.
     url: String,
 }

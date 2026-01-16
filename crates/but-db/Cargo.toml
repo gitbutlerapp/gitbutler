@@ -20,7 +20,7 @@ diesel = { version = "2.3.5", features = [
 # `rusqlite` is used for running SQLite migrations and other low-level operations,
 # exposing a rusty API for sqlite, while using `libsqlite3-sys`@v0.30,
 # which is needed by diesel for the main database operations.
-rusqlite = { version = "0.32.1", features = ["bundled"] }
+rusqlite = { version = "0.32.1", features = ["bundled", "chrono"] }
 bitflags.workspace = true
 serde.workspace = true
 anyhow.workspace = true
