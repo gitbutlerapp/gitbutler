@@ -33,6 +33,7 @@
 		reserveSpaceOnStuck?: boolean;
 		closeButtonPlaceholder?: boolean;
 		scrollRoot?: HTMLElement | null;
+		highlighted?: boolean;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -60,6 +61,7 @@
 		reserveSpaceOnStuck,
 		closeButtonPlaceholder,
 		scrollRoot,
+		highlighted,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -128,6 +130,7 @@
 		sticky={stickyHeader}
 		{reserveSpaceOnStuck}
 		{scrollRoot}
+		{highlighted}
 		{onclose}
 		ondblclick={toggleCollapsed}
 		{closeButtonPlaceholder}

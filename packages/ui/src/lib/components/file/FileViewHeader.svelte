@@ -20,7 +20,6 @@
 		executable?: boolean;
 		noPaddings?: boolean;
 		pathFirst?: boolean;
-		highlighted?: boolean;
 		class?: string;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
@@ -38,14 +37,10 @@
 		executable,
 		noPaddings,
 		pathFirst = true,
-		highlighted,
 		class: className,
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
-
-	// Derived variable only emits when value changes.
-	const stableHighlighted = $derived(highlighted);
 </script>
 
 <div
@@ -54,7 +49,6 @@
 	class="file-header {className}"
 	class:draggable
 	class:no-paddings={noPaddings}
-	class:highlighted={stableHighlighted}
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();
@@ -110,7 +104,6 @@
 		width: 100%;
 		overflow: hidden;
 		gap: 12px;
-		background-color: var(--clr-bg-2);
 
 		&.draggable {
 			cursor: grab;
@@ -140,18 +133,5 @@
 		margin-right: -6px;
 		margin-left: -6px;
 		color: var(--clr-text-3);
-	}
-
-	.file-header.highlighted {
-		animation: highlight-flash 1s ease-out;
-	}
-
-	@keyframes highlight-flash {
-		0% {
-			background-color: rgba(255, 250, 200, 1);
-		}
-		100% {
-			background-color: var(--clr-bg-1);
-		}
 	}
 </style>

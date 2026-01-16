@@ -49,7 +49,7 @@
 
 	let virtualList = $state<VirtualList<TreeChange>>();
 	let scrollContainer = $state<HTMLElement | null>(null);
-	let highlightedIndex = $state<number | null>(null);
+	let highlightedIndex = $state<number | null>(startIndex ?? null);
 
 	export function jumpToIndex(index: number) {
 		virtualList?.jumpToIndex(index);
@@ -89,6 +89,7 @@
 					reserveSpaceOnStuck={!!onclose}
 					closeButtonPlaceholder
 					scrollRoot={scrollContainer}
+					highlighted={highlightedIndex === index}
 				>
 					{#snippet header()}
 						<FileViewHeader
@@ -97,7 +98,6 @@
 							linesAdded={patchData?.linesAdded}
 							linesRemoved={patchData?.linesRemoved}
 							executable={isExecutable}
-							highlighted={highlightedIndex === index}
 						/>
 					{/snippet}
 
