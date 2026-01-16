@@ -315,7 +315,7 @@ pub(crate) async fn worktree(
     let last_checked_text = last_fetched_ms
         .map(|ms| {
             let relative_time = format_relative_time_verbose(ms);
-            format!("\n (upstream checked {})", relative_time)
+            format!("(checked {})", relative_time)
         })
         .unwrap_or_default();
 
@@ -366,10 +366,9 @@ pub(crate) async fn worktree(
             // Without --upstream, show the summary with latest commit info
             writeln!(
                 out,
-                "┊{dot} {} (upstream) ⏫ {} new commits {} {}",
+                "┊{dot} {} (upstream) ⏫ {} new commits {}",
                 upstream.latest_commit.dimmed(),
                 upstream.behind_count,
-                upstream.commit_date.dimmed(),
                 last_checked_text.dimmed()
             )?;
         }
