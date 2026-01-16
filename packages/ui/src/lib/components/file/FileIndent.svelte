@@ -36,9 +36,9 @@
 			width: 1px;
 			height: 100%;
 			transform: translateX(-50%);
-			background-color: var(--clr-border-1);
+			background-color: var(--file-list-item-selected-activated-indent-line, var(--clr-text-2));
 			content: '';
-			opacity: 0.4;
+			opacity: 0.2;
 		}
 	}
 </style>

@@ -226,6 +226,16 @@
 		background-color: var(--clr-bg-1);
 		text-align: left;
 		user-select: none;
+		--file-list-item-selected-activated-border: color-mix(
+			in srgb,
+			var(--file-list-item-selected-bg) 70%,
+			white
+		);
+		--file-list-item-selected-activated-indent-line: color-mix(
+			in srgb,
+			var(--file-list-item-selected-bg) 20%,
+			white
+		);
 
 		&:focus-visible {
 			outline: none;
@@ -270,7 +280,7 @@
 		}
 
 		&.active.selected {
-			border-bottom: 1px solid color-mix(in srgb, var(--file-list-item-selected-bg) 70%, white);
+			border-bottom: 1px solid var(--file-list-item-selected-activated-border);
 			background-color: var(--file-list-item-selected-bg);
 		}
 
