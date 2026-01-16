@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    path::{self, Path, PathBuf},
+    path::{Path, PathBuf},
 };
 
 use anyhow::{Context as _, Result};
@@ -10,40 +10,6 @@ use gitbutler_diff::FileDiff;
 use serde::Serialize;
 
 use crate::hunk::{VirtualBranchHunk, file_hunks_from_diffs};
-
-#[derive(Debug, PartialEq, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RemoteBranchFile {
-    pub path: path::PathBuf,
-    pub hunks: Vec<gitbutler_diff::GitHunk>,
-    pub binary: bool,
-    pub large: bool,
-}
-
-impl From<FileDiff> for RemoteBranchFile {
-    fn from(mut file: FileDiff) -> Self {
-        // Diffs larger than 500kb are considered large
-        let large = file
-            .hunks
-            .iter()
-            .any(|hunk| hunk.diff_lines.len() > 500_000);
-
-        // If so, we return no diffs for the file.
-        if large {
-            file.hunks.iter_mut().for_each(|hunk| {
-                hunk.diff_lines.drain(..);
-            });
-        }
-
-        let binary = file.hunks.iter().any(|h| h.binary);
-        RemoteBranchFile {
-            path: file.path,
-            hunks: file.hunks,
-            binary,
-            large,
-        }
-    }
-}
 
 // this struct is a mapping to the view `File` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -64,15 +30,6 @@ pub struct VirtualBranchFile {
     pub conflicted: bool,
     pub binary: bool,
     pub large: bool,
-}
-
-pub trait Get<T> {
-    fn get(&self, path: &Path) -> Option<T>;
-}
-impl Get<VirtualBranchFile> for Vec<VirtualBranchFile> {
-    fn get(&self, path: &Path) -> Option<VirtualBranchFile> {
-        self.iter().find(|f| f.path == path).cloned()
-    }
 }
 
 pub(crate) fn list_virtual_commit_files(

@@ -6,14 +6,14 @@ mod state;
 mod target;
 
 pub use file_ownership::OwnershipClaim;
-pub use ownership::{BranchOwnershipClaims, ClaimOutcome};
+pub use ownership::BranchOwnershipClaims;
 pub use stack::{Stack, StackId};
 pub use state::{VirtualBranches as VirtualBranchesState, VirtualBranchesHandle};
 pub use target::Target;
 
 mod heads;
 pub use heads::add_head;
-pub use stack::{PatchReferenceUpdate, TargetUpdate};
+pub use stack::PatchReferenceUpdate;
 
 #[expect(deprecated)]
 mod stack_branch;

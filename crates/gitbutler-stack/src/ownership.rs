@@ -3,7 +3,7 @@ use std::{fmt, str::FromStr};
 use anyhow::Result;
 use but_meta::virtual_branches_legacy_types;
 
-use crate::{Stack, file_ownership::OwnershipClaim};
+use crate::file_ownership::OwnershipClaim;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BranchOwnershipClaims {
@@ -90,10 +90,4 @@ impl BranchOwnershipClaims {
 
         taken
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct ClaimOutcome {
-    pub updated_branch: Stack,
-    pub removed_claims: Vec<OwnershipClaim>,
 }

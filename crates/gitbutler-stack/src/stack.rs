@@ -706,17 +706,6 @@ pub struct PatchReferenceUpdate {
     pub name: Option<String>,
 }
 
-/// Request to update the target of a PatchReference.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct TargetUpdate {
-    /// The new patch (commit ID) that the reference should point to.
-    #[serde(with = "but_serde::object_id")]
-    pub target: gix::ObjectId,
-    /// If there are multiple heads that point to the same patch, the order can be disambiguated by specifying the `preceding_head`.
-    /// Leaving this field empty will make the new head first in relation to other references pointing to this commit.
-    pub preceding_head_name: Option<String>,
-}
-
 /// Push details to be supplied to `RepoActionsExt`'s `push` method.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PushDetails {
