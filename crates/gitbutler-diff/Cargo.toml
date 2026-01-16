@@ -24,7 +24,3 @@ hex = "0.4.3"
 tracing.workspace = true
 diffy = "0.4.0"
 serde.workspace = true
-
-[[test]]
-name = "diff"
-path = "tests/mod.rs"

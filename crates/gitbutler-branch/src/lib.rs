@@ -3,7 +3,6 @@ pub use reference_ext::{ReferenceExt, ReferenceExtGix};
 mod dedup;
 pub use dedup::dedup;
 mod branch;
-pub mod serde;
 pub use branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
 use lazy_static::lazy_static;
 lazy_static! {
