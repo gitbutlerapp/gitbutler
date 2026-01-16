@@ -109,7 +109,7 @@ impl Claudes {
         Ok(())
     }
 
-    pub fn get_messages(&self, ctx: &mut Context, stack_id: StackId) -> Result<Vec<ClaudeMessage>> {
+    pub fn get_messages(&self, ctx: &Context, stack_id: StackId) -> Result<Vec<ClaudeMessage>> {
         let rule = list_claude_assignment_rules(ctx)?
             .into_iter()
             .find(|rule| rule.stack_id == stack_id);

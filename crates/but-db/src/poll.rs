@@ -95,7 +95,7 @@ impl DbHandle {
                                 Err(e) => tx.send(Err(e)),
                             }
                         } else if kind & to_check == ItemKind::ClaudePermissionRequests {
-                            let res = db.claude_permission_requests().list();
+                            let res = db.claude().list_permission_requests();
                             match res {
                                 Ok(items) => {
                                     if items != prev_claude_requests {
@@ -199,7 +199,7 @@ impl DbHandle {
                             Err(e) => tx.send(Err(e)).await,
                         }
                     } else if kind & to_check == ItemKind::ClaudePermissionRequests {
-                        let res = this.claude_permission_requests().list();
+                        let res = this.claude().list_permission_requests();
                         match res {
                             Ok(items) => {
                                 if items != prev_claude_requests {

@@ -49,10 +49,10 @@ pub fn claude_get_messages(
     params: GetMessagesParams,
 ) -> Result<Vec<ClaudeMessage>> {
     let project = gitbutler_project::get(params.project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     let messages = claude
         .instance_by_stack
-        .get_messages(&mut ctx, params.stack_id)?;
+        .get_messages(&ctx, params.stack_id)?;
     Ok(messages)
 }
 

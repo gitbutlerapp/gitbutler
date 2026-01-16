@@ -125,104 +125,39 @@ pub struct ClaudePermissionRequest {
 }
 
 impl DbHandle {
-    pub fn claude_sessions(&self) -> ClaudeSessionsHandle<'_> {
-        ClaudeSessionsHandle { conn: &self.conn }
+    pub fn claude(&self) -> Claude<'_> {
+        Claude { conn: &self.conn }
     }
 
-    pub fn claude_sessions_mut(&mut self) -> ClaudeSessionsHandleMut<'_> {
-        ClaudeSessionsHandleMut { conn: &self.conn }
-    }
-
-    pub fn claude_messages(&self) -> ClaudeMessagesHandle<'_> {
-        ClaudeMessagesHandle { conn: &self.conn }
-    }
-
-    pub fn claude_messages_mut(&mut self) -> ClaudeMessagesHandleMut<'_> {
-        ClaudeMessagesHandleMut { conn: &self.conn }
-    }
-
-    pub fn claude_permission_requests(&self) -> ClaudePermissionRequestsHandle<'_> {
-        ClaudePermissionRequestsHandle { conn: &self.conn }
-    }
-
-    pub fn claude_permission_requests_mut(&mut self) -> ClaudePermissionRequestsHandleMut<'_> {
-        ClaudePermissionRequestsHandleMut { conn: &self.conn }
-    }
-
-    // TODO: move all this into the single 'claude' handle.
-    pub fn delete_session_and_messages(&mut self, session_id: &str) -> anyhow::Result<()> {
-        self.conn.execute(
-            "DELETE FROM claude_messages WHERE session_id = ?1",
-            [session_id],
-        )?;
-        self.conn
-            .execute("DELETE FROM claude_sessions WHERE id = ?1", [session_id])?;
-        Ok(())
+    pub fn claude_mut(&mut self) -> ClaudeMut<'_> {
+        ClaudeMut { conn: &self.conn }
     }
 }
 
 impl<'conn> Transaction<'conn> {
-    pub fn claude_sessions(&self) -> ClaudeSessionsHandle<'_> {
-        ClaudeSessionsHandle { conn: &self.0 }
+    pub fn claude(&self) -> Claude<'_> {
+        Claude { conn: &self.0 }
     }
 
-    pub fn claude_sessions_mut(&mut self) -> ClaudeSessionsHandleMut<'_> {
-        ClaudeSessionsHandleMut { conn: &self.0 }
-    }
-
-    pub fn claude_messages(&self) -> ClaudeMessagesHandle<'_> {
-        ClaudeMessagesHandle { conn: &self.0 }
-    }
-
-    pub fn claude_messages_mut(&mut self) -> ClaudeMessagesHandleMut<'_> {
-        ClaudeMessagesHandleMut { conn: &self.0 }
-    }
-
-    pub fn claude_permission_requests(&self) -> ClaudePermissionRequestsHandle<'_> {
-        ClaudePermissionRequestsHandle { conn: &self.0 }
-    }
-
-    pub fn claude_permission_requests_mut(&mut self) -> ClaudePermissionRequestsHandleMut<'_> {
-        ClaudePermissionRequestsHandleMut { conn: &self.0 }
-    }
-
-    pub fn delete_session_and_messages(&mut self, session_id: &str) -> anyhow::Result<()> {
-        self.0.execute(
-            "DELETE FROM claude_messages WHERE session_id = ?1",
-            [session_id],
-        )?;
-        self.0
-            .execute("DELETE FROM claude_sessions WHERE id = ?1", [session_id])?;
-        Ok(())
+    pub fn claude_mut(&mut self) -> ClaudeMut<'_> {
+        ClaudeMut { conn: &self.0 }
     }
 }
 
-pub struct ClaudeSessionsHandle<'conn> {
+pub struct Claude<'conn> {
     conn: &'conn rusqlite::Connection,
 }
 
-pub struct ClaudeSessionsHandleMut<'conn> {
+pub struct ClaudeMut<'conn> {
     conn: &'conn rusqlite::Connection,
 }
 
-pub struct ClaudeMessagesHandle<'conn> {
-    conn: &'conn rusqlite::Connection,
-}
-
-pub struct ClaudeMessagesHandleMut<'conn> {
-    conn: &'conn rusqlite::Connection,
-}
-
-pub struct ClaudePermissionRequestsHandle<'conn> {
-    conn: &'conn rusqlite::Connection,
-}
-
-pub struct ClaudePermissionRequestsHandleMut<'conn> {
-    conn: &'conn rusqlite::Connection,
-}
-
-impl ClaudePermissionRequestsHandle<'_> {
-    pub fn get(&self, id: &str) -> anyhow::Result<Option<ClaudePermissionRequest>> {
+impl Claude<'_> {
+    // Permission Requests
+    pub fn get_permission_request(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<Option<ClaudePermissionRequest>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, created_at, updated_at, tool_name, input, decision, use_wildcard \
              FROM claude_permission_requests WHERE id = ?1",
@@ -245,7 +180,7 @@ impl ClaudePermissionRequestsHandle<'_> {
         Ok(result)
     }
 
-    pub fn list(&self) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
+    pub fn list_permission_requests(&self) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, created_at, updated_at, tool_name, input, decision, use_wildcard \
              FROM claude_permission_requests",
@@ -265,60 +200,9 @@ impl ClaudePermissionRequestsHandle<'_> {
 
         results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
-}
 
-impl ClaudePermissionRequestsHandleMut<'_> {
-    pub fn to_ref(&self) -> ClaudePermissionRequestsHandle<'_> {
-        ClaudePermissionRequestsHandle { conn: self.conn }
-    }
-
-    pub fn insert(&mut self, request: ClaudePermissionRequest) -> anyhow::Result<()> {
-        self.conn.execute(
-            "INSERT INTO claude_permission_requests (id, created_at, updated_at, tool_name, input, decision, use_wildcard) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            rusqlite::params![
-                request.id,
-                request.created_at,
-                request.updated_at,
-                request.tool_name,
-                request.input,
-                request.decision,
-                request.use_wildcard,
-            ],
-        )?;
-        Ok(())
-    }
-
-    pub fn set_decision(&mut self, id: &str, decision: Option<String>) -> anyhow::Result<()> {
-        self.conn.execute(
-            "UPDATE claude_permission_requests SET decision = ?1, updated_at = ?2 WHERE id = ?3",
-            rusqlite::params![decision, chrono::Local::now().naive_local(), id],
-        )?;
-        Ok(())
-    }
-
-    pub fn set_decision_and_wildcard(
-        &mut self,
-        id: &str,
-        decision: Option<String>,
-        use_wildcard: bool,
-    ) -> anyhow::Result<()> {
-        self.conn.execute(
-            "UPDATE claude_permission_requests SET decision = ?1, use_wildcard = ?2, updated_at = ?3 WHERE id = ?4",
-            rusqlite::params![decision, use_wildcard, chrono::Local::now().naive_local(), id],
-        )?;
-        Ok(())
-    }
-
-    pub fn delete(&mut self, id: &str) -> anyhow::Result<()> {
-        self.conn
-            .execute("DELETE FROM claude_permission_requests WHERE id = ?1", [id])?;
-        Ok(())
-    }
-}
-
-impl ClaudeSessionsHandle<'_> {
-    pub fn get(&self, id: &str) -> anyhow::Result<Option<ClaudeSession>> {
+    // Sessions
+    pub fn get_session(&self, id: &str) -> anyhow::Result<Option<ClaudeSession>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions \
              FROM claude_sessions WHERE id = ?1",
@@ -342,7 +226,10 @@ impl ClaudeSessionsHandle<'_> {
         Ok(result)
     }
 
-    pub fn get_by_current_id(&self, current_id: &str) -> anyhow::Result<Option<ClaudeSession>> {
+    pub fn get_session_by_current_id(
+        &self,
+        current_id: &str,
+    ) -> anyhow::Result<Option<ClaudeSession>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions \
              FROM claude_sessions WHERE current_id = ?1",
@@ -366,99 +253,8 @@ impl ClaudeSessionsHandle<'_> {
         Ok(result)
     }
 
-    pub fn list(&self) -> anyhow::Result<Vec<ClaudeSession>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions \
-             FROM claude_sessions",
-        )?;
-
-        let results = stmt.query_map([], |row| {
-            Ok(ClaudeSession {
-                id: row.get(0)?,
-                current_id: row.get(1)?,
-                session_ids: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
-                in_gui: row.get(5)?,
-                approved_permissions: row.get(6)?,
-                denied_permissions: row.get(7)?,
-            })
-        })?;
-
-        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
-    }
-}
-
-impl ClaudeSessionsHandleMut<'_> {
-    pub fn to_ref(&self) -> ClaudeSessionsHandle<'_> {
-        ClaudeSessionsHandle { conn: self.conn }
-    }
-
-    pub fn insert(&mut self, session: ClaudeSession) -> anyhow::Result<()> {
-        self.conn.execute(
-            "INSERT INTO claude_sessions (id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            rusqlite::params![
-                session.id,
-                session.current_id,
-                session.session_ids,
-                session.created_at,
-                session.updated_at,
-                session.in_gui,
-                session.approved_permissions,
-                session.denied_permissions,
-            ],
-        )?;
-        Ok(())
-    }
-
-    pub fn update_current_id(&mut self, id: &str, current_id: &str) -> anyhow::Result<()> {
-        self.conn.execute(
-            "UPDATE claude_sessions SET current_id = ?1, updated_at = ?2 WHERE id = ?3",
-            rusqlite::params![current_id, chrono::Local::now().naive_local(), id],
-        )?;
-        Ok(())
-    }
-
-    pub fn update_session_ids(&mut self, id: &str, session_ids: &str) -> anyhow::Result<()> {
-        self.conn.execute(
-            "UPDATE claude_sessions SET session_ids = ?1, updated_at = ?2 WHERE id = ?3",
-            rusqlite::params![session_ids, chrono::Local::now().naive_local(), id],
-        )?;
-        Ok(())
-    }
-
-    pub fn update_in_gui(&mut self, id: &str, in_gui: bool) -> anyhow::Result<()> {
-        self.conn.execute(
-            "UPDATE claude_sessions SET in_gui = ?1, updated_at = ?2 WHERE id = ?3",
-            rusqlite::params![in_gui, chrono::Local::now().naive_local(), id],
-        )?;
-        Ok(())
-    }
-
-    pub fn update_permissions(
-        &mut self,
-        id: &str,
-        approved_permissions: &str,
-        denied_permissions: &str,
-    ) -> anyhow::Result<()> {
-        self.conn.execute(
-            "UPDATE claude_sessions SET approved_permissions = ?1, denied_permissions = ?2, updated_at = ?3 WHERE id = ?4",
-            rusqlite::params![approved_permissions, denied_permissions, chrono::Local::now().naive_local(), id],
-        )?;
-        Ok(())
-    }
-
-    /// If you intend delete the messages AND the session, you should use `delete_session_and_messages` instead, which does it all in a single transaction.
-    pub fn delete(&mut self, id: &str) -> anyhow::Result<()> {
-        self.conn
-            .execute("DELETE FROM claude_sessions WHERE id = ?1", [id])?;
-        Ok(())
-    }
-}
-
-impl ClaudeMessagesHandle<'_> {
-    pub fn list_by_session(&self, session_id: &str) -> anyhow::Result<Vec<ClaudeMessage>> {
+    // Messages
+    pub fn list_messages_by_session(&self, session_id: &str) -> anyhow::Result<Vec<ClaudeMessage>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, session_id, created_at, content_type, content \
              FROM claude_messages WHERE session_id = ?1 ORDER BY created_at ASC",
@@ -477,7 +273,6 @@ impl ClaudeMessagesHandle<'_> {
         results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
 
-    /// Gets the most recent message matching a provided content type
     pub fn get_message_of_type(
         &self,
         content_type: String,
@@ -505,12 +300,123 @@ impl ClaudeMessagesHandle<'_> {
     }
 }
 
-impl ClaudeMessagesHandleMut<'_> {
-    pub fn to_ref(&self) -> ClaudeMessagesHandle<'_> {
-        ClaudeMessagesHandle { conn: self.conn }
+impl ClaudeMut<'_> {
+    // Permission Requests
+    pub fn insert_permission_request(
+        &mut self,
+        request: ClaudePermissionRequest,
+    ) -> anyhow::Result<()> {
+        self.conn.execute(
+            "INSERT INTO claude_permission_requests (id, created_at, updated_at, tool_name, input, decision, use_wildcard) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![
+                request.id,
+                request.created_at,
+                request.updated_at,
+                request.tool_name,
+                request.input,
+                request.decision,
+                request.use_wildcard,
+            ],
+        )?;
+        Ok(())
     }
 
-    pub fn insert(&mut self, message: ClaudeMessage) -> anyhow::Result<()> {
+    pub fn set_permission_request_decision(
+        &mut self,
+        id: &str,
+        decision: Option<String>,
+    ) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_permission_requests SET decision = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![decision, chrono::Local::now().naive_local(), id],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_permission_request_decision_and_wildcard(
+        &mut self,
+        id: &str,
+        decision: Option<String>,
+        use_wildcard: bool,
+    ) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_permission_requests SET decision = ?1, use_wildcard = ?2, updated_at = ?3 WHERE id = ?4",
+            rusqlite::params![decision, use_wildcard, chrono::Local::now().naive_local(), id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_permission_request(&mut self, id: &str) -> anyhow::Result<()> {
+        self.conn
+            .execute("DELETE FROM claude_permission_requests WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    // Sessions
+    pub fn insert_session(&mut self, session: ClaudeSession) -> anyhow::Result<()> {
+        self.conn.execute(
+            "INSERT INTO claude_sessions (id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            rusqlite::params![
+                session.id,
+                session.current_id,
+                session.session_ids,
+                session.created_at,
+                session.updated_at,
+                session.in_gui,
+                session.approved_permissions,
+                session.denied_permissions,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_session_current_id(&mut self, id: &str, current_id: &str) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_sessions SET current_id = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![current_id, chrono::Local::now().naive_local(), id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_session_ids(&mut self, id: &str, session_ids: &str) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_sessions SET session_ids = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![session_ids, chrono::Local::now().naive_local(), id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_session_in_gui(&mut self, id: &str, in_gui: bool) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_sessions SET in_gui = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![in_gui, chrono::Local::now().naive_local(), id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_session_permissions(
+        &mut self,
+        id: &str,
+        approved_permissions: &str,
+        denied_permissions: &str,
+    ) -> anyhow::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_sessions SET approved_permissions = ?1, denied_permissions = ?2, updated_at = ?3 WHERE id = ?4",
+            rusqlite::params![approved_permissions, denied_permissions, chrono::Local::now().naive_local(), id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_session(&mut self, id: &str) -> anyhow::Result<()> {
+        self.conn
+            .execute("DELETE FROM claude_sessions WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    // Messages
+    pub fn insert_message(&mut self, message: ClaudeMessage) -> anyhow::Result<()> {
         self.conn.execute(
             "INSERT INTO claude_messages (id, session_id, created_at, content_type, content) \
              VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -525,12 +431,39 @@ impl ClaudeMessagesHandleMut<'_> {
         Ok(())
     }
 
-    /// If you intend delete the messages AND the session, you should use `delete_session_and_messages` instead, which does it all in a single transaction.
-    pub fn delete_by_session(&mut self, session_id: &str) -> anyhow::Result<()> {
+    pub fn delete_messages_by_session(&mut self, session_id: &str) -> anyhow::Result<()> {
         self.conn.execute(
             "DELETE FROM claude_messages WHERE session_id = ?1",
             [session_id],
         )?;
         Ok(())
+    }
+
+    pub fn delete_session_and_messages(&mut self, session_id: &str) -> anyhow::Result<()> {
+        // Here we'd have to use a changepoint, but the abstraction is a bit cumbersome
+        // to use for *all other cases*, so we do a hand-rolled implementation here.
+        self.conn
+            .execute("SAVEPOINT delete_session_and_messages", [])?;
+        let result = (|| {
+            self.conn.execute(
+                "DELETE FROM claude_messages WHERE session_id = ?1",
+                [session_id],
+            )?;
+            self.conn
+                .execute("DELETE FROM claude_sessions WHERE id = ?1", [session_id])?;
+            Ok(())
+        })();
+        match result {
+            Ok(_) => {
+                self.conn
+                    .execute("RELEASE delete_session_and_messages", [])?;
+                Ok(())
+            }
+            Err(e) => {
+                self.conn
+                    .execute("ROLLBACK TO delete_session_and_messages", [])?;
+                Err(e)
+            }
+        }
     }
 }
