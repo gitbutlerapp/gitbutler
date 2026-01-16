@@ -12,7 +12,6 @@ pub use actions::{
 mod squash;
 
 mod r#virtual;
-use r#virtual::BranchStatus;
 /// Avoid using these!
 /// This was previously `pub use r#virtual::*;`
 pub mod internal {
@@ -25,15 +24,10 @@ pub use branch_manager::{BranchManagerExt, CreateBranchFromBranchOutcome};
 pub mod base;
 pub use base::BaseBranch;
 
-mod dependencies;
-pub use dependencies::compute_workspace_dependencies;
-
 pub mod upstream_integration;
 
 mod integration;
 pub use integration::{GITBUTLER_WORKSPACE_COMMIT_TITLE, update_workspace_commit};
-
-mod file;
 
 mod remote;
 
@@ -58,7 +52,6 @@ impl VirtualBranchesExt for gitbutler_project::Project {
 }
 
 mod branch;
-mod hunk;
 pub use branch::{
     Author, BranchListing, BranchListingDetails, BranchListingFilter, get_branch_listing_details,
     list_branches,
