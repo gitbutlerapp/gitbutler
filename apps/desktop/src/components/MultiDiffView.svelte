@@ -140,6 +140,8 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+
 		&.no-border {
 			border: none;
 		}
