@@ -63,7 +63,8 @@ pub enum OutputFormat {
     None,
 }
 
-#[derive(Debug, clap::Subcommand)]
+#[derive(Debug, clap::Subcommand, strum::VariantNames, strum::AsRefStr)]
+#[strum(serialize_all = "kebab-case")]
 pub enum Subcommands {
     /// Overview of the project workspace state.
     ///

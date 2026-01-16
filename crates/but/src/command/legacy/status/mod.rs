@@ -393,6 +393,21 @@ pub(crate) async fn worktree(
         }
     )?;
 
+    let not_on_workspace = matches!(
+        mode,
+        gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_)
+    );
+
+    if not_on_workspace {
+        writeln!(
+            out,
+            r#"
+⚠️    You are in plain Git mode, directly on a branch. Some commands may be unavailable.    ⚠️
+⚠️    More info: https://github.com/gitbutlerapp/gitbutler/issues/11866                     ⚠️
+"#,
+        )?;
+    }
+
     if hint {
         writeln!(out)?;
 
@@ -400,16 +415,11 @@ pub(crate) async fn worktree(
         let has_uncommitted_files = !worktree_changes.worktree_changes.changes.is_empty();
 
         // Check whether we're inside the workspace
-        if let gitbutler_operating_modes::OperatingMode::OutsideWorkspace(metadata) = mode {
-            let message = if let Some(branch_name) = metadata.branch_name {
-                format!(
-                    "Hint: you are outside workspace mode on branch '{}'. Run `but switch-back` to enter the workspace on this branch",
-                    branch_name
-                )
-            } else {
-                "Hint: you are outside workspace mode. Run `but switch-back` to enter the workspace"
-                    .to_string()
-            };
+        if not_on_workspace {
+            let message = format!(
+                "Hint: run `but {}` to switch back to GitButler managed mode.",
+                crate::args::Subcommands::SwitchBack.as_ref()
+            );
             writeln!(out, "{}", message.dimmed())?;
         } else if !has_branches {
             writeln!(
