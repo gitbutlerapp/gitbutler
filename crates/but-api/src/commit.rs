@@ -17,7 +17,7 @@ pub fn commit_reword_only(
     message: BString,
 ) -> anyhow::Result<gix::ObjectId> {
     let guard = ctx.exclusive_worktree_access();
-    let (_, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
     let editor = graph.to_editor(&repo)?;
 
@@ -104,7 +104,7 @@ pub fn commit_insert_blank_only(
     side: InsertSide,
 ) -> anyhow::Result<gix::ObjectId> {
     let guard = ctx.exclusive_worktree_access();
-    let (_, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
     let editor = graph.to_editor(&repo)?;
 
@@ -158,7 +158,7 @@ pub fn commit_move_changes_between_only(
     changes: Vec<but_core::DiffSpec>,
 ) -> anyhow::Result<json::UIMoveChangesResult> {
     let guard = ctx.exclusive_worktree_access();
-    let (_, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
     let editor = graph.to_editor(&repo)?;
 

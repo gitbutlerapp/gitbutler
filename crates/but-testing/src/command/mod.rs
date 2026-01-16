@@ -556,10 +556,9 @@ pub fn remove_reference(
 pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyhow::Result<()> {
     let ctx = but_ctx::Context::discover(&args.current_dir)?;
     let guard = ctx.exclusive_worktree_access();
-    let (mut meta, graph) = ctx.graph_and_meta_from_head(guard.read_permission())?;
+    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
     let branch = repo.find_reference(short_name)?;
-    let ws = graph.into_workspace()?;
     let apply_outcome = but_workspace::branch::apply(
         branch.name(),
         &ws,

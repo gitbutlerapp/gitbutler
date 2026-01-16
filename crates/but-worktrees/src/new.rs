@@ -22,8 +22,7 @@ pub fn worktree_new(
 ) -> Result<NewWorktreeOutcome> {
     let repo = &*ctx.repo.get()?;
 
-    let (_, graph) = ctx.graph_and_meta_from_head(perm)?;
-    let ws = graph.into_workspace()?;
+    let (_, ws) = ctx.workspace_and_meta_from_head(perm)?;
     if !ws.refname_is_segment(refname) {
         bail!("Branch not found in workspace");
     }
