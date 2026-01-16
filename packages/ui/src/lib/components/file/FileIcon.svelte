@@ -11,7 +11,7 @@
 
 <i
 	class="file-icon"
-	style:--file-icon-custom-color={color ? color : 'currentColor'}
+	style:--file-icon-custom-color={color}
 	aria-hidden="true"
 >
 	{@html getFileIcon(fileName)}
