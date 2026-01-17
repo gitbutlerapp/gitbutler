@@ -83,7 +83,7 @@ impl TryFrom<but_db::ForgeReview> for ForgeReview {
     }
 }
 
-pub(crate) fn reviews_from_cache(db: &mut but_db::DbHandle) -> anyhow::Result<Vec<ForgeReview>> {
+pub(crate) fn reviews_from_cache(db: &but_db::DbHandle) -> anyhow::Result<Vec<ForgeReview>> {
     let db_reviews = db.forge_reviews().list_all()?;
     let reviews: Vec<ForgeReview> = db_reviews
         .into_iter()
@@ -101,7 +101,7 @@ pub(crate) fn cache_reviews(
         .map(|r| r.clone().try_into())
         .collect::<anyhow::Result<Vec<but_db::ForgeReview>>>(
     )?;
-    db.forge_reviews().set_all(db_reviews)
+    db.forge_reviews_mut()?.set_all(db_reviews)
 }
 
 use super::CiCheck;
@@ -224,7 +224,7 @@ impl TryFrom<but_db::CiCheck> for CiCheck {
 }
 
 pub(crate) fn ci_checks_from_cache(
-    db: &mut but_db::DbHandle,
+    db: &but_db::DbHandle,
     reference: &str,
 ) -> anyhow::Result<Vec<CiCheck>> {
     let db_checks = db.ci_checks().list_for_reference(reference)?;
@@ -244,5 +244,5 @@ pub(crate) fn cache_ci_checks(
         .iter()
         .map(|c| c.clone().try_into())
         .collect::<anyhow::Result<Vec<but_db::CiCheck>>>()?;
-    db.ci_checks().set_for_reference(reference, db_checks)
+    db.ci_checks_mut()?.set_for_reference(reference, db_checks)
 }

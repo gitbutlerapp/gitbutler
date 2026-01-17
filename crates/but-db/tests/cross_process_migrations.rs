@@ -1,5 +1,7 @@
 //! Use this file only for this one tests, as it **fork-execs**!
 //! Otherwise, some tools may have problems, or it seems to hang there.
+//!
+//! # WARNING: Flaky the first time it runs locally
 use but_db::DbHandle;
 
 #[cfg(unix)]
@@ -19,7 +21,7 @@ fn migrations_in_parallel_with_processes() -> anyhow::Result<()> {
             if pid == 0 {
                 // child
                 for _round in 0..10 {
-                    let mut handle = match DbHandle::new_in_directory(tmp.path()) {
+                    let handle = match DbHandle::new_in_directory(tmp.path()) {
                         Ok(h) => h,
                         Err(err) => {
                             eprintln!("Failed to open DB: {err}");
@@ -48,7 +50,7 @@ fn migrations_in_parallel_with_processes() -> anyhow::Result<()> {
         }
         assert!(
             libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0,
-            "child exited unsuccessfully: {:?}",
+            "FLAKY (try again): child exited unsuccessfully: {:?}",
             std::process::ExitStatus::from_raw(status)
         );
     }

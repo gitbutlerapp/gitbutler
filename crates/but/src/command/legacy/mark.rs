@@ -119,14 +119,14 @@ fn mark_branch(
     Ok(())
 }
 
-pub(crate) fn stack_marked(ctx: &mut Context, stack_id: StackId) -> anyhow::Result<bool> {
+pub(crate) fn stack_marked(ctx: &Context, stack_id: StackId) -> anyhow::Result<bool> {
     let rules = but_rules::list_rules(ctx)?
         .iter()
         .any(|r| r.target_stack_id() == Some(stack_id.to_string()) && r.session_id().is_none());
     Ok(rules)
 }
 
-pub(crate) fn commit_marked(ctx: &mut Context, commit_id: String) -> anyhow::Result<bool> {
+pub(crate) fn commit_marked(ctx: &Context, commit_id: String) -> anyhow::Result<bool> {
     let change_id = {
         let repo = ctx.repo.get()?;
         let commit = repo.find_commit(gix::ObjectId::from_str(&commit_id)?)?;

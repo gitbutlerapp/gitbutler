@@ -86,8 +86,8 @@ impl Claudes {
         self.requests.lock().await.remove(&stack_id);
         if let Err(res) = res {
             let rule = {
-                let mut ctx = sync_ctx.clone().into_thread_local();
-                list_claude_assignment_rules(&mut ctx)
+                let ctx = sync_ctx.clone().into_thread_local();
+                list_claude_assignment_rules(&ctx)
                     .ok()
                     .and_then(|rules| rules.into_iter().find(|rule| rule.stack_id == stack_id))
             };
@@ -120,9 +120,9 @@ impl Claudes {
             .insert(stack_id, Arc::new(Claude { kill: send_kill }));
 
         let (rule, session) = {
-            let mut ctx = sync_ctx.clone().into_thread_local();
+            let ctx = sync_ctx.clone().into_thread_local();
             let rule = {
-                list_claude_assignment_rules(&mut ctx)?
+                list_claude_assignment_rules(&ctx)?
                     .into_iter()
                     .find(|rule| rule.stack_id == stack_id)
             };
@@ -131,8 +131,7 @@ impl Claudes {
             };
 
             let session = {
-                db::get_session_by_id(&mut ctx, rule.session_id)?
-                    .context("Failed to find session")?
+                db::get_session_by_id(&ctx, rule.session_id)?.context("Failed to find session")?
             };
             (rule, session)
         };
@@ -166,9 +165,9 @@ impl Claudes {
         stack_id: StackId,
     ) -> Result<()> {
         let messages = {
-            let mut ctx = sync_ctx.clone().into_thread_local();
+            let ctx = sync_ctx.clone().into_thread_local();
             let rule = {
-                list_claude_assignment_rules(&mut ctx)?
+                list_claude_assignment_rules(&ctx)?
                     .into_iter()
                     .find(|rule| rule.stack_id == stack_id)
             };
@@ -176,7 +175,7 @@ impl Claudes {
                 return Ok(());
             };
 
-            db::list_messages_by_session(&mut ctx, rule.session_id)?
+            db::list_messages_by_session(&ctx, rule.session_id)?
         };
 
         // Find the last result message

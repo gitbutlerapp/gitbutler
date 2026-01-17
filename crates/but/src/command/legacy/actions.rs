@@ -30,7 +30,7 @@ impl From<crate::args::actions::Handler> for but_action::ActionHandler {
 }
 
 pub(crate) fn list_actions(
-    ctx: &mut Context,
+    ctx: &Context,
     out: &mut OutputChannel,
     offset: i64,
     limit: i64,

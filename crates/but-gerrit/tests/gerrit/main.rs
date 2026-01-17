@@ -31,8 +31,8 @@ fn record_push_metadata_fallback_url() -> anyhow::Result<()> {
     let mut ctx = but_ctx::Context::from_repo(repo)?;
     record_push_metadata(&mut ctx, candidate_ids, push_output)?;
 
-    let mut db = ctx.db.get_mut()?;
-    let mut db = db.gerrit_metadata();
+    let db = ctx.db.get_mut()?;
+    let db = db.gerrit_metadata();
     let meta = db
         .get(&change_id.to_string())?
         .expect("Metadata should be recorded");

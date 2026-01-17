@@ -189,7 +189,7 @@ pub fn list_reviews(
 
 #[but_api]
 #[instrument(skip(ctx), err(Debug))]
-pub fn list_ci_checks(
+pub fn list_ci_checks_and_update_cache(
     ctx: &mut Context,
     reference: String,
     cache_config: Option<but_forge::CacheConfig>,
@@ -293,7 +293,7 @@ pub fn warm_ci_checks_cache(project_id: ProjectId) -> Result<()> {
             for branch in &details.branch_details {
                 if branch.pr_number.is_some() {
                     // Fetch CI checks with NoCache to force refresh
-                    let _ = list_ci_checks(
+                    let _ = list_ci_checks_and_update_cache(
                         &mut ctx,
                         branch.name.to_string(),
                         Some(but_forge::CacheConfig::NoCache),
@@ -314,7 +314,7 @@ pub fn warm_ci_checks_cache(project_id: ProjectId) -> Result<()> {
     // Delete CI checks for references that are no longer in applied stacks
     for cached_ref in all_cached_refs {
         if !current_refs.contains(&cached_ref) {
-            db.ci_checks().delete_for_reference(&cached_ref)?;
+            db.ci_checks_mut()?.delete_for_reference(&cached_ref)?;
         }
     }
 

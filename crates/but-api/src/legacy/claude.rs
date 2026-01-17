@@ -49,10 +49,10 @@ pub fn claude_get_messages(
     params: GetMessagesParams,
 ) -> Result<Vec<ClaudeMessage>> {
     let project = gitbutler_project::get(params.project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     let messages = claude
         .instance_by_stack
-        .get_messages(&mut ctx, params.stack_id)?;
+        .get_messages(&ctx, params.stack_id)?;
     Ok(messages)
 }
 
@@ -64,9 +64,9 @@ pub async fn claude_get_session_details(
 ) -> Result<but_claude::ClaudeSessionDetails> {
     let project = gitbutler_project::get(project_id)?;
     let (worktree_dir, session) = {
-        let mut ctx = Context::new_from_legacy_project(project.clone())?;
+        let ctx = Context::new_from_legacy_project(project.clone())?;
         let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
-        let session = but_claude::db::get_session_by_id(&mut ctx, session_id)?
+        let session = but_claude::db::get_session_by_id(&ctx, session_id)?
             .context("Could not find session")?;
         let worktree_dir = project.worktree_dir()?;
         (worktree_dir, session)
@@ -97,8 +97,8 @@ pub fn claude_get_user_message(
     offset: Option<i64>,
 ) -> Result<Option<ClaudeMessage>> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    but_claude::db::get_user_message(&mut ctx, offset)
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    but_claude::db::get_user_message(&ctx, offset)
 }
 
 #[but_api]
@@ -107,9 +107,10 @@ pub fn claude_list_permission_requests(
     project_id: ProjectId,
 ) -> Result<Vec<but_claude::ClaudePermissionRequest>> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    but_claude::db::list_all_permission_requests(&mut ctx)
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    but_claude::db::list_all_permission_requests(&ctx)
 }
+
 #[but_api]
 #[instrument(err(Debug))]
 pub fn claude_update_permission_request(

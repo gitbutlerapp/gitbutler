@@ -205,17 +205,17 @@ impl Workflow {
     pub(crate) fn persist(self, ctx: &mut Context) -> anyhow::Result<()> {
         ctx.db
             .get_mut()?
-            .workflows()
+            .workflows_mut()
             .insert(self.try_into()?)
             .map_err(|e| anyhow::anyhow!("Failed to persist workflow: {}", e))?;
         Ok(())
     }
 }
 
-pub fn list_workflows(ctx: &mut Context, offset: i64, limit: i64) -> anyhow::Result<WorkflowList> {
+pub fn list_workflows(ctx: &Context, offset: i64, limit: i64) -> anyhow::Result<WorkflowList> {
     let (total, workflows) = ctx
         .db
-        .get_mut()?
+        .get()?
         .workflows()
         .list(offset, limit)
         .map_err(|e| anyhow::anyhow!("Failed to list workflows: {}", e))?;

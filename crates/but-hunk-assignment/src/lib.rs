@@ -512,7 +512,7 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
 /// If `worktree_changes` is `None`, they will be fetched automatically.
 #[instrument(skip(ctx, worktree_assignments, deps), err(Debug))]
 fn reconcile_with_worktree_and_locks(
-    ctx: &mut Context,
+    ctx: &Context,
     set_assignment_from_locks: bool,
     worktree_assignments: &[HunkAssignment],
     deps: &HunkDependencies,
@@ -524,7 +524,7 @@ fn reconcile_with_worktree_and_locks(
         .map(|s| s.id)
         .collect::<Vec<_>>();
 
-    let db = &mut *ctx.db.get_mut()?;
+    let db = &*ctx.db.get()?;
     let persisted_assignments = state::assignments(db)?;
     let with_worktree = reconcile::assignments(
         worktree_assignments,

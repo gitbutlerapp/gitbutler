@@ -1,8 +1,8 @@
-use crate::{DbHandle, FILE_NAME, migration};
-use diesel::connection::SimpleConnection;
-use diesel::{Connection, SqliteConnection};
+use crate::{DbHandle, Transaction, migration};
 use std::path::{Path, PathBuf};
 use tracing::instrument;
+
+const FILE_NAME: &str = "but.sqlite";
 
 impl std::fmt::Debug for DbHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -10,7 +10,19 @@ impl std::fmt::Debug for DbHandle {
     }
 }
 
-/// A handle to the database connection.
+impl Transaction<'_> {
+    /// Consume the transaction and commit it, without recovery.
+    pub fn commit(self) -> Result<(), rusqlite::Error> {
+        self.0.commit()
+    }
+
+    /// Roll all changes so far back, making this instance unusable.
+    pub fn rollback(self) -> Result<(), rusqlite::Error> {
+        self.0.rollback()
+    }
+}
+
+/// Lifecycle
 impl DbHandle {
     /// Create a new instance connecting to a file-based database contained in `db_dir`.
     /// It will be created or updated automatically.
@@ -34,9 +46,9 @@ impl DbHandle {
     #[instrument(level = "debug", skip(url), err(Debug))]
     pub fn new_at_url(url: impl Into<String>) -> anyhow::Result<Self> {
         let url = url.into();
-        let mut conn = SqliteConnection::establish(&url)?;
-        improve_concurrency(&mut conn)?;
-        run_migrations(&url)?;
+        let mut conn = rusqlite::Connection::open(&url)?;
+        improve_concurrency(&conn)?;
+        run_migrations(&mut conn)?;
         Ok(DbHandle { conn, url })
     }
 
@@ -46,12 +58,23 @@ impl DbHandle {
     }
 }
 
+/// Utilities
+impl DbHandle {
+    /// Create a new transaction which can be used to create new table handles on.
+    /// # IMPORTANT
+    /// Don't forget to call [commit()](rusqlite::Transaction::commit()) to actually persist the result.
+    /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
+    pub fn transaction(&mut self) -> anyhow::Result<Transaction<'_>> {
+        Ok(Transaction(self.conn.transaction()?))
+    }
+}
+
 /// Improve parallelism and make it non-fatal.
 /// Blanket setting from https://github.com/the-lean-crate/criner/discussions/5, maybe needs tuning.
 /// Also, it's a known issue, maybe order matters?
 /// https://github.com/diesel-rs/diesel/issues/2365#issuecomment-2899347817
 /// TODO: the busy_timeout doesn't seem to be effective.
-fn improve_concurrency(conn: &mut SqliteConnection) -> anyhow::Result<()> {
+fn improve_concurrency(conn: &rusqlite::Connection) -> anyhow::Result<()> {
     // For safety, execute them one by one. Otherwise, they can individually fail, silently (at least the `busy_timeout`.
     for query in [
         "PRAGMA busy_timeout = 30000;        -- wait X milliseconds, but not all at once, before for timing out with error.",
@@ -60,22 +83,22 @@ fn improve_concurrency(conn: &mut SqliteConnection) -> anyhow::Result<()> {
         "PRAGMA wal_autocheckpoint = 1000;   -- write WAL changes back every 1000 pages, for an in average 1MB WAL file.",
         "PRAGMA wal_checkpoint(TRUNCATE);    -- free some space by truncating possibly massive WAL files from the last run.",
     ] {
-        conn.batch_execute(query)?;
+        conn.execute_batch(query)?;
     }
     Ok(())
 }
 
-fn run_migrations(url: &str) -> anyhow::Result<()> {
-    let mut db = rusqlite::Connection::open(url)?;
+fn run_migrations(conn: &mut rusqlite::Connection) -> anyhow::Result<()> {
     let policy = backoff::ExponentialBackoffBuilder::new()
         .with_max_elapsed_time(Some(std::time::Duration::from_millis(500)))
         .build();
 
-    Ok(backoff::retry(policy, || {
-        let count = migration::run(&mut db, migration::ours())?;
+    backoff::retry(policy, || {
+        let count = migration::run(conn, migration::ours())?;
         if count > 0 {
             tracing::info!("Database updated with {count} migrations");
         }
         Ok::<_, backoff::Error<migration::Error>>(())
-    })?)
+    })?;
+    Ok(())
 }

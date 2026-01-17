@@ -10,6 +10,7 @@ pub(crate) mod hunk_assignments;
 pub(crate) mod workflows;
 pub(crate) mod workspace_rules;
 
+/// Move migrations that relate to tables that don't have their module anymore here.
 pub(crate) const M_FULLY_REMOVED: &[M<'static>] = &[
     M::up(
         20251013092749,

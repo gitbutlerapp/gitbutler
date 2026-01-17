@@ -1,16 +1,7 @@
-use diesel::{
-    ExpressionMethods, QueryDsl, RunQueryDsl,
-    associations::HasTable,
-    dsl::count_star,
-    prelude::{Insertable, Queryable, Selectable},
-};
 use serde::{Deserialize, Serialize};
 
-use crate::M;
-use crate::{
-    DbHandle,
-    schema::{butler_actions as schema, butler_actions::dsl::butler_actions},
-};
+use crate::Transaction;
+use crate::{DbHandle, M};
 
 pub(crate) const M: &[M<'static>] = &[
     M::up(
@@ -47,9 +38,8 @@ ALTER TABLE `butler_actions` ADD COLUMN `external_prompt` TEXT;
     ),
 ];
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::butler_actions)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+/// Tests are in `but-db/tests/db/table/butler_actions.rs`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ButlerAction {
     /// UUID identifier of the action.
     pub id: String,
@@ -74,32 +64,93 @@ pub struct ButlerAction {
 }
 
 impl DbHandle {
-    pub fn butler_actions(&mut self) -> ButlerActionsHandle<'_> {
-        ButlerActionsHandle { db: self }
+    pub fn butler_actions(&self) -> ButlerActionsHandle<'_> {
+        ButlerActionsHandle { conn: &self.conn }
+    }
+
+    pub fn butler_actions_mut(&mut self) -> ButlerActionsHandleMut<'_> {
+        ButlerActionsHandleMut { conn: &self.conn }
     }
 }
 
-pub struct ButlerActionsHandle<'a> {
-    db: &'a mut DbHandle,
+impl<'conn> Transaction<'conn> {
+    pub fn butler_actions(&self) -> ButlerActionsHandle<'_> {
+        ButlerActionsHandle { conn: &self.0 }
+    }
+
+    pub fn butler_actions_mut(&mut self) -> ButlerActionsHandleMut<'_> {
+        ButlerActionsHandleMut { conn: &self.0 }
+    }
+}
+
+pub struct ButlerActionsHandle<'conn> {
+    conn: &'conn rusqlite::Connection,
+}
+
+pub struct ButlerActionsHandleMut<'conn> {
+    conn: &'conn rusqlite::Connection,
 }
 
 impl ButlerActionsHandle<'_> {
-    pub fn insert(&mut self, action: ButlerAction) -> anyhow::Result<()> {
-        diesel::insert_into(butler_actions)
-            .values(&action)
-            .execute(&mut self.db.conn)?;
-        Ok(())
+    /// Lists butler actions with pagination, ordered by created_at descending.
+    /// Returns a tuple of (total_count, actions).
+    pub fn list(&self, offset: i64, limit: i64) -> anyhow::Result<(i64, Vec<ButlerAction>)> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, created_at, external_prompt, external_summary, handler, \
+             snapshot_before, snapshot_after, response, error, source \
+             FROM butler_actions ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
+        )?;
+
+        let actions = stmt
+            .query_map([limit, offset], |row| {
+                Ok(ButlerAction {
+                    id: row.get(0)?,
+                    created_at: row.get(1)?,
+                    external_prompt: row.get(2)?,
+                    external_summary: row.get(3)?,
+                    handler: row.get(4)?,
+                    snapshot_before: row.get(5)?,
+                    snapshot_after: row.get(6)?,
+                    response: row.get(7)?,
+                    error: row.get(8)?,
+                    source: row.get(9)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let total: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM butler_actions", [], |row| row.get(0))?;
+
+        Ok((total, actions))
+    }
+}
+
+impl ButlerActionsHandleMut<'_> {
+    /// Enable read-only access functions.
+    pub fn to_ref(&self) -> ButlerActionsHandle<'_> {
+        ButlerActionsHandle { conn: self.conn }
     }
 
-    pub fn list(&mut self, offset: i64, limit: i64) -> anyhow::Result<(i64, Vec<ButlerAction>)> {
-        let actions = butler_actions::table()
-            .order(schema::created_at.desc())
-            .limit(limit)
-            .offset(offset)
-            .load::<ButlerAction>(&mut self.db.conn)?;
-        let total = butler_actions::table()
-            .select(count_star())
-            .first::<i64>(&mut self.db.conn)?;
-        Ok((total, actions))
+    /// Insert a new butler action.
+    pub fn insert(&mut self, action: ButlerAction) -> anyhow::Result<()> {
+        self.conn.execute(
+            "INSERT INTO butler_actions (id, created_at, external_prompt, external_summary, handler, \
+             snapshot_before, snapshot_after, response, error, source) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![
+                action.id,
+                action.created_at,
+                action.external_prompt,
+                action.external_summary,
+                action.handler,
+                action.snapshot_before,
+                action.snapshot_after,
+                action.response,
+                action.error,
+                action.source,
+            ],
+        )?;
+        Ok(())
     }
 }

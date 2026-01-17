@@ -154,10 +154,10 @@ pub fn record_push_metadata(
     let repo = ctx.repo.get()?;
     let mappings = mappings(&repo, candidate_ids, push_output)?;
     let mut db = ctx.db.get_mut()?;
-    let mut db = db.gerrit_metadata();
+    let mut trans = db.transaction()?;
 
     for mapping in mappings {
-        let existing = db.get(&mapping.change_id)?;
+        let existing = trans.gerrit_metadata().get(&mapping.change_id)?;
         let now = chrono::Utc::now().naive_utc();
         let commit_id_str = mapping.commit_id.to_string();
 
@@ -173,7 +173,7 @@ pub fn record_push_metadata(
                         created_at: existing_meta.created_at, // Keep original creation time
                         updated_at: now,
                     };
-                    db.update(updated_meta)?;
+                    trans.gerrit_metadata_mut().update(updated_meta)?;
                 }
                 // If commit_id matches, do nothing
             }
@@ -186,10 +186,11 @@ pub fn record_push_metadata(
                     created_at: now,
                     updated_at: now,
                 };
-                db.insert(new_meta)?;
+                trans.gerrit_metadata_mut().insert(new_meta)?;
             }
         }
     }
+    trans.commit()?;
 
     Ok(())
 }

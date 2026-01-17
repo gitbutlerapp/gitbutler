@@ -24,6 +24,6 @@ gitbutler-stack.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 md5.workspace = true
-diesel = { version = "2.3.5", features = ["sqlite"] }
+rusqlite.workspace = true
 serde_json.workspace = true
 gix = { workspace = true, features = [] }

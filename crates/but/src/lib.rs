@@ -269,8 +269,8 @@ async fn match_subcommand(
                 command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)
             }
             None => {
-                let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
-                command::legacy::actions::list_actions(&mut ctx, out, 0, 10)
+                let ctx = init::init_ctx(&args, Fetch::None, out)?;
+                command::legacy::actions::list_actions(&ctx, out, 0, 10)
             }
         },
         #[cfg(feature = "legacy")]
@@ -297,8 +297,8 @@ async fn match_subcommand(
                     but_claude::mcp::start(&args.current_dir, &session_id).await
                 }
                 claude::Subcommands::Last { offset } => {
-                    let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
-                    let message = but_claude::db::get_user_message(&mut ctx, Some(offset as i64))?;
+                    let ctx = init::init_ctx(&args, Fetch::None, out)?;
+                    let message = but_claude::db::get_user_message(&ctx, Some(offset as i64))?;
                     match message {
                         Some(msg) => {
                             if args.json {

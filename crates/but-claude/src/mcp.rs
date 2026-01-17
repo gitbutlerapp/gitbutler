@@ -132,10 +132,10 @@ impl Mcp {
         // Create a record that will be seen by the user in the UI
         ctx.db
             .get_mut()?
-            .claude_permission_requests()
-            .insert(req.clone().try_into()?)?;
+            .claude_mut()
+            .insert_permission_request(req.clone().try_into()?)?;
         // Poll for user approval
-        let rx = ctx.db.get_mut()?.poll_changes(
+        let rx = ctx.db.get()?.poll_changes(
             ItemKind::Actions
                 | ItemKind::Workflows
                 | ItemKind::Assignments
@@ -153,11 +153,7 @@ impl Mcp {
             }
             match item {
                 Ok(ItemKind::ClaudePermissionRequests) => {
-                    let updated = ctx
-                        .db
-                        .get_mut()?
-                        .claude_permission_requests()
-                        .get(&req.id)?;
+                    let updated = ctx.db.get()?.claude().get_permission_request(&req.id)?;
                     if let Some(updated) = updated {
                         if let Some(decision_str) = updated.decision.clone() {
                             let decision: crate::PermissionDecision =

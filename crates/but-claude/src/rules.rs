@@ -48,7 +48,7 @@ impl TryFrom<but_rules::WorkspaceRule> for ClaudeSessionAssignmentRule {
 
 /// Lists all Claude session assignment rules in the workspace.
 pub(crate) fn list_claude_assignment_rules(
-    ctx: &mut Context,
+    ctx: &Context,
 ) -> anyhow::Result<Vec<ClaudeSessionAssignmentRule>> {
     let rules = but_rules::list_rules(ctx)?
         .iter()

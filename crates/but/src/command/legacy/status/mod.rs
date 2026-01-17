@@ -454,7 +454,7 @@ fn ci_map(
                 if segment.pr_number().is_some()
                     && !matches!(segment.inner.push_status, PushStatus::Integrated)
                     && let Some(branch_name) = segment.branch_name()
-                    && let Ok(checks) = but_api::legacy::forge::list_ci_checks(
+                    && let Ok(checks) = but_api::legacy::forge::list_ci_checks_and_update_cache(
                         ctx,
                         branch_name.to_string(),
                         Some(cache_config.clone()),

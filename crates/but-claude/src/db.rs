@@ -28,8 +28,8 @@ pub fn save_new_session_with_gui_flag(
     };
     ctx.db
         .get_mut()?
-        .claude_sessions()
-        .insert(session.clone().try_into()?)?;
+        .claude_mut()
+        .insert_session(session.clone().try_into()?)?;
     Ok(session)
 }
 
@@ -49,12 +49,12 @@ pub fn add_session_id(
 
         ctx.db
             .get_mut()?
-            .claude_sessions()
+            .claude_mut()
             .update_session_ids(&session_id.to_string(), &json)?;
         ctx.db
             .get_mut()?
-            .claude_sessions()
-            .update_current_id(&session_id.to_string(), &new_session_id.to_string())?;
+            .claude_mut()
+            .update_session_current_id(&session_id.to_string(), &new_session_id.to_string())?;
     }
     Ok(())
 }
@@ -63,8 +63,8 @@ pub fn add_session_id(
 pub fn set_session_in_gui(ctx: &mut Context, session_id: Uuid, in_gui: bool) -> anyhow::Result<()> {
     ctx.db
         .get_mut()?
-        .claude_sessions()
-        .update_in_gui(&session_id.to_string(), in_gui)?;
+        .claude_mut()
+        .update_session_in_gui(&session_id.to_string(), in_gui)?;
     Ok(())
 }
 
@@ -77,7 +77,7 @@ pub fn update_session_permissions(
 ) -> anyhow::Result<()> {
     let approved_json = serde_json::to_string(approved_permissions)?;
     let denied_json = serde_json::to_string(denied_permissions)?;
-    ctx.db.get_mut()?.claude_sessions().update_permissions(
+    ctx.db.get_mut()?.claude_mut().update_session_permissions(
         &session_id.to_string(),
         &approved_json,
         &denied_json,
@@ -85,25 +85,13 @@ pub fn update_session_permissions(
     Ok(())
 }
 
-/// Lists all known Claude sessions
-pub fn list_all_sessions(ctx: &mut Context) -> anyhow::Result<Vec<ClaudeSession>> {
-    let sessions = ctx.db.get_mut()?.claude_sessions().list()?;
-    sessions
-        .into_iter()
-        .map(|s| s.try_into())
-        .collect::<Result<_, _>>()
-}
-
 /// Retrieves a Claude session by its ID from the database.
-pub fn get_session_by_id(
-    ctx: &mut Context,
-    session_id: Uuid,
-) -> anyhow::Result<Option<ClaudeSession>> {
+pub fn get_session_by_id(ctx: &Context, session_id: Uuid) -> anyhow::Result<Option<ClaudeSession>> {
     let session = ctx
         .db
-        .get_mut()?
-        .claude_sessions()
-        .get(&session_id.to_string())?;
+        .get()?
+        .claude()
+        .get_session(&session_id.to_string())?;
     match session {
         Some(s) => Ok(Some(s.try_into()?)),
         None => Ok(None),
@@ -111,14 +99,14 @@ pub fn get_session_by_id(
 }
 
 pub fn get_session_by_current_id(
-    ctx: &mut Context,
+    ctx: &Context,
     current_id: Uuid,
 ) -> anyhow::Result<Option<ClaudeSession>> {
     let session = ctx
         .db
-        .get_mut()?
-        .claude_sessions()
-        .get_by_current_id(&current_id.to_string())?;
+        .get()?
+        .claude()
+        .get_session_by_current_id(&current_id.to_string())?;
     match session {
         Some(s) => Ok(Some(s.try_into()?)),
         None => Ok(None),
@@ -132,6 +120,7 @@ pub fn delete_session_and_messages_by_id(
 ) -> anyhow::Result<()> {
     ctx.db
         .get_mut()?
+        .claude_mut()
         .delete_session_and_messages(&session_id.to_string())?;
     Ok(())
 }
@@ -150,22 +139,22 @@ pub fn save_new_message(
     };
     ctx.db
         .get_mut()?
-        .claude_messages()
-        .insert(message.clone().try_into()?)?;
+        .claude_mut()
+        .insert_message(message.clone().try_into()?)?;
     Ok(message)
 }
 
 /// Lists all messages associated with a given session ID from the database.
 /// Messages that fail to deserialize are skipped and logged as warnings.
 pub fn list_messages_by_session(
-    ctx: &mut Context,
+    ctx: &Context,
     session_id: Uuid,
 ) -> anyhow::Result<Vec<crate::ClaudeMessage>> {
     let messages = ctx
         .db
-        .get_mut()?
-        .claude_messages()
-        .list_by_session(&session_id.to_string())?;
+        .get()?
+        .claude()
+        .list_messages_by_session(&session_id.to_string())?;
     messages
         .into_iter()
         .map(|m| m.try_into())
@@ -175,13 +164,13 @@ pub fn list_messages_by_session(
 /// Gets the most recent user input message
 /// Optionally an offset may be provided. The offset must be a positive integer
 pub fn get_user_message(
-    ctx: &mut Context,
+    ctx: &Context,
     offset: Option<i64>,
 ) -> anyhow::Result<Option<crate::ClaudeMessage>> {
     let message = ctx
         .db
-        .get_mut()?
-        .claude_messages()
+        .get()?
+        .claude()
         .get_message_of_type(MessagePayloadDbType::User.to_string(), offset)?;
 
     match message {
@@ -191,10 +180,8 @@ pub fn get_user_message(
 }
 
 /// Lists all Permission Requests
-pub fn list_all_permission_requests(
-    ctx: &mut Context,
-) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
-    let requests = ctx.db.get_mut()?.claude_permission_requests().list()?;
+pub fn list_all_permission_requests(ctx: &Context) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
+    let requests = ctx.db.get()?.claude().list_permission_requests()?;
     requests
         .into_iter()
         .map(|s| s.try_into())
@@ -211,8 +198,8 @@ pub fn update_permission_request(
     let decision_str = serde_json::to_string(&decision)?;
     ctx.db
         .get_mut()?
-        .claude_permission_requests()
-        .set_decision_and_wildcard(id, Some(decision_str), use_wildcard)?;
+        .claude_mut()
+        .set_permission_request_decision_and_wildcard(id, Some(decision_str), use_wildcard)?;
     Ok(())
 }
 
