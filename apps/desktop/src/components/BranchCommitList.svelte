@@ -1,13 +1,12 @@
 <script lang="ts">
 	import BranchIntegrationModal from '$components/BranchIntegrationModal.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
-	import ChangedFiles from '$components/ChangedFiles.svelte';
 	import CommitContextMenu from '$components/CommitContextMenu.svelte';
 	import CommitGoesHere from '$components/CommitGoesHere.svelte';
 	import CommitLineOverlay from '$components/CommitLineOverlay.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
-
+	import NestedChangedFiles from '$components/NestedChangedFiles.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UpstreamCommitsAction from '$components/UpstreamCommitsAction.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
@@ -392,10 +391,10 @@
 										contextData={data}
 									/>
 								{/snippet}
-							</CommitRow>
-							{#if selected}
-								{@const changesQuery = stackService.commitChanges(projectId, commitId)}
-								<div class="commit-expanded-content">
+
+								{#snippet changedFiles()}
+									{@const changesQuery = stackService.commitChanges(projectId, commitId)}
+
 									<ReduxResult {projectId} {stackId} result={changesQuery.result}>
 										{#snippet children(changesResult)}
 											{@const commitsQuery = stackId
@@ -404,10 +403,7 @@
 											{@const commits = commitsQuery?.response || []}
 											{@const firstConflictedCommitId = findEarliestConflict(commits)?.id}
 
-											<ChangedFiles
-												transparentHeader
-												bottomBorder={!last}
-												topBorder={last}
+											<NestedChangedFiles
 												title="Changed files"
 												{projectId}
 												{stackId}
@@ -429,8 +425,8 @@
 											/>
 										{/snippet}
 									</ReduxResult>
-								</div>
-							{/if}
+								{/snippet}
+							</CommitRow>
 						</div>
 					</Dropzone>
 					{@render commitReorderDz(

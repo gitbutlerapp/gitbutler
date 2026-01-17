@@ -6,13 +6,14 @@
 
 	interface Props {
 		commitStatus: CommitStatusType;
-		diverged: boolean;
+		diverged?: boolean;
 		tooltip?: string;
 		lastCommit?: boolean;
 		lastBranch?: boolean;
 		hasConflicts?: boolean;
-		alignDot?: 'center' | 'start';
+		dotOnTop?: boolean;
 		hideDot?: boolean;
+		height?: string;
 	}
 
 	const {
@@ -21,9 +22,10 @@
 		tooltip,
 		lastCommit,
 		lastBranch,
-		alignDot = 'center',
+		dotOnTop,
 		hasConflicts,
-		hideDot = false
+		hideDot,
+		height
 	}: Props = $props();
 
 	const color = $derived(getColorFromCommitState(commitStatus, diverged));
@@ -39,7 +41,9 @@
 </script>
 
 <div
-	class="commit-lines align-{alignDot}"
+	class="commit-lines"
+	class:dot-on-top={dotOnTop}
+	style:height
 	style:--commit-color={getCommitColor()}
 	style:--commit-local-color={hasConflicts
 		? 'var(--clr-theme-danger-element)'
@@ -82,15 +86,9 @@
 		width: 42px;
 		gap: 3px;
 
-		&.align-start {
+		&.dot-on-top {
 			.top {
 				flex: 0 0 13px;
-			}
-		}
-
-		&.align-center {
-			.top {
-				flex: 1;
 			}
 		}
 	}
