@@ -6,9 +6,9 @@
 	import BranchCommitList from '$components/BranchCommitList.svelte';
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
 	import BranchInsertion from '$components/BranchInsertion.svelte';
-	import ChangedFiles from '$components/ChangedFiles.svelte';
 	import CodegenRow from '$components/CodegenRow.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
+	import NestedChangedFiles from '$components/NestedChangedFiles.svelte';
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
@@ -384,8 +384,8 @@
 							})}
 							<ReduxResult {projectId} {stackId} result={changesQuery.result}>
 								{#snippet children(result, { projectId, stackId })}
-									<ChangedFiles
-										title="Combined Changes"
+									<NestedChangedFiles
+										title="All Changes"
 										{projectId}
 										{stackId}
 										draggableFiles
