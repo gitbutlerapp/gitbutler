@@ -503,12 +503,12 @@
 	{#if isCommit(commit) && !overrideIsRemote}
 		<CommitLine
 			commitStatus={commit.state.type}
-			alignDot="start"
+			dotOnTop
 			hideDot={hideCommitDot}
 			diverged={commit.state.type === 'LocalAndRemote' && commit.state.subject !== commit.id}
 		/>
 	{:else}
-		<CommitLine hideDot={hideCommitDot} alignDot="start" commitStatus="Remote" diverged={false} />
+		<CommitLine hideDot={hideCommitDot} dotOnTop commitStatus="Remote" diverged={false} />
 	{/if}
 {/snippet}
 

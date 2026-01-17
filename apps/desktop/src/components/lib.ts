@@ -31,7 +31,10 @@ export function getIconFromCommitState(
 	}
 }
 
-export function getColorFromCommitState(commitType: CommitStatusType, diverged: boolean): string {
+export function getColorFromCommitState(
+	commitType: CommitStatusType,
+	diverged: boolean = false
+): string {
 	if (diverged) {
 		return colorMap.LocalOnly;
 	}
