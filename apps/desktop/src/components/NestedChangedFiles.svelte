@@ -2,10 +2,11 @@
 	import FileList from '$components/FileList.svelte';
 	import FileListMode from '$components/FileListMode.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/core/context';
-	import { Badge, LineStats } from '@gitbutler/ui';
+	import { Badge, LineStats, EmptyStatePlaceholder } from '@gitbutler/ui';
 
 	import { type ComponentProps } from 'svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
@@ -84,18 +85,26 @@
 			<FileListMode bind:mode={listMode} persistId={`changed-files-${persistId}`} />
 		</div>
 
-		<FileList
-			{selectionId}
-			{projectId}
-			{stackId}
-			{changes}
-			{listMode}
-			{conflictEntries}
-			{draggableFiles}
-			{ancestorMostConflictedCommitId}
-			{allowUnselect}
-			{onselect}
-		/>
+		{#if changes.length === 0}
+			<EmptyStatePlaceholder image={emptyFolderSvg} gap={0} topBottomPadding={4} bottomMargin={24}>
+				{#snippet caption()}
+					No files changed
+				{/snippet}
+			</EmptyStatePlaceholder>
+		{:else}
+			<FileList
+				{selectionId}
+				{projectId}
+				{stackId}
+				{changes}
+				{listMode}
+				{conflictEntries}
+				{draggableFiles}
+				{ancestorMostConflictedCommitId}
+				{allowUnselect}
+				{onselect}
+			/>
+		{/if}
 	</div>
 </div>
 
