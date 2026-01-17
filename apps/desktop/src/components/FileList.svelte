@@ -416,7 +416,6 @@
 		flex-direction: column;
 		justify-content: center;
 		padding: 12px;
-		padding-top: 4px;
 		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
