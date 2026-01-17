@@ -167,7 +167,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         }
         None => {
             // No subcommand and no source/target means run the default alias
-            // The default alias expands to "status --hint" which provides a helpful entry point
+            // The default alias expands to "status" which provides a helpful entry point
             let default_args = vec![OsString::from("but"), OsString::from("default")];
             let expanded = alias::expand_aliases(default_args)?;
             let mut new_args: Args = clap::Parser::parse_from(expanded);
@@ -395,11 +395,11 @@ async fn match_subcommand(
             verbose,
             refresh_prs: sync_prs,
             upstream,
-            hint,
+            no_hint,
         } => {
             let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
             command::legacy::status::worktree(
-                &mut ctx, out, show_files, verbose, sync_prs, upstream, hint,
+                &mut ctx, out, show_files, verbose, sync_prs, upstream, !no_hint,
             )
             .await
             .emit_metrics(metrics_ctx)

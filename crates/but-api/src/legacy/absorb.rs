@@ -9,7 +9,7 @@ use tracing::instrument;
 
 use bstr::{BString, ByteSlice};
 use but_core::DiffSpec;
-use but_hunk_dependency::ui::HunkLock;
+use but_hunk_dependency::ui::{HunkLock, HunkLockTarget};
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::{commit_engine::ui::CreateCommitOutcome, ui::StackDetails};
 use gitbutler_oplog::{
@@ -150,27 +150,31 @@ fn find_top_most_lock<'a>(
     // If there are multiple, then the absorb will fail.
     let all_stack_ids = locks
         .iter()
-        .map(|lock| lock.stack_id)
+        .map(|lock| lock.target)
         .unique()
         .collect::<Vec<_>>();
     for stack_id in &all_stack_ids {
-        let stack_details = if let Some(details) = stack_details_cache.get(stack_id) {
-            details.clone()
-        } else {
-            let details =
-                crate::legacy::workspace::stack_details(project_id, Some(*stack_id)).ok()?;
-            stack_details_cache.insert(*stack_id, details.clone());
-            details
-        };
-        for branch in stack_details.branch_details.iter() {
-            for commit in branch.commits.iter() {
-                if let Some(lock) = locks
-                    .iter()
-                    .find(|l| l.commit_id == commit.id && l.stack_id == *stack_id)
-                {
-                    return Some(lock);
+        if let HunkLockTarget::Stack(stack_id) = stack_id {
+            let stack_details = if let Some(details) = stack_details_cache.get(stack_id) {
+                details.clone()
+            } else {
+                let details =
+                    crate::legacy::workspace::stack_details(project_id, Some(*stack_id)).ok()?;
+                stack_details_cache.insert(*stack_id, details.clone());
+                details
+            };
+            for branch in stack_details.branch_details.iter() {
+                for commit in branch.commits.iter() {
+                    if let Some(lock) = locks.iter().find(|l| {
+                        l.commit_id == commit.id && l.target == HunkLockTarget::Stack(*stack_id)
+                    }) {
+                        return Some(lock);
+                    }
                 }
             }
+        } else {
+            // We've got locks to unknown stacks, just return the first one.
+            return locks.first();
         }
     }
     None
@@ -191,11 +195,9 @@ fn determine_target_commit(
     // Priority 1: Check if there's a dependency lock for this hunk
     if let Some(locks) = &assignment.hunk_locks {
         if let Some(lock) = find_top_most_lock(locks, project_id, stack_details_cache) {
-            return Ok((
-                lock.stack_id,
-                lock.commit_id,
-                AbsorptionReason::HunkDependency,
-            ));
+            if let HunkLockTarget::Stack(stack_id) = lock.target {
+                return Ok((stack_id, lock.commit_id, AbsorptionReason::HunkDependency));
+            }
         } else {
             anyhow::bail!(
                 "Failed to determine target commit for hunk absorption due to ambiguous dependencies in path: {}",

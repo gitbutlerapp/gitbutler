@@ -19,8 +19,7 @@ pub struct HeadAndMode {
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn operating_mode(project_id: ProjectId) -> Result<HeadAndMode, Error> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
+pub fn operating_mode(ctx: &Context) -> Result<HeadAndMode, Error> {
     let head = match ctx.git2_repo.get()?.head() {
         Ok(head_ref) => head_ref.shorthand().map(|s| s.to_string()),
         Err(_) => None,
@@ -28,7 +27,7 @@ pub fn operating_mode(project_id: ProjectId) -> Result<HeadAndMode, Error> {
 
     Ok(HeadAndMode {
         head,
-        operating_mode: Some(gitbutler_operating_modes::operating_mode(&ctx)),
+        operating_mode: Some(gitbutler_operating_modes::operating_mode(ctx)),
     })
 }
 

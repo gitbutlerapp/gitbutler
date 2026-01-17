@@ -182,7 +182,7 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
 		},
 		[
 			{
-				stackId: MOCK_STACK_B_ID,
+				target: { type: 'stack', subject: MOCK_STACK_B_ID },
 				commitId: '1234123'
 			}
 		]
@@ -198,7 +198,7 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
 		},
 		[
 			{
-				stackId: MOCK_STACK_B_ID,
+				target: { type: 'stack', subject: MOCK_STACK_B_ID },
 				commitId: '1234123'
 			}
 		]
@@ -214,15 +214,15 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
 		},
 		[
 			{
-				stackId: MOCK_STACK_B_ID,
+				target: { type: 'stack', subject: MOCK_STACK_B_ID },
 				commitId: 'asdfasdfadfasdfadfasdfs'
 			},
 			{
-				stackId: MOCK_STACK_B_ID,
+				target: { type: 'stack', subject: MOCK_STACK_B_ID },
 				commitId: '5545454545fafafafafa234'
 			},
 			{
-				stackId: MOCK_STACK_C_ID,
+				target: { type: 'stack', subject: MOCK_STACK_C_ID },
 				commitId: '8s9d8s9df87s9df87s9dfss'
 			}
 		]
@@ -238,7 +238,7 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
 		},
 		[
 			{
-				stackId: MOCK_STACK_B_ID,
+				target: { type: 'stack', subject: MOCK_STACK_B_ID },
 				commitId: '1234123'
 			}
 		]
@@ -254,7 +254,7 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
 		},
 		[
 			{
-				stackId: MOCK_STACK_B_ID,
+				target: { type: 'stack', subject: MOCK_STACK_B_ID },
 				commitId: '1234123'
 			}
 		]

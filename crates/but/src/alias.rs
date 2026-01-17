@@ -25,7 +25,7 @@ use anyhow::Result;
 
 /// Default aliases that ship with `but` and can be overridden by git config.
 const DEFAULT_ALIASES: &[(&str, &str)] = &[
-    ("default", "status --hint"),
+    ("default", "status"),
     ("st", "status"),
     ("stf", "status --files"),
 ];

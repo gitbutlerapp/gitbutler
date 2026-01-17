@@ -31,14 +31,23 @@ export type CalculationError = {
 	path: string;
 };
 
+export type HunkLockTarget =
+	| {
+			type: 'stack';
+			subject: string;
+	  }
+	| {
+			type: 'unidentified';
+	  };
+
 /**
  * Represents the dependency of a diff hunk on a stack and commit.
  */
 export type HunkLock = {
 	/**
-	 * The stack ID that this hunk is dependent on.
+	 * The stack that this hunk is dependent on.
 	 */
-	stackId: string;
+	target: HunkLockTarget;
 	/**
 	 * The commit ID that this hunk is dependent on.
 	 */
@@ -203,16 +212,30 @@ export function getLockedCommitIds(
  * @param fileDependencies - Array of file dependencies to search through.
  * @returns Array of unique stack IDs that the file depends on.
  */
-export function getLockedStackIds(
+export function getLockedTargets(
 	filePath: string,
 	fileDependencies: FileDependencies[]
-): string[] {
+): HunkLockTarget[] {
 	const deps = fileDependencies.find((dep) => dep.path === filePath);
 	if (!deps) return [];
 
-	const stackIds = new Set<string>();
+	const targets: HunkLockTarget[] = [];
 	deps.dependencies.forEach((dep) => {
-		dep.locks.forEach((lock) => stackIds.add(lock.stackId));
+		dep.locks.forEach((lock) => {
+			if (!targets.some((t) => targetEqual(t, lock.target))) {
+				targets.push(lock.target);
+			}
+		});
 	});
-	return Array.from(stackIds);
+	return targets;
+}
+
+export function targetEqual(a: HunkLockTarget, b: HunkLockTarget) {
+	if (a.type === 'stack' && a.type === b.type) {
+		return a.subject === b.subject;
+	} else if (a.type === 'unidentified' && a.type === b.type) {
+		return true;
+	} else {
+		return false;
+	}
 }

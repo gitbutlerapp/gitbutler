@@ -11,11 +11,11 @@
 	// Sample dependency locks
 	const sampleLocks: DependencyLock[] = [
 		{
-			stackId: 'main-stack',
+			target: { type: 'stack', subject: 'main-stack' },
 			commitId: 'abc123def456'
 		},
 		{
-			stackId: 'feature-branch',
+			target: { type: 'stack', subject: 'feature-branch' },
 			commitId: 'def456ghi789'
 		}
 	];
@@ -143,7 +143,9 @@
 					>
 						{#snippet lockWarning(locks)}
 							This line is locked by commit {locks[0].commitId.slice(0, 7)} on stack {locks[0]
-								.stackId}
+								.target.type === 'stack'
+								? locks[0].target.subject
+								: 'unknown'}
 						{/snippet}
 					</HunkDiffRow>
 				</tbody>
@@ -165,7 +167,9 @@
 						{#snippet lockWarning(locks)}
 							This line is locked by multiple commits:
 							{#each locks as lock, i}
-								{lock.commitId.slice(0, 7)} ({lock.stackId}){i < locks.length - 1 ? ', ' : ''}
+								{lock.commitId.slice(0, 7)} ({lock.target.type === 'stack'
+									? lock.target.subject
+									: 'unknown'}){i < locks.length - 1 ? ', ' : ''}
 							{/each}
 						{/snippet}
 					</HunkDiffRow>

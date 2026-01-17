@@ -144,7 +144,7 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
 		},
 		[
 			{
-				stackId: MOCK_STACK_B_ID,
+				target: { type: 'stack', subject: MOCK_STACK_B_ID },
 				commitId: '1234123'
 			}
 		]
@@ -160,7 +160,7 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
 		},
 		[
 			{
-				stackId: MOCK_STACK_B_ID,
+				target: { type: 'stack', subject: MOCK_STACK_B_ID },
 				commitId: '1234123'
 			}
 		]

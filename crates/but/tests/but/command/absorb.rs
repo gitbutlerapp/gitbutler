@@ -310,6 +310,8 @@ k0 a.txt│
 ┊
 ┴ 0dc3733 (common base) [origin/main] 2000-01-02 add M 
 
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
 "#]]);
 
     env.but("absorb i0")
@@ -359,6 +361,8 @@ Hint: you can run `but undo` to undo these changes
 ├╯
 ┊
 ┴ 0dc3733 (common base) [origin/main] 2000-01-02 add M 
+
+Hint: run `but help` for all commands
 
 "#]]);
 

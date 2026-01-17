@@ -85,8 +85,17 @@ export function parseHunk(hunkStr: string): Hunk {
 	return hunk;
 }
 
+export type DependencyLockTarget =
+	| {
+			type: 'stack';
+			subject: string;
+	  }
+	| {
+			type: 'unidentified';
+	  };
+
 export type DependencyLock = {
-	stackId: string;
+	target: DependencyLockTarget;
 	commitId: string;
 };
 
