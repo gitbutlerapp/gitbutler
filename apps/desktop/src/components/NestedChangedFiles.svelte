@@ -101,6 +101,7 @@
 
 <style lang="postcss">
 	.filelist-wrapper {
+		width: 100%;
 		padding: 0 10px;
 	}
 

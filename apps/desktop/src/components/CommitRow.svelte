@@ -193,7 +193,7 @@
 
 	{#if selected && changedFiles}
 		<div class="changed-files-container">
-			<CommitLine commitStatus={args.type} hideDot height="0.4rem" />
+			<CommitLine commitStatus={args.type} hideDot height="0.375rem" />
 			{@render changedFiles()}
 			<CommitLine commitStatus={args.type} hideDot height="1rem" />
 		</div>
@@ -323,6 +323,14 @@
 		color: var(--clr-text-1);
 		opacity: 0;
 		pointer-events: none;
+	}
+
+	.changed-files-container {
+		display: flex;
+		z-index: 1;
+		flex-direction: column;
+		margin-top: -4px;
+		background-color: var(--clr-bg-1);
 	}
 
 	.gerrit-review-pill {
