@@ -6,6 +6,7 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from '$lib/selection/key';
+	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
 	import { Badge, EmptyStatePlaceholder, LineStats } from '@gitbutler/ui';
 
@@ -57,14 +58,45 @@
 	// Derive the path of the first changed file, so it can be watched reactively in a consistent way.
 	const firstChangePath = $derived(changes.at(0)?.path);
 
+	let previousSelectionKey = $state<string | undefined>();
+
 	let listMode: 'list' | 'tree' = $state('tree');
 
-	$effect(() => {
-		const id = readStableSelectionKey(stringSelectionKey);
+	const handleSelectionChange = debounce(() => {
+		const currentKey = stringSelectionKey;
+		const id = readStableSelectionKey(currentKey);
 		const selection = idSelection.getById(id);
-		if (firstChangePath && autoselect && selection.entries.size === 0) {
-			idSelection.set(firstChangePath, selectionId, 0);
+
+		const previousFirstPathForThisSelection = idSelection.getFirstPathForSelection(currentKey);
+		const firstFileChanged =
+			previousFirstPathForThisSelection && previousFirstPathForThisSelection !== firstChangePath;
+		const selectionChanged = previousSelectionKey && previousSelectionKey !== currentKey;
+		const isFirstVisit = idSelection.isFirstVisit(currentKey);
+
+		// Clear in two cases:
+		// 1. First file changed for this selection: file list changed (e.g., rebase/amend)
+		// 2. Selection changed AND first visit: clear to force autoselect
+		if (firstFileChanged || (selectionChanged && isFirstVisit)) {
+			idSelection.clear(id);
 		}
+
+		previousSelectionKey = currentKey;
+		if (firstChangePath) {
+			idSelection.setFirstPathForSelection(currentKey, firstChangePath);
+		}
+
+		if (firstChangePath && autoselect && selection.entries.size === 0) {
+			idSelection.set(firstChangePath, id, 0);
+		}
+
+		if (isFirstVisit) {
+			idSelection.markAsVisited(currentKey);
+		}
+	}, 150);
+
+	$effect(() => {
+		const _ = stringSelectionKey + (firstChangePath ?? '');
+		handleSelectionChange();
 	});
 </script>
 
