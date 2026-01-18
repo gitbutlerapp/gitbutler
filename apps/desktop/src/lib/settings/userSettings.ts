@@ -10,6 +10,12 @@ export type CodeEditorSettings = {
 	displayName: string;
 };
 
+export type TerminalSettings = {
+	identifier: string;
+	displayName: string;
+	platform: 'macos' | 'windows' | 'linux' | 'all';
+};
+
 export interface Settings {
 	aiSummariesEnabled?: boolean;
 	bottomPanelExpanded: boolean;
@@ -31,6 +37,7 @@ export interface Settings {
 	diffContrast: 'light' | 'medium' | 'strong';
 	colorBlindFriendly: boolean;
 	defaultCodeEditor: CodeEditorSettings;
+	defaultTerminal: TerminalSettings;
 	defaultFileListMode: 'tree' | 'list';
 	pathFirst: boolean;
 }
@@ -55,6 +62,7 @@ const defaults: Settings = {
 	diffContrast: 'light',
 	colorBlindFriendly: false,
 	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
+	defaultTerminal: { identifier: 'terminal', displayName: 'Terminal', platform: 'macos' },
 	defaultFileListMode: 'list',
 	pathFirst: true
 };
