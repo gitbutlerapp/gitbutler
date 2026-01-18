@@ -190,3 +190,31 @@ fn load() -> anyhow::Result<Option<CachedCheckResult>> {
 pub fn last_checked() -> anyhow::Result<Option<DateTime<Utc>>> {
     Ok(load()?.map(|cached| cached.checked_at))
 }
+
+/// Try to obtain an exclusive inter-process lock for update checking.
+///
+/// This prevents multiple CLI processes from checking for updates simultaneously.
+/// The lock is held for the lifetime of the returned [`but_core::sync::LockFile`] and is
+/// automatically released when dropped or when the process exits.
+///
+/// # Returns
+///
+/// * `Ok(LockFile)` - Successfully acquired the lock
+/// * `Err(_)` - Another process is already checking for updates, or the lock file
+///   cannot be accessed
+pub fn try_update_check_lock() -> anyhow::Result<but_core::sync::LockFile> {
+    let lock_path = but_path::app_cache_dir()?.join("update-check.lock");
+
+    // Create cache directory if it doesn't exist
+    if let Some(parent) = lock_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let mut lock_file = but_core::sync::LockFile::open(&lock_path)?;
+    let got_lock = lock_file.try_lock()?;
+    if !got_lock {
+        anyhow::bail!("Another process is already checking for updates");
+    }
+
+    Ok(lock_file)
+}

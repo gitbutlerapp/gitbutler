@@ -84,8 +84,7 @@ fn test_cache_file_location() {
 
     // Verify it contains valid JSON
     let contents = fs::read_to_string(&cache_file).expect("Should read cache file");
-    let parsed: serde_json::Value =
-        serde_json::from_str(&contents).expect("Should parse as JSON");
+    let parsed: serde_json::Value = serde_json::from_str(&contents).expect("Should parse as JSON");
 
     assert!(parsed.get("checked_at").is_some(), "Should have checked_at");
     assert!(parsed.get("status").is_some(), "Should have status");
@@ -149,6 +148,47 @@ fn test_corrupted_cache_returns_none() {
     assert!(
         result.is_none(),
         "Should return None when cache is corrupted"
+    );
+}
+
+#[test]
+fn test_update_check_lock_prevents_concurrent_access() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let _temp_dir = setup_test_cache_dir();
+
+    // Acquire the lock
+    let lock1 = but_update::try_update_check_lock().expect("Should acquire first lock");
+
+    // Try to acquire it again - should fail
+    let lock2_result = but_update::try_update_check_lock();
+    assert!(
+        lock2_result.is_err(),
+        "Second lock attempt should fail while first is held"
+    );
+
+    // Drop the first lock
+    drop(lock1);
+
+    // Now we should be able to acquire it
+    let lock3 =
+        but_update::try_update_check_lock().expect("Should acquire lock after first is dropped");
+    drop(lock3);
+}
+
+#[test]
+fn test_update_check_lock_location() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let temp_dir = setup_test_cache_dir();
+
+    // Acquire the lock
+    let _lock_guard = but_update::try_update_check_lock().expect("Should acquire lock");
+
+    // Verify the lock file was created in the expected location
+    let lock_file = temp_dir.path().join("cache").join("update-check.lock");
+    assert!(
+        lock_file.exists(),
+        "Lock file should exist at {:?}",
+        lock_file
     );
 }
 

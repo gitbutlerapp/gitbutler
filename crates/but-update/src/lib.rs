@@ -9,4 +9,4 @@ pub use check::{AppName, CheckUpdateStatus, check_status};
 
 /// Module with functionality for caching update check results.
 pub mod cache;
-pub use cache::last_checked;
+pub use cache::{last_checked, try_update_check_lock};

@@ -1475,6 +1475,7 @@ name = "but-update"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-path",
  "but-secret",
  "but-settings",
