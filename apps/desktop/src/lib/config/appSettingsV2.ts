@@ -90,8 +90,6 @@ export type AppSettings = {
 	reviews: Reviews;
 	/** UI settings */
 	ui: UiSettings;
-	/** The duration between two update checks in seconds. If `0`, no update checks will be performed. */
-	checkForUpdatesIntervalInSeconds: number;
 };
 
 export type ForgeIntegrations = {
@@ -159,4 +157,6 @@ export type UiSettings = {
 	/** Whether the `but` CLI is managed by a package manager.
 	    When true, the UI should show a specific message instead of installation options. */
 	cliIsManagedByPackageManager: boolean;
+	/** The duration between two update checks in seconds. If `0`, no update checks will be performed. */
+	checkForUpdatesIntervalInSeconds: number;
 };
