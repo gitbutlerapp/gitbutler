@@ -371,6 +371,7 @@
 		}
 		lastScrollDirection = undefined;
 		lastJumpToIndex = index;
+		lockRowHeight(index);
 		initializeAt(index);
 	}
 
