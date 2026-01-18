@@ -2,7 +2,7 @@ import { getHunkLineSelector } from '../src/hunk.ts';
 import { getBaseURL, startGitButler, type GitButler } from '../src/setup.ts';
 import { clickByTestId, fillByTestId, getByTestId, waitForTestId } from '../src/util.ts';
 import { expect, Locator, test } from '@playwright/test';
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 let gitbutler: GitButler;
@@ -106,6 +106,54 @@ test('should be able to select the hunks correctly in a complex file', async ({
 	// Verify the commits
 	const commits = getByTestId(page, 'commit-row');
 	await expect(commits).toHaveCount(3);
+});
+
+test('should discard an untracked added file via context menu', async ({
+	page,
+	context
+}, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	const fileName = 'demo.txt';
+	const projectPath = gitbutler.pathInWorkdir('local-clone/');
+	const filePath = join(projectPath, fileName);
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// Create an untracked file.
+	writeFileSync(filePath, 'Hello world\nSecond line\n', 'utf-8');
+	expect(existsSync(filePath)).toBe(true);
+
+	// The file should appear on the uncommitted changes area
+	const uncommittedChangesList = getByTestId(page, 'uncommitted-changes-file-list');
+	const fileItem = uncommittedChangesList
+		.getByTestId('file-list-item')
+		.filter({ hasText: fileName });
+	await expect(fileItem).toBeVisible();
+	await fileItem.click();
+
+	// The unified diff view should be visible
+	const unifiedDiffView = getByTestId(page, 'unified-diff-view');
+	await expect(unifiedDiffView).toBeVisible();
+
+	// Open the hunk context menu for the added file and discard it.
+	await unifiedDiffView
+		.locator('[data-testid="hunk-count-column"]')
+		.first()
+		.click({ button: 'right' });
+	await waitForTestId(page, 'hunk-context-menu');
+	await clickByTestId(page, 'hunk-context-menu-discard-change');
+
+	await expect.poll(() => existsSync(filePath)).toBe(false);
+	await expect(fileItem).toHaveCount(0);
+	await expect(getByTestId(page, 'workspace-view')).toBeVisible();
 });
 
 async function unselectHunkLines(
