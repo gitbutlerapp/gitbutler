@@ -60,6 +60,8 @@
 
 	let listMode: 'list' | 'tree' = $state('tree');
 
+	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
+
 	$effect(() => {
 		const id = readStableSelectionKey(stringSelectionKey);
 		const selection = idSelection.getById(id);
@@ -85,7 +87,7 @@
 			<FileListMode bind:mode={listMode} persistId={`changed-files-${persistId}`} />
 		</div>
 
-		{#if changes.length === 0}
+		{#if changes.length === 0 && !hasConflicts}
 			<EmptyStatePlaceholder image={emptyFolderSvg} gap={0} topBottomPadding={4} bottomMargin={24}>
 				{#snippet caption()}
 					No files changed
