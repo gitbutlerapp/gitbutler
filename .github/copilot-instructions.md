@@ -115,7 +115,7 @@ pnpm fix
 pnpm format
 
 # Check formatting
-pnpm prettier --check .
+pnpm prettier
 
 # Shortcut to check everything
 pnpm isgood
