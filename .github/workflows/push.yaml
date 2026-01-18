@@ -59,7 +59,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
-      - run: pnpm prettier .
+      - run: pnpm prettier
 
   generate-ts-definitions:
     needs: changes
