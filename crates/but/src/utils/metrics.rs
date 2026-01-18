@@ -146,6 +146,7 @@ impl Subcommands {
                 Some(alias_args::Subcommands::Remove { .. }) => AliasRemove,
             },
             Subcommands::Metrics { .. } => Unknown,
+            Subcommands::Update { .. } => Update,
             #[cfg(feature = "legacy")]
             Subcommands::RefreshRemoteData { .. } => RefreshRemoteData,
             #[cfg(feature = "legacy")]

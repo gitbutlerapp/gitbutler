@@ -46,6 +46,7 @@ but-core.workspace = true
 but-settings.workspace = true
 but-serde.workspace = true
 but-secret.workspace = true
+but-update.workspace = true
 but-oxidize.workspace = true
 but-path.workspace = true
 but-ctx.workspace = true

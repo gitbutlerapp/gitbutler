@@ -49,6 +49,7 @@ pub enum CommandName {
     RefreshRemoteData,
     Resolve,
     SwitchBackToWorkspace,
+    Update,
     #[default]
     Unknown,
 }
