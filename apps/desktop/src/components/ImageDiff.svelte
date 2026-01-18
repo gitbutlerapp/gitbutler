@@ -3,6 +3,7 @@
 	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { inject } from '@gitbutler/core/context';
 	import { ImageDiff, EmptyStatePlaceholder } from '@gitbutler/ui';
+	import { untrack } from 'svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 
 	type Props = {
@@ -164,7 +165,9 @@
 
 	$effect(() => {
 		const abortController = new AbortController();
-		loadImages(abortController.signal);
+		untrack(() => {
+			loadImages(abortController.signal);
+		});
 		return () => abortController.abort();
 	});
 </script>

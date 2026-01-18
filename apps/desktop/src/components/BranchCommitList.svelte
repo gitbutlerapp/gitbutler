@@ -6,7 +6,7 @@
 	import CommitLineOverlay from '$components/CommitLineOverlay.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
-
+	import NestedChangedFiles from '$components/NestedChangedFiles.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UpstreamCommitsAction from '$components/UpstreamCommitsAction.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
@@ -19,6 +19,7 @@
 		createCommitDropHandlers,
 		type DzCommitData
 	} from '$lib/commits/dropHandler';
+	import { findEarliestConflict } from '$lib/commits/utils';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { draggableCommitV3 } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
@@ -28,6 +29,7 @@
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
+	import { createCommitSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -54,6 +56,7 @@
 		handleUncommit: (commitId: string, branchName: string) => Promise<void>;
 		startEditingCommitMessage: (branchName: string, commitId: string) => void;
 		onselect?: () => void;
+		onCommitFileClick?: (commitId: string, path: string, index: number) => void;
 	}
 
 	let {
@@ -68,7 +71,8 @@
 		active,
 		handleUncommit,
 		startEditingCommitMessage,
-		onselect
+		onselect,
+		onCommitFileClick
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -386,6 +390,41 @@
 										{rightClickTrigger}
 										contextData={data}
 									/>
+								{/snippet}
+
+								{#snippet changedFiles()}
+									{@const changesQuery = stackService.commitChanges(projectId, commitId)}
+
+									<ReduxResult {projectId} {stackId} result={changesQuery.result}>
+										{#snippet children(changesResult)}
+											{@const commitsQuery = stackId
+												? stackService.commits(projectId, stackId, branchName)
+												: undefined}
+											{@const commits = commitsQuery?.response || []}
+											{@const firstConflictedCommitId = findEarliestConflict(commits)?.id}
+
+											<NestedChangedFiles
+												title="Changed files"
+												{projectId}
+												{stackId}
+												draggableFiles
+												selectionId={createCommitSelection({ commitId: commitId, stackId })}
+												persistId={`commit-${commitId}`}
+												changes={changesResult.changes.filter(
+													(change) =>
+														!(change.path in (changesResult.conflictEntries?.entries ?? {}))
+												)}
+												stats={changesResult.stats}
+												conflictEntries={changesResult.conflictEntries}
+												ancestorMostConflictedCommitId={firstConflictedCommitId}
+												autoselect
+												allowUnselect={false}
+												onselect={(change, index) => {
+													onCommitFileClick?.(commitId, change.path, index);
+												}}
+											/>
+										{/snippet}
+									</ReduxResult>
 								{/snippet}
 							</CommitRow>
 						</div>

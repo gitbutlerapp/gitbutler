@@ -18,9 +18,9 @@
 		linesRemoved?: number;
 		conflicted?: boolean;
 		executable?: boolean;
-		transparent?: boolean;
 		noPaddings?: boolean;
 		pathFirst?: boolean;
+		class?: string;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
 	}
@@ -35,9 +35,9 @@
 		linesRemoved = 0,
 		conflicted,
 		executable,
-		transparent,
 		noPaddings,
 		pathFirst = true,
+		class: className,
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
@@ -46,9 +46,8 @@
 <div
 	role="presentation"
 	{id}
-	class="file-header"
+	class="file-header {className}"
 	class:draggable
-	class:transparent
 	class:no-paddings={noPaddings}
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
@@ -100,23 +99,14 @@
 <style lang="postcss">
 	.file-header {
 		display: flex;
+		z-index: var(--z-lifted);
 		align-items: center;
 		width: 100%;
-		padding: 12px 10px 12px 14px;
+		overflow: hidden;
 		gap: 12px;
-
-		&.transparent {
-			background-color: transparent;
-		}
 
 		&.draggable {
 			cursor: grab;
-
-			&:hover {
-				& .file-header__drag-handle {
-					opacity: 1;
-				}
-			}
 		}
 
 		&.no-paddings {
@@ -132,7 +122,6 @@
 
 	.file-header__name {
 		display: flex;
-		flex: 1;
 		align-items: center;
 		overflow: hidden;
 	}
@@ -141,13 +130,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 10px;
-		margin-right: -10px;
-		margin-left: -8px;
+		margin-right: -6px;
+		margin-left: -6px;
 		color: var(--clr-text-3);
-		opacity: 0;
-		transition:
-			width var(--transition-fast),
-			opacity var(--transition-fast);
 	}
 </style>

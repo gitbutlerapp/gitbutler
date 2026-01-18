@@ -460,20 +460,17 @@
 						grow
 						stickToBottom
 						items={formattedMessages}
-						batchSize={1}
 						visibility={$userSettings.scrollbarVisibilityState}
 						padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
 						defaultHeight={65}
 					>
-						{#snippet chunkTemplate(messages)}
-							{#each messages as message}
-								<CodegenClaudeMessage
-									{projectId}
-									{message}
-									{onPermissionDecision}
-									{toolCallExpandedState}
-								/>
-							{/each}
+						{#snippet template(message)}
+							<CodegenClaudeMessage
+								{projectId}
+								{message}
+								{onPermissionDecision}
+								{toolCallExpandedState}
+							/>
 						{/snippet}
 						{@const thinkingStatus = currentStatus(events, isStackActive)}
 						{@const startAt = thinkingOrCompactingStartedAt(events)}

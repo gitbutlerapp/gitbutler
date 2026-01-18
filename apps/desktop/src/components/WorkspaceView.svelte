@@ -1,13 +1,13 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import MainViewport from '$components/MainViewport.svelte';
+	import MultiDiffView from '$components/MultiDiffView.svelte';
 	import MultiStackView from '$components/MultiStackView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import SelectionView from '$components/SelectionView.svelte';
 	import UnassignedView from '$components/UnassignedView.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { TestId } from '@gitbutler/ui';
@@ -22,6 +22,7 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 
 	const selectionId = createWorktreeSelection({ stackId: undefined });
 	const worktreeSelection = $derived(idSelection.getById(selectionId));
@@ -30,25 +31,29 @@
 	const lastAdded = $derived(worktreeSelection.lastAdded);
 	const previewOpen = $derived(!!$lastAdded?.key);
 
-	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
+	// Transform unassigned changes to SelectedFile[] format
+	const unassignedChanges = $derived(uncommittedService.getChangesByStackId(null));
+
+	let multiDiffView = $state<MultiDiffView>();
+	let startIndex = $state(0);
 </script>
 
 {#snippet leftPreview()}
-	<ConfigurableScrollableContainer
-		bind:viewport={selectionPreviewScrollContainer}
-		zIndex="var(--z-lifted)"
-	>
-		<SelectionView
-			bottomBorder
-			{projectId}
-			{selectionId}
-			draggableFiles
-			scrollContainer={selectionPreviewScrollContainer}
-			onclose={() => {
-				idSelection.clearPreview(selectionId);
-			}}
-		/>
-	</ConfigurableScrollableContainer>
+	<MultiDiffView
+		{projectId}
+		{startIndex}
+		selectionId={{ type: 'worktree' }}
+		stackId={undefined}
+		changes={unassignedChanges}
+		bind:this={multiDiffView}
+		draggable={true}
+		selectable={false}
+		showBorder={false}
+		showRoundedEdges={false}
+		onclose={() => {
+			idSelection.clear(selectionId);
+		}}
+	/>
 {/snippet}
 
 <MainViewport
@@ -60,7 +65,13 @@
 	rightWidth={{ default: 320, min: 220 }}
 >
 	{#snippet left()}
-		<UnassignedView {projectId} />
+		<UnassignedView
+			{projectId}
+			onselect={(_change, index) => {
+				startIndex = index;
+				multiDiffView?.jumpToIndex(index);
+			}}
+		/>
 	{/snippet}
 	{#snippet middle()}
 		<ReduxResult {projectId} result={stacksQuery?.result}>

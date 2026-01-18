@@ -31,6 +31,7 @@
 
 <script lang="ts">
 	import Scrollbar from '$components/scroll/Scrollbar.svelte';
+	import { passiveScroll } from '$lib/utils/scroll';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 
@@ -140,7 +141,7 @@
 		bind:this={viewport}
 		bind:offsetHeight={viewportHeight}
 		style:flex-grow={wide ? 1 : 0}
-		onscroll={handleScroll}
+		use:passiveScroll={handleScroll}
 		class="viewport hide-native-scrollbar"
 		style:padding-left={padding?.left ? padding.left + 'px' : undefined}
 		style:padding-right={padding?.right ? padding.right + 'px' : undefined}
