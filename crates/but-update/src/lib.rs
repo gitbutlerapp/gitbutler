@@ -6,3 +6,7 @@
 /// Module with functionality around checking the app updateability status.
 mod check;
 pub use check::{AppName, CheckUpdateStatus, check_status};
+
+/// Module with functionality for caching update check results.
+pub mod cache;
+pub use cache::last_checked;
