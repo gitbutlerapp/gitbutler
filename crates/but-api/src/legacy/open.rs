@@ -91,6 +91,106 @@ pub fn open_url(url: String) -> Result<()> {
 
 #[but_api]
 #[instrument(err(Debug))]
+pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
+    use std::process::Command;
+
+    #[cfg(target_os = "macos")]
+    {
+        let app_name = match terminal_id.as_str() {
+            "terminal" => "Terminal",
+            "iterm2" => "iTerm",
+            "ghostty" => "Ghostty",
+            "warp" => "Warp",
+            "alacritty-mac" => "Alacritty",
+            "wezterm-mac" => "WezTerm",
+            "hyper" => "Hyper",
+            _ => bail!("Unknown terminal: {}", terminal_id),
+        };
+        Command::new("open")
+            .arg("-a")
+            .arg(app_name)
+            .arg(&path)
+            .status()
+            .with_context(|| format!("Failed to open terminal '{app_name}' at '{path}'"))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        match terminal_id.as_str() {
+            "wt" => {
+                Command::new("wt")
+                    .arg("-d")
+                    .arg(&path)
+                    .status()
+                    .with_context(|| format!("Failed to open Windows Terminal at '{path}'"))?;
+            }
+            "powershell" => {
+                Command::new("powershell")
+                    .arg("-NoExit")
+                    .arg("-Command")
+                    .arg(format!("cd '{}'", path))
+                    .status()
+                    .with_context(|| format!("Failed to open PowerShell at '{path}'"))?;
+            }
+            "cmd" => {
+                Command::new("cmd")
+                    .arg("/K")
+                    .arg(format!("cd /d \"{}\"", path))
+                    .status()
+                    .with_context(|| format!("Failed to open Command Prompt at '{path}'"))?;
+            }
+            _ => bail!("Unknown terminal: {}", terminal_id),
+        };
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        match terminal_id.as_str() {
+            "gnome-terminal" => {
+                Command::new("gnome-terminal")
+                    .arg("--working-directory")
+                    .arg(&path)
+                    .status()
+                    .with_context(|| format!("Failed to open GNOME Terminal at '{path}'"))?;
+            }
+            "konsole" => {
+                Command::new("konsole")
+                    .arg("--workdir")
+                    .arg(&path)
+                    .status()
+                    .with_context(|| format!("Failed to open Konsole at '{path}'"))?;
+            }
+            "xfce4-terminal" => {
+                Command::new("xfce4-terminal")
+                    .arg("--working-directory")
+                    .arg(&path)
+                    .status()
+                    .with_context(|| format!("Failed to open XFCE Terminal at '{path}'"))?;
+            }
+            "alacritty-linux" => {
+                Command::new("alacritty")
+                    .arg("--working-directory")
+                    .arg(&path)
+                    .status()
+                    .with_context(|| format!("Failed to open Alacritty at '{path}'"))?;
+            }
+            "wezterm-linux" => {
+                Command::new("wezterm")
+                    .arg("start")
+                    .arg("--cwd")
+                    .arg(&path)
+                    .status()
+                    .with_context(|| format!("Failed to open WezTerm at '{path}'"))?;
+            }
+            _ => bail!("Unknown terminal: {}", terminal_id),
+        };
+    }
+
+    Ok(())
+}
+
+#[but_api]
+#[instrument(err(Debug))]
 pub fn show_in_finder(path: String) -> Result<()> {
     // Cross-platform implementation to open file/directory in the default file manager
     // macOS: Opens in Finder (with -R flag to reveal the item)
