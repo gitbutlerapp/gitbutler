@@ -184,7 +184,7 @@
 	</div>
 
 	{#if changedFiles && selected}
-		<div class="changeed-files-container">
+		<div class="changed-files-container">
 			{@render changedFiles()}
 		</div>
 	{/if}
@@ -351,7 +351,7 @@
 			opacity var(--transition-fast);
 	}
 
-	.changeed-files-container {
+	.changed-files-container {
 		display: flex;
 		z-index: 1;
 		width: 100%;

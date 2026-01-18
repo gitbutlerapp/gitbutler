@@ -1,3 +1,8 @@
+<!--
+	A helper component for testing the VirtuaList. It would be good to find a
+	better location for this file, something accessible to both tests as well
+	as stories.
+-->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 

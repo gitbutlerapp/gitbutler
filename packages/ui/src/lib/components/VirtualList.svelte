@@ -286,7 +286,7 @@
 			await tick();
 			const element = visibleRowElements?.[i - startingAt];
 			if (!element) {
-				throw new Error('Expected to find element in loop 1.');
+				throw new Error('Expected to find element');
 			}
 			heightMap[i] = element.clientHeight;
 			if (calculateHeightSum(startingAt, visibleRange.end) > viewport.clientHeight) {
@@ -300,7 +300,7 @@
 				await tick();
 				const element = visibleRowElements?.[0];
 				if (!element) {
-					throw new Error('Expected to find element in loop2.');
+					throw new Error('Expected to find element');
 				}
 				heightMap[i] = element.clientHeight;
 				if (calculateHeightSum(visibleRange.start, visibleRange.end) > viewport.clientHeight) {

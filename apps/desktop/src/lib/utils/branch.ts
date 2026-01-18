@@ -5,9 +5,9 @@ const REF_HEADS_PREFIX = 'refs/heads/';
 
 export function createBranchRef(branchName: string, remote: string | undefined): string {
 	if (remote) {
-		return `${REF_REMOTES_PREFIX}${remote}${BRANCH_SEPARATOR}${branchName}` as string;
+		return `${REF_REMOTES_PREFIX}${remote}${BRANCH_SEPARATOR}${branchName}`;
 	}
-	return `${REF_HEADS_PREFIX}${branchName}` as string;
+	return `${REF_HEADS_PREFIX}${branchName}`;
 }
 
 /**
