@@ -10,3 +10,4 @@ pub mod forge;
 pub mod gui;
 pub mod help;
 pub mod push;
+pub mod update;

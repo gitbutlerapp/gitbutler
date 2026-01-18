@@ -584,6 +584,9 @@ pub enum Subcommands {
         shell: Option<clap_complete::Shell>,
     },
 
+    /// Check for and install updates to the GitButler CLI.
+    Update(update::Platform),
+
     /// Manage command aliases.
     ///
     /// Aliases allow you to create shortcuts for commonly used commands.
@@ -715,6 +718,7 @@ pub enum Subcommands {
 }
 
 pub mod alias;
+pub mod update;
 
 pub mod actions {
     #[derive(Debug, clap::Parser)]

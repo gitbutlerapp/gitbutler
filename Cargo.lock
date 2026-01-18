@@ -743,6 +743,7 @@ dependencies = [
  "but-settings",
  "but-testsupport",
  "but-tools",
+ "but-update",
  "but-workspace",
  "but-worktrees",
  "cfg-if",

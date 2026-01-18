@@ -30,7 +30,7 @@ use cfg_if::cfg_if;
 pub mod args;
 use args::{
     Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
-    metrics, worktree,
+    metrics, update as update_args, worktree,
 };
 use but_settings::AppSettings;
 use colored::Colorize;
@@ -217,28 +217,30 @@ async fn match_subcommand(
         Subcommands::Completions { shell } => {
             command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
         }
+        Subcommands::Update(update_args::Platform { cmd }) => {
+            command::update::handle(cmd, out, &app_settings).emit_metrics(metrics_ctx)
+        }
         Subcommands::Help => {
             command::help::print_grouped(out)?;
             Ok(())
         }
-        #[cfg(feature = "legacy")]
-        Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
-            Some(alias_args::Subcommands::List) | None => {
-                command::alias::list(out).emit_metrics(metrics_ctx)
+        Subcommands::Alias(alias_args::Platform { cmd }) => {
+            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+            match cmd {
+                Some(alias_args::Subcommands::List) | None => {
+                    command::alias::list(out).emit_metrics(metrics_ctx)
+                }
+                Some(alias_args::Subcommands::Add {
+                    name,
+                    value,
+                    global,
+                }) => command::alias::add(&mut ctx, out, &name, &value, global)
+                    .emit_metrics(metrics_ctx),
+                Some(alias_args::Subcommands::Remove { name, global }) => {
+                    command::alias::remove(&mut ctx, out, &name, global).emit_metrics(metrics_ctx)
+                }
             }
-            Some(alias_args::Subcommands::Add {
-                name,
-                value,
-                global,
-            }) => {
-                let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-                command::alias::add(&mut ctx, out, &name, &value, global).emit_metrics(metrics_ctx)
-            }
-            Some(alias_args::Subcommands::Remove { name, global }) => {
-                let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
-                command::alias::remove(&mut ctx, out, &name, global).emit_metrics(metrics_ctx)
-            }
-        },
+        }
         Subcommands::Branch(branch::Platform { cmd }) => {
             cfg_if! {
                 if #[cfg(feature = "legacy")]  {

@@ -101,18 +101,28 @@ pub fn check_status_with_url(
     let url = url_override.unwrap_or(UPDATES_CHECK_URL).to_string();
 
     std::thread::spawn(move || -> anyhow::Result<CheckUpdateStatus> {
-        let runtime = tokio::runtime::Runtime::new()
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
             .map_err(|e| anyhow::anyhow!("Failed to create runtime: {}", e))?;
 
-        let response = runtime
-            .block_on(client.post(url).json(&request_body).send())
-            .map_err(|e| anyhow::anyhow!("Request failed: {}", e))?;
+        runtime.block_on(async {
+            let response = client
+                .post(url)
+                .json(&request_body)
+                .send()
+                .await
+                .map_err(|e| anyhow::anyhow!("Request failed: {}", e))?
+                .error_for_status()
+                .map_err(|e| anyhow::anyhow!("Server returned error: {}", e))?;
 
-        let update_info = runtime
-            .block_on(response.json::<CheckUpdateStatus>())
-            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+            let update_info = response
+                .json::<CheckUpdateStatus>()
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
 
-        Ok(update_info)
+            Ok(update_info)
+        })
     })
     .join()
     .map_err(|_| anyhow::anyhow!("Update check thread panicked"))?

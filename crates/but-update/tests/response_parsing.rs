@@ -60,7 +60,10 @@ fn rejects_missing_required_fields() {
     });
 
     let result = serde_json::from_value::<CheckUpdateStatus>(json_missing_version);
-    assert!(result.is_err(), "Should fail when latest_version is missing");
+    assert!(
+        result.is_err(),
+        "Should fail when latest_version is missing"
+    );
 }
 
 #[test]
@@ -72,7 +75,10 @@ fn rejects_wrong_types() {
     });
 
     let result = serde_json::from_value::<CheckUpdateStatus>(json_wrong_type);
-    assert!(result.is_err(), "Should fail when up_to_date is not a boolean");
+    assert!(
+        result.is_err(),
+        "Should fail when up_to_date is not a boolean"
+    );
 
     // latest_version should be string, not number
     let json_version_number = json!({
