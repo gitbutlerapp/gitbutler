@@ -301,7 +301,7 @@ export function initDependencies(args: {
 		backend,
 		posthog,
 		shortcutService,
-		get(settingsService)!.checkForUpdatesIntervalInSeconds * 1000
+		get(settingsService)!.ui.checkForUpdatesIntervalInSeconds * 1000
 	);
 
 	// ============================================================================

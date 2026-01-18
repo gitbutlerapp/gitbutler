@@ -87,7 +87,7 @@ mod load {
             )
             .unwrap();
             assert_eq!(
-                settings.check_for_updates_interval_in_seconds, 0,
+                settings.ui.check_for_updates_interval_in_seconds, 0,
                 "overridden to tell the GUI that no updates should be performed"
             );
         }
