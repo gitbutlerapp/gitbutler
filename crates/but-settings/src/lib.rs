@@ -24,6 +24,8 @@ pub struct AppSettings {
     pub reviews: app_settings::Reviews,
     /// UI settings.
     pub ui: app_settings::UiSettings,
+    /// The duration between two update checks in seconds. If `0`, no update checks will be performed.
+    pub check_for_updates_interval_in_seconds: u64,
 }
 
 impl Default for AppSettings {
@@ -67,9 +69,7 @@ pub mod customization {
     /// Tell the UI that no auto-update checks should be performed.
     pub fn disable_auto_update_checks() -> serde_json::Value {
         json!({
-            "ui": {
-                "checkForUpdatesIntervalInSeconds": 0
-            }
+            "checkForUpdatesIntervalInSeconds": 0
         })
     }
 }
