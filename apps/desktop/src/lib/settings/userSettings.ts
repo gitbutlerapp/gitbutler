@@ -1,5 +1,6 @@
 import { InjectionToken } from '@gitbutler/core/context';
 import { type ScrollbarVisilitySettings } from '@gitbutler/ui';
+import { platform } from '@tauri-apps/plugin-os';
 import { get, writable, type Writable } from 'svelte/store';
 
 const SETTINGS_KEY = 'settings-json';
@@ -9,6 +10,23 @@ export type CodeEditorSettings = {
 	schemeIdentifer: string;
 	displayName: string;
 };
+
+export type TerminalSettings = {
+	identifier: string;
+	displayName: string;
+	platform: 'macos' | 'windows' | 'linux';
+};
+
+function defaultTerminalForPlatform(): TerminalSettings {
+	switch (platform()) {
+		case 'windows':
+			return { identifier: 'powershell', displayName: 'PowerShell', platform: 'windows' };
+		case 'linux':
+			return { identifier: 'gnome-terminal', displayName: 'GNOME Terminal', platform: 'linux' };
+		default:
+			return { identifier: 'terminal', displayName: 'Terminal', platform: 'macos' };
+	}
+}
 
 export interface Settings {
 	aiSummariesEnabled?: boolean;
@@ -31,6 +49,7 @@ export interface Settings {
 	strongContrast: boolean;
 	colorBlindFriendly: boolean;
 	defaultCodeEditor: CodeEditorSettings;
+	defaultTerminal: TerminalSettings;
 	defaultFileListMode: 'tree' | 'list';
 	pathFirst: boolean;
 	singleDiffView: boolean;
@@ -56,6 +75,7 @@ const defaults: Settings = {
 	strongContrast: false,
 	colorBlindFriendly: false,
 	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
+	defaultTerminal: { identifier: 'terminal', displayName: 'Terminal', platform: 'macos' },
 	defaultFileListMode: 'list',
 	pathFirst: true,
 	singleDiffView: false
@@ -67,6 +87,12 @@ export function loadUserSettings(): Writable<Settings> {
 		obj = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '');
 	} catch {
 		obj = {};
+	}
+
+	// If no terminal was persisted, or the persisted one is the old 'auto' sentinel,
+	// resolve to the platform default.
+	if (!obj.defaultTerminal || obj.defaultTerminal.identifier === 'auto') {
+		obj.defaultTerminal = defaultTerminalForPlatform();
 	}
 
 	const store = writable<Settings>({ ...defaults, ...obj });

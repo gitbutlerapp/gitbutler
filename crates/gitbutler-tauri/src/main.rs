@@ -307,6 +307,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::modes::tauri_edit_initial_index_state::edit_initial_index_state,
                 legacy::modes::tauri_edit_changes_from_initial::edit_changes_from_initial,
                 legacy::open::tauri_open_url::open_url,
+                legacy::open::tauri_open_in_terminal::open_in_terminal,
                 legacy::open::tauri_show_in_finder::show_in_finder,
                 legacy::forge::tauri_pr_templates::pr_templates,
                 legacy::forge::tauri_pr_template::pr_template,
