@@ -1,5 +1,11 @@
 <script lang="ts" module>
 	type T = any;
+
+	export interface ItemContext {
+		index: number;
+		first: boolean;
+		last: boolean;
+	}
 </script>
 
 <script lang="ts" generics="T">
@@ -11,34 +17,21 @@
 	 */
 
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
-	import { chunk } from '$lib/utils/array';
 	import { type Snippet } from 'svelte';
 
 	interface Props {
 		items: T[];
-		item: Snippet<[T]>;
+		template: Snippet<[T, ItemContext]>;
 		chunkSize?: number;
 	}
 
-	const { items, item, chunkSize = 20 }: Props = $props();
+	const { items, template, chunkSize = 20 }: Props = $props();
 
-	let chunkedItems: T[][] = [];
-	let displayedItems = $state<T[]>([]);
-	let currentDisplayIndex = $state(0);
-
-	// Make sure we display when the file list is reset
-	$effect(() => {
-		chunkedItems = chunk(items, chunkSize);
-		displayedItems = chunkedItems[0] || [];
-		currentDisplayIndex = 0;
-	});
+	let displayCount = $derived(Math.min(chunkSize, items.length));
 
 	function loadMore() {
-		if (currentDisplayIndex + 1 >= chunkedItems.length) return;
-
-		currentDisplayIndex += 1;
-		const currentChunkedFiles = chunkedItems[currentDisplayIndex] ?? [];
-		displayedItems = [...displayedItems, ...currentChunkedFiles];
+		if (displayCount >= items.length) return;
+		displayCount = Math.min(displayCount + chunkSize, items.length);
 	}
 </script>
 
@@ -49,8 +42,12 @@
 			loadMore();
 		}}
 	>
-		{#each displayedItems as displayedItem}
-			{@render item(displayedItem)}
+		{#each items.slice(0, displayCount) as item, index}
+			{@render template(item, {
+				index,
+				first: index === 0,
+				last: index === items.length - 1
+			})}
 		{/each}
 	</LazyloadContainer>
 {/if}

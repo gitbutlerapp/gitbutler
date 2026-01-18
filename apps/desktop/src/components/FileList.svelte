@@ -3,7 +3,7 @@
 	import EditPatchConfirmModal from '$components/EditPatchConfirmModal.svelte';
 	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
 	import FileTreeNode from '$components/FileTreeNode.svelte';
-	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import LazyList from '$components/LazyList.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -23,7 +23,6 @@
 	import { selectFilesInList, updateSelection } from '$lib/selection/fileSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/core/context';
 	import { AsyncButton, FileListItem, TestId } from '@gitbutler/ui';
 	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
@@ -76,7 +75,6 @@
 
 	const [autoCommit] = actionService.autoCommit;
 	const [branchChanges] = actionService.branchChanges;
-	let currentDisplayIndex = $state(0);
 
 	let editPatchModal: EditPatchConfirmModal | undefined = $state();
 	let selectedFilePath = $state('');
@@ -107,8 +105,6 @@
 		selectedFilePath = '';
 	}
 
-	const fileChunks: TreeChange[][] = $derived(chunk(changes, 100));
-	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
 	let aiConfigurationValid = $state(false);
 	let active = $state(false);
 
@@ -184,11 +180,6 @@
 			title: 'And... done!',
 			message: `Now, you're free to continue`
 		});
-	}
-
-	function loadMore() {
-		if (currentDisplayIndex + 1 >= fileChunks.length) return;
-		currentDisplayIndex += 1;
 	}
 
 	const unrepresentedConflictedEntries = $derived.by(() => {
@@ -267,7 +258,7 @@
 	});
 </script>
 
-{#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
+{#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0, isLast: boolean = false)}
 	{@const isExecutable = isExecutableStatus(change.status)}
 	{@const selected = idSelection.has(change.path, selectionId)}
 	{@const locked = showLockedIndicator && isFileLocked(change.path, fileDependencies)}
@@ -277,7 +268,6 @@
 	{@const lockedTargets = showLockedIndicator
 		? getLockedTargets(change.path, fileDependencies)
 		: []}
-	{@const isLast = listMode === 'list' && idx === visibleFiles.length - 1}
 	<FileListItemWrapper
 		{selectionId}
 		{change}
@@ -375,7 +365,7 @@
 	{/if}
 
 	<!-- Other changes -->
-	{#if visibleFiles.length > 0}
+	{#if changes.length > 0}
 		{#if listMode === 'tree'}
 			<!--
 				We need to use sortedChanges here because otherwise we will end up
@@ -394,16 +384,10 @@
 				{fileTemplate}
 			/>
 		{:else}
-			<LazyloadContainer
-				minTriggerCount={80}
-				ontrigger={() => {
-					loadMore();
-				}}
-				role="listbox"
-			>
-				{#each visibleFiles as change, idx}
+			<LazyList items={changes} chunkSize={100}>
+				{#snippet template(change, context)}
 					<!--
-					    There is a bug here related to the reactivity of `idSelection.has`,
+						There is a bug here related to the reactivity of `idSelection.has`,
 						affecting somehow the first item in the list of files.. but only where
 						used for the "assigned files" of the workspace.
 
@@ -412,11 +396,11 @@
 
 						TODO: Bisect this issue, it was introduced between nightly version
 						0.5.1705 and 0.5.1783.
-					-->
+						-->
 					{@const _selected = idSelection.has(change.path, selectionId)}
-					{@render fileTemplate(change, idx)}
-				{/each}
-			</LazyloadContainer>
+					{@render fileTemplate(change, context.index, 0, context.last)}
+				{/snippet}
+			</LazyList>
 		{/if}
 	{/if}
 </div>
