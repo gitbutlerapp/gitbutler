@@ -1470,6 +1470,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-update"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-secret",
+ "but-settings",
+ "machine-uid",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
 name = "but-workspace"
 version = "0.0.0"
 dependencies = [
@@ -5673,7 +5688,7 @@ dependencies = [
  "tokio",
  "tower-service",
  "tracing",
- "windows-registry",
+ "windows-registry 0.5.3",
 ]
 
 [[package]]
@@ -6434,6 +6449,17 @@ dependencies = [
  "objc2 0.6.3",
  "objc2-foundation 0.3.2",
  "time",
+]
+
+[[package]]
+name = "machine-uid"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d7217d573cdb141d6da43113b098172e057d39915d79c4bdedbc3aacd46bd96"
+dependencies = [
+ "libc",
+ "windows-registry 0.6.1",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9995,7 +10021,7 @@ dependencies = [
  "thiserror 2.0.17",
  "tracing",
  "url",
- "windows-registry",
+ "windows-registry 0.5.3",
  "windows-result 0.3.4",
 ]
 
@@ -11702,6 +11728,17 @@ dependencies = [
  "windows-link 0.1.3",
  "windows-result 0.3.4",
  "windows-strings 0.4.2",
+]
+
+[[package]]
+name = "windows-registry"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02752bf7fbdcce7f2a27a742f798510f3e5ad88dbe84871e5168e2120c3d5720"
+dependencies = [
+ "windows-link 0.2.1",
+ "windows-result 0.4.1",
+ "windows-strings 0.5.1",
 ]
 
 [[package]]

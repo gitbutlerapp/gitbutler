@@ -36,6 +36,7 @@ but-cherry-apply = { path = "crates/but-cherry-apply" }
 but-github = { path = "crates/but-github" }
 but-error = { path = "crates/but-error" }
 but-serde = { path = "crates/but-serde" }
+but-update = { path = "crates/but-update" }
 but-secret = { path = "crates/but-secret" }
 but-feedback = { path = "crates/but-feedback" }
 but-forge-storage = { path = "crates/but-forge-storage" }
@@ -111,9 +112,11 @@ rmcp = { version = "0.9.1", default-features = false, features = [
 serde_json_lenient = "0.2.3"
 reqwest = { version = "0.12.28", default-features = false, features = [
     "rustls-tls",
+    "json",
 ] }
 chrono = { version = "0.4.42", default-features = false, features = ["std"] }
 md5 = "0.8.0"
+sha2 = "0.10"
 bitflags = "2.9.4"
 notify = "8.2.0"
 snapbox = "0.6.23"
