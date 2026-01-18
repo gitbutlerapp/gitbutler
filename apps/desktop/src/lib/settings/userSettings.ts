@@ -10,6 +10,30 @@ export type CodeEditorSettings = {
 	displayName: string;
 };
 
+export type TerminalSettings = {
+	identifier: string;
+	displayName: string;
+	platform: 'macos' | 'windows' | 'linux';
+};
+
+function detectPlatform(): 'macos' | 'windows' | 'linux' {
+	const nav = navigator.platform.toLowerCase();
+	if (nav.includes('win')) return 'windows';
+	if (nav.includes('linux')) return 'linux';
+	return 'macos';
+}
+
+function defaultTerminalForPlatform(): TerminalSettings {
+	switch (detectPlatform()) {
+		case 'windows':
+			return { identifier: 'powershell', displayName: 'PowerShell', platform: 'windows' };
+		case 'linux':
+			return { identifier: 'gnome-terminal', displayName: 'GNOME Terminal', platform: 'linux' };
+		default:
+			return { identifier: 'terminal', displayName: 'Terminal', platform: 'macos' };
+	}
+}
+
 export interface Settings {
 	aiSummariesEnabled?: boolean;
 	bottomPanelExpanded: boolean;
@@ -31,6 +55,7 @@ export interface Settings {
 	diffContrast: 'light' | 'medium' | 'strong';
 	colorBlindFriendly: boolean;
 	defaultCodeEditor: CodeEditorSettings;
+	defaultTerminal: TerminalSettings;
 	defaultFileListMode: 'tree' | 'list';
 	pathFirst: boolean;
 	singleDiffView: boolean;
@@ -56,6 +81,7 @@ const defaults: Settings = {
 	diffContrast: 'light',
 	colorBlindFriendly: false,
 	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
+	defaultTerminal: { identifier: 'terminal', displayName: 'Terminal', platform: 'macos' },
 	defaultFileListMode: 'list',
 	pathFirst: true,
 	singleDiffView: false
@@ -67,6 +93,12 @@ export function loadUserSettings(): Writable<Settings> {
 		obj = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '');
 	} catch {
 		obj = {};
+	}
+
+	// If no terminal was persisted, or the persisted one is the old 'auto' sentinel,
+	// resolve to the platform default.
+	if (!obj.defaultTerminal || obj.defaultTerminal.identifier === 'auto') {
+		obj.defaultTerminal = defaultTerminalForPlatform();
 	}
 
 	const store = writable<Settings>({ ...defaults, ...obj });

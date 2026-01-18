@@ -619,6 +619,10 @@ pub async fn run() {
         .route("/cli_path", post(json_response(legacy::cli::cli_path_cmd)))
         .route("/open_url", post(json_response(legacy::open::open_url_cmd)))
         .route(
+            "/open_in_terminal",
+            post(json_response(legacy::open::open_in_terminal_cmd)),
+        )
+        .route(
             "/show_in_finder",
             post(json_response(legacy::open::show_in_finder_cmd)),
         )
