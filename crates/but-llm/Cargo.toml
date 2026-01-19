@@ -1,0 +1,12 @@
+[package]
+name = "but-llm"
+version = "0.1.0"
+repository.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+rust-version.workspace = true
+description = "LLM client interface"
+
+[dependencies]
+ollama-rs = "0.3.3"
