@@ -19,6 +19,10 @@ use schemars::{JsonSchema, schema_for};
 use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
 
+use crate::{
+    StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
+};
+
 #[derive(Debug, Clone, serde::Serialize, strum::Display)]
 pub enum CredentialsKind {
     EnvVarOpenAiKey,
@@ -278,14 +282,6 @@ pub fn stream_response_blocking(
     .unwrap()
 }
 
-pub struct ToolCall {
-    pub id: String,
-    pub name: String,
-    pub arguments: String,
-}
-
-type StreamToolCallResult = (Option<Vec<ToolCall>>, Option<String>);
-
 pub fn tool_calling_stream_blocking(
     client: &OpenAiProvider,
     messages: Vec<ChatCompletionRequestMessage>,
@@ -410,31 +406,6 @@ pub async fn tool_calling_stream(
 
     Ok((None, response_text))
 }
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ToolCallContent {
-    pub id: String,
-    pub name: String,
-    pub arguments: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ToolResponseContent {
-    pub id: String,
-    pub result: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", content = "content", rename_all = "camelCase")]
-pub enum ChatMessage {
-    User(String),
-    Assistant(String),
-    ToolCall(ToolCallContent),
-    ToolResponse(ToolResponseContent),
-}
-
 impl From<ChatMessage> for ChatCompletionRequestMessage {
     fn from(msg: ChatMessage) -> Self {
         match msg {

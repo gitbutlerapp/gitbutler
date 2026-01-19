@@ -1262,6 +1262,7 @@ dependencies = [
  "strum",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -1511,6 +1512,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-stack",
  "gix",
+ "ollama-rs",
  "schemars 1.2.0",
  "serde",
  "serde-error",
@@ -7435,6 +7437,8 @@ dependencies = [
  "serde_json",
  "static_assertions",
  "thiserror 2.0.17",
+ "tokio",
+ "tokio-stream",
  "url",
 ]
 
