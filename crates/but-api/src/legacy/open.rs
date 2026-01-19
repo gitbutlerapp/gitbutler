@@ -195,14 +195,18 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
             }
             "powershell" => {
                 let mut cmd = Command::new("powershell");
+                // Escape single quotes by doubling them for PowerShell
+                let escaped_path = path.replace('\'', "''");
                 cmd.arg("-NoExit")
                     .arg("-Command")
-                    .arg(format!("cd '{}'", path));
+                    .arg(format!("cd '{}'", escaped_path));
                 run_terminal_command(cmd, "PowerShell", &path)?;
             }
             "cmd" => {
                 let mut cmd = Command::new("cmd");
-                cmd.arg("/K").arg(format!("cd /d \"{}\"", path));
+                // Escape double quotes by doubling them for CMD
+                let escaped_path = path.replace('"', "\"\"");
+                cmd.arg("/K").arg(format!("cd /d \"{}\"", escaped_path));
                 run_terminal_command(cmd, "Command Prompt", &path)?;
             }
             _ => bail!("Unknown terminal: {}", terminal_id),
