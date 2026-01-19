@@ -12,6 +12,7 @@ pub fn handle(
 ) -> Result<()> {
     match cmd {
         update::Subcommands::Check => check_for_updates(out, app_settings),
+        update::Subcommands::Suppress { days } => suppress_updates(out, days),
     }
 }
 
@@ -61,6 +62,33 @@ fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStat
             writeln!(writer)?;
             writeln!(writer, "Download: {}", url.cyan())?;
         }
+    }
+
+    Ok(())
+}
+
+fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
+    // Convert days to hours (the API uses hours)
+    // Note: days is already validated to be 1-30 by clap, so no overflow possible
+    let hours = days * 24;
+
+    // Call the suppress_update function
+    but_update::suppress_update(hours)?;
+
+    if let Some(writer) = out.for_human() {
+        writeln!(
+            writer,
+            "{} Update notifications suppressed for {} {}",
+            "✓".green().bold(),
+            days,
+            if days == 1 { "day" } else { "days" }
+        )?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({
+            "suppressed": true,
+            "days": days,
+            "hours": hours
+        }))?;
     }
 
     Ok(())
