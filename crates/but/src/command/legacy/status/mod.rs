@@ -430,10 +430,8 @@ pub(crate) async fn worktree(
 
         // Check whether we're inside the workspace
         if not_on_workspace {
-            let message = format!(
-                "Hint: run `but {}` to switch back to GitButler managed mode.",
-                crate::args::Subcommands::SwitchBack.as_ref()
-            );
+            let message =
+                format!("Hint: run `but setup` to switch back to GitButler managed mode.");
             writeln!(out, "{}", message.dimmed())?;
         } else if !has_branches {
             writeln!(

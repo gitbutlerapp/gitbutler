@@ -14,6 +14,8 @@ mod reword;
 #[cfg(feature = "legacy")]
 mod rub;
 #[cfg(feature = "legacy")]
+mod setup;
+#[cfg(feature = "legacy")]
 mod status;
 
 mod util {

@@ -32,25 +32,24 @@ Error: Could not find a git repository in '.' or in any of its parents[..]
 
 "#]]);
 
-    // Init doesn't work without a Git repository
-    env.but("init")
+    // Setup doesn't work without a Git repository
+    env.but("setup")
         .assert()
         .failure()
         .stderr_eq(str![
             r#"
-Error: Failed to initialize GitButler project.
+Error: Failed to set up GitButler project.
 
 Caused by:
-    0: You can run `but init --repo` to initialize a new Git repository
-    1: "." does not appear to be a git repository
-    2: Missing HEAD at '.git/HEAD'
+    0: "." does not appear to be a git repository
+    1: Missing HEAD at '.git/HEAD'
 
 "#
         ])
         .stdout_eq(str![]);
 
     // TODO: this should work, but we still have requirements and can't deal with any repo.
-    env.but("init --repo")
+    env.but("setup --repo")
         .assert()
         .failure()
         .stdout_eq(str![])

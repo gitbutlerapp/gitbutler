@@ -46,11 +46,11 @@ impl Sandbox {
     }
 
     fn run_but_init_if_needed(&self) {
-        // New code does everything lazily and can open any repository without extra step, so no need for `but init`.
+        // New code does everything lazily and can open any repository without extra step, so no need for `but setup`.
         if cfg!(feature = "legacy") {
-            // Needs init, as it's not single-branch compatible, must have legacy project added so legacy commands can find it.
+            // Needs setup, as it's not single-branch compatible, must have legacy project added so legacy commands can find it.
             // This isn't needed at all when modernisation is complete.
-            self.but("init").assert().success();
+            self.but("setup").assert().success();
         }
     }
 
@@ -61,7 +61,7 @@ impl Sandbox {
         })
     }
 
-    /// Provide a scenario with `name` for writing, and `but init` already invoked to add the project,
+    /// Provide a scenario with `name` for writing, and `but setup` already invoked to add the project,
     /// with a target added.
     ///
     /// Prefer to use [`Self::open_scenario_with_target_and_default_settings()`] instead for less side-effects

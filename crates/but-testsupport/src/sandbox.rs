@@ -86,7 +86,7 @@ impl Sandbox {
         )
     }
 
-    /// Provide a scenario with `name` for writing, and `but init` already invoked to add the project,
+    /// Provide a scenario with `name` for writing, and `but setup` already invoked to add the project,
     /// with a target added.
     ///
     /// Prefer to use [`Self::open_scenario_with_target_and_default_settings()`] instead for less side-effects
