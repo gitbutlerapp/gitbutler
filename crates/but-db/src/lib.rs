@@ -50,6 +50,8 @@ pub mod migration;
 mod handle;
 pub mod poll;
 
+mod cache;
+
 mod table;
 #[rustfmt::skip]
 pub use table::{
@@ -95,6 +97,7 @@ pub struct M<'a> {
 /// The underlying sqlite database is set up to use Rusts borrow-checker,
 /// so a mutable borrow is required to start transactions or to make changes to any data.
 pub struct DbHandle {
+    /// The opened db connection with migrations applied.
     conn: rusqlite::Connection,
     /// The URL at which the connection was opened, mainly for debugging.
     url: String,
