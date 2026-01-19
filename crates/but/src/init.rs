@@ -119,6 +119,7 @@ pub fn init_ctx(
 }
 
 /// Tracks which background sync operations should be performed.
+#[derive(Debug)]
 struct SyncOperations {
     fetch: bool,
     pr: bool,

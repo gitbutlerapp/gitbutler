@@ -94,6 +94,14 @@ impl Sandbox {
     }
 }
 
+/// Utilities
+impl Sandbox {
+    /// Print the paths to our directories, and keep them.
+    pub fn debug(self) -> ! {
+        self.inner.debug();
+    }
+}
+
 /// Invocations
 impl Sandbox {
     /// Create a command suitable for testing the output of the invocation with `args`. If `args` is empty,
