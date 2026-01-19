@@ -22,7 +22,8 @@ fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {
             .assert()
             .failure()
             .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
+Error: No git repository found at .
+Please run 'but setup' to initialize the project.
 
 "#]]);
 
@@ -32,7 +33,8 @@ Error: Could not find a git repository in '.' or in any of its parents[..]
             .assert()
             .failure()
             .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
+Error: No git repository found at .
+Please run 'but setup' to initialize the project.
 
 "#]]);
     }

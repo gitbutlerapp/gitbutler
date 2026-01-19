@@ -213,17 +213,35 @@ pub enum Subcommands {
         verbose: bool,
     },
 
-    /// Initializes a GitButler project from a git repository in the current directory.
+    /// Sets up a GitButler project from a git repository in the current directory.
+    ///
+    /// This command will:
+    /// - Add the repository to the global GitButler project registry
+    /// - Switch to the gitbutler/workspace branch (if not already on it)
+    /// - Set up a default target branch (the remote's HEAD)
+    /// - Add a gb-local remote if no push remote exists
     ///
     /// If you have an existing Git repository and want to start using GitButler
     /// with it, you can run this command to set up the necessary configuration
     /// and data structures.
     ///
-    /// This is automatically run when you run any other `but` command in
-    /// a git repository that is not yet initialized with GitButler.
+    /// ## Examples
+    ///
+    /// Initialize a new git repository and set up GitButler:
+    ///
+    /// ```text
+    /// but setup --init
+    /// ```
     ///
     #[cfg(feature = "legacy")]
-    Init,
+    Setup {
+        /// Initialize a new git repository with an empty commit if one doesn't exist.
+        ///
+        /// This is useful when running in non-interactive environments (like CI/CD)
+        /// where you want to ensure a git repository exists before setting up GitButler.
+        #[clap(long)]
+        init: bool,
+    },
 
     /// Updates all applied branches to be up to date with the target branch.
     ///
@@ -746,12 +764,6 @@ pub enum Subcommands {
         #[clap(required = false)]
         branch: Option<String>,
     },
-
-    /// Switch back to the workspace
-    ///
-    /// If in single-branch mode, switches back to the main workspace.
-    #[cfg(feature = "legacy")]
-    SwitchBack,
 
     /// Show help information grouped by category.
     ///

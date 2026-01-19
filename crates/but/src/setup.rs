@@ -1,5 +1,4 @@
 use std::fmt::Write;
-use std::path::Path;
 
 use but_core::sync::LockScope;
 use but_ctx::Context;
@@ -61,26 +60,10 @@ pub fn init_ctx(
     // if it fails, we try to set up a new repo interactively
     let repo = match gix::discover(&args.current_dir) {
         Ok(repo) => repo,
-        Err(_) => {
-            // If for humans, try to set up a new repo interactively
-            if out.for_human().is_some() {
-                match setup_new_repo(&args.current_dir, out) {
-                    Ok(repo) => repo,
-                    Err(e) => {
-                        if let Some(out) = out.for_human() {
-                            writeln!(
-                                out,
-                                "{}",
-                                format!("Failed to initialize repository: {}", e).red()
-                            )?;
-                        }
-                        anyhow::bail!("No git repository found and failed to initialize one.");
-                    }
-                }
-            } else {
-                anyhow::bail!("No git repository found.");
-            }
-        }
+        Err(_) => anyhow::bail!(
+            "No git repository found at {}\nPlease run 'but setup' to initialize the project.",
+            &args.current_dir.display()
+        ),
     };
 
     let (ctx, fetch_interval_minutes, last_fetch) = {
@@ -90,26 +73,16 @@ pub fn init_ctx(
         #[cfg(feature = "legacy")]
         {
             use but_ctx::LegacyProject;
-            let project = match LegacyProject::find_by_worktree_dir(workdir) {
-                Ok(p) => Ok(p),
-                Err(_e) => {
-                    crate::command::legacy::init::repo(
-                        workdir,
-                        &mut OutputChannel::new_without_pager_non_json(args.format),
-                    )?;
-                    LegacyProject::find_by_worktree_dir(workdir)
-                }
-            }?;
 
-            // if the default target is not set, reinitialize the project
-            let default_target =
-                but_api::legacy::virtual_branches::get_base_branch_data(project.id)?;
-            if default_target.is_none() {
-                crate::command::legacy::init::repo(
-                    workdir,
-                    &mut OutputChannel::new_without_pager_non_json(args.format),
-                )?;
-            }
+            use crate::command::legacy::setup::check_project_setup;
+            let project = LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
+                handle_setup_error(
+                    out,
+                    format!("No GitButler project found at {}", workdir.display(),),
+                )
+            })?;
+
+            check_project_setup(&project).map_err(|e| handle_setup_error(out, e.to_string()))?;
 
             let ctx = Context::new_from_legacy_project(project)?;
             let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
@@ -140,7 +113,7 @@ pub fn init_ctx(
                 return Ok(ctx);
             }
 
-            // e what needs to be synced based on intervals and lock availability
+            // Determine what needs to be synced based on intervals and lock availability
             let sync_operations =
                 determine_sync_operations(&ctx, fetch_interval_minutes, last_fetch);
 
@@ -307,50 +280,29 @@ fn spawn_background_sync(
     }
 }
 
-/// Sets up a new git repository and creates an initial empty commit.
-fn setup_new_repo(current_dir: &Path, out: &mut OutputChannel) -> anyhow::Result<gix::Repository> {
-    use std::fmt::Write as FmtWrite;
+fn handle_setup_error(out: &mut OutputChannel, message: String) -> anyhow::Error {
+    if let Some(out) = out.for_human() {
+        let _ = writeln!(
+            out,
+            "The current project is not configured to be managed by GitButler.\n"
+        );
 
-    let mut progress = out.progress_channel();
-    if let Some(mut inout) = out.prepare_for_terminal_input() {
-        writeln!(
-            &mut progress as &mut dyn FmtWrite,
+        let _ = writeln!(out, "{}\n", message.red());
+
+        let _ = writeln!(
+            out,
             "{}",
-            "No git repository found.".red()
-        )?;
-
-        let input = inout.prompt(format!(
-            "Would you like to initialize a new one?\n{}\n[y/N]",
-            "(this will also create an empty first commit)".dimmed()
-        ))?;
-        if input.as_deref() == Some("y") {
-            writeln!(
-                &mut progress as &mut dyn FmtWrite,
-                "{}",
-                "Initializing new repository and creating an empty first commit...".dimmed()
-            )?;
-            let repo = gix::init(current_dir)?;
-            // Create an initial empty commit using git CLI as a workaround
-            let status = std::process::Command::new("git")
-                .arg("-C")
-                .arg(current_dir)
-                .arg("commit")
-                .arg("--allow-empty")
-                .arg("-m")
-                .arg("Initial commit")
-                .status()?;
-            writeln!(
-                &mut progress as &mut dyn FmtWrite,
-                "{}",
-                "Initialized a new repository and created an empty first commit.\n".green()
-            )?;
-
-            if !status.success() {
-                anyhow::bail!("Failed to create initial commit");
-            }
-            return Ok(repo);
-        }
+            "Please run `but setup` to switch to GitButler management.".blue()
+        );
+    } else if let Some(out) = out.for_json() {
+        let _ = out.write_value(serde_json::json!({
+            "error": "setup_required",
+            "message": message.to_string(),
+            "hint": "run `but setup` to configure the project"
+        }));
     }
 
-    Err(anyhow::anyhow!("No git repository found."))
+    // just exit the program non-zero
+    anyhow::anyhow!("Setup required: {}", message)
+    //std::process::exit(1);
 }
