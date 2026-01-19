@@ -15,6 +15,7 @@
 </script>
 
 <script lang="ts">
+	import CopyButton from '$components/CopyButton.svelte';
 	import Icon from '$components/Icon.svelte';
 	import { getTimeAndAuthor } from '$lib/utils/getTimeAndAuthor';
 
@@ -41,17 +42,16 @@
 			{title}
 		</span>
 		<div class="details text-11">
-			<button type="button" class="details-btn copy-btn" onclick={onCopy}>
-				<span>{sha.substring(0, 7)}</span>
-				<Icon name="copy-small" />
-			</button>
+			<CopyButton class="details-btn" text={sha} onclick={onCopy} />
 
 			{#if upstreamSha}
 				<span class="details-divider">•</span>
-				<button type="button" class="details-btn copy-btn" onclick={onCopyUpstream}>
-					<span> upstream {upstreamSha.substring(0, 7)}</span>
-					<Icon name="copy-small" />
-				</button>
+				<CopyButton
+					class="details-btn"
+					text={upstreamSha}
+					prefix="upstream"
+					onclick={onCopyUpstream}
+				/>
 			{/if}
 
 			{#if url && onOpen}
@@ -120,14 +120,6 @@
 
 			&:hover {
 				color: var(--clr-text-1);
-			}
-		}
-
-		.copy-btn {
-			& span {
-				text-decoration: underline;
-				text-decoration-style: dotted;
-				text-underline-offset: 3px;
 			}
 		}
 

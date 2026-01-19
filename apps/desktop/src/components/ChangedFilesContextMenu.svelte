@@ -27,10 +27,13 @@
 		ContextMenuItem,
 		ContextMenuItemSubmenu,
 		ContextMenuSection,
+		CopyButton,
 		FileListItem,
 		Modal,
+		ModalHeader,
 		ScrollableContainer,
-		chipToasts
+		chipToasts,
+		Icon
 	} from '@gitbutler/ui';
 	import { tick } from 'svelte';
 	import type { SelectionId } from '$lib/selection/key';
@@ -335,6 +338,8 @@
 			console.error('Failed to split into dependent branch:', error);
 		}
 	}
+
+	let isAbsorbModalScrollVisible = $state(true);
 </script>
 
 <ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
@@ -647,9 +652,9 @@
 </Modal>
 
 <Modal
-	width="small"
+	width={500}
 	type="info"
-	title="Absorb Plan"
+	noPadding
 	bind:this={absorbPlanModal}
 	onSubmit={async () => {
 		try {
@@ -664,26 +669,22 @@
 		}
 	}}
 >
-	<div class="absorb-plan-content">
-		<ScrollableContainer>
+	<ModalHeader type="warning" sticky={!isAbsorbModalScrollVisible}
+		>Set up your git author information</ModalHeader
+	>
+	<ScrollableContainer onscrollTop={(visible) => (isAbsorbModalScrollVisible = visible)}>
+		<div class="absorb-plan-content">
 			{#if absorbPlan.length === 0}
 				<p class="text-13 clr-text-2">No changes to absorb.</p>
 			{:else}
-				<p class="text-13 clr-text-2">
+				<p class="text-13 text-body clr-text-2">
 					The following changes will be absorbed into their respective commits:
 				</p>
 				<div class="commit-absorptions">
 					{#each absorbPlan as commitAbsorption}
 						<div class="commit-absorption">
-							<div class="commit-header">
-								<span class="commit-summary text-semibold">{commitAbsorption.commitSummary}</span>
-								->
-								<span class="commit-id text-11 clr-text-3"
-									>{commitAbsorption.commitId.substring(0, 7)}</span
-								>
-							</div>
 							{#if commitAbsorption.reason !== 'default_stack'}
-								<div class="reason text-12 clr-text-2">
+								<div class="absorption__reason text-12 text-body clr-text-2">
 									{#if commitAbsorption.reason === 'hunk_dependency'}
 										📍 Files locked to commit due to hunk range overlap
 									{:else if commitAbsorption.reason === 'stack_assignment'}
@@ -691,17 +692,46 @@
 									{/if}
 								</div>
 							{/if}
-							<ul class="file-list">
-								{#each commitAbsorption.files as file, i}
-									<FileListItem filePath={file.path} clickable={false} listMode="list" />
-								{/each}
-							</ul>
+
+							<div class="absorption__content">
+								<div class="commit-header">
+									<Icon name="commit" />
+
+									<div class="flex gap-8 overflow-hidden align-center full-width">
+										<p class="text-13 text-semibold truncate flex-1">
+											{commitAbsorption.commitSummary.split('\n')[0]}
+										</p>
+										<CopyButton
+											class="text-12 clr-text-2"
+											text={commitAbsorption.commitId}
+											onclick={() => {
+												clipboardService.write(commitAbsorption.commitId, {
+													message: 'Commit ID copied'
+												});
+											}}
+										/>
+									</div>
+								</div>
+
+								<ul class="file-list">
+									{#each commitAbsorption.files as file}
+										<FileListItem
+											filePath={file.path}
+											clickable={false}
+											listMode="list"
+											isLast={commitAbsorption.files.indexOf(file) ===
+												commitAbsorption.files.length - 1}
+										/>
+									{/each}
+								</ul>
+							</div>
 						</div>
 					{/each}
 				</div>
 			{/if}
-		</ScrollableContainer>
-	</div>
+		</div>
+	</ScrollableContainer>
+
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
 		<Button
@@ -710,7 +740,7 @@
 			loading={absorbingChanges.current.isLoading}
 			disabled={absorbPlan.length === 0 || absorbingChanges.current.isLoading}
 		>
-			Absorb
+			Absorb changes
 		</Button>
 	{/snippet}
 </Modal>
@@ -737,30 +767,37 @@
 	.absorb-plan-content {
 		display: flex;
 		flex-direction: column;
+		padding: 16px;
+		padding-top: 0;
 		gap: 12px;
 	}
 	.commit-absorptions {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
+		gap: 8px;
 	}
 	.commit-absorption {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
+	}
+	.absorption__reason {
+		display: flex;
+		padding: 8px;
+		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-theme-warn-bg);
+	}
+	.absorption__content {
+		display: flex;
+		flex-direction: column;
+		padding: 12px;
 	}
 	.commit-header {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-	}
-	.commit-summary {
-		color: var(--clr-text-1);
-	}
-	.commit-id {
-		font-family: var(--font-mono);
-	}
-	.reason {
-		margin-top: 4px;
 	}
 </style>

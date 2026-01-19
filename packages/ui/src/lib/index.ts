@@ -10,6 +10,7 @@ export {
 	default as CommitStatusBadge,
 	type CommitStatusType
 } from '$components/CommitStatusBadge.svelte';
+export { default as CopyButton } from '$components/CopyButton.svelte';
 export { default as ContextMenu } from '$components/ContextMenu.svelte';
 export { default as ContextMenuItem } from '$components/ContextMenuItem.svelte';
 export { default as ContextMenuItemSubmenu } from '$components/ContextMenuItemSubmenu.svelte';

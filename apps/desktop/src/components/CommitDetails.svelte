@@ -8,7 +8,7 @@
 	import { rejoinParagraphs, truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Avatar, Icon, TestId, TimeAgo, Tooltip } from '@gitbutler/ui';
+	import { Avatar, CopyButton, TestId, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	type Props = {
@@ -66,20 +66,15 @@
 		<TimeAgo date={commitCreatedAtDate(commit)} />
 		<span class="divider">•</span>
 		<Tooltip text="Copy commit SHA">
-			<button
-				type="button"
-				class="copy-sha underline-dotted"
+			<CopyButton
+				class="copy-sha"
+				text={commit.id}
 				onclick={() => {
 					clipboardService.write(commit.id, {
 						message: 'Commit SHA copied'
 					});
 				}}
-			>
-				<span>
-					{commit.id.substring(0, 7)}
-				</span>
-				<Icon name="copy-small" />
-			</button>
+			/>
 		</Tooltip>
 	</div>
 
@@ -134,13 +129,6 @@
 			font-size: 12px;
 			opacity: 0.4;
 		}
-	}
-
-	.copy-sha {
-		display: flex;
-		align-items: center;
-		gap: 2px;
-		font-family: var(--font-mono);
 	}
 
 	.description {
