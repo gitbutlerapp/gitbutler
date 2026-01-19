@@ -92,10 +92,14 @@ pub fn open_url(url: String) -> Result<()> {
 /// Opens a terminal application at the specified directory path.
 ///
 /// # Parameters
-/// - `terminal_id`: Identifier for the terminal application to open.
+/// - `terminal_id`: Identifier for the terminal application to open. Use `"auto"` to select
+///   the platform default (Terminal.app on macOS, PowerShell on Windows, GNOME Terminal on Linux).
 /// - `path`: The directory path where the terminal should open.
 ///
 /// # Supported Terminals
+///
+/// **All Platforms:**
+/// - `auto` - Platform default terminal
 ///
 /// **macOS:**
 /// - `terminal` - Terminal.app
@@ -128,6 +132,24 @@ pub fn open_url(url: String) -> Result<()> {
 #[instrument(err(Debug))]
 pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     use std::process::Command;
+
+    // Handle 'auto' by selecting the platform default terminal
+    let terminal_id = if terminal_id == "auto" {
+        #[cfg(target_os = "macos")]
+        {
+            "terminal".to_string()
+        }
+        #[cfg(target_os = "windows")]
+        {
+            "powershell".to_string()
+        }
+        #[cfg(target_os = "linux")]
+        {
+            "gnome-terminal".to_string()
+        }
+    } else {
+        terminal_id
+    };
 
     /// Helper to run a command and check its exit status
     fn run_terminal_command(mut cmd: Command, terminal_name: &str, path: &str) -> Result<()> {

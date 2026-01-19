@@ -62,7 +62,7 @@ const defaults: Settings = {
 	diffContrast: 'light',
 	colorBlindFriendly: false,
 	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
-	defaultTerminal: { identifier: 'terminal', displayName: 'Terminal', platform: 'macos' },
+	defaultTerminal: { identifier: 'auto', displayName: 'Auto', platform: 'all' },
 	defaultFileListMode: 'list',
 	pathFirst: true
 };
