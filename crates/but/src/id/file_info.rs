@@ -1,9 +1,17 @@
+use std::collections::{BTreeMap, HashMap};
+
 use bstr::BString;
 
 /// Information about committed files needed for CLI ID generation.
 pub(crate) struct FileInfo {
-    /// Committed files paired with their commit IDs, ordered by commit ID then filename.
-    pub(crate) committed_files: Vec<(gix::ObjectId, BString)>,
+    // TODO: It was observed in bd5151cf9 (fix(but status --files): Resolves an
+    // issue where the ids shown for committed files are incorrect, 2025-12-29)
+    // that sometimes, more than one TreeChange is reported for a (commit,
+    // filename) pair even though it's not supposed to happen. (This is why
+    // there's a Vec in the definition of `changes` below.) Make sure that this
+    // does not happen (possibly by tightening the types involved).
+    /// Tree changes indexed by commit ID then filename.
+    pub(crate) changes: HashMap<gix::ObjectId, BTreeMap<BString, Vec<but_core::TreeChange>>>,
 }
 
 impl FileInfo {
@@ -14,20 +22,23 @@ impl FileInfo {
         workspace_commit_and_first_parent_ids: impl Iterator<
             Item = (&'a gix::ObjectId, &'a Option<gix::ObjectId>),
         >,
-        mut changed_paths_fn: F,
+        mut changes_fn: F,
     ) -> anyhow::Result<Self>
     where
-        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
+        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
     {
-        let mut committed_files: Vec<(gix::ObjectId, BString)> = Vec::new();
+        let mut changes: HashMap<gix::ObjectId, BTreeMap<BString, Vec<but_core::TreeChange>>> =
+            HashMap::new();
         for (commit_id, parent_id) in workspace_commit_and_first_parent_ids {
-            let changed_paths = changed_paths_fn(*commit_id, *parent_id)?;
-            for changed_path in changed_paths {
-                committed_files.push((*commit_id, changed_path));
+            let paths_to_changes = changes.entry(*commit_id).or_default();
+
+            for change in changes_fn(*commit_id, *parent_id)? {
+                paths_to_changes
+                    .entry(change.path.clone())
+                    .or_default()
+                    .push(change);
             }
         }
-        committed_files.sort();
-
-        Ok(Self { committed_files })
+        Ok(Self { changes })
     }
 }

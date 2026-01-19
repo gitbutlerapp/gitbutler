@@ -1,5 +1,4 @@
 use anyhow::bail;
-use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
 use but_testsupport::{hex_to_id, hunk_header};
@@ -328,11 +327,11 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     let mut id_map = IdMap::new(stacks, hunk_assignments)?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
-     -> anyhow::Result<Vec<BString>> {
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
         Ok(if commit_id == id(2) && parent_id == Some(id(1)) {
             vec![
-                BString::from(b"committed1.txt"),
-                BString::from(b"committed2.txt"),
+                tree_change_addition("committed1.txt"),
+                tree_change_addition("committed2.txt"),
             ]
         } else {
             bail!("unexpected IDs {} {:?}", commit_id, parent_id);
@@ -504,9 +503,9 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     let mut id_map = IdMap::new(stacks, hunk_assignments)?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
-     -> anyhow::Result<Vec<BString>> {
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
         Ok(if commit_id == id(10) && parent_id == Some(id(9)) {
-            vec![BString::from(b"committed.txt")]
+            vec![tree_change_addition("committed.txt")]
         } else {
             bail!("unexpected IDs {} {:?}", commit_id, parent_id);
         })
@@ -618,7 +617,7 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
     let mut id_map = IdMap::new(stacks, hunk_assignments)?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
-     -> anyhow::Result<Vec<BString>> {
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
         Ok(if commit_id == id(1) && parent_id.is_none() {
             vec![]
         } else {
@@ -671,12 +670,12 @@ fn committed_files_are_deduplicated_by_commit_oid_path() -> anyhow::Result<()> {
     // (which could happen due to a bug in the caller or data source)
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
-     -> anyhow::Result<Vec<BString>> {
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
         Ok(if commit_id == id(2) && parent_id == Some(id(1)) {
             vec![
-                BString::from(b"file.txt"),
-                BString::from(b"file.txt"), // Duplicate!
-                BString::from(b"other.txt"),
+                tree_change_addition("file.txt"),
+                tree_change_addition("file.txt"), // Duplicate!
+                tree_change_addition("other.txt"),
             ]
         } else {
             anyhow::bail!("unexpected IDs {} {:?}", commit_id, parent_id);
@@ -689,13 +688,13 @@ fn committed_files_are_deduplicated_by_commit_oid_path() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
     workspace_and_remote_commits_count: 1
     branches: [ br ]
-    committed_files: [ g0, i0 ]
+    committed_files: [ g0, h0 ]
     ");
 
     // Verify we can look up both files (g0 for file.txt, i0 for other.txt)
     // Note: h0 was consumed by the duplicate but discarded during deduplication
     assert!(id_map.resolve_entity_to_ids("g0")?.len() == 1);
-    assert!(id_map.resolve_entity_to_ids("i0")?.len() == 1);
+    assert!(id_map.resolve_entity_to_ids("h0")?.len() == 1);
 
     Ok(())
 }
@@ -794,6 +793,21 @@ mod util {
         }
     }
 
+    pub fn tree_change_addition(path: &str) -> but_core::TreeChange {
+        but_core::TreeChange {
+            path: BString::from(path),
+            status: but_core::TreeStatus::Addition {
+                state: but_core::ChangeState {
+                    // `IdMap` only identifies a committed file by its commit ID
+                    // and filename, so the object ID does not matter.
+                    id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+                    kind: gix::objs::tree::EntryKind::Blob,
+                },
+                is_untracked: false,
+            },
+        }
+    }
+
     impl IdMap {
         /// Display internal information to aid understanding and debugging
         pub fn debug_state(&self) -> DebugState<'_> {
@@ -826,7 +840,7 @@ mod util {
                 .chain(workspace_commits.keys().cloned())
                 .chain(remote_commit_ids.keys().cloned())
                 .chain(uncommitted_files.keys().cloned())
-                .chain(committed_files.iter().map(|f| f.id.clone()))
+                .chain(committed_files.keys().cloned())
                 .chain(uncommitted_hunks.keys().cloned())
                 .flat_map(|id| {
                     self.resolve_entity_to_ids(&id)
@@ -871,11 +885,7 @@ mod util {
                     .sorted(),
             )?;
             id_list_if_not_empty(f, "uncommitted_files", uncommitted_files.keys().cloned())?;
-            id_list_if_not_empty(
-                f,
-                "committed_files",
-                committed_files.iter().sorted().map(|id| id.id.clone()),
-            )?;
+            id_list_if_not_empty(f, "committed_files", committed_files.keys().cloned())?;
             id_list_if_not_empty(
                 f,
                 "uncommitted_hunks",
@@ -907,4 +917,4 @@ mod util {
         a.to_short_string().cmp(&b.to_short_string())
     }
 }
-use util::{hunk_assignment, id, segment, stack};
+use util::{hunk_assignment, id, segment, stack, tree_change_addition};

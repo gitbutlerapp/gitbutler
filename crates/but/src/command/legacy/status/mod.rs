@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use assignment::FileAssignment;
 use bstr::{BStr, BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
-use but_core::{TreeStatus, diff::CommitDetails, ui};
+use but_core::{TreeStatus, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_oxidize::OidExt;
@@ -15,7 +15,7 @@ use gitbutler_stack::StackId;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
 
-use crate::id::{SegmentWithId, StackWithId};
+use crate::id::{SegmentWithId, StackWithId, TreeChangeWithId};
 use crate::{CLI_DATE, utils::time::format_relative_time_verbose};
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
@@ -266,7 +266,6 @@ pub(crate) async fn worktree(
             &ci_map,
             &branch_merge_statuses,
             show_files,
-            ctx.legacy_project.id,
             &repo,
             &id_map,
             base_branch.as_ref(),
@@ -668,15 +667,14 @@ pub fn print_group(
                     but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
                 print_commit(
                     commit.short_id.clone(),
-                    details,
+                    &commit.inner,
+                    CommitChanges::Remote(&details.diff_with_first_parent),
                     CommitClassification::Upstream,
                     false,
                     show_files,
                     verbose,
                     None,
-                    id_map,
                     out,
-                    true,
                 )?;
             }
             if !segment.remote_commits.is_empty() {
@@ -700,11 +698,10 @@ pub fn print_group(
                     LocalCommitRelation::Integrated(_) => CommitClassification::Integrated,
                 };
 
-                let details =
-                    but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
                 print_commit(
                     commit.short_id.clone(),
-                    details,
+                    &commit.inner.inner,
+                    CommitChanges::Workspace(&commit.tree_changes),
                     classification,
                     marked,
                     show_files,
@@ -713,9 +710,7 @@ pub fn print_group(
                     // seems to be populated in handle_gerrit in
                     // crates/but-api/src/legacy/workspace.rs
                     None,
-                    id_map,
                     out,
-                    false,
                 )?;
             }
         }
@@ -783,18 +778,22 @@ fn status_from_changes(changes: &[ui::TreeChange], path: BString) -> Option<ui::
     })
 }
 
+enum CommitChanges<'a> {
+    Workspace(&'a [TreeChangeWithId]),
+    Remote(&'a [but_core::TreeChange]),
+}
+
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
     short_id: String,
-    commit_details: CommitDetails,
+    commit: &but_workspace::ref_info::Commit,
+    commit_changes: CommitChanges,
     classification: CommitClassification,
     marked: bool,
     show_files: bool,
     verbose: bool,
     review_url: Option<String>,
-    id_map: &IdMap,
     out: &mut dyn std::fmt::Write,
-    upstream_commit: bool,
 ) -> anyhow::Result<()> {
     let mark = if marked {
         Some("◀ Marked ▶".red().bold())
@@ -810,7 +809,17 @@ fn print_commit(
         CommitClassification::Integrated => "●".purple(),
     };
 
-    let details_string = display_cli_commit_details(short_id, &commit_details, verbose);
+    let upstream_commit = matches!(commit_changes, CommitChanges::Remote(_));
+
+    let details_string = display_cli_commit_details(
+        short_id,
+        commit,
+        match commit_changes {
+            CommitChanges::Workspace(tree_changes) => !tree_changes.is_empty(),
+            CommitChanges::Remote(tree_changes) => !tree_changes.is_empty(),
+        },
+        verbose,
+    );
     let details_string = if upstream_commit {
         details_string.dimmed().to_string()
     } else {
@@ -828,7 +837,7 @@ fn print_commit(
                 .unwrap_or_default(),
             mark.unwrap_or_default()
         )?;
-        let message = CommitMessage(commit_details.commit.inner.message).display_cli(verbose);
+        let message = CommitMessage(commit.message.clone()).display_cli(verbose);
         let message = if upstream_commit {
             message.dimmed().to_string()
         } else {
@@ -849,19 +858,17 @@ fn print_commit(
         )?;
     }
     if show_files {
-        for change in &commit_details.diff_with_first_parent {
-            if upstream_commit {
-                writeln!(out, "┊│     {}", change.display_cli(false))?;
-            } else {
-                let cid = id_map
-                    .resolve_file_changed_in_commit_or_unassigned(
-                        commit_details.commit.id,
-                        change.path.as_ref(),
-                    )
-                    .to_short_string()
-                    .blue()
-                    .underline();
-                writeln!(out, "┊│     {cid} {}", change.display_cli(false))?;
+        match commit_changes {
+            CommitChanges::Workspace(tree_changes) => {
+                for TreeChangeWithId { short_id, inner } in tree_changes {
+                    let cid = short_id.blue().underline();
+                    writeln!(out, "┊│     {cid} {}", inner.display_cli(false))?;
+                }
+            }
+            CommitChanges::Remote(tree_changes) => {
+                for change in tree_changes {
+                    writeln!(out, "┊│     {}", change.display_cli(false))?;
+                }
             }
         }
     }
@@ -882,45 +889,45 @@ impl CliDisplay for but_core::TreeChange {
 
 fn display_cli_commit_details(
     short_id: String,
-    commit_details: &CommitDetails,
+    commit: &but_workspace::ref_info::Commit,
+    has_changes: bool,
     verbose: bool,
 ) -> String {
     let end_id = if short_id.len() >= 7 {
         "".to_string()
     } else {
-        let commit_id = commit_details.commit.id.to_string();
+        let commit_id = commit.id.to_string();
         commit_id[short_id.len()..7].dimmed().to_string()
     };
     let start_id = short_id.blue().underline();
 
-    let conflicted_str = if commit_details.conflict_entries.is_some() {
+    let conflicted_str = if commit.has_conflicts {
         " {conflicted}".red()
     } else {
         "".normal()
     };
 
-    let no_changes = if commit_details.diff_with_first_parent.is_empty() {
-        " (no changes)".dimmed().italic()
-    } else {
+    let no_changes = if has_changes {
         "".to_string().normal()
+    } else {
+        " (no changes)".dimmed().italic()
     };
 
     if verbose {
         // No message when verbose since it goes to the next line
-        let created_at = commit_details.commit.inner.author.time;
+        let created_at = commit.author.time;
         let formatted_time = created_at.format_or_unix(CLI_DATE);
         format!(
             "{}{} {} {}{}{}",
             start_id,
             end_id,
-            commit_details.commit.inner.author.name,
+            commit.author.name,
             formatted_time.dimmed(),
             no_changes,
             conflicted_str,
         )
     } else {
-        let message =
-            CommitMessage(commit_details.commit.inner.message.clone()).display_cli(verbose);
+        let message = CommitMessage(commit.message.clone()).display_cli(verbose);
         format!(
             "{}{} {}{}{}",
             start_id, end_id, message, no_changes, conflicted_str,
