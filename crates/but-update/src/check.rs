@@ -61,7 +61,10 @@ pub fn check_status_with_url(
     app_settings: &AppSettings,
     url_override: Option<&str>,
 ) -> anyhow::Result<CheckUpdateStatus> {
-    let channel = option_env!("CHANNEL").unwrap_or("nightly");
+    // In development/test builds without CHANNEL set, skip update checking
+    let Some(channel) = option_env!("CHANNEL") else {
+        return Ok(CheckUpdateStatus::default());
+    };
     let os = env::consts::OS;
     let arch = env::consts::ARCH;
     let version = option_env!("VERSION").unwrap_or("0.0.0");
@@ -199,6 +202,18 @@ pub struct CheckUpdateStatus {
     /// installation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
+}
+
+impl Default for CheckUpdateStatus {
+    fn default() -> Self {
+        Self {
+            up_to_date: true,
+            latest_version: "0.0.0".to_string(),
+            release_notes: None,
+            url: None,
+            signature: None,
+        }
+    }
 }
 
 fn install() -> Option<String> {
