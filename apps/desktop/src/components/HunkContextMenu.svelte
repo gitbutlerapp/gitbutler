@@ -75,13 +75,16 @@
 
 		unselectAllHunkLines(item.hunk);
 
+		const isWholeFileChange =
+			change.status.type === 'Addition' || change.status.type === 'Deletion';
+
 		await stackService.discardChanges({
 			projectId,
 			worktreeChanges: [
 				{
 					previousPathBytes,
 					pathBytes: change.pathBytes,
-					hunkHeaders: [item.hunk]
+					hunkHeaders: isWholeFileChange ? [] : [item.hunk]
 				}
 			]
 		});
@@ -135,7 +138,7 @@
 							contextMenu?.close();
 						}}
 					/>
-					{#if item.selectedLines !== undefined && item.selectedLines.length > 0}
+					{#if item.selectedLines !== undefined && item.selectedLines.length > 0 && change.status.type !== 'Addition' && change.status.type !== 'Deletion'}
 						<ContextMenuItem
 							testId={TestId.HunkContextMenu_DiscardLines}
 							label={getDiscardLineLabel(item)}
