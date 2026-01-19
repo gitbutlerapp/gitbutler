@@ -7,23 +7,23 @@ use command_group::AsyncCommandGroup;
 
 use crate::{args::Args, utils::OutputChannel};
 
-pub(crate) enum Fetch {
-    Auto,
-    None,
+pub(crate) enum BackgroundSync {
+    Enabled,
+    Disabled,
 }
 
 /// Gets or initializes a non-bare repository context.
 ///
 /// This function discovers the git repository from the current directory, finds or initializes
-/// the GitButler project for that repository, and optionally triggers a background fetch if
-/// the configured fetch interval has elapsed.
+/// the GitButler project for that repository, and optionally triggers a background sync if
+/// the configured interval has elapsed.
 ///
 /// # Arguments
 ///
 /// * `args` - Command-line arguments containing the current directory
-/// * `fetch_mode` - Controls whether and how to perform automatic fetching:
-///   - `Fetch::Auto(out)` - Enable auto-fetch with output to the provided channel
-///   - `Fetch::None` - Disable auto-fetch completely
+/// * `background_sync` - Controls whether to perform automatic background synchronization:
+///   - `BackgroundSync::Enabled` - Enable background sync (fetch, PR data, CI status)
+///   - `BackgroundSync::Disabled` - Disable background sync completely
 ///
 /// # Returns
 ///
@@ -36,24 +36,24 @@ pub(crate) enum Fetch {
 /// - The repository is bare (not supported)
 /// - The project cannot be found or initialized
 ///
-/// # Auto-fetch behavior
+/// # Background sync behavior
 ///
-/// When `fetch_mode` is `Fetch::Auto(out)`, a background fetch is initiated if:
-/// - The fetch interval is positive (negative or zero disables auto-fetch)
+/// When `background_sync` is `BackgroundSync::Enabled`, a background sync is initiated if:
+/// - The fetch interval is positive (negative or zero disables background sync)
 /// - The output format is for human consumption (not JSON or shell)
-/// - Either no previous fetch exists, or the elapsed time since the last fetch
+/// - Either no previous sync exists, or the elapsed time since the last sync
 ///   exceeds the configured interval
 ///
-/// When a background fetch is initiated, a human-readable message is written to the output
-/// channel showing how long ago the last fetch occurred (e.g., "Last fetch was 15m ago.
+/// When a background sync is initiated, a human-readable message is written to the output
+/// channel showing how long ago the last sync occurred (e.g., "Last fetch was 15m ago.
 /// Initiated a background fetch..."). The time is formatted as seconds (s), minutes (m),
 /// hours (h), or days (d) depending on the elapsed duration.
 ///
-/// When `fetch_mode` is `Fetch::None`, no auto-fetch is performed regardless of the
-/// configured interval.
+/// When `background_sync` is `BackgroundSync::Disabled`, no background sync is performed
+/// regardless of the configured interval.
 pub fn init_ctx(
     args: &Args,
-    fetch_mode: Fetch,
+    background_sync: BackgroundSync,
     out: &mut OutputChannel,
 ) -> anyhow::Result<Context> {
     let repo = gix::discover(&args.current_dir)?;
@@ -94,13 +94,13 @@ pub fn init_ctx(
         }
     };
 
-    match fetch_mode {
-        Fetch::None => {
+    match background_sync {
+        BackgroundSync::Disabled => {
             return Ok(ctx);
         }
-        Fetch::Auto => {
-            // Negative or zero fetch interval disables auto-fetch
-            // Auto fetch done only for human output
+        BackgroundSync::Enabled => {
+            // Negative or zero fetch interval disables background sync
+            // Background sync done only for human output
             if fetch_interval_minutes <= 0
                 || !matches!(out.format(), crate::args::OutputFormat::Human)
             {
