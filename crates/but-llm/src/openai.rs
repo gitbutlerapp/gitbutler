@@ -21,9 +21,10 @@ use tokio::sync::Mutex;
 
 use crate::{
     StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
+    client::LLMClient,
 };
 
-#[derive(Debug, Clone, serde::Serialize, strum::Display)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display)]
 pub enum CredentialsKind {
     EnvVarOpenAiKey,
     OwnOpenAiKey,
@@ -116,6 +117,26 @@ impl OpenAiProvider {
                 .map_err(|_| anyhow::anyhow!("Invalid UTF-8 in OPENAI_API_KEY"))?,
         );
         Ok((CredentialsKind::EnvVarOpenAiKey, creds))
+    }
+}
+
+impl LLMClient for OpenAiProvider {
+    fn tool_calling_loop_stream(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        tool_set: &mut impl Toolset,
+        model: String,
+        on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
+    ) -> Result<(String, Vec<ChatMessage>)> {
+        tool_calling_loop_stream(
+            self,
+            system_message,
+            chat_messages,
+            tool_set,
+            Some(model),
+            on_token,
+        )
     }
 }
 

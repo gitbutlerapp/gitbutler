@@ -10,6 +10,7 @@ use ollama_rs::Ollama;
 use ollama_rs::generation::chat::request::ChatMessageRequest;
 use serde_json::Value;
 
+use crate::client::LLMClient;
 use crate::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent};
 
 #[derive(Debug, Clone, Default)]
@@ -17,11 +18,26 @@ pub struct OllamaProvider {
     client: Ollama,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OllamaHostConfig {
+    pub host: String,
+    pub port: u16,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OllamaConfig {
+    pub host_config: Option<OllamaHostConfig>,
+}
+
 impl OllamaProvider {
-    pub fn with_custom_endpoint(host: &str, port: u16) -> Self {
-        Self {
-            client: Ollama::new(host, port),
-        }
+    pub fn new(config: OllamaConfig) -> Self {
+        let client = if let Some(host_config) = config.host_config {
+            Ollama::new(host_config.host, host_config.port)
+        } else {
+            Ollama::default()
+        };
+
+        Self { client }
     }
 
     pub fn client(&self) -> &Ollama {
@@ -33,6 +49,26 @@ impl OllamaProvider {
             Ok(models) => Ok(models.into_iter().map(|m| m.name).collect()),
             Err(e) => Err(anyhow::anyhow!("Failed to list models: {}", e)),
         }
+    }
+}
+
+impl LLMClient for OllamaProvider {
+    fn tool_calling_loop_stream(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        tool_set: &mut impl Toolset,
+        model: String,
+        on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
+    ) -> Result<(String, Vec<ChatMessage>)> {
+        tool_calling_loop_stream(
+            self,
+            system_message,
+            chat_messages,
+            tool_set,
+            model,
+            on_token,
+        )
     }
 }
 
@@ -85,7 +121,7 @@ pub fn tool_calling_loop_stream(
     while let Some(tool_calls) = response.0 {
         for call in tool_calls {
             let ToolCall {
-                id,
+                id: _,
                 name: function_name,
                 arguments: function_args,
             } = call;
