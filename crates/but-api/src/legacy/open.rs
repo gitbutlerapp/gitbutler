@@ -89,6 +89,41 @@ pub fn open_url(url: String) -> Result<()> {
     open_that(&url)
 }
 
+/// Opens a terminal application at the specified directory path.
+///
+/// # Parameters
+/// - `terminal_id`: Identifier for the terminal application to open.
+/// - `path`: The directory path where the terminal should open.
+///
+/// # Supported Terminals
+///
+/// **macOS:**
+/// - `terminal` - Terminal.app
+/// - `iterm2` - iTerm2
+/// - `ghostty` - Ghostty
+/// - `warp` - Warp
+/// - `alacritty-mac` - Alacritty
+/// - `wezterm-mac` - WezTerm
+/// - `hyper` - Hyper
+///
+/// **Windows:**
+/// - `wt` - Windows Terminal
+/// - `powershell` - PowerShell
+/// - `cmd` - Command Prompt
+///
+/// **Linux:**
+/// - `gnome-terminal` - GNOME Terminal
+/// - `konsole` - KDE Konsole
+/// - `xfce4-terminal` - XFCE Terminal
+/// - `alacritty-linux` - Alacritty
+/// - `wezterm-linux` - WezTerm
+///
+/// # Errors
+/// Returns an error if:
+/// - The terminal application is not installed or not found in PATH
+/// - The specified path does not exist or is not accessible
+/// - The terminal_id is not recognized for the current platform
+/// - The terminal process exits with a non-zero status code
 #[but_api]
 #[instrument(err(Debug))]
 pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
