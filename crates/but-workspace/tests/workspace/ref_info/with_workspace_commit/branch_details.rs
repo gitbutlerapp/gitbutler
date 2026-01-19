@@ -32,7 +32,7 @@ fn disjoint() -> anyhow::Result<()> {
         ],
         is_conflicted: false,
         commits: [
-            Commit(32791d2, "disjoint init", local/remote(identity)),
+            Commit(32791d2, "disjoint init", local),
         ],
         upstream_commits: [],
         is_remote_head: false,

@@ -1797,7 +1797,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                         ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(cbc6713, "change\n", local/remote(identity)),
+                            LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
