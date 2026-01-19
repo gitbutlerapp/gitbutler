@@ -14,10 +14,6 @@
 	const projectQuery = $derived(projectsService.getProject(projectId));
 	const backend = inject(BACKEND);
 
-	async function onForcePushClick(project: Project, value: boolean) {
-		await projectsService.updateProject({ ...project, ok_with_force_push: value });
-	}
-
 	async function onForcePushProtectionClick(project: Project, value: boolean) {
 		await projectsService.updateProject({ ...project, force_push_protection: value });
 	}
@@ -34,22 +30,6 @@
 	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<CardGroup>
-				<CardGroup.Item labelFor="allowForcePush">
-					{#snippet title()}
-						Allow force pushing
-					{/snippet}
-					{#snippet caption()}
-						Force pushing allows GitButler to override branches even if they were pushed to remote.
-						GitButler will never force push to the target branch.
-					{/snippet}
-					{#snippet actions()}
-						<Toggle
-							id="allowForcePush"
-							checked={project.ok_with_force_push}
-							onchange={(checked) => onForcePushClick(project, checked)}
-						/>
-					{/snippet}
-				</CardGroup.Item>
 				<CardGroup.Item labelFor="forcePushProtection">
 					{#snippet title()}
 						Force push protection
