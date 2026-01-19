@@ -53,7 +53,6 @@ attached to posthog events.
 		const project = projectQuery.response;
 		if (project) {
 			eventContext.update({
-				forcePushAllowed: project.ok_with_force_push,
 				gitAuthType: gitAuthType(project.preferred_key)
 			});
 		}
