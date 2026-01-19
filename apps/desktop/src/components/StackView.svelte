@@ -630,6 +630,7 @@
 														changes={commit.changes}
 														draggable={true}
 														selectable={false}
+														startIndex={$activeLastAdded?.index}
 													/>
 												{/snippet}
 											</ReduxResult>
@@ -664,6 +665,7 @@
 											projectId={stableProjectId}
 											draggable={true}
 											selectable={false}
+											startIndex={$activeLastAdded?.index}
 										/>
 									{/snippet}
 								</ReduxResult>
