@@ -209,7 +209,7 @@ pub fn last_checked() -> anyhow::Result<Option<DateTime<Utc>>> {
 
 /// Information about an available application update.
 #[derive(Debug, Clone)]
-pub struct AppUpdateInfo {
+pub struct AvailableUpdate {
     /// The current version of the application.
     pub current_version: String,
     /// The latest available version.
@@ -226,14 +226,14 @@ pub struct AppUpdateInfo {
 /// update information if:
 /// - A cached update check exists
 /// - The cached status indicates an update is available (`up_to_date == false`)
-/// - The update notification is not currently suppressed
+/// - The update is not currently suppressed
 ///
 /// # Returns
 ///
-/// * `Ok(Some(AppUpdateInfo))` - An update is available and not suppressed
+/// * `Ok(Some(AvailableUpdate))` - An update is available and not suppressed
 /// * `Ok(None)` - No update is available, no cache exists, cache is invalid, or update is suppressed
 /// * `Err(_)` - Failed to determine cache directory path
-pub fn cached_app_update() -> anyhow::Result<Option<AppUpdateInfo>> {
+pub fn available_update() -> anyhow::Result<Option<AvailableUpdate>> {
     let cached = match load()? {
         Some(cached) => cached,
         None => return Ok(None),
@@ -260,7 +260,7 @@ pub fn cached_app_update() -> anyhow::Result<Option<AppUpdateInfo>> {
     // Update is available and not suppressed
     let current_version = option_env!("VERSION").unwrap_or("0.0.0").to_string();
 
-    Ok(Some(AppUpdateInfo {
+    Ok(Some(AvailableUpdate {
         current_version,
         available_version: cached.status.latest_version,
         release_notes: cached.status.release_notes,
@@ -268,14 +268,14 @@ pub fn cached_app_update() -> anyhow::Result<Option<AppUpdateInfo>> {
     }))
 }
 
-/// Suppress update notifications for a specified duration.
+/// Suppress an available update for a specified duration.
 ///
-/// This function sets the suppression fields in the cache to temporarily hide update notifications.
+/// This function sets the suppression fields in the cache to temporarily hide an available update.
 /// The suppression will automatically expire after the specified number of hours.
 ///
 /// # Arguments
 ///
-/// * `hours` - The number of hours to suppress update notifications (must be between 1 and 720)
+/// * `hours` - The number of hours to suppress the update (must be between 1 and 720)
 ///
 /// # Returns
 ///
@@ -293,7 +293,7 @@ pub fn cached_app_update() -> anyhow::Result<Option<AppUpdateInfo>> {
 /// - No update check has been performed yet (no cache exists)
 /// - The current version is already up to date (nothing to suppress)
 /// - The cache file cannot be written
-pub fn suppress_update_notification(hours: u32) -> anyhow::Result<()> {
+pub fn suppress_update(hours: u32) -> anyhow::Result<()> {
     // Validate input: must be between 1 and 720 hours (30 days)
     const MAX_SUPPRESSION_HOURS: u32 = 720; // 30 days
 

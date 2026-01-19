@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::sync::Mutex;
 
-use but_update::{cached_app_update, last_checked, CheckUpdateStatus};
+use but_update::{CheckUpdateStatus, available_update, last_checked};
 use chrono::{DateTime, Utc};
 
 // Serial test execution lock to prevent environment variable conflicts
@@ -346,7 +346,7 @@ fn test_suppression_on_edge_case_exactly_expired() {
 }
 
 #[test]
-fn test_suppress_update_notification_success() {
+fn test_suppress_update_success() {
     let _lock = TEST_LOCK.lock().unwrap();
     let temp_dir = setup_test_cache_dir();
 
@@ -369,7 +369,7 @@ fn test_suppress_update_notification_success() {
     .expect("Should write initial cache");
 
     // Suppress for 48 hours
-    let result = but_update::suppress_update_notification(48);
+    let result = but_update::suppress_update(48);
     assert!(result.is_ok(), "Should successfully suppress notifications");
 
     // Read back and verify suppression was set
@@ -390,12 +390,12 @@ fn test_suppress_update_notification_success() {
 }
 
 #[test]
-fn test_suppress_update_notification_fails_when_no_cache() {
+fn test_suppress_update_fails_when_no_cache() {
     let _lock = TEST_LOCK.lock().unwrap();
     let _temp_dir = setup_test_cache_dir();
 
     // Try to suppress without any cache
-    let result = but_update::suppress_update_notification(24);
+    let result = but_update::suppress_update(24);
     assert!(result.is_err(), "Should fail when no cache exists");
 
     let error_message = result.unwrap_err().to_string();
@@ -407,7 +407,7 @@ fn test_suppress_update_notification_fails_when_no_cache() {
 }
 
 #[test]
-fn test_suppress_update_notification_fails_when_up_to_date() {
+fn test_suppress_update_fails_when_up_to_date() {
     let _lock = TEST_LOCK.lock().unwrap();
     let temp_dir = setup_test_cache_dir();
 
@@ -430,7 +430,7 @@ fn test_suppress_update_notification_fails_when_up_to_date() {
     .expect("Should write initial cache");
 
     // Try to suppress when already up to date
-    let result = but_update::suppress_update_notification(24);
+    let result = but_update::suppress_update(24);
     assert!(result.is_err(), "Should fail when already up to date");
 
     let error_message = result.unwrap_err().to_string();
@@ -442,7 +442,7 @@ fn test_suppress_update_notification_fails_when_up_to_date() {
 }
 
 #[test]
-fn test_suppress_update_notification_overwrites_existing_suppression() {
+fn test_suppress_update_overwrites_existing_suppression() {
     let _lock = TEST_LOCK.lock().unwrap();
     let temp_dir = setup_test_cache_dir();
 
@@ -468,7 +468,7 @@ fn test_suppress_update_notification_overwrites_existing_suppression() {
     .expect("Should write initial cache");
 
     // Suppress again with different duration
-    let result = but_update::suppress_update_notification(72);
+    let result = but_update::suppress_update(72);
     assert!(result.is_ok(), "Should successfully update suppression");
 
     // Read back and verify new suppression
@@ -497,7 +497,7 @@ fn test_suppress_update_notification_overwrites_existing_suppression() {
 }
 
 #[test]
-fn test_suppress_update_notification_rejects_zero_hours() {
+fn test_suppress_update_rejects_zero_hours() {
     let _lock = TEST_LOCK.lock().unwrap();
     let temp_dir = setup_test_cache_dir();
 
@@ -520,7 +520,7 @@ fn test_suppress_update_notification_rejects_zero_hours() {
     .expect("Should write initial cache");
 
     // Try to suppress with 0 hours
-    let result = but_update::suppress_update_notification(0);
+    let result = but_update::suppress_update(0);
     assert!(result.is_err(), "Should fail when hours is 0");
 
     let error_message = result.unwrap_err().to_string();
@@ -532,7 +532,7 @@ fn test_suppress_update_notification_rejects_zero_hours() {
 }
 
 #[test]
-fn test_suppress_update_notification_rejects_excessive_hours() {
+fn test_suppress_update_rejects_excessive_hours() {
     let _lock = TEST_LOCK.lock().unwrap();
     let temp_dir = setup_test_cache_dir();
 
@@ -555,7 +555,7 @@ fn test_suppress_update_notification_rejects_excessive_hours() {
     .expect("Should write initial cache");
 
     // Try to suppress with more than 720 hours (30 days)
-    let result = but_update::suppress_update_notification(721);
+    let result = but_update::suppress_update(721);
     assert!(result.is_err(), "Should fail when hours exceeds 720");
 
     let error_message = result.unwrap_err().to_string();
@@ -567,7 +567,7 @@ fn test_suppress_update_notification_rejects_excessive_hours() {
 }
 
 #[test]
-fn test_suppress_update_notification_accepts_max_hours() {
+fn test_suppress_update_accepts_max_hours() {
     let _lock = TEST_LOCK.lock().unwrap();
     let temp_dir = setup_test_cache_dir();
 
@@ -590,7 +590,7 @@ fn test_suppress_update_notification_accepts_max_hours() {
     .expect("Should write initial cache");
 
     // Suppress with exactly 720 hours (30 days) - should succeed
-    let result = but_update::suppress_update_notification(720);
+    let result = but_update::suppress_update(720);
     assert!(result.is_ok(), "Should successfully suppress for 720 hours");
 
     // Read back and verify
@@ -607,16 +607,16 @@ fn test_suppress_update_notification_accepts_max_hours() {
 }
 
 #[test]
-fn test_cached_app_update_returns_none_when_no_cache() {
+fn test_available_update_returns_none_when_no_cache() {
     let _lock = TEST_LOCK.lock().unwrap();
     let _temp_dir = setup_test_cache_dir();
 
-    let result = cached_app_update().expect("Should not error");
+    let result = available_update().expect("Should not error");
     assert!(result.is_none(), "Should return None when no cache exists");
 }
 
 #[test]
-fn test_cached_app_update_returns_none_when_up_to_date() {
+fn test_available_update_returns_none_when_up_to_date() {
     let _lock = TEST_LOCK.lock().unwrap();
     let _temp_dir = setup_test_cache_dir();
 
@@ -631,7 +631,7 @@ fn test_cached_app_update_returns_none_when_up_to_date() {
 
     but_update::cache::save(&status);
 
-    let result = cached_app_update().expect("Should not error");
+    let result = available_update().expect("Should not error");
     assert!(
         result.is_none(),
         "Should return None when app is up to date"
@@ -639,7 +639,7 @@ fn test_cached_app_update_returns_none_when_up_to_date() {
 }
 
 #[test]
-fn test_cached_app_update_returns_info_when_update_available() {
+fn test_available_update_returns_info_when_update_available() {
     let _lock = TEST_LOCK.lock().unwrap();
     let _temp_dir = setup_test_cache_dir();
 
@@ -654,18 +654,21 @@ fn test_cached_app_update_returns_info_when_update_available() {
 
     but_update::cache::save(&status);
 
-    let result = cached_app_update()
+    let result = available_update()
         .expect("Should not error")
         .expect("Should return update info");
 
     assert_eq!(result.available_version, "2.0.0");
     assert_eq!(result.release_notes, Some("New features!".to_string()));
     assert_eq!(result.url, Some("https://example.com/download".to_string()));
-    assert!(!result.current_version.is_empty(), "Should have current version");
+    assert!(
+        !result.current_version.is_empty(),
+        "Should have current version"
+    );
 }
 
 #[test]
-fn test_cached_app_update_returns_none_when_suppressed() {
+fn test_available_update_returns_none_when_suppressed() {
     let _lock = TEST_LOCK.lock().unwrap();
     let temp_dir = setup_test_cache_dir();
 
@@ -692,7 +695,7 @@ fn test_cached_app_update_returns_none_when_suppressed() {
     )
     .expect("Should write initial cache");
 
-    let result = cached_app_update().expect("Should not error");
+    let result = available_update().expect("Should not error");
     assert!(
         result.is_none(),
         "Should return None when update is suppressed"
@@ -700,7 +703,7 @@ fn test_cached_app_update_returns_none_when_suppressed() {
 }
 
 #[test]
-fn test_cached_app_update_returns_info_when_suppression_expired() {
+fn test_available_update_returns_info_when_suppression_expired() {
     let _lock = TEST_LOCK.lock().unwrap();
     let temp_dir = setup_test_cache_dir();
 
@@ -727,7 +730,7 @@ fn test_cached_app_update_returns_info_when_suppression_expired() {
     )
     .expect("Should write initial cache");
 
-    let result = cached_app_update()
+    let result = available_update()
         .expect("Should not error")
         .expect("Should return update info when suppression expired");
 
@@ -737,7 +740,7 @@ fn test_cached_app_update_returns_info_when_suppression_expired() {
 }
 
 #[test]
-fn test_cached_app_update_handles_partial_suppression_data() {
+fn test_available_update_handles_partial_suppression_data() {
     let _lock = TEST_LOCK.lock().unwrap();
     let temp_dir = setup_test_cache_dir();
 
@@ -763,7 +766,7 @@ fn test_cached_app_update_handles_partial_suppression_data() {
     )
     .expect("Should write initial cache");
 
-    let result = cached_app_update()
+    let result = available_update()
         .expect("Should not error")
         .expect("Should return update info when suppression data is incomplete");
 
