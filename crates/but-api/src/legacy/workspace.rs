@@ -489,6 +489,8 @@ pub fn uncommit_changes(
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let mut guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
 
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardChanges),
@@ -506,6 +508,8 @@ pub fn uncommit_changes(
     let before_assignments = if assign_to.is_some() {
         let changes = but_hunk_assignment::assignments_with_fallback(
             &mut ctx,
+            &repo,
+            &workspace,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
@@ -529,6 +533,8 @@ pub fn uncommit_changes(
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
             &mut ctx,
+            &repo,
+            &workspace,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
@@ -549,7 +555,7 @@ pub fn uncommit_changes(
             })
             .collect::<Vec<_>>();
 
-        but_hunk_assignment::assign(&mut ctx, to_assign, None)?;
+        but_hunk_assignment::assign(&mut ctx, &repo, &workspace, to_assign, None)?;
     }
 
     Ok(result.into())

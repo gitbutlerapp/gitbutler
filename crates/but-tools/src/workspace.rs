@@ -1612,8 +1612,9 @@ pub fn get_filtered_changes(
     ctx: &mut Context,
     filter_changes: Option<Vec<BString>>,
 ) -> Result<Vec<FileChange>, anyhow::Error> {
-    // TODO(db): once `&mut Context` is `&Context`, let it use `ctx.repo.get()`.
-    let repo = ctx.open_isolated_repo()?;
+    let guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
     let changes = if let Some(filter) = filter_changes {
         worktree
@@ -1627,6 +1628,8 @@ pub fn get_filtered_changes(
     let diff = unified_diff_for_changes(&repo, changes, ctx.settings().context_lines)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
+        &repo,
+        &workspace,
         false,
         None::<Vec<but_core::TreeChange>>,
         None,

@@ -1,7 +1,7 @@
 use anyhow::{Context as _, Result, bail};
-use but_core::{TreeStatusKind, ref_metadata::StackId};
+use but_core::TreeStatusKind;
 
-use crate::utils::PaniclessSubtraction;
+use crate::{ui::HunkLockTarget, utils::PaniclessSubtraction};
 
 /// A struct for tracking what stack and commit a hunk belongs to as its line numbers shift with
 /// new changes come in from other commits and/or stacks.
@@ -10,7 +10,7 @@ pub struct HunkRange {
     /// The kind of change that was performed on the path of the parent-diff.
     pub change_type: TreeStatusKind,
     /// The stack that owns `commit_id`.
-    pub stack_id: StackId,
+    pub target: HunkLockTarget,
     /// The commit in the `stack_id`.
     pub commit_id: gix::ObjectId,
     /// The first line (1-based) at which this hunk is present. If `lines == 0`,

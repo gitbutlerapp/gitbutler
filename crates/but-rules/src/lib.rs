@@ -187,7 +187,12 @@ pub struct CreateRuleRequest {
 }
 
 /// Creates a new workspace rule
-pub fn create_rule(ctx: &mut Context, req: CreateRuleRequest) -> anyhow::Result<WorkspaceRule> {
+pub fn create_rule(
+    ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
+    req: CreateRuleRequest,
+) -> anyhow::Result<WorkspaceRule> {
     let rule = WorkspaceRule {
         id: uuid::Uuid::new_v4().to_string(),
         created_at: chrono::Local::now().naive_local(),
@@ -201,7 +206,7 @@ pub fn create_rule(ctx: &mut Context, req: CreateRuleRequest) -> anyhow::Result<
         .get_mut()?
         .workspace_rules_mut()
         .insert(rule.clone().try_into()?)?;
-    process_rules(ctx).ok(); // Reevaluate rules after creating
+    process_rules(ctx, repo, workspace).ok(); // Reevaluate rules after creating
     Ok(rule)
 }
 
@@ -239,7 +244,12 @@ impl From<WorkspaceRule> for UpdateRuleRequest {
 }
 
 /// Updates an existing workspace rule with the provided request data.
-pub fn update_rule(ctx: &mut Context, req: UpdateRuleRequest) -> anyhow::Result<WorkspaceRule> {
+pub fn update_rule(
+    ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
+    req: UpdateRuleRequest,
+) -> anyhow::Result<WorkspaceRule> {
     let mut rule: WorkspaceRule = {
         let db = ctx.db.get_mut()?;
         db.workspace_rules()
@@ -265,7 +275,7 @@ pub fn update_rule(ctx: &mut Context, req: UpdateRuleRequest) -> anyhow::Result<
         .get_mut()?
         .workspace_rules_mut()
         .update(&req.id, rule.clone().try_into()?)?;
-    process_rules(ctx).ok(); // Reevaluate rules after updating
+    process_rules(ctx, repo, workspace).ok(); // Reevaluate rules after updating
     Ok(rule)
 }
 
@@ -294,22 +304,29 @@ pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
     Ok(rules)
 }
 
-pub fn process_rules(ctx: &mut Context) -> anyhow::Result<()> {
-    let wt_changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?;
+pub fn process_rules(
+    ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
+) -> anyhow::Result<()> {
+    let wt_changes = but_core::diff::worktree_changes(repo)?;
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-        ctx,
+        repo,
+        workspace,
         Some(wt_changes.changes.clone()),
     )?;
 
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
+        repo,
+        workspace,
         false,
         Some(wt_changes.changes),
         Some(&dependencies),
     )
     .map_err(|e| anyhow::anyhow!("Failed to get assignments: {}", e))?;
 
-    handler::process_workspace_rules(ctx, &assignments, &Some(dependencies))?;
+    handler::process_workspace_rules(ctx, repo, workspace, &assignments, &Some(dependencies))?;
     Ok(())
 }

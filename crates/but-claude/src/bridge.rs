@@ -201,6 +201,13 @@ impl Claudes {
         // simplify this
         let (summary_to_resume, session_id, session) = {
             let mut ctx = sync_ctx.clone().into_thread_local();
+
+            // Create repo and workspace once at the entry point
+            let guard = ctx.exclusive_worktree_access();
+            let repo = ctx.repo.get()?.clone();
+            let (_, workspace) =
+                ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+
             let rule = {
                 list_claude_assignment_rules(&ctx)?
                     .into_iter()
@@ -209,7 +216,7 @@ impl Claudes {
 
             let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
 
-            let session = upsert_session(&mut ctx, session_id, stack_id)?;
+            let session = upsert_session(&mut ctx, &repo, &workspace, session_id, stack_id)?;
             let ctx = sync_ctx.clone().into_thread_local();
             let messages = list_messages_by_session(&ctx, session.id)?;
 
@@ -503,7 +510,10 @@ async fn spawn_command(
     // Format branch information for the system prompt
     let branch_info = {
         let mut ctx = sync_ctx.clone().into_thread_local();
-        format_branch_info(&mut ctx, stack_id)
+        let guard = ctx.exclusive_worktree_access();
+        let repo = ctx.repo.get()?.clone();
+        let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+        format_branch_info(&mut ctx, &repo, &workspace, stack_id)
     };
     let system_prompt = format!("{}\n\n{}", system_prompt(), branch_info);
     command.args(["--append-system-prompt", &system_prompt]);
@@ -633,7 +643,12 @@ Uncommitted changes (assigned to this stack):
 }
 
 /// Formats branch information for the system prompt
-fn format_branch_info(ctx: &mut Context, stack_id: StackId) -> String {
+fn format_branch_info(
+    ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
+    stack_id: StackId,
+) -> String {
     let mut output = String::from(
         "<branch-info>\n\
         This repository uses GitButler for branch management. While git shows you are on\n\
@@ -651,7 +666,7 @@ fn format_branch_info(ctx: &mut Context, stack_id: StackId) -> String {
 
     append_target_branch_info(&mut output, ctx);
     append_stack_branches_info(&mut output, stack_id, ctx);
-    append_assigned_files_info(&mut output, stack_id, ctx);
+    append_assigned_files_info(&mut output, stack_id, ctx, repo, workspace);
 
     output.push_str("</branch-info>");
     output
@@ -713,9 +728,17 @@ fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &mut 
 }
 
 /// Appends information about files assigned to this stack
-fn append_assigned_files_info(output: &mut String, stack_id: StackId, ctx: &mut Context) {
+fn append_assigned_files_info(
+    output: &mut String,
+    stack_id: StackId,
+    ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
+) {
     let assignments = match but_hunk_assignment::assignments_with_fallback(
         ctx,
+        repo,
+        workspace,
         false,
         None::<Vec<but_core::TreeChange>>,
         None,
@@ -830,6 +853,8 @@ fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
 /// and makes a corresponding rule
 fn upsert_session(
     ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     session_id: uuid::Uuid,
     stack_id: StackId,
 ) -> Result<crate::ClaudeSession> {
@@ -838,7 +863,7 @@ fn upsert_session(
         session
     } else {
         let session = db::save_new_session_with_gui_flag(ctx, session_id, true)?;
-        create_claude_assignment_rule(ctx, session_id, stack_id)?;
+        create_claude_assignment_rule(ctx, repo, workspace, session_id, stack_id)?;
         session
     };
     Ok(session)

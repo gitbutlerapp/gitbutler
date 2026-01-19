@@ -26,7 +26,13 @@ fn should_unapply_diff() {
     let c = super::create_commit(ctx, stacks[0].0, "asdf");
     assert!(c.is_ok());
 
-    gitbutler_branch_actions::unapply_stack(ctx, stacks[0].0, Vec::new()).unwrap();
+    gitbutler_branch_actions::unapply_stack(
+        ctx,
+        ctx.exclusive_worktree_access().write_permission(),
+        stacks[0].0,
+        Vec::new(),
+    )
+    .unwrap();
 
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 0);

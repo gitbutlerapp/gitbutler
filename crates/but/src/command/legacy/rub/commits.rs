@@ -85,8 +85,14 @@ pub fn uncommit_file(
     // As such, we take all the old assignments, and all the new assignments from after the
     // uncommit, and find the ones that are not present in the old assignments.
     // We then convert those into assignment requests for the given stack.
+    let guard = ctx.shared_worktree_access();
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+
     let before_assignments = but_hunk_assignment::assignments_with_fallback(
         ctx,
+        &repo,
+        &workspace,
         false,
         None::<Vec<but_core::TreeChange>>,
         None,
@@ -104,8 +110,13 @@ pub fn uncommit_file(
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
+    // Re-acquire workspace after the uncommit since state has changed
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+
     let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
+        &repo,
+        &workspace,
         false,
         None::<Vec<but_core::TreeChange>>,
         None,
@@ -128,7 +139,7 @@ pub fn uncommit_file(
             })
             .collect::<Vec<_>>();
 
-        but_hunk_assignment::assign(ctx, to_assign, None)?;
+        but_hunk_assignment::assign(ctx, &repo, &workspace, to_assign, None)?;
     }
 
     if let Some(out) = out.for_human() {

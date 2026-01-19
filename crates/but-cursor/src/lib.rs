@@ -154,15 +154,32 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
     )?;
     let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
 
+    // Create repo and workspace once at the entry point
+    let guard = ctx.exclusive_worktree_access();
+    let gix_repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+
     let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
-    let stack_id =
-        but_claude::hooks::get_or_create_session(ctx, &input.conversation_id, stacks, vb_state)?;
+    let stack_id = but_claude::hooks::get_or_create_session(
+        ctx,
+        &gix_repo,
+        &workspace,
+        &input.conversation_id,
+        stacks,
+        vb_state,
+    )?;
 
     let changes =
         but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
             .changes;
-    let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, true, Some(changes.clone()), None)?;
+    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+        ctx,
+        &gix_repo,
+        &workspace,
+        true,
+        Some(changes.clone()),
+        None,
+    )?;
 
     let assignment_reqs: Vec<HunkAssignmentRequest> = assignments
         .into_iter()
@@ -190,7 +207,8 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
         })
         .collect();
 
-    let _rejections = but_hunk_assignment::assign(ctx, assignment_reqs, None)?;
+    let _rejections =
+        but_hunk_assignment::assign(ctx, &gix_repo, &workspace, assignment_reqs, None)?;
 
     Ok(CursorHookOutput::default())
 }
@@ -226,9 +244,21 @@ pub async fn handle_stop(
         ctx.project_data_dir().join("virtual_branches.toml"),
     )?;
     let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
+
+    // Create repo and workspace once at the entry point
+    let guard = ctx.exclusive_worktree_access();
+    let gix_repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+
     let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
-    let stack_id =
-        but_claude::hooks::get_or_create_session(ctx, &input.conversation_id, stacks, vb_state)?;
+    let stack_id = but_claude::hooks::get_or_create_session(
+        ctx,
+        &gix_repo,
+        &workspace,
+        &input.conversation_id,
+        stacks,
+        vb_state,
+    )?;
 
     let summary = "".to_string();
     let prompt = crate::db::get_generations(&dir, nightly)

@@ -93,7 +93,13 @@ pub(crate) async fn worktree(
         writeln!(out)?;
     }
 
-    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
+    // Process rules with exclusive access to create repo and workspace
+    {
+        let guard = ctx.shared_worktree_access();
+        let repo = ctx.repo.get()?.clone();
+        let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+        but_rules::process_rules(ctx, &repo, &workspace).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
+    }
 
     let guard = ctx.shared_worktree_access();
     let meta = ctx.meta(guard.read_permission())?;

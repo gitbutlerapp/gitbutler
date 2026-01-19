@@ -344,11 +344,13 @@ impl HunkAssignment {
 /// Returns the updated assignments list.
 ///
 /// Optionally takes pre-computed hunk dependencies. If not provided, they will
-/// be computed.
+/// be computed using the provided `repo` and `workspace`.
 ///
-/// The provided hunk dependnecies should be computed for all workspace changes.
+/// The provided hunk dependencies should be computed for all workspace changes.
 pub fn assign(
     ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     requests: Vec<HunkAssignmentRequest>,
     deps: Option<&HunkDependencies>,
 ) -> Result<Vec<AssignmentRejection>> {
@@ -359,13 +361,14 @@ pub fn assign(
         .map(|s| s.id)
         .collect::<Vec<_>>();
 
+    let owned_deps;
     let deps = if let Some(deps) = deps {
         deps
     } else {
-        &hunk_dependencies_for_workspace_changes_by_worktree_dir(ctx, None)?
+        owned_deps =
+            hunk_dependencies_for_workspace_changes_by_worktree_dir(repo, workspace, None)?;
+        &owned_deps
     };
-
-    let repo = &*ctx.repo.get()?;
     let worktree_changes: Vec<but_core::TreeChange> =
         but_core::diff::worktree_changes(repo)?.changes;
     let mut worktree_assignments = vec![];
@@ -434,12 +437,16 @@ pub fn assign(
 /// TODO: figure out a better name for this function
 pub fn assignments_with_fallback(
     ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     deps: Option<&HunkDependencies>,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
     let hunk_assignments = reconcile_worktree_changes_with_worktree_and_locks(
         ctx,
+        repo,
+        workspace,
         set_assignment_from_locks,
         worktree_changes,
         deps,
@@ -449,22 +456,27 @@ pub fn assignments_with_fallback(
 
 fn reconcile_worktree_changes_with_worktree_and_locks(
     ctx: &mut Context,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     deps: Option<&HunkDependencies>,
 ) -> Result<Vec<HunkAssignment>> {
-    let repo = ctx.repo.get()?;
     let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
         Some(wtc) => wtc.into_iter().map(Into::into).collect(),
-        None => but_core::diff::worktree_changes(&repo)?.changes,
+        None => but_core::diff::worktree_changes(repo)?.changes,
     };
+
+    let owned_deps;
     let deps = if let Some(deps) = deps {
         deps
     } else {
-        &hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            ctx,
+        owned_deps = hunk_dependencies_for_workspace_changes_by_worktree_dir(
+            repo,
+            workspace,
             Some(worktree_changes.clone()),
-        )?
+        )?;
+        &owned_deps
     };
 
     if worktree_changes.is_empty() {
@@ -472,13 +484,12 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
     }
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
-        let diff = change.unified_patch(&repo, ctx.settings().context_lines);
+        let diff = change.unified_patch(repo, ctx.settings().context_lines);
         worktree_assignments.extend(HunkAssignment::from_tree_change(
             change,
             diff.ok().flatten(),
         ));
     }
-    drop(repo);
     let reconciled = reconcile_with_worktree_and_locks(
         ctx,
         set_assignment_from_locks,

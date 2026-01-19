@@ -9,41 +9,42 @@ use but_rules::{
     CreateRuleRequest, UpdateRuleRequest, WorkspaceRule, create_rule, delete_rule, list_rules,
     update_rule,
 };
-use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use tracing::instrument;
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_workspace_rule(
-    project_id: ProjectId,
+    ctx: &mut Context,
     request: CreateRuleRequest,
 ) -> Result<WorkspaceRule> {
-    let ctx = &mut Context::new_from_legacy_project_id(project_id)?;
-    create_rule(ctx, request)
+    let guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    create_rule(ctx, &repo, &workspace, request)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn delete_workspace_rule(project_id: ProjectId, id: String) -> Result<()> {
-    let ctx = &mut Context::new_from_legacy_project_id(project_id)?;
+pub fn delete_workspace_rule(ctx: &mut Context, id: String) -> Result<()> {
     delete_rule(ctx, &id)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn update_workspace_rule(
-    project_id: ProjectId,
+    ctx: &mut Context,
     request: UpdateRuleRequest,
 ) -> Result<WorkspaceRule> {
-    let ctx = &mut Context::new_from_legacy_project_id(project_id)?;
-    update_rule(ctx, request)
+    let guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    update_rule(ctx, &repo, &workspace, request)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn list_workspace_rules(project_id: ProjectId) -> Result<Vec<WorkspaceRule>> {
-    let ctx = &mut Context::new_from_legacy_project_id(project_id)?;
+pub fn list_workspace_rules(ctx: &mut Context) -> Result<Vec<WorkspaceRule>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     let in_workspace = {
