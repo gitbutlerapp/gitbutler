@@ -26,6 +26,7 @@ use std::ffi::OsString;
 
 use anyhow::{Context as _, Result};
 use cfg_if::cfg_if;
+use clap::Parser;
 
 pub mod args;
 use args::{
@@ -97,7 +98,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
-    let mut args: Args = clap::Parser::parse_from(args);
+    let mut args: Args = Args::parse_from(args);
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let output_format = if args.json {
         OutputFormat::Json
@@ -228,7 +229,7 @@ async fn match_subcommand(
             let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
             match cmd {
                 Some(alias_args::Subcommands::List) | None => {
-                    command::alias::list(out).emit_metrics(metrics_ctx)
+                    command::alias::list(&*ctx.repo.get()?, out).emit_metrics(metrics_ctx)
                 }
                 Some(alias_args::Subcommands::Add {
                     name,

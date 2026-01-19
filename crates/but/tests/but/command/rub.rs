@@ -1,5 +1,6 @@
 use snapbox::str;
 
+use crate::utils::CommandExt;
 use crate::{
     command::util::{
         commit_file_with_worktree_changes_as_two_hunks, commit_two_files_as_two_hunks_each,
@@ -37,7 +38,7 @@ fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
     // Assign the change to A and verify that the assignment happened.
     env.but("i0 A").assert().success();
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -98,7 +99,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
 
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![""])
@@ -170,7 +171,7 @@ Uncommitted changes
 
     // Verify that `status` reflects the move.
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![""])
@@ -257,7 +258,7 @@ fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
     // Assign the change to A and verify that the assignment happened.
     env.but("i0 A").assert().success();
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -314,7 +315,7 @@ Unassigned a hunk in a.txt in a stack
     // Verify that only one hunk moved back to unassigned ("a.txt" appears both in the
     // unassigned area and in a stack).
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -393,7 +394,7 @@ Assigned a hunk in a.txt in the unassigned area → [A].
     // Verify that only one hunk was assigned ("a.txt" appears both in the
     // unassigned area and in a stack).
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -437,10 +438,7 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     // Get the commit ID from status
-    let status_output = env
-        .but("--json status")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .output()?;
+    let status_output = env.but("--json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
@@ -453,7 +451,7 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
 
     // Verify the files are now unassigned
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -522,7 +520,7 @@ fn stage_command() -> anyhow::Result<()> {
 
     // Verify the file is assigned to A
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -557,7 +555,7 @@ fn unstage_command() -> anyhow::Result<()> {
 
     // Verify it's assigned
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -582,7 +580,7 @@ fn unstage_command() -> anyhow::Result<()> {
 
     // Verify it's now unassigned
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -620,7 +618,7 @@ fn unstage_command_with_branch() -> anyhow::Result<()> {
 
     // Verify it's unassigned
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -647,10 +645,7 @@ fn unstage_command_validation() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     // Get the commit ID from status
-    let status_output = env
-        .but("--json status")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .output()?;
+    let status_output = env.but("--json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()

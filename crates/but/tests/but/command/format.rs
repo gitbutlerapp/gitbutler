@@ -13,11 +13,12 @@ fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {
 
     #[cfg(feature = "legacy")]
     {
+        use crate::utils::CommandExt;
         use snapbox::str;
         // Test with actual commands that need a repo (they'll fail but should accept the flag)
         // Before subcommand
         env.but("--json status")
-            .env_remove("BUT_OUTPUT_FORMAT")
+            .allow_json()
             .assert()
             .failure()
             .stderr_eq(str![[r#"
@@ -27,7 +28,7 @@ Error: Could not find a git repository in '.' or in any of its parents[..]
 
         // After subcommand
         env.but("status --json")
-            .env_remove("BUT_OUTPUT_FORMAT")
+            .allow_json()
             .assert()
             .failure()
             .stderr_eq(str![[r#"

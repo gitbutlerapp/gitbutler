@@ -1,6 +1,6 @@
 use snapbox::str;
 
-use crate::utils::Sandbox;
+use crate::utils::{CommandExt, Sandbox};
 
 #[test]
 fn outputs_branch_name() -> anyhow::Result<()> {
@@ -46,7 +46,7 @@ fn with_json_output() -> anyhow::Result<()> {
 
     // Test JSON output without anchor
     env.but("--json branch new my-feature")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(str![])
@@ -59,7 +59,7 @@ fn with_json_output() -> anyhow::Result<()> {
 
     // Test JSON output with anchor
     env.but("branch new --json --anchor 9477ae7 my-anchored-feature")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(str![])
@@ -73,7 +73,7 @@ fn with_json_output() -> anyhow::Result<()> {
 
     // Test JSON output when branch already exists - it's idempotent.
     env.but("branch --json new my-feature")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(str![])
@@ -84,7 +84,7 @@ fn with_json_output() -> anyhow::Result<()> {
 
 "#]]);
     env.but("branch new --json --anchor 9477ae7 my-anchored-feature")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(str![])

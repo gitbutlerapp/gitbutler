@@ -1,7 +1,7 @@
 //! Tests for various nice user-journeys, from different starting points, performing multiple common steps in sequence.
 use snapbox::str;
 
-use crate::utils::{CommandExt as _, Sandbox};
+use crate::utils::Sandbox;
 
 #[cfg(not(feature = "legacy"))]
 #[test]
@@ -24,7 +24,6 @@ Error: The reference 'main' did not exist
 // TODO: maybe this should be a non-legacy journey only as we start out without workspace?
 #[cfg(feature = "legacy")]
 #[test]
-#[ignore = "still having 'Failed to run migrations error'"]
 fn from_empty() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 
@@ -93,7 +92,7 @@ Caused by:
         .assert()
         .failure()
         .stdout_eq(str![[r#"
-[2mInitiated a background fetch...[0m
+Initiated a background sync...
 
 "#]])
         .stderr_eq(str![[r#"
@@ -109,7 +108,10 @@ Caused by:
     env.but("branch new feat")
         .assert()
         .failure()
-        .stdout_eq(str![""])
+        .stdout_eq(str![[r#"
+Initiated a background sync...
+
+"#]])
         .stderr_eq(str![[r#"
 Error: errors.projects.default_target.not_found
 
@@ -124,6 +126,7 @@ Caused by:
 #[cfg(feature = "legacy")]
 #[test]
 fn from_workspace() -> anyhow::Result<()> {
+    use crate::utils::CommandExt;
     use snapbox::file;
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     insta::assert_snapshot!(env.git_log()?, @r"

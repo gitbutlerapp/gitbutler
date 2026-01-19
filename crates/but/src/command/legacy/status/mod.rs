@@ -322,7 +322,7 @@ pub(crate) async fn worktree(
     // Format the last fetched time as relative time
     let last_checked_text = last_fetched_ms
         .map(|ms| {
-            let relative_time = format_relative_time_verbose(ms);
+            let relative_time = format_relative_time_verbose(std::time::SystemTime::now(), ms);
             format!("(checked {})", relative_time)
         })
         .unwrap_or_default();

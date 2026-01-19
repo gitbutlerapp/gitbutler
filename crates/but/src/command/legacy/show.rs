@@ -92,7 +92,7 @@ pub(crate) fn show_commit(
         // Date with relative time
         let commit_time = raw_commit.time()?;
         let date_str = commit_time.format(CLI_DATE)?;
-        let relative = format_relative_time(commit_time.seconds);
+        let relative = format_relative_time(std::time::SystemTime::now(), commit_time.seconds);
         writeln!(
             out,
             "{}  {} {}",

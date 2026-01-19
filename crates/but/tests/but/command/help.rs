@@ -1,10 +1,11 @@
 use snapbox::str;
 
-use crate::utils::{CommandExt as _, Sandbox};
+use crate::utils::Sandbox;
 
 #[cfg(feature = "legacy")]
 #[test]
 fn rub_looks_good() -> anyhow::Result<()> {
+    use crate::utils::CommandExt;
     let env = Sandbox::empty()?;
 
     // The help should be nice, as it's a complex command.

@@ -40,8 +40,8 @@ pub struct AliasEntry {
 }
 
 /// List all configured `but` aliases
-pub fn list(out: &mut OutputChannel) -> Result<()> {
-    let user_aliases = get_all_aliases()?;
+pub fn list(repo: &gix::Repository, out: &mut OutputChannel) -> Result<()> {
+    let user_aliases = get_all_aliases(repo)?;
 
     // Get default aliases
     let default_aliases = get_default_aliases();
@@ -158,62 +158,60 @@ pub fn list(out: &mut OutputChannel) -> Result<()> {
 }
 
 /// Get all user-configured aliases from local and global git config and defaults
-fn get_all_aliases() -> Result<Vec<AliasEntry>> {
+fn get_all_aliases(repo: &gix::Repository) -> Result<Vec<AliasEntry>> {
     // Track aliases by name with their scopes
     let mut alias_map: HashMap<String, (String, bool, bool)> = HashMap::new(); // name -> (value, is_local, is_global)
 
-    if let Ok(repo) = gix::discover(".") {
-        let cfg = repo.config_snapshot();
+    let cfg = repo.config_snapshot();
 
-        for section in cfg.sections() {
-            let header = section.header();
-            let section_name = header.name().to_str_lossy();
-            if section_name != "but" {
+    for section in cfg.sections() {
+        let header = section.header();
+        let section_name = header.name().to_str_lossy();
+        if section_name != "but" {
+            continue;
+        }
+
+        // Determine if this section is from local or global config
+        let source = section.meta().source;
+        let is_local = matches!(
+            source,
+            gix::config::Source::Local | gix::config::Source::Worktree
+        );
+        let is_global = matches!(source, gix::config::Source::User | gix::config::Source::Git);
+
+        let subsection = header.subsection_name().map(|s| s.to_str_lossy());
+
+        for value_name in section.value_names() {
+            let vn = value_name.as_ref();
+
+            // Normalize to a dotted key we can prefix-test: "but.alias.<rest>"
+            let dotted = match &subsection {
+                // [but "alias"] foo = bar  => but.alias.foo
+                Some(sub) => format!("{}.{}.{}", section_name, sub, vn),
+                // [but] alias.foo = bar    => but.alias.foo
+                None => format!("{}.{}", section_name, vn),
+            };
+
+            if !dotted.starts_with("but.alias.") {
                 continue;
             }
 
-            // Determine if this section is from local or global config
-            let source = section.meta().source;
-            let is_local = matches!(
-                source,
-                gix::config::Source::Local | gix::config::Source::Worktree
-            );
-            let is_global = matches!(source, gix::config::Source::User | gix::config::Source::Git);
+            if let Some(val) = section.value(vn) {
+                let alias_name = dotted.strip_prefix("but.alias.").unwrap().to_string();
+                let value = val.to_str_lossy().into_owned();
 
-            let subsection = header.subsection_name().map(|s| s.to_str_lossy());
-
-            for value_name in section.value_names() {
-                let vn = value_name.as_ref();
-
-                // Normalize to a dotted key we can prefix-test: "but.alias.<rest>"
-                let dotted = match &subsection {
-                    // [but "alias"] foo = bar  => but.alias.foo
-                    Some(sub) => format!("{}.{}.{}", section_name, sub, vn),
-                    // [but] alias.foo = bar    => but.alias.foo
-                    None => format!("{}.{}", section_name, vn),
-                };
-
-                if !dotted.starts_with("but.alias.") {
-                    continue;
-                }
-
-                if let Some(val) = section.value(vn) {
-                    let alias_name = dotted.strip_prefix("but.alias.").unwrap().to_string();
-                    let value = val.to_str_lossy().into_owned();
-
-                    alias_map
-                        .entry(alias_name)
-                        .and_modify(|(v, local, global)| {
-                            *v = value.clone(); // Last value wins
-                            if is_local {
-                                *local = true;
-                            }
-                            if is_global {
-                                *global = true;
-                            }
-                        })
-                        .or_insert((value, is_local, is_global));
-                }
+                alias_map
+                    .entry(alias_name)
+                    .and_modify(|(v, local, global)| {
+                        *v = value.clone(); // Last value wins
+                        if is_local {
+                            *local = true;
+                        }
+                        if is_global {
+                            *global = true;
+                        }
+                    })
+                    .or_insert((value, is_local, is_global));
             }
         }
     }

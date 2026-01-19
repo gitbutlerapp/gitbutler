@@ -1,9 +1,9 @@
 use anyhow::bail;
 use bstr::BString;
+use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
 use but_testsupport::{hex_to_id, hunk_header};
 use but_workspace::branch::Stack;
-use gitbutler_stack::StackId;
 
 use crate::{CliId, IdMap, id::id_usage::UintId};
 
