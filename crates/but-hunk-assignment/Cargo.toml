@@ -20,8 +20,6 @@ but-db.workspace = true
 but-serde.workspace = true
 but-ctx.workspace = true
 
-gitbutler-stack.workspace = true
-
 gix.workspace = true
 
 anyhow.workspace = true

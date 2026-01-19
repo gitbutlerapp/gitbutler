@@ -1213,7 +1213,6 @@ dependencies = [
  "but-graph",
  "but-hunk-dependency",
  "but-serde",
- "gitbutler-stack",
  "gix",
  "itertools",
  "serde",
