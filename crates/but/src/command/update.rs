@@ -17,16 +17,25 @@ pub fn handle(
 }
 
 fn check_for_updates(out: &mut OutputChannel, app_settings: &AppSettings) -> Result<()> {
-    let status = check_status(AppName::Cli, app_settings)?;
+    let mut cache = but_db::AppCacheHandle::new_in_directory(but_path::app_cache_dir().ok());
+    let status = check_status(AppName::Cli, app_settings, &mut cache)?;
 
-    if let Some(writer) = out.for_human() {
-        print_human_output(writer, &status)?;
-    } else if let Some(out) = out.for_json() {
-        out.write_value(&status)?;
-    } else if let Some(writer) = out.for_shell()
-        && !status.up_to_date
-    {
-        writeln!(writer, "{}", status.latest_version)?;
+    if let Some(status) = status {
+        if let Some(writer) = out.for_human() {
+            print_human_output(writer, &status)?;
+        } else if let Some(out) = out.for_json() {
+            out.write_value(&status)?;
+        } else if let Some(writer) = out.for_shell()
+            && !status.up_to_date
+        {
+            writeln!(writer, "{}", status.latest_version)?;
+        }
+    } else if let Some(writer) = out.for_human() {
+        writeln!(
+            writer,
+            "{} Another process is currently checking for updates",
+            "→".yellow().bold()
+        )?;
     }
 
     Ok(())
@@ -73,7 +82,8 @@ fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
     let hours = days * 24;
 
     // Call the suppress_update function
-    but_update::suppress_update(hours)?;
+    let mut cache = but_db::AppCacheHandle::new_in_directory(but_path::app_cache_dir().ok());
+    but_update::suppress_update(&mut cache, hours)?;
 
     if let Some(writer) = out.for_human() {
         writeln!(

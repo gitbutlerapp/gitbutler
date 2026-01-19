@@ -86,11 +86,12 @@ pub(crate) async fn worktree(
     }
 
     // Check for available updates and display if present
-    if let Some(out) = out.for_human()
-        && let Ok(Some(update)) = but_update::available_update()
-    {
-        writeln!(out, "{}", update.display_cli(verbose))?;
-        writeln!(out)?;
+    if let Some(out) = out.for_human() {
+        let cache = ctx.app_cache.get_cache()?;
+        if let Ok(Some(update)) = but_update::available_update(&cache) {
+            writeln!(out, "{}", update.display_cli(verbose))?;
+            writeln!(out)?;
+        }
     }
 
     // Process rules with exclusive access to create repo and workspace

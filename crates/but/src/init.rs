@@ -170,34 +170,30 @@ fn determine_sync_operations(
         // Update checks disabled
         false
     } else {
-        match but_update::last_checked() {
-            Ok(Some(last_check)) => {
+        // Try to access cache to determine last check time
+        let cache = but_db::AppCacheHandle::new_in_directory(but_path::app_cache_dir().ok());
+        but_update::last_checked(&cache)
+            .ok()
+            .flatten()
+            .map(|last_check| {
                 // Cache exists, check if interval has elapsed
                 let now = chrono::Utc::now();
                 let elapsed = now.signed_duration_since(last_check);
                 elapsed.num_seconds() >= update_check_interval_sec as i64
-            }
-            Ok(None) => {
-                // No cache exists - this is first check or cache was deleted, should check
-                true
-            }
-            Err(_) => {
-                // Error determining cache state - fail-safe for tests and error cases
-                false
-            }
-        }
+            })
+            .unwrap_or(true) // No cache exists - this is first check, should check
     };
 
-    // Try to acquire lock for update check
-    let update_lock = if should_check_updates {
-        but_update::try_update_check_lock().ok()
+    // Try to acquire lock for update check by attempting to get a non-blocking transaction
+    let can_check_updates = if should_check_updates {
+        let mut cache = but_db::AppCacheHandle::new_in_directory(but_path::app_cache_dir().ok());
+        !but_update::is_probably_still_running(&mut cache)
     } else {
-        None
+        false
     };
 
     // Check if we successfully acquired the locks
     let can_sync_remote_data = remote_data_lock.is_some();
-    let can_check_updates = update_lock.is_some();
 
     // Locks are dropped here, allowing the spawned child process to acquire them
     SyncOperations {

@@ -8,13 +8,12 @@ rust-version.workspace = true
 description = "A crate with functionality for updating of the application itself"
 
 [lib]
-doctest = false
+doctest = true
 
 [dependencies]
 but-settings.workspace = true
 but-secret.workspace = true
-but-path.workspace = true
-but-core.workspace = true
+but-db.workspace = true
 
 anyhow.workspace = true
 reqwest.workspace = true
@@ -24,6 +23,3 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 sha2.workspace = true
 machine-uid = "0.5.4"
 chrono = { workspace = true, features = ["serde", "clock"] }
-
-[dev-dependencies]
-tempfile.workspace = true

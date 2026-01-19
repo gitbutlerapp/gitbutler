@@ -49,6 +49,7 @@ but-secret.workspace = true
 but-update.workspace = true
 but-oxidize.workspace = true
 but-path.workspace = true
+but-db.workspace = true
 but-ctx.workspace = true
 but-rebase.workspace = true
 # NOTE: "legacy" is needed as long as virtual-branches.toml is around.
