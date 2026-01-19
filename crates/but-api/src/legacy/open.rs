@@ -94,6 +94,23 @@ pub fn open_url(url: String) -> Result<()> {
 pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     use std::process::Command;
 
+    /// Helper to run a command and check its exit status
+    fn run_terminal_command(mut cmd: Command, terminal_name: &str, path: &str) -> Result<()> {
+        let status = cmd
+            .status()
+            .with_context(|| format!("Failed to launch {terminal_name} at '{path}'"))?;
+
+        if !status.success() {
+            bail!(
+                "{terminal_name} exited with non-zero status: {}",
+                status
+                    .code()
+                    .map_or("unknown".to_string(), |c| c.to_string())
+            );
+        }
+        Ok(())
+    }
+
     #[cfg(target_os = "macos")]
     {
         let app_name = match terminal_id.as_str() {
@@ -106,38 +123,30 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
             "hyper" => "Hyper",
             _ => bail!("Unknown terminal: {}", terminal_id),
         };
-        Command::new("open")
-            .arg("-a")
-            .arg(app_name)
-            .arg(&path)
-            .status()
-            .with_context(|| format!("Failed to open terminal '{app_name}' at '{path}'"))?;
+        let mut cmd = Command::new("open");
+        cmd.arg("-a").arg(app_name).arg(&path);
+        run_terminal_command(cmd, app_name, &path)?;
     }
 
     #[cfg(target_os = "windows")]
     {
         match terminal_id.as_str() {
             "wt" => {
-                Command::new("wt")
-                    .arg("-d")
-                    .arg(&path)
-                    .status()
-                    .with_context(|| format!("Failed to open Windows Terminal at '{path}'"))?;
+                let mut cmd = Command::new("wt");
+                cmd.arg("-d").arg(&path);
+                run_terminal_command(cmd, "Windows Terminal", &path)?;
             }
             "powershell" => {
-                Command::new("powershell")
-                    .arg("-NoExit")
+                let mut cmd = Command::new("powershell");
+                cmd.arg("-NoExit")
                     .arg("-Command")
-                    .arg(format!("cd '{}'", path))
-                    .status()
-                    .with_context(|| format!("Failed to open PowerShell at '{path}'"))?;
+                    .arg(format!("cd '{}'", path));
+                run_terminal_command(cmd, "PowerShell", &path)?;
             }
             "cmd" => {
-                Command::new("cmd")
-                    .arg("/K")
-                    .arg(format!("cd /d \"{}\"", path))
-                    .status()
-                    .with_context(|| format!("Failed to open Command Prompt at '{path}'"))?;
+                let mut cmd = Command::new("cmd");
+                cmd.arg("/K").arg(format!("cd /d \"{}\"", path));
+                run_terminal_command(cmd, "Command Prompt", &path)?;
             }
             _ => bail!("Unknown terminal: {}", terminal_id),
         };
@@ -147,40 +156,29 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     {
         match terminal_id.as_str() {
             "gnome-terminal" => {
-                Command::new("gnome-terminal")
-                    .arg("--working-directory")
-                    .arg(&path)
-                    .status()
-                    .with_context(|| format!("Failed to open GNOME Terminal at '{path}'"))?;
+                let mut cmd = Command::new("gnome-terminal");
+                cmd.arg("--working-directory").arg(&path);
+                run_terminal_command(cmd, "GNOME Terminal", &path)?;
             }
             "konsole" => {
-                Command::new("konsole")
-                    .arg("--workdir")
-                    .arg(&path)
-                    .status()
-                    .with_context(|| format!("Failed to open Konsole at '{path}'"))?;
+                let mut cmd = Command::new("konsole");
+                cmd.arg("--workdir").arg(&path);
+                run_terminal_command(cmd, "Konsole", &path)?;
             }
             "xfce4-terminal" => {
-                Command::new("xfce4-terminal")
-                    .arg("--working-directory")
-                    .arg(&path)
-                    .status()
-                    .with_context(|| format!("Failed to open XFCE Terminal at '{path}'"))?;
+                let mut cmd = Command::new("xfce4-terminal");
+                cmd.arg("--working-directory").arg(&path);
+                run_terminal_command(cmd, "XFCE Terminal", &path)?;
             }
             "alacritty-linux" => {
-                Command::new("alacritty")
-                    .arg("--working-directory")
-                    .arg(&path)
-                    .status()
-                    .with_context(|| format!("Failed to open Alacritty at '{path}'"))?;
+                let mut cmd = Command::new("alacritty");
+                cmd.arg("--working-directory").arg(&path);
+                run_terminal_command(cmd, "Alacritty", &path)?;
             }
             "wezterm-linux" => {
-                Command::new("wezterm")
-                    .arg("start")
-                    .arg("--cwd")
-                    .arg(&path)
-                    .status()
-                    .with_context(|| format!("Failed to open WezTerm at '{path}'"))?;
+                let mut cmd = Command::new("wezterm");
+                cmd.arg("start").arg("--cwd").arg(&path);
+                run_terminal_command(cmd, "WezTerm", &path)?;
             }
             _ => bail!("Unknown terminal: {}", terminal_id),
         };
