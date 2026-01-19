@@ -696,12 +696,7 @@
 							{/if}
 							<ul class="file-list">
 								{#each commitAbsorption.files as file, i}
-									<FileListItem
-										filePath={file.path}
-										clickable={false}
-										listMode="list"
-										hideBorder={i === commitAbsorption.files.length - 1}
-									/>
+									<FileListItem filePath={file.path} clickable={false} listMode="list" />
 								{/each}
 							</ul>
 						</div>
