@@ -45,6 +45,7 @@ but-oxidize = { path = "crates/but-oxidize" }
 but-fs = { path = "crates/but-fs" }
 but-forge = { path = "crates/but-forge" }
 but-oplog = { path = "crates/but-oplog" }
+but-llm = { path = "crates/but-llm" }
 
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }

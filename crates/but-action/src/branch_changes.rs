@@ -1,5 +1,6 @@
 use anyhow::Context as _;
 use but_ctx::Context;
+use but_llm::tool_calling_loop;
 use but_tools::{emit::Emitter, workspace::commit_toolset};
 
 use crate::OpenAiProvider;
@@ -48,7 +49,7 @@ pub(crate) fn branch_changes(
         </project_status>
     ");
 
-    crate::openai::tool_calling_loop(
+    tool_calling_loop(
         openai,
         system_message,
         vec![prompt.into()],

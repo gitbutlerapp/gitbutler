@@ -32,6 +32,7 @@ but-api = { workspace = true, features = ["tauri", "path-bytes", "legacy"] }
 but-claude.workspace = true
 but-ctx.workspace = true
 but-forge.workspace = true
+but-llm.workspace = true
 
 gitbutler-repo-actions.workspace = true
 gitbutler-watcher.workspace = true

@@ -524,7 +524,7 @@ fn generate_branch_summary(branch_name: &str, commits: &[CommitInfo]) -> anyhow:
         ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessageArgs,
         CreateChatCompletionRequestArgs,
     };
-    use but_action::OpenAiProvider;
+    use but_llm::OpenAiProvider;
 
     // Get OpenAI provider (tries GitButler proxied, own key, then env var)
     let provider = OpenAiProvider::with(None).ok_or_else(|| {

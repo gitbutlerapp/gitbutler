@@ -100,7 +100,7 @@ pub(crate) fn absorb(
     ");
 
     // Now we trigger the tool calling loop to absorb the remaining changes.
-    crate::openai::tool_calling_loop(
+    but_llm::tool_calling_loop(
         openai,
         system_message,
         vec![prompt.into()],

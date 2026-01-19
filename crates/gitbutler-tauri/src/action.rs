@@ -1,7 +1,7 @@
-use but_action::OpenAiProvider;
 use but_api::json::Error;
 use but_core::ui::TreeChange;
 use but_ctx::Context;
+use but_llm::OpenAiProvider;
 use gitbutler_project::ProjectId;
 use tauri::Emitter;
 use tracing::instrument;
@@ -62,7 +62,7 @@ pub fn auto_commit(
     let changes: Vec<but_core::TreeChange> =
         changes.into_iter().map(|change| change.into()).collect();
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
+    let openai = OpenAiProvider::with(Some(but_llm::CredentialsKind::GitButlerProxied));
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
         app_handle.emit(name, payload).unwrap_or_else(|e| {
@@ -90,7 +90,7 @@ pub fn auto_branch_changes(
     let changes: Vec<but_core::TreeChange> =
         changes.into_iter().map(|change| change.into()).collect();
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
+    let openai = OpenAiProvider::with(Some(but_llm::CredentialsKind::GitButlerProxied));
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
         app_handle.emit(name, payload).unwrap_or_else(|e| {
@@ -113,7 +113,7 @@ pub fn freestyle(
     app_handle: tauri::AppHandle,
     project_id: ProjectId,
     message_id: String,
-    chat_messages: Vec<but_action::ChatMessage>,
+    chat_messages: Vec<but_llm::ChatMessage>,
     model: Option<String>,
 ) -> anyhow::Result<String, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -125,7 +125,7 @@ pub fn freestyle(
         });
     });
 
-    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
+    let openai = OpenAiProvider::with(Some(but_llm::CredentialsKind::GitButlerProxied));
     match openai {
         Some(openai) => but_action::freestyle(
             project_id,

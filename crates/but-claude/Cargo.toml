@@ -20,6 +20,7 @@ but-hunk-assignment.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-path.workspace = true
 but-ctx.workspace = true
+but-llm.workspace = true
 
 gitbutler-branch.workspace = true
 gitbutler-stack.workspace = true

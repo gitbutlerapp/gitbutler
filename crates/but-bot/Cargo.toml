@@ -15,6 +15,7 @@ but-tools.workspace = true
 but-action.workspace = true
 but-ctx.workspace = true
 but-forge.workspace = true
+but-llm.workspace = true
 
 gitbutler-project.workspace = true
 

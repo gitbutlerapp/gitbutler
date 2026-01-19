@@ -8,13 +8,15 @@ use std::{
 
 use but_core::TreeChange;
 use but_ctx::{Context, access::WorktreeWritePermission};
+use but_llm::{
+    ChatMessage, OpenAiProvider, ToolCallContent, ToolResponseContent, tool_calling_loop_stream,
+};
 use but_oxidize::ObjectIdExt;
 use but_tools::emit::{Emittable, Emitter, TokenUpdate};
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_stack::{Target, VirtualBranchesHandle};
-pub use openai::{CredentialsKind, OpenAiProvider};
 use serde::{Deserialize, Serialize};
 
 mod absorb;
@@ -24,7 +26,6 @@ mod branch_changes;
 pub mod cli;
 mod generate;
 mod grouping;
-mod openai;
 pub mod rename_branch;
 pub mod reword;
 mod simple;
@@ -32,10 +33,6 @@ mod workflow;
 pub use action::{ActionListing, Source, list_actions};
 use but_core::ref_metadata::StackId;
 use but_meta::VirtualBranchesTomlMetadata;
-pub use openai::{
-    ChatMessage, ToolCallContent, ToolResponseContent, stream_response_blocking,
-    structured_output_blocking, tool_calling_loop, tool_calling_loop_stream,
-};
 use strum::EnumString;
 use uuid::Uuid;
 pub use workflow::{WorkflowList, list_workflows};
@@ -46,7 +43,7 @@ pub fn freestyle(
     emitter: Arc<Emitter>,
     ctx: &mut Context,
     openai: &OpenAiProvider,
-    chat_messages: Vec<openai::ChatMessage>,
+    chat_messages: Vec<ChatMessage>,
     model: Option<String>,
 ) -> anyhow::Result<String> {
     let project_status = but_tools::workspace::get_project_status(ctx, None)?;
@@ -127,7 +124,7 @@ pub fn freestyle(
             (emitter)(&name, payload);
         }
     });
-    let (response, _) = crate::openai::tool_calling_loop_stream(
+    let (response, _) = tool_calling_loop_stream(
         openai,
         system_message,
         internal_chat_messages,
