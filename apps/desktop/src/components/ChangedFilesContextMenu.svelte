@@ -670,65 +670,61 @@
 	}}
 >
 	<ModalHeader type="warning" sticky={!isAbsorbModalScrollVisible}
-		>Set up your git author information</ModalHeader
+		>Absorb Changes into Commits</ModalHeader
 	>
 	<ScrollableContainer onscrollTop={(visible) => (isAbsorbModalScrollVisible = visible)}>
 		<div class="absorb-plan-content">
-			{#if absorbPlan.length === 0}
-				<p class="text-13 clr-text-2">No changes to absorb.</p>
-			{:else}
-				<p class="text-13 text-body clr-text-2">
-					The following changes will be absorbed into their respective commits:
-				</p>
-				<div class="commit-absorptions">
-					{#each absorbPlan as commitAbsorption}
-						<div class="commit-absorption">
-							{#if commitAbsorption.reason !== 'default_stack'}
-								<div class="absorption__reason text-12 text-body clr-text-2">
-									{#if commitAbsorption.reason === 'hunk_dependency'}
-										📍 Files locked to commit due to hunk range overlap
-									{:else if commitAbsorption.reason === 'stack_assignment'}
-										🔖 Files assigned to this stack
-									{/if}
-								</div>
-							{/if}
-
-							<div class="absorption__content">
-								<div class="commit-header">
-									<Icon name="commit" />
-
-									<div class="flex gap-8 overflow-hidden align-center full-width">
-										<p class="text-13 text-semibold truncate flex-1">
-											{commitAbsorption.commitSummary.split('\n')[0]}
-										</p>
-										<CopyButton
-											class="text-12 clr-text-2"
-											text={commitAbsorption.commitId}
-											onclick={() => {
-												clipboardService.write(commitAbsorption.commitId, {
-													message: 'Commit ID copied'
-												});
-											}}
-										/>
-									</div>
-								</div>
-
-								<ul class="file-list">
-									{#each commitAbsorption.files as file}
-										<FileListItem
-											filePath={file.path}
-											clickable={false}
-											listMode="list"
-											isLast={commitAbsorption.files.indexOf(file) ===
-												commitAbsorption.files.length - 1}
-										/>
-									{/each}
-								</ul>
+			<p class="text-13 text-body clr-text-2">
+				The following changes will be absorbed into their respective commits:
+			</p>
+			<div class="commit-absorptions">
+				{#each absorbPlan as commitAbsorption}
+					<div class="commit-absorption">
+						{#if commitAbsorption.reason !== 'default_stack'}
+							<div class="absorption__reason text-12 text-body clr-text-2">
+								{#if commitAbsorption.reason === 'hunk_dependency'}
+									📍 Files locked to commit due to hunk range overlap
+								{:else if commitAbsorption.reason === 'stack_assignment'}
+									🔖 Files assigned to this stack
+								{/if}
 							</div>
+						{/if}
+
+						<div class="absorption__content">
+							<div class="commit-header">
+								<Icon name="commit" />
+
+								<div class="flex gap-8 overflow-hidden align-center full-width">
+									<p class="text-13 text-semibold truncate flex-1">
+										{commitAbsorption.commitSummary.split('\n')[0]}
+									</p>
+									<CopyButton
+										class="text-12 clr-text-2"
+										text={commitAbsorption.commitId}
+										onclick={() => {
+											clipboardService.write(commitAbsorption.commitId, {
+												message: 'Commit ID copied'
+											});
+										}}
+									/>
+								</div>
+							</div>
+
+							<ul class="file-list">
+								{#each commitAbsorption.files as file}
+									<FileListItem
+										filePath={file.path}
+										clickable={false}
+										listMode="list"
+										isLast={commitAbsorption.files.indexOf(file) ===
+											commitAbsorption.files.length - 1}
+									/>
+								{/each}
+							</ul>
 						</div>
-					{/each}
-				</div>
-			{/if}
+					</div>
+				{/each}
+			</div>
 		</div>
 	</ScrollableContainer>
 
@@ -781,7 +777,7 @@
 		flex-direction: column;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 	}
 	.absorption__reason {
