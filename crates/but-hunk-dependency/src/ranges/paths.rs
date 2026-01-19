@@ -1,7 +1,7 @@
 use anyhow::bail;
-use but_core::{TreeStatusKind, ref_metadata::StackId};
+use but_core::TreeStatusKind;
 
-use crate::{HunkRange, InputDiffHunk, ranges::hunk::ReceiveResult};
+use crate::{HunkRange, InputDiffHunk, ranges::hunk::ReceiveResult, ui::HunkLockTarget};
 
 /// Adds sequential diffs from sequential commits for a specific path, and shifts line numbers
 /// with additions and deletions. It is expected that diffs are added one commit at a time,
@@ -16,7 +16,7 @@ impl PathRanges {
     /// `change_type` is the kind of diff that the `incoming_hunks` was created from.
     pub fn add(
         &mut self,
-        stack_id: StackId,
+        target: HunkLockTarget,
         commit_id: gix::ObjectId,
         change_type: TreeStatusKind,
         incoming_hunks: Vec<InputDiffHunk>,
@@ -60,7 +60,7 @@ impl PathRanges {
             }
             self.hunk_ranges.push(HunkRange {
                 change_type,
-                stack_id,
+                target,
                 commit_id,
                 start: incoming_hunk.new_start,
                 lines: incoming_hunk.new_lines,

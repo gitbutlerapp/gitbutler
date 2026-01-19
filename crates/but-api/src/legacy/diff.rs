@@ -39,7 +39,6 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
     let changes = but_core::diff::worktree_changes(&repo)?;
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-        ctx,
         &repo,
         &workspace,
         Some(changes.changes.clone()),

@@ -11,18 +11,12 @@ doctest = false
 
 [dependencies]
 but-core.workspace = true
-but-workspace = { workspace = true, features = ["legacy"] }
+but-workspace = { workspace = true }
 but-serde.workspace = true
 but-oxidize.workspace = true
-but-ctx = { workspace = true, features = ["legacy"] }
+but-ctx = { workspace = true }
 but-meta.workspace = true
 but-graph.workspace = true
-
-gitbutler-repo.workspace = true
-# For `ui` module
-gitbutler-stack.workspace = true
-# TODO: remove once not needed anymore
-git2.workspace = true
 
 anyhow.workspace = true
 itertools.workspace = true

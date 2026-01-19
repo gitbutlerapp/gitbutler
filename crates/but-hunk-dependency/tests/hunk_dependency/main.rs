@@ -111,7 +111,7 @@ mod types {
         fn from(
             HunkRange {
                 change_type,
-                stack_id: _,
+                target: _,
                 commit_id,
                 start,
                 lines,

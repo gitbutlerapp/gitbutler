@@ -366,7 +366,7 @@ pub fn assign(
         deps
     } else {
         owned_deps =
-            hunk_dependencies_for_workspace_changes_by_worktree_dir(ctx, repo, workspace, None)?;
+            hunk_dependencies_for_workspace_changes_by_worktree_dir(repo, workspace, None)?;
         &owned_deps
     };
     let worktree_changes: Vec<but_core::TreeChange> =
@@ -472,7 +472,6 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
         deps
     } else {
         owned_deps = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            ctx,
             repo,
             workspace,
             Some(worktree_changes.clone()),

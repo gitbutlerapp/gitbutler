@@ -21,8 +21,7 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           [
             {
               "target": {
-                "type": "stack",
-                "subject": "stack_1"
+                "type": "stack_1"
               },
               "commitId": "9dd99b79687c4b67024d0855c08a6ad55bfa6632"
             }
@@ -40,15 +39,13 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           [
             {
               "target": {
-                "type": "stack",
-                "subject": "stack_1"
+                "type": "stack_1"
               },
               "commitId": "9c7ad9af048c7b9ad1e84b0c17641347b84db1d1"
             },
             {
               "target": {
-                "type": "stack",
-                "subject": "stack_1"
+                "type": "stack_1"
               },
               "commitId": "500b70982f4576f707583412a28a6797211d180a"
             }
@@ -66,15 +63,13 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
           [
             {
               "target": {
-                "type": "stack",
-                "subject": "stack_1"
+                "type": "stack_1"
               },
               "commitId": "9dd99b79687c4b67024d0855c08a6ad55bfa6632"
             },
             {
               "target": {
-                "type": "stack",
-                "subject": "stack_1"
+                "type": "stack_1"
               },
               "commitId": "9c7ad9af048c7b9ad1e84b0c17641347b84db1d1"
             }
@@ -108,21 +103,15 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 "),
                 [
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
                     },
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(c85aaba55013536a1d44d8972d0b9fe9e484eb6f),
                     },
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(9375fb38f57a4c4b1b27da267cf2ccc1b54dbfab),
                     },
                 ],
@@ -135,15 +124,11 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
                 "),
                 [
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
                     },
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(109a5229203def5810b0e9fbaf053039f6d601b4),
                     },
                 ],
@@ -172,9 +157,7 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 "),
                 [
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                     },
                 ],
@@ -188,15 +171,11 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 "),
                 [
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                     },
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(500b70982f4576f707583412a28a6797211d180a),
                     },
                 ],
@@ -210,15 +189,11 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow
                 "),
                 [
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(9dd99b79687c4b67024d0855c08a6ad55bfa6632),
                     },
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(9c7ad9af048c7b9ad1e84b0c17641347b84db1d1),
                     },
                 ],
@@ -244,9 +219,7 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
                 "),
                 [
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(e418c1bb8d15211edb026fa562fb4c83199d8481),
                     },
                 ],
@@ -259,9 +232,7 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
                 "),
                 [
                     HunkLock {
-                        target: Stack(
-                            stack_1,
-                        ),
+                        target: Unidentified,
                         commit_id: Sha1(df241a53d1a4dae37f16def5f6d9405ea236fbf6),
                     },
                 ],
@@ -325,12 +296,7 @@ mod util {
         let (_meta, workspace) =
             command_context.workspace_and_read_only_meta_from_head(guard.read_permission())?;
         let repo = &*command_context.repo.get()?;
-        hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            command_context,
-            repo,
-            &workspace,
-            None,
-        )
+        hunk_dependencies_for_workspace_changes_by_worktree_dir(repo, &workspace, None)
     }
 
     #[derive(Debug)]
@@ -357,8 +323,6 @@ mod util {
     }
 
     pub struct TestContext {
-        /// All the stacks in the workspace
-        pub stacks_entries: Vec<but_workspace::legacy::ui::StackEntry>,
         // TODO: remove this once this has been ported to 'modern' code, i.e. uses `but-graph::projection::Workspace`.
         #[allow(dead_code)]
         pub tmpdir: Option<tempfile::TempDir>,
@@ -368,35 +332,12 @@ mod util {
         // TODO: make this a read-only scenario once we don't rely on vb.toml anymore.
         let (repo, tmpdir) = but_testsupport::writable_scenario(name);
         let ctx = Context::from_repo(repo)?;
-        let guard = ctx.shared_worktree_access();
-        {
-            let meta = ctx.legacy_meta(guard.read_permission())?;
-            meta.write_reconciled(&*ctx.repo.get()?)?;
-        }
-        let meta = ctx.legacy_meta(guard.read_permission())?;
-        let stacks =
-            but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, Default::default(), None)?;
         Ok((
             TestContext {
-                stacks_entries: stacks,
                 tmpdir: Some(tmpdir),
             },
             ctx,
         ))
-    }
-
-    impl TestContext {
-        /// Find a stack which contains a branch with the given `short_name`.
-        #[expect(unused)]
-        pub fn stack_with_branch(
-            &self,
-            short_name: &str,
-        ) -> &but_workspace::legacy::ui::StackEntry {
-            self.stacks_entries
-                .iter()
-                .find(|s| s.name() == Some(short_name.into()))
-                .expect("fixture should have such a stack if it was asked for")
-        }
     }
 
     pub fn targets_by_diffs(deps: &HunkDependencies) -> HashSet<HunkLockTarget> {

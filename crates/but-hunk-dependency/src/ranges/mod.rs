@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
-use but_core::{TreeStatusKind, ref_metadata::StackId};
+use but_core::TreeStatusKind;
 use gix::bstr::BString;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::{InputCommit, InputDiffHunk, InputStack};
+use crate::{InputCommit, InputDiffHunk, InputStack, ui::HunkLockTarget};
 
 mod hunk;
 pub use hunk::HunkRange;
@@ -27,7 +27,7 @@ pub struct WorkspaceRanges {
 #[expect(missing_docs)]
 pub struct CalculationError {
     pub error_message: String,
-    pub stack_id: StackId,
+    pub target: HunkLockTarget,
     #[serde(serialize_with = "but_serde::object_id::serialize")]
     pub commit_id: gix::ObjectId,
     pub path: BString,
@@ -43,7 +43,7 @@ struct StackRanges {
 impl StackRanges {
     fn add(
         &mut self,
-        stack_id: StackId,
+        target: HunkLockTarget,
         commit_id: gix::ObjectId,
         path: BString,
         change_type: TreeStatusKind,
@@ -52,7 +52,7 @@ impl StackRanges {
         self.paths
             .entry(path)
             .or_default()
-            .add(stack_id, commit_id, change_type, diffs)?;
+            .add(target, commit_id, change_type, diffs)?;
 
         Ok(())
     }
@@ -86,7 +86,7 @@ impl WorkspaceRanges {
                 ..Default::default()
             };
             let InputStack {
-                stack_id,
+                target: stack_id,
                 commits_from_base_to_tip: commits,
             } = input_stack;
             for commit in commits {
@@ -104,7 +104,7 @@ impl WorkspaceRanges {
                     {
                         errors.push(CalculationError {
                             error_message: error.to_string(),
-                            stack_id,
+                            target: stack_id,
                             commit_id,
                             path: file.path,
                         });

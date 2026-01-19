@@ -865,9 +865,8 @@ fn dependencies_handle_complex_branch_checkout() -> anyhow::Result<()> {
 }
 
 mod util {
-    use but_oxidize::OidExt;
+    use but_ctx::Context;
     use but_testsupport::gix_testtools::tempfile;
-    use gitbutler_stack::VirtualBranchesHandle;
 
     use crate::{WorkspaceDigest, intersect_workspace_ranges};
 
@@ -875,47 +874,34 @@ mod util {
         name: &str,
     ) -> anyhow::Result<WorkspaceDigest> {
         let test_ctx = test_ctx_separated(name)?;
-        worktree_ranges_digest_for_workspace(&test_ctx)
+        worktree_ranges_digest_for_workspace(&test_ctx.ctx)
     }
 
     pub fn worktree_ranges_digest_for_workspace_separated(
         name: &str,
     ) -> anyhow::Result<WorkspaceDigest> {
         let test_ctx = test_ctx_separated(name)?;
-        worktree_ranges_digest_for_workspace(&test_ctx)
+        worktree_ranges_digest_for_workspace(&test_ctx.ctx)
     }
 
-    fn worktree_ranges_digest_for_workspace(ctx: &TestContext) -> anyhow::Result<WorkspaceDigest> {
-        let input_stacks = but_hunk_dependency::workspace_stacks_to_input_stacks(
-            &ctx.repo,
-            &ctx.stacks_entries,
-            ctx.common_merge_base,
-        )?;
+    pub fn worktree_ranges_digest_for_workspace(ctx: &Context) -> anyhow::Result<WorkspaceDigest> {
+        let guard = ctx.exclusive_worktree_access();
+        let (_meta, workspace) =
+            ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+        let repo = ctx.repo.get()?;
+        let input_stacks = but_hunk_dependency::new_stacks_to_input_stacks(&repo, &workspace)?;
         let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
-        let worktree_changes = but_core::diff::worktree_changes(&ctx.repo)?.changes;
-        intersect_workspace_ranges(&ctx.repo, ranges, worktree_changes)
+        let worktree_changes = but_core::diff::worktree_changes(&repo)?.changes;
+        intersect_workspace_ranges(&repo, ranges, worktree_changes)
     }
 
     fn test_scenario(name: &str) -> anyhow::Result<TestContext> {
         // TODO: make this a read-only scenario once we don't rely on vb.toml anymore.
         let (repo, tmpdir) = but_testsupport::writable_scenario(name);
         let ctx = but_ctx::Context::from_repo(repo)?;
-        {
-            let guard = ctx.shared_worktree_access();
-            let meta = ctx.legacy_meta(guard.read_permission())?;
-            meta.write_reconciled(&*ctx.repo.get()?)?;
-        }
-        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )?;
-        let stacks =
-            but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, Default::default(), None)?;
-        let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
 
         Ok(TestContext {
-            repo: ctx.repo.get()?.clone(),
-            stacks_entries: stacks,
-            common_merge_base: handle.get_default_target()?.sha.to_gix(),
+            ctx,
             tmpdir: Some(tmpdir),
         })
     }
@@ -925,11 +911,7 @@ mod util {
     }
 
     pub struct TestContext {
-        pub repo: gix::Repository,
-        /// All the stacks in the workspace
-        pub stacks_entries: Vec<but_workspace::legacy::ui::StackEntry>,
-        /// The tip of the local branch that tracks the upstream one.
-        pub common_merge_base: gix::ObjectId,
+        pub ctx: Context,
         // TODO: make non-optional
         // TODO: remove once we don't need vb.toml anymore which is produced on the fly.
         #[allow(dead_code)]

@@ -188,7 +188,9 @@ fn remove_single_line() -> anyhow::Result<()> {
 
 mod util {
     use but_core::ref_metadata::StackId;
-    use but_hunk_dependency::{InputCommit, InputStack, tree_changes_to_input_files};
+    use but_hunk_dependency::{
+        InputCommit, InputStack, tree_changes_to_input_files, ui::HunkLockTarget,
+    };
 
     use crate::{WorkspaceDigest, intersect_workspace_ranges};
 
@@ -235,7 +237,7 @@ mod util {
         }
         commits.reverse();
         let stack = InputStack {
-            stack_id: StackId::generate(),
+            target: HunkLockTarget::Stack(StackId::generate()),
             commits_from_base_to_tip: commits,
         };
         Ok(vec![stack])

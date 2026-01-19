@@ -106,7 +106,6 @@ impl Handler {
         let wt_changes = but_core::diff::worktree_changes(repo)?;
 
         let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            ctx,
             repo,
             workspace,
             Some(wt_changes.changes.clone()),

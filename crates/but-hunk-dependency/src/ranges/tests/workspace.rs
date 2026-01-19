@@ -8,6 +8,7 @@ use crate::{
         WorkspaceRanges,
         tests::{id_from_hex_char, input_hunk_from_unified_diff},
     },
+    ui::HunkLockTarget,
 };
 
 #[test]
@@ -15,14 +16,14 @@ fn workspace_simple() -> anyhow::Result<()> {
     let path = BString::from("/test.txt");
 
     let commit1_id = id_from_hex_char('1');
-    let stack1_id = StackId::generate();
+    let stack1_id = HunkLockTarget::Stack(StackId::generate());
 
     let commit2_id = id_from_hex_char('1');
-    let stack2_id = StackId::generate();
+    let stack2_id = HunkLockTarget::Stack(StackId::generate());
 
     let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![
         InputStack {
-            stack_id: stack1_id,
+            target: stack1_id,
             commits_from_base_to_tip: vec![InputCommit {
                 commit_id: commit1_id,
                 files: vec![InputFile {
@@ -38,7 +39,7 @@ fn workspace_simple() -> anyhow::Result<()> {
             }],
         },
         InputStack {
-            stack_id: stack2_id,
+            target: stack2_id,
             commits_from_base_to_tip: vec![InputCommit {
                 commit_id: commit2_id,
                 files: vec![InputFile {
@@ -78,17 +79,17 @@ fn workspace_simple() -> anyhow::Result<()> {
     let dependencies_1 = workspace_ranges.intersection(&path, 2, 1).unwrap();
     assert_eq!(dependencies_1.len(), 1);
     assert_eq!(dependencies_1[0].commit_id, commit1_id);
-    assert_eq!(dependencies_1[0].stack_id, stack1_id);
+    assert_eq!(dependencies_1[0].target, stack1_id);
 
     let dependencies_2 = workspace_ranges.intersection(&path, 9, 1).unwrap();
     assert_eq!(dependencies_2.len(), 1);
     assert_eq!(dependencies_2[0].commit_id, commit2_id);
-    assert_eq!(dependencies_2[0].stack_id, stack2_id);
+    assert_eq!(dependencies_2[0].target, stack2_id);
 
     let dependencies_3 = workspace_ranges.intersection(&path, 15, 1).unwrap();
     assert_eq!(dependencies_3.len(), 1);
     assert_eq!(dependencies_3[0].commit_id, commit2_id);
-    assert_eq!(dependencies_3[0].stack_id, stack2_id);
+    assert_eq!(dependencies_3[0].target, stack2_id);
 
     Ok(())
 }
@@ -99,14 +100,14 @@ fn overlapping_commits_in_a_stack() -> anyhow::Result<()> {
 
     let commit1_id = id_from_hex_char('1');
     let commit2_id = id_from_hex_char('2');
-    let stack1_id = StackId::generate();
+    let stack1_id = HunkLockTarget::Stack(StackId::generate());
 
     let commit3_id = id_from_hex_char('3');
-    let stack2_id = StackId::generate();
+    let stack2_id = HunkLockTarget::Stack(StackId::generate());
 
     let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![
         InputStack {
-            stack_id: stack1_id,
+            target: stack1_id,
             commits_from_base_to_tip: vec![
                 InputCommit {
                     commit_id: commit1_id,
@@ -149,7 +150,7 @@ P5
             ],
         },
         InputStack {
-            stack_id: stack2_id,
+            target: stack2_id,
             commits_from_base_to_tip: vec![InputCommit {
                 commit_id: commit3_id,
                 files: vec![InputFile {
@@ -177,7 +178,7 @@ P5
         let dependencies = workspace_ranges.intersection(&path, 12, 1).unwrap();
         assert_eq!(dependencies.len(), 1);
         assert_eq!(dependencies[0].commit_id, commit3_id);
-        assert_eq!(dependencies[0].stack_id, stack2_id);
+        assert_eq!(dependencies[0].target, stack2_id);
     }
 
     Ok(())
@@ -188,10 +189,10 @@ fn intersection_with_addition_change_type() -> anyhow::Result<()> {
     let path = BString::from("/test.txt");
 
     let commit1_id = id_from_hex_char('1');
-    let stack1_id = StackId::generate();
+    let stack1_id = HunkLockTarget::Stack(StackId::generate());
 
     let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![InputStack {
-        stack_id: stack1_id,
+        target: stack1_id,
         commits_from_base_to_tip: vec![InputCommit {
             commit_id: commit1_id,
             files: vec![InputFile {
@@ -227,10 +228,10 @@ fn intersection_with_deletion_change_type() -> anyhow::Result<()> {
     let path = BString::from("/test.txt");
 
     let commit1_id = id_from_hex_char('1');
-    let stack1_id = StackId::generate();
+    let stack1_id = HunkLockTarget::Stack(StackId::generate());
 
     let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![InputStack {
-        stack_id: stack1_id,
+        target: stack1_id,
         commits_from_base_to_tip: vec![InputCommit {
             commit_id: commit1_id,
             files: vec![InputFile {
@@ -266,10 +267,10 @@ fn intersection_with_modification_respects_range() -> anyhow::Result<()> {
     let path = BString::from("/test.txt");
 
     let commit1_id = id_from_hex_char('1');
-    let stack1_id = StackId::generate();
+    let stack1_id = HunkLockTarget::Stack(StackId::generate());
 
     let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![InputStack {
-        stack_id: stack1_id,
+        target: stack1_id,
         commits_from_base_to_tip: vec![InputCommit {
             commit_id: commit1_id,
             files: vec![InputFile {
@@ -305,14 +306,14 @@ fn intersection_mixed_change_types() -> anyhow::Result<()> {
     let path = BString::from("/test.txt");
 
     let commit1_id = id_from_hex_char('1');
-    let stack1_id = StackId::generate();
+    let stack1_id = HunkLockTarget::Stack(StackId::generate());
 
     let commit2_id = id_from_hex_char('2');
-    let stack2_id = StackId::generate();
+    let stack2_id = HunkLockTarget::Stack(StackId::generate());
 
     let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![
         InputStack {
-            stack_id: stack1_id,
+            target: stack1_id,
             commits_from_base_to_tip: vec![InputCommit {
                 commit_id: commit1_id,
                 files: vec![InputFile {
@@ -328,7 +329,7 @@ fn intersection_mixed_change_types() -> anyhow::Result<()> {
             }],
         },
         InputStack {
-            stack_id: stack2_id,
+            target: stack2_id,
             commits_from_base_to_tip: vec![InputCommit {
                 commit_id: commit2_id,
                 files: vec![InputFile {
