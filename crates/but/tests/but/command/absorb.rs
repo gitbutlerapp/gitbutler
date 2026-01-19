@@ -1,6 +1,7 @@
 use bstr::ByteSlice;
 use snapbox::str;
 
+use crate::utils::CommandExt;
 use crate::{command::util::commit_file_with_worktree_changes_as_two_hunks, utils::Sandbox};
 
 #[test]
@@ -11,7 +12,7 @@ fn uncommitted_file() -> anyhow::Result<()> {
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -61,7 +62,7 @@ Hint: you can run `but undo` to undo these changes
 
     // Status is clean
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -139,7 +140,7 @@ Hint: you can run `but undo` to undo these changes
 
     // Status is not clean
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])

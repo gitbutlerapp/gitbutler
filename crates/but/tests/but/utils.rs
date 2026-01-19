@@ -120,14 +120,20 @@ impl Sandbox {
 }
 
 pub trait CommandExt {
-    fn with_color_for_svg(self) -> Self;
-}
-
-impl CommandExt for snapbox::cmd::Command {
     /// Force terminal color codes to be emitted. This should be used when
     /// asserting with [snapbox::cmd::OutputAssert::stdout_eq] against an SVG
     /// file.
+    fn with_color_for_svg(self) -> Self;
+    /// Change the environment to allow passing `--json`.
+    fn allow_json(self) -> Self;
+}
+
+impl CommandExt for snapbox::cmd::Command {
     fn with_color_for_svg(self) -> snapbox::cmd::Command {
         self.env("CLICOLOR_FORCE", "1")
+    }
+
+    fn allow_json(self) -> Self {
+        self.env_remove("BUT_OUTPUT_FORMAT")
     }
 }

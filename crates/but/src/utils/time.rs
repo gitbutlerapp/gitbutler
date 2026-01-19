@@ -1,14 +1,10 @@
 //! Time formatting utilities for the but CLI.
 
-/// Format a Unix timestamp (in seconds) as a relative time string (e.g., "2 days ago", "5m ago")
+/// Format a Unix timestamp (in seconds) as a relative time string (e.g., "2 days ago", "5m ago") from `now`.
 ///
 /// This uses a compact format suitable for commit timestamps and status displays.
-pub fn format_relative_time(timestamp_seconds: i64) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
-
+pub fn format_relative_time(now: std::time::SystemTime, timestamp_seconds: i64) -> String {
+    let now = now.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
     let seconds_ago = now.saturating_sub(timestamp_seconds);
 
     if seconds_ago < 60 {
@@ -33,12 +29,12 @@ pub fn format_relative_time(timestamp_seconds: i64) -> String {
     }
 }
 
-/// Format a Unix timestamp (in milliseconds) as a relative time string with verbose formatting
+/// Format a Unix timestamp (in milliseconds) as a relative time string with verbose formatting from `now`.
 ///
 /// This uses a more verbose format suitable for status displays where clarity is preferred
-/// (e.g., "2 days ago", "5 minutes ago")
-pub fn format_relative_time_verbose(timestamp_ms: u128) -> String {
-    let now_ms = std::time::SystemTime::now()
+/// (e.g., "2 days ago", "5 minutes ago").
+pub fn format_relative_time_verbose(now: std::time::SystemTime, timestamp_ms: u128) -> String {
+    let now_ms = now
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_millis();
@@ -73,83 +69,88 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_format_relative_time_seconds() {
-        let now = std::time::SystemTime::now()
+    fn format_relative_time_seconds() {
+        let now_t = std::time::SystemTime::now();
+        let now = now_t
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
 
-        assert_eq!(format_relative_time(now - 30), "30s ago");
-        assert_eq!(format_relative_time(now - 59), "59s ago");
+        assert_eq!(format_relative_time(now_t, now - 30), "30s ago");
+        assert_eq!(format_relative_time(now_t, now - 59), "59s ago");
     }
 
     #[test]
-    fn test_format_relative_time_minutes() {
-        let now = std::time::SystemTime::now()
+    fn format_relative_time_minutes() {
+        let now_t = std::time::SystemTime::now();
+        let now = now_t
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
 
-        assert_eq!(format_relative_time(now - 60), "1m ago");
-        assert_eq!(format_relative_time(now - 120), "2m ago");
-        assert_eq!(format_relative_time(now - 3599), "59m ago");
+        assert_eq!(format_relative_time(now_t, now - 60), "1m ago");
+        assert_eq!(format_relative_time(now_t, now - 120), "2m ago");
+        assert_eq!(format_relative_time(now_t, now - 3599), "59m ago");
     }
 
     #[test]
-    fn test_format_relative_time_hours() {
-        let now = std::time::SystemTime::now()
+    fn format_relative_time_hours() {
+        let now_t = std::time::SystemTime::now();
+        let now = now_t
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
 
-        assert_eq!(format_relative_time(now - 3600), "1h ago");
-        assert_eq!(format_relative_time(now - 7200), "2h ago");
+        assert_eq!(format_relative_time(now_t, now - 3600), "1h ago");
+        assert_eq!(format_relative_time(now_t, now - 7200), "2h ago");
     }
 
     #[test]
-    fn test_format_relative_time_days() {
-        let now = std::time::SystemTime::now()
+    fn format_relative_time_days() {
+        let now_t = std::time::SystemTime::now();
+        let now = now_t
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
 
-        assert_eq!(format_relative_time(now - 86400), "yesterday");
-        assert_eq!(format_relative_time(now - 172800), "2d ago");
+        assert_eq!(format_relative_time(now_t, now - 86400), "yesterday");
+        assert_eq!(format_relative_time(now_t, now - 172800), "2d ago");
     }
 
     #[test]
-    fn test_format_relative_time_verbose() {
-        let now_ms = std::time::SystemTime::now()
+    fn format_relative_time_verbose_journey() {
+        let now = std::time::SystemTime::now();
+        let now_ms = now
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis();
 
         assert_eq!(
-            format_relative_time_verbose(now_ms - 30_000),
+            format_relative_time_verbose(now, now_ms - 30_000),
             "30 seconds ago"
         );
         assert_eq!(
-            format_relative_time_verbose(now_ms - 60_000),
+            format_relative_time_verbose(now, now_ms - 60_000),
             "1 minute ago"
         );
         assert_eq!(
-            format_relative_time_verbose(now_ms - 120_000),
+            format_relative_time_verbose(now, now_ms - 120_000),
             "2 minutes ago"
         );
         assert_eq!(
-            format_relative_time_verbose(now_ms - 3_600_000),
+            format_relative_time_verbose(now, now_ms - 3_600_000),
             "1 hour ago"
         );
         assert_eq!(
-            format_relative_time_verbose(now_ms - 7_200_000),
+            format_relative_time_verbose(now, now_ms - 7_200_000),
             "2 hours ago"
         );
         assert_eq!(
-            format_relative_time_verbose(now_ms - 86_400_000),
+            format_relative_time_verbose(now, now_ms - 86_400_000),
             "1 day ago"
         );
         assert_eq!(
-            format_relative_time_verbose(now_ms - 172_800_000),
+            format_relative_time_verbose(now, now_ms - 172_800_000),
             "2 days ago"
         );
     }

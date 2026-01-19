@@ -10,6 +10,12 @@ Usable output goes to `out: &mut OutputChannel`
 - For shell, use `if let Some(out) = out.for_shell() { writeln!(out, “{…}")?; }`
 - For JSON, use `if let Some(out) = out.for_json() { out.write_value(json)?; }`
 
+### Context
+
+- Do not re-discover Git repositories, instead take them as inputs to functions and methods. They can be retrieved from contexed via `ctx.repo.get()?`
+  and passed as parameter.
+- Avoid implicitly using the current time like `std::time::SystemTime::now()`, instead pass the current time as argument.
+
 ### Testing
 
 * use `snapbox::str![]` to assert with `.stdout_eq(str![])` and `stderr_eq(str![])` respectively,

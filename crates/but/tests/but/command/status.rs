@@ -85,7 +85,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
     env.file("test-file.txt", "test content");
 
     env.but("--json status")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -208,7 +208,7 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
     env.file("b.txt", "onlyb\n");
 
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -294,7 +294,7 @@ fn long_cli_ids_json() -> anyhow::Result<()> {
     // Assert a handful of commits to show that the commit CLI IDs become longer
     // if a short ID would be ambiguous, but remain at 2 characters otherwise.
     env.but("--json status -f")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()
         .success()

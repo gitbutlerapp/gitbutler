@@ -1,6 +1,6 @@
 use snapbox::str;
 
-use crate::utils::Sandbox;
+use crate::utils::{CommandExt, Sandbox};
 
 #[cfg(not(feature = "legacy"))]
 #[test]
@@ -111,7 +111,7 @@ Applied branch 'feature-branch' to workspace
 "#]]);
     // It's idempotent and can produce a shell value.
     env.but("-f shell branch apply feature-branch")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stderr_eq(str![])
@@ -148,7 +148,7 @@ fn local_branch_with_json_output() -> anyhow::Result<()> {
 
     // Apply with JSON output
     env.but("--json branch apply feature-branch")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -269,7 +269,7 @@ fn nonexistent_branch_with_json() -> anyhow::Result<()> {
 
     // Try to apply a branch that doesn't exist with JSON output
     env.but("--json branch apply nonexistent-branch")
-        .env_remove("BUT_OUTPUT_FORMAT")
+        .allow_json()
         .assert()
         .failure()
         .stderr_eq(str![[r#"

@@ -1,7 +1,7 @@
 //! Tests for various nice user-journeys, from different starting points, performing multiple common steps in sequence.
 use snapbox::str;
 
-use crate::utils::{CommandExt as _, Sandbox};
+use crate::utils::Sandbox;
 
 #[cfg(not(feature = "legacy"))]
 #[test]
@@ -126,6 +126,7 @@ Caused by:
 #[cfg(feature = "legacy")]
 #[test]
 fn from_workspace() -> anyhow::Result<()> {
+    use crate::utils::CommandExt;
     use snapbox::file;
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     insta::assert_snapshot!(env.git_log()?, @r"

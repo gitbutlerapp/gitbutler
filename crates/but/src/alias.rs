@@ -61,7 +61,12 @@ pub fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>> {
     }
 
     // Try to read from git config: but.alias.<name>
-    let alias_value = match read_git_config_alias(potential_alias) {
+    // And try to discover a git repository from the current directory, way before we have a context.
+    let repo = gix::discover(".").ok();
+    let alias_value = match repo
+        .as_ref()
+        .and_then(|repo| read_git_config_alias(repo, potential_alias))
+    {
         Some(value) => value,
         None => {
             // Check for default aliases that can be overridden
@@ -129,7 +134,7 @@ pub fn get_default_alias(alias_name: &str) -> Option<String> {
         .map(|(_, value)| value.to_string())
 }
 
-/// Reads a git config alias value using gix.
+/// Reads a git config alias value from `repo`.
 ///
 /// Looks for the config key `but.alias.<name>` in the git configuration.
 ///
@@ -140,10 +145,7 @@ pub fn get_default_alias(alias_name: &str) -> Option<String> {
 /// # Returns
 ///
 /// The alias value if found, or `None` if not found or on error
-fn read_git_config_alias(alias_name: &str) -> Option<String> {
-    // Try to discover a git repository from the current directory
-    let repo = gix::discover(".").ok()?;
-
+fn read_git_config_alias(repo: &gix::Repository, alias_name: &str) -> Option<String> {
     // Get the config snapshot and look for but.alias.<name>
     let config_key = format!("but.alias.{}", alias_name);
     let config = repo.config_snapshot();
@@ -157,7 +159,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_is_known_subcommand() {
+    #[cfg(feature = "legacy")] // only works when these commands are implemented.
+    fn is_known_subcommand_() {
         assert!(is_known_subcommand("status"));
         assert!(is_known_subcommand("commit"));
         assert!(is_known_subcommand("push"));
@@ -168,28 +171,28 @@ mod tests {
     }
 
     #[test]
-    fn test_expand_no_args() {
+    fn expand_no_args() {
         let args = vec![OsString::from("but")];
         let result = expand_aliases(args.clone()).unwrap();
         assert_eq!(result, args);
     }
 
     #[test]
-    fn test_expand_known_command() {
+    fn expand_known_command() {
         let args = vec![OsString::from("but"), OsString::from("status")];
         let result = expand_aliases(args.clone()).unwrap();
         assert_eq!(result, args);
     }
 
     #[test]
-    fn test_expand_with_flag() {
+    fn expand_with_flag() {
         let args = vec![OsString::from("but"), OsString::from("--help")];
         let result = expand_aliases(args.clone()).unwrap();
         assert_eq!(result, args);
     }
 
     #[test]
-    fn test_expand_unknown_alias_no_config() {
+    fn expand_unknown_alias_no_config() {
         // This test will pass through since there's no git config set
         let args = vec![OsString::from("but"), OsString::from("unknownalias")];
         let result = expand_aliases(args.clone()).unwrap();
@@ -197,13 +200,13 @@ mod tests {
     }
 
     #[test]
-    fn test_default_alias_stf() {
+    fn default_alias_stf() {
         assert_eq!(get_default_alias("stf"), Some("status --files".to_string()));
         assert_eq!(get_default_alias("other"), None);
     }
 
     #[test]
-    fn test_expand_default_alias() {
+    fn expand_default_alias() {
         // Test that the default stf alias expands correctly
         let args = vec![
             OsString::from("but"),
