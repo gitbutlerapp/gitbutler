@@ -48,6 +48,10 @@ fn main() -> anyhow::Result<()> {
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
     let custom_settings = cfg!(feature = "packaged-but-distribution")
         .then(but_settings::customization::packaged_but_binary);
+    // While it serves a function, this behavior is sub-optimal. The proper solution is to decouple:
+    // - Checking for updates from
+    // - Performing an update
+    // This way people can be informed that there is an update even if self-updating is not possible (i.e. installed via package manager).
     let custom_settings = if cfg!(feature = "disable-auto-updates") {
         but_settings::customization::merge_two(
             but_settings::customization::disable_auto_update_checks(),

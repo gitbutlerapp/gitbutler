@@ -102,6 +102,14 @@ pub struct UiSettings {
     /// Whether the `but` CLI is managed by a package manager.
     /// When true, the UI should show a specific message instead of installation options.
     pub cli_is_managed_by_package_manager: bool,
-    /// The duration between two update checks in seconds. If `0`, no update checks will be performed.
+    /// **LEGACY**: The duration between UI update checks in seconds. If `0`, no update checks will be performed.
+    /// This setting controls Tauri's built-in update mechanism for the desktop application.
+    ///
+    /// **DEPRECATED**: This field is legacy and will be replaced by the top-level `appUpdatesCheckIntervalSec` setting.
+    /// New code should use `appUpdatesCheckIntervalSec` instead, which will control update checks for both CLI and GUI.
+    #[deprecated(
+        since = "0.18.4",
+        note = "Use AppSettings.app_updates_check_interval_sec instead. This will be removed once GUI migrates away from Tauri's update mechanism."
+    )]
     pub check_for_updates_interval_in_seconds: u64,
 }

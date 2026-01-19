@@ -7,23 +7,23 @@ use command_group::AsyncCommandGroup;
 
 use crate::{args::Args, utils::OutputChannel};
 
-pub(crate) enum Fetch {
-    Auto,
-    None,
+pub(crate) enum BackgroundSync {
+    Enabled,
+    Disabled,
 }
 
 /// Gets or initializes a non-bare repository context.
 ///
 /// This function discovers the git repository from the current directory, finds or initializes
-/// the GitButler project for that repository, and optionally triggers a background fetch if
-/// the configured fetch interval has elapsed.
+/// the GitButler project for that repository, and optionally triggers a background sync if
+/// the configured interval has elapsed.
 ///
 /// # Arguments
 ///
 /// * `args` - Command-line arguments containing the current directory
-/// * `fetch_mode` - Controls whether and how to perform automatic fetching:
-///   - `Fetch::Auto(out)` - Enable auto-fetch with output to the provided channel
-///   - `Fetch::None` - Disable auto-fetch completely
+/// * `background_sync` - Controls whether to perform automatic background synchronization:
+///   - `BackgroundSync::Enabled` - Enable background sync (fetch, PR data, CI status)
+///   - `BackgroundSync::Disabled` - Disable background sync completely
 ///
 /// # Returns
 ///
@@ -36,24 +36,24 @@ pub(crate) enum Fetch {
 /// - The repository is bare (not supported)
 /// - The project cannot be found or initialized
 ///
-/// # Auto-fetch behavior
+/// # Background sync behavior
 ///
-/// When `fetch_mode` is `Fetch::Auto(out)`, a background fetch is initiated if:
-/// - The fetch interval is positive (negative or zero disables auto-fetch)
+/// When `background_sync` is `BackgroundSync::Enabled`, a background sync is initiated if:
+/// - The fetch interval is positive (negative or zero disables background sync)
 /// - The output format is for human consumption (not JSON or shell)
-/// - Either no previous fetch exists, or the elapsed time since the last fetch
+/// - Either no previous sync exists, or the elapsed time since the last sync
 ///   exceeds the configured interval
 ///
-/// When a background fetch is initiated, a human-readable message is written to the output
-/// channel showing how long ago the last fetch occurred (e.g., "Last fetch was 15m ago.
+/// When a background sync is initiated, a human-readable message is written to the output
+/// channel showing how long ago the last sync occurred (e.g., "Last fetch was 15m ago.
 /// Initiated a background fetch..."). The time is formatted as seconds (s), minutes (m),
 /// hours (h), or days (d) depending on the elapsed duration.
 ///
-/// When `fetch_mode` is `Fetch::None`, no auto-fetch is performed regardless of the
-/// configured interval.
+/// When `background_sync` is `BackgroundSync::Disabled`, no background sync is performed
+/// regardless of the configured interval.
 pub fn init_ctx(
     args: &Args,
-    fetch_mode: Fetch,
+    background_sync: BackgroundSync,
     out: &mut OutputChannel,
 ) -> anyhow::Result<Context> {
     let repo = gix::discover(&args.current_dir)?;
@@ -94,80 +94,182 @@ pub fn init_ctx(
         }
     };
 
-    match fetch_mode {
-        Fetch::None => {
+    match background_sync {
+        BackgroundSync::Disabled => {
             return Ok(ctx);
         }
-        Fetch::Auto => {
-            // Negative or zero fetch interval disables auto-fetch
-            // Auto fetch done only for human output
-            if fetch_interval_minutes <= 0
-                || !matches!(out.format(), crate::args::OutputFormat::Human)
-            {
+        BackgroundSync::Enabled => {
+            // Background sync only done for human output
+            if !matches!(out.format(), crate::args::OutputFormat::Human) {
                 return Ok(ctx);
             }
 
-            let should_fetch = if let Some(last_fetch) = last_fetch {
-                match std::time::SystemTime::now().duration_since(last_fetch) {
-                    Ok(elapsed) => elapsed.as_secs() / 60 >= fetch_interval_minutes as u64,
-                    Err(_) => true, // System time went backwards, force fetch
-                }
-            } else {
-                true // Never fetched before, force fetch
-            };
+            // Determine what needs to be synced based on intervals and lock availability
+            let sync_operations =
+                determine_sync_operations(&ctx, fetch_interval_minutes, last_fetch);
 
-            // Check if there is a process still doing background refreshes
-            let exclusive_access = but_core::sync::try_exclusive_inter_process_access(
-                &ctx.gitdir,
-                LockScope::BackgroundRefreshOperations,
-            )
-            .ok();
-
-            if should_fetch && exclusive_access.is_some() {
-                drop(exclusive_access); // Release the lock immediately so that the new child process can acquire it
-                let binary_path = std::env::current_exe().unwrap_or_default();
-                let proc = tokio::process::Command::new(binary_path.clone())
-                    .arg("-C")
-                    .arg(&args.current_dir)
-                    .arg("refresh-remote-data")
-                    .arg("--fetch")
-                    .arg("--pr")
-                    .arg("--ci")
-                    .stderr(std::process::Stdio::null())
-                    .stdout(std::process::Stdio::null())
-                    .group()
-                    .kill_on_drop(false)
-                    .spawn();
-                if proc.is_ok() {
-                    let msg = last_fetch
-                        .and_then(|t| {
-                            std::time::SystemTime::now()
-                                .duration_since(t)
-                                .ok()
-                                .map(|elapsed| {
-                                    let secs = elapsed.as_secs();
-                                    if secs < 60 {
-                                        format!("Last fetch was {}s ago. ", secs)
-                                    } else if secs < 3600 {
-                                        format!("Last fetch was {}m ago. ", secs / 60)
-                                    } else if secs < 86400 {
-                                        format!("Last fetch was {}h ago. ", secs / 3600)
-                                    } else {
-                                        format!("Last fetch was {}d ago. ", secs / 86400)
-                                    }
-                                })
-                        })
-                        .unwrap_or_default();
-                    writeln!(
-                        out,
-                        "{}",
-                        format!("{}Initiated a background fetch...", msg).dimmed()
-                    )
-                    .ok();
-                }
+            // Spawn background sync if there's anything to do
+            if sync_operations.has_work() {
+                spawn_background_sync(args, out, last_fetch, sync_operations);
             }
         }
     }
 
     Ok(ctx)
+}
+
+/// Tracks which background sync operations should be performed.
+struct SyncOperations {
+    fetch: bool,
+    pr: bool,
+    ci: bool,
+    updates: bool,
+}
+
+impl SyncOperations {
+    fn has_work(&self) -> bool {
+        self.fetch || self.pr || self.ci || self.updates
+    }
+}
+
+/// Determines which sync operations should be performed based on intervals and lock availability.
+fn determine_sync_operations(
+    ctx: &Context,
+    fetch_interval_minutes: isize,
+    last_fetch: Option<std::time::SystemTime>,
+) -> SyncOperations {
+    // Check if fetch/pr/ci should run based on fetch interval
+    let should_sync_remote_data = if fetch_interval_minutes > 0 {
+        if let Some(last_fetch) = last_fetch {
+            match std::time::SystemTime::now().duration_since(last_fetch) {
+                Ok(elapsed) => elapsed.as_secs() / 60 >= fetch_interval_minutes as u64,
+                Err(_) => true, // System time went backwards, force sync
+            }
+        } else {
+            true // Never synced before, force sync
+        }
+    } else {
+        false // Negative or zero interval disables sync
+    };
+
+    // Try to acquire lock for remote data operations (fetch/pr/ci)
+    let remote_data_lock = if should_sync_remote_data {
+        but_core::sync::try_exclusive_inter_process_access(
+            &ctx.gitdir,
+            LockScope::BackgroundRefreshOperations,
+        )
+        .ok()
+    } else {
+        None
+    };
+
+    // Determine if updates should be checked based on configured interval
+    let update_check_interval_sec = ctx.settings.app_updates_check_interval_sec;
+    let should_check_updates = if update_check_interval_sec == 0 {
+        // Update checks disabled
+        false
+    } else {
+        match but_update::last_checked() {
+            Ok(Some(last_check)) => {
+                // Cache exists, check if interval has elapsed
+                let now = chrono::Utc::now();
+                let elapsed = now.signed_duration_since(last_check);
+                elapsed.num_seconds() >= update_check_interval_sec as i64
+            }
+            Ok(None) => {
+                // No cache exists - this is first check or cache was deleted, should check
+                true
+            }
+            Err(_) => {
+                // Error determining cache state - fail-safe for tests and error cases
+                false
+            }
+        }
+    };
+
+    // Try to acquire lock for update check
+    let update_lock = if should_check_updates {
+        but_update::try_update_check_lock().ok()
+    } else {
+        None
+    };
+
+    // Check if we successfully acquired the locks
+    let can_sync_remote_data = remote_data_lock.is_some();
+    let can_check_updates = update_lock.is_some();
+
+    // Locks are dropped here, allowing the spawned child process to acquire them
+    SyncOperations {
+        fetch: can_sync_remote_data,
+        pr: can_sync_remote_data,
+        ci: can_sync_remote_data,
+        updates: can_check_updates,
+    }
+}
+
+/// Spawns a background process to perform the specified sync operations.
+fn spawn_background_sync(
+    args: &Args,
+    out: &mut OutputChannel,
+    last_fetch: Option<std::time::SystemTime>,
+    operations: SyncOperations,
+) {
+    let binary_path = std::env::current_exe().unwrap_or_default();
+    let mut cmd = tokio::process::Command::new(binary_path);
+    cmd.arg("-C")
+        .arg(&args.current_dir)
+        .arg("refresh-remote-data");
+
+    if operations.fetch {
+        cmd.arg("--fetch");
+    }
+    if operations.pr {
+        cmd.arg("--pr");
+    }
+    if operations.ci {
+        cmd.arg("--ci");
+    }
+    if operations.updates {
+        cmd.arg("--updates");
+    }
+
+    cmd.stderr(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .group()
+        .kill_on_drop(false);
+
+    if cmd.spawn().is_ok() {
+        // Show user feedback about what's happening
+        // Only show "last fetch" message if we're actually fetching
+        let msg = if operations.fetch {
+            last_fetch
+                .and_then(|t| {
+                    std::time::SystemTime::now()
+                        .duration_since(t)
+                        .ok()
+                        .map(|elapsed| {
+                            let secs = elapsed.as_secs();
+                            if secs < 60 {
+                                format!("Last fetch was {}s ago. ", secs)
+                            } else if secs < 3600 {
+                                format!("Last fetch was {}m ago. ", secs / 60)
+                            } else if secs < 86400 {
+                                format!("Last fetch was {}h ago. ", secs / 3600)
+                            } else {
+                                format!("Last fetch was {}d ago. ", secs / 86400)
+                            }
+                        })
+                })
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        writeln!(
+            out,
+            "{}",
+            format!("{}Initiated a background sync...", msg).dimmed()
+        )
+        .ok();
+    }
 }

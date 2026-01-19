@@ -85,6 +85,14 @@ pub(crate) async fn worktree(
         return show_edit_mode_status(ctx, out);
     }
 
+    // Check for available updates and display if present
+    if let Some(out) = out.for_human()
+        && let Ok(Some(update)) = but_update::available_update()
+    {
+        writeln!(out, "{}", update.display_cli(verbose))?;
+        writeln!(out)?;
+    }
+
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
     let guard = ctx.shared_worktree_access();
@@ -1009,6 +1017,34 @@ impl CliDisplay for CiChecks {
             " CI: ✅".to_string()
         } else {
             "".to_string()
+        }
+    }
+}
+
+impl CliDisplay for but_update::AvailableUpdate {
+    fn display_cli(&self, verbose: bool) -> String {
+        let version_info = format!(
+            "{} → {}",
+            self.current_version.dimmed(),
+            self.available_version.green().bold()
+        );
+
+        if verbose {
+            if let Some(url) = &self.url {
+                format!(
+                    "Update available: {} ({})",
+                    version_info,
+                    url.underline().blue()
+                )
+            } else {
+                format!("Update available: {}", version_info)
+            }
+        } else {
+            format!(
+                "Update available: {} {}",
+                version_info,
+                "(run `but status -v` for link or `but update suppress` to dismiss)".dimmed()
+            )
         }
     }
 }

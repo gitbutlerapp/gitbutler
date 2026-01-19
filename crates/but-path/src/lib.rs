@@ -20,6 +20,38 @@ pub fn app_config_dir() -> anyhow::Result<PathBuf> {
         .map(|dir| dir.join("gitbutler"))
 }
 
+/// Returns the platform-specific cache directory for GitButler.
+///
+/// The cache directory is used for non-essential data that can be regenerated
+/// or re-downloaded, such as update check metadata. Unlike data stored in
+/// [`app_data_dir`], cached data:
+/// - Should not be backed up by the system
+/// - Can be safely deleted to free up disk space
+/// - Has no user-visible impact if cleared
+///
+/// # Platform-specific locations
+///
+/// - **macOS**: `~/Library/Caches/gitbutler/`
+/// - **Linux**: `~/.cache/gitbutler/` (following XDG Base Directory Specification)
+/// - **Windows**: `%LOCALAPPDATA%\gitbutler\cache\`
+///
+/// # Testing
+///
+/// When the `E2E_TEST_APP_DATA_DIR` environment variable is set, returns
+/// `{E2E_TEST_APP_DATA_DIR}/cache` to isolate test environments.
+///
+/// # Errors
+///
+/// Returns an error if the platform's cache directory cannot be determined.
+pub fn app_cache_dir() -> anyhow::Result<PathBuf> {
+    if let Ok(test_dir) = std::env::var("E2E_TEST_APP_DATA_DIR") {
+        return Ok(PathBuf::from(test_dir).join("cache"));
+    }
+    dirs::cache_dir()
+        .ok_or(anyhow::anyhow!("Could not get app cache dir"))
+        .map(|dir| dir.join("gitbutler"))
+}
+
 pub fn identifier() -> &'static str {
     option_env!("IDENTIFIER").unwrap_or_else(|| {
         if let Some(channel) = option_env!("CHANNEL") {

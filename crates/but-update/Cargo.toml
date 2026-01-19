@@ -18,5 +18,11 @@ serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 but-settings.workspace = true
 but-secret.workspace = true
+but-path.workspace = true
+but-core.workspace = true
 sha2.workspace = true
 machine-uid = "0.5.4"
+chrono = { workspace = true, features = ["serde", "clock"] }
+
+[dev-dependencies]
+tempfile.workspace = true

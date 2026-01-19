@@ -520,6 +520,9 @@ pub enum Subcommands {
         /// Whether to also refresh CI status from the forge.
         #[clap(long, default_value_t = false)]
         ci: bool,
+        /// Whether to also check for application updates.
+        #[clap(long, default_value_t = false)]
+        updates: bool,
     },
 
     /// AI: Starts up the MCP server.

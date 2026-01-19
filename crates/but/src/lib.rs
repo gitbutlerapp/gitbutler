@@ -37,7 +37,7 @@ use colored::Colorize;
 use gix::date::time::CustomFormat;
 
 use crate::{
-    init::Fetch,
+    init::BackgroundSync,
     utils::{
         OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
     },
@@ -134,7 +134,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 .expect("target is checked to be Some in match guard");
             #[cfg(feature = "legacy")]
             {
-                let mut ctx = init::init_ctx(&args, Fetch::None, &mut out)?;
+                let mut ctx = init::init_ctx(&args, BackgroundSync::Disabled, &mut out)?;
                 command::legacy::rub::handle(&mut ctx, &mut out, source, target)
                     .context("Rubbed the wrong way.")
                     .emit_metrics(OneshotMetricsContext::new_if_enabled(
@@ -244,7 +244,7 @@ async fn match_subcommand(
         Subcommands::Branch(branch::Platform { cmd }) => {
             cfg_if! {
                 if #[cfg(feature = "legacy")]  {
-                    let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+                    let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
                     command::legacy::branch::handle(cmd, &mut ctx, out)
                         .emit_metrics(metrics_ctx)
                 } else {
@@ -267,11 +267,11 @@ async fn match_subcommand(
                 description,
                 handler,
             }) => {
-                let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
+                let mut ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
                 command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)
             }
             None => {
-                let ctx = init::init_ctx(&args, Fetch::None, out)?;
+                let ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
                 command::legacy::actions::list_actions(&ctx, out, 0, 10)
             }
         },
@@ -299,7 +299,7 @@ async fn match_subcommand(
                     but_claude::mcp::start(&args.current_dir, &session_id).await
                 }
                 claude::Subcommands::Last { offset } => {
-                    let ctx = init::init_ctx(&args, Fetch::None, out)?;
+                    let ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
                     let message = but_claude::db::get_user_message(&ctx, Some(offset as i64))?;
                     match message {
                         Some(msg) => {
@@ -362,7 +362,7 @@ async fn match_subcommand(
         },
         #[cfg(feature = "legacy")]
         Subcommands::Pull { check } => {
-            let ctx = init::init_ctx(&args, Fetch::None, out)?;
+            let ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
             command::legacy::pull::handle(&ctx, out, check)
                 .await
                 .emit_metrics(metrics_ctx)
@@ -379,14 +379,14 @@ async fn match_subcommand(
                         .yellow()
                 )?;
             }
-            let ctx = init::init_ctx(&args, Fetch::None, out)?;
+            let ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
             command::legacy::pull::handle(&ctx, out, true)
                 .await
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
-            let ctx = init::init_ctx(&args, Fetch::None, out)?;
+            let ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
             command::legacy::worktree::handle(cmd, &ctx, out)
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
@@ -399,7 +399,7 @@ async fn match_subcommand(
             upstream,
             no_hint,
         } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::status::worktree(
                 &mut ctx, out, show_files, verbose, sync_prs, upstream, !no_hint,
             )
@@ -408,7 +408,7 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Rub { source, target } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::rub::handle(&mut ctx, out, &source, &target)
                 .context("Rubbed the wrong way.")
                 .emit_metrics(metrics_ctx)
@@ -416,21 +416,21 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Diff { target } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::diff::handle(&mut ctx, out, target.as_deref())
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Show { commit } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::show::show_commit(&mut ctx, out, &commit)
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Mark { target, delete } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::mark::handle(&mut ctx, out, &target, delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
                 .emit_metrics(metrics_ctx)
@@ -438,7 +438,7 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unmark => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::mark::unmark(&mut ctx, out)
                 .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
                 .emit_metrics(metrics_ctx)
@@ -452,7 +452,7 @@ async fn match_subcommand(
             create,
             only,
         } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             // Read message from file if provided, otherwise use message option
             let commit_message = match file {
                 Some(path) => Some(std::fs::read_to_string(&path).with_context(|| {
@@ -475,24 +475,24 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
-            let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
             command::legacy::push::handle(push_args, &mut ctx, out).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::New { target } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::commit::insert_blank_commit(&mut ctx, out, &target)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Reword { target, message } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::reword::reword_target(&mut ctx, out, &target, message.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {
-            let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
             match cmd {
                 Some(args::oplog::Subcommands::List { since, snapshot }) => {
                     let filter = if snapshot {
@@ -516,24 +516,24 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Restore { oplog_sha, force } => {
-            let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
             command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Undo => {
-            let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
             command::legacy::oplog::undo_last_operation(&mut ctx, out).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Absorb { source } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::absorb::handle(&mut ctx, out, source.as_deref())
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Discard { id } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::discard::handle(&mut ctx, out, &id).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
@@ -542,7 +542,7 @@ async fn match_subcommand(
             .emit_metrics(metrics_ctx),
         #[cfg(feature = "legacy")]
         Subcommands::Pr(forge::pr::Platform { cmd }) => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             match cmd {
                 Some(forge::pr::Subcommands::New {
                     branch,
@@ -583,14 +583,19 @@ async fn match_subcommand(
             }
         }
         #[cfg(feature = "legacy")]
-        Subcommands::RefreshRemoteData { fetch, pr: prs, ci } => {
-            let mut ctx = init::init_ctx(&args, Fetch::None, out)?;
-            command::legacy::refresh::handle(&mut ctx, out, fetch, prs, ci)
+        Subcommands::RefreshRemoteData {
+            fetch,
+            pr: prs,
+            ci,
+            updates,
+        } => {
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
+            command::legacy::refresh::handle(&mut ctx, out, fetch, prs, ci, updates, &app_settings)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Resolve { cmd, commit } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::resolve::handle(&mut ctx, out, cmd, commit)
                 .context("Failed to handle conflict resolution.")
                 .emit_metrics(metrics_ctx)
@@ -598,7 +603,7 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Uncommit { source } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::rub::handle_uncommit(&mut ctx, out, &source)
                 .context("Failed to uncommit.")
                 .emit_metrics(metrics_ctx)
@@ -606,7 +611,7 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Amend { file, commit } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::rub::handle_amend(&mut ctx, out, &file, &commit)
                 .context("Failed to amend.")
                 .emit_metrics(metrics_ctx)
@@ -617,7 +622,7 @@ async fn match_subcommand(
             file_or_hunk,
             branch,
         } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::rub::handle_stage(&mut ctx, out, &file_or_hunk, &branch)
                 .context("Failed to stage.")
                 .emit_metrics(metrics_ctx)
@@ -628,7 +633,7 @@ async fn match_subcommand(
             file_or_hunk,
             branch,
         } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::rub::handle_unstage(&mut ctx, out, &file_or_hunk, branch.as_deref())
                 .context("Failed to unstage.")
                 .emit_metrics(metrics_ctx)
@@ -640,7 +645,7 @@ async fn match_subcommand(
             commit2,
             drop_message,
         } => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::rub::handle_squash(&mut ctx, out, &commit1, &commit2, drop_message)
                 .context("Failed to squash commits.")
                 .emit_metrics(metrics_ctx)
@@ -648,7 +653,7 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::SwitchBack => {
-            let mut ctx = init::init_ctx(&args, Fetch::Auto, out)?;
+            let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
             command::legacy::switch::handle(&mut ctx, out).emit_metrics(metrics_ctx)
         }
     }

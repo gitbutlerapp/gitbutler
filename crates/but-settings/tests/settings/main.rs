@@ -86,8 +86,11 @@ mod load {
                 Some(but_settings::customization::disable_auto_update_checks()),
             )
             .unwrap();
+
+            #[allow(deprecated)]
+            let value = settings.ui.check_for_updates_interval_in_seconds;
             assert_eq!(
-                settings.ui.check_for_updates_interval_in_seconds, 0,
+                value, 0,
                 "overridden to tell the GUI that no updates should be performed"
             );
         }

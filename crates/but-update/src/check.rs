@@ -100,7 +100,7 @@ pub fn check_status_with_url(
 
     let url = url_override.unwrap_or(UPDATES_CHECK_URL).to_string();
 
-    std::thread::spawn(move || -> anyhow::Result<CheckUpdateStatus> {
+    let result = std::thread::spawn(move || -> anyhow::Result<CheckUpdateStatus> {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -125,7 +125,14 @@ pub fn check_status_with_url(
         })
     })
     .join()
-    .map_err(|_| anyhow::anyhow!("Update check thread panicked"))?
+    .map_err(|_| anyhow::anyhow!("Update check thread panicked"))?;
+
+    // Save to cache (best-effort, failures are silently ignored)
+    if let Ok(status) = &result {
+        crate::cache::save(status);
+    }
+
+    result
 }
 
 /// A request to check for the presence of a newer version of the application for a specified
@@ -155,7 +162,7 @@ struct CheckUpdatesRequest {
 }
 
 /// Information about the latest available version and whether an update is needed.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CheckUpdateStatus {
     /// `true` if the current version matches the latest available version, `false` otherwise.
     ///
