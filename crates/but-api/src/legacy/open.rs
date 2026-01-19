@@ -170,19 +170,45 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
 
     #[cfg(target_os = "macos")]
     {
-        let app_name = match terminal_id.as_str() {
-            "terminal" => "Terminal",
-            "iterm2" => "iTerm",
-            "ghostty" => "Ghostty",
-            "warp" => "Warp",
-            "alacritty-mac" => "Alacritty",
-            "wezterm-mac" => "WezTerm",
-            "hyper" => "Hyper",
+        match terminal_id.as_str() {
+            // These terminals support `open -a <app> <path>` as folder handlers
+            "terminal" => {
+                let mut cmd = Command::new("open");
+                cmd.arg("-a").arg("Terminal").arg(&path);
+                run_terminal_command(cmd, "Terminal", &path)?;
+            }
+            "iterm2" => {
+                let mut cmd = Command::new("open");
+                cmd.arg("-a").arg("iTerm").arg(&path);
+                run_terminal_command(cmd, "iTerm2", &path)?;
+            }
+            "warp" => {
+                let mut cmd = Command::new("open");
+                cmd.arg("-a").arg("Warp").arg(&path);
+                run_terminal_command(cmd, "Warp", &path)?;
+            }
+            "ghostty" => {
+                let mut cmd = Command::new("open");
+                cmd.arg("-a").arg("Ghostty").arg(&path);
+                run_terminal_command(cmd, "Ghostty", &path)?;
+            }
+            "alacritty-mac" => {
+                let mut cmd = Command::new("alacritty");
+                cmd.arg("--working-directory").arg(&path);
+                run_terminal_command(cmd, "Alacritty", &path)?;
+            }
+            "wezterm-mac" => {
+                let mut cmd = Command::new("wezterm");
+                cmd.arg("start").arg("--cwd").arg(&path);
+                run_terminal_command(cmd, "WezTerm", &path)?;
+            }
+            "hyper" => {
+                let mut cmd = Command::new("hyper");
+                cmd.arg(&path);
+                run_terminal_command(cmd, "Hyper", &path)?;
+            }
             _ => bail!("Unknown terminal: {}", terminal_id),
         };
-        let mut cmd = Command::new("open");
-        cmd.arg("-a").arg(app_name).arg(&path);
-        run_terminal_command(cmd, app_name, &path)?;
     }
 
     #[cfg(target_os = "windows")]
