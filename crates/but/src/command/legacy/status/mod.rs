@@ -1032,7 +1032,7 @@ impl CliDisplay for but_update::AvailableUpdate {
         if verbose {
             if let Some(url) = &self.url {
                 format!(
-                    "Update available: {} ({})",
+                    "Update available: {} {}",
                     version_info,
                     url.underline().blue()
                 )
