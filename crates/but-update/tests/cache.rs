@@ -3,7 +3,7 @@ use std::fs;
 use std::sync::Mutex;
 
 use but_update::{CheckUpdateStatus, last_checked};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 
 // Serial test execution lock to prevent environment variable conflicts
 static TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -212,8 +212,11 @@ fn test_suppression_fields_are_preserved() {
         "suppress_duration_hours": 168
     });
 
-    fs::write(&cache_file, serde_json::to_string_pretty(&initial_cache).unwrap())
-        .expect("Should write initial cache");
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
 
     // Save new status (should preserve suppression)
     let status = CheckUpdateStatus {
@@ -235,7 +238,9 @@ fn test_suppression_fields_are_preserved() {
         "suppressed_at should be preserved"
     );
     assert_eq!(
-        parsed.get("suppress_duration_hours").and_then(|v| v.as_u64()),
+        parsed
+            .get("suppress_duration_hours")
+            .and_then(|v| v.as_u64()),
         Some(168),
         "suppress_duration_hours should be preserved"
     );
@@ -261,8 +266,11 @@ fn test_expired_suppression_is_cleared() {
         "suppress_duration_hours": 168
     });
 
-    fs::write(&cache_file, serde_json::to_string_pretty(&initial_cache).unwrap())
-        .expect("Should write initial cache");
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
 
     // Save new status (should clear expired suppression)
     let status = CheckUpdateStatus {
@@ -309,8 +317,11 @@ fn test_suppression_on_edge_case_exactly_expired() {
         "suppress_duration_hours": 168
     });
 
-    fs::write(&cache_file, serde_json::to_string_pretty(&initial_cache).unwrap())
-        .expect("Should write initial cache");
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
 
     // Save new status
     let status = CheckUpdateStatus {
@@ -331,5 +342,266 @@ fn test_suppression_on_edge_case_exactly_expired() {
     assert!(
         parsed.get("suppressed_at").is_none(),
         "suppressed_at should be cleared when exactly at expiration boundary"
+    );
+}
+
+#[test]
+fn test_suppress_update_notification_success() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let temp_dir = setup_test_cache_dir();
+
+    // Create initial cache with an update available
+    let cache_file = temp_dir.path().join("cache").join("update-check.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).expect("Should create cache dir");
+
+    let initial_cache = serde_json::json!({
+        "checked_at": Utc::now().to_rfc3339(),
+        "status": {
+            "up_to_date": false,
+            "latest_version": "2.0.0"
+        }
+    });
+
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
+
+    // Suppress for 48 hours
+    let result = but_update::suppress_update_notification(48);
+    assert!(result.is_ok(), "Should successfully suppress notifications");
+
+    // Read back and verify suppression was set
+    let contents = fs::read_to_string(&cache_file).expect("Should read cache file");
+    let parsed: serde_json::Value = serde_json::from_str(&contents).expect("Should parse as JSON");
+
+    assert!(
+        parsed.get("suppressed_at").is_some(),
+        "suppressed_at should be set"
+    );
+    assert_eq!(
+        parsed
+            .get("suppress_duration_hours")
+            .and_then(|v| v.as_u64()),
+        Some(48),
+        "suppress_duration_hours should be 48"
+    );
+}
+
+#[test]
+fn test_suppress_update_notification_fails_when_no_cache() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let _temp_dir = setup_test_cache_dir();
+
+    // Try to suppress without any cache
+    let result = but_update::suppress_update_notification(24);
+    assert!(result.is_err(), "Should fail when no cache exists");
+
+    let error_message = result.unwrap_err().to_string();
+    assert!(
+        error_message.contains("No update check has been performed yet"),
+        "Error message should mention no update check: {}",
+        error_message
+    );
+}
+
+#[test]
+fn test_suppress_update_notification_fails_when_up_to_date() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let temp_dir = setup_test_cache_dir();
+
+    // Create cache showing app is up to date
+    let cache_file = temp_dir.path().join("cache").join("update-check.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).expect("Should create cache dir");
+
+    let initial_cache = serde_json::json!({
+        "checked_at": Utc::now().to_rfc3339(),
+        "status": {
+            "up_to_date": true,
+            "latest_version": "1.0.0"
+        }
+    });
+
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
+
+    // Try to suppress when already up to date
+    let result = but_update::suppress_update_notification(24);
+    assert!(result.is_err(), "Should fail when already up to date");
+
+    let error_message = result.unwrap_err().to_string();
+    assert!(
+        error_message.contains("already up to date"),
+        "Error message should mention already up to date: {}",
+        error_message
+    );
+}
+
+#[test]
+fn test_suppress_update_notification_overwrites_existing_suppression() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let temp_dir = setup_test_cache_dir();
+
+    // Create cache with existing suppression
+    let cache_file = temp_dir.path().join("cache").join("update-check.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).expect("Should create cache dir");
+
+    let suppressed_at = Utc::now() - chrono::Duration::hours(12);
+    let initial_cache = serde_json::json!({
+        "checked_at": Utc::now().to_rfc3339(),
+        "status": {
+            "up_to_date": false,
+            "latest_version": "2.0.0"
+        },
+        "suppressed_at": suppressed_at.to_rfc3339(),
+        "suppress_duration_hours": 24
+    });
+
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
+
+    // Suppress again with different duration
+    let result = but_update::suppress_update_notification(72);
+    assert!(result.is_ok(), "Should successfully update suppression");
+
+    // Read back and verify new suppression
+    let contents = fs::read_to_string(&cache_file).expect("Should read cache file");
+    let parsed: serde_json::Value = serde_json::from_str(&contents).expect("Should parse as JSON");
+
+    assert_eq!(
+        parsed
+            .get("suppress_duration_hours")
+            .and_then(|v| v.as_u64()),
+        Some(72),
+        "suppress_duration_hours should be updated to 72"
+    );
+
+    // The new suppressed_at should be more recent than the old one
+    let new_suppressed_at = parsed
+        .get("suppressed_at")
+        .and_then(|v| v.as_str())
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .expect("Should have new suppressed_at timestamp");
+
+    assert!(
+        new_suppressed_at.timestamp() > suppressed_at.timestamp(),
+        "New suppressed_at should be more recent than old one"
+    );
+}
+
+#[test]
+fn test_suppress_update_notification_rejects_zero_hours() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let temp_dir = setup_test_cache_dir();
+
+    // Create cache with an update available
+    let cache_file = temp_dir.path().join("cache").join("update-check.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).expect("Should create cache dir");
+
+    let initial_cache = serde_json::json!({
+        "checked_at": Utc::now().to_rfc3339(),
+        "status": {
+            "up_to_date": false,
+            "latest_version": "2.0.0"
+        }
+    });
+
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
+
+    // Try to suppress with 0 hours
+    let result = but_update::suppress_update_notification(0);
+    assert!(result.is_err(), "Should fail when hours is 0");
+
+    let error_message = result.unwrap_err().to_string();
+    assert!(
+        error_message.contains("at least 1 hour"),
+        "Error message should mention minimum duration: {}",
+        error_message
+    );
+}
+
+#[test]
+fn test_suppress_update_notification_rejects_excessive_hours() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let temp_dir = setup_test_cache_dir();
+
+    // Create cache with an update available
+    let cache_file = temp_dir.path().join("cache").join("update-check.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).expect("Should create cache dir");
+
+    let initial_cache = serde_json::json!({
+        "checked_at": Utc::now().to_rfc3339(),
+        "status": {
+            "up_to_date": false,
+            "latest_version": "2.0.0"
+        }
+    });
+
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
+
+    // Try to suppress with more than 720 hours (30 days)
+    let result = but_update::suppress_update_notification(721);
+    assert!(result.is_err(), "Should fail when hours exceeds 720");
+
+    let error_message = result.unwrap_err().to_string();
+    assert!(
+        error_message.contains("cannot exceed") && error_message.contains("720"),
+        "Error message should mention maximum duration: {}",
+        error_message
+    );
+}
+
+#[test]
+fn test_suppress_update_notification_accepts_max_hours() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let temp_dir = setup_test_cache_dir();
+
+    // Create cache with an update available
+    let cache_file = temp_dir.path().join("cache").join("update-check.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).expect("Should create cache dir");
+
+    let initial_cache = serde_json::json!({
+        "checked_at": Utc::now().to_rfc3339(),
+        "status": {
+            "up_to_date": false,
+            "latest_version": "2.0.0"
+        }
+    });
+
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
+
+    // Suppress with exactly 720 hours (30 days) - should succeed
+    let result = but_update::suppress_update_notification(720);
+    assert!(result.is_ok(), "Should successfully suppress for 720 hours");
+
+    // Read back and verify
+    let contents = fs::read_to_string(&cache_file).expect("Should read cache file");
+    let parsed: serde_json::Value = serde_json::from_str(&contents).expect("Should parse as JSON");
+
+    assert_eq!(
+        parsed
+            .get("suppress_duration_hours")
+            .and_then(|v| v.as_u64()),
+        Some(720),
+        "suppress_duration_hours should be 720"
     );
 }

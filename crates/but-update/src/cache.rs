@@ -47,6 +47,44 @@ fn cache_file_path() -> anyhow::Result<PathBuf> {
     Ok(but_path::app_cache_dir()?.join(CACHE_FILE_NAME))
 }
 
+/// Writes a cached result to disk atomically.
+///
+/// This function handles:
+/// - Creating the cache directory if it doesn't exist
+/// - Atomic write-and-rename to prevent corruption
+/// - Cleanup of temporary files on failure
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be written or renamed.
+fn write_cache_atomically(cached: &CachedCheckResult) -> anyhow::Result<()> {
+    let cache_path = cache_file_path()?;
+
+    // Create cache directory if it doesn't exist
+    if let Some(parent) = cache_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let json = serde_json::to_string_pretty(&cached)?;
+
+    // Atomic write: write to temp file, then rename
+    // Use process ID to avoid conflicts if multiple processes run concurrently
+    let temp_path = cache_path.with_extension(format!("json.tmp.{}", std::process::id()));
+    fs::write(&temp_path, json)?;
+
+    // Rename is atomic
+    let rename_result = fs::rename(&temp_path, &cache_path);
+
+    // Clean up temp file if rename failed
+    if rename_result.is_err() {
+        let _ = fs::remove_file(&temp_path);
+    }
+
+    rename_result?;
+
+    Ok(())
+}
+
 /// Saves an update check result to the cache.
 ///
 /// This function persists the update status along with the current timestamp
@@ -66,17 +104,10 @@ fn cache_file_path() -> anyhow::Result<PathBuf> {
 ///
 /// # Note
 ///
-/// This function is `pub(crate)` for internal use but also exposed for testing purposes.
+/// This function is hidden from documentation but exposed publicly for internal use and testing.
 #[doc(hidden)]
 pub fn save(status: &CheckUpdateStatus) {
     let result = || -> anyhow::Result<()> {
-        let cache_path = cache_file_path()?;
-
-        // Create cache directory if it doesn't exist
-        if let Some(parent) = cache_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
         // Get current time once to ensure consistency across all uses
         let now = Utc::now();
 
@@ -88,7 +119,8 @@ pub fn save(status: &CheckUpdateStatus) {
             Some(cached) => match (cached.suppressed_at, cached.suppress_duration_hours) {
                 (Some(suppressed_at), Some(duration_hours)) => {
                     // Check if suppression period has expired
-                    let suppress_until = suppressed_at + chrono::Duration::hours(duration_hours as i64);
+                    let suppress_until =
+                        suppressed_at + chrono::Duration::hours(duration_hours as i64);
 
                     if now > suppress_until {
                         // Suppression period has expired, clear the fields
@@ -116,23 +148,7 @@ pub fn save(status: &CheckUpdateStatus) {
             suppress_duration_hours,
         };
 
-        let json = serde_json::to_string_pretty(&cached)?;
-
-        // Atomic write: write to temp file, then rename
-        // This prevents corruption if the process crashes during write
-        // Use process ID to avoid conflicts if multiple processes run concurrently
-        let temp_path = cache_path.with_extension(format!("json.tmp.{}", std::process::id()));
-        fs::write(&temp_path, json)?;
-
-        // Rename is atomic - if this succeeds, the corrupted cache is replaced
-        let rename_result = fs::rename(&temp_path, &cache_path);
-
-        // Clean up temp file if rename failed
-        if rename_result.is_err() {
-            let _ = fs::remove_file(&temp_path);
-        }
-
-        rename_result?;
+        write_cache_atomically(&cached)?;
 
         Ok(())
     };
@@ -189,6 +205,75 @@ fn load() -> anyhow::Result<Option<CachedCheckResult>> {
 /// * `Err(_)` - Failed to determine cache directory path
 pub fn last_checked() -> anyhow::Result<Option<DateTime<Utc>>> {
     Ok(load()?.map(|cached| cached.checked_at))
+}
+
+/// Suppress update notifications for a specified duration.
+///
+/// This function sets the suppression fields in the cache to temporarily hide update notifications.
+/// The suppression will automatically expire after the specified number of hours.
+///
+/// # Arguments
+///
+/// * `hours` - The number of hours to suppress update notifications (must be between 1 and 720)
+///
+/// # Returns
+///
+/// * `Ok(())` - Suppression was successfully set
+/// * `Err(_)` - An error occurred:
+///   - Invalid hours value (must be 1-720)
+///   - No cached update check exists
+///   - The cached status shows the app is already up to date
+///   - Failed to write the updated cache
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The hours parameter is 0 or greater than 720 (30 days)
+/// - No update check has been performed yet (no cache exists)
+/// - The current version is already up to date (nothing to suppress)
+/// - The cache file cannot be written
+pub fn suppress_update_notification(hours: u32) -> anyhow::Result<()> {
+    // Validate input: must be between 1 and 720 hours (30 days)
+    const MAX_SUPPRESSION_HOURS: u32 = 720; // 30 days
+
+    if hours == 0 {
+        anyhow::bail!("Suppression duration must be at least 1 hour");
+    }
+
+    if hours > MAX_SUPPRESSION_HOURS {
+        anyhow::bail!(
+            "Suppression duration cannot exceed {} hours (30 days)",
+            MAX_SUPPRESSION_HOURS
+        );
+    }
+
+    // Load existing cache
+    let existing_cache = load()?;
+
+    let mut cached = match existing_cache {
+        Some(cached) => cached,
+        None => {
+            anyhow::bail!(
+                "No update check has been performed yet. Run an update check first before suppressing notifications."
+            );
+        }
+    };
+
+    // Check if already up to date
+    if cached.status.up_to_date {
+        anyhow::bail!(
+            "The application is already up to date. There are no update notifications to suppress."
+        );
+    }
+
+    // Set suppression fields
+    cached.suppressed_at = Some(Utc::now());
+    cached.suppress_duration_hours = Some(hours);
+
+    // Write back to cache atomically
+    write_cache_atomically(&cached)?;
+
+    Ok(())
 }
 
 /// Try to obtain an exclusive inter-process lock for update checking.
