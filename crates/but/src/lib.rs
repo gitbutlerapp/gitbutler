@@ -583,9 +583,14 @@ async fn match_subcommand(
             }
         }
         #[cfg(feature = "legacy")]
-        Subcommands::RefreshRemoteData { fetch, pr: prs, ci } => {
+        Subcommands::RefreshRemoteData {
+            fetch,
+            pr: prs,
+            ci,
+            updates,
+        } => {
             let mut ctx = init::init_ctx(&args, BackgroundSync::Disabled, out)?;
-            command::legacy::refresh::handle(&mut ctx, out, fetch, prs, ci)
+            command::legacy::refresh::handle(&mut ctx, out, fetch, prs, ci, updates, &app_settings)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]

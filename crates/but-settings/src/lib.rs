@@ -24,6 +24,10 @@ pub struct AppSettings {
     pub reviews: app_settings::Reviews,
     /// UI settings.
     pub ui: app_settings::UiSettings,
+    /// The duration between application update checks in seconds. If `0`, no update checks will be performed.
+    /// This setting controls background update checks for both the CLI and GUI.
+    /// In the future, this will replace the legacy `ui.checkForUpdatesIntervalInSeconds` setting.
+    pub app_updates_check_interval_sec: u64,
 }
 
 impl Default for AppSettings {
