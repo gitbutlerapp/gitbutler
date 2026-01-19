@@ -1,4 +1,3 @@
-use async_openai::{Client, config::OpenAIConfig};
 use but_ctx::Context;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{ObjectIdExt, OidExt};
@@ -20,8 +19,8 @@ pub struct CommitEvent {
     pub trigger: Uuid,
 }
 
-pub async fn commit(
-    client: &Client<OpenAIConfig>,
+pub fn commit(
+    llm: &but_llm::LLMProvider,
     event: CommitEvent,
 ) -> anyhow::Result<Option<(gix::ObjectId, String)>> {
     let (diff, sync_ctx) = {
@@ -39,12 +38,11 @@ pub async fn commit(
         )
     };
     let message = crate::generate::commit_message(
-        client,
+        llm,
         &event.external_summary,
         &event.external_prompt,
         &diff,
-    )
-    .await?;
+    )?;
 
     // Format the commit message to follow email RFC format (80 char line wrapping)
     let message = crate::commit_format::format_commit_message(&message);

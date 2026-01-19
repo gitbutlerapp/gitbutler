@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use but_action::{ActionHandler, Source, reword::CommitEvent};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_llm::OpenAiProvider;
+use but_llm::LLMProvider;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::legacy::StacksFilter;
 use gitbutler_project::Project;
@@ -285,9 +285,7 @@ pub async fn handle_stop(
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if available
     // Alternatively, and probably better - we could spawn a new process to do this
 
-    if let Some(openai_client) =
-        OpenAiProvider::with(None).and_then(|provider| provider.client().ok())
-    {
+    if let Some(llm) = LLMProvider::default_openai() {
         for branch in &outcome.updated_branches {
             let mut commit_message_mapping = HashMap::new();
 
@@ -305,8 +303,7 @@ pub async fn handle_stop(
                         app_settings: ctx.settings().clone(),
                         trigger: id,
                     };
-                    let reword_result = but_action::reword::commit(&openai_client, commit_event)
-                        .await
+                    let reword_result = but_action::reword::commit(&llm, commit_event)
                         .ok()
                         .unwrap_or_default();
 
@@ -328,9 +325,7 @@ pub async fn handle_stop(
                             stack_id: branch.stack_id,
                             current_branch_name: branch.branch_name.clone(),
                         };
-                        but_action::rename_branch::rename_branch(ctx, &openai_client, params, id)
-                            .await
-                            .ok();
+                        but_action::rename_branch::rename_branch(ctx, &llm, params, id).ok();
                     }
                 }
                 but_claude::hooks::RenameEligibility::NotEligible => {

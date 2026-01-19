@@ -90,7 +90,6 @@ impl Mcp {
         });
         let mut event: metrics::Event = metrics::EventKind::Mcp.into();
         event.insert_prop("endpoint", "gitbutler_update_branches");
-        event.insert_prop("aiCredentialsKind", self.event_handler.credentials_kind());
         event.insert_prop("durationMs", start_time.elapsed().as_millis());
         event.insert_prop("error", error);
         event.insert_prop("updatedBranchesCount", updated_branches_count);

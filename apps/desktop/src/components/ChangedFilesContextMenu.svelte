@@ -34,6 +34,8 @@
 
 	import type { SelectionId } from '$lib/selection/key';
 
+	const DEFAULT_MODEL = 'gpt-4';
+
 	type Props = {
 		projectId: string;
 		stackId: string | undefined;
@@ -199,7 +201,7 @@
 		}
 
 		try {
-			await chipToasts.promise(autoCommit({ projectId, changes }), {
+			await chipToasts.promise(autoCommit({ projectId, changes, model: DEFAULT_MODEL }), {
 				loading: 'Started auto commit',
 				success: 'Auto commit succeeded',
 				error: 'Auto commit failed'
@@ -216,7 +218,7 @@
 		}
 
 		try {
-			await chipToasts.promise(branchChanges({ projectId, changes }), {
+			await chipToasts.promise(branchChanges({ projectId, changes, model: DEFAULT_MODEL }), {
 				loading: 'Creating a branch and committing changes',
 				success: 'Branching changes succeeded',
 				error: 'Branching changes failed'

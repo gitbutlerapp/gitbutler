@@ -8,9 +8,7 @@ use std::{
 
 use but_core::TreeChange;
 use but_ctx::{Context, access::WorktreeWritePermission};
-use but_llm::{
-    ChatMessage, OpenAiProvider, ToolCallContent, ToolResponseContent, tool_calling_loop_stream,
-};
+use but_llm::{ChatMessage, ToolCallContent, ToolResponseContent};
 use but_oxidize::ObjectIdExt;
 use but_tools::emit::{Emittable, Emitter, TokenUpdate};
 use but_workspace::legacy::ui::StackEntry;
@@ -19,14 +17,12 @@ use gitbutler_project::{Project, ProjectId};
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
 
-mod absorb;
 mod action;
 mod auto_commit;
 mod branch_changes;
 pub mod cli;
 pub mod commit_format;
 mod generate;
-mod grouping;
 pub mod rename_branch;
 pub mod reword;
 mod simple;
@@ -43,9 +39,9 @@ pub fn freestyle(
     message_id: String,
     emitter: Arc<Emitter>,
     ctx: &mut Context,
-    openai: &OpenAiProvider,
+    llm: &but_llm::LLMProvider,
     chat_messages: Vec<ChatMessage>,
-    model: Option<String>,
+    model: String,
 ) -> anyhow::Result<String> {
     let project_status = but_tools::workspace::get_project_status(ctx, None)?;
     let serialized_status = serde_json::to_string_pretty(&project_status)
@@ -125,8 +121,8 @@ pub fn freestyle(
             (emitter)(&name, payload);
         }
     });
-    let (response, _) = tool_calling_loop_stream(
-        openai,
+
+    let (response, _) = llm.tool_calling_loop_stream(
         system_message,
         internal_chat_messages,
         &mut toolset,
@@ -137,31 +133,24 @@ pub fn freestyle(
     Ok(response)
 }
 
-pub fn absorb(
-    emitter: Arc<Emitter>,
-    ctx: &mut Context,
-    openai: &OpenAiProvider,
-    changes: Vec<TreeChange>,
-) -> anyhow::Result<()> {
-    absorb::absorb(emitter, ctx, openai, changes)
-}
-
 pub fn branch_changes(
     emitter: Arc<Emitter>,
     ctx: &mut Context,
-    openai: &OpenAiProvider,
+    llm: &but_llm::LLMProvider,
     changes: Vec<TreeChange>,
+    model: String,
 ) -> anyhow::Result<()> {
-    branch_changes::branch_changes(emitter, ctx, openai, changes)
+    branch_changes::branch_changes(emitter, ctx, llm, changes, model)
 }
 
 pub fn auto_commit(
     emitter: Arc<Emitter>,
     ctx: &mut Context,
-    openai: &OpenAiProvider,
+    llm: &but_llm::LLMProvider,
     changes: Vec<TreeChange>,
+    model: String,
 ) -> anyhow::Result<()> {
-    auto_commit::auto_commit(emitter, ctx, openai, changes)
+    auto_commit::auto_commit(emitter, ctx, llm, changes, model)
 }
 
 pub fn handle_changes(

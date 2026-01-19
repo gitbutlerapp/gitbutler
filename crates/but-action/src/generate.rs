@@ -1,44 +1,9 @@
-use async_openai::{
-    Client,
-    config::OpenAIConfig,
-    types::chat::{
-        ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage,
-        CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
-    },
-};
-use schemars::{JsonSchema, schema_for};
+use anyhow::Context;
+use but_llm::ChatMessage;
+use schemars::JsonSchema;
 
-use crate::OpenAiProvider;
-
-#[expect(dead_code)]
-pub(crate) fn commit_message_blocking(
-    openai: &OpenAiProvider,
-    external_summary: &str,
-    external_prompt: &str,
-    diff: &str,
-) -> anyhow::Result<String> {
-    let change_summary_owned = external_summary.to_string();
-    let external_prompt_owned = external_prompt.to_string();
-    let diff_owned = diff.to_string();
-    let client = openai.client()?;
-
-    std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(commit_message(
-                &client,
-                &change_summary_owned,
-                &external_prompt_owned,
-                &diff_owned,
-            ))
-    })
-    .join()
-    .unwrap()
-}
-
-pub async fn commit_message(
-    // openai_provider: OpenAiProvider,
-    client: &Client<OpenAIConfig>,
+pub fn commit_message(
+    llm: &but_llm::LLMProvider,
     external_summary: &str,
     external_prompt: &str,
     diff: &str,
@@ -64,40 +29,16 @@ unified diff:
 "#
     );
 
-    let schema = schema_for!(StructuredOutput);
-    let schema_json = serde_json::to_value(schema).unwrap();
-    let response_format = ResponseFormat::JsonSchema {
-        json_schema: ResponseFormatJsonSchema {
-            description: None,
-            name: "commit_message".into(),
-            schema: Some(schema_json),
-            strict: Some(true),
-        },
-    };
+    let chat_messages = vec![ChatMessage::User(user_message)];
+    let response = llm
+        .structured_output::<StructuredOutput>(
+            &system_message,
+            chat_messages,
+            "gpt-5-mini".to_string(),
+        )?
+        .context("Failed to generate structured content for commit message")?;
 
-    let request = CreateChatCompletionRequestArgs::default()
-        .model("gpt-5-mini")
-        .messages([
-            ChatCompletionRequestSystemMessage::from(system_message).into(),
-            ChatCompletionRequestUserMessage::from(user_message).into(),
-        ])
-        .response_format(response_format)
-        .build()?;
-
-    let response = client.chat().create(request).await?;
-    let response_string = response
-        .choices
-        .first()
-        .unwrap()
-        .message
-        .content
-        .as_ref()
-        .unwrap();
-
-    let structured_output: StructuredOutput = serde_json::from_str(response_string)
-        .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
-
-    Ok(structured_output.commit_message)
+    Ok(response.commit_message)
 }
 
 #[derive(serde::Serialize, serde::Deserialize, JsonSchema)]
@@ -107,8 +48,8 @@ pub struct StructuredOutput {
     pub commit_message: String,
 }
 
-pub async fn branch_name(
-    client: &Client<OpenAIConfig>,
+pub fn branch_name(
+    llm: &but_llm::LLMProvider,
     commit_messages: &[String],
     diffs: &[String],
     existing_branch_names: &[String],
@@ -127,7 +68,7 @@ pub async fn branch_name(
             Do not use any of the existing branch names.
 
         </important_notes>
-        
+
         <exisiting_branch_names>
         {}
         </existing_branch_names>
@@ -135,7 +76,7 @@ pub async fn branch_name(
         <commit_messages>
         {}
         </commit_messages>
-        
+
         <diffs>
         {}
         </diffs>
@@ -145,42 +86,16 @@ pub async fn branch_name(
         diffs.join("\n==================\n")
     );
 
-    let schema = schema_for!(GenerateBranchNameOutput);
-    let schema_json = serde_json::to_value(schema)?;
-    let response_format = ResponseFormat::JsonSchema {
-        json_schema: ResponseFormatJsonSchema {
-            description: None,
-            name: "branch_name".into(),
-            schema: Some(schema_json),
-            strict: Some(false),
-        },
-    };
+    let chat_messages = vec![ChatMessage::User(user_message)];
+    let response = llm
+        .structured_output::<GenerateBranchNameOutput>(
+            &system_message,
+            chat_messages,
+            "gpt-5-mini".to_string(),
+        )?
+        .context("Failed to generate structured content for commit message")?;
 
-    let request = CreateChatCompletionRequestArgs::default()
-        .model("gpt-5-mini")
-        .messages([
-            ChatCompletionRequestSystemMessage::from(system_message).into(),
-            ChatCompletionRequestUserMessage::from(user_message).into(),
-        ])
-        .response_format(response_format)
-        .build()?;
-
-    let response = client.chat().create(request).await?;
-    let choice = response
-        .choices
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("No choices returned from OpenAI response"))?;
-
-    let response_string = choice
-        .message
-        .content
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("No content in OpenAI response message"))?;
-
-    let structured_output: GenerateBranchNameOutput = serde_json::from_str(response_string)
-        .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
-
-    Ok(structured_output.branch_name)
+    Ok(response.branch_name)
 }
 
 #[derive(serde::Serialize, serde::Deserialize, JsonSchema)]

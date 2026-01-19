@@ -1,5 +1,4 @@
 use but_ctx::Context;
-use but_llm::OpenAiProvider;
 use but_tools::emit::Emittable;
 use gitbutler_project::ProjectId;
 
@@ -95,7 +94,7 @@ pub struct ButBot<'a> {
     emitter: std::sync::Arc<but_tools::emit::Emitter>,
     message_id: String,
     project_id: ProjectId,
-    openai: &'a OpenAiProvider,
+    llm: &'a but_llm::LLMProvider,
     chat_messages: Vec<but_llm::ChatMessage>,
     text_response_buffer: Vec<String>,
 }
@@ -106,7 +105,7 @@ impl<'a> ButBot<'a> {
         emitter: std::sync::Arc<but_tools::emit::Emitter>,
         message_id: String,
         project_id: ProjectId,
-        openai: &'a OpenAiProvider,
+        llm: &'a but_llm::LLMProvider,
         chat_messages: Vec<but_llm::ChatMessage>,
     ) -> Self {
         Self {
@@ -115,7 +114,7 @@ impl<'a> ButBot<'a> {
             emitter,
             message_id,
             project_id,
-            openai,
+            llm,
             chat_messages,
             text_response_buffer: vec![],
         }
@@ -143,10 +142,10 @@ Take a look at the conversation, specifically, the last user request below, and 
             "
         ))];
 
-        let response = but_llm::structured_output_blocking::<ButButRouteResponse>(
-            self.openai,
+        let response = self.llm.structured_output::<ButButRouteResponse>(
             routing_sys_prompt,
             messages,
+            MODEL.to_string(),
         )?;
 
         match response {
@@ -197,12 +196,11 @@ Reference relevant resources from the project status (e.g. branches, commits, fi
             but_llm::ChatMessage::User(request),
         ];
 
-        but_llm::tool_calling_loop(
-            self.openai,
+        self.llm.tool_calling_loop(
             &self.state.sys_prompt.clone(),
             internal_chat_messages,
             &mut self.state,
-            Some(MODEL.to_string()),
+            MODEL.to_string(),
         )?;
 
         Ok(())
@@ -252,12 +250,11 @@ Based on the conversation below and the project status, please update the status
             but_llm::ChatMessage::User(request),
         ];
 
-        but_llm::tool_calling_loop(
-            self.openai,
+        self.llm.tool_calling_loop(
             &self.state.sys_prompt.clone(),
             internal_chat_messages,
             &mut self.state,
-            Some(MODEL.to_string()),
+            MODEL.to_string(),
         )?;
 
         Ok(())
@@ -310,12 +307,11 @@ Based on the conversation below and the project status, please update the status
                 }
             });
 
-        let (response, _) = but_llm::tool_calling_loop_stream(
-            self.openai,
+        let (response, _) = self.llm.tool_calling_loop_stream(
             SYS_PROMPT,
             internal_chat_messages,
             &mut toolset,
-            Some(MODEL.to_string()),
+            MODEL.to_string(),
             on_token_cb,
         )?;
 
@@ -393,12 +389,11 @@ If you need to perform actions, do so, and be concise in the description of the 
                 }
             });
 
-        let (response, _) = but_llm::tool_calling_loop_stream(
-            self.openai,
+        let (response, _) = self.llm.tool_calling_loop_stream(
             SYS_PROMPT,
             internal_chat_messages,
             &mut toolset,
-            Some(MODEL.to_string()),
+            MODEL.to_string(),
             on_token_cb,
         )?;
 

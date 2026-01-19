@@ -1,7 +1,7 @@
 use but_api::json::Error;
 use but_core::ui::TreeChange;
 use but_ctx::Context;
-use but_llm::OpenAiProvider;
+use but_llm::LLMProvider;
 use gitbutler_project::ProjectId;
 use tauri::Emitter;
 use tracing::instrument;
@@ -57,12 +57,13 @@ pub fn auto_commit(
     app_handle: tauri::AppHandle,
     project_id: ProjectId,
     changes: Vec<TreeChange>,
+    model: String,
 ) -> anyhow::Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
     let changes: Vec<but_core::TreeChange> =
         changes.into_iter().map(|change| change.into()).collect();
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let openai = OpenAiProvider::with(Some(but_llm::CredentialsKind::GitButlerProxied));
+    let llm = LLMProvider::default_openai();
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
         app_handle.emit(name, payload).unwrap_or_else(|e| {
@@ -70,8 +71,8 @@ pub fn auto_commit(
         });
     });
 
-    match openai {
-        Some(openai) => but_action::auto_commit(emitter, ctx, &openai, changes)
+    match llm {
+        Some(llm) => but_action::auto_commit(emitter, ctx, &llm, changes, model)
             .map_err(|e| Error::from(anyhow::anyhow!(e))),
         None => Err(Error::from(anyhow::anyhow!(
             "No valid credentials found for AI provider. Please configure your GitButler account credentials."
@@ -85,12 +86,13 @@ pub fn auto_branch_changes(
     app_handle: tauri::AppHandle,
     project_id: ProjectId,
     changes: Vec<TreeChange>,
+    model: String,
 ) -> anyhow::Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
     let changes: Vec<but_core::TreeChange> =
         changes.into_iter().map(|change| change.into()).collect();
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let openai = OpenAiProvider::with(Some(but_llm::CredentialsKind::GitButlerProxied));
+    let llm = LLMProvider::default_openai();
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
         app_handle.emit(name, payload).unwrap_or_else(|e| {
@@ -98,8 +100,8 @@ pub fn auto_branch_changes(
         });
     });
 
-    match openai {
-        Some(openai) => but_action::branch_changes(emitter, ctx, &openai, changes)
+    match llm {
+        Some(llm) => but_action::branch_changes(emitter, ctx, &llm, changes, model)
             .map_err(|e| Error::from(anyhow::anyhow!(e))),
         None => Err(Error::from(anyhow::anyhow!(
             "No valid credentials found for AI provider. Please configure your GitButler account credentials."
@@ -114,7 +116,7 @@ pub fn freestyle(
     project_id: ProjectId,
     message_id: String,
     chat_messages: Vec<but_llm::ChatMessage>,
-    model: Option<String>,
+    model: String,
 ) -> anyhow::Result<String, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
@@ -125,14 +127,14 @@ pub fn freestyle(
         });
     });
 
-    let openai = OpenAiProvider::with(Some(but_llm::CredentialsKind::GitButlerProxied));
-    match openai {
-        Some(openai) => but_action::freestyle(
+    let llm = LLMProvider::default_openai();
+    match llm {
+        Some(llm) => but_action::freestyle(
             project_id,
             message_id,
             emitter,
             ctx,
-            &openai,
+            &llm,
             chat_messages,
             model,
         )

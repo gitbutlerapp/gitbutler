@@ -1,5 +1,6 @@
+use std::sync::Arc;
+
 use but_ctx::Context;
-use but_llm::OpenAiProvider;
 use but_tools::emit::{Emittable, Emitter};
 use gitbutler_project::ProjectId;
 
@@ -15,10 +16,10 @@ pub fn bot(
     message_id: String,
     emitter: std::sync::Arc<Emitter>,
     ctx: &mut Context,
-    openai: &OpenAiProvider,
+    llm: &but_llm::LLMProvider,
     chat_messages: Vec<but_llm::ChatMessage>,
 ) -> anyhow::Result<String> {
-    let mut but_bot = ButBot::new(ctx, emitter, message_id, project_id, openai, chat_messages);
+    let mut but_bot = ButBot::new(ctx, emitter, message_id, project_id, llm, chat_messages);
     let mut graph = AgentGraph::default();
     graph.start(&mut but_bot)
 }
@@ -29,7 +30,8 @@ pub fn forge_branch_chat(
     branch: String,
     message_id: String,
     emitter: std::sync::Arc<Emitter>,
-    openai: &OpenAiProvider,
+    llm: &but_llm::LLMProvider,
+    model: String,
     chat_messages: Vec<but_llm::ChatMessage>,
     reviews: Vec<but_forge::ForgeReview>,
 ) -> anyhow::Result<String> {
@@ -61,25 +63,24 @@ pub fn forge_branch_chat(
 
     let message_id_cloned = message_id.clone();
     let project_id_cloned = project_id;
-    let on_token_cb: std::boxed::Box<dyn Fn(&str) + Send + Sync + 'static> =
-        std::boxed::Box::new({
-            let emitter = emitter.clone();
-            let message_id = message_id_cloned;
-            let project_id = project_id_cloned;
-            move |token: &str| {
-                let token_update = but_tools::emit::TokenUpdate {
-                    token: token.to_string(),
-                    project_id,
-                    message_id: message_id.clone(),
-                };
-                let (name, payload) = token_update.emittable();
-                (emitter)(&name, payload);
-            }
-        });
+    let on_token_cb: Arc<dyn Fn(&str) + Send + Sync + 'static> = Arc::new({
+        let emitter = emitter.clone();
+        let message_id = message_id_cloned;
+        let project_id = project_id_cloned;
+        move |token: &str| {
+            let token_update = but_tools::emit::TokenUpdate {
+                token: token.to_string(),
+                project_id,
+                message_id: message_id.clone(),
+            };
+            let (name, payload) = token_update.emittable();
+            (emitter)(&name, payload);
+        }
+    });
 
-    let response =
-        but_llm::stream_response_blocking(openai, &sys_prompt, chat_messages, None, on_token_cb)?
-            .unwrap_or_default();
+    let response = llm
+        .stream_response(&sys_prompt, chat_messages, model, on_token_cb)?
+        .unwrap_or_default();
 
     Ok(response)
 }

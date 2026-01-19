@@ -138,6 +138,46 @@ impl LLMClient for OpenAiProvider {
             on_token,
         )
     }
+
+    fn tool_calling_loop(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        tool_set: &mut impl Toolset,
+        model: String,
+    ) -> Result<String> {
+        tool_calling_loop(self, system_message, chat_messages, tool_set, Some(model))
+    }
+
+    fn stream_response(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        model: String,
+        on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
+    ) -> Result<Option<String>> {
+        stream_response_blocking(self, system_message, chat_messages, Some(model), on_token)
+    }
+
+    fn structured_output<
+        T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
+    >(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        model: String,
+    ) -> Result<Option<T>> {
+        structured_output_blocking::<T>(self, system_message, chat_messages, Some(model))
+    }
+
+    fn response(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        model: String,
+    ) -> Result<Option<String>> {
+        response_blocking(self, system_message, chat_messages, Some(model))
+    }
 }
 
 pub fn structured_output_blocking<
@@ -146,6 +186,7 @@ pub fn structured_output_blocking<
     openai: &OpenAiProvider,
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
+    model: Option<String>,
 ) -> anyhow::Result<Option<T>> {
     let client = openai.client()?;
     let mut messages: Vec<ChatCompletionRequestMessage> =
@@ -161,7 +202,7 @@ pub fn structured_output_blocking<
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(structured_output::<T>(&client, messages))
+            .block_on(structured_output::<T>(&client, messages, model))
     })
     .join()
     .unwrap()
@@ -170,6 +211,7 @@ pub fn structured_output_blocking<
 pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
+    model: Option<String>,
 ) -> anyhow::Result<Option<T>> {
     let schema = schema_for!(T);
     let schema_value = serde_json::to_value(&schema)?;
@@ -182,8 +224,10 @@ pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSche
         },
     };
 
+    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
+
     let request = CreateChatCompletionRequestArgs::default()
-        .model("gpt-5-mini")
+        .model(model)
         .messages(messages)
         .response_format(response_format)
         .build()?;
@@ -193,6 +237,56 @@ pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSche
     for choice in response.choices {
         if let Some(content) = choice.message.content {
             return Ok(Some(serde_json::from_str::<T>(&content)?));
+        }
+    }
+
+    Ok(None)
+}
+
+fn response_blocking(
+    client: &OpenAiProvider,
+    system_message: &str,
+    chat_messages: Vec<ChatMessage>,
+    model: Option<String>,
+) -> anyhow::Result<Option<String>> {
+    let mut messages: Vec<ChatCompletionRequestMessage> =
+        vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
+
+    messages.extend(
+        chat_messages
+            .into_iter()
+            .map(ChatCompletionRequestMessage::from)
+            .collect::<Vec<_>>(),
+    );
+
+    let client = client.client()?;
+    let messages_owned = messages.clone();
+
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(response(&client, messages_owned, model))
+    })
+    .join()
+    .unwrap()
+}
+
+async fn response(
+    client: &Client<OpenAIConfig>,
+    messages: Vec<ChatCompletionRequestMessage>,
+    model: Option<String>,
+) -> anyhow::Result<Option<String>> {
+    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
+    let request = CreateChatCompletionRequestArgs::default()
+        .model(model)
+        .messages(messages)
+        .build()?;
+
+    let response = client.chat().create(request).await?;
+
+    for choice in response.choices {
+        if let Some(content) = choice.message.content {
+            return Ok(Some(content));
         }
     }
 
@@ -279,7 +373,7 @@ pub fn stream_response_blocking(
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
     model: Option<String>,
-    on_token: Box<dyn Fn(&str) + Send + Sync + 'static>,
+    on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
 ) -> anyhow::Result<Option<String>> {
     let mut messages: Vec<ChatCompletionRequestMessage> =
         vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
@@ -293,11 +387,15 @@ pub fn stream_response_blocking(
 
     let client = client.client()?;
     let messages_owned = messages.clone();
+    let on_token_cb = {
+        let on_token = on_token.clone();
+        Box::new(move |token: &str| on_token(token)) as Box<dyn Fn(&str) + Send + Sync + 'static>
+    };
 
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(stream_response(&client, messages_owned, model, on_token))
+            .block_on(stream_response(&client, messages_owned, model, on_token_cb))
     })
     .join()
     .unwrap()

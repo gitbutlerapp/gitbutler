@@ -292,7 +292,6 @@ async fn match_subcommand(
                 }
                 claude::Subcommands::Stop => {
                     but_claude::hooks::handle_stop(std::io::stdin().lock())
-                        .await
                         .output_claude_json()
                         .emit_metrics(metrics_ctx)
                 }

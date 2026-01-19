@@ -32,6 +32,8 @@
 	import { untrack } from 'svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 
+	const DEFAULT_MODEL = 'gpt-4.1';
+
 	type Props = {
 		projectId: string;
 		stackId?: string;
@@ -146,7 +148,8 @@
 
 		await branchChanges({
 			projectId,
-			changes: treeChanges
+			changes: treeChanges,
+			model: DEFAULT_MODEL
 		});
 
 		showToast({
@@ -172,7 +175,8 @@
 
 		await autoCommit({
 			projectId,
-			changes: treeChanges
+			changes: treeChanges,
+			model: DEFAULT_MODEL
 		});
 
 		showToast({
