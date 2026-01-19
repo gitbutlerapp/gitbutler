@@ -1,10 +1,11 @@
 use std::{fmt::Debug, str};
 
+use but_llm::structured_output_blocking;
 use but_tools::workspace::ProjectStatus;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{ChatMessage, OpenAiProvider, openai};
+use crate::{ChatMessage, OpenAiProvider};
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub enum BranchSuggestion {
@@ -100,9 +101,8 @@ pub(crate) fn group(
 
     let messages = vec![ChatMessage::User(user_message)];
 
-    let grouping =
-        openai::structured_output_blocking::<Grouping>(openai, system_message, messages)?
-            .ok_or_else(|| anyhow::anyhow!("Failed to get grouping from OpenAI"))?;
+    let grouping = structured_output_blocking::<Grouping>(openai, system_message, messages)?
+        .ok_or_else(|| anyhow::anyhow!("Failed to get grouping from OpenAI"))?;
 
     Ok(grouping)
 }

@@ -17,6 +17,7 @@ but-action.workspace = true
 but-hunk-assignment.workspace = true
 but-core.workspace = true
 but-ctx.workspace = true
+but-llm.workspace = true
 
 gitbutler-project.workspace = true
 gitbutler-stack.workspace = true

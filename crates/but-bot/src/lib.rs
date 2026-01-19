@@ -1,5 +1,5 @@
-use but_action::OpenAiProvider;
 use but_ctx::Context;
+use but_llm::OpenAiProvider;
 use but_tools::emit::{Emittable, Emitter};
 use gitbutler_project::ProjectId;
 
@@ -16,7 +16,7 @@ pub fn bot(
     emitter: std::sync::Arc<Emitter>,
     ctx: &mut Context,
     openai: &OpenAiProvider,
-    chat_messages: Vec<but_action::ChatMessage>,
+    chat_messages: Vec<but_llm::ChatMessage>,
 ) -> anyhow::Result<String> {
     let mut but_bot = ButBot::new(ctx, emitter, message_id, project_id, openai, chat_messages);
     let mut graph = AgentGraph::default();
@@ -30,7 +30,7 @@ pub fn forge_branch_chat(
     message_id: String,
     emitter: std::sync::Arc<Emitter>,
     openai: &OpenAiProvider,
-    chat_messages: Vec<but_action::ChatMessage>,
+    chat_messages: Vec<but_llm::ChatMessage>,
     reviews: Vec<but_forge::ForgeReview>,
 ) -> anyhow::Result<String> {
     let reviews_text = reviews
@@ -77,14 +77,9 @@ pub fn forge_branch_chat(
             }
         });
 
-    let response = but_action::stream_response_blocking(
-        openai,
-        &sys_prompt,
-        chat_messages,
-        None,
-        on_token_cb,
-    )?
-    .unwrap_or_default();
+    let response =
+        but_llm::stream_response_blocking(openai, &sys_prompt, chat_messages, None, on_token_cb)?
+            .unwrap_or_default();
 
     Ok(response)
 }

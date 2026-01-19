@@ -1,5 +1,6 @@
 use anyhow::Context as _;
 use but_ctx::Context;
+use but_llm::tool_calling_loop;
 use but_tools::{emit::Emitter, workspace::commit_toolset};
 
 use crate::OpenAiProvider;
@@ -37,7 +38,7 @@ pub(crate) fn auto_commit(
         3. Determine if any new branches need to be created. If so, create them using the provided tool. Most of the time, all commits should be made to the same branch. Prefer that, but if you find that the changes are unrelated, commit to separate branches.
         4. For each group of changes, create a commit (using the provided tool) with a detailed summary of the changes in the group (not the intention, but an overview of the actual changes made and why they are related).
         5. When you're done, only send the message 'done'
-        
+
         Grouping rules:
         - Group changes that modify files within the same feature, module, or directory.
         - If multiple files are changed together to implement a single feature or fix, group them in one commit.
@@ -52,7 +53,7 @@ pub(crate) fn auto_commit(
         </project_status>
     ");
 
-    crate::openai::tool_calling_loop(
+    tool_calling_loop(
         openai,
         system_message,
         vec![prompt.into()],

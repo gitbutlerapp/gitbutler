@@ -1,6 +1,6 @@
-use but_action::OpenAiProvider;
 use but_api::json::Error;
 use but_ctx::Context;
+use but_llm::OpenAiProvider;
 use gitbutler_project::ProjectId;
 use tauri::Emitter;
 use tracing::instrument;
@@ -11,7 +11,7 @@ pub fn bot(
     app_handle: tauri::AppHandle,
     project_id: ProjectId,
     message_id: String,
-    chat_messages: Vec<but_action::ChatMessage>,
+    chat_messages: Vec<but_llm::ChatMessage>,
 ) -> anyhow::Result<String, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
@@ -22,7 +22,7 @@ pub fn bot(
         });
     });
 
-    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
+    let openai = OpenAiProvider::with(Some(but_llm::CredentialsKind::GitButlerProxied));
     match openai {
         Some(openai) => but_bot::bot(project_id, message_id, emitter, ctx, &openai, chat_messages)
             .map_err(|e| Error::from(anyhow::anyhow!(e))),
@@ -39,7 +39,7 @@ pub async fn forge_branch_chat(
     project_id: ProjectId,
     branch: String,
     message_id: String,
-    chat_messages: Vec<but_action::ChatMessage>,
+    chat_messages: Vec<but_llm::ChatMessage>,
     filter: Option<but_forge::ForgeReviewFilter>,
 ) -> anyhow::Result<String, Error> {
     let reviews =
@@ -50,7 +50,7 @@ pub async fn forge_branch_chat(
         });
     });
 
-    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
+    let openai = OpenAiProvider::with(Some(but_llm::CredentialsKind::GitButlerProxied));
     match openai {
         Some(openai) => but_bot::forge_branch_chat(
             project_id,

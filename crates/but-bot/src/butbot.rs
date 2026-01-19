@@ -1,5 +1,5 @@
-use but_action::OpenAiProvider;
 use but_ctx::Context;
+use but_llm::OpenAiProvider;
 use but_tools::emit::Emittable;
 use gitbutler_project::ProjectId;
 
@@ -96,7 +96,7 @@ pub struct ButBot<'a> {
     message_id: String,
     project_id: ProjectId,
     openai: &'a OpenAiProvider,
-    chat_messages: Vec<but_action::ChatMessage>,
+    chat_messages: Vec<but_llm::ChatMessage>,
     text_response_buffer: Vec<String>,
 }
 
@@ -107,7 +107,7 @@ impl<'a> ButBot<'a> {
         message_id: String,
         project_id: ProjectId,
         openai: &'a OpenAiProvider,
-        chat_messages: Vec<but_action::ChatMessage>,
+        chat_messages: Vec<but_llm::ChatMessage>,
     ) -> Self {
         Self {
             state: AgentState::new(project_id, message_id.clone(), emitter.clone()),
@@ -134,7 +134,7 @@ Please, take a look at the provided conversation and return which is the route t
             .collect::<Vec<_>>()
             .join("\n\n");
 
-        let messages = vec![but_action::ChatMessage::User(format!(
+        let messages = vec![but_llm::ChatMessage::User(format!(
             "
 Take a look at the conversation, specifically, the last user request below, and choose the best route to take.
 <CONVERSATION>
@@ -143,7 +143,7 @@ Take a look at the conversation, specifically, the last user request below, and 
             "
         ))];
 
-        let response = but_action::structured_output_blocking::<ButButRouteResponse>(
+        let response = but_llm::structured_output_blocking::<ButButRouteResponse>(
             self.openai,
             routing_sys_prompt,
             messages,
@@ -184,20 +184,20 @@ Reference relevant resources from the project status (e.g. branches, commits, fi
 "
         );
 
-        let internal_chat_messages: Vec<but_action::ChatMessage> = vec![
-            but_action::ChatMessage::ToolCall(but_action::ToolCallContent {
+        let internal_chat_messages: Vec<but_llm::ChatMessage> = vec![
+            but_llm::ChatMessage::ToolCall(but_llm::ToolCallContent {
                 id: "project_status".to_string(),
                 name: "get_project_status".to_string(),
                 arguments: "{\"filterChanges\": null}".to_string(),
             }),
-            but_action::ChatMessage::ToolResponse(but_action::ToolResponseContent {
+            but_llm::ChatMessage::ToolResponse(but_llm::ToolResponseContent {
                 id: "project_status".to_string(),
                 result: serialized_status,
             }),
-            but_action::ChatMessage::User(request),
+            but_llm::ChatMessage::User(request),
         ];
 
-        but_action::tool_calling_loop(
+        but_llm::tool_calling_loop(
             self.openai,
             &self.state.sys_prompt.clone(),
             internal_chat_messages,
@@ -239,20 +239,20 @@ Based on the conversation below and the project status, please update the status
 "
         );
 
-        let internal_chat_messages: Vec<but_action::ChatMessage> = vec![
-            but_action::ChatMessage::ToolCall(but_action::ToolCallContent {
+        let internal_chat_messages: Vec<but_llm::ChatMessage> = vec![
+            but_llm::ChatMessage::ToolCall(but_llm::ToolCallContent {
                 id: "project_status".to_string(),
                 name: "get_project_status".to_string(),
                 arguments: "{\"filterChanges\": null}".to_string(),
             }),
-            but_action::ChatMessage::ToolResponse(but_action::ToolResponseContent {
+            but_llm::ChatMessage::ToolResponse(but_llm::ToolResponseContent {
                 id: "project_status".to_string(),
                 result: serialized_status,
             }),
-            but_action::ChatMessage::User(request),
+            but_llm::ChatMessage::User(request),
         ];
 
-        but_action::tool_calling_loop(
+        but_llm::tool_calling_loop(
             self.openai,
             &self.state.sys_prompt.clone(),
             internal_chat_messages,
@@ -278,16 +278,14 @@ Based on the conversation below and the project status, please update the status
         let mut internal_chat_messages = self.chat_messages.clone();
 
         // Add the project status to the chat messages.
-        internal_chat_messages.push(but_action::ChatMessage::ToolCall(
-            but_action::ToolCallContent {
-                id: "project_status".to_string(),
-                name: "get_project_status".to_string(),
-                arguments: "{\"filterChanges\": null}".to_string(),
-            },
-        ));
+        internal_chat_messages.push(but_llm::ChatMessage::ToolCall(but_llm::ToolCallContent {
+            id: "project_status".to_string(),
+            name: "get_project_status".to_string(),
+            arguments: "{\"filterChanges\": null}".to_string(),
+        }));
 
-        internal_chat_messages.push(but_action::ChatMessage::ToolResponse(
-            but_action::ToolResponseContent {
+        internal_chat_messages.push(but_llm::ChatMessage::ToolResponse(
+            but_llm::ToolResponseContent {
                 id: "project_status".to_string(),
                 result: serialized_status,
             },
@@ -312,7 +310,7 @@ Based on the conversation below and the project status, please update the status
                 }
             });
 
-        let (response, _) = but_action::tool_calling_loop_stream(
+        let (response, _) = but_llm::tool_calling_loop_stream(
             self.openai,
             SYS_PROMPT,
             internal_chat_messages,
@@ -328,10 +326,7 @@ Based on the conversation below and the project status, please update the status
     ///
     /// This function will take the todo item, the chat messages, and the project status,
     /// and execute the action specified in the todo item.
-    fn execute_todo(
-        &mut self,
-        todo: &Todo,
-    ) -> anyhow::Result<(String, Vec<but_action::ChatMessage>)> {
+    fn execute_todo(&mut self, todo: &Todo) -> anyhow::Result<(String, Vec<but_llm::ChatMessage>)> {
         let project_status = but_tools::workspace::get_project_status(self.ctx, None)?;
         let serialized_status = serde_json::to_string_pretty(&project_status)
             .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
@@ -363,19 +358,17 @@ If you need to perform actions, do so, and be concise in the description of the 
             todo.as_prompt()
         );
 
-        internal_chat_messages.push(but_action::ChatMessage::User(request));
+        internal_chat_messages.push(but_llm::ChatMessage::User(request));
 
         // Add the project status to the chat messages.
-        internal_chat_messages.push(but_action::ChatMessage::ToolCall(
-            but_action::ToolCallContent {
-                id: "project_status".to_string(),
-                name: "get_project_status".to_string(),
-                arguments: "{\"filterChanges\": null}".to_string(),
-            },
-        ));
+        internal_chat_messages.push(but_llm::ChatMessage::ToolCall(but_llm::ToolCallContent {
+            id: "project_status".to_string(),
+            name: "get_project_status".to_string(),
+            arguments: "{\"filterChanges\": null}".to_string(),
+        }));
 
-        internal_chat_messages.push(but_action::ChatMessage::ToolResponse(
-            but_action::ToolResponseContent {
+        internal_chat_messages.push(but_llm::ChatMessage::ToolResponse(
+            but_llm::ToolResponseContent {
                 id: "project_status".to_string(),
                 result: serialized_status,
             },
@@ -400,7 +393,7 @@ If you need to perform actions, do so, and be concise in the description of the 
                 }
             });
 
-        let (response, _) = but_action::tool_calling_loop_stream(
+        let (response, _) = but_llm::tool_calling_loop_stream(
             self.openai,
             SYS_PROMPT,
             internal_chat_messages,
@@ -412,8 +405,8 @@ If you need to perform actions, do so, and be concise in the description of the 
         // Remove the injected project status tool calls and responses from the messages.
         internal_chat_messages = self.chat_messages.clone();
 
-        internal_chat_messages.push(but_action::ChatMessage::User(todo.as_prompt()));
-        internal_chat_messages.push(but_action::ChatMessage::Assistant(response.clone()));
+        internal_chat_messages.push(but_llm::ChatMessage::User(todo.as_prompt()));
+        internal_chat_messages.push(but_llm::ChatMessage::Assistant(response.clone()));
 
         // Emit a new line
         let end_token_update = but_tools::emit::TokenEnd {

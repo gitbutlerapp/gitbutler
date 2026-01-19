@@ -1,8 +1,9 @@
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
-use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
+use but_action::{ActionHandler, Source, reword::CommitEvent};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
+use but_llm::OpenAiProvider;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::legacy::StacksFilter;
 use gitbutler_project::Project;

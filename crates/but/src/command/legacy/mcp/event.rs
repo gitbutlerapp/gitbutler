@@ -1,4 +1,5 @@
-use but_action::{CredentialsKind, OpenAiProvider, reword::CommitEvent};
+use but_action::reword::CommitEvent;
+use but_llm::{CredentialsKind, OpenAiProvider};
 
 #[derive(Debug, Clone)]
 pub enum Event {
