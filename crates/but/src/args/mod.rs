@@ -170,10 +170,13 @@ pub enum Subcommands {
         target: Option<String>,
     },
 
-    /// Shows detailed information about a commit.
+    /// Shows detailed information about a commit or branch.
     ///
-    /// Displays the full commit message, author information, committer information
-    /// (if different from author), and the list of files modified in the commit.
+    /// When given a commit ID, displays the full commit message, author information,
+    /// committer information (if different from author), and the list of files modified.
+    ///
+    /// When given a branch name, displays the branch name and a list of all commits
+    /// on that branch. Use --verbose to show full commit messages and files changed.
     ///
     /// ## Examples
     ///
@@ -189,10 +192,25 @@ pub enum Subcommands {
     /// but show c5
     /// ```
     ///
+    /// Show branch commits by branch name:
+    ///
+    /// ```text
+    /// but show my-feature-branch
+    /// ```
+    ///
+    /// Show branch with full commit details:
+    ///
+    /// ```text
+    /// but show my-feature-branch --verbose
+    /// ```
+    ///
     #[cfg(feature = "legacy")]
     Show {
-        /// The commit ID (short or full SHA) or CLI ID to show details for
+        /// The commit ID (short or full SHA), branch name, or CLI ID to show details for
         commit: String,
+        /// Show full commit messages and files changed for each commit
+        #[clap(short = 'v', long = "verbose")]
+        verbose: bool,
     },
 
     /// Initializes a GitButler project from a git repository in the current directory.
@@ -720,6 +738,7 @@ pub enum Subcommands {
     /// such as Inspection, Branching and Committing, Server Interactions, etc.
     ///
     /// This is equivalent to running `but -h` to see the command overview.
+    #[clap(hide = true)]
     Help,
 }
 
