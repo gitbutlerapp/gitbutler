@@ -377,9 +377,8 @@
 							disabled={absorbingChanges.current.isLoading}
 						/>
 						<ContextMenuItem
-							label="Absorb changes"
+							label="Absorb changes…"
 							icon="absorb"
-							tooltip="Try to find the best commit in the workspace to amend the changes into."
 							onclick={() => {
 								triggerAbsorbChanges(item.changes);
 								contextMenu.close();
@@ -518,7 +517,6 @@
 							<ContextMenuSection>
 								<ContextMenuItem
 									label="Auto commit"
-									tooltip="Try to figure out where to commit the changes. Can create new branches too."
 									onclick={async () => {
 										closeSubmenu();
 										contextMenu.close();
@@ -528,7 +526,6 @@
 								/>
 								<ContextMenuItem
 									label="Branch changes"
-									tooltip="Create a new branch and commit the changes into it."
 									onclick={() => {
 										closeSubmenu();
 										contextMenu.close();
