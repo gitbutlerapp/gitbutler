@@ -19,7 +19,12 @@ use schemars::{JsonSchema, schema_for};
 use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
 
-#[derive(Debug, Clone, serde::Serialize, strum::Display)]
+use crate::{
+    StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
+    client::LLMClient,
+};
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display)]
 pub enum CredentialsKind {
     EnvVarOpenAiKey,
     OwnOpenAiKey,
@@ -115,12 +120,73 @@ impl OpenAiProvider {
     }
 }
 
+impl LLMClient for OpenAiProvider {
+    fn tool_calling_loop_stream(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        tool_set: &mut impl Toolset,
+        model: String,
+        on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
+    ) -> Result<(String, Vec<ChatMessage>)> {
+        tool_calling_loop_stream(
+            self,
+            system_message,
+            chat_messages,
+            tool_set,
+            Some(model),
+            on_token,
+        )
+    }
+
+    fn tool_calling_loop(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        tool_set: &mut impl Toolset,
+        model: String,
+    ) -> Result<String> {
+        tool_calling_loop(self, system_message, chat_messages, tool_set, Some(model))
+    }
+
+    fn stream_response(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        model: String,
+        on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
+    ) -> Result<Option<String>> {
+        stream_response_blocking(self, system_message, chat_messages, Some(model), on_token)
+    }
+
+    fn structured_output<
+        T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
+    >(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        model: String,
+    ) -> Result<Option<T>> {
+        structured_output_blocking::<T>(self, system_message, chat_messages, Some(model))
+    }
+
+    fn response(
+        &self,
+        system_message: &str,
+        chat_messages: Vec<ChatMessage>,
+        model: String,
+    ) -> Result<Option<String>> {
+        response_blocking(self, system_message, chat_messages, Some(model))
+    }
+}
+
 pub fn structured_output_blocking<
     T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
 >(
     openai: &OpenAiProvider,
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
+    model: Option<String>,
 ) -> anyhow::Result<Option<T>> {
     let client = openai.client()?;
     let mut messages: Vec<ChatCompletionRequestMessage> =
@@ -136,7 +202,7 @@ pub fn structured_output_blocking<
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(structured_output::<T>(&client, messages))
+            .block_on(structured_output::<T>(&client, messages, model))
     })
     .join()
     .unwrap()
@@ -145,6 +211,7 @@ pub fn structured_output_blocking<
 pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
+    model: Option<String>,
 ) -> anyhow::Result<Option<T>> {
     let schema = schema_for!(T);
     let schema_value = serde_json::to_value(&schema)?;
@@ -157,8 +224,10 @@ pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSche
         },
     };
 
+    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
+
     let request = CreateChatCompletionRequestArgs::default()
-        .model("gpt-5-mini")
+        .model(model)
         .messages(messages)
         .response_format(response_format)
         .build()?;
@@ -168,6 +237,56 @@ pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSche
     for choice in response.choices {
         if let Some(content) = choice.message.content {
             return Ok(Some(serde_json::from_str::<T>(&content)?));
+        }
+    }
+
+    Ok(None)
+}
+
+fn response_blocking(
+    client: &OpenAiProvider,
+    system_message: &str,
+    chat_messages: Vec<ChatMessage>,
+    model: Option<String>,
+) -> anyhow::Result<Option<String>> {
+    let mut messages: Vec<ChatCompletionRequestMessage> =
+        vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
+
+    messages.extend(
+        chat_messages
+            .into_iter()
+            .map(ChatCompletionRequestMessage::from)
+            .collect::<Vec<_>>(),
+    );
+
+    let client = client.client()?;
+    let messages_owned = messages.clone();
+
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(response(&client, messages_owned, model))
+    })
+    .join()
+    .unwrap()
+}
+
+async fn response(
+    client: &Client<OpenAIConfig>,
+    messages: Vec<ChatCompletionRequestMessage>,
+    model: Option<String>,
+) -> anyhow::Result<Option<String>> {
+    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
+    let request = CreateChatCompletionRequestArgs::default()
+        .model(model)
+        .messages(messages)
+        .build()?;
+
+    let response = client.chat().create(request).await?;
+
+    for choice in response.choices {
+        if let Some(content) = choice.message.content {
+            return Ok(Some(content));
         }
     }
 
@@ -254,7 +373,7 @@ pub fn stream_response_blocking(
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
     model: Option<String>,
-    on_token: Box<dyn Fn(&str) + Send + Sync + 'static>,
+    on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
 ) -> anyhow::Result<Option<String>> {
     let mut messages: Vec<ChatCompletionRequestMessage> =
         vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
@@ -268,23 +387,19 @@ pub fn stream_response_blocking(
 
     let client = client.client()?;
     let messages_owned = messages.clone();
+    let on_token_cb = {
+        let on_token = on_token.clone();
+        Box::new(move |token: &str| on_token(token)) as Box<dyn Fn(&str) + Send + Sync + 'static>
+    };
 
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(stream_response(&client, messages_owned, model, on_token))
+            .block_on(stream_response(&client, messages_owned, model, on_token_cb))
     })
     .join()
     .unwrap()
 }
-
-pub struct ToolCall {
-    pub id: String,
-    pub name: String,
-    pub arguments: String,
-}
-
-type StreamToolCallResult = (Option<Vec<ToolCall>>, Option<String>);
 
 pub fn tool_calling_stream_blocking(
     client: &OpenAiProvider,
@@ -410,31 +525,6 @@ pub async fn tool_calling_stream(
 
     Ok((None, response_text))
 }
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ToolCallContent {
-    pub id: String,
-    pub name: String,
-    pub arguments: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ToolResponseContent {
-    pub id: String,
-    pub result: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", content = "content", rename_all = "camelCase")]
-pub enum ChatMessage {
-    User(String),
-    Assistant(String),
-    ToolCall(ToolCallContent),
-    ToolResponse(ToolResponseContent),
-}
-
 impl From<ChatMessage> for ChatCompletionRequestMessage {
     fn from(msg: ChatMessage) -> Self {
         match msg {

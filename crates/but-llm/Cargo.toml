@@ -14,7 +14,7 @@ but-serde.workspace = true
 but-tools.workspace = true
 
 async-openai.workspace = true
-ollama-rs = "0.3.3"
+ollama-rs = {version = "0.3.3", features = ["stream"]}
 
 serde.workspace = true
 serde-error = "0.1.3"
@@ -26,3 +26,4 @@ serde_json.workspace = true
 anyhow.workspace = true
 strum = { version = "0.27", features = ["derive"] }
 reqwest.workspace = true
+uuid.workspace = true

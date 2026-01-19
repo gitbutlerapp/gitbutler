@@ -1,15 +1,13 @@
 use anyhow::Context as _;
 use but_ctx::Context;
-use but_llm::tool_calling_loop;
 use but_tools::{emit::Emitter, workspace::commit_toolset};
-
-use crate::OpenAiProvider;
 
 pub(crate) fn branch_changes(
     emitter: std::sync::Arc<Emitter>,
     ctx: &mut Context,
-    openai: &OpenAiProvider,
+    llm: &but_llm::LLMProvider,
     changes: Vec<but_core::TreeChange>,
+    model: String,
 ) -> anyhow::Result<()> {
     let paths = changes
         .iter()
@@ -49,13 +47,7 @@ pub(crate) fn branch_changes(
         </project_status>
     ");
 
-    tool_calling_loop(
-        openai,
-        system_message,
-        vec![prompt.into()],
-        &mut toolset,
-        None,
-    )?;
+    llm.tool_calling_loop(system_message, vec![prompt.into()], &mut toolset, model)?;
 
     Ok(())
 }

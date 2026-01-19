@@ -4,7 +4,7 @@ use anyhow::{Context as _, Result, anyhow};
 use but_action::{ActionHandler, Source, rename_branch::RenameBranchParams, reword::CommitEvent};
 use but_ctx::{Context, access::WorktreeWritePermission};
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_llm::OpenAiProvider;
+use but_llm::LLMProvider;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::{
     legacy::{StacksFilter, ui::StackEntry},
@@ -83,7 +83,7 @@ pub struct ClaudeStopInput {
     pub stop_hook_active: Option<bool>,
 }
 
-pub async fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
+pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
     let input: ClaudeStopInput = serde_json::from_reader(read)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
 
@@ -173,9 +173,7 @@ pub async fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookO
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if available
     // Alternatively, and probably better - we could spawn a new process to do this
 
-    if let Some(openai_client) =
-        OpenAiProvider::with(None).and_then(|provider| provider.client().ok())
-    {
+    if let Some(llm) = LLMProvider::default_openai() {
         for branch in &outcome.updated_branches {
             let mut commit_message_mapping = HashMap::new();
 
@@ -192,8 +190,7 @@ pub async fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookO
                         app_settings: defer.ctx.settings().clone(),
                         trigger: id,
                     };
-                    let reword_result = but_action::reword::commit(&openai_client, commit_event)
-                        .await
+                    let reword_result = but_action::reword::commit(&llm, commit_event)
                         .ok()
                         .unwrap_or_default();
 
@@ -215,15 +212,9 @@ pub async fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookO
                             stack_id: branch.stack_id,
                             current_branch_name: branch.branch_name.clone(),
                         };
-                        but_action::rename_branch::rename_branch(
-                            defer.ctx,
-                            &openai_client,
-                            params,
-                            id,
-                        )
-                        .await
-                        .ok()
-                        .unwrap_or_else(|| branch.branch_name.clone())
+                        but_action::rename_branch::rename_branch(defer.ctx, &llm, params, id)
+                            .ok()
+                            .unwrap_or_else(|| branch.branch_name.clone())
                     } else {
                         branch.branch_name.clone()
                     }

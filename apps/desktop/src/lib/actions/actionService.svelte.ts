@@ -37,18 +37,23 @@ export class ActionService {
 function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			autoCommit: build.mutation<void, { projectId: string; changes: TreeChange[] }>({
-				extraOptions: {
-					command: 'auto_commit',
-					actionName: 'Figure out where to commit the given changes'
-				},
-				query: (args) => args,
-				invalidatesTags: [
-					invalidatesList(ReduxTag.HeadSha),
-					invalidatesList(ReduxTag.WorktreeChanges)
-				]
-			}),
-			autoBranchChanges: build.mutation<void, { projectId: string; changes: TreeChange[] }>({
+			autoCommit: build.mutation<void, { projectId: string; changes: TreeChange[]; model: string }>(
+				{
+					extraOptions: {
+						command: 'auto_commit',
+						actionName: 'Figure out where to commit the given changes'
+					},
+					query: (args) => args,
+					invalidatesTags: [
+						invalidatesList(ReduxTag.HeadSha),
+						invalidatesList(ReduxTag.WorktreeChanges)
+					]
+				}
+			),
+			autoBranchChanges: build.mutation<
+				void,
+				{ projectId: string; changes: TreeChange[]; model: string }
+			>({
 				extraOptions: {
 					command: 'auto_branch_changes',
 					actionName: 'Create a branch for the given changes'
@@ -61,7 +66,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			freestyle: build.mutation<
 				string,
-				{ projectId: string; messageId: string; chatMessages: ChatMessage[]; model: string | null }
+				{ projectId: string; messageId: string; chatMessages: ChatMessage[]; model: string }
 			>({
 				extraOptions: {
 					command: 'freestyle',
@@ -75,7 +80,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			bot: build.mutation<
 				string,
-				{ projectId: string; messageId: string; chatMessages: ChatMessage[] }
+				{ projectId: string; messageId: string; chatMessages: ChatMessage[]; model: string }
 			>({
 				extraOptions: {
 					command: 'bot',

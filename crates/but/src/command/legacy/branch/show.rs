@@ -1,4 +1,5 @@
 use but_ctx::Context;
+use but_llm::ChatMessage;
 use but_oxidize::OidExt;
 use colored::Colorize;
 use gitbutler_project::Project;
@@ -520,14 +521,10 @@ struct CommitInfo {
 
 #[instrument(skip(commits))]
 fn generate_branch_summary(branch_name: &str, commits: &[CommitInfo]) -> anyhow::Result<String> {
-    use async_openai::types::chat::{
-        ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessageArgs,
-        CreateChatCompletionRequestArgs,
-    };
-    use but_llm::OpenAiProvider;
+    use but_llm::LLMProvider;
 
     // Get OpenAI provider (tries GitButler proxied, own key, then env var)
-    let provider = OpenAiProvider::with(None).ok_or_else(|| {
+    let llm = LLMProvider::default_openai().ok_or_else(|| {
         anyhow::anyhow!(
             "No AI credentials found. Configure in GitButler settings or set OPENAI_API_KEY environment variable."
         )
@@ -559,40 +556,13 @@ fn generate_branch_summary(branch_name: &str, commits: &[CommitInfo]) -> anyhow:
     prompt.push_str(
         "\nHere is a good example:\n\nAdd an --ai flag to the branch show command to allow generating an \nAI-powered summary of a branch's commits. This allows the user to see\nat a glance what the branch is about without reading all commit messages.\n");
 
-    // Create OpenAI client and make request
-    let client = provider.client()?;
+    let system_message = "You are a helpful assistant that summarizes Git branch changes.";
+    let chat_messages = vec![ChatMessage::User(prompt)];
+    let model = "gpt-5-mini".to_string();
 
-    let messages = vec![
-        ChatCompletionRequestSystemMessage::from(
-            "You are a helpful assistant that summarizes Git branch changes.",
-        )
-        .into(),
-        ChatCompletionRequestUserMessageArgs::default()
-            .content(prompt)
-            .build()?
-            .into(),
-    ];
+    let response = llm.response(system_message, chat_messages, model)?;
 
-    let request = CreateChatCompletionRequestArgs::default()
-        .model("gpt-5-mini")
-        .messages(messages)
-        .max_completion_tokens(500u32)
-        .build()?;
-
-    let response = std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(client.chat().create(request))
-    })
-    .join()
-    .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
-
-    // Extract the summary from the response
-    let summary = response
-        .choices
-        .first()
-        .and_then(|choice| choice.message.content.clone())
-        .ok_or_else(|| anyhow::anyhow!("No response content from AI"))?;
+    let summary = response.unwrap_or_default().trim().to_string();
 
     Ok(summary)
 }

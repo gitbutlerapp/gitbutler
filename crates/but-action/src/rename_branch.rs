@@ -1,6 +1,5 @@
 use std::vec;
 
-use async_openai::{Client, config::OpenAIConfig};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 
@@ -13,9 +12,9 @@ pub struct RenameBranchParams {
     pub current_branch_name: String,
 }
 
-pub async fn rename_branch(
+pub fn rename_branch(
     ctx: &mut Context,
-    client: &Client<OpenAIConfig>,
+    llm: &but_llm::LLMProvider,
     parameters: RenameBranchParams,
     trigger_id: uuid::Uuid,
 ) -> anyhow::Result<String> {
@@ -41,8 +40,7 @@ pub async fn rename_branch(
 
     let commit_messages = vec![commit_message];
     let branch_name =
-        crate::generate::branch_name(client, &commit_messages, &diffs, &existing_branch_names)
-            .await?;
+        crate::generate::branch_name(llm, &commit_messages, &diffs, &existing_branch_names)?;
     let normalized_branch_name = gitbutler_reference::normalize_branch_name(&branch_name)?;
 
     let update = gitbutler_branch_actions::stack::update_branch_name(

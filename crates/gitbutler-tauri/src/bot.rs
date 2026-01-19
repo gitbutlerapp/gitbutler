@@ -1,6 +1,5 @@
 use but_api::json::Error;
 use but_ctx::Context;
-use but_llm::OpenAiProvider;
 use gitbutler_project::ProjectId;
 use tauri::Emitter;
 use tracing::instrument;
@@ -22,9 +21,9 @@ pub fn bot(
         });
     });
 
-    let openai = OpenAiProvider::with(Some(but_llm::CredentialsKind::GitButlerProxied));
-    match openai {
-        Some(openai) => but_bot::bot(project_id, message_id, emitter, ctx, &openai, chat_messages)
+    let llm = but_llm::LLMProvider::default_openai();
+    match llm {
+        Some(llm) => but_bot::bot(project_id, message_id, emitter, ctx, &llm, chat_messages)
             .map_err(|e| Error::from(anyhow::anyhow!(e))),
         None => Err(Error::from(anyhow::anyhow!(
             "No valid credentials found for AI provider. Please configure your GitButler account credentials."
@@ -41,6 +40,7 @@ pub async fn forge_branch_chat(
     message_id: String,
     chat_messages: Vec<but_llm::ChatMessage>,
     filter: Option<but_forge::ForgeReviewFilter>,
+    model: String,
 ) -> anyhow::Result<String, Error> {
     let reviews =
         but_api::legacy::forge::list_reviews_for_branch(project_id, branch.clone(), filter).await?;
@@ -50,14 +50,15 @@ pub async fn forge_branch_chat(
         });
     });
 
-    let openai = OpenAiProvider::with(Some(but_llm::CredentialsKind::GitButlerProxied));
-    match openai {
-        Some(openai) => but_bot::forge_branch_chat(
+    let llm = but_llm::LLMProvider::default_openai();
+    match llm {
+        Some(llm) => but_bot::forge_branch_chat(
             project_id,
             branch,
             message_id,
             emitter,
-            &openai,
+            &llm,
+            model,
             chat_messages,
             reviews,
         )
