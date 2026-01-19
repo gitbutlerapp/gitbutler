@@ -486,10 +486,20 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Reword { target, message } => {
+        Subcommands::Reword {
+            target,
+            message,
+            format,
+        } => {
             let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
-            command::legacy::reword::reword_target(&mut ctx, out, &target, message.as_deref())
-                .emit_metrics(metrics_ctx)
+            command::legacy::reword::reword_target(
+                &mut ctx,
+                out,
+                &target,
+                message.as_deref(),
+                format,
+            )
+            .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {

@@ -45,6 +45,10 @@ pub async fn commit(
         &diff,
     )
     .await?;
+
+    // Format the commit message to follow email RFC format (80 char line wrapping)
+    let message = crate::commit_format::format_commit_message(&message);
+
     let mut ctx = sync_ctx.into_thread_local();
     let stacks = stacks(&ctx)?;
     let stack_id = stacks
