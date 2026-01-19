@@ -97,12 +97,10 @@ mod tests {
         assert_eq!(*v.get()?, 42, "double read-only borrow is fine");
 
         {
-            {
-                let mut vr = v.get_mut()?;
-                assert_eq!(*vr, 42);
-                *vr = 52;
-                assert_eq!(*vr, 52);
-            }
+            let mut vr = v.get_mut()?;
+            assert_eq!(*vr, 42);
+            *vr = 52;
+            assert_eq!(*vr, 52);
         }
 
         assert_eq!(*v.get_mut()?, 52);

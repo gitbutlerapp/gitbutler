@@ -1,5 +1,18 @@
-/// Storage for cache tables.
+/// Storage for cache tables, along with their types.
+///
+/// ### Usage
+///
+/// Cache work the same as [`crate::table`]s. They are made more usable by providing a mutable instance through a shared reference
+/// when obtaining it from the `but-ctx::Context`.
 use crate::M;
+
+mod handle;
+mod table;
+
+#[rustfmt::skip]
+pub use table::{
+    update::{CachedCheckResult, CheckUpdateStatus},
+};
 
 /// Open `url` with migrations applied. These can fail.
 fn run_migrations<'m>(
@@ -29,9 +42,18 @@ fn open_with_migrations_infallible<'m>(
     migrations: impl IntoIterator<Item = M<'m>> + Clone,
 ) -> (rusqlite::Connection, &str) {
     let mem_url = ":memory:";
-    let (mut conn, mut url) = rusqlite::Connection::open_with_flags(url, rusqlite::OpenFlags::SQLITE_OPEN_EXRESCODE)
-        .map(|c| (c, url))
+    let res = if url == mem_url {
+        rusqlite::Connection::open(url)
+    } else {
+        rusqlite::Connection::open_with_flags(url, rusqlite::OpenFlags::SQLITE_OPEN_EXRESCODE)
+    }
+    .map(|c| (c, url));
+
+    let (mut conn, mut url) = res
         .or_else(|url_err| {
+            if url == mem_url {
+                panic!("FATAL: Couldn't open in-memory URL: {url_err}")
+            }
             tracing::warn!("Failed to open cache database at '{url}' - will try to recreate it by removing the broken one");
             if let Err(err) = std::fs::remove_file(url) {
                 tracing::warn!(
@@ -59,6 +81,9 @@ fn open_with_migrations_infallible<'m>(
         })
         .expect("FATAL: didn't expect to not be able to open an in-memory database at least");
 
+    if let Err(err) = crate::migration::improve_concurrency(&conn) {
+        tracing::warn!(?err, "Failed to improve concurrency - continuing without");
+    }
     if let Err(err) = run_migrations(&mut conn, migrations.clone()) {
         assert_ne!(
             url, mem_url,
@@ -82,60 +107,4 @@ fn open_with_migrations_infallible<'m>(
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::M;
-
-    mod open_with_migrations_infallible {
-        use super::{migrations, table_exists};
-        use crate::cache::open_with_migrations_infallible;
-
-        #[test]
-        fn destination_no_writable() {
-            let (conn, url) =
-                open_with_migrations_infallible("/proc/cannot-be-created.sqlite", migrations());
-            assert_eq!(
-                url, ":memory:",
-                "Permanent failures to open fall back to memory"
-            );
-            assert!(table_exists(&conn, "foo").unwrap());
-        }
-
-        #[test]
-        fn destination_corrupt() -> anyhow::Result<()> {
-            let tmp = tempfile::tempdir()?;
-            let url = tmp.path().join("corrupted-db.sqlite");
-            std::fs::write(&url, "definitely not valid sqlite")?;
-
-            let url = url.to_string_lossy();
-            let (conn, actual_url) = open_with_migrations_infallible(&url, migrations());
-            assert_eq!(
-                actual_url, url,
-                "it removed the broken file and opened the database anyway"
-            );
-            assert!(table_exists(&conn, "foo")?);
-            Ok(())
-        }
-    }
-
-    fn migrations() -> impl Iterator<Item = M<'static>> + Clone {
-        Some(M::up(
-            1,
-            "CREATE TABLE `fof`(
-                `id` TEXT NOT NULL PRIMARY KEY
-            );",
-        ))
-        .into_iter()
-    }
-
-    fn table_exists(conn: &rusqlite::Connection, table_name: &str) -> anyhow::Result<bool> {
-        let mut stmt = conn.prepare(
-            "SELECT 1 FROM sqlite_master
-         WHERE type='table' AND name=?
-         LIMIT 1",
-        )?;
-        // `query_row` will return the first row (if any) or an error if none.
-        // The `?` in the query is bound to the table name we passed.
-        let mut rows = stmt.query(&[table_name])?;
-        Ok(rows.next().is_ok())
-    }
-}
+mod tests;

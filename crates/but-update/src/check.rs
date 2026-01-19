@@ -88,7 +88,7 @@ pub fn check_status_with_url(
         arch: arch.to_string(),
         version: version.to_string(),
         app_name: app_name.to_string(),
-        posthog_id: if app_settings.telemetry.distinct_id_if_enabled(),
+        posthog_id: app_settings.telemetry.distinct_id_if_enabled(),
         install: install(),
     };
 

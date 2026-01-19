@@ -57,6 +57,8 @@ pub struct Context {
     /// An open handle to the database. It's initialized lazily upon first access.
     /// It is also what makes this type non-Clone, which is fair.
     pub db: OnDemand<but_db::DbHandle>,
+    /// An open handle to the cache, initialized lazily on first access and only fallible if it's already borrowed.
+    pub app_cache: OnDemandCache<but_db::AppCacheHandle>,
     /// The legacy implementation, for all the old code.
     #[cfg(feature = "legacy")]
     pub legacy_project: LegacyProject,
@@ -95,6 +97,7 @@ impl From<ThreadSafeContext> for Context {
             repo: ondemand,
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir.clone()),
+            app_cache: new_ondemand_app_cache(),
             gitdir,
             #[cfg(feature = "legacy")]
             legacy_project,
@@ -132,6 +135,7 @@ impl Context {
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
+                app_cache: new_ondemand_app_cache(),
             })
         }
         #[cfg(feature = "legacy")]
@@ -150,6 +154,7 @@ impl Context {
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
+                app_cache: new_ondemand_app_cache(),
             }
             .with_repo(repo))
         }
@@ -175,6 +180,7 @@ impl Context {
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
+                app_cache: new_ondemand_app_cache(),
             }
             .with_repo(repo))
         }
@@ -188,6 +194,7 @@ impl Context {
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
+                app_cache: new_ondemand_app_cache(),
             })
         }
     }
@@ -208,6 +215,7 @@ impl Context {
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir),
+            app_cache: new_ondemand_app_cache(),
         }
         .with_repo(repo))
     }
@@ -315,6 +323,7 @@ impl Context {
             mut repo,
             git2_repo: _,
             db: _,
+            app_cache: _,
             #[cfg(feature = "legacy")]
             legacy_project,
         } = self;
@@ -421,6 +430,12 @@ fn new_ondemand_db(gitdir: PathBuf) -> OnDemand<but_db::DbHandle> {
     OnDemand::new(move || but_db::DbHandle::new_in_directory(project_data_dir(&gitdir)))
 }
 
+fn new_ondemand_app_cache() -> OnDemandCache<but_db::AppCacheHandle> {
+    OnDemandCache::new(move || {
+        but_db::AppCacheHandle::new_in_directory(but_path::app_cache_dir().ok())
+    })
+}
+
 #[cfg(feature = "legacy")]
 fn default_legacy_project_at_repo(repo: &gix::Repository) -> LegacyProject {
     LegacyProject::default_with_id(LegacyProjectId::from_number_for_testing(1))
@@ -431,4 +446,7 @@ fn default_legacy_project_at_repo(repo: &gix::Repository) -> LegacyProject {
 }
 
 mod ondemand;
+use crate::ondemand_cache::OnDemandCache;
 pub use ondemand::OnDemand;
+
+mod ondemand_cache;

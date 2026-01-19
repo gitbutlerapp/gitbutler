@@ -45,14 +45,16 @@
 //! ```text
 //! Add a new optional string named 'note' to ClaudePermissionRequest in @crates/but-db/tests/db/table/claude.rs
 //! ```
-pub mod migration;
+#![expect(clippy::inconsistent_digit_grouping)]
 
 mod handle;
+#[cfg(feature = "poll")]
 pub mod poll;
 
-mod cache;
-
+pub mod cache;
+pub mod migration;
 mod table;
+
 #[rustfmt::skip]
 pub use table::{
     hunk_assignments::HunkAssignment,
@@ -90,6 +92,14 @@ pub struct M<'a> {
     up: &'a str,
     /// The creation time of the `up` field, in a format like `20250529110746`, so it's suitable for sorting
     up_created_at: u64,
+}
+
+/// A structure to receive an application-wide cache.
+pub struct AppCacheHandle {
+    /// The open connection to the cache.
+    conn: rusqlite::Connection,
+    /// The URL to the application cache.
+    url: String,
 }
 
 /// An abstraction over an open database connection, and for access to the ORM layer and [transactions](DbHandle::transaction()).

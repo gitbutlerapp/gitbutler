@@ -9,6 +9,10 @@ rust-version.workspace = true
 [lib]
 doctest = false
 
+[features]
+## Support for polling for changes in the database
+poll = ["dep:tokio"]
+
 [dependencies]
 rusqlite = { workspace = true, features = ["chrono"] }
 bitflags.workspace = true
@@ -16,9 +20,10 @@ serde.workspace = true
 anyhow.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 # other things
-tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time", "sync", "macros"] }
 tracing.workspace = true
 backoff.workspace = true
+
+tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time", "sync", "macros"], optional = true }
 
 [dev-dependencies]
 tempfile = "3.24.0"

@@ -1,3 +1,4 @@
+use crate::migration::improve_concurrency;
 use crate::{DbHandle, Transaction, migration};
 use std::path::{Path, PathBuf};
 use tracing::instrument;
@@ -42,7 +43,7 @@ impl DbHandle {
         Self::new_at_url(db_file_path)
     }
 
-    /// A new instance connecting to the database at the given `url`.
+    /// A new instance connecting to the project database at the given `url`.
     #[instrument(level = "debug", skip(url), err(Debug))]
     pub fn new_at_url(url: impl Into<String>) -> anyhow::Result<Self> {
         let url = url.into();
@@ -67,25 +68,6 @@ impl DbHandle {
     pub fn transaction(&mut self) -> anyhow::Result<Transaction<'_>> {
         Ok(Transaction(self.conn.transaction()?))
     }
-}
-
-/// Improve parallelism and make it non-fatal.
-/// Blanket setting from https://github.com/the-lean-crate/criner/discussions/5, maybe needs tuning.
-/// Also, it's a known issue, maybe order matters?
-/// https://github.com/diesel-rs/diesel/issues/2365#issuecomment-2899347817
-/// TODO: the busy_timeout doesn't seem to be effective.
-fn improve_concurrency(conn: &rusqlite::Connection) -> anyhow::Result<()> {
-    // For safety, execute them one by one. Otherwise, they can individually fail, silently (at least the `busy_timeout`.
-    for query in [
-        "PRAGMA busy_timeout = 30000;        -- wait X milliseconds, but not all at once, before for timing out with error.",
-        "PRAGMA journal_mode = WAL;          -- better write-concurrency",
-        "PRAGMA synchronous = NORMAL;        -- fsync only in critical moments",
-        "PRAGMA wal_autocheckpoint = 1000;   -- write WAL changes back every 1000 pages, for an in average 1MB WAL file.",
-        "PRAGMA wal_checkpoint(TRUNCATE);    -- free some space by truncating possibly massive WAL files from the last run.",
-    ] {
-        conn.execute_batch(query)?;
-    }
-    Ok(())
 }
 
 fn run_migrations(conn: &mut rusqlite::Connection) -> anyhow::Result<()> {
