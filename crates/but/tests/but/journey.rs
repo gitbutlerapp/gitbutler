@@ -91,27 +91,21 @@ Caused by:
     env.but("status")
         .assert()
         .failure()
-        .stdout_eq(str![[r#"
-Initiated a background sync...
-
-"#]])
         .stderr_eq(str![[r#"
 Error: errors.projects.default_target.not_found
 
 Caused by:
     there is no default target
 
-"#]]);
+"#]])
+        .stdout_eq(str![""]);
 
     // Single branch mode, does it work?
     // TODO: make this work to get further into a typical workflow.
     env.but("branch new feat")
         .assert()
         .failure()
-        .stdout_eq(str![[r#"
-Initiated a background sync...
-
-"#]])
+        .stdout_eq(str![""])
         .stderr_eq(str![[r#"
 Error: errors.projects.default_target.not_found
 

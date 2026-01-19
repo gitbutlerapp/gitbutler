@@ -49,15 +49,21 @@ enum InitMetadata {
 
 /// Lifecycle
 impl Sandbox {
-    /// Create a new instance with empty everything.
+    /// Create a new instance with empty everything, except for basic application settings that prevent the app to break out.
+    ///
+    /// Change these if you want to test something specific on top of that.
     pub fn empty() -> anyhow::Result<Sandbox> {
-        Ok(Sandbox {
+        #[cfg_attr(not(feature = "sandbox-but-api"), allow(unused_mut))]
+        let mut sandbox = Sandbox {
             project_root: Some(tempfile::TempDir::new()?),
             #[cfg(feature = "sandbox-but-api")]
             app_root: Some(tempfile::TempDir::new()?),
             #[cfg(feature = "sandbox-but-api")]
             app_settings: None,
-        })
+        };
+        #[cfg(feature = "sandbox-but-api")]
+        sandbox.set_default_settings()?;
+        Ok(sandbox)
     }
 
     /// A utility to init a scenario if the legacy feature is set, or open a repo otherwise.
