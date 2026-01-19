@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { BACKEND } from '$lib/backend';
 	import { FILE_SERVICE } from '$lib/files/fileService';
+	import { showError } from '$lib/notifications/toasts';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { historyPath } from '$lib/routes/routes.svelte';
@@ -57,10 +58,14 @@
 				if (!project) {
 					throw new Error(`Project not found: ${projectId}`);
 				}
-				await backend.invoke('open_in_terminal', {
-					terminalId: $userSettings.defaultTerminal.identifier,
-					path: project.path
-				});
+				try {
+					await backend.invoke('open_in_terminal', {
+						terminalId: $userSettings.defaultTerminal.identifier,
+						path: project.path
+					});
+				} catch (err: unknown) {
+					showError('Failed to open terminal', err);
+				}
 			})
 		)
 	);
