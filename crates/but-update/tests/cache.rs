@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::sync::Mutex;
 
-use but_update::{CheckUpdateStatus, last_checked};
+use but_update::{cached_app_update, last_checked, CheckUpdateStatus};
 use chrono::{DateTime, Utc};
 
 // Serial test execution lock to prevent environment variable conflicts
@@ -604,4 +604,168 @@ fn test_suppress_update_notification_accepts_max_hours() {
         Some(720),
         "suppress_duration_hours should be 720"
     );
+}
+
+#[test]
+fn test_cached_app_update_returns_none_when_no_cache() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let _temp_dir = setup_test_cache_dir();
+
+    let result = cached_app_update().expect("Should not error");
+    assert!(result.is_none(), "Should return None when no cache exists");
+}
+
+#[test]
+fn test_cached_app_update_returns_none_when_up_to_date() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let _temp_dir = setup_test_cache_dir();
+
+    // Create cache with up-to-date status
+    let status = CheckUpdateStatus {
+        up_to_date: true,
+        latest_version: "1.0.0".to_string(),
+        release_notes: None,
+        url: None,
+        signature: None,
+    };
+
+    but_update::cache::save(&status);
+
+    let result = cached_app_update().expect("Should not error");
+    assert!(
+        result.is_none(),
+        "Should return None when app is up to date"
+    );
+}
+
+#[test]
+fn test_cached_app_update_returns_info_when_update_available() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let _temp_dir = setup_test_cache_dir();
+
+    // Create cache with update available
+    let status = CheckUpdateStatus {
+        up_to_date: false,
+        latest_version: "2.0.0".to_string(),
+        release_notes: Some("New features!".to_string()),
+        url: Some("https://example.com/download".to_string()),
+        signature: None,
+    };
+
+    but_update::cache::save(&status);
+
+    let result = cached_app_update()
+        .expect("Should not error")
+        .expect("Should return update info");
+
+    assert_eq!(result.available_version, "2.0.0");
+    assert_eq!(result.release_notes, Some("New features!".to_string()));
+    assert_eq!(result.url, Some("https://example.com/download".to_string()));
+    assert!(!result.current_version.is_empty(), "Should have current version");
+}
+
+#[test]
+fn test_cached_app_update_returns_none_when_suppressed() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let temp_dir = setup_test_cache_dir();
+
+    // Create cache with update available and active suppression
+    let cache_file = temp_dir.path().join("cache").join("update-check.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).expect("Should create cache dir");
+
+    let suppressed_at = Utc::now() - chrono::Duration::hours(1); // Suppressed 1 hour ago
+    let initial_cache = serde_json::json!({
+        "checked_at": Utc::now().to_rfc3339(),
+        "status": {
+            "up_to_date": false,
+            "latest_version": "2.0.0",
+            "release_notes": "New features!",
+            "url": "https://example.com/download"
+        },
+        "suppressed_at": suppressed_at.to_rfc3339(),
+        "suppress_duration_hours": 48 // Suppressed for 48 hours total
+    });
+
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
+
+    let result = cached_app_update().expect("Should not error");
+    assert!(
+        result.is_none(),
+        "Should return None when update is suppressed"
+    );
+}
+
+#[test]
+fn test_cached_app_update_returns_info_when_suppression_expired() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let temp_dir = setup_test_cache_dir();
+
+    // Create cache with update available and expired suppression
+    let cache_file = temp_dir.path().join("cache").join("update-check.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).expect("Should create cache dir");
+
+    let suppressed_at = Utc::now() - chrono::Duration::hours(50); // Suppressed 50 hours ago
+    let initial_cache = serde_json::json!({
+        "checked_at": Utc::now().to_rfc3339(),
+        "status": {
+            "up_to_date": false,
+            "latest_version": "2.0.0",
+            "release_notes": "New features!",
+            "url": "https://example.com/download"
+        },
+        "suppressed_at": suppressed_at.to_rfc3339(),
+        "suppress_duration_hours": 48 // Suppression expired 2 hours ago
+    });
+
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
+
+    let result = cached_app_update()
+        .expect("Should not error")
+        .expect("Should return update info when suppression expired");
+
+    assert_eq!(result.available_version, "2.0.0");
+    assert_eq!(result.release_notes, Some("New features!".to_string()));
+    assert_eq!(result.url, Some("https://example.com/download".to_string()));
+}
+
+#[test]
+fn test_cached_app_update_handles_partial_suppression_data() {
+    let _lock = TEST_LOCK.lock().unwrap();
+    let temp_dir = setup_test_cache_dir();
+
+    // Create cache with update available but incomplete suppression data
+    let cache_file = temp_dir.path().join("cache").join("update-check.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).expect("Should create cache dir");
+
+    let initial_cache = serde_json::json!({
+        "checked_at": Utc::now().to_rfc3339(),
+        "status": {
+            "up_to_date": false,
+            "latest_version": "2.0.0",
+            "release_notes": "New features!",
+            "url": "https://example.com/download"
+        },
+        "suppressed_at": Utc::now().to_rfc3339()
+        // Missing suppress_duration_hours
+    });
+
+    fs::write(
+        &cache_file,
+        serde_json::to_string_pretty(&initial_cache).unwrap(),
+    )
+    .expect("Should write initial cache");
+
+    let result = cached_app_update()
+        .expect("Should not error")
+        .expect("Should return update info when suppression data is incomplete");
+
+    assert_eq!(result.available_version, "2.0.0");
 }

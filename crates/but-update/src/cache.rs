@@ -207,6 +207,67 @@ pub fn last_checked() -> anyhow::Result<Option<DateTime<Utc>>> {
     Ok(load()?.map(|cached| cached.checked_at))
 }
 
+/// Information about an available application update.
+#[derive(Debug, Clone)]
+pub struct AppUpdateInfo {
+    /// The current version of the application.
+    pub current_version: String,
+    /// The latest available version.
+    pub available_version: String,
+    /// Markdown-formatted release notes for the new version.
+    pub release_notes: Option<String>,
+    /// Direct download URL for the update package.
+    pub url: Option<String>,
+}
+
+/// Returns information about an available application update, if one exists and is not suppressed.
+///
+/// This function checks the cache for a previously performed update check and returns
+/// update information if:
+/// - A cached update check exists
+/// - The cached status indicates an update is available (`up_to_date == false`)
+/// - The update notification is not currently suppressed
+///
+/// # Returns
+///
+/// * `Ok(Some(AppUpdateInfo))` - An update is available and not suppressed
+/// * `Ok(None)` - No update is available, no cache exists, cache is invalid, or update is suppressed
+/// * `Err(_)` - Failed to determine cache directory path
+pub fn cached_app_update() -> anyhow::Result<Option<AppUpdateInfo>> {
+    let cached = match load()? {
+        Some(cached) => cached,
+        None => return Ok(None),
+    };
+
+    // If already up to date, no update available
+    if cached.status.up_to_date {
+        return Ok(None);
+    }
+
+    // Check if suppression is active
+    if let (Some(suppressed_at), Some(duration_hours)) =
+        (cached.suppressed_at, cached.suppress_duration_hours)
+    {
+        let now = Utc::now();
+        let suppress_until = suppressed_at + chrono::Duration::hours(duration_hours as i64);
+
+        // If suppression is still active, return None
+        if now <= suppress_until {
+            return Ok(None);
+        }
+    }
+
+    // Update is available and not suppressed
+    let current_version = option_env!("VERSION").unwrap_or("0.0.0").to_string();
+
+    Ok(Some(AppUpdateInfo {
+        current_version,
+        available_version: cached.status.latest_version,
+        release_notes: cached.status.release_notes,
+        url: cached.status.url,
+    }))
+}
+
 /// Suppress update notifications for a specified duration.
 ///
 /// This function sets the suppression fields in the cache to temporarily hide update notifications.
