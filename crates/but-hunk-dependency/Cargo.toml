@@ -11,11 +11,8 @@ doctest = false
 
 [dependencies]
 but-core.workspace = true
-but-workspace = { workspace = true }
 but-serde.workspace = true
-but-oxidize.workspace = true
 but-ctx = { workspace = true }
-but-meta.workspace = true
 but-graph.workspace = true
 
 anyhow.workspace = true
@@ -24,7 +21,6 @@ serde.workspace = true
 gix = { workspace = true, features = [] }
 
 [dev-dependencies]
-but-oxidize.workspace = true
 but-testsupport.workspace = true
 
 insta.workspace = true

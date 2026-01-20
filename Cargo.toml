@@ -1,5 +1,108 @@
 [workspace]
-members = ["crates/gitbutler-*", "crates/but-*", "crates/but"]
+members = [
+    # What follows is an attempt at crate classification.
+    # Moving them up is the goal here.
+    # And of course, this classification isn't truly objective,
+    # and you should feel free to make adjustments.
+    ##
+    ### ✅Exemplary 🏆
+    ##
+    # Exhaustive documentation (via `#![deny(missing_docs)]`)
+    # Exhaustive tests
+    # No or minimal 'legacy' support
+    # No `but-ctx` dependency
+    # ideally: idiomatic Rust
+    "crates/but-core",             # Core types and capabilities, can be used by everything.
+    "crates/but-graph",            # The world of GitButler, classification and analysis of commit-graphs.
+    "crates/but-ctx",              # Re-use of caches and db-connections, access to all data one would need to be GitButler.
+    "crates/but-db",               # Abstractions over Sqlite databases and Caches, with transaction and synchronization support.
+    "crates/but-error",            # Error codes to communicate specific failures; JSON Error for frontends.
+    "crates/but-testsupport",      # Despite lacking tests, it is the foundation for all tests.
+
+    ##
+    ### ✔️On Track 📈
+    ##
+    # Shows many or all traits of Exemplary
+    # Substantial legacy code or legacy dependencies
+    # Partial or complete documentation.
+    # Tests for core capabilities.
+    "crates/but-rebase",            # Alter commit-graphs in various ways; 👉Could be exemplary once older supporting code is removed, and it was actually reviewed.
+    "crates/but-oplog",             # A sketch of a modern `gitbutler-oplog` ; 👉needs impl based on `but_core::snapshot`; shouldn't use `but-ctx`.
+    "crates/but-meta",              # An interface to support Git-entity metadata; 👉mostly powered by legacy, but will help to transition to `but-db` backing.
+    "crates/but-hunk-assignment",   # Assign uncommitted changes to stacks/lanes. 👉uses `but-ctx`, and lacks tests.
+    "crates/but-hunk-dependency",   # Assuming it works, it feels close to 'Exemplary', 👉but uses `but-ctx`.
+    "crates/but-workspace",         # Workspace abstractions on top of `but-graph`; workspace manipulation. 👉Too much legacy code.
+    "crates/but-claude",            # 👉lacks tests, overview in docs, seems hacky. Uses `but-ctx`.
+    "crates/but-path",              # Not much in there, 👉but at least one item lacks documentation.
+    "crates/but-serde",             # 👉Lacks docs and tests, and overview, but still useful and simple enough to 'just works'
+    "crates/but-worktrees",         # Worktree creation and removal; 👉Feels overengingeered, uses `but-ctx` and legacy crates.
+    "crates/but-update",            # "A good vibe" with docs and tests; 👉Could be exemplary after review.
+
+    ##
+    ### ❌Bottom of the Barrel 🛢️
+    ##
+    # Fully or mostly vibed
+    # Barely any documentation
+    # Barely any tests or fully generated tests that didn't receive thorough review
+    # maybe: unclear purpose
+    "crates/but-rules",             # 👉Lacks top-level docs and tests; uses various legacy crates.
+    "crates/but-action",            # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
+    "crates/but-bot",               # 👉Unclear purpose; lacks docs and tests. Uses legacy crate.
+    "crates/but-tools",             # Another `but-action`, 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
+    "crates/but-llm",               # 👉No tests, lacks top-level docs, purpose somewhat unclear.
+    "crates/but-github",            # 👉lacks top-level docs and docs, purpose somewhat unclear. Uses legacy crate.
+    "crates/but-cursor",            # 👉No tests, lacks top-level docs, purpose somewhat unclear. Uses legacy crates.
+    "crates/but-forge",             # 👉Kind of no docs, no tests, and unclear purpose.
+    "crates/but-forge-storage",     # 👉Kind of no docs, no tests, and unclear purpose. Does this need to be its own crate?
+    "crates/but-gerrit",            # 👉No documentation; some tests. Uses one legacy crate.
+
+    ##
+    ### Small and useful 💍
+    ##
+    # Mostly utilities, easy to use.
+    # Maybe no docs, but functions are self-explanatory.
+    # Maybe even idiomatic code.
+    "crates/but-feedback",          # It's very small and very special, but documented and well-enough tested.
+    "crates/but-oxidize",           # Utilities to help translate between `git2` and `gix`. 👉Shouldn't be needed once `git2` is gone.
+    "crates/but-secret",            # Might be exemplary if it was 👉fully documented.
+    "crates/but-settings",          # Might be exemplary if it was 👉fully documented.
+
+    ##
+    ### Soon obsolete
+    ##
+    # Mostly supporting legacy code.
+    # In big parts replaced by other crates.
+    "crates/but-fs",                # 👉we should be using `but-db` instead.
+    "crates/but-status",            # 👉One crate for `create_wd_tree()` which no modern code uses anymore.
+
+    ##
+    ### but-api - it's very own thing
+    ##
+    # Has no tests (yet)
+    # A lot of legacy functions that need porting
+    # the non-legacy code should be matching Exemplary standards of documentation
+    "crates/but-api",
+    "crates/but-api-macros",
+
+    ##
+    ### Binaries
+    ##
+    # Strive for testing main functionality and journeys where applicable.
+    "crates/but",
+    # Should be functionally equivalent to `gitbutler-tauri`
+    "crates/but-server",
+    # Should be reviewed to mostly use `but-api`, to be renamed to `but-tauri` or something.
+    "crates/gitbutler-tauri",
+    # Hack at will. Can be of any quality level, as long as it works for you.
+    "crates/but-testing",
+
+    ##
+    ### Legacy
+    ##
+    # Crates that are from the first version of GitButler, using old data structures.
+    # To be removed and ported.
+    "crates/gitbutler-*",
+]
 resolver = "2"
 
 [workspace.package]
