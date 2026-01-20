@@ -333,7 +333,8 @@ function setupDragHandlers(
 			element.classList.add(DRAGGING_CLASS);
 		}
 
-		// Activate dropzones
+		// Start drag tracking on registry and activate dropzones
+		opts.dropzoneRegistry.startDrag(opts.data);
 		for (const dropzone of Array.from(opts.dropzoneRegistry.values())) {
 			dropzone.activate(opts.data);
 		}
@@ -479,6 +480,8 @@ function setupDragHandlers(
 		}
 
 		if (opts) {
+			// End drag tracking on registry and deactivate dropzones
+			opts.dropzoneRegistry.endDrag();
 			Array.from(opts.dropzoneRegistry.values()).forEach((dropzone) => {
 				dropzone.deactivate();
 			});
