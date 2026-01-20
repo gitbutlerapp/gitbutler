@@ -67,11 +67,6 @@
 		cursor: grab;
 	}
 
-	/* dark mode */
-	:global(.dark) .folded-lane {
-		box-shadow: inset -5px 0 10px var(--lighter-bg-drop-shadow);
-	}
-
 	.drag-handle-icon {
 		display: flex;
 		margin-top: 4px;
