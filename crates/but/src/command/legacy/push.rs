@@ -19,6 +19,8 @@ enum BranchSelection {
     Single(String),
     /// Push all branches with unpushed commits
     All,
+    /// User declined to push
+    None,
 }
 
 /// Batch push result for JSON output
@@ -81,6 +83,7 @@ pub fn handle(
             gerrit_mode,
             out,
         ),
+        BranchSelection::None => Ok(()),
     }
 }
 
@@ -837,8 +840,9 @@ fn handle_no_branch_specified(
         anyhow::bail!("No branches found in the workspace");
     }
 
-    // Check if we're in an interactive terminal
-    if !out.can_prompt() {
+    // Check if we're in an interactive terminal with human output format
+    let is_interactive = out.can_prompt() && out.for_human().is_some();
+    if !is_interactive {
         tracing::info!(
             "Non-interactive mode detected. Pushing all branches with unpushed commits..."
         );
@@ -848,64 +852,60 @@ fn handle_no_branch_specified(
 
     // Interactive mode: show branches and prompt for selection
     let mut progress = out.progress_channel();
-    if out.for_human().is_some() {
-        let mut has_unpushed = false;
+    // Collect branches with unpushed commits
+    let branches_with_unpushed: Vec<_> = branches_with_info
+        .iter()
+        .filter(|(_, unpushed_count, _)| *unpushed_count > 0)
+        .collect();
 
-        for (_branch_name, unpushed_count, _stack_name) in &branches_with_info {
-            if *unpushed_count > 0 {
-                has_unpushed = true;
-            }
-        }
-
-        if !has_unpushed {
-            writeln!(progress)?;
-            writeln!(
-                progress,
-                "{}",
-                "✓ All branches are up to date with the remote.".green()
-            )?;
-            return Ok(BranchSelection::All);
-        }
-
+    if branches_with_unpushed.is_empty() {
         writeln!(progress)?;
+        writeln!(
+            progress,
+            "{}",
+            "✓ All branches are up to date with the remote.".green()
+        )?;
+        return Ok(BranchSelection::None);
+    }
 
-        // Create selection options
-        let mut options = vec!["all - Push all branches with unpushed commits".to_string()];
-        for (branch_name, unpushed_count, _) in &branches_with_info {
-            if *unpushed_count > 0 {
-                options.push(format!(
-                    "{} - {} unpushed commit{}",
-                    branch_name,
-                    unpushed_count,
-                    if *unpushed_count == 1 { "" } else { "s" }
-                ));
-            }
-        }
+    // If there's only one branch with unpushed commits, push it automatically
+    if branches_with_unpushed.len() == 1 {
+        let (branch_name, _unpushed_count, _) = branches_with_unpushed[0];
+        return Ok(BranchSelection::Single(branch_name.clone()));
+    }
 
-        let prompt = cli_prompts::prompts::Selection::new(
-            "Which branch(es) would you like to push?",
-            options.into_iter(),
-        );
+    writeln!(progress)?;
 
-        let selection = prompt
-            .display()
-            .map_err(|e| anyhow::anyhow!("Selection aborted: {:?}", e))?;
+    // Multiple branches with unpushed commits - let the prompt handle it
+    let mut options = vec!["all - Push all branches with unpushed commits".to_string()];
+    for (branch_name, unpushed_count, _) in &branches_with_unpushed {
+        options.push(format!(
+            "{} - {} unpushed commit{}",
+            branch_name,
+            unpushed_count,
+            if *unpushed_count == 1 { "" } else { "s" }
+        ));
+    }
 
-        // Parse the selection
-        if selection.starts_with("all ") {
-            Ok(BranchSelection::All)
-        } else {
-            // Extract branch name from the selection
-            let branch_name = selection
-                .split(" - ")
-                .next()
-                .ok_or_else(|| anyhow::anyhow!("Invalid selection"))?;
-            Ok(BranchSelection::Single(branch_name.to_string()))
-        }
+    let prompt = cli_prompts::prompts::Selection::new(
+        "Which branch(es) would you like to push?",
+        options.into_iter(),
+    );
+
+    let selection = prompt
+        .display()
+        .map_err(|e| anyhow::anyhow!("Selection aborted: {:?}", e))?;
+
+    // Parse the selection
+    if selection.starts_with("all ") {
+        Ok(BranchSelection::All)
     } else {
-        Err(anyhow::anyhow!(
-            "Human output required for interactive prompt"
-        ))
+        // Extract branch name from the selection
+        let branch_name = selection
+            .split(" - ")
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Invalid selection"))?;
+        Ok(BranchSelection::Single(branch_name.to_string()))
     }
 }
 
