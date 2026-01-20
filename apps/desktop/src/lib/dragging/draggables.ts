@@ -19,6 +19,10 @@ export class HunkDropDataV3 {
 	) {}
 }
 
+export function effectiveHunkHeaders(data: HunkDropDataV3): HunkHeader[] {
+	return data.selectedHunkHeaders?.length ? data.selectedHunkHeaders : [data.hunk];
+}
+
 export class FileChangeDropData {
 	constructor(
 		private projectId: string,

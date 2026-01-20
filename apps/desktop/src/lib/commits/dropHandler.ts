@@ -7,6 +7,7 @@ import {
 	FileChangeDropData,
 	FolderChangeDropData,
 	HunkDropDataV3,
+	effectiveHunkHeaders,
 	type ChangeDropData
 } from '$lib/dragging/draggables';
 import { type HooksService } from '$lib/hooks/hooksService';
@@ -15,20 +16,6 @@ import { untrack } from 'svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
-
-function effectiveHunkHeaders(data: HunkDropDataV3) {
-	if (data.selectedHunkHeaders && data.selectedHunkHeaders.length > 0) {
-		return data.selectedHunkHeaders;
-	}
-	return [
-		{
-			oldStart: data.hunk.oldStart,
-			oldLines: data.hunk.oldLines,
-			newStart: data.hunk.newStart,
-			newLines: data.hunk.newLines
-		}
-	];
-}
 
 /** Details about a commit belonging to a drop zone. */
 export type DzCommitData = {

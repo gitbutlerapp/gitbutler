@@ -4,6 +4,7 @@ import {
 	FileChangeDropData,
 	FolderChangeDropData,
 	HunkDropDataV3,
+	effectiveHunkHeaders,
 	type ChangeDropData
 } from '$lib/dragging/draggables';
 import { unstackPRs, updateStackPrs } from '$lib/forge/shared/prFooter';
@@ -17,20 +18,6 @@ import type { DiffService } from '$lib/hunks/diffService.svelte';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
-
-function effectiveHunkHeaders(data: HunkDropDataV3) {
-	if (data.selectedHunkHeaders && data.selectedHunkHeaders.length > 0) {
-		return data.selectedHunkHeaders;
-	}
-	return [
-		{
-			oldStart: data.hunk.oldStart,
-			oldLines: data.hunk.oldLines,
-			newStart: data.hunk.newStart,
-			newLines: data.hunk.newLines
-		}
-	];
-}
 
 /** Handler when drop changes on a special outside lanes dropzone. */
 export class OutsideLaneDzHandler implements DropzoneHandler {
