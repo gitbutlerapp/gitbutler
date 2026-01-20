@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{self, Path};
 
 use but_core::RepositoryExt;
 use colored::Colorize;
@@ -89,6 +89,13 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
             }
         }
     };
+
+    // what branch is head() pointing to?
+    let pre_head = repo.head()?;
+    let pre_head_name = pre_head
+        .referent_name()
+        .map(|n| n.shorten().to_string())
+        .unwrap_or_default();
 
     // find or setup the gitbutler project
     if let Some(out) = out.for_human() {
@@ -249,13 +256,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
                 "{}",
                 "GitButler project setup complete!".green().bold()
             )?;
-            writeln!(out)?;
-            writeln!(
-                out,
-                "{}",
-                format!("Repository: {}", repo_path.display()).dimmed()
-            )?;
-            writeln!(out, "{}", format!("Default target: {}", name).dimmed())?;
+            writeln!(out, "{}", format!("Target branch: {}", name).dimmed())?;
             writeln!(out, "{}", format!("Remote: {}", remote_name).dimmed())?;
             writeln!(out)?;
         }
@@ -276,17 +277,11 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
                 "{}",
                 "GitButler project is already set up!".green().bold()
             )?;
-            writeln!(out)?;
-            writeln!(
-                out,
-                "{}",
-                format!("Repository: {}", repo_path.display()).dimmed()
-            )?;
             if let Some(target) = target {
                 writeln!(
                     out,
                     "{}",
-                    format!("Default target: {}", target.branch_name).dimmed()
+                    format!("Target branch: {}", target.branch_name).dimmed()
                 )?;
             }
             writeln!(out)?;
@@ -299,22 +294,39 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         .referent_name()
         .map(|n| n.shorten().to_string())
         .unwrap_or_default();
-    if head_name != "gitbutler/workspace" {
-        if let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "Currently on {}. Switching back to gitbutler/workspace branch...",
-                head_name,
-            )?;
-        }
 
+    // switch to gitbutler/workspace if not already there
+    if head_name != "gitbutler/workspace" {
         but_api::legacy::virtual_branches::switch_back_to_workspace(project.id)?;
+    }
+
+    // if we switched - tell the user what this is all about
+    if pre_head_name != "gitbutler/workspace"
+        && let Some(out) = out.for_human()
+    {
+        writeln!(
+            out,
+            "{}",
+            format!(
+                r#"
+We are switching you to GitButler's special `gitbutler/workspace` branch     
+
+To return to normal Git mode, either:
+    - Directly checkout a branch (`git checkout {}`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch                    
+"#,
+                pre_head_name
+            )
+            .yellow()
+        )?;
     }
 
     // Output JSON if requested
     if let Some(json_out) = out.for_json() {
         let result = SetupResult {
-            repository_path: repo_path.display().to_string(),
+            repository_path: path::absolute(repo_path)?.display().to_string(),
             project_status,
             target: target_info,
         };
@@ -372,7 +384,7 @@ fn setup_local_remote(repo: &gix::Repository, out: &mut OutputChannel) -> anyhow
         writeln!(
             out,
             "  {}",
-            "No push remote found, creating gb-local remote...".yellow()
+            "No push remote found, creating gb-local remote...".blue()
         )?;
     }
 
