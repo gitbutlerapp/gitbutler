@@ -6,21 +6,28 @@ use tracing::instrument;
 /// Opens the logs folder in the system file manager
 #[instrument(skip(handle), err(Debug))]
 pub fn open_logs_folder<R: Runtime>(handle: &AppHandle<R>) -> Result<(), Error> {
-    let logs_dir = handle
+    let dir = handle
         .path()
         .app_log_dir()
         .context("Failed to get app log directory")?;
-    open_existing(&logs_dir)
+    open_existing(&dir)
 }
 
 /// Opens the config/settings folder in the system file manager
 #[instrument(skip(handle), err(Debug))]
 pub fn open_config_folder<R: Runtime>(handle: &AppHandle<R>) -> Result<(), Error> {
-    let config_dir = handle
+    let dir = handle
         .path()
         .app_config_dir()
         .context("Failed to get app config directory")?;
-    open_existing(&config_dir)
+    open_existing(&dir)
+}
+
+/// Opens the cache folder in the system file manager
+#[instrument(err(Debug))]
+pub fn open_cache_folder() -> Result<(), Error> {
+    let dir = but_path::app_cache_dir()?;
+    open_existing(&dir)
 }
 
 /// Open `dir` but refuse to do so if that would definitely fail as it's not a directory,
