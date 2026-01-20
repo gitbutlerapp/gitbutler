@@ -1,12 +1,20 @@
 <script lang="ts">
 	import {
 		autoSelectBranchNameFeature,
-		autoSelectBranchCreationFeature
+		autoSelectBranchCreationFeature,
+		stagingBehaviorFeature,
+		type StagingBehavior
 	} from '$lib/config/uiFeatureFlags';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { CardGroup, Toggle } from '@gitbutler/ui';
+	import { CardGroup, RadioButton, Toggle } from '@gitbutler/ui';
 
 	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
+	function onStagingBehaviorFormChange(form: HTMLFormElement) {
+		const formData = new FormData(form);
+		const selectedStagingBehavior = formData.get('stagingBehaviorType') as StagingBehavior | null;
+		if (!selectedStagingBehavior) return;
+		stagingBehaviorFeature.set(selectedStagingBehavior);
+	}
 </script>
 
 <CardGroup.Item standalone labelFor="add-leftmost">
@@ -59,4 +67,61 @@
 			/>
 		{/snippet}
 	</CardGroup.Item>
+</CardGroup>
+
+<CardGroup>
+	<form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
+		<CardGroup.Item labelFor="stage-all">
+			{#snippet title()}
+				All assigned files
+			{/snippet}
+			{#snippet caption()}
+				Select all files assigned to this branch. If none are assigned, select all unassigned files
+				instead.
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="stagingBehaviorType"
+					value="all"
+					id="stage-all"
+					checked={$stagingBehaviorFeature === 'all'}
+				/>
+			{/snippet}
+		</CardGroup.Item>
+
+		<CardGroup.Item labelFor="stage-selection">
+			{#snippet title()}
+				Only selected files
+			{/snippet}
+			{#snippet caption()}
+				Only include files you've already selected. If nothing is selected, falls back to all
+				assigned files, then all unassigned files.
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="stagingBehaviorType"
+					value="selection"
+					id="stage-selection"
+					checked={$stagingBehaviorFeature === 'selection'}
+				/>
+			{/snippet}
+		</CardGroup.Item>
+
+		<CardGroup.Item labelFor="stage-none">
+			{#snippet title()}
+				Manual selection
+			{/snippet}
+			{#snippet caption()}
+				Don't auto-select any files. You choose what to commit each time.
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="stagingBehaviorType"
+					value="none"
+					id="stage-none"
+					checked={$stagingBehaviorFeature === 'none'}
+				/>
+			{/snippet}
+		</CardGroup.Item>
+	</form>
 </CardGroup>
