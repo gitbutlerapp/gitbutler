@@ -1,10 +1,14 @@
-use anyhow::{Context, bail};
+use anyhow::bail;
 use branch::Subcommands;
 use but_core::ref_metadata::StackId;
 use but_ctx::LegacyProject;
 use but_workspace::legacy::ui::StackEntry;
 
-use crate::{CliId, IdMap, args::branch, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    args::branch,
+    utils::{Confirm, ConfirmDefault, OutputChannel},
+};
 
 mod apply;
 mod json;
@@ -219,18 +223,14 @@ fn confirm_unapply_stack(
         .collect::<Vec<_>>()
         .join(", ");
 
-    if !force && let Some(mut inout) = out.prepare_for_terminal_input() {
-        let abort_msg = "Aborted unapply operation.";
-        let input = inout
-            .prompt(format!(
-                "Are you sure you want to unapply stack with branches '{branches}'? [y/N]:"
-            ))?
-            .context(abort_msg)?
-            .to_lowercase();
-
-        if input != "y" && input != "yes" {
-            bail!(abort_msg);
-        }
+    if !force
+        && let Some(mut inout) = out.prepare_for_terminal_input()
+        && inout.confirm(
+            format!("Are you sure you want to unapply stack with branches '{branches}'?"),
+            ConfirmDefault::No,
+        )? == Confirm::No
+    {
+        bail!("Aborted unapply operation.");
     }
 
     but_api::legacy::virtual_branches::unapply_stack(project.id, sid)?;
@@ -252,19 +252,14 @@ fn confirm_branch_deletion(
     force: bool,
     out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
-    if !force && let Some(mut input) = out.prepare_for_terminal_input() {
-        let abort_msg = "Aborted branch deletion.";
-        let input = input
-            .prompt(format!(
-                "Are you sure you want to delete branch '{}'? [y/N]:",
-                branch_name
-            ))?
-            .context(abort_msg)?
-            .to_lowercase();
-
-        if input != "y" && input != "yes" {
-            bail!(abort_msg);
-        }
+    if !force
+        && let Some(mut inout) = out.prepare_for_terminal_input()
+        && inout.confirm(
+            format!("Are you sure you want to delete branch '{branch_name}'?"),
+            ConfirmDefault::No,
+        )? == Confirm::No
+    {
+        bail!("Aborted branch deletion.");
     }
 
     but_api::legacy::stack::remove_branch(project.id, sid, branch_name.to_owned())?;

@@ -4,7 +4,7 @@ use but_secret::Sensitive;
 use cli_prompts::DisplayPrompt;
 use std::fmt::Write;
 
-use crate::utils::{InputOutputChannel, OutputChannel};
+use crate::utils::{ConfirmOrEmpty, InputOutputChannel, OutputChannel};
 
 #[derive(Debug, Clone)]
 enum AuthMethod {
@@ -92,13 +92,11 @@ async fn github_oauth(mut inout: InputOutputChannel<'_>) -> anyhow::Result<()> {
         code.user_code
     )?;
 
-    let aborted_msg = "Authorization process aborted by user.";
-    let input = inout
-        .prompt("Type 'y' and press Enter after you have successfully authorized the device:")?
-        .context(aborted_msg)?;
-
-    if input.to_lowercase() != "y" {
-        bail!(aborted_msg)
+    if inout.confirm_no_default(
+        "After completing authorization in your browser, press 'y' to continue.",
+    )? != ConfirmOrEmpty::Yes
+    {
+        bail!("Authorization process aborted by user.")
     }
 
     let status = but_api::github::check_auth_status(code.device_code)

@@ -2,6 +2,28 @@ use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 use minus::ExitStrategy;
 use std::io::{IsTerminal, Write};
 
+/// Default value for a confirmation prompt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConfirmDefault {
+    Yes,
+    No,
+}
+
+/// Response from a confirmation prompt with a default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Confirm {
+    Yes,
+    No,
+}
+
+/// Response from a confirmation prompt without a default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConfirmOrEmpty {
+    Yes,
+    No,
+    NoInput,
+}
+
 /// A utility `std::io::Write` implementation that can always be used to generate output for humans or for scripts.
 pub struct OutputChannel {
     /// How to print the output, one should match on it. Match on this if you prefer this style.
@@ -196,6 +218,66 @@ impl InputOutputChannel<'_> {
             return Ok(None);
         }
         Ok(Some(input))
+    }
+
+    /// Prompt for y/n confirmation with a default value.
+    /// Automatically appends `[Y/n]` or `[y/N]` based on the default.
+    /// Empty input returns the default. Input starting with 'y'/'Y' returns Yes, anything else returns No.
+    pub fn confirm(
+        &mut self,
+        prompt: impl AsRef<str>,
+        default: ConfirmDefault,
+    ) -> anyhow::Result<Confirm> {
+        use std::fmt::Write;
+        let suffix = match default {
+            ConfirmDefault::Yes => "[Y/n]",
+            ConfirmDefault::No => "[y/N]",
+        };
+        write!(self, "{} {}: ", prompt.as_ref(), suffix)?;
+        std::io::Write::flush(&mut self.out.stdout)?;
+
+        let mut input = String::new();
+        self.stdin.read_line(&mut input)?;
+        let input = input.trim().to_lowercase();
+
+        if input.is_empty() {
+            return Ok(match default {
+                ConfirmDefault::Yes => Confirm::Yes,
+                ConfirmDefault::No => Confirm::No,
+            });
+        }
+
+        if input.starts_with('y') {
+            Ok(Confirm::Yes)
+        } else {
+            Ok(Confirm::No)
+        }
+    }
+
+    /// Prompt for y/n confirmation without a default.
+    /// Automatically appends `[y/n]` to the prompt.
+    /// Returns `NoInput` if the user provides empty input.
+    pub fn confirm_no_default(
+        &mut self,
+        prompt: impl AsRef<str>,
+    ) -> anyhow::Result<ConfirmOrEmpty> {
+        use std::fmt::Write;
+        write!(self, "{} [y/n]: ", prompt.as_ref())?;
+        std::io::Write::flush(&mut self.out.stdout)?;
+
+        let mut input = String::new();
+        self.stdin.read_line(&mut input)?;
+        let input = input.trim().to_lowercase();
+
+        if input.is_empty() {
+            return Ok(ConfirmOrEmpty::NoInput);
+        }
+
+        if input.starts_with('y') {
+            Ok(ConfirmOrEmpty::Yes)
+        } else {
+            Ok(ConfirmOrEmpty::No)
+        }
     }
 }
 

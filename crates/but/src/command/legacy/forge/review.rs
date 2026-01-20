@@ -11,7 +11,11 @@ use gitbutler_project::Project;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::{CliId, IdMap, tui::get_text, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    tui::get_text,
+    utils::{Confirm, ConfirmDefault, OutputChannel},
+};
 
 /// Set the review template for the given project.
 pub fn set_review_template(
@@ -97,13 +101,10 @@ pub async fn create_pr(
             let mut inout = out.prepare_for_terminal_input().context(
                 "Terminal input not available. Please specify a branch using command line arguments.",
             )?;
-            let response = inout
-                .prompt(format!(
-                    "Do you want to open a new PR on branch '{}'? [Y/n]",
-                    branch_name
-                ))?
-                .map(|s| s.to_lowercase());
-            if response.is_none() || response == Some("y".into()) || response == Some("yes".into())
+            if inout.confirm(
+                format!("Do you want to open a new PR on branch '{branch_name}'?"),
+                ConfirmDefault::Yes,
+            )? == Confirm::Yes
             {
                 Some(vec![branch_name.clone()])
             } else {

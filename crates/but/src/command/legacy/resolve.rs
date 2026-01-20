@@ -13,7 +13,12 @@ use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::OperatingMode;
 use std::fmt::Write;
 
-use crate::{IdMap, args::resolve::Subcommands, id::CliId, utils::OutputChannel};
+use crate::{
+    IdMap,
+    args::resolve::Subcommands,
+    id::CliId,
+    utils::{Confirm, ConfirmDefault, OutputChannel},
+};
 
 pub(crate) fn handle(
     ctx: &mut Context,
@@ -179,7 +184,6 @@ fn show_status_impl(
 
     // If all conflicts are resolved and we're in human mode, offer to finalize
     if all_resolved && out.for_human().is_some() && prompt_to_finalize {
-        // Use a separate scope for the prompt
         writeln!(progress)?;
         writeln!(
             progress,
@@ -187,15 +191,8 @@ fn show_status_impl(
             "All conflicts have been resolved!".green().bold()
         )?;
 
-        // Prepare for terminal input - this flushes the output and allows us to prompt
-        let should_finalize = if let Some(mut _io) = out.prepare_for_terminal_input() {
-            write!(progress, "Finalize the resolution now? [Y/n]: ")?;
-
-            let mut response = String::new();
-            std::io::stdin().read_line(&mut response)?;
-            let response = response.trim().to_lowercase();
-
-            if response.is_empty() || response == "y" || response == "yes" {
+        let should_finalize = if let Some(mut inout) = out.prepare_for_terminal_input() {
+            if inout.confirm("Finalize the resolution now?", ConfirmDefault::Yes)? == Confirm::Yes {
                 writeln!(progress)?;
                 true
             } else {
@@ -210,7 +207,6 @@ fn show_status_impl(
             false
         };
 
-        // Drop io before calling finish_resolution
         if should_finalize {
             return finish_resolution(ctx, out);
         }
