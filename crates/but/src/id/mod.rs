@@ -382,10 +382,22 @@ impl IdMap {
 /// Private methods to individually parse what can appear on both side of a
 /// colon. (They can also appear alone.)
 impl IdMap {
-    // TODO add colon parsing to `resolve_entity_to_ids`
-
     /// Parses "long" IDs, which take precedence over any "regular" ID.
     fn parse_long_lhs(&self, entity: &str) -> Vec<CliId> {
+        // Parse known suffixes.
+        if let Some(prefix) = entity.strip_suffix("@{stack}")
+            && let Some((_, CliId::Branch { stack_id, .. })) = self
+                .branch_name_to_cli_id
+                .iter()
+                .find(|(branch_name, _)| *branch_name == prefix)
+            && let Some(stack_id) = stack_id
+        {
+            return vec![CliId::Stack {
+                id: entity.to_string(),
+                stack_id: *stack_id,
+            }];
+        }
+
         let mut matches = Vec::<CliId>::new();
         // Branches match if they match exactly.
         if let Some((_, cli_id)) = self
@@ -400,6 +412,23 @@ impl IdMap {
     /// Parses "regular" IDs.
     fn parse_regular_lhs(&self, entity: &str) -> Vec<CliId> {
         let mut matches = Vec::<CliId>::new();
+
+        // Parse known suffixes.
+        if let Some(prefix) = entity.strip_suffix("@{stack}") {
+            for cli_id in self.find_branches_by_substring_match(prefix.into()) {
+                if let CliId::Branch { stack_id, .. } = cli_id
+                    && let Some(stack_id) = stack_id
+                {
+                    matches.push(CliId::Stack {
+                        id: entity.to_string(),
+                        stack_id: *stack_id,
+                    });
+                }
+            }
+        }
+        if !matches.is_empty() {
+            return matches;
+        }
 
         // First, try partial branch name match
         matches.extend(
@@ -473,6 +502,31 @@ impl IdMap {
     /// Besides generated IDs, this method also accepts filenames, which are
     /// interpreted as uncommitted, unassigned files.
     pub fn resolve_entity_to_ids(&self, entity: &str) -> anyhow::Result<Vec<CliId>> {
+        if let Some((lhs, rhs)) = entity.split_once(':') {
+            let mut lhs_matches = self.parse_long_lhs(lhs);
+            if lhs_matches.is_empty() {
+                lhs_matches = self.parse_regular_lhs(lhs);
+            }
+            if lhs_matches.is_empty() {
+                return Ok(lhs_matches);
+            }
+            let mut matches = Vec::new();
+            for cli_id in lhs_matches {
+                let stack_id = match cli_id {
+                    CliId::Unassigned { .. } => None,
+                    CliId::Stack { stack_id, .. } => Some(stack_id),
+                    _ => {
+                        // TODO: it may be confusing for the user if some IDs
+                        // (e.g. branch, commit) silently do not match instead
+                        // of an error message being printed.
+                        continue;
+                    }
+                };
+                matches.append(&mut self.parse_uncommitted_filename_rhs(stack_id, rhs));
+            }
+            return Ok(matches);
+        }
+
         // Branches match if they match exactly. Likewise for uncommitted, unassigned files.
         let mut matches = self.parse_long_lhs(entity);
         matches.append(&mut self.parse_uncommitted_filename_rhs(None, entity));

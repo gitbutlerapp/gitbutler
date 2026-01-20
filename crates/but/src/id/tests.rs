@@ -663,6 +663,103 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
 }
 
 #[test]
+fn colon_uncommitted_filename() -> anyhow::Result<()> {
+    let stacks = vec![Stack {
+        id: Some(StackId::from_number_for_testing(1)),
+        ..stack([segment("gggg", [id(2)], None, [])])
+    }];
+    let hunk_assignments = vec![
+        hunk_assignment("unassigned", None),
+        hunk_assignment("assigned", Some(StackId::from_number_for_testing(1))),
+    ];
+    let id_map = IdMap::new(stacks, hunk_assignments)?;
+
+    // Short branch works
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("gg@{stack}:assigned")?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "assigned",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "assigned",
+                        stack_id: Some(
+                            00000000-0000-0000-0000-000000000001,
+                        ),
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+
+    // Long branch works
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("gggg@{stack}:assigned")?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "assigned",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "assigned",
+                        stack_id: Some(
+                            00000000-0000-0000-0000-000000000001,
+                        ),
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+
+    // Unassigned works
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("zz:unassigned")?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "unassigned",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "unassigned",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+
+    Ok(())
+}
+
+#[test]
 fn committed_files_are_deduplicated_by_commit_oid_path() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("branch", [id(2)], Some(id(1)), [])])];
     let mut id_map = IdMap::new(stacks, Vec::new())?;

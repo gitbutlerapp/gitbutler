@@ -28,45 +28,55 @@ Rubbed the wrong way. Source 'nonexistent1' not found. If you just performed a G
     Ok(())
 }
 
-#[test]
-fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
+fn assigned_uncommitted_file_env() -> anyhow::Result<Sandbox> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     env.setup_metadata(&["A", "B"])?;
-    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+    env.file("a.txt", "arbitrary text\n");
+    env.but("zz:a.txt A").assert().success();
+    Ok(env)
+}
 
-    // Assign the change to A and verify that the assignment happened.
-    env.but("i0 A").assert().success();
-    env.but("--json status -f")
-        .allow_json()
+#[test]
+fn assign_uncommitted_file() -> anyhow::Result<()> {
+    let env = assigned_uncommitted_file_env()?;
+    env.but("diff A@{stack}:a.txt")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-{
-  "unassignedChanges": [],
-  "stacks": [
-    {
-      "cliId": "l0",
-      "assignedChanges": [
-        {
-          "cliId": "i0",
-          "filePath": "a.txt",
-          "changeType": "modified"
-        }
-      ],
-...
+────────╮
+j0 a.txt│
+────────╯
+     1│+arbitrary text
 
 "#]]);
+    Ok(())
+}
 
-    env.but("i0 zz")
+#[test]
+fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
+    let env = assigned_uncommitted_file_env()?;
+    env.but("A@{stack}:a.txt zz")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Unassigned all hunks in a.txt in a stack
+Unassigned the only hunk in a.txt in a stack
 
 "#]])
         .stderr_eq(str![""]);
+
+    env.but("diff zz:a.txt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+────────╮
+j0 a.txt│
+────────╯
+     1│+arbitrary text
+
+"#]]);
 
     Ok(())
 }
