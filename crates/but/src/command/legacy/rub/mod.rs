@@ -463,21 +463,36 @@ fn ids(
         return Ok((sources, target_result[0].clone()));
     }
 
-    // Target is ambiguous - use first source to filter by valid operations
-    let reference_source = &sources[0];
-
+    // Target is ambiguous - filter by checking validity with ALL sources
+    // A target is only valid if it works with every source in the list
     let valid_targets: Vec<CliId> = target_result
         .into_iter()
-        .filter(|target_candidate| route_operation(reference_source, target_candidate).is_some())
+        .filter(|target_candidate| {
+            sources
+                .iter()
+                .all(|src| route_operation(src, target_candidate).is_some())
+        })
         .collect();
 
     if valid_targets.is_empty() {
         // No valid operations found - this means all possible interpretations of the target
-        // would result in invalid operations. Show error with all matches.
+        // would result in invalid operations with at least one source.
+        let source_summary = if sources.len() == 1 {
+            format!("source {}", sources[0].to_short_string())
+        } else {
+            format!(
+                "sources ({})",
+                sources
+                    .iter()
+                    .map(|s| s.to_short_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        };
         return Err(anyhow::anyhow!(
-            "Target '{}' matches multiple objects, but none would result in a valid operation with source {}. Try using more characters or a different identifier.",
+            "Target '{}' matches multiple objects, but none would result in valid operations with all {}. Try using more characters or a different identifier.",
             target,
-            reference_source.to_short_string()
+            source_summary
         ));
     }
 
@@ -504,14 +519,14 @@ fn parse_sources_with_disambiguation(
     }
     // Check if it's a list (contains ',')
     else if source.contains(',') {
-        parse_list(id_map, source)
+        parse_list_with_disambiguation(id_map, source, out)
     }
     // Single source
     else {
         let source_result = id_map.resolve_entity_to_ids(source)?;
         if source_result.is_empty() {
             return Err(anyhow::anyhow!(
-                "Rubbed the wrong way. Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
+                "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
                 source
             ));
         }
@@ -650,12 +665,64 @@ fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::
         .collect())
 }
 
+/// Internal helper for parsing comma-separated lists with disambiguation support.
+fn parse_list_with_disambiguation(
+    id_map: &IdMap,
+    source: &str,
+    out: &mut OutputChannel,
+) -> anyhow::Result<Vec<CliId>> {
+    let parts: Vec<&str> = source.split(',').collect();
+    let mut result = Vec::new();
+
+    for part in parts {
+        let part = part.trim();
+
+        // Skip empty parts (e.g., from input like "," or "a,,b")
+        if part.is_empty() {
+            continue;
+        }
+
+        let matches = id_map.resolve_entity_to_ids(part)?;
+        if matches.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Item '{}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
+                part
+            ));
+        }
+
+        if matches.len() == 1 {
+            result.push(matches[0].clone());
+        } else {
+            // Ambiguous - prompt the user to disambiguate
+            let selected =
+                prompt_for_disambiguation(part, matches, &format!("item '{}' in list", part), out)?;
+            result.push(selected);
+        }
+    }
+
+    // If all parts were empty, return an error
+    if result.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Source list '{}' contains no valid items",
+            source
+        ));
+    }
+
+    Ok(result)
+}
+
 fn parse_list(id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split(',').collect();
     let mut result = Vec::new();
 
     for part in parts {
         let part = part.trim();
+
+        // Skip empty parts (e.g., from input like "," or "a,,b")
+        if part.is_empty() {
+            continue;
+        }
+
         let matches = id_map.resolve_entity_to_ids(part)?;
         if matches.len() != 1 {
             if matches.is_empty() {
@@ -673,6 +740,14 @@ fn parse_list(id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
         result.push(matches[0].clone());
     }
 
+    // If all parts were empty, return an error
+    if result.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Source list '{}' contains no valid items",
+            source
+        ));
+    }
+
     Ok(result)
 }
 
@@ -683,6 +758,43 @@ fn create_snapshot(ctx: &mut Context, operation: OperationKind) {
         .ok(); // Ignore errors for snapshot creation
 }
 
+/// Resolves a single entity string to a CliId with disambiguation support.
+///
+/// If the entity matches multiple IDs, this will prompt the user to disambiguate
+/// in interactive mode, or error in non-interactive mode.
+///
+/// # Arguments
+/// * `id_map` - The ID map to resolve against
+/// * `entity_str` - The string to resolve (e.g., "ab", "main")
+/// * `context` - Description for error messages (e.g., "commit", "branch")
+/// * `out` - Output channel for interactive prompts
+///
+/// # Returns
+/// The resolved CliId
+fn resolve_single_id(
+    id_map: &IdMap,
+    entity_str: &str,
+    context: &str,
+    out: &mut OutputChannel,
+) -> anyhow::Result<CliId> {
+    let matches = id_map.resolve_entity_to_ids(entity_str)?;
+
+    if matches.is_empty() {
+        return Err(anyhow::anyhow!(
+            "{} '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
+            context,
+            entity_str
+        ));
+    }
+
+    if matches.len() == 1 {
+        return Ok(matches[0].clone());
+    }
+
+    // Multiple matches - use disambiguation
+    prompt_for_disambiguation(entity_str, matches, context, out)
+}
+
 /// Handler for `but uncommit <source>` - runs `but rub <source> zz`
 /// Validates that source is a commit or file-in-commit.
 pub(crate) fn handle_uncommit(
@@ -691,7 +803,7 @@ pub(crate) fn handle_uncommit(
     source_str: &str,
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
-    let sources = parse_sources(ctx, &id_map, source_str)?;
+    let sources = parse_sources_with_disambiguation(ctx, &id_map, source_str, out)?;
 
     // Validate that all sources are commits or committed files
     for source in &sources {
@@ -722,8 +834,8 @@ pub(crate) fn handle_amend(
     commit_str: &str,
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
-    let files = parse_sources(ctx, &id_map, file_str)?;
-    let commit_matches = id_map.resolve_entity_to_ids(commit_str)?;
+    let files = parse_sources_with_disambiguation(ctx, &id_map, file_str, out)?;
+    let commit = resolve_single_id(&id_map, commit_str, "Commit", out)?;
 
     // Validate that all files are uncommitted
     for file in &files {
@@ -742,15 +854,7 @@ pub(crate) fn handle_amend(
     }
 
     // Validate that commit is a commit
-    if commit_matches.len() != 1 {
-        if commit_matches.is_empty() {
-            bail!("Commit '{}' not found.", commit_str);
-        } else {
-            bail!("Commit '{}' is ambiguous.", commit_str);
-        }
-    }
-
-    match &commit_matches[0] {
+    match &commit {
         CliId::Commit { .. } => {
             // Valid type for target
         }
@@ -776,8 +880,8 @@ pub(crate) fn handle_stage(
     branch_str: &str,
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
-    let files = parse_sources(ctx, &id_map, file_or_hunk_str)?;
-    let branch_matches = id_map.resolve_entity_to_ids(branch_str)?;
+    let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
+    let branch = resolve_single_id(&id_map, branch_str, "Branch", out)?;
 
     // Validate that all files are uncommitted
     for file in &files {
@@ -796,15 +900,7 @@ pub(crate) fn handle_stage(
     }
 
     // Validate that branch is a branch
-    if branch_matches.len() != 1 {
-        if branch_matches.is_empty() {
-            bail!("Branch '{}' not found.", branch_str);
-        } else {
-            bail!("Branch '{}' is ambiguous.", branch_str);
-        }
-    }
-
-    match &branch_matches[0] {
+    match &branch {
         CliId::Branch { .. } => {
             // Valid type for target
         }
@@ -830,7 +926,7 @@ pub(crate) fn handle_unstage(
     branch_str: Option<&str>,
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
-    let files = parse_sources(ctx, &id_map, file_or_hunk_str)?;
+    let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
 
     // Validate that all files are uncommitted
     for file in &files {
@@ -850,14 +946,8 @@ pub(crate) fn handle_unstage(
 
     // If a branch is specified, validate it exists (but we don't strictly require the file to be assigned to it)
     if let Some(branch_name) = branch_str {
-        let branch_matches = id_map.resolve_entity_to_ids(branch_name)?;
-        if branch_matches.is_empty() {
-            bail!("Branch '{}' not found.", branch_name);
-        }
-        if branch_matches.len() > 1 {
-            bail!("Branch '{}' is ambiguous.", branch_name);
-        }
-        match &branch_matches[0] {
+        let branch = resolve_single_id(&id_map, branch_name, "Branch", out)?;
+        match &branch {
             CliId::Branch { .. } => {
                 // Valid - branch exists
             }
@@ -885,19 +975,11 @@ pub(crate) fn handle_squash(
     drop_message: bool,
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
-    let commit1_matches = id_map.resolve_entity_to_ids(commit1_str)?;
-    let commit2_matches = id_map.resolve_entity_to_ids(commit2_str)?;
+    let commit1 = resolve_single_id(&id_map, commit1_str, "First commit", out)?;
+    let commit2 = resolve_single_id(&id_map, commit2_str, "Second commit", out)?;
 
     // Validate that commit1 is a commit
-    if commit1_matches.len() != 1 {
-        if commit1_matches.is_empty() {
-            bail!("First commit '{}' not found.", commit1_str);
-        } else {
-            bail!("First commit '{}' is ambiguous.", commit1_str);
-        }
-    }
-
-    let commit1_oid = match &commit1_matches[0] {
+    let commit1_oid = match &commit1 {
         CliId::Commit { commit_id, .. } => *commit_id,
         other => {
             bail!(
@@ -909,15 +991,7 @@ pub(crate) fn handle_squash(
     };
 
     // Validate that commit2 is a commit
-    if commit2_matches.len() != 1 {
-        if commit2_matches.is_empty() {
-            bail!("Second commit '{}' not found.", commit2_str);
-        } else {
-            bail!("Second commit '{}' is ambiguous.", commit2_str);
-        }
-    }
-
-    let commit2_oid = match &commit2_matches[0] {
+    let commit2_oid = match &commit2 {
         CliId::Commit { commit_id, .. } => *commit_id,
         other => {
             bail!(
