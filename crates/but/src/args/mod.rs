@@ -674,6 +674,41 @@ pub enum Subcommands {
     ///
     Alias(alias::Platform),
 
+    /// View and manage GitButler configuration.
+    ///
+    /// Without a subcommand, displays an overview of important settings including
+    /// user information, target branch, forge configuration, and AI setup.
+    ///
+    /// ## Examples
+    ///
+    /// View configuration overview:
+    ///
+    /// ```text
+    /// but config
+    /// ```
+    ///
+    /// View/set user configuration:
+    ///
+    /// ```text
+    /// but config user
+    /// but config user set name "John Doe"
+    /// but config user set email john@example.com
+    /// ```
+    ///
+    /// View/set forge configuration:
+    ///
+    /// ```text
+    /// but config forge
+    /// ```
+    ///
+    /// View/set target branch:
+    ///
+    /// ```text
+    /// but config target
+    /// ```
+    ///
+    Config(config::Platform),
+
     /// Resolve conflicts in a commit.
     ///
     /// When a commit is in a conflicted state (marked with conflicts during rebase),
@@ -798,6 +833,7 @@ pub enum Subcommands {
 }
 
 pub mod alias;
+pub mod config;
 pub mod update;
 
 pub mod actions {

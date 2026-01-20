@@ -59,7 +59,7 @@ pub fn from_editor(filename_safe_intent: &str, initial_text: &str) -> Result<BSt
 /// We fall back to notepad (Windows) or vi otherwise just in case we don't get something usable from `git var`.
 ///
 /// Note: Because git config parsing is used, the current directory matters for potential local git config overrides.
-fn get_editor_command() -> Result<String> {
+pub fn get_editor_command() -> Result<String> {
     get_editor_command_impl(std::env::vars_os())
 }
 

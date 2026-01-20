@@ -6,6 +6,7 @@ pub mod alias;
 #[cfg(not(feature = "legacy"))]
 pub mod branch;
 pub mod completions;
+pub mod config;
 pub mod forge;
 pub mod gui;
 pub mod help;

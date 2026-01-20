@@ -30,8 +30,8 @@ use clap::Parser;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
-    metrics, update as update_args, worktree,
+    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, config, cursor,
+    forge, metrics, update as update_args, worktree,
 };
 use but_settings::AppSettings;
 use colored::Colorize;
@@ -383,6 +383,14 @@ async fn match_subcommand(
             command::legacy::pull::handle(&ctx, out, true)
                 .await
                 .emit_metrics(metrics_ctx)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Config(config::Platform { cmd }) => {
+            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
+            command::config::exec(&mut ctx, out, cmd)
+                .await
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
