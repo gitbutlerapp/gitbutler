@@ -150,15 +150,15 @@ pub fn push_stack(
         .id()
         .to_gix();
 
+    // Use the stack's effective push remote (may be fork-specific)
+    let push_remote = stack.effective_push_remote_name(ctx)?;
+
     // First fetch, because we dont want to push integrated series
-    ctx.fetch(
-        &default_target.push_remote_name(),
-        Some("push_stack".into()),
-    )?;
+    ctx.fetch(&push_remote, Some("push_stack".into()))?;
     let cache = gix_repo.commit_graph_if_enabled()?;
     let stack_branches = stack.branches();
     let mut result = PushResult {
-        remote: default_target.push_remote_name(),
+        remote: push_remote.clone(),
         branch_to_remote: vec![],
         branch_sha_updates: vec![],
     };
@@ -206,14 +206,13 @@ pub fn push_stack(
         let local_sha = push_details.head;
 
         if run_hooks {
-            let remote_name = default_target.push_remote_name();
-            let remote = git2_repo.find_remote(&remote_name)?;
+            let remote = git2_repo.find_remote(&push_remote)?;
             let url = &remote
                 .url()
-                .with_context(|| format!("Remote named {remote_name} didn't have a URL"))?;
+                .with_context(|| format!("Remote named {push_remote} didn't have a URL"))?;
             match hooks::pre_push(
                 &git2_repo,
-                &remote_name,
+                &push_remote,
                 url,
                 push_details.head,
                 &push_details.remote_refname,

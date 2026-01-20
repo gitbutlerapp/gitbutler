@@ -44,6 +44,9 @@ mod stack {
         /// Upstream tracking branch reference, added when creating a stack from a branch.
         /// Used e.g. when listing commits from a fork.
         pub upstream: Option<RemoteRefname>,
+        /// Per-stack push remote override.
+        #[serde(default)]
+        pub push_remote_name: Option<String>,
         // order is the number by which UI should sort branches
         pub order: usize,
         /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
@@ -149,6 +152,7 @@ mod stack {
                 // Don't keep redundant information
                 source_refname: None,
                 upstream: None,
+                push_remote_name: None,
 
                 // Unused - everything is defined by the top-most branch name.
                 // unclear, obsolete

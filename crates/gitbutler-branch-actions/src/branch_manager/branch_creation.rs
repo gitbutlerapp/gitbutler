@@ -217,7 +217,7 @@ impl BranchManager<'_> {
             .or(vb_state.find_by_source_refname_where_not_in_workspace(target)?)
             && branch.is_initialized()
         {
-            branch.upstream = upstream_branch; // Used as remote when listing commits.
+            branch.upstream = upstream_branch.clone(); // Used as remote when listing commits.
             branch.order = order;
             branch.in_workspace = true;
 
@@ -228,11 +228,21 @@ impl BranchManager<'_> {
                 self.ctx,
                 branch_name.clone(),
                 Some(target.clone()),
-                upstream_branch,
+                upstream_branch.clone(),
                 head_commit.id(),
                 order,
             )?
         };
+
+        // Set push_remote_name from upstream if it's a different remote than the default.
+        // This ensures pushes go to the fork remote when applying a PR from a fork.
+        if let Some(ref upstream) = upstream_branch {
+            let upstream_remote = upstream.remote().to_owned();
+            let default_remote = default_target.push_remote_name();
+            if upstream_remote != default_remote {
+                branch.push_remote_name = Some(upstream_remote);
+            }
+        }
 
         if let (Some(pr_number), Some(head)) = (pr_number, branch.heads(false).last()) {
             branch.set_pr_number(self.ctx, head, Some(pr_number))?;

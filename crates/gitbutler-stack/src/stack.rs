@@ -40,6 +40,9 @@ pub struct Stack {
     /// Upstream tracking branch reference, added when creating a stack from a branch.
     /// Used e.g. when listing commits from a fork.
     pub upstream: Option<RemoteRefname>,
+    /// Per-stack push remote override. If set, pushes go to this remote
+    /// instead of the default target's push remote.
+    pub push_remote_name: Option<String>,
     // order is the number by which UI should sort branches
     pub order: usize,
     /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
@@ -56,6 +59,7 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             id,
             source_refname,
             upstream,
+            push_remote_name,
             order,
             in_workspace,
             heads,
@@ -66,6 +70,7 @@ impl From<virtual_branches_legacy_types::Stack> for Stack {
             id,
             source_refname,
             upstream,
+            push_remote_name,
             order,
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
@@ -79,6 +84,7 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             id,
             source_refname,
             upstream,
+            push_remote_name,
             order,
             in_workspace,
             heads,
@@ -88,6 +94,7 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             id,
             source_refname,
             upstream,
+            push_remote_name,
             order,
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
@@ -151,6 +158,7 @@ impl Stack {
             // Don't keep redundant information
             source_refname: None,
             upstream: None,
+            push_remote_name: None,
         }
     }
 
@@ -201,6 +209,7 @@ impl Stack {
             id: StackId::generate(),
             source_refname,
             upstream,
+            push_remote_name: None,
             order,
             in_workspace: true,
             heads: vec![stack_branch],
@@ -216,6 +225,7 @@ impl Stack {
             id: StackId::generate(),
             source_refname: None,
             upstream: None,
+            push_remote_name: None,
             order,
             in_workspace: true,
             heads: vec![stack_branch],
@@ -271,6 +281,25 @@ impl Stack {
         let gix_repo = ctx.repo.get()?;
         let merge_base = gix_repo.merge_base(self.head_oid(ctx)?, target.sha.to_gix())?;
         Ok(merge_base.detach())
+    }
+
+    /// Returns the remote name to use for pushing this stack.
+    /// Checks stack-level override first, then falls back to default target.
+    pub fn effective_push_remote_name(&self, ctx: &Context) -> Result<String> {
+        if let Some(remote_name) = &self.push_remote_name {
+            // Verify remote still exists
+            let git2_repo = ctx.git2_repo.get()?;
+            if git2_repo.find_remote(remote_name).is_ok() {
+                return Ok(remote_name.clone());
+            }
+            tracing::warn!(
+                "Push remote '{}' for stack {} no longer exists, falling back to default",
+                remote_name,
+                self.id
+            );
+        }
+        let state = branch_state(ctx);
+        Ok(state.get_default_target()?.push_remote_name())
     }
 
     /// An initialized stack has at least one head (branch).
@@ -572,7 +601,7 @@ impl Stack {
         let oid = reference.head_oid(&*ctx.repo.get()?)?.to_git2();
         let git2_repo = ctx.git2_repo.get()?;
         let commit = git2_repo.find_commit(oid)?;
-        let remote_name = branch_state(ctx).get_default_target()?.push_remote_name();
+        let remote_name = self.effective_push_remote_name(ctx)?;
         let upstream_refname =
             RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str()))?;
         Ok(PushDetails {
