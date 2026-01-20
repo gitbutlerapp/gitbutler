@@ -47,14 +47,16 @@
 		height: 100%;
 		padding: 2px 9px 18px;
 		border-right: 1px solid var(--clr-border-2);
-		background: linear-gradient(
-			90deg,
-			var(--clr-bg-2) 0%,
-			var(--clr-bg-2) 70%,
-			var(--clr-bg-3) 100%
-		);
+		background: var(--clr-bg-2);
+		--lighter-bg-drop-shadow: color-mix(in srgb, var(--clr-drop-shadow) 50%, var(--clr-bg-2));
+		box-shadow: inset -5px 0 10px var(--lighter-bg-drop-shadow);
 		color: var(--clr-text-3);
 		cursor: grab;
+	}
+
+	/* dark mode */
+	:global(.dark) .folded-lane {
+		box-shadow: inset -5px 0 10px var(--lighter-bg-drop-shadow);
 	}
 
 	.drag-handle-icon {
