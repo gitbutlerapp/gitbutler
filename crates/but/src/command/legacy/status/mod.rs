@@ -907,7 +907,7 @@ fn display_cli_commit_details(
 
     if verbose {
         // No message when verbose since it goes to the next line
-        let created_at = commit_details.commit.inner.committer.time;
+        let created_at = commit_details.commit.inner.author.time;
         let formatted_time = created_at.format_or_unix(CLI_DATE);
         format!(
             "{}{} {} {}{}{}",
