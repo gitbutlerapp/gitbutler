@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CollapseStackButton from '$components/CollapseStackButton.svelte';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import { Icon } from '@gitbutler/ui';
 
 	type Props = {
@@ -9,6 +10,17 @@
 	};
 
 	const { stackId, branchNames, projectId }: Props = $props();
+
+	// Persisted folded stacks state per project
+	const foldedStacks = persisted<string[]>([], `folded-stacks-${projectId}`);
+
+	function handleDoubleClick() {
+		if (!stackId) return;
+
+		// Unfold: remove from folded list
+		const currentFolded = $foldedStacks;
+		foldedStacks.set(currentFolded.filter((id) => id !== stackId));
+	}
 </script>
 
 <div
@@ -17,6 +29,7 @@
 	data-remove-from-panning
 	data-drag-handle
 	draggable="true"
+	ondblclick={handleDoubleClick}
 >
 	<CollapseStackButton {stackId} {projectId} isFolded />
 
