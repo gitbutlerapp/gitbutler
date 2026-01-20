@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::Context;
 use but_oxidize::TimeExt;
 use colored::Colorize;
 use gitbutler_oplog::entry::{OperationKind, Snapshot};
@@ -231,11 +231,7 @@ pub(crate) fn restore_to_oplog(
     }
 
     // Restore to the target snapshot using the but-api crate
-    if force {
-        but_api::legacy::oplog::restore_snapshot(ctx.legacy_project.id, commit_sha_string)?;
-    } else {
-        bail!("Unable to possibly overwrite changes in the worktree without --force");
-    }
+    but_api::legacy::oplog::restore_snapshot(ctx.legacy_project.id, commit_sha_string)?;
 
     if let Some(out) = out.for_human() {
         writeln!(
