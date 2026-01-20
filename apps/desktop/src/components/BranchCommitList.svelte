@@ -420,6 +420,19 @@
 													autoselect
 													allowUnselect={false}
 													onselect={(change, index) => {
+														// Ensure the commit is selected so the preview shows it
+														const currentSelection = laneState.selection.current;
+														if (
+															currentSelection?.commitId !== commitId ||
+															currentSelection?.branchName !== branchName
+														) {
+															laneState.selection.set({
+																branchName,
+																commitId,
+																upstream: false,
+																previewOpen: true
+															});
+														}
 														onCommitFileClick?.(commitId, change.path, index);
 													}}
 												/>

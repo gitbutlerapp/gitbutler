@@ -403,8 +403,17 @@
 										topBorder
 										bottomBorder={false}
 										transparentHeader
-										onselect={(change, index) =>
-											onBranchFileClick?.(branchName, change.path, index)}
+										onselect={(change, index) => {
+											// Ensure the branch is selected so the preview shows it
+											const currentSelection = laneState.selection.current;
+											if (
+												currentSelection?.branchName !== branchName ||
+												currentSelection?.commitId !== undefined
+											) {
+												laneState.selection.set({ branchName, previewOpen: true });
+											}
+											onBranchFileClick?.(branchName, change.path, index);
+										}}
 									/>
 								{/snippet}
 							</ReduxResult>
