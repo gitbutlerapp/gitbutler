@@ -6,6 +6,7 @@ use but_ctx::Context;
 use gitbutler_branch_actions::{internal::PushResult, stack::CreateSeriesRequest};
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::ProjectId;
+use gitbutler_reference::normalize_branch_name;
 use gitbutler_stack::StackId;
 use gix::refs::Category;
 use tracing::instrument;
@@ -47,7 +48,7 @@ pub fn create_reference(
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let create_reference::Request { new_name, anchor } = request;
     let new_ref = Category::LocalBranch
-        .to_full_name(new_name.as_str())
+        .to_full_name(normalize_branch_name(&new_name)?.as_str())
         .map_err(anyhow::Error::from)?;
     let anchor = anchor
         .map(|anchor| -> Result<_> {
@@ -107,8 +108,9 @@ pub fn create_branch(
     let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.write_permission())?;
     let repo = ctx.repo.get()?;
     let stack = ws.try_find_stack_by_id(stack_id)?;
+    let normalized_name = normalize_branch_name(&request.name)?;
     let new_ref = Category::LocalBranch
-        .to_full_name(request.name.as_str())
+        .to_full_name(normalized_name.as_str())
         .map_err(anyhow::Error::from)?;
     if request.preceding_head.is_some() {
         return Err(anyhow!(
@@ -116,7 +118,7 @@ pub fn create_branch(
         ));
     }
 
-    ctx.snapshot_create_dependent_branch(&request.name, guard.write_permission())
+    ctx.snapshot_create_dependent_branch(&normalized_name, guard.write_permission())
         .ok();
     _ = but_workspace::branch::create_reference(
         new_ref.as_ref(),
