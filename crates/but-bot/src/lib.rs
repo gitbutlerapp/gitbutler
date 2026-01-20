@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use but_ctx::Context;
 use but_tools::emit::{Emittable, Emitter};
 use gitbutler_project::ProjectId;
@@ -63,23 +61,22 @@ pub fn forge_branch_chat(
 
     let message_id_cloned = message_id.clone();
     let project_id_cloned = project_id;
-    let on_token_cb: Arc<dyn Fn(&str) + Send + Sync + 'static> = Arc::new({
-        let emitter = emitter.clone();
-        let message_id = message_id_cloned;
-        let project_id = project_id_cloned;
-        move |token: &str| {
-            let token_update = but_tools::emit::TokenUpdate {
-                token: token.to_string(),
-                project_id,
-                message_id: message_id.clone(),
-            };
-            let (name, payload) = token_update.emittable();
-            (emitter)(&name, payload);
-        }
-    });
 
     let response = llm
-        .stream_response(&sys_prompt, chat_messages, model, on_token_cb)?
+        .stream_response(&sys_prompt, chat_messages, &model, {
+            let emitter = emitter.clone();
+            let message_id = message_id_cloned;
+            let project_id = project_id_cloned;
+            move |token: &str| {
+                let token_update = but_tools::emit::TokenUpdate {
+                    token: token.to_string(),
+                    project_id,
+                    message_id: message_id.clone(),
+                };
+                let (name, payload) = token_update.emittable();
+                (emitter)(&name, payload);
+            }
+        })?
         .unwrap_or_default();
 
     Ok(response)

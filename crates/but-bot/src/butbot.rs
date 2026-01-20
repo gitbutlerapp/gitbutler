@@ -145,7 +145,7 @@ Take a look at the conversation, specifically, the last user request below, and 
         let response = self.llm.structured_output::<ButButRouteResponse>(
             routing_sys_prompt,
             messages,
-            MODEL.to_string(),
+            MODEL,
         )?;
 
         match response {
@@ -200,7 +200,7 @@ Reference relevant resources from the project status (e.g. branches, commits, fi
             &self.state.sys_prompt.clone(),
             internal_chat_messages,
             &mut self.state,
-            MODEL.to_string(),
+            MODEL,
         )?;
 
         Ok(())
@@ -254,7 +254,7 @@ Based on the conversation below and the project status, please update the status
             &self.state.sys_prompt.clone(),
             internal_chat_messages,
             &mut self.state,
-            MODEL.to_string(),
+            MODEL,
         )?;
 
         Ok(())
@@ -291,28 +291,24 @@ Based on the conversation below and the project status, please update the status
         // Now we trigger the tool calling loop.
         let message_id_cloned = self.message_id.clone();
         let project_id_cloned = self.project_id;
-        let on_token_cb: std::sync::Arc<dyn Fn(&str) + Send + Sync + 'static> =
-            std::sync::Arc::new({
-                let emitter = self.emitter.clone();
-                let message_id = message_id_cloned;
-                let project_id = project_id_cloned;
-                move |token: &str| {
-                    let token_update = but_tools::emit::TokenUpdate {
-                        token: token.to_string(),
-                        project_id,
-                        message_id: message_id.clone(),
-                    };
-                    let (name, payload) = token_update.emittable();
-                    (emitter)(&name, payload);
-                }
-            });
 
         let (response, _) = self.llm.tool_calling_loop_stream(
             SYS_PROMPT,
             internal_chat_messages,
             &mut toolset,
-            MODEL.to_string(),
-            on_token_cb,
+            MODEL,
+            {
+                let emitter = self.emitter.clone();
+                move |token: &str| {
+                    let token_update = but_tools::emit::TokenUpdate {
+                        token: token.to_string(),
+                        project_id: project_id_cloned,
+                        message_id: message_id_cloned.clone(),
+                    };
+                    let (name, payload) = token_update.emittable();
+                    (emitter)(&name, payload);
+                }
+            },
         )?;
 
         Ok(response)
@@ -373,8 +369,13 @@ If you need to perform actions, do so, and be concise in the description of the 
         // Now we trigger the tool calling loop.
         let message_id_cloned = self.message_id.clone();
         let project_id_cloned = self.project_id;
-        let on_token_cb: std::sync::Arc<dyn Fn(&str) + Send + Sync + 'static> =
-            std::sync::Arc::new({
+
+        let (response, _) = self.llm.tool_calling_loop_stream(
+            SYS_PROMPT,
+            internal_chat_messages,
+            &mut toolset,
+            MODEL,
+            {
                 let emitter = self.emitter.clone();
                 let message_id = message_id_cloned;
                 let project_id = project_id_cloned;
@@ -387,14 +388,7 @@ If you need to perform actions, do so, and be concise in the description of the 
                     let (name, payload) = token_update.emittable();
                     (emitter)(&name, payload);
                 }
-            });
-
-        let (response, _) = self.llm.tool_calling_loop_stream(
-            SYS_PROMPT,
-            internal_chat_messages,
-            &mut toolset,
-            MODEL.to_string(),
-            on_token_cb,
+            },
         )?;
 
         // Remove the injected project status tool calls and responses from the messages.

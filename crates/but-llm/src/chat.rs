@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolCallContent {
@@ -30,3 +32,52 @@ pub struct ToolCall {
 }
 
 pub type StreamToolCallResult = (Option<Vec<ToolCall>>, Option<String>);
+
+impl Display for ChatMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChatMessage::User(content) => write!(f, "<user_message>\n{content}\n</user_message>"),
+            ChatMessage::Assistant(content) => write!(f, "<but-bot\n{content}\n</but-bot>"),
+            ChatMessage::ToolCall(content) => write!(
+                f,
+                "
+<but-bot-tool-call>
+    <id>{}</id>
+    <name>{}</name>
+    <arguments>{}</arguments>
+</but-bot-tool-call>",
+                content.id, content.name, content.arguments
+            ),
+            ChatMessage::ToolResponse(content) => write!(
+                f,
+                "
+<but-bot-tool-response>
+    <id>{}</id>
+    <result>{}</result>
+</but-bot-tool-response>",
+                content.id,
+                clamp_result_content(content)
+            ),
+        }
+    }
+}
+
+impl From<&str> for ChatMessage {
+    fn from(msg: &str) -> Self {
+        ChatMessage::User(msg.to_string())
+    }
+}
+
+impl From<String> for ChatMessage {
+    fn from(msg: String) -> Self {
+        ChatMessage::User(msg)
+    }
+}
+
+fn clamp_result_content(result: &ToolResponseContent) -> String {
+    if result.result.len() > 500 {
+        "Result too big to be displayed".to_string()
+    } else {
+        result.result.to_owned()
+    }
+}

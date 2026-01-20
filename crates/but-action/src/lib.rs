@@ -105,29 +105,24 @@ pub fn freestyle(
     }));
 
     // Now we trigger the tool calling loop.
-    let message_id_cloned = message_id.clone();
-    let project_id_cloned = project_id;
-    let on_token_cb: Arc<dyn Fn(&str) + Send + Sync + 'static> = Arc::new({
-        let emitter = emitter.clone();
-        let message_id = message_id_cloned;
-        let project_id = project_id_cloned;
-        move |token: &str| {
-            let token_update = TokenUpdate {
-                token: token.to_string(),
-                project_id,
-                message_id: message_id.clone(),
-            };
-            let (name, payload) = token_update.emittable();
-            (emitter)(&name, payload);
-        }
-    });
 
     let (response, _) = llm.tool_calling_loop_stream(
         system_message,
         internal_chat_messages,
         &mut toolset,
-        model,
-        on_token_cb,
+        &model,
+        {
+            let emitter = emitter.clone();
+            move |token: &str| {
+                let token_update = TokenUpdate {
+                    token: token.to_string(),
+                    project_id,
+                    message_id: message_id.clone(),
+                };
+                let (name, payload) = token_update.emittable();
+                (emitter)(&name, payload);
+            }
+        },
     )?;
 
     Ok(response)

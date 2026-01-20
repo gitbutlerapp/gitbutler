@@ -31,11 +31,7 @@ unified diff:
 
     let chat_messages = vec![ChatMessage::User(user_message)];
     let response = llm
-        .structured_output::<StructuredOutput>(
-            &system_message,
-            chat_messages,
-            "gpt-5-mini".to_string(),
-        )?
+        .structured_output::<StructuredOutput>(&system_message, chat_messages, "gpt-5-mini")?
         .context("Failed to generate structured content for commit message")?;
 
     Ok(response.commit_message)
@@ -91,7 +87,7 @@ pub fn branch_name(
         .structured_output::<GenerateBranchNameOutput>(
             &system_message,
             chat_messages,
-            "gpt-5-mini".to_string(),
+            "gpt-5-mini",
         )?
         .context("Failed to generate structured content for commit message")?;
 
