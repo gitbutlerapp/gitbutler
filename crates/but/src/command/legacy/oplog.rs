@@ -1,10 +1,9 @@
-use anyhow::Context;
 use but_oxidize::TimeExt;
 use colored::Colorize;
 use gitbutler_oplog::entry::{OperationKind, Snapshot};
 use gix::date::time::CustomFormat;
 
-use crate::utils::OutputChannel;
+use crate::utils::{Confirm, ConfirmDefault, OutputChannel};
 
 pub const ISO8601_NO_TZ: CustomFormat = CustomFormat::new("%Y-%m-%d %H:%M:%S");
 
@@ -219,12 +218,7 @@ pub(crate) fn restore_to_oplog(
                     .yellow()
                     .bold()
             )?;
-            let input = out
-                .prompt("Continue with restore? [y/N]: ")?
-                .context("Restore cancelled.".yellow())?
-                .to_lowercase();
-
-            if input != "y" && input != "yes" {
+            if out.confirm("Continue with restore?", ConfirmDefault::No)? == Confirm::No {
                 return Ok(());
             }
         }
