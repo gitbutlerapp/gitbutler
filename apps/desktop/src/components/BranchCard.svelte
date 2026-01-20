@@ -16,7 +16,6 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { ReviewBadge, TestId } from '@gitbutler/ui';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { PushStatus } from '$lib/stacks/stack';
@@ -38,7 +37,6 @@
 		iconName: keyof typeof iconsJson;
 		selected: boolean;
 		trackingBranch?: string;
-		lastUpdatedAt?: number;
 		isTopBranch?: boolean;
 		isNewBranch?: boolean;
 		roundedBottom?: boolean;
@@ -59,7 +57,6 @@
 		allOtherPrNumbersInStack: number[];
 		reviewId?: string;
 		pushStatus: PushStatus;
-		lastUpdatedAt?: number;
 		isConflicted: boolean;
 		applied?: boolean;
 		contextMenu?: typeof BranchHeaderContextMenu;
@@ -80,7 +77,6 @@
 		type: 'pr-branch';
 		selected: boolean;
 		trackingBranch: string;
-		lastUpdatedAt: number;
 	}
 
 	type Props = NormalBranchProps | StackBranchProps | PrBranchProps;
@@ -242,14 +238,6 @@
 				{#snippet content()}
 					<BranchBadge pushStatus={args.pushStatus} unstyled />
 
-					<span class="branch-header__divider">•</span>
-
-					{#if args.lastUpdatedAt}
-						<span class="branch-header__item">
-							{getTimeAgo(new Date(args.lastUpdatedAt))}
-						</span>
-					{/if}
-
 					{#if args.reviewId || args.prNumber}
 						<span class="branch-header__divider">•</span>
 						<div class="branch-header__review-badges">
@@ -304,13 +292,6 @@
 				<span class="branch-header__empty-state-span">There are no commits yet on this branch.</span
 				>
 			{/snippet}
-			{#snippet content()}
-				{#if args.lastUpdatedAt}
-					<span class="branch-header__item">
-						{getTimeAgo(new Date(args.lastUpdatedAt))}
-					</span>
-				{/if}
-			{/snippet}
 		</BranchHeader>
 	{:else if args.type === 'pr-branch'}
 		<BranchHeader
@@ -325,15 +306,7 @@
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
 			readonly
 			isPushed
-		>
-			{#snippet content()}
-				{#if args.lastUpdatedAt}
-					<span class="branch-header__item">
-						{getTimeAgo(new Date(args.lastUpdatedAt))}
-					</span>
-				{/if}
-			{/snippet}
-		</BranchHeader>
+		/>
 	{/if}
 
 	{#if args.type === 'stack-branch' && args.hasCodegenRow && args.codegenRow}
@@ -357,11 +330,6 @@
 		position: relative;
 		flex-direction: column;
 		width: 100%;
-	}
-
-	.branch-header__item {
-		color: var(--clr-text-2);
-		white-space: nowrap;
 	}
 
 	.branch-header__divider {

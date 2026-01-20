@@ -20,7 +20,7 @@
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { branchLastUpdatedAt, type BranchDetails } from '$lib/stacks/stack';
+	import { type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -174,7 +174,6 @@
 					!selection?.current.codegen}
 				{@const pushStatus = branchDetails.pushStatus}
 				{@const isConflicted = branchDetails.isConflicted}
-				{@const lastUpdatedAt = branchLastUpdatedAt(branchDetails) ?? undefined}
 				{@const reviewId = branch.reviewId || undefined}
 				{@const prNumber = branch.prNumber || undefined}
 				{@const allOtherPrNumbersInStack = branches
@@ -219,7 +218,6 @@
 						stackId !== undefined &&
 						codegenQuery?.response &&
 						codegenQuery.response.length > 0}
-					{lastUpdatedAt}
 					{reviewId}
 					{prNumber}
 					{allOtherPrNumbersInStack}

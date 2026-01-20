@@ -32,7 +32,6 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	name: 'branch-a',
 	reference: 'refs/heads/branch-a',
 	pushStatus: 'nothingToPush',
-	lastUpdatedAt: BigInt(1672531200000), // Example timestamp
 	authors: [MOCK_AUTHOR_A],
 	isConflicted: false,
 	commits: [MOCK_COMMIT_A],
@@ -43,7 +42,8 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	tip: 'tip-commit-a',
 	baseCommit: 'base-commit-a',
 	isRemoteHead: false,
-	linkedWorktreeId: null
+	linkedWorktreeId: null,
+	lastUpdatedAt: BigInt(1672531200000)
 };
 
 export function getStackServiceMock() {
