@@ -28,7 +28,7 @@ fn suppress_without_cache_succeeds() -> anyhow::Result<()> {
     let result = but_update::suppress_update(&mut cache, 24);
     assert!(
         result.is_ok(),
-        "Let's not bother the user that somehow didn't see a single check running"
+        "Success is preferred to not bother the user for something that will fix itself"
     );
     Ok(())
 }

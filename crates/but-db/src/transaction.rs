@@ -39,7 +39,7 @@ impl DbHandle {
     /// and fail after a timeout.
     ///
     /// # IMPORTANT: run `commit()`
-    /// Don't forget to call [commit()](rusqlite::Transaction::commit()) to actually persist the result.
+    /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
     /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
     pub fn transaction(&mut self) -> rusqlite::Result<Transaction<'_>> {
         Ok(self
@@ -58,7 +58,7 @@ impl DbHandle {
     /// When *called* while a lock is taken elsewhere, this call will block at first, and fail after a timeout.
     ///
     /// # IMPORTANT: run `commit()`
-    /// Don't forget to call [commit()](rusqlite::Transaction::commit()) to actually persist the result.
+    /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
     /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
     pub fn immediate_transaction(&mut self) -> rusqlite::Result<Transaction<'_>> {
         Ok(self
@@ -75,7 +75,7 @@ impl DbHandle {
     /// Readers will always read from the original data.
     ///
     /// # IMPORTANT: run `commit()`
-    /// Don't forget to call [commit()](rusqlite::Transaction::commit()) to actually persist the result.
+    /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
     /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
     pub fn immediate_transaction_nonblocking(
         &mut self,
@@ -94,7 +94,7 @@ impl AppCacheHandle {
     /// Readers will always read from the original data.
     ///
     /// # IMPORTANT: run `commit()`
-    /// Don't forget to call [commit()](rusqlite::Transaction::commit()) to actually persist the result.
+    /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
     /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
     pub fn deferred_transaction(&mut self) -> rusqlite::Result<Transaction<'_>> {
         Ok(self
@@ -111,7 +111,7 @@ impl AppCacheHandle {
     /// Readers will always read from the original data.
     ///
     /// # IMPORTANT: run `commit()`
-    /// Don't forget to call [commit()](rusqlite::Transaction::commit()) to actually persist the result.
+    /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
     /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
     pub fn immediate_transaction_nonblocking(
         &mut self,

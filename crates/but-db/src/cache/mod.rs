@@ -75,7 +75,10 @@ fn open_with_migrations_infallible<'m>(
             } else {
                 match rusqlite::Connection::open(url) {
                     Ok(mut conn) => match run_migrations(&mut conn, migrations.clone()) {
-                        Ok(_) => return (conn, url),
+                        Ok(_) => {
+                            crate::migration::improve_concurrency(&conn).ok();
+                            return (conn, url);
+                        }
                         Err(err) => {
                             tracing::warn!(
                                 ?err,

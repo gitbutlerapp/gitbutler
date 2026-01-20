@@ -197,6 +197,9 @@ impl UpdateCheckHandleMut<'_> {
     /// Suppresses update notifications for a specified duration in `hours`.
     ///
     /// Updates the existing cache record with suppression settings.
+    ///
+    /// If no update check record exists yet, this function logs a warning and
+    /// returns `Ok(())` without modifying the database.
     pub fn suppress(self, hours: u32) -> rusqlite::Result<()> {
         let sp = self.sp;
 
@@ -208,7 +211,7 @@ impl UpdateCheckHandleMut<'_> {
         )?;
 
         if !exists {
-            tracing::warn!("No update check has been performed yet - cannot set supression");
+            tracing::warn!("No update check has been performed yet - cannot set suppression");
             return Ok(());
         }
 

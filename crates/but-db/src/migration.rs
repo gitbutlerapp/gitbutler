@@ -30,6 +30,8 @@ pub fn run<'m>(
     migrations: impl IntoIterator<Item = M<'m>>,
 ) -> Result<usize, Error> {
     let trans = conn
+        // Use deferred to allow ourselves to read first without running into locks.
+        // That read can determine that nothing needs to be done, saving a lot of time.
         .transaction_with_behavior(rusqlite::TransactionBehavior::Deferred)
         .map_err(transient_if_locked)?;
     let migrations = {
