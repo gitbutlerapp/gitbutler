@@ -1,5 +1,3 @@
-use std::io::IsTerminal;
-
 use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::Context;
 use cli_prompts::DisplayPrompt;
@@ -840,8 +838,7 @@ fn handle_no_branch_specified(
     }
 
     // Check if we're in an interactive terminal
-    let is_interactive = std::io::stdin().is_terminal() && out.for_human().is_some();
-    if !is_interactive {
+    if !out.can_prompt() {
         tracing::info!(
             "Non-interactive mode detected. Pushing all branches with unpushed commits..."
         );

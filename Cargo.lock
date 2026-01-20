@@ -830,22 +830,18 @@ name = "but-action"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "async-openai",
  "but-core",
  "but-ctx",
  "but-db",
  "but-hunk-assignment",
- "but-hunk-dependency",
  "but-llm",
  "but-meta",
  "but-oxidize",
- "but-secret",
  "but-serde",
  "but-settings",
  "but-tools",
  "but-workspace",
  "chrono",
- "futures",
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-operating-modes",
@@ -855,14 +851,12 @@ dependencies = [
  "gitbutler-stack",
  "gix",
  "itertools",
- "reqwest 0.12.28",
  "rmcp",
  "schemars 1.2.0",
  "serde",
  "serde-error",
  "serde_json",
  "strum",
- "tokio",
  "tracing",
  "uuid",
 ]
@@ -942,7 +936,6 @@ name = "but-bot"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "but-action",
  "but-ctx",
  "but-forge",
  "but-llm",
@@ -973,15 +966,6 @@ dependencies = [
  "gitbutler-workspace",
  "gix",
  "serde",
-]
-
-[[package]]
-name = "but-clap"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "but",
- "clap",
 ]
 
 [[package]]
@@ -1101,10 +1085,6 @@ dependencies = [
  "tokio",
  "tracing",
 ]
-
-[[package]]
-name = "but-debugging"
-version = "0.0.0"
 
 [[package]]
 name = "but-error"
@@ -1248,11 +1228,8 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-graph",
- "but-meta",
- "but-oxidize",
  "but-serde",
  "but-testsupport",
- "but-workspace",
  "gix",
  "insta",
  "itertools",
@@ -1268,14 +1245,12 @@ dependencies = [
  "anyhow",
  "async-openai",
  "but-secret",
- "but-serde",
  "but-tools",
  "futures",
  "ollama-rs",
  "reqwest 0.12.28",
  "schemars 1.2.0",
  "serde",
- "serde-error",
  "serde_json",
  "strum",
  "tokio",
@@ -1346,7 +1321,6 @@ dependencies = [
  "but-gerrit",
  "but-graph",
  "but-meta",
- "but-oxidize",
  "but-testsupport",
  "gix",
  "insta",
@@ -2438,9 +2412,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.9.0"
+version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
+checksum = "d7a1e2f27636f116493b8b860f5546edb47c8d8f8ea73e1d2a20be88e28d1fea"
 
 [[package]]
 name = "data-url"

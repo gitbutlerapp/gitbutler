@@ -7,8 +7,8 @@ pub struct OutputChannel {
     /// How to print the output, one should match on it. Match on this if you prefer this style.
     format: OutputFormat,
     /// The output to use if there is no pager.
-    inner: std::io::Stdout,
-    /// Possibly a pager we are using. If `Some`, our `inner` is the pager itself which we interact with from here.
+    stdout: std::io::Stdout,
+    /// Possibly a pager we are using. If `Some`, the pager itself is used for output instead of `stdout`.
     pager: Option<minus::Pager>,
 }
 
@@ -67,7 +67,15 @@ fn ignore_broken_pipe(err: std::io::Error) -> std::io::Result<()> {
     }
 }
 
-/// Conversions
+/// Access
+impl OutputChannel {
+    /// Get the output format setting.
+    pub fn format(&self) -> OutputFormat {
+        self.format
+    }
+}
+
+/// Output
 impl OutputChannel {
     /// Provide a write implementation for humans, if the format setting permits.
     pub fn for_human(&mut self) -> Option<&mut (dyn std::fmt::Write + 'static)> {
@@ -82,11 +90,20 @@ impl OutputChannel {
         matches!(self.format, OutputFormat::Json).then_some(self)
     }
 
-    /// Get the output format setting.
-    pub fn format(&self) -> OutputFormat {
-        self.format
+    /// A convenience function to create a progress channel, which doesn't have any relationship with this instance.
+    pub fn progress_channel(&self) -> ProgressChannel {
+        ProgressChannel::default()
     }
+}
 
+/// User input
+impl OutputChannel {
+    /// Return `true` if external prompt support like [`Selection`](cli_prompts::prompts::Selection) can be used.
+    ///
+    /// Note that this is implied to be true if [Self::prepare_for_terminal_input()] returns `Some()`.
+    pub fn can_prompt(&self) -> bool {
+        std::io::stdin().is_terminal() && self.stdout.is_terminal()
+    }
     /// Before performing further output, obtain an input channel which always bypasses the pager when writing,
     /// while allowing prompting the user for input.
     /// If `None` is returned, terminal input isn't available and one should suggest to use command-line
@@ -94,7 +111,7 @@ impl OutputChannel {
     pub fn prepare_for_terminal_input(&mut self) -> Option<InputOutputChannel<'_>> {
         use std::io::IsTerminal;
         let stdin = std::io::stdin();
-        if !stdin.is_terminal() || !self.inner.is_terminal() {
+        if !stdin.is_terminal() || !self.stdout.is_terminal() {
             return None;
         }
         if self.for_human().is_none() {
@@ -104,11 +121,6 @@ impl OutputChannel {
             return None;
         }
         Some(InputOutputChannel { out: self, stdin })
-    }
-
-    /// A convenience function to create a progress channel, which doesn't have any relationship with this instance.
-    pub fn progress_channel(&self) -> ProgressChannel {
-        ProgressChannel::default()
     }
 }
 
@@ -130,7 +142,7 @@ impl std::fmt::Write for OutputChannel {
                 if let Some(out) = self.pager.as_mut() {
                     out.write_str(s)
                 } else {
-                    self.inner.write_all(s.as_bytes()).or_else(|err| {
+                    self.stdout.write_all(s.as_bytes()).or_else(|err| {
                         if err.kind() == std::io::ErrorKind::BrokenPipe {
                             // Ignore broken pipes and keep writing.
                             // This allows the caller to use `?` without having to think
@@ -162,7 +174,7 @@ impl std::fmt::Write for InputOutputChannel<'_> {
         use std::io::Write;
         // bypass the pager, fail on broken pipes (we are prompting)
         self.out
-            .inner
+            .stdout
             .write_all(s.as_bytes())
             .map_err(|_| std::fmt::Error)
     }
@@ -175,7 +187,7 @@ impl InputOutputChannel<'_> {
         let prompt = prompt.as_ref();
         writeln!(self, "{}", prompt)?;
         write!(self, "> ")?;
-        std::io::Write::flush(&mut self.out.inner)?;
+        std::io::Write::flush(&mut self.out.stdout)?;
 
         let mut input = String::new();
         self.stdin.read_line(&mut input)?;
@@ -190,7 +202,7 @@ impl InputOutputChannel<'_> {
 /// Be sure to flush everything written after the prompt as well - the output channel may be buffered.
 impl Drop for InputOutputChannel<'_> {
     fn drop(&mut self) {
-        self.out.inner.flush().ok();
+        self.out.stdout.flush().ok();
     }
 }
 
@@ -204,7 +216,7 @@ impl OutputChannel {
     pub fn new_with_optional_pager(format: OutputFormat, use_pager: bool) -> Self {
         OutputChannel {
             format,
-            inner: std::io::stdout(),
+            stdout: std::io::stdout(),
             pager: if !matches!(format, OutputFormat::Human)
                 || std::env::var_os("NOPAGER").is_some()
                 || !use_pager
@@ -228,7 +240,7 @@ impl OutputChannel {
                 OutputFormat::Human | OutputFormat::Shell | OutputFormat::None => format,
                 OutputFormat::Json => OutputFormat::None,
             },
-            inner: std::io::stdout(),
+            stdout: std::io::stdout(),
             pager: None,
         }
     }

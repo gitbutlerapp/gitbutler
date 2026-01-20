@@ -218,6 +218,7 @@ pub fn build<R: Runtime>(
         .separator()
         .text("help/open-logs-folder", "Open Logs Folder")
         .text("help/open-config-folder", "Open Config Folder")
+        .text("help/open-cache-folder", "Open Cache Folder")
         .separator()
         .text("help/discord", "Discord")
         .text("help/youtube", "YouTube")
@@ -368,6 +369,13 @@ pub fn handle_event<R: Runtime>(handle: &AppHandle<R>, webview: &WebviewWindow, 
     if event.id() == "help/open-config-folder" {
         if let Err(err) = crate::debug::open_config_folder(handle) {
             tracing::error!(error = ?err, "failed to open config folder");
+        }
+        return;
+    }
+
+    if event.id() == "help/open-cache-folder" {
+        if let Err(err) = crate::debug::open_cache_folder() {
+            tracing::error!(error = ?err, "failed to open cache folder");
         }
         return;
     }

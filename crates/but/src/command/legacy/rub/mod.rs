@@ -334,7 +334,6 @@ fn prompt_for_disambiguation(
     out: &mut OutputChannel,
 ) -> anyhow::Result<CliId> {
     use cli_prompts::{DisplayPrompt, prompts::Selection};
-    use std::io::IsTerminal;
 
     // Defensive check
     if matches.is_empty() {
@@ -343,9 +342,7 @@ fn prompt_for_disambiguation(
         ));
     }
 
-    // Check if we're in an interactive environment
-    let is_interactive = std::io::stdin().is_terminal() && out.for_human().is_some();
-    if !is_interactive {
+    if !out.can_prompt() {
         // In non-interactive mode, show all options and error
         let options_str = matches
             .iter()
