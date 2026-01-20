@@ -143,7 +143,7 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
     }
 
     // Create repo and workspace once at the entry point
-    let guard = defer.ctx.exclusive_worktree_access();
+    let mut guard = defer.ctx.exclusive_worktree_access();
     let repo = defer.ctx.repo.get()?.clone();
     let (_, workspace) = defer
         .ctx
@@ -155,8 +155,15 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
     // If the session is already persisted, we just retrieve it.
-    let stack_id =
-        get_or_create_session(defer.ctx, &repo, &workspace, &session_id, stacks, vb_state)?;
+    let stack_id = get_or_create_session(
+        defer.ctx,
+        guard.write_permission(),
+        &repo,
+        &workspace,
+        &session_id,
+        stacks,
+        vb_state,
+    )?;
 
     let (id, outcome) = but_action::handle_changes(
         defer.ctx,
@@ -421,7 +428,7 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
     };
 
     // Create repo and workspace once at the entry point
-    let guard = defer.ctx.exclusive_worktree_access();
+    let mut guard = defer.ctx.exclusive_worktree_access();
     let repo = defer.ctx.repo.get()?.clone();
     let (_, workspace) = defer
         .ctx
@@ -431,8 +438,15 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
 
     let vb_state = &VirtualBranchesHandle::new(defer.ctx.project_data_dir());
 
-    let stack_id =
-        get_or_create_session(defer.ctx, &repo, &workspace, &session_id, stacks, vb_state)?;
+    let stack_id = get_or_create_session(
+        defer.ctx,
+        guard.write_permission(),
+        &repo,
+        &workspace,
+        &session_id,
+        stacks,
+        vb_state,
+    )?;
 
     let changes =
         but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
@@ -494,15 +508,13 @@ fn original_session_id(ctx: &mut Context, current_id: String) -> Result<String> 
 
 pub fn get_or_create_session(
     ctx: &mut Context,
+    perm: &mut WorktreeWritePermission,
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
     session_id: &str,
     stacks: Vec<but_workspace::legacy::ui::StackEntry>,
     vb_state: &VirtualBranchesHandle,
 ) -> Result<StackId, anyhow::Error> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
-
     if crate::db::get_session_by_id(ctx, Uuid::parse_str(session_id)?)?.is_none() {
         crate::db::save_new_session(ctx, Uuid::parse_str(session_id)?)?;
     }
