@@ -577,32 +577,17 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
         "the case matters for uncommitted files"
     );
 
-    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("i0")?, @r#"
+    insta::assert_debug_snapshot!(id_map.resolve_entity_to_ids("j0")?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
-                id: "i0",
-                hunk_assignments: NonEmpty {
-                    head: HunkAssignment {
-                        id: None,
-                        hunk_header: None,
-                        path: "",
-                        path_bytes: "uncommitted.txt",
-                        stack_id: None,
-                        hunk_locks: None,
-                        line_nums_added: None,
-                        line_nums_removed: None,
-                        diff: None,
-                    },
-                    tail: [],
-                },
-                is_entire_file: false,
-            },
-        ),
+        CommittedFile {
+            commit_id: Sha1(0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a),
+            path: "committed.txt",
+            id: "j0",
+        },
     ]
     "#);
     assert_eq!(
-        id_map.resolve_entity_to_ids("I0")?,
+        id_map.resolve_entity_to_ids("J0")?,
         [],
         "the case matters for committed files"
     );
