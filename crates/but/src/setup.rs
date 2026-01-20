@@ -57,7 +57,6 @@ pub fn init_ctx(
     out: &mut OutputChannel,
 ) -> anyhow::Result<Context> {
     // lets try to get the repo from the current directory
-    // if it fails, we try to set up a new repo interactively
     let repo = match gix::discover(&args.current_dir) {
         Ok(repo) => repo,
         Err(_) => anyhow::bail!(
@@ -79,14 +78,53 @@ pub fn init_ctx(
             use but_ctx::LegacyProject;
 
             use crate::command::legacy::setup::check_project_setup;
-            let project = LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
-                handle_setup_error(
-                    out,
-                    format!("No GitButler project found at {}", workdir.display(),),
-                )
-            })?;
 
-            check_project_setup(&project).map_err(|e| handle_setup_error(out, e.to_string()))?;
+            // Try to find an existing project, or prompt for setup if not found
+            let project = match LegacyProject::find_by_worktree_dir(workdir) {
+                Ok(project) => project,
+                Err(_) => {
+                    let message = format!("No GitButler project found at {}", workdir.display());
+                    match prompt_for_setup(out, &message) {
+                        SetupPromptResult::RunSetup => {
+                            // Run setup
+                            crate::command::legacy::setup::repo(&args.current_dir, out, false)?;
+                            // Retry finding the project after setup
+                            LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
+                                anyhow::anyhow!(
+                                    "Setup completed but project still not found at {}",
+                                    workdir.display()
+                                )
+                            })?
+                        }
+                        SetupPromptResult::Declined => {
+                            anyhow::bail!("Setup required: {}", message);
+                        }
+                    }
+                }
+            };
+
+            // Check project setup, prompt for setup if needed
+            if let Err(e) = check_project_setup(&project) {
+                let message = e.to_string();
+                match prompt_for_setup(out, &message) {
+                    SetupPromptResult::RunSetup => {
+                        // Run setup to fix the project configuration
+                        crate::command::legacy::setup::repo(&args.current_dir, out, false)?;
+                        // Re-find and re-check the project after setup
+                        let project =
+                            LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
+                                anyhow::anyhow!(
+                                    "Setup completed but project still not found at {}",
+                                    workdir.display()
+                                )
+                            })?;
+                        check_project_setup(&project)?;
+                    }
+                    SetupPromptResult::Declined => {
+                        anyhow::bail!("Setup required: {}", message);
+                    }
+                }
+            }
 
             let ctx = Context::new_from_legacy_project(project)?;
             let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
@@ -284,31 +322,67 @@ fn spawn_background_sync(
     }
 }
 
-fn handle_setup_error(out: &mut OutputChannel, message: String) -> anyhow::Error {
-    if let Some(out) = out.for_human() {
+/// Represents the result of prompting the user for setup
+enum SetupPromptResult {
+    /// User agreed to run setup
+    RunSetup,
+    /// User declined or non-interactive terminal
+    Declined,
+}
+
+fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult {
+    use std::fmt::Write;
+    let mut progress = out.progress_channel();
+
+    if out.for_human().is_some() {
         let _ = writeln!(
-            out,
+            progress,
             "The current project is not configured to be managed by GitButler.\n"
         );
 
-        let _ = writeln!(out, "{}\n", message.red());
+        let _ = writeln!(progress, "{}\n", message.red());
+    }
 
+    // Check if we have an interactive terminal and prompt the user
+    let prompt_result = if let Some(mut inout) = out.prepare_for_terminal_input() {
+        if let Ok(Some(response)) = inout.prompt("Would you like to run setup now? [Y/n]: ") {
+            let response = response.trim().to_lowercase();
+            if response.is_empty() || response == "y" || response == "yes" {
+                return SetupPromptResult::RunSetup;
+            }
+        }
+        // User declined
+        Some(true) // indicates interactive terminal was available
+    } else {
+        None // non-interactive
+    };
+
+    // Now handle the declined/non-interactive cases with a fresh borrow
+    if prompt_result.is_some() {
+        // User declined in interactive mode
+        if out.for_human().is_some() {
+            let _ = writeln!(
+                progress,
+                "{}",
+                "Please run `but setup` to switch to GitButler management.\n".yellow()
+            );
+        }
+    } else if out.for_human().is_some() {
+        // Non-interactive terminal, just show the hint
         let _ = writeln!(
-            out,
+            progress,
             "{}",
             "Please run `but setup` to switch to GitButler management.\n".yellow()
         );
-    } else if let Some(out) = out.for_json() {
-        let _ = out.write_value(serde_json::json!({
+    } else if let Some(json_out) = out.for_json() {
+        let _ = json_out.write_value(serde_json::json!({
             "error": "setup_required",
             "message": message.to_string(),
             "hint": "run `but setup` to configure the project"
         }));
     }
 
-    // just exit the program non-zero
-    anyhow::anyhow!("Setup required: {}", message)
-    //std::process::exit(1);
+    SetupPromptResult::Declined
 }
 
 /// Check if we're on gitbutler/workspace with non-workspace commits on top.

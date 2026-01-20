@@ -291,14 +291,12 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
 
     // Output JSON if requested
     if let Some(out) = out.for_json() {
-        let result = TeardownResult {
+        out.write_value(&TeardownResult {
             snapshot_id,
             checked_out_branch: target_branch_name,
             dangling_commits: dangling_commit_results,
             all_cherry_picks_successful: all_successful,
-        };
-        let json = serde_json::to_string_pretty(&result)?;
-        writeln!(out, "{}", json)?;
+        })?;
     }
 
     Ok(())
