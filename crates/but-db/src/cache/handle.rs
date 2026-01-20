@@ -6,9 +6,7 @@ impl AppCacheHandle {
     /// Infallible constructor that opens from `dir` or from memory if that is `None`,
     /// with an infallible constructor that falls back to an in-memory database.
     pub fn new_in_directory(dir: Option<impl AsRef<Path>>) -> Self {
-        let url = dir
-            .map_or(":memory:".into(), |p| p.as_ref().to_owned())
-            .join("app-cache.sqlite");
+        let url = dir.map_or(":memory:".into(), |d| d.as_ref().join("app-cache.sqlite"));
         Self::new_at_url(
             url.to_str()
                 .expect("BUG: application wide cache directories should always be valid UTF-8"),

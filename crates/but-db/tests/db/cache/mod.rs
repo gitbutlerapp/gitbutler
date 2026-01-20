@@ -1,8 +1,19 @@
-pub(crate) mod table;
+mod table;
+mod handle {
+    use std::path::PathBuf;
 
-use but_db::AppCacheHandle;
+    #[test]
+    fn new_in_directory_none() {
+        let handle = but_db::AppCacheHandle::new_in_directory(None::<PathBuf>);
+        assert_eq!(
+            format!("{handle:?}"),
+            r#"AppCacheHandle { db: ":memory:" }"#,
+            "falls back to in-memory if no directory is available"
+        );
+    }
+}
 
 /// Return a valid cache handle with all migrations applied, ready for use, and *in-memory* only.
-pub(crate) fn in_memory_cache() -> AppCacheHandle {
-    AppCacheHandle::new_at_url(":memory:")
+fn in_memory_cache() -> but_db::AppCacheHandle {
+    but_db::AppCacheHandle::new_at_url(":memory:")
 }

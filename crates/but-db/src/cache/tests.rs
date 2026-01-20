@@ -44,7 +44,7 @@ mod open_with_migrations_infallible {
 fn migrations() -> impl Iterator<Item = M<'static>> + Clone {
     Some(M::up(
         1,
-        "CREATE TABLE `fof`(
+        "CREATE TABLE `foo`(
             `id` TEXT NOT NULL PRIMARY KEY
         );",
     ))
@@ -54,11 +54,11 @@ fn migrations() -> impl Iterator<Item = M<'static>> + Clone {
 fn table_exists(conn: &rusqlite::Connection, table_name: &str) -> anyhow::Result<bool> {
     let mut stmt = conn.prepare(
         "SELECT 1 FROM sqlite_master
-     WHERE type='table' AND name=?
-     LIMIT 1",
+         WHERE type='table' AND name=?
+         LIMIT 1",
     )?;
     // `query_row` will return the first row (if any) or an error if none.
     // The `?` in the query is bound to the table name we passed.
     let mut rows = stmt.query([table_name])?;
-    Ok(rows.next().is_ok())
+    Ok(rows.next().expect("valid query").is_some())
 }

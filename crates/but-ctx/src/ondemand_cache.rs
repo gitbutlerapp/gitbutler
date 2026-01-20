@@ -39,7 +39,7 @@ impl<T> OnDemandCache<T> {
 
 /// Access
 impl<T> OnDemandCache<T> {
-    /// Get a shared references to the cached value or initialise it.
+    /// Get a shared reference to the cached value or initialise it.
     pub fn get_cache(&self) -> Result<cell::Ref<'_, T>, BorrowError> {
         if let Ok(cached) = cell::Ref::filter_map(self.value.try_borrow()?, |opt| opt.as_ref()) {
             return Ok(cached);

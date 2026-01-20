@@ -1,1 +1,1 @@
-pub(crate) mod update;
+mod update;

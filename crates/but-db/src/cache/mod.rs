@@ -2,7 +2,8 @@
 ///
 /// ### Usage
 ///
-/// Cache work the same as [`crate::table`]s. They are made more usable by providing a mutable instance through a shared reference
+/// Caches work the same as [`crate::table`]s.
+/// They are made more usable by providing a mutable instance through a shared reference
 /// when obtaining it from the `but-ctx::Context`.
 use crate::M;
 
@@ -75,7 +76,7 @@ fn open_with_migrations_infallible<'m>(
                     anyhow::Error::from(memory_err)
                         .context(url_err)
                         .context(format!(
-                            "Couldn't open database either from {mem_url} or in memory"
+                            "Couldn't open database either from {url} or in memory"
                         ))
                 })
         })
@@ -92,14 +93,14 @@ fn open_with_migrations_infallible<'m>(
         drop(conn);
         url = mem_url;
         conn = rusqlite::Connection::open(url)
-            .expect("FATAL: failed to open memory database at {url} to run migrations on");
+            .expect("FATAL: failed to open memory database run migrations on");
         run_migrations(&mut conn, migrations)
             .expect("BUG: migrations on in-memory database should never fail");
     }
 
     if url == mem_url {
         tracing::error!(
-            "Caching will work, but caches won't persist, leading to sub-par performance, as {url} could not be written to"
+            "Caching will work, but caches won't persist, leading to sub-par performance, as {url} could not be written to."
         );
     }
 
