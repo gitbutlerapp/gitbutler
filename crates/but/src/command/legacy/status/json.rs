@@ -11,7 +11,6 @@
 
 use std::collections::BTreeMap;
 
-use but_api::diff::ComputeLineStats;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
@@ -296,23 +295,13 @@ impl Branch {
         segment: SegmentWithId,
         review_id: Option<String>,
         show_files: bool,
-        project_id: gitbutler_project::ProjectId,
-        id_map: &crate::IdMap,
         ci: Option<Vec<but_forge::CiCheck>>,
         merge_status: Option<MergeStatus>,
     ) -> anyhow::Result<Self> {
         let commits = segment
             .workspace_commits
             .iter()
-            .map(|c| {
-                Commit::from_local_commit(
-                    c.short_id.clone(),
-                    c.clone(),
-                    show_files,
-                    project_id,
-                    id_map,
-                )
-            })
+            .map(|c| Commit::from_local_commit(c.short_id.clone(), c.clone(), show_files))
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         let upstream_commits = segment
@@ -349,25 +338,14 @@ impl Commit {
         cli_id: String,
         commit: WorkspaceCommitWithId,
         show_files: bool,
-        project_id: gitbutler_project::ProjectId,
-        id_map: &crate::IdMap,
     ) -> anyhow::Result<Self> {
         let changes = if show_files {
-            // TODO: we should get the `ctx` as parameter.
-            let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
-            let commit_details: but_api::diff::json::CommitDetails =
-                but_api::diff::commit_details(&ctx, commit.commit_id(), ComputeLineStats::No)?
-                    .into();
             Some(
-                commit_details
-                    .changes
+                commit
+                    .tree_changes
                     .into_iter()
-                    .map(|change| {
-                        let cli_id = id_map.resolve_file_changed_in_commit_or_unassigned(
-                            commit.commit_id(),
-                            change.path.as_ref(),
-                        );
-                        FileChange::from_tree_change(cli_id.to_short_string(), change)
+                    .map(|tree_change| {
+                        FileChange::from_tree_change(tree_change.short_id, tree_change.inner.into())
                     })
                     .collect(),
             )
@@ -489,14 +467,12 @@ fn convert_file_assignments(
 fn convert_branch_to_json(
     segment: &SegmentWithId,
     show_files: bool,
-    project_id: gitbutler_project::ProjectId,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
     branch_merge_statuses: &BTreeMap<
         String,
         gitbutler_branch_actions::upstream_integration::BranchStatus,
     >,
-    id_map: &crate::IdMap,
 ) -> anyhow::Result<Branch> {
     let cli_id = segment.short_id.clone();
 
@@ -541,8 +517,6 @@ fn convert_branch_to_json(
         segment.clone(),
         review_id,
         show_files,
-        project_id,
-        id_map,
         ci,
         merge_status,
     )
@@ -563,7 +537,6 @@ pub(super) fn build_workspace_status_json(
         gitbutler_branch_actions::upstream_integration::BranchStatus,
     >,
     show_files: bool,
-    project_id: gitbutler_project::ProjectId,
     repo: &gix::Repository,
     id_map: &crate::IdMap,
     base_branch: Option<&gitbutler_branch_actions::BaseBranch>,
@@ -590,11 +563,9 @@ pub(super) fn build_workspace_status_json(
                     convert_branch_to_json(
                         segment,
                         show_files,
-                        project_id,
                         review_map,
                         ci_map,
                         branch_merge_statuses,
-                        id_map,
                     )
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;

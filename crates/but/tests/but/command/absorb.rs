@@ -293,20 +293,20 @@ k0 a.txt│
 ┊
 ┊╭┄g0 [A]  
 ┊●   a7aa4ef partial change to a.txt 3  
-┊│     q0 M a.txt
-┊●   889385c partial change to a.txt 2  
 ┊│     n0 M a.txt
-┊●   8dc39e0 partial change to a.txt 1  
+┊●   889385c partial change to a.txt 2  
 ┊│     o0 M a.txt
+┊●   8dc39e0 partial change to a.txt 1  
+┊│     p0 M a.txt
 ┊●   f4ea7f8 a.txt  
-┊│     s0 A a.txt
+┊│     q0 A a.txt
 ┊●   9477ae7 add A  
-┊│     p0 A A
+┊│     r0 A A
 ├╯
 ┊
 ┊╭┄h0 [B]  
 ┊●   d3e2ba3 add B  
-┊│     r0 A B
+┊│     s0 A B
 ├╯
 ┊
 ┴ 0dc3733 (common base) [origin/main] 2000-01-02 add M 
@@ -345,20 +345,20 @@ Hint: you can run `but undo` to undo these changes
 ┊
 ┊╭┄g0 [A]  
 ┊●   4822140 partial change to a.txt 3  
-┊│     l0 M a.txt
-┊●   4593422 partial change to a.txt 2  
 ┊│     k0 M a.txt
+┊●   4593422 partial change to a.txt 2  
+┊│     l0 M a.txt
 ┊●   8dc39e0 partial change to a.txt 1  
 ┊│     m0 M a.txt
 ┊●   f4ea7f8 a.txt  
-┊│     p0 A a.txt
+┊│     n0 A a.txt
 ┊●   9477ae7 add A  
-┊│     n0 A A
+┊│     o0 A A
 ├╯
 ┊
 ┊╭┄h0 [B]  
 ┊●   d3e2ba3 add B  
-┊│     o0 A B
+┊│     p0 A B
 ├╯
 ┊
 ┴ 0dc3733 (common base) [origin/main] 2000-01-02 add M 

@@ -6,10 +6,7 @@
 
 #![forbid(missing_docs)]
 
-use std::{
-    borrow::Borrow,
-    collections::{BTreeMap, BTreeSet, HashMap},
-};
+use std::collections::{BTreeMap, HashMap};
 
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
@@ -36,6 +33,15 @@ type ShortId = String;
 
 const UNASSIGNED: &str = "zz";
 
+/// A change in a workspace commit.
+#[derive(Debug, Clone)]
+pub struct TreeChangeWithId {
+    /// The short ID.
+    pub short_id: ShortId,
+    /// The tree change.
+    pub inner: but_core::TreeChange,
+}
+
 /// A workspace commit with its short ID.
 #[derive(Debug, Clone)]
 pub struct WorkspaceCommitWithId {
@@ -43,6 +49,9 @@ pub struct WorkspaceCommitWithId {
     pub short_id: ShortId,
     /// The original workspace commit.
     pub inner: but_workspace::ref_info::LocalCommit,
+    /// When part of [IdMap], this is originally blank, but will be populated
+    /// when [IdMap::add_committed_file_info] is called.
+    pub tree_changes: Vec<TreeChangeWithId>,
 }
 impl WorkspaceCommitWithId {
     /// The object ID of the commit.
@@ -134,8 +143,6 @@ pub struct StackWithId {
 /// 1. Create an `IdMap` for example using [IdMap::new]
 /// 2. Optionally add file information for example using [IdMap::add_committed_file_info_from_context]
 /// 3. Use [IdMap::resolve_entity_to_ids] to parse user input into matching IDs
-/// 4. Use specific methods like
-///    [IdMap::resolve_file_changed_in_commit_or_unassigned] to get IDs for specific entities
 #[derive(Debug)]
 pub struct IdMap {
     /// Stacks with segment and commit IDs.
@@ -162,8 +169,8 @@ pub struct IdMap {
     pub uncommitted_files: BTreeMap<ShortId, UncommittedFile>,
     /// Uncommitted hunks.
     pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
-    /// Committed files with their assigned IDs
-    committed_files: BTreeSet<CommittedFile>,
+    /// Committed files.
+    committed_files: BTreeMap<ShortId, CommittedFile>,
 }
 
 /// Lifecycle methods for creating and initializing `IdMap` instances.
@@ -254,7 +261,7 @@ impl IdMap {
             },
             uncommitted_files,
             uncommitted_hunks,
-            committed_files: BTreeSet::new(),
+            committed_files: BTreeMap::new(),
         })
     }
 
@@ -313,11 +320,7 @@ impl IdMap {
     ) -> anyhow::Result<()> {
         let repo = &*ctx.repo.get()?;
         self.add_committed_file_info(|commit_id, parent_id| {
-            let tree_changes = but_core::diff::tree_changes(repo, parent_id, commit_id)?;
-            Ok(tree_changes
-                .into_iter()
-                .map(|tree_change| tree_change.path)
-                .collect::<Vec<_>>())
+            but_core::diff::tree_changes(repo, parent_id, commit_id)
         })
     }
 
@@ -326,27 +329,46 @@ impl IdMap {
     /// It generates unique 2-character hash-based IDs for each file, ensuring no collisions with existing branch
     /// and commit IDs.
     ///
-    /// * `changed_paths_in_commit_fn(commit, parent)` returns the changed file paths for a given commit
+    /// * `changes_in_commit_fn(commit, parent)` returns the changes for a given commit
     ///   and its parent. Used to identify all files altered by workspace commits.
-    fn add_committed_file_info<F>(&mut self, changed_paths_in_commit_fn: F) -> anyhow::Result<()>
+    fn add_committed_file_info<F>(&mut self, changes_in_commit_fn: F) -> anyhow::Result<()>
     where
-        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<BString>>,
+        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
     {
-        let FileInfo { committed_files } = FileInfo::from_workspace_commits_and_status(
+        let FileInfo { mut changes } = FileInfo::from_workspace_commits_and_status(
             self.workspace_commits.values().map(|workspace_commit| {
                 (
                     &workspace_commit.commit_id,
                     &workspace_commit.first_parent_id,
                 )
             }),
-            changed_paths_in_commit_fn,
+            changes_in_commit_fn,
         )?;
-
-        for commit_oid_path in committed_files.into_iter() {
-            self.committed_files.insert(CommittedFile {
-                commit_oid_path,
-                id: self.id_usage.next_available()?.to_short_id(),
-            });
+        for stack in self.stacks.iter_mut() {
+            for segment in stack.segments.iter_mut() {
+                for workspace_commit in segment.workspace_commits.iter_mut() {
+                    let Some(paths_to_changes) = changes.remove(&workspace_commit.commit_id())
+                    else {
+                        continue;
+                    };
+                    for (path, changes) in paths_to_changes {
+                        let short_id = self.id_usage.next_available()?.to_short_id();
+                        for change in changes {
+                            workspace_commit.tree_changes.push(TreeChangeWithId {
+                                short_id: short_id.clone(),
+                                inner: change,
+                            });
+                        }
+                        self.committed_files.insert(
+                            short_id,
+                            CommittedFile {
+                                commit_id: workspace_commit.commit_id(),
+                                path,
+                            },
+                        );
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -464,14 +486,10 @@ impl IdMap {
         if let Some(uncommitted_file) = self.uncommitted_files.get(entity) {
             matches.push(uncommitted_file.to_cli_id(entity.to_owned()));
         }
-        if let Some(CommittedFile {
-            commit_oid_path: (commit_oid, path),
-            ..
-        }) = self.committed_files.get(entity)
-        {
+        if let Some(CommittedFile { commit_id, path }) = self.committed_files.get(entity) {
             matches.push(CliId::CommittedFile {
-                commit_id: *commit_oid,
-                path: path.to_owned(),
+                commit_id: *commit_id,
+                path: path.clone(),
                 id: entity.to_string(),
             });
         }
@@ -484,31 +502,6 @@ impl IdMap {
         }
 
         Ok(matches)
-    }
-
-    /// Returns the [`CliId::CommittedFile`] for a changed file at repo-relative `path`
-    /// that is contained in the `commit_id`.
-    /// Note that the returned short id may be `00` as fallback if it wasn't
-    /// added by [IdMap::add_committed_file_info_from_context].
-    pub fn resolve_file_changed_in_commit_or_unassigned(
-        &self,
-        commit_id: gix::ObjectId,
-        path: &BStr,
-    ) -> CliId {
-        let sought = (commit_id, path.to_owned());
-        if let Some(CommittedFile { id, .. }) = self.committed_files.get(&sought) {
-            CliId::CommittedFile {
-                commit_id: sought.0,
-                path: sought.1,
-                id: id.to_string(),
-            }
-        } else {
-            CliId::CommittedFile {
-                commit_id: sought.0,
-                path: sought.1,
-                id: "00".to_string(),
-            }
-        }
     }
 
     /// Returns the [`CliId::Stack`] for a given `stack_id`, if it exists.
@@ -719,47 +712,10 @@ impl UncommittedFile {
 }
 
 /// Internal representation of a committed file with its CLI ID.
-///
-/// This structure is used to store committed files in a `BTreeSet` where ordering
-/// and equality are determined solely by the `commit_oid_path` field, enabling
-/// deduplication and efficient lookups by (commit_oid, path) tuple.
 #[derive(Debug)]
 struct CommittedFile {
-    /// The file's commit object ID and path
-    commit_oid_path: (gix::ObjectId, BString),
-    /// The short CLI ID assigned to this file
-    id: ShortId,
-}
-
-impl PartialEq for CommittedFile {
-    fn eq(&self, other: &Self) -> bool {
-        self.commit_oid_path == other.commit_oid_path
-    }
-}
-
-impl Eq for CommittedFile {}
-
-impl PartialOrd for CommittedFile {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for CommittedFile {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.commit_oid_path.cmp(&other.commit_oid_path)
-    }
-}
-
-impl Borrow<(gix::ObjectId, BString)> for CommittedFile {
-    fn borrow(&self) -> &(gix::ObjectId, BString) {
-        &self.commit_oid_path
-    }
-}
-impl Borrow<str> for CommittedFile {
-    fn borrow(&self) -> &str {
-        &self.id
-    }
+    commit_id: gix::ObjectId,
+    path: BString,
 }
 
 /// An uncommitted hunk.
