@@ -42,12 +42,11 @@ pub fn create_virtual_branch(
         let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.write_permission())?;
         let repo = ctx.repo.get()?;
         let branch_name = match branch.name {
-            Some(name) => name,
+            Some(name) => normalize_name(&name)?,
             None => canned_branch_name(project_id)?,
         };
-        let normalized_branch_name = normalize_name(&branch_name)?;
         let new_ref = Category::LocalBranch
-            .to_full_name(normalized_branch_name.as_str())
+            .to_full_name(branch_name.as_str())
             .map_err(anyhow::Error::from)?;
 
         let ws = but_workspace::branch::create_reference(

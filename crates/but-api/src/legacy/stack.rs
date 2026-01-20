@@ -47,9 +47,8 @@ pub fn create_reference(
 ) -> Result<(Option<StackId>, gix::refs::FullName)> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let create_reference::Request { new_name, anchor } = request;
-    let normalized_new_name = normalize_branch_name(&new_name)?;
     let new_ref = Category::LocalBranch
-        .to_full_name(normalized_new_name.as_str())
+        .to_full_name(normalize_branch_name(&new_name)?.as_str())
         .map_err(anyhow::Error::from)?;
     let anchor = anchor
         .map(|anchor| -> Result<_> {
@@ -64,17 +63,14 @@ pub fn create_reference(
                 create_reference::Anchor::AtReference {
                     short_name,
                     position,
-                } => {
-                    let normalized_short_name = normalize_branch_name(&short_name)?;
-                    but_workspace::branch::create_reference::Anchor::AtSegment {
-                        ref_name: Cow::Owned(
-                            Category::LocalBranch
-                                .to_full_name(normalized_short_name.as_str())
-                                .map_err(anyhow::Error::from)?,
-                        ),
-                        position,
-                    }
-                }
+                } => but_workspace::branch::create_reference::Anchor::AtSegment {
+                    ref_name: Cow::Owned(
+                        Category::LocalBranch
+                            .to_full_name(short_name.as_str())
+                            .map_err(anyhow::Error::from)?,
+                    ),
+                    position,
+                },
             })
         })
         .transpose()?;
