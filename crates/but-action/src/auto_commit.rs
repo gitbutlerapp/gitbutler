@@ -51,7 +51,7 @@ pub(crate) fn auto_commit(
         </project_status>
     ");
 
-    llm.tool_calling_loop(system_message, vec![prompt.into()], &mut toolset, model)?;
+    llm.tool_calling_loop(system_message, vec![prompt.into()], &mut toolset, &model)?;
 
     Ok(())
 }

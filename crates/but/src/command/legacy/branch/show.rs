@@ -558,9 +558,8 @@ fn generate_branch_summary(branch_name: &str, commits: &[CommitInfo]) -> anyhow:
 
     let system_message = "You are a helpful assistant that summarizes Git branch changes.";
     let chat_messages = vec![ChatMessage::User(prompt)];
-    let model = "gpt-5-mini".to_string();
 
-    let response = llm.response(system_message, chat_messages, model)?;
+    let response = llm.response(system_message, chat_messages, "gpt-5-mini")?;
 
     let summary = response.unwrap_or_default().trim().to_string();
 

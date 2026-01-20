@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, ops::Deref, sync::Arc};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 use anyhow::{Context as _, Result};
 use async_openai::{
@@ -23,6 +23,12 @@ use crate::{
     StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
     client::LLMClient,
 };
+
+/// Result of a tool calling loop with streaming
+pub struct ConversationResult {
+    pub final_response: String,
+    pub message_history: Vec<ChatMessage>,
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display)]
 pub enum CredentialsKind {
@@ -126,17 +132,18 @@ impl LLMClient for OpenAiProvider {
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
         tool_set: &mut impl Toolset,
-        model: String,
-        on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
+        model: &str,
+        on_token: impl Fn(&str) + Send + Sync + 'static,
     ) -> Result<(String, Vec<ChatMessage>)> {
-        tool_calling_loop_stream(
+        let result = tool_calling_loop_stream(
             self,
             system_message,
             chat_messages,
             tool_set,
-            Some(model),
+            model,
             on_token,
-        )
+        )?;
+        Ok((result.final_response, result.message_history))
     }
 
     fn tool_calling_loop(
@@ -144,19 +151,19 @@ impl LLMClient for OpenAiProvider {
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
         tool_set: &mut impl Toolset,
-        model: String,
+        model: &str,
     ) -> Result<String> {
-        tool_calling_loop(self, system_message, chat_messages, tool_set, Some(model))
+        tool_calling_loop(self, system_message, chat_messages, tool_set, model)
     }
 
     fn stream_response(
         &self,
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
-        model: String,
-        on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
+        model: &str,
+        on_token: impl Fn(&str) + Send + Sync + 'static,
     ) -> Result<Option<String>> {
-        stream_response_blocking(self, system_message, chat_messages, Some(model), on_token)
+        stream_response_blocking(self, system_message, chat_messages, model, on_token)
     }
 
     fn structured_output<
@@ -165,18 +172,18 @@ impl LLMClient for OpenAiProvider {
         &self,
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
-        model: String,
+        model: &str,
     ) -> Result<Option<T>> {
-        structured_output_blocking::<T>(self, system_message, chat_messages, Some(model))
+        structured_output_blocking::<T>(self, system_message, chat_messages, model)
     }
 
     fn response(
         &self,
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
-        model: String,
+        model: &str,
     ) -> Result<Option<String>> {
-        response_blocking(self, system_message, chat_messages, Some(model))
+        response_blocking(self, system_message, chat_messages, model)
     }
 }
 
@@ -186,11 +193,12 @@ pub fn structured_output_blocking<
     openai: &OpenAiProvider,
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
-    model: Option<String>,
+    model: &str,
 ) -> anyhow::Result<Option<T>> {
     let client = openai.client()?;
     let mut messages: Vec<ChatCompletionRequestMessage> =
         vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
+    let model = model.to_string();
 
     messages.extend(
         chat_messages
@@ -211,7 +219,7 @@ pub fn structured_output_blocking<
 pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
-    model: Option<String>,
+    model: String,
 ) -> anyhow::Result<Option<T>> {
     let schema = schema_for!(T);
     let schema_value = serde_json::to_value(&schema)?;
@@ -223,8 +231,6 @@ pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSche
             strict: Some(false),
         },
     };
-
-    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
 
     let request = CreateChatCompletionRequestArgs::default()
         .model(model)
@@ -247,7 +253,7 @@ fn response_blocking(
     client: &OpenAiProvider,
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
-    model: Option<String>,
+    model: &str,
 ) -> anyhow::Result<Option<String>> {
     let mut messages: Vec<ChatCompletionRequestMessage> =
         vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
@@ -261,6 +267,7 @@ fn response_blocking(
 
     let client = client.client()?;
     let messages_owned = messages.clone();
+    let model = model.to_string();
 
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
@@ -274,9 +281,8 @@ fn response_blocking(
 async fn response(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
-    model: Option<String>,
+    model: String,
 ) -> anyhow::Result<Option<String>> {
-    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
     let request = CreateChatCompletionRequestArgs::default()
         .model(model)
         .messages(messages)
@@ -297,11 +303,12 @@ pub fn tool_calling_blocking(
     client: &OpenAiProvider,
     messages: Vec<ChatCompletionRequestMessage>,
     tools: Vec<async_openai::types::chat::ChatCompletionTools>,
-    model: Option<String>,
+    model: &str,
 ) -> anyhow::Result<async_openai::types::chat::CreateChatCompletionResponse> {
     let client = client.client()?;
     let messages_owned = messages.clone();
     let tools_owned = tools.clone();
+    let model = model.to_string();
 
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
@@ -316,9 +323,8 @@ pub async fn tool_calling(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
     tools: Vec<async_openai::types::chat::ChatCompletionTools>,
-    model: Option<String>,
+    model: String,
 ) -> anyhow::Result<async_openai::types::chat::CreateChatCompletionResponse> {
-    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
     let request = CreateChatCompletionRequestArgs::default()
         .model(model)
         .messages(messages.clone())
@@ -333,10 +339,9 @@ pub async fn tool_calling(
 pub async fn stream_response(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
-    model: Option<String>,
+    model: String,
     on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<Option<String>> {
-    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
     let request = CreateChatCompletionRequestArgs::default()
         .model(model)
         .messages(messages.clone())
@@ -372,8 +377,8 @@ pub fn stream_response_blocking(
     client: &OpenAiProvider,
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
-    model: Option<String>,
-    on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
+    model: &str,
+    on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<Option<String>> {
     let mut messages: Vec<ChatCompletionRequestMessage> =
         vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
@@ -387,15 +392,12 @@ pub fn stream_response_blocking(
 
     let client = client.client()?;
     let messages_owned = messages.clone();
-    let on_token_cb = {
-        let on_token = on_token.clone();
-        Box::new(move |token: &str| on_token(token)) as Box<dyn Fn(&str) + Send + Sync + 'static>
-    };
+    let model = model.to_string();
 
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(stream_response(&client, messages_owned, model, on_token_cb))
+            .block_on(stream_response(&client, messages_owned, model, on_token))
     })
     .join()
     .unwrap()
@@ -405,12 +407,13 @@ pub fn tool_calling_stream_blocking(
     client: &OpenAiProvider,
     messages: Vec<ChatCompletionRequestMessage>,
     tools: Vec<async_openai::types::chat::ChatCompletionTools>,
-    model: Option<String>,
+    model: &str,
     on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<StreamToolCallResult> {
     let client = client.client()?;
     let messages_owned = messages.clone();
     let tools_owned = tools.clone();
+    let model = model.to_string();
 
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
@@ -431,10 +434,9 @@ pub async fn tool_calling_stream(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
     tools: Vec<async_openai::types::chat::ChatCompletionTools>,
-    model: Option<String>,
+    model: String,
     on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<StreamToolCallResult> {
-    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
     let request = CreateChatCompletionRequestArgs::default()
         .model(model)
         .messages(messages.clone())
@@ -609,53 +611,21 @@ fn from_openai_chat_messages(messages: Vec<ChatCompletionRequestMessage>) -> Vec
     chat_messages
 }
 
-fn clamp_result_content(result: &ToolResponseContent) -> String {
-    if result.result.len() > 500 {
-        "Result too big to be displayed".to_string()
-    } else {
-        result.result.to_owned()
-    }
-}
-
-impl Display for ChatMessage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ChatMessage::User(content) => write!(f, "<user_message>\n{content}\n</user_message>"),
-            ChatMessage::Assistant(content) => write!(f, "<but-bot\n{content}\n</but-bot>"),
-            ChatMessage::ToolCall(content) => write!(
-                f,
-                "
-<but-bot-tool-call>
-    <id>{}</id>
-    <name>{}</name>
-    <arguments>{}</arguments>
-</but-bot-tool-call>",
-                content.id, content.name, content.arguments
-            ),
-            ChatMessage::ToolResponse(content) => write!(
-                f,
-                "
-<but-bot-tool-response>
-    <id>{}</id>
-    <result>{}</result>
-</but-bot-tool-response>",
-                content.id,
-                clamp_result_content(content)
-            ),
-        }
-    }
-}
-
-impl From<&str> for ChatMessage {
-    fn from(msg: &str) -> Self {
-        ChatMessage::User(msg.to_string())
-    }
-}
-
-impl From<String> for ChatMessage {
-    fn from(msg: String) -> Self {
-        ChatMessage::User(msg)
-    }
+/// Helper function to handle text response from streaming
+fn handle_text_response(
+    text_response: String,
+    text_response_buffer: &mut Vec<String>,
+    messages: &mut Vec<ChatCompletionRequestMessage>,
+) {
+    text_response_buffer.push(text_response.clone());
+    messages.push(ChatCompletionRequestMessage::Assistant(
+        async_openai::types::chat::ChatCompletionRequestAssistantMessage {
+            content: Some(ChatCompletionRequestAssistantMessageContent::Text(
+                text_response,
+            )),
+            ..Default::default()
+        },
+    ));
 }
 
 pub fn tool_calling_loop(
@@ -663,7 +633,7 @@ pub fn tool_calling_loop(
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
     tool_set: &mut impl Toolset,
-    model: Option<String>,
+    model: &str,
 ) -> Result<String> {
     let mut messages: Vec<ChatCompletionRequestMessage> =
         vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
@@ -681,12 +651,8 @@ pub fn tool_calling_loop(
         .map(|t| t.deref().try_into())
         .collect::<Result<Vec<async_openai::types::chat::ChatCompletionTools>, _>>()?;
 
-    let mut response = tool_calling_blocking(
-        provider,
-        messages.clone(),
-        open_ai_tools.clone(),
-        model.clone(),
-    )?;
+    let mut response =
+        tool_calling_blocking(provider, messages.clone(), open_ai_tools.clone(), model)?;
 
     let mut text_response_buffer = vec![];
     if let Some(text_response) = response
@@ -694,15 +660,7 @@ pub fn tool_calling_loop(
         .first()
         .and_then(|choice| choice.message.content.clone())
     {
-        text_response_buffer.push(text_response.clone());
-        messages.push(ChatCompletionRequestMessage::Assistant(
-            async_openai::types::chat::ChatCompletionRequestAssistantMessage {
-                content: Some(ChatCompletionRequestAssistantMessageContent::Text(
-                    text_response,
-                )),
-                ..Default::default()
-            },
-        ));
+        handle_text_response(text_response, &mut text_response_buffer, &mut messages);
     }
 
     while let Some(tool_calls) = response
@@ -762,7 +720,7 @@ pub fn tool_calling_loop(
             provider,
             messages.clone(),
             open_ai_tools.clone(),
-            model.clone(),
+            model,
         )?;
 
         if let Some(text_response) = response
@@ -770,15 +728,7 @@ pub fn tool_calling_loop(
             .first()
             .and_then(|choice| choice.message.content.clone())
         {
-            text_response_buffer.push(text_response.clone());
-            messages.push(ChatCompletionRequestMessage::Assistant(
-                async_openai::types::chat::ChatCompletionRequestAssistantMessage {
-                    content: Some(ChatCompletionRequestAssistantMessageContent::Text(
-                        text_response,
-                    )),
-                    ..Default::default()
-                },
-            ));
+            handle_text_response(text_response, &mut text_response_buffer, &mut messages);
         }
     }
 
@@ -796,9 +746,9 @@ pub fn tool_calling_loop_stream(
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
     tool_set: &mut impl Toolset,
-    model: Option<String>,
-    on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
-) -> anyhow::Result<(String, Vec<ChatMessage>)> {
+    model: &str,
+    on_token: impl Fn(&str) + Send + Sync + 'static,
+) -> anyhow::Result<ConversationResult> {
     let mut messages: Vec<ChatCompletionRequestMessage> =
         vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
 
@@ -815,30 +765,17 @@ pub fn tool_calling_loop_stream(
         .map(|t| t.deref().try_into())
         .collect::<Result<Vec<async_openai::types::chat::ChatCompletionTools>, _>>()?;
 
-    let on_token_cb = {
-        let on_token = on_token.clone();
-        Box::new(move |token: &str| on_token(token)) as Box<dyn Fn(&str) + Send + Sync + 'static>
-    };
+    let on_token = Arc::new(on_token);
 
-    let mut response = tool_calling_stream_blocking(
-        provider,
-        messages.clone(),
-        open_ai_tools.clone(),
-        model.clone(),
-        on_token_cb,
-    )?;
+    let mut response =
+        tool_calling_stream_blocking(provider, messages.clone(), open_ai_tools.clone(), model, {
+            let on_token = Arc::clone(&on_token);
+            move |s: &str| on_token(s)
+        })?;
 
     let mut text_response_buffer = vec![];
-    if let Some(text_response) = response.1.clone() {
-        text_response_buffer.push(text_response.clone());
-        messages.push(ChatCompletionRequestMessage::Assistant(
-            async_openai::types::chat::ChatCompletionRequestAssistantMessage {
-                content: Some(ChatCompletionRequestAssistantMessageContent::Text(
-                    text_response,
-                )),
-                ..Default::default()
-            },
-        ));
+    if let Some(text_response) = response.1 {
+        handle_text_response(text_response, &mut text_response_buffer, &mut messages);
     }
 
     while let Some(tool_calls) = response.0 {
@@ -894,37 +831,31 @@ pub fn tool_calling_loop_stream(
 
         messages.extend(tool_response_messages);
 
-        let on_token_cb = {
-            let on_token = on_token.clone();
-            Box::new(move |token: &str| on_token(token))
-                as Box<dyn Fn(&str) + Send + Sync + 'static>
-        };
         response = tool_calling_stream_blocking(
             provider,
             messages.clone(),
             open_ai_tools.clone(),
-            model.clone(),
-            on_token_cb,
+            model,
+            {
+                let on_token = Arc::clone(&on_token);
+                move |s: &str| on_token(s)
+            },
         )?;
 
-        if let Some(text_response) = response.1.clone() {
-            text_response_buffer.push(text_response.clone());
-            messages.push(ChatCompletionRequestMessage::Assistant(
-                async_openai::types::chat::ChatCompletionRequestAssistantMessage {
-                    content: Some(ChatCompletionRequestAssistantMessageContent::Text(
-                        text_response,
-                    )),
-                    ..Default::default()
-                },
-            ));
+        if let Some(text_response) = response.1 {
+            handle_text_response(text_response, &mut text_response_buffer, &mut messages);
         }
     }
 
     let chat_messages = from_openai_chat_messages(messages);
-    let text_response = text_response_buffer
+    let final_response = text_response_buffer
         .into_iter()
         .filter(|s| !s.is_empty())
-        .collect::<Vec<String>>()
+        .collect::<Vec<_>>()
         .join("\n\n");
-    Ok((text_response, chat_messages))
+
+    Ok(ConversationResult {
+        final_response,
+        message_history: chat_messages,
+    })
 }

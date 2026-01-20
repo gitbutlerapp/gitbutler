@@ -27,3 +27,4 @@ anyhow.workspace = true
 strum = { version = "0.27", features = ["derive"] }
 reqwest.workspace = true
 uuid.workspace = true
+anthropic-api = "0.0.5"

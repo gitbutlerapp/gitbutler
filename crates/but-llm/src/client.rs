@@ -1,4 +1,4 @@
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
 
 use anyhow::Result;
 use but_tools::tool::Toolset;
@@ -13,8 +13,8 @@ pub trait LLMClient: Debug + Clone {
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
         tool_set: &mut impl Toolset,
-        model: String,
-        on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
+        model: &str,
+        on_token: impl Fn(&str) + Send + Sync + 'static,
     ) -> Result<(String, Vec<ChatMessage>)>;
 
     fn tool_calling_loop(
@@ -22,22 +22,22 @@ pub trait LLMClient: Debug + Clone {
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
         tool_set: &mut impl Toolset,
-        model: String,
+        model: &str,
     ) -> Result<String>;
 
     fn stream_response(
         &self,
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
-        model: String,
-        on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
+        model: &str,
+        on_token: impl Fn(&str) + Send + Sync + 'static,
     ) -> Result<Option<String>>;
 
     fn response(
         &self,
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
-        model: String,
+        model: &str,
     ) -> Result<Option<String>>;
 
     fn structured_output<
@@ -46,6 +46,6 @@ pub trait LLMClient: Debug + Clone {
         &self,
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
-        model: String,
+        model: &str,
     ) -> Result<Option<T>>;
 }
