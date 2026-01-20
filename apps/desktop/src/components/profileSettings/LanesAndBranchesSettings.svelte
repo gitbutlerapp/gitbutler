@@ -14,7 +14,8 @@
 		const selectedStagingBehavior = formData.get('stagingBehaviorType') as StagingBehavior | null;
 		if (!selectedStagingBehavior) return;
 		stagingBehaviorFeature.set(selectedStagingBehavior);
-	}</script>
+	}
+</script>
 
 <CardGroup.Item standalone labelFor="add-leftmost">
 	{#snippet title()}
@@ -72,11 +73,11 @@
 	<form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
 		<CardGroup.Item labelFor="stage-all">
 			{#snippet title()}
-				Stage all files
+				All assigned files
 			{/snippet}
 			{#snippet caption()}
-				Stage all files assigned to the stack on commit. If no files are staged, all unassigned
-				files will be staged.
+				Select all files assigned to this branch. If none are assigned, select all unassigned files
+				instead.
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton
@@ -90,13 +91,11 @@
 
 		<CardGroup.Item labelFor="stage-selection">
 			{#snippet title()}
-				Stage selected files
+				Only selected files
 			{/snippet}
 			{#snippet caption()}
-				Stage the selected assigned files to the stack on commit. If no files are selected, stage
-				all files. If there are no assigned files, stage all selected unassigned files.
-				<br />
-				And if no files are selected, stage all unassigned files.
+				Only include files you've already selected. If nothing is selected, falls back to all
+				assigned files, then all unassigned files.
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton
@@ -110,12 +109,10 @@
 
 		<CardGroup.Item labelFor="stage-none">
 			{#snippet title()}
-				Don't stage files automatically
+				Manual selection
 			{/snippet}
 			{#snippet caption()}
-				Do not stage any files automatically.
-				<br />
-				You're more of a DIY developer in that way.
+				Don't auto-select any files. You choose what to commit each time.
 			{/snippet}
 			{#snippet actions()}
 				<RadioButton
