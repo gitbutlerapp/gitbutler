@@ -192,28 +192,32 @@ impl IdMap {
         let mut branch_auto_id_to_cli_id = HashMap::new();
         let mut workspace_commits = HashMap::new();
         let mut remote_commit_ids = HashMap::new();
-        for segment in stacks.iter().flat_map(|stack| stack.segments.iter()) {
-            if let Some(branch_name) = segment.branch_name() {
-                let cli_id = CliId::Branch {
-                    name: branch_name.to_string(),
-                    id: segment.short_id.clone(),
-                };
-                if segment.is_auto_id {
-                    branch_auto_id_to_cli_id.insert(segment.short_id.clone(), cli_id.clone());
+        for stack in stacks.iter() {
+            for segment in stack.segments.iter() {
+                if let Some(branch_name) = segment.branch_name() {
+                    let cli_id = CliId::Branch {
+                        name: branch_name.to_string(),
+                        id: segment.short_id.clone(),
+                        stack_id: stack.id,
+                    };
+                    if segment.is_auto_id {
+                        branch_auto_id_to_cli_id.insert(segment.short_id.clone(), cli_id.clone());
+                    }
+                    branch_name_to_cli_id.insert(branch_name.to_owned(), cli_id);
                 }
-                branch_name_to_cli_id.insert(branch_name.to_owned(), cli_id);
-            }
-            for workspace_commit in segment.workspace_commits.iter() {
-                workspace_commits.insert(
-                    workspace_commit.short_id.clone(),
-                    WorkspaceCommit {
-                        commit_id: workspace_commit.commit_id(),
-                        first_parent_id: workspace_commit.first_parent_id(),
-                    },
-                );
-            }
-            for remote_commit in segment.remote_commits.iter() {
-                remote_commit_ids.insert(remote_commit.short_id.clone(), remote_commit.commit_id());
+                for workspace_commit in segment.workspace_commits.iter() {
+                    workspace_commits.insert(
+                        workspace_commit.short_id.clone(),
+                        WorkspaceCommit {
+                            commit_id: workspace_commit.commit_id(),
+                            first_parent_id: workspace_commit.first_parent_id(),
+                        },
+                    );
+                }
+                for remote_commit in segment.remote_commits.iter() {
+                    remote_commit_ids
+                        .insert(remote_commit.short_id.clone(), remote_commit.commit_id());
+                }
             }
         }
 
@@ -606,6 +610,8 @@ pub enum CliId {
         name: String,
         /// The short CLI ID for this branch (typically 2 characters)
         id: ShortId,
+        /// The stack ID.
+        stack_id: Option<StackId>,
     },
     /// A commit in the workspace identified by its SHA.
     Commit {

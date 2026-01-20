@@ -108,6 +108,7 @@ fn commit_ids_become_longer_if_ambiguous() -> anyhow::Result<()> {
         Branch {
             name: "not-important",
             id: "no",
+            stack_id: None,
         },
     ]
     "#);
@@ -139,6 +140,7 @@ fn branches_work_with_single_character() -> anyhow::Result<()> {
     let expected = [CliId::Branch {
         name: "f".into(),
         id: "g0".into(),
+        stack_id: None,
     }];
     assert_eq!(
         id_map.resolve_entity_to_ids("f")?,
@@ -172,10 +174,12 @@ fn branches_match_by_substring() -> anyhow::Result<()> {
         CliId::Branch {
             name: "foo".into(),
             id: "i0".into(),
+            stack_id: None,
         },
         CliId::Branch {
             name: "foo-bar".into(),
             id: "g0".into(),
+            stack_id: None,
         },
     ];
     assert_eq!(
@@ -187,6 +191,7 @@ fn branches_match_by_substring() -> anyhow::Result<()> {
     let expected = [CliId::Branch {
         name: "baz".into(),
         id: "az".into(),
+        stack_id: None,
     }];
     assert_eq!(
         id_map.resolve_entity_to_ids("az")?,
@@ -208,6 +213,7 @@ fn branches_avoid_unassigned_area_id() -> anyhow::Result<()> {
     let expected = [CliId::Branch {
         name: "zza".into(),
         id: "za".into(),
+        stack_id: None,
     }];
     assert_eq!(
         id_map.resolve_entity_to_ids("za")?,
@@ -232,6 +238,7 @@ fn branches_avoid_invalid_ids() -> anyhow::Result<()> {
     let expected = [CliId::Branch {
         name: "x-yz_/hi".into(),
         id: "yz".into(),
+        stack_id: None,
     }];
     assert_eq!(
         id_map.resolve_entity_to_ids("x-yz")?,
@@ -241,6 +248,7 @@ fn branches_avoid_invalid_ids() -> anyhow::Result<()> {
     let expected = [CliId::Branch {
         name: "0ax".into(),
         id: "ax".into(),
+        stack_id: None,
     }];
     assert_eq!(
         id_map.resolve_entity_to_ids("0ax")?,
@@ -265,6 +273,7 @@ fn branches_avoid_uncommitted_filenames() -> anyhow::Result<()> {
     let expected = [CliId::Branch {
         name: "ghij".into(),
         id: "ij".into(),
+        stack_id: None,
     }];
     assert_eq!(
         id_map.resolve_entity_to_ids("ghij")?,
@@ -289,6 +298,7 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
     let expected = [CliId::Branch {
         name: "substring".into(),
         id: "g0".into(),
+        stack_id: None,
     }];
     assert_eq!(
         id_map.resolve_entity_to_ids("substring")?,
@@ -298,6 +308,7 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
     let expected = [CliId::Branch {
         name: "supersubstring".into(),
         id: "up".into(),
+        stack_id: None,
     }];
     assert_eq!(
         id_map.resolve_entity_to_ids("supersubstring")?,
@@ -391,6 +402,9 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
         Branch {
             name: "h0",
             id: "h0",
+            stack_id: Some(
+                00000000-0000-0000-0000-000000000001,
+            ),
         },
         Uncommitted(
             UncommittedCliId {
@@ -538,6 +552,7 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
         Branch {
             name: "h0",
             id: "h0",
+            stack_id: None,
         },
     ]
     "#);
@@ -619,6 +634,7 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
         Branch {
             name: "foo",
             id: "fo",
+            stack_id: None,
         },
         Uncommitted(
             UncommittedCliId {
