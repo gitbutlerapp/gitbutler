@@ -243,6 +243,28 @@ pub enum Subcommands {
         init: bool,
     },
 
+    /// Exit GitButler mode and return to normal Git workflow.
+    ///
+    /// This command:
+    /// - Creates an oplog snapshot of the current state
+    /// - Finds the first active branch and checks it out
+    /// - Cherry-picks any dangling commits from gitbutler/workspace
+    /// - Provides instructions on how to return to GitButler mode
+    ///
+    /// This is useful when you want to temporarily or permanently leave GitButler
+    /// management and work with standard Git commands.
+    ///
+    /// ## Examples
+    ///
+    /// Exit GitButler mode:
+    ///
+    /// ```text
+    /// but teardown
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    Teardown,
+
     /// Updates all applied branches to be up to date with the target branch.
     ///
     /// This fetches the latest changes from the remote and rebases all applied branches

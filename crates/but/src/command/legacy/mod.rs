@@ -22,4 +22,5 @@ pub mod rub;
 pub mod setup;
 pub mod show;
 pub mod status;
+pub mod teardown;
 pub mod worktree;

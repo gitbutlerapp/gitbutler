@@ -132,9 +132,10 @@ impl Subcommands {
                 Some(forge::pr::Subcommands::Template { .. }) => PrTemplate,
             },
             #[cfg(feature = "legacy")]
-            Subcommands::Actions(_) | Subcommands::Mcp { .. } | Subcommands::Setup { .. } => {
-                Unknown
-            }
+            Subcommands::Actions(_)
+            | Subcommands::Mcp { .. }
+            | Subcommands::Setup { .. }
+            | Subcommands::Teardown => Unknown,
             Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
                 forge::integration::Subcommands::Auth => ForgeAuth,
                 forge::integration::Subcommands::Forget { .. } => ForgeForget,

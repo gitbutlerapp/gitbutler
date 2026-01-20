@@ -52,14 +52,6 @@ fn unborn() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![[r#"
 Error: Setup required: No GitButler project found at .
 
-"#]])
-        .stdout_eq(snapbox::str![[r#"
-The current project is not configured to be managed by GitButler.
-
-No GitButler project found at .
-
-Please run `but setup` to switch to GitButler management.
-
 "#]]);
     Ok(())
 }
@@ -76,15 +68,8 @@ fn first_commit_no_workspace() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![[r#"
 Error: Setup required: No GitButler project found at .
 
-"#]])
-        .stdout_eq(snapbox::str![[r#"
-The current project is not configured to be managed by GitButler.
-
-No GitButler project found at .
-
-Please run `but setup` to switch to GitButler management.
-
 "#]]);
+
     Ok(())
 }
 

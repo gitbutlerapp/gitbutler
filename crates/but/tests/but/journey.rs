@@ -63,10 +63,17 @@ Setting up GitButler project...
   ✓ Set default target to: gb-local/main
 
 GitButler project setup complete!
-
-Repository: .
-Default target: gb-local/main
+Target branch: gb-local/main
 Remote: gb-local
+
+
+We are switching you to GitButler's special `gitbutler/workspace` branch     
+
+To return to normal Git mode, either:
+    - Directly checkout a branch (`git checkout main`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch                    
 
 
 "#]]);
@@ -93,9 +100,7 @@ Setting up GitButler project...
   ✓ Repository added to project registry
 
 GitButler project is already set up!
-
-Repository: .
-Default target: gb-local/main
+Target branch: gb-local/main
 
 
 "#]]);

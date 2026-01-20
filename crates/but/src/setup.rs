@@ -66,6 +66,10 @@ pub fn init_ctx(
         ),
     };
 
+    // Check if we're on gitbutler/workspace with non-workspace commits on top
+    // before creating the context
+    check_workspace_commits_before_init(&repo, out)?;
+
     let (ctx, fetch_interval_minutes, last_fetch) = {
         let Some(workdir) = repo.workdir() else {
             anyhow::bail!("Bare repositories are not supported.");
@@ -292,7 +296,7 @@ fn handle_setup_error(out: &mut OutputChannel, message: String) -> anyhow::Error
         let _ = writeln!(
             out,
             "{}",
-            "Please run `but setup` to switch to GitButler management.".blue()
+            "Please run `but setup` to switch to GitButler management.\n".yellow()
         );
     } else if let Some(out) = out.for_json() {
         let _ = out.write_value(serde_json::json!({
@@ -305,4 +309,57 @@ fn handle_setup_error(out: &mut OutputChannel, message: String) -> anyhow::Error
     // just exit the program non-zero
     anyhow::anyhow!("Setup required: {}", message)
     //std::process::exit(1);
+}
+
+/// Check if we're on gitbutler/workspace with non-workspace commits on top.
+/// If so, inform the user and suggest running teardown to preserve their work.
+fn check_workspace_commits_before_init(
+    repo: &gix::Repository,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let head = repo.head()?;
+    let head_name = head
+        .referent_name()
+        .map(|n| n.shorten().to_string())
+        .unwrap_or_default();
+
+    // Only check if we're on gitbutler/workspace
+    if head_name != "gitbutler/workspace" {
+        return Ok(());
+    }
+
+    // Check the HEAD commit message
+    let mut workspace_ref = repo.find_reference("refs/heads/gitbutler/workspace")?;
+    let workspace_commit = workspace_ref.peel_to_commit()?;
+    let message = workspace_commit.message_raw()?;
+    let message_str = String::from_utf8_lossy(message);
+    let first_line = message_str.lines().next().unwrap_or("");
+
+    // If the first line is NOT a workspace commit, someone has committed on top
+    if !first_line.starts_with("GitButler Workspace Commit") {
+        if let Some(writer) = out.for_human() {
+            writeln!(writer)?;
+            writeln!(
+                writer,
+                "{}",
+                "⚠ Detected commits on top of gitbutler/workspace"
+                    .yellow()
+                    .bold()
+            )?;
+            writeln!(writer)?;
+            writeln!(
+                writer,
+                "{}",
+                "GitButler detected that you have committed directly on the\ngitbutler/workspace branch. To preserve your work and\nfix up things, please run `but teardown`.".dimmed()
+            )?;
+            writeln!(writer)?;
+        }
+
+        // After teardown, we should not continue with the original command
+        anyhow::bail!(
+            "GitButler mode exit required: please run `but teardown` to preserve your work."
+        );
+    }
+
+    Ok(())
 }

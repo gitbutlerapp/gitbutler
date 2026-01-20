@@ -551,6 +551,13 @@ async fn match_subcommand(
             .context("Failed to set up GitButler project.")
             .emit_metrics(metrics_ctx),
         #[cfg(feature = "legacy")]
+        Subcommands::Teardown => {
+            let mut ctx = setup::init_ctx(&args, BackgroundSync::Disabled, out)?;
+            command::legacy::teardown::teardown(&mut ctx, out)
+                .context("Failed to teardown GitButler project.")
+                .emit_metrics(metrics_ctx)
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Pr(forge::pr::Platform { cmd }) => {
             let mut ctx = setup::init_ctx(&args, BackgroundSync::Enabled, out)?;
             match cmd {

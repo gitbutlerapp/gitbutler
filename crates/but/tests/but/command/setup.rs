@@ -47,10 +47,17 @@ Setting up GitButler project...
   ✓ Set default target to: gb-local/main
 
 GitButler project setup complete!
-
-Repository: [..]
-Default target: gb-local/main
+Target branch: gb-local/main
 Remote: gb-local
+
+
+We are switching you to GitButler's special `gitbutler/workspace` branch     
+
+To return to normal Git mode, either:
+    - Directly checkout a branch (`git checkout main`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch                    
 
 
 "#]]);
@@ -100,10 +107,17 @@ Setting up GitButler project...
   ✓ Set default target to: gb-local/development
 
 GitButler project setup complete!
-
-Repository: [..]
-Default target: gb-local/development
+Target branch: gb-local/development
 Remote: gb-local
+
+
+We are switching you to GitButler's special `gitbutler/workspace` branch     
+
+To return to normal Git mode, either:
+    - Directly checkout a branch (`git checkout development`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch                    
 
 
 "#]]);
@@ -161,10 +175,17 @@ Setting up GitButler project...
   ✓ Set default target to: origin/main
 
 GitButler project setup complete!
-
-Repository: .
-Default target: origin/main
+Target branch: origin/main
 Remote: origin
+
+
+We are switching you to GitButler's special `gitbutler/workspace` branch     
+
+To return to normal Git mode, either:
+    - Directly checkout a branch (`git checkout main`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch                    
 
 
 "#]]);
@@ -208,10 +229,17 @@ Setting up GitButler project...
   ✓ Set default target to: origin/main
 
 GitButler project setup complete!
-
-Repository: [..]
-Default target: origin/main
+Target branch: origin/main
 Remote: origin
+
+
+We are switching you to GitButler's special `gitbutler/workspace` branch     
+
+To return to normal Git mode, either:
+    - Directly checkout a branch (`git checkout main`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch                    
 
 
 "#]]);
@@ -240,9 +268,7 @@ Setting up GitButler project...
   ✓ Repository added to project registry
 
 GitButler project is already set up!
-
-Repository: .
-Default target: origin/main
+Target branch: origin/main
 
 
 "#]]);
@@ -261,7 +287,7 @@ fn json_output_new_setup() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "repositoryPath": ".",
+  "repositoryPath": "[..]",
   "projectStatus": "added",
   "target": {
     "branchName": "origin/main",
@@ -290,7 +316,7 @@ fn json_output_already_setup() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "repositoryPath": ".",
+  "repositoryPath": "[..]",
   "projectStatus": "added",
   "target": {
     "branchName": "origin/main",
@@ -315,7 +341,7 @@ fn json_output_gb_local() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "repositoryPath": ".",
+  "repositoryPath": "[..]",
   "projectStatus": "added",
   "target": {
     "branchName": "gb-local/main",
@@ -340,7 +366,7 @@ fn json_output_non_standard_branch() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "repositoryPath": ".",
+  "repositoryPath": "[..]",
   "projectStatus": "added",
   "target": {
     "branchName": "gb-local/development",
@@ -365,7 +391,7 @@ fn json_output_remote_no_head_fallback() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "repositoryPath": ".",
+  "repositoryPath": "[..]",
   "projectStatus": "added",
   "target": {
     "branchName": "origin/main",
@@ -431,10 +457,17 @@ Setting up GitButler project...
   ✓ Set default target to: gb-local/main
 
 GitButler project setup complete!
-
-Repository: .
-Default target: gb-local/main
+Target branch: gb-local/main
 Remote: gb-local
+
+
+We are switching you to GitButler's special `gitbutler/workspace` branch     
+
+To return to normal Git mode, either:
+    - Directly checkout a branch (`git checkout main`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch                    
 
 
 "#]]);
@@ -458,7 +491,11 @@ Remote: gb-local
         .output()?;
     assert!(output.status.success());
     let commit_count: u32 = String::from_utf8_lossy(&output.stdout).trim().parse()?;
-    assert!(commit_count >= 1, "Expected at least 1 commit, found {}", commit_count);
+    assert!(
+        commit_count >= 1,
+        "Expected at least 1 commit, found {}",
+        commit_count
+    );
 
     Ok(())
 }
@@ -474,7 +511,7 @@ fn init_flag_json_output() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "repositoryPath": ".",
+  "repositoryPath": "[..]",
   "projectStatus": "added",
   "target": {
     "branchName": "gb-local/main",
@@ -518,10 +555,17 @@ Setting up GitButler project...
   ✓ Set default target to: gb-local/main
 
 GitButler project setup complete!
-
-Repository: .
-Default target: gb-local/main
+Target branch: gb-local/main
 Remote: gb-local
+
+
+We are switching you to GitButler's special `gitbutler/workspace` branch     
+
+To return to normal Git mode, either:
+    - Directly checkout a branch (`git checkout main`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch                    
 
 
 "#]]);
