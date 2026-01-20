@@ -12,68 +12,76 @@ members = [
     # No or minimal 'legacy' support
     # No `but-ctx` dependency
     # ideally: idiomatic Rust
-    "crates/but-core",             # Core types and capabilities, can be used by everything.
-    "crates/but-graph",            # The world of GitButler, classification and analysis of commit-graphs.
-    "crates/but-ctx",              # Re-use of caches and db-connections, access to all data one would need to be GitButler.
-    "crates/but-db",               # Abstractions over Sqlite databases and Caches, with transaction and synchronization support.
-    "crates/but-error",            # Error codes to communicate specific failures; JSON Error for frontends.
-    "crates/but-testsupport",      # Despite lacking tests, it is the foundation for all tests.
+    "crates/but-core",             # 📄Core types and capabilities, a catch all that could be split into smaller crates.
+    "crates/but-graph",            # 📄The world of GitButler, classification and analysis of commit-graphs.
+    "crates/but-ctx",              # 📄Re-use of caches and db-connections, access to all data one would need to be GitButler.
+    "crates/but-db",               # 📄Abstractions over Sqlite databases and Caches, with transaction and synchronization support.
+    "crates/but-error",            # 📄Error codes to communicate specific failures; JSON Error for frontends.
+    "crates/but-testsupport",      # 📄Despite lacking tests, it is the foundation for all tests.
+    "crates/but-feedback",         # 📄It's very small and very special, but documented and well-enough tested.
 
     ##
-    ### ✔️On Track 📈
+    ### 👷Needs work
     ##
     # Shows many or all traits of Exemplary
     # Substantial legacy code or legacy dependencies
-    # Partial or complete documentation.
+    # Partial or incomplete documentation.
     # Tests for core capabilities.
-    "crates/but-rebase",            # Alter commit-graphs in various ways; 👉Could be exemplary once older supporting code is removed, and it was actually reviewed.
-    "crates/but-oplog",             # A sketch of a modern `gitbutler-oplog` ; 👉needs impl based on `but_core::snapshot`; shouldn't use `but-ctx`.
-    "crates/but-meta",              # An interface to support Git-entity metadata; 👉mostly powered by legacy, but will help to transition to `but-db` backing.
-    "crates/but-hunk-assignment",   # Assign uncommitted changes to stacks/lanes. 👉uses `but-ctx`, and lacks tests.
-    "crates/but-hunk-dependency",   # Assuming it works, it feels close to 'Exemplary', 👉but uses `but-ctx`.
-    "crates/but-workspace",         # Workspace abstractions on top of `but-graph`; workspace manipulation. 👉Too much legacy code.
-    "crates/but-claude",            # 👉lacks tests, overview in docs, seems hacky. Uses `but-ctx`.
-    "crates/but-path",              # Not much in there, 👉but at least one item lacks documentation.
-    "crates/but-serde",             # 👉Lacks docs and tests, and overview, but still useful and simple enough to 'just works'
-    "crates/but-worktrees",         # Worktree creation and removal; 👉Feels overengingeered, uses `but-ctx` and legacy crates.
-    "crates/but-update",            # "A good vibe" with docs and tests; 👉Could be exemplary after review.
-
-    ##
-    ### ❌Bottom of the Barrel 🛢️
-    ##
-    # Fully or mostly vibed
-    # Barely any documentation
-    # Barely any tests or fully generated tests that didn't receive thorough review
-    # maybe: unclear purpose
-    "crates/but-rules",             # 👉Lacks top-level docs and tests; uses various legacy crates.
-    "crates/but-action",            # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
-    "crates/but-bot",               # 👉Unclear purpose; lacks docs and tests. Uses legacy crate.
-    "crates/but-tools",             # Another `but-action`, 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
-    "crates/but-llm",               # 👉No tests, lacks top-level docs, purpose somewhat unclear.
-    "crates/but-github",            # 👉lacks top-level docs and docs, purpose somewhat unclear. Uses legacy crate.
-    "crates/but-cursor",            # 👉No tests, lacks top-level docs, purpose somewhat unclear. Uses legacy crates.
-    "crates/but-forge",             # 👉Kind of no docs, no tests, and unclear purpose.
-    "crates/but-forge-storage",     # 👉Kind of no docs, no tests, and unclear purpose. Does this need to be its own crate?
-    "crates/but-gerrit",            # 👉No documentation; some tests. Uses one legacy crate.
-
-    ##
-    ### Small and useful 💍
-    ##
-    # Mostly utilities, easy to use.
-    # Maybe no docs, but functions are self-explanatory.
-    # Maybe even idiomatic code.
-    "crates/but-feedback",          # It's very small and very special, but documented and well-enough tested.
-    "crates/but-oxidize",           # Utilities to help translate between `git2` and `gix`. 👉Shouldn't be needed once `git2` is gone.
-    "crates/but-secret",            # Might be exemplary if it was 👉fully documented.
-    "crates/but-settings",          # Might be exemplary if it was 👉fully documented.
+    # 👉Could be exemplary once older supporting code is removed, and it was actually reviewed.
+    "crates/but-rebase",            # 📄Alter commit-graphs in various ways
+    # 👉needs impl based on `but_core::snapshot`; shouldn't use `but-ctx`.
+    "crates/but-oplog",             # 📄A sketch of a modern `gitbutler-oplog`
+    # 👉mostly powered by legacy, but will help to transition to `but-db` backing.
+    "crates/but-meta",              # 📄An interface to support Git-entity metadata;
+    # 👉uses `but-ctx`, and lacks tests.
+    "crates/but-hunk-assignment",   # 📄Assign uncommitted changes to stacks/lanes.
+    # 👉uses `but-ctx`.
+    "crates/but-hunk-dependency",   # 📄Assuming it works, it feels close to 'Exemplary',
+    # 👉Too much legacy code.
+    "crates/but-workspace",         # 📄Workspace abstractions on top of `but-graph`; workspace manipulation.
+    # 👉lacks tests, overview in docs, seems hacky. Uses `but-ctx`.
+    "crates/but-claude",            # 📄Orchestrate `claude` instances
+    # 👉but at least one item lacks documentation.
+    "crates/but-path",              # 📄Provide paths interesting to the application, with global redirects for testing.
+    # 👉Lacks docs and tests, and overview, but still useful and simple enough to 'just works'
+    "crates/but-serde",             # 📄Serde attributes for ser-de of custom datatypes.
+    # 👉Feels overengingeered, uses `but-ctx` and legacy crates.
+    "crates/but-worktrees",         # 📄Worktree creation and removal;
+    # 👉Could be exemplary after review.
+    "crates/but-update",            # 📄Retrieve information about available program versions to guide updates.
+    # 👉Lacks top-level docs and tests; uses various legacy crates.
+    "crates/but-rules",             # 📄Decide what to do when files change in the worktree
+    # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
+    "crates/but-action",            # 📄TBD
+    # 👉Unclear purpose; lacks docs and tests. Uses legacy crate.
+    "crates/but-bot",               # 📄TBD
+    # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
+    "crates/but-tools",             # 📄TBD
+    # 👉No tests, lacks top-level docs, purpose somewhat unclear.
+    "crates/but-llm",               # 📄TBD
+    # 👉lacks top-level docs and docs, purpose somewhat unclear. Uses legacy crate.
+    "crates/but-github",            # 📄Retrieve information using the GitHub API.
+    # 👉No tests, lacks top-level docs, purpose somewhat unclear. Uses legacy crates.
+    "crates/but-cursor",            # 📄Integration with Cursor
+    # 👉Kind of no docs, no tests, and unclear purpose.
+    "crates/but-forge",             # 📄A generalised interface to communicate with forges.
+    # 👉Kind of no docs, no tests, and unclear purpose. Does this need to be its own crate?
+    "crates/but-forge-storage",     # 📄TBD
+    # 👉No documentation; some tests. Uses one legacy crate.
+    "crates/but-gerrit",            # 📄Interaction with Gerrit
+    # 👉Might be exemplary if it was fully documented.
+    "crates/but-secret",            # 📄Retrieve and store secrets in the platform keychain.
+    # 👉Might be exemplary if it was fully documented.
+    "crates/but-settings",          # 📄Store and retrieve layered application settings, react to changes in realtime.
 
     ##
     ### Soon obsolete
     ##
     # Mostly supporting legacy code.
     # In big parts replaced by other crates.
-    "crates/but-fs",                # 👉we should be using `but-db` instead.
-    "crates/but-status",            # 👉One crate for `create_wd_tree()` which no modern code uses anymore.
+    "crates/but-fs",                # 📄filesystem utilities 👉we should be using `but-db` instead.
+    "crates/but-status",            # 📄One crate for `create_wd_tree()` which no modern code uses anymore.
+    "crates/but-oxidize",           # 📄Utilities to help translate between `git2` and `gix`. 👉Shouldn't be needed once `git2` is gone.
 
     ##
     ### but-api - it's very own thing
@@ -81,8 +89,8 @@ members = [
     # Has no tests (yet)
     # A lot of legacy functions that need porting
     # the non-legacy code should be matching Exemplary standards of documentation
-    "crates/but-api",
-    "crates/but-api-macros",
+    "crates/but-api",               # 📄A project-based API to used by all clients (CLI, GUI, etc)
+    "crates/but-api-macros",        # 📄A utility to generate exactly the code we need in the `but-api`.
 
     ##
     ### Binaries
