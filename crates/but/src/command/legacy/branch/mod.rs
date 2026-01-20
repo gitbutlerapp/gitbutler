@@ -233,11 +233,7 @@ fn confirm_unapply_stack(
         }
     }
 
-    if force {
-        but_api::legacy::virtual_branches::unapply_stack(project.id, sid)?;
-    } else {
-        bail!("Refusing to unapply stack without --force");
-    }
+    but_api::legacy::virtual_branches::unapply_stack(project.id, sid)?;
 
     if let Some(out) = out.for_human() {
         writeln!(
@@ -256,9 +252,9 @@ fn confirm_branch_deletion(
     force: bool,
     out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
-    if !force && let Some(mut inout) = out.prepare_for_terminal_input() {
+    if !force && let Some(mut input) = out.prepare_for_terminal_input() {
         let abort_msg = "Aborted branch deletion.";
-        let input = inout
+        let input = input
             .prompt(format!(
                 "Are you sure you want to delete branch '{}'? [y/N]:",
                 branch_name
@@ -271,14 +267,7 @@ fn confirm_branch_deletion(
         }
     }
 
-    if force {
-        but_api::legacy::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
-    } else {
-        bail!(
-            "Refusing to remove branch '{}' from workspace without --force",
-            branch_name
-        );
-    }
+    but_api::legacy::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Deleted branch {branch_name}")?;
