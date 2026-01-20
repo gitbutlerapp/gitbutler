@@ -165,6 +165,10 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
         vb_state,
     )?;
 
+    // Drop the guard we made above, certain commands below are also getting their own exclusive
+    // lock so we need to drop this here to ensure we don't end up with a deadlock.
+    drop(guard);
+
     let (id, outcome) = but_action::handle_changes(
         defer.ctx,
         &summary,

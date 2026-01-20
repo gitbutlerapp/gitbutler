@@ -262,6 +262,10 @@ pub async fn handle_stop(
         vb_state,
     )?;
 
+    // Drop the guard we made above, certain commands below are also getting their own exclusive
+    // lock so we need to drop this here to ensure we don't end up with a deadlock.
+    drop(guard);
+
     let summary = "".to_string();
     let prompt = crate::db::get_generations(&dir, nightly)
         .map(|gens| {

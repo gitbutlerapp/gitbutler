@@ -5,7 +5,11 @@
 mod absorb;
 mod branch;
 #[cfg(feature = "legacy")]
+mod claude;
+#[cfg(feature = "legacy")]
 mod commit;
+#[cfg(feature = "legacy")]
+mod cursor;
 mod format;
 mod gui;
 mod help;
