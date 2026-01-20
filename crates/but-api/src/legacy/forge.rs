@@ -220,16 +220,16 @@ pub async fn publish_review(
     project_id: ProjectId,
     params: but_forge::CreateForgeReviewParams,
 ) -> Result<but_forge::ForgeReview> {
-    let (storage, base_branch, project) = {
+    let (base_branch, storage, project) = {
         let ctx = Context::new_from_legacy_project_id(project_id)?;
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-        (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
-            base_branch,
-            ctx.legacy_project,
-        )
+        let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+        let project = ctx.legacy_project.clone();
+
+        (base_branch, storage, project)
     };
-    but_forge::create_forge_review(
+
+    let review = but_forge::create_forge_review(
         &project.preferred_forge_user,
         &base_branch
             .forge_repo_info
@@ -237,7 +237,26 @@ pub async fn publish_review(
         &params,
         &storage,
     )
-    .await
+    .await?;
+
+    if let Err(err) = try_cache_review(project_id, &review) {
+        tracing::warn!(?err, "Failed to cache newly created review");
+    };
+
+    Ok(review)
+}
+
+/// Try to cache a review.
+///
+/// This is currently taking a project_id, there was some odd behaviour around the async code & the
+/// need for the context to be ThreadSafe. I decided to defer looking into it more until we have
+/// the time to properly delegificy this code.
+fn try_cache_review(project_id: ProjectId, review: &but_forge::ForgeReview) -> Result<()> {
+    let mut ctx = Context::new_from_legacy_project_id(project_id)?;
+    let mut db = ctx.db.get_mut()?;
+    but_forge::cache_review(&mut db, review)?;
+
+    Ok(())
 }
 
 #[but_api]

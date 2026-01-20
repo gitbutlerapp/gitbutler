@@ -151,6 +151,59 @@ fn handles_optional_fields() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn insert_single_review() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review = forge_review(1, "First PR", "feature-branch");
+    db.forge_reviews_mut()?.insert(review.clone())?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 1);
+    assert_eq!(reviews[0], review);
+
+    Ok(())
+}
+
+#[test]
+fn insert_adds_to_existing() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review1 = forge_review(1, "First PR", "feature-branch");
+    let review2 = forge_review(2, "Second PR", "fix-branch");
+
+    db.forge_reviews_mut()?.set_all(vec![review1.clone()])?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 1);
+
+    db.forge_reviews_mut()?.insert(review2.clone())?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 2);
+    assert!(reviews.contains(&review1));
+    assert!(reviews.contains(&review2));
+
+    Ok(())
+}
+
+#[test]
+fn insert_updates_existing_by_number() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review1 = forge_review(1, "First PR", "feature-branch");
+    db.forge_reviews_mut()?.insert(review1)?;
+
+    let updated_review = forge_review(1, "Updated PR Title", "feature-branch");
+    db.forge_reviews_mut()?.insert(updated_review.clone())?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 1);
+    assert_eq!(reviews[0].title, "Updated PR Title");
+
+    Ok(())
+}
+
 fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
     ForgeReview {
         html_url: format!("https://github.com/owner/repo/pull/{}", number),

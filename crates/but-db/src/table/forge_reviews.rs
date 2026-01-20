@@ -135,6 +135,43 @@ impl ForgeReviewsHandleMut<'_> {
         ForgeReviewsHandle { conn: &self.sp }
     }
 
+    /// Inserts or updates a single forge review in the database.
+    /// Uses INSERT OR REPLACE since `number` is the primary key.
+    pub fn insert(self, review: ForgeReview) -> anyhow::Result<()> {
+        self.sp.execute(
+            "INSERT OR REPLACE INTO forge_reviews (html_url, number, title, body, author, labels, draft, \
+             source_branch, target_branch, sha, created_at, modified_at, merged_at, closed_at, \
+             repository_ssh_url, repository_https_url, repo_owner, reviewers, unit_symbol, \
+             last_sync_at, struct_version) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
+            rusqlite::params![
+                review.html_url,
+                review.number,
+                review.title,
+                review.body,
+                review.author,
+                review.labels,
+                review.draft,
+                review.source_branch,
+                review.target_branch,
+                review.sha,
+                review.created_at,
+                review.modified_at,
+                review.merged_at,
+                review.closed_at,
+                review.repository_ssh_url,
+                review.repository_https_url,
+                review.repo_owner,
+                review.reviewers,
+                review.unit_symbol,
+                review.last_sync_at,
+                review.struct_version,
+            ],
+        )?;
+        self.sp.commit()?;
+        Ok(())
+    }
+
     /// Sets the forge_reviews table to the provided values.
     /// Any existing entries that are not in the provided values are deleted.
     pub fn set_all(self, reviews: Vec<ForgeReview>) -> anyhow::Result<()> {
