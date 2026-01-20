@@ -292,7 +292,7 @@ pub(crate) fn handle(
 ) -> anyhow::Result<()> {
     let mut id_map = IdMap::new_from_context(ctx, None)?;
     id_map.add_committed_file_info_from_context(ctx)?;
-    let (sources, target) = ids(ctx, &id_map, source_str, target_str)?;
+    let (sources, target) = ids(ctx, &id_map, source_str, target_str, out)?;
 
     for source in sources {
         let Some(operation) = route_operation(&source, &target) else {
@@ -314,45 +314,216 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
     )
 }
 
+/// Prompts the user to disambiguate between multiple CLI ID matches.
+///
+/// # Arguments
+/// * `entity_str` - The original string the user typed
+/// * `matches` - The possible matches (must not be empty)
+/// * `context` - Description of what we're resolving (e.g., "source", "target")
+/// * `out` - Output channel to check if environment is interactive
+///
+/// # Returns
+/// The selected CliId from the user's choice
+///
+/// # Errors
+/// Returns an error if the environment is non-interactive or if the user cancels the selection
+fn prompt_for_disambiguation(
+    entity_str: &str,
+    matches: Vec<CliId>,
+    context: &str,
+    out: &mut OutputChannel,
+) -> anyhow::Result<CliId> {
+    use cli_prompts::{DisplayPrompt, prompts::Selection};
+    use std::io::IsTerminal;
+
+    // Defensive check
+    if matches.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Internal error: prompt_for_disambiguation called with empty matches"
+        ));
+    }
+
+    // Check if we're in an interactive environment
+    let is_interactive = std::io::stdin().is_terminal() && out.for_human().is_some();
+    if !is_interactive {
+        // In non-interactive mode, show all options and error
+        let options_str = matches
+            .iter()
+            .enumerate()
+            .map(|(i, id)| {
+                format!(
+                    "  {}. {} ({})",
+                    i + 1,
+                    id.to_short_string(),
+                    id.kind_for_humans()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        return Err(anyhow::anyhow!(
+            "'{}' is ambiguous for {}. Cannot prompt in non-interactive mode. Matches:\n{}",
+            entity_str,
+            context,
+            options_str
+        ));
+    }
+
+    // Build options with clear descriptions
+    let options: Vec<String> = matches
+        .iter()
+        .map(|id| {
+            let short_id = id.to_short_string();
+            let kind = id.kind_for_humans();
+
+            // Add additional context based on the type
+            match id {
+                CliId::Commit { commit_id, .. } => {
+                    format!(
+                        "{} - {} (commit {})",
+                        short_id,
+                        kind,
+                        &commit_id.to_string()[..7]
+                    )
+                }
+                CliId::Branch { name, .. } => {
+                    format!("{} - {} (branch '{}')", short_id, kind, name)
+                }
+                CliId::CommittedFile {
+                    path, commit_id, ..
+                } => {
+                    format!(
+                        "{} - {} (file '{}' in commit {})",
+                        short_id,
+                        kind,
+                        path,
+                        &commit_id.to_string()[..7]
+                    )
+                }
+                CliId::Uncommitted(uncommitted) => {
+                    if uncommitted.is_entire_file {
+                        let first_hunk = uncommitted.hunk_assignments.first();
+                        format!("{} - {} (file '{}')", short_id, kind, first_hunk.path)
+                    } else {
+                        format!("{} - {} (hunk)", short_id, kind)
+                    }
+                }
+                _ => format!("{} - {}", short_id, kind),
+            }
+        })
+        .collect();
+
+    let prompt = Selection::new(
+        &format!(
+            "'{}' matches multiple objects for {}. Which one did you mean?",
+            entity_str, context
+        ),
+        options.iter().cloned(),
+    );
+
+    let selection_str = prompt
+        .display()
+        .map_err(|e| anyhow::anyhow!("Selection aborted: {:?}", e))?;
+
+    // Find the index of the selected option - more robust than parsing IDs from the string
+    let selection_index = options
+        .iter()
+        .position(|opt| opt == &selection_str)
+        .ok_or_else(|| {
+            anyhow::anyhow!("Internal error: selected option not found in options list")
+        })?;
+
+    // Use the index to get the corresponding CliId
+    matches.into_iter().nth(selection_index).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Internal error: selection index {} out of bounds",
+            selection_index
+        )
+    })
+}
+
 fn ids(
     ctx: &mut Context,
     id_map: &IdMap,
     source: &str,
     target: &str,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<(Vec<CliId>, CliId)> {
-    let sources = parse_sources(ctx, id_map, source)?;
+    let sources = parse_sources_with_disambiguation(ctx, id_map, source, out)?;
     let target_result = id_map.resolve_entity_to_ids(target)?;
-    if target_result.len() != 1 {
-        if target_result.is_empty() {
+
+    if target_result.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Target '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
+            target
+        ));
+    }
+
+    if target_result.len() == 1 {
+        return Ok((sources, target_result[0].clone()));
+    }
+
+    // Target is ambiguous - use first source to filter by valid operations
+    let reference_source = &sources[0];
+
+    let valid_targets: Vec<CliId> = target_result
+        .into_iter()
+        .filter(|target_candidate| route_operation(reference_source, target_candidate).is_some())
+        .collect();
+
+    if valid_targets.is_empty() {
+        // No valid operations found - this means all possible interpretations of the target
+        // would result in invalid operations. Show error with all matches.
+        return Err(anyhow::anyhow!(
+            "Target '{}' matches multiple objects, but none would result in a valid operation with source {}. Try using more characters or a different identifier.",
+            target,
+            reference_source.to_short_string()
+        ));
+    }
+
+    if valid_targets.len() == 1 {
+        // Disambiguation successful through validity filtering!
+        return Ok((sources, valid_targets[0].clone()));
+    }
+
+    // Still ambiguous even after filtering by validity - prompt the user
+    let selected_target = prompt_for_disambiguation(target, valid_targets, "the target", out)?;
+    Ok((sources, selected_target))
+}
+
+/// Internal helper for parsing sources with disambiguation prompts.
+fn parse_sources_with_disambiguation(
+    ctx: &mut Context,
+    id_map: &IdMap,
+    source: &str,
+    out: &mut OutputChannel,
+) -> anyhow::Result<Vec<CliId>> {
+    // Check if it's a range (contains '-')
+    if source.contains('-') {
+        parse_range(ctx, id_map, source)
+    }
+    // Check if it's a list (contains ',')
+    else if source.contains(',') {
+        parse_list(id_map, source)
+    }
+    // Single source
+    else {
+        let source_result = id_map.resolve_entity_to_ids(source)?;
+        if source_result.is_empty() {
             return Err(anyhow::anyhow!(
-                "Target '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
-                target
-            ));
-        } else {
-            let matches: Vec<String> = target_result
-                .iter()
-                .map(|id| match id {
-                    CliId::Commit { commit_id: oid, .. } => {
-                        format!(
-                            "{} (commit {})",
-                            id.to_short_string(),
-                            &oid.to_string()[..7]
-                        )
-                    }
-                    CliId::Branch { name, .. } => {
-                        format!("{} (branch '{}')", id.to_short_string(), name)
-                    }
-                    _ => format!("{} ({})", id.to_short_string(), id.kind_for_humans()),
-                })
-                .collect();
-            return Err(anyhow::anyhow!(
-                "Target '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
-                target,
-                matches.join(", ")
+                "Rubbed the wrong way. Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
+                source
             ));
         }
+
+        if source_result.len() > 1 {
+            // Ambiguous - prompt the user to disambiguate
+            let selected = prompt_for_disambiguation(source, source_result, "the source", out)?;
+            return Ok(vec![selected]);
+        }
+
+        Ok(vec![source_result[0].clone()])
     }
-    Ok((sources, target_result[0].clone()))
 }
 
 pub(crate) fn parse_sources(
@@ -380,19 +551,7 @@ pub(crate) fn parse_sources(
             } else {
                 let matches: Vec<String> = source_result
                     .iter()
-                    .map(|id| match id {
-                        CliId::Commit { commit_id: oid, .. } => {
-                            format!(
-                                "{} (commit {})",
-                                id.to_short_string(),
-                                &oid.to_string()[..7]
-                            )
-                        }
-                        CliId::Branch { name, .. } => {
-                            format!("{} (branch '{}')", id.to_short_string(), name)
-                        }
-                        _ => format!("{} ({})", id.to_short_string(), id.kind_for_humans()),
-                    })
+                    .map(|id| format!("{} ({})", id.to_short_string(), id.kind_for_humans()))
                     .collect();
                 return Err(anyhow::anyhow!(
                     "Source '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
