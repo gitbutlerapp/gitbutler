@@ -99,12 +99,12 @@ pub async fn create_pr(
             )?;
             let response = inout
                 .prompt(format!(
-                    "Do you want to open a new PR on branch '{}'? [y/n]",
+                    "Do you want to open a new PR on branch '{}'? [Y/n]",
                     branch_name
                 ))?
-                .context("Aborted.")?
-                .to_lowercase();
-            if response == "y" || response == "yes" {
+                .map(|s| s.to_lowercase());
+            if response.is_none() || response == Some("y".into()) || response == Some("yes".into())
+            {
                 Some(vec![branch_name.clone()])
             } else {
                 return Ok(());
