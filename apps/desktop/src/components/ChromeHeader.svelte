@@ -10,6 +10,7 @@
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
+	import NetworkStatus from '$lib/network/NetworkStatus.svelte';
 	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ircPath, isWorkspacePath, projectPath } from '$lib/routes/routes.svelte';
@@ -262,6 +263,7 @@
 			/>
 		{/if}
 		{#if isOnWorkspacePage}
+			<NetworkStatus />
 			<Button
 				testId={TestId.ChromeHeaderCreateBranchButton}
 				kind="outline"
