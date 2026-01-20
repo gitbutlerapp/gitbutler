@@ -2,6 +2,7 @@ use std::{env, path::PathBuf};
 
 use anyhow::bail;
 
+/// The directory to store application-wide data in, like logs, **one per channel**.
 pub fn app_data_dir() -> anyhow::Result<PathBuf> {
     if let Ok(test_dir) = std::env::var("E2E_TEST_APP_DATA_DIR") {
         return Ok(PathBuf::from(test_dir).join("com.gitbutler.app"));
@@ -11,6 +12,7 @@ pub fn app_data_dir() -> anyhow::Result<PathBuf> {
         .map(|dir| dir.join(identifier()))
 }
 
+/// The directory to store application-wide settings in, **shared for all channels**.
 pub fn app_config_dir() -> anyhow::Result<PathBuf> {
     if let Ok(test_dir) = std::env::var("E2E_TEST_APP_DATA_DIR") {
         return Ok(PathBuf::from(test_dir).join("gitbutler"));
@@ -20,20 +22,21 @@ pub fn app_config_dir() -> anyhow::Result<PathBuf> {
         .map(|dir| dir.join("gitbutler"))
 }
 
-/// Returns the platform-specific cache directory for GitButler.
+/// Returns the platform-specific cache directory for GitButler, **one per channel**.
 ///
 /// The cache directory is used for non-essential data that can be regenerated
 /// or re-downloaded, such as update check metadata. Unlike data stored in
 /// [`app_data_dir`], cached data:
+///
 /// - Should not be backed up by the system
 /// - Can be safely deleted to free up disk space
 /// - Has no user-visible impact if cleared
 ///
 /// # Platform-specific locations
 ///
-/// - **macOS**: `~/Library/Caches/gitbutler/`
-/// - **Linux**: `~/.cache/gitbutler/` (following XDG Base Directory Specification)
-/// - **Windows**: `%LOCALAPPDATA%\gitbutler\cache\`
+/// - **macOS**: `~/Library/Caches/com.gitbutler.app{channel}/`
+/// - **Linux**: `~/.cache/com.gitbutler.app{channel}/` (following XDG Base Directory Specification)
+/// - **Windows**: `%LOCALAPPDATA%\com.gitbutler.app{channel}\`
 ///
 /// # Testing
 ///
@@ -49,7 +52,7 @@ pub fn app_cache_dir() -> anyhow::Result<PathBuf> {
     }
     dirs::cache_dir()
         .ok_or(anyhow::anyhow!("Could not get app cache dir"))
-        .map(|dir| dir.join("gitbutler"))
+        .map(|dir| dir.join(identifier()))
 }
 
 pub fn identifier() -> &'static str {

@@ -13,6 +13,16 @@ pub struct TelemetrySettings {
     pub app_distinct_id: Option<String>,
 }
 
+/// Access utilities
+impl TelemetrySettings {
+    /// Return the distinct ID if reporting is enabled, and if it is set.
+    pub fn distinct_id_if_enabled(&self) -> Option<String> {
+        self.app_metrics_enabled
+            .then(|| self.app_distinct_id.clone())
+            .flatten()
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct GitHubOAuthAppSettings {

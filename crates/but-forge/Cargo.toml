@@ -16,7 +16,7 @@ but-github.workspace = true
 but-forge-storage.workspace = true
 but-db.workspace = true
 chrono.workspace = true
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 octorust.workspace = true
 
 git-url-parse = "0.6.0"

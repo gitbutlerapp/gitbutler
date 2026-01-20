@@ -45,12 +45,16 @@
 //! ```text
 //! Add a new optional string named 'note' to ClaudePermissionRequest in @crates/but-db/tests/db/table/claude.rs
 //! ```
-pub mod migration;
+#![expect(clippy::inconsistent_digit_grouping)]
 
 mod handle;
+#[cfg(feature = "poll")]
 pub mod poll;
 
+pub mod cache;
+pub mod migration;
 mod table;
+
 #[rustfmt::skip]
 pub use table::{
     hunk_assignments::HunkAssignment,
@@ -90,11 +94,20 @@ pub struct M<'a> {
     up_created_at: u64,
 }
 
+/// A structure to receive an application-wide cache.
+pub struct AppCacheHandle {
+    /// The open connection to the cache.
+    conn: rusqlite::Connection,
+    /// The URL to the application cache.
+    url: String,
+}
+
 /// An abstraction over an open database connection, and for access to the ORM layer and [transactions](DbHandle::transaction()).
 ///
 /// The underlying sqlite database is set up to use Rusts borrow-checker,
 /// so a mutable borrow is required to start transactions or to make changes to any data.
 pub struct DbHandle {
+    /// The opened db connection with migrations applied.
     conn: rusqlite::Connection,
     /// The URL at which the connection was opened, mainly for debugging.
     url: String,

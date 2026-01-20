@@ -309,7 +309,7 @@ fn do_capture(
     event: Event,
     app_settings: &AppSettings,
 ) -> impl Future<Output = Result<(), posthog_rs::Error>> {
-    let mut posthog_event = if let Some(id) = &app_settings.telemetry.app_distinct_id.clone() {
+    let mut posthog_event = if let Some(id) = app_settings.telemetry.app_distinct_id.clone() {
         posthog_rs::Event::new(event.event_name.to_string(), id.clone())
     } else {
         posthog_rs::Event::new_anon(event.event_name.to_string())

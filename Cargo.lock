@@ -1039,6 +1039,7 @@ dependencies = [
  "but-db",
  "but-graph",
  "but-meta",
+ "but-path",
  "but-settings",
  "git2",
  "gitbutler-project",
