@@ -142,20 +142,6 @@ export function pushStatusToIcon(pushStatus: PushStatus): keyof typeof iconsJson
 }
 
 export type BranchDetails = Workspace.BranchDetails;
-
-/** Safely extract the time of the last update to a given branch */
-export function branchLastUpdatedAt(branch: BranchDetails): number | null {
-	if (branch.lastUpdatedAt === null) return null;
-	return Number(branch.lastUpdatedAt);
-}
-
-/** Safely extract the date of the last update to a given branch */
-export function branchLastUpdatedAtDate(branch: BranchDetails): Date | null {
-	const ts = branchLastUpdatedAt(branch);
-	if (ts === null) return null;
-	return new Date(ts);
-}
-
 export type StackDetails = Workspace.StackDetails;
 
 export function stackRequiresForcePush(stack: StackDetails): boolean {

@@ -112,7 +112,6 @@
 		branchesSelection.current.stackId === env.stackId &&
 		!branchesSelection.current.commitId}
 	{@const branchFirstCommitType = branch.commits?.at(0)?.state.type}
-
 	<BranchCard
 		type="normal-branch"
 		first={isTopBranch}

@@ -61,11 +61,7 @@ baseCommit: string,
 /**
  * The pushable status for the branch.
  */
-pushStatus: PushStatus, 
-/**
- * Last time, the branch was updated in Epoch milliseconds.
- */
-lastUpdatedAt: bigint | null, 
+pushStatus: PushStatus,
 /**
  * All authors of the commits in the branch.
  */

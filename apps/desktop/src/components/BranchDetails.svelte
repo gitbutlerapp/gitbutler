@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchBadge from '$components/BranchBadge.svelte';
-	import { branchLastUpdatedAtDate, type BranchDetails } from '$lib/stacks/stack';
-	import { AvatarGroup, TimeAgo, Button } from '@gitbutler/ui';
+	import { type BranchDetails } from '$lib/stacks/stack';
+	import { AvatarGroup, Button } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -12,7 +12,6 @@
 	};
 
 	const { branch, children, conflictedCommits, onResolveConflicts }: Props = $props();
-	const lastUpdatedAtDate = $derived(branchLastUpdatedAtDate(branch));
 </script>
 
 <div class="branch-view">
@@ -31,14 +30,7 @@
 					srcUrl: a.gravatarUrl
 				}))}
 			/>
-			<span class="branch-view__details-divider">•</span>
 		</div>
-
-		{#if lastUpdatedAtDate}
-			<div class="factoid-wrap">
-				<TimeAgo date={lastUpdatedAtDate} />
-			</div>
-		{/if}
 	</div>
 
 	{@render children?.()}
