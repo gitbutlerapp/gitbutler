@@ -15,7 +15,274 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 
-use crate::{CliId, IdMap, command::legacy::rub::assign::assign_all, utils::OutputChannel};
+use crate::{CliId, IdMap, utils::OutputChannel};
+
+/// Represents the operation to perform for a given source and target combination.
+/// This enum serves as the single source of truth for valid rub operations.
+#[derive(Debug)]
+enum RubOperation<'a> {
+    UnassignUncommitted(&'a crate::id::UncommittedCliId),
+    UncommittedToCommit(&'a crate::id::UncommittedCliId, &'a gix::ObjectId),
+    UncommittedToBranch(&'a crate::id::UncommittedCliId, &'a str),
+    UncommittedToStack(&'a crate::id::UncommittedCliId, StackId),
+    StackToUnassigned(StackId),
+    StackToStack {
+        from: StackId,
+        to: StackId,
+    },
+    StackToBranch {
+        from: StackId,
+        to: &'a str,
+    },
+    UnassignedToCommit(&'a gix::ObjectId),
+    UnassignedToBranch(&'a str),
+    UnassignedToStack(StackId),
+    UndoCommit(&'a gix::ObjectId),
+    SquashCommits {
+        source: &'a gix::ObjectId,
+        destination: &'a gix::ObjectId,
+    },
+    MoveCommitToBranch(&'a gix::ObjectId, &'a str),
+    BranchToUnassigned(&'a str),
+    BranchToStack {
+        from: &'a str,
+        to: StackId,
+    },
+    BranchToCommit(&'a str, &'a gix::ObjectId),
+    BranchToBranch {
+        from: &'a str,
+        to: &'a str,
+    },
+    CommittedFileToBranch(&'a BStr, &'a gix::ObjectId, &'a str),
+    CommittedFileToCommit(&'a BStr, &'a gix::ObjectId, &'a gix::ObjectId),
+    CommittedFileToUnassigned(&'a BStr, &'a gix::ObjectId),
+}
+
+impl<'a> RubOperation<'a> {
+    /// Executes this operation, creating snapshots and performing the necessary actions.
+    fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        match self {
+            RubOperation::UnassignUncommitted(uncommitted) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::unassign_uncommitted(ctx, uncommitted.clone(), out)
+            }
+            RubOperation::UncommittedToCommit(uncommitted, oid) => {
+                create_snapshot(ctx, OperationKind::AmendCommit);
+                amend::uncommitted_to_commit(ctx, uncommitted.clone(), oid, out)
+            }
+            RubOperation::UncommittedToBranch(uncommitted, name) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_uncommitted_to_branch(ctx, uncommitted.clone(), name, out)
+            }
+            RubOperation::UncommittedToStack(uncommitted, stack_id) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_uncommitted_to_stack(ctx, uncommitted.clone(), &stack_id, out)
+            }
+            RubOperation::StackToUnassigned(stack_id) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(ctx, Some(assign::AssignTarget::Stack(&stack_id)), None, out)
+            }
+            RubOperation::StackToStack { from, to } => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(
+                    ctx,
+                    Some(assign::AssignTarget::Stack(&from)),
+                    Some(assign::AssignTarget::Stack(&to)),
+                    out,
+                )
+            }
+            RubOperation::StackToBranch { from, to } => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(
+                    ctx,
+                    Some(assign::AssignTarget::Stack(&from)),
+                    Some(assign::AssignTarget::Branch(to)),
+                    out,
+                )
+            }
+            RubOperation::UnassignedToCommit(oid) => {
+                create_snapshot(ctx, OperationKind::AmendCommit);
+                amend::assignments_to_commit(ctx, None, oid, out)
+            }
+            RubOperation::UnassignedToBranch(to) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(ctx, None, Some(assign::AssignTarget::Branch(to)), out)
+            }
+            RubOperation::UnassignedToStack(to) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(ctx, None, Some(assign::AssignTarget::Stack(&to)), out)
+            }
+            RubOperation::UndoCommit(oid) => {
+                create_snapshot(ctx, OperationKind::UndoCommit);
+                undo::commit(ctx, oid, out)
+            }
+            RubOperation::SquashCommits {
+                source,
+                destination,
+            } => {
+                create_snapshot(ctx, OperationKind::SquashCommit);
+                squash::commits(ctx, source, destination, None, out)
+            }
+            RubOperation::MoveCommitToBranch(oid, name) => {
+                create_snapshot(ctx, OperationKind::MoveCommit);
+                move_commit::to_branch(ctx, oid, name, out)
+            }
+            RubOperation::BranchToUnassigned(from) => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(ctx, Some(assign::AssignTarget::Branch(from)), None, out)
+            }
+            RubOperation::BranchToStack { from, to } => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(
+                    ctx,
+                    Some(assign::AssignTarget::Branch(from)),
+                    Some(assign::AssignTarget::Stack(&to)),
+                    out,
+                )
+            }
+            RubOperation::BranchToCommit(name, oid) => {
+                create_snapshot(ctx, OperationKind::AmendCommit);
+                amend::assignments_to_commit(ctx, Some(name), oid, out)
+            }
+            RubOperation::BranchToBranch { from, to } => {
+                create_snapshot(ctx, OperationKind::MoveHunk);
+                assign::assign_all(
+                    ctx,
+                    Some(assign::AssignTarget::Branch(from)),
+                    Some(assign::AssignTarget::Branch(to)),
+                    out,
+                )
+            }
+            RubOperation::CommittedFileToBranch(path, commit_oid, name) => {
+                create_snapshot(ctx, OperationKind::FileChanges);
+                commits::uncommit_file(ctx, path, *commit_oid, Some(name), out)
+            }
+            RubOperation::CommittedFileToCommit(path, commit_oid, oid) => {
+                create_snapshot(ctx, OperationKind::FileChanges);
+                commits::commited_file_to_another_commit(ctx, path, *commit_oid, *oid, out)
+            }
+            RubOperation::CommittedFileToUnassigned(path, commit_oid) => {
+                create_snapshot(ctx, OperationKind::FileChanges);
+                commits::uncommit_file(ctx, path, *commit_oid, None, out)
+            }
+        }
+    }
+}
+
+/// Determines the operation to perform for a given source and target combination.
+/// Returns `Some(operation)` if the combination is valid, `None` otherwise.
+///
+/// This function is the single source of truth for what operations are valid.
+/// Both `handle()` and disambiguation logic use this function.
+#[allow(private_interfaces)]
+pub(crate) fn route_operation<'a>(
+    source: &'a CliId,
+    target: &'a CliId,
+) -> Option<RubOperation<'a>> {
+    use CliId::*;
+
+    match (source, target) {
+        // Uncommitted -> *
+        (Uncommitted(uncommitted), Unassigned { .. }) => {
+            Some(RubOperation::UnassignUncommitted(uncommitted))
+        }
+        (Uncommitted(uncommitted), Commit { commit_id, .. }) => {
+            Some(RubOperation::UncommittedToCommit(uncommitted, commit_id))
+        }
+        (Uncommitted(uncommitted), Branch { name, .. }) => {
+            Some(RubOperation::UncommittedToBranch(uncommitted, name))
+        }
+        (Uncommitted(uncommitted), Stack { stack_id, .. }) => {
+            Some(RubOperation::UncommittedToStack(uncommitted, *stack_id))
+        }
+        // Stack -> *
+        (Stack { stack_id, .. }, Unassigned { .. }) => {
+            Some(RubOperation::StackToUnassigned(*stack_id))
+        }
+        (Stack { stack_id: from, .. }, Stack { stack_id: to, .. }) => {
+            Some(RubOperation::StackToStack {
+                from: *from,
+                to: *to,
+            })
+        }
+        (Stack { stack_id: from, .. }, Branch { name: to, .. }) => {
+            Some(RubOperation::StackToBranch { from: *from, to })
+        }
+        // Unassigned -> *
+        (Unassigned { .. }, Commit { commit_id, .. }) => {
+            Some(RubOperation::UnassignedToCommit(commit_id))
+        }
+        (Unassigned { .. }, Branch { name, .. }) => Some(RubOperation::UnassignedToBranch(name)),
+        (Unassigned { .. }, Stack { stack_id, .. }) => {
+            Some(RubOperation::UnassignedToStack(*stack_id))
+        }
+        // Commit -> *
+        (Commit { commit_id, .. }, Unassigned { .. }) => Some(RubOperation::UndoCommit(commit_id)),
+        (
+            Commit {
+                commit_id: source, ..
+            },
+            Commit {
+                commit_id: destination,
+                ..
+            },
+        ) => Some(RubOperation::SquashCommits {
+            source,
+            destination,
+        }),
+        (Commit { commit_id, .. }, Branch { name, .. }) => {
+            Some(RubOperation::MoveCommitToBranch(commit_id, name))
+        }
+        // Branch -> *
+        (Branch { name, .. }, Unassigned { .. }) => Some(RubOperation::BranchToUnassigned(name)),
+        (Branch { name: from, .. }, Stack { stack_id, .. }) => Some(RubOperation::BranchToStack {
+            from,
+            to: *stack_id,
+        }),
+        (Branch { name, .. }, Commit { commit_id, .. }) => {
+            Some(RubOperation::BranchToCommit(name, commit_id))
+        }
+        (Branch { name: from, .. }, Branch { name: to, .. }) => {
+            Some(RubOperation::BranchToBranch { from, to })
+        }
+        // CommittedFile -> *
+        (
+            CommittedFile {
+                path, commit_id, ..
+            },
+            Branch { name, .. },
+        ) => Some(RubOperation::CommittedFileToBranch(
+            path.as_ref(),
+            commit_id,
+            name,
+        )),
+        (
+            CommittedFile {
+                path,
+                commit_id: source,
+                ..
+            },
+            Commit {
+                commit_id: target, ..
+            },
+        ) => Some(RubOperation::CommittedFileToCommit(
+            path.as_ref(),
+            source,
+            target,
+        )),
+        (
+            CommittedFile {
+                path, commit_id, ..
+            },
+            Unassigned { .. },
+        ) => Some(RubOperation::CommittedFileToUnassigned(
+            path.as_ref(),
+            commit_id,
+        )),
+        // All other combinations are invalid
+        _ => None,
+    }
+}
 
 pub(crate) fn handle(
     ctx: &mut Context,
@@ -28,147 +295,11 @@ pub(crate) fn handle(
     let (sources, target) = ids(ctx, &id_map, source_str, target_str)?;
 
     for source in sources {
-        match (source, &target) {
-            (CliId::Uncommitted(uncommitted_cli_id), CliId::Unassigned { .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::unassign_uncommitted(ctx, uncommitted_cli_id, out)?;
-            }
-            (CliId::Uncommitted(uncommitted_cli_id), CliId::Commit { commit_id: oid, .. }) => {
-                create_snapshot(ctx, OperationKind::AmendCommit);
-                amend::uncommitted_to_commit(ctx, uncommitted_cli_id, oid, out)?;
-            }
-            (CliId::Uncommitted(uncommitted_cli_id), CliId::Branch { name, .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_uncommitted_to_branch(ctx, uncommitted_cli_id, name, out)?;
-            }
-            (CliId::Uncommitted(uncommitted_cli_id), CliId::Stack { stack_id, .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_uncommitted_to_stack(ctx, uncommitted_cli_id, stack_id, out)?;
-            }
-            (CliId::Stack { stack_id, .. }, CliId::Unassigned { .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, Some(assign::AssignTarget::Stack(&stack_id)), None, out)?;
-            }
-            (CliId::Stack { stack_id: from, .. }, CliId::Stack { stack_id: to, .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(
-                    ctx,
-                    Some(assign::AssignTarget::Stack(&from)),
-                    Some(assign::AssignTarget::Stack(to)),
-                    out,
-                )?;
-            }
-            (CliId::Stack { stack_id: from, .. }, CliId::Branch { name: to, .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(
-                    ctx,
-                    Some(assign::AssignTarget::Stack(&from)),
-                    Some(assign::AssignTarget::Branch(to)),
-                    out,
-                )?;
-            }
+        let Some(operation) = route_operation(&source, &target) else {
+            bail!(makes_no_sense_error(&source, &target))
+        };
 
-            (CliId::Unassigned { .. }, CliId::Commit { commit_id: oid, .. }) => {
-                create_snapshot(ctx, OperationKind::AmendCommit);
-                amend::assignments_to_commit(ctx, None, oid, out)?;
-            }
-            (CliId::Unassigned { .. }, CliId::Branch { name: to, .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, None, Some(assign::AssignTarget::Branch(to)), out)?;
-            }
-            (CliId::Unassigned { .. }, CliId::Stack { stack_id: to, .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, None, Some(assign::AssignTarget::Stack(to)), out)?;
-            }
-            (CliId::Commit { commit_id: oid, .. }, CliId::Unassigned { .. }) => {
-                create_snapshot(ctx, OperationKind::UndoCommit);
-                undo::commit(ctx, &oid, out)?;
-            }
-            (
-                CliId::Commit {
-                    commit_id: source, ..
-                },
-                CliId::Commit {
-                    commit_id: destination,
-                    ..
-                },
-            ) => {
-                create_snapshot(ctx, OperationKind::SquashCommit);
-                squash::commits(ctx, &source, destination, None, out)?;
-            }
-            (CliId::Commit { commit_id: oid, .. }, CliId::Branch { name, .. }) => {
-                create_snapshot(ctx, OperationKind::MoveCommit);
-                move_commit::to_branch(ctx, &oid, name, out)?;
-            }
-            (CliId::Branch { name: from, .. }, CliId::Unassigned { .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, Some(assign::AssignTarget::Branch(&from)), None, out)?;
-            }
-            (CliId::Branch { name: from, .. }, CliId::Stack { stack_id, .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign_all(
-                    ctx,
-                    Some(assign::AssignTarget::Branch(&from)),
-                    Some(assign::AssignTarget::Stack(stack_id)),
-                    out,
-                )?;
-            }
-            (CliId::Branch { name, .. }, CliId::Commit { commit_id: oid, .. }) => {
-                create_snapshot(ctx, OperationKind::AmendCommit);
-                amend::assignments_to_commit(ctx, Some(&name), oid, out)?;
-            }
-            (CliId::Branch { name: from, .. }, CliId::Branch { name: to, .. }) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(
-                    ctx,
-                    Some(assign::AssignTarget::Branch(&from)),
-                    Some(assign::AssignTarget::Branch(to)),
-                    out,
-                )?;
-            }
-            (
-                CliId::CommittedFile {
-                    path,
-                    commit_id: commit_oid,
-                    ..
-                },
-                CliId::Branch { name, .. },
-            ) => {
-                create_snapshot(ctx, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path.as_ref(), commit_oid, Some(name), out)?;
-            }
-            (
-                CliId::CommittedFile {
-                    path,
-                    commit_id: commit_oid,
-                    ..
-                },
-                CliId::Commit { commit_id: oid, .. },
-            ) => {
-                create_snapshot(ctx, OperationKind::FileChanges);
-                commits::commited_file_to_another_commit(
-                    ctx,
-                    path.as_ref(),
-                    commit_oid,
-                    *oid,
-                    out,
-                )?;
-            }
-            (
-                CliId::CommittedFile {
-                    path,
-                    commit_id: commit_oid,
-                    ..
-                },
-                CliId::Unassigned { .. },
-            ) => {
-                create_snapshot(ctx, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path.as_ref(), commit_oid, None, out)?;
-            }
-            (source, target) => {
-                bail!(makes_no_sense_error(&source, target))
-            }
-        }
+        operation.execute(ctx, out)?;
     }
     Ok(())
 }
@@ -661,4 +792,266 @@ pub(crate) fn handle_squash(
         custom_message.as_deref(),
         out,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bstr::BString;
+    use nonempty::NonEmpty;
+
+    // Helper to create test CliIds
+    fn uncommitted_id() -> CliId {
+        CliId::Uncommitted(crate::id::UncommittedCliId {
+            id: "ab".to_string(),
+            hunk_assignments: NonEmpty::new(but_hunk_assignment::HunkAssignment {
+                id: None,
+                hunk_header: None,
+                path: "test.txt".to_string(),
+                path_bytes: BString::from("test.txt"),
+                stack_id: None,
+                hunk_locks: None,
+                line_nums_added: None,
+                line_nums_removed: None,
+                diff: None,
+            }),
+            is_entire_file: true,
+        })
+    }
+
+    fn committed_file_id() -> CliId {
+        CliId::CommittedFile {
+            commit_id: gix::ObjectId::empty_tree(gix::hash::Kind::Sha1),
+            path: BString::from("test.txt"),
+            id: "cd".to_string(),
+        }
+    }
+
+    fn branch_id() -> CliId {
+        CliId::Branch {
+            name: "main".to_string(),
+            id: "ef".to_string(),
+        }
+    }
+
+    fn commit_id() -> CliId {
+        CliId::Commit {
+            commit_id: gix::ObjectId::empty_tree(gix::hash::Kind::Sha1),
+            id: "gh".to_string(),
+        }
+    }
+
+    fn unassigned_id() -> CliId {
+        CliId::Unassigned {
+            id: "zz".to_string(),
+        }
+    }
+
+    fn stack_id() -> CliId {
+        CliId::Stack {
+            id: "ij".to_string(),
+            stack_id: StackId::generate(),
+        }
+    }
+
+    #[test]
+    fn test_route_operation_uncommitted_to_targets() {
+        let uncommitted = uncommitted_id();
+
+        // Valid: Uncommitted -> Unassigned
+        assert!(route_operation(&uncommitted, &unassigned_id()).is_some());
+
+        // Valid: Uncommitted -> Commit
+        assert!(route_operation(&uncommitted, &commit_id()).is_some());
+
+        // Valid: Uncommitted -> Branch
+        assert!(route_operation(&uncommitted, &branch_id()).is_some());
+
+        // Valid: Uncommitted -> Stack
+        assert!(route_operation(&uncommitted, &stack_id()).is_some());
+
+        // Invalid: Uncommitted -> Uncommitted
+        assert!(route_operation(&uncommitted, &uncommitted_id()).is_none());
+
+        // Invalid: Uncommitted -> CommittedFile
+        assert!(route_operation(&uncommitted, &committed_file_id()).is_none());
+    }
+
+    #[test]
+    fn test_route_operation_commit_to_targets() {
+        let commit = commit_id();
+
+        // Valid: Commit -> Unassigned
+        assert!(route_operation(&commit, &unassigned_id()).is_some());
+
+        // Valid: Commit -> Commit
+        assert!(route_operation(&commit, &commit_id()).is_some());
+
+        // Valid: Commit -> Branch
+        assert!(route_operation(&commit, &branch_id()).is_some());
+
+        // Invalid: Commit -> Uncommitted
+        assert!(route_operation(&commit, &uncommitted_id()).is_none());
+
+        // Invalid: Commit -> Stack
+        assert!(route_operation(&commit, &stack_id()).is_none());
+
+        // Invalid: Commit -> CommittedFile
+        assert!(route_operation(&commit, &committed_file_id()).is_none());
+    }
+
+    #[test]
+    fn test_route_operation_branch_to_targets() {
+        let branch = branch_id();
+
+        // Valid: Branch -> Unassigned
+        assert!(route_operation(&branch, &unassigned_id()).is_some());
+
+        // Valid: Branch -> Stack
+        assert!(route_operation(&branch, &stack_id()).is_some());
+
+        // Valid: Branch -> Commit
+        assert!(route_operation(&branch, &commit_id()).is_some());
+
+        // Valid: Branch -> Branch
+        assert!(route_operation(&branch, &branch_id()).is_some());
+
+        // Invalid: Branch -> Uncommitted
+        assert!(route_operation(&branch, &uncommitted_id()).is_none());
+
+        // Invalid: Branch -> CommittedFile
+        assert!(route_operation(&branch, &committed_file_id()).is_none());
+    }
+
+    #[test]
+    fn test_route_operation_stack_to_targets() {
+        let stack = stack_id();
+
+        // Valid: Stack -> Unassigned
+        assert!(route_operation(&stack, &unassigned_id()).is_some());
+
+        // Valid: Stack -> Stack
+        assert!(route_operation(&stack, &stack_id()).is_some());
+
+        // Valid: Stack -> Branch
+        assert!(route_operation(&stack, &branch_id()).is_some());
+
+        // Invalid: Stack -> Uncommitted
+        assert!(route_operation(&stack, &uncommitted_id()).is_none());
+
+        // Invalid: Stack -> Commit
+        assert!(route_operation(&stack, &commit_id()).is_none());
+
+        // Invalid: Stack -> CommittedFile
+        assert!(route_operation(&stack, &committed_file_id()).is_none());
+    }
+
+    #[test]
+    fn test_route_operation_unassigned_to_targets() {
+        let unassigned = unassigned_id();
+
+        // Valid: Unassigned -> Commit
+        assert!(route_operation(&unassigned, &commit_id()).is_some());
+
+        // Valid: Unassigned -> Branch
+        assert!(route_operation(&unassigned, &branch_id()).is_some());
+
+        // Valid: Unassigned -> Stack
+        assert!(route_operation(&unassigned, &stack_id()).is_some());
+
+        // Invalid: Unassigned -> Uncommitted
+        assert!(route_operation(&unassigned, &uncommitted_id()).is_none());
+
+        // Invalid: Unassigned -> Unassigned
+        assert!(route_operation(&unassigned, &unassigned_id()).is_none());
+
+        // Invalid: Unassigned -> CommittedFile
+        assert!(route_operation(&unassigned, &committed_file_id()).is_none());
+    }
+
+    #[test]
+    fn test_route_operation_committed_file_to_targets() {
+        let committed_file = committed_file_id();
+
+        // Valid: CommittedFile -> Branch
+        assert!(route_operation(&committed_file, &branch_id()).is_some());
+
+        // Valid: CommittedFile -> Commit
+        assert!(route_operation(&committed_file, &commit_id()).is_some());
+
+        // Valid: CommittedFile -> Unassigned
+        assert!(route_operation(&committed_file, &unassigned_id()).is_some());
+
+        // Invalid: CommittedFile -> Uncommitted
+        assert!(route_operation(&committed_file, &uncommitted_id()).is_none());
+
+        // Invalid: CommittedFile -> Stack
+        assert!(route_operation(&committed_file, &stack_id()).is_none());
+
+        // Invalid: CommittedFile -> CommittedFile
+        assert!(route_operation(&committed_file, &committed_file_id()).is_none());
+    }
+
+    /// Verifies that route_operation returns the correct variant (not just Some/None).
+    /// This test ensures the routing logic maps to the right operation types.
+    #[test]
+    fn test_route_operation_returns_correct_variants() {
+        let uncommitted = uncommitted_id();
+        let committed_file = committed_file_id();
+        let branch = branch_id();
+        let commit = commit_id();
+        let unassigned = unassigned_id();
+        let stack = stack_id();
+
+        // Test a representative sample of operations to verify correct variant matching
+        // We use match with wildcard to verify the variant type without destructuring all fields
+
+        // Uncommitted -> Unassigned should be UnassignUncommitted
+        match route_operation(&uncommitted, &unassigned) {
+            Some(RubOperation::UnassignUncommitted(_)) => {}
+            _ => panic!("Expected UnassignUncommitted variant"),
+        }
+
+        // Uncommitted -> Commit should be UncommittedToCommit
+        match route_operation(&uncommitted, &commit) {
+            Some(RubOperation::UncommittedToCommit(_, _)) => {}
+            _ => panic!("Expected UncommittedToCommit variant"),
+        }
+
+        // Commit -> Commit should be SquashCommits
+        match route_operation(&commit, &commit_id()) {
+            Some(RubOperation::SquashCommits { .. }) => {}
+            _ => panic!("Expected SquashCommits variant"),
+        }
+
+        // Commit -> Unassigned should be UndoCommit
+        match route_operation(&commit, &unassigned) {
+            Some(RubOperation::UndoCommit(_)) => {}
+            _ => panic!("Expected UndoCommit variant"),
+        }
+
+        // Branch -> Stack should be BranchToStack
+        match route_operation(&branch, &stack) {
+            Some(RubOperation::BranchToStack { .. }) => {}
+            _ => panic!("Expected BranchToStack variant"),
+        }
+
+        // Stack -> Branch should be StackToBranch
+        match route_operation(&stack, &branch) {
+            Some(RubOperation::StackToBranch { .. }) => {}
+            _ => panic!("Expected StackToBranch variant"),
+        }
+
+        // CommittedFile -> Commit should be CommittedFileToCommit
+        match route_operation(&committed_file, &commit) {
+            Some(RubOperation::CommittedFileToCommit(_, _, _)) => {}
+            _ => panic!("Expected CommittedFileToCommit variant"),
+        }
+
+        // Unassigned -> Stack should be UnassignedToStack
+        match route_operation(&unassigned, &stack) {
+            Some(RubOperation::UnassignedToStack(_)) => {}
+            _ => panic!("Expected UnassignedToStack variant"),
+        }
+    }
 }
