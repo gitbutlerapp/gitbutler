@@ -6,6 +6,7 @@
 /// They are made more usable by providing a mutable instance through a shared reference
 /// when obtaining it from the `but-ctx::Context`.
 use crate::M;
+use rusqlite::ErrorCode;
 
 mod handle;
 mod table;
@@ -15,18 +16,14 @@ pub use table::{
     update::{CachedCheckResult, CheckUpdateStatus},
 };
 
-/// Open `url` with migrations applied. These can fail.
+/// Open `url` with migrations applied. However, we don't retry as:
+/// - if the database is locked, and we'd need to run migrations, we fall back to an in-memory DB just this time
+/// - if we don't need to run migrations, all is good anyway, and we figure this out in read-only mode of the migration.
 fn run_migrations<'m>(
     conn: &mut rusqlite::Connection,
     migrations: impl IntoIterator<Item = M<'m>> + Clone,
 ) -> Result<(), crate::migration::Error> {
-    let policy = backoff::ExponentialBackoffBuilder::new()
-        .with_max_elapsed_time(std::time::Duration::from_secs(1).into())
-        .build();
-    let migrations = Vec::from_iter(migrations);
-    backoff::retry(policy, || {
-        crate::migration::run(conn, migrations.clone()).map(|_| ())
-    })?;
+    crate::migration::run(conn, migrations).map(|_| ())?;
     Ok(())
 }
 
@@ -43,33 +40,13 @@ fn open_with_migrations_infallible<'m>(
     migrations: impl IntoIterator<Item = M<'m>> + Clone,
 ) -> (rusqlite::Connection, &str) {
     let mem_url = ":memory:";
-    let res = if url == mem_url {
-        rusqlite::Connection::open(url)
-    } else {
-        rusqlite::Connection::open_with_flags(url, rusqlite::OpenFlags::SQLITE_OPEN_EXRESCODE)
-    }
-    .map(|c| (c, url));
-
+    let res = rusqlite::Connection::open(url).map(|c| (c, url));
     let (mut conn, mut url) = res
         .or_else(|url_err| {
             if url == mem_url {
                 panic!("FATAL: Couldn't open in-memory URL: {url_err}")
             }
-            tracing::warn!("Failed to open cache database at '{url}' - will try to recreate it by removing the broken one");
-            if let Err(err) = std::fs::remove_file(url) {
-                tracing::warn!(
-                    ?err,
-                    "Failed to delete cache database at {url}, using in-memory one instead"
-                );
-            } else {
-                match rusqlite::Connection::open(url).map(|c| (c, url)) {
-                    Ok(res) => return Ok(res),
-                    Err(err) => tracing::warn!(
-                        ?err,
-                        "Url at '{url}' not writable, falling back to in-memory database"
-                    ),
-                }
-            }
+            tracing::warn!("Failed to open cache database at '{url}' with {url_err}, will use memory DB instead");
             rusqlite::Connection::open(mem_url)
                 .map(|c| (c, mem_url))
                 .map_err(|memory_err| {
@@ -82,15 +59,37 @@ fn open_with_migrations_infallible<'m>(
         })
         .expect("FATAL: didn't expect to not be able to open an in-memory database at least");
 
-    if let Err(err) = crate::migration::improve_concurrency(&conn) {
-        tracing::warn!(?err, "Failed to improve concurrency - continuing without");
-    }
     if let Err(err) = run_migrations(&mut conn, migrations.clone()) {
         assert_ne!(
             url, mem_url,
             "BUG: migrations from zero failed in memory DB after permanently failing to open {url}: {err}"
         );
         drop(conn);
+        let (backoff::Error::Transient { err, .. } | backoff::Error::Permanent(err)) = err;
+        if err.sqlite_error_code().is_some_and(is_invalid_database) {
+            if let Err(err) = std::fs::remove_file(url) {
+                tracing::warn!(
+                    ?err,
+                    "Failed to delete cache database at {url}, using in-memory one instead"
+                );
+            } else {
+                match rusqlite::Connection::open(url) {
+                    Ok(mut conn) => match run_migrations(&mut conn, migrations.clone()) {
+                        Ok(_) => return (conn, url),
+                        Err(err) => {
+                            tracing::warn!(
+                                ?err,
+                                "Failed to run migration on newly opened database at '{url}' - retrying with in-memory one"
+                            )
+                        }
+                    },
+                    Err(err) => tracing::warn!(
+                        ?err,
+                        "Url at '{url}' not writable, falling back to in-memory database"
+                    ),
+                }
+            }
+        }
         url = mem_url;
         conn = rusqlite::Connection::open(url)
             .expect("FATAL: failed to open memory database run migrations on");
@@ -104,7 +103,14 @@ fn open_with_migrations_infallible<'m>(
         );
     }
 
+    if let Err(err) = crate::migration::improve_concurrency(&conn) {
+        tracing::warn!(?err, "Failed to improve concurrency - continuing without");
+    }
     (conn, url)
+}
+
+fn is_invalid_database(code: ErrorCode) -> bool {
+    matches!(code, ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase)
 }
 
 #[cfg(test)]

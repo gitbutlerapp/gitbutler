@@ -49,11 +49,11 @@ impl DbHandle {
 
 impl<'conn> Transaction<'conn> {
     pub fn workflows(&self) -> WorkflowsHandle<'_> {
-        WorkflowsHandle { conn: &self.0 }
+        WorkflowsHandle { conn: self.inner() }
     }
 
     pub fn workflows_mut(&mut self) -> WorkflowsHandleMut<'_> {
-        WorkflowsHandleMut { conn: &self.0 }
+        WorkflowsHandleMut { conn: self.inner() }
     }
 }
 
@@ -68,7 +68,7 @@ pub struct WorkflowsHandleMut<'conn> {
 impl WorkflowsHandle<'_> {
     /// Lists workflows with pagination.
     /// Returns (total_count, workflows).
-    pub fn list(&self, offset: i64, limit: i64) -> anyhow::Result<(i64, Vec<Workflow>)> {
+    pub fn list(&self, offset: i64, limit: i64) -> rusqlite::Result<(i64, Vec<Workflow>)> {
         let mut stmt = self.conn.prepare(
             "SELECT id, created_at, kind, triggered_by, status, input_commits, output_commits, summary \
              FROM workflows ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
@@ -104,7 +104,7 @@ impl WorkflowsHandleMut<'_> {
     }
 
     /// Insert a new workflow.
-    pub fn insert(&mut self, workflow: Workflow) -> anyhow::Result<()> {
+    pub fn insert(&mut self, workflow: Workflow) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO workflows (id, created_at, kind, triggered_by, status, input_commits, output_commits, summary) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",

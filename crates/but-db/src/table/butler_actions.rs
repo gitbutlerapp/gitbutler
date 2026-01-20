@@ -75,11 +75,11 @@ impl DbHandle {
 
 impl<'conn> Transaction<'conn> {
     pub fn butler_actions(&self) -> ButlerActionsHandle<'_> {
-        ButlerActionsHandle { conn: &self.0 }
+        ButlerActionsHandle { conn: self.inner() }
     }
 
     pub fn butler_actions_mut(&mut self) -> ButlerActionsHandleMut<'_> {
-        ButlerActionsHandleMut { conn: &self.0 }
+        ButlerActionsHandleMut { conn: self.inner() }
     }
 }
 
@@ -94,7 +94,7 @@ pub struct ButlerActionsHandleMut<'conn> {
 impl ButlerActionsHandle<'_> {
     /// Lists butler actions with pagination, ordered by created_at descending.
     /// Returns a tuple of (total_count, actions).
-    pub fn list(&self, offset: i64, limit: i64) -> anyhow::Result<(i64, Vec<ButlerAction>)> {
+    pub fn list(&self, offset: i64, limit: i64) -> rusqlite::Result<(i64, Vec<ButlerAction>)> {
         let mut stmt = self.conn.prepare(
             "SELECT id, created_at, external_prompt, external_summary, handler, \
              snapshot_before, snapshot_after, response, error, source \
@@ -133,7 +133,7 @@ impl ButlerActionsHandleMut<'_> {
     }
 
     /// Insert a new butler action.
-    pub fn insert(&mut self, action: ButlerAction) -> anyhow::Result<()> {
+    pub fn insert(&mut self, action: ButlerAction) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO butler_actions (id, created_at, external_prompt, external_summary, handler, \
              snapshot_before, snapshot_after, response, error, source) \

@@ -2,6 +2,23 @@ use crate::M;
 
 mod open_with_migrations_infallible {
     use super::{migrations, table_exists};
+
+    #[test]
+    fn destination_writable() -> anyhow::Result<()> {
+        let tmp = tempfile::TempDir::new()?;
+        let tmp_path = tmp
+            .path()
+            .join("cache.sqlite")
+            .to_string_lossy()
+            .into_owned();
+        let (conn, url) = open_with_migrations_infallible(&tmp_path, migrations());
+        assert_eq!(
+            url, tmp_path,
+            "writable location means we get to write there"
+        );
+        assert!(table_exists(&conn, "foo")?);
+        Ok(())
+    }
     use crate::cache::open_with_migrations_infallible;
 
     #[test]
@@ -16,7 +33,7 @@ mod open_with_migrations_infallible {
     }
 
     #[test]
-    fn destination_corrupt() -> anyhow::Result<()> {
+    fn destination_corrupt_auto_cleans_the_database() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let url = tmp.path().join("corrupted-db.sqlite");
         std::fs::write(&url, "definitely not valid sqlite")?;
@@ -51,7 +68,7 @@ fn migrations() -> impl Iterator<Item = M<'static>> + Clone {
     .into_iter()
 }
 
-fn table_exists(conn: &rusqlite::Connection, table_name: &str) -> anyhow::Result<bool> {
+fn table_exists(conn: &rusqlite::Connection, table_name: &str) -> rusqlite::Result<bool> {
     let mut stmt = conn.prepare(
         "SELECT 1 FROM sqlite_master
          WHERE type='table' AND name=?

@@ -55,7 +55,7 @@ impl DbHandle {
         CiChecksHandle { conn: &self.conn }
     }
 
-    pub fn ci_checks_mut(&mut self) -> anyhow::Result<CiChecksHandleMut<'_>> {
+    pub fn ci_checks_mut(&mut self) -> rusqlite::Result<CiChecksHandleMut<'_>> {
         Ok(CiChecksHandleMut {
             sp: self.conn.savepoint()?,
         })
@@ -64,12 +64,12 @@ impl DbHandle {
 
 impl<'conn> Transaction<'conn> {
     pub fn ci_checks(&self) -> CiChecksHandle<'_> {
-        CiChecksHandle { conn: &self.0 }
+        CiChecksHandle { conn: self.inner() }
     }
 
-    pub fn ci_checks_mut(&mut self) -> anyhow::Result<CiChecksHandleMut<'_>> {
+    pub fn ci_checks_mut(&mut self) -> rusqlite::Result<CiChecksHandleMut<'_>> {
         Ok(CiChecksHandleMut {
-            sp: self.0.savepoint()?,
+            sp: self.inner_mut().savepoint()?,
         })
     }
 }
@@ -85,7 +85,7 @@ pub struct CiChecksHandleMut<'conn> {
 
 impl CiChecksHandle<'_> {
     /// Lists CI checks for a specific reference.
-    pub fn list_for_reference(&self, ref_name: &str) -> anyhow::Result<Vec<CiCheck>> {
+    pub fn list_for_reference(&self, ref_name: &str) -> rusqlite::Result<Vec<CiCheck>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, name, output_summary, output_text, output_title, started_at, 
                     status_type, status_conclusion, status_completed_at, head_sha, url, 
@@ -115,19 +115,19 @@ impl CiChecksHandle<'_> {
             })
         })?;
 
-        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        results.collect::<Result<Vec<_>, _>>()
     }
 
     /// Lists all unique references that have CI checks in the database.
     // TODO: make this return `gix::refs::FullName`.
-    pub fn list_all_references(&self) -> anyhow::Result<Vec<String>> {
+    pub fn list_all_references(&self) -> rusqlite::Result<Vec<String>> {
         let mut stmt = self
             .conn
             .prepare("SELECT DISTINCT reference FROM ci_checks")?;
 
         let results = stmt.query_map([], |row| row.get(0))?;
 
-        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        results.collect::<Result<Vec<_>, _>>()
     }
 }
 
@@ -142,7 +142,7 @@ impl CiChecksHandleMut<'_> {
     ///
     /// Consumes this handle because it commits the internal savepoint/transaction,
     /// which is also consuming.
-    pub fn set_for_reference(self, ref_name: &str, checks: Vec<CiCheck>) -> anyhow::Result<()> {
+    pub fn set_for_reference(self, ref_name: &str, checks: Vec<CiCheck>) -> rusqlite::Result<()> {
         let sp = self.sp;
 
         // Delete existing entries for this reference
@@ -186,7 +186,7 @@ impl CiChecksHandleMut<'_> {
     }
 
     /// Deletes all CI check entries for a specific reference.
-    pub fn delete_for_reference(self, ref_name: &str) -> anyhow::Result<()> {
+    pub fn delete_for_reference(self, ref_name: &str) -> rusqlite::Result<()> {
         self.sp
             .execute("DELETE FROM ci_checks WHERE reference = ?1", [ref_name])?;
         self.sp.commit()?;

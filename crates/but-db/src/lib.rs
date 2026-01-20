@@ -47,13 +47,15 @@
 //! ```
 #![expect(clippy::inconsistent_digit_grouping)]
 
-mod handle;
 #[cfg(feature = "poll")]
 pub mod poll;
 
+mod handle;
+mod table;
+mod transaction;
+
 pub mod cache;
 pub mod migration;
-mod table;
 
 #[rustfmt::skip]
 pub use table::{
@@ -115,4 +117,11 @@ pub struct DbHandle {
 
 /// A wrapper for a [`rusqlite::Transaction`] to allow ORM handles to be created more easily,
 /// and make sure multiple dependent calls to the ORM can be consistent.
-pub struct Transaction<'conn>(pub(crate) rusqlite::Transaction<'conn>);
+pub struct Transaction<'conn> {
+    /// The actual transaction as holder of the database connection.
+    /// It's always set.
+    inner: Option<rusqlite::Transaction<'conn>>,
+    /// If `true`, on drop we will reset the busy timeout to the default value, as previously the connection
+    /// was changed to non-blocking.
+    reset_to_blocking_on_drop: bool,
+}

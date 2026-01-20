@@ -40,7 +40,7 @@ impl DbHandle {
         HunkAssignmentsHandle { conn: &self.conn }
     }
 
-    pub fn hunk_assignments_mut(&mut self) -> anyhow::Result<HunkAssignmentsHandleMut<'_>> {
+    pub fn hunk_assignments_mut(&mut self) -> rusqlite::Result<HunkAssignmentsHandleMut<'_>> {
         Ok(HunkAssignmentsHandleMut {
             sp: self.conn.savepoint()?,
         })
@@ -49,12 +49,12 @@ impl DbHandle {
 
 impl<'conn> Transaction<'conn> {
     pub fn hunk_assignments(&self) -> HunkAssignmentsHandle<'_> {
-        HunkAssignmentsHandle { conn: &self.0 }
+        HunkAssignmentsHandle { conn: self.inner() }
     }
 
-    pub fn hunk_assignments_mut(&mut self) -> anyhow::Result<HunkAssignmentsHandleMut<'_>> {
+    pub fn hunk_assignments_mut(&mut self) -> rusqlite::Result<HunkAssignmentsHandleMut<'_>> {
         Ok(HunkAssignmentsHandleMut {
-            sp: self.0.savepoint()?,
+            sp: self.inner_mut().savepoint()?,
         })
     }
 }
@@ -69,7 +69,7 @@ pub struct HunkAssignmentsHandleMut<'conn> {
 
 impl HunkAssignmentsHandle<'_> {
     /// Lists all hunk assignments in the database.
-    pub fn list_all(&self) -> anyhow::Result<Vec<HunkAssignment>> {
+    pub fn list_all(&self) -> rusqlite::Result<Vec<HunkAssignment>> {
         let mut stmt = self
             .conn
             .prepare("SELECT id, hunk_header, path, path_bytes, stack_id FROM hunk_assignments")?;
@@ -84,7 +84,7 @@ impl HunkAssignmentsHandle<'_> {
             })
         })?;
 
-        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        results.collect::<Result<Vec<_>, _>>()
     }
 }
 
@@ -96,7 +96,7 @@ impl HunkAssignmentsHandleMut<'_> {
 
     /// Sets the hunk assignments table to the provided values.
     /// Any existing entries that are not in the provided values are deleted.
-    pub fn set_all(self, assignments: Vec<HunkAssignment>) -> anyhow::Result<()> {
+    pub fn set_all(self, assignments: Vec<HunkAssignment>) -> rusqlite::Result<()> {
         self.sp.execute("DELETE FROM hunk_assignments", [])?;
 
         for assignment in assignments {

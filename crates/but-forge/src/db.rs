@@ -101,7 +101,9 @@ pub(crate) fn cache_reviews(
         .map(|r| r.clone().try_into())
         .collect::<anyhow::Result<Vec<but_db::ForgeReview>>>(
     )?;
-    db.forge_reviews_mut()?.set_all(db_reviews)
+    db.forge_reviews_mut()?
+        .set_all(db_reviews)
+        .map_err(Into::into)
 }
 
 use super::CiCheck;
@@ -244,5 +246,7 @@ pub(crate) fn cache_ci_checks(
         .iter()
         .map(|c| c.clone().try_into())
         .collect::<anyhow::Result<Vec<but_db::CiCheck>>>()?;
-    db.ci_checks_mut()?.set_for_reference(reference, db_checks)
+    db.ci_checks_mut()?
+        .set_for_reference(reference, db_checks)
+        .map_err(Into::into)
 }

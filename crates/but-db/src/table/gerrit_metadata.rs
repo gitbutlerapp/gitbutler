@@ -42,11 +42,11 @@ impl DbHandle {
 
 impl<'conn> Transaction<'conn> {
     pub fn gerrit_metadata(&self) -> GerritMetadataHandle<'_> {
-        GerritMetadataHandle { conn: &self.0 }
+        GerritMetadataHandle { conn: self.inner() }
     }
 
     pub fn gerrit_metadata_mut(&mut self) -> GerritMetadataHandleMut<'_> {
-        GerritMetadataHandleMut { conn: &self.0 }
+        GerritMetadataHandleMut { conn: self.inner() }
     }
 }
 
@@ -60,7 +60,7 @@ pub struct GerritMetadataHandleMut<'conn> {
 
 impl GerritMetadataHandle<'_> {
     /// Get a GerritMeta entry by change_id (primary key)
-    pub fn get(&self, change_id: &str) -> anyhow::Result<Option<GerritMeta>> {
+    pub fn get(&self, change_id: &str) -> rusqlite::Result<Option<GerritMeta>> {
         let mut stmt = self.conn.prepare(
             "SELECT change_id, commit_id, review_url, created_at, updated_at \
              FROM gerrit_metadata WHERE change_id = ?1",
@@ -89,7 +89,7 @@ impl GerritMetadataHandleMut<'_> {
     }
 
     /// Insert a new GerritMeta entry
-    pub fn insert(&mut self, meta: GerritMeta) -> anyhow::Result<()> {
+    pub fn insert(&mut self, meta: GerritMeta) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO gerrit_metadata (change_id, commit_id, review_url, created_at, updated_at) \
              VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -105,7 +105,7 @@ impl GerritMetadataHandleMut<'_> {
     }
 
     /// Update an existing GerritMeta entry
-    pub fn update(&mut self, meta: GerritMeta) -> anyhow::Result<()> {
+    pub fn update(&mut self, meta: GerritMeta) -> rusqlite::Result<()> {
         self.conn.execute(
             "UPDATE gerrit_metadata SET commit_id = ?1, review_url = ?2, updated_at = ?3 \
              WHERE change_id = ?4",

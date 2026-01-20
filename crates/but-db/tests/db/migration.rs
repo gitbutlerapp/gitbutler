@@ -19,6 +19,68 @@ mod run {
     }
 
     #[test]
+    fn read_only_until_it_needs_a_lock() -> anyhow::Result<()> {
+        use rusqlite::TransactionBehavior;
+        let tmp = tempfile::TempDir::new()?;
+        let db_path = tmp.path().join("db");
+        let mut db1 = rusqlite::Connection::open(&db_path)?;
+        let mut db2 = rusqlite::Connection::open(&db_path)?;
+
+        let migrations = [
+            M::up(0, "CREATE TABLE T1 ( first TEXT PRIMARY KEY );"),
+            M::up(1, "CREATE TABLE T2 ( first TEXT PRIMARY KEY );"),
+        ];
+
+        {
+            let _blocking_trans = db1.transaction_with_behavior(TransactionBehavior::Immediate)?;
+
+            db2.busy_timeout(Default::default())?;
+            let err = migration::run(&mut db2, migrations).unwrap_err();
+            assert!(
+                matches!(err, backoff::Error::Transient { .. }),
+                "it wants to write, but can't, but knows it's a locking issue"
+            );
+        }
+
+        let count = migration::run(&mut db2, migrations)?;
+        assert_eq!(count, 2, "DB is unlocked and migrations are performed");
+
+        {
+            let _blocking_trans = db1.transaction_with_behavior(TransactionBehavior::Immediate)?;
+
+            let count = migration::run(&mut db2, migrations)?;
+            assert_eq!(count, 0, "It reads first which doesn't run into the lock");
+        }
+
+        insta::assert_snapshot!(dump_schema(&db1)?, @"
+        -- table T1
+        CREATE TABLE T1 ( first TEXT PRIMARY KEY );
+
+        -- table T2
+        CREATE TABLE T2 ( first TEXT PRIMARY KEY );
+
+        -- table __diesel_schema_migrations
+        CREATE TABLE __diesel_schema_migrations (
+               version VARCHAR(50) PRIMARY KEY NOT NULL,
+               run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        ");
+        insta::assert_snapshot!(dump_data(&db1)?, @r#"
+        Table: __diesel_schema_migrations
+        version
+        Text("0")
+        Text("1")
+
+        Table: T1
+        first
+
+        Table: T2
+        first
+        "#);
+        Ok(())
+    }
+
+    #[test]
     fn journey() -> anyhow::Result<()> {
         let mut db = rusqlite::Connection::open_in_memory()?;
 

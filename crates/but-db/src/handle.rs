@@ -1,5 +1,5 @@
 use crate::migration::improve_concurrency;
-use crate::{DbHandle, Transaction, migration};
+use crate::{DbHandle, migration};
 use std::path::{Path, PathBuf};
 use tracing::instrument;
 
@@ -8,18 +8,6 @@ const FILE_NAME: &str = "but.sqlite";
 impl std::fmt::Debug for DbHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DbHandle").field("db", &self.url).finish()
-    }
-}
-
-impl Transaction<'_> {
-    /// Consume the transaction and commit it, without recovery.
-    pub fn commit(self) -> Result<(), rusqlite::Error> {
-        self.0.commit()
-    }
-
-    /// Roll all changes so far back, making this instance unusable.
-    pub fn rollback(self) -> Result<(), rusqlite::Error> {
-        self.0.rollback()
     }
 }
 
@@ -56,17 +44,6 @@ impl DbHandle {
     /// Return the path to the standard database file.
     pub fn db_file_path(db_dir: impl AsRef<Path>) -> PathBuf {
         db_dir.as_ref().join(FILE_NAME)
-    }
-}
-
-/// Utilities
-impl DbHandle {
-    /// Create a new transaction which can be used to create new table handles on.
-    /// # IMPORTANT
-    /// Don't forget to call [commit()](rusqlite::Transaction::commit()) to actually persist the result.
-    /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
-    pub fn transaction(&mut self) -> anyhow::Result<Transaction<'_>> {
-        Ok(Transaction(self.conn.transaction()?))
     }
 }
 
