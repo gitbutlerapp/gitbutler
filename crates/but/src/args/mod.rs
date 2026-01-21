@@ -213,27 +213,57 @@ pub enum Subcommands {
         verbose: bool,
     },
 
-    /// Initializes a GitButler project from a git repository in the current directory.
+    /// Sets up a GitButler project from a git repository in the current directory.
+    ///
+    /// This command will:
+    /// - Add the repository to the global GitButler project registry
+    /// - Switch to the gitbutler/workspace branch (if not already on it)
+    /// - Set up a default target branch (the remote's HEAD)
+    /// - Add a gb-local remote if no push remote exists
     ///
     /// If you have an existing Git repository and want to start using GitButler
     /// with it, you can run this command to set up the necessary configuration
     /// and data structures.
     ///
-    /// This is automatically run when you run any other `but` command in
-    /// a git repository that is not yet initialized with GitButler.
+    /// ## Examples
     ///
-    /// Note: Currently, if there is no Git repository already, you will need to
-    /// initialize it with `git init` and add a remote first, as GitButler needs
-    /// a remote to base the branches on.
+    /// Initialize a new git repository and set up GitButler:
     ///
-    /// We are working on removing this limitation, but for now this is something
-    /// to be aware of.
+    /// ```text
+    /// but setup --init
+    /// ```
+    ///
     #[cfg(feature = "legacy")]
-    Init {
-        /// Also initializes a git repository in the current directory if one does not exist.
-        #[clap(long, short = 'r')]
-        repo: bool,
+    Setup {
+        /// Initialize a new git repository with an empty commit if one doesn't exist.
+        ///
+        /// This is useful when running in non-interactive environments (like CI/CD)
+        /// where you want to ensure a git repository exists before setting up GitButler.
+        #[clap(long)]
+        init: bool,
     },
+
+    /// Exit GitButler mode and return to normal Git workflow.
+    ///
+    /// This command:
+    /// - Creates an oplog snapshot of the current state
+    /// - Finds the first active branch and checks it out
+    /// - Cherry-picks any dangling commits from gitbutler/workspace
+    /// - Provides instructions on how to return to GitButler mode
+    ///
+    /// This is useful when you want to temporarily or permanently leave GitButler
+    /// management and work with standard Git commands.
+    ///
+    /// ## Examples
+    ///
+    /// Exit GitButler mode:
+    ///
+    /// ```text
+    /// but teardown
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    Teardown,
 
     /// Updates all applied branches to be up to date with the target branch.
     ///
@@ -707,6 +737,32 @@ pub enum Subcommands {
         commit: String,
     },
 
+    /// Merge a branch into your local target branch.
+    ///
+    /// If the target branch is local (`gb-local`), finds the local branch that the target
+    /// references (e.g., `gb-local/master` becomes `master`) and merges the specified
+    /// branch into that local branch. After merging, runs the equivalent of `but pull`
+    /// to update all branches.
+    ///
+    /// ## Examples
+    ///
+    /// Merge a branch by its CLI ID:
+    ///
+    /// ```text
+    /// but merge bu
+    /// ```
+    ///
+    /// Merge a branch by name:
+    ///
+    /// ```text
+    /// but merge my-feature-branch
+    /// ```
+    #[cfg(feature = "legacy")]
+    Merge {
+        /// Branch ID or name to merge
+        branch: String,
+    },
+
     /// Stages a file or hunk to a specific branch.
     ///
     /// Wrapper for `but rub <file-or-hunk> <branch>`.
@@ -730,12 +786,6 @@ pub enum Subcommands {
         #[clap(required = false)]
         branch: Option<String>,
     },
-
-    /// Switch back to the workspace
-    ///
-    /// If in single-branch mode, switches back to the main workspace.
-    #[cfg(feature = "legacy")]
-    SwitchBack,
 
     /// Show help information grouped by category.
     ///

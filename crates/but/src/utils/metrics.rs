@@ -132,7 +132,10 @@ impl Subcommands {
                 Some(forge::pr::Subcommands::Template { .. }) => PrTemplate,
             },
             #[cfg(feature = "legacy")]
-            Subcommands::Actions(_) | Subcommands::Mcp { .. } | Subcommands::Init { .. } => Unknown,
+            Subcommands::Actions(_)
+            | Subcommands::Mcp { .. }
+            | Subcommands::Setup { .. }
+            | Subcommands::Teardown => Unknown,
             Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
                 forge::integration::Subcommands::Auth => ForgeAuth,
                 forge::integration::Subcommands::Forget { .. } => ForgeForget,
@@ -160,9 +163,9 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Unstage { .. } => Rub,
             #[cfg(feature = "legacy")]
-            Subcommands::SwitchBack => SwitchBackToWorkspace,
-            #[cfg(feature = "legacy")]
             Subcommands::Squash { .. } => Rub,
+            #[cfg(feature = "legacy")]
+            Subcommands::Merge { .. } => Merge,
         }
     }
 }

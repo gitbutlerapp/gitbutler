@@ -50,10 +50,9 @@ fn unborn() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: No push remote set
+Error: Setup required: No GitButler project found at .
 
-"#]])
-        .stdout_eq(snapbox::str![]);
+"#]]);
     Ok(())
 }
 
@@ -67,10 +66,10 @@ fn first_commit_no_workspace() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: No push remote set
+Error: Setup required: No GitButler project found at .
 
-"#]])
-        .stdout_eq(snapbox::str![]);
+"#]]);
+
     Ok(())
 }
 

@@ -14,11 +14,17 @@ mod format;
 mod gui;
 mod help;
 #[cfg(feature = "legacy")]
+mod merge;
+#[cfg(feature = "legacy")]
 mod reword;
 #[cfg(feature = "legacy")]
 mod rub;
 #[cfg(feature = "legacy")]
+mod setup;
+#[cfg(feature = "legacy")]
 mod status;
+#[cfg(feature = "legacy")]
+mod teardown;
 
 mod util {
     use crate::utils::Sandbox;

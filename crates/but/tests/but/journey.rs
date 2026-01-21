@@ -28,37 +28,53 @@ fn from_empty() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 
     env.but("status").assert().failure().stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
+Error: No git repository found at .
+Please run 'but setup' to initialize the project.
 
 "#]]);
 
-    // Init doesn't work without a Git repository
-    env.but("init")
-        .assert()
-        .failure()
-        .stderr_eq(str![
-            r#"
-Error: Failed to initialize GitButler project.
+    // Setup doesn't work without a Git repository
+    env.but("setup").assert().failure().stderr_eq(str![
+        r#"
+Error: Failed to set up GitButler project.
 
 Caused by:
-    0: You can run `but init --repo` to initialize a new Git repository
-    1: "." does not appear to be a git repository
-    2: Missing HEAD at '.git/HEAD'
+    No git repository found - run `but setup --init` to initialize a new repository.
 
 "#
-        ])
-        .stdout_eq(str![]);
+    ]);
 
     // TODO: this should work, but we still have requirements and can't deal with any repo.
-    env.but("init --repo")
+    env.but("setup --init")
         .assert()
-        .failure()
-        .stdout_eq(str![])
-        .stderr_eq(str![[r#"
-Error: Failed to initialize GitButler project.
+        .success()
+        .stdout_eq(str![[r#"
+No git repository found. Initializing new repository...
+✓ Initialized repository with empty commit
 
-Caused by:
-    No push remote set
+Setting up GitButler project...
+
+→ Adding repository to GitButler project registry
+  ✓ Repository added to project registry
+
+→ Configuring default target branch
+  No push remote found, creating gb-local remote...
+  ✓ Created gb-local remote tracking main
+  ✓ Set default target to: gb-local/main
+
+GitButler project setup complete!
+Target branch: gb-local/main
+Remote: gb-local
+
+
+We are switching you to GitButler's special `gitbutler/workspace` branch     
+
+To return to normal Git mode, either:
+    - Directly checkout a branch (`git checkout main`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch                    
+
 
 "#]]);
 
@@ -73,43 +89,36 @@ Caused by:
     "#,
         );
 
-        // Doing it again also doesn't work, we need a proper remote.
-        env.but("init --repo")
+        env.but("setup")
             .assert()
-            .failure()
-            .stdout_eq(str![])
-            .stderr_eq(str![[r#"
-Error: Failed to initialize GitButler project.
+            .success()
+            .stderr_eq(str![])
+            .stdout_eq(str![[r#"
+Setting up GitButler project...
 
-Caused by:
-    No HEAD reference found for remote origin
+→ Adding repository to GitButler project registry
+  ✓ Repository added to project registry
+
+GitButler project is already set up!
+Target branch: gb-local/main
+
 
 "#]]);
     }
 
-    // Status really wants the target, still.
     env.but("status")
         .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: errors.projects.default_target.not_found
+        .success()
+        .stdout_eq(str![[r#"
+╭┄zz [unstaged changes] 
+┊     no changes
+┊
+┴ 6f66116 (common base) [gb-local/main] 2000-01-02 Initial empty commit 
 
-Caused by:
-    there is no default target
+Hint: run `but branch new` to create a new branch to work on
 
 "#]])
-        .stdout_eq(str![""]);
-
-    // Single branch mode, does it work?
-    // TODO: make this work to get further into a typical workflow.
-    env.but("branch new feat")
-        .assert()
-        .failure()
-        .stdout_eq(str![""])
-        .stderr_eq(str![[r#"
-Error: workspace at refs/heads/main is missing a base
-
-"#]]);
+        .stderr_eq(str![""]);
 
     Ok(())
 }
