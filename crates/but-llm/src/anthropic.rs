@@ -12,8 +12,14 @@ use serde::de::DeserializeOwned;
 
 use crate::{
     StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
-    client::LLMClient,
+    client::LLMClient, key::CredentialsKeyOption,
 };
+
+const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
+const ANTHROPIC_VERSION: &str = "2023-06-01";
+const ANTHROPIC_KEY_OPTION: &str = "gitbutler.aiAnthropicKeyOption";
+const ANTHROPIC_MODEL_NAME: &str = "gitbutler.aiAnthropicModelName";
+pub const GB_ANTHROPIC_API_BASE: &str = "https://app.gitbutler.com/api/proxy/anthropic";
 
 /// Result of a tool calling loop with streaming
 pub struct ConversationResult {
@@ -28,9 +34,16 @@ pub enum CredentialsKind {
     GitButlerProxied,
 }
 
-const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
-const ANTHROPIC_VERSION: &str = "2023-06-01";
-pub const GB_ANTHROPIC_API_BASE: &str = "https://app.gitbutler.com/api/proxy/anthropic";
+impl CredentialsKind {
+    fn from_git_config(config: &git2::Config) -> Option<Self> {
+        let key_option_str = config.get_string(ANTHROPIC_KEY_OPTION).ok()?;
+        let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
+        match key_option {
+            CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnAnthropicKey),
+            CredentialsKeyOption::ButlerApi => Some(CredentialsKind::GitButlerProxied),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct AnthropicClient {
@@ -96,11 +109,12 @@ impl AnthropicClient {
 
 #[derive(Debug, Clone)]
 pub struct AnthropicProvider {
+    model: Option<String>,
     credentials: (CredentialsKind, Sensitive<String>),
 }
 
 impl AnthropicProvider {
-    pub fn with(preferred_creds: Option<CredentialsKind>) -> Option<Self> {
+    pub fn with(preferred_creds: Option<CredentialsKind>, model: Option<String>) -> Option<Self> {
         let credentials = if let Some(kind) = preferred_creds {
             match kind {
                 CredentialsKind::EnvVarAnthropicKey => AnthropicProvider::anthropic_env_var_creds(),
@@ -115,7 +129,7 @@ impl AnthropicProvider {
         };
 
         match credentials {
-            Ok(credentials) => Some(Self { credentials }),
+            Ok(credentials) => Some(Self { credentials, model }),
             Err(e) => {
                 tracing::error!("Failed to retrieve Anthropic credentials: {}", e);
                 None
@@ -163,6 +177,19 @@ impl AnthropicProvider {
 }
 
 impl LLMClient for AnthropicProvider {
+    fn from_git_config(config: &git2::Config) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        let credentials_kind = CredentialsKind::from_git_config(config)?;
+        let model = config.get_string(ANTHROPIC_MODEL_NAME).ok();
+        AnthropicProvider::with(Some(credentials_kind), model)
+    }
+
+    fn model(&self) -> Option<String> {
+        self.model.clone()
+    }
+
     fn tool_calling_loop_stream(
         &self,
         system_message: &str,

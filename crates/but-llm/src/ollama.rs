@@ -16,8 +16,12 @@ use serde_json::Value;
 use crate::client::LLMClient;
 use crate::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent};
 
+const OLLAMA_ENDPOINT: &str = "gitbutler.aiOllamaEndpoint";
+const OLLAMA_MODEL_NAME: &str = "gitbutler.aiOllamaModelName";
+
 #[derive(Debug, Clone, Default)]
 pub struct OllamaProvider {
+    model: Option<String>,
     client: Ollama,
 }
 
@@ -27,20 +31,32 @@ pub struct OllamaHostConfig {
     pub port: u16,
 }
 
+impl From<String> for OllamaHostConfig {
+    fn from(endpoint: String) -> Self {
+        let parts: Vec<&str> = endpoint.split(':').collect();
+        let host = parts.first().cloned().unwrap_or("localhost").to_string();
+        let port = parts
+            .get(1)
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(11434);
+        OllamaHostConfig { host, port }
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct OllamaConfig {
     pub host_config: Option<OllamaHostConfig>,
 }
 
 impl OllamaProvider {
-    pub fn new(config: OllamaConfig) -> Self {
+    pub fn new(config: OllamaConfig, model: Option<String>) -> Self {
         let client = if let Some(host_config) = config.host_config {
             Ollama::new(host_config.host, host_config.port)
         } else {
             Ollama::default()
         };
 
-        Self { client }
+        Self { client, model }
     }
 
     pub fn client(&self) -> &Ollama {
@@ -56,6 +72,22 @@ impl OllamaProvider {
 }
 
 impl LLMClient for OllamaProvider {
+    fn from_git_config(config: &git2::Config) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        let endpoint = config.get_string(OLLAMA_ENDPOINT).ok().map(Into::into);
+        let model = config.get_string(OLLAMA_MODEL_NAME).ok();
+        let ollama_config = OllamaConfig {
+            host_config: endpoint,
+        };
+        Some(OllamaProvider::new(ollama_config, model))
+    }
+
+    fn model(&self) -> Option<String> {
+        self.model.clone()
+    }
+
     fn tool_calling_loop_stream(
         &self,
         system_message: &str,

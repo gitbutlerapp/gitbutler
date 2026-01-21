@@ -59,7 +59,12 @@ pub fn show(
 
     // Generate AI summary if requested
     let ai_summary = if generate_ai_summary {
-        Some(generate_branch_summary(&branch_name, &commits)?)
+        let git_config = git2::Config::open_default()?;
+        Some(generate_branch_summary(
+            &branch_name,
+            &commits,
+            &git_config,
+        )?)
     } else {
         None
     };
@@ -519,12 +524,16 @@ struct CommitInfo {
     files: Vec<FileChange>,
 }
 
-#[instrument(skip(commits))]
-fn generate_branch_summary(branch_name: &str, commits: &[CommitInfo]) -> anyhow::Result<String> {
+#[instrument(skip(commits, git_config))]
+fn generate_branch_summary(
+    branch_name: &str,
+    commits: &[CommitInfo],
+    git_config: &git2::Config,
+) -> anyhow::Result<String> {
     use but_llm::LLMProvider;
 
     // Get OpenAI provider (tries GitButler proxied, own key, then env var)
-    let llm = LLMProvider::default_openai().ok_or_else(|| {
+    let llm = LLMProvider::from_git_config(git_config).ok_or_else(|| {
         anyhow::anyhow!(
             "No AI credentials found. Configure in GitButler settings or set OPENAI_API_KEY environment variable."
         )

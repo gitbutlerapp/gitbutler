@@ -1,6 +1,7 @@
 mod anthropic;
 mod chat;
 mod client;
+mod key;
 mod ollama;
 mod openai;
 
@@ -8,10 +9,34 @@ use std::sync::Arc;
 
 pub use chat::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent};
 
+use git2::Config;
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::client::LLMClient;
+
+const MODEL_PROVIDER: &str = "gitbutler.aiModelProvider";
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LLMProviderKind {
+    OpenAi,
+    Anthropic,
+    Ollama,
+    LMStudio,
+}
+
+impl LLMProviderKind {
+    fn from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "openai" => Some(LLMProviderKind::OpenAi),
+            "anthropic" => Some(LLMProviderKind::Anthropic),
+            "ollama" => Some(LLMProviderKind::Ollama),
+            "lmstudio" => Some(LLMProviderKind::LMStudio),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum LLMProviderConfig {
@@ -58,17 +83,89 @@ impl LLMProvider {
     /// or `None` if initialization failed (e.g., missing required credentials).
     pub fn new(kind: LLMProviderConfig) -> Option<Self> {
         let client = match kind {
-            LLMProviderConfig::OpenAi(creds) => {
-                openai::OpenAiProvider::with(creds).map(|p| LLMClientType::OpenAi(Arc::new(p)))?
-            }
-            LLMProviderConfig::Anthropic(creds) => anthropic::AnthropicProvider::with(creds)
+            LLMProviderConfig::OpenAi(creds) => openai::OpenAiProvider::with(creds, None, None)
+                .map(|p| LLMClientType::OpenAi(Arc::new(p)))?,
+            LLMProviderConfig::Anthropic(creds) => anthropic::AnthropicProvider::with(creds, None)
                 .map(|p| LLMClientType::Anthropic(Arc::new(p)))?,
             LLMProviderConfig::Ollama(config) => {
                 let config = config.unwrap_or_default();
-                LLMClientType::Ollama(Arc::new(ollama::OllamaProvider::new(config)))
+                LLMClientType::Ollama(Arc::new(ollama::OllamaProvider::new(config, None)))
             }
         };
         Some(Self { client })
+    }
+
+    /// Creates a new LLM provider based on configuration stored in the global Git config.
+    ///
+    /// This method reads the LLM provider settings from Git's configuration system,
+    /// specifically looking for the `gitbutler.aiModelProvider` setting to determine
+    /// which provider to instantiate. It then delegates to the appropriate provider's
+    /// `from_git_config` method to read provider-specific settings like API keys,
+    /// model names, and endpoints.
+    ///
+    /// This is the recommended way to initialize an LLM provider in a Git repository
+    /// context, as it respects user-configured settings and credentials stored in
+    /// their Git configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - A reference to a Git configuration object, typically the global
+    ///   or repository-level config, containing the LLM provider settings.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(LLMProvider)` if a valid provider is configured and successfully
+    /// initialized, or `None` if:
+    /// - The `gitbutler.aiModelProvider` setting is not present
+    /// - The configured provider is not supported (e.g., LMStudio)
+    /// - Provider-specific initialization fails (e.g., missing credentials)
+    pub fn from_git_config(config: &Config) -> Option<Self> {
+        let provider_str = config.get_string(MODEL_PROVIDER).ok()?;
+        let provider = LLMProviderKind::from_str(&provider_str);
+        match provider {
+            Some(LLMProviderKind::OpenAi) => {
+                let client = openai::OpenAiProvider::from_git_config(config)?;
+                Some(Self {
+                    client: LLMClientType::OpenAi(Arc::new(client)),
+                })
+            }
+            Some(LLMProviderKind::Anthropic) => {
+                let client = anthropic::AnthropicProvider::from_git_config(config)?;
+                Some(Self {
+                    client: LLMClientType::Anthropic(Arc::new(client)),
+                })
+            }
+            Some(LLMProviderKind::Ollama) => {
+                let client = ollama::OllamaProvider::from_git_config(config)?;
+                Some(Self {
+                    client: LLMClientType::Ollama(Arc::new(client)),
+                })
+            }
+            Some(LLMProviderKind::LMStudio) => None,
+            None => None,
+        }
+    }
+
+    /// Returns the model identifier configured for this LLM provider.
+    ///
+    /// This method retrieves the model name that was configured for the provider
+    /// at the time of instantiation, typically read from the Git global configuration.
+    /// The model identifier (e.g., "gpt-4", "claude-3-opus", "llama2") determines
+    /// which specific model variant will be used for LLM requests.
+    ///
+    /// The model value is read once during provider initialization and remains
+    /// constant for the lifetime of the provider instance.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(String)` containing the model identifier if one was configured,
+    /// or `None` if no model was specified in the configuration.
+    pub fn model(&self) -> Option<String> {
+        match &self.client {
+            LLMClientType::OpenAi(client) => client.model(),
+            LLMClientType::Anthropic(client) => client.model(),
+            LLMClientType::Ollama(client) => client.model(),
+        }
     }
 
     /// Creates a default OpenAI LLM provider using environment-based credentials.
