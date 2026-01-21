@@ -536,9 +536,9 @@ async fn match_subcommand(
             command::legacy::oplog::undo_last_operation(&mut ctx, out).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Absorb { source } => {
+        Subcommands::Absorb { source, dry_run } => {
             let mut ctx = init::init_ctx(&args, BackgroundSync::Enabled, out)?;
-            command::legacy::absorb::handle(&mut ctx, out, source.as_deref())
+            command::legacy::absorb::handle(&mut ctx, out, source.as_deref(), dry_run)
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]

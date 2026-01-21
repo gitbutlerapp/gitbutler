@@ -452,7 +452,6 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     Undo,
-
     /// Amends changes into the appropriate commits where they belong.
     ///
     /// The semantic for finding "the appropriate commit" is as follows:
@@ -468,12 +467,18 @@ pub enum Subcommands {
     /// - If a Branch (stack) id is provided, absorb will be performed for all changes staged to that stack
     /// - If no source is provided, absorb is performed for all uncommitted changes
     ///
+    /// If `--dry-run` is specified, no changes will be made; instead, the absorption plan
+    /// (what changes would be absorbed by which commits) will be shown.
+    ///
     #[cfg(feature = "legacy")]
     Absorb {
         /// If the Source is an uncommitted change - the change will be absorbed.
         /// If the Source is a stack - anything staged to the stack will be absorbed accordingly.
         /// If not provided, everything that is uncommitted will be absorbed.
         source: Option<String>,
+        /// Show the absorption plan without making any changes.
+        #[clap(long = "dry-run")]
+        dry_run: bool,
     },
 
     /// Discard uncommitted changes from the worktree.
