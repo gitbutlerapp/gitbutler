@@ -5,28 +5,24 @@ use tracing::{instrument, metadata::LevelFilter, subscriber::set_global_default}
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{Layer, fmt::format::FmtSpan, layer::SubscriberExt};
 
-pub fn init(app_handle: &AppHandle, performance_logging: bool) {
-    let logs_dir = app_handle
-        .path()
-        .app_log_dir()
-        .expect("failed to get logs dir");
-    fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
+pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool) {
+    fs::create_dir_all(logs_dir).expect("failed to create logs dir");
 
     let log_prefix = "GitButler";
     let log_suffix = "log";
     let max_log_files = 14;
-    remove_old_logs(&logs_dir).ok();
+    remove_old_logs(logs_dir).ok();
     let file_appender = RollingFileAppender::builder()
         .rotation(Rotation::DAILY)
         .max_log_files(max_log_files)
         .filename_prefix(log_prefix)
         .filename_suffix(log_suffix)
-        .build(&logs_dir)
+        .build(logs_dir)
         .expect("initializing rolling file appender failed");
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
     // As the file-writer only checks `max_log_files` on file rotation, it basically never happens.
     // Run it now.
-    prune_old_logs(&logs_dir, Some(log_prefix), Some(log_suffix), max_log_files).ok();
+    prune_old_logs(logs_dir, Some(log_prefix), Some(log_suffix), max_log_files).ok();
 
     app_handle.manage(guard); // keep the guard alive for the lifetime of the app
 

@@ -1,8 +1,11 @@
+//! A version of `tauri::AppHandle::path()` for use outside `tauri`.
 use std::{env, path::PathBuf};
 
-use anyhow::bail;
+use anyhow::{Context, bail};
 
 /// The directory to store application-wide data in, like logs, **one per channel**.
+///
+/// > ⚠️Keep in sync with `tauri::AppHandle::path().app_data_dir().`
 pub fn app_data_dir() -> anyhow::Result<PathBuf> {
     if let Ok(test_dir) = std::env::var("E2E_TEST_APP_DATA_DIR") {
         return Ok(PathBuf::from(test_dir).join("com.gitbutler.app"));
@@ -12,7 +15,24 @@ pub fn app_data_dir() -> anyhow::Result<PathBuf> {
         .map(|dir| dir.join(identifier()))
 }
 
+/// The directory to store logs in, **one per channel**.
+///
+/// > ⚠️Keep in sync with `tauri::AppHandle::path().app_log_dir().`
+pub fn app_log_dir() -> anyhow::Result<PathBuf> {
+    if cfg!(target_os = "macos") {
+        dirs::home_dir()
+            .with_context(|| "Couldn't resolve home directory")
+            .map(|dir| dir.join("Library/Logs").join(identifier()))
+    } else {
+        dirs::data_local_dir()
+            .with_context(|| "Couldn't resolve local data directory")
+            .map(|dir| dir.join(identifier()).join("logs"))
+    }
+}
+
 /// The directory to store application-wide settings in, **shared for all channels**.
+///
+/// > ⚠️Keep in sync with `tauri::AppHandle::path().app_log_dir().`
 pub fn app_config_dir() -> anyhow::Result<PathBuf> {
     if let Ok(test_dir) = std::env::var("E2E_TEST_APP_DATA_DIR") {
         return Ok(PathBuf::from(test_dir).join("gitbutler"));
@@ -23,6 +43,8 @@ pub fn app_config_dir() -> anyhow::Result<PathBuf> {
 }
 
 /// Returns the platform-specific cache directory for GitButler, **one per channel**.
+///
+/// > ⚠️Keep in sync with `tauri::AppHandle::path().app_cache_dir().`
 ///
 /// The cache directory is used for non-essential data that can be regenerated
 /// or re-downloaded, such as update check metadata. Unlike data stored in

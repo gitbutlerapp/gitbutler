@@ -13,7 +13,7 @@
 
 use std::sync::Arc;
 
-use anyhow::bail;
+use anyhow::{Context, bail};
 use but_api::{commit, diff, github, legacy};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
@@ -81,6 +81,15 @@ fn main() -> anyhow::Result<()> {
             project_to_open.display()
         );
     }
+    let (app_data_dir, app_cache_dir, app_log_dir) = (
+        but_path::app_data_dir()?,
+        but_path::app_cache_dir()?,
+        but_path::app_log_dir()?,
+    );
+    std::fs::create_dir_all(&app_data_dir).context("failed to create app data dir")?;
+    std::fs::create_dir_all(&app_cache_dir).context("failed to create cache dir")?;
+    std::fs::create_dir_all(&app_log_dir).context("failed to create cache dir")?;
+
     let app_settings_for_menu = app_settings.clone();
     runtime.block_on(async {
         tauri::async_runtime::set(tokio::runtime::Handle::current());
@@ -112,7 +121,7 @@ fn main() -> anyhow::Result<()> {
 
                 let app_handle = tauri_app.handle();
 
-                logs::init(app_handle, performance_logging);
+                logs::init(app_handle, &app_log_dir, performance_logging);
 
                 but_action::cli::auto_fix_broken_but_cli_symlink();
                 inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
@@ -140,17 +149,6 @@ fn main() -> anyhow::Result<()> {
                         }
                     });
                 }
-
-                let (app_data_dir, app_cache_dir, app_log_dir) = {
-                    let paths = app_handle.path();
-                    (
-                        paths.app_data_dir().expect("missing app data dir"),
-                        paths.app_cache_dir().expect("missing app cache dir"),
-                        paths.app_log_dir().expect("missing app log dir"),
-                    )
-                };
-                std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
-                std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
 
                 tracing::info!(version = %app_handle.package_info().version,
                                    name = %app_handle.package_info().name, "starting app");
@@ -194,8 +192,8 @@ fn main() -> anyhow::Result<()> {
                 app_handle.manage(app_settings);
                 app_handle.manage(claude);
 
-                tauri_app.on_menu_event(move |handle, event| {
-                    menu::handle_event(handle, &window.clone(), &event)
+                tauri_app.on_menu_event(move |_handle, event| {
+                    menu::handle_event(&window.clone(), &event)
                 });
 
                 let app_handle_for_deep_link = app_handle.clone();
