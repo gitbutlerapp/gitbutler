@@ -107,13 +107,13 @@ pub fn commit_insert_blank_only(
     let guard = ctx.exclusive_worktree_access();
     let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
     let repo = ctx.repo.get()?;
-    commit_insert_black_only_impl(&graph, &repo, relative_to, side)
+    commit_insert_blank_only_impl(&graph, &repo, relative_to, side)
 }
 
 /// Implementation of inserting a blank commit relative to either a commit or a reference
 ///
 /// Returns the ID of the newly created blank commit
-pub fn commit_insert_black_only_impl(
+pub fn commit_insert_blank_only_impl(
     graph: &Graph,
     repo: &gix::Repository,
     relative_to: ui::RelativeTo,

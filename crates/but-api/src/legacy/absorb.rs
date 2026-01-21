@@ -25,7 +25,7 @@ use gitbutler_stack::StackId;
 use itertools::Itertools;
 
 use crate::{
-    commit::commit_insert_black_only_impl,
+    commit::commit_insert_blank_only_impl,
     legacy::{diff::changes_in_worktree, workspace::amend_commit_and_count_failures},
 };
 
@@ -271,7 +271,7 @@ fn determine_target_commit(
             .branch_details
             .first()
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
-        commit_insert_black_only_impl(
+        commit_insert_blank_only_impl(
             graph,
             repo,
             crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
@@ -306,7 +306,7 @@ fn determine_target_commit(
             .branch_details
             .first()
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
-        commit_insert_black_only_impl(
+        commit_insert_blank_only_impl(
             graph,
             repo,
             crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
