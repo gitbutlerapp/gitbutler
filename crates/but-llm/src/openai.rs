@@ -21,8 +21,14 @@ use tokio::sync::Mutex;
 
 use crate::{
     StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
-    client::LLMClient,
+    client::LLMClient, key::CredentialsKeyOption,
 };
+
+pub const GB_OPENAI_API_BASE: &str = "https://app.gitbutler.com/api/proxy/openai";
+
+const OPEN_AI_KEY_OPTION: &str = "gitbutler.aiOpenAIKeyOption";
+const OPEN_AI_MODEL_NAME: &str = "gitbutler.aiOpenAIModelName";
+const OPEN_AI_CUSTOM_ENDPOINT: &str = "gitbutler.aiOpenAICustomEndpoint";
 
 /// Result of a tool calling loop with streaming
 pub struct ConversationResult {
@@ -37,15 +43,32 @@ pub enum CredentialsKind {
     GitButlerProxied,
 }
 
-pub const GB_OPENAI_API_BASE: &str = "https://app.gitbutler.com/api/proxy/openai";
+impl CredentialsKind {
+    fn from_git_config(config: &git2::Config) -> Option<Self> {
+        let key_option_str = config.get_string(OPEN_AI_KEY_OPTION).ok()?;
+        let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
+        match key_option {
+            CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnOpenAiKey),
+            CredentialsKeyOption::ButlerApi => Some(CredentialsKind::GitButlerProxied),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct OpenAiProvider {
+    /// The API endpoint to use, if any. As configured in the git global config
+    custom_endpoint: Option<String>,
+    /// The preferred model to use, as configured in the git global config
+    model: Option<String>,
     credentials: (CredentialsKind, Sensitive<String>),
 }
 
 impl OpenAiProvider {
-    pub fn with(preferred_creds: Option<CredentialsKind>) -> Option<Self> {
+    pub fn with(
+        preferred_creds: Option<CredentialsKind>,
+        model: Option<String>,
+        custom_endpoint: Option<String>,
+    ) -> Option<Self> {
         let credentials = if let Some(kind) = preferred_creds {
             match kind {
                 CredentialsKind::EnvVarOpenAiKey => OpenAiProvider::openai_env_var_creds(),
@@ -60,7 +83,11 @@ impl OpenAiProvider {
         };
 
         match credentials {
-            Ok(credentials) => Some(Self { credentials }),
+            Ok(credentials) => Some(Self {
+                credentials,
+                model,
+                custom_endpoint,
+            }),
             Err(e) => {
                 tracing::error!("Failed to retrieve OpenAI credentials: {}", e);
                 None
@@ -70,10 +97,16 @@ impl OpenAiProvider {
 
     pub fn client(&self) -> Result<Client<OpenAIConfig>> {
         match &self.credentials {
-            (CredentialsKind::EnvVarOpenAiKey, _) => Ok(Client::with_config(OpenAIConfig::new())),
-            (CredentialsKind::OwnOpenAiKey, key) => Ok(Client::with_config(
-                OpenAIConfig::new().with_api_key(key.0.clone()),
-            )),
+            (CredentialsKind::EnvVarOpenAiKey, _) => {
+                let config = self.configure_custom_endpoint(OpenAIConfig::new());
+                Ok(Client::with_config(config))
+            }
+            (CredentialsKind::OwnOpenAiKey, key) => {
+                let config =
+                    self.configure_custom_endpoint(OpenAIConfig::new().with_api_key(key.0.clone()));
+                Ok(Client::with_config(config))
+            }
+
             (CredentialsKind::GitButlerProxied, key) => {
                 let config = OpenAIConfig::new().with_api_base(GB_OPENAI_API_BASE);
                 let mut headers = HeaderMap::new();
@@ -90,6 +123,15 @@ impl OpenAiProvider {
                     .build()?;
                 Ok(Client::with_config(config).with_http_client(http_client))
             }
+        }
+    }
+
+    /// Configure a custom endpoint if set in the provider, if any.
+    fn configure_custom_endpoint(&self, config: OpenAIConfig) -> OpenAIConfig {
+        if let Some(custom_endpont) = &self.custom_endpoint {
+            config.with_api_base(custom_endpont)
+        } else {
+            config
         }
     }
 
@@ -127,6 +169,21 @@ impl OpenAiProvider {
 }
 
 impl LLMClient for OpenAiProvider {
+    fn from_git_config(config: &git2::Config) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        let credentials_kind = CredentialsKind::from_git_config(config)?;
+        let model = config.get_string(OPEN_AI_MODEL_NAME).ok();
+        let custom_endpoint = config.get_string(OPEN_AI_CUSTOM_ENDPOINT).ok();
+
+        OpenAiProvider::with(Some(credentials_kind), model, custom_endpoint)
+    }
+
+    fn model(&self) -> Option<String> {
+        self.model.clone()
+    }
+
     fn tool_calling_loop_stream(
         &self,
         system_message: &str,

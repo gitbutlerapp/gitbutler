@@ -21,7 +21,8 @@ pub fn bot(
         });
     });
 
-    let llm = but_llm::LLMProvider::default_openai();
+    let git_config = git2::Config::open_default().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    let llm = but_llm::LLMProvider::from_git_config(&git_config);
     match llm {
         Some(llm) => but_bot::bot(project_id, message_id, emitter, ctx, &llm, chat_messages)
             .map_err(|e| Error::from(anyhow::anyhow!(e))),
@@ -50,7 +51,8 @@ pub async fn forge_branch_chat(
         });
     });
 
-    let llm = but_llm::LLMProvider::default_openai();
+    let git_config = git2::Config::open_default().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    let llm = but_llm::LLMProvider::from_git_config(&git_config);
     match llm {
         Some(llm) => but_bot::forge_branch_chat(
             project_id,
