@@ -25,6 +25,7 @@ impl Context {
         settings: AppSettings,
     ) -> Self {
         let gitdir = legacy_project.git_dir().to_owned();
+        let app_cache_dir = but_path::app_cache_dir().ok();
         Context {
             settings,
             gitdir: gitdir.clone(),
@@ -32,7 +33,8 @@ impl Context {
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir),
-            app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
+            app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+            app_cache_dir,
         }
     }
 
@@ -41,6 +43,7 @@ impl Context {
         legacy_project: gitbutler_project::Project,
     ) -> anyhow::Result<Self> {
         let gitdir = legacy_project.git_dir().to_owned();
+        let app_cache_dir = but_path::app_cache_dir().ok();
         Ok(Context {
             settings: app_settings(but_path::app_config_dir()?)?,
             gitdir: gitdir.clone(),
@@ -48,7 +51,8 @@ impl Context {
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir),
-            app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
+            app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+            app_cache_dir,
         })
     }
 
@@ -57,6 +61,7 @@ impl Context {
     pub fn new_from_legacy_project_id(project_id: LegacyProjectId) -> anyhow::Result<Self> {
         let legacy_project = gitbutler_project::get(project_id)?;
         let gitdir = legacy_project.git_dir().to_owned();
+        let app_cache_dir = but_path::app_cache_dir().ok();
         Ok(Context {
             settings: app_settings(but_path::app_config_dir()?)?,
             gitdir: gitdir.clone(),
@@ -64,7 +69,8 @@ impl Context {
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir),
-            app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
+            app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+            app_cache_dir,
         })
     }
 }
