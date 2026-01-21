@@ -841,8 +841,7 @@ fn handle_no_branch_specified(
     }
 
     // Check if we're in an interactive terminal with human output format
-    let is_interactive = out.can_prompt() && out.for_human().is_some();
-    if !is_interactive {
+    if !out.can_prompt() {
         tracing::info!(
             "Non-interactive mode detected. Pushing all branches with unpushed commits..."
         );
