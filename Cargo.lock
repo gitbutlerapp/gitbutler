@@ -168,22 +168,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anthropic-api"
-version = "0.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4ef729ad2443434e6509070cf37086329f1fa41d3ed57ae2ebbe84d62013358"
-dependencies = [
- "anyhow",
- "derive_builder",
- "futures-util",
- "reqwest 0.12.28",
- "reqwest-eventsource",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1242,7 +1226,6 @@ dependencies = [
 name = "but-llm"
 version = "0.1.0"
 dependencies = [
- "anthropic-api",
  "anyhow",
  "async-openai",
  "but-secret",

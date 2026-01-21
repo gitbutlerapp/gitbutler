@@ -262,8 +262,6 @@ tracing-forest = { version = "0.3.0" }
 sysinfo = { version = "0.37.2", default-features = false }
 shell-words = "1.1.1"
 nonempty = "0.12.0"
-
-[profile.release]
 # There are no overrides here as we optimise for fast release builds,
 # which are used when building locally and when making Nightly builds.
 # The Stable release builds override the relevant settings at release time
@@ -285,16 +283,5 @@ incremental = false
 # Assure that `gix` is always fast so debug builds aren't unnecessarily slow.
 [profile.dev.package]
 gix = { opt-level = 3 }
-gix-object = { opt-level = 3 }
-gix-ref = { opt-level = 3 }
-gix-pack = { opt-level = 3 }
-gix-hash = { opt-level = 3 }
-gix-actor = { opt-level = 3 }
-gix-config = { opt-level = 3 }
-sha1-checked = { opt-level = 3 }
-zlib-rs = { opt-level = 3 }
 serde = { opt-level = 3 }
 serde_json = { opt-level = 3 }
-# This one is special as we can run into debug assertions otherwise.
-# They have a time, but let's chose the time instead of always being hit by it.
-gix-merge = { opt-level = 3, debug-assertions = false }

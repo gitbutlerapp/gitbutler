@@ -1,3 +1,4 @@
+mod anthropic;
 mod chat;
 mod client;
 mod ollama;
@@ -10,17 +11,19 @@ pub use chat::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent, Too
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
-use crate::{client::LLMClient, openai::CredentialsKind};
+use crate::client::LLMClient;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum LLMProviderConfig {
-    OpenAi(Option<CredentialsKind>),
+    OpenAi(Option<openai::CredentialsKind>),
+    Anthropic(Option<anthropic::CredentialsKind>),
     Ollama(Option<ollama::OllamaConfig>),
 }
 
 #[derive(Debug, Clone)]
 pub enum LLMClientType {
     OpenAi(Arc<openai::OpenAiProvider>),
+    Anthropic(Arc<anthropic::AnthropicProvider>),
     Ollama(Arc<ollama::OllamaProvider>),
 }
 
@@ -58,6 +61,8 @@ impl LLMProvider {
             LLMProviderConfig::OpenAi(creds) => {
                 openai::OpenAiProvider::with(creds).map(|p| LLMClientType::OpenAi(Arc::new(p)))?
             }
+            LLMProviderConfig::Anthropic(creds) => anthropic::AnthropicProvider::with(creds)
+                .map(|p| LLMClientType::Anthropic(Arc::new(p)))?,
             LLMProviderConfig::Ollama(config) => {
                 let config = config.unwrap_or_default();
                 LLMClientType::Ollama(Arc::new(ollama::OllamaProvider::new(config)))
@@ -80,6 +85,22 @@ impl LLMProvider {
     /// missing or initialization failed.
     pub fn default_openai() -> Option<Self> {
         Self::new(LLMProviderConfig::OpenAi(None))
+    }
+
+    /// Creates a default Anthropic LLM provider using environment-based credentials.
+    ///
+    /// This is a convenience method that attempts to create an Anthropic provider
+    /// by reading credentials from environment variables (typically GB credentials or `ANTHROPIC_API_KEY`).
+    /// It's the recommended way to create an Anthropic provider when you want to use
+    /// the default configuration without explicitly passing credentials.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(LLMProvider)` if Anthropic credentials are found in the environment
+    /// and the provider was successfully initialized, or `None` if credentials are
+    /// missing or initialization failed.
+    pub fn default_anthropic() -> Option<Self> {
+        Self::new(LLMProviderConfig::Anthropic(None))
     }
 
     /// Executes an interactive tool-calling loop with streaming output.
@@ -121,6 +142,13 @@ impl LLMProvider {
     ) -> anyhow::Result<(String, Vec<ChatMessage>)> {
         match &self.client {
             LLMClientType::OpenAi(client) => client.tool_calling_loop_stream(
+                system_message,
+                chat_messages,
+                tool_set,
+                model,
+                on_token,
+            ),
+            LLMClientType::Anthropic(client) => client.tool_calling_loop_stream(
                 system_message,
                 chat_messages,
                 tool_set,
@@ -172,6 +200,9 @@ impl LLMProvider {
             LLMClientType::OpenAi(client) => {
                 client.tool_calling_loop(system_message, chat_messages, tool_set, model)
             }
+            LLMClientType::Anthropic(client) => {
+                client.tool_calling_loop(system_message, chat_messages, tool_set, model)
+            }
             LLMClientType::Ollama(client) => {
                 client.tool_calling_loop(system_message, chat_messages, tool_set, model)
             }
@@ -205,6 +236,9 @@ impl LLMProvider {
     ) -> anyhow::Result<Option<String>> {
         match &self.client {
             LLMClientType::OpenAi(client) => {
+                client.stream_response(system_message, chat_messages, model, on_token)
+            }
+            LLMClientType::Anthropic(client) => {
                 client.stream_response(system_message, chat_messages, model, on_token)
             }
             LLMClientType::Ollama(client) => {
@@ -250,6 +284,9 @@ impl LLMProvider {
             LLMClientType::OpenAi(client) => {
                 client.structured_output::<T>(system_message, chat_messages, model)
             }
+            LLMClientType::Anthropic(client) => {
+                client.structured_output::<T>(system_message, chat_messages, model)
+            }
             LLMClientType::Ollama(client) => {
                 client.structured_output::<T>(system_message, chat_messages, model)
             }
@@ -281,6 +318,9 @@ impl LLMProvider {
     ) -> anyhow::Result<Option<String>> {
         match &self.client {
             LLMClientType::OpenAi(client) => client.response(system_message, chat_messages, model),
+            LLMClientType::Anthropic(client) => {
+                client.response(system_message, chat_messages, model)
+            }
             LLMClientType::Ollama(client) => client.response(system_message, chat_messages, model),
         }
     }
