@@ -1,7 +1,8 @@
 use anyhow::Context as _;
 use but_ctx::Context;
+use but_workspace::legacy::StacksFilter;
 use colored::Colorize;
-use gitbutler_branch_actions::BranchListingFilter;
+use gix::refs::transaction::PreviousValue;
 use serde::Serialize;
 
 use crate::utils::OutputChannel;
@@ -11,25 +12,17 @@ use crate::utils::OutputChannel;
 struct TeardownResult {
     snapshot_id: String,
     checked_out_branch: String,
-    dangling_commits: Vec<DanglingCommit>,
-    all_cherry_picks_successful: bool,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct DanglingCommit {
-    commit_id: String,
-    cherry_picked: bool,
 }
 
 pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
     // Check that we're on gitbutler/workspace
-    let repo = ctx.repo.get()?;
-    let head = repo.head()?;
-    let head_name = head
-        .referent_name()
-        .map(|n| n.shorten().to_string())
-        .unwrap_or_default();
+    let head_name = {
+        let repo = ctx.repo.get()?;
+        let head = repo.head()?;
+        head.referent_name()
+            .map(|n| n.shorten().to_string())
+            .unwrap_or_default()
+    };
 
     if head_name != "gitbutler/workspace" {
         if let Some(out) = out.for_human() {
@@ -78,7 +71,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         writeln!(out)?;
     }
 
-    // Find the first active branch
+    // Find the first active branch (leftmost/lowest order)
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -87,18 +80,35 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         )?;
     }
 
-    let filter = Some(BranchListingFilter {
-        local: Some(true),
-        applied: Some(true),
-    });
+    // Get stacks filtered to only those in workspace, sorted by order to find the leftmost
+    let mut stacks = match but_api::legacy::workspace::stacks(
+        ctx.legacy_project.id,
+        Some(StacksFilter::InWorkspace),
+    ) {
+        Ok(stacks) => stacks,
+        Err(_e) => {
+            try_stack_fixes(ctx, out)?;
+            but_api::legacy::workspace::stacks(
+                ctx.legacy_project.id,
+                Some(StacksFilter::InWorkspace),
+            )
+            .context("Failed to retrieve stacks after attempting fixes")?
+        }
+    };
 
-    let branches = but_api::legacy::virtual_branches::list_branches(ctx.legacy_project.id, filter)?;
+    // Sort by order to ensure we get the leftmost (lowest order) stack first
+    stacks.sort_by_key(|s| s.order.unwrap_or(usize::MAX));
 
-    let target_branch = branches
+    let target_stack = stacks
         .first()
         .ok_or_else(|| anyhow::anyhow!("No active branches found"))?;
 
-    let target_branch_name = target_branch.name.to_string();
+    // Get the name of the top branch in the stack
+    let target_branch_name = target_stack
+        .heads
+        .first()
+        .map(|h| h.name.to_string())
+        .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
 
     if let Some(out) = out.for_human() {
         writeln!(
@@ -107,62 +117,6 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
             format!("✓ Will check out: {}", target_branch_name).green()
         )?;
         writeln!(out)?;
-    }
-
-    // Look for dangling commits on gitbutler/workspace
-    if let Some(out) = out.for_human() {
-        writeln!(out, "{}", "→ Checking for dangling commits...".dimmed())?;
-    }
-
-    let mut workspace_ref = repo.find_reference("refs/heads/gitbutler/workspace")?;
-    let workspace_commit = workspace_ref.peel_to_commit()?;
-
-    // Get all commits on workspace that are not workspace commits
-    let mut dangling_commits = Vec::new();
-    let mut commit = workspace_commit;
-
-    loop {
-        let message = commit.message_raw()?;
-        let message_str = String::from_utf8_lossy(message);
-        let first_line = message_str.lines().next().unwrap_or("");
-
-        // Stop when we hit a workspace commit or reach the base
-        if first_line.starts_with("GitButler Workspace Commit") {
-            break;
-        }
-
-        // This is a dangling commit
-        dangling_commits.push(commit.id().detach());
-
-        // Move to parent
-        let parent_ids: Vec<_> = commit.parent_ids().collect();
-        if parent_ids.is_empty() {
-            break;
-        }
-
-        commit = repo.find_commit(parent_ids[0])?;
-    }
-
-    if dangling_commits.is_empty() {
-        if let Some(out) = out.for_human() {
-            writeln!(out, "  {}", "✓ No dangling commits found".green())?;
-            writeln!(out)?;
-        }
-    } else {
-        // Reverse to get chronological order (oldest first)
-        dangling_commits.reverse();
-
-        if let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "  {}",
-                format!("⚠ Found {} dangling commit(s):", dangling_commits.len()).yellow()
-            )?;
-            for commit_id in &dangling_commits {
-                writeln!(out, "    {}", &commit_id.to_string()[..7])?;
-            }
-            writeln!(out)?;
-        }
     }
 
     // Check out the target branch using Git directly
@@ -175,6 +129,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
     }
 
     // Use git checkout via command
+    let repo = ctx.repo.get()?;
     let workdir = repo
         .workdir()
         .ok_or_else(|| anyhow::anyhow!("Repository has no workdir"))?;
@@ -188,10 +143,26 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         .context("Failed to execute git checkout")?;
 
     if !output.status.success() {
-        anyhow::bail!(
-            "Failed to checkout branch: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        // Checkout failed (likely due to local changes), try soft reset instead
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "  {}",
+                "⚠ Checkout failed, trying soft reset...\n  ⚠ This will leave changes from multiple branches in your working directory.\n  ⚠ You will have to manually remove, stash or re-commit the changes.".yellow()
+            )?;
+        }
+
+        // Also update HEAD to be a symbolic ref to the branch
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(workdir)
+            .args([
+                "symbolic-ref",
+                "HEAD",
+                &format!("refs/heads/{}", target_branch_name),
+            ])
+            .output()
+            .context("Failed to set symbolic ref")?;
     }
 
     if let Some(out) = out.for_human() {
@@ -201,73 +172,6 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
             format!("✓ Checked out: {}", target_branch_name).green()
         )?;
         writeln!(out)?;
-    }
-
-    // Cherry-pick dangling commits if any
-    let mut dangling_commit_results = Vec::new();
-    let mut all_successful = true;
-
-    if !dangling_commits.is_empty() {
-        if let Some(out) = out.for_human() {
-            writeln!(out, "{}", "→ Cherry-picking dangling commits...".dimmed())?;
-        }
-
-        for commit_id in &dangling_commits {
-            let output = std::process::Command::new("git")
-                .arg("-C")
-                .arg(workdir)
-                .arg("cherry-pick")
-                .arg(commit_id.to_string())
-                .output()
-                .context("Failed to execute git cherry-pick")?;
-
-            let cherry_picked = output.status.success();
-
-            if !cherry_picked {
-                all_successful = false;
-                if let Some(out) = out.for_human() {
-                    writeln!(
-                        out,
-                        "  {}",
-                        format!("✗ Failed to cherry-pick: {}", &commit_id.to_string()[..7]).red()
-                    )?;
-                    writeln!(
-                        out,
-                        "    {}",
-                        String::from_utf8_lossy(&output.stderr).trim()
-                    )?;
-                }
-            } else if let Some(out) = out.for_human() {
-                writeln!(
-                    out,
-                    "  {}",
-                    format!("✓ Cherry-picked: {}", &commit_id.to_string()[..7]).green()
-                )?;
-            }
-
-            dangling_commit_results.push(DanglingCommit {
-                commit_id: commit_id.to_string(),
-                cherry_picked,
-            });
-        }
-
-        if let Some(out) = out.for_human() {
-            writeln!(out)?;
-        }
-
-        if !all_successful && let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "{}",
-                "⚠ Some commits could not be cherry-picked automatically.".yellow()
-            )?;
-            writeln!(
-                out,
-                "{}",
-                "  Resolve conflicts and run 'git cherry-pick --continue'".dimmed()
-            )?;
-            writeln!(out)?;
-        }
     }
 
     // Final success message
@@ -294,9 +198,115 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         out.write_value(&TeardownResult {
             snapshot_id,
             checked_out_branch: target_branch_name,
-            dangling_commits: dangling_commit_results,
-            all_cherry_picks_successful: all_successful,
         })?;
+    }
+
+    Ok(())
+}
+
+// a call to get stacks failed, which could be because someone committed on top
+// of gitbutler/workspace. Try to fix that.
+fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "\n{}",
+            "Attempting to fix workspace stacks...".yellow()
+        )?;
+    }
+
+    // check if gitbutler/workspace is pointing at a commit that does not start with "GitButler Workspace Commit"
+    let repo = ctx.repo.get()?;
+
+    // Look for dangling commits on gitbutler/workspace
+    if let Some(out) = out.for_human() {
+        writeln!(out, "{}", "→ Checking for dangling commits...".dimmed())?;
+    }
+
+    let mut workspace_ref = repo.find_reference("refs/heads/gitbutler/workspace")?;
+    let workspace_commit = workspace_ref.peel_to_commit()?;
+
+    // Get all commits on workspace that are not workspace commits
+    let mut dangling_commits = Vec::new();
+    let mut commit = workspace_commit;
+
+    loop {
+        let message = commit.message_raw()?;
+        let message_str = String::from_utf8_lossy(message);
+        let first_line = message_str.lines().next().unwrap_or("");
+
+        // Stop when we hit a workspace commit or reach the base
+        if first_line.starts_with("GitButler Workspace Commit") {
+            break;
+        } // This is a dangling commit
+        dangling_commits.push(commit.clone());
+
+        // Move to parent
+        let parent_ids: Vec<_> = commit.parent_ids().collect();
+        if parent_ids.is_empty() {
+            break;
+        }
+
+        commit = repo.find_commit(parent_ids[0])?;
+    }
+
+    if dangling_commits.is_empty() {
+        if let Some(out) = out.for_human() {
+            writeln!(out, "  {}", "✓ No dangling commits found".green())?;
+            writeln!(out)?;
+        }
+    } else {
+        // soft reset to the first workspace commit
+        let target_commit = commit.id();
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "{}",
+                format!(
+                    "→ Resetting gitbutler/workspace to {}",
+                    &target_commit.to_string()[..7]
+                )
+                .dimmed()
+            )?;
+        }
+        repo.reference(
+            "refs/heads/gitbutler/workspace",
+            target_commit,
+            PreviousValue::Any,
+            "soft resetting to GitButler workspace",
+        )?;
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "  {}",
+                format!(
+                    "✓ gitbutler/workspace reset to {}",
+                    &target_commit.to_string()[..7]
+                )
+                .green()
+            )?;
+        }
+
+        // Reverse to get chronological order (oldest first)
+        dangling_commits.reverse();
+
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "\n  {}",
+                format!(
+                    "⚠ Non-GitButler created commits found.\n  ⚠ Undoing these commits but keeping the changes in your working directory.\n  ⚠ Uncommitted {} dangling commit(s):",
+                    dangling_commits.len()
+                )
+                .yellow()
+            )?;
+            for commit in &dangling_commits {
+                let message = String::from_utf8_lossy(commit.message_raw().unwrap_or((&[]).into()));
+                let first_line = message.lines().next().unwrap_or("");
+                writeln!(out, "    {}: {}", &commit.id().to_string()[..7], first_line)?;
+            }
+            writeln!(out)?;
+        }
     }
 
     Ok(())

@@ -21,6 +21,8 @@ mod rub;
 mod setup;
 #[cfg(feature = "legacy")]
 mod status;
+#[cfg(feature = "legacy")]
+mod teardown;
 
 mod util {
     use crate::utils::Sandbox;

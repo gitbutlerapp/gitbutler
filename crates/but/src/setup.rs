@@ -7,9 +7,29 @@ use command_group::AsyncCommandGroup;
 
 use crate::{args::Args, utils::OutputChannel};
 
+#[derive(Default)]
 pub(crate) enum BackgroundSync {
     Enabled,
+    #[default]
     Disabled,
+}
+
+#[derive(Default)]
+pub(crate) enum WorkspaceCheck {
+    #[default]
+    Enabled,
+    Disabled,
+}
+
+/// Options for initializing the context via [`init_ctx`].
+#[derive(Default)]
+pub(crate) struct InitCtxOptions {
+    /// Controls whether to perform automatic background synchronization.
+    /// Defaults to `BackgroundSync::Disabled`.
+    pub background_sync: BackgroundSync,
+    /// Controls whether to check for workspace commit integrity.
+    /// Defaults to `WorkspaceCheck::Enabled`.
+    pub workspace_check: WorkspaceCheck,
 }
 
 /// Gets or initializes a non-bare repository context.
@@ -21,9 +41,13 @@ pub(crate) enum BackgroundSync {
 /// # Arguments
 ///
 /// * `args` - Command-line arguments containing the current directory
-/// * `background_sync` - Controls whether to perform automatic background synchronization:
-///   - `BackgroundSync::Enabled` - Enable background sync (fetch, PR data, CI status)
-///   - `BackgroundSync::Disabled` - Disable background sync completely
+/// * `options` - Configuration options for context initialization:
+///   - `background_sync` - Controls automatic background synchronization:
+///     - `BackgroundSync::Enabled` - Enable background sync (fetch, PR data, CI status)
+///     - `BackgroundSync::Disabled` - Disable background sync completely
+///   - `workspace_check` - Controls workspace commit integrity checking:
+///     - `WorkspaceCheck::Enabled` - Check for non-workspace commits on gitbutler/workspace
+///     - `WorkspaceCheck::Disabled` - Skip workspace commit checking
 ///
 /// # Returns
 ///
@@ -53,7 +77,7 @@ pub(crate) enum BackgroundSync {
 /// regardless of the configured interval.
 pub fn init_ctx(
     args: &Args,
-    background_sync: BackgroundSync,
+    options: InitCtxOptions,
     out: &mut OutputChannel,
 ) -> anyhow::Result<Context> {
     // lets try to get the repo from the current directory
@@ -67,7 +91,9 @@ pub fn init_ctx(
 
     // Check if we're on gitbutler/workspace with non-workspace commits on top
     // before creating the context
-    check_workspace_commits_before_init(&repo, out)?;
+    if matches!(options.workspace_check, WorkspaceCheck::Enabled) {
+        check_workspace_commits_before_init(&repo, out)?;
+    }
 
     let (ctx, fetch_interval_minutes, last_fetch) = {
         let Some(workdir) = repo.workdir() else {
@@ -145,7 +171,7 @@ pub fn init_ctx(
         }
     };
 
-    match background_sync {
+    match options.background_sync {
         BackgroundSync::Disabled => {
             return Ok(ctx);
         }
