@@ -120,16 +120,20 @@ impl OutputChannel {
 
 /// User input
 impl OutputChannel {
-    /// Return `true` if external prompt support like [`Selection`](cli_prompts::prompts::Selection) can be used.
+    /// Return `true` if external prompt support like [`Selection`](cli_prompts::prompts::Selection) can be used,
+    /// *and* the output is meant *for humans*.
     ///
     /// Note that this is implied to be true if [Self::prepare_for_terminal_input()] returns `Some()`.
     pub fn can_prompt(&self) -> bool {
-        std::io::stdin().is_terminal() && self.stdout.is_terminal()
+        matches!(self.format, OutputFormat::Human)
+            && std::io::stdin().is_terminal()
+            && self.stdout.is_terminal()
     }
+
     /// Before performing further output, obtain an input channel which always bypasses the pager when writing,
     /// while allowing prompting the user for input.
-    /// If `None` is returned, terminal input isn't available and one should suggest to use command-line
-    /// arguments to unambiguously specify an operation.
+    /// If `None` is returned, terminal input isn't available or the output isn't meant for humans,
+    /// and the caller should suggest to use command-line arguments to unambiguously specify an operation.
     pub fn prepare_for_terminal_input(&mut self) -> Option<InputOutputChannel<'_>> {
         use std::io::IsTerminal;
         let stdin = std::io::stdin();
