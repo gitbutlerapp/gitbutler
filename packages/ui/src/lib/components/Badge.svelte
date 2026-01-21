@@ -15,6 +15,7 @@
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
 		skeleton?: boolean;
+		skeletonWidth?: string;
 		children?: Snippet;
 		onclick?: (e: MouseEvent) => void;
 		reversedDirection?: boolean;
@@ -29,6 +30,7 @@
 		icon,
 		tooltip,
 		skeleton,
+		skeletonWidth,
 		children,
 		onclick,
 		reversedDirection
@@ -38,7 +40,7 @@
 {#if skeleton}
 	<SkeletonBone
 		radius="3rem"
-		width={size === 'icon' ? 'var(--size-icon)' : 'var(--size-tag)'}
+		width={skeletonWidth ?? (size === 'icon' ? 'var(--size-icon)' : 'var(--size-tag)')}
 		height={size === 'icon' ? 'var(--size-icon)' : 'var(--size-tag)'}
 	/>
 {:else}
