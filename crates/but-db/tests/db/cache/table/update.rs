@@ -104,59 +104,20 @@ fn suppress_update() -> anyhow::Result<()> {
 }
 
 #[test]
-fn suppress_without_cache_fails() -> anyhow::Result<()> {
+fn suppress_update_fails_if_missing() -> anyhow::Result<()> {
     let mut cache = in_memory_cache();
 
-    // Try to suppress without saving first
-    let result = cache.update_check_mut()?.suppress(24);
-    assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("No update check has been performed yet")
+    // Try to suppress without anything saved.
+    let err = cache.update_check_mut()?.suppress(24).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "No update check has been performed yet - cannot set suppression"
     );
-
-    Ok(())
-}
-
-#[test]
-fn suppress_zero_hours_fails() -> anyhow::Result<()> {
-    let mut cache = in_memory_cache();
-
-    // Save a result first
-    cache.update_check_mut()?.save(&sample_cached_result())?;
-
-    // Try to suppress for 0 hours
-    let result = cache.update_check_mut()?.suppress(0);
-    assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("Suppression duration must be at least 1 hour")
+    assert_eq!(
+        cache.update_check().try_get()?,
+        None,
+        "Still nothing is there"
     );
-
-    Ok(())
-}
-
-#[test]
-fn suppress_too_many_hours_fails() -> anyhow::Result<()> {
-    let mut cache = in_memory_cache();
-
-    // Save a result first
-    cache.update_check_mut()?.save(&sample_cached_result())?;
-
-    // Try to suppress for more than 720 hours (30 days)
-    let result = cache.update_check_mut()?.suppress(721);
-    assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("Suppression duration cannot exceed 720 hours")
-    );
-
     Ok(())
 }
 

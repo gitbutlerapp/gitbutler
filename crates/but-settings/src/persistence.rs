@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use serde_json::json;
@@ -35,10 +35,15 @@ impl AppSettings {
         Ok(serde_json::from_value(settings)?)
     }
 
+    /// Load the default settings, and creating the directory if needed.
     pub fn load_from_default_path_creating_without_customization() -> Result<Self> {
         let config_dir = but_path::app_config_dir()?;
-        std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
-        AppSettings::load(config_dir.join(SETTINGS_FILE).as_path(), None)
+        AppSettings::load(&Self::default_settings_path(&config_dir), None)
+    }
+
+    /// Return where the settings file would be placed in `config_dir`.
+    pub fn default_settings_path(config_dir: &Path) -> PathBuf {
+        config_dir.join(SETTINGS_FILE)
     }
 
     /// Save all value in this instance to the custom configuration file *if they differ* from the defaults.

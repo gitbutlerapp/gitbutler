@@ -39,11 +39,11 @@ impl DbHandle {
 
 impl<'conn> Transaction<'conn> {
     pub fn workspace_rules(&self) -> WorkspaceRulesHandle<'_> {
-        WorkspaceRulesHandle { conn: &self.0 }
+        WorkspaceRulesHandle { conn: self.inner() }
     }
 
     pub fn workspace_rules_mut(&mut self) -> WorkspaceRulesHandleMut<'_> {
-        WorkspaceRulesHandleMut { conn: &self.0 }
+        WorkspaceRulesHandleMut { conn: self.inner() }
     }
 }
 
@@ -57,7 +57,7 @@ pub struct WorkspaceRulesHandleMut<'conn> {
 
 impl WorkspaceRulesHandle<'_> {
     /// Get a WorkspaceRule by id (primary key)
-    pub fn get(&self, id: &str) -> anyhow::Result<Option<WorkspaceRule>> {
+    pub fn get(&self, id: &str) -> rusqlite::Result<Option<WorkspaceRule>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, created_at, enabled, trigger, filters, action \
              FROM workspace_rules WHERE id = ?1",
@@ -80,7 +80,7 @@ impl WorkspaceRulesHandle<'_> {
     }
 
     /// List all workspace rules
-    pub fn list(&self) -> anyhow::Result<Vec<WorkspaceRule>> {
+    pub fn list(&self) -> rusqlite::Result<Vec<WorkspaceRule>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, created_at, enabled, trigger, filters, action FROM workspace_rules",
         )?;
@@ -96,7 +96,7 @@ impl WorkspaceRulesHandle<'_> {
             })
         })?;
 
-        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        results.collect::<Result<Vec<_>, _>>()
     }
 }
 
@@ -107,7 +107,7 @@ impl WorkspaceRulesHandleMut<'_> {
     }
 
     /// Insert a new WorkspaceRule
-    pub fn insert(&mut self, rule: WorkspaceRule) -> anyhow::Result<()> {
+    pub fn insert(&mut self, rule: WorkspaceRule) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO workspace_rules (id, created_at, enabled, trigger, filters, action) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -124,7 +124,7 @@ impl WorkspaceRulesHandleMut<'_> {
     }
 
     /// Update an existing WorkspaceRule
-    pub fn update(&mut self, id: &str, rule: WorkspaceRule) -> anyhow::Result<()> {
+    pub fn update(&mut self, id: &str, rule: WorkspaceRule) -> rusqlite::Result<()> {
         self.conn.execute(
             "UPDATE workspace_rules SET enabled = ?1, trigger = ?2, filters = ?3, action = ?4 \
              WHERE id = ?5",
@@ -134,7 +134,7 @@ impl WorkspaceRulesHandleMut<'_> {
     }
 
     /// Delete a WorkspaceRule by id
-    pub fn delete(&mut self, id: &str) -> anyhow::Result<()> {
+    pub fn delete(&mut self, id: &str) -> rusqlite::Result<()> {
         self.conn
             .execute("DELETE FROM workspace_rules WHERE id = ?1", [id])?;
         Ok(())

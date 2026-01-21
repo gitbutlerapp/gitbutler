@@ -47,14 +47,17 @@
 //! ```
 #![expect(clippy::inconsistent_digit_grouping)]
 
-mod handle;
 #[cfg(feature = "poll")]
 pub mod poll;
 
+mod handle;
+mod table;
+mod transaction;
+
 pub mod cache;
 pub mod migration;
-mod table;
 
+use std::path::PathBuf;
 #[rustfmt::skip]
 pub use table::{
     hunk_assignments::HunkAssignment,
@@ -98,8 +101,8 @@ pub struct M<'a> {
 pub struct AppCacheHandle {
     /// The open connection to the cache.
     conn: rusqlite::Connection,
-    /// The URL to the application cache.
-    url: String,
+    /// The path to the application cache.
+    path: PathBuf,
 }
 
 /// An abstraction over an open database connection, and for access to the ORM layer and [transactions](DbHandle::transaction()).
@@ -109,10 +112,17 @@ pub struct AppCacheHandle {
 pub struct DbHandle {
     /// The opened db connection with migrations applied.
     conn: rusqlite::Connection,
-    /// The URL at which the connection was opened, mainly for debugging.
-    url: String,
+    /// The path at which the connection was opened, mainly for debugging.
+    path: PathBuf,
 }
 
 /// A wrapper for a [`rusqlite::Transaction`] to allow ORM handles to be created more easily,
 /// and make sure multiple dependent calls to the ORM can be consistent.
-pub struct Transaction<'conn>(pub(crate) rusqlite::Transaction<'conn>);
+pub struct Transaction<'conn> {
+    /// The actual transaction as holder of the database connection.
+    /// It's always set.
+    inner: Option<rusqlite::Transaction<'conn>>,
+    /// If `true`, on drop we will reset the busy timeout to the default value, as previously the connection
+    /// was changed to non-blocking.
+    reset_to_blocking_on_drop: bool,
+}

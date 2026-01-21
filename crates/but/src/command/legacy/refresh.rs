@@ -51,16 +51,21 @@ pub fn handle(
     if updates {
         out.write_str("\nChecking for updates...")?;
 
-        // Try to acquire update check lock to prevent concurrent checks
-        if let Ok(_update_lock) = but_update::try_update_check_lock() {
-            // Lock is held for the duration of this block
-            let update_result = but_update::check_status(but_update::AppName::Cli, app_settings);
-            if update_result.is_err() {
-                out.write_str("Failed to check for updates.")?;
+        let mut cache = ctx.app_cache.get_cache_mut()?;
+        let update_result =
+            but_update::check_status(but_update::AppName::Cli, app_settings, &mut cache);
+
+        match update_result {
+            Ok(None) => {
+                out.write_str("Another process is checking for updates.")?;
             }
-            // Lock is automatically released when _update_lock is dropped
+            Ok(Some(status)) => {
+                out.write_str(&format!("Latest: {:?}", status.latest_version))?;
+            }
+            Err(e) => {
+                out.write_str(&format!("Failed to check for updates: {}", e))?;
+            }
         }
-        // If lock acquisition fails, another process is already checking - skip silently
     }
     out.write_str("\nDone.")?;
     Ok(())

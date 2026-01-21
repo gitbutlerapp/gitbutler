@@ -20,5 +20,7 @@ pub fn set_assignments(db: &mut DbHandle, assignments: Vec<HunkAssignment>) -> R
         .map(|a| a.try_into())
         .collect::<Result<Vec<but_db::HunkAssignment>>>(
     )?;
-    db.hunk_assignments_mut()?.set_all(assignments)
+    db.hunk_assignments_mut()?
+        .set_all(assignments)
+        .map_err(Into::into)
 }

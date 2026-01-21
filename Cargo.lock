@@ -765,6 +765,7 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-cursor",
+ "but-db",
  "but-forge",
  "but-gerrit",
  "but-github",
@@ -1516,8 +1517,7 @@ name = "but-update"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "but-core",
- "but-path",
+ "but-db",
  "but-secret",
  "but-settings",
  "chrono",
@@ -1526,7 +1526,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "tempfile",
  "tokio",
 ]
 

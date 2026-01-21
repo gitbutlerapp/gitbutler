@@ -1,8 +1,12 @@
 use crate::M;
+use rusqlite::ErrorCode;
 use tracing::instrument;
 
 /// The error produced when running migrations.
 pub type Error = backoff::Error<rusqlite::Error>;
+
+/// The time we wait at most if the database is locked or busy before giving up acquiring a lock.
+pub(crate) const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// Return a sequence of our own, well known migrations.
 ///
@@ -26,26 +30,67 @@ pub fn run<'m>(
     migrations: impl IntoIterator<Item = M<'m>>,
 ) -> Result<usize, Error> {
     let trans = conn
-        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
-        .map_err(backoff::Error::transient)?;
-    trans
-        .execute_batch(DIESEL_SCHEMA_MIGRATION_TABLE)
-        .map_err(backoff::Error::transient)?;
-
-    let mut count = 0;
+        // Use deferred to allow ourselves to read first without running into locks.
+        // That read can determine that nothing needs to be done, saving a lot of time.
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Deferred)
+        .map_err(transient_if_locked)?;
     let migrations = {
         let mut v: Vec<_> = migrations.into_iter().collect();
         v.sort_by_key(|m| m.up_created_at);
         v
     };
+    // Bail early if our read detects that nothing is to be done
+    let maybe_num_applied_versions = num_applied_versions(&trans, &migrations).ok();
+    if let Some(count) = maybe_num_applied_versions
+        && count == migrations.len()
+    {
+        return Ok(0);
+    }
 
+    let num_applied_consecutive_versions = match maybe_num_applied_versions {
+        Some(count) => count,
+        None => {
+            // We couldn't read the table, be sure it exists and refresh the count just to be sure.
+            trans
+                .execute_batch(DIESEL_SCHEMA_MIGRATION_TABLE)
+                .map_err(transient_if_locked)?;
+            num_applied_versions(&trans, &migrations)?
+        }
+    };
+
+    let mut count = 0;
+    // Run only new migrations (after all existing ones)
+    for migration in migrations.iter().skip(num_applied_consecutive_versions) {
+        trans
+            .execute_batch(migration.up)
+            .map_err(transient_if_locked)?;
+
+        let version = migration.up_created_at.to_string();
+        trans
+            .execute(
+                "INSERT INTO __diesel_schema_migrations (version) VALUES (?1)",
+                [&version],
+            )
+            .map_err(transient_if_locked)?;
+
+        count += 1;
+    }
+
+    trans.commit().map_err(transient_if_locked)?;
+    Ok(count)
+}
+
+fn num_applied_versions(conn: &rusqlite::Connection, migrations: &[M]) -> Result<usize, Error> {
     let existing_versions = {
-        let mut stmt =
-            trans.prepare("SELECT version FROM __diesel_schema_migrations ORDER BY version")?;
-        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut stmt = conn
+            .prepare("SELECT version FROM __diesel_schema_migrations ORDER BY version")
+            .map_err(transient_if_locked)?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(transient_if_locked)?;
         rows.into_iter()
             .collect::<Result<Vec<_>, _>>()
-            .map_err(backoff::Error::permanent)?
+            .map_err(transient_if_locked)?
     };
 
     // Validate that existing migrations match the provided migrations list
@@ -60,7 +105,7 @@ pub fn run<'m>(
                 actual = migrations.len(),
                 num_existing = existing_versions.len()
             )
-            .into()
+                .into()
         } else {
             let candidate_m = migrations[idx];
             (candidate_m.up_created_at != existing_version).then(|| {
@@ -78,25 +123,18 @@ pub fn run<'m>(
         }
     }
 
-    // Run only new migrations (after all existing ones)
-    for migration in migrations.iter().skip(existing_versions.len()) {
-        trans
-            .execute_batch(migration.up)
-            .map_err(backoff::Error::permanent)?;
+    Ok(existing_versions.len())
+}
 
-        let version = migration.up_created_at.to_string();
-        trans
-            .execute(
-                "INSERT INTO __diesel_schema_migrations (version) VALUES (?1)",
-                [&version],
-            )
-            .map_err(backoff::Error::permanent)?;
-
-        count += 1;
+fn transient_if_locked(err: rusqlite::Error) -> Error {
+    if err
+        .sqlite_error_code()
+        .is_some_and(|code| matches!(code, ErrorCode::DatabaseLocked | ErrorCode::DatabaseBusy))
+    {
+        backoff::Error::transient(err)
+    } else {
+        backoff::Error::permanent(err)
     }
-
-    trans.commit().map_err(backoff::Error::transient)?;
-    Ok(count)
 }
 
 impl<'a> M<'a> {
@@ -122,15 +160,13 @@ const DIESEL_SCHEMA_MIGRATION_TABLE: &str =
 /// https://github.com/diesel-rs/diesel/issues/2365#issuecomment-2899347817
 /// TODO: the busy_timeout doesn't seem to be effective.
 pub(crate) fn improve_concurrency(conn: &rusqlite::Connection) -> anyhow::Result<()> {
-    // For safety, execute them one by one. Otherwise, they can individually fail, silently (at least the `busy_timeout`.
-    for query in [
-        "PRAGMA busy_timeout = 30000;        -- wait X milliseconds, but not all at once, before timing out with error.",
-        "PRAGMA journal_mode = WAL;          -- better write-concurrency",
-        "PRAGMA synchronous = NORMAL;        -- fsync only in critical moments",
-        "PRAGMA wal_autocheckpoint = 1000;   -- write WAL changes back every 1000 pages, for an average 1MB WAL file.",
-        "PRAGMA wal_checkpoint(TRUNCATE);    -- free some space by truncating possibly massive WAL files from the last run.",
-    ] {
-        conn.execute_batch(query)?;
-    }
+    let query = r#"
+        PRAGMA journal_mode = WAL;               -- better write-concurrency,
+        PRAGMA synchronous = NORMAL;             -- fsync only in critical moments,
+        PRAGMA wal_autocheckpoint = 1000;        -- write WAL changes back every 1000 pages, for an average 1MB WAL file.,
+        PRAGMA wal_checkpoint(TRUNCATE);         -- free some space by truncating possibly massive WAL files from the last run.,
+        "#;
+    conn.execute_batch(query)?;
+    conn.busy_timeout(BUSY_TIMEOUT)?;
     Ok(())
 }

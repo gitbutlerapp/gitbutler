@@ -179,7 +179,7 @@ gitbutler-stack = { path = "crates/gitbutler-stack" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 
 # Bundled rusqlite for Windows.
-# TODO: is this still needed.
+# TODO: is 'bundled' still needed?
 rusqlite = { version = "0.38.0", features = ["bundled"] }
 backoff = "0.4.0"
 bstr = "1.12.1"

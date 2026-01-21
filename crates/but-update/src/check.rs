@@ -42,6 +42,9 @@ impl std::fmt::Display for AppName {
 /// Defaults to `"nightly"` if not set. The `VERSION` environment variable specifies the current version.
 /// Defaults to `"0.0.0"` if not set.
 ///
+/// Returns `None` if the database lock cannot be obtained, indicating another process is performing
+/// the update check.
+///
 /// # Errors
 ///
 /// Returns an error if the network request fails or times out, the server returns an invalid response,
@@ -49,8 +52,9 @@ impl std::fmt::Display for AppName {
 pub fn check_status(
     app_name: AppName,
     app_settings: &AppSettings,
-) -> anyhow::Result<CheckUpdateStatus> {
-    check_status_with_url(app_name, app_settings, None)
+    cache: &mut but_db::AppCacheHandle,
+) -> anyhow::Result<Option<CheckUpdateStatus>> {
+    check_status_with_url(app_name, app_settings, cache, None)
 }
 
 /// Testing variant of [`check_status`] that allows overriding the update server URL.
@@ -59,12 +63,20 @@ pub fn check_status(
 pub fn check_status_with_url(
     app_name: AppName,
     app_settings: &AppSettings,
+    cache: &mut but_db::AppCacheHandle,
     url_override: Option<&str>,
-) -> anyhow::Result<CheckUpdateStatus> {
+) -> anyhow::Result<Option<CheckUpdateStatus>> {
     // In development/test builds without CHANNEL set, skip update checking
     let Some(channel) = option_env!("CHANNEL") else {
-        return Ok(CheckUpdateStatus::default());
+        return Ok(Some(CheckUpdateStatus::default()));
     };
+
+    // Try to get a transaction without waiting for locks, assume it's us being busy
+    // in another thread or process.
+    let Some(mut trans) = cache.immediate_transaction_nonblocking()? else {
+        return Ok(None);
+    };
+
     let os = env::consts::OS;
     let arch = env::consts::ARCH;
     let version = option_env!("VERSION").unwrap_or("0.0.0");
@@ -126,12 +138,42 @@ pub fn check_status_with_url(
     .join()
     .map_err(|_| anyhow::anyhow!("Update check thread panicked"))?;
 
-    // Save to cache (best-effort, failures are silently ignored)
+    // Save to cache (convert to but_db types)
     if let Ok(status) = &result {
-        crate::cache::save(status);
+        let now = chrono::Utc::now();
+
+        // Get existing cache to preserve suppression
+        let existing = trans.update_check().get();
+        let (suppressed_at, suppress_duration_hours) = existing
+            .and_then(|cached| cached.suppressed_at.zip(cached.suppress_duration_hours))
+            .and_then(|(suppressed_at, duration_hours)| {
+                let suppress_until = suppressed_at + chrono::Duration::hours(duration_hours as i64);
+                if now > suppress_until {
+                    None
+                } else {
+                    Some((suppressed_at, duration_hours))
+                }
+            })
+            .unzip();
+
+        let cached = but_db::cache::CachedCheckResult {
+            checked_at: now,
+            status: but_db::cache::CheckUpdateStatus {
+                up_to_date: status.up_to_date,
+                latest_version: status.latest_version.clone(),
+                release_notes: status.release_notes.clone(),
+                url: status.url.clone(),
+                signature: status.signature.clone(),
+            },
+            suppressed_at,
+            suppress_duration_hours,
+        };
+
+        trans.update_check_mut()?.save(&cached)?;
+        trans.commit()?;
     }
 
-    result
+    result.map(Some)
 }
 
 /// A request to check for the presence of a newer version of the application for a specified

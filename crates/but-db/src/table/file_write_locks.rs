@@ -32,11 +32,11 @@ impl DbHandle {
 
 impl<'conn> Transaction<'conn> {
     pub fn file_write_locks(&self) -> FileWriteLocksHandle<'_> {
-        FileWriteLocksHandle { conn: &self.0 }
+        FileWriteLocksHandle { conn: self.inner() }
     }
 
     pub fn file_write_locks_mut(&mut self) -> FileWriteLocksHandleMut<'_> {
-        FileWriteLocksHandleMut { conn: &self.0 }
+        FileWriteLocksHandleMut { conn: self.inner() }
     }
 }
 
@@ -50,7 +50,7 @@ pub struct FileWriteLocksHandleMut<'conn> {
 
 impl FileWriteLocksHandle<'_> {
     /// Lists all file write locks.
-    pub fn list(&self) -> anyhow::Result<Vec<FileWriteLock>> {
+    pub fn list(&self) -> rusqlite::Result<Vec<FileWriteLock>> {
         let mut stmt = self
             .conn
             .prepare("SELECT path, created_at, owner FROM file_write_locks")?;
@@ -63,7 +63,7 @@ impl FileWriteLocksHandle<'_> {
             })
         })?;
 
-        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        results.collect::<Result<Vec<_>, _>>()
     }
 }
 
@@ -74,7 +74,7 @@ impl FileWriteLocksHandleMut<'_> {
     }
 
     /// Inserts or replaces a file write lock.
-    pub fn insert(&mut self, lock: FileWriteLock) -> anyhow::Result<()> {
+    pub fn insert(&mut self, lock: FileWriteLock) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO file_write_locks (path, created_at, owner) VALUES (?1, ?2, ?3)",
             rusqlite::params![lock.path, lock.created_at, lock.owner],
@@ -83,7 +83,7 @@ impl FileWriteLocksHandleMut<'_> {
     }
 
     /// Deletes a file write lock by path.
-    pub fn delete(&mut self, path: &str) -> anyhow::Result<()> {
+    pub fn delete(&mut self, path: &str) -> rusqlite::Result<()> {
         self.conn
             .execute("DELETE FROM file_write_locks WHERE path = ?1", [path])?;
         Ok(())

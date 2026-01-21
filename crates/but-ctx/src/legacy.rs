@@ -2,8 +2,8 @@ use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
 use but_settings::AppSettings;
 
 use crate::{
-    Context, LegacyProjectId, new_ondemand_app_cache, new_ondemand_db, new_ondemand_git2_repo,
-    new_ondemand_repo,
+    Context, LegacyProjectId, app_settings, new_ondemand_app_cache, new_ondemand_db,
+    new_ondemand_git2_repo, new_ondemand_repo,
 };
 
 pub(crate) mod types {
@@ -32,7 +32,7 @@ impl Context {
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir),
-            app_cache: new_ondemand_app_cache(),
+            app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
         }
     }
 
@@ -42,13 +42,13 @@ impl Context {
     ) -> anyhow::Result<Self> {
         let gitdir = legacy_project.git_dir().to_owned();
         Ok(Context {
-            settings: AppSettings::load_from_default_path_creating_without_customization()?,
+            settings: app_settings(but_path::app_config_dir()?)?,
             gitdir: gitdir.clone(),
             legacy_project,
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir),
-            app_cache: new_ondemand_app_cache(),
+            app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
         })
     }
 
@@ -58,13 +58,13 @@ impl Context {
         let legacy_project = gitbutler_project::get(project_id)?;
         let gitdir = legacy_project.git_dir().to_owned();
         Ok(Context {
-            settings: AppSettings::load_from_default_path_creating_without_customization()?,
+            settings: app_settings(but_path::app_config_dir()?)?,
             gitdir: gitdir.clone(),
             legacy_project,
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir),
-            app_cache: new_ondemand_app_cache(),
+            app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
         })
     }
 }

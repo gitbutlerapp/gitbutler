@@ -12,5 +12,5 @@ mod workspace_rules;
 
 /// Return a valid DB handle with all migrations applied, ready for use, and *in-memory* only.
 fn in_memory_db() -> DbHandle {
-    DbHandle::new_at_url(":memory:").expect("in-memory always works")
+    DbHandle::new_at_path(":memory:").expect("in-memory always works")
 }

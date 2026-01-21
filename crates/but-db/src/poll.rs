@@ -28,9 +28,9 @@ impl DbHandle {
         &self,
         kind: ItemKind,
         interval: std::time::Duration,
-    ) -> anyhow::Result<std::sync::mpsc::Receiver<anyhow::Result<ItemKind>>> {
+    ) -> anyhow::Result<std::sync::mpsc::Receiver<rusqlite::Result<ItemKind>>> {
         let (tx, rx) = std::sync::mpsc::channel();
-        let db = DbHandle::new_at_url(&self.url)?;
+        let db = DbHandle::new_at_path(&self.path)?;
         std::thread::Builder::new()
             .name("Gitbutler-DB-watcher".into())
             .spawn(move || {
@@ -128,9 +128,9 @@ impl DbHandle {
         interval: std::time::Duration,
     ) -> anyhow::Result<tokio::sync::mpsc::Receiver<anyhow::Result<ItemKind>>> {
         let (tx, rx) = tokio::sync::mpsc::channel(8);
-        let url = self.url.clone();
+        let url = self.path.clone();
         tokio::spawn(async move {
-            let this = match DbHandle::new_at_url(&url) {
+            let this = match DbHandle::new_at_path(&url) {
                 Ok(db) => db,
                 Err(e) => {
                     let _ = tx.send(Err(e)).await;
@@ -157,7 +157,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(e)).await,
+                            Err(e) => tx.send(Err(e.into())).await,
                         }
                     } else if kind & to_check == ItemKind::Workflows {
                         let res = this.workflows().list(0, i64::MAX);
@@ -170,7 +170,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(e)).await,
+                            Err(e) => tx.send(Err(e.into())).await,
                         }
                     } else if kind & to_check == ItemKind::Assignments {
                         let res = this.hunk_assignments().list_all();
@@ -183,7 +183,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(e)).await,
+                            Err(e) => tx.send(Err(e.into())).await,
                         }
                     } else if kind & to_check == ItemKind::Rules {
                         let res = this.workspace_rules().list();
@@ -196,7 +196,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(e)).await,
+                            Err(e) => tx.send(Err(e.into())).await,
                         }
                     } else if kind & to_check == ItemKind::ClaudePermissionRequests {
                         let res = this.claude().list_permission_requests();
@@ -209,7 +209,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(e)).await,
+                            Err(e) => tx.send(Err(e.into())).await,
                         }
                     } else {
                         eprintln!("BUG: didn't implement a branch for {to_check:?}");

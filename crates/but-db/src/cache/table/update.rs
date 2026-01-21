@@ -1,4 +1,4 @@
-use crate::{AppCacheHandle, M};
+use crate::{AppCacheHandle, M, Transaction};
 use chrono::{DateTime, Utc};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
@@ -33,9 +33,23 @@ impl AppCacheHandle {
     }
 
     /// Return a handle for mutating update checks.
-    pub fn update_check_mut(&mut self) -> anyhow::Result<UpdateCheckHandleMut<'_>> {
+    pub fn update_check_mut(&mut self) -> rusqlite::Result<UpdateCheckHandleMut<'_>> {
         Ok(UpdateCheckHandleMut {
             sp: self.conn.savepoint()?,
+        })
+    }
+}
+
+impl Transaction<'_> {
+    /// Return a handle for read-only update checks.
+    pub fn update_check(&self) -> UpdateCheckHandle<'_> {
+        UpdateCheckHandle { conn: self.inner() }
+    }
+
+    /// Return a handle for mutating update checks.
+    pub fn update_check_mut(&mut self) -> rusqlite::Result<UpdateCheckHandleMut<'_>> {
+        Ok(UpdateCheckHandleMut {
+            sp: self.inner_mut().savepoint()?,
         })
     }
 }
@@ -104,7 +118,7 @@ impl UpdateCheckHandle<'_> {
     }
 
     /// Like [`Self::get`], but fallible.
-    pub fn try_get(&self) -> anyhow::Result<Option<CachedCheckResult>> {
+    pub fn try_get(&self) -> rusqlite::Result<Option<CachedCheckResult>> {
         let mut stmt = self.conn.prepare(
             "SELECT checked_at, up_to_date, latest_version, release_notes, url, signature,
                     suppressed_at, suppress_duration_hours
@@ -155,7 +169,7 @@ impl UpdateCheckHandleMut<'_> {
     ///
     /// This replaces any existing cached result. Preserves suppression settings
     /// if they are still valid.
-    pub fn save(self, result: &CachedCheckResult) -> anyhow::Result<()> {
+    pub fn save(self, result: &CachedCheckResult) -> rusqlite::Result<()> {
         let sp = self.sp;
 
         sp.execute(
@@ -180,24 +194,12 @@ impl UpdateCheckHandleMut<'_> {
         Ok(())
     }
 
-    /// Suppresses update notifications for a specified duration.
+    /// Suppresses update notifications for a specified duration in `hours`.
     ///
     /// Updates the existing cache record with suppression settings.
-    pub fn suppress(self, hours: u32) -> anyhow::Result<()> {
-        // Validate input
-        const MAX_SUPPRESSION_HOURS: u32 = 720; // 30 days
-
-        if hours == 0 {
-            anyhow::bail!("Suppression duration must be at least 1 hour");
-        }
-
-        if hours > MAX_SUPPRESSION_HOURS {
-            anyhow::bail!(
-                "Suppression duration cannot exceed {} hours (30 days)",
-                MAX_SUPPRESSION_HOURS
-            );
-        }
-
+    ///
+    /// If no update check record exists yet, the function returns an errors.
+    pub fn suppress(self, hours: u32) -> rusqlite::Result<()> {
         let sp = self.sp;
 
         // Check if a record exists
@@ -208,7 +210,11 @@ impl UpdateCheckHandleMut<'_> {
         )?;
 
         if !exists {
-            anyhow::bail!("No update check has been performed yet");
+            return Err(rusqlite::Error::ToSqlConversionFailure(Box::<
+                dyn std::error::Error + Send + Sync,
+            >::from(
+                "No update check has been performed yet - cannot set suppression".to_string(),
+            )));
         }
 
         // Update suppression fields
@@ -224,7 +230,7 @@ impl UpdateCheckHandleMut<'_> {
     }
 
     /// Clears suppression settings from the cache.
-    pub fn clear_suppression(self) -> anyhow::Result<()> {
+    pub fn clear_suppression(self) -> rusqlite::Result<()> {
         let sp = self.sp;
 
         sp.execute(

@@ -1,5 +1,5 @@
 use crate::migration::improve_concurrency;
-use crate::{DbHandle, Transaction, migration};
+use crate::{DbHandle, migration};
 use std::path::{Path, PathBuf};
 use tracing::instrument;
 
@@ -7,19 +7,7 @@ const FILE_NAME: &str = "but.sqlite";
 
 impl std::fmt::Debug for DbHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DbHandle").field("db", &self.url).finish()
-    }
-}
-
-impl Transaction<'_> {
-    /// Consume the transaction and commit it, without recovery.
-    pub fn commit(self) -> Result<(), rusqlite::Error> {
-        self.0.commit()
-    }
-
-    /// Roll all changes so far back, making this instance unusable.
-    pub fn rollback(self) -> Result<(), rusqlite::Error> {
-        self.0.rollback()
+        f.debug_struct("DbHandle").field("db", &self.path).finish()
     }
 }
 
@@ -37,36 +25,22 @@ impl DbHandle {
         if let Some(parent_dir_to_create) = db_file_path.parent().filter(|dir| !dir.exists()) {
             std::fs::create_dir_all(parent_dir_to_create)?;
         }
-        let db_file_path = db_file_path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid UTF-8 in database file path"))?;
-        Self::new_at_url(db_file_path)
+        Self::new_at_path(db_file_path)
     }
 
-    /// A new instance connecting to the project database at the given `url`.
-    #[instrument(level = "debug", skip(url), err(Debug))]
-    pub fn new_at_url(url: impl Into<String>) -> anyhow::Result<Self> {
-        let url = url.into();
-        let mut conn = rusqlite::Connection::open(&url)?;
+    /// A new instance connecting to the project database at the given `path`.
+    #[instrument(level = "debug", skip(path), err(Debug))]
+    pub fn new_at_path(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
+        let path = path.into();
+        let mut conn = rusqlite::Connection::open(&path)?;
         improve_concurrency(&conn)?;
         run_migrations(&mut conn)?;
-        Ok(DbHandle { conn, url })
+        Ok(DbHandle { conn, path })
     }
 
     /// Return the path to the standard database file.
     pub fn db_file_path(db_dir: impl AsRef<Path>) -> PathBuf {
         db_dir.as_ref().join(FILE_NAME)
-    }
-}
-
-/// Utilities
-impl DbHandle {
-    /// Create a new transaction which can be used to create new table handles on.
-    /// # IMPORTANT
-    /// Don't forget to call [commit()](rusqlite::Transaction::commit()) to actually persist the result.
-    /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
-    pub fn transaction(&mut self) -> anyhow::Result<Transaction<'_>> {
-        Ok(Transaction(self.conn.transaction()?))
     }
 }
 

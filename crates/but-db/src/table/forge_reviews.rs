@@ -62,7 +62,7 @@ impl DbHandle {
         ForgeReviewsHandle { conn: &self.conn }
     }
 
-    pub fn forge_reviews_mut(&mut self) -> anyhow::Result<ForgeReviewsHandleMut<'_>> {
+    pub fn forge_reviews_mut(&mut self) -> rusqlite::Result<ForgeReviewsHandleMut<'_>> {
         Ok(ForgeReviewsHandleMut {
             sp: self.conn.savepoint()?,
         })
@@ -71,12 +71,12 @@ impl DbHandle {
 
 impl<'conn> Transaction<'conn> {
     pub fn forge_reviews(&self) -> ForgeReviewsHandle<'_> {
-        ForgeReviewsHandle { conn: &self.0 }
+        ForgeReviewsHandle { conn: self.inner() }
     }
 
-    pub fn forge_reviews_mut(&mut self) -> anyhow::Result<ForgeReviewsHandleMut<'_>> {
+    pub fn forge_reviews_mut(&mut self) -> rusqlite::Result<ForgeReviewsHandleMut<'_>> {
         Ok(ForgeReviewsHandleMut {
-            sp: self.0.savepoint()?,
+            sp: self.inner_mut().savepoint()?,
         })
     }
 }
@@ -91,7 +91,7 @@ pub struct ForgeReviewsHandleMut<'conn> {
 
 impl ForgeReviewsHandle<'_> {
     /// Lists all forge reviews in the database.
-    pub fn list_all(&self) -> anyhow::Result<Vec<ForgeReview>> {
+    pub fn list_all(&self) -> rusqlite::Result<Vec<ForgeReview>> {
         let mut stmt = self.conn.prepare(
             "SELECT html_url, number, title, body, author, labels, draft, source_branch, \
              target_branch, sha, created_at, modified_at, merged_at, closed_at, \
@@ -125,7 +125,7 @@ impl ForgeReviewsHandle<'_> {
             })
         })?;
 
-        results.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        results.collect::<Result<Vec<_>, _>>()
     }
 }
 
@@ -137,7 +137,7 @@ impl ForgeReviewsHandleMut<'_> {
 
     /// Sets the forge_reviews table to the provided values.
     /// Any existing entries that are not in the provided values are deleted.
-    pub fn set_all(self, reviews: Vec<ForgeReview>) -> anyhow::Result<()> {
+    pub fn set_all(self, reviews: Vec<ForgeReview>) -> rusqlite::Result<()> {
         self.sp.execute("DELETE FROM forge_reviews", [])?;
 
         for review in reviews {
