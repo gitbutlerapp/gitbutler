@@ -17,6 +17,12 @@ pub use legacy::types::{LegacyProject, LegacyProjectId};
 /// Utilities to control access to the project directory of the context.
 pub mod access;
 
+mod ondemand;
+pub use ondemand::OnDemand;
+
+mod ondemand_cache;
+use crate::ondemand_cache::OnDemandCache;
+
 /// A self-describing handle to the path of the project on disk, typically the `.git` directory of a Git repository.
 ///
 /// With it, all project data and metadata can be accessed.
@@ -97,7 +103,7 @@ impl From<ThreadSafeContext> for Context {
             repo: ondemand,
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir.clone()),
-            app_cache: new_ondemand_app_cache(),
+            app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
             gitdir,
             #[cfg(feature = "legacy")]
             legacy_project,
@@ -124,9 +130,13 @@ impl std::fmt::Debug for Context {
 /// Lifecycle
 impl Context {
     /// Create a new instance from just the `gitdir` of the repository we should provide context for.
-    pub fn new(gitdir: impl Into<PathBuf>) -> anyhow::Result<Context> {
+    /// `config_dir` is where the application wide configuration lives.
+    pub fn new(
+        gitdir: impl Into<PathBuf>,
+        config_dir: impl AsRef<Path>,
+    ) -> anyhow::Result<Context> {
         let gitdir = gitdir.into();
-        let settings = AppSettings::load_from_default_path_creating_without_customization()?;
+        let settings = app_settings(config_dir)?;
         #[cfg(not(feature = "legacy"))]
         {
             Ok(Context {
@@ -135,7 +145,7 @@ impl Context {
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
-                app_cache: new_ondemand_app_cache(),
+                app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
             })
         }
         #[cfg(feature = "legacy")]
@@ -154,7 +164,7 @@ impl Context {
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
-                app_cache: new_ondemand_app_cache(),
+                app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
             }
             .with_repo(repo))
         }
@@ -174,13 +184,13 @@ impl Context {
                 .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
             let gitdir = repo.git_dir().to_owned();
             Ok(Context {
-                settings: AppSettings::load_from_default_path_creating_without_customization()?,
+                settings: app_settings(but_path::app_config_dir()?)?,
                 gitdir: gitdir.clone(),
                 legacy_project,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
-                app_cache: new_ondemand_app_cache(),
+                app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
             }
             .with_repo(repo))
         }
@@ -190,11 +200,11 @@ impl Context {
             let gitdir = repo.git_dir().to_owned();
             Ok(crate::Context {
                 gitdir: gitdir.clone(),
-                settings: AppSettings::load_from_default_path_creating_without_customization()?,
+                settings: app_settings(but_path::app_config_dir()?)?,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
-                app_cache: new_ondemand_app_cache(),
+                app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
             })
         }
     }
@@ -205,7 +215,7 @@ impl Context {
     /// **Note that it does not have support for legacy projects to encourage single-branch compatible code.**
     pub fn from_repo(repo: gix::Repository) -> anyhow::Result<Context> {
         let gitdir = repo.git_dir().to_owned();
-        let settings = AppSettings::load_from_default_path_creating_without_customization()?;
+        let settings = app_settings(but_path::app_config_dir()?)?;
 
         Ok(Context {
             #[cfg(feature = "legacy")]
@@ -215,7 +225,7 @@ impl Context {
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir),
-            app_cache: new_ondemand_app_cache(),
+            app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
         }
         .with_repo(repo))
     }
@@ -430,10 +440,15 @@ fn new_ondemand_db(gitdir: PathBuf) -> OnDemand<but_db::DbHandle> {
     OnDemand::new(move || but_db::DbHandle::new_in_directory(project_data_dir(&gitdir)))
 }
 
-fn new_ondemand_app_cache() -> OnDemandCache<but_db::AppCacheHandle> {
-    OnDemandCache::new(move || {
-        but_db::AppCacheHandle::new_in_directory(but_path::app_cache_dir().ok())
-    })
+fn new_ondemand_app_cache(cache_dir: Option<PathBuf>) -> OnDemandCache<but_db::AppCacheHandle> {
+    OnDemandCache::new(move || but_db::AppCacheHandle::new_in_directory(cache_dir.clone()))
+}
+
+fn app_settings(config_dir: impl AsRef<Path>) -> anyhow::Result<AppSettings> {
+    AppSettings::load(
+        &AppSettings::default_settings_path(config_dir.as_ref()),
+        None,
+    )
 }
 
 #[cfg(feature = "legacy")]
@@ -444,9 +459,3 @@ fn default_legacy_project_at_repo(repo: &gix::Repository) -> LegacyProject {
             repo.workdir().map(ToOwned::to_owned),
         )
 }
-
-mod ondemand;
-use crate::ondemand_cache::OnDemandCache;
-pub use ondemand::OnDemand;
-
-mod ondemand_cache;
