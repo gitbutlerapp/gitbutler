@@ -1,7 +1,6 @@
 use anyhow::Context as _;
 use but_api::json::Error;
 use but_error::Code;
-use but_path::AppChannel;
 use but_settings::AppSettingsWithDiskSync;
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
@@ -208,7 +207,6 @@ pub fn build<R: Runtime>(
         ])
         .build()?;
 
-    let channel = AppChannel::new();
     let help_menu = SubmenuBuilder::new(handle, "Help")
         .text("help/documentation", "Documentation")
         .text("help/debugging-guide", "Debugging Guide")
@@ -217,32 +215,25 @@ pub fn build<R: Runtime>(
         .separator()
         .text("help/share-debug-info", "Share Debug Info…")
         .text("help/report-issue", "Create an Issue")
-        .separator();
-    let is_macos_stable_build = cfg!(target_os = "macos") && matches!(channel, AppChannel::Release);
-    let help_menu = if !is_macos_stable_build {
-        // On macOS, the directories are called `com.gitbutler.app`, which doesn't work with `open`.
-        help_menu
-            .text("help/open-logs-folder", "Open Logs Folder")
-            .text("help/open-config-folder", "Open Config Folder")
-            .text("help/open-cache-folder", "Open Cache Folder")
-            .separator()
-    } else {
-        help_menu
-    }
-    .text("help/discord", "Discord")
-    .text("help/youtube", "YouTube")
-    .text("help/bluesky", "Bluesky")
-    .text("help/x", "X")
-    .separator()
-    .item(
-        &MenuItemBuilder::with_id(
-            "help/version",
-            format!("Version {}", handle.package_info().version),
+        .separator()
+        .text("help/open-logs-folder", "Open Logs Folder")
+        .text("help/open-config-folder", "Open Config Folder")
+        .text("help/open-cache-folder", "Open Cache Folder")
+        .separator()
+        .text("help/discord", "Discord")
+        .text("help/youtube", "YouTube")
+        .text("help/bluesky", "Bluesky")
+        .text("help/x", "X")
+        .separator()
+        .item(
+            &MenuItemBuilder::with_id(
+                "help/version",
+                format!("Version {}", handle.package_info().version),
+            )
+            .enabled(false)
+            .build(handle)?,
         )
-        .enabled(false)
-        .build(handle)?,
-    )
-    .build()?;
+        .build()?;
 
     Menu::with_items(
         handle,
