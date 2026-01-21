@@ -114,6 +114,11 @@ struct DryRunBranchInfo {
     /// Name of the branch this is stacked on top of (if any)
     #[serde(skip_serializing_if = "Option::is_none")]
     stacked_on: Option<String>,
+    /// Whether the branch has conflicted commits
+    has_conflicted_commits: bool,
+    /// List of conflicted commit short IDs
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    conflicted_commits: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -313,6 +318,15 @@ fn handle_dry_run(
                         })
                         .map(|b| b.name.to_string());
 
+                    // Check for conflicted commits
+                    let conflicted_commits: Vec<String> = branch_detail
+                        .commits
+                        .iter()
+                        .filter(|c| c.has_conflicts)
+                        .map(|c| c.id.to_string()[..7].to_string())
+                        .collect();
+                    let has_conflicted_commits = !conflicted_commits.is_empty();
+
                     dry_run_infos.push(DryRunBranchInfo {
                         branch_name: branch_name.clone(),
                         stack_name: stack_name.clone(),
@@ -324,6 +338,8 @@ fn handle_dry_run(
                         requires_force,
                         warning,
                         stacked_on,
+                        has_conflicted_commits,
+                        conflicted_commits,
                     });
 
                     break;
@@ -558,6 +574,45 @@ fn handle_dry_run(
                         "Force push required".yellow()
                     )?;
                 }
+
+                // Show conflicted commits warning
+                if info.has_conflicted_commits {
+                    writeln!(progress)?;
+                    writeln!(
+                        progress,
+                        "{}  {} {}",
+                        line_prefix.dimmed(),
+                        "✗".red().bold(),
+                        format!(
+                            "Cannot push: {} conflicted commit{}",
+                            info.conflicted_commits.len(),
+                            if info.conflicted_commits.len() == 1 { "" } else { "s" }
+                        )
+                        .red()
+                        .bold()
+                    )?;
+                    writeln!(progress)?;
+                    for conflicted_id in &info.conflicted_commits {
+                        writeln!(
+                            progress,
+                            "{}    {} {}",
+                            line_prefix.dimmed(),
+                            conflicted_id.red(),
+                            "(conflicted)".dimmed()
+                        )?;
+                    }
+                    writeln!(progress)?;
+                    writeln!(
+                        progress,
+                        "{}  {}",
+                        line_prefix.dimmed(),
+                        format!(
+                            "Resolve conflicts with: {}",
+                            format!("but resolve <commit>").green()
+                        )
+                        .dimmed()
+                    )?;
+                }
             }
 
             writeln!(progress)?;
@@ -565,6 +620,10 @@ fn handle_dry_run(
 
         let total_commits: usize = dry_run_infos.iter().map(|i| i.unpushed_commits).sum();
         let total_branches = dry_run_infos.len();
+        let conflicted_branches: Vec<_> = dry_run_infos
+            .iter()
+            .filter(|i| i.has_conflicted_commits)
+            .collect();
 
         writeln!(progress)?;
         writeln!(
@@ -584,6 +643,27 @@ fn handle_dry_run(
                 "branches"
             }
         )?;
+
+        if !conflicted_branches.is_empty() {
+            writeln!(progress)?;
+            writeln!(
+                progress,
+                "{} {} {} {} conflicted commits and cannot be pushed",
+                "⚠".red().bold(),
+                conflicted_branches.len().to_string().red().bold(),
+                if conflicted_branches.len() == 1 {
+                    "branch has"
+                } else {
+                    "branches have"
+                },
+                if conflicted_branches.iter().map(|b| b.conflicted_commits.len()).sum::<usize>() == 1 {
+                    ""
+                } else {
+                    ""
+                }
+            )?;
+        }
+
         writeln!(progress)?;
         writeln!(
             progress,
