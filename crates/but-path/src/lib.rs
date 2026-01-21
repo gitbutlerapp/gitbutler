@@ -69,10 +69,14 @@ pub fn identifier() -> &'static str {
     })
 }
 
+/// A way to learn about the currently configured compile-time app-channel.
 #[derive(Debug)]
 pub enum AppChannel {
+    /// This is a nightly build.
     Nightly,
+    /// This is a release build.
     Release,
+    /// The fallback if nothing is specified: developer mode.
     Dev,
 }
 

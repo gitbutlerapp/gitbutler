@@ -1,5 +1,6 @@
 use anyhow::{Context as _, anyhow};
 use but_api::json::Error;
+use but_path::AppChannel;
 use tauri::{AppHandle, Manager, Runtime};
 use tracing::instrument;
 
@@ -49,6 +50,18 @@ fn open_existing(dir: &std::path::Path) -> Result<(), Error> {
         )
         .into());
     }
-    Ok(open::that(dir)
-        .with_context(|| format!("Failed to open directory at '{}'", dir.display()))?)
+
+    let is_macos_stable_build =
+        cfg!(target_os = "macos") && matches!(AppChannel::new(), AppChannel::Release);
+    // On macOS stable builds, it would try to open `com.gitbutler.app` and treat it as application,
+    // which would fail. Instead, we reveal, which selects the directory in the finder and users
+    // can right-click it to see the package contents. Better than nothing.
+    // Maybe we can rename the application ID at some point.
+    if is_macos_stable_build {
+        opener::reveal(dir).map_err(anyhow::Error::from)
+    } else {
+        open::that(dir).map_err(anyhow::Error::from)
+    }
+    .with_context(|| format!("Failed to open directory at '{}'", dir.display()))
+    .map_err(Into::into)
 }

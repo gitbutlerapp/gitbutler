@@ -70,6 +70,9 @@ tracing-appender = "0.2.4"
 tracing-subscriber.workspace = true
 tracing-forest.workspace = true
 open.workspace = true
+## This is only used on macOS when it's the stable build to open `com.gitbutler.app` folders.
+## Ideally, we could only use the dependency then.
+opener = { version = "0.8.3", features = ["reveal"] }
 url = "2.5.4"
 but-path.workspace = true
 uuid.workspace = true
