@@ -2,7 +2,7 @@ use std::{collections::HashSet, str::FromStr};
 
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
-use but_core::RepositoryExt;
+use but_core::{RepositoryExt, sync::WorkspaceWriteGuard};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_meta::VirtualBranchesTomlMetadata;
@@ -297,10 +297,30 @@ pub fn amend_commit_from_worktree_changes(
 ) -> Result<commit_engine::ui::CreateCommitOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
+    let data_dir = ctx.project_data_dir();
+    amend_commit_and_count_failures(
+        stack_id,
+        commit_id,
+        worktree_changes,
+        &mut guard,
+        &repo,
+        &data_dir,
+    )
+}
+
+/// Amend a commit with the given changes and return the number of rejected files
+pub fn amend_commit_and_count_failures(
+    stack_id: StackId,
+    commit_id: gix::ObjectId,
+    worktree_changes: Vec<but_core::DiffSpec>,
+    guard: &mut WorkspaceWriteGuard,
+    repo: &gix::Repository,
+    data_dir: &std::path::Path,
+) -> anyhow::Result<commit_engine::ui::CreateCommitOutcome> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
-        &repo,
-        &ctx.project_data_dir(),
+        repo,
+        data_dir,
         Some(stack_id),
         commit_engine::Destination::AmendCommit {
             commit_id,

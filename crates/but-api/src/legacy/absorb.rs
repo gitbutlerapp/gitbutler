@@ -1,17 +1,21 @@
 use but_api_macros::but_api;
 use but_ctx::Context;
+use but_graph::Graph;
 use but_hunk_assignment::{
     AbsorptionReason, AbsorptionTarget, CommitAbsorption, FileAbsorption, HunkAssignment,
 };
 use gix::ObjectId;
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::Path,
+};
 use tracing::instrument;
 
 use bstr::{BString, ByteSlice};
-use but_core::DiffSpec;
+use but_core::{DiffSpec, sync::WorkspaceWriteGuard};
 use but_hunk_dependency::ui::{HunkLock, HunkLockTarget};
 use but_rebase::graph_rebase::mutate::InsertSide;
-use but_workspace::{commit_engine::ui::CreateCommitOutcome, ui::StackDetails};
+use but_workspace::ui::StackDetails;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
@@ -20,16 +24,36 @@ use gitbutler_project::{Project, ProjectId};
 use gitbutler_stack::StackId;
 use itertools::Itertools;
 
-use crate::{commit::commit_insert_blank_only, legacy::diff::changes_in_worktree};
+use crate::{
+    commit::commit_insert_black_only_impl,
+    legacy::{diff::changes_in_worktree, workspace::amend_commit_and_count_failures},
+};
 
-/// Absorb a single file into the appropriate commit
+/// Absorb multiple changes into their target commits as per the provided absorption plan
 #[but_api]
 #[instrument(err(Debug))]
 pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyhow::Result<usize> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
+    let data_dir = ctx.project_data_dir();
     // Create a snapshot before performing absorb operations
     // This allows the user to undo if needed
-    create_snapshot(ctx, OperationKind::Absorb);
+    let _snapshot = ctx
+        .create_snapshot(
+            SnapshotDetails::new(OperationKind::Absorb),
+            guard.write_permission(),
+        )
+        .ok(); // Ignore errors for snapshot creation
 
+    absorb_impl(absorption_plan, &mut guard, &repo, &data_dir)
+}
+
+pub fn absorb_impl(
+    absorption_plan: Vec<CommitAbsorption>,
+    guard: &mut WorkspaceWriteGuard,
+    repo: &gix::Repository,
+    data_dir: &Path,
+) -> anyhow::Result<usize> {
     // Apply each group to its target commit and track failures
     let mut total_rejected = 0;
     let mut commit_map = CommitMap::new();
@@ -43,8 +67,14 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
                 .collect::<Vec<_>>(),
         )?;
         let commit_id = commit_map.find_mapped_id(absorption.commit_id);
-        let outcome =
-            amend_commit_and_count_failures(ctx, absorption.stack_id, commit_id, diff_specs)?;
+        let outcome = amend_commit_and_count_failures(
+            absorption.stack_id,
+            commit_id,
+            diff_specs,
+            guard,
+            repo,
+            data_dir,
+        )?;
         for mapping in &outcome.commit_mapping {
             commit_map.add_mapping(mapping.0, mapping.1);
         }
@@ -53,21 +83,25 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
     Ok(total_rejected)
 }
 
-/// Group changes by target commit and prepare absorptions for display
+/// Generate an absorption plan based on the provided target, based on hunk dependencies, assingments and other heuristics
 #[but_api]
 #[instrument(err(Debug))]
 pub fn absorption_plan(
     ctx: &mut Context,
     target: AbsorptionTarget,
 ) -> anyhow::Result<Vec<CommitAbsorption>> {
+    let project_id = ctx.legacy_project.id;
+
     let assignments = match target {
         AbsorptionTarget::Branch { branch_name } => {
             // Get all worktree changes, assignments, and dependencies
+            // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
+            // At this time, the context is passed pretty deep into the function.
             let worktree_changes = changes_in_worktree(ctx)?;
             let all_assignments = worktree_changes.assignments;
 
             // Get the stack ID for this branch
-            let stacks = crate::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
+            let stacks = crate::legacy::workspace::stacks(project_id, None)?;
 
             // Find the stack that contains this branch
             let stack = stacks
@@ -97,13 +131,20 @@ pub fn absorption_plan(
         AbsorptionTarget::HunkAssignments { assignments } => assignments,
         AbsorptionTarget::All => {
             // Get all worktree changes, assignments, and dependencies
+            // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
+            // At this time, the context is passed pretty deep into the function.
             let worktree_changes = changes_in_worktree(ctx)?;
             worktree_changes.assignments
         }
     };
 
+    let guard = ctx.exclusive_worktree_access();
+    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
+    let repo = ctx.repo.get()?;
+
     // Group all changes by their target commit
-    let changes_by_commit = group_changes_by_target_commit(ctx, &assignments)?;
+    let changes_by_commit =
+        group_changes_by_target_commit(project_id, &graph, &repo, &assignments)?;
 
     // Prepare commit absorptions for display
     let commit_absorptions = prepare_commit_absorptions(&ctx.legacy_project, changes_by_commit)?;
@@ -113,7 +154,9 @@ pub fn absorption_plan(
 
 /// Group changes by their target commit based on dependencies and assignments
 fn group_changes_by_target_commit(
-    ctx: &Context,
+    project_id: ProjectId,
+    graph: &Graph,
+    repo: &gix::Repository,
     assignments: &[HunkAssignment],
 ) -> anyhow::Result<GroupedChanges> {
     let mut changes_by_commit: GroupedChanges = BTreeMap::new();
@@ -123,8 +166,13 @@ fn group_changes_by_target_commit(
     // Process each assignment
     for assignment in assignments {
         // Determine the target commit for this assignment
-        let (stack_id, commit_id, reason) =
-            determine_target_commit(ctx, assignment, &mut stack_details_cache)?;
+        let (stack_id, commit_id, reason) = determine_target_commit(
+            project_id,
+            assignment,
+            &mut stack_details_cache,
+            graph,
+            repo,
+        )?;
 
         let entry = changes_by_commit
             .entry((stack_id, commit_id))
@@ -182,16 +230,16 @@ fn find_top_most_lock<'a>(
 
 /// Determine the target commit for an assignment based on dependencies and assignments
 fn determine_target_commit(
-    ctx: &Context,
+    project_id: ProjectId,
     assignment: &HunkAssignment,
     stack_details_cache: &mut HashMap<StackId, StackDetails>,
+    graph: &Graph,
+    repo: &gix::Repository,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     gix::ObjectId,
     AbsorptionReason,
 )> {
-    let project_id = ctx.legacy_project.id;
-
     // Priority 1: Check if there's a dependency lock for this hunk
     if let Some(locks) = &assignment.hunk_locks {
         if let Some(lock) = find_top_most_lock(locks, project_id, stack_details_cache) {
@@ -223,8 +271,9 @@ fn determine_target_commit(
             .branch_details
             .first()
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
-        commit_insert_blank_only(
-            ctx,
+        commit_insert_black_only_impl(
+            graph,
+            repo,
             crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
         )?;
@@ -257,8 +306,9 @@ fn determine_target_commit(
             .branch_details
             .first()
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
-        commit_insert_blank_only(
-            ctx,
+        commit_insert_black_only_impl(
+            graph,
+            repo,
             crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
         )?;
@@ -375,26 +425,6 @@ fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyho
     let commit = repo.find_commit(commit_id)?;
     let message = commit.message()?.title.to_string();
     Ok(message)
-}
-
-/// Amend a commit with the given changes and return the number of rejected files
-fn amend_commit_and_count_failures(
-    ctx: &Context,
-    stack_id: but_core::ref_metadata::StackId,
-    commit_id: gix::ObjectId,
-    diff_specs: Vec<DiffSpec>,
-) -> anyhow::Result<CreateCommitOutcome> {
-    crate::legacy::workspace::amend_commit_from_worktree_changes(
-        ctx, stack_id, commit_id, diff_specs,
-    )
-}
-
-/// Create a snapshot in the oplog before performing an operation
-fn create_snapshot(ctx: &mut Context, operation: OperationKind) {
-    let mut guard = ctx.exclusive_worktree_access();
-    let _snapshot = ctx
-        .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
-        .ok(); // Ignore errors for snapshot creation
 }
 
 /// Tracks mappings between old and new commit IDs during rebase operations
