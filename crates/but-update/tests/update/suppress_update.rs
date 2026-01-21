@@ -53,7 +53,7 @@ fn suppress_zero_hours_fails() -> anyhow::Result<()> {
 }
 
 fn in_memory_cache() -> AppCacheHandle {
-    AppCacheHandle::new_at_url(":memory:")
+    AppCacheHandle::new_at_path(":memory:")
 }
 
 fn sample_status(up_to_date: bool) -> CheckUpdateStatus {

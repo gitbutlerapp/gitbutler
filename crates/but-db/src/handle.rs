@@ -7,7 +7,7 @@ const FILE_NAME: &str = "but.sqlite";
 
 impl std::fmt::Debug for DbHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DbHandle").field("db", &self.url).finish()
+        f.debug_struct("DbHandle").field("db", &self.path).finish()
     }
 }
 
@@ -25,20 +25,17 @@ impl DbHandle {
         if let Some(parent_dir_to_create) = db_file_path.parent().filter(|dir| !dir.exists()) {
             std::fs::create_dir_all(parent_dir_to_create)?;
         }
-        let db_file_path = db_file_path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid UTF-8 in database file path"))?;
-        Self::new_at_url(db_file_path)
+        Self::new_at_path(db_file_path)
     }
 
-    /// A new instance connecting to the project database at the given `url`.
-    #[instrument(level = "debug", skip(url), err(Debug))]
-    pub fn new_at_url(url: impl Into<String>) -> anyhow::Result<Self> {
-        let url = url.into();
-        let mut conn = rusqlite::Connection::open(&url)?;
+    /// A new instance connecting to the project database at the given `path`.
+    #[instrument(level = "debug", skip(path), err(Debug))]
+    pub fn new_at_path(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
+        let path = path.into();
+        let mut conn = rusqlite::Connection::open(&path)?;
         improve_concurrency(&conn)?;
         run_migrations(&mut conn)?;
-        Ok(DbHandle { conn, url })
+        Ok(DbHandle { conn, path })
     }
 
     /// Return the path to the standard database file.

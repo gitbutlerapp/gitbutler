@@ -30,5 +30,5 @@ mod handle {
 
 /// Return a valid cache handle with all migrations applied, ready for use, and *in-memory* only.
 fn in_memory_cache() -> but_db::AppCacheHandle {
-    but_db::AppCacheHandle::new_at_url(":memory:")
+    but_db::AppCacheHandle::new_at_path(":memory:")
 }

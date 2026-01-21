@@ -57,6 +57,7 @@ mod transaction;
 pub mod cache;
 pub mod migration;
 
+use std::path::PathBuf;
 #[rustfmt::skip]
 pub use table::{
     hunk_assignments::HunkAssignment,
@@ -100,8 +101,8 @@ pub struct M<'a> {
 pub struct AppCacheHandle {
     /// The open connection to the cache.
     conn: rusqlite::Connection,
-    /// The URL to the application cache.
-    url: String,
+    /// The path to the application cache.
+    path: PathBuf,
 }
 
 /// An abstraction over an open database connection, and for access to the ORM layer and [transactions](DbHandle::transaction()).
@@ -111,8 +112,8 @@ pub struct AppCacheHandle {
 pub struct DbHandle {
     /// The opened db connection with migrations applied.
     conn: rusqlite::Connection,
-    /// The URL at which the connection was opened, mainly for debugging.
-    url: String,
+    /// The path at which the connection was opened, mainly for debugging.
+    path: PathBuf,
 }
 
 /// A wrapper for a [`rusqlite::Transaction`] to allow ORM handles to be created more easily,
