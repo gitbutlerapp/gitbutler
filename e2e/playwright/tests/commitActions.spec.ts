@@ -17,8 +17,10 @@ import {
 	waitForTestId,
 	waitForTestIdToNotExist
 } from '../src/util.ts';
+import { getHunkLineSelector } from '../src/hunk.ts';
 import { expect, Page, test } from '@playwright/test';
-import { copyFileSync, writeFileSync } from 'fs';
+import { execSync } from 'node:child_process';
+import { copyFileSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 let gitbutler: GitButler;
@@ -28,7 +30,7 @@ test.use({
 });
 
 test.afterEach(async () => {
-	await gitbutler.destroy();
+	await gitbutler?.destroy();
 });
 
 const FIXTURE_IMAGE_PATH = join(import.meta.dirname, '../fixtures/lesh0.jpg');
@@ -102,6 +104,91 @@ test('should be able to amend a file to a commit', async ({ page, context }, tes
 
 	const pushButton = getByTestId(page, 'stack-push-button');
 	await expect(pushButton).toBeDisabled();
+});
+
+test('should drag only selected lines when dropping a hunk onto a commit', async ({
+	page,
+	context
+}, testInfo) => {
+	test.setTimeout(600_000);
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	const projectDir = gitbutler.pathInWorkdir('local-clone/');
+	const fileName = 'a_file';
+	const filePath = gitbutler.pathInWorkdir(`local-clone/${fileName}`);
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+
+	await page.goto('/');
+	// E2E starts from a fresh configdir, so onboarding may show up before the workspace.
+	await getByTestId(page, 'analytics-continue').click({ timeout: 10_000 }).catch(() => {});
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	const selectedLine = 'SELECTED_BY_DRAG';
+	const remainingLine = 'REMAIN_UNCOMMITTED';
+
+	// Append two added lines to the end of the file to keep them in a single hunk.
+	const original = readFileSync(filePath, 'utf8').replace(/\r/g, '');
+	const originalLineCount = original.trimEnd().split('\n').length;
+	const selectedLineNo = originalLineCount + 1;
+	writeFileSync(filePath, `${original.trimEnd()}\n${selectedLine}\n${remainingLine}\n`, 'utf8');
+
+	const uncommittedChangesList = getByTestId(page, 'uncommitted-changes-file-list');
+	const fileItem = uncommittedChangesList
+		.getByTestId('file-list-item')
+		.filter({ hasText: fileName });
+	await expect(fileItem).toBeVisible();
+	await fileItem.click();
+
+	const unifiedDiffView = getByTestId(page, 'unified-diff-view');
+	await expect(unifiedDiffView).toBeVisible();
+
+	// Only select the first added line, not the second.
+	const selectedLineLocator = unifiedDiffView
+		.locator(getHunkLineSelector(fileName, selectedLineNo, 'right'))
+		.first();
+	await expect(selectedLineLocator).toBeVisible();
+	await selectedLineLocator.click();
+
+	// Drag the hunk onto the top commit to amend it. The expected outcome is that only the
+	// selected line is applied to the commit, leaving the other line as an uncommitted change.
+	const hunkDragHandle = unifiedDiffView.locator('thead.table__title').first();
+	const topCommitLocator = getByTestId(page, 'commit-row').filter({ hasText: 'branch1:  second commit' });
+	await expect(topCommitLocator).toBeVisible();
+
+	await dragAndDropByLocator(page, hunkDragHandle, topCommitLocator);
+
+	// Ensure only the selected line is amended into the commit.
+	// (Reading the commit directly is more robust than relying on `git diff` output on Windows.)
+	await expect
+		.poll(
+			() => {
+				const committed = execSync(`git show branch1:${fileName}`, { cwd: projectDir })
+					.toString('utf8')
+					.replace(/\r/g, '');
+				const worktree = readFileSync(filePath, 'utf8').replace(/\r/g, '');
+				return {
+					committedHasSelected: committed.includes(selectedLine),
+					committedHasRemaining: committed.includes(remainingLine),
+					worktreeHasSelected: worktree.includes(selectedLine),
+					worktreeHasRemaining: worktree.includes(remainingLine)
+				};
+			},
+			{ timeout: 30_000 }
+		)
+		.toEqual({
+			committedHasSelected: true,
+			committedHasRemaining: false,
+			worktreeHasSelected: true,
+			worktreeHasRemaining: true
+		});
+
+	await expect(fileItem).toBeVisible();
 });
 
 test('should be able to commit a bunch of times in a row and edit their message', async ({

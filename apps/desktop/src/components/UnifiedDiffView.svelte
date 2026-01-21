@@ -15,6 +15,7 @@
 		canBePartiallySelected,
 		getLineLocks,
 		hunkHeaderEquals,
+		lineIdsToHunkHeaders,
 		type DiffHunk
 	} from '$lib/hunks/hunk';
 	import { type SelectionId } from '$lib/selection/key';
@@ -194,6 +195,14 @@
 			{:else}
 				{#each filter(diff.subject.hunks) as hunk}
 					{@const selection = uncommittedService.hunkCheckStatus(stackId, change.path, hunk)}
+					{@const selectedHunkHeaders =
+						selection.current.selected && selection.current.lines.length > 0
+							? lineIdsToHunkHeaders(
+									selection.current.lines,
+									hunk.diff,
+									selectionId.type === 'worktree' ? 'commit' : 'discard'
+								)
+							: undefined}
 					{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies?.dependencies ?? [])}
 					<div
 						class="hunk-content"
@@ -205,7 +214,8 @@
 								isUncommittedChange,
 								stackId || null,
 								commitId,
-								selectionId
+								selectionId,
+								selectedHunkHeaders
 							),
 							disabled: !draggable,
 							chipType: 'hunk',

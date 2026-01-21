@@ -18,6 +18,20 @@ import type { UncommittedService } from '$lib/selection/uncommittedService.svelt
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
 
+function effectiveHunkHeaders(data: HunkDropDataV3) {
+	if (data.selectedHunkHeaders && data.selectedHunkHeaders.length > 0) {
+		return data.selectedHunkHeaders;
+	}
+	return [
+		{
+			oldStart: data.hunk.oldStart,
+			oldLines: data.hunk.oldLines,
+			newStart: data.hunk.newStart,
+			newLines: data.hunk.newLines
+		}
+	];
+}
+
 /** Handler when drop changes on a special outside lanes dropzone. */
 export class OutsideLaneDzHandler implements DropzoneHandler {
 	private macros: StackMacros;
@@ -175,14 +189,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						{
 							previousPathBytes,
 							pathBytes: data.change.pathBytes,
-							hunkHeaders: [
-								{
-									oldStart: data.hunk.oldStart,
-									oldLines: data.hunk.oldLines,
-									newStart: data.hunk.newStart,
-									newLines: data.hunk.newLines
-								}
-							]
+							hunkHeaders: effectiveHunkHeaders(data)
 						}
 					]
 				);

@@ -13,7 +13,9 @@ export class HunkDropDataV3 {
 		readonly uncommitted: boolean,
 		readonly stackId: string | null,
 		readonly commitId: string | undefined,
-		readonly selectionId: SelectionId
+		readonly selectionId: SelectionId,
+		/** Optional: when set, only these headers should be moved/amended (line selection). */
+		readonly selectedHunkHeaders?: HunkHeader[]
 	) {}
 }
 
