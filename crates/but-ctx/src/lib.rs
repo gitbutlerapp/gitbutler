@@ -55,7 +55,10 @@ pub struct Context {
     pub settings: AppSettings,
     /// The repository `.git` directory, and always the best paths to identify an actual repository
     /// (or repository associated with a submodule or worktree).
+    /// It's also used for various derived directories to store GitButler data in.
     pub gitdir: PathBuf,
+    /// The directory to store application caches in.
+    pub app_cache_dir: Option<PathBuf>,
     /// The most recently opened repository of the project, which also provides access to the `git_dir`.
     pub repo: OnDemand<gix::Repository>,
     /// The most recently opened `git2` repository of the project.
@@ -78,6 +81,8 @@ pub struct ThreadSafeContext {
     pub settings: AppSettings,
     /// The directory at which the repository itself is located.
     pub gitdir: PathBuf,
+    /// The directory to store application caches in.
+    pub app_cache_dir: Option<PathBuf>,
     /// The most recently opened repository of the project, which also provides access to the `git_dir`.
     pub repo: Option<gix::ThreadSafeRepository>,
     /// The legacy implementation, for all the old code.
@@ -90,6 +95,7 @@ impl From<ThreadSafeContext> for Context {
         let ThreadSafeContext {
             settings,
             gitdir,
+            app_cache_dir,
             repo,
             #[cfg(feature = "legacy")]
             legacy_project,
@@ -103,8 +109,9 @@ impl From<ThreadSafeContext> for Context {
             repo: ondemand,
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir.clone()),
-            app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
+            app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             gitdir,
+            app_cache_dir,
             #[cfg(feature = "legacy")]
             legacy_project,
         }
@@ -130,13 +137,15 @@ impl std::fmt::Debug for Context {
 /// Lifecycle
 impl Context {
     /// Create a new instance from just the `gitdir` of the repository we should provide context for.
-    /// `config_dir` is where the application wide configuration lives.
+    /// `app_config_dir` is where the application wide configuration lives.
+    /// `app_cache_dir` is where application wide caches live. It's optional as caches are optional.
     pub fn new(
         gitdir: impl Into<PathBuf>,
-        config_dir: impl AsRef<Path>,
+        app_config_dir: impl AsRef<Path>,
+        app_cache_dir: Option<PathBuf>,
     ) -> anyhow::Result<Context> {
         let gitdir = gitdir.into();
-        let settings = app_settings(config_dir)?;
+        let settings = app_settings(app_config_dir)?;
         #[cfg(not(feature = "legacy"))]
         {
             Ok(Context {
@@ -145,7 +154,8 @@ impl Context {
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
-                app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
+                app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+                app_cache_dir,
             })
         }
         #[cfg(feature = "legacy")]
@@ -164,7 +174,8 @@ impl Context {
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
-                app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
+                app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+                app_cache_dir,
             }
             .with_repo(repo))
         }
@@ -174,6 +185,7 @@ impl Context {
     pub fn discover(directory: impl AsRef<Path>) -> anyhow::Result<Context> {
         let directory = directory.as_ref();
         let repo = gix::discover(directory)?;
+        let app_cache_dir = but_path::app_cache_dir().ok();
         #[cfg(feature = "legacy")]
         {
             use anyhow::Context as _;
@@ -190,7 +202,8 @@ impl Context {
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
-                app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
+                app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+                app_cache_dir,
             }
             .with_repo(repo))
         }
@@ -204,7 +217,8 @@ impl Context {
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(gitdir),
-                app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
+                app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+                app_cache_dir,
             })
         }
     }
@@ -216,6 +230,7 @@ impl Context {
     pub fn from_repo(repo: gix::Repository) -> anyhow::Result<Context> {
         let gitdir = repo.git_dir().to_owned();
         let settings = app_settings(but_path::app_config_dir()?)?;
+        let app_cache_dir = but_path::app_cache_dir().ok();
 
         Ok(Context {
             #[cfg(feature = "legacy")]
@@ -225,7 +240,8 @@ impl Context {
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(gitdir),
-            app_cache: new_ondemand_app_cache(but_path::app_cache_dir().ok()),
+            app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+            app_cache_dir,
         }
         .with_repo(repo))
     }
@@ -319,6 +335,7 @@ impl Context {
         ThreadSafeContext {
             settings: self.settings.clone(),
             gitdir: self.gitdir.clone(),
+            app_cache_dir: self.app_cache_dir.clone(),
             repo: self.repo.get_opt().clone().map(|r| r.into_sync()),
             #[cfg(feature = "legacy")]
             legacy_project: self.legacy_project.clone(),
@@ -334,12 +351,14 @@ impl Context {
             git2_repo: _,
             db: _,
             app_cache: _,
+            app_cache_dir,
             #[cfg(feature = "legacy")]
             legacy_project,
         } = self;
         ThreadSafeContext {
             settings,
             gitdir,
+            app_cache_dir,
             repo: repo.take().map(|r| r.into_sync()),
             #[cfg(feature = "legacy")]
             legacy_project,
