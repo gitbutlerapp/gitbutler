@@ -183,7 +183,7 @@ impl Snapshot {
         changed
     }
 
-    #[instrument(level = "debug", skip(repo))]
+    #[instrument(level = "debug", skip(self, repo))]
     fn reconcile_and_fix_vb_toml(&mut self, repo: &gix::Repository) -> anyhow::Result<()> {
         fn make_heads_match(ws_stack: &but_graph::projection::Stack, vb_stack: &mut Stack) -> bool {
             // Always leave extra segments.
