@@ -104,6 +104,24 @@ fn suppress_update() -> anyhow::Result<()> {
 }
 
 #[test]
+fn suppress_update_fails_if_missing() -> anyhow::Result<()> {
+    let mut cache = in_memory_cache();
+
+    // Try to suppress without anything saved.
+    let err = cache.update_check_mut()?.suppress(24).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "No update check has been performed yet - cannot set suppression"
+    );
+    assert_eq!(
+        cache.update_check().try_get()?,
+        None,
+        "Still nothing is there"
+    );
+    Ok(())
+}
+
+#[test]
 fn clear_suppression() -> anyhow::Result<()> {
     let mut cache = in_memory_cache();
 

@@ -168,11 +168,11 @@ fn determine_sync_operations(
     let update_check_interval_sec = ctx.settings.app_updates_check_interval_sec;
     let should_check_updates = if update_check_interval_sec == 0 {
         // Update checks disabled
-        false
+        None
     } else {
         // Try to access cache to determine last check time
         let cache = but_db::AppCacheHandle::new_in_directory(but_path::app_cache_dir().ok());
-        but_update::last_checked(&cache)
+        let should_check = but_update::last_checked(&cache)
             .ok()
             .flatten()
             .map(|last_check| {
@@ -181,12 +181,12 @@ fn determine_sync_operations(
                 let elapsed = now.signed_duration_since(last_check);
                 elapsed.num_seconds() >= update_check_interval_sec as i64
             })
-            .unwrap_or(true) // No cache exists - this is first check, should check
+            .unwrap_or(true); // No cache exists - this is first check, should check
+        should_check.then_some(cache)
     };
 
     // Try to acquire lock for update check by attempting to get a non-blocking transaction
-    let can_check_updates = if should_check_updates {
-        let mut cache = but_db::AppCacheHandle::new_in_directory(but_path::app_cache_dir().ok());
+    let can_check_updates = if let Some(mut cache) = should_check_updates {
         !but_update::is_probably_still_running(&mut cache)
     } else {
         false

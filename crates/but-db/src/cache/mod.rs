@@ -93,7 +93,7 @@ fn open_with_migrations_infallible<'p, 'm>(
                     },
                     Err(err) => tracing::warn!(
                         ?err,
-                        "Url at '{path}' not writable, falling back to in-memory database",
+                        "Path at '{path}' not writable, falling back to in-memory database",
                         path = path.display(),
                     ),
                 }

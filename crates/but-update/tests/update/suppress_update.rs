@@ -21,19 +21,6 @@ fn suppress_too_many_hours_fails() -> anyhow::Result<()> {
 }
 
 #[test]
-fn suppress_without_cache_succeeds() -> anyhow::Result<()> {
-    let mut cache = in_memory_cache();
-
-    // Try to suppress without saving first
-    let result = but_update::suppress_update(&mut cache, 24);
-    assert!(
-        result.is_ok(),
-        "Success is preferred to not bother the user for something that will fix itself"
-    );
-    Ok(())
-}
-
-#[test]
 fn suppress_zero_hours_fails() -> anyhow::Result<()> {
     let mut cache = in_memory_cache();
 

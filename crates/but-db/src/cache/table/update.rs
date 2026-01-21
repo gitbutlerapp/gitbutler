@@ -198,8 +198,7 @@ impl UpdateCheckHandleMut<'_> {
     ///
     /// Updates the existing cache record with suppression settings.
     ///
-    /// If no update check record exists yet, this function logs a warning and
-    /// returns `Ok(())` without modifying the database.
+    /// If no update check record exists yet, the function returns an errors.
     pub fn suppress(self, hours: u32) -> rusqlite::Result<()> {
         let sp = self.sp;
 
@@ -211,8 +210,11 @@ impl UpdateCheckHandleMut<'_> {
         )?;
 
         if !exists {
-            tracing::warn!("No update check has been performed yet - cannot set suppression");
-            return Ok(());
+            return Err(rusqlite::Error::ToSqlConversionFailure(Box::<
+                dyn std::error::Error + Send + Sync,
+            >::from(
+                "No update check has been performed yet - cannot set suppression".to_string(),
+            )));
         }
 
         // Update suppression fields
