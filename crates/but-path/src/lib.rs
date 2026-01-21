@@ -7,7 +7,7 @@ use anyhow::{Context, bail};
 ///
 /// > ⚠️Keep in sync with `tauri::AppHandle::path().app_data_dir().`
 pub fn app_data_dir() -> anyhow::Result<PathBuf> {
-    if let Ok(test_dir) = std::env::var("E2E_TEST_APP_DATA_DIR") {
+    if let Some(test_dir) = std::env::var_os("E2E_TEST_APP_DATA_DIR") {
         return Ok(PathBuf::from(test_dir).join("com.gitbutler.app"));
     }
     dirs::data_dir()
@@ -18,7 +18,21 @@ pub fn app_data_dir() -> anyhow::Result<PathBuf> {
 /// The directory to store logs in, **one per channel**.
 ///
 /// > ⚠️Keep in sync with `tauri::AppHandle::path().app_log_dir().`
+///
+/// # Platform-specific locations
+///
+/// - **macOS**: `~/Library/Logs/<identifier()>`
+/// - **Linux/Windows/other**: `<data_local_dir>/<identifier()>/logs`
+///
+/// # Testing behavior
+///
+/// When the `E2E_TEST_APP_DATA_DIR` environment variable is set (used by E2E tests),
+/// this function returns `<E2E_TEST_APP_DATA_DIR>/logs` instead of the platform-specific
+/// default directories above.
 pub fn app_log_dir() -> anyhow::Result<PathBuf> {
+    if let Some(test_dir) = std::env::var_os("E2E_TEST_APP_DATA_DIR") {
+        return Ok(PathBuf::from(test_dir).join("logs"));
+    }
     if cfg!(target_os = "macos") {
         dirs::home_dir()
             .with_context(|| "Couldn't resolve home directory")
@@ -34,7 +48,7 @@ pub fn app_log_dir() -> anyhow::Result<PathBuf> {
 ///
 /// > ⚠️Keep in sync with `tauri::AppHandle::path().app_config_dir().`
 pub fn app_config_dir() -> anyhow::Result<PathBuf> {
-    if let Ok(test_dir) = std::env::var("E2E_TEST_APP_DATA_DIR") {
+    if let Some(test_dir) = std::env::var_os("E2E_TEST_APP_DATA_DIR") {
         return Ok(PathBuf::from(test_dir).join("gitbutler"));
     }
     dirs::config_dir()
@@ -69,7 +83,7 @@ pub fn app_config_dir() -> anyhow::Result<PathBuf> {
 ///
 /// Returns an error if the platform's cache directory cannot be determined.
 pub fn app_cache_dir() -> anyhow::Result<PathBuf> {
-    if let Ok(test_dir) = std::env::var("E2E_TEST_APP_DATA_DIR") {
+    if let Some(test_dir) = std::env::var_os("E2E_TEST_APP_DATA_DIR") {
         return Ok(PathBuf::from(test_dir).join("cache"));
     }
     dirs::cache_dir()
