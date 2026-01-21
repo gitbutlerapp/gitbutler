@@ -254,6 +254,10 @@ impl Snapshot {
         )?;
 
         let ws = graph.into_workspace()?;
+        if !ws.kind.has_managed_commit() {
+            tracing::debug!("Avoiding workspace->vb-toml reconciliation in unmanaged workspace");
+            return Ok(());
+        }
         let mut seen = BTreeSet::new();
 
         if let Some((computed_lower_bound, target)) =
