@@ -32,7 +32,7 @@ pub fn app_log_dir() -> anyhow::Result<PathBuf> {
 
 /// The directory to store application-wide settings in, **shared for all channels**.
 ///
-/// > ⚠️Keep in sync with `tauri::AppHandle::path().app_log_dir().`
+/// > ⚠️Keep in sync with `tauri::AppHandle::path().app_config_dir().`
 pub fn app_config_dir() -> anyhow::Result<PathBuf> {
     if let Ok(test_dir) = std::env::var("E2E_TEST_APP_DATA_DIR") {
         return Ok(PathBuf::from(test_dir).join("gitbutler"));

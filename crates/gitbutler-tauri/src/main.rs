@@ -87,8 +87,8 @@ fn main() -> anyhow::Result<()> {
         but_path::app_log_dir()?,
     );
     std::fs::create_dir_all(&app_data_dir).context("failed to create app data dir")?;
-    std::fs::create_dir_all(&app_cache_dir).context("failed to create cache dir")?;
-    std::fs::create_dir_all(&app_log_dir).context("failed to create cache dir")?;
+    std::fs::create_dir_all(&app_cache_dir).context("failed to create app cache dir")?;
+    std::fs::create_dir_all(&app_log_dir).context("failed to create app log dir")?;
 
     let app_settings_for_menu = app_settings.clone();
     runtime.block_on(async {

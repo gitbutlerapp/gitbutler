@@ -252,7 +252,6 @@ pub fn build<R: Runtime>(
     )
 }
 
-/// `handle` is needed to access the undo queue, and buttons for that are only available when the `undo` feature is enabled.
 pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
     if event.id() == "edit/undo" {
         eprintln!("use app undo queue to undo.");
