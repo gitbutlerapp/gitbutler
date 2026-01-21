@@ -1,9 +1,16 @@
+use colored::Colorize;
+use std::path::Path;
+
+use but_core::sync::WorkspaceWriteGuard;
 use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorptionTarget, CommitAbsorption, HunkAssignment, JsonAbsorbOutput, JsonCommitAbsorption,
     JsonFileAbsorption,
 };
-use colored::Colorize;
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 
 use crate::{
     CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedCliId, utils::OutputChannel,
@@ -25,6 +32,7 @@ pub(crate) fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
     source: Option<&str>,
+    dry_run: bool,
 ) -> anyhow::Result<()> {
     let mut id_map = IdMap::new_from_context(ctx, None)?;
     id_map.add_committed_file_info_from_context(ctx)?;
@@ -35,29 +43,22 @@ pub(crate) fn handle(
                 matches!(s, CliId::Uncommitted { .. }) || matches!(s, CliId::Branch { .. })
             })
         });
-    if let Some(source) = source {
+
+    let target = if let Some(source) = source {
         match source {
             CliId::Uncommitted(UncommittedCliId {
                 hunk_assignments, ..
             }) => {
                 // Absorb this particular file
-                absorb_assignments(
-                    ctx,
-                    AbsorptionTarget::HunkAssignments {
-                        assignments: hunk_assignments.into(),
-                    },
-                    out,
-                )?;
+                AbsorptionTarget::HunkAssignments {
+                    assignments: hunk_assignments.into(),
+                }
             }
             CliId::Branch { name, .. } => {
                 // Absorb everything that is assigned to this lane
-                absorb_assignments(
-                    ctx,
-                    AbsorptionTarget::Branch {
-                        branch_name: name.clone(),
-                    },
-                    out,
-                )?;
+                AbsorptionTarget::Branch {
+                    branch_name: name.clone(),
+                }
             }
             _ => {
                 anyhow::bail!("Invalid source: expected an uncommitted file or branch");
@@ -65,23 +66,51 @@ pub(crate) fn handle(
         }
     } else {
         // Try to absorb everything uncommitted
-        absorb_assignments(ctx, Default::default(), out)?;
-    }
-    Ok(())
-}
+        Default::default()
+    };
 
-/// Absorb a single file into the appropriate commit
-fn absorb_assignments(
-    ctx: &mut Context,
-    target: AbsorptionTarget,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+    // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
+    // At this time, the context is passed pretty deep into the function.
     let absorption_plan = but_api::legacy::absorb::absorption_plan(ctx, target)?;
 
     // Display the plan
     display_absorption_plan(&absorption_plan, out)?;
 
-    let total_rejected = but_api::legacy::absorb::absorb(ctx, absorption_plan)?;
+    if dry_run {
+        // Nothing more to do
+        if let Some(out) = out.for_human() {
+            let message = "Dry run complete. No changes were made.".green();
+            writeln!(out, "{}", message)?;
+        }
+        return Ok(());
+    }
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
+    let data_dir = ctx.project_data_dir();
+    // Create a snapshot before performing absorb operations
+    // This allows the user to undo if needed
+    let _snapshot = ctx
+        .create_snapshot(
+            SnapshotDetails::new(OperationKind::Absorb),
+            guard.write_permission(),
+        )
+        .ok(); // Ignore errors for snapshot creation
+    absorb_assignments(absorption_plan, &mut guard, &repo, &data_dir, out)?;
+
+    Ok(())
+}
+
+/// Absorb a single file into the appropriate commit
+fn absorb_assignments(
+    absorption_plan: Vec<CommitAbsorption>,
+    guard: &mut WorkspaceWriteGuard,
+    repo: &gix::Repository,
+    data_dir: &Path,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let total_rejected =
+        but_api::legacy::absorb::absorb_impl(absorption_plan, guard, repo, data_dir)?;
 
     // Display completion message
     if let Some(out) = out.for_human() {
