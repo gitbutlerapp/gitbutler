@@ -182,6 +182,11 @@
 					padding-right: 0;
 					padding-left: 2px;
 				}
+
+				/* When no icon, use equal padding */
+				&:not(:has(.badge__icon)) .badge__label {
+					padding: 0 5px;
+				}
 			}
 
 			&.tag-size {
@@ -192,6 +197,11 @@
 				& .badge__icon {
 					padding-right: 0;
 					padding-left: 4px;
+				}
+
+				/* When no icon, use equal padding */
+				&:not(:has(.badge__icon)) .badge__label {
+					padding: 0 8px;
 				}
 			}
 		}

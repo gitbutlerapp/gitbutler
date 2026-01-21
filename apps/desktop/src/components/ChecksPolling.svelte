@@ -58,7 +58,7 @@
 		if (!checksService && isFork) {
 			return {
 				style: 'gray',
-				icon: 'info',
+				icon: undefined,
 				text: 'No PR checks',
 				reducedText: 'No checks',
 				tooltip: 'Checks for forked repos only available on the web.'
