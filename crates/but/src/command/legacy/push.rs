@@ -647,12 +647,15 @@ fn push_single_branch(
 
 // Shared implementation for pushing a single branch
 fn push_single_branch_impl(
-    _ctx: &Context,
+    ctx: &Context,
     project: &Project,
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
 ) -> anyhow::Result<PushResult> {
+    // Check for conflicted commits before pushing
+    check_for_conflicted_commits(ctx, project, branch_name)?;
+
     // Find stack_id from branch name
     let stack_id = find_stack_id_by_branch_name(project, branch_name)?;
 
@@ -1138,5 +1141,68 @@ fn find_stack_id_by_branch_name(project: &Project, branch_name: &str) -> anyhow:
         "Branch '{}' not found in any stack. Available branches:\n{}",
         branch_name,
         format_branch_suggestions(&available_branches)
+    ))
+}
+
+/// Check if a branch contains any conflicted commits
+/// Returns an error if conflicted commits are found
+fn check_for_conflicted_commits(
+    _ctx: &Context,
+    project: &Project,
+    branch_name: &str,
+) -> anyhow::Result<()> {
+    let stacks = but_api::legacy::workspace::stacks(
+        project.id,
+        Some(but_workspace::legacy::StacksFilter::InWorkspace),
+    )?;
+
+    // Find the stack containing this branch and get its details
+    for stack in &stacks {
+        if let Some(stack_id) = stack.id {
+            // Check if this stack contains the branch we're looking for
+            if stack.heads.iter().any(|h| h.name == branch_name) {
+                let stack_details =
+                    but_api::legacy::workspace::stack_details(project.id, Some(stack_id))?;
+
+                // Find the branch details
+                if let Some(branch_detail) = stack_details
+                    .branch_details
+                    .iter()
+                    .find(|b| b.name == branch_name)
+                {
+                    // Check for conflicted commits
+                    let conflicted_commits: Vec<String> = branch_detail
+                        .commits
+                        .iter()
+                        .filter(|c| c.has_conflicts)
+                        .map(|c| c.id.to_string()[..7].to_string())
+                        .collect();
+
+                    if !conflicted_commits.is_empty() {
+                        return Err(anyhow::anyhow!(
+                            "Cannot push branch '{}': the branch contains {} conflicted commit{}.\n\
+                             Conflicted commits: {}\n\
+                             Please resolve conflicts before pushing using 'but resolve <commit>'.",
+                            branch_name,
+                            conflicted_commits.len(),
+                            if conflicted_commits.len() == 1 {
+                                ""
+                            } else {
+                                "s"
+                            },
+                            conflicted_commits.join(", ")
+                        ));
+                    }
+
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    // Branch not found - this shouldn't happen as we validate earlier
+    Err(anyhow::anyhow!(
+        "Branch '{}' not found when checking for conflicts",
+        branch_name
     ))
 }
