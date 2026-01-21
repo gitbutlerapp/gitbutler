@@ -32,6 +32,12 @@
 			icon: {
 				options: Object.keys(iconsJson),
 				control: { type: 'select' }
+			},
+			reversedDirection: {
+				control: { type: 'boolean' }
+			},
+			skeleton: {
+				control: { type: 'boolean' }
 			}
 		}
 	});
@@ -39,7 +45,14 @@
 
 <Story name="default">
 	{#snippet template(args)}
-		<Badge style={args.style} kind={args.kind} icon={args.icon} size={args.size}>
+		<Badge
+			style={args.style}
+			kind={args.kind}
+			icon={args.icon}
+			size={args.size}
+			reversedDirection={args.reversedDirection}
+			skeleton={args.skeleton}
+		>
 			{args.text}
 		</Badge>
 	{/snippet}
