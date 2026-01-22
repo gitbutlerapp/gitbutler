@@ -8,7 +8,7 @@ use but_ctx::Context;
 use colored::Colorize;
 use serde::Serialize;
 
-use crate::args::config::Subcommands;
+use crate::args::config::{Subcommands, UserSubcommand};
 use crate::tui;
 use crate::utils::OutputChannel;
 
@@ -19,9 +19,7 @@ pub async fn exec(
     cmd: Option<Subcommands>,
 ) -> Result<()> {
     match cmd {
-        Some(Subcommands::User { key, value, global }) => {
-            user_config(ctx, out, key, value, global).await
-        }
+        Some(Subcommands::User { cmd }) => user_config(ctx, out, cmd).await,
         Some(Subcommands::Target { branch }) => target_config(ctx, out, branch).await,
         Some(Subcommands::Forge) => forge_config(ctx, out).await,
         None => show_overview(ctx, out).await,
@@ -186,15 +184,13 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
 async fn user_config(
     ctx: &mut Context,
     out: &mut OutputChannel,
-    key: Option<String>,
-    value: Option<String>,
-    global: bool,
+    cmd: Option<UserSubcommand>,
 ) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
 
-    match (key, value) {
+    match cmd {
         // View user config
-        (None, None) => {
+        None => {
             let config = repo.config()?;
             let user_info = get_user_config_info(&config)?;
 
@@ -220,11 +216,8 @@ async fn user_config(
             }
         }
         // Set user config
-        (Some(key), Some(value)) => {
-            // Validate key
-            if key != "user.name" && key != "user.email" {
-                anyhow::bail!("Invalid key '{}'. Use 'user.name' or 'user.email'", key);
-            }
+        Some(UserSubcommand::Set { key, value, global }) => {
+            let git_key = key.to_git_key();
 
             let mut config = if global {
                 let all = git2::Config::open_default()?;
@@ -233,14 +226,14 @@ async fn user_config(
                 repo.config()?
             };
 
-            config.set_str(&key, &value)?;
+            config.set_str(git_key, &value)?;
 
             if let Some(out) = out.for_human() {
                 writeln!(
                     out,
                     "{} Set {} {} {}",
                     "✓".green(),
-                    key.green(),
+                    git_key.green(),
                     "→".dimmed(),
                     value.cyan()
                 )?;
@@ -249,17 +242,37 @@ async fn user_config(
                 }
             } else if let Some(out) = out.for_json() {
                 out.write_value(serde_json::json!({
-                    "key": key,
+                    "key": git_key,
                     "value": value,
                     "scope": if global { "global" } else { "local" }
                 }))?;
             }
         }
-        (Some(_), None) => {
-            anyhow::bail!("Missing value. Usage: but config user user.name \"Your Name\"");
-        }
-        (None, Some(_)) => {
-            anyhow::bail!("Missing key. Usage: but config user user.name \"Your Name\"");
+        // Unset user config
+        Some(UserSubcommand::Unset { key, global }) => {
+            let git_key = key.to_git_key();
+
+            let mut config = if global {
+                let all = git2::Config::open_default()?;
+                all.open_level(git2::ConfigLevel::Global)?
+            } else {
+                repo.config()?
+            };
+
+            config.remove(git_key)?;
+
+            if let Some(out) = out.for_human() {
+                writeln!(out, "{} Removed {}", "✓".green(), git_key.green(),)?;
+                if global {
+                    writeln!(out, "  (removed from global config)")?;
+                }
+            } else if let Some(out) = out.for_json() {
+                out.write_value(serde_json::json!({
+                    "key": git_key,
+                    "action": "unset",
+                    "scope": if global { "global" } else { "local" }
+                }))?;
+            }
         }
     }
 
