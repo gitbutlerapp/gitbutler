@@ -43,10 +43,40 @@ pub enum Subcommands {
         cmd: Option<UserSubcommand>,
     },
 
-    /// View forge configuration.
+    /// View and manage forge configuration.
     ///
     /// Shows configured forge accounts (GitHub, GitLab, etc.) and authentication status.
-    Forge,
+    /// Use subcommands to authenticate or forget accounts.
+    ///
+    /// ## Examples
+    ///
+    /// View configured forge accounts:
+    ///
+    /// ```text
+    /// but config forge
+    /// ```
+    ///
+    /// Authenticate with a forge:
+    ///
+    /// ```text
+    /// but config forge auth
+    /// ```
+    ///
+    /// List authenticated accounts:
+    ///
+    /// ```text
+    /// but config forge list-users
+    /// ```
+    ///
+    /// Forget an account:
+    ///
+    /// ```text
+    /// but config forge forget username
+    /// ```
+    Forge {
+        #[clap(subcommand)]
+        cmd: Option<ForgeSubcommand>,
+    },
 
     /// View or set the target branch.
     ///
@@ -130,4 +160,42 @@ impl UserConfigKey {
             UserConfigKey::Editor => "core.editor",
         }
     }
+}
+
+/// Subcommands for `but config forge`
+#[derive(Debug, clap::Subcommand)]
+pub enum ForgeSubcommand {
+    /// Authenticate with your forge provider (currently only GitHub is supported).
+    ///
+    /// This will guide you through the authentication process using either:
+    /// - Device flow (OAuth)
+    /// - Personal Access Token (PAT)
+    /// - GitHub Enterprise
+    Auth,
+
+    /// List authenticated forge accounts known to GitButler.
+    ///
+    /// Shows all configured accounts and their authentication status.
+    ListUsers,
+
+    /// Forget a previously authenticated forge account.
+    ///
+    /// ## Examples
+    ///
+    /// Forget a specific account:
+    ///
+    /// ```text
+    /// but config forge forget username
+    /// ```
+    ///
+    /// Interactively select which account(s) to forget:
+    ///
+    /// ```text
+    /// but config forge forget
+    /// ```
+    Forget {
+        /// The username of the forge account to forget.
+        /// If not provided, you'll be prompted to select which account(s) to forget.
+        username: Option<String>,
+    },
 }

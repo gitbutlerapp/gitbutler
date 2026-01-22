@@ -7,7 +7,7 @@ use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    args::{Subcommands, metrics::CommandName},
+    args::{Subcommands, config, metrics::CommandName},
     utils::ResultMetricsExt,
 };
 
@@ -136,10 +136,17 @@ impl Subcommands {
             | Subcommands::Mcp { .. }
             | Subcommands::Setup { .. }
             | Subcommands::Teardown => Unknown,
-            Subcommands::Forge(forge::integration::Platform { cmd }) => match cmd {
-                forge::integration::Subcommands::Auth => ForgeAuth,
-                forge::integration::Subcommands::Forget { .. } => ForgeForget,
-                forge::integration::Subcommands::ListUsers => ForgeListUsers,
+            Subcommands::Config(config::Platform { cmd }) => match cmd {
+                Some(config::Subcommands::Forge {
+                    cmd: Some(config::ForgeSubcommand::Auth),
+                }) => ForgeAuth,
+                Some(config::Subcommands::Forge {
+                    cmd: Some(config::ForgeSubcommand::Forget { .. }),
+                }) => ForgeForget,
+                Some(config::Subcommands::Forge {
+                    cmd: Some(config::ForgeSubcommand::ListUsers),
+                }) => ForgeListUsers,
+                _ => Unknown,
             },
             Subcommands::Completions { .. } => Completions,
             Subcommands::Help => Unknown,
@@ -166,8 +173,6 @@ impl Subcommands {
             Subcommands::Squash { .. } => Rub,
             #[cfg(feature = "legacy")]
             Subcommands::Merge { .. } => Merge,
-            #[cfg(feature = "legacy")]
-            Subcommands::Config(_) => Unknown,
         }
     }
 }

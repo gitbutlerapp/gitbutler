@@ -7,7 +7,6 @@ pub mod alias;
 pub mod branch;
 pub mod completions;
 pub mod config;
-pub mod forge;
 pub mod gui;
 pub mod help;
 pub mod push;

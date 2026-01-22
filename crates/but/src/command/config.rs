@@ -3,14 +3,15 @@
 //! Provides subcommands to view and modify configuration settings including
 //! user information, AI provider, forge accounts, and target branch.
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use but_ctx::Context;
 use colored::Colorize;
 use serde::Serialize;
+use std::fmt::Write;
 
-use crate::args::config::{Subcommands, UserSubcommand};
+use crate::args::config::{ForgeSubcommand, Subcommands, UserSubcommand};
 use crate::tui;
-use crate::utils::OutputChannel;
+use crate::utils::{ConfirmOrEmpty, InputOutputChannel, OutputChannel};
 
 /// Main entry point for config command
 pub async fn exec(
@@ -21,7 +22,7 @@ pub async fn exec(
     match cmd {
         Some(Subcommands::User { cmd }) => user_config(ctx, out, cmd).await,
         Some(Subcommands::Target { branch }) => target_config(ctx, out, branch).await,
-        Some(Subcommands::Forge) => forge_config(ctx, out).await,
+        Some(Subcommands::Forge { cmd }) => forge_config(out, cmd).await,
         None => show_overview(ctx, out).await,
     }
 }
@@ -61,9 +62,9 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         // Target branch
         writeln!(out, "{}:", "Target Branch".bold())?;
         if let Some(branch) = &target_branch {
-            writeln!(out, "  {}", branch.branch_name.cyan())?;
+            writeln!(out, "    {}", branch.branch_name.cyan())?;
         } else {
-            writeln!(out, "  {}", "(not set)".dimmed())?;
+            writeln!(out, "    {}", "(not set)".dimmed())?;
         }
         writeln!(out)?;
 
@@ -85,22 +86,17 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         writeln!(out, "{}", "Available subcommands:".dimmed())?;
         writeln!(
             out,
-            "  {}   - View/set user settings (name, email, editor)",
+            "  {}   - User settings (name, email, editor)",
             "but config user".blue().dimmed()
         )?;
         writeln!(
             out,
-            "  {}     - View AI configuration",
-            "but config ai".blue().dimmed()
-        )?;
-        writeln!(
-            out,
-            "  {}  - View forge configuration",
+            "  {}  - Forge settings (GitHub, etc)",
             "but config forge".blue().dimmed()
         )?;
         writeln!(
             out,
-            "  {} - View/set target branch",
+            "  {} - Target branch settings",
             "but config target".blue().dimmed()
         )?;
     } else if let Some(out) = out.for_json() {
@@ -280,64 +276,339 @@ async fn user_config(
 }
 
 /// Handle forge config subcommand
-async fn forge_config(_ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
-    #[derive(Serialize)]
-    struct ForgeAccount {
-        provider: String,
-        username: String,
-        account_type: String,
+async fn forge_config(out: &mut OutputChannel, cmd: Option<ForgeSubcommand>) -> Result<()> {
+    match cmd {
+        Some(ForgeSubcommand::Auth) => forge_auth(out).await,
+        Some(ForgeSubcommand::ListUsers) => forge_list_users(out).await,
+        Some(ForgeSubcommand::Forget { username }) => forge_forget(username, out).await,
+        None => forge_show_overview(out).await,
     }
+}
 
+/// Show overview of forge configuration (same as list-users)
+async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
     let known_accounts = but_api::github::list_known_github_accounts().await?;
-    let accounts: Vec<ForgeAccount> = known_accounts
-        .iter()
-        .map(|account| {
-            let (username, account_type) = match account {
-                but_github::GithubAccountIdentifier::OAuthUsername { username } => {
-                    (username.clone(), "OAuth".to_string())
-                }
-                but_github::GithubAccountIdentifier::PatUsername { username } => {
-                    (username.clone(), "Personal Access Token".to_string())
-                }
-                but_github::GithubAccountIdentifier::Enterprise { username, host } => (
-                    format!("{}@{}", username, host),
-                    "GitHub Enterprise".to_string(),
-                ),
-            };
-            ForgeAccount {
-                provider: "GitHub".to_string(),
-                username,
-                account_type,
-            }
-        })
-        .collect();
 
     if let Some(out) = out.for_human() {
-        writeln!(out, "{}:", "Forge Configuration".bold())?;
-        writeln!(out)?;
-
-        if accounts.is_empty() {
-            writeln!(out, "  {}", "✗ No forge accounts configured".red())?;
+        if known_accounts.is_empty() {
+            writeln!(out, "\n{}", "No forge accounts configured".dimmed())?;
             writeln!(out)?;
             writeln!(
                 out,
-                "  Run {} to authenticate with a forge",
-                "but forge auth".cyan()
+                "Run {} to authenticate with GitHub",
+                "but config forge auth".cyan()
             )?;
         } else {
-            writeln!(out, "  {}:", "Configured Accounts".green())?;
-            for account in &accounts {
+            writeln!(out, "\n{}:", "Authenticated GitHub accounts".bold())?;
+            writeln!(out)?;
+
+            let mut some_accounts_invalid = false;
+            for account in &known_accounts {
+                let account_status = but_api::github::check_github_credentials(account.clone())
+                    .await
+                    .ok();
+
+                let message = match account_status {
+                    Some(but_github::CredentialCheckResult::Valid) => {
+                        "(valid credentials)".green().bold()
+                    }
+                    Some(but_github::CredentialCheckResult::Invalid) => {
+                        some_accounts_invalid = true;
+                        "(invalid credentials)".bold().yellow()
+                    }
+                    Some(but_github::CredentialCheckResult::NoCredentials) => {
+                        some_accounts_invalid = true;
+                        "(no credentials)".bold().yellow()
+                    }
+                    None => "(unknown status)".bold().red(),
+                };
+
+                writeln!(out, "  • {} {}", account, message)?;
+            }
+            writeln!(out)?;
+
+            if some_accounts_invalid {
                 writeln!(
                     out,
-                    "    • {} {} ({})",
-                    account.provider.cyan(),
-                    account.username.bold(),
-                    account.account_type.dimmed()
+                    "{}",
+                    "Some accounts have invalid or missing credentials.".yellow()
                 )?;
+                writeln!(
+                    out,
+                    "Re-authenticate using: {}",
+                    "but config forge auth".cyan()
+                )?;
+                writeln!(out)?;
             }
+
+            writeln!(out, "{}:", "Available commands".dimmed())?;
+            writeln!(
+                out,
+                "  {} - Authenticate with a forge",
+                "but config forge auth".blue().dimmed()
+            )?;
+            writeln!(
+                out,
+                "  {} - Forget an authenticated account",
+                "but config forge forget [username]".blue().dimmed()
+            )?;
+        }
+    } else if let Some(out) = out.for_shell() {
+        for account in known_accounts {
+            writeln!(out, "{}", account.username())?;
         }
     } else if let Some(out) = out.for_json() {
+        #[derive(Serialize)]
+        struct ForgeAccount {
+            provider: String,
+            username: String,
+            account_type: String,
+        }
+
+        let accounts: Vec<ForgeAccount> = known_accounts
+            .iter()
+            .map(|account| {
+                let (username, account_type) = match account {
+                    but_github::GithubAccountIdentifier::OAuthUsername { username } => {
+                        (username.clone(), "OAuth".to_string())
+                    }
+                    but_github::GithubAccountIdentifier::PatUsername { username } => {
+                        (username.clone(), "Personal Access Token".to_string())
+                    }
+                    but_github::GithubAccountIdentifier::Enterprise { username, host } => (
+                        format!("{}@{}", username, host),
+                        "GitHub Enterprise".to_string(),
+                    ),
+                };
+                ForgeAccount {
+                    provider: "GitHub".to_string(),
+                    username,
+                    account_type,
+                }
+            })
+            .collect();
+
         out.write_value(serde_json::json!({ "accounts": accounts }))?;
+    }
+
+    Ok(())
+}
+
+/// Authenticate with GitHub
+async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
+    use cli_prompts::DisplayPrompt;
+
+    #[derive(Debug, Clone)]
+    enum AuthMethod {
+        DeviceFlow,
+        Pat,
+        Enterprise,
+    }
+
+    impl From<AuthMethod> for String {
+        fn from(method: AuthMethod) -> String {
+            match method {
+                AuthMethod::DeviceFlow => "Device flow (OAuth)".to_string(),
+                AuthMethod::Pat => "Personal Access Token (PAT)".to_string(),
+                AuthMethod::Enterprise => "GitHub Enterprise".to_string(),
+            }
+        }
+    }
+
+    let input = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal")?;
+    let auth_method_prompt = cli_prompts::prompts::Selection::new(
+        "Select an authentication method",
+        vec![
+            AuthMethod::DeviceFlow,
+            AuthMethod::Pat,
+            AuthMethod::Enterprise,
+        ]
+        .into_iter(),
+    );
+
+    let selected_method = auth_method_prompt
+        .display()
+        .map_err(|_| anyhow::anyhow!("Could not determine authentication method"))?;
+
+    match selected_method {
+        AuthMethod::Pat => github_pat(input).await,
+        AuthMethod::Enterprise => github_enterprise(input).await,
+        AuthMethod::DeviceFlow => github_oauth(input).await,
+    }
+}
+
+/// Authenticate with GitHub using a Personal Access Token (PAT)
+async fn github_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
+    use but_github::AuthStatusResponse;
+    use but_secret::Sensitive;
+
+    let input = inout
+        .prompt("Please enter your GitHub Personal Access Token (PAT) and hit enter:")?
+        .context("No PAT provided. Aborting authentication.")?;
+
+    let pat = Sensitive(input);
+    let AuthStatusResponse { login, .. } = but_api::github::store_github_pat(pat)
+        .await
+        .map_err(|err| err.context("Authentication failed"))?;
+
+    writeln!(inout, "Authentication successful! Welcome, {}.", login)?;
+    Ok(())
+}
+
+/// Authenticate with GitHub Enterprise
+async fn github_enterprise(mut inout: InputOutputChannel<'_>) -> Result<()> {
+    use but_github::AuthStatusResponse;
+    use but_secret::Sensitive;
+
+    let base_url = inout.prompt("Please enter your GitHub Enterprise API base URL (e.g., https://github.mycompany.com/api/v3) and hit enter:")?.context("No host provided. Aborting authentication.")?;
+
+    let input = inout
+        .prompt(
+            "Now, please enter your GitHub Enterprise Personal Access Token (PAT) and hit enter:",
+        )?
+        .context("No PAT provided. Aborting authentication.")?;
+    let pat = Sensitive(input);
+    let AuthStatusResponse { login, .. } =
+        but_api::github::store_github_enterprise_pat(pat, base_url)
+            .await
+            .map_err(|err| err.context("Authentication failed"))?;
+
+    writeln!(inout, "Authentication successful! Welcome, {}.", login)?;
+    Ok(())
+}
+
+/// Authenticate with GitHub using the device OAuth flow
+async fn github_oauth(mut inout: InputOutputChannel<'_>) -> Result<()> {
+    let code = but_api::github::init_device_oauth().await?;
+    writeln!(
+        inout,
+        "Device authorization initiated. Please visit the following URL and enter the code:\n\nhttps://github.com/login/device\n\nCode: {}\n\n",
+        code.user_code
+    )?;
+
+    if inout.confirm_no_default(
+        "After completing authorization in your browser, press 'y' to continue.",
+    )? != ConfirmOrEmpty::Yes
+    {
+        anyhow::bail!("Authorization process aborted by user.")
+    }
+
+    let status = but_api::github::check_auth_status(code.device_code)
+        .await
+        .map_err(|err| err.context("Authentication failed"))?;
+
+    writeln!(
+        inout,
+        "Authentication successful! Welcome, {}.",
+        status.login
+    )?;
+
+    Ok(())
+}
+
+/// List authenticated GitHub accounts
+async fn forge_list_users(out: &mut OutputChannel) -> Result<()> {
+    let known_accounts = but_api::github::list_known_github_accounts().await?;
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Known GitHub usernames:")?;
+        let mut some_accounts_invalid = false;
+        for account in known_accounts {
+            let account_status = but_api::github::check_github_credentials(account.clone())
+                .await
+                .ok();
+
+            let message = match account_status {
+                Some(but_github::CredentialCheckResult::Valid) => {
+                    "(valid credentials)".green().bold()
+                }
+                Some(but_github::CredentialCheckResult::Invalid) => {
+                    some_accounts_invalid = true;
+                    "(invalid credentials)".bold().yellow()
+                }
+                Some(but_github::CredentialCheckResult::NoCredentials) => {
+                    some_accounts_invalid = true;
+                    "(no credentials)".bold().yellow()
+                }
+                None => " (unknown status)".bold().red(),
+            };
+
+            writeln!(out, "- {} {}", account, message)?;
+        }
+
+        if some_accounts_invalid {
+            writeln!(
+                out,
+                "\nSome accounts have invalid or missing credentials.\nYou may want to re-authenticate with those accounts using the '{}' command.",
+                "but config forge auth".bold()
+            )?;
+        }
+    } else if let Some(out) = out.for_shell() {
+        for account in known_accounts {
+            writeln!(out, "{}", account.username())?;
+        }
+    }
+    Ok(())
+}
+
+/// Forget a GitHub account
+async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Result<()> {
+    use cli_prompts::DisplayPrompt;
+
+    let known_accounts = but_api::github::list_known_github_accounts().await?;
+    let accounts_to_delete: Vec<_> = if let Some(username) = &username {
+        known_accounts
+            .into_iter()
+            .filter(|account| account.username() == username)
+            .collect()
+    } else {
+        known_accounts
+    };
+
+    // Handle case where no matching account was found
+    if accounts_to_delete.is_empty() {
+        if let Some((username, out)) = username.zip(out.for_human()) {
+            writeln!(out, "No known GitHub account with username '{username}'")?;
+        }
+        return Ok(());
+    }
+
+    // Handle different scenarios based on number of accounts
+    match accounts_to_delete.as_slice() {
+        [single_account] => {
+            // Single account: delete automatically
+            but_api::github::forget_github_account(single_account.clone())?;
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Forgot GitHub account '{}'", single_account)?;
+            }
+        }
+        _ => {
+            // Multiple accounts: prompt user to select
+            if let Some(out) = out.for_human() {
+                let account_prompt = cli_prompts::prompts::Multiselect::new_transformed(
+                    "Which of the following accounts do you want to forget?",
+                    accounts_to_delete.into_iter(),
+                    |acc| acc.to_string(),
+                );
+
+                let selected_accounts = account_prompt
+                    .display()
+                    .map_err(|_| anyhow::anyhow!("Could not determine which accounts to delete"))?;
+
+                if selected_accounts.is_empty() {
+                    writeln!(out, "No accounts were selected to forget.")?;
+                    return Ok(());
+                }
+
+                for account in selected_accounts {
+                    but_api::github::forget_github_account(account.clone())?;
+                    writeln!(out, "Forgot GitHub account '{}'", account)?;
+                }
+            } else {
+                anyhow::bail!("Username ambiguous, got {accounts_to_delete:?}");
+            }
+        }
     }
 
     Ok(())
@@ -356,11 +627,18 @@ async fn target_config(
 
             if let Some(target_branch) = target {
                 if let Some(out) = out.for_human() {
+                    writeln!(out, "{}",  "Used to determine common base to calculate commits unique to each branch (not yet integrated)\n".dimmed())?;
                     writeln!(out, "{}:", "Target Branch".bold())?;
-                    writeln!(out, "  {}", target_branch.branch_name.to_string().cyan())?;
+                    writeln!(out, "\n  {}", target_branch.branch_name.to_string().cyan())?;
                     writeln!(out)?;
                     writeln!(out, "  {}: {}", "Remote".dimmed(), target_branch.remote_url)?;
-                    writeln!(out, "  {}: {}", "SHA".dimmed(), target_branch.base_sha)?;
+                    writeln!(out, "  {}:    {}", "SHA".dimmed(), target_branch.base_sha)?;
+                    writeln!(out, "\n{}:", "To change target branch".dimmed())?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        "but config target <branch_name>".blue().dimmed()
+                    )?;
                 } else if let Some(out) = out.for_json() {
                     out.write_value(serde_json::json!({
                         "branch": target_branch.branch_name.to_string(),
@@ -370,10 +648,58 @@ async fn target_config(
                 } // View current target
             }
         }
-        Some(_new_branch) => {
-            anyhow::bail!(
-                "Setting target branch is not yet implemented. Use the GitButler GUI to change the target branch."
-            );
+        Some(new_branch) => {
+            // refuse to run if there are any applied branches. if so, ask user to unapply first.
+            let applied_stacks = but_api::legacy::workspace::stacks(
+                ctx.legacy_project.id,
+                Some(but_workspace::legacy::StacksFilter::InWorkspace),
+            )?;
+            if !applied_stacks.is_empty() {
+                // list the applied branches
+                if let Some(out) = out.for_human() {
+                    writeln!(
+                        out,
+                        "{}",
+                        "\nThe following branches are currently applied:\n".bold()
+                    )?;
+                    applied_stacks.iter().for_each(|stack| {
+                        stack.heads.iter().for_each(|head| {
+                            writeln!(
+                                out,
+                                "{} Applied branch: {}",
+                                "•".dimmed(),
+                                head.name.to_string().cyan()
+                            )
+                            .ok();
+                        });
+                    });
+                    writeln!(
+                        out,
+                        "\n{}\n",
+                        "Please unapply all branches before changing the target branch.".yellow()
+                    )
+                    .ok();
+                }
+                anyhow::bail!(
+                    "Cannot change target branch while there are applied branches. Please unapply all branches first."
+                );
+            }
+
+            if out.for_human().is_some() {
+                writeln!(
+                    out.for_human().unwrap(),
+                    "{} Changing target branch to '{}'",
+                    "✓".green(),
+                    new_branch.cyan()
+                )?;
+            }
+
+            // from the new_branch string, we need to parse out the remote name and branch name
+            but_api::legacy::virtual_branches::set_base_branch(
+                ctx.legacy_project.id,
+                new_branch.clone(),
+                None,
+            )?;
         }
     }
 
