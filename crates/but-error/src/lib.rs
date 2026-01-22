@@ -34,10 +34,8 @@
 //!     b().map_err(|err| err.context("sometimes useful"))
 //! }
 //!
-//! fn main() {
-//!    assert_eq!(format!("{:#}", c().unwrap_err()),
-//!               "sometimes useful: an operation couldn't be performed: didn't get it at this time");
-//! }
+//!  assert_eq!(format!("{:#}", c().unwrap_err()),
+//!             "sometimes useful: an operation couldn't be performed: didn't get it at this time");
 //! ```
 //!
 //! ### Frontend Interactions
@@ -68,11 +66,11 @@
 //!         .context(Code::Unknown)
 //! }
 //!
-//! fn main() {
-//!    assert_eq!(format!("{:#}", a().unwrap_err()),
-//!              "errors.unknown: whatever comes before a `Code` context shows in frontend, so THIS: this didn't work",
-//!              "however, that Code also shows up in the error chain in logs - context is just like an Error for anyhow");
-//! }
+//!
+//! assert_eq!(format!("{:#}", a().unwrap_err()),
+//!            "errors.unknown: whatever comes before a `Code` context shows in frontend, so THIS: this didn't work",
+//!            "however, that Code also shows up in the error chain in logs - context is just like an Error for anyhow");
+//!
 //! ```
 //!
 //! #### Tuning error chains
@@ -93,11 +91,9 @@
 //!                         .with_code(Code::Validation))
 //! }
 //!
-//! fn main() {
-//!    assert_eq!(format!("{:#}", a().unwrap_err()),
-//!              "This message is shown and only this message: this didn't work",
-//!              "now the added context just looks like an error, even though it also contains a `Code` which can be queried");
-//! }
+//! assert_eq!(format!("{:#}", a().unwrap_err()),
+//!            "This message is shown and only this message: this didn't work",
+//!            "now the added context just looks like an error, even though it also contains a `Code` which can be queried");
 //! ```
 //!
 //! ### Backtraces and `anyhow`
