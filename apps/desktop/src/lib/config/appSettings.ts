@@ -9,12 +9,13 @@ import { InjectionToken } from '@gitbutler/core/context';
 import { persisted } from '@gitbutler/shared/persisted';
 import { get, writable, type Writable } from 'svelte/store';
 import type { DiskStore, IBackend } from '$lib/backend';
+import type { SettingsService } from '$lib/config/appSettingsV2';
 
 type DiskWritable<T> = Writable<T> & { onDisk: () => Promise<T> };
 
-export async function loadAppSettings(backend: IBackend) {
+export async function loadAppSettings(backend: IBackend, settingsService: SettingsService) {
 	const diskStore = await backend.loadDiskStore('settings.json');
-	return new AppSettings(diskStore);
+	return new AppSettings(diskStore, settingsService);
 }
 
 export const APP_SETTINGS = new InjectionToken<AppSettings>('AppSettings');
@@ -46,11 +47,50 @@ export class AppSettings {
 	 */
 	readonly appNonAnonMetricsEnabled: DiskWritable<boolean>;
 
-	constructor(private diskStore: DiskStore) {
-		this.appAnalyticsConfirmed = this.persisted(false, 'appAnalyticsConfirmed');
-		this.appMetricsEnabled = this.persisted(true, 'appMetricsEnabled');
-		this.appErrorReportingEnabled = this.persisted(true, 'appErrorReportingEnabled');
-		this.appNonAnonMetricsEnabled = this.persisted(false, 'appNonAnonMetricsEnabled');
+	constructor(
+		private diskStore: DiskStore,
+		private settingsService: SettingsService
+	) {
+		this.appAnalyticsConfirmed = this.withDoubleWrite(
+			this.persisted(false, 'appAnalyticsConfirmed'),
+			async (value) => {
+				await this.settingsService.updateOnboardingComplete(value);
+			}
+		);
+		this.appMetricsEnabled = this.withDoubleWrite(
+			this.persisted(true, 'appMetricsEnabled'),
+			async (value) => {
+				await this.settingsService.updateTelemetry({ appMetricsEnabled: value });
+			}
+		);
+		this.appErrorReportingEnabled = this.withDoubleWrite(
+			this.persisted(true, 'appErrorReportingEnabled'),
+			async (value) => {
+				await this.settingsService.updateTelemetry({ appErrorReportingEnabled: value });
+			}
+		);
+		this.appNonAnonMetricsEnabled = this.withDoubleWrite(
+			this.persisted(false, 'appNonAnonMetricsEnabled'),
+			async (value) => {
+				await this.settingsService.updateTelemetry({ appNonAnonMetricsEnabled: value });
+			}
+		);
+	}
+
+	private withDoubleWrite<T>(
+		store: DiskWritable<T>,
+		onWrite: (value: T) => Promise<void>
+	): DiskWritable<T> {
+		const originalSet = store.set;
+		return {
+			...store,
+			set: async (value: T) => {
+				originalSet(value);
+				// Double-write must succeed to prevent settings desync during migration
+				// If this fails, we want to throw so the caller knows the write didn't fully complete
+				await onWrite(value);
+			}
+		};
 	}
 
 	private persisted<T>(initial: T, key: string): Writable<T> & { onDisk: () => Promise<T> } {

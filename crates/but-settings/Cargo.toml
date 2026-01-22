@@ -22,3 +22,4 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
 
 [dev-dependencies]
+tempfile.workspace = true
