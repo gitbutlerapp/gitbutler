@@ -44,8 +44,8 @@ pub enum CredentialsKind {
 }
 
 impl CredentialsKind {
-    fn from_git_config(config: &git2::Config) -> Option<Self> {
-        let key_option_str = config.get_string(OPEN_AI_KEY_OPTION).ok()?;
+    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
+        let key_option_str = config.string(OPEN_AI_KEY_OPTION).map(|v| v.to_string())?;
         let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
         match key_option {
             CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnOpenAiKey),
@@ -169,13 +169,15 @@ impl OpenAiProvider {
 }
 
 impl LLMClient for OpenAiProvider {
-    fn from_git_config(config: &git2::Config) -> Option<Self>
+    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
     where
         Self: Sized,
     {
         let credentials_kind = CredentialsKind::from_git_config(config)?;
-        let model = config.get_string(OPEN_AI_MODEL_NAME).ok();
-        let custom_endpoint = config.get_string(OPEN_AI_CUSTOM_ENDPOINT).ok();
+        let model = config.string(OPEN_AI_MODEL_NAME).map(|v| v.to_string());
+        let custom_endpoint = config
+            .string(OPEN_AI_CUSTOM_ENDPOINT)
+            .map(|v| v.to_string());
 
         OpenAiProvider::with(Some(credentials_kind), model, custom_endpoint)
     }

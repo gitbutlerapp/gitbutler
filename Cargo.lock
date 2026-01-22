@@ -1231,7 +1231,7 @@ dependencies = [
  "but-secret",
  "but-tools",
  "futures",
- "git2",
+ "gix",
  "ollama-rs",
  "reqwest 0.12.28",
  "schemars 1.2.0",

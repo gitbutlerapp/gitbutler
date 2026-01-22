@@ -59,7 +59,7 @@ pub fn show(
 
     // Generate AI summary if requested
     let ai_summary = if generate_ai_summary {
-        let git_config = git2::Config::open_default()?;
+        let git_config = gix::config::File::from_globals()?;
         Some(generate_branch_summary(
             &branch_name,
             &commits,
@@ -528,7 +528,7 @@ struct CommitInfo {
 fn generate_branch_summary(
     branch_name: &str,
     commits: &[CommitInfo],
-    git_config: &git2::Config,
+    git_config: &gix::config::File<'static>,
 ) -> anyhow::Result<String> {
     use but_llm::LLMProvider;
 

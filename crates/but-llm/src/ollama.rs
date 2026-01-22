@@ -72,12 +72,15 @@ impl OllamaProvider {
 }
 
 impl LLMClient for OllamaProvider {
-    fn from_git_config(config: &git2::Config) -> Option<Self>
+    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
     where
         Self: Sized,
     {
-        let endpoint = config.get_string(OLLAMA_ENDPOINT).ok().map(Into::into);
-        let model = config.get_string(OLLAMA_MODEL_NAME).ok();
+        let endpoint = config
+            .string(OLLAMA_ENDPOINT)
+            .map(|v| v.to_string())
+            .map(OllamaHostConfig::from);
+        let model = config.string(OLLAMA_MODEL_NAME).map(|v| v.to_string());
         let ollama_config = OllamaConfig {
             host_config: endpoint,
         };

@@ -35,8 +35,8 @@ pub enum CredentialsKind {
 }
 
 impl CredentialsKind {
-    fn from_git_config(config: &git2::Config) -> Option<Self> {
-        let key_option_str = config.get_string(ANTHROPIC_KEY_OPTION).ok()?;
+    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
+        let key_option_str = config.string(ANTHROPIC_KEY_OPTION).map(|v| v.to_string())?;
         let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
         match key_option {
             CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnAnthropicKey),
@@ -177,12 +177,12 @@ impl AnthropicProvider {
 }
 
 impl LLMClient for AnthropicProvider {
-    fn from_git_config(config: &git2::Config) -> Option<Self>
+    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
     where
         Self: Sized,
     {
         let credentials_kind = CredentialsKind::from_git_config(config)?;
-        let model = config.get_string(ANTHROPIC_MODEL_NAME).ok();
+        let model = config.string(ANTHROPIC_MODEL_NAME).map(|v| v.to_string());
         AnthropicProvider::with(Some(credentials_kind), model)
     }
 

@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 pub use chat::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent};
 
-use git2::Config;
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
@@ -119,8 +118,8 @@ impl LLMProvider {
     /// - The `gitbutler.aiModelProvider` setting is not present
     /// - The configured provider is not supported (e.g., LMStudio)
     /// - Provider-specific initialization fails (e.g., missing credentials)
-    pub fn from_git_config(config: &Config) -> Option<Self> {
-        let provider_str = config.get_string(MODEL_PROVIDER).ok()?;
+    pub fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
+        let provider_str = config.string(MODEL_PROVIDER).map(|v| v.to_string())?;
         let provider = LLMProviderKind::from_str(&provider_str);
         match provider {
             Some(LLMProviderKind::OpenAi) => {

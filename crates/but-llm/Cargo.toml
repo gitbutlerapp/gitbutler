@@ -25,4 +25,4 @@ anyhow.workspace = true
 strum = { version = "0.27", features = ["derive"] }
 reqwest.workspace = true
 uuid.workspace = true
-git2.workspace = true
+gix.workspace = true
