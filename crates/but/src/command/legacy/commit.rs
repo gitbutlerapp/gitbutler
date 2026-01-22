@@ -278,12 +278,8 @@ fn select_stack(
     but_core::ref_metadata::StackId,
     but_workspace::ui::StackDetails,
 )> {
-    // Handle empty stacks case
+    // Handle empty stacks case - automatically create a branch
     if stacks.is_empty() {
-        anyhow::ensure!(
-            create_branch,
-            "No stacks found. Create a stack for this commit using 'but commit -c <branch-name>' or 'but branch new <name>' and then commit"
-        );
         let branch_name = match branch_hint {
             Some(hint) => String::from(hint),
             None => but_api::legacy::workspace::canned_branch_name(project.id)?,
