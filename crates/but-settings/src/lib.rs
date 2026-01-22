@@ -1,8 +1,9 @@
 #![allow(deprecated)]
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/index.ts"))]
 pub struct AppSettings {
     /// The amount of context lines to show in unified diffs, above and below the hunk.
     pub context_lines: u32,
@@ -83,6 +84,7 @@ mod json;
 mod legacy_settings;
 mod persistence;
 mod watch;
+use ts_rs::TS;
 pub use watch::AppSettingsWithDiskSync;
 
 pub mod api;
