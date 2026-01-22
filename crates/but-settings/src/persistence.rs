@@ -7,6 +7,7 @@ use serde_json_lenient::to_string_pretty;
 use crate::{
     AppSettings,
     json::{json_difference, merge_non_null_json_value},
+    legacy_settings::maybe_migrate_legacy_settings,
     watch::SETTINGS_FILE,
 };
 
@@ -25,13 +26,20 @@ impl AppSettings {
         }
 
         // merge customizations from disk into the defaults to get a complete set of settings.
-        let customizations = serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
+        let customizations: serde_json::Value =
+            serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
         let mut settings: serde_json::Value = serde_json_lenient::from_str(DEFAULTS)?;
 
         merge_non_null_json_value(customizations, &mut settings);
         if let Some(extra) = customization {
             merge_non_null_json_value(extra, &mut settings);
         }
+
+        // Migrate legacy settings from Tauri store (only if not already migrated)
+        if let Some(legacy_overrides) = maybe_migrate_legacy_settings(config_path, &settings) {
+            merge_non_null_json_value(legacy_overrides, &mut settings);
+        }
+
         Ok(serde_json::from_value(settings)?)
     }
 
@@ -74,6 +82,10 @@ impl AppSettings {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+
     #[test]
     fn ensure_default_settings_covers_all_fields() {
         let settings: serde_json::Value =
@@ -93,5 +105,44 @@ mod tests {
             );
         }
         assert!(app_settings.is_ok())
+    }
+
+    fn create_test_env() -> (TempDir, PathBuf, PathBuf) {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("settings.json");
+        let legacy_path = temp_dir.path().join("legacy-settings.json");
+        (temp_dir, config_path, legacy_path)
+    }
+
+    #[test]
+    fn migration_flag_prevents_repeated_migration() {
+        let (_temp_dir, config_path, _legacy_path) = create_test_env();
+
+        // Set up config with migration already completed
+        std::fs::write(
+            &config_path,
+            r#"{
+                "telemetry": {
+                    "migratedFromLegacy": true,
+                    "appMetricsEnabled": false
+                }
+            }"#,
+        )
+        .unwrap();
+
+        // Load settings - migration should be skipped because flag is true
+        let settings = AppSettings::load(&config_path, None).unwrap();
+
+        // Verify the flag is set to true
+        assert!(
+            settings.telemetry.migrated_from_legacy,
+            "Migration flag should be true after migration"
+        );
+
+        // Verify the custom setting is preserved (not overwritten by migration)
+        assert!(
+            !settings.telemetry.app_metrics_enabled,
+            "Custom settings should be preserved when migration is skipped"
+        );
     }
 }

@@ -11,7 +11,10 @@
 		// Whether non-anonymous metrics are enabled.
 		"appNonAnonMetricsEnabled": false,
 		/// Distinct ID, if reporting is enabled.
-		"appDistinctId": null
+		"appDistinctId": null,
+		// Whether settings have been migrated from the legacy Tauri store.
+		// This flag is set to true after the one-time migration and prevents repeated migration attempts.
+		"migratedFromLegacy": false
 	},
 	"githubOauthApp": {
 		// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.

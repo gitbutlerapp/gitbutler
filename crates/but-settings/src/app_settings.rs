@@ -11,6 +11,9 @@ pub struct TelemetrySettings {
     pub app_non_anon_metrics_enabled: bool,
     /// Distinct ID, if reporting is enabled.
     pub app_distinct_id: Option<String>,
+    /// Whether settings have been migrated from the legacy Tauri store.
+    /// This flag is set to true after the one-time migration and prevents repeated migration attempts.
+    pub migrated_from_legacy: bool,
 }
 
 /// Access utilities

@@ -413,6 +413,7 @@ impl Sandbox {
                 app_error_reporting_enabled: false,
                 app_non_anon_metrics_enabled: false,
                 app_distinct_id: None,
+                migrated_from_legacy: true,
             },
             github_oauth_app: GitHubOAuthAppSettings {
                 oauth_client_id: "but journey tests won't use github".to_string(),

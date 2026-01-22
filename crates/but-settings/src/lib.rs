@@ -80,6 +80,7 @@ pub mod customization {
 
 pub mod app_settings;
 mod json;
+mod legacy_settings;
 mod persistence;
 mod watch;
 pub use watch::AppSettingsWithDiskSync;
