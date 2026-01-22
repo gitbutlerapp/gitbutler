@@ -77,6 +77,10 @@
 			window.location.href = jsonLinks.legal.privacyPolicy.url;
 		}
 
+		if (page.url.pathname === '/terms') {
+			window.location.href = jsonLinks.legal.termsOfService.url;
+		}
+
 		if (!$user && page.route.id === '/(app)/home') {
 			goto('/');
 		}

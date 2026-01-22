@@ -121,15 +121,9 @@
 			{#if !successMessage}
 				<p>
 					*By signing up, you agree to our
-					<a
-						href="https://app.termly.io/document/terms-and-conditions/7924c71d-80bb-4444-9381-947237b9fc0f"
-						>Terms</a
-					>
+					<a href="https://gitbutler.com/terms">Terms</a>
 					and
-					<a
-						href="https://app.termly.io/document/privacy-policy/a001c8b7-505b-4eab-81e3-fcd1c72bdd79"
-						>Privacy Policy</a
-					>
+					<a href="https://gitbutler.com/privacy">Privacy Policy</a>
 				</p>
 				<p>
 					Already have an account? <a href={routesService.loginPath()}>Log in now</a>
