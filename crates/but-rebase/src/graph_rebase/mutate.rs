@@ -133,4 +133,17 @@ impl Editor {
             }
         }
     }
+
+    pub fn remove_any_edges(&mut self, from: Selector, to: Selector) -> Result<()> {
+        let from = self.history.normalize_selector(from)?;
+        let to = self.history.normalize_selector(to)?;
+
+        for edge in self.graph.edges_directed(from.id, Direction::Outgoing) {
+            if edge.target() == to.id {
+                self.graph.remove_edge(edge.id());
+            }
+        }
+
+        Ok(())
+    }
 }
