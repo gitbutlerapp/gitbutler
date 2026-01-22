@@ -195,8 +195,10 @@
 			{:else}
 				{#each filter(diff.subject.hunks) as hunk}
 					{@const selection = uncommittedService.hunkCheckStatus(stackId, change.path, hunk)}
+					{@const hunkHeader = hunk.diff.split('\n')[0]}
+					{@const selectedLineCount = selection.current.lines.length}
 					{@const selectedHunkHeaders =
-						selection.current.selected && selection.current.lines.length > 0
+						selection.current.selected && selectedLineCount > 0
 							? lineIdsToHunkHeaders(
 									selection.current.lines,
 									hunk.diff,
@@ -208,8 +210,8 @@
 						class="hunk-content"
 						use:draggableChips={{
 							label: selectedHunkHeaders
-								? `${hunk.diff.split('\n')[0]} (${selection.current.lines.length} selected lines)`
-								: hunk.diff.split('\n')[0],
+								? `${hunkHeader} (${selectedLineCount}\u00A0line${selectedLineCount === 1 ? '' : 's'})`
+								: hunkHeader,
 							data: new HunkDropDataV3(
 								change,
 								hunk,
