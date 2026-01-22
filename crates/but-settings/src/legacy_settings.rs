@@ -304,11 +304,13 @@ mod parse_legacy_settings_to_overrides {
 mod read_legacy_overrides {
     use crate::legacy_settings::read_legacy_overrides;
     use serde_json::json;
+    use tempfile::TempDir;
 
     #[test]
     fn read_from_nonexistent_path() -> anyhow::Result<()> {
-        let path = std::path::Path::new("/nonexistent/path/settings.json");
-        let result = read_legacy_overrides(path);
+        let temp_dir = TempDir::new()?;
+        let path = temp_dir.path().join("nonexistent-settings.json");
+        let result = read_legacy_overrides(&path);
         assert!(result.is_none());
         Ok(())
     }
