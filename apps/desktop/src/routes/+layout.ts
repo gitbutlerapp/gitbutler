@@ -22,13 +22,15 @@ export const load: LayoutLoad = async () => {
 
 	const homeDir = await backend.homeDirectory();
 
-	// TODO: Migrate telemetry settings from here to `SettingsService`
-	const appSettings = await loadAppSettings(backend);
 	const eventContext = new EventContext();
 
 	// TODO: This should be the only settings service.
 	const settingsService = new SettingsService(backend);
 	await settingsService.refresh();
+
+	// TODO: Migrate telemetry settings from here to `SettingsService`
+	// Double-writes to settingsService are enabled during migration
+	const appSettings = await loadAppSettings(backend, settingsService);
 	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
 	initAnalyticsIfEnabled(appSettings, posthog);
 
