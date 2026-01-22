@@ -14,11 +14,7 @@
 			Privacy Policy
 		</a>
 		<span> | </span>
-		<a
-			class="footer-link underline"
-			href="https://app.termly.io/document/terms-and-conditions/7924c71d-80bb-4444-9381-947237b9fc0f"
-			target="_blank"
-		>
+		<a class="footer-link underline" href="https://gitbutler.com/terms" target="_blank">
 			Terms of Service
 		</a>
 	</div>
