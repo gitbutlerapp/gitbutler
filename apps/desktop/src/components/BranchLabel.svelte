@@ -60,10 +60,7 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
-			e.stopPropagation();
-			inputEl?.select();
-		} else if (e.key === 'Enter' || e.key === 'Escape') {
+		if (e.key === 'Enter' || e.key === 'Escape') {
 			e.stopPropagation();
 			inputEl?.blur();
 		}
