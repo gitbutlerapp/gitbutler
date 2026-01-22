@@ -12,7 +12,7 @@ use std::path::Path;
 use anyhow::Result;
 use serde_json::json;
 
-use crate::json::merge_non_null_json_value;
+use crate::json::merge_json_value;
 
 /// Parse legacy settings JSON and map to new settings format.
 /// This function is pure and testable - it only does the transformation.
@@ -54,7 +54,7 @@ fn parse_legacy_settings_to_overrides(legacy_json: &serde_json::Value) -> serde_
 
     // Always mark that migration has been completed, even if no fields were migrated
     // This ensures the migration only runs once per legacy file
-    merge_non_null_json_value(
+    merge_json_value(
         json!({"telemetry": {"migratedFromLegacy": true}}),
         &mut overrides,
     );
@@ -84,7 +84,7 @@ fn maybe_persist_overrides(config_path: &Path, legacy_overrides: serde_json::Val
 
     // Merge legacy overrides into customizations
     let mut customizations_with_overrides = current_customizations.clone();
-    merge_non_null_json_value(legacy_overrides, &mut customizations_with_overrides);
+    merge_json_value(legacy_overrides, &mut customizations_with_overrides);
 
     // Only write if the merged result differs from current
     let diff = crate::json::json_difference(current_customizations, &customizations_with_overrides);
