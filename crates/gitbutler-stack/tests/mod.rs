@@ -128,7 +128,7 @@ fn add_series_invalid_name_fails() -> Result<()> {
     );
     assert_eq!(
         result.err().unwrap().to_string(),
-        "A reference must be a valid tag name as well"
+        "Reference name contains invalid byte: \" \""
     );
     Ok(())
 }
