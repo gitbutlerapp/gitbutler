@@ -30,6 +30,7 @@ pub fn json_difference(
 
 /// Based on Zed `merge_non_null_json_value_into`
 /// Note: This doesn't merge arrays.
+/// Null values are treated as "remove this key".
 pub fn merge_non_null_json_value(source: serde_json::Value, target: &mut serde_json::Value) {
     use serde_json::Value;
     if let Value::Object(source_object) = source {
@@ -41,7 +42,12 @@ pub fn merge_non_null_json_value(source: serde_json::Value, target: &mut serde_j
         };
         for (key, value) in source_object {
             if let Some(target) = target_object.get_mut(&key) {
-                merge_non_null_json_value(value, target);
+                if value.is_null() {
+                    // Remove the key if the source value is null
+                    target_object.remove(&key);
+                } else {
+                    merge_non_null_json_value(value, target);
+                }
             } else if !value.is_null() {
                 target_object.insert(key, value);
             }
@@ -64,11 +70,19 @@ mod tests {
     }
 
     #[test]
+    fn it_unsets_values_into_null() {
+        let source = serde_json::json!({"a": null});
+        let mut target = serde_json::json!({"a": 42, "b": true });
+        merge_non_null_json_value(source, &mut target);
+        assert_eq!(target, serde_json::json!({"b": true }));
+    }
+
+    #[test]
     fn it_does_not_merge_arrays() {
         let source = serde_json::json!({"a": null, "b": [1,2,3]});
         let mut target = serde_json::json!({"a": {"b": 1}, "b": [42]});
         merge_non_null_json_value(source, &mut target);
-        assert_eq!(target, serde_json::json!({"a": {"b": 1}, "b": [1,2,3] }));
+        assert_eq!(target, serde_json::json!({ "b": [1,2,3] }));
     }
 
     #[test]
