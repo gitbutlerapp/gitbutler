@@ -31,7 +31,7 @@ pub fn json_difference(
 /// Based on Zed `merge_non_null_json_value_into`
 /// Note: This doesn't merge arrays.
 /// Null values are treated as "remove this key".
-pub fn merge_non_null_json_value(source: serde_json::Value, target: &mut serde_json::Value) {
+pub fn merge_json_value(source: serde_json::Value, target: &mut serde_json::Value) {
     use serde_json::Value;
     if let Value::Object(source_object) = source {
         let target_object = if let Value::Object(target) = target {
@@ -46,7 +46,7 @@ pub fn merge_non_null_json_value(source: serde_json::Value, target: &mut serde_j
                     // Remove the key if the source value is null
                     target_object.remove(&key);
                 } else {
-                    merge_non_null_json_value(value, target);
+                    merge_json_value(value, target);
                 }
             } else if !value.is_null() {
                 target_object.insert(key, value);
@@ -62,10 +62,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_does_not_merge_null_values() {
+    fn it_does_merge_null_values_by_removing_the_key_from_the_target() {
         let source = serde_json::json!({"a": null, "b": true });
         let mut target = serde_json::json!({});
-        merge_non_null_json_value(source, &mut target);
+        merge_json_value(source, &mut target);
         assert_eq!(target, serde_json::json!({"b": true }));
     }
 
@@ -73,7 +73,7 @@ mod tests {
     fn it_unsets_values_into_null() {
         let source = serde_json::json!({"a": null});
         let mut target = serde_json::json!({"a": 42, "b": true });
-        merge_non_null_json_value(source, &mut target);
+        merge_json_value(source, &mut target);
         assert_eq!(target, serde_json::json!({"b": true }));
     }
 
@@ -81,7 +81,7 @@ mod tests {
     fn it_does_not_merge_arrays() {
         let source = serde_json::json!({"a": null, "b": [1,2,3]});
         let mut target = serde_json::json!({"a": {"b": 1}, "b": [42]});
-        merge_non_null_json_value(source, &mut target);
+        merge_json_value(source, &mut target);
         assert_eq!(target, serde_json::json!({ "b": [1,2,3] }));
     }
 
@@ -89,12 +89,12 @@ mod tests {
     fn it_merges_nested_objects_correctly() {
         let source = serde_json::json!({"a": {"b": {"c": 42}}});
         let mut target = serde_json::json!({});
-        merge_non_null_json_value(source.clone(), &mut target);
+        merge_json_value(source.clone(), &mut target);
         assert_eq!(target, source);
     }
 
     #[test]
-    pub fn test_difference_existing_key() {
+    pub fn difference_existing_key() {
         use serde_json::json;
         let current = json!({
             "a": 1,
@@ -127,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_difference_new_key() {
+    pub fn difference_new_key() {
         use serde_json::json;
         let current = json!({
             "a": 1,
@@ -159,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_no_overlap_at_all() {
+    pub fn no_overlap_at_all() {
         use serde_json::json;
         let current = json!({
             "a": 1,
@@ -185,7 +185,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_everything_is_same_noop() {
+    pub fn everything_is_same_noop() {
         use serde_json::json;
         let current = json!({
             "a": 1,
@@ -211,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_difference_new_key_with_null() {
+    pub fn difference_new_key_with_null() {
         use serde_json::json;
         let current = json!({
             "a": 1,
@@ -246,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_both_null() {
+    pub fn both_null() {
         use serde_json::json;
         let current = json!({
             "a": null
@@ -258,7 +258,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_empty_object() {
+    pub fn empty_object() {
         use serde_json::json;
         let current = json!({});
         let update = json!({});
@@ -266,7 +266,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_empty_object_with_new_key() {
+    pub fn empty_object_with_new_key() {
         use serde_json::json;
         let current = json!({});
         let update = json!({

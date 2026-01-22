@@ -53,7 +53,7 @@ pub mod customization {
         match previous {
             None => new,
             Some(mut previous) => {
-                json::merge_non_null_json_value(new, &mut previous);
+                json::merge_json_value(new, &mut previous);
                 previous
             }
         }

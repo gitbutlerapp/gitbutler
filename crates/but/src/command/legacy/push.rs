@@ -1125,8 +1125,10 @@ fn find_stack_id_by_branch_name(project: &Project, branch_name: &str) -> anyhow:
 
     // Find which stack this branch belongs to
     for stack_entry in &stacks {
-        if stack_entry.heads.iter().any(|b| b.name == branch_name) && stack_entry.id.is_some() {
-            return Ok(stack_entry.id.unwrap());
+        if stack_entry.heads.iter().any(|b| b.name == branch_name)
+            && let Some(id) = stack_entry.id
+        {
+            return Ok(id);
         }
     }
 

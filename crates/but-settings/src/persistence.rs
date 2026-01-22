@@ -6,7 +6,7 @@ use serde_json_lenient::to_string_pretty;
 
 use crate::{
     AppSettings,
-    json::{json_difference, merge_non_null_json_value},
+    json::{json_difference, merge_json_value},
     legacy_settings::maybe_migrate_legacy_settings,
     watch::SETTINGS_FILE,
 };
@@ -30,9 +30,9 @@ impl AppSettings {
             serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
         let mut settings: serde_json::Value = serde_json_lenient::from_str(DEFAULTS)?;
 
-        merge_non_null_json_value(customizations, &mut settings);
+        merge_json_value(customizations, &mut settings);
         if let Some(extra) = customization {
-            merge_non_null_json_value(extra, &mut settings);
+            merge_json_value(extra, &mut settings);
         }
 
         // Migrate legacy settings from Tauri store (only if not already migrated)
@@ -40,7 +40,7 @@ impl AppSettings {
             // At this point, `maybe_migrate_legacy_settings` has attempted to write the `customizations`
             // as freshly read from `config_path` back to `config_path`, after merging them with the legacy settings.
             // We now repeat this merging step with the in-memory settings to bring it up-to date with those overrides.
-            merge_non_null_json_value(legacy_overrides, &mut settings);
+            merge_json_value(legacy_overrides, &mut settings);
         }
 
         Ok(serde_json::from_value(settings)?)
@@ -77,7 +77,7 @@ impl AppSettings {
 
         // Merge the new customizations into the existing ones
         // TODO: This will nuke any comments in the file
-        merge_non_null_json_value(diff, &mut customizations);
+        merge_json_value(diff, &mut customizations);
         but_fs::write(config_path, to_string_pretty(&customizations)?)?;
         Ok(())
     }
