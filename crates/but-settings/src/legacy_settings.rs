@@ -138,11 +138,12 @@ pub(crate) fn maybe_migrate_legacy_settings(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+mod parse_legacy_settings_to_overrides {
+    use crate::legacy_settings::parse_legacy_settings_to_overrides;
+    use serde_json::json;
 
     #[test]
-    fn parse_all_legacy_fields() {
+    fn parse_all_legacy_fields() -> anyhow::Result<()> {
         let legacy_json = json!({
             "appAnalyticsConfirmed": true,
             "appMetricsEnabled": false,
@@ -159,10 +160,11 @@ mod tests {
             result["telemetry"]["appErrorReportingEnabled"],
             json!(false)
         );
+        Ok(())
     }
 
     #[test]
-    fn parse_only_onboarding_field() {
+    fn parse_only_onboarding_field() -> anyhow::Result<()> {
         let legacy_json = json!({
             "appAnalyticsConfirmed": true
         });
@@ -172,10 +174,11 @@ mod tests {
         assert_eq!(result["onboardingComplete"], json!(true));
         // Migration flag is always present to mark that migration occurred
         assert_eq!(result["telemetry"]["migratedFromLegacy"], json!(true));
+        Ok(())
     }
 
     #[test]
-    fn parse_only_telemetry_fields() {
+    fn parse_only_telemetry_fields() -> anyhow::Result<()> {
         let legacy_json = json!({
             "appMetricsEnabled": false,
             "appErrorReportingEnabled": false
@@ -189,10 +192,11 @@ mod tests {
             result["telemetry"]["appErrorReportingEnabled"],
             json!(false)
         );
+        Ok(())
     }
 
     #[test]
-    fn parse_ignores_extra_fields() {
+    fn parse_ignores_extra_fields() -> anyhow::Result<()> {
         let legacy_json = json!({
             "appAnalyticsConfirmed": true,
             "someRandomField": "ignored",
@@ -204,10 +208,11 @@ mod tests {
         assert_eq!(result["onboardingComplete"], json!(true));
         assert!(result.get("someRandomField").is_none());
         assert!(result.get("anotherField").is_none());
+        Ok(())
     }
 
     #[test]
-    fn parse_ignores_wrong_types() {
+    fn parse_ignores_wrong_types() -> anyhow::Result<()> {
         let legacy_json = json!({
             "appAnalyticsConfirmed": "not a boolean",
             "appMetricsEnabled": 123,
@@ -221,10 +226,11 @@ mod tests {
         // No other fields should be present since all values were invalid
         assert!(result.get("onboardingComplete").is_none());
         assert_eq!(result["telemetry"].as_object().unwrap().len(), 1); // Only migratedFromLegacy
+        Ok(())
     }
 
     #[test]
-    fn parse_empty_json() {
+    fn parse_empty_json() -> anyhow::Result<()> {
         let legacy_json = json!({});
 
         let result = parse_legacy_settings_to_overrides(&legacy_json);
@@ -234,102 +240,11 @@ mod tests {
         // No other fields should be present
         assert!(result.get("onboardingComplete").is_none());
         assert_eq!(result["telemetry"].as_object().unwrap().len(), 1); // Only migratedFromLegacy
+        Ok(())
     }
 
     #[test]
-    fn read_from_nonexistent_path() {
-        let path = std::path::Path::new("/nonexistent/path/settings.json");
-        let result = read_legacy_overrides(path);
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn maybe_persist_writes_when_different() {
-        use tempfile::NamedTempFile;
-
-        let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path();
-
-        // Write initial customizations
-        let original = json!({"telemetry": {"appMetricsEnabled": true}});
-        std::fs::write(path, serde_json::to_string_pretty(&original).unwrap()).unwrap();
-
-        // Persist overrides that differ
-        let overrides = json!({"onboardingComplete": true});
-        maybe_persist_overrides(path, overrides).unwrap();
-
-        // Verify file was written
-        let content: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-        assert_eq!(content["onboardingComplete"], json!(true));
-        assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
-    }
-
-    #[test]
-    fn maybe_persist_does_not_write_when_identical() {
-        use tempfile::NamedTempFile;
-
-        let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path();
-
-        // Write initial customizations that already contain the overrides
-        let original = json!({
-            "onboardingComplete": true,
-            "telemetry": {"appMetricsEnabled": false}
-        });
-        std::fs::write(path, serde_json::to_string_pretty(&original).unwrap()).unwrap();
-
-        // Get modification time before
-        let metadata_before = std::fs::metadata(path).unwrap();
-        let modified_before = metadata_before.modified().unwrap();
-
-        // Wait a bit to ensure timestamp would change if file was written
-        std::thread::sleep(std::time::Duration::from_millis(100));
-
-        // Persist overrides that are already there
-        let overrides = json!({"onboardingComplete": true});
-        maybe_persist_overrides(path, overrides).unwrap();
-
-        // Verify file was NOT written since values are the same (timestamp unchanged)
-        let metadata_after = std::fs::metadata(path).unwrap();
-        let modified_after = metadata_after.modified().unwrap();
-        assert_eq!(modified_before, modified_after);
-
-        // Verify content is still correct
-        let content: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-        assert_eq!(content["onboardingComplete"], json!(true));
-        assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(false));
-    }
-
-    #[test]
-    fn read_from_valid_legacy_file() {
-        use tempfile::NamedTempFile;
-
-        let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path();
-
-        // Write valid legacy settings
-        let legacy_settings = json!({
-            "appAnalyticsConfirmed": true,
-            "appMetricsEnabled": false,
-            "appErrorReportingEnabled": true
-        });
-        std::fs::write(
-            path,
-            serde_json::to_string_pretty(&legacy_settings).unwrap(),
-        )
-        .unwrap();
-
-        let result = read_legacy_overrides(path).unwrap();
-
-        assert_eq!(result["onboardingComplete"], json!(true));
-        assert_eq!(result["telemetry"]["appMetricsEnabled"], json!(false));
-        assert_eq!(result["telemetry"]["appErrorReportingEnabled"], json!(true));
-    }
-
-    #[test]
-    fn parse_onboarding_false() {
+    fn parse_onboarding_false() -> anyhow::Result<()> {
         let legacy_json = json!({
             "appAnalyticsConfirmed": false
         });
@@ -339,158 +254,11 @@ mod tests {
         assert_eq!(result["onboardingComplete"], json!(false));
         // Migration flag is always present to mark that migration occurred
         assert_eq!(result["telemetry"]["migratedFromLegacy"], json!(true));
+        Ok(())
     }
 
     #[test]
-    fn maybe_persist_deep_merges_nested_telemetry() {
-        use tempfile::NamedTempFile;
-
-        let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path();
-
-        // Original has some telemetry settings
-        let original = json!({
-            "telemetry": {"appMetricsEnabled": true}
-        });
-        std::fs::write(path, serde_json::to_string_pretty(&original).unwrap()).unwrap();
-
-        // Overrides have different telemetry settings
-        let overrides = json!({
-            "telemetry": {"appErrorReportingEnabled": false}
-        });
-        maybe_persist_overrides(path, overrides).unwrap();
-
-        // Verify both telemetry fields are present (deep merge)
-        let content: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-        assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
-        assert_eq!(
-            content["telemetry"]["appErrorReportingEnabled"],
-            json!(false)
-        );
-    }
-
-    #[test]
-    fn integration_legacy_migration_through_app_settings() {
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let config_path = temp_dir.path().join("settings.json");
-        let legacy_path = temp_dir.path().join("legacy-settings.json");
-
-        // Create initial config with some customizations
-        let initial_config = json!({
-            "telemetry": {"appMetricsEnabled": true}
-        });
-        std::fs::write(
-            &config_path,
-            serde_json::to_string_pretty(&initial_config).unwrap(),
-        )
-        .unwrap();
-
-        // Create legacy settings to migrate
-        let legacy_settings = json!({
-            "appAnalyticsConfirmed": true,
-            "appErrorReportingEnabled": false
-        });
-        std::fs::write(
-            &legacy_path,
-            serde_json::to_string_pretty(&legacy_settings).unwrap(),
-        )
-        .unwrap();
-
-        // Read legacy overrides and persist them
-        let legacy_overrides = read_legacy_overrides(&legacy_path).unwrap();
-        maybe_persist_overrides(&config_path, legacy_overrides).unwrap();
-
-        // Verify config file now contains both original and migrated settings
-        let final_config: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&config_path).unwrap()).unwrap();
-
-        // Original setting preserved
-        assert_eq!(final_config["telemetry"]["appMetricsEnabled"], json!(true));
-        // Migrated settings added
-        assert_eq!(final_config["onboardingComplete"], json!(true));
-        assert_eq!(
-            final_config["telemetry"]["appErrorReportingEnabled"],
-            json!(false)
-        );
-    }
-
-    #[test]
-    fn legacy_true_values_override_false_in_config() {
-        use tempfile::NamedTempFile;
-
-        let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path();
-
-        // Config has telemetry settings disabled
-        let original = json!({
-            "telemetry": {
-                "appMetricsEnabled": false,
-                "appErrorReportingEnabled": false
-            }
-        });
-        std::fs::write(path, serde_json::to_string_pretty(&original).unwrap()).unwrap();
-
-        // Legacy settings have them enabled (true)
-        let overrides = json!({
-            "telemetry": {
-                "appMetricsEnabled": true,
-                "appErrorReportingEnabled": true
-            }
-        });
-        maybe_persist_overrides(path, overrides).unwrap();
-
-        // Verify true values overwrote false values
-        let content: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-        assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
-        assert_eq!(
-            content["telemetry"]["appErrorReportingEnabled"],
-            json!(true)
-        );
-    }
-
-    #[test]
-    fn legacy_true_values_are_written_to_empty_config() {
-        use tempfile::NamedTempFile;
-
-        let temp_file = NamedTempFile::new().unwrap();
-        let path = temp_file.path();
-
-        // Config file is empty (just initialized)
-        let original = json!({});
-        std::fs::write(path, serde_json::to_string_pretty(&original).unwrap()).unwrap();
-
-        // Legacy settings have various true values
-        let overrides = json!({
-            "onboardingComplete": true,
-            "telemetry": {
-                "appMetricsEnabled": true,
-                "appErrorReportingEnabled": true,
-                "appNonAnonMetricsEnabled": true
-            }
-        });
-        maybe_persist_overrides(path, overrides).unwrap();
-
-        // Verify all true values were written
-        let content: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-        assert_eq!(content["onboardingComplete"], json!(true));
-        assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
-        assert_eq!(
-            content["telemetry"]["appErrorReportingEnabled"],
-            json!(true)
-        );
-        assert_eq!(
-            content["telemetry"]["appNonAnonMetricsEnabled"],
-            json!(true)
-        );
-    }
-
-    #[test]
-    fn parse_user_example_one() {
+    fn parse_user_example_one() -> anyhow::Result<()> {
         // User-provided example with all fields set to true
         let legacy_json = json!({
             "appErrorReportingEnabled": true,
@@ -505,10 +273,11 @@ mod tests {
         assert_eq!(result["telemetry"]["appMetricsEnabled"], json!(true));
         assert_eq!(result["telemetry"]["appNonAnonMetricsEnabled"], json!(true));
         assert_eq!(result["telemetry"]["appErrorReportingEnabled"], json!(true));
+        Ok(())
     }
 
     #[test]
-    fn parse_user_example_two() {
+    fn parse_user_example_two() -> anyhow::Result<()> {
         // User-provided example with subset of fields
         let legacy_json = json!({
             "appAnalyticsConfirmed": true,
@@ -527,13 +296,259 @@ mod tests {
                 .get("appNonAnonMetricsEnabled")
                 .is_none()
         );
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod read_legacy_overrides {
+    use crate::legacy_settings::read_legacy_overrides;
+    use serde_json::json;
+
+    #[test]
+    fn read_from_nonexistent_path() -> anyhow::Result<()> {
+        let path = std::path::Path::new("/nonexistent/path/settings.json");
+        let result = read_legacy_overrides(path);
+        assert!(result.is_none());
+        Ok(())
     }
 
     #[test]
-    fn maybe_persist_partial_overlap_only_writes_differences() {
+    fn read_from_valid_legacy_file() -> anyhow::Result<()> {
         use tempfile::NamedTempFile;
 
-        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new()?;
+        let path = temp_file.path();
+
+        // Write valid legacy settings
+        let legacy_settings = json!({
+            "appAnalyticsConfirmed": true,
+            "appMetricsEnabled": false,
+            "appErrorReportingEnabled": true
+        });
+        std::fs::write(path, serde_json::to_string_pretty(&legacy_settings)?)?;
+
+        let result = read_legacy_overrides(path).unwrap();
+
+        assert_eq!(result["onboardingComplete"], json!(true));
+        assert_eq!(result["telemetry"]["appMetricsEnabled"], json!(false));
+        assert_eq!(result["telemetry"]["appErrorReportingEnabled"], json!(true));
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod maybe_persist_overrides {
+    use crate::legacy_settings::{maybe_persist_overrides, read_legacy_overrides};
+    use serde_json::json;
+
+    #[test]
+    fn maybe_persist_writes_when_different() -> anyhow::Result<()> {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new()?;
+        let path = temp_file.path();
+
+        // Write initial customizations
+        let original = json!({"telemetry": {"appMetricsEnabled": true}});
+        std::fs::write(path, serde_json::to_string_pretty(&original)?)?;
+
+        // Persist overrides that differ
+        let overrides = json!({"onboardingComplete": true});
+        maybe_persist_overrides(path, overrides)?;
+
+        // Verify file was written
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+        assert_eq!(content["onboardingComplete"], json!(true));
+        assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
+        Ok(())
+    }
+
+    #[test]
+    fn maybe_persist_does_not_write_when_identical() -> anyhow::Result<()> {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new()?;
+        let path = temp_file.path();
+
+        // Write initial customizations that already contain the overrides
+        let original = json!({
+            "onboardingComplete": true,
+            "telemetry": {"appMetricsEnabled": false}
+        });
+        std::fs::write(path, serde_json::to_string_pretty(&original)?)?;
+
+        // Get modification time before
+        let metadata_before = std::fs::metadata(path)?;
+        let modified_before = metadata_before.modified()?;
+
+        // Wait a bit to ensure timestamp would change if file was written
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Persist overrides that are already there
+        let overrides = json!({"onboardingComplete": true});
+        maybe_persist_overrides(path, overrides)?;
+
+        // Verify file was NOT written since values are the same (timestamp unchanged)
+        let metadata_after = std::fs::metadata(path)?;
+        let modified_after = metadata_after.modified()?;
+        assert_eq!(modified_before, modified_after);
+
+        // Verify content is still correct
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+        assert_eq!(content["onboardingComplete"], json!(true));
+        assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(false));
+        Ok(())
+    }
+
+    #[test]
+    fn maybe_persist_deep_merges_nested_telemetry() -> anyhow::Result<()> {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new()?;
+        let path = temp_file.path();
+
+        // Original has some telemetry settings
+        let original = json!({
+            "telemetry": {"appMetricsEnabled": true}
+        });
+        std::fs::write(path, serde_json::to_string_pretty(&original)?)?;
+
+        // Overrides have different telemetry settings
+        let overrides = json!({
+            "telemetry": {"appErrorReportingEnabled": false}
+        });
+        maybe_persist_overrides(path, overrides)?;
+
+        // Verify both telemetry fields are present (deep merge)
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+        assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
+        assert_eq!(
+            content["telemetry"]["appErrorReportingEnabled"],
+            json!(false)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn integration_legacy_migration_through_app_settings() -> anyhow::Result<()> {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new()?;
+        let config_path = temp_dir.path().join("settings.json");
+        let legacy_path = temp_dir.path().join("legacy-settings.json");
+
+        // Create initial config with some customizations
+        let initial_config = json!({
+            "telemetry": {"appMetricsEnabled": true}
+        });
+        std::fs::write(&config_path, serde_json::to_string_pretty(&initial_config)?)?;
+
+        // Create legacy settings to migrate
+        let legacy_settings = json!({
+            "appAnalyticsConfirmed": true,
+            "appErrorReportingEnabled": false
+        });
+        std::fs::write(
+            &legacy_path,
+            serde_json::to_string_pretty(&legacy_settings)?,
+        )?;
+
+        // Read legacy overrides and persist them
+        let legacy_overrides = read_legacy_overrides(&legacy_path).unwrap();
+        maybe_persist_overrides(&config_path, legacy_overrides)?;
+
+        // Verify config file now contains both original and migrated settings
+        let final_config: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&config_path)?)?;
+
+        // Original setting preserved
+        assert_eq!(final_config["telemetry"]["appMetricsEnabled"], json!(true));
+        // Migrated settings added
+        assert_eq!(final_config["onboardingComplete"], json!(true));
+        assert_eq!(
+            final_config["telemetry"]["appErrorReportingEnabled"],
+            json!(false)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_true_values_override_false_in_config() -> anyhow::Result<()> {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new()?;
+        let path = temp_file.path();
+
+        // Config has telemetry settings disabled
+        let original = json!({
+            "telemetry": {
+                "appMetricsEnabled": false,
+                "appErrorReportingEnabled": false
+            }
+        });
+        std::fs::write(path, serde_json::to_string_pretty(&original)?)?;
+
+        // Legacy settings have them enabled (true)
+        let overrides = json!({
+            "telemetry": {
+                "appMetricsEnabled": true,
+                "appErrorReportingEnabled": true
+            }
+        });
+        maybe_persist_overrides(path, overrides)?;
+
+        // Verify true values overwrote false values
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+        assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
+        assert_eq!(
+            content["telemetry"]["appErrorReportingEnabled"],
+            json!(true)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_true_values_are_written_to_empty_config() -> anyhow::Result<()> {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new()?;
+        let path = temp_file.path();
+
+        // Config file is empty (just initialized)
+        let original = json!({});
+        std::fs::write(path, serde_json::to_string_pretty(&original)?)?;
+
+        // Legacy settings have various true values
+        let overrides = json!({
+            "onboardingComplete": true,
+            "telemetry": {
+                "appMetricsEnabled": true,
+                "appErrorReportingEnabled": true,
+                "appNonAnonMetricsEnabled": true
+            }
+        });
+        maybe_persist_overrides(path, overrides)?;
+
+        // Verify all true values were written
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+        assert_eq!(content["onboardingComplete"], json!(true));
+        assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
+        assert_eq!(
+            content["telemetry"]["appErrorReportingEnabled"],
+            json!(true)
+        );
+        assert_eq!(
+            content["telemetry"]["appNonAnonMetricsEnabled"],
+            json!(true)
+        );
+        Ok(())
+    }
+    #[test]
+    fn maybe_persist_partial_overlap_only_writes_differences() -> anyhow::Result<()> {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new()?;
         let path = temp_file.path();
 
         // Config already has some matching values and some different values
@@ -544,7 +559,7 @@ mod tests {
                 "appErrorReportingEnabled": true
             }
         });
-        std::fs::write(path, serde_json::to_string_pretty(&original).unwrap()).unwrap();
+        std::fs::write(path, serde_json::to_string_pretty(&original)?)?;
 
         // Overrides have: one matching field (onboardingComplete), one different field (appMetricsEnabled),
         // and one new field (appNonAnonMetricsEnabled)
@@ -555,11 +570,10 @@ mod tests {
                 "appNonAnonMetricsEnabled": true
             }
         });
-        maybe_persist_overrides(path, overrides).unwrap();
+        maybe_persist_overrides(path, overrides)?;
 
         // Verify file was written with merged result
-        let content: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
         assert_eq!(content["onboardingComplete"], json!(true));
         assert_eq!(
             content["telemetry"]["appMetricsEnabled"],
@@ -576,17 +590,18 @@ mod tests {
             json!(true),
             "should add new field from overrides"
         );
+        Ok(())
     }
 
     #[test]
-    fn maybe_persist_handles_corrupted_config_file() {
+    fn maybe_persist_handles_corrupted_config_file() -> anyhow::Result<()> {
         use tempfile::NamedTempFile;
 
-        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new()?;
         let path = temp_file.path();
 
         // Write invalid JSON to config file
-        std::fs::write(path, "{ this is not valid json }").unwrap();
+        std::fs::write(path, "{ this is not valid json }")?;
 
         let overrides = json!({
             "onboardingComplete": true
@@ -595,13 +610,14 @@ mod tests {
         // Should return an error when trying to parse corrupted config
         let result = maybe_persist_overrides(path, overrides);
         assert!(result.is_err(), "should fail to parse corrupted JSON");
+        Ok(())
     }
 
     #[test]
-    fn maybe_persist_with_nested_partial_match() {
+    fn maybe_persist_with_nested_partial_match() -> anyhow::Result<()> {
         use tempfile::NamedTempFile;
 
-        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new()?;
         let path = temp_file.path();
 
         // Config has nested structure with some matching and some different values
@@ -613,7 +629,7 @@ mod tests {
                 "appNonAnonMetricsEnabled": false
             }
         });
-        std::fs::write(path, serde_json::to_string_pretty(&original).unwrap()).unwrap();
+        std::fs::write(path, serde_json::to_string_pretty(&original)?)?;
 
         // Overrides change some telemetry fields but not all
         let overrides = json!({
@@ -623,11 +639,10 @@ mod tests {
                 "appNonAnonMetricsEnabled": true
             }
         });
-        maybe_persist_overrides(path, overrides).unwrap();
+        maybe_persist_overrides(path, overrides)?;
 
         // Verify all fields are correctly merged
-        let content: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
         assert_eq!(content["onboardingComplete"], json!(true));
         assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(false));
         assert_eq!(
@@ -639,17 +654,18 @@ mod tests {
             content["telemetry"]["appNonAnonMetricsEnabled"],
             json!(true)
         );
+        Ok(())
     }
 
     #[test]
-    fn maybe_persist_empty_config_file() {
+    fn maybe_persist_empty_config_file() -> anyhow::Result<()> {
         use tempfile::NamedTempFile;
 
-        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new()?;
         let path = temp_file.path();
 
         // Start with truly empty config (just empty object)
-        std::fs::write(path, "{}").unwrap();
+        std::fs::write(path, "{}")?;
 
         let overrides = json!({
             "onboardingComplete": false,
@@ -657,12 +673,12 @@ mod tests {
                 "appMetricsEnabled": false
             }
         });
-        maybe_persist_overrides(path, overrides).unwrap();
+        maybe_persist_overrides(path, overrides)?;
 
         // Verify all override values were written
-        let content: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
         assert_eq!(content["onboardingComplete"], json!(false));
         assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(false));
+        Ok(())
     }
 }

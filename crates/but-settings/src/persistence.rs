@@ -37,6 +37,9 @@ impl AppSettings {
 
         // Migrate legacy settings from Tauri store (only if not already migrated)
         if let Some(legacy_overrides) = maybe_migrate_legacy_settings(config_path, &settings) {
+            // Note that by now, it has written back the `customizations` as freshly read from `config_path`,
+            // back to `config_path`, after merging them with the legacy settings.
+            // We now repeat this merging step with the in-memory settings to bring it up-to date.
             merge_non_null_json_value(legacy_overrides, &mut settings);
         }
 
