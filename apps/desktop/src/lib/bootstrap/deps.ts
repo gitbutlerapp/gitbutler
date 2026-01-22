@@ -15,7 +15,6 @@ import { CherryApplyService, CHERRY_APPLY_SERVICE } from '$lib/cherryApply/cherr
 import CLIManager, { CLI_MANAGER } from '$lib/cli/cli';
 import { ATTACHMENT_SERVICE, AttachmentService } from '$lib/codegen/attachmentService.svelte';
 import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
-import { AppSettings, APP_SETTINGS } from '$lib/config/appSettings';
 import { SETTINGS_SERVICE, SettingsService } from '$lib/config/appSettingsV2';
 import { GIT_CONFIG_SERVICE, GitConfigService } from '$lib/config/gitConfigService';
 import DependencyService, { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
@@ -89,12 +88,12 @@ import {
 	type ExternalLinkService
 } from '@gitbutler/ui/utils/externalLinkService';
 import { IMECompositionHandler, IME_COMPOSITION_HANDLER } from '@gitbutler/ui/utils/imeHandling';
-import { get } from 'svelte/store';
+import type { Settings } from '@gitbutler/core/api';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 export function initDependencies(args: {
 	backend: IBackend;
-	appSettings: AppSettings;
+	appSettings: Settings.AppSettings;
 	settingsService: SettingsService;
 	posthog: PostHogWrapper;
 	eventContext: EventContext;
@@ -301,7 +300,7 @@ export function initDependencies(args: {
 		backend,
 		posthog,
 		shortcutService,
-		get(settingsService)!.ui.checkForUpdatesIntervalInSeconds * 1000
+		Number(appSettings.ui.checkForUpdatesIntervalInSeconds) * 1000
 	);
 
 	// ============================================================================
@@ -323,7 +322,6 @@ export function initDependencies(args: {
 		[AI_PROMPT_SERVICE, aiPromptService],
 		[AI_SERVICE, aiService],
 		[APP_DISPATCH, appState.appDispatch],
-		[APP_SETTINGS, appSettings],
 		[APP_STATE, appState],
 		[BACKEND, backend],
 		[BASE_BRANCH_SERVICE, baseBranchService],
