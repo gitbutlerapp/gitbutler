@@ -130,17 +130,6 @@
 			htmlInput.select();
 		}
 	}
-
-	function handleKeydown(e: KeyboardEvent & { currentTarget: EventTarget & HTMLInputElement }) {
-		// Handle cmd+a (Mac) or ctrl+a (Windows/Linux) to select all text
-		if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
-			e.preventDefault();
-			e.currentTarget.select();
-		}
-
-		// Call the original onkeydown handler if provided
-		onkeydown?.(e);
-	}
 </script>
 
 <div
@@ -218,7 +207,7 @@
 			onchange={(e) => {
 				onchange?.(e.currentTarget.value);
 			}}
-			onkeydown={handleKeydown}
+			{onkeydown}
 		/>
 
 		{#if type === 'number' && showCountActions}

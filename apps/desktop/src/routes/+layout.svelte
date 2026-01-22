@@ -125,8 +125,25 @@
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 
+	function handleKeyDown(e: KeyboardEvent) {
+		// Explicitly detect cmd/ctrl + A since Tauri gets in the way of default behavior.
+		// To get default behavior you can add a "Select All" predefined menu item to the
+		// Edit menu, but that prevents the event from reaching the webview.
+		if (
+			(e.metaKey || e.ctrlKey) &&
+			e.key === 'a' &&
+			e.target &&
+			e.target instanceof HTMLInputElement
+		) {
+			e.target.select();
+			e.preventDefault();
+		} else {
+			handleKeyBind(e);
+		}
+	}
+
 	// Debug keyboard shortcuts
-	const handleKeyDown = createKeybind({
+	const handleKeyBind = createKeybind({
 		// Toggle next-gen safe checkout.
 		'c o 3': () => {
 			settingsService.updateFeatureFlags({ cv3: !$settingsStore?.featureFlags.cv3 });
