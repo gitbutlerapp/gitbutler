@@ -43,9 +43,10 @@ export class UserService {
 		const user = await this.backend.invoke<User | undefined>('get_user');
 		if (user) {
 			this.tokenMemoryService.setToken(user.access_token);
+			// Telemetry is alreary set when the user is set.
+			// Just in case the user ID changes in the backend outside the usual cycle, we set it again here.
+			await this.setUserTelemetry(user);
 			this.user.set(user);
-			await this.posthog.setPostHogUser({ id: user.id, email: user.email, name: user.name });
-			setSentryUser(user);
 			return user;
 		}
 
@@ -64,6 +65,7 @@ export class UserService {
 		if (user) {
 			await this.backend.invoke('set_user', { user });
 			this.tokenMemoryService.setToken(user.access_token);
+			await this.setUserTelemetry(user);
 		} else {
 			await this.clearUser();
 		}
@@ -72,6 +74,11 @@ export class UserService {
 
 	private async clearUser() {
 		await this.backend.invoke('delete_user');
+	}
+
+	private async setUserTelemetry(user: User) {
+		await this.posthog.setPostHogUser({ id: user.id, email: user.email, name: user.name });
+		setSentryUser(user);
 	}
 
 	async logout() {

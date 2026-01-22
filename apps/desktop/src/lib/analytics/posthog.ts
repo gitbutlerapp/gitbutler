@@ -74,7 +74,7 @@ export class PostHogWrapper {
 			email,
 			name
 		});
-		this.settingsService.updateTelemetryDistinctId(distinctId);
+		await this.settingsService.updateTelemetryDistinctId(distinctId);
 	}
 
 	setAnonymousPostHogUser() {
