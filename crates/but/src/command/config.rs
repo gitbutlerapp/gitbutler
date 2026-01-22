@@ -35,7 +35,13 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         email: Option<String>,
         editor: Option<String>,
         target_branch: Option<String>,
-        forge_configured: bool,
+        forge_accounts: Vec<ForgeAccountInfo>,
+    }
+
+    #[derive(Serialize)]
+    struct ForgeAccountInfo {
+        provider: String,
+        username: String,
     }
 
     // Get user info from git config
@@ -49,7 +55,15 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
     let target_branch =
         but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)?;
 
-    let forge_configured = false;
+    // Get forge accounts
+    let known_accounts = but_api::github::list_known_github_accounts().await?;
+    let forge_accounts: Vec<ForgeAccountInfo> = known_accounts
+        .iter()
+        .map(|account| ForgeAccountInfo {
+            provider: "GitHub".to_string(),
+            username: account.username().to_string(),
+        })
+        .collect();
 
     if let Some(out) = out.for_human() {
         writeln!(out, "\n{}", "GitButler Configuration".bold())?;
@@ -70,15 +84,17 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
 
         // Forge
         writeln!(out, "{}:", "Forge".bold())?;
-        if true {
-            writeln!(out, "  {}", "✓ Configured".green())?;
-        } else {
+        if forge_accounts.is_empty() {
             writeln!(
                 out,
-                "  {} Run {} to authenticate",
-                "✗ Not configured".red(),
-                "but forge auth".cyan()
+                "  {}    Run {} to authenticate to a forge",
+                "✗ Not configured\n".red(),
+                "but config forge auth".blue()
             )?;
+        } else {
+            for account in &forge_accounts {
+                writeln!(out, "  • {} {}", account.provider.cyan(), account.username)?;
+            }
         }
         writeln!(out)?;
 
@@ -106,7 +122,7 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
             email: user_info.email,
             editor: Some(user_info.editor),
             target_branch: target_branch_name,
-            forge_configured,
+            forge_accounts,
         }))?;
     }
 
