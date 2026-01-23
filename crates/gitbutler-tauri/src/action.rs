@@ -63,7 +63,9 @@ pub fn auto_commit(
     let changes: Vec<but_core::TreeChange> =
         changes.into_iter().map(|change| change.into()).collect();
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let git_config = git2::Config::open_default().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    let git_config =
+        gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+
     let llm = LLMProvider::from_git_config(&git_config);
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
@@ -93,7 +95,8 @@ pub fn auto_branch_changes(
     let changes: Vec<but_core::TreeChange> =
         changes.into_iter().map(|change| change.into()).collect();
     let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let git_config = git2::Config::open_default().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    let git_config =
+        gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
     let llm = LLMProvider::from_git_config(&git_config);
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
@@ -129,7 +132,8 @@ pub fn freestyle(
         });
     });
 
-    let git_config = git2::Config::open_default().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    let git_config =
+        gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
     let llm = LLMProvider::from_git_config(&git_config);
     match llm {
         Some(llm) => but_action::freestyle(

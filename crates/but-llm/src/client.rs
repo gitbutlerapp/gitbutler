@@ -2,14 +2,13 @@ use std::fmt::Debug;
 
 use anyhow::Result;
 use but_tools::tool::Toolset;
-use git2::Config;
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::ChatMessage;
 
 pub trait LLMClient: Debug + Clone {
-    fn from_git_config(config: &Config) -> Option<Self>
+    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
     where
         Self: Sized;
 
