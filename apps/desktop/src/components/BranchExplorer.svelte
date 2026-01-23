@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ChunkyList from '$components/ChunkyList.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import LazyList from '$components/LazyList.svelte';
 	import BranchesListGroup from '$components/branchesPage/BranchesListGroup.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import {
@@ -170,7 +170,7 @@
 {#snippet branchGroup(props: { title: string; children: SidebarEntrySubject[] })}
 	{#if props.children.length > 0}
 		<BranchesListGroup title={props.title}>
-			<ChunkyList items={props.children} item={sidebarEntry}></ChunkyList>
+			<LazyList items={props.children} template={sidebarEntry}></LazyList>
 		</BranchesListGroup>
 	{/if}
 {/snippet}

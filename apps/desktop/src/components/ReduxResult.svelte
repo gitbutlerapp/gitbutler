@@ -24,6 +24,7 @@
 		result: Result<A> | undefined;
 		children: Snippet<[A, Env<B, C>]>;
 		loading?: Snippet<[A | undefined]>;
+		hideLoading?: boolean;
 		hideError?: boolean;
 		error?: Snippet<[unknown]>;
 		empty?: Snippet<[]>;
@@ -86,7 +87,7 @@
 {#snippet loadingComponent(data: A | undefined, status: QueryStatus)}
 	{#if props.loading}
 		{@render props.loading(data)}
-	{:else}
+	{:else if !props.hideLoading}
 		<div class="text-12 loading-spinner">
 			<Icon name="spinner" />
 			<span>{status}</span>

@@ -1,12 +1,19 @@
 <script lang="ts">
 	import { Button } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
+	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		content: Snippet;
 		actions?: Snippet<[element: HTMLElement]>;
 		headerHeight?: number;
+		transparent?: boolean;
+		sticky?: boolean;
+		reserveSpaceOnStuck?: boolean;
+		closeButtonPlaceholder?: boolean;
+		scrollRoot?: HTMLElement | null;
+		highlighted?: boolean;
 		onclose?: () => void;
 		/**
 		 * Called when the header is double-clicked.
@@ -15,31 +22,88 @@
 		ondblclick?: () => void;
 	}
 
-	let { content, actions, headerHeight = $bindable(), onclose, ondblclick }: Props = $props();
+	let {
+		content,
+		actions,
+		headerHeight = $bindable(),
+		transparent,
+		sticky,
+		reserveSpaceOnStuck,
+		closeButtonPlaceholder,
+		scrollRoot,
+		highlighted,
+		onclose,
+		ondblclick
+	}: Props = $props();
 
 	let headerDiv = $state<HTMLDivElement>();
+	let sentinelDiv = $state<HTMLDivElement>();
+	let isStuck = $state(false);
+
+	// Derived variable only emits when value changes.
+	const stableHighlighted = $derived(highlighted);
+
+	onMount(() => {
+		if (!reserveSpaceOnStuck || !sentinelDiv) return;
+
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (entry) {
+					isStuck = !entry.isIntersecting;
+				}
+			},
+			{
+				threshold: 1,
+				root: scrollRoot || null
+			}
+		);
+
+		observer.observe(sentinelDiv);
+
+		return () => {
+			observer.disconnect();
+		};
+	});
 </script>
+
+{#if sticky && reserveSpaceOnStuck}
+	<div bind:this={sentinelDiv} class="sticky-sentinel"></div>
+{/if}
 
 <div
 	role="presentation"
 	bind:this={headerDiv}
 	class="drawer-header"
+	class:sticky
+	class:stuck={isStuck}
+	class:highlighted={stableHighlighted}
 	bind:clientHeight={headerHeight}
 	use:focusable
 	{ondblclick}
+	style:background={transparent ? 'transparent' : undefined}
 >
+	{#if highlighted}
+		<div class="active-page-indicator"></div>
+	{/if}
+
 	<div class="drawer-header__title">
 		{@render content()}
 	</div>
 
-	{#if actions || onclose}
-		<div class="drawer-header__actions actions-with-separators">
+	{#if actions || onclose || closeButtonPlaceholder}
+		<div class="drawer-header__actions">
 			{#if actions}
-				{@render actions(headerDiv)}
+				<div class="drawer-header__optional-actions">
+					{@render actions(headerDiv)}
+				</div>
 			{/if}
 
-			{#if onclose && actions}
+			{#if (onclose && actions) || (closeButtonPlaceholder && isStuck)}
 				<div class="divider"></div>
+			{/if}
+
+			{#if (closeButtonPlaceholder && !actions) || isStuck}
+				<div style="width: 22px; height: var(--size-button);"></div>
 			{/if}
 
 			{#if onclose}
@@ -50,18 +114,47 @@
 </div>
 
 <style lang="postcss">
+	.active-page-indicator {
+		position: absolute;
+		top: 50%;
+		left: 0;
+		width: 12px;
+		height: 18px;
+		transform: translateX(-50%) translateY(-50%);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-pop-element);
+	}
+
+	.sticky-sentinel {
+		visibility: hidden;
+		position: absolute;
+		top: -26px;
+		width: 1px;
+		height: 1px;
+		pointer-events: none;
+	}
+
 	.drawer-header {
 		display: flex;
-		position: relative;
 		flex-shrink: 0;
 		align-items: center;
 		justify-content: space-between;
 		height: 42px;
 		padding: 0 12px 0 14px;
 		gap: 8px;
-		border-bottom: 1px solid transparent;
-		border-bottom-color: var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
+		transition: box-shadow var(--transition-medium);
+
+		&.sticky {
+			z-index: var(--z-ground);
+			position: sticky;
+			top: 0;
+		}
+
+		&.stuck {
+			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
+		}
 	}
 
 	.drawer-header__title {
@@ -81,9 +174,28 @@
 		gap: 10px;
 	}
 
+	.drawer-header__optional-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
 	.drawer-header__actions :global(.divider) {
 		width: 1px;
 		height: 18px;
 		background-color: var(--clr-border-2);
+	}
+
+	.drawer-header.highlighted {
+		animation: highlight-flash 2s ease-out;
+	}
+
+	@keyframes highlight-flash {
+		0% {
+			background-color: var(--clr-theme-pop-soft);
+		}
+		100% {
+			background-color: var(--clr-bg-2);
+		}
 	}
 </style>

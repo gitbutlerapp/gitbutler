@@ -8,6 +8,7 @@
 	import BranchInsertion from '$components/BranchInsertion.svelte';
 	import CodegenRow from '$components/CodegenRow.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
+	import NestedChangedFiles from '$components/NestedChangedFiles.svelte';
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
@@ -20,6 +21,7 @@
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
+	import { createBranchSelection } from '$lib/selection/key';
 	import { type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -40,9 +42,20 @@
 		branches: BranchDetails[];
 		active: boolean;
 		onselect?: () => void;
+		onCommitFileClick?: (commitId: string, path: string, index: number) => void;
+		onBranchFileClick?: (branchName: string, path: string, index: number) => void;
 	};
 
-	const { projectId, branches, stackId, laneId, active, onselect }: Props = $props();
+	const {
+		projectId,
+		branches,
+		stackId,
+		laneId,
+		active,
+		onselect,
+		onCommitFileClick,
+		onBranchFileClick
+	}: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
@@ -362,6 +375,51 @@
 						{/if}
 					{/snippet}
 
+					{#snippet changedFiles()}
+						{#if selected}
+							{@const changesQuery = stackService.branchChanges({
+								projectId,
+								stackId,
+								branch: branchName
+							})}
+							<ReduxResult {projectId} {stackId} result={changesQuery.result}>
+								{#snippet children(result, { projectId, stackId })}
+									<NestedChangedFiles
+										title="All Changes"
+										{projectId}
+										{stackId}
+										draggableFiles
+										autoselect
+										selectionId={createBranchSelection({
+											stackId: stackId,
+											branchName,
+											remote: undefined
+										})}
+										persistId={`branch-${branchName}`}
+										changes={result.changes}
+										stats={result.stats}
+										allowUnselect={false}
+										maxHeight="400px"
+										topBorder
+										bottomBorder={false}
+										transparentHeader
+										onselect={(change, index) => {
+											// Ensure the branch is selected so the preview shows it
+											const currentSelection = laneState.selection.current;
+											if (
+												currentSelection?.branchName !== branchName ||
+												currentSelection?.commitId !== undefined
+											) {
+												laneState.selection.set({ branchName, previewOpen: true });
+											}
+											onBranchFileClick?.(branchName, change.path, index);
+										}}
+									/>
+								{/snippet}
+							</ReduxResult>
+						{/if}
+					{/snippet}
+
 					{#snippet branchContent()}
 						<BranchCommitList
 							{lastBranch}
@@ -379,6 +437,7 @@
 							{handleUncommit}
 							{startEditingCommitMessage}
 							{onselect}
+							{onCommitFileClick}
 						/>
 					{/snippet}
 				</BranchCard>

@@ -1,10 +1,5 @@
 import { expect } from '@playwright/experimental-ct-svelte';
-
-/**
- * Page type from Playwright test context
- * Using 'any' since @playwright/test types aren't available in component tests
- */
-type Page = any;
+import type { Page, Locator } from 'playwright';
 
 /**
  * Wait for browser to be idle (no pending network requests, animations settled, etc.)
@@ -130,7 +125,7 @@ export async function waitFor<T>(
  * Uses expect.poll which has built-in retry logic
  */
 export async function waitForTextContent(
-	component: any,
+	component: Locator,
 	expectedText: string,
 	timeout = 2000
 ): Promise<void> {
@@ -147,7 +142,7 @@ export async function waitForTextContent(
  */
 export async function waitForTextContentWithIdle(
 	page: Page,
-	component: any,
+	component: Locator,
 	expectedText: string,
 	options: { timeout?: number; idleFirst?: boolean } = {}
 ): Promise<void> {
@@ -170,7 +165,7 @@ export async function waitForTextContentWithIdle(
  * Wait for a test data attribute to match a specific value
  */
 export async function waitForTestId(
-	component: any,
+	component: Locator,
 	testId: string,
 	expectedValue: string | number,
 	timeout = 2000
@@ -193,14 +188,14 @@ export async function waitForCondition(
 /**
  * Get text content from a component's test-content element
  */
-export async function getTextContent(component: any): Promise<string> {
+export async function getTextContent(component: Locator): Promise<string> {
 	return (await component.getByTestId('text-content').textContent()) || '';
 }
 
 /**
  * Get numeric value from a test element (e.g., paragraph-count)
  */
-export async function getTestIdValue(component: any, testId: string): Promise<number> {
+export async function getTestIdValue(component: Locator, testId: string): Promise<number> {
 	const text = await component.getByTestId(testId).textContent();
 	return parseInt(text || '0', 10);
 }
@@ -209,14 +204,14 @@ export async function getTestIdValue(component: any, testId: string): Promise<nu
  * Wait for scroll position to stabilize (useful for auto-scroll features)
  */
 export async function waitForScrollStability(
-	viewport: any,
+	viewport: Locator,
 	options: {
 		timeout?: number;
 		requiredStableChecks?: number;
 		checkInterval?: number;
 	} = {}
 ): Promise<void> {
-	const { timeout = 1000, requiredStableChecks = 3, checkInterval = 50 } = options;
+	const { timeout = 2000, requiredStableChecks = 3, checkInterval = 100 } = options;
 
 	await viewport.evaluate(
 		async (
@@ -255,7 +250,7 @@ export async function waitForScrollStability(
  * Wait for a DOM property to change beyond a threshold
  */
 export async function waitForPropertyChange<T extends number>(
-	element: any,
+	element: Locator,
 	propertyGetter: (el: HTMLElement) => T,
 	comparison: (newValue: T, oldValue: T) => boolean,
 	oldValue: T,
@@ -303,7 +298,7 @@ export async function waitForPropertyChange<T extends number>(
 /**
  * Get scroll-related properties from a scrollable element
  */
-export async function getScrollProperties(viewport: any): Promise<{
+export async function getScrollProperties(viewport: Locator): Promise<{
 	scrollTop: number;
 	scrollHeight: number;
 	clientHeight: number;
@@ -318,7 +313,7 @@ export async function getScrollProperties(viewport: any): Promise<{
 /**
  * Get distance from bottom of scroll container
  */
-export async function getDistanceFromBottom(viewport: any): Promise<number> {
+export async function getDistanceFromBottom(viewport: Locator): Promise<number> {
 	return await viewport.evaluate((el: HTMLElement) => {
 		return el.scrollHeight - el.scrollTop - el.clientHeight;
 	});
@@ -327,7 +322,7 @@ export async function getDistanceFromBottom(viewport: any): Promise<number> {
 /**
  * Scroll element to a specific position
  */
-export async function scrollTo(viewport: any, scrollTop: number): Promise<void> {
+export async function scrollTo(viewport: Locator, scrollTop: number): Promise<void> {
 	await viewport.evaluate((el: HTMLElement, top: number) => {
 		el.scrollTop = top;
 	}, scrollTop);
@@ -337,26 +332,25 @@ export async function scrollTo(viewport: any, scrollTop: number): Promise<void> 
  * Wait for scrollHeight to increase beyond a threshold
  */
 export async function waitForScrollHeightIncrease(
-	viewport: any,
+	viewport: Locator,
 	oldHeight: number,
 	timeout = 2000
 ): Promise<void> {
 	await viewport.evaluate(
-		async (el: HTMLElement, oldHeight: number, timeout: number) => {
+		async (el, args: { oldHeight: number; timeout: number }) => {
 			return await new Promise<void>((resolve) => {
 				function checkHeight() {
-					if (el.scrollHeight > oldHeight) {
+					if (el.scrollHeight > args.oldHeight) {
 						resolve();
 					} else {
 						setTimeout(checkHeight, 50);
 					}
 				}
 				checkHeight();
-				setTimeout(resolve, timeout);
+				setTimeout(resolve, args.timeout);
 			});
 		},
-		oldHeight,
-		timeout
+		{ oldHeight, timeout }
 	);
 }
 
@@ -434,6 +428,81 @@ export async function waitUntilIdle(
 
 	// Timeout reached - browser might still be busy but we've waited long enough
 	// This is acceptable for test stability
+}
+
+/**
+ * Scroll viewport to a specific percentage (0-100)
+ * Useful for testing scroll behavior at different positions
+ */
+export async function scrollToPercentage(viewport: Locator, percent: number): Promise<void> {
+	const { scrollHeight, clientHeight } = await getScrollProperties(viewport);
+	const maxScroll = scrollHeight - clientHeight;
+	const targetScroll = (maxScroll * percent) / 100;
+	await scrollTo(viewport, targetScroll);
+}
+
+/**
+ * Get the current scroll percentage (0-100)
+ */
+export async function getScrollPercentage(viewport: Locator): Promise<number> {
+	const { scrollTop, scrollHeight, clientHeight } = await getScrollProperties(viewport);
+	const maxScroll = scrollHeight - clientHeight;
+	if (maxScroll === 0) return 100; // Already at bottom if no scrollable area
+	return (scrollTop / maxScroll) * 100;
+}
+
+/**
+ * Check if viewport is at the bottom within a tolerance threshold
+ */
+export async function isAtBottom(viewport: Locator, tolerance = 0): Promise<boolean> {
+	const distance = await getDistanceFromBottom(viewport);
+	return distance < tolerance;
+}
+
+/**
+ * Wait for an action that changes scroll height and ensure the change completes
+ * Useful for operations that add/remove items from a scrollable list
+ */
+export async function waitForScrollHeightChange(
+	viewport: Locator,
+	action: () => Promise<void>,
+	timeout = 2000
+): Promise<void> {
+	const { scrollHeight: before } = await getScrollProperties(viewport);
+	await action();
+	await waitForScrollHeightIncrease(viewport, before, timeout);
+}
+
+/**
+ * Assert that the viewport is scrolled to the bottom within a tolerance threshold
+ * @param viewport - The scrollable viewport element
+ * @param tolerance - Maximum distance from bottom (in px) to be considered "at bottom"
+ */
+export async function expectAtBottom(viewport: Locator, tolerance = 10): Promise<void> {
+	expect(await getDistanceFromBottom(viewport)).toBeLessThan(tolerance);
+}
+
+/**
+ * Assert that the viewport is NOT at the bottom
+ * @param viewport - The scrollable viewport element
+ * @param minDistance - Minimum distance from bottom (in px) to be considered "not at bottom"
+ */
+export async function expectNotAtBottom(viewport: Locator, minDistance = 100): Promise<void> {
+	expect(await getDistanceFromBottom(viewport)).toBeGreaterThan(minDistance);
+}
+
+/**
+ * Get all visible items in a virtual list by their data-index attribute
+ * Returns an array of index numbers for items currently rendered in the DOM
+ */
+export async function getVisibleItemIndices(viewport: Locator): Promise<number[]> {
+	return await viewport.evaluate((el: HTMLElement) => {
+		const items = el.querySelectorAll('[data-index]');
+		return Array.from(items).map((item) => {
+			const index = item.getAttribute('data-index');
+			return index ? parseInt(index, 10) : -1;
+		});
+	});
 }
 
 /**

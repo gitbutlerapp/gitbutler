@@ -16,6 +16,7 @@
 		children: Snippet;
 		testId?: string;
 		persistId?: string;
+		topBorder?: boolean;
 		bottomBorder?: boolean;
 		grow?: boolean;
 		noshrink?: boolean;
@@ -23,9 +24,14 @@
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		defaultCollapsed?: boolean;
 		notScrollable?: boolean;
-		childrenWrapHeight?: string;
-		childrenWrapDisplay?: 'block' | 'contents' | 'flex';
 		maxHeight?: string;
+		transparent?: boolean;
+		stickyHeader?: boolean;
+		rounded?: boolean;
+		reserveSpaceOnStuck?: boolean;
+		closeButtonPlaceholder?: boolean;
+		scrollRoot?: HTMLElement | null;
+		highlighted?: boolean;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -37,15 +43,21 @@
 		testId,
 		persistId,
 		bottomBorder = true,
+		topBorder = false,
 		grow,
 		noshrink,
 		resizer,
 		clientHeight = $bindable(),
 		defaultCollapsed = false,
 		notScrollable = false,
-		childrenWrapHeight,
-		childrenWrapDisplay,
 		maxHeight,
+		transparent,
+		stickyHeader,
+		rounded,
+		reserveSpaceOnStuck,
+		closeButtonPlaceholder,
+		scrollRoot,
+		highlighted,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -101,11 +113,24 @@
 	bind:clientHeight
 	class:collapsed={isCollapsed}
 	class:bottom-border={bottomBorder && !isCollapsed}
+	class:top-border={topBorder}
 	class:grow
 	class:noshrink
+	class:rounded
 	style:max-height={maxHeight}
 >
-	<PreviewHeader {actions} bind:headerHeight {onclose} ondblclick={toggleCollapsed}>
+	<PreviewHeader
+		{actions}
+		bind:headerHeight
+		{transparent}
+		sticky={stickyHeader}
+		{reserveSpaceOnStuck}
+		{scrollRoot}
+		{highlighted}
+		{onclose}
+		ondblclick={toggleCollapsed}
+		{closeButtonPlaceholder}
+	>
 		{#snippet content()}
 			<button
 				type="button"
@@ -131,7 +156,7 @@
 				{@render children()}
 			</div>
 		{:else}
-			<ConfigurableScrollableContainer {childrenWrapHeight} {childrenWrapDisplay}>
+			<ConfigurableScrollableContainer>
 				<div class="drawer__content" bind:clientHeight={contentHeight}>
 					{@render children()}
 				</div>
@@ -168,11 +193,13 @@
 		flex-direction: column;
 		width: 100%;
 		max-height: 100%;
-		overflow: hidden;
 		background-color: var(--clr-bg-1);
 
 		&.bottom-border {
 			border-bottom: 1px solid var(--clr-border-2);
+		}
+		&.top-border {
+			border-top: 1px solid var(--clr-border-2);
 		}
 		&.noshrink {
 			flex-shrink: 0;
@@ -210,5 +237,11 @@
 		&.expanded {
 			transform: rotate(90deg);
 		}
+	}
+
+	.rounded {
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 	}
 </style>

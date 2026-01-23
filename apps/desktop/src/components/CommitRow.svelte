@@ -25,13 +25,13 @@
 		opacity?: number;
 		borderTop?: boolean;
 		disableCommitActions?: boolean;
-		isOpen?: boolean;
 		active?: boolean;
 		hasConflicts?: boolean;
 		disabled?: boolean;
 		editable?: boolean;
 		gerritReviewUrl?: string;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
+		changedFiles?: Snippet;
 		onclick?: () => void;
 	};
 
@@ -74,7 +74,6 @@
 		selected,
 		opacity,
 		borderTop,
-		isOpen,
 		disabled,
 		hasConflicts,
 		active,
@@ -82,6 +81,7 @@
 		gerritReviewUrl,
 		onclick,
 		menu,
+		changedFiles,
 		...args
 	}: Props = $props();
 
@@ -104,96 +104,113 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
-<div
-	data-testid={TestId.CommitRow}
-	data-commit-id={args.disableCommitActions ? undefined : args.commitId}
-	bind:this={container}
-	role="button"
-	tabindex="0"
-	aria-label="Commit row"
-	class="commit-row"
-	class:menu-shown={isOpen}
-	class:first
-	class:selected
-	class:active
-	style:opacity
-	class:has-conflicts={hasConflicts}
-	class:border-top={borderTop || first}
-	class:last={lastCommit}
-	class:disabled
-	{onclick}
-	use:focusable={{
-		onAction: () => onclick?.(),
-		focusable: true
-	}}
->
-	{#if selected}
-		<div
-			class="commit-row__select-indicator"
-			class:active
-			in:slide={{ axis: 'x', duration: 150 }}
-		></div>
-	{/if}
+<div class="commit-row-wrapper" class:first class:last={lastCommit}>
+	<div
+		data-testid={TestId.CommitRow}
+		data-commit-id={args.disableCommitActions ? undefined : args.commitId}
+		bind:this={container}
+		role="button"
+		tabindex="0"
+		aria-label="Commit row"
+		class="commit-row"
+		class:selected
+		class:active
+		style:opacity
+		class:has-conflicts={hasConflicts}
+		class:border-top={borderTop || first}
+		class:disabled
+		{onclick}
+		use:focusable={{
+			onAction: () => onclick?.(),
+			focusable: true
+		}}
+	>
+		{#if selected}
+			<div
+				class="commit-row__select-indicator"
+				class:active
+				in:slide={{ axis: 'x', duration: 150 }}
+			></div>
+		{/if}
 
-	{#if !selected && !args.disableCommitActions}
-		<div class="commit-row__drag-handle">
-			<Icon name="draggable-narrow" />
-		</div>
-	{/if}
-
-	<CommitLine
-		commitStatus={args.type}
-		diverged={args.type === 'LocalAndRemote' ? (args.diverged ?? false) : false}
-		{tooltip}
-		{lastCommit}
-		{lastBranch}
-		{hasConflicts}
-	/>
-
-	<div class="commit-content" class:has-conflicts={hasConflicts}>
-		{#if hasConflicts}
-			<div class="commit-conflict-indicator">
-				<Icon name="warning-small" />
+		{#if !selected && !args.disableCommitActions}
+			<div class="commit-row__drag-handle">
+				<Icon name="draggable-narrow" />
 			</div>
 		{/if}
 
-		{#if author}
-			<div class="commit-author-avatar">
-				<Avatar
-					srcUrl={author.gravatarUrl}
-					username={author.name}
-					tooltip={`${author.name} (${author.email})`}
-					size="medium"
-				/>
-			</div>
-		{/if}
+		<CommitLine
+			commitStatus={args.type}
+			diverged={args.type === 'LocalAndRemote' ? (args.diverged ?? false) : false}
+			{tooltip}
+			{lastCommit}
+			{lastBranch}
+			{hasConflicts}
+		/>
 
-		<div class="commit-name truncate">
-			<CommitTitle {commitMessage} truncate className="text-13 text-semibold" {editable} />
-			{#if gerritReviewUrl}
-				{@const reviewId = extractReviewId(gerritReviewUrl)}
-				{#if reviewId}
-					<!-- svelte-ignore a11y_click_events_have_key_events -->
-					<div
-						class="gerrit-review-pill"
-						role="button"
-						tabindex="0"
-						onclick={openGerritReview}
-						title="Open Gerrit review #{reviewId}"
-					>
-						<span class="text-11 text-semibold">{reviewId}</span>
-					</div>
+		<div class="commit-content" class:has-conflicts={hasConflicts}>
+			{#if hasConflicts}
+				<div class="commit-conflict-indicator">
+					<Icon name="warning-small" />
+				</div>
+			{/if}
+
+			{#if author}
+				<div class="commit-author-avatar">
+					<Avatar
+						srcUrl={author.gravatarUrl}
+						username={author.name}
+						tooltip={`${author.name} (${author.email})`}
+						size="medium"
+					/>
+				</div>
+			{/if}
+
+			<div class="commit-name truncate">
+				<CommitTitle {commitMessage} truncate className="text-13 text-semibold" {editable} />
+				{#if gerritReviewUrl}
+					{@const reviewId = extractReviewId(gerritReviewUrl)}
+					{#if reviewId}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<div
+							class="gerrit-review-pill"
+							role="button"
+							tabindex="0"
+							onclick={openGerritReview}
+							title="Open Gerrit review #{reviewId}"
+						>
+							<span class="text-11 text-semibold">{reviewId}</span>
+						</div>
+					{/if}
 				{/if}
+			</div>
+
+			{#if !args.disableCommitActions}
+				{@render menu?.({ rightClickTrigger: container })}
 			{/if}
 		</div>
-
-		{#if !args.disableCommitActions}
-			{@render menu?.({ rightClickTrigger: container })}
-		{/if}
 	</div>
+
+	{#if selected && changedFiles}
+		<div class="changed-files-container">
+			<CommitLine commitStatus={args.type} hideDot height="0.375rem" />
+			{@render changedFiles()}
+			<CommitLine commitStatus={args.type} hideDot height="1rem" />
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
+	.commit-row-wrapper {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+
+		&:not(.last) {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
+	}
+
 	.commit-row {
 		display: flex;
 		position: relative;
@@ -203,26 +220,13 @@
 		background-color: var(--clr-bg-1);
 		transition: background-color var(--transition-fast);
 
-		&:hover,
-		&.menu-shown {
+		&:hover {
 			background-color: var(--hover-bg-1);
 		}
 
 		&:hover .commit-row__drag-handle {
 			opacity: 0.4;
 			pointer-events: auto;
-		}
-
-		&:not(.last) {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
-
-		&.selected {
-			background-color: var(--clr-selected-not-in-focus-bg);
-		}
-
-		&.active.selected {
-			background-color: var(--clr-selected-in-focus-bg);
 		}
 
 		&.disabled {
@@ -232,8 +236,7 @@
 		&.has-conflicts {
 			background-color: var(--clr-theme-danger-bg);
 
-			&:not(.selected):hover,
-			&.menu-shown {
+			&:not(.selected):hover {
 				background-color: var(--hover-danger-bg);
 			}
 
@@ -265,7 +268,7 @@
 		position: absolute;
 		top: 50%;
 		left: 0;
-		width: 4px;
+		width: 6px;
 		height: 45%;
 		transform: translateY(-50%);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
@@ -320,6 +323,14 @@
 		color: var(--clr-text-1);
 		opacity: 0;
 		pointer-events: none;
+	}
+
+	.changed-files-container {
+		display: flex;
+		z-index: 1;
+		flex-direction: column;
+		margin-top: -4px;
+		background-color: var(--clr-bg-1);
 	}
 
 	.gerrit-review-pill {

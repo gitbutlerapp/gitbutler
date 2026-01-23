@@ -71,6 +71,7 @@
 		buttons?: Snippet;
 		branchContent: Snippet;
 		codegenRow?: Snippet;
+		changedFiles?: Snippet;
 	}
 
 	interface PrBranchProps extends BranchCardProps {
@@ -204,6 +205,7 @@
 				menu={args.menu}
 				conflicts={args.isConflicted}
 				{showPrCreation}
+				changedFiles={args.changedFiles}
 				dragArgs={{
 					disabled: args.isConflicted || (args.type === 'stack-branch' && args.applied === false),
 					label: branchName,

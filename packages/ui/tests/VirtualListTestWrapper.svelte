@@ -1,18 +1,54 @@
 <script lang="ts">
 	import VirtualList from '$components/VirtualList.svelte';
+	import AsyncContent from '$lib/helpers/AsyncContent.svelte';
 
 	type Props = {
-		batchSize: number;
+		defaultHeight: number;
 		itemCount?: number;
 		stickToBottom?: boolean;
+		asyncContent?: { delay: number; height: number };
+		startIndex?: number;
+		onloadmore?: () => Promise<void>;
 	};
 
-	const { itemCount = 10, stickToBottom = false, batchSize }: Props = $props();
+	const {
+		defaultHeight,
+		asyncContent,
+		itemCount = 10,
+		stickToBottom = false,
+		startIndex,
+		onloadmore
+	}: Props = $props();
 
 	let items = $state(Array.from({ length: itemCount }, (_, i) => `Item ${i + 1}`));
 	let container = $state<HTMLDivElement>();
+	let loadMoreCallCount = $state(0);
+	let virtualList = $state<any>();
+	let showFooter = $state(false);
 
-	function addItems() {
+	// Wrap the onloadmore prop to track call count
+	async function handleLoadMore() {
+		loadMoreCallCount++;
+		if (onloadmore) {
+			await onloadmore();
+		}
+	}
+
+	// Expose jumpToIndex method
+	export async function jumpToIndex(index: number) {
+		if (virtualList?.jumpToIndex) {
+			await virtualList.jumpToIndex(index);
+		}
+	}
+
+	// Expose scrollToBottom method
+	export function scrollToBottom() {
+		if (virtualList?.scrollToBottom) {
+			virtualList.scrollToBottom();
+		}
+	}
+
+	function addItem() {
 		items.push(`Item ${items.length + 1}`);
 	}
 
@@ -26,21 +62,74 @@
 			}
 		});
 	}
+
+	let jumpToIndexValue = $state(0);
+
+	function handleJumpToIndex() {
+		if (virtualList?.jumpToIndex) {
+			virtualList.jumpToIndex(jumpToIndexValue);
+		}
+	}
+
+	function handleScrollToBottom() {
+		if (virtualList?.scrollToBottom) {
+			virtualList.scrollToBottom();
+		}
+	}
+
+	function toggleFooter() {
+		showFooter = !showFooter;
+	}
 </script>
 
-<div bind:this={container} class="test-container">
-	<VirtualList {items} {stickToBottom} {batchSize} defaultHeight={50} visibility="hover">
-		{#snippet chunkTemplate(chunk)}
-			{#each chunk as item}
-				<div class="test-item">
-					{item}
-				</div>
-			{/each}
+<div
+	bind:this={container}
+	class="test-container"
+	data-testid="test-container"
+	data-loadmore-count={loadMoreCallCount}
+>
+	<VirtualList
+		bind:this={virtualList}
+		{items}
+		{stickToBottom}
+		{defaultHeight}
+		{startIndex}
+		onloadmore={onloadmore ? handleLoadMore : undefined}
+		visibility="hover"
+	>
+		{#snippet template(item)}
+			<div class="test-item">
+				<p>{item}</p>
+				{#if asyncContent}
+					{@const { delay, height } = asyncContent}
+					<AsyncContent {delay}>
+						<p class="async-content" style:height>async content</p>
+					</AsyncContent>
+				{/if}
+			</div>
 		{/snippet}
+		{#if showFooter}
+			<div class="footer" data-testid="footer">Footer Content</div>
+		{/if}
 	</VirtualList>
 	<div class="controls">
-		<button type="button" onclick={addItems}>Add Items</button>
+		<button type="button" onclick={addItem}>Add Item</button>
 		<button type="button" onclick={expandLast}>Expand Last</button>
+		<button type="button" onclick={toggleFooter} data-testid="toggle-footer-button">
+			Toggle Footer
+		</button>
+		<input
+			type="number"
+			bind:value={jumpToIndexValue}
+			data-testid="jump-to-index-input"
+			style="width: 60px; padding: 4px;"
+		/>
+		<button type="button" onclick={handleJumpToIndex} data-testid="jump-to-index-button">
+			Jump To Index
+		</button>
+		<button type="button" onclick={handleScrollToBottom} data-testid="scroll-to-bottom-button">
+			Scroll To Bottom
+		</button>
 	</div>
 </div>
 
@@ -54,12 +143,22 @@
 
 	.test-item {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		height: 100px;
+		min-height: 100px;
+		gap: 12px;
 		border: 1px solid #ccc;
 		background: white;
-		transition: height 0.3s;
+	}
+
+	.async-content {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 200px;
+		padding: 12px;
+		border: 1px solid lightgrey;
 	}
 
 	.controls {
@@ -80,5 +179,16 @@
 
 	button:hover {
 		background: #0056b3;
+	}
+
+	.footer {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 200px;
+		padding: 12px;
+		border: 2px solid blue;
+		background: lightblue;
+		font-weight: bold;
 	}
 </style>

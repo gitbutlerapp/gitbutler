@@ -3,7 +3,7 @@
 	import EditPatchConfirmModal from '$components/EditPatchConfirmModal.svelte';
 	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
 	import FileTreeNode from '$components/FileTreeNode.svelte';
-	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import LazyList from '$components/LazyList.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -23,13 +23,12 @@
 	import { selectFilesInList, updateSelection } from '$lib/selection/fileSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/core/context';
 	import { AsyncButton, FileListItem, TestId } from '@gitbutler/ui';
 	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
-
 	import { untrack } from 'svelte';
+	import { get } from 'svelte/store';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 
 	const DEFAULT_MODEL = 'gpt-4.1';
@@ -44,7 +43,7 @@
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
 		ancestorMostConflictedCommitId?: string;
-		onselect?: (change: TreeChange) => void;
+		onselect?: (change: TreeChange, index: number) => void;
 		allowUnselect?: boolean;
 		showLockedIndicator?: boolean;
 		dataTestId?: string;
@@ -76,7 +75,6 @@
 
 	const [autoCommit] = actionService.autoCommit;
 	const [branchChanges] = actionService.branchChanges;
-	let currentDisplayIndex = $state(0);
 
 	let editPatchModal: EditPatchConfirmModal | undefined = $state();
 	let selectedFilePath = $state('');
@@ -107,8 +105,6 @@
 		selectedFilePath = '';
 	}
 
-	const fileChunks: TreeChange[][] = $derived(chunk(changes, 100));
-	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
 	let aiConfigurationValid = $state(false);
 	let active = $state(false);
 
@@ -186,11 +182,6 @@
 		});
 	}
 
-	function loadMore() {
-		if (currentDisplayIndex + 1 >= fileChunks.length) return;
-		currentDisplayIndex += 1;
-	}
-
 	const unrepresentedConflictedEntries = $derived.by(() => {
 		if (!conflictEntries?.entries) return {};
 
@@ -215,7 +206,7 @@
 				selectionId,
 				allowUnselect
 			);
-			onselect?.(change);
+			onselect?.(change, idx);
 			return true;
 		}
 
@@ -231,20 +222,28 @@
 			return;
 		}
 
-		return updateSelection({
-			allowMultiple: true,
-			ctrlKey: e.ctrlKey,
-			metaKey: e.metaKey,
-			shiftKey: e.shiftKey,
-			key: e.key,
-			targetElement: e.currentTarget as HTMLElement,
-			files: changes,
-			selectedFileIds,
-			fileIdSelection: idSelection,
-			selectionId: selectionId,
-			preventDefault: () => e.preventDefault()
-		});
+		if (
+			updateSelection({
+				allowMultiple: true,
+				ctrlKey: e.ctrlKey,
+				metaKey: e.metaKey,
+				shiftKey: e.shiftKey,
+				key: e.key,
+				targetElement: e.currentTarget as HTMLElement,
+				files: changes,
+				selectedFileIds,
+				fileIdSelection: idSelection,
+				selectionId: selectionId,
+				preventDefault: () => e.preventDefault()
+			})
+		) {
+			const lastAdded = get(idSelection.getById(selectionId).lastAdded);
+			if (lastAdded) {
+				onselect?.(change, lastAdded.index);
+			}
+		}
 	}
+
 	const currentSelection = $derived(idSelection.getById(selectionId));
 	const lastAdded = $derived(currentSelection.lastAdded);
 	const lastAddedIndex = $derived($lastAdded?.index);
@@ -259,7 +258,7 @@
 	});
 </script>
 
-{#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
+{#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0, isLast: boolean = false)}
 	{@const isExecutable = isExecutableStatus(change.status)}
 	{@const selected = idSelection.has(change.path, selectionId)}
 	{@const locked = showLockedIndicator && isFileLocked(change.path, fileDependencies)}
@@ -269,7 +268,6 @@
 	{@const lockedTargets = showLockedIndicator
 		? getLockedTargets(change.path, fileDependencies)
 		: []}
-	{@const isLast = listMode === 'list' && idx === visibleFiles.length - 1}
 	<FileListItemWrapper
 		{selectionId}
 		{change}
@@ -303,7 +301,9 @@
 				selectionId,
 				allowUnselect
 			);
-			onselect?.(change);
+			if (idSelection.has(change.path, selectionId)) {
+				onselect?.(change, idx);
+			}
 		}}
 		{conflictEntries}
 	/>
@@ -365,10 +365,12 @@
 	{/if}
 
 	<!-- Other changes -->
-	{#if visibleFiles.length > 0}
+	{#if changes.length > 0}
 		{#if listMode === 'tree'}
-			<!-- We need to use sortedChanges here because otherwise we will end up
-		with incorrect indexes -->
+			<!--
+				We need to use sortedChanges here because otherwise we will end up
+				with incorrect indexes
+			-->
 			{@const node = abbreviateFolders(changesToFileTree(changes))}
 			<FileTreeNode
 				isRoot
@@ -382,17 +384,23 @@
 				{fileTemplate}
 			/>
 		{:else}
-			<LazyloadContainer
-				minTriggerCount={80}
-				ontrigger={() => {
-					loadMore();
-				}}
-				role="listbox"
-			>
-				{#each visibleFiles as change, idx}
-					{@render fileTemplate(change, idx)}
-				{/each}
-			</LazyloadContainer>
+			<LazyList items={changes} chunkSize={100}>
+				{#snippet template(change, context)}
+					<!--
+						There is a bug here related to the reactivity of `idSelection.has`,
+						affecting somehow the first item in the list of files.. but only where
+						used for the "assigned files" of the workspace.
+
+						This unused variable is a workaround, while present the reactivity
+						works as expected.
+
+						TODO: Bisect this issue, it was introduced between nightly version
+						0.5.1705 and 0.5.1783.
+						-->
+					{@const _selected = idSelection.has(change.path, selectionId)}
+					{@render fileTemplate(change, context.index, 0, context.last)}
+				{/snippet}
+			</LazyList>
 		{/if}
 	{/if}
 </div>

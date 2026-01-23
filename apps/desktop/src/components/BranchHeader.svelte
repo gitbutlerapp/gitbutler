@@ -47,6 +47,7 @@
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
 		prCreation?: Snippet;
+		changedFiles?: Snippet;
 		showPrCreation?: boolean;
 		dragArgs?: DragableBranchData;
 	};
@@ -75,6 +76,7 @@
 		menu,
 		buttons,
 		prCreation,
+		changedFiles,
 		showPrCreation,
 		dragArgs
 	}: Props = $props();
@@ -134,14 +136,6 @@
 		data-remove-from-panning
 		use:draggableBranch={draggableBranchConfig}
 	>
-		{#if selected && !draft}
-			<div
-				class="branch-header__select-indicator"
-				in:slide={{ axis: 'x', duration: 150 }}
-				class:active
-			></div>
-		{/if}
-
 		{#if dragArgs && !dragArgs.disabled && !conflicts}
 			<div class="branch-header__drag-handle" data-no-drag>
 				<Icon name="draggable-narrow" />
@@ -149,6 +143,14 @@
 		{/if}
 
 		<div class="branch-header__content">
+			{#if selected && !draft}
+				<div
+					class="branch-header__select-indicator"
+					in:slide={{ axis: 'x', duration: 150 }}
+					class:active
+				></div>
+			{/if}
+
 			<div class="branch-header__title text-14 text-bold">
 				<div class="branch-header__title-content">
 					<BranchHeaderIcon color={lineColor} {iconName} />
@@ -180,6 +182,13 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if changedFiles && selected}
+		<div class="changed-files-container">
+			{@render changedFiles()}
+		</div>
+	{/if}
+
 	{#if showCommitGoesHere}
 		<CommitGoesHere
 			{commitId}
@@ -236,7 +245,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: flex-start;
-		padding-right: var(--branch-side-padding);
+		padding-right: 10px;
 		padding-left: var(--branch-side-padding);
 		overflow: hidden;
 		border-bottom: none;
@@ -252,13 +261,13 @@
 			}
 		}
 
-		&:not(:focus-within).selected {
+		/* &:not(:focus-within).selected {
 			--branch-selected-bg: var(--clr-selected-not-in-focus-bg);
-		}
+		} */
 
 		/* Selected in focus */
 		&.active.selected {
-			--branch-selected-bg: var(--clr-selected-in-focus-bg);
+			/* --branch-selected-bg: var(--clr-selected-in-focus-bg); */
 			--branch-selected-element-bg: var(--clr-selected-in-focus-element);
 		}
 	}
@@ -273,21 +282,6 @@
 
 		&:empty {
 			display: none;
-		}
-	}
-
-	.branch-header__select-indicator {
-		position: absolute;
-		top: 14px;
-		left: 0;
-		width: 4px;
-		height: calc(100% - 28px);
-		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--branch-selected-element-bg);
-		transition: transform var(--transition-fast);
-
-		&.active {
-			background-color: var(--clr-selected-in-focus-element);
 		}
 	}
 
@@ -317,13 +311,29 @@
 
 	.branch-header__content {
 		display: flex;
+		position: relative;
 		flex: 1;
 		flex-direction: column;
 		width: 100%;
 		padding: 14px 0;
-		overflow: hidden;
+		/* overflow: hidden; */
 		gap: 8px;
-		text-overflow: ellipsis;
+		/* text-overflow: ellipsis; */
+	}
+
+	.branch-header__select-indicator {
+		position: absolute;
+		top: 14px;
+		left: calc(var(--branch-side-padding) * -1);
+		width: 4px;
+		height: calc(100% - 28px);
+		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
+		background-color: var(--branch-selected-element-bg);
+		transition: transform var(--transition-fast);
+
+		&.active {
+			background-color: var(--clr-selected-in-focus-element);
+		}
 	}
 
 	.branch-header__drag-handle {
@@ -339,6 +349,17 @@
 		transition:
 			width var(--transition-fast),
 			opacity var(--transition-fast);
+	}
+
+	.changed-files-container {
+		display: flex;
+		z-index: 1;
+		width: 100%;
+		margin-top: -6px;
+		padding-top: 6px;
+		padding-bottom: 14px;
+		overflow: hidden;
+		background-color: var(--clr-bg-1);
 	}
 
 	.branch-header__empty-state {

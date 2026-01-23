@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Drawer from '$components/Drawer.svelte';
 	import FileList from '$components/FileList.svelte';
 	import FileListMode from '$components/FileListMode.svelte';
 	import Resizer from '$components/Resizer.svelte';
@@ -7,7 +6,7 @@
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/core/context';
-	import { Badge, EmptyStatePlaceholder, LineStats } from '@gitbutler/ui';
+	import { Badge, LineStats, EmptyStatePlaceholder } from '@gitbutler/ui';
 
 	import { type ComponentProps } from 'svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
@@ -46,16 +45,8 @@
 		stats,
 		conflictEntries,
 		draggableFiles,
-		grow,
-		noshrink,
-		maxHeight,
-		topBorder = false,
-		bottomBorder = true,
-		transparentHeader = false,
-		resizer,
 		autoselect,
 		ancestorMostConflictedCommitId,
-		ontoggle,
 		onselect,
 		allowUnselect = true,
 		persistId = 'default'
@@ -69,6 +60,8 @@
 
 	let listMode: 'list' | 'tree' = $state('tree');
 
+	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
+
 	$effect(() => {
 		const id = readStableSelectionKey(stringSelectionKey);
 		const selection = idSelection.getById(id);
@@ -78,32 +71,29 @@
 	});
 </script>
 
-<Drawer
-	{grow}
-	{ontoggle}
-	{resizer}
-	{noshrink}
-	{maxHeight}
-	{bottomBorder}
-	{topBorder}
-	transparent={transparentHeader}
-	persistId={`changed-files-drawer-${projectId}-${stackId || 'default'}`}
->
-	{#snippet header()}
-		<h4 class="text-14 text-semibold truncate">{title}</h4>
-		<div class="text-11 header-stats">
-			<Badge>{changes.length}</Badge>
-			{#if stats}
-				<LineStats linesAdded={stats.linesAdded} linesRemoved={stats.linesRemoved} />
-			{/if}
-		</div>
-	{/snippet}
-	{#snippet actions()}
-		<FileListMode bind:mode={listMode} persistId={`changed-files-${persistId}`} />
-	{/snippet}
+<div class="filelist-wrapper">
+	<div class="filelist-container">
+		<div class="filelist-header">
+			<div class="stack-h gap-4">
+				<h4 class="text-14 text-semibold truncate">{title}</h4>
+				<div class="text-11 header-stats">
+					<Badge>{changes.length}</Badge>
+					{#if stats}
+						<LineStats linesAdded={stats.linesAdded} linesRemoved={stats.linesRemoved} />
+					{/if}
+				</div>
+			</div>
 
-	<div class="filelist-wrapper">
-		{#if changes.length > 0 || Object.entries(conflictEntries?.entries ?? {}).length > 0}
+			<FileListMode bind:mode={listMode} persistId={`changed-files-${persistId}`} />
+		</div>
+
+		{#if changes.length === 0 && !hasConflicts}
+			<EmptyStatePlaceholder image={emptyFolderSvg} gap={0} topBottomPadding={4} bottomMargin={24}>
+				{#snippet caption()}
+					No files changed
+				{/snippet}
+			</EmptyStatePlaceholder>
+		{:else}
 			<FileList
 				{selectionId}
 				{projectId}
@@ -116,28 +106,36 @@
 				{allowUnselect}
 				{onselect}
 			/>
-		{:else}
-			<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
-				{#snippet caption()}
-					No files changed
-				{/snippet}
-			</EmptyStatePlaceholder>
 		{/if}
 	</div>
-</Drawer>
+</div>
 
 <style lang="postcss">
+	.filelist-wrapper {
+		width: 100%;
+		padding: 0 10px;
+	}
+
+	.filelist-container {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+	}
+
 	.header-stats {
 		display: flex;
 		align-items: center;
 		gap: 8px;
 	}
 
-	.filelist-wrapper {
+	.filelist-header {
 		display: flex;
-		flex-direction: column;
-		height: 100%;
-		margin-bottom: 16px;
-		background-color: var(--clr-bg-1);
+		align-items: center;
+		justify-content: space-between;
+		padding: 10px 10px 6px 14px;
+		gap: 12px;
 	}
 </style>
