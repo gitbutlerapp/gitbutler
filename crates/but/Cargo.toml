@@ -127,6 +127,8 @@ minus = { version = "5.6.1", default-features = false, features = [
 ] }
 unicode-width = "0.2"
 cfg-if = "1.0.4"
+sha2.workspace = true
+machine-uid = "0.5.4"
 tempfile.workspace = true
 nonempty.workspace = true
 itertools.workspace = true
