@@ -98,6 +98,8 @@
 			const newMessage = splitMessage(generatedText);
 			title = newMessage.title;
 			composer?.setText(newMessage.description);
+			// Clear generatedText after applying it to prevent re-triggering when toggling floating mode
+			generatedText = '';
 		}
 	});
 
