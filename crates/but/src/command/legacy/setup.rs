@@ -300,6 +300,18 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         but_api::legacy::virtual_branches::switch_back_to_workspace(project.id)?;
     }
 
+    // Install managed hooks to prevent accidental git commits
+    if let Ok(git2_repo) = git2::Repository::open(repo_path)
+        && let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(&git2_repo)
+        && let Some(out) = out.for_human()
+    {
+        writeln!(
+            out,
+            "  {}",
+            format!("Warning: Failed to install GitButler managed hooks: {}", e).yellow()
+        )?;
+    }
+
     // if we switched - tell the user what this is all about
     if pre_head_name != "gitbutler/workspace"
         && let Some(out) = out.for_human()

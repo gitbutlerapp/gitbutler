@@ -87,8 +87,14 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: git2::Oid) -> Result<HookRes
                 code,
                 ..
             } => {
-                let error = join_output(stdout, stderr, code);
-                HookResult::Failure(ErrorData { error })
+                // If the output contains GITBUTLER_ERROR, it's our managed hook blocking
+                // commits on gitbutler/workspace - this is expected behavior, not a failure
+                if stdout.contains("GITBUTLER_ERROR") || stderr.contains("GITBUTLER_ERROR") {
+                    HookResult::Success
+                } else {
+                    let error = join_output(stdout, stderr, code);
+                    HookResult::Failure(ErrorData { error })
+                }
             }
         },
     )
