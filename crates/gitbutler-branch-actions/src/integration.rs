@@ -173,6 +173,11 @@ pub fn update_workspace_commit(
     )?;
     repo.set_head(&GITBUTLER_WORKSPACE_REFERENCE.clone().to_string())?;
 
+    // Install managed hooks to prevent accidental git commits on workspace branch
+    if let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(repo) {
+        tracing::warn!("Failed to install managed hooks: {}", e);
+    }
+
     let mut index = repo.index()?;
     index.read_tree(&workspace_tree)?;
     index.write()?;

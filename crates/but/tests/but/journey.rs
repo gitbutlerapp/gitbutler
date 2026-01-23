@@ -67,9 +67,13 @@ Target branch: gb-local/main
 Remote: gb-local
 
 
-We are switching you to GitButler's special `gitbutler/workspace` branch     
+Setting up your project for GitButler tooling. Some things to note:
 
-To return to normal Git mode, either:
+- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
+- Installing Git hooks to help manage commits on the workspace branch
+
+To undo these changes and return to normal Git mode, either:
+
     - Directly checkout a branch (`git checkout main`)
     - Run `but teardown`
 

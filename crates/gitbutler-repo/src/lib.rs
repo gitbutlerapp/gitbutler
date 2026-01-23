@@ -15,6 +15,7 @@ pub mod credentials;
 mod config;
 use config::Config;
 pub mod hooks;
+pub mod managed_hooks;
 mod remote;
 pub mod staging;
 
