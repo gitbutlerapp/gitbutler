@@ -1,4 +1,4 @@
-use std::{ops::Deref, path::PathBuf};
+use std::{ops::Deref, path::PathBuf, str::FromStr};
 
 use but_core::{
     RefMetadata,
@@ -1400,5 +1400,32 @@ fn roundtrip_journey(metadata: &mut impl RefMetadata) -> anyhow::Result<()> {
         metadata.remove(ref_name.as_ref())?;
     }
     assert_eq!(metadata.iter().count(), 0, "Nothing is left after deletion");
+    Ok(())
+}
+
+#[test]
+fn legacy_change_id_deserializes_as_null_sha() -> anyhow::Result<()> {
+    // The fixture contains a legacy ChangeId which should deserialize as a null SHA.
+    // This allows old toml files with ChangeId entries to be loaded without errors.
+    let (store, _tmp) = vb_store_rw("legacy-change-id")?;
+
+    // Use a valid UUID for the stack ID that matches the fixture
+    let test_stack_id = "12345678-1234-5678-1234-567812345678";
+
+    // Verify that the legacy ChangeId was deserialized as a null SHA
+    let stack = store
+        .data()
+        .branches
+        .get(&but_core::ref_metadata::StackId::from_str(test_stack_id).unwrap())
+        .expect("stack should exist");
+
+    assert_eq!(stack.heads.len(), 1, "should have deserialized one head");
+
+    assert_eq!(
+        stack.heads[0].head,
+        gix::hash::Kind::Sha1.null(),
+        "legacy ChangeId should deserialize as null SHA to allow loading old toml files"
+    );
+
     Ok(())
 }
