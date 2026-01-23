@@ -113,7 +113,6 @@ pub enum Subcommands {
         #[clap(long)]
         check: bool,
     },
-
     /// Apply a branch to the workspace
     ///
     /// If you want to apply an unapplied branch to your workspace so you

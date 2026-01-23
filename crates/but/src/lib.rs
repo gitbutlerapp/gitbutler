@@ -208,12 +208,6 @@ async fn match_subcommand(
             utils::metrics::capture_event_blocking(&app_settings, event).await;
             Ok(())
         }
-        Subcommands::Forge(forge::integration::Platform { cmd }) => {
-            command::forge::integration::handle(cmd, out)
-                .await
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
         Subcommands::Gui => command::gui::open(&args.current_dir).emit_metrics(metrics_ctx),
         Subcommands::Completions { shell } => {
             command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
@@ -239,6 +233,20 @@ async fn match_subcommand(
                     .emit_metrics(metrics_ctx),
                 Some(alias_args::Subcommands::Remove { name, global }) => {
                     command::alias::remove(&mut ctx, out, &name, global).emit_metrics(metrics_ctx)
+                }
+            }
+        }
+        Subcommands::Config(args::config::Platform { cmd }) => {
+            cfg_if! {
+                if #[cfg(feature = "legacy")] {
+                    let mut ctx = setup::init_ctx(&args, InitCtxOptions { background_sync: BackgroundSync::Disabled, ..Default::default() }, out)?;
+                    command::config::exec(&mut ctx, out, cmd)
+                        .await
+                        .emit_metrics(metrics_ctx)
+                } else {
+                    command::config::exec(&mut but_ctx::Context::discover(&args.current_dir)?, out, cmd)
+                        .await
+                        .emit_metrics(metrics_ctx)
                 }
             }
         }

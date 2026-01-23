@@ -532,25 +532,9 @@ pub enum Subcommands {
         id: String,
     },
 
-    /// Commands for interacting with forges like GitHub, GitLab (coming soon), etc.
-    ///
-    /// The `but forge` tools allow you to authenticate with a forge from the CLI,
-    /// which then enables features like creating pull requests with the `but pr`
-    /// commands.
-    ///
-    /// Start by running `but forge auth` to authenticate with your forge.
-    ///
-    /// You can also authenticate several different users on a forge and see them
-    /// listed with `but forge list-users` or forget a user with `but forge forget`.
-    ///
-    /// Currently only GitHub is supported, but more forges will be added in the
-    /// near future.
-    ///
-    Forge(forge::integration::Platform),
-
     /// Commands for creating and managing pull requests on a forge.
     ///
-    /// If you are authenticated with a forge using `but forge auth`, you can use
+    /// If you are authenticated with a forge using `but config forge auth`, you can use
     /// the `but pr` commands to create pull requests (or merge requests) on
     /// the remote repository for your branches.
     ///
@@ -673,6 +657,41 @@ pub enum Subcommands {
     /// ```
     ///
     Alias(alias::Platform),
+
+    /// View and manage GitButler configuration.
+    ///
+    /// Without a subcommand, displays an overview of important settings including
+    /// user information, target branch, forge configuration, and AI setup.
+    ///
+    /// ## Examples
+    ///
+    /// View configuration overview:
+    ///
+    /// ```text
+    /// but config
+    /// ```
+    ///
+    /// View/set user configuration:
+    ///
+    /// ```text
+    /// but config user
+    /// but config user set name "John Doe"
+    /// but config user set email john@example.com
+    /// ```
+    ///
+    /// View/set forge configuration:
+    ///
+    /// ```text
+    /// but config forge
+    /// ```
+    ///
+    /// View/set target branch:
+    ///
+    /// ```text
+    /// but config target
+    /// ```
+    ///
+    Config(config::Platform),
 
     /// Resolve conflicts in a commit.
     ///
@@ -798,6 +817,7 @@ pub enum Subcommands {
 }
 
 pub mod alias;
+pub mod config;
 pub mod update;
 
 pub mod actions {
