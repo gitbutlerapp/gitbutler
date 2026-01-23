@@ -39,6 +39,7 @@ legacy = [
     "dep:gitbutler-oplog",
     "dep:gitbutler-edit-mode",
     "dep:gitbutler-operating-modes",
+    "dep:gitbutler-repo",
 ]
 
 [dependencies]
@@ -85,6 +86,7 @@ gitbutler-reference = { workspace = true, optional = true }
 gitbutler-oplog = { workspace = true, optional = true }
 gitbutler-edit-mode = { workspace = true, optional = true }
 gitbutler-operating-modes = { workspace = true, optional = true }
+gitbutler-repo = { workspace = true, optional = true }
 
 git2.workspace = true
 async-openai.workspace = true

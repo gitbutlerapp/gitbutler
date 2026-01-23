@@ -384,6 +384,9 @@ pub enum Subcommands {
         /// Only commit staged files, not unstaged files
         #[clap(short = 'o', long = "only")]
         only: bool,
+        /// Bypass pre-commit hooks
+        #[clap(short = 'n', long = "no-hooks", alias = "no-verify")]
+        no_hooks: bool,
     },
 
     /// Push changes in a branch to remote.

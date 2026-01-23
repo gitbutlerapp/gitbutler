@@ -786,6 +786,7 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
+ "gitbutler-repo",
  "gitbutler-stack",
  "gix",
  "insta",
