@@ -1,3 +1,4 @@
+import { setConfig } from './config.ts';
 import { BUT_SERVER_PORT, BUT_TESTING, DESKTOP_PORT, GIT_CONFIG_GLOBAL } from './env.ts';
 import { type BrowserContext } from '@playwright/test';
 import { ChildProcess, spawn } from 'node:child_process';
@@ -32,7 +33,12 @@ class GitButlerManager implements GitButler {
 	private butServerProcess: ChildProcess;
 	private env: Record<string, string> | undefined;
 
-	constructor(workdir: string, configDir: string, env?: Record<string, string>) {
+	constructor(
+		workdir: string,
+		configDir: string,
+		env?: Record<string, string>,
+		config?: Record<string, unknown>
+	) {
 		this.workdir = workdir;
 		this.configDir = configDir;
 		this.rootDir = path.resolve(import.meta.dirname, '../../..');
@@ -45,6 +51,9 @@ class GitButlerManager implements GitButler {
 
 		if (!existsSync(this.configDir)) {
 			mkdirSync(this.configDir, { recursive: true });
+			if (config) {
+				setConfig(config, this.configDir);
+			}
 		}
 
 		const serverEnv = {
@@ -270,9 +279,10 @@ export async function startGitButler(
 	workdir: string,
 	configDir: string,
 	context: BrowserContext,
-	env?: Record<string, string>
+	env?: Record<string, string>,
+	config?: Record<string, unknown>
 ): Promise<GitButler> {
-	const manager = new GitButlerManager(workdir, configDir, env);
+	const manager = new GitButlerManager(workdir, configDir, env, config);
 	await manager.init();
 	await setProjectPathCookie(context, workdir);
 	await setButlerServerPort(context);
