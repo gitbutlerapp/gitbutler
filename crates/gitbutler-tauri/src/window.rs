@@ -60,6 +60,11 @@ pub(crate) mod state {
                         payload: serde_json::json!(&changes),
                         project_id,
                     },
+                    Change::WorkspaceChanges { project_id } => ChangeForFrontend {
+                        name: format!("project://{project_id}/workspace_changes"),
+                        payload: serde_json::json!({}),
+                        project_id,
+                    },
                 }
             }
         }

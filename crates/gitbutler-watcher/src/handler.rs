@@ -27,6 +27,8 @@ pub struct Handler {
     // need extra protection.
     /// A function to send events - decoupled from app-handle for testing purposes.
     send_event: Arc<dyn Fn(Change) -> Result<()> + Send + Sync + 'static>,
+    /// The last seen workspace, to detect changes.
+    last_seen_workspace: Option<but_graph::projection::Workspace>,
 }
 
 impl Handler {
@@ -34,13 +36,14 @@ impl Handler {
     pub fn new(send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static) -> Self {
         Handler {
             send_event: Arc::new(send_event),
+            last_seen_workspace: None,
         }
     }
 
     /// Handle the events that come in from the filesystem, or the public API.
     #[instrument(skip(self, app_settings), fields(event = %event), err(Debug))]
     pub(super) fn handle(
-        &self,
+        &mut self,
         event: InternalEvent,
         app_settings: AppSettingsWithDiskSync,
     ) -> Result<()> {
@@ -52,6 +55,7 @@ impl Handler {
                 let repo = ctx.repo.get()?.clone();
                 let (_, workspace) =
                     ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+                self.workpace_changed(&workspace, project_id)?;
                 self.project_files_change(paths, ctx, &repo, &workspace)
             }
 
@@ -62,9 +66,35 @@ impl Handler {
                 let repo = ctx.repo.get()?.clone();
                 let (_, workspace) =
                     ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+                self.workpace_changed(&workspace, project_id)?;
                 self.git_files_change(paths, ctx, &repo, &workspace)
                     .context("failed to handle git file change event")
             }
+        }
+    }
+
+    /// Compare the old and new workspace.
+    ///
+    /// Store the new workspace as the last seen workspace.
+    /// If they differ, emit a `WorkspaceChanges` event.
+    fn workpace_changed(
+        &mut self,
+        new_workspace: &but_graph::projection::Workspace,
+        project_id: ProjectId,
+    ) -> Result<()> {
+        let changed = if let Some(old_workspace) = &self.last_seen_workspace {
+            old_workspace != new_workspace
+        } else {
+            true
+        };
+
+        // Update the last seen workspace
+        self.last_seen_workspace = Some(new_workspace.clone());
+
+        if changed {
+            self.emit_app_event(Change::WorkspaceChanges { project_id })
+        } else {
+            Ok(())
         }
     }
 
