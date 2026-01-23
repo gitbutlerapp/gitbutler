@@ -1,17 +1,11 @@
-use std::collections::HashSet;
-
 use anyhow::{Context as _, Result};
 use bstr::BStr;
 use but_core::{DiffSpec, diff::tree_changes};
 use but_ctx::Context;
-use but_hunk_assignment::HunkAssignmentRequest;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_stack::VirtualBranchesHandle;
 
-use crate::{
-    command::legacy::rub::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id},
-    utils::OutputChannel,
-};
+use crate::{command::legacy::rub::assign::branch_name_to_stack_id, utils::OutputChannel};
 
 pub fn commited_file_to_another_commit(
     ctx: &Context,
@@ -55,7 +49,11 @@ pub fn uncommit_file(
     target_branch: Option<&str>,
     out: &mut OutputChannel,
 ) -> Result<()> {
-    let source_stack = stack_id_by_commit_id(ctx, &source_id)?;
+    // Convert target_branch to StackId if provided (for hunk assignment after uncommit)
+    let assign_to = target_branch
+        .map(|branch| branch_name_to_stack_id(ctx, Some(branch)))
+        .transpose()?
+        .flatten();
 
     let relevant_changes = {
         let repo = ctx.repo.get()?;
@@ -71,70 +69,15 @@ pub fn uncommit_file(
             .collect::<Vec<DiffSpec>>()
     };
 
-    // If we want to assign the changes after uncommitting, we could try to do
-    // something with the hunk headers, but this is not precise as the hunk
-    // headers might have changed from what they were like when they were
-    // committed.
-    //
-    // As such, we take all the old assignments, and all the new assignments from after the
-    // uncommit, and find the ones that are not present in the old assignments.
-    // We then convert those into assignment requests for the given stack.
-    let guard = ctx.shared_worktree_access();
-    let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-
-    let before_assignments = but_hunk_assignment::assignments_with_fallback(
+    but_api::commit::commit_uncommit_changes_only(
         ctx,
-        &repo,
-        &workspace,
-        false,
-        None::<Vec<but_core::TreeChange>>,
-        None,
-    )?
-    .0;
-
-    but_workspace::legacy::remove_changes_from_commit_in_stack(
-        ctx,
-        source_stack,
-        source_id,
+        source_id.into(),
         relevant_changes,
-        ctx.settings().context_lines,
+        assign_to,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
-
-    // Re-acquire workspace after the uncommit since state has changed
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-
-    let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx,
-        &repo,
-        &workspace,
-        false,
-        None::<Vec<but_core::TreeChange>>,
-        None,
-    )?;
-
-    let before_assignments = before_assignments
-        .into_iter()
-        .filter_map(|a| a.id)
-        .collect::<HashSet<_>>();
-
-    if let Some(target_branch) = target_branch {
-        let target_stack = branch_name_to_stack_id(ctx, Some(target_branch))?;
-        let to_assign = after_assignments
-            .into_iter()
-            .filter(|a| a.id.is_some_and(|id| !before_assignments.contains(&id)))
-            .map(|a| HunkAssignmentRequest {
-                hunk_header: a.hunk_header,
-                path_bytes: a.path_bytes,
-                stack_id: target_stack,
-            })
-            .collect::<Vec<_>>();
-
-        but_hunk_assignment::assign(ctx, &repo, &workspace, to_assign, None)?;
-    }
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Uncommitted changes")?;
