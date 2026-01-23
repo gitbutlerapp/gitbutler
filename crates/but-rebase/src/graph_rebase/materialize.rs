@@ -61,4 +61,33 @@ impl SuccessfulRebase {
             history: self.history,
         })
     }
+
+    /// Materializes a rebase without performing a checkout.
+    ///
+    /// For the vast majority of operations you want to use
+    /// [`Self::materialize`]. This is intended to be used in niche cases like
+    /// `uncommit`.
+    ///
+    /// This has means that we don't "cherry pick" the uncommitted changes from
+    /// the old head onto the new one.
+    ///
+    /// If I dropped a commit from the history,
+    /// [`Self::materialize_without_checkout`] will now see those changes in
+    /// your working directory.
+    ///
+    /// If I instead called [`Self::materialize`], the changes would instead be
+    /// gone from disk.
+    pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome> {
+        let repo = self.repo.clone();
+        if let Some(memory) = self.repo.objects.take_object_memory() {
+            memory.persist(self.repo)?;
+        }
+
+        repo.edit_references(self.ref_edits.clone())?;
+
+        Ok(MaterializeOutcome {
+            graph: self.graph,
+            history: self.history,
+        })
+    }
 }

@@ -2,6 +2,7 @@ mod cherry_pick;
 mod conflictable_restriction;
 mod editor_creation;
 mod insert;
+mod materialize;
 mod multiple_operations;
 mod parents_must_be_references_restriction;
 mod rebase_identities;
