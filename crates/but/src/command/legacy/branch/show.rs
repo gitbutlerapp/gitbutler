@@ -719,7 +719,7 @@ fn output_human(
     if !unassigned_files.is_empty() {
         writeln!(buf)?;
         writeln!(buf)?;
-        writeln!(buf, "{}", "Unassigned Files:".bold())?;
+        writeln!(buf, "{}", "Unstaged Files:".bold())?;
         for file in unassigned_files {
             writeln!(buf, "  {}", file.yellow())?;
         }

@@ -130,8 +130,8 @@ pub enum SemanticType {
 }
 
 /// Represents an action that can be taken based on the rule evaluation.
-/// An action can be either explicit, meaning the user defined something like "Assign in Lane A" or "Amend into Commit X"
-/// or it is implicit, meaning the action was determined by heuristics or AI, such as "Assign to appropriate branch" or "Absorb in dependent commit".
+/// An action can be either explicit, meaning the user defined something like "Stage to Lane A" or "Amend into Commit X"
+/// or it is implicit, meaning the action was determined by heuristics or AI, such as "Stage to appropriate branch" or "Absorb in dependent commit".
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum Action {

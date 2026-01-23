@@ -105,7 +105,7 @@
 		<div class="unassigned-wrap">
 			<div role="presentation" class="unassigned-files-wrapper" onclick={unselectFiles}>
 				<WorktreeChanges
-					title="Unassigned"
+					title="Unstaged"
 					{projectId}
 					stackId={undefined}
 					mode="unassigned"

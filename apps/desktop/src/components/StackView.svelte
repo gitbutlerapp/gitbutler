@@ -427,7 +427,7 @@
 								class:dropzone-hovered={dropzoneHovered && changes.current.length === 0}
 							>
 								<WorktreeChanges
-									title="Assigned"
+									title="Staged"
 									projectId={stableProjectId}
 									stackId={stableStackId}
 									mode="assigned"
@@ -447,7 +447,7 @@
 										{#if !isCommitting}
 											<div class="assigned-changes-empty">
 												<p class="text-12 text-body assigned-changes-empty__text">
-													Drop files to assign or commit directly
+													Drop files to stage or commit directly
 												</p>
 											</div>
 										{/if}

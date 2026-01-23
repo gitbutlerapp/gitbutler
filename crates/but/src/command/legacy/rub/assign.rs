@@ -27,7 +27,7 @@ pub(crate) fn assign_uncommitted_to_branch(
     if let Some(out) = out.for_human() {
         writeln!(
             out,
-            "Assigned {} → {}.",
+            "Staged {} → {}.",
             description,
             format!("[{branch_name}]").green()
         )?;
@@ -62,7 +62,7 @@ pub(crate) fn assign_uncommitted_to_stack(
     if let Some(out) = out.for_human() {
         writeln!(
             out,
-            "Assigned {} → stack {}.",
+            "Staged {} → stack {}.",
             description,
             format!("[{}]", stack_id).green()
         )?;
@@ -88,7 +88,7 @@ pub(crate) fn unassign_uncommitted(
     let reqs = to_assignment_request(ctx, assignments, None)?;
     do_assignments(ctx, &repo, &workspace, reqs, out)?;
     if let Some(out) = out.for_human() {
-        writeln!(out, "Unassigned {description}")?;
+        writeln!(out, "Unstaged {description}")?;
     }
     Ok(())
 }
@@ -176,21 +176,21 @@ fn assign_all_inner(
         if to_branch.is_some() {
             writeln!(
                 out,
-                "Assigned all {} changes to {}.",
+                "Staged all {} changes to {}.",
                 from_branch
                     .map(|b| format!("[{b}]").green())
-                    .unwrap_or_else(|| "unassigned".to_string().bold()),
+                    .unwrap_or_else(|| "unstaged".to_string().bold()),
                 to_branch
                     .map(|b| format!("[{b}]").green())
-                    .unwrap_or_else(|| "unassigned".to_string().bold())
+                    .unwrap_or_else(|| "unstaged".to_string().bold())
             )?;
         } else {
             writeln!(
                 out,
-                "Unassigned all {} changes.",
+                "Unstaged all {} changes.",
                 from_branch
                     .map(|b| format!("[{b}]").green())
-                    .unwrap_or_else(|| "unassigned".to_string().bold())
+                    .unwrap_or_else(|| "unstaged".to_string().bold())
             )?;
         }
     }
