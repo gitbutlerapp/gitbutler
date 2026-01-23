@@ -495,14 +495,7 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Commit {
-            message,
-            file,
-            branch,
-            create,
-            only,
-            no_hooks,
-        } => {
+        Subcommands::Commit(commit_args) => {
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -511,44 +504,83 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            // Read message from file if provided, otherwise use message option
-            let commit_message = match file {
-                Some(path) => Some(std::fs::read_to_string(&path).with_context(|| {
-                    format!(
-                        "Failed to read commit message from file: {}",
-                        path.display()
+
+            match commit_args.cmd {
+                Some(crate::args::commit::Subcommands::Empty {
+                    ref before,
+                    ref after,
+                }) => {
+                    use but_rebase::graph_rebase::mutate::InsertSide;
+
+                    // Validate that no regular commit options are specified with the empty subcommand
+                    if commit_args.message.is_some() {
+                        anyhow::bail!(
+                            "--message cannot be used with 'commit empty'. Empty commits have no message by default."
+                        );
+                    }
+                    if commit_args.file.is_some() {
+                        anyhow::bail!(
+                            "--file cannot be used with 'commit empty'. Empty commits have no message by default."
+                        );
+                    }
+                    if commit_args.branch.is_some() {
+                        anyhow::bail!(
+                            "branch argument cannot be used with 'commit empty'. Use --before or --after to specify position."
+                        );
+                    }
+                    if commit_args.create {
+                        anyhow::bail!("--create cannot be used with 'commit empty'.");
+                    }
+                    if commit_args.only {
+                        anyhow::bail!("--only cannot be used with 'commit empty'.");
+                    }
+                    if commit_args.no_hooks {
+                        anyhow::bail!("--no-hooks cannot be used with 'commit empty'.");
+                    }
+
+                    // Handle the `but commit empty` subcommand
+                    // Determine target and insert side based on which flag was provided
+                    let (target, insert_side) = if let Some(target) = before {
+                        (target.as_str(), InsertSide::Above)
+                    } else if let Some(target) = after {
+                        (target.as_str(), InsertSide::Below)
+                    } else {
+                        // This should never happen due to clap's ArgGroup
+                        anyhow::bail!("Either --before or --after must be specified");
+                    };
+
+                    command::legacy::commit::insert_blank_commit(&mut ctx, out, target, insert_side)
+                        .emit_metrics(metrics_ctx)
+                }
+                None => {
+                    // Handle the regular `but commit` command
+                    // Read message from file if provided, otherwise use message option
+                    let commit_message = match &commit_args.file {
+                        Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
+                            format!(
+                                "Failed to read commit message from file: {}",
+                                path.display()
+                            )
+                        })?),
+                        None => commit_args.message.clone(),
+                    };
+                    command::legacy::commit::commit(
+                        &mut ctx,
+                        out,
+                        commit_message.as_deref(),
+                        commit_args.branch.as_deref(),
+                        commit_args.only,
+                        commit_args.create,
+                        commit_args.no_hooks,
                     )
-                })?),
-                None => message,
-            };
-            command::legacy::commit::commit(
-                &mut ctx,
-                out,
-                commit_message.as_deref(),
-                branch.as_deref(),
-                only,
-                create,
-                no_hooks,
-            )
-            .emit_metrics(metrics_ctx)
+                    .emit_metrics(metrics_ctx)
+                }
+            }
         }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::push::handle(push_args, &mut ctx, out).emit_metrics(metrics_ctx)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::New { target } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::commit::insert_blank_commit(&mut ctx, out, &target)
-                .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Reword {

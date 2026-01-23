@@ -361,33 +361,12 @@ pub enum Subcommands {
     ///
     /// It will not commit changes staged to other branches.
     ///
+    /// Use `but commit empty --before <target>` or `but commit empty --after <target>`
+    /// to insert a blank commit. This is useful for creating a placeholder
+    /// commit that you can amend changes into later using `but mark`, `but rub` or `but absorb`.
+    ///
     #[cfg(feature = "legacy")]
-    Commit {
-        /// Commit message
-        #[clap(short = 'm', long = "message", conflicts_with = "file")]
-        message: Option<String>,
-        /// Read commit message from file
-        #[clap(
-            short = 'f',
-            long = "file",
-            value_name = "FILE",
-            conflicts_with = "message"
-        )]
-        file: Option<std::path::PathBuf>,
-        /// Branch CLI ID or name to derive the stack to commit to
-        branch: Option<String>,
-        /// Whether to create a new branch for this commit.
-        /// If the branch name given matches an existing branch, that branch will be used instead.
-        /// If no branch name is given, a new branch with a generated name will be created.
-        #[clap(short = 'c', long = "create")]
-        create: bool,
-        /// Only commit staged files, not unstaged files
-        #[clap(short = 'o', long = "only")]
-        only: bool,
-        /// Bypass pre-commit hooks
-        #[clap(short = 'n', long = "no-hooks", alias = "no-verify")]
-        no_hooks: bool,
-    },
+    Commit(commit::Platform),
 
     /// Push changes in a branch to remote.
     ///
@@ -404,24 +383,6 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     Push(push::Command),
-
-    /// Insert a blank commit before the specified commit, or at the top of a stack.
-    ///
-    /// This is useful for creating a placeholder commit that you can
-    /// then amend changes into later using `but mark`, `but rub` or `but absorb`.
-    ///
-    /// You can modify the empty commit message at any time using `but describe`.
-    ///
-    /// This allows for a more Jujutsu style workflow where you create commits
-    /// first and then fill them in as you work. Create an empty commit, mark it
-    /// for auto-commit, and then just work on your changes. Write the commit
-    /// message whenever you prefer.
-    ///
-    #[cfg(feature = "legacy")]
-    New {
-        /// Commit ID to insert before, or branch ID to insert at top of stack
-        target: String,
-    },
 
     /// Edit the commit message of the specified commit.
     ///
@@ -820,6 +781,7 @@ pub enum Subcommands {
 }
 
 pub mod alias;
+pub mod commit;
 pub mod config;
 pub mod update;
 

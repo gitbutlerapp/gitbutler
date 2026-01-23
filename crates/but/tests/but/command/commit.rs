@@ -190,3 +190,282 @@ Operations History
 "#]]);
     Ok(())
 }
+
+#[test]
+fn commit_empty_with_before_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
+
+    env.setup_metadata(&["A"])?;
+
+    // Get the commit ID from the CLI ID map
+    // Use the short git hash for the commit on branch A
+    env.but("commit empty --before 9477ae7")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Created blank commit before commit 9477ae7
+
+"#]]);
+
+    // Verify a new commit was created
+    let log = env.git_log()?;
+    // Should have one more commit than before
+    assert!(log.lines().filter(|l| l.starts_with("*")).count() > 3);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_with_after_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
+
+    env.setup_metadata(&["A"])?;
+
+    // Insert empty commit after (at top of) branch A
+    env.but("commit empty --after A")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Created blank commit at the top of stack 'A'
+
+"#]]);
+
+    // Verify a new commit was created
+    let log = env.git_log()?;
+    // Should have one more commit than before
+    assert!(log.lines().filter(|l| l.starts_with("*")).count() > 3);
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "Inserting before a branch reference is not currently supported by the underlying API"]
+fn commit_empty_with_before_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
+
+    env.setup_metadata(&["A"])?;
+
+    // Insert empty commit before branch A (at bottom of stack)
+    // Note: This currently fails with "Commit has parents that are not referenced"
+    // which suggests the underlying API doesn't properly support InsertSide::Above with branches
+    env.but("commit empty --before A")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Created blank commit at the bottom of stack 'A'
+
+"#]]);
+
+    // Verify a new commit was created
+    let log = env.git_log()?;
+    // Should have one more commit than before
+    assert!(log.lines().filter(|l| l.starts_with("*")).count() > 3);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_with_after_commit() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
+
+    env.setup_metadata(&["A"])?;
+
+    // Insert empty commit after a specific commit
+    env.but("commit empty --after 9477ae7")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Created blank commit after commit 9477ae7
+
+"#]]);
+
+    // Verify a new commit was created
+    let log = env.git_log()?;
+    // Should have one more commit than before
+    assert!(log.lines().filter(|l| l.starts_with("*")).count() > 3);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_requires_one_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Try to run without any flags
+    env.but("commit empty")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: the following required arguments were not provided:
+  <--before <BEFORE>|--after <AFTER>>
+
+Usage: but commit empty <--before <BEFORE>|--after <AFTER>>
+
+For more information, try '--help'.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_rejects_both_flags() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Try to use both --before and --after
+    env.but("commit empty --before A --after A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: the argument '--before <BEFORE>' cannot be used with '--after <AFTER>'
+
+Usage: but commit empty <--before <BEFORE>|--after <AFTER>>
+
+For more information, try '--help'.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_with_nonexistent_target() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Try to insert before a nonexistent target
+    env.but("commit empty --before nonexistent")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Target 'nonexistent' not found
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_rejects_message_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Try to use --message with empty subcommand
+    env.but("commit -m 'test' empty --before A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: --message cannot be used with 'commit empty'. Empty commits have no message by default.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_rejects_file_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+    env.file("msg.txt", "test message");
+
+    // Try to use --file with empty subcommand
+    env.but("commit -f msg.txt empty --before A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: --file cannot be used with 'commit empty'. Empty commits have no message by default.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_rejects_branch_argument() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Try to use branch argument with empty subcommand
+    env.but("commit A empty --before A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: branch argument cannot be used with 'commit empty'. Use --before or --after to specify position.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_rejects_only_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Try to use --only with empty subcommand
+    env.but("commit --only empty --before A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: --only cannot be used with 'commit empty'.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_rejects_create_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Try to use --create with empty subcommand
+    env.but("commit --create empty --before A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: --create cannot be used with 'commit empty'.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_rejects_no_hooks_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Try to use --no-hooks with empty subcommand
+    env.but("commit --no-hooks empty --before A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: --no-hooks cannot be used with 'commit empty'.
+
+"#]]);
+
+    Ok(())
+}

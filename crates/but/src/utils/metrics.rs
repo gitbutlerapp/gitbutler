@@ -92,11 +92,12 @@ impl Subcommands {
             Subcommands::Unmark => Unmark,
             Subcommands::Gui => Gui,
             #[cfg(feature = "legacy")]
-            Subcommands::Commit { .. } => Commit,
+            Subcommands::Commit(crate::args::commit::Platform { cmd, .. }) => match cmd {
+                None => Commit,
+                Some(crate::args::commit::Subcommands::Empty { .. }) => CommitEmpty,
+            },
             #[cfg(feature = "legacy")]
             Subcommands::Push(_) => Push,
-            #[cfg(feature = "legacy")]
-            Subcommands::New { .. } => New,
             #[cfg(feature = "legacy")]
             Subcommands::Reword { .. } => Reword,
             #[cfg(feature = "legacy")]

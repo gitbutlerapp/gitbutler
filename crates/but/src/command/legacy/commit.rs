@@ -22,6 +22,7 @@ pub(crate) fn insert_blank_commit(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     target: &str,
+    insert_side: InsertSide,
 ) -> Result<()> {
     let mut id_map = IdMap::new_from_context(ctx, None)?;
     id_map.add_committed_file_info_from_context(ctx)?;
@@ -43,16 +44,23 @@ pub(crate) fn insert_blank_commit(
 
     let cli_id = &cli_ids[0];
 
-    // Determine target commit ID and offset based on CLI ID type
+    // Determine the position description for the success message
+    let position_desc = match insert_side {
+        InsertSide::Above => "before",
+        InsertSide::Below => "after",
+    };
+
+    // Determine target commit ID and use provided insert_side
     let success_message = match cli_id {
         CliId::Commit { commit_id: oid, .. } => {
             commit_insert_blank(
                 ctx,
                 but_api::commit::ui::RelativeTo::Commit(*oid),
-                InsertSide::Above,
+                insert_side,
             )?;
             format!(
-                "Created blank commit before commit {}",
+                "Created blank commit {} commit {}",
+                position_desc,
                 &oid.to_string()[..7]
             )
         }
@@ -62,9 +70,14 @@ pub(crate) fn insert_blank_commit(
             commit_insert_blank(
                 ctx,
                 but_api::commit::ui::RelativeTo::Reference(reference.name().into()),
-                InsertSide::Below,
+                insert_side,
             )?;
-            format!("Created blank commit at the top of stack '{name}'")
+            match insert_side {
+                InsertSide::Below => format!("Created blank commit at the top of stack '{name}'"),
+                InsertSide::Above => {
+                    format!("Created blank commit at the bottom of stack '{name}'")
+                }
+            }
         }
         _ => {
             bail!(
