@@ -39,8 +39,6 @@ legacy = [
     "dep:gitbutler-oplog",
     "dep:gitbutler-git",
     "dep:but-action",
-    "dep:but-hunk-assignment",
-    "dep:but-hunk-dependency",
     "dep:but-claude",
     "dep:but-rules",
     "dep:but-gerrit",
@@ -65,6 +63,9 @@ but-rebase.workspace = true
 but-db.workspace = true
 but-forge.workspace = true
 but-forge-storage.workspace = true
+but-hunk-assignment.workspace = true
+but-hunk-dependency.workspace = true
+
 # needs `gitbutler_user::User`, which can probably be ported over.
 but-github = { workspace = true, features = ["legacy"] }
 # 'legacy' is needed while we only have `virtual-branches.toml`
@@ -78,8 +79,6 @@ itertools.workspace = true
 # so need some refactoring/rethinking to become usable.
 but-cherry-apply = { workspace = true, optional = true }
 but-action = { workspace = true, optional = true }
-but-hunk-assignment = { workspace = true, optional = true }
-but-hunk-dependency = { workspace = true, optional = true }
 but-claude = { workspace = true, optional = true }
 but-rules = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }

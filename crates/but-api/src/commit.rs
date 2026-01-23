@@ -1,10 +1,13 @@
+use std::collections::HashSet;
+
 use crate::json;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_graph::Graph;
+use but_hunk_assignment::HunkAssignmentRequest;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide};
-use but_workspace::commit::move_changes_between_commits;
+use but_workspace::commit::{move_changes_between_commits, uncommit_changes};
 use tracing::instrument;
 
 /// Rewords a commit
@@ -216,5 +219,113 @@ pub fn commit_move_changes_between(
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
         snapshot.commit(ctx).ok();
     };
+    res
+}
+
+/// Uncommits changes from a commit (removes them from the commit tree) without
+/// performing a checkout.
+///
+/// This has the practical effect of leaving the changes that were in the commit
+/// as uncommitted changes in the worktree.
+///
+/// If `assign_to` is provided, the newly uncommitted changes will be assigned
+/// to the specified stack.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn commit_uncommit_changes_only(
+    ctx: &mut but_ctx::Context,
+    commit_id: json::HexHash,
+    changes: Vec<but_core::DiffSpec>,
+    assign_to: Option<but_core::ref_metadata::StackId>,
+) -> anyhow::Result<json::UIMoveChangesResult> {
+    let guard = ctx.exclusive_worktree_access();
+    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
+    // We need to pass a mutable ctx below, so we can't hold a reference to the repo
+    let repo = ctx.repo.get()?.clone();
+    let editor = graph.to_editor(&repo)?;
+
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+
+    let before_assignments = if assign_to.is_some() {
+        let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+            ctx,
+            &repo,
+            &workspace,
+            false,
+            None::<Vec<but_core::TreeChange>>,
+            None,
+        )?;
+        Some(assignments)
+    } else {
+        None
+    };
+
+    let outcome = uncommit_changes(editor, commit_id.into(), changes, 3)?;
+
+    let materialized = outcome.rebase.materialize_without_checkout()?;
+    let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
+
+    let workspace = ctx
+        .workspace_and_read_only_meta_from_head(guard.read_permission())
+        .map(|x| x.1);
+    if let (Some(before_assignments), Some(stack_id), Ok(workspace)) =
+        (before_assignments, assign_to, workspace)
+    {
+        let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
+            ctx,
+            &repo,
+            &workspace,
+            false,
+            None::<Vec<but_core::TreeChange>>,
+            None,
+        )?;
+
+        let before_ids: HashSet<_> = before_assignments
+            .into_iter()
+            .filter_map(|a| a.id)
+            .collect();
+
+        let to_assign: Vec<_> = after_assignments
+            .into_iter()
+            .filter(|a| a.id.is_some_and(|id| !before_ids.contains(&id)))
+            .map(|a| HunkAssignmentRequest {
+                hunk_header: a.hunk_header,
+                path_bytes: a.path_bytes,
+                stack_id: Some(stack_id),
+            })
+            .collect();
+
+        but_hunk_assignment::assign(ctx, &repo, &workspace, to_assign, None)?;
+    }
+
+    Ok(json::UIMoveChangesResult {
+        replaced_commits: vec![(commit_id, new_commit_id.into())],
+    })
+}
+
+/// Uncommits changes from a commit, with oplog and optional assign_to support
+///
+/// If `assign_to` is provided, the newly uncommitted changes will be assigned
+/// to the specified stack.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn commit_uncommit_changes(
+    ctx: &mut but_ctx::Context,
+    commit_id: json::HexHash,
+    changes: Vec<but_core::DiffSpec>,
+    assign_to: Option<but_core::ref_metadata::StackId>,
+) -> anyhow::Result<json::UIMoveChangesResult> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
+        ctx,
+        SnapshotDetails::new(OperationKind::DiscardChanges),
+    )
+    .ok();
+
+    let res = commit_uncommit_changes_only(ctx, commit_id, changes, assign_to);
+
+    if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
+        snapshot.commit(ctx).ok();
+    };
+
     res
 }
