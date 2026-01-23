@@ -196,6 +196,34 @@ pub(crate) fn commit(
         bail!("Aborting commit due to empty commit message.");
     }
 
+    // Run commit-msg hook unless --no-hooks was specified
+    // This hook can validate and optionally modify the commit message
+    let final_commit_message = if !no_hooks {
+        let hook_result = repo::message_hook(project_id, commit_message.clone())?;
+        match hook_result {
+            gitbutler_repo::hooks::MessageHookResult::Success => {
+                // Hook passed without modification
+                commit_message
+            }
+            gitbutler_repo::hooks::MessageHookResult::Message(message_data) => {
+                // Hook passed and modified the message, use the new message
+                message_data.message
+            }
+            gitbutler_repo::hooks::MessageHookResult::NotConfigured => {
+                // No hook configured
+                commit_message
+            }
+            gitbutler_repo::hooks::MessageHookResult::Failure(error_data) => {
+                bail!(
+                    "commit-msg hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
+                    error_data.error
+                );
+            }
+        }
+    } else {
+        commit_message
+    };
+
     // If a branch hint was provided, find that specific branch; otherwise use first branch
     let target_branch = if let Some(hint) = branch_hint {
         // First try exact name match
@@ -235,7 +263,7 @@ pub(crate) fn commit(
         target_stack_id,
         Some(HexHash::from(parent_commit_id)),
         diff_specs,
-        commit_message,
+        final_commit_message,
         target_branch.name.to_string(),
     )?;
 
