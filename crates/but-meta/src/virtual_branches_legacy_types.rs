@@ -220,6 +220,7 @@ mod stack {
 
     /// Custom serde module for handling the legacy CommitOrChangeId format.
     /// This deserializes the old enum format but stores it as a gix::ObjectId.
+    /// If a ChangeId is encountered during deserialization, it returns a null ObjectId.
     mod commit_id_serde {
         use serde::{Deserialize, Deserializer, Serialize, Serializer};
         use std::str::FromStr;
@@ -250,9 +251,11 @@ mod stack {
                 CommitOrChangeIdHelper::CommitId(id) => {
                     gix::ObjectId::from_str(&id).map_err(serde::de::Error::custom)
                 }
-                CommitOrChangeIdHelper::ChangeId(_) => Err(serde::de::Error::custom(
-                    "ChangeId variant is no longer supported",
-                )),
+                CommitOrChangeIdHelper::ChangeId(_) => {
+                    // To find the commit id from a change ID, it would require to scan all applicable commits.
+                    // Change IDs are deprecated anyway, so we return null here. For the most part, the app will use the reference anyways.
+                    Ok(gix::hash::Kind::Sha1.null())
+                }
             }
         }
     }

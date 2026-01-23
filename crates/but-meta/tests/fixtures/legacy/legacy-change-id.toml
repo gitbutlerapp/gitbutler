@@ -1,0 +1,23 @@
+# Test fixture for legacy ChangeId deserialization
+[branch_targets]
+
+[branches.12345678-1234-5678-1234-567812345678]
+id = "12345678-1234-5678-1234-567812345678"
+order = 0
+in_workspace = true
+notes = ""
+ownership = ""
+allow_rebasing = true
+post_commits = false
+tree = "0000000000000000000000000000000000000000"
+created_timestamp_ms = "0"
+updated_timestamp_ms = "0"
+name = "test-branch"
+head = "0000000000000000000000000000000000000000"
+
+[[branches.12345678-1234-5678-1234-567812345678.heads]]
+name = "test-head"
+archived = false
+
+[branches.12345678-1234-5678-1234-567812345678.heads.head]
+ChangeId = "some-legacy-change-id"
