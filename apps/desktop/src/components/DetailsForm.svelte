@@ -1,16 +1,13 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { projectRunCommitHooks } from '$lib/config/config';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Spacer, Textarea, Textbox, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Spacer, Textarea, Textbox } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectsService.getProject(projectId));
-
-	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 </script>
 
 <CardGroup>
@@ -44,23 +41,6 @@
 			</div>
 		{/snippet}
 	</ReduxResult>
-</CardGroup>
-
-<Spacer />
-
-<CardGroup>
-	<CardGroup.Item labelFor="runHooks">
-		{#snippet title()}
-			Run Git hooks
-		{/snippet}
-		{#snippet caption()}
-			Enabling this will run git pre-push, pre and post commit, and commit-msg hooks you have
-			configured in your repository.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle id="runHooks" bind:checked={$runCommitHooks} />
-		{/snippet}
-	</CardGroup.Item>
 </CardGroup>
 
 <Spacer />

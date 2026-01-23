@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CommitSigningForm from '$components/CommitSigningForm.svelte';
+	import GitHooksForm from '$components/GitHooksForm.svelte';
 	import KeysForm from '$components/KeysForm.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SettingsSection from '$components/SettingsSection.svelte';
@@ -20,6 +21,7 @@
 </script>
 
 <SettingsSection>
+	<GitHooksForm {projectId} />
 	<CommitSigningForm {projectId} />
 	{#if backend.platformName !== 'windows'}
 		<Spacer />
