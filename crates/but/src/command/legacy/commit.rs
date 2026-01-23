@@ -148,6 +148,43 @@ pub(crate) fn commit(
         bail!("No changes to commit.")
     }
 
+    // Convert files to DiffSpec early so we can run pre-commit hooks before prompting for message
+    let diff_specs: Vec<DiffSpec> = files_to_commit
+        .iter()
+        .map(|fa| {
+            // Collect hunk headers from all assignments for this file
+            let hunk_headers: Vec<but_core::HunkHeader> = fa
+                .assignments
+                .iter()
+                .filter_map(|assignment| assignment.inner.hunk_header)
+                .collect();
+
+            DiffSpec {
+                previous_path: None,
+                path: fa.path.clone(),
+                hunk_headers,
+            }
+        })
+        .collect();
+
+    // Run pre-commit hook unless --no-hooks was specified
+    // This runs BEFORE getting the commit message so the user doesn't waste time writing a message
+    // for a commit that will fail the hook
+    if !no_hooks {
+        let hook_result = repo::pre_commit_hook_diffspecs(project_id, diff_specs.clone())?;
+        match hook_result {
+            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
+                // Hook passed or not configured, proceed with commit
+            }
+            hooks::HookResult::Failure(error_data) => {
+                bail!(
+                    "pre-commit hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
+                    error_data.error
+                );
+            }
+        }
+    }
+
     // Get commit message
     let commit_message = if let Some(msg) = message {
         msg.to_string()
@@ -158,6 +195,34 @@ pub(crate) fn commit(
     if commit_message.trim().is_empty() {
         bail!("Aborting commit due to empty commit message.");
     }
+
+    // Run commit-msg hook unless --no-hooks was specified
+    // This hook can validate and optionally modify the commit message
+    let final_commit_message = if !no_hooks {
+        let hook_result = repo::message_hook(project_id, commit_message.clone())?;
+        match hook_result {
+            gitbutler_repo::hooks::MessageHookResult::Success => {
+                // Hook passed without modification
+                commit_message
+            }
+            gitbutler_repo::hooks::MessageHookResult::Message(message_data) => {
+                // Hook passed and modified the message, use the new message
+                message_data.message
+            }
+            gitbutler_repo::hooks::MessageHookResult::NotConfigured => {
+                // No hook configured
+                commit_message
+            }
+            gitbutler_repo::hooks::MessageHookResult::Failure(error_data) => {
+                bail!(
+                    "commit-msg hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
+                    error_data.error
+                );
+            }
+        }
+    } else {
+        commit_message
+    };
 
     // If a branch hint was provided, find that specific branch; otherwise use first branch
     let target_branch = if let Some(hint) = branch_hint {
@@ -189,41 +254,6 @@ pub(crate) fn commit(
             .ok_or_else(|| anyhow::anyhow!("No branches found in target stack"))?
     };
 
-    // Convert files to DiffSpec
-    let diff_specs: Vec<DiffSpec> = files_to_commit
-        .iter()
-        .map(|fa| {
-            // Collect hunk headers from all assignments for this file
-            let hunk_headers: Vec<but_core::HunkHeader> = fa
-                .assignments
-                .iter()
-                .filter_map(|assignment| assignment.inner.hunk_header)
-                .collect();
-
-            DiffSpec {
-                previous_path: None,
-                path: fa.path.clone(),
-                hunk_headers,
-            }
-        })
-        .collect();
-
-    // Run pre-commit hook unless --no-hooks was specified
-    if !no_hooks {
-        let hook_result = repo::pre_commit_hook_diffspecs(project_id, diff_specs.clone())?;
-        match hook_result {
-            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
-                // Hook passed or not configured, proceed with commit
-            }
-            hooks::HookResult::Failure(error_data) => {
-                bail!(
-                    "pre-commit hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
-                    error_data.error
-                );
-            }
-        }
-    }
-
     // Get the HEAD commit of the target branch to use as parent (preserves stacking)
     let parent_commit_id = target_branch.tip;
 
@@ -233,7 +263,7 @@ pub(crate) fn commit(
         target_stack_id,
         Some(HexHash::from(parent_commit_id)),
         diff_specs,
-        commit_message,
+        final_commit_message,
         target_branch.name.to_string(),
     )?;
 
@@ -247,6 +277,24 @@ pub(crate) fn commit(
             "Created commit {} on branch {}",
             commit_short, target_branch.name
         )?;
+    }
+
+    // Run post-commit hook unless --no-hooks was specified
+    // Note: post-commit hooks run after the commit is created, so failures don't prevent the commit
+    if !no_hooks {
+        let hook_result = repo::post_commit_hook(project_id)?;
+        match hook_result {
+            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
+                // Hook passed or not configured, nothing to do
+            }
+            hooks::HookResult::Failure(error_data) => {
+                // Warn the user but don't fail since the commit is already created
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "\n{}", "Warning: post-commit hook failed:".yellow())?;
+                    writeln!(out, "{}", error_data.error)?;
+                }
+            }
+        }
     }
 
     Ok(())
