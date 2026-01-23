@@ -207,7 +207,18 @@ impl std::fmt::Write for InputOutputChannel<'_> {
 }
 
 impl InputOutputChannel<'_> {
-    /// Prompt a non-empty string from the user, or `None` if the input was empty.
+    /// Prompt a non-empty string from the user, or `None` if the input was
+    /// empty.
+    ///
+    /// If you are looking to make a yes or no style confirmation prompt,
+    /// consider using [`Self::confirm`] or [`Self::confirm_no_default`].
+    ///
+    /// ```ignore
+    /// let result = inout.prompt("Do you like cheese?")?;
+    /// // Outputs:
+    /// // Do you like cheese?
+    /// // >
+    /// ```
     pub fn prompt(&mut self, prompt: impl AsRef<str>) -> anyhow::Result<Option<String>> {
         use std::fmt::Write;
         let prompt = prompt.as_ref();
@@ -224,9 +235,16 @@ impl InputOutputChannel<'_> {
         Ok(Some(input))
     }
 
-    /// Prompt for y/n confirmation with a default value.
-    /// Automatically appends `[Y/n]` or `[y/N]` based on the default.
-    /// Empty input returns the default. Input starting with 'y'/'Y' returns Yes, anything else returns No.
+    /// Prompt for y/n confirmation with a default value. Automatically appends
+    /// `[Y/n]` or `[y/N]` based on the default. Empty input returns the
+    /// default. Input starting with 'y'/'Y' returns Yes, anything else returns
+    /// No.
+    ///
+    /// ```ignore
+    /// let result = inout.confirm("Are you sure you want to do this?", ConfirmDefault::Yes)?;
+    /// // Outputs:
+    /// // Are you sure you want to do this? [Y/n]:
+    /// ```
     pub fn confirm(
         &mut self,
         prompt: impl AsRef<str>,
@@ -261,6 +279,12 @@ impl InputOutputChannel<'_> {
     /// Prompt for y/n confirmation without a default.
     /// Automatically appends `[y/n]` to the prompt.
     /// Returns `NoInput` if the user provides empty input.
+    ///
+    /// ```ignore
+    /// let result = inout.confirm_no_default("Are you sure you want to do this?")?;
+    /// // Outputs:
+    /// // Are you sure you want to do this? [y/n]:
+    /// ```
     pub fn confirm_no_default(
         &mut self,
         prompt: impl AsRef<str>,
