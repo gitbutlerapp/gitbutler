@@ -371,6 +371,11 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
 
     // Check if we have an interactive terminal and prompt the user
     let prompt_result = if let Some(mut inout) = out.prepare_for_terminal_input() {
+        let _ = writeln!(
+            progress,
+            "In order to manage projects with GitButler, we need to do some changes:\n\n - Switch you to a special `gitbutler/workspace` branch to enable parallel branches\n - Install Git hooks to help manage the tooling\n\nYou can go back to normal git workflows at any time by either:\n\n - Running `but teardown`\n - Manually checking out a normal branch with `git checkout <branch>`\n",
+        );
+
         if let Ok(Some(response)) = inout.prompt("Would you like to run setup now? [Y/n]: ") {
             let response = response.trim().to_lowercase();
             if response.is_empty() || response == "y" || response == "yes" {
