@@ -1061,6 +1061,7 @@ mod tests {
         CliId::Branch {
             name: "main".to_string(),
             id: "ef".to_string(),
+            stack_id: None,
         }
     }
 
