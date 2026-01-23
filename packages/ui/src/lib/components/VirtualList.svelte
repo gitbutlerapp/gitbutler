@@ -225,6 +225,10 @@
 		return distance >= 0 && distance < LOAD_MORE_THRESHOLD;
 	}
 
+	/**
+	 * Locks an element to its previous height such that it has time to resume
+	 * its proper height.
+	 */
 	function lockRowHeight(index: number): void {
 		const cachedHeight = heightMap[index];
 		if (!cachedHeight) return;
@@ -237,6 +241,9 @@
 		}, HEIGHT_LOCK_DURATION);
 	}
 
+	/**
+	 * Adjusts the top and bottom padding based on the height map and visible indices.
+	 */
 	function updateOffsets() {
 		offset = {
 			top: calculateHeightSum(0, visibleRange.start),
@@ -244,6 +251,11 @@
 		};
 	}
 
+	/**
+	 * Returns newly vsisible indices based on old and new ranges. This is
+	 * primarily used for locking elements coming into view to their
+	 * previously measured heights.
+	 */
 	function getNewIndices(oldStart: number, oldEnd: number, newStart: number, newEnd: number) {
 		const result: number[] = [];
 		for (let i = newStart; i < Math.min(newEnd, oldStart); i++) result.push(i);
