@@ -613,7 +613,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                     00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
-                    Sha1(0ee3a9e12c17b59a8507bbfe2ae98ab362feb21a),
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
                     ref_info::ui::Segment {
@@ -628,6 +628,21 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                         metadata: Branch,
                         push_status: NothingToPush,
                         base: "0ee3a9e",
+                    },
+                    ref_info::ui::Segment {
+                        id: NodeIndex(4),
+                        ref_name: "►A",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
+                        commits: [
+                            LocalCommit(0ee3a9e, "change in A\n", integrated(0ee3a9e)),
+                        ],
+                        commits_on_remote: [
+                            Commit(059cc4f, "Merge branch \'B-on-A\' into new-origin-A\n"),
+                        ],
+                        commits_outside: None,
+                        metadata: Branch,
+                        push_status: Integrated,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -651,7 +666,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
             NodeIndex(1),
         ),
         lower_bound: Some(
-            NodeIndex(4),
+            NodeIndex(7),
         ),
         is_managed_ref: true,
         is_managed_commit: true,

@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     ops::{Deref, Index, IndexMut},
 };
 
@@ -73,14 +73,16 @@ impl Graph {
 
 /// Merge-base computation
 impl Graph {
-    /// Compute the lowest merge-base between two segments.
-    /// Such a merge-base is reachable from all possible paths from `a` and `b`.
+    /// Compute the first merge-base between two segments (may not be the lowest).
+    ///
+    /// **Warning**: This finds the first common ancestor encountered during traversal,
+    /// which may not be the correct merge-base when there are multiple paths between
+    /// segments (e.g., via merge commits). Use [`lowest_merge_base`](Self::lowest_merge_base)
+    /// for correct results in all cases.
     ///
     /// The segment representing the merge-base is expected to not be empty, as its first commit
     /// is usually what one is interested in.
     // TODO: should be multi, with extra segments as third parameter
-    // TODO: actually find the lowest merge-base, right now it just finds the first merge-base, but that's not
-    //       the lowest.
     pub fn first_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
         // TODO(perf): improve this by allowing to set bitflags on the segments themselves, to allow
         //       marking them accordingly, just like Git does.
@@ -116,6 +118,146 @@ impl Graph {
             )
         }
         candidate
+    }
+
+    /// Compute the lowest merge-base between two segments.
+    ///
+    /// Unlike [`first_merge_base`](Self::first_merge_base), this finds a common ancestor
+    /// with "no path around it" - meaning ALL paths from both `a` and `b` must pass through
+    /// the returned segment.
+    ///
+    /// This uses a synchronized bidirectional BFS with colored walkers that advance
+    /// one step at a time from both starting points. Walkers split when encountering
+    /// multiple parents and merge when they meet. When exactly one walker remains,
+    /// we retrace its path backwards to find the most recent (shallowest) intersection.
+    ///
+    /// The segment representing the merge-base is expected to not be empty, as its first commit
+    /// is usually what one is interested in.
+    pub fn lowest_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
+        // Each walker tracks its origin and all nodes it has visited
+        #[derive(Clone)]
+        struct Walker {
+            position: SegmentIndex,
+            origin: u8, // COLOR_A or COLOR_B
+            visited: BTreeSet<SegmentIndex>,
+        }
+
+        const COLOR_A: u8 = 1;
+        const COLOR_B: u8 = 2;
+
+        // Track which nodes have been visited by A-origin and B-origin walkers
+        let mut nodes_a: BTreeSet<SegmentIndex> = BTreeSet::new();
+        let mut nodes_b: BTreeSet<SegmentIndex> = BTreeSet::new();
+
+        // Merged nodes (visited by both origins) with their generation for ordering
+        let mut merged_nodes: BTreeMap<SegmentIndex, u32> = BTreeMap::new();
+
+        // Initialize walkers
+        let mut walker_a = Walker {
+            position: a,
+            origin: COLOR_A,
+            visited: BTreeSet::new(),
+        };
+        walker_a.visited.insert(a);
+        nodes_a.insert(a);
+
+        let mut walker_b = Walker {
+            position: b,
+            origin: COLOR_B,
+            visited: BTreeSet::new(),
+        };
+        walker_b.visited.insert(b);
+        nodes_b.insert(b);
+
+        let mut walkers: Vec<Walker> = vec![walker_a, walker_b];
+
+        let mut step = 0u32;
+        while !walkers.is_empty() {
+            step += 1;
+
+            // Check if all walkers are effectively merged
+            let all_merged = walkers
+                .iter()
+                .all(|w| w.visited.iter().any(|n| merged_nodes.contains_key(n)));
+
+            if all_merged {
+                // Find the merged node that is in ALL walkers' visited sets
+                // and has the largest generation (farthest from tips = oldest = true dominator)
+                let mut common_merged: Option<(SegmentIndex, u32)> = None;
+
+                for (&node, &generation) in &merged_nodes {
+                    let in_all = walkers.iter().all(|w| w.visited.contains(&node));
+                    if in_all {
+                        if common_merged.is_none() || generation > common_merged.unwrap().1 {
+                            common_merged = Some((node, generation));
+                        }
+                    }
+                }
+
+                if let Some((dominator, _)) = common_merged {
+                    return Some(dominator);
+                }
+            }
+
+            // Expand all walkers
+            let mut next_walkers: Vec<Walker> = Vec::new();
+
+            for walker in walkers {
+                let parents: Vec<_> = self
+                    .inner
+                    .neighbors_directed(walker.position, Direction::Outgoing)
+                    .collect();
+
+                for parent in parents {
+                    let mut new_walker = walker.clone();
+                    new_walker.position = parent;
+                    new_walker.visited.insert(parent);
+
+                    // Track which origins have visited this node
+                    if walker.origin == COLOR_A {
+                        nodes_a.insert(parent);
+                    } else {
+                        nodes_b.insert(parent);
+                    }
+
+                    // Check if this node is now merged (visited by both origins)
+                    if nodes_a.contains(&parent)
+                        && nodes_b.contains(&parent)
+                        && !merged_nodes.contains_key(&parent)
+                    {
+                        let generation = self[parent].generation as u32;
+                        merged_nodes.insert(parent, generation);
+                    }
+
+                    next_walkers.push(new_walker);
+                }
+            }
+
+            // Deduplicate walkers at the same position with the same origin
+            // by merging their visited sets
+            let mut walker_map: BTreeMap<(SegmentIndex, u8), Walker> = BTreeMap::new();
+            for w in next_walkers {
+                let key = (w.position, w.origin);
+                walker_map
+                    .entry(key)
+                    .and_modify(|existing| {
+                        existing.visited.extend(w.visited.iter().cloned());
+                    })
+                    .or_insert(w);
+            }
+            walkers = walker_map.into_values().collect();
+
+            // Safety limit to prevent infinite loops on pathological graphs
+            if step > 10000 {
+                tracing::warn!(
+                    "Safety limit reached while finding dominator between segments {a:?} and {b:?}"
+                );
+                break;
+            }
+        }
+
+        tracing::warn!("Couldn't find dominator between segments {a:?} and {b:?}");
+        None
     }
 }
 
