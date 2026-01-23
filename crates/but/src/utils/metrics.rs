@@ -308,12 +308,14 @@ impl BackgroundMetrics {
     }
 }
 
+/// Capture an event *only* if `app_settings.telemetry.app_metrics_enabled` is `true`.
 pub async fn capture_event_blocking(app_settings: &AppSettings, event: Event) {
     if let Some(client) = posthog_client(app_settings.clone()) {
         do_capture(&client.await, event, app_settings).await.ok();
     }
 }
 
+/// Note that `client` is *only* available if telemetry is enabled.
 fn do_capture(
     client: &Client,
     event: Event,
@@ -346,17 +348,15 @@ fn machine() -> String {
 
 /// Creates a PostHog client if metrics are enabled and the API key is set.
 fn posthog_client(app_settings: AppSettings) -> Option<impl Future<Output = posthog_rs::Client>> {
-    if app_settings.telemetry.app_metrics_enabled {
-        if let Some(api_key) = option_env!("POSTHOG_API_KEY") {
-            let options = posthog_rs::ClientOptionsBuilder::default()
-                .api_key(api_key.to_string())
-                .api_endpoint("https://eu.i.posthog.com/i/v0/e/".to_string())
-                .build()
-                .ok()?;
-            Some(posthog_rs::client(options))
-        } else {
-            None
-        }
+    if app_settings.telemetry.app_metrics_enabled
+        && let Some(api_key) = option_env!("POSTHOG_API_KEY")
+    {
+        let options = posthog_rs::ClientOptionsBuilder::default()
+            .api_key(api_key.to_string())
+            .api_endpoint("https://eu.i.posthog.com/i/v0/e/".to_string())
+            .build()
+            .ok()?;
+        Some(posthog_rs::client(options))
     } else {
         None
     }
