@@ -319,15 +319,29 @@ fn do_capture(
     event: Event,
     app_settings: &AppSettings,
 ) -> impl Future<Output = Result<(), posthog_rs::Error>> {
-    let mut posthog_event = if let Some(id) = app_settings.telemetry.app_distinct_id.clone() {
-        posthog_rs::Event::new(event.event_name.to_string(), id.clone())
+    let id = if let Some(id) = app_settings.telemetry.app_distinct_id.clone() {
+        id
+    } else if app_settings.telemetry.app_non_anon_metrics_enabled {
+        machine()
     } else {
-        posthog_rs::Event::new_anon(event.event_name.to_string())
+        "anonymous".to_string()
     };
+    let mut posthog_event = posthog_rs::Event::new(event.event_name.to_string(), id);
     for (key, prop) in event.props {
         let _ = posthog_event.insert_prop(key, prop);
     }
     client.capture(posthog_event)
+}
+
+fn machine() -> String {
+    if let Ok(id) = machine_uid::get() {
+        format!(
+            "machine_{:x}",
+            <sha2::Sha256 as sha2::Digest>::digest(format!("{}{}", id, "gitbutler").as_bytes())
+        )
+    } else {
+        "anonymous".to_string()
+    }
 }
 
 /// Creates a PostHog client if metrics are enabled and the API key is set.
