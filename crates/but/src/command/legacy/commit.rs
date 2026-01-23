@@ -148,6 +148,43 @@ pub(crate) fn commit(
         bail!("No changes to commit.")
     }
 
+    // Convert files to DiffSpec early so we can run pre-commit hooks before prompting for message
+    let diff_specs: Vec<DiffSpec> = files_to_commit
+        .iter()
+        .map(|fa| {
+            // Collect hunk headers from all assignments for this file
+            let hunk_headers: Vec<but_core::HunkHeader> = fa
+                .assignments
+                .iter()
+                .filter_map(|assignment| assignment.inner.hunk_header)
+                .collect();
+
+            DiffSpec {
+                previous_path: None,
+                path: fa.path.clone(),
+                hunk_headers,
+            }
+        })
+        .collect();
+
+    // Run pre-commit hook unless --no-hooks was specified
+    // This runs BEFORE getting the commit message so the user doesn't waste time writing a message
+    // for a commit that will fail the hook
+    if !no_hooks {
+        let hook_result = repo::pre_commit_hook_diffspecs(project_id, diff_specs.clone())?;
+        match hook_result {
+            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
+                // Hook passed or not configured, proceed with commit
+            }
+            hooks::HookResult::Failure(error_data) => {
+                bail!(
+                    "pre-commit hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
+                    error_data.error
+                );
+            }
+        }
+    }
+
     // Get commit message
     let commit_message = if let Some(msg) = message {
         msg.to_string()
@@ -188,41 +225,6 @@ pub(crate) fn commit(
             .first()
             .ok_or_else(|| anyhow::anyhow!("No branches found in target stack"))?
     };
-
-    // Convert files to DiffSpec
-    let diff_specs: Vec<DiffSpec> = files_to_commit
-        .iter()
-        .map(|fa| {
-            // Collect hunk headers from all assignments for this file
-            let hunk_headers: Vec<but_core::HunkHeader> = fa
-                .assignments
-                .iter()
-                .filter_map(|assignment| assignment.inner.hunk_header)
-                .collect();
-
-            DiffSpec {
-                previous_path: None,
-                path: fa.path.clone(),
-                hunk_headers,
-            }
-        })
-        .collect();
-
-    // Run pre-commit hook unless --no-hooks was specified
-    if !no_hooks {
-        let hook_result = repo::pre_commit_hook_diffspecs(project_id, diff_specs.clone())?;
-        match hook_result {
-            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
-                // Hook passed or not configured, proceed with commit
-            }
-            hooks::HookResult::Failure(error_data) => {
-                bail!(
-                    "pre-commit hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
-                    error_data.error
-                );
-            }
-        }
-    }
 
     // Get the HEAD commit of the target branch to use as parent (preserves stacking)
     let parent_commit_id = target_branch.tip;
