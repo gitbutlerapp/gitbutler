@@ -410,6 +410,120 @@ fn four_diamond() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// This test demonstrates a bug in `first_merge_base`: it finds the first common
+/// ancestor encountered during traversal, but that's not necessarily the merge-base
+/// with "no paths around it."
+///
+/// The `merge-base-path-around` fixture creates this git commit graph:
+/// ```text
+///       A                      B
+///       │                      │
+///       ▼                      ▼
+///     mid_a ◄───────────────── M (merge of mid_a and mid_c)
+///       │                     / \
+///       │                    ▼   ▼
+///       ▼                        mid_c
+///     base ◄─────────────────────┘
+/// ```
+///
+/// B is a merge commit with two parents: mid_a and mid_c.
+/// A sits on top of mid_a, which sits on base.
+/// mid_c is a sibling branch that also connects to base.
+///
+/// When finding merge-base of segments A and B:
+/// - Current (buggy) behavior: finds mid_a (first common ancestor encountered)
+/// - Correct behavior: finds base (the only point with no path around it)
+///
+/// The issue is that mid_a has a "path around it": B can reach base via mid_c
+/// without going through mid_a. Therefore, mid_a is not the true merge-base
+/// where ALL paths from both segments converge.
+#[test]
+fn first_merge_base_bug_path_around() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("merge-base-path-around")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?);
+
+    // Use B as an extra target so it's included in the graph
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, "B"),
+    )?;
+    insta::assert_snapshot!(graph_tree(&graph));
+
+    // Find segments by looking for their ref names in the segment list
+    let find_segment = |name: &str| -> but_graph::SegmentIndex {
+        graph
+            .segments()
+            .find(|&sidx| {
+                graph[sidx]
+                    .ref_name()
+                    .is_some_and(|rn| rn.as_bstr().to_string().ends_with(name))
+            })
+            .unwrap_or_else(|| panic!("segment {name} not found"))
+    };
+
+    let seg_a = find_segment("/A");
+    let seg_b = find_segment("/B");
+    let seg_mid_a = find_segment("/mid_a");
+    let seg_main = find_segment("/main"); // base
+
+    // Verify graph connectivity using edges
+    // A should connect to mid_a
+    // B should connect to both mid_a and mid_c (it's a merge commit)
+    use petgraph::Direction;
+    let a_edges: Vec<_> = graph.edges_directed(seg_a, Direction::Outgoing).collect();
+    let b_edges: Vec<_> = graph.edges_directed(seg_b, Direction::Outgoing).collect();
+
+    assert_eq!(a_edges.len(), 1, "A should have 1 outgoing edge (to mid_a)");
+    assert_eq!(
+        b_edges.len(),
+        2,
+        "B should have 2 outgoing edges (to mid_a and mid_c) - this creates the 'path around'"
+    );
+
+    // Now test first_merge_base
+    let merge_base = graph.first_merge_base(seg_a, seg_b);
+
+    // Common ancestors of A and B are: {mid_a, deep_a, base}
+    // - mid_a: reachable from A (directly) and B (first parent)
+    // - deep_a: reachable from A (via mid_a) and B (via mid_a)
+    // - base: reachable from A (via mid_a -> deep_a) and B (via mid_a OR mid_c)
+    //
+    // The BUG: first_merge_base returns mid_a because it's encountered first
+    // when walking from A. But mid_a has a "path around it" - B can reach base
+    // via mid_c without going through mid_a.
+    //
+    // The CORRECT merge-base is base, because ALL paths from both A and B
+    // must pass through base. There's no way around base.
+
+    // First verify we got one of the common ancestors
+    assert!(
+        merge_base == Some(seg_mid_a) || merge_base == Some(seg_main),
+        "merge_base should be one of the common ancestors (mid_a or main), got {:?}",
+        merge_base
+    );
+
+    // Document the buggy behavior of first_merge_base - this assertion shows it
+    // returns mid_a, which has a "path around it" via mid_c
+    assert_eq!(
+        merge_base,
+        Some(seg_mid_a),
+        "first_merge_base returns mid_a, but there's a path around it. \
+         Use lowest_merge_base for correct results."
+    );
+
+    // Now test lowest_merge_base - this should return the correct answer
+    let lowest_merge_base = graph.lowest_merge_base(seg_a, seg_b);
+
+    assert_eq!(
+        lowest_merge_base,
+        Some(seg_main),
+        "lowest_merge_base correctly returns base (main) - the only point with no path around it"
+    );
+
+    Ok(())
+}
+
 #[test]
 fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("remote-includes-another-remote")?;
