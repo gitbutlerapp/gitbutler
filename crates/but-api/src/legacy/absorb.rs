@@ -128,6 +128,33 @@ pub fn absorption_plan(
 
             stack_assignments
         }
+        AbsorptionTarget::TreeChanges {
+            changes,
+            assigned_stack_id,
+        } => {
+            // Get all worktree changes, assignments, and dependencies
+            let worktree_changes = changes_in_worktree(ctx)?;
+            let all_assignments = worktree_changes.assignments;
+
+            // Filter assignments to just this stack
+            let stack_assignments: Vec<_> = all_assignments
+                .iter()
+                .filter(|a| {
+                    a.stack_id == assigned_stack_id
+                        && changes.iter().any(|c| c.path_bytes == a.path_bytes)
+                })
+                .cloned()
+                .collect();
+
+            if stack_assignments.is_empty() {
+                anyhow::bail!(
+                    "No uncommitted changes assigned to stack: {:?}",
+                    assigned_stack_id
+                );
+            }
+
+            stack_assignments
+        }
         AbsorptionTarget::HunkAssignments { assignments } => assignments,
         AbsorptionTarget::All => {
             // Get all worktree changes, assignments, and dependencies

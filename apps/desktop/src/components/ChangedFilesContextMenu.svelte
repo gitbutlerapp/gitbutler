@@ -27,12 +27,18 @@
 		ContextMenuItem,
 		ContextMenuItemSubmenu,
 		ContextMenuSection,
+		CopyButton,
 		FileListItem,
 		Modal,
-		chipToasts
+		ModalHeader,
+		ScrollableContainer,
+		chipToasts,
+		Icon,
+		TestId
 	} from '@gitbutler/ui';
-
+	import { tick } from 'svelte';
 	import type { SelectionId } from '$lib/selection/key';
+	import type { HunkAssignment } from '@gitbutler/core/api';
 
 	const DEFAULT_MODEL = 'gpt-4';
 
@@ -80,6 +86,7 @@
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
 	const [splitOffChanges] = stackService.splitBranch;
 	const [splitBranchIntoDependentBranch] = stackService.splitBrancIntoDependentBranch;
+	const [absorb, absorbingChanges] = stackService.absorb;
 
 	const projectService = inject(PROJECTS_SERVICE);
 
@@ -104,6 +111,7 @@
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let stashConfirmationModal: ReturnType<typeof Modal> | undefined;
+	let absorbPlanModal = $state<ReturnType<typeof Modal> | undefined>();
 	let contextMenu: ReturnType<typeof ContextMenu>;
 	let aiConfigurationValid = $state(false);
 
@@ -150,6 +158,7 @@
 	let stashBranchName = $state<string>();
 	let slugifiedRefName: string | undefined = $state();
 	let stashBranchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
+	let absorbPlan = $state<HunkAssignment.CommitAbsorption[]>([]);
 
 	async function confirmStashIntoBranch(item: ChangedFilesItem, branchName: string | undefined) {
 		if (!branchName) {
@@ -228,11 +237,22 @@
 		}
 	}
 
-	async function triggerAbsorbChanges(_: TreeChange[]) {
-		if (!canUseGBAI) {
-			chipToasts.error('GitButler AI is not configured or enabled for this project.');
+	async function triggerAbsorbChanges(changes: TreeChange[]) {
+		const changesToAbsorb = $state.snapshot(changes);
+		const plan = await stackService.fetchAbsorbPlan(projectId, {
+			type: 'treeChanges',
+			subject: {
+				changes: changesToAbsorb,
+				assigned_stack_id: stackId ?? null
+			}
+		});
+		if (!plan || plan.length === 0) {
+			chipToasts.error('No suitable commits found to absorb changes into.');
 			return;
 		}
+		absorbPlan = plan;
+		await tick();
+		absorbPlanModal?.show(null);
 	}
 
 	async function split(changes: TreeChange[]) {
@@ -319,6 +339,8 @@
 			console.error('Failed to split into dependent branch:', error);
 		}
 	}
+
+	let isAbsorbModalScrollVisible = $state(true);
 </script>
 
 <ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
@@ -338,8 +360,6 @@
 								contextMenu.close();
 							}}
 						/>
-					{/if}
-					{#if isUncommitted}
 						<ContextMenuItem
 							label="Stash into branch…"
 							icon="stash"
@@ -352,6 +372,25 @@
 								}
 								contextMenu.close();
 							}}
+						/>
+						<ContextMenuItem
+							label="Absorb changes"
+							testId={TestId.FileListItemContextMenu_Absorb}
+							tooltip="Try to find the best commit in the workspace to amend the changes into."
+							onclick={() => {
+								triggerAbsorbChanges(item.changes);
+								contextMenu.close();
+							}}
+							disabled={absorbingChanges.current.isLoading}
+						/>
+						<ContextMenuItem
+							label="Absorb changes…"
+							icon="absorb"
+							onclick={() => {
+								triggerAbsorbChanges(item.changes);
+								contextMenu.close();
+							}}
+							disabled={absorbingChanges.current.isLoading}
 						/>
 					{/if}
 					{#if selectionId.type === 'commit' && stackId && !editMode}
@@ -485,7 +524,6 @@
 							<ContextMenuSection>
 								<ContextMenuItem
 									label="Auto commit"
-									tooltip="Try to figure out where to commit the changes. Can create new branches too."
 									onclick={async () => {
 										closeSubmenu();
 										contextMenu.close();
@@ -495,23 +533,12 @@
 								/>
 								<ContextMenuItem
 									label="Branch changes"
-									tooltip="Create a new branch and commit the changes into it."
 									onclick={() => {
 										closeSubmenu();
 										contextMenu.close();
 										triggerBranchChanges(item.changes);
 									}}
 									disabled={branchingChanges.current.isLoading}
-								/>
-								<ContextMenuItem
-									label="Absorb changes"
-									tooltip="Try to find the best place to absorb the changes into."
-									onclick={() => {
-										closeSubmenu();
-										contextMenu.close();
-										triggerAbsorbChanges(item.changes);
-									}}
-									disabled
 								/>
 							</ContextMenuSection>
 						{/snippet}
@@ -547,13 +574,12 @@
 						Are you sure you want to discard the changes<br />to the following files:
 					</p>
 					<ul class="file-list">
-						{#each changes as change, i}
+						{#each changes as change}
 							<FileListItem
 								filePath={change.path}
 								fileStatus={computeChangeStatus(change)}
 								clickable={false}
 								listMode="list"
-								isLast={i === changes.length - 1}
 							/>
 						{/each}
 					</ul>
@@ -627,6 +653,98 @@
 	{/snippet}
 </Modal>
 
+<Modal
+	width={500}
+	type="info"
+	noPadding
+	bind:this={absorbPlanModal}
+	testId={TestId.AbsobModal}
+	onSubmit={async () => {
+		try {
+			await chipToasts.promise(absorb({ projectId, absorptionPlan: absorbPlan }), {
+				loading: 'Absorbing changes',
+				success: 'Changes absorbed successfully',
+				error: 'Failed to absorb changes'
+			});
+			absorbPlanModal?.close();
+		} catch (error) {
+			console.error('Failed to absorb changes:', error);
+		}
+	}}
+>
+	<ModalHeader type="warning" sticky={!isAbsorbModalScrollVisible}
+		>Absorb Changes into Commits</ModalHeader
+	>
+	<ScrollableContainer onscrollTop={(visible) => (isAbsorbModalScrollVisible = visible)}>
+		<div class="absorb-plan-content">
+			<p class="text-13 text-body clr-text-2">
+				The following changes will be absorbed into their respective commits:
+			</p>
+			<div class="commit-absorptions">
+				{#each absorbPlan as commitAbsorption}
+					<div class="commit-absorption" data-testid={TestId.AbsorbModal_CommitAbsorption}>
+						{#if commitAbsorption.reason !== 'default_stack'}
+							<div class="absorption__reason text-12 text-body clr-text-2">
+								{#if commitAbsorption.reason === 'hunk_dependency'}
+									📍 Files locked to commit due to hunk range overlap
+								{:else if commitAbsorption.reason === 'stack_assignment'}
+									🔖 Files assigned to this stack
+								{/if}
+							</div>
+						{/if}
+
+						<div class="absorption__content">
+							<div class="commit-header">
+								<Icon name="commit" />
+
+								<div class="flex gap-8 overflow-hidden align-center full-width">
+									<p class="text-13 text-semibold truncate flex-1">
+										{commitAbsorption.commitSummary.split('\n')[0]}
+									</p>
+									<CopyButton
+										class="text-12 clr-text-2"
+										text={commitAbsorption.commitId}
+										onclick={() => {
+											clipboardService.write(commitAbsorption.commitId, {
+												message: 'Commit ID copied'
+											});
+										}}
+									/>
+								</div>
+							</div>
+
+							<ul class="file-list">
+								{#each commitAbsorption.files as file}
+									<FileListItem
+										filePath={file.path}
+										clickable={false}
+										listMode="list"
+										isLast={commitAbsorption.files.indexOf(file) ===
+											commitAbsorption.files.length - 1}
+									/>
+								{/each}
+							</ul>
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	</ScrollableContainer>
+
+	{#snippet controls(close)}
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button
+			style="pop"
+			type="submit"
+			loading={absorbingChanges.current.isLoading}
+			disabled={absorbPlan.length === 0 || absorbingChanges.current.isLoading}
+			testId={TestId.AbsorbModal_ActionButton}
+		>
+			Absorb changes
+		</Button>
+	{/snippet}
+</Modal>
+
 <style lang="postcss">
 	.discard-caption {
 		color: var(--clr-text-2);
@@ -645,5 +763,41 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
+	}
+	.absorb-plan-content {
+		display: flex;
+		flex-direction: column;
+		padding: 16px;
+		padding-top: 0;
+		gap: 12px;
+	}
+	.commit-absorptions {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.commit-absorption {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+	}
+	.absorption__reason {
+		display: flex;
+		padding: 8px;
+		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-theme-warn-bg);
+	}
+	.absorption__content {
+		display: flex;
+		flex-direction: column;
+		padding: 12px;
+	}
+	.commit-header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
 	}
 </style>

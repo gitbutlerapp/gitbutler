@@ -1,3 +1,4 @@
+import { expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -25,4 +26,9 @@ export function writeFiles(files: Record<string, string>): void {
 	for (const [filePath, content] of Object.entries(files)) {
 		writeToFile(filePath, content);
 	}
+}
+
+export async function assertFileContent(filePath: string, expectedContent: string): Promise<void> {
+	const actualContent = fs.readFileSync(filePath, 'utf-8');
+	await expect.poll(() => actualContent).toBe(expectedContent);
 }

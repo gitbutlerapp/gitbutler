@@ -1,4 +1,4 @@
-import { clickByTestId, getByTestId, sleep, waitForTestId } from './util.ts';
+import { clickByTestId, getByTestId, waitForTestId } from './util.ts';
 import { expect, Page } from '@playwright/test';
 import { execSync } from 'child_process';
 
@@ -50,18 +50,10 @@ export async function createNewBranch(page: Page, branchName: string) {
 }
 
 export async function assertBranch(branchName: string, pathToRepo: string): Promise<void> {
-	let count = 0;
-	const maxRetries = 5;
-	let currentBranchName: string | null = null;
-	while (currentBranchName !== branchName && count < maxRetries) {
-		await sleep(500);
-		currentBranchName = execSync(`git branch --show-current`, { cwd: pathToRepo })
-			.toString()
-			.trim();
-		count++;
-	}
-	expect(
-		currentBranchName,
-		`Expected branch to be ${branchName} but was ${currentBranchName} in ${pathToRepo}`
-	).toBe(branchName);
+	expect
+		.poll(() => execSync(`git branch --show-current`, { cwd: pathToRepo }), {
+			message: `Expected branch name to be "${branchName}"`,
+			intervals: [100, 200, 500, 1000]
+		})
+		.toBe(branchName);
 }

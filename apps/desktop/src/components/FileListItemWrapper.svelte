@@ -19,7 +19,6 @@
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { type FocusableOptions } from '@gitbutler/ui/focus/focusManager';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
-	import type { Rename } from '$lib/hunks/change';
 
 	interface Props {
 		projectId: string;
@@ -75,8 +74,8 @@
 	let draggableEl: HTMLDivElement | undefined = $state();
 
 	const previousTooltipText = $derived(
-		(change.status.subject as Rename).previousPath
-			? `${(change.status.subject as Rename).previousPath} →\n${change.path}`
+		change.status.type === 'Rename' && change.status.subject.previousPath
+			? `${change.status.subject.previousPath} →\n${change.path}`
 			: undefined
 	);
 

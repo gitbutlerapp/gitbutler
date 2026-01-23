@@ -515,6 +515,8 @@ async fn handle_command(
                 .zip_entire_repository(params.project_id)
                 .map(to_json_or_panic)
         }
+        "absorb" => legacy::absorb::absorb_cmd(request.params),
+        "absorption_plan" => legacy::absorb::absorption_plan_cmd(request.params),
         "get_logs_archive_path" => {
             let result = extra.archival.zip_logs();
             result.map(|r| json!(r))
