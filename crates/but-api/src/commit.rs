@@ -183,7 +183,7 @@ pub fn commit_move_changes_between_only(
         source_commit_id.into(),
         destination_commit_id.into(),
         changes,
-        3,
+        ctx.settings().context_lines,
     )?;
     let materialized = outcome.rebase.materialize()?;
     let new_source_commit_id = materialized.lookup_pick(outcome.source_selector)?;
@@ -260,7 +260,12 @@ pub fn commit_uncommit_changes_only(
         None
     };
 
-    let outcome = uncommit_changes(editor, commit_id.into(), changes, 3)?;
+    let outcome = uncommit_changes(
+        editor,
+        commit_id.into(),
+        changes,
+        ctx.settings().context_lines,
+    )?;
 
     let materialized = outcome.rebase.materialize_without_checkout()?;
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
