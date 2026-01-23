@@ -156,7 +156,11 @@ export enum TestId {
 	EditModeSaveAndExitButton = 'edit-mode-save-and-exit-button',
 	StacksUnappliedToast = 'stacks-unapplied-toast',
 	CreateSnapshotModal = 'create-snapshot-modal',
-	CreateSnapshotModal_ActionButton = 'create-snapshot-modal-action-button'
+	CreateSnapshotModal_ActionButton = 'create-snapshot-modal-action-button',
+	FileListItemContextMenu_Absorb = 'file-list-item-context-menu__absorb',
+	AbsobModal = 'absorb-modal',
+	AbsorbModal_ActionButton = 'absorb-modal-action-button',
+	AbsorbModal_CommitAbsorption = 'absorb-modal-commit-absorption'
 }
 
 export enum ElementId {

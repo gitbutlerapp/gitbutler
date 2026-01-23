@@ -33,7 +33,8 @@
 		ModalHeader,
 		ScrollableContainer,
 		chipToasts,
-		Icon
+		Icon,
+		TestId
 	} from '@gitbutler/ui';
 	import { tick } from 'svelte';
 	import type { SelectionId } from '$lib/selection/key';
@@ -374,6 +375,7 @@
 						/>
 						<ContextMenuItem
 							label="Absorb changes"
+							testId={TestId.FileListItemContextMenu_Absorb}
 							tooltip="Try to find the best commit in the workspace to amend the changes into."
 							onclick={() => {
 								triggerAbsorbChanges(item.changes);
@@ -656,6 +658,7 @@
 	type="info"
 	noPadding
 	bind:this={absorbPlanModal}
+	testId={TestId.AbsobModal}
 	onSubmit={async () => {
 		try {
 			await chipToasts.promise(absorb({ projectId, absorptionPlan: absorbPlan }), {
@@ -679,7 +682,7 @@
 			</p>
 			<div class="commit-absorptions">
 				{#each absorbPlan as commitAbsorption}
-					<div class="commit-absorption">
+					<div class="commit-absorption" data-testid={TestId.AbsorbModal_CommitAbsorption}>
 						{#if commitAbsorption.reason !== 'default_stack'}
 							<div class="absorption__reason text-12 text-body clr-text-2">
 								{#if commitAbsorption.reason === 'hunk_dependency'}
@@ -735,6 +738,7 @@
 			type="submit"
 			loading={absorbingChanges.current.isLoading}
 			disabled={absorbPlan.length === 0 || absorbingChanges.current.isLoading}
+			testId={TestId.AbsorbModal_ActionButton}
 		>
 			Absorb changes
 		</Button>
