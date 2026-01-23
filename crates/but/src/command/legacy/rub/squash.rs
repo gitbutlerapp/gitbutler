@@ -1,3 +1,4 @@
+use bstr::BString;
 use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
 use colored::Colorize;
@@ -28,7 +29,8 @@ pub(crate) fn commits(
 
     // If a custom message is provided, reword the resulting commit
     let final_commit_oid = if let Some(message) = custom_message {
-        gitbutler_branch_actions::update_commit_message(ctx, source_stack, new_commit_oid, message)?
+        but_api::commit::commit_reword_only(ctx, new_commit_oid.to_gix(), BString::from(message))?
+            .to_git2()
     } else {
         new_commit_oid
     };
