@@ -1,8 +1,5 @@
 name: 'Publish'
 on:
-  schedule:
-    # every day at 1am UTC, 3AM CEST or 2AM CET.
-    - cron: '0 1 * * *'
   workflow_run:
     workflows: ['Nightly build']
     types:
