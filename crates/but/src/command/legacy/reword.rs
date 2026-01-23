@@ -1,7 +1,7 @@
 use anyhow::{Result, bail};
+use bstr::BString;
 use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt as _, OidExt};
 use gitbutler_project::Project;
 use gix::prelude::ObjectIdExt;
 
@@ -42,7 +42,7 @@ pub(crate) fn reword_target(
             edit_branch_name(ctx, &ctx.legacy_project, name, out, message)?;
         }
         CliId::Commit { commit_id: oid, .. } => {
-            edit_commit_message_by_id(ctx, &ctx.legacy_project, *oid, out, message, format)?;
+            edit_commit_message_by_id(ctx, *oid, out, message, format)?;
         }
         _ => {
             bail!(
@@ -104,61 +104,14 @@ fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<St
 
 fn edit_commit_message_by_id(
     ctx: &Context,
-    project: &Project,
     commit_oid: gix::ObjectId,
     out: &mut OutputChannel,
     message: Option<&str>,
     format: bool,
 ) -> Result<()> {
-    // Find which stack this commit belongs to
-    let stacks = but_api::legacy::workspace::stacks(project.id, None)?;
-    let mut found_commit_message = None;
-    let mut stack_id = None;
-
-    for stack_entry in &stacks {
-        if let Some(sid) = stack_entry.id {
-            let stack_details = but_api::legacy::workspace::stack_details(project.id, Some(sid))?;
-
-            // Check if this commit exists in any branch of this stack
-            for branch_details in &stack_details.branch_details {
-                // Check local commits
-                for commit in &branch_details.commits {
-                    if commit.id == commit_oid {
-                        found_commit_message = Some(commit.message.clone());
-                        stack_id = Some(sid);
-                        break;
-                    }
-                }
-
-                // Also check upstream commits
-                if found_commit_message.is_none() {
-                    for commit in &branch_details.upstream_commits {
-                        if commit.id == commit_oid {
-                            found_commit_message = Some(commit.message.clone());
-                            stack_id = Some(sid);
-                            break;
-                        }
-                    }
-                }
-
-                if found_commit_message.is_some() {
-                    break;
-                }
-            }
-            if found_commit_message.is_some() {
-                break;
-            }
-        }
-    }
-
-    let commit_message = found_commit_message
-        .ok_or_else(|| anyhow::anyhow!("Commit {} not found in any stack", commit_oid))?;
-
-    let stack_id = stack_id
-        .ok_or_else(|| anyhow::anyhow!("Could not find stack for commit {}", commit_oid))?;
-
-    // Get current commit message
-    let current_message = commit_message.to_string();
+    // Get commit details directly - no need to iterate through stacks
+    let commit_details = but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
+    let current_message = commit_details.commit.inner.message.to_string();
 
     // Get new message from provided argument, format flag, or editor
     let new_message = if format {
@@ -169,8 +122,6 @@ fn edit_commit_message_by_id(
         but_action::commit_format::format_commit_message(&current_message)
     } else {
         prepare_provided_message(message, "commit message").unwrap_or_else(|| {
-            let commit_details =
-                but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
             let changed_files = get_changed_files_from_commit_details(&commit_details);
 
             // Open editor with current message and file list
@@ -185,14 +136,8 @@ fn edit_commit_message_by_id(
         return Ok(());
     }
 
-    // Use gitbutler_branch_actions::update_commit_message instead of low-level primitives
-    let git2_commit_oid = commit_oid.to_git2();
-    let new_commit_oid = gitbutler_branch_actions::update_commit_message(
-        ctx,
-        stack_id,
-        git2_commit_oid,
-        &new_message,
-    )?;
+    let new_commit_oid =
+        but_api::commit::commit_reword_only(ctx, commit_oid, BString::from(new_message))?;
 
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
@@ -200,7 +145,7 @@ fn edit_commit_message_by_id(
             out,
             "Updated commit message for {} (now {})",
             commit_oid.attach(&repo).shorten_or_id(),
-            new_commit_oid.to_gix().attach(&repo).shorten_or_id()
+            new_commit_oid.attach(&repo).shorten_or_id()
         )?;
     }
 
