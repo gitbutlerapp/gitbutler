@@ -14,15 +14,12 @@ use crate::{
 };
 
 pub fn commited_file_to_another_commit(
-    ctx: &mut Context,
+    ctx: &Context,
     path: &BStr,
     source_id: gix::ObjectId,
     target_id: gix::ObjectId,
     out: &mut OutputChannel,
 ) -> Result<()> {
-    let source_stack = stack_id_by_commit_id(ctx, &source_id)?;
-    let target_stack = stack_id_by_commit_id(ctx, &target_id)?;
-
     let repo = ctx.repo.get()?;
     let source_commit = repo.find_commit(source_id)?;
     let source_commit_parent_id = source_commit.parent_ids().next().context("First parent")?;
@@ -34,14 +31,11 @@ pub fn commited_file_to_another_commit(
         .map(Into::into)
         .collect::<Vec<DiffSpec>>();
 
-    but_workspace::legacy::move_changes_between_commits(
+    but_api::commit::commit_move_changes_between_only(
         ctx,
-        source_stack,
-        source_id,
-        target_stack,
-        target_id,
+        source_id.into(),
+        target_id.into(),
         relevant_changes,
-        ctx.settings().context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
