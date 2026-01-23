@@ -7,7 +7,6 @@ on:
 
 env:
   RUST_BACKTRACE: full
-  RUSTUP_TOOLCHAIN: stable
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
