@@ -91,6 +91,7 @@
 		 * Takes precedence over stickToBottom for initial render.
 		 */
 		startIndex?: number;
+		renderDistance?: number;
 	};
 
 	const SCROLL_DOWN_THRESHOLD = 600;
@@ -98,7 +99,6 @@
 	const LOAD_MORE_THRESHOLD = 300;
 	const DEBOUNCE_DELAY = 50;
 	const HEIGHT_LOCK_DURATION = 1000;
-	const RENDER_THRESHOLD = 250;
 
 	const {
 		items,
@@ -110,7 +110,8 @@
 		visibility,
 		defaultHeight,
 		stickToBottom,
-		startIndex
+		startIndex,
+		renderDistance = 0
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
@@ -157,7 +158,7 @@
 			const index = indexAttr ? parseInt(indexAttr) : undefined;
 			if (index !== undefined) {
 				const oldHeight = heightMap[index] || defaultHeight;
-				if (heightMap[index] !== target.clientHeight) {
+				if (target.clientHeight !== heightMap[index]) {
 					heightMap[index] = target.clientHeight;
 				}
 
@@ -170,7 +171,8 @@
 					(lastJumpToIndex !== undefined || startIndex) &&
 					lastScrollDirection === undefined
 				) {
-					viewport.scrollTop = calculateHeightSum(0, lastJumpToIndex || startIndex || 0);
+					const newScrollTop = calculateHeightSum(0, lastJumpToIndex || startIndex || 0);
+					viewport.scrollTop = newScrollTop;
 					ignoreScroll = true;
 				} else if (stickToBottom && previousDistance < STICKY_DISTANCE) {
 					ignoreScroll = true;
@@ -257,7 +259,7 @@
 			const rowHeight = visibleRowElements?.[i - visibleRange.start]?.clientHeight;
 			const heightToUse = rowHeight || heightMap[i] || defaultHeight;
 			accumulatedHeight += heightToUse;
-			if (accumulatedHeight > viewport.scrollTop - RENDER_THRESHOLD) {
+			if (accumulatedHeight > viewport.scrollTop - renderDistance) {
 				return i;
 			}
 		}
@@ -270,54 +272,65 @@
 		let accumulatedHeight = offset.top - viewport.scrollTop;
 		for (let i = visibleRange.start; i < items.length; i++) {
 			accumulatedHeight += heightMap[i] || defaultHeight;
-			if (accumulatedHeight > viewport.clientHeight + RENDER_THRESHOLD) {
+			if (accumulatedHeight > viewport.clientHeight + renderDistance) {
 				return i + 1;
 			}
 		}
 		return items.length;
 	}
 
-	async function initializeAt(startingAt: number): Promise<boolean> {
-		if (!viewport) return false;
+	async function initializeAt(startingAt: number): Promise<void> {
+		if (!viewport) return;
 
+		// Initialize from start position downwards
 		visibleRange.start = startingAt;
 		for (let i = startingAt; i < items.length; i++) {
+			if (heightMap[i] !== undefined) {
+				lockRowHeight(i);
+			}
 			visibleRange.end = i + 1;
-			await tick();
+			await tick(); // Wait for element to be added
 			const element = visibleRowElements?.[i - startingAt];
 			if (!element) {
 				throw new Error('Expected to find element');
 			}
 			heightMap[i] = element.clientHeight;
-			if (calculateHeightSum(startingAt, visibleRange.end) > viewport.clientHeight) {
+			if (
+				calculateHeightSum(startingAt, visibleRange.end) >
+				viewport.clientHeight + renderDistance
+			) {
 				break;
 			}
 		}
 
-		if (calculateHeightSum(visibleRange.start, visibleRange.end) < viewport.clientHeight) {
-			for (let i = visibleRange.start - 1; i >= 0; i--) {
-				visibleRange.start = i;
-				await tick();
-				const element = visibleRowElements?.[0];
-				if (!element) {
-					throw new Error('Expected to find element');
-				}
-				heightMap[i] = element.clientHeight;
-				if (calculateHeightSum(visibleRange.start, visibleRange.end) > viewport.clientHeight) {
-					break;
-				}
+		// Continues upwards if there is space.
+		for (let i = startingAt - 1; i >= 0; i--) {
+			if (heightMap[i] !== undefined) {
+				lockRowHeight(i);
+			}
+			visibleRange.start = i;
+			await tick(); // Wait for element to be added
+			const element = visibleRowElements?.[0];
+			if (!element) {
+				throw new Error('Expected to find element');
+			}
+			const heightDiff = element.clientHeight - (lockedHeights[i] || defaultHeight);
+			if (heightDiff !== 0) {
+				viewport.scrollTop += heightDiff;
+			}
+			heightMap[i] = element.clientHeight;
+			if (calculateHeightSum(visibleRange.start, startingAt) > renderDistance) {
+				break;
 			}
 		}
 
 		if (!isInitialized()) {
-			return false;
+			return;
 		}
 
 		updateOffsets();
 		await tick();
 		viewport.scrollTop = calculateHeightSum(0, startingAt);
-
-		return true;
 	}
 
 	async function recalculateVisibleRange(): Promise<void> {

@@ -75,8 +75,9 @@
 			{startIndex}
 			grow
 			items={changes}
-			defaultHeight={200}
+			defaultHeight={300}
 			visibility="scroll"
+			renderDistance={300}
 		>
 			{#snippet template(change, index)}
 				{@const diffQuery = diffService.getDiff(projectId, change)}
@@ -120,7 +121,7 @@
 							/>
 						{/snippet}
 						{#snippet loading()}
-							<div style="height: 200px">loading</div>
+							<div style="height: 300px">loading</div>
 						{/snippet}
 					</ReduxResult>
 				</Drawer>
