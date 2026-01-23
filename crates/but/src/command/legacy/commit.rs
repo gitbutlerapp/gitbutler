@@ -5,12 +5,13 @@ use bstr::{BString, ByteSlice};
 use but_api::{
     commit::commit_insert_blank,
     json::HexHash,
-    legacy::{diff, workspace},
+    legacy::{diff, repo, workspace},
 };
 use but_core::{DiffSpec, ui::TreeChange};
 use but_rebase::graph_rebase::mutate::InsertSide;
 use colored::Colorize;
 use gitbutler_project::Project;
+use gitbutler_repo::hooks;
 
 use crate::utils::InputOutputChannel;
 use crate::{
@@ -86,6 +87,7 @@ pub(crate) fn commit(
     branch_hint: Option<&str>,
     only: bool,
     create_branch: bool,
+    no_hooks: bool,
 ) -> anyhow::Result<()> {
     let mut id_map = IdMap::new_from_context(ctx, None)?;
     id_map.add_committed_file_info_from_context(ctx)?;
@@ -205,6 +207,22 @@ pub(crate) fn commit(
             }
         })
         .collect();
+
+    // Run pre-commit hook unless --no-hooks was specified
+    if !no_hooks {
+        let hook_result = repo::pre_commit_hook_diffspecs(project_id, diff_specs.clone())?;
+        match hook_result {
+            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
+                // Hook passed or not configured, proceed with commit
+            }
+            hooks::HookResult::Failure(error_data) => {
+                bail!(
+                    "pre-commit hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
+                    error_data.error
+                );
+            }
+        }
+    }
 
     // Get the HEAD commit of the target branch to use as parent (preserves stacking)
     let parent_commit_id = target_branch.tip;

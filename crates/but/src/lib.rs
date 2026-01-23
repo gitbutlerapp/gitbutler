@@ -501,6 +501,7 @@ async fn match_subcommand(
             branch,
             create,
             only,
+            no_hooks,
         } => {
             let mut ctx = setup::init_ctx(
                 &args,
@@ -527,6 +528,7 @@ async fn match_subcommand(
                 branch.as_deref(),
                 only,
                 create,
+                no_hooks,
             )
             .emit_metrics(metrics_ctx)
         }
