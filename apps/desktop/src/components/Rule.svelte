@@ -218,7 +218,7 @@
 					<span class="text-12 truncate">*. All changes</span>
 				</div>
 			{/if}
-			<Tooltip text="Assign to branch">
+			<Tooltip text="Stage to branch">
 				<Icon name="arrow-right" color="var(--clr-text-3)" />
 			</Tooltip>
 			{@render stackTarget(target)}
