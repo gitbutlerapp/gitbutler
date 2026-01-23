@@ -251,6 +251,24 @@ pub(crate) fn commit(
         )?;
     }
 
+    // Run post-commit hook unless --no-hooks was specified
+    // Note: post-commit hooks run after the commit is created, so failures don't prevent the commit
+    if !no_hooks {
+        let hook_result = repo::post_commit_hook(project_id)?;
+        match hook_result {
+            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
+                // Hook passed or not configured, nothing to do
+            }
+            hooks::HookResult::Failure(error_data) => {
+                // Warn the user but don't fail since the commit is already created
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "\n{}", "Warning: post-commit hook failed:".yellow())?;
+                    writeln!(out, "{}", error_data.error)?;
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 
