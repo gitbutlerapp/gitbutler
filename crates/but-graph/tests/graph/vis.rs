@@ -70,12 +70,12 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         }),
         remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
         sibling_segment_id: Some(SegmentIndex::from(1)),
-        commits: vec![
-            commit(id("a"), Some(init_commit_id), CommitFlags::InWorkspace),
-            commit(init_commit_id, None, CommitFlags::InWorkspace),
-        ],
-        metadata: None,
+        ..Default::default()
     };
+    graph[SegmentIndex::from(3)].commits = vec![
+        commit(id("a"), Some(init_commit_id), CommitFlags::InWorkspace),
+        commit(init_commit_id, None, CommitFlags::InWorkspace),
+    ];
     let branch = graph.connect_new_segment(local_target, None, branch, 0, None);
 
     let remote_to_root_branch = Segment {

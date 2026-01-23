@@ -283,6 +283,7 @@ impl StackSegment {
             sibling_segment_id,
             commits: _,
             ref metadata,
+            ..
         } = segments_iter
             .next()
             .context("BUG: need one or more segments")?;

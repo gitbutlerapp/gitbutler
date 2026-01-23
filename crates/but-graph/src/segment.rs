@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use bitflags::bitflags;
 use bstr::{BString, ByteSlice};
 
@@ -165,7 +167,7 @@ impl CommitFlags {
 }
 
 /// A segment of a commit graph, representing a set of commits exclusively.
-#[derive(Default, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Segment {
     /// An ID which can uniquely identify this segment among all segments within the graph that owned it.
     /// Note that it's not suitable to permanently identify the segment, so should not be persisted.
@@ -204,6 +206,38 @@ pub struct Segment {
     pub commits: Vec<Commit>,
     /// Read-only metadata with additional information, or `None` if nothing was present.
     pub metadata: Option<SegmentMetadata>,
+    /// Temporary flags for graph algorithms like merge-base calculation.
+    /// These should be cleared before and after use. Uses Cell for interior mutability.
+    /// Note: Public to allow test construction, but should not be used directly.
+    pub flags: Cell<SegmentFlags>,
+}
+
+bitflags! {
+    /// Flags for temporary marking during graph traversal algorithms.
+    #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+    pub struct SegmentFlags: u8 {
+        /// Marked as reachable from the first argument in merge-base.
+        const REACHABLE_FROM_A = 1 << 0;
+        /// Marked as reachable from the second argument in merge-base.
+        const REACHABLE_FROM_B = 1 << 1;
+        /// Both flags set means this is a merge-base candidate.
+        const MERGE_BASE = Self::REACHABLE_FROM_A.bits() | Self::REACHABLE_FROM_B.bits();
+    }
+}
+
+impl Default for Segment {
+    fn default() -> Self {
+        Self {
+            id: Default::default(),
+            generation: Default::default(),
+            ref_info: None,
+            remote_tracking_ref_name: None,
+            sibling_segment_id: None,
+            commits: Vec::new(),
+            metadata: None,
+            flags: Cell::new(SegmentFlags::empty()),
+        }
+    }
 }
 
 /// Metadata for segments, which are either dedicated branches or represent workspaces.
@@ -274,6 +308,7 @@ impl std::fmt::Debug for Segment {
                 remote_tracking_ref_name,
                 sibling_segment_id,
                 metadata,
+                ..
             } = self;
             f.debug_struct("Segment")
                 .field("id", id)

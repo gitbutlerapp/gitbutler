@@ -79,36 +79,90 @@ impl Graph {
     /// The segment representing the merge-base is expected to not be empty, as its first commit
     /// is usually what one is interested in.
     // TODO: should be multi, with extra segments as third parameter
-    // TODO: actually find the lowest merge-base, right now it just finds the first merge-base, but that's not
-    //       the lowest.
+    /// Find the lowest merge-base between two segments using a standard two-pass algorithm with bitflags.
+    ///
+    /// The algorithm:
+    /// 1. Mark all segments reachable from `b` with REACHABLE_FROM_B flag
+    /// 2. Walk from `a`, marking segments with REACHABLE_FROM_A
+    /// 3. When we find a segment with both flags (merge-base), stop traversing that path
+    /// 4. Among all merge-bases found at minimum distance, return the one with highest generation
+    ///
+    /// The segment representing the merge-base is expected to not be empty, as its first commit
+    /// is usually what one is interested in.
     pub fn first_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
-        // TODO(perf): improve this by allowing to set bitflags on the segments themselves, to allow
-        //       marking them accordingly, just like Git does.
-        //       Right now we 'emulate' bitflags on pre-allocated data with two data sets, expensive
-        //       in comparison.
-        //       And yes, let's avoid `gix::Repository::merge_base` as we have free
-        //       generation numbers here and can avoid work duplication.
-        let mut segments_reachable_by_b = BTreeSet::new();
+        use crate::segment::SegmentFlags;
+        
+        // Clear all flags first
+        for segment in self.inner.node_weights() {
+            segment.flags.set(SegmentFlags::empty());
+        }
+        
+        // Pass 1: Mark all segments reachable from b
         self.visit_all_segments_including_start_until(b, Direction::Outgoing, |s| {
-            segments_reachable_by_b.insert(s.id);
-            // Collect everything, keep it simple.
-            // This is fast* as completely in memory.
-            // *means slow compared to an array traversal with memory locality.
-            false
+            let mut flags = self.inner[s.id].flags.get();
+            flags.insert(SegmentFlags::REACHABLE_FROM_B);
+            self.inner[s.id].flags.set(flags);
+            false // Don't prune, traverse everything
         });
-
+        
+        // Pass 2: BFS from a, marking with REACHABLE_FROM_A and finding merge-bases
         let mut candidate = None;
-        self.visit_all_segments_including_start_until(a, Direction::Outgoing, |s| {
-            let prune = true;
-            if candidate.is_some() {
-                return prune;
+        let mut candidate_generation = 0;
+        let mut min_distance = usize::MAX;
+        let mut distance_map = std::collections::HashMap::new();
+        distance_map.insert(a, 0);
+        
+        let mut queue = VecDeque::new();
+        queue.push_back(a);
+        let mut visited = BTreeSet::new();
+        
+        while let Some(current) = queue.pop_front() {
+            if visited.contains(&current) {
+                continue;
             }
-            let prune = segments_reachable_by_b.contains(&s.id);
-            if prune {
-                candidate = Some(s.id);
+            visited.insert(current);
+            
+            let current_distance = distance_map[&current];
+            
+            // Mark as reachable from A
+            let mut flags = self.inner[current].flags.get();
+            flags.insert(SegmentFlags::REACHABLE_FROM_A);
+            self.inner[current].flags.set(flags);
+            
+            // Check if this is a merge-base (has both flags)
+            if flags.contains(SegmentFlags::MERGE_BASE) {
+                let current_gen = self.inner[current].generation;
+                
+                if current_distance < min_distance {
+                    // Found closer merge-base, reset
+                    min_distance = current_distance;
+                    candidate = Some(current);
+                    candidate_generation = current_gen;
+                } else if current_distance == min_distance {
+                    // Same distance, pick highest generation (closest to tips)
+                    if current_gen > candidate_generation {
+                        candidate = Some(current);
+                        candidate_generation = current_gen;
+                    }
+                }
+                // Don't traverse past merge-bases
+                continue;
             }
-            prune
-        });
+            
+            // Add neighbors
+            for neighbor in self.inner.neighbors_directed(current, Direction::Outgoing) {
+                if !visited.contains(&neighbor) {
+                    distance_map.insert(neighbor, current_distance + 1);
+                    queue.push_back(neighbor);
+                }
+            }
+        }
+        
+        // Clear flags after use
+        for segment in self.inner.node_weights() {
+            segment.flags.set(SegmentFlags::empty());
+        }
+        
         if candidate.is_none() {
             // TODO: improve this - workspaces shouldn't be like this but if they are, do we deal with it well?
             tracing::warn!(

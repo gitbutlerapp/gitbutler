@@ -791,9 +791,6 @@ impl Graph {
     /// ## Note
     ///
     /// This is a **merge-base octopus** effectively, and works without generation numbers.
-    // TODO: actually compute the lowest base, see `first_merge_base()` which should be `lowest_merge_base()` by itself,
-    //       accounting for finding the lowest of all merge-bases which would be assumed to be reachable by all segments
-    //       searching downward, a necessary trait for many search problems.
     fn compute_lowest_base(
         &self,
         tip: ComputeBaseTip,
