@@ -638,6 +638,8 @@ async fn handle_command(
 
         // New graph based rebasing functions
         "commit_reword" => commit::commit_reword_cmd(request.params),
+        "commit_move_changes_between" => commit::commit_move_changes_between_cmd(request.params),
+        "commit_uncommit_changes" => commit::commit_uncommit_changes_cmd(request.params),
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command)),
     }

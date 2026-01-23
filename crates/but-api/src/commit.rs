@@ -225,7 +225,8 @@ pub fn commit_move_changes_between(
 /// Uncommits changes from a commit (removes them from the commit tree) without
 /// performing a checkout.
 ///
-/// This has the practical effect of leaving the
+/// This has the practical effect of leaving the changes that were in the commit
+/// as uncommitted changes in the worktree.
 ///
 /// If `assign_to` is provided, the newly uncommitted changes will be assigned
 /// to the specified stack.
@@ -320,7 +321,7 @@ pub fn commit_uncommit_changes(
     )
     .ok();
 
-    let res = commit_uncommit_changes_only(ctx, commit_id, changes.clone(), assign_to);
+    let res = commit_uncommit_changes_only(ctx, commit_id, changes, assign_to);
 
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
         snapshot.commit(ctx).ok();

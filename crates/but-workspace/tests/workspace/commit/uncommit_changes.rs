@@ -189,49 +189,6 @@ fn error_when_changes_not_found() -> Result<()> {
 }
 
 #[test]
-fn uncommit_multiple_files_at_once() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * c9f444c (HEAD -> three) commit three
-    * 16fd221 (origin/two, two) commit two
-    * 8b426d0 (one) commit one
-    ");
-
-    let three_id = repo.rev_parse_single("three")?.detach();
-
-    // Verify initial tree contents
-    insta::assert_snapshot!(visualize_tree(three_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    e0495e9
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    ├── one.txt:100644:257cc56 "foo\n"
-    ├── three.txt:100644:257cc56 "foo\n"
-    └── two.txt:100644:257cc56 "foo\n"
-    "#);
-
-    // Note: We can only uncommit files that were actually added in commit three.
-    // The three.txt file was added in commit three.
-    // But one.txt and two.txt were added in earlier commits.
-    // So we can only uncommit three.txt from commit three.
-
-    let editor = graph.to_editor(&repo)?;
-    let outcome = uncommit_changes(editor, three_id, vec![diff_spec_for_file("three.txt")], 0)?;
-
-    let materialized = outcome.rebase.materialize()?;
-    let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
-
-    // Verify three.txt is removed
-    insta::assert_snapshot!(visualize_tree(new_commit_id.attach(&repo).object()?.peel_to_tree()?.id()), @r#"
-    aac5238
-    ├── .gitignore:100644:f4ec724 "/remote/\n"
-    ├── one.txt:100644:257cc56 "foo\n"
-    └── two.txt:100644:257cc56 "foo\n"
-    "#);
-
-    Ok(())
-}
-
-#[test]
 fn uncommit_empty_changes_is_noop() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;

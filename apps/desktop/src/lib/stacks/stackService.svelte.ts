@@ -682,7 +682,11 @@ export class StackService {
 	}
 
 	get uncommitChanges() {
-		return this.api.endpoints.uncommitChanges.mutate;
+		if (get(useNewRebaseEngine)) {
+			return this.api.endpoints.commitUncommitChanges.mutate;
+		} else {
+			return this.api.endpoints.legacyUncommitChanges.mutate;
+		}
 	}
 
 	get stashIntoBranch() {
@@ -1362,7 +1366,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesList(ReduxTag.CommitChanges)
 				]
 			}),
-			uncommitChanges: build.mutation<
+			legacyUncommitChanges: build.mutation<
 				{ replacedCommits: [string, string][] },
 				{
 					projectId: string;
@@ -1384,6 +1388,26 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 						invalidatesList(ReduxTag.WorktreeChanges)
 					];
 				}
+			}),
+			commitUncommitChanges: build.mutation<
+				{ replacedCommits: [string, string][] },
+				{
+					projectId: string;
+					changes: DiffSpec[];
+					commitId: string;
+					assignTo?: string;
+				}
+			>({
+				extraOptions: {
+					command: 'commit_uncommit_changes',
+					actionName: 'Uncommit Changes'
+				},
+				query: (args) => args,
+				invalidatesTags: [
+					invalidatesList(ReduxTag.HeadSha),
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.BranchChanges)
+				]
 			}),
 			stashIntoBranch: build.mutation<
 				DiffSpec[],
