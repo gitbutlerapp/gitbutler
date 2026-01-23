@@ -23,10 +23,10 @@ use itertools::Itertools;
 use reconcile::MultipleOverlapping;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
-use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone, TS)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -37,7 +37,7 @@ pub struct HunkAssignment {
     ///   - When a new hunk is first observed (from the uncommitted changes), it is assigned a new id.
     ///   - If a hunk is modified (i.e. it has gained or lost lines), the UUID remains the same.
     ///   - If two or more hunks become merged (due to edits causing the contexts to overlap), the id of the hunk with the most lines is adopted.
-    #[ts(type = "string | null")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub id: Option<Uuid>,
     /// The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
     /// If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
@@ -45,10 +45,10 @@ pub struct HunkAssignment {
     /// The file path of the hunk.
     pub path: String,
     /// The file path of the hunk in bytes.
-    #[ts(type = "number[]")]
+    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack.
-    #[ts(type = "string | null")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub stack_id: Option<StackId>,
     /// The dependencies(locks) that this hunk has. This determines where the hunk can be assigned.
     /// This field is ignored when HunkAssignment is passed by the UI to create a new assignment.
@@ -135,7 +135,8 @@ impl From<HunkAssignment> for but_core::DiffSpec {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 #[cfg_attr(
     feature = "export-ts",
@@ -153,7 +154,8 @@ pub enum AbsorptionTarget {
 }
 
 /// Reason why a file is being absorbed to a particular commit
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(
     feature = "export-ts",
@@ -179,7 +181,8 @@ impl AbsorptionReason {
 }
 
 /// Information about a file being absorbed
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -191,16 +194,17 @@ pub struct FileAbsorption {
 }
 
 /// Information about absorptions grouped by commit
-#[derive(Debug, Serialize, Deserialize, TS)]
+#[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
     ts(export, export_to = "./hunkAssignment/index.ts")
 )]
 pub struct CommitAbsorption {
-    #[ts(type = "string")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub stack_id: but_core::ref_metadata::StackId,
-    #[ts(type = "string")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     #[serde(with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,
     pub commit_summary: String,

@@ -11,7 +11,7 @@ description = "A leaf-crate with core algorithms and types"
 doctest = false
 
 [features]
-export-ts = []
+export-ts = ["dep:ts-rs"]
 ## Make legacy functionality available.
 legacy = []
 
@@ -45,7 +45,7 @@ uuid.workspace = true
 # for `sync`
 fslock = "0.2.1"
 parking_lot = { workspace = true, features = ["arc_lock"] }
-ts-rs.workspace = true
+ts-rs = { workspace = true, optional = true }
 
 # For generating change-ids
 rand.workspace = true

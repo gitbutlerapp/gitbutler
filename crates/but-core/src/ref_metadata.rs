@@ -1,5 +1,4 @@
 use gix::refs::FullNameRef;
-use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::Id;
@@ -293,7 +292,8 @@ impl Workspace {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(serde::Serialize, Clone, Eq, PartialEq, Default, TS)]
+#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -358,7 +358,8 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 ///
 /// It allows keeping track of when it changed, but also if we created it initially, a useful
 /// bit of information.
-#[derive(serde::Serialize, Default, Clone, Eq, PartialEq, TS)]
+#[derive(serde::Serialize, Default, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -366,10 +367,10 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 )]
 pub struct RefInfo {
     /// The time of creation, *if we created the reference*.
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "export-ts", ts(type = "number | null"))]
     pub created_at: Option<gix::date::Time>,
     /// The time at which the reference was last modified if we modified it.
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "export-ts", ts(type = "number | null"))]
     pub updated_at: Option<gix::date::Time>,
 }
 
@@ -522,7 +523,8 @@ impl WorkspaceStack {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(serde::Serialize, Clone, Eq, PartialEq, Default, TS)]
+#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
