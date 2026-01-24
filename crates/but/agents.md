@@ -26,4 +26,4 @@ Usable output goes to `out: &mut OutputChannel`
 ### Linting
 
 * use `cargo fmt --check --all` to check for formatting issues.
-* use `cargo clippy --fix --allow-dirty` to auto-fix clippy errors.
+* use `cargo clippy --all-targets --fix --allow-dirty` to auto-fix clippy errors.
