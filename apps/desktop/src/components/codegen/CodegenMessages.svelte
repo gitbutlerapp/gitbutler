@@ -459,6 +459,7 @@
 						bind:this={virtualList}
 						grow
 						stickToBottom
+						showBottomButton
 						items={formattedMessages}
 						visibility={$userSettings.scrollbarVisibilityState}
 						padding={{ left: 20, right: 20, top: 12, bottom: 12 }}

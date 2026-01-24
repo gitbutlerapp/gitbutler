@@ -92,6 +92,11 @@
 		 */
 		startIndex?: number;
 		renderDistance?: number;
+		/**
+		 * Whether to show the "Scroll to bottom" button when user scrolls up.
+		 * Defaults to false.
+		 */
+		showBottomButton?: boolean;
 	};
 
 	const SCROLL_DOWN_THRESHOLD = 600;
@@ -111,7 +116,8 @@
 		defaultHeight,
 		stickToBottom,
 		startIndex,
-		renderDistance = 0
+		renderDistance = 0,
+		showBottomButton = false
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
@@ -535,7 +541,7 @@
 				New unread
 			</button>
 		{/if}
-		{#if previousDistance > SCROLL_DOWN_THRESHOLD}
+		{#if showBottomButton && previousDistance > SCROLL_DOWN_THRESHOLD}
 			<div class="feed-actions__scroll-to-bottom" transition:fade={{ duration: 150 }}>
 				<Button
 					kind="outline"
