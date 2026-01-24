@@ -6,6 +6,7 @@ use colored::Colorize;
 mod amend;
 mod assign;
 mod commits;
+pub(crate) mod r#move;
 mod move_commit;
 mod squash;
 mod undo;
@@ -20,7 +21,7 @@ use crate::{CliId, IdMap, utils::OutputChannel};
 /// Represents the operation to perform for a given source and target combination.
 /// This enum serves as the single source of truth for valid rub operations.
 #[derive(Debug)]
-enum RubOperation<'a> {
+pub(crate) enum RubOperation<'a> {
     UnassignUncommitted(&'a crate::id::UncommittedCliId),
     UncommittedToCommit(&'a crate::id::UncommittedCliId, &'a gix::ObjectId),
     UncommittedToBranch(&'a crate::id::UncommittedCliId, &'a str),
