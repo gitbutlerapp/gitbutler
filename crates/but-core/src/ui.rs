@@ -3,7 +3,6 @@ use bstr::BString;
 use but_serde::BStringForFrontend;
 use gix::object::tree::EntryKind;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use crate::IgnoredWorktreeChange;
 
@@ -79,14 +78,15 @@ fn changes_to_unidiff(
     Ok(out)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub struct TreeChange {
-    #[ts(type = "string")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub path: BStringForFrontend,
     /// Something silently carried back and forth between the frontend and the backend.
-    #[ts(type = "number[]")]
+    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     pub path_bytes: BString,
     pub status: TreeStatus,
 }
@@ -112,7 +112,8 @@ pub struct TreeStats {
     pub files_changed: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(tag = "type", content = "subject")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub enum TreeStatus {
@@ -133,11 +134,11 @@ pub enum TreeStatus {
     },
     Rename {
         #[serde(rename = "previousPath")]
-        #[ts(type = "string")]
+        #[cfg_attr(feature = "export-ts", ts(type = "string"))]
         previous_path: BStringForFrontend,
         /// Something silently carried back and forth between the frontend and the backend.
         #[serde(rename = "previousPathBytes")]
-        #[ts(type = "number[]")]
+        #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
         previous_path_bytes: BString,
         #[serde(rename = "previousState")]
         previous_state: ChangeState,
@@ -222,18 +223,23 @@ impl From<crate::TreeStatus> for TreeStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub struct ChangeState {
     #[serde(with = "but_serde::object_id")]
-    #[ts(type = "string")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub id: gix::ObjectId,
-    #[ts(type = "'Tree' | 'Blob' | 'BlobExecutable' | 'Link' | 'Commit'")]
+    #[cfg_attr(
+        feature = "export-ts",
+        ts(type = "'Tree' | 'Blob' | 'BlobExecutable' | 'Link' | 'Commit'")
+    )]
     pub kind: EntryKind,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[expect(missing_docs)]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub enum ModeFlags {
