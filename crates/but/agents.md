@@ -22,3 +22,8 @@ Usable output goes to `out: &mut OutputChannel`
   and auto-update expectations with `SNAPSHOTS=overwrite cargo test -p but`.
 * When color is involved, use with `.stdout_eq(snapbox::file!["snapshots/<test-name>/<invocation>.stdout.term.svg"])`, and update it 
   with `SNAPSHOT=overwrite cargo test -p but`.
+
+### Linting
+
+* use `cargo fmt --check --all` to check for formatting issues.
+* use `cargo clippy --fix --allow-dirty` to auto-fix clippy errors.
