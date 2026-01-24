@@ -5,9 +5,10 @@ use axum::{
     Json, Router,
     body::Body,
     extract::{
-        WebSocketUpgrade,
+        ConnectInfo, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
+    http::StatusCode,
     middleware::Next,
     response::IntoResponse,
     routing::{any, get},
@@ -19,8 +20,9 @@ use futures_util::{SinkExt, StreamExt as _};
 use gitbutler_project::ProjectId;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::net::SocketAddr;
 use tokio::sync::Mutex;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{self, CorsLayer};
 
 mod projects;
 use crate::projects::ActiveProjects;
@@ -52,11 +54,31 @@ struct AppState {
     app_settings: AppSettingsWithDiskSync,
 }
 
+/// Middleware to ensure all connections are from localhost only
+async fn localhost_only_middleware(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    req: axum::extract::Request<Body>,
+    next: Next,
+) -> Result<impl IntoResponse, StatusCode> {
+    // Check if the connection is from localhost (127.0.0.1 or ::1)
+    if addr.ip().is_loopback() {
+        Ok(next.run(req).await)
+    } else {
+        tracing::warn!("Rejected non-localhost connection from: {}", addr);
+        Err(StatusCode::FORBIDDEN)
+    }
+}
+
 pub async fn run() {
     let cors = CorsLayer::new()
-        .allow_methods(Any)
-        .allow_origin(Any)
-        .allow_headers(Any);
+        .allow_methods(cors::Any)
+        .allow_origin(cors::AllowOrigin::predicate(|origin, _parts| {
+            origin
+                .as_bytes()
+                .strip_prefix(b"http://localhost")
+                .is_some_and(|rest| rest.first().is_none_or(|b| *b == b':'))
+        }))
+        .allow_headers(cors::Any);
 
     let config_dir = but_path::app_config_dir().unwrap();
     let app_data_dir = but_path::app_data_dir().unwrap();
@@ -105,6 +127,10 @@ pub async fn run() {
             },
         ))
         .layer(cors)
+        // Middleware to ensure only localhost connections are accepted.
+        // Note: In Axum, layers are applied in reverse order, so this middleware
+        // runs BEFORE CORS processing, ensuring these security checks happen first.
+        .layer(axum::middleware::from_fn(localhost_only_middleware))
         .with_state(state);
 
     let port = std::env::var("BUTLER_PORT").unwrap_or("6978".into());
@@ -112,7 +138,12 @@ pub async fn run() {
     let url = format!("{host}:{port}");
     let listener = tokio::net::TcpListener::bind(&url).await.unwrap();
     println!("Running at {url}");
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .unwrap();
 }
 
 async fn post_handle_json_command(
