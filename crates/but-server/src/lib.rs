@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::net::SocketAddr;
 use tokio::sync::Mutex;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{self, CorsLayer};
 
 mod projects;
 use crate::projects::ActiveProjects;
@@ -71,9 +71,14 @@ async fn localhost_only_middleware(
 
 pub async fn run() {
     let cors = CorsLayer::new()
-        .allow_methods(Any)
-        .allow_origin(Any)
-        .allow_headers(Any);
+        .allow_methods(cors::Any)
+        .allow_origin(cors::AllowOrigin::predicate(|origin, _parts| {
+            origin
+                .as_bytes()
+                .strip_prefix(b"http://localhost")
+                .is_some_and(|rest| rest.first().is_none_or(|b| *b == b':'))
+        }))
+        .allow_headers(cors::Any);
 
     let config_dir = but_path::app_config_dir().unwrap();
     let app_data_dir = but_path::app_data_dir().unwrap();
@@ -124,7 +129,7 @@ pub async fn run() {
         .layer(cors)
         // Middleware to ensure only localhost connections are accepted.
         // Note: In Axum, layers are applied in reverse order, so this middleware
-        // runs BEFORE CORS processing, ensuring security checks happen first.
+        // runs BEFORE CORS processing, ensuring this security checks happen first.
         .layer(axum::middleware::from_fn(localhost_only_middleware))
         .with_state(state);
 
