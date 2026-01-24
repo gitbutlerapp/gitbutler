@@ -826,9 +826,9 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Squash {
-            commit1,
-            commit2,
+            commits,
             drop_message,
+            message,
         } => {
             let mut ctx = setup::init_ctx(
                 &args,
@@ -838,10 +838,16 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::rub::handle_squash(&mut ctx, out, &commit1, &commit2, drop_message)
-                .context("Failed to squash commits.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            command::legacy::rub::squash::handle(
+                &mut ctx,
+                out,
+                &commits,
+                drop_message,
+                message.as_deref(),
+            )
+            .context("Failed to squash commits.")
+            .emit_metrics(metrics_ctx)
+            .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Merge { branch } => {
