@@ -852,6 +852,25 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
+        #[cfg(feature = "legacy")]
+        Subcommands::Move {
+            source_commit,
+            target,
+            after,
+        } => {
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled,
+                    ..Default::default()
+                },
+                out,
+            )?;
+            command::legacy::rub::r#move::handle(&mut ctx, out, &source_commit, &target, after)
+                .context("Failed to move commit.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
     }
 }
 

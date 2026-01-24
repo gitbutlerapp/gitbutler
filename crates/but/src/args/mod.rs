@@ -746,6 +746,43 @@ pub enum Subcommands {
         branch: String,
     },
 
+    /// Move a commit to a different location in the stack.
+    ///
+    /// By default, commits are moved to be before (below) the target.
+    /// Use `--after` to move the commit after (above) the target instead.
+    ///
+    /// When moving to a branch, the commit is placed at the top of that branch's stack.
+    ///
+    /// ## Examples
+    ///
+    /// Move a commit before another commit:
+    ///
+    /// ```text
+    /// but move abc123 def456
+    /// ```
+    ///
+    /// Move a commit after another commit:
+    ///
+    /// ```text
+    /// but move abc123 def456 --after
+    /// ```
+    ///
+    /// Move a commit to a different branch (places at top):
+    ///
+    /// ```text
+    /// but move abc123 my-feature-branch
+    /// ```
+    #[cfg(feature = "legacy")]
+    Move {
+        /// Commit ID to move
+        source_commit: String,
+        /// Target commit ID or branch name
+        target: String,
+        /// Move the commit after (above) the target instead of before (below)
+        #[clap(short = 'a', long = "after")]
+        after: bool,
+    },
+
     /// Stages a file or hunk to a specific branch.
     ///
     /// Wrapper for `but rub <file-or-hunk> <branch>`.

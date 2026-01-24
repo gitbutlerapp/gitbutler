@@ -174,6 +174,8 @@ impl Subcommands {
             Subcommands::Squash { .. } => Rub,
             #[cfg(feature = "legacy")]
             Subcommands::Merge { .. } => Merge,
+            #[cfg(feature = "legacy")]
+            Subcommands::Move { .. } => Rub,
         }
     }
 }

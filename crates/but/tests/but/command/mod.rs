@@ -16,6 +16,8 @@ mod help;
 #[cfg(feature = "legacy")]
 mod merge;
 #[cfg(feature = "legacy")]
+mod r#move;
+#[cfg(feature = "legacy")]
 mod reword;
 #[cfg(feature = "legacy")]
 mod rub;
