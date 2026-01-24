@@ -152,7 +152,7 @@ pub enum AbsorptionTarget {
     TreeChanges {
         changes: Vec<but_core::ui::TreeChange>,
         // Optionally, the stack to which the changes are assigned
-        #[ts(type = "string | null")]
+        #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
         assigned_stack_id: Option<StackId>,
     },
     #[default]
