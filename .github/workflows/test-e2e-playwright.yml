@@ -16,8 +16,6 @@ jobs:
   test:
     name: e2e-playwright
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     timeout-minutes: 60
     env:
       DESKTOP_PORT: 3000
@@ -26,6 +24,7 @@ jobs:
       VITE_BUTLER_PORT: 6978
       VITE_BUTLER_HOST: 'localhost'
       VITE_BUILD_TARGET: 'web'
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
         with:
@@ -41,6 +40,7 @@ jobs:
         with:
           shared-key: e2e-playwright-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - uses: dtolnay/rust-toolchain@stable
       - name: Preset Git Configuration and but-testing location
         run: |
           echo "GIT_CONFIG_GLOBAL=$PWD/e2e/playwright/fixtures/.gitconfig" >> $GITHUB_ENV
@@ -61,9 +61,11 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
       - run: cd e2e && pnpm exec playwright install --with-deps
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' && github.ref != 'refs/heads/master' }}
-      - run: apt install -y libnss3
+      - run: sudo apt install -y libnss3
         if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' && github.ref != 'refs/heads/master' }}
         name: Install missing deps after cache hit
+      - name: Dependencies for keyring
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - name: Build gitbutler-git
         run: cargo build -p gitbutler-git
       - name: Build but-server

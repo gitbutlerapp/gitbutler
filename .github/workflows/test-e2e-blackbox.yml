@@ -18,10 +18,9 @@ jobs:
   test:
     name: e2e-blackbox
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,19 +35,24 @@ jobs:
           ref: ${{ github.event.inputs.sha }}
       # TODO: put these into the docker image
       - name: Install Webdriver dependencies
-        run: apt update && apt install -y webkit2gtk-driver ffmpeg xvfb
+        run: sudo apt update && sudo apt install -y webkit2gtk-driver ffmpeg xvfb
         if: ${{ github.ref != 'refs/heads/master' }}
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.2
         with:
           shared-key: e2e-blackbox-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - uses: dtolnay/rust-toolchain@stable
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
+      - name: Dependencies for keyring
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - name: Build CLI
         run: cargo build -p gitbutler-cli
       - name: Build SvelteKit
         run: pnpm build:desktop -- --mode development
+      - name: Dependencies for tauri
+        run: sudo ./scripts/install-tauri-debian-dependencies.sh
       - name: Build Tauri
         run: pnpm build:test
       - name: Install tauri-driver
