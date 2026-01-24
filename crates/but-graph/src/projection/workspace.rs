@@ -562,7 +562,7 @@ impl Graph {
                 } else {
                     self.inner
                         .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)
-                        .reduce(|a, b| self.first_merge_base(a, b).unwrap_or(a))
+                        .reduce(|a, b| self.first_first_merge_base(a, b).unwrap_or(a))
                         .and_then(|base| self[base].commits.first().map(|c| (c.id, base)))
                 }
             })
@@ -813,17 +813,15 @@ impl Graph {
             ComputeBaseTip::SingleBranch(tip) => (vec![tip], tip),
         };
         let mut count = 0;
-        let all_segments: Vec<_> = tips
+        let all_segments = tips
             .into_iter()
             .chain(target_ref.map(|t| t.segment_index))
             .chain(target_commit.map(|t| t.segment_index))
-            .chain(additional)
-            .collect();
+            .chain(additional);
 
         let base = all_segments
-            .into_iter()
             .inspect(|_| count += 1)
-            .reduce(|a, b| self.lowest_merge_base(a, b).unwrap_or(a))?;
+            .reduce(|a, b| self.find_lowest_merge_base(a, b).unwrap_or(a))?;
 
         if count < 2 || base == actual_tip {
             match tip {

@@ -76,14 +76,14 @@ impl Graph {
     /// Compute the first merge-base between two segments (may not be the lowest).
     ///
     /// **Warning**: This finds the first common ancestor encountered during traversal,
-    /// which may not be the correct merge-base when there are multiple paths between
-    /// segments (e.g., via merge commits). Use [`lowest_merge_base`](Self::lowest_merge_base)
-    /// for correct results in all cases.
+    /// which may not be the *desired* merge-base when there are multiple paths between
+    /// segments (e.g., via merge commits). Use [`lowest_merge_base`](Self::find_lowest_merge_base)
+    /// if in doubt.
     ///
     /// The segment representing the merge-base is expected to not be empty, as its first commit
     /// is usually what one is interested in.
     // TODO: should be multi, with extra segments as third parameter
-    pub fn first_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
+    pub fn first_first_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
         // TODO(perf): improve this by allowing to set bitflags on the segments themselves, to allow
         //       marking them accordingly, just like Git does.
         //       Right now we 'emulate' bitflags on pre-allocated data with two data sets, expensive
@@ -122,7 +122,7 @@ impl Graph {
 
     /// Compute the lowest merge-base between two segments.
     ///
-    /// Unlike [`first_merge_base`](Self::first_merge_base), this finds a common ancestor
+    /// Unlike [`first_merge_base`](Self::first_first_merge_base), this finds a common ancestor
     /// with "no path around it" - meaning ALL paths from both `a` and `b` must pass through
     /// the returned segment.
     ///
@@ -133,12 +133,16 @@ impl Graph {
     ///
     /// The segment representing the merge-base is expected to not be empty, as its first commit
     /// is usually what one is interested in.
-    pub fn lowest_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
+    pub fn find_lowest_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
         // Each walker tracks its origin and all nodes it has visited
         #[derive(Clone)]
         struct Walker {
+            // The segment the walker resides on currently.
             position: SegmentIndex,
+            // The color or flag used to mark segments.
             origin: u8, // COLOR_A or COLOR_B
+            // All segments that this walker has visited.
+            // TODO: could be better with bitflags.
             visited: BTreeSet<SegmentIndex>,
         }
 
@@ -146,6 +150,7 @@ impl Graph {
         const COLOR_B: u8 = 2;
 
         // Track which nodes have been visited by A-origin and B-origin walkers
+        // TODO: remove these duplicates - they are effectively
         let mut nodes_a: BTreeSet<SegmentIndex> = BTreeSet::new();
         let mut nodes_b: BTreeSet<SegmentIndex> = BTreeSet::new();
 
@@ -187,10 +192,11 @@ impl Graph {
 
                 for (&node, &generation) in &merged_nodes {
                     let in_all = walkers.iter().all(|w| w.visited.contains(&node));
-                    if in_all {
-                        if common_merged.is_none() || generation > common_merged.unwrap().1 {
-                            common_merged = Some((node, generation));
-                        }
+                    if in_all
+                        && common_merged
+                            .is_none_or(|(_sid, common_generation)| generation > common_generation)
+                    {
+                        common_merged = Some((node, generation));
                     }
                 }
 
@@ -200,6 +206,8 @@ impl Graph {
             }
 
             // Expand all walkers
+            // TODO: no, no, no, something is very strange here.
+            //       This should just be a stack of segments to visit.
             let mut next_walkers: Vec<Walker> = Vec::new();
 
             for walker in walkers {

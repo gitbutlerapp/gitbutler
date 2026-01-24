@@ -179,29 +179,26 @@ git init four-diamond
 # A graph that demonstrates the merge-base bug: there's a "path around" the first
 # common ancestor found.
 #
-# This creates a diamond structure with a path around mid_a:
+# This creates a diamond structure with a path around mid_a via `mid_c`:
 #
-#       A                      B
-#       │                      │
-#       ▼                      ▼
-#     mid_a ◄───────────────── M (merge of mid_a and mid_c)
-#       │                     / \
-#       │                    ▼   ▼
-#       ▼                        mid_c
-#     base ◄─────────────────────┘
-#
-# The segment graph topology:
-# - seg_A -> seg_mid_a -> seg_base
-# - seg_B -> seg_mid_a (first parent of M) -> seg_base
-# - seg_B -> seg_mid_c (second parent of M) -> seg_base
-#
-# Key points:
-# - first_merge_base(A, B) returns mid_a (the first common ancestor encountered)
-# - But mid_a has a "path around" it: B can reach base via mid_c without going through mid_a
-# - lowest_merge_base(A, B) should return base (the dominator with no path around)
-
+#   A                   B
+#   │                   │
+# mid_a ─────────────── M (merge commit)
+#   │                 ╱   ╲
+#   │               ╱       ╲
+#   │             ╱           ╲
+#   │           ╱            mid_c
+#   │         ╱                │
+#   │       ╱                  │
+# main ◄───────────────────────┘#
+#   │
+#   M2
+#   │
+#   M1
 git init merge-base-path-around
 (cd merge-base-path-around
+  commit M1
+  commit M2
   # base commit - the true dominator
   commit base
 
