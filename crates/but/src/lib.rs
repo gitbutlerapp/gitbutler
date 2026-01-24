@@ -543,17 +543,59 @@ async fn match_subcommand(
                     // Determine target and insert side based on which argument was provided
                     // Note: InsertSide::Above inserts as a child (after in time),
                     // InsertSide::Below inserts as a parent (before in time)
-                    let (target_str, insert_side) = if let Some(t) = before {
-                        (t.as_str(), InsertSide::Below)
+
+                    // Compute the target string and insert side, possibly storing a String
+                    // we own if we need to create the default branch name
+                    enum TargetSpec<'a> {
+                        Borrowed(&'a str, InsertSide),
+                        Owned(String, InsertSide),
+                    }
+
+                    let target_spec = if let Some(t) = before {
+                        TargetSpec::Borrowed(t.as_str(), InsertSide::Below)
                     } else if let Some(t) = after {
-                        (t.as_str(), InsertSide::Above)
+                        TargetSpec::Borrowed(t.as_str(), InsertSide::Above)
                     } else if let Some(t) = target {
                         // Default to --before behavior when using positional argument
-                        (t.as_str(), InsertSide::Below)
+                        TargetSpec::Borrowed(t.as_str(), InsertSide::Below)
                     } else {
-                        anyhow::bail!(
-                            "A target must be specified (either positional argument or --before/--after flag)"
-                        );
+                        // No arguments provided - default to inserting at top of first branch
+                        use but_api::legacy::workspace;
+
+                        let project_id = ctx.legacy_project.id;
+                        let stack_entries = workspace::stacks(project_id, None)?;
+                        let stacks: Vec<(
+                            but_core::ref_metadata::StackId,
+                            but_workspace::ui::StackDetails,
+                        )> = stack_entries
+                            .iter()
+                            .filter_map(|s| {
+                                s.id.and_then(|id| {
+                                    workspace::stack_details(project_id, Some(id))
+                                        .ok()
+                                        .map(|details| (id, details))
+                                })
+                            })
+                            .collect();
+
+                        // Find the first stack with branches and convert BString to String
+                        let branch_name = stacks
+                            .iter()
+                            .find_map(|(_, stack_details)| {
+                                stack_details.branch_details.first().map(|b| b.name.to_string())
+                            })
+                            .ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "No branches found. Create a branch first or specify a target explicitly."
+                                )
+                            })?;
+
+                        TargetSpec::Owned(branch_name, InsertSide::Above)
+                    };
+
+                    let (target_str, insert_side) = match &target_spec {
+                        TargetSpec::Borrowed(s, side) => (*s, *side),
+                        TargetSpec::Owned(s, side) => (s.as_str(), *side),
                     };
 
                     command::legacy::commit::insert_blank_commit(

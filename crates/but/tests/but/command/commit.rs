@@ -337,16 +337,16 @@ Created blank commit after commit 9477ae7
 }
 
 #[test]
-fn commit_empty_requires_target() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn commit_empty_without_branches_fails() -> anyhow::Result<()> {
+    // This test uses a scenario with no GitButler branches to verify error handling
+    let env = Sandbox::init_scenario_with_target_and_default_settings("first-commit")?;
 
-    // Try to run without any target
+    // Try to run without any arguments when there are no branches
     env.but("commit empty")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: A target must be specified (either positional argument or --before/--after flag)
+Error: No branches found. Create a branch first or specify a target explicitly.
 
 "#]]);
 
