@@ -3,10 +3,10 @@ use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use gitbutler_stack::Stack;
 use serde::Serialize;
-use ts_rs::TS;
 
 /// The information about the branch inside a stack
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -15,11 +15,11 @@ use ts_rs::TS;
 pub struct StackHeadInfo {
     /// The name of the branch.
     #[serde(with = "but_serde::bstring_lossy")]
-    #[ts(type = "string")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub name: BString,
     /// The tip of the branch.
     #[serde(with = "but_serde::object_id")]
-    #[ts(type = "string")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub tip: gix::ObjectId,
     /// If `true`, then this head is checked directly so `HEAD` points to it, and this is only ever `true` for a single head.
     /// This is `false` if the worktree is checked out.
@@ -40,7 +40,8 @@ impl StackHeadInfo {
 
 /// Represents a lightweight version of a [`Stack`] for listing.
 /// NOTE: this is a UI type mostly because it's still modeled after the legacy stack with StackId, something that doesn't exist anymore.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -48,7 +49,7 @@ impl StackHeadInfo {
 )]
 pub struct StackEntry {
     /// The ID of the stack.
-    #[ts(type = "string | null")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub id: Option<StackId>,
     /// The list of the branch information that are part of the stack.
     /// The list is never empty.
@@ -56,7 +57,7 @@ pub struct StackEntry {
     pub heads: Vec<StackHeadInfo>,
     /// The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch.
     #[serde(with = "but_serde::object_id")]
-    #[ts(type = "string")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub tip: gix::ObjectId,
     /// The zero-based index for sorting stacks.
     pub order: Option<usize>,

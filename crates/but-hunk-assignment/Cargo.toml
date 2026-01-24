@@ -10,7 +10,7 @@ rust-version.workspace = true
 doctest = false
 
 [features]
-export-ts = []
+export-ts = ["dep:ts-rs", "but-core/export-ts"]
 
 [dependencies]
 but-core.workspace = true
@@ -30,7 +30,7 @@ serde_json.workspace = true
 uuid.workspace = true
 bstr.workspace = true
 tracing.workspace = true
-ts-rs.workspace = true
+ts-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
 uuid.workspace = true
