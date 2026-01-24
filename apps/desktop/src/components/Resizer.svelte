@@ -315,7 +315,7 @@
 
 <style lang="postcss">
 	.resizer {
-		--resizer-thickness: 4px;
+		--resizer-thickness: 12px;
 		--resizer-cursor: default;
 		position: absolute;
 		outline: none;
