@@ -45,9 +45,11 @@ pub(crate) fn insert_blank_commit(
     let cli_id = &cli_ids[0];
 
     // Determine the position description for the success message
+    // Note: InsertSide::Above inserts as a child (after in time),
+    // InsertSide::Below inserts as a parent (before in time)
     let position_desc = match insert_side {
-        InsertSide::Above => "before",
-        InsertSide::Below => "after",
+        InsertSide::Above => "after",
+        InsertSide::Below => "before",
     };
 
     // Determine target commit ID and use provided insert_side
@@ -73,8 +75,8 @@ pub(crate) fn insert_blank_commit(
                 insert_side,
             )?;
             match insert_side {
-                InsertSide::Below => format!("Created blank commit at the top of stack '{name}'"),
-                InsertSide::Above => {
+                InsertSide::Above => format!("Created blank commit at the top of stack '{name}'"),
+                InsertSide::Below => {
                     format!("Created blank commit at the bottom of stack '{name}'")
                 }
             }

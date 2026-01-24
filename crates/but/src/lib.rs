@@ -507,6 +507,7 @@ async fn match_subcommand(
 
             match commit_args.cmd {
                 Some(crate::args::commit::Subcommands::Empty {
+                    ref target,
                     ref before,
                     ref after,
                 }) => {
@@ -525,7 +526,7 @@ async fn match_subcommand(
                     }
                     if commit_args.branch.is_some() {
                         anyhow::bail!(
-                            "branch argument cannot be used with 'commit empty'. Use --before or --after to specify position."
+                            "branch argument cannot be used with 'commit empty'. Use the target positional argument or --before/--after flags."
                         );
                     }
                     if commit_args.create {
@@ -539,18 +540,71 @@ async fn match_subcommand(
                     }
 
                     // Handle the `but commit empty` subcommand
-                    // Determine target and insert side based on which flag was provided
-                    let (target, insert_side) = if let Some(target) = before {
-                        (target.as_str(), InsertSide::Above)
-                    } else if let Some(target) = after {
-                        (target.as_str(), InsertSide::Below)
+                    // Determine target and insert side based on which argument was provided
+                    // Note: InsertSide::Above inserts as a child (after in time),
+                    // InsertSide::Below inserts as a parent (before in time)
+
+                    // Compute the target string and insert side, possibly storing a String
+                    // we own if we need to create the default branch name
+                    enum TargetSpec<'a> {
+                        Borrowed(&'a str, InsertSide),
+                        Owned(String, InsertSide),
+                    }
+
+                    let target_spec = if let Some(t) = before {
+                        TargetSpec::Borrowed(t.as_str(), InsertSide::Below)
+                    } else if let Some(t) = after {
+                        TargetSpec::Borrowed(t.as_str(), InsertSide::Above)
+                    } else if let Some(t) = target {
+                        // Default to --before behavior when using positional argument
+                        TargetSpec::Borrowed(t.as_str(), InsertSide::Below)
                     } else {
-                        // This should never happen due to clap's ArgGroup
-                        anyhow::bail!("Either --before or --after must be specified");
+                        // No arguments provided - default to inserting at top of first branch
+                        use but_api::legacy::workspace;
+
+                        let project_id = ctx.legacy_project.id;
+                        let stack_entries = workspace::stacks(project_id, None)?;
+                        let stacks: Vec<(
+                            but_core::ref_metadata::StackId,
+                            but_workspace::ui::StackDetails,
+                        )> = stack_entries
+                            .iter()
+                            .filter_map(|s| {
+                                s.id.and_then(|id| {
+                                    workspace::stack_details(project_id, Some(id))
+                                        .ok()
+                                        .map(|details| (id, details))
+                                })
+                            })
+                            .collect();
+
+                        // Find the first stack with branches and convert BString to String
+                        let branch_name = stacks
+                            .iter()
+                            .find_map(|(_, stack_details)| {
+                                stack_details.branch_details.first().map(|b| b.name.to_string())
+                            })
+                            .ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "No branches found. Create a branch first or specify a target explicitly."
+                                )
+                            })?;
+
+                        TargetSpec::Owned(branch_name, InsertSide::Above)
                     };
 
-                    command::legacy::commit::insert_blank_commit(&mut ctx, out, target, insert_side)
-                        .emit_metrics(metrics_ctx)
+                    let (target_str, insert_side) = match &target_spec {
+                        TargetSpec::Borrowed(s, side) => (*s, *side),
+                        TargetSpec::Owned(s, side) => (s.as_str(), *side),
+                    };
+
+                    command::legacy::commit::insert_blank_commit(
+                        &mut ctx,
+                        out,
+                        target_str,
+                        insert_side,
+                    )
+                    .emit_metrics(metrics_ctx)
                 }
                 None => {
                     // Handle the regular `but commit` command
