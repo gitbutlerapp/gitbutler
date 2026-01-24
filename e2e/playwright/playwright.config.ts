@@ -93,6 +93,7 @@ function webServers() {
 		cwd: path.resolve(import.meta.dirname, '../..'),
 		command: feServerCommand(desktopPort),
 		url: `http://localhost:${desktopPort}`,
+		timeout: 180_000,
 		env: {
 			// VITE_BUTLER_PORT: BUT_SERVER_PORT,
 			VITE_BUTLER_HOST: 'localhost',

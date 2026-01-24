@@ -18,7 +18,7 @@
 		lineIdsToHunkHeaders,
 		type DiffHunk
 	} from '$lib/hunks/hunk';
-	import { type SelectionId } from '$lib/selection/key';
+	import { stableSelectionKey, type SelectionId } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -87,6 +87,68 @@
 	const userSettings = inject(SETTINGS);
 
 	const assignments = $derived(uncommittedService.assignmentsByPath(stackId || null, change.path));
+
+	type HunkSelectionState = {
+		readonly selected: boolean;
+		readonly lines: LineId[];
+	};
+
+	let committedHunkSelection = $state<Record<string, HunkSelectionState>>({});
+
+	function committedSelectionKey(hunk: DiffHunk): string {
+		return `${stableSelectionKey(selectionId)}:${change.path}:${hunk.oldStart},${hunk.oldLines},${hunk.newStart},${hunk.newLines}`;
+	}
+
+	function getCommittedSelection(hunk: DiffHunk): HunkSelectionState {
+		return committedHunkSelection[committedSelectionKey(hunk)] ?? { selected: false, lines: [] };
+	}
+
+	function setCommittedSelection(hunk: DiffHunk, state: HunkSelectionState) {
+		committedHunkSelection = {
+			...committedHunkSelection,
+			[committedSelectionKey(hunk)]: state
+		};
+	}
+
+	function toggleCommittedSelectionLine(hunk: DiffHunk, line: LineId, allDeltaLines: LineId[]) {
+		const current = getCommittedSelection(hunk);
+
+		function sameLine(a: LineId, b: LineId) {
+			return a.newLine === b.newLine && a.oldLine === b.oldLine;
+		}
+
+		if (!current.selected) {
+			setCommittedSelection(hunk, { selected: true, lines: [line] });
+			return;
+		}
+
+		if (current.lines.length === 0) {
+			// Full selection represented as empty line list. Unselecting one line keeps everything else selected.
+			const newLines = allDeltaLines.filter((l) => !sameLine(l, line));
+			setCommittedSelection(
+				hunk,
+				newLines.length ? { selected: true, lines: newLines } : { selected: false, lines: [] }
+			);
+			return;
+		}
+
+		const alreadySelected = current.lines.some((l) => sameLine(l, line));
+		let newLines = alreadySelected
+			? current.lines.filter((l) => !sameLine(l, line))
+			: [...current.lines, line];
+
+		// If every delta line is selected, represent it as full selection (empty list).
+		const allSelected =
+			allDeltaLines.length > 0 && allDeltaLines.every((l) => newLines.some((s) => sameLine(s, l)));
+
+		if (allSelected) {
+			setCommittedSelection(hunk, { selected: true, lines: [] });
+		} else if (newLines.length === 0) {
+			setCommittedSelection(hunk, { selected: false, lines: [] });
+		} else {
+			setCommittedSelection(hunk, { selected: true, lines: newLines });
+		}
+	}
 
 	function filter(hunks: DiffHunk[]): DiffHunk[] {
 		if (selectionId.type !== 'worktree') return hunks;
@@ -194,7 +256,9 @@
 				/>
 			{:else}
 				{#each filter(diff.subject.hunks) as hunk}
-					{@const selection = uncommittedService.hunkCheckStatus(stackId, change.path, hunk)}
+					{@const selection = isUncommittedChange
+						? uncommittedService.hunkCheckStatus(stackId, change.path, hunk)
+						: { current: getCommittedSelection(hunk) }}
 					{@const hunkHeader = hunk.diff.split('\n')[0]}
 					{@const selectedLineCount = selection.current.lines.length}
 					{@const selectedHunkHeaders =
@@ -202,7 +266,7 @@
 							? lineIdsToHunkHeaders(
 									selection.current.lines,
 									hunk.diff,
-									selectionId.type === 'worktree' ? 'commit' : 'discard'
+									isUncommittedChange ? 'commit' : 'discard'
 								)
 							: undefined}
 					{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies?.dependencies ?? [])}
@@ -243,40 +307,48 @@
 							colorBlindFriendly={$userSettings.colorBlindFriendly}
 							inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 							onLineClick={(p) => {
-								if (!canBePartiallySelected(diff.subject)) {
-									uncommittedService.checkHunk(stackId || null, change.path, hunk);
+								const line = { newLine: p.newLine, oldLine: p.oldLine };
+
+								if (isUncommittedChange) {
+									if (!canBePartiallySelected(diff.subject)) {
+										uncommittedService.checkHunk(stackId || null, change.path, hunk);
+									}
+
+									if (
+										!linesInclude(
+											p.newLine,
+											p.oldLine,
+											selection.current.selected,
+											selection.current.lines
+										)
+									) {
+										uncommittedService.checkLine(stackId || null, change.path, hunk, line);
+									} else {
+										const allLines =
+											p.rows
+												?.filter((l) => l.isDeltaLine)
+												.map((l) => ({
+													newLine: l.afterLineNumber,
+													oldLine: l.beforeLineNumber
+												})) ?? [];
+										uncommittedService.uncheckLine(
+											stackId || null,
+											change.path,
+											hunk,
+											line,
+											allLines
+										);
+									}
+									return;
 								}
-								if (
-									!linesInclude(
-										p.newLine,
-										p.oldLine,
-										selection.current.selected,
-										selection.current.lines
-									)
-								) {
-									uncommittedService.checkLine(stackId || null, change.path, hunk, {
-										newLine: p.newLine,
-										oldLine: p.oldLine
-									});
-								} else {
-									const allLines =
-										p.rows
-											?.filter((l) => l.isDeltaLine)
-											.map((l) => ({
-												newLine: l.afterLineNumber,
-												oldLine: l.beforeLineNumber
-											})) ?? [];
-									uncommittedService.uncheckLine(
-										stackId || null,
-										change.path,
-										hunk,
-										{
-											newLine: p.newLine,
-											oldLine: p.oldLine
-										},
-										allLines
-									);
-								}
+
+								const allDeltaLines =
+									p.rows
+										?.filter((l) => l.isDeltaLine)
+										.map((l) => ({ newLine: l.afterLineNumber, oldLine: l.beforeLineNumber })) ??
+									[];
+
+								toggleCommittedSelectionLine(hunk, line, allDeltaLines);
 							}}
 							onChangeStage={(selected) => {
 								if (!selectable) return;
