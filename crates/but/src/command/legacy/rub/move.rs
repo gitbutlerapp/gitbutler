@@ -463,14 +463,14 @@ fn move_within_stack(
     Ok(())
 }
 
-/// Get the name of the topmost (first) branch in a stack
+/// Get the name of the topmost branch in a stack
 fn get_topmost_branch_name(ctx: &Context, stack_id: StackId) -> anyhow::Result<String> {
     let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
     let stack = vb_state.get_stack_in_workspace(stack_id)?;
 
     stack
         .heads
-        .first()
+        .last()
         .map(|branch| branch.name.clone())
         .context("Stack has no branches")
 }
