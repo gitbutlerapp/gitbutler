@@ -24,6 +24,14 @@ pub struct Platform {
     /// Bypass pre-commit hooks
     #[clap(short = 'n', long = "no-hooks", alias = "no-verify")]
     pub no_hooks: bool,
+    /// Generate commit message using AI with optional user summary
+    #[clap(
+        short = 'i',
+        long = "ai",
+        conflicts_with = "message",
+        conflicts_with = "file"
+    )]
+    pub ai: Option<Option<String>>,
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
 }
