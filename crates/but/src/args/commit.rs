@@ -44,7 +44,13 @@ pub enum Subcommands {
     ///
     /// ## Examples
     ///
-    /// Insert before a commit:
+    /// Insert before a commit (default behavior):
+    ///
+    /// ```text
+    /// but commit empty ab
+    /// ```
+    ///
+    /// Explicitly insert before a commit:
     ///
     /// ```text
     /// but commit empty --before ab
@@ -57,8 +63,12 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[command(group = clap::ArgGroup::new("position").required(true))]
+    #[command(group = clap::ArgGroup::new("position"))]
     Empty {
+        /// The target commit or branch to insert relative to.
+        /// If neither --before nor --after is specified, defaults to --before behavior.
+        #[arg(group = "position")]
+        target: Option<String>,
         /// Insert the blank commit before this commit or branch
         #[arg(long, group = "position")]
         before: Option<String>,

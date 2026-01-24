@@ -507,6 +507,7 @@ async fn match_subcommand(
 
             match commit_args.cmd {
                 Some(crate::args::commit::Subcommands::Empty {
+                    ref target,
                     ref before,
                     ref after,
                 }) => {
@@ -525,7 +526,7 @@ async fn match_subcommand(
                     }
                     if commit_args.branch.is_some() {
                         anyhow::bail!(
-                            "branch argument cannot be used with 'commit empty'. Use --before or --after to specify position."
+                            "branch argument cannot be used with 'commit empty'. Use the target positional argument or --before/--after flags."
                         );
                     }
                     if commit_args.create {
@@ -539,18 +540,29 @@ async fn match_subcommand(
                     }
 
                     // Handle the `but commit empty` subcommand
-                    // Determine target and insert side based on which flag was provided
-                    let (target, insert_side) = if let Some(target) = before {
-                        (target.as_str(), InsertSide::Above)
-                    } else if let Some(target) = after {
-                        (target.as_str(), InsertSide::Below)
+                    // Determine target and insert side based on which argument was provided
+                    // Note: InsertSide::Above inserts as a child (after in time),
+                    // InsertSide::Below inserts as a parent (before in time)
+                    let (target_str, insert_side) = if let Some(t) = before {
+                        (t.as_str(), InsertSide::Below)
+                    } else if let Some(t) = after {
+                        (t.as_str(), InsertSide::Above)
+                    } else if let Some(t) = target {
+                        // Default to --before behavior when using positional argument
+                        (t.as_str(), InsertSide::Below)
                     } else {
-                        // This should never happen due to clap's ArgGroup
-                        anyhow::bail!("Either --before or --after must be specified");
+                        anyhow::bail!(
+                            "A target must be specified (either positional argument or --before/--after flag)"
+                        );
                     };
 
-                    command::legacy::commit::insert_blank_commit(&mut ctx, out, target, insert_side)
-                        .emit_metrics(metrics_ctx)
+                    command::legacy::commit::insert_blank_commit(
+                        &mut ctx,
+                        out,
+                        target_str,
+                        insert_side,
+                    )
+                    .emit_metrics(metrics_ctx)
                 }
                 None => {
                     // Handle the regular `but commit` command
