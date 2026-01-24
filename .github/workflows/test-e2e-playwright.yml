@@ -66,7 +66,7 @@ jobs:
       - name: Dependencies for keyring
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - name: Dependencies for secure storage
-        run: sudo apt install -y dbus-x11 gnome-keyring
+        run: sudo apt install -y dbus-x11 gnome-keyring xvfb xauth
       - name: Build gitbutler-git
         run: cargo build -p gitbutler-git
       - name: Build but-server
@@ -78,7 +78,7 @@ jobs:
         if: ${{ github.ref != 'refs/heads/master' }}
       - name: Run Playwright tests
         run: |
-          dbus-run-session -- bash -c 'eval $(gnome-keyring-daemon --start --components=secrets); pnpm exec turbo run test:e2e:playwright'
+          xvfb-run -a dbus-run-session -- bash -c 'eval $(gnome-keyring-daemon --start --components=secrets); pnpm exec turbo run test:e2e:playwright'
         if: ${{ github.ref != 'refs/heads/master' }}
       - uses: actions/upload-artifact@v6
         if: ${{ !cancelled() }}

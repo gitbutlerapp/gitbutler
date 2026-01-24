@@ -104,27 +104,25 @@ test('should drag only selected lines when dragging committed hunks', async ({
 	await sourceCommitRow.click();
 
 	const stackPreview = getByTestId(page, 'stack-preview');
-	const committedFile = stackPreview.getByTestId('file-list-item').filter({ hasText: fileName });
-	await expect(committedFile).toBeVisible();
-	await committedFile.click();
-
-	const unifiedDiffView = getByTestId(page, 'unified-diff-view');
-	await expect(unifiedDiffView).toBeVisible();
+	await expect(stackPreview).toBeVisible();
 
 	const move1LineNumber = originalLineCount + 1;
 	const move2LineNumber = originalLineCount + 2;
 
 	// Select only the two MOVE_ME lines within the committed hunk.
-	await unifiedDiffView
+	const move1Line = stackPreview
 		.locator(getHunkLineSelector(fileName, move1LineNumber, 'right'))
-		.first()
-		.click();
-	await unifiedDiffView
-		.locator(getHunkLineSelector(fileName, move2LineNumber, 'right'))
-		.first()
-		.click();
+		.first();
+	await expect(move1Line).toBeVisible();
+	await move1Line.click();
 
-	const hunkDragHandle = unifiedDiffView
+	const move2Line = stackPreview
+		.locator(getHunkLineSelector(fileName, move2LineNumber, 'right'))
+		.first();
+	await expect(move2Line).toBeVisible();
+	await move2Line.click();
+
+	const hunkDragHandle = stackPreview
 		.locator('.table__title.draggable .table__title-content')
 		.first();
 	await expect(hunkDragHandle).toBeVisible();
@@ -133,18 +131,8 @@ test('should drag only selected lines when dragging committed hunks', async ({
 
 	// Destination commit should receive only the MOVE_ME lines.
 	await destinationCommitRow.click();
-	const destinationFile = getByTestId(page, 'stack-preview')
-		.getByTestId('file-list-item')
-		.filter({ hasText: fileName });
-	await expect(destinationFile).toBeVisible();
-	await destinationFile.click();
 
-	const destinationDiffView = getByTestId(page, 'unified-diff-view');
-	await expect(destinationDiffView).toBeVisible();
-
-	const destinationAddedLines = destinationDiffView.locator(
-		'.table__textContent.diff-line-addition'
-	);
+	const destinationAddedLines = stackPreview.locator('.table__textContent.diff-line-addition');
 	await expect(destinationAddedLines.filter({ hasText: linesToMove[0]! })).toHaveCount(1);
 	await expect(destinationAddedLines.filter({ hasText: linesToMove[1]! })).toHaveCount(1);
 	await expect(destinationAddedLines.filter({ hasText: linesToStay[0]! })).toHaveCount(0);
@@ -152,16 +140,8 @@ test('should drag only selected lines when dragging committed hunks', async ({
 
 	// Source commit should still add the STAY lines (MOVE_ME becomes context after moving).
 	await sourceCommitRow.click();
-	const sourceFile = getByTestId(page, 'stack-preview')
-		.getByTestId('file-list-item')
-		.filter({ hasText: fileName });
-	await expect(sourceFile).toBeVisible();
-	await sourceFile.click();
 
-	const sourceDiffView = getByTestId(page, 'unified-diff-view');
-	await expect(sourceDiffView).toBeVisible();
-
-	const sourceAddedLines = sourceDiffView.locator('.table__textContent.diff-line-addition');
+	const sourceAddedLines = stackPreview.locator('.table__textContent.diff-line-addition');
 	await expect(sourceAddedLines.filter({ hasText: linesToStay[0]! })).toHaveCount(1);
 	await expect(sourceAddedLines.filter({ hasText: linesToStay[1]! })).toHaveCount(1);
 	await expect(sourceAddedLines.filter({ hasText: linesToMove[0]! })).toHaveCount(0);
