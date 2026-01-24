@@ -26,6 +26,8 @@ mod setup;
 #[cfg(feature = "legacy")]
 mod squash;
 #[cfg(feature = "legacy")]
+mod stack;
+#[cfg(feature = "legacy")]
 mod status;
 #[cfg(feature = "legacy")]
 mod teardown;

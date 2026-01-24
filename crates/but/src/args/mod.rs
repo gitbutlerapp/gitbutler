@@ -814,6 +814,31 @@ pub enum Subcommands {
         branch: Option<String>,
     },
 
+    /// Rebase a branch onto another branch to create a stacked branch.
+    ///
+    /// This command rebases the source branch onto the target branch,
+    /// creating a stacked branch relationship where the source branch
+    /// depends on the target branch.
+    ///
+    /// ## Examples
+    ///
+    /// Stack a feature branch onto another branch:
+    ///
+    /// ```text
+    /// but stack my-feature base-feature
+    /// ```
+    ///
+    /// Stack using CLI IDs:
+    ///
+    /// ```text
+    /// but stack bu bv
+    /// ```
+    #[cfg(feature = "legacy")]
+    Stack {
+        source_branch: String,
+        target_branch: String,
+    },
+
     /// Show help information grouped by category.
     ///
     /// Displays all available commands organized into functional categories

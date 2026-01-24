@@ -825,6 +825,24 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::Stack {
+            source_branch,
+            target_branch,
+        } => {
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled,
+                    ..Default::default()
+                },
+                out,
+            )?;
+            command::legacy::stack::handle(&mut ctx, out, &source_branch, &target_branch)
+                .context("Failed to stack branch.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Squash {
             commits,
             drop_message,

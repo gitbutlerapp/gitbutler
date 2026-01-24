@@ -176,6 +176,8 @@ impl Subcommands {
             Subcommands::Merge { .. } => Merge,
             #[cfg(feature = "legacy")]
             Subcommands::Move { .. } => Rub,
+            #[cfg(feature = "legacy")]
+            Subcommands::Stack { .. } => Stack,
         }
     }
 }
