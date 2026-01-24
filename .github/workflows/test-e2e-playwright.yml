@@ -40,7 +40,6 @@ jobs:
         with:
           shared-key: e2e-playwright-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - uses: dtolnay/rust-toolchain@stable
       - name: Preset Git Configuration and but-testing location
         run: |
           echo "GIT_CONFIG_GLOBAL=$PWD/e2e/playwright/fixtures/.gitconfig" >> $GITHUB_ENV
@@ -66,6 +65,8 @@ jobs:
         name: Install missing deps after cache hit
       - name: Dependencies for keyring
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      - name: Dependencies for secure storage
+        run: sudo apt install -y dbus-x11 gnome-keyring
       - name: Build gitbutler-git
         run: cargo build -p gitbutler-git
       - name: Build but-server
@@ -76,7 +77,8 @@ jobs:
         run: pnpm build:desktop
         if: ${{ github.ref != 'refs/heads/master' }}
       - name: Run Playwright tests
-        run: pnpm exec turbo run test:e2e:playwright
+        run: |
+          dbus-run-session -- bash -c 'eval $(gnome-keyring-daemon --start --components=secrets); pnpm exec turbo run test:e2e:playwright'
         if: ${{ github.ref != 'refs/heads/master' }}
       - uses: actions/upload-artifact@v6
         if: ${{ !cancelled() }}

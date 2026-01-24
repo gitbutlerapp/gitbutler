@@ -118,14 +118,14 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: Dependencies for 'keyring'
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.2
         with:
@@ -218,8 +218,6 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     defaults:
@@ -234,6 +232,10 @@ jobs:
         with:
           shared-key: cargo-test-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Dependencies for 'keyring'
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      - name: Dependencies for tauri
+        run: sudo ./scripts/install-tauri-debian-dependencies.sh
       - run: |
           set -e
           cargo check -p gitbutler-tauri --no-default-features

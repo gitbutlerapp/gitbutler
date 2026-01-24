@@ -42,7 +42,6 @@ jobs:
         with:
           shared-key: e2e-blackbox-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - uses: dtolnay/rust-toolchain@stable
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
       - name: Dependencies for keyring
