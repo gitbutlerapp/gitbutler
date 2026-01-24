@@ -13,7 +13,7 @@ The server uses an Axum middleware (`localhost_only_middleware`) that:
 3. Accepts the connection if it's from localhost
 4. Rejects the connection with HTTP 403 Forbidden if it's from any other address
 
-When this passes, it additionally validates the origin header is set and comes from `http://localhost:`.
+When this passes, CORS handling additionally validates any `Origin` header that is present, allowing only origins with scheme `http`, host `localhost`, and an optional port (for example, `http://localhost` or `http://localhost:3000`), and rejecting other schemes or hosts.
 
 ## Configuration
 

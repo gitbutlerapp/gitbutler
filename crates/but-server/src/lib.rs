@@ -129,7 +129,7 @@ pub async fn run() {
         .layer(cors)
         // Middleware to ensure only localhost connections are accepted.
         // Note: In Axum, layers are applied in reverse order, so this middleware
-        // runs BEFORE CORS processing, ensuring this security checks happen first.
+        // runs BEFORE CORS processing, ensuring these security checks happen first.
         .layer(axum::middleware::from_fn(localhost_only_middleware))
         .with_state(state);
 
