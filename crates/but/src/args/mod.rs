@@ -686,18 +686,25 @@ pub enum Subcommands {
     #[clap(hide = true)]
     Fetch,
 
-    /// Squash two commits together.
+    /// Squash commits together.
     ///
-    /// Wrapper for `but rub <commit1> <commit2>`.
+    /// Can be invoked in three ways:
+    /// 1. Using commit identifiers: `but squash <commit1> <commit2>` or `but squash <commit1> <commit2> <commit3>...`
+    ///    - Squashes all commits except the last into the last commit
+    /// 2. Using a commit range: `but squash <commit1>..<commit4>`
+    ///    - Squashes all commits in the range into the last commit in the range
+    /// 3. Using a branch name: `but squash <branch>`
+    ///    - Squashes all commits in the branch into the bottom-most commit
     #[cfg(feature = "legacy")]
     Squash {
-        /// First commit ID (will be squashed into the second)
-        commit1: String,
-        /// Second commit ID (target commit)
-        commit2: String,
-        /// Drop the first commit's message and keep only the second commit's message
-        #[clap(long, short = 'd')]
+        /// Commit identifiers, a range (commit1..commit2), or a branch name
+        commits: Vec<String>,
+        /// Drop source commit messages and keep only the target commit's message
+        #[clap(long, short = 'd', group = "message_opts")]
         drop_message: bool,
+        /// Provide a new commit message for the resulting commit
+        #[clap(long, short = 'm', group = "message_opts")]
+        message: Option<String>,
     },
 
     /// Uncommit changes from a commit or file-in-commit to the unstaged area.

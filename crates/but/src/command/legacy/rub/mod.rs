@@ -8,7 +8,7 @@ mod assign;
 mod commits;
 pub(crate) mod r#move;
 mod move_commit;
-mod squash;
+pub(crate) mod squash;
 mod undo;
 pub(crate) use assign::branch_name_to_stack_id;
 use gitbutler_oplog::{
@@ -961,68 +961,6 @@ pub(crate) fn handle_unstage(
 
     // Call the main rub handler with "zz" as target to unassign
     handle(ctx, out, file_or_hunk_str, "zz")
-}
-
-/// Handler for `but squash <commit1> <commit2>` - runs `but rub <commit1> <commit2>`
-/// Validates that both arguments are commits.
-pub(crate) fn handle_squash(
-    ctx: &mut Context,
-    out: &mut OutputChannel,
-    commit1_str: &str,
-    commit2_str: &str,
-    drop_message: bool,
-) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
-    let commit1 = resolve_single_id(&id_map, commit1_str, "First commit", out)?;
-    let commit2 = resolve_single_id(&id_map, commit2_str, "Second commit", out)?;
-
-    // Validate that commit1 is a commit
-    let commit1_oid = match &commit1 {
-        CliId::Commit { commit_id, .. } => *commit_id,
-        other => {
-            bail!(
-                "Cannot squash {} - it is {}. First argument must be a commit.",
-                other.to_short_string().blue().underline(),
-                other.kind_for_humans().yellow()
-            );
-        }
-    };
-
-    // Validate that commit2 is a commit
-    let commit2_oid = match &commit2 {
-        CliId::Commit { commit_id, .. } => *commit_id,
-        other => {
-            bail!(
-                "Cannot squash into {} - it is {}. Second argument must be a commit.",
-                other.to_short_string().blue().underline(),
-                other.kind_for_humans().yellow()
-            );
-        }
-    };
-
-    // If drop_message is true, get the message from commit2
-    let custom_message = if drop_message {
-        let repo = ctx.repo.get()?;
-        let commit2 = repo.find_commit(commit2_oid)?;
-        let message_ref = commit2.message()?;
-        let full_message = if let Some(body) = message_ref.body {
-            format!("{}\n\n{}", message_ref.title, body)
-        } else {
-            message_ref.title.to_string()
-        };
-        Some(full_message)
-    } else {
-        None
-    };
-
-    // Call the squash::commits function directly with the custom message
-    squash::commits(
-        ctx,
-        &commit1_oid,
-        &commit2_oid,
-        custom_message.as_deref(),
-        out,
-    )
 }
 
 #[cfg(test)]
