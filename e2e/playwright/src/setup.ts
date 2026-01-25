@@ -119,6 +119,17 @@ class GitButlerManager implements GitButler {
 }
 
 function createButServerProcess(rootDir: string, serverEnv: Record<string, string>): ChildProcess {
+	const butServerBinary = path.join(
+		rootDir,
+		'target',
+		'debug',
+		process.platform === 'win32' ? 'but-server.exe' : 'but-server'
+	);
+
+	if (existsSync(butServerBinary)) {
+		return spawnProcess(butServerBinary, [], rootDir, serverEnv);
+	}
+
 	return spawnProcess('cargo', ['run', '-p', 'but-server'], rootDir, serverEnv);
 }
 
@@ -135,8 +146,8 @@ async function waitForServer(
 	const hosts = Array.isArray(host) ? host : [host];
 
 	for (let i = 0; i < maxAttempts; i++) {
-		if ((await Promise.all(hosts.map((h) => checkPort(parsed, h)))).some(Boolean)) {
-			log(`✅ Server is ready on ${host}:${port}`, colors.green);
+		if ((await Promise.all(hosts.map(async (h) => await checkPort(parsed, h)))).some(Boolean)) {
+			log(`Server is ready on ${host}:${port}`, colors.green);
 			return true;
 		}
 
