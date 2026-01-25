@@ -284,13 +284,17 @@ incremental = false
 
 # Assure that `gix` is always fast so debug builds aren't unnecessarily slow.
 [profile.dev.package]
+foldhash = { opt-level = 3 }
+imara-diff = { opt-level = 3 }
 gix = { opt-level = 3 }
+gix-diff = { opt-level = 3 }
 gix-object = { opt-level = 3 }
 gix-ref = { opt-level = 3 }
 gix-pack = { opt-level = 3 }
 gix-hash = { opt-level = 3 }
 gix-actor = { opt-level = 3 }
 gix-config = { opt-level = 3 }
+gix-worktree = { opt-level = 3 }
 sha1-checked = { opt-level = 3 }
 zlib-rs = { opt-level = 3 }
 serde = { opt-level = 3 }
