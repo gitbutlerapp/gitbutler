@@ -1,15 +1,15 @@
-use std::{
-    cmp::Reverse,
-    collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque},
-    ops::{Deref, Index, IndexMut},
-};
-
 use anyhow::{Context as _, bail};
 use petgraph::{
     Direction,
     prelude::EdgeRef,
     stable_graph::EdgeReference,
     visit::{IntoEdgeReferences, Visitable},
+};
+use std::collections::HashMap;
+use std::{
+    cmp::Reverse,
+    collections::{BTreeSet, BinaryHeap, VecDeque},
+    ops::{Deref, Index, IndexMut},
 };
 
 use crate::{
@@ -86,7 +86,7 @@ impl Graph {
             return Some(a);
         }
 
-        let mut flags: BTreeMap<SegmentIndex, SegmentFlags> = Default::default();
+        let mut flags: HashMap<SegmentIndex, SegmentFlags> = Default::default();
         let bases = self.paint_down_to_common(a, b, &mut flags);
 
         if bases.is_empty() {
@@ -104,7 +104,7 @@ impl Graph {
         &self,
         first: SegmentIndex,
         second: SegmentIndex,
-        flags: &mut BTreeMap<SegmentIndex, SegmentFlags>,
+        flags: &mut HashMap<SegmentIndex, SegmentFlags>,
     ) -> Vec<(SegmentIndex, usize)> {
         // Priority queue ordered by generation (higher generation = closer to root = lower priority).
         // We use Reverse because BinaryHeap is a max-heap and we want segments with *lower* generation
@@ -170,7 +170,7 @@ impl Graph {
     fn remove_redundant(
         &self,
         segments: &[(SegmentIndex, usize)],
-        flags: &mut BTreeMap<SegmentIndex, SegmentFlags>,
+        flags: &mut HashMap<SegmentIndex, SegmentFlags>,
     ) -> Vec<SegmentIndex> {
         if segments.is_empty() {
             return Vec::new();
