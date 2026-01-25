@@ -887,6 +887,7 @@ async fn match_subcommand(
             commits,
             drop_message,
             message,
+            ai,
         } => {
             let mut ctx = setup::init_ctx(
                 &args,
@@ -902,6 +903,7 @@ async fn match_subcommand(
                 &commits,
                 drop_message,
                 message.as_deref(),
+                ai.clone(),
             )
             .context("Failed to squash commits.")
             .emit_metrics(metrics_ctx)

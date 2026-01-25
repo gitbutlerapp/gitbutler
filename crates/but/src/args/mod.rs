@@ -705,6 +705,9 @@ pub enum Subcommands {
         /// Provide a new commit message for the resulting commit
         #[clap(long, short = 'm', group = "message_opts")]
         message: Option<String>,
+        /// Generate commit message using AI with optional user summary or instructions
+        #[clap(long, short = 'i', group = "message_opts")]
+        ai: Option<Option<String>>,
     },
 
     /// Uncommit changes from a commit or file-in-commit to the unstaged area.

@@ -7,7 +7,7 @@ use colored::Colorize;
 use gix::ObjectId;
 
 use super::undo::stack_id_by_commit_id;
-use crate::{CliId, IdMap, utils::OutputChannel};
+use crate::{CliId, IdMap, command::legacy::ai, utils::OutputChannel};
 
 pub(crate) fn commits(
     ctx: &mut Context,
@@ -17,7 +17,15 @@ pub(crate) fn commits(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Delegate to the shared squashing logic
-    squash_commits_internal(ctx, vec![*source], *destination, false, custom_message, out)
+    squash_commits_internal(
+        ctx,
+        vec![*source],
+        *destination,
+        false,
+        custom_message,
+        None,
+        out,
+    )
 }
 
 /// Handler for `but squash` command with support for:
@@ -30,6 +38,7 @@ pub(crate) fn handle(
     commits: &[String],
     drop_message: bool,
     custom_message: Option<&str>,
+    ai: Option<Option<String>>,
 ) -> anyhow::Result<()> {
     if commits.is_empty() {
         bail!("At least one commit or branch name must be provided");
@@ -57,6 +66,7 @@ pub(crate) fn handle(
                     *stack_id,
                     drop_message,
                     custom_message,
+                    ai,
                     &id_map,
                 );
             }
@@ -85,7 +95,7 @@ pub(crate) fn handle(
             if sources.len() < 2 {
                 bail!("Need at least 2 commits to squash");
             }
-            return handle_multi_commit_squash(ctx, out, sources, drop_message, custom_message);
+            return handle_multi_commit_squash(ctx, out, sources, drop_message, custom_message, ai);
         }
 
         if entity_str.contains(',') {
@@ -93,7 +103,7 @@ pub(crate) fn handle(
             if sources.len() < 2 {
                 bail!("Need at least 2 commits to squash");
             }
-            return handle_multi_commit_squash(ctx, out, sources, drop_message, custom_message);
+            return handle_multi_commit_squash(ctx, out, sources, drop_message, custom_message, ai);
         }
 
         // If it contains a single dash (but not ..), it might be a branch name with a dash
@@ -116,7 +126,7 @@ pub(crate) fn handle(
         sources.push(matches[0].clone());
     }
 
-    handle_multi_commit_squash(ctx, out, sources, drop_message, custom_message)
+    handle_multi_commit_squash(ctx, out, sources, drop_message, custom_message, ai)
 }
 
 /// Helper function to handle squashing multiple commits
@@ -126,6 +136,7 @@ fn handle_multi_commit_squash(
     sources: Vec<CliId>,
     drop_message: bool,
     custom_message: Option<&str>,
+    ai: Option<Option<String>>,
 ) -> anyhow::Result<()> {
     if sources.len() < 2 {
         bail!("Need at least 2 commits to squash");
@@ -158,6 +169,7 @@ fn handle_multi_commit_squash(
         target_oid,
         drop_message,
         custom_message,
+        ai,
         out,
     )
 }
@@ -169,6 +181,7 @@ fn squash_commits_internal(
     target_oid: ObjectId,
     drop_message: bool,
     custom_message: Option<&str>,
+    ai: Option<Option<String>>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Validate all commits are on the same stack
@@ -181,6 +194,37 @@ fn squash_commits_internal(
             );
         }
     }
+
+    // Collect commit messages if we need them for AI generation
+    let (source_messages, destination_message) = if ai.is_some() {
+        let repo = ctx.repo.get()?;
+
+        // Get source commit messages
+        let mut source_msgs = Vec::new();
+        for source_oid in &source_oids {
+            let commit = repo.find_commit(*source_oid)?;
+            let message_ref = commit.message()?;
+            let full_message = if let Some(body) = message_ref.body {
+                format!("{}\n\n{}", message_ref.title, body)
+            } else {
+                message_ref.title.to_string()
+            };
+            source_msgs.push(full_message);
+        }
+
+        // Get destination commit message
+        let target_commit = repo.find_commit(target_oid)?;
+        let message_ref = target_commit.message()?;
+        let dest_message = if let Some(body) = message_ref.body {
+            format!("{}\n\n{}", message_ref.title, body)
+        } else {
+            message_ref.title.to_string()
+        };
+
+        (Some(source_msgs), Some(dest_message))
+    } else {
+        (None, None)
+    };
 
     // If drop_message is set, get the target commit's message BEFORE squashing
     let target_message = if drop_message {
@@ -206,7 +250,21 @@ fn squash_commits_internal(
     )?;
 
     // Determine the final message and apply if needed
-    let final_commit_oid = if let Some(msg) = custom_message {
+    let final_commit_oid = if let Some(user_summary) = ai {
+        // Use AI to generate the commit message
+        let ai_message = ai::generate_commit_message_from_multiple_messages(
+            out,
+            source_messages.unwrap_or_default(),
+            destination_message.unwrap_or_default(),
+            user_summary,
+        )?;
+        but_api::commit::commit_reword_only(
+            ctx,
+            new_commit_oid.to_gix(),
+            BString::from(ai_message),
+        )?
+        .to_git2()
+    } else if let Some(msg) = custom_message {
         but_api::commit::commit_reword_only(ctx, new_commit_oid.to_gix(), BString::from(msg))?
             .to_git2()
     } else if let Some(target_msg) = target_message {
@@ -244,6 +302,7 @@ fn squash_commits_internal(
 }
 
 /// Helper function to squash all commits in a branch into the bottom-most commit
+#[allow(clippy::too_many_arguments)]
 fn squash_branch_commits(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -251,6 +310,7 @@ fn squash_branch_commits(
     stack_id: Option<StackId>,
     drop_message: bool,
     custom_message: Option<&str>,
+    ai: Option<Option<String>>,
     id_map: &IdMap,
 ) -> anyhow::Result<()> {
     // Find the stack containing this branch
@@ -300,6 +360,7 @@ fn squash_branch_commits(
         target_oid,
         drop_message,
         custom_message,
+        ai,
         out,
     )?;
 
