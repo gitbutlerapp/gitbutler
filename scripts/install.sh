@@ -42,7 +42,23 @@ info() {
 # Function to cleanup temp directory on exit
 cleanup() {
     if [ -n "${TEMP_DIR:-}" ] && [ -d "$TEMP_DIR" ]; then
-        rm -rf "$TEMP_DIR"
+        rm -rf "$TEMP_DIR" 2>/dev/null || true
+    fi
+
+    # Restore backup if installation was interrupted mid-swap
+    # This handles the case where we moved the old app to backup but failed
+    # to move the new app into place, leaving the user with no working installation
+    if [ -n "${INSTALL_APP_BACKUP:-}" ] && [ -d "$INSTALL_APP_BACKUP" ]; then
+        if [ -n "${INSTALL_APP:-}" ] && [ ! -d "$INSTALL_APP" ]; then
+            # Installation directory is missing but backup exists - restore it
+            echo "" >&2
+            echo -e "${YELLOW}Installation was interrupted. Attempting to restore backup...${NC}" >&2
+            if mv "$INSTALL_APP_BACKUP" "$INSTALL_APP" 2>/dev/null; then
+                echo -e "${GREEN}✓ Backup restored successfully to $INSTALL_APP${NC}" >&2
+            else
+                echo -e "${RED}✗ Failed to restore backup. Your previous installation may be at: $INSTALL_APP_BACKUP${NC}" >&2
+            fi
+        fi
     fi
 }
 trap cleanup EXIT ERR INT TERM
@@ -299,7 +315,8 @@ info "Installing $CHANNEL_DISPLAY channel to $INSTALL_APP..."
 # This ensures we don't break an existing installation if something goes wrong
 
 # Clean up any leftover temp files from previous failed installations
-rm -rf "$INSTALL_APP_NEW" "$INSTALL_APP_BACKUP"
+# Use || true to avoid failing if files can't be removed (e.g., permission issues from previous runs)
+rm -rf "$INSTALL_APP_NEW" "$INSTALL_APP_BACKUP" || true
 
 # Create Applications directory if it doesn't exist
 mkdir -p "$HOME/Applications"
@@ -321,8 +338,14 @@ mkdir -p "$BIN_DIR"
 # Also detect channel switching (release <-> nightly)
 PREVIOUS_CHANNEL=""
 if [ -e "$BIN_DIR/but" ] && [ ! -L "$BIN_DIR/but" ]; then
+    # 'but' exists but is not a symlink - could be a file or directory
+    # Move it to a backup location instead of deleting it
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    BUT_BACKUP="$BIN_DIR/but.backup.$TIMESTAMP"
     warn "A 'but' binary already exists at $BIN_DIR/but (not a symlink)"
-    warn "This installation will replace it with a symlink to GitButler"
+    warn "Moving it to $BUT_BACKUP to preserve your existing file"
+    mv "$BIN_DIR/but" "$BUT_BACKUP"
+    info "Your original 'but' has been saved to: $BUT_BACKUP"
 elif [ -L "$BIN_DIR/but" ]; then
     EXISTING_TARGET=$(readlink "$BIN_DIR/but")
 
@@ -339,11 +362,15 @@ elif [ -L "$BIN_DIR/but" ]; then
     if [ -z "$PREVIOUS_CHANNEL" ]; then
         warn "Found existing 'but' symlink pointing to: $EXISTING_TARGET"
         warn "This will be replaced with GitButler's 'but' command"
+        info "Note: Your custom symlink setup will be overwritten. The original target is not a GitButler installation."
     fi
 fi
 
 # Create temporary symlink to test the new installation
 NEW_APP_MACOS_DIR="$INSTALL_APP_NEW/Contents/MacOS"
+# Remove but.new if it exists (could be symlink, file, or directory from previous run)
+# Use || true to avoid blocking installation if removal fails
+rm -rf "$BIN_DIR/but.new" || true
 ln -sf "$NEW_APP_MACOS_DIR/gitbutler-tauri" "$BIN_DIR/but.new"
 
 # Verify the new installation works before replacing the old one
