@@ -126,6 +126,8 @@ jobs:
           persist-credentials: false
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      - name: Dependencies for tauri
+        run: sudo ./scripts/install-tauri-debian-dependencies.sh
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.2
         with:
