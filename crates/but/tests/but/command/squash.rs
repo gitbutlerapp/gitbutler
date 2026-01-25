@@ -192,6 +192,52 @@ Failed to squash commits. Start of range 'nonexistent1' must match exactly one c
     Ok(())
 }
 
+#[test]
+fn squash_ai_conflicts_with_message() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    setup_branch_with_commits(&env, "A", 1);
+
+    // Try to use both --ai and --message flags - should fail
+    env.but("squash A --ai -m 'Custom message'")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: the argument '--ai [<AI>]' cannot be used with '--message <MESSAGE>'
+
+Usage: but squash --ai [<AI>] <COMMITS>...
+
+For more information, try '--help'.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn squash_ai_conflicts_with_drop_message() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    setup_branch_with_commits(&env, "A", 1);
+
+    // Try to use both --ai and --drop-message flags - should fail
+    env.but("squash A --ai --drop-message")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: the argument '--ai [<AI>]' cannot be used with '--drop-message'
+
+Usage: but squash --ai [<AI>] <COMMITS>...
+
+For more information, try '--help'.
+
+"#]]);
+
+    Ok(())
+}
+
 // Note: Happy-path tests for range (c0..c2) and comma-list (c0,c1,c2) notation
 // are not included because:
 // 1. Commit IDs are dynamically assigned and not predictable in tests
