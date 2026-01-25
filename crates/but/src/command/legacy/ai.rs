@@ -163,6 +163,7 @@ const DEFAULT_COMMIT_MESSAGE_INSTRUCTIONS: &str = r#"The message should be a sho
 - If a summary is provided, use it to create more short paragraphs or bullet points explaining the changes.
 - The first summary line should be no more than 50 characters.
 - Use the imperative mood for the message (e.g. "Add user authentication system" instead of "Adding user authentication system").
+- The lines after the first should be hard wrapped at 72 characters.
 
 Here is an example of a good commit message:
 
