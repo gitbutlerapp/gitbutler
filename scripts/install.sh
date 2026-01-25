@@ -97,7 +97,7 @@ info "Detected platform: $PLATFORM"
 
 # Validate argument count
 if [ $# -gt 1 ]; then
-    error "Too many arguments. Usage: $0 [version] or GITBUTLER_VERSION=<version> $0"
+    error "Too many arguments. Usage: $0 [version|nightly] or GITBUTLER_VERSION=<version> $0"
 fi
 
 # Create temp directory
@@ -112,15 +112,22 @@ REQUESTED_VERSION="${1:-${GITBUTLER_VERSION:-}}"
 if [ -n "$REQUESTED_VERSION" ]; then
     # Reject if it looks like a flag
     if [[ "$REQUESTED_VERSION" == -* ]]; then
-        error "Invalid version: $REQUESTED_VERSION. Usage: $0 [version] or GITBUTLER_VERSION=<version> $0"
+        error "Invalid version: $REQUESTED_VERSION. Usage: $0 [version|nightly] or GITBUTLER_VERSION=<version> $0"
     fi
-    # Validate version format: only allow semver-compatible characters (alphanumeric, dots, hyphens, plus)
-    # This prevents path traversal, query parameters, and other URL manipulation
-    if [[ ! "$REQUESTED_VERSION" =~ ^[0-9a-zA-Z.+-]+$ ]]; then
-        error "Invalid version format: $REQUESTED_VERSION. Version must contain only alphanumeric characters, dots, hyphens, and plus signs. Usage: $0 [version] or GITBUTLER_VERSION=<version> $0"
+
+    # Handle 'nightly' as a special keyword for latest nightly release
+    if [ "$REQUESTED_VERSION" = "nightly" ]; then
+        RELEASES_URL="https://app.gitbutler.com/releases/nightly"
+        info "Fetching latest nightly release information..."
+    else
+        # Validate version format: only allow semver-compatible characters (alphanumeric, dots, hyphens, plus)
+        # This prevents path traversal, query parameters, and other URL manipulation
+        if [[ ! "$REQUESTED_VERSION" =~ ^[0-9a-zA-Z.+-]+$ ]]; then
+            error "Invalid version format: $REQUESTED_VERSION. Version must contain only alphanumeric characters, dots, hyphens, and plus signs. Usage: $0 [version|nightly] or GITBUTLER_VERSION=<version> $0"
+        fi
+        RELEASES_URL="https://app.gitbutler.com/releases/version/$REQUESTED_VERSION"
+        info "Fetching release information for version $REQUESTED_VERSION..."
     fi
-    RELEASES_URL="https://app.gitbutler.com/releases/version/$REQUESTED_VERSION"
-    info "Fetching release information for version $REQUESTED_VERSION..."
 else
     RELEASES_URL="https://app.gitbutler.com/releases"
     info "Fetching latest release information..."
@@ -141,12 +148,14 @@ if [ -z "$VERSION" ]; then
     error "Failed to parse version from release information"
 fi
 
-# Verify we got the version we requested
-if [ -n "$REQUESTED_VERSION" ]; then
+# Verify we got the version we requested (skip check for 'nightly' keyword)
+if [ -n "$REQUESTED_VERSION" ] && [ "$REQUESTED_VERSION" != "nightly" ]; then
     if [ "$VERSION" != "$REQUESTED_VERSION" ]; then
         error "API returned version $VERSION but requested version $REQUESTED_VERSION"
     fi
     info "Installing version: $VERSION"
+elif [ "$REQUESTED_VERSION" = "nightly" ]; then
+    info "Installing latest nightly version: $VERSION"
 else
     info "Latest version: $VERSION"
 fi
@@ -253,6 +262,16 @@ if [ -z "$APP_DIR" ]; then
     error "No .app bundle found in extracted archive"
 fi
 
+# Detect channel from app bundle name
+APP_BASENAME=$(basename "$APP_DIR")
+if [[ "$APP_BASENAME" == *"Nightly"* ]]; then
+    CHANNEL="nightly"
+    CHANNEL_DISPLAY="Nightly"
+else
+    CHANNEL="release"
+    CHANNEL_DISPLAY="Release"
+fi
+
 BINARIES_DIR="$APP_DIR/Contents/MacOS"
 if [ ! -d "$BINARIES_DIR" ]; then
     error "Extracted app bundle does not contain expected directory structure (Contents/MacOS)"
@@ -269,11 +288,12 @@ done
 success "Archive extracted successfully"
 
 # Install app bundle
-INSTALL_APP="$HOME/Applications/GitButler.app"
-INSTALL_APP_BACKUP="$HOME/Applications/GitButler.app.backup"
-INSTALL_APP_NEW="$HOME/Applications/GitButler.app.new"
+# Use the actual app bundle name from the archive (GitButler.app or GitButler Nightly.app)
+INSTALL_APP="$HOME/Applications/$APP_BASENAME"
+INSTALL_APP_BACKUP="$HOME/Applications/$APP_BASENAME.backup"
+INSTALL_APP_NEW="$HOME/Applications/$APP_BASENAME.new"
 BIN_DIR="$HOME/.local/bin"
-info "Installing to $INSTALL_APP..."
+info "Installing $CHANNEL_DISPLAY channel to $INSTALL_APP..."
 
 # Atomic installation: install to temp location first, then swap
 # This ensures we don't break an existing installation if something goes wrong
@@ -298,12 +318,25 @@ fi
 mkdir -p "$BIN_DIR"
 
 # Check if 'but' already exists and warn if it's not our symlink
+# Also detect channel switching (release <-> nightly)
+PREVIOUS_CHANNEL=""
 if [ -e "$BIN_DIR/but" ] && [ ! -L "$BIN_DIR/but" ]; then
     warn "A 'but' binary already exists at $BIN_DIR/but (not a symlink)"
     warn "This installation will replace it with a symlink to GitButler"
 elif [ -L "$BIN_DIR/but" ]; then
     EXISTING_TARGET=$(readlink "$BIN_DIR/but")
-    if [[ "$EXISTING_TARGET" != *"GitButler.app"* ]]; then
+
+    # Detect which channel the existing symlink points to
+    # Check for Nightly first (matches both "GitButler Nightly.app" and "GitButler_Nightly.app")
+    # Use slashes in pattern to avoid false positives like "MyGitButler.app"
+    if [[ "$EXISTING_TARGET" == *"Nightly"* ]]; then
+        PREVIOUS_CHANNEL="nightly"
+    elif [[ "$EXISTING_TARGET" == *"/GitButler.app/"* ]]; then
+        PREVIOUS_CHANNEL="release"
+    fi
+
+    # Warn if pointing to non-GitButler target
+    if [ -z "$PREVIOUS_CHANNEL" ]; then
         warn "Found existing 'but' symlink pointing to: $EXISTING_TARGET"
         warn "This will be replaced with GitButler's 'but' command"
     fi
@@ -341,10 +374,19 @@ mv "$INSTALL_APP_NEW" "$INSTALL_APP"
 ln -sf "$INSTALL_APP/Contents/MacOS/gitbutler-tauri" "$BIN_DIR/but"
 rm -f "$BIN_DIR/but.new"
 
+# Notify user if switching between channels
+if [ -n "$PREVIOUS_CHANNEL" ] && [ "$PREVIOUS_CHANNEL" != "$CHANNEL" ]; then
+    if [ "$CHANNEL" = "nightly" ]; then
+        info "Switched 'but' symlink from Release to Nightly channel"
+    else
+        info "Switched 'but' symlink from Nightly to Release channel"
+    fi
+fi
+
 # Verify final installation
 # Check if executable and can actually run
 if [ -x "$BIN_DIR/but" ] && "$BIN_DIR/but" --version >/dev/null 2>&1; then
-    success "GitButler.app installed successfully"
+    success "$APP_BASENAME installed successfully"
     # Remove backup on success
     rm -rf "$INSTALL_APP_BACKUP"
 else

@@ -20,7 +20,7 @@ test.describe('Install script endpoint', () => {
 		// Check for key script sections to ensure it's the right file
 		expect(scriptContent).toContain('GitButler CLI installation');
 		expect(scriptContent).toContain('Detected platform:');
-		expect(scriptContent).toContain('$HOME/Applications/GitButler.app');
+		expect(scriptContent).toContain('$HOME/Applications/$APP_BASENAME');
 		expect(scriptContent).toContain('$HOME/.local/bin');
 
 		// Verify script has proper error handling
