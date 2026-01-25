@@ -85,10 +85,7 @@ pub async fn run() {
     };
 
     let app = Router::new()
-        .route(
-            "/{command}",
-            post(post_handle_command_with_path),
-        )
+        .route("/{command}", post(post_handle_command_with_path))
         .route(
             "/ws",
             any({
