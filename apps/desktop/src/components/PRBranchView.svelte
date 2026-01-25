@@ -20,7 +20,7 @@
 
 <ReduxResult result={prQuery?.result} {projectId} {onerror}>
 	{#snippet children(pr)}
-		<Drawer testId={TestId.PRBranchDrawer} persistId="pr-branch-drawer-{projectId}-{pr.number}">
+		<Drawer testId={TestId.PRBranchDrawer} rounded>
 			{#snippet header()}
 				<h3 class="text-14 text-semibold truncate">
 					<span class="clr-text-2">{forge.reviewUnitAbbr} {forge.reviewUnitSymbol}{pr.number}:</span

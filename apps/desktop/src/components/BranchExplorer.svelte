@@ -12,11 +12,8 @@
 	} from '$lib/branches/branchListing';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import prList from '$lib/forge/prPolling.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from '@gitbutler/ui';
 	import Fuse from 'fuse.js';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -70,18 +67,13 @@
 	let searching = $state(false);
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const uiState = inject(UI_STATE);
 	const branchService = inject(BRANCH_SERVICE);
 
-	const prs = prList(
-		reactive(() => projectId),
-		forge,
-		uiState
-	);
+	const prs = $derived(forge.current.listService?.list(projectId, 15 * 60 * 1000));
 
 	const branchesQuery = $derived(branchService.list(projectId));
 	const combined = $derived(
-		combineBranchesAndPrs(prs.current, branchesQuery.response || [], selectedOption)
+		combineBranchesAndPrs(prs?.response || [], branchesQuery.response || [], selectedOption)
 	);
 
 	const groupedBranches = $derived(groupBranches(combined, forgeUser));

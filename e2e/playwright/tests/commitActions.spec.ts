@@ -49,7 +49,7 @@ test('should be able to amend a file to a commit', async ({ page, context }, tes
 
 	// Should navigate to the branches page when clicking the branches button
 	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
+	const header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 

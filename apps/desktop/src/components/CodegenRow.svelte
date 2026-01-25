@@ -31,7 +31,7 @@
 		branchName?: string;
 		selected?: boolean;
 		status?: ClaudeStatus;
-		onselect?: () => void;
+		onclick?: () => void;
 		draft?: boolean;
 	};
 
@@ -41,7 +41,7 @@
 		branchName,
 		selected = false,
 		status,
-		onselect,
+		onclick,
 		draft = false
 	}: Props = $props();
 
@@ -91,7 +91,7 @@
 		laneState.selection.set(
 			selected ? undefined : { branchName, codegen: true, previewOpen: true }
 		);
-		onselect?.();
+		onclick?.();
 	}
 </script>
 

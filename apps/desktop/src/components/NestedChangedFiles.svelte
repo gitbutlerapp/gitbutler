@@ -21,7 +21,7 @@
 		draggableFiles?: boolean;
 		autoselect?: boolean;
 		ancestorMostConflictedCommitId?: string;
-		onselect?: (change: TreeChange, index: number) => void;
+		onFileClick?: (index: number) => void;
 		allowUnselect?: boolean;
 		persistId?: string;
 	};
@@ -37,7 +37,7 @@
 		draggableFiles,
 		autoselect,
 		ancestorMostConflictedCommitId,
-		onselect,
+		onFileClick,
 		allowUnselect = true,
 		persistId = 'default'
 	}: Props = $props();
@@ -121,7 +121,7 @@
 					{draggableFiles}
 					{ancestorMostConflictedCommitId}
 					{allowUnselect}
-					{onselect}
+					{onFileClick}
 				/>
 			{/if}
 		{/if}

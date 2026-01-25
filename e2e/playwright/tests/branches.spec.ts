@@ -37,7 +37,7 @@ test('should be able to apply a remote branch', async ({ page, context }, testIn
 
 	// Should navigate to the branches page when clicking the branches button
 	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
+	const header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 
@@ -84,7 +84,7 @@ test('should be able to apply a remote branch and integrate the remote changes -
 
 	// Should navigate to the branches page when clicking the branches button
 	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
+	const header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 
@@ -341,7 +341,7 @@ test('should be able gracefully handle adding a branch that is ahead of our targ
 
 	// Should navigate to the branches page when clicking the branches button
 	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
+	const header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 
@@ -395,7 +395,7 @@ test('should be able gracefully handle adding a branch that is behind of our tar
 
 	// Should navigate to the branches page when clicking the branches button
 	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
+	const header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 
@@ -595,7 +595,7 @@ test('should update the stale selection of an unexisting branch', async ({
 
 	// Navigate to branches page
 	await clickByTestId(page, 'navigation-branches-button');
-	let header = await waitForTestId(page, 'target-commit-list-header');
+	let header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 
@@ -633,7 +633,7 @@ test('should update the stale selection of an unexisting branch', async ({
 	await clickByTestId(page, 'navigation-branches-button');
 	await waitForTestId(page, 'branches-view');
 
-	header = await waitForTestId(page, 'target-commit-list-header');
+	header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 	// The previously selected branch1 should not be selected anymore

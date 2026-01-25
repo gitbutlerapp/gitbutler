@@ -1,5 +1,4 @@
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
-import { updateStaleBranchSelectionInBranchesView, type UiState } from '$lib/state/uiState.svelte';
 import { InjectionToken } from '@gitbutler/core/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { StackService } from '$lib/stacks/stackService.svelte';
@@ -22,10 +21,9 @@ export class UpstreamIntegrationService {
 
 	constructor(
 		state: ClientState,
-		private stackService: StackService,
-		uiState: UiState
+		private stackService: StackService
 	) {
-		this.api = injectEndpoints(state.backendApi, uiState);
+		this.api = injectEndpoints(state.backendApi);
 	}
 
 	async upstreamStatuses(
@@ -72,7 +70,7 @@ export class UpstreamIntegrationService {
 	}
 }
 
-function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
+function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			upstreamIntegrationStatuses: build.query<
@@ -100,11 +98,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.BranchListing)
-				],
-				transformResponse: (response: IntegrationOutcome, _, { projectId }) => {
-					updateStaleBranchSelectionInBranchesView(uiState, projectId, response.deletedBranches);
-					return response;
-				}
+				]
 			}),
 			resolveUpstreamIntegration: build.mutation<
 				string,

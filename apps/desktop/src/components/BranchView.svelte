@@ -3,7 +3,6 @@
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
 	import BranchRenameModal from '$components/BranchRenameModal.svelte';
 	import BranchReview from '$components/BranchReview.svelte';
-	import ChangedFiles from '$components/ChangedFiles.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import Drawer from '$components/Drawer.svelte';
@@ -14,11 +13,9 @@
 	import { findEarliestConflict } from '$lib/commits/utils';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { createBranchSelection, type SelectionId } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { createBranchRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/core/context';
 	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
 
@@ -32,7 +29,6 @@
 		active?: boolean;
 		grow?: boolean;
 		clientHeight?: number;
-		showChangedFiles?: boolean;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		rounded?: boolean;
 		ontoggle?: (collapsed: boolean) => void;
@@ -47,7 +43,6 @@
 		branchName,
 		grow,
 		clientHeight = $bindable(),
-		showChangedFiles = false,
 		resizer,
 		rounded,
 		ontoggle,
@@ -62,12 +57,6 @@
 	const branchQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchesQuery = $derived(stackService.branches(projectId, stackId));
 	const topCommitQuery = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
-
-	const selectionId: SelectionId = $derived.by(() => {
-		return createBranchSelection({ stackId, branchName, remote: undefined });
-	});
-
-	const branchRef = $derived(createBranchRef(branchName, undefined));
 
 	// Get conflicted commits for this branch
 	const conflictedCommitsInBranch = $derived(
@@ -204,26 +193,6 @@
 				</div>
 			{/if}
 		</Drawer>
-
-		{#if showChangedFiles}
-			{@const changesQuery = stackService.branchChanges({ projectId, branch: branchRef })}
-			<ReduxResult {projectId} result={changesQuery.result}>
-				{#snippet children(changes, env)}
-					<ChangedFiles
-						title="All changed files"
-						projectId={env.projectId}
-						stackId={env.stackId}
-						autoselect
-						grow
-						{selectionId}
-						persistId={`unapplied-branch-${branchName}`}
-						changes={changes.changes}
-						stats={changes.stats}
-						allowUnselect={false}
-					/>
-				{/snippet}
-			</ReduxResult>
-		{/if}
 
 		<BranchRenameModal
 			{projectId}

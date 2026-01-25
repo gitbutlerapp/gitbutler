@@ -1,11 +1,9 @@
 <script lang="ts">
-	import ChangedFiles from '$components/ChangedFiles.svelte';
 	import CommitDetails from '$components/CommitDetails.svelte';
 	import CommitTitle from '$components/CommitTitle.svelte';
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
-	import { createCommitSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
 
@@ -18,18 +16,12 @@
 	const { projectId, commitId, onclose }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
-	const changesQuery = $derived(stackService.commitChanges(projectId, commitId));
 	const commitQuery = $derived(stackService.commitDetails(projectId, commitId));
 </script>
 
 <ReduxResult {projectId} result={commitQuery.result}>
 	{#snippet children(commit)}
-		<Drawer
-			{onclose}
-			bottomBorder
-			noshrink
-			persistId="unapplied-commit-drawer-{projectId}-{commitId}"
-		>
+		<Drawer {onclose} noshrink rounded persistId="unapplied-commit-drawer-{projectId}-{commitId}">
 			{#snippet header()}
 				<CommitTitle
 					truncate
@@ -42,20 +34,6 @@
 				<CommitDetails {commit} rewrap={$rewrapCommitMessage} />
 			</div>
 		</Drawer>
-		<ReduxResult {projectId} result={changesQuery.result}>
-			{#snippet children(changes)}
-				<ChangedFiles
-					title="Changed files"
-					autoselect
-					grow
-					{projectId}
-					selectionId={createCommitSelection({ commitId })}
-					persistId={`unapplied-commit-${commitId}`}
-					changes={changes.changes}
-					allowUnselect={false}
-				/>
-			{/snippet}
-		</ReduxResult>
 	{/snippet}
 </ReduxResult>
 

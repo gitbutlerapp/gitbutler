@@ -1,4 +1,3 @@
-import { BranchesSelectionActions } from '$lib/branches/branchesSelection';
 import { type SnapPositionName } from '$lib/floating/types';
 import { InjectionToken } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
@@ -12,7 +11,6 @@ import {
 	type UnknownAction
 } from '@reduxjs/toolkit';
 import type { ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
-import type { PullRequest } from '$lib/forge/interface/types';
 import type { StackDetails } from '$lib/stacks/stack';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
 
@@ -42,22 +40,6 @@ export type StackState = {
 	addedDirs: string[];
 };
 
-// See lib/branches/branchesSelection.ts for actions to mutate this state
-export type BranchesSelection = {
-	branchName?: string;
-	commitId?: string;
-	stackId?: string;
-	// TODO(mathijs): Remove branch "properties" from this object and make the relevant components
-	// look them up reactively, because currently there are still bugs where you e.g. unapply a
-	// branch and the UI will keep showing the branch as applied because there hasn't been a
-	// selection event.
-	remote?: string;
-	hasLocal?: boolean;
-	isTarget?: boolean;
-	inWorkspace?: boolean;
-	prNumber?: number;
-};
-
 export type ExclusiveAction =
 	| {
 			type: 'commit';
@@ -82,7 +64,6 @@ export type ExclusiveAction =
 
 export type ProjectUiState = {
 	exclusiveAction: ExclusiveAction | undefined;
-	branchesSelection: BranchesSelection;
 	branchesToPoll: string[];
 	selectedClaudeSession: { stackId: string; head: string } | undefined;
 	thinkingLevel: ThinkingLevel;
@@ -174,7 +155,6 @@ export class UiState {
 	/** Properties scoped to a specific project. */
 	readonly project = this.buildScopedProps<ProjectUiState>(this.scopesCache.projects, {
 		exclusiveAction: undefined,
-		branchesSelection: {},
 		branchesToPoll: [],
 		selectedClaudeSession: undefined,
 		thinkingLevel: 'normal',
@@ -538,41 +518,5 @@ function updateExclusiveActionState(
 				projectState.exclusiveAction.set(undefined);
 			}
 			break;
-	}
-}
-
-export function updateStalePrSelection(uiState: UiState, projectId: string, prs: PullRequest[]) {
-	const projectState = uiState.project(projectId);
-	if (projectState.branchesSelection.current.prNumber === undefined) {
-		return;
-	}
-
-	const prNumber = projectState.branchesSelection.current.prNumber;
-	if (!prs.some((pr) => pr.number === prNumber)) {
-		BranchesSelectionActions.clear(projectState.branchesSelection);
-	}
-}
-
-export function updateStaleBranchSelectionInBranchesView(
-	uiState: UiState,
-	projectId: string,
-	deletedBranches: string[]
-) {
-	const projectState = uiState.project(projectId);
-	const selection = projectState.branchesSelection.current;
-	if (selection.branchName && deletedBranches.includes(selection.branchName)) {
-		BranchesSelectionActions.clear(projectState.branchesSelection);
-	}
-}
-
-export function retainBranchSelectionInBranchesView(
-	uiState: UiState,
-	projectId: string,
-	branches: string[]
-) {
-	const projectState = uiState.project(projectId);
-	const selection = projectState.branchesSelection.current;
-	if (selection.branchName && !branches.includes(selection.branchName)) {
-		BranchesSelectionActions.clear(projectState.branchesSelection);
 	}
 }

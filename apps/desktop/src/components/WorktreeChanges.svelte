@@ -20,7 +20,6 @@
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { type Snippet } from 'svelte';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
-	import type { TreeChange } from '$lib/hunks/change';
 
 	type Props = {
 		projectId: string;
@@ -31,7 +30,7 @@
 		onDropzoneHovered?: (hovered: boolean) => void;
 		emptyPlaceholder?: Snippet;
 		foldButton?: Snippet;
-		onselect?: (change: TreeChange, index: number) => void;
+		onFileClick?: (index: number) => void;
 		onscrollexists?: (exists: boolean) => void;
 	};
 
@@ -44,7 +43,7 @@
 		onDropzoneHovered,
 		emptyPlaceholder,
 		foldButton,
-		onselect,
+		onFileClick,
 		onscrollexists
 	}: Props = $props();
 
@@ -102,7 +101,7 @@
 		{projectId}
 		{listMode}
 		{stackId}
-		{onselect}
+		{onFileClick}
 		showLockedIndicator={mode === 'unassigned'}
 	/>
 {/snippet}

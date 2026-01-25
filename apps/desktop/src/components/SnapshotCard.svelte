@@ -234,7 +234,12 @@
 								stackId={undefined}
 								changes={files}
 								listMode="list"
-								onselect={(change) => onDiffClick(change.path)}
+								onFileClick={(index) => {
+									const change = files[index];
+									if (change) {
+										onDiffClick(change.path);
+									}
+								}}
 								allowUnselect={false}
 							/>
 						</ScrollableContainer>
