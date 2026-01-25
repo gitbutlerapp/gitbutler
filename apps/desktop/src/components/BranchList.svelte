@@ -41,21 +41,11 @@
 		laneId: string;
 		branches: BranchDetails[];
 		active: boolean;
-		onselect?: () => void;
-		onCommitFileClick?: (commitId: string, path: string, index: number) => void;
-		onBranchFileClick?: (branchName: string, path: string, index: number) => void;
+		onclick?: () => void;
+		onFileClick?: (index: number) => void;
 	};
 
-	const {
-		projectId,
-		branches,
-		stackId,
-		laneId,
-		active,
-		onselect,
-		onCommitFileClick,
-		onBranchFileClick
-	}: Props = $props();
+	const { projectId, branches, stackId, laneId, active, onclick, onFileClick }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
@@ -253,7 +243,7 @@
 						} else {
 							uiState.lane(laneId).selection.set({ branchName, previewOpen: true });
 						}
-						onselect?.();
+						onclick?.();
 					}}
 				>
 					{#snippet buttons()}
@@ -369,7 +359,7 @@
 									{stackId}
 									{status}
 									selected={codegenSelected}
-									{onselect}
+									{onclick}
 								/>
 							{/if}
 						{/if}
@@ -400,7 +390,7 @@
 										changes={result.changes}
 										stats={result.stats}
 										allowUnselect={false}
-										onselect={(change, index) => {
+										onFileClick={(index) => {
 											// Ensure the branch is selected so the preview shows it
 											const currentSelection = laneState.selection.current;
 											if (
@@ -409,7 +399,7 @@
 											) {
 												laneState.selection.set({ branchName, previewOpen: true });
 											}
-											onBranchFileClick?.(branchName, change.path, index);
+											onFileClick?.(index);
 										}}
 									/>
 								{/snippet}
@@ -433,8 +423,8 @@
 							{active}
 							{handleUncommit}
 							{startEditingCommitMessage}
-							{onselect}
-							{onCommitFileClick}
+							{onclick}
+							{onFileClick}
 						/>
 					{/snippet}
 				</BranchCard>

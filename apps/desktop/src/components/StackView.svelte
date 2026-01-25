@@ -437,7 +437,7 @@
 									onDropzoneHovered={(hovered) => {
 										dropzoneHovered = hovered;
 									}}
-									onselect={(change, index) => {
+									onFileClick={(index) => {
 										// Clear one selection when you modify the other.
 										laneState?.selection.set(undefined);
 										multiDiffView?.jumpToIndex(index);
@@ -487,14 +487,11 @@
 							{laneId}
 							stackId={stableStackId}
 							{active}
-							onselect={() => {
+							onclick={() => {
 								// Clear one selection when you modify the other.
 								idSelection.clear({ type: 'worktree', stackId: stableStackId });
 							}}
-							onCommitFileClick={(commitId, path, index) => {
-								multiDiffView?.jumpToIndex(index);
-							}}
-							onBranchFileClick={(branchName, path, index) => {
+							onFileClick={(index) => {
 								multiDiffView?.jumpToIndex(index);
 							}}
 						/>

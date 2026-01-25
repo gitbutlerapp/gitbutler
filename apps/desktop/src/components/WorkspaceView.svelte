@@ -67,7 +67,7 @@
 	{#snippet left()}
 		<UnassignedView
 			{projectId}
-			onselect={(_change, index) => {
+			onFileClick={(index) => {
 				startIndex = index;
 				multiDiffView?.jumpToIndex(index);
 			}}

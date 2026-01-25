@@ -190,7 +190,7 @@ export function initDependencies(args: {
 
 	const gitService = new GitService(backend, clientState.backendApi);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
-	const branchService = new BranchService(clientState['backendApi'], uiState);
+	const branchService = new BranchService(clientState['backendApi']);
 	const cherryApplyService = new CherryApplyService(clientState.backendApi);
 	const remotesService = new RemotesService(backend);
 	const hooksService = new HooksService(clientState.backendApi);
@@ -258,11 +258,7 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const actionService = new ActionService(clientState['backendApi']);
-	const upstreamIntegrationService = new UpstreamIntegrationService(
-		clientState,
-		stackService,
-		uiState
-	);
+	const upstreamIntegrationService = new UpstreamIntegrationService(clientState, stackService);
 
 	// ============================================================================
 	// FEEDS & NOTIFICATIONS

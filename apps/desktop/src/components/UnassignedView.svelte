@@ -13,14 +13,13 @@
 	import { inject } from '@gitbutler/core/context';
 	import { Badge, Button, TestId } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import type { TreeChange } from '$lib/hunks/change';
 
 	interface Props {
 		projectId: string;
-		onselect?: (change: TreeChange, index: number) => void;
+		onFileClick?: (index: number) => void;
 	}
 
-	const { projectId, onselect }: Props = $props();
+	const { projectId, onFileClick }: Props = $props();
 
 	const selectionId = createWorktreeSelection({ stackId: undefined });
 
@@ -110,7 +109,7 @@
 					stackId={undefined}
 					mode="unassigned"
 					{foldButton}
-					{onselect}
+					{onFileClick}
 				>
 					{#snippet emptyPlaceholder()}
 						<div class="unassigned-empty">

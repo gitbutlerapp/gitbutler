@@ -56,8 +56,8 @@
 
 		handleUncommit: (commitId: string, branchName: string) => Promise<void>;
 		startEditingCommitMessage: (branchName: string, commitId: string) => void;
-		onselect?: () => void;
-		onCommitFileClick?: (commitId: string, path: string, index: number) => void;
+		onclick?: () => void;
+		onFileClick?: (index: number) => void;
 	}
 
 	let {
@@ -72,8 +72,8 @@
 		active,
 		handleUncommit,
 		startEditingCommitMessage,
-		onselect,
-		onCommitFileClick
+		onclick,
+		onFileClick
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -113,7 +113,7 @@
 		} else {
 			laneState.selection.set({ branchName, commitId, upstream, previewOpen: true });
 		}
-		onselect?.();
+		onclick?.();
 	}
 
 	function kickOffIntegration() {
@@ -419,7 +419,7 @@
 													ancestorMostConflictedCommitId={firstConflictedCommitId}
 													autoselect
 													allowUnselect={false}
-													onselect={(change, index) => {
+													onFileClick={(index) => {
 														// Ensure the commit is selected so the preview shows it
 														const currentSelection = laneState.selection.current;
 														if (
@@ -433,7 +433,7 @@
 																previewOpen: true
 															});
 														}
-														onCommitFileClick?.(commitId, change.path, index);
+														onFileClick?.(index);
 													}}
 												/>
 											{/snippet}

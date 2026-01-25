@@ -3,12 +3,12 @@
 	import BranchesViewCommitContextMenu from '$components/BranchesViewCommitContextMenu.svelte';
 	import CherryApplyModal from '$components/CherryApplyModal.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
+	import NestedChangedFiles from '$components/NestedChangedFiles.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { BranchesSelectionActions } from '$lib/branches/branchesSelection';
 	import { commitCreatedAt, type Commit } from '$lib/branches/v3';
+	import { createCommitSelection } from '$lib/selection/key';
 	import { getColorFromPushStatus, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 
 	type Props = {
@@ -17,8 +17,12 @@
 		branchName: string;
 		remote?: string;
 		isTopBranch?: boolean;
-		inWorkspace: boolean;
-		hasLocal: boolean;
+		isTarget?: boolean;
+		inWorkspace?: boolean;
+		selectedCommitId?: string;
+		onBranchClick: (branchName: string, remote?: string) => void;
+		onCommitClick: (commitId: string) => void;
+		onFileClick: (index: number) => void;
 		onerror?: (error: unknown) => void;
 	};
 
@@ -29,7 +33,11 @@
 		remote,
 		isTopBranch = true,
 		inWorkspace,
-		hasLocal,
+		isTarget,
+		selectedCommitId,
+		onBranchClick,
+		onCommitClick,
+		onFileClick,
 		onerror
 	}: Props = $props();
 
@@ -40,12 +48,7 @@
 			: stackService.unstackedBranchDetails(projectId, branchName, remote)
 	);
 
-	const uiState = inject(UI_STATE);
-	const projectState = $derived(uiState.project(projectId));
-	const branchesSelection = $derived(projectState.branchesSelection);
-
 	let cherryApplyModal = $state<CherryApplyModal>();
-	let selectedCommitId = $state<string>();
 </script>
 
 <ReduxResult result={branchQuery.result} {projectId} {stackId} {onerror}>
@@ -54,11 +57,10 @@
 	{/snippet}
 </ReduxResult>
 
-{#snippet commitMenu(rightClickTrigger: HTMLElement, commitId: string)}
+{#snippet commitMenu(rightClickTrigger: HTMLElement)}
 	<BranchesViewCommitContextMenu
 		{rightClickTrigger}
 		onCherryPick={() => {
-			selectedCommitId = commitId;
 			cherryApplyModal?.open();
 		}}
 	/>
@@ -66,15 +68,11 @@
 
 {#snippet renderCommitRow(commit: Commit, idx: number, totalLocal: number)}
 	{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
-		{@render commitMenu(rightClickTrigger, commit.id)}
+		{@render commitMenu(rightClickTrigger)}
 	{/snippet}
-	{@const localCommit = commit}
 	{@const commitType: 'LocalOnly' | 'LocalAndRemote' | 'Integrated' = commit.state.type}
-	{@const isDiverged =
-		localCommit.state.type === 'LocalAndRemote' && commit.id !== localCommit.state.subject}
-	{@const shouldShowMenu = !(
-		branchesSelection.current.inWorkspace || branchesSelection.current.isTarget
-	)}
+	{@const isDiverged = commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
+	{@const shouldShowMenu = !(inWorkspace || isTarget)}
 	{@const isLastCommit = idx === totalLocal - 1}
 	<CommitRow
 		disableCommitActions={false}
@@ -82,30 +80,48 @@
 		type={commitType}
 		diverged={isDiverged}
 		commitMessage={commit.message}
-		gerritReviewUrl={localCommit?.gerritReviewUrl ?? undefined}
+		gerritReviewUrl={commit?.gerritReviewUrl ?? undefined}
 		createdAt={commitCreatedAt(commit)}
 		commitId={commit.id}
 		{branchName}
-		selected={commit.id === branchesSelection?.current.commitId}
-		onclick={() => {
-			BranchesSelectionActions.selectCommit(branchesSelection, {
-				commitId: commit.id,
-				remote
-			});
-		}}
+		selected={commit.id === selectedCommitId}
+		active={commit.id === selectedCommitId}
 		lastCommit={isLastCommit}
+		onclick={() => {
+			onCommitClick(commit.id);
+		}}
 		{...shouldShowMenu && { menu }}
-	/>
+	>
+		{#snippet changedFiles()}
+			{@const changesQuery = stackService.commitChanges(projectId, commit.id)}
+
+			<ReduxResult {projectId} {stackId} result={changesQuery.result}>
+				{#snippet children(changesResult)}
+					<NestedChangedFiles
+						title="Changed files"
+						{projectId}
+						{stackId}
+						draggableFiles
+						selectionId={createCommitSelection({ commitId: commit.id, stackId })}
+						changes={changesResult.changes.filter(
+							(change) => !(change.path in (changesResult.conflictEntries?.entries ?? {}))
+						)}
+						stats={changesResult.stats}
+						conflictEntries={changesResult.conflictEntries}
+						autoselect
+						allowUnselect={false}
+						{onFileClick}
+					/>
+				{/snippet}
+			</ReduxResult>
+		{/snippet}
+	</CommitRow>
 {/snippet}
 
 {#snippet branchCard(branch: BranchDetails, env: { projectId: string; stackId?: string })}
 	{@const commitColor = getColorFromPushStatus(branch.pushStatus)}
 	{@const localCount = branch.commits?.length ?? 0}
 	{@const hasCommits = localCount > 0}
-	{@const isBranchSelected =
-		branchesSelection.current.branchName === branch.name &&
-		branchesSelection.current.stackId === env.stackId &&
-		!branchesSelection.current.commitId}
 	<BranchCard
 		type="normal-branch"
 		first={isTopBranch}
@@ -118,25 +134,8 @@
 		trackingBranch={branch.remoteTrackingBranch || undefined}
 		readonly
 		roundedBottom={!hasCommits}
-		selected={isBranchSelected}
-		onclick={() => {
-			if (env.stackId) {
-				BranchesSelectionActions.selectStack(branchesSelection, {
-					stackId: env.stackId,
-					branchName,
-					inWorkspace,
-					hasLocal,
-					prNumber: branch.prNumber ?? undefined
-				});
-			} else {
-				BranchesSelectionActions.selectBranch(branchesSelection, {
-					branchName,
-					remote,
-					hasLocal,
-					prNumber: branch.prNumber ?? undefined
-				});
-			}
-		}}
+		selected={!selectedCommitId}
+		onclick={() => onBranchClick(branchName, remote)}
 	>
 		{#snippet branchContent()}
 			{#if hasCommits}

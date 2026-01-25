@@ -10,7 +10,6 @@
 	import { handleCreateBranchFromBranchOutcome } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 
-	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, Modal, TestId, Textbox } from '@gitbutler/ui';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
@@ -27,12 +26,6 @@
 	const prService = $derived(forge.current.prService);
 	const prQuery = $derived(prService?.get(prNumber, { forceRefetch: true }));
 	const prUnit = $derived(prService?.unit);
-
-	const uiState = inject(UI_STATE);
-	const projectState = $derived(uiState.project(projectId));
-	const branchesState = $derived(projectState.branchesSelection);
-
-	const selected = $derived(branchesState.current.prNumber === prNumber);
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseRepoQuery = $derived(baseBranchService.repo(projectId));
@@ -104,7 +97,6 @@
 				sourceBranch={pr.sourceBranch}
 				isDraft={pr.draft ?? false}
 				noRemote
-				{selected}
 			/>
 		</div>
 

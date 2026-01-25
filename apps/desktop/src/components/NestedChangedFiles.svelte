@@ -21,7 +21,7 @@
 		draggableFiles?: boolean;
 		autoselect?: boolean;
 		ancestorMostConflictedCommitId?: string;
-		onselect?: (change: TreeChange, index: number) => void;
+		onFileClick?: (index: number) => void;
 		allowUnselect?: boolean;
 		persistId?: string;
 		foldedByDefault?: boolean;
@@ -38,7 +38,7 @@
 		draggableFiles,
 		autoselect,
 		ancestorMostConflictedCommitId,
-		onselect,
+		onFileClick,
 		allowUnselect = true,
 		persistId = 'default',
 		foldedByDefault = false
@@ -123,7 +123,7 @@
 					{draggableFiles}
 					{ancestorMostConflictedCommitId}
 					{allowUnselect}
-					{onselect}
+					{onFileClick}
 				/>
 			{/if}
 		{/if}

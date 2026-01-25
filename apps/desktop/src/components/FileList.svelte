@@ -43,7 +43,7 @@
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
 		ancestorMostConflictedCommitId?: string;
-		onselect?: (change: TreeChange, index: number) => void;
+		onFileClick?: (index: number) => void;
 		allowUnselect?: boolean;
 		showLockedIndicator?: boolean;
 		dataTestId?: string;
@@ -59,7 +59,7 @@
 		conflictEntries,
 		draggableFiles,
 		ancestorMostConflictedCommitId,
-		onselect,
+		onFileClick,
 		allowUnselect = true,
 		showLockedIndicator = false,
 		dataTestId
@@ -206,7 +206,7 @@
 				selectionId,
 				allowUnselect
 			);
-			onselect?.(change, idx);
+			onFileClick?.(idx);
 			return true;
 		}
 
@@ -239,7 +239,7 @@
 		) {
 			const lastAdded = get(idSelection.getById(selectionId).lastAdded);
 			if (lastAdded) {
-				onselect?.(change, lastAdded.index);
+				onFileClick?.(lastAdded.index);
 			}
 		}
 	}
@@ -302,7 +302,7 @@
 				allowUnselect
 			);
 			if (idSelection.has(change.path, selectionId)) {
-				onselect?.(change, idx);
+				onFileClick?.(idx);
 			}
 		}}
 		{conflictEntries}

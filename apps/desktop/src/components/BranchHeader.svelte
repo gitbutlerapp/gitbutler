@@ -223,6 +223,7 @@
 <style lang="postcss">
 	.header-wrapper {
 		display: flex;
+		flex-shrink: 0;
 		flex-direction: column;
 		width: 100%;
 		overflow: hidden;
