@@ -95,14 +95,44 @@ esac
 
 info "Detected platform: $PLATFORM"
 
+# Validate argument count
+if [ $# -gt 1 ]; then
+    error "Too many arguments. Usage: $0 [version] or GITBUTLER_VERSION=<version> $0"
+fi
+
 # Create temp directory
 TEMP_DIR=$(mktemp -d -t gitbutler-install.XXXXXX)
 
 # Fetch release information
-info "Fetching latest release information..."
+# Support installing specific version via parameter or GITBUTLER_VERSION environment variable
+# Parameter takes precedence over environment variable
+REQUESTED_VERSION="${1:-${GITBUTLER_VERSION:-}}"
+
+# Validate version parameter if provided
+if [ -n "$REQUESTED_VERSION" ]; then
+    # Reject if it looks like a flag
+    if [[ "$REQUESTED_VERSION" == -* ]]; then
+        error "Invalid version: $REQUESTED_VERSION. Usage: $0 [version] or GITBUTLER_VERSION=<version> $0"
+    fi
+    # Validate version format: only allow semver-compatible characters (alphanumeric, dots, hyphens, plus)
+    # This prevents path traversal, query parameters, and other URL manipulation
+    if [[ ! "$REQUESTED_VERSION" =~ ^[0-9a-zA-Z.+-]+$ ]]; then
+        error "Invalid version format: $REQUESTED_VERSION. Version must contain only alphanumeric characters, dots, hyphens, and plus signs. Usage: $0 [version] or GITBUTLER_VERSION=<version> $0"
+    fi
+    RELEASES_URL="https://app.gitbutler.com/releases/version/$REQUESTED_VERSION"
+    info "Fetching release information for version $REQUESTED_VERSION..."
+else
+    RELEASES_URL="https://app.gitbutler.com/releases"
+    info "Fetching latest release information..."
+fi
+
 RELEASES_JSON="$TEMP_DIR/releases.json"
-if ! curl --fail --location --silent --show-error -o "$RELEASES_JSON" "https://app.gitbutler.com/releases"; then
-    error "Failed to fetch release information from https://app.gitbutler.com/releases"
+if ! curl --fail --location --silent --show-error -o "$RELEASES_JSON" "$RELEASES_URL"; then
+    if [ -n "$REQUESTED_VERSION" ]; then
+        error "Failed to fetch release information for version $REQUESTED_VERSION. Version may not exist."
+    else
+        error "Failed to fetch release information from $RELEASES_URL"
+    fi
 fi
 
 # Parse JSON without jq - extract version
@@ -111,7 +141,15 @@ if [ -z "$VERSION" ]; then
     error "Failed to parse version from release information"
 fi
 
-info "Latest version: $VERSION"
+# Verify we got the version we requested
+if [ -n "$REQUESTED_VERSION" ]; then
+    if [ "$VERSION" != "$REQUESTED_VERSION" ]; then
+        error "API returned version $VERSION but requested version $REQUESTED_VERSION"
+    fi
+    info "Installing version: $VERSION"
+else
+    info "Latest version: $VERSION"
+fi
 
 # Parse JSON without jq - extract download URL for platform
 # Extract the platforms section and find our platform's URL
