@@ -175,7 +175,7 @@
 			<span
 				bind:clientWidth={foldedContentWidth}
 				style="height: {foldedContentWidth}px;"
-				class="unassigned-folded-text text-14 text-semibold">Unassigned</span
+				class="unassigned-folded-text text-14 text-semibold">Unstaged</span
 			>
 		</div>
 	</div>
