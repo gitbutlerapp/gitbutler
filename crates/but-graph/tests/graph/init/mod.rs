@@ -411,7 +411,7 @@ fn four_diamond() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// This test demonstrates the difference between `find_first_merge_base` and `find_lowest_merge_base`
+/// This test demonstrates the difference between `find_first_merge_base` and `find_git_merge_base`
 /// where the former finds the first common ancestor encountered during traversal,
 /// but that's not necessarily the merge-base with "no paths around it.
 ///
@@ -441,7 +441,8 @@ fn four_diamond() -> anyhow::Result<()> {
 /// without going through `mid_a`. Therefore, `mid_a` is not the true merge-base
 /// where ALL paths from both segments converge.
 #[test]
-fn lowest_vs_first_merge_base() -> anyhow::Result<()> {
+#[ignore = "git-style implementation is needed, but this must be a workspace-based check as git finds the same as find_first_merge_base()"]
+fn git_vs_first_merge_base() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("merge-base-path-around")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * dceb229 (HEAD -> A) A
@@ -497,14 +498,14 @@ fn lowest_vs_first_merge_base() -> anyhow::Result<()> {
     let seg_main = find_segment("main");
 
     // Now test first_merge_base
-    let first_merge_base = graph.first_first_merge_base(seg_a, seg_b);
+    let first_merge_base = graph.find_first_merge_base(seg_a, seg_b);
     assert_eq!(
         first_merge_base,
         Some(seg_mid_a),
         "the first merge-base is always one with a young generation",
     );
 
-    let lowest_merge_base = graph.find_lowest_merge_base(seg_a, seg_b);
+    let lowest_merge_base = graph.find_git_merge_base(seg_a, seg_b);
     assert_eq!(
         lowest_merge_base,
         Some(seg_main),

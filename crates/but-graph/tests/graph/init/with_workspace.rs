@@ -671,7 +671,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
 
     // By default, everything with metadata on the branch will show up, even if on the base.
     let ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 0cc5a6f
     └── ≡📙:3:C on 0cc5a6f {0}
         ├── 📙:3:C
@@ -2048,7 +2048,13 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     ");
     // It's true that `A` is fully integrated so it isn't displayed. so from a workspace-perspective
     // it's the right answer.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 6b1a13b");
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣6 on 79bbb29
+    └── ≡:2:B on 79bbb29
+        └── :2:B
+            ├── ·6b1a13b (🏘️)
+            └── ·03ad472 (🏘️)
+    ");
 
     add_stack_with_segments(&mut meta, 0, "B", StackState::InWorkspace, &["A"]);
     // ~~Now that `A` is part of the workspace, it's not cut off anymore.~~
@@ -2086,38 +2092,30 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
                     └── →:3: (A)
     ");
     // `A` is integrated, hence it's not shown.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣6 on ce4a760
-    └── ≡📙:2:B on ce4a760 {0}
-        ├── 📙:2:B
-        │   ├── ·6b1a13b (🏘️)
-        │   └── ·03ad472 (🏘️)
-        └── 📙:3:A
-            ├── ·79bbb29 (🏘️|✓)
-            ├── ·fc98174 (🏘️|✓)
-            ├── ·a381df5 (🏘️|✓)
-            └── ·777b552 (🏘️|✓)
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣6 on 79bbb29
+    └── ≡📙:2:B on 79bbb29 {0}
+        └── 📙:2:B
+            ├── ·6b1a13b (🏘️)
+            └── ·03ad472 (🏘️)
     ");
 
     // The limit is effective for integrated workspaces branches, and it doesn't unnecessarily
     // prolong the traversal once the all tips are known to be integrated.
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
     │   └── ·4077353 (⌂|🏘|1)
-    │       ├── 📙►:6[1]:A
-    │       │   └── ►:3[3]:anon:
-    │       │       ├── ·79bbb29 (⌂|🏘|✓|1)
-    │       │       ├── ·fc98174 (⌂|🏘|✓|1)
-    │       │       ├── ·a381df5 (⌂|🏘|✓|1)
-    │       │       └── ✂·777b552 (⌂|🏘|✓|1)
-    │       └── 📙►:7[1]:B
-    │           └── ►:2[2]:anon:
-    │               ├── ·6b1a13b (⌂|🏘|1)
-    │               └── ·03ad472 (⌂|🏘|1)
-    │                   └── →:3:
+    │       └── 📙►:2[1]:B
+    │           ├── ·6b1a13b (⌂|🏘|1)
+    │           └── ·03ad472 (⌂|🏘|1)
+    │               └── 📙►:3[2]:A
+    │                   ├── ·79bbb29 (⌂|🏘|✓|1)
+    │                   ├── ·fc98174 (⌂|🏘|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘|✓|1)
+    │                   └── ✂·777b552 (⌂|🏘|✓|1)
     └── ►:1[0]:origin/main
         ├── 🟣d0df794 (✓)
         └── 🟣09c6e08 (✓)
@@ -2127,16 +2125,14 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
                     │   ├── 🟣4b3e5a8 (✓)
                     │   ├── 🟣34d0715 (✓)
                     │   └── 🟣eb5f731 (✓)
-                    └── →:3:
+                    └── →:3: (A)
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣6 on 79bbb29
-    ├── ≡📙:7:B on 79bbb29 {0}
-    │   └── 📙:7:B
-    │       ├── ·6b1a13b (🏘️)
-    │       └── ·03ad472 (🏘️)
-    └── ≡📙:6:A on 79bbb29
-        └── 📙:6:A
+    └── ≡📙:2:B on 79bbb29 {0}
+        └── 📙:2:B
+            ├── ·6b1a13b (🏘️)
+            └── ·03ad472 (🏘️)
     ");
 
     meta.data_mut().branches.clear();
@@ -2182,16 +2178,19 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     ");
     // It looks like some commits are missing, but it's a first-parent traversal.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️:1:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on ce4a760
-    └── ≡:3:B on ce4a760
-        ├── :3:B
-        │   ├── ·6b1a13b (🏘️)
-        │   └── ·03ad472 (🏘️)
-        └── 👉:0:A
-            ├── ·79bbb29 (🏘️|✓)
-            ├── ·fc98174 (🏘️|✓)
-            ├── ·a381df5 (🏘️|✓)
-            └── ·777b552 (🏘️|✓)
+    ⌂:0:A <> ✓!
+    └── ≡:0:A {1}
+        ├── :0:A
+        │   ├── ·79bbb29 (🏘️|✓)
+        │   ├── ·fc98174 (🏘️|✓)
+        │   ├── ·a381df5 (🏘️|✓)
+        │   ├── ·777b552 (🏘️|✓)
+        │   ├── ·ce4a760 (🏘️|✓)
+        │   └── ·01d0e1e (🏘️|✓)
+        └── :5:main
+            ├── ·4b3e5a8 (🏘️|✓)
+            ├── ·34d0715 (🏘️|✓)
+            └── ·eb5f731 (🏘️|✓)
     ");
 
     let graph =
@@ -2230,16 +2229,15 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     ");
     // Because the branch is integrated, the surrounding workspace isn't shown.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️:1:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣6 on ce4a760
-    └── ≡:3:B on ce4a760
-        ├── :3:B
-        │   ├── ·6b1a13b (🏘️)
-        │   └── ·03ad472 (🏘️)
-        └── 👉:0:A
+    ⌂:0:A <> ✓!
+    └── ≡:0:A {1}
+        └── :0:A
             ├── ·79bbb29 (🏘️|✓)
             ├── ·fc98174 (🏘️|✓)
             ├── ·a381df5 (🏘️|✓)
-            └── ·777b552 (🏘️|✓)
+            ├── ·777b552 (🏘️|✓)
+            ├── ·ce4a760 (🏘️|✓)
+            └── ✂️·01d0e1e (🏘️|✓)
     ");
 
     // See what happens with an out-of-workspace HEAD and an arbitrary extra target.
@@ -2288,7 +2286,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:DETACHED <> ✓! on ce4a760
+    ⌂:0:DETACHED <> ✓! on 79bbb29
     └── ≡:0:anon: {1}
         ├── :0:anon:
         │   ├── ·d0df794 (✓)
@@ -2347,7 +2345,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:DETACHED <> ✓! on ce4a760
+    ⌂:0:DETACHED <> ✓! on 79bbb29
     └── ≡:0:anon: {1}
         ├── :0:anon:
         │   ├── ·d0df794 (✓)
@@ -2427,17 +2425,12 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     ");
 
     // This search discovers the whole workspace, without the integrated one.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on ce4a760
-    └── ≡:3:B on ce4a760
-        ├── :3:B
-        │   ├── ·6b1a13b (🏘️)
-        │   └── ·03ad472 (🏘️)
-        └── :5:A
-            ├── ·79bbb29 (🏘️|✓)
-            ├── ·fc98174 (🏘️|✓)
-            ├── ·a381df5 (🏘️|✓)
-            └── ·777b552 (🏘️|✓)
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 79bbb29
+    └── ≡:3:B on 79bbb29
+        └── :3:B
+            ├── ·6b1a13b (🏘️)
+            └── ·03ad472 (🏘️)
     ");
 
     // However, we can specify an additional/old target segment to show integrated portions as well.
@@ -2502,16 +2495,22 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
 
     // The entrypoint isn't contained in the workspace anymore, so it's standalone.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️:1:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on ce4a760
-    └── ≡:4:B on ce4a760
-        ├── :4:B
-        │   ├── ·6b1a13b (🏘️)
-        │   └── ·03ad472 (🏘️)
-        └── 👉:0:A
-            ├── ·79bbb29 (🏘️|✓)
-            ├── ·fc98174 (🏘️|✓)
-            ├── ·a381df5 (🏘️|✓)
-            └── ·777b552 (🏘️|✓)
+    ⌂:0:A <> ✓!
+    └── ≡:0:A {1}
+        ├── :0:A
+        │   ├── ❄79bbb29 (🏘️|✓)
+        │   ├── ❄fc98174 (🏘️|✓)
+        │   ├── ❄a381df5 (🏘️|✓)
+        │   ├── ❄777b552 (🏘️|✓)
+        │   ├── ❄ce4a760 (🏘️|✓)
+        │   └── ❄01d0e1e (🏘️|✓)
+        └── :3:main <> origin/main →:2:⇣3
+            ├── 🟣d0df794 (✓)
+            ├── 🟣09c6e08 (✓)
+            ├── 🟣7b9f260 (✓)
+            ├── ❄️4b3e5a8 (🏘️|✓)
+            ├── ❄️34d0715 (🏘️|✓)
+            └── ❄️eb5f731 (🏘️|✓)
     ");
 
     // When converting to a workspace, we are still aware of the workspace membership as long as
@@ -2722,7 +2721,13 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
                     └── →:4: (A)
     ");
 
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 6b1a13b");
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣6 on 79bbb29
+    └── ≡:2:B on 79bbb29
+        └── :2:B
+            ├── ·6b1a13b (🏘️)
+            └── ·03ad472 (🏘️)
+    ");
 
     Ok(())
 }
@@ -2827,7 +2832,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
                     └── ·2be54cd (⌂|🏘|✓|11)
     ");
     // Workspace is empty as everything is integrated.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 2be54cd");
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 2cde30a");
 
     add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["B", "A"]);
     add_stack_with_segments(&mut meta, 1, "D", StackState::InWorkspace, &["E", "F"]);
@@ -2853,26 +2858,16 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
     ");
 
     // Empty stack segments on top of integrated portions will show, and nothing integrated shows.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 2be54cd
-    ├── ≡📙:6:D on 2be54cd {1}
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
+    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 2cde30a
+    ├── ≡📙:6:D on 2cde30a {1}
     │   ├── 📙:6:D
     │   ├── 📙:7:E
     │   └── 📙:8:F
-    │       ├── ·2cde30a (🏘️|✓)
-    │       ├── ·1c938f4 (🏘️|✓)
-    │       ├── ·b82769f (🏘️|✓)
-    │       ├── ·988032f (🏘️|✓)
-    │       └── ·cd5b655 (🏘️|✓)
-    └── ≡📙:3:C on 2be54cd {0}
+    └── ≡📙:3:C on 2cde30a {0}
         ├── 📙:3:C
         ├── 📙:4:B
         └── 📙:5:A
-            ├── ·2cde30a (🏘️|✓)
-            ├── ·1c938f4 (🏘️|✓)
-            ├── ·b82769f (🏘️|✓)
-            ├── ·988032f (🏘️|✓)
-            └── ·cd5b655 (🏘️|✓)
     ");
 
     // However, when passing an additional old position of the target, we can show the now-integrated parts.
@@ -3950,7 +3945,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
     // Otherwise, nothing that's integrated is shown. Note how 96a2408 seems missing,
     // but it's skipped because it's actually part of an integrated otherwise ignored segment.
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 96a2408
     └── ≡📙:3:A <> origin/A →:4:⇡1⇣1 on 96a2408 {1}
         └── 📙:3:A <> origin/A →:4:⇡1⇣1
@@ -4029,15 +4024,12 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
     )?
     .validated()?;
     // Pretending we are rebased onto A still shows the same remote commits.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 281456a
-    └── ≡📙:4:B <> origin/B →:6:⇡1⇣1 on 281456a {0}
-        ├── 📙:4:B <> origin/B →:6:⇡1⇣1
-        │   ├── 🟣e0bd0a7
-        │   └── ·da597e8 (🏘️)
-        └── 📙:3:A <> origin/A →:5:⇣1
-            ├── 🟣0b6b861
-            └── ·1818c17 (🏘️|✓)
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 1818c17
+    └── ≡📙:4:B <> origin/B →:6:⇡1⇣1 on 1818c17 {0}
+        └── 📙:4:B <> origin/B →:6:⇡1⇣1
+            ├── 🟣e0bd0a7
+            └── ·da597e8 (🏘️)
     ");
     Ok(())
 }
@@ -5655,7 +5647,7 @@ fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
         standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 1ee1e34
     └── ≡📙:8:A <> origin/A →:4:⇣1 on 1ee1e34 {1}
         └── 📙:8:A <> origin/A →:4:⇣1
@@ -5722,7 +5714,7 @@ fn remote_and_integrated_tracking_branch_on_merge_extra_target() -> anyhow::Resu
         standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 1ee1e34
     └── ≡📙:3:A <> origin/A →:4:⇡1⇣1 on 1ee1e34 {1}
         └── 📙:3:A <> origin/A →:4:⇡1⇣1
@@ -6204,7 +6196,7 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
     add_workspace(&mut meta);
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣10 on 68e62aa
     └── ≡:12:anon: on 68e62aa
         └── :12:anon:
@@ -6223,17 +6215,14 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
     );
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣10 on 2d02c78
-    └── ≡📙:13:reimplement-insert-blank-commit {0}
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣10 on 68e62aa
+    └── ≡📙:13:reimplement-insert-blank-commit on 68e62aa {0}
         ├── 📙:13:reimplement-insert-blank-commit
         └── 📙:14:reconstructed-insert-blank-commit-branch
             ├── ·4eaff93 (🏘️) ►local-stack
             ├── ·d19db1d (🏘️)
-            ├── ·fb0a67e (🏘️)
-            ├── ·68e62aa (🏘️|✓) ►tags/nightly/0.5.1754
-            ├── ·322cb14 (🏘️|✓)
-            └── ·fafd9d0 (🏘️|✓)
+            └── ·fb0a67e (🏘️)
     ");
 
     Ok(())
