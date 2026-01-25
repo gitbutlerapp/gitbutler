@@ -82,9 +82,9 @@ class GitButlerManager implements GitButler {
 
 	async init() {
 		const port = getButlerPort();
-		const butReady = await waitForServer(port, 'localhost');
+		const butReady = await waitForServer(port, ['127.0.0.1', 'localhost', '::1']);
 		if (!butReady) {
-			throw new Error(`Butler server failed to start on localhost:${port}`);
+			throw new Error(`Butler server failed to start on 127.0.0.1/localhost/::1:${port}`);
 		}
 	}
 
@@ -126,11 +126,16 @@ function getButlerDataDir(configDir: string): string {
 	return path.join(configDir, 'com.gitbutler.app');
 }
 
-async function waitForServer(port: string, host = 'localhost', maxAttempts = 500) {
+async function waitForServer(
+	port: string,
+	host: string | string[] = 'localhost',
+	maxAttempts = 500
+) {
 	const parsed = parseInt(port, 10);
+	const hosts = Array.isArray(host) ? host : [host];
 
 	for (let i = 0; i < maxAttempts; i++) {
-		if (await checkPort(parsed, host)) {
+		if ((await Promise.all(hosts.map((h) => checkPort(parsed, h)))).some(Boolean)) {
 			log(`✅ Server is ready on ${host}:${port}`, colors.green);
 			return true;
 		}

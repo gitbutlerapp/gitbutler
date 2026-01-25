@@ -30,7 +30,7 @@ export default defineConfig({
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
 	use: {
 		/* Base URL to use in actions like `await page.goto('/')`. */
-		baseURL: `http://localhost:${DESKTOP_PORT}`,
+		baseURL: `http://127.0.0.1:${DESKTOP_PORT}`,
 
 		/* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
 		// I have no idea why, but with this disabled, some tests just always fail. I have no idea why.
@@ -74,8 +74,8 @@ function projects() {
 function feServerCommand(desktopPort?: number) {
 	const port = desktopPort ?? DESKTOP_PORT;
 	return process.env.CI
-		? `pnpm start:desktop --port ${port}`
-		: `pnpm --filter @gitbutler/desktop dev --port ${port}`;
+		? `pnpm start:desktop --port ${port} --host 127.0.0.1`
+		: `pnpm --filter @gitbutler/desktop dev --port ${port} --host 127.0.0.1`;
 }
 
 /**
@@ -92,11 +92,11 @@ function webServers() {
 	const config = {
 		cwd: path.resolve(import.meta.dirname, '../..'),
 		command: feServerCommand(desktopPort),
-		url: `http://localhost:${desktopPort}`,
+		url: `http://127.0.0.1:${desktopPort}`,
 		timeout: 180_000,
 		env: {
 			// VITE_BUTLER_PORT: BUT_SERVER_PORT,
-			VITE_BUTLER_HOST: 'localhost',
+			VITE_BUTLER_HOST: '127.0.0.1',
 			VITE_BUILD_TARGET: 'web'
 		},
 		reuseExistingServer: true,
