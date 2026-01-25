@@ -84,7 +84,7 @@ impl Handler {
         ))
     }
 
-    #[instrument(skip(self, paths, ctx, repo), fields(paths = paths.len()))]
+    #[instrument(skip(self, paths, ctx, repo, workspace), fields(paths = paths.len()))]
     fn project_files_change(
         &self,
         paths: Vec<PathBuf>,
