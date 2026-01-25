@@ -16,7 +16,7 @@ use crate::{
         Goals, PetGraph,
         overlay::{OverlayMetadata, OverlayRepo},
         remotes,
-        types::{EdgeOwned, Instruction, Limit, Queue, QueueItem, TopoWalk},
+        types::{EdgeOwned, Instruction, Limit, Queue, QueueItem},
     },
 };
 
@@ -708,14 +708,68 @@ pub fn propagate_flags_downward(
     dst_commit: Option<CommitIndex>,
     needs_leafs: bool,
 ) -> Option<Vec<SegmentIndex>> {
-    let mut topo = TopoWalk::start_from(dst_sidx, dst_commit, petgraph::Direction::Outgoing);
-    topo.leafs = needs_leafs.then(Vec::new);
-    while let Some((segment, commit_range)) = topo.next(graph) {
-        for commit in &mut graph[segment].commits[commit_range] {
-            commit.flags |= flags_to_add;
+    // For an acyclic graph, use DFS which is more cache-friendly and efficient
+    // We use a bitmask to track visited nodes since SegmentIndex values are typically small
+    let mut visited = gix::hashtable::HashSet::default();
+    let mut leafs = needs_leafs.then(Vec::new);
+    let mut stack = vec![(dst_sidx, dst_commit)];
+
+    while let Some((segment, first_commit_index)) = stack.pop() {
+        // Select the range of commits to process in this segment
+        let commit_range = if let Some(start_commit_idx) = first_commit_index {
+            let segment_ref = &graph[segment];
+            start_commit_idx..segment_ref.commits.len()
+        } else {
+            // Empty segment, no commits to process
+            0..0
+        };
+
+        // Mark all commits in range with flags
+        if !commit_range.is_empty() {
+            for commit in &mut graph[segment].commits[commit_range.clone()] {
+                commit.flags |= flags_to_add;
+            }
+        }
+
+        // Track edges for leaf detection
+        let mut edge_count = 0;
+
+        // Process outgoing edges
+        let mut neighbors = graph
+            .neighbors_directed(segment, petgraph::Direction::Outgoing)
+            .detach();
+
+        while let Some((edge_idx, target_segment)) = neighbors.next(graph) {
+            let edge = &graph[edge_idx];
+
+            // Skip edges that don't originate from our commit range
+            if let Some(src_cidx) = edge.src
+                && !commit_range.contains(&src_cidx)
+            {
+                continue;
+            }
+
+            edge_count += 1;
+
+            // For DAG, we can visit each node multiple times from different parents,
+            // but we want to process each (segment, commit_index) pair only once
+            let next_commit = edge.dst_id;
+            if let Some(commit_id) = next_commit
+                && visited.insert(commit_id)
+            {
+                stack.push((target_segment, edge.dst));
+            }
+        }
+
+        // Track leaf segments (those with no outgoing edges from the processed range)
+        if edge_count == 0
+            && let Some(ref mut leafs) = leafs
+        {
+            leafs.push(segment);
         }
     }
-    topo.leafs.take().filter(|v| !v.is_empty())
+
+    leafs.filter(|v| !v.is_empty())
 }
 
 pub(crate) struct RemoteQueueOutcome {
