@@ -2,6 +2,7 @@
 //! Otherwise, some tools may have problems, or it seems to hang there.
 //!
 //! # WARNING: Flaky the first time it runs locally
+#[cfg(unix)]
 use but_db::DbHandle;
 
 #[cfg(unix)]

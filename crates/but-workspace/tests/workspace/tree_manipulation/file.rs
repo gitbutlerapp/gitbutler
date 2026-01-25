@@ -1,8 +1,14 @@
-use but_testsupport::{CommandExt, git, git_status, visualize_disk_tree_skip_dot_git};
+use but_testsupport::{CommandExt, git, git_status};
+#[cfg(unix)]
+use but_testsupport::visualize_disk_tree_skip_dot_git;
 use but_workspace::discard_workspace_changes;
-use util::{file_to_spec, renamed_file_to_spec, worktree_changes_to_discard_specs};
+use util::worktree_changes_to_discard_specs;
+#[cfg(unix)]
+use util::{file_to_spec, renamed_file_to_spec};
 
-use crate::utils::{CONTEXT_LINES, visualize_index, writable_scenario, writable_scenario_slow};
+use crate::utils::{CONTEXT_LINES, visualize_index, writable_scenario_slow};
+#[cfg(unix)]
+use crate::utils::writable_scenario;
 
 #[test]
 fn all_file_types_from_unborn() -> anyhow::Result<()> {
@@ -1029,6 +1035,7 @@ mod util {
 
     use crate::utils::to_change_specs_whole_file;
 
+    #[cfg(unix)]
     pub fn file_to_spec(name: &str) -> DiffSpec {
         DiffSpec {
             previous_path: None,
@@ -1037,6 +1044,7 @@ mod util {
         }
     }
 
+    #[cfg(unix)]
     pub fn renamed_file_to_spec(previous: &str, name: &str) -> DiffSpec {
         DiffSpec {
             previous_path: Some(previous.into()),

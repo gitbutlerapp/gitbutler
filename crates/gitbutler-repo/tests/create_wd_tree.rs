@@ -1,7 +1,6 @@
-use std::{
-    fs::{File, Permissions},
-    path::Path,
-};
+#[cfg(unix)]
+use std::fs::{File, Permissions};
+use std::path::Path;
 
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_testsupport::{

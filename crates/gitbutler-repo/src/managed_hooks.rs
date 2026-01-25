@@ -188,11 +188,11 @@ fn is_gitbutler_managed_hook(path: &Path) -> bool {
 }
 
 /// Set executable permissions on Unix systems
-fn set_hook_executable(path: &Path) -> Result<()> {
+fn set_hook_executable(_path: &Path) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o755))
+        fs::set_permissions(_path, fs::Permissions::from_mode(0o755))
             .context("Failed to set hook as executable")?;
     }
     Ok(())

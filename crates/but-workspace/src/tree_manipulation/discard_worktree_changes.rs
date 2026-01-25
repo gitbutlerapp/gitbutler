@@ -529,7 +529,7 @@ mod file {
 
     fn tempfile_in_root_with_permissions_at(
         root: PathBuf,
-        kind: EntryKind,
+        _kind: EntryKind,
     ) -> anyhow::Result<tempfile::NamedTempFile> {
         #[cfg_attr(not(unix), allow(unused_mut))]
         let mut builder = tempfile::Builder::new();
@@ -537,7 +537,7 @@ mod file {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            builder.permissions(std::fs::Permissions::from_mode(kind as u32));
+            builder.permissions(std::fs::Permissions::from_mode(_kind as u32));
         }
         Ok(builder.tempfile_in(root)?)
     }

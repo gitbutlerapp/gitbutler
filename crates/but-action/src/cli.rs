@@ -1,4 +1,6 @@
-use anyhow::{Context as _, anyhow, bail};
+use anyhow::{Context as _, bail};
+#[cfg(not(windows))]
+use anyhow::anyhow;
 
 pub fn get_cli_path() -> anyhow::Result<std::path::PathBuf> {
     let cli_path = std::env::current_exe()?;
@@ -17,12 +19,15 @@ pub enum InstallMode {
     CurrentUserOnly,
 }
 
+#[cfg(windows)]
+pub fn do_install_cli(_mode: InstallMode) -> anyhow::Result<()> {
+    let cli_path = get_cli_path()?;
+    install_cli_windows(cli_path)
+}
+
+#[cfg(not(windows))]
 pub fn do_install_cli(mode: InstallMode) -> anyhow::Result<()> {
     let cli_path = get_cli_path()?;
-    #[cfg(windows)]
-    {
-        return install_cli_windows(cli_path);
-    }
 
     match std::fs::symlink_metadata(UNIX_LINK_PATH) {
         Ok(md) => {
@@ -91,6 +96,7 @@ pub fn do_install_cli(mode: InstallMode) -> anyhow::Result<()> {
     }
 }
 
+#[cfg(not(windows))]
 fn ensure_cli_path_exists_prior_to_link(cli_path: &std::path::Path) -> anyhow::Result<()> {
     if cli_path.exists() {
         return Ok(());
