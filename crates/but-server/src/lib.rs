@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::{
     Json, Router,
     body::Body,
@@ -11,7 +11,7 @@ use axum::{
     http::StatusCode,
     middleware::Next,
     response::IntoResponse,
-    routing::{any, get},
+    routing::{any, post},
 };
 use but_api::{commit, diff, github, json, legacy};
 use but_claude::{Broadcaster, Claude};
@@ -107,10 +107,7 @@ pub async fn run() {
     };
 
     let app = Router::new()
-        .route(
-            "/",
-            get("We need a post actually").post(post_handle_json_command),
-        )
+        .route("/{command}", post(post_handle_command_with_path))
         .route(
             "/ws",
             any({
@@ -146,13 +143,17 @@ pub async fn run() {
     .unwrap();
 }
 
-async fn post_handle_json_command(
+/// Handler that extracts the command from the URL path.
+/// This allows calling `POST /command_name` with params as the JSON body.
+async fn post_handle_command_with_path(
     State(state): State<AppState>,
-    Json(req): Json<Request>,
+    Path(command): Path<String>,
+    Json(params): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
     let app = state.app;
     let extra = state.extra;
     let app_settings_sync = state.app_settings;
+    let req = Request { command, params };
     let res = handle_command(req, app, extra, app_settings_sync).await;
     match res {
         Ok(value) => Json(json!(Response::Success(value))),
