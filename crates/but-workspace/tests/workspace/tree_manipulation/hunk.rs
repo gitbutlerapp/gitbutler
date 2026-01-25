@@ -2,12 +2,14 @@ use bstr::BString;
 #[cfg(unix)]
 use bstr::ByteSlice;
 use but_core::{DiffSpec, HunkHeader, UnifiedPatch};
-use but_testsupport::{git_status, hunk_header};
 #[cfg(unix)]
 use but_testsupport::visualize_disk_tree_skip_dot_git;
+use but_testsupport::{git_status, hunk_header};
 use but_workspace::discard_workspace_changes;
 
-use crate::tree_manipulation::hunk::util::{changed_file_in_worktree_with_hunks, previous_change_text};
+use crate::tree_manipulation::hunk::util::{
+    changed_file_in_worktree_with_hunks, previous_change_text,
+};
 use crate::utils::{CONTEXT_LINES, read_only_in_memory_scenario, writable_scenario};
 #[cfg(unix)]
 use crate::utils::{to_change_specs_all_hunks, visualize_index};

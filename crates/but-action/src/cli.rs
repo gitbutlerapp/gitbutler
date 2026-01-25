@@ -1,6 +1,6 @@
-use anyhow::{Context as _, bail};
 #[cfg(not(windows))]
 use anyhow::anyhow;
+use anyhow::{Context as _, bail};
 
 pub fn get_cli_path() -> anyhow::Result<std::path::PathBuf> {
     let cli_path = std::env::current_exe()?;
