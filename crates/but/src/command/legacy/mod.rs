@@ -3,6 +3,7 @@
 
 pub mod absorb;
 pub mod actions;
+pub mod ai;
 pub mod branch;
 pub mod commit;
 pub mod diff;

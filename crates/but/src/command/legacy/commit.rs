@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
@@ -95,6 +96,66 @@ pub(crate) fn insert_blank_commit(
     Ok(())
 }
 
+/// Generate a unified diff string from files to be committed
+fn generate_unified_diff(
+    ctx: &mut but_ctx::Context,
+    files_to_commit: &[FileAssignment],
+    changes: &[TreeChange],
+) -> anyhow::Result<String> {
+    let mut diff_output = String::new();
+    let repo = ctx.repo.get()?;
+
+    for fa in files_to_commit {
+        // Find the corresponding TreeChange for this file
+        if let Some(change) = changes.iter().find(|c| c.path_bytes == fa.path) {
+            // Convert to but_core::TreeChange and get unified patch
+            let core_change: but_core::TreeChange = change.clone().into();
+
+            // Propagate errors from unified_patch, only skip when it returns Ok(None)
+            match core_change.unified_patch(&repo, ctx.settings.context_lines)? {
+                Some(patch) => {
+                    // Add file header
+                    writeln!(
+                        &mut diff_output,
+                        "diff --git a/{} b/{}",
+                        fa.path.to_str_lossy(),
+                        fa.path.to_str_lossy()
+                    )?;
+
+                    // Add patch content based on type
+                    match patch {
+                        but_core::UnifiedPatch::Binary => {
+                            writeln!(&mut diff_output, "Binary files differ")?;
+                        }
+                        but_core::UnifiedPatch::TooLarge { size_in_bytes } => {
+                            writeln!(&mut diff_output, "File too large ({} bytes)", size_in_bytes)?;
+                        }
+                        but_core::UnifiedPatch::Patch { hunks, .. } => {
+                            for hunk in hunks {
+                                // Add hunk header
+                                writeln!(
+                                    &mut diff_output,
+                                    "@@ -{},{} +{},{} @@",
+                                    hunk.old_start, hunk.old_lines, hunk.new_start, hunk.new_lines
+                                )?;
+                                // Add hunk content (already includes +/- prefixes)
+                                diff_output.push_str(hunk.diff.to_str_lossy().as_ref());
+                            }
+                        }
+                    }
+                }
+                None => {
+                    // Ok(None) means the file can't produce a diff (e.g., submodules, type changes)
+                    // This is expected and we skip the file silently
+                }
+            }
+        }
+    }
+
+    Ok(diff_output)
+}
+
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn commit(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
@@ -103,6 +164,7 @@ pub(crate) fn commit(
     only: bool,
     create_branch: bool,
     no_hooks: bool,
+    generate_message: Option<Option<String>>,
 ) -> anyhow::Result<()> {
     let mut id_map = IdMap::new_from_context(ctx, None)?;
     id_map.add_committed_file_info_from_context(ctx)?;
@@ -201,7 +263,10 @@ pub(crate) fn commit(
     }
 
     // Get commit message
-    let commit_message = if let Some(msg) = message {
+    let commit_message = if let Some(user_summary) = generate_message {
+        let diff = generate_unified_diff(ctx, &files_to_commit, &changes)?;
+        super::ai::generate_commit_message(out, &diff, user_summary)?
+    } else if let Some(msg) = message {
         msg.to_string()
     } else {
         get_commit_message_from_editor(&files_to_commit, &changes)?

@@ -493,3 +493,66 @@ Error: --no-hooks cannot be used with 'commit empty'.
 
     Ok(())
 }
+
+#[test]
+fn commit_ai_conflicts_with_message() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+    env.file("new-file.txt", "test content");
+
+    // Try to use both --ai and -m
+    env.but("commit --ai -m 'test message'")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: the argument '--ai [<AI>]' cannot be used with '--message <MESSAGE>'
+
+Usage: but commit --ai [<AI>] [BRANCH]
+
+For more information, try '--help'.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_ai_conflicts_with_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+    env.file("new-file.txt", "test content");
+    env.file("msg.txt", "commit message");
+
+    // Try to use both --ai and -f
+    env.but("commit --ai -f msg.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: the argument '--ai [<AI>]' cannot be used with '--file <FILE>'
+
+Usage: but commit --ai [<AI>] [BRANCH]
+
+For more information, try '--help'.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_rejects_ai_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Try to use --ai with empty subcommand
+    // Note: Using -i= (with explicit empty value) to avoid clap treating "empty" as the flag's value
+    env.but("commit -i= empty --before A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: --ai cannot be used with 'commit empty'.
+
+"#]]);
+
+    Ok(())
+}
