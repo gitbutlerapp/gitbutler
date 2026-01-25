@@ -57,6 +57,8 @@ struct AppState {
 
 /// Wraps a synchronous command handler that takes `serde_json::Value` params and returns
 /// `anyhow::Result<serde_json::Value>` into an axum handler.
+// TODO: implement these as actual `Handler`s so that boxing isn't required.
+//       Maybe this could also be defined generically.
 fn json_response<F>(
     handler: F,
 ) -> impl Fn(
@@ -69,15 +71,7 @@ where
 {
     move |Json(params)| {
         let res = handler(params);
-        Box::pin(async move {
-            match res {
-                Ok(value) => Json(json!(Response::Success(value))),
-                Err(e) => {
-                    let e = json::Error::from(e);
-                    Json(json!(Response::Error(json!(e))))
-                }
-            }
-        })
+        Box::pin(async move { cmd_result_to_json(res) })
     }
 }
 
@@ -96,16 +90,17 @@ where
 {
     move |Json(params)| {
         let handler = handler.clone();
-        Box::pin(async move {
-            let res = handler(params).await;
-            match res {
-                Ok(value) => Json(json!(Response::Success(value))),
-                Err(e) => {
-                    let e = json::Error::from(e);
-                    Json(json!(Response::Error(json!(e))))
-                }
-            }
-        })
+        Box::pin(async move { cmd_result_to_json(handler(params).await) })
+    }
+}
+
+fn cmd_result_to_json(res: anyhow::Result<serde_json::Value>) -> Json<serde_json::Value> {
+    match res {
+        Ok(value) => Json(json!(Response::Success(value))),
+        Err(e) => {
+            let e = json::Error::from(e);
+            Json(json!(Response::Error(json!(e))))
+        }
     }
 }
 
@@ -162,7 +157,6 @@ pub async fn run() {
     };
 
     let app = Router::new()
-        // Git commands
         .route(
             "/git_remote_branches",
             post(json_response(legacy::git::git_remote_branches_cmd)),
@@ -195,7 +189,6 @@ pub async fn run() {
             "/git_get_global_config",
             post(json_response(legacy::git::git_get_global_config_cmd)),
         )
-        // Diff commands
         .route(
             "/tree_change_diffs",
             post(json_response(legacy::diff::tree_change_diffs_cmd)),
@@ -216,7 +209,6 @@ pub async fn run() {
             "/assign_hunk",
             post(json_response(legacy::diff::assign_hunk_cmd)),
         )
-        // Cherry apply commands
         .route(
             "/cherry_apply_status",
             post(json_response(legacy::cherry_apply::cherry_apply_status_cmd)),
@@ -225,7 +217,6 @@ pub async fn run() {
             "/cherry_apply",
             post(json_response(legacy::cherry_apply::cherry_apply_cmd)),
         )
-        // Workspace commands
         .route(
             "/stacks",
             post(json_response(legacy::workspace::stacks_cmd)),
@@ -300,7 +291,6 @@ pub async fn run() {
             "/target_commits",
             post(json_response(legacy::workspace::target_commits_cmd)),
         )
-        // Secret management
         .route(
             "/secret_get_global",
             post(json_response(legacy::secret::secret_get_global_cmd)),
@@ -326,7 +316,6 @@ pub async fn run() {
             "/delete_user",
             post(json_response(legacy::users::delete_user_cmd)),
         )
-        // Project management (ones that only need params)
         .route(
             "/update_project",
             post(json_response(legacy::projects::update_project_cmd)),
@@ -482,7 +471,6 @@ pub async fn run() {
                 legacy::virtual_branches::update_commit_message_cmd,
             )),
         )
-        // Operating modes commands
         .route(
             "/operating_mode",
             post(json_response(legacy::modes::operating_mode_cmd)),
@@ -515,7 +503,6 @@ pub async fn run() {
             "/edit_changes_from_initial",
             post(json_response(legacy::modes::edit_changes_from_initial_cmd)),
         )
-        // Repository commands
         .route(
             "/check_signing_settings",
             post(json_response(legacy::repo::check_signing_settings_cmd)),
@@ -552,7 +539,6 @@ pub async fn run() {
             "/message_hook",
             post(json_response(legacy::repo::message_hook_cmd)),
         )
-        // Stack management commands
         .route(
             "/create_branch",
             post(json_response(legacy::stack::create_branch_cmd)),
@@ -590,7 +576,6 @@ pub async fn run() {
             "/snapshot_diff",
             post(json_response(legacy::oplog::snapshot_diff_cmd)),
         )
-        // Config management commands
         .route(
             "/get_gb_config",
             post(json_response(legacy::config::get_gb_config_cmd)),
@@ -609,7 +594,6 @@ pub async fn run() {
             "/get_author_info",
             post(json_response(legacy::config::get_author_info_cmd)),
         )
-        // Remotes management commands
         .route(
             "/list_remotes",
             post(json_response(legacy::remotes::list_remotes_cmd)),
@@ -618,7 +602,6 @@ pub async fn run() {
             "/add_remote",
             post(json_response(legacy::remotes::add_remote_cmd)),
         )
-        // Rules/Workspace rules commands
         .route(
             "/create_workspace_rule",
             post(json_response(legacy::rules::create_workspace_rule_cmd)),
@@ -635,7 +618,6 @@ pub async fn run() {
             "/list_workspace_rules",
             post(json_response(legacy::rules::list_workspace_rules_cmd)),
         )
-        // GitHub commands (sync ones)
         .route(
             "/forget_github_account",
             post(json_response(github::forget_github_account_cmd)),
@@ -653,25 +635,21 @@ pub async fn run() {
             "/pr_template",
             post(json_response(legacy::forge::pr_template_cmd)),
         )
-        // CLI commands
         .route(
             "/install_cli",
             post(json_response(legacy::cli::install_cli_cmd)),
         )
         .route("/cli_path", post(json_response(legacy::cli::cli_path_cmd)))
-        // Open/System commands
         .route("/open_url", post(json_response(legacy::open::open_url_cmd)))
         .route(
             "/show_in_finder",
             post(json_response(legacy::open::show_in_finder_cmd)),
         )
-        // Absorb commands
         .route("/absorb", post(json_response(legacy::absorb::absorb_cmd)))
         .route(
             "/absorption_plan",
             post(json_response(legacy::absorb::absorption_plan_cmd)),
         )
-        // Claude commands (sync ones)
         .route(
             "/claude_get_user_message",
             post(json_response(legacy::claude::claude_get_user_message_cmd)),
@@ -704,7 +682,6 @@ pub async fn run() {
                 legacy::claude::claude_maybe_create_prompt_dir_cmd,
             )),
         )
-        // New graph based rebasing functions
         .route(
             "/commit_reword",
             post(json_response(commit::commit_reword_cmd)),
