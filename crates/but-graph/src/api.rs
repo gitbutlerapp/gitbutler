@@ -1,5 +1,6 @@
 use std::{
-    collections::{BTreeSet, VecDeque},
+    cmp::Reverse,
+    collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque},
     ops::{Deref, Index, IndexMut},
 };
 
@@ -12,8 +13,8 @@ use petgraph::{
 };
 
 use crate::{
-    Commit, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex, init::PetGraph,
-    projection::commit::is_managed_workspace_by_message,
+    Commit, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentFlags, SegmentIndex,
+    init::PetGraph, projection::commit::is_managed_workspace_by_message,
 };
 
 /// Mutation
@@ -73,60 +74,222 @@ impl Graph {
 
 /// Merge-base computation
 impl Graph {
-    /// Compute the first merge-base between two segments (may not be the lowest).
-    ///
-    /// **Warning**: This finds the first common ancestor encountered during traversal,
-    /// which may not be the *desired* merge-base when there are multiple paths between
-    /// segments (e.g., via merge commits). Use [`lowest_merge_base`](Self::find_git_merge_base)
-    /// if in doubt.
-    ///
-    /// The segment representing the merge-base is expected to not be empty, as its first commit
-    /// is usually what one is interested in.
-    // TODO: should be multi, with extra segments as third parameter
-    pub fn find_first_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
-        // TODO(perf): improve this by allowing to set bitflags on the segments themselves, to allow
-        //       marking them accordingly, just like Git does.
-        //       Right now we 'emulate' bitflags on pre-allocated data with two data sets, expensive
-        //       in comparison.
-        //       And yes, let's avoid `gix::Repository::merge_base` as we have free
-        //       generation numbers here and can avoid work duplication.
-        let mut segments_reachable_by_b = BTreeSet::new();
-        self.visit_all_segments_including_start_until(b, Direction::Outgoing, |s| {
-            segments_reachable_by_b.insert(s.id);
-            // Collect everything, keep it simple.
-            // This is fast* as completely in memory.
-            // *means slow compared to an array traversal with memory locality.
-            false
-        });
-
-        let mut candidate = None;
-        self.visit_all_segments_including_start_until(a, Direction::Outgoing, |s| {
-            let prune = true;
-            if candidate.is_some() {
-                return prune;
-            }
-            let prune = segments_reachable_by_b.contains(&s.id);
-            if prune {
-                candidate = Some(s.id);
-            }
-            prune
-        });
-        if candidate.is_none() {
-            // TODO: improve this - workspaces shouldn't be like this but if they are, do we deal with it well?
-            tracing::warn!(
-                "Couldn't find merge-base between segments {a:?} and {b:?} - this might lead to unexpected results"
-            )
-        }
-        candidate
-    }
-
     /// Compute the merge-base just like Git would between segments `a` and `b`, but finding all possible merge-bases of a walk,
     /// which are then truncated to the highest merge-base that includes all the other merge-bases.
     ///
     /// Note that this implementation isn't 'stable' and different orders of inputs can change the outcome.
-    // TODO: use this `compute_lowest_base()`
-    pub fn find_git_merge_base(&self, _a: SegmentIndex, _b: SegmentIndex) -> Option<SegmentIndex> {
-        todo!()
+    ///
+    /// Returns `None` if there is no merge-base as `a` and `b` don't share history.
+    /// If `a == b`, `Some(a)` is returned immediately.
+    pub fn find_git_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
+        if a == b {
+            return Some(a);
+        }
+
+        let mut flags: BTreeMap<SegmentIndex, SegmentFlags> = Default::default();
+        let bases = self.paint_down_to_common(a, b, &mut flags);
+
+        if bases.is_empty() {
+            return None;
+        }
+
+        let result = self.remove_redundant(&bases, &mut flags);
+        result.first().copied()
+    }
+
+    /// Paint segments reachable from `first` with SEGMENT1 and from `second` with SEGMENT2.
+    /// When a segment has both flags, it's a potential merge-base.
+    /// Returns all potential merge-bases with their generation numbers.
+    fn paint_down_to_common(
+        &self,
+        first: SegmentIndex,
+        second: SegmentIndex,
+        flags: &mut BTreeMap<SegmentIndex, SegmentFlags>,
+    ) -> Vec<(SegmentIndex, usize)> {
+        // Priority queue ordered by generation (higher generation = closer to root = lower priority).
+        // We use Reverse because BinaryHeap is a max-heap and we want segments with *lower* generation
+        // (i.e. closer to tips) to be processed first.
+        let mut queue: BinaryHeap<(Reverse<usize>, SegmentIndex)> = BinaryHeap::new();
+
+        // Initialize first segment
+        let first_flags = flags.entry(first).or_insert(SegmentFlags::empty());
+        *first_flags |= SegmentFlags::SEGMENT1;
+        queue.push((Reverse(self[first].generation), first));
+
+        // Initialize second segment
+        let second_flags = flags.entry(second).or_insert(SegmentFlags::empty());
+        *second_flags |= SegmentFlags::SEGMENT2;
+        queue.push((Reverse(self[second].generation), second));
+
+        let mut out = Vec::new();
+
+        // Continue while there are non-stale segments in the queue
+        while queue.iter().any(|(_, sidx)| {
+            !flags
+                .get(sidx)
+                .is_some_and(|f| f.contains(SegmentFlags::STALE))
+        }) {
+            let Some((Reverse(generation), segment_id)) = queue.pop() else {
+                break;
+            };
+
+            let segment_flags = *flags.get(&segment_id).unwrap_or(&SegmentFlags::empty());
+            let mut flags_without_result = segment_flags
+                & (SegmentFlags::SEGMENT1 | SegmentFlags::SEGMENT2 | SegmentFlags::STALE);
+
+            // If reachable from both sides, it's a merge-base candidate
+            if flags_without_result == (SegmentFlags::SEGMENT1 | SegmentFlags::SEGMENT2) {
+                if !segment_flags.contains(SegmentFlags::RESULT) {
+                    flags
+                        .entry(segment_id)
+                        .or_default()
+                        .insert(SegmentFlags::RESULT);
+                    out.push((segment_id, generation));
+                }
+                flags_without_result |= SegmentFlags::STALE;
+            }
+
+            // Propagate flags to parents (outgoing direction = towards history)
+            for parent_id in self
+                .inner
+                .neighbors_directed(segment_id, Direction::Outgoing)
+            {
+                let parent_flags = flags.entry(parent_id).or_insert(SegmentFlags::empty());
+                if (*parent_flags & flags_without_result) != flags_without_result {
+                    *parent_flags |= flags_without_result;
+                    queue.push((Reverse(self[parent_id].generation), parent_id));
+                }
+            }
+        }
+
+        out
+    }
+
+    /// Remove all those segments from `segments` if they are in the history of another segment in `segments`.
+    /// That way, we return only the topologically most recent segments in `segments`.
+    fn remove_redundant(
+        &self,
+        segments: &[(SegmentIndex, usize)],
+        flags: &mut BTreeMap<SegmentIndex, SegmentFlags>,
+    ) -> Vec<SegmentIndex> {
+        if segments.is_empty() {
+            return Vec::new();
+        }
+
+        // Clear flags for the redundancy check
+        flags.clear();
+
+        let sorted_segments = {
+            let mut v = segments.to_vec();
+            // Sort by generation ascending (lower generation first = closer to tips)
+            v.sort_by_key(|(_, generation)| *generation);
+            v
+        };
+
+        let mut min_gen_pos = 0;
+        let mut min_gen = sorted_segments[min_gen_pos].1;
+
+        let mut walk_start: Vec<(SegmentIndex, usize)> = Vec::with_capacity(segments.len());
+
+        // Mark all input segments with RESULT and collect their parents for walking
+        for (sidx, _) in segments {
+            flags.entry(*sidx).or_default().insert(SegmentFlags::RESULT);
+
+            for parent_id in self.inner.neighbors_directed(*sidx, Direction::Outgoing) {
+                let parent_flags = flags.entry(parent_id).or_insert(SegmentFlags::empty());
+                // Prevent double-addition
+                if !parent_flags.contains(SegmentFlags::STALE) {
+                    parent_flags.insert(SegmentFlags::STALE);
+                    walk_start.push((parent_id, self[parent_id].generation));
+                }
+            }
+        }
+
+        walk_start.sort_by_key(|(sidx, _)| sidx.index());
+
+        // Allow walking everything at first (remove STALE from walk_start entries)
+        for (sidx, _) in &walk_start {
+            if let Some(f) = flags.get_mut(sidx) {
+                f.remove(SegmentFlags::STALE);
+            }
+        }
+
+        let mut count_still_independent = segments.len();
+        let mut stack: Vec<(SegmentIndex, usize)> = Vec::new();
+
+        while let Some((segment_id, segment_gen)) = walk_start.pop() {
+            if count_still_independent <= 1 {
+                break;
+            }
+
+            stack.clear();
+            flags
+                .entry(segment_id)
+                .or_default()
+                .insert(SegmentFlags::STALE);
+            stack.push((segment_id, segment_gen));
+
+            while let Some((current_id, current_gen)) = stack.last().copied() {
+                let current_flags = *flags.get(&current_id).unwrap_or(&SegmentFlags::empty());
+
+                if current_flags.contains(SegmentFlags::RESULT) {
+                    if let Some(f) = flags.get_mut(&current_id) {
+                        f.remove(SegmentFlags::RESULT);
+                    }
+                    count_still_independent -= 1;
+
+                    if count_still_independent <= 1 {
+                        break;
+                    }
+
+                    // Update min_gen if we just removed the minimum
+                    if current_id == sorted_segments[min_gen_pos].0 {
+                        while min_gen_pos < segments.len() - 1
+                            && flags
+                                .get(&sorted_segments[min_gen_pos].0)
+                                .is_some_and(|f| f.contains(SegmentFlags::STALE))
+                        {
+                            min_gen_pos += 1;
+                        }
+                        min_gen = sorted_segments[min_gen_pos].1;
+                    }
+                }
+
+                // Skip if generation is below minimum
+                if current_gen > min_gen {
+                    stack.pop();
+                    continue;
+                }
+
+                let previous_len = stack.len();
+
+                for parent_id in self
+                    .inner
+                    .neighbors_directed(current_id, Direction::Outgoing)
+                {
+                    let parent_flags = flags.entry(parent_id).or_insert(SegmentFlags::empty());
+                    if !parent_flags.contains(SegmentFlags::STALE) {
+                        parent_flags.insert(SegmentFlags::STALE);
+                        stack.push((parent_id, self[parent_id].generation));
+                    }
+                }
+
+                if previous_len == stack.len() {
+                    stack.pop();
+                }
+            }
+        }
+
+        // Return segments that are not marked as STALE
+        segments
+            .iter()
+            .filter_map(|(sidx, _)| {
+                flags
+                    .get(sidx)
+                    .filter(|f| !f.contains(SegmentFlags::STALE))
+                    .map(|_| *sidx)
+            })
+            .collect()
     }
 }
 

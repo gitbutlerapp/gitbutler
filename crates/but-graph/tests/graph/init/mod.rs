@@ -1,6 +1,5 @@
 use but_graph::Graph;
 use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
-use gix::refs::Category;
 
 #[test]
 fn unborn() -> anyhow::Result<()> {
@@ -408,110 +407,6 @@ fn four_diamond() -> anyhow::Result<()> {
         └── :7:main
             └── ·965998b
     ");
-    Ok(())
-}
-
-/// This test demonstrates the difference between `find_first_merge_base` and `find_git_merge_base`
-/// where the former finds the first common ancestor encountered during traversal,
-/// but that's not necessarily the merge-base with "no paths around it.
-///
-/// The `merge-base-path-around` fixture creates this git commit graph:
-/// ```text
-/// A                   B
-/// │                   │
-/// mid_a ─────────────── M (merge commit)
-/// │                 ╱   ╲
-/// │               ╱       ╲
-/// │             ╱           ╲
-/// │           ╱            mid_c
-/// │         ╱                │
-/// │       ╱                  │
-/// main ◄─────────────────────┘
-/// ```
-///
-/// `B` is a merge commit with two parents: `mid_a` and `mid_c`.
-/// A sits on top of `mid_a`, which sits on `main`.
-/// `mid_c` is a sibling branch that also connects to `main`.
-///
-/// When finding merge-base of segments `A` and `B`:
-/// - undesired behavior: finds `mid_a` (first common ancestor encountered)
-/// - Desired behavior: finds `main` (the only point with no path around it)
-///
-/// The issue is that `mid_a` has a "path around it": `B` can reach `main` via `mid_c`
-/// without going through `mid_a`. Therefore, `mid_a` is not the true merge-base
-/// where ALL paths from both segments converge.
-#[test]
-#[ignore = "git-style implementation is needed, but this must be a workspace-based check as git finds the same as find_first_merge_base()"]
-fn git_vs_first_merge_base() -> anyhow::Result<()> {
-    let (repo, meta) = read_only_in_memory_scenario("merge-base-path-around")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * dceb229 (HEAD -> A) A
-    | * a9cdc20 (B) B merges mid_a and mid_c
-    |/| 
-    | * dcc619e (mid_c) mid_c
-    * | 9e44c07 (mid_a) mid_a
-    |/  
-    * ce1ecf3 (main) base
-    * bce0c5e M2
-    * 3183e43 M1
-    ");
-
-    // Use B as an extra target so it's included in the graph
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        standard_options_with_extra_target(&repo, "B"),
-    )?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
-
-    ├── 👉►:0[0]:A[🌳]
-    │   └── ·dceb229 (⌂|1)
-    │       └── ►:2[1]:mid_a
-    │           └── ·9e44c07 (⌂|✓|1)
-    │               └── ►:4[2]:main
-    │                   ├── ·ce1ecf3 (⌂|✓|1)
-    │                   └── ✂·bce0c5e (⌂|✓|1)
-    └── ►:1[0]:B
-        └── 🟣a9cdc20 (✓)
-            ├── →:2: (mid_a)
-            └── ►:3[1]:mid_c
-                └── 🟣dcc619e (✓)
-                    └── →:4: (main)
-    ");
-
-    // Find segments by looking for their ref names in the segment list
-    let find_segment = |name: &str| -> but_graph::SegmentIndex {
-        graph
-            .named_segment_by_ref_name(
-                Category::LocalBranch
-                    .to_full_name(name)
-                    .expect("statically known good ref names")
-                    .as_ref(),
-            )
-            .unwrap_or_else(|| panic!("segment {name} not found"))
-            .id
-    };
-
-    let seg_a = find_segment("A");
-    let seg_b = find_segment("B");
-    let seg_mid_a = find_segment("mid_a");
-    let seg_main = find_segment("main");
-
-    // Now test first_merge_base
-    let first_merge_base = graph.find_first_merge_base(seg_a, seg_b);
-    assert_eq!(
-        first_merge_base,
-        Some(seg_mid_a),
-        "the first merge-base is always one with a young generation",
-    );
-
-    let lowest_merge_base = graph.find_git_merge_base(seg_a, seg_b);
-    assert_eq!(
-        lowest_merge_base,
-        Some(seg_main),
-        "lowest_merge_base correctly returns base (main) - the only point with no path around it"
-    );
-
     Ok(())
 }
 

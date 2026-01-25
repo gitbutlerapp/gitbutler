@@ -176,61 +176,6 @@ git init four-diamond
   git checkout -B merged A && git merge C
 )
 
-# A graph that demonstrates the merge-base bug: there's a "path around" the first
-# common ancestor found.
-#
-# This creates a diamond structure with a path around mid_a via `mid_c`:
-#
-#   A                   B
-#   │                   │
-# mid_a ─────────────── M (merge commit)
-#   │                 ╱   ╲
-#   │               ╱       ╲
-#   │             ╱           ╲
-#   │           ╱            mid_c
-#   │         ╱                │
-#   │       ╱                  │
-# main ◄───────────────────────┘#
-#   │
-#   M2
-#   │
-#   M1
-git init merge-base-path-around
-(cd merge-base-path-around
-  commit M1
-  commit M2
-  # base commit - the true dominator
-  commit base
-
-  # mid_a: branch from base (A's path goes through here)
-  git checkout -b mid_a && commit mid_a
-
-  # mid_c: another sibling branch from base (this is the "path around")
-  git checkout -b mid_c main && commit mid_c
-
-  # A: on top of mid_a (simple linear path to base)
-  git checkout -b A mid_a && commit A
-
-  # B: merge of mid_a and mid_c, creating the "path around" situation
-  # B has two paths to base:
-  #   1. via mid_a -> base
-  #   2. via mid_c -> base (this is the path around mid_a!)
-  git checkout mid_a
-  git checkout -b B
-  git merge mid_c -m "B merges mid_a and mid_c"
-
-  # The common ancestors of A and B:
-  # - mid_a: reachable from A (directly) and B (first parent)
-  # - base: reachable from A (via mid_a) and B (via mid_a OR mid_c)
-  #
-  # first_merge_base returns mid_a because it's encountered first.
-  # But mid_a has a "path around" it - B can reach base via mid_c.
-  # The true dominator (lowest_merge_base) is base.
-
-  # Make A the HEAD so the graph traversal includes it
-  git checkout A
-)
-
 # A remote reference is seen while traversing another remote.
 git init remote-includes-another-remote
 (cd remote-includes-another-remote
@@ -1551,4 +1496,3 @@ EOF
     git commit --allow-empty -m "GitButler Workspace Commit"
   )
 )
-
