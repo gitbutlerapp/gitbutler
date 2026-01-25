@@ -399,10 +399,6 @@
 										changes={result.changes}
 										stats={result.stats}
 										allowUnselect={false}
-										maxHeight="400px"
-										topBorder
-										bottomBorder={false}
-										transparentHeader
 										onselect={(change, index) => {
 											// Ensure the branch is selected so the preview shows it
 											const currentSelection = laneState.selection.current;

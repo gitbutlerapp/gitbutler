@@ -1,14 +1,12 @@
 <script lang="ts">
 	import FileList from '$components/FileList.svelte';
 	import FileListMode from '$components/FileListMode.svelte';
-	import Resizer from '$components/Resizer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/core/context';
-	import { Badge, LineStats, EmptyStatePlaceholder } from '@gitbutler/ui';
+	import { Badge, LineStats, EmptyStatePlaceholder, Icon } from '@gitbutler/ui';
 
-	import { type ComponentProps } from 'svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { TreeChange, TreeStats } from '$lib/hunks/change';
 
@@ -21,16 +19,8 @@
 		stats?: TreeStats;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
-		grow?: boolean;
-		noshrink?: boolean;
-		maxHeight?: string;
-		topBorder?: boolean;
-		bottomBorder?: boolean;
-		transparentHeader?: boolean;
-		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		autoselect?: boolean;
 		ancestorMostConflictedCommitId?: string;
-		ontoggle?: (collapsed: boolean) => void;
 		onselect?: (change: TreeChange, index: number) => void;
 		allowUnselect?: boolean;
 		persistId?: string;
@@ -59,6 +49,7 @@
 	const firstChangePath = $derived(changes.at(0)?.path);
 
 	let listMode: 'list' | 'tree' = $state('tree');
+	let folded = $state(false);
 
 	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
 
@@ -71,10 +62,30 @@
 	});
 </script>
 
-<div class="filelist-wrapper">
+<div role="presentation" class="filelist-wrapper">
 	<div class="filelist-container">
-		<div class="filelist-header">
+		<div
+			class="filelist-header"
+			class:folded
+			role="presentation"
+			ondblclick={() => {
+				folded = !folded;
+			}}
+		>
 			<div class="stack-h gap-4">
+				<button
+					type="button"
+					class="filelist-header__chevron"
+					class:rotated={folded}
+					onclick={(e) => {
+						e.stopPropagation();
+						folded = !folded;
+					}}
+					aria-label="Toggle file list"
+					aria-expanded={!folded}
+				>
+					<Icon name="chevron-down" />
+				</button>
 				<h4 class="text-14 text-semibold truncate">{title}</h4>
 				<div class="text-11 header-stats">
 					<Badge>{changes.length}</Badge>
@@ -87,25 +98,32 @@
 			<FileListMode bind:mode={listMode} persistId={`changed-files-${persistId}`} />
 		</div>
 
-		{#if changes.length === 0 && !hasConflicts}
-			<EmptyStatePlaceholder image={emptyFolderSvg} gap={0} topBottomPadding={4} bottomMargin={24}>
-				{#snippet caption()}
-					No files changed
-				{/snippet}
-			</EmptyStatePlaceholder>
-		{:else}
-			<FileList
-				{selectionId}
-				{projectId}
-				{stackId}
-				{changes}
-				{listMode}
-				{conflictEntries}
-				{draggableFiles}
-				{ancestorMostConflictedCommitId}
-				{allowUnselect}
-				{onselect}
-			/>
+		{#if !folded}
+			{#if changes.length === 0 && !hasConflicts}
+				<EmptyStatePlaceholder
+					image={emptyFolderSvg}
+					gap={0}
+					topBottomPadding={4}
+					bottomMargin={24}
+				>
+					{#snippet caption()}
+						No files changed
+					{/snippet}
+				</EmptyStatePlaceholder>
+			{:else}
+				<FileList
+					{selectionId}
+					{projectId}
+					{stackId}
+					{changes}
+					{listMode}
+					{conflictEntries}
+					{draggableFiles}
+					{ancestorMostConflictedCommitId}
+					{allowUnselect}
+					{onselect}
+				/>
+			{/if}
 		{/if}
 	</div>
 </div>
@@ -135,7 +153,27 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 10px 10px 6px 14px;
+		padding: 10px 10px 6px 10px;
 		gap: 12px;
+
+		&.folded {
+			padding-bottom: 10px;
+		}
+	}
+
+	.filelist-header__chevron {
+		display: flex;
+		color: var(--clr-text-3);
+		transition:
+			color var(--transition-fast),
+			transform var(--transition-medium);
+
+		&.rotated {
+			transform: rotate(-90deg);
+		}
+
+		&:hover {
+			color: var(--clr-text-2);
+		}
 	}
 </style>
