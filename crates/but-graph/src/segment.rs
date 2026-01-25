@@ -98,6 +98,23 @@ impl std::fmt::Debug for Commit {
 }
 
 bitflags! {
+    /// Flags used temporarily during merge-base computation on segments.
+    ///
+    /// These flags are cleared before each merge-base computation and should not be persisted.
+    #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
+    pub struct SegmentFlags: u8 {
+        /// The segment is reachable from the first input.
+        const SEGMENT1 = 1 << 0;
+        /// The segment is reachable from the second input (or any of "others").
+        const SEGMENT2 = 1 << 1;
+        /// The segment has been marked as a potential merge-base result.
+        const RESULT = 1 << 2;
+        /// The segment should be skipped in further traversal (already processed or redundant).
+        const STALE = 1 << 3;
+    }
+}
+
+bitflags! {
     /// Provide more information about a commit, as gathered during traversal.
     ///
     /// Note that unknown bits beyond this list are used to track individual goals that we want to discover.

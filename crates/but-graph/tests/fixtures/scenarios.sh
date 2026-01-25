@@ -1496,4 +1496,3 @@ EOF
     git commit --allow-empty -m "GitButler Workspace Commit"
   )
 )
-
