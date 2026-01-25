@@ -15,7 +15,7 @@ describe('Install script import', () => {
 	it('contains critical installation steps', () => {
 		// Verify key sections exist
 		expect(installScript).toContain('Detected platform:');
-		expect(installScript).toContain('$HOME/Applications/GitButler.app');
+		expect(installScript).toContain('$HOME/Applications/$APP_BASENAME');
 		expect(installScript).toContain('$HOME/.local/bin');
 		expect(installScript).toContain('GitButler CLI installation completed');
 	});
@@ -34,5 +34,18 @@ describe('Install script import', () => {
 	it('handles Fish shell', () => {
 		expect(installScript).toContain('FISH_SHELL');
 		expect(installScript).toContain('fish_add_path');
+	});
+
+	it('supports nightly channel installations', () => {
+		// Verify nightly channel support exists
+		expect(installScript).toContain('nightly');
+		expect(installScript).toContain('/releases/nightly');
+		expect(installScript).toContain('CHANNEL');
+	});
+
+	it('handles channel detection and switching', () => {
+		// Verify channel detection logic
+		expect(installScript).toContain('PREVIOUS_CHANNEL');
+		expect(installScript).toContain('Switched');
 	});
 });
