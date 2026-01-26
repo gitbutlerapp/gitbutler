@@ -44,5 +44,5 @@ serde_json.workspace = true
 uuid.workspace = true
 
 tracing.workspace = true
-tracing-subscriber.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tracing-forest.workspace = true
