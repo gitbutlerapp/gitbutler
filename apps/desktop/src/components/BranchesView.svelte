@@ -324,9 +324,6 @@
 										isTarget={false}
 										inWorkspace={inWorkspace ?? false}
 										selectedCommitId={selection.type === 'branch' ? selection.commitId : undefined}
-										onBranchClick={(branchName, remote) => {
-											selection = { type: 'branch', branchName, remote, stackId };
-										}}
 										onCommitClick={(commitId) => {
 											selection = { type: 'branch', branchName, remote, stackId, commitId };
 										}}
@@ -342,9 +339,6 @@
 										{remote}
 										inWorkspace={inWorkspace ?? false}
 										selectedCommitId={selection.type === 'branch' ? selection.commitId : undefined}
-										onBranchClick={(branchName, remote) => {
-											selection = { type: 'branch', branchName, remote, stackId };
-										}}
 										onCommitClick={(commitId) => {
 											selection = { type: 'branch', branchName, remote, stackId, commitId };
 										}}

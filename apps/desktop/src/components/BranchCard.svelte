@@ -42,6 +42,7 @@
 		isNewBranch?: boolean;
 		roundedBottom?: boolean;
 		onclick?: () => void;
+		disableClick?: boolean;
 		branchContent: Snippet;
 		codegenRow?: Snippet;
 	}
@@ -68,6 +69,7 @@
 		hasCodegenRow?: boolean;
 		baseCommit?: string;
 		onclick: () => void;
+		disableClick?: boolean;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
 		branchContent: Snippet;
@@ -203,7 +205,8 @@
 				roundedBottom={isRoundedBottom}
 				{readonly}
 				{isPushed}
-				onclick={args.onclick}
+				onclick={args.disableClick ? undefined : args.onclick}
+				disableClick={args.disableClick}
 				menu={args.menu}
 				conflicts={args.isConflicted}
 				{showPrCreation}
@@ -289,7 +292,8 @@
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
 			readonly
 			{isPushed}
-			onclick={args.onclick}
+			onclick={args.disableClick ? undefined : args.onclick}
+			disableClick={args.disableClick}
 			roundedBottom={args.roundedBottom}
 		>
 			{#snippet emptyState()}

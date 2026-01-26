@@ -84,7 +84,8 @@
 			iconName="home-small"
 			trackingBranch={branch.remoteName || undefined}
 			readonly
-			selected
+			selected={false}
+			disableClick
 			overflowHidden
 		>
 			{#snippet branchContent()}
