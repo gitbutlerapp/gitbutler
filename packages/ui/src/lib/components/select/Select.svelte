@@ -278,7 +278,6 @@
 		}
 
 		// When list is open, handle navigation
-		e.stopPropagation();
 		e.preventDefault();
 
 		switch (key) {
