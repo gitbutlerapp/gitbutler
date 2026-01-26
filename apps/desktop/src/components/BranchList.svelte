@@ -390,6 +390,7 @@
 										{stackId}
 										draggableFiles
 										autoselect
+										limitPreview
 										selectionId={createBranchSelection({
 											stackId: stackId,
 											branchName,
