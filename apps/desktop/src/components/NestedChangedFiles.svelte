@@ -24,10 +24,8 @@
 		onselect?: (change: TreeChange, index: number) => void;
 		allowUnselect?: boolean;
 		persistId?: string;
-		limitPreview?: boolean;
+		foldedByDefault?: boolean;
 	};
-
-	const INITIAL_VISIBLE_COUNT = 3;
 
 	const {
 		projectId,
@@ -43,7 +41,7 @@
 		onselect,
 		allowUnselect = true,
 		persistId = 'default',
-		limitPreview = false
+		foldedByDefault = false
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -53,14 +51,9 @@
 	const firstChangePath = $derived(changes.at(0)?.path);
 
 	let listMode: 'list' | 'tree' = $state('tree');
-	let folded = $state(false);
-	let showAll = $state(false);
+	let folded = $state(foldedByDefault);
 
 	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
-	const hasMore = $derived(limitPreview && changes.length > INITIAL_VISIBLE_COUNT);
-	const displayedChanges = $derived(
-		limitPreview && !showAll ? changes.slice(0, INITIAL_VISIBLE_COUNT) : changes
-	);
 
 	$effect(() => {
 		const id = readStableSelectionKey(stringSelectionKey);
@@ -69,13 +62,6 @@
 			idSelection.set(firstChangePath, selectionId, 0);
 		}
 	});
-
-	function handleSelect(change: TreeChange, index: number) {
-		if (hasMore) {
-			showAll = true;
-		}
-		onselect?.(change, index);
-	}
 </script>
 
 <div role="presentation" class="filelist-wrapper">
@@ -131,29 +117,14 @@
 					{selectionId}
 					{projectId}
 					{stackId}
-					changes={displayedChanges}
+					{changes}
 					{listMode}
 					{conflictEntries}
 					{draggableFiles}
 					{ancestorMostConflictedCommitId}
 					{allowUnselect}
-					onselect={handleSelect}
+					{onselect}
 				/>
-				{#if hasMore}
-					<button
-						type="button"
-						class="show-all-button text-11"
-						class:showing-all={showAll}
-						onclick={() => {
-							showAll = !showAll;
-						}}
-					>
-						<span>{showAll ? 'Show less' : 'Show all'}</span>
-						<div class="show-all-button__chevron">
-							<Icon name="chevron-down-small" />
-						</div>
-					</button>
-				{/if}
 			{/if}
 		{/if}
 	</div>
@@ -206,57 +177,5 @@
 		&:hover {
 			color: var(--clr-text-2);
 		}
-	}
-
-	.show-all-button {
-		display: flex;
-		position: relative;
-		align-items: center;
-		justify-content: space-between;
-		width: 100%;
-		margin-top: -12px;
-		padding: 8px 10px;
-		border-top: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
-		color: var(--clr-text-2);
-		transition: color var(--transition-fast);
-		&:hover {
-			color: var(--clr-text-2);
-
-			& .show-all-button__chevron {
-				color: var(--clr-text-2);
-			}
-		}
-
-		&:after {
-			position: absolute;
-			top: -1px;
-			left: 0;
-			width: 100%;
-			height: 24px;
-			transform: translateY(-100%);
-			background: linear-gradient(to top, var(--clr-bg-1), transparent);
-			content: '';
-		}
-
-		&.showing-all {
-			margin-top: 0;
-
-			&::after {
-				display: none;
-			}
-
-			& .show-all-button__chevron {
-				transform: rotate(180deg);
-			}
-		}
-	}
-
-	.show-all-button__chevron {
-		display: flex;
-		color: var(--clr-text-3);
-		transition:
-			transform var(--transition-fast),
-			color var(--transition-fast);
 	}
 </style>
