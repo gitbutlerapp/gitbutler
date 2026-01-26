@@ -160,6 +160,14 @@
 	let stashBranchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
 	let absorbPlan = $state<HunkAssignment.CommitAbsorption[]>([]);
 
+	function uniquePaths(files: HunkAssignment.FileAbsorption[]): string[] {
+		const pathSet = new Set<string>();
+		for (const file of files) {
+			pathSet.add(file.path);
+		}
+		return Array.from(pathSet);
+	}
+
 	async function confirmStashIntoBranch(item: ChangedFilesItem, branchName: string | undefined) {
 		if (!branchName) {
 			return;
@@ -670,6 +678,7 @@
 			</p>
 			<div class="commit-absorptions">
 				{#each absorbPlan as commitAbsorption}
+					{@const uniqueFilePaths = uniquePaths(commitAbsorption.files)}
 					<div class="commit-absorption" data-testid={TestId.AbsorbModal_CommitAbsorption}>
 						{#if commitAbsorption.reason !== 'default_stack'}
 							<div class="absorption__reason text-12 text-body clr-text-2">
@@ -702,13 +711,12 @@
 							</div>
 
 							<ul class="file-list">
-								{#each commitAbsorption.files as file}
+								{#each uniqueFilePaths as filePath (filePath)}
 									<FileListItem
-										filePath={file.path}
+										{filePath}
 										clickable={false}
 										listMode="list"
-										isLast={commitAbsorption.files.indexOf(file) ===
-											commitAbsorption.files.length - 1}
+										isLast={uniqueFilePaths.indexOf(filePath) === uniqueFilePaths.length - 1}
 									/>
 								{/each}
 							</ul>
