@@ -24,6 +24,7 @@
 		onselect?: (change: TreeChange, index: number) => void;
 		allowUnselect?: boolean;
 		persistId?: string;
+		foldedByDefault?: boolean;
 	};
 
 	const {
@@ -39,7 +40,8 @@
 		ancestorMostConflictedCommitId,
 		onselect,
 		allowUnselect = true,
-		persistId = 'default'
+		persistId = 'default',
+		foldedByDefault = false
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -49,7 +51,7 @@
 	const firstChangePath = $derived(changes.at(0)?.path);
 
 	let listMode: 'list' | 'tree' = $state('tree');
-	let folded = $state(false);
+	let folded = $state(foldedByDefault);
 
 	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
 

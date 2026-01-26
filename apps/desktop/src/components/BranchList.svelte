@@ -390,6 +390,7 @@
 										{stackId}
 										draggableFiles
 										autoselect
+										foldedByDefault
 										selectionId={createBranchSelection({
 											stackId: stackId,
 											branchName,

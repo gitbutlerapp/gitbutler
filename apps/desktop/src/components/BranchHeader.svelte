@@ -316,9 +316,7 @@
 		flex-direction: column;
 		width: 100%;
 		padding: 14px 0;
-		/* overflow: hidden; */
 		gap: 8px;
-		/* text-overflow: ellipsis; */
 	}
 
 	.branch-header__select-indicator {
