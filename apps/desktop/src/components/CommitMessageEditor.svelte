@@ -183,7 +183,6 @@
 				e.preventDefault();
 				handleCancel();
 			}
-			e.stopPropagation();
 		})}
 	/>
 	<MessageEditor
