@@ -164,7 +164,11 @@ mod compute_watch_plan {
             .strip_prefix(worktree)
             .expect("fixture repositories keep all watched paths in the worktree");
         let relative = normalize_relative_path(relative);
-        if relative.is_empty() { ".".into() } else { relative }
+        if relative.is_empty() {
+            ".".into()
+        } else {
+            relative
+        }
     }
 
     fn normalize_relative_path(relative: &Path) -> String {
