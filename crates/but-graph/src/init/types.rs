@@ -180,8 +180,14 @@ pub struct Queue {
 
 /// Counted queuing
 impl Queue {
-    /// Sort the queue items so that the ones that are a goal themselves stay where they are,
-    /// while everything else is sorted so young commits come first.
+    /// Sort the queue items so that young commits come first. This way, the traversal goes
+    /// back in time continuously, which helps to avoid having too many graph traversals
+    /// in disjoint regions happen at the same time.
+    /// Note that traversals sorted like this are much less prone to run into the `propagate_flags_downward`
+    /// bottleneck. While they may (depending on the graph) create their own bottleneck if they end up missing
+    /// their point of interest and overshoot to the beginning of time, this is still preferable over the flag
+    /// propagation bottleneck. This is true Particularly if a commit-graph exists which typically is the case
+    /// where this starts to matter, as it speeds up traversal by factor 8 easily.
     pub fn sort(&mut self) {
         self.inner
             .make_contiguous()

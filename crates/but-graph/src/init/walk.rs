@@ -139,7 +139,7 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
 
 /// Split `sidx[commit..]` into its own segment and connect the parts. Move all connections in `commit..`
 /// from `sidx` to the new segment, and return that.
-/// Note that `standin` is used instead of creating a new buttom segment, and all its outgoing connections will be removed.
+/// Note that `standin` is used instead of creating a new bottom segment, and all its outgoing connections will be removed.
 pub fn split_commit_into_segment(
     graph: &mut Graph,
     next: &mut Queue,
