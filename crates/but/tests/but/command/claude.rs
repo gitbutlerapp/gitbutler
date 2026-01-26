@@ -88,11 +88,12 @@ mod stop {
 
         // Create a minimal JSONL transcript with a user record containing cwd
         let transcript_path = env.projects_root().join(".claude_transcript.jsonl");
-        let cwd = env.projects_root().to_string_lossy();
-        let transcript_content = format!(
-            r#"{{"type":"user","cwd":"{}","message":{{"role":"user","content":"test"}}}}"#,
-            cwd
-        );
+        let cwd = env.projects_root().to_string_lossy().to_string();
+        let transcript_content = serde_json::to_string(&serde_json::json!({
+            "type": "user",
+            "cwd": cwd,
+            "message": { "role": "user", "content": "test" }
+        }))?;
         env.file(".claude_transcript.jsonl", &transcript_content);
 
         let input = serde_json::json!({
@@ -133,11 +134,19 @@ mod stop {
 
         // Create a JSONL transcript with a user record containing cwd and a summary
         let transcript_path = env.projects_root().join(".claude_transcript.jsonl");
-        let cwd = env.projects_root().to_string_lossy();
+        let cwd = env.projects_root().to_string_lossy().to_string();
         let transcript_content = format!(
-            r#"{{"type":"user","cwd":"{}","message":{{"role":"user","content":"Add a new file"}}}}
-{{"type":"summary","summary":"Added new_file.txt with test content","leafUuid":"00000000-0000-0000-0000-000000000002"}}"#,
-            cwd
+            "{}\n{}",
+            serde_json::to_string(&serde_json::json!({
+                "type": "user",
+                "cwd": cwd,
+                "message": { "role": "user", "content": "Add a new file" }
+            }))?,
+            serde_json::to_string(&serde_json::json!({
+                "type": "summary",
+                "summary": "Added new_file.txt with test content",
+                "leafUuid": "00000000-0000-0000-0000-000000000002"
+            }))?,
         );
         env.file(".claude_transcript.jsonl", &transcript_content);
 

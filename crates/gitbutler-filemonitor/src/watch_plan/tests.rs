@@ -5,7 +5,7 @@ mod compute_watch_plan {
     use std::path::PathBuf;
     use std::path::{Component, Path};
 
-    type CanonicalWatch = (RecursiveMode, PathBuf);
+    type CanonicalWatch = (RecursiveMode, String);
 
     #[test]
     fn respects_gitignore_for_ignored_dirs() {
@@ -154,7 +154,7 @@ mod compute_watch_plan {
                 let relative = path
                     .strip_prefix(worktree)
                     .expect("fixture repositories keep all watched paths in the worktree");
-                (mode, relative.to_owned())
+                (mode, normalize_relative_path(relative))
             })
             .collect()
     }
@@ -163,6 +163,15 @@ mod compute_watch_plan {
         let relative = path
             .strip_prefix(worktree)
             .expect("fixture repositories keep all watched paths in the worktree");
+        let relative = normalize_relative_path(relative);
+        if relative.is_empty() { ".".into() } else { relative }
+    }
+
+    fn normalize_relative_path(relative: &Path) -> String {
+        if relative.as_os_str().is_empty() {
+            return String::new();
+        }
+
         let mut components = Vec::new();
         for comp in relative.components() {
             let Component::Normal(part) = comp else {
@@ -170,11 +179,7 @@ mod compute_watch_plan {
             };
             components.push(part.to_string_lossy());
         }
-        if components.is_empty() {
-            ".".to_string()
-        } else {
-            components.join("/")
-        }
+        components.join("/")
     }
 
     /// Compute the paths that should be watched for `worktree_path`.

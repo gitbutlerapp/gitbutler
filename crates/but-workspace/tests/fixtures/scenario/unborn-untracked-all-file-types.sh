@@ -6,8 +6,10 @@ set -eu -o pipefail
 
 git init
 echo content > untracked
-echo exe > untracked-exe && chmod +x untracked-exe
-ln -s untracked link
-mkdir dir
-mkfifo dir/fifo-should-be-ignored
-
+echo exe > untracked-exe
+chmod +x untracked-exe 2>/dev/null || true
+if ln -s untracked link 2>/dev/null; then
+  :
+else
+  printf '%s' untracked >link
+fi

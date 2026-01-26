@@ -2,7 +2,9 @@
 use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::graph_rebase::{GraphExt, Step};
-use but_testsupport::{visualize_commit_graph_all, visualize_disk_tree_skip_dot_git};
+use but_testsupport::visualize_commit_graph_all;
+#[cfg(unix)]
+use but_testsupport::visualize_disk_tree_skip_dot_git;
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -18,6 +20,14 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     * 35b8235 base
     ");
 
+    #[cfg(windows)]
+    {
+        assert!(worktree.join("a").is_file());
+        assert!(worktree.join("b").is_file());
+        assert!(worktree.join("base").is_file());
+        assert!(worktree.join("c").is_file());
+    }
+    #[cfg(unix)]
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @r"
     .
     ├── .git:40755
@@ -39,6 +49,14 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     outcome.materialize()?;
 
     // After materialize, file 'c' should be GONE from worktree
+    #[cfg(windows)]
+    {
+        assert!(worktree.join("a").is_file());
+        assert!(worktree.join("b").is_file());
+        assert!(worktree.join("base").is_file());
+        assert!(!worktree.join("c").exists());
+    }
+    #[cfg(unix)]
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @r"
     .
     ├── .git:40755
@@ -68,6 +86,14 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     * 35b8235 base
     ");
 
+    #[cfg(windows)]
+    {
+        assert!(worktree.join("a").is_file());
+        assert!(worktree.join("b").is_file());
+        assert!(worktree.join("base").is_file());
+        assert!(worktree.join("c").is_file());
+    }
+    #[cfg(unix)]
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @r"
     .
     ├── .git:40755
@@ -89,6 +115,14 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     outcome.materialize_without_checkout()?;
 
     // After materialize_without_checkout, file 'c' should STILL exist in worktree
+    #[cfg(windows)]
+    {
+        assert!(worktree.join("a").is_file());
+        assert!(worktree.join("b").is_file());
+        assert!(worktree.join("base").is_file());
+        assert!(worktree.join("c").is_file());
+    }
+    #[cfg(unix)]
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @r"
     .
     ├── .git:40755

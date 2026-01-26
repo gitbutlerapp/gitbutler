@@ -152,13 +152,15 @@ pub fn move_tree(
     old_workspace: git2::Oid,
     new_workspace: git2::Oid,
 ) -> Result<git2::Index> {
+    let mut merge_options = git2::MergeOptions::new();
+    merge_options.fail_on_conflict(false);
     // Read: Take the diff between old_workspace and tree, and apply it on top
     //   of new_workspace
     let merge = repo.merge_trees(
         &repo.find_tree(old_workspace)?,
         &repo.find_tree(tree)?,
         &repo.find_tree(new_workspace)?,
-        None,
+        Some(&merge_options),
     )?;
 
     Ok(merge)

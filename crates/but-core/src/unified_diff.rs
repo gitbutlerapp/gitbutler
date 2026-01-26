@@ -113,21 +113,49 @@ impl UnifiedPatch {
         use gix::diff::blob;
         let current_state = current_state.into();
         let previous_state = previous_state.into();
+        let current_id = current_state.map_or(repo.object_hash().null(), |state| state.id);
+        let current_kind = current_state.map_or_else(
+            || {
+                previous_state
+                    .expect("BUG: at least one non-none state")
+                    .kind
+            },
+            |state| state.kind,
+        );
+        let should_retry_symlink_as_blob =
+            current_id.is_null() && current_kind == gix::object::tree::EntryKind::Link;
+
         match diff_filter.set_resource(
-            current_state.map_or(repo.object_hash().null(), |state| state.id),
-            current_state.map_or_else(
-                || {
-                    previous_state
-                        .expect("BUG: at least one non-none state")
-                        .kind
-                },
-                |state| state.kind,
-            ),
+            current_id,
+            current_kind,
             path.as_bstr(),
             ResourceKind::NewOrDestination,
             repo,
         ) {
             Ok(()) => {}
+            Err(
+                err @ blob::platform::set_resource::Error::InvalidMode { .. }
+                | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
+            ) if should_retry_symlink_as_blob => {
+                tracing::warn!(?err, %path, "retrying diff processing failure as blob");
+                match diff_filter.set_resource(
+                    current_id,
+                    gix::object::tree::EntryKind::Blob,
+                    path.as_bstr(),
+                    ResourceKind::NewOrDestination,
+                    repo,
+                ) {
+                    Ok(()) => {}
+                    Err(
+                        err @ blob::platform::set_resource::Error::InvalidMode { .. }
+                        | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
+                    ) => {
+                        tracing::warn!(?err, %path, "ignoring diff processing failure");
+                        return Ok(None);
+                    }
+                    Err(err) => return Err(err.into()),
+                }
+            }
             Err(
                 err @ blob::platform::set_resource::Error::InvalidMode { .. }
                 | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
@@ -138,21 +166,57 @@ impl UnifiedPatch {
             Err(err) => return Err(err.into()),
         };
         let actual_previous_path = previous_path.unwrap_or(path.as_bstr());
+        let previous_id = previous_state.map_or(repo.object_hash().null(), |state| state.id);
+        let previous_kind = previous_state.map_or_else(
+            || {
+                current_state
+                    .expect("BUG: at least one non-none state")
+                    .kind
+            },
+            |state| state.kind,
+        );
+        let should_retry_previous_symlink_as_blob =
+            previous_id.is_null() && previous_kind == gix::object::tree::EntryKind::Link;
+
         match diff_filter.set_resource(
-            previous_state.map_or(repo.object_hash().null(), |state| state.id),
-            previous_state.map_or_else(
-                || {
-                    current_state
-                        .expect("BUG: at least one non-none state")
-                        .kind
-                },
-                |state| state.kind,
-            ),
+            previous_id,
+            previous_kind,
             actual_previous_path,
             ResourceKind::OldOrSource,
             repo,
         ) {
             Ok(()) => {}
+            Err(
+                err @ blob::platform::set_resource::Error::InvalidMode { .. }
+                | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
+            ) if should_retry_previous_symlink_as_blob => {
+                tracing::warn!(
+                    ?err,
+                    %actual_previous_path,
+                    "retrying diff processing failure as blob"
+                );
+                match diff_filter.set_resource(
+                    previous_id,
+                    gix::object::tree::EntryKind::Blob,
+                    actual_previous_path,
+                    ResourceKind::OldOrSource,
+                    repo,
+                ) {
+                    Ok(()) => {}
+                    Err(
+                        err @ blob::platform::set_resource::Error::InvalidMode { .. }
+                        | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
+                    ) => {
+                        tracing::warn!(
+                            ?err,
+                            %actual_previous_path,
+                            "ignoring diff processing failure"
+                        );
+                        return Ok(None);
+                    }
+                    Err(err) => return Err(err.into()),
+                }
+            }
             Err(
                 err @ blob::platform::set_resource::Error::InvalidMode { .. }
                 | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),

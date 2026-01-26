@@ -224,11 +224,24 @@ fn worktree_changes_inner(
                     id: entry.id,
                     kind: into_tree_entry_kind(entry.mode)?,
                 };
-                let state = ChangeState {
+                let mut state = ChangeState {
                     // actual state unclear, type changed to something potentially unhashable
                     id: repo.object_hash().null(),
                     kind: into_tree_entry_kind(worktree_mode)?,
                 };
+                if cfg!(windows)
+                    && previous_state.kind == EntryKind::Link
+                    && state.kind == EntryKind::Blob
+                {
+                    let disk_id = hash_worktree_blob_id(
+                        repo,
+                        &work_dir.join(gix::path::from_bstr(rela_path.as_bstr())),
+                    )?;
+                    if disk_id == previous_state.id {
+                        continue;
+                    }
+                    state.kind = EntryKind::Link;
+                }
                 (
                     Origin::IndexWorktree,
                     TreeChange {
@@ -253,9 +266,18 @@ fn worktree_changes_inner(
             }) => {
                 let kind = into_tree_entry_kind(entry.mode)?;
                 let previous_state = ChangeState { id: entry.id, kind };
+                if cfg!(windows) && executable_bit_changed {
+                    let disk_id = hash_worktree_blob_id(
+                        repo,
+                        &work_dir.join(gix::path::from_bstr(rela_path.as_bstr())),
+                    )?;
+                    if disk_id == previous_state.id {
+                        continue;
+                    }
+                }
                 let state = ChangeState {
                     id: repo.object_hash().null(),
-                    kind: if executable_bit_changed {
+                    kind: if executable_bit_changed && !cfg!(windows) {
                         if kind == EntryKind::BlobExecutable {
                             EntryKind::Blob
                         } else {
@@ -410,6 +432,19 @@ fn worktree_changes_inner(
                         None => continue,
                         Some(kind) => kind,
                     },
+                };
+                let state = if cfg!(windows)
+                    && matches!(
+                        (previous_state.kind, state.kind),
+                        (EntryKind::Blob, EntryKind::BlobExecutable)
+                            | (EntryKind::BlobExecutable, EntryKind::Blob)
+                    ) {
+                    ChangeState {
+                        kind: previous_state.kind,
+                        ..state
+                    }
+                } else {
+                    state
                 };
                 (
                     Origin::IndexWorktree,
@@ -840,6 +875,18 @@ fn into_tree_entry_kind(mode: gix::index::entry::Mode) -> anyhow::Result<EntryKi
         .to_tree_entry_mode()
         .with_context(|| format!("Entry contained invalid entry mode: {mode:?}"))?
         .kind())
+}
+
+fn hash_worktree_blob_id(
+    repo: &gix::Repository,
+    path: &std::path::Path,
+) -> anyhow::Result<gix::ObjectId> {
+    let bytes = std::fs::read(path)?;
+    Ok(gix::objs::compute_hash(
+        repo.object_hash(),
+        gix::object::Kind::Blob,
+        &bytes,
+    )?)
 }
 
 /// Most importantly, this function allows to skip over untrackable entries, like named pipes, sockets and character devices, just like Git.

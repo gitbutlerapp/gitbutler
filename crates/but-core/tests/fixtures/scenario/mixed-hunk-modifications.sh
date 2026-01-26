@@ -9,11 +9,14 @@
 set -eu -o pipefail
 
 git init
-seq 5 18 >file && chmod +x file
+seq 5 18 >file
+chmod +x file 2>/dev/null || true
 seq 5 18 >file-in-index
 seq 5 18 >file-to-be-renamed
 seq 5 18 >file-to-be-renamed-in-index
-git add . && git commit -m "init"
+git add .
+git update-index --chmod=+x file
+git commit -m "init"
 
 cat <<EOF >file
 1
@@ -34,17 +37,17 @@ eleven
 16
 EOF
 
-chmod -x file
+chmod -x file 2>/dev/null || true
 
 cp file file-in-index && \
   chmod +x file-in-index && \
-  git add file-in-index
+  git add file-in-index && \
+  git update-index --chmod=+x file-in-index
 
 
 seq 2 18 >file-to-be-renamed && \
   mv file-to-be-renamed file-renamed && \
-  chmod +x file-renamed
+  chmod +x file-renamed 2>/dev/null || true
 cp file file-to-be-renamed-in-index && \
   git mv file-to-be-renamed-in-index file-renamed-in-index
-
 

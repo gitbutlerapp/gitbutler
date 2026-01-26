@@ -340,8 +340,7 @@ pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
         path.is_file(),
         "Expecting driver to be located at {path:?} - we also assume a certain crate location"
     );
-    path.canonicalize()
-        .expect("canonicalization works as the CWD is valid and there are no symlinks to resolve")
+    canonicalize_driver_path(&path)
 });
 
 pub(crate) static BUT_DRIVER: Lazy<PathBuf> = Lazy::new(|| {
@@ -359,9 +358,28 @@ pub(crate) static BUT_DRIVER: Lazy<PathBuf> = Lazy::new(|| {
         path.is_file(),
         "Expecting but driver to be located at {path:?} - we also assume a certain crate location"
     );
-    path.canonicalize()
-        .expect("canonicalization works as the CWD is valid and there are no symlinks to resolve")
+    canonicalize_driver_path(&path)
 });
+
+fn canonicalize_driver_path(path: &Path) -> PathBuf {
+    let path = path
+        .canonicalize()
+        .expect("canonicalization works as the CWD is valid and there are no symlinks to resolve");
+    strip_windows_verbatim_prefix(path)
+}
+
+fn strip_windows_verbatim_prefix(path: PathBuf) -> PathBuf {
+    #[cfg(windows)]
+    {
+        let path_str = path.to_string_lossy();
+        if let Some(stripped) = path_str.strip_prefix(r"\\?\")
+            && stripped.chars().nth(1) == Some(':')
+        {
+            return PathBuf::from(stripped);
+        }
+    }
+    path
+}
 
 /// A secrets store to prevent secrets to be written into the systems own store.
 ///

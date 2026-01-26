@@ -247,7 +247,13 @@ fn worktree_integration_inner(
             .map(|s| s.head_oid(ctx))
             .collect::<Result<Vec<_>>>()?;
         let before = WorkspaceState::create_from_heads(ctx, perm, &before_heads)?;
-        let before = merge_workspace(&*ctx.git2_repo.get()?, before)?;
+        let before = match merge_workspace(&*ctx.git2_repo.get()?, before) {
+            Ok(before) => before,
+            Err(err) if is_git_merge_conflict(&err) => {
+                return Ok((WorktreeIntegrationStatus::CausesWorkspaceConflicts, None));
+            }
+            Err(err) => return Err(err),
+        };
         let mut after_heads = stacks
             .iter()
             .filter(|s| s.id != stack.id)
@@ -255,7 +261,13 @@ fn worktree_integration_inner(
             .collect::<Result<Vec<_>>>()?;
         after_heads.push(output.top_commit);
         let after = WorkspaceState::create_from_heads(ctx, perm, &after_heads)?;
-        let after = merge_workspace(&*ctx.git2_repo.get()?, after)?;
+        let after = match merge_workspace(&*ctx.git2_repo.get()?, after) {
+            Ok(after) => after,
+            Err(err) if is_git_merge_conflict(&err) => {
+                return Ok((WorktreeIntegrationStatus::CausesWorkspaceConflicts, None));
+            }
+            Err(err) => return Err(err),
+        };
         let index = move_tree(&*ctx.git2_repo.get()?, wd_tree.to_git2(), before, after)?;
 
         index.has_conflicts()
@@ -272,4 +284,11 @@ fn worktree_integration_inner(
             stack,
         }),
     ))
+}
+
+fn is_git_merge_conflict(err: &anyhow::Error) -> bool {
+    // Without a direct `git2` dependency in this crate, we can't check `ErrorCode::MergeConflict`.
+    // Detect the canonical libgit2 error message instead.
+    let msg = err.root_cause().to_string();
+    msg.contains("MergeConflict") || msg.contains("merge conflicts exist")
 }

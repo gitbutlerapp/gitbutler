@@ -24,7 +24,7 @@ pub fn worktree_list(
         .worktrees()?
         .into_iter()
         .filter_map(|w| {
-            let path = w.base().ok()?;
+            let path = w.base().ok()?.canonicalize().ok()?;
 
             // Extract ID from path to find matching metadata
             let id = WorktreeId::from_path(&path).ok()?;

@@ -5,6 +5,10 @@ set -eu -o pipefail
 
 git init many-in-worktree
 (cd many-in-worktree
+  # Avoid OS-level symlinks (not available on all Windows setups) while still
+  # producing link changes for the fixtures.
+  git config core.symlinks false
+
   touch removed-in-worktree \
         removed-in-index \
         modified-in-worktree \
@@ -30,11 +34,13 @@ git init many-in-worktree
   git rm --cached removed-in-index-changed-in-worktree
   echo worktree-change >>removed-in-index-changed-in-worktree
 
-  chmod +x executable-bit-added
+  git update-index --chmod=+x executable-bit-added
 
   echo content >added-to-index && git add added-to-index
 
-  rm file-to-link && ln -s link-target file-to-link
+  link_target_oid=$(printf '%s' link-target | git hash-object -w --stdin)
+  printf "120000 %s 0\tfile-to-link\n" "$link_target_oid" | git update-index --index-info
+  printf '%s' link-target >file-to-link
 
   empty=$(git hash-object -w --stdin </dev/null)
   a=$(echo "a" | git hash-object -w --stdin)
@@ -48,6 +54,8 @@ EOF
 
 git init many-in-tree
 (cd many-in-tree
+  git config core.symlinks false
+
   mkdir dir
   touch removed \
         dir/nested \
@@ -62,8 +70,11 @@ git init many-in-tree
 
   echo change >modified
   git mv aa-renamed-old-name aa-renamed-new-name
-  chmod +x executable-bit-added
-  rm file-to-link && ln -s link-target file-to-link
+  git add .
+  git update-index --chmod=+x executable-bit-added
+  link_target_oid=$(printf '%s' link-target | git hash-object -w --stdin)
+  printf "120000 %s 0\tfile-to-link\n" "$link_target_oid" | git update-index --index-info
 
-  git add . && git commit -m "change"
+  git commit -m "change"
+  git checkout -f HEAD
 )

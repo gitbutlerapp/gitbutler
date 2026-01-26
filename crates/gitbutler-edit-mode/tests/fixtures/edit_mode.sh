@@ -8,6 +8,7 @@ git init repo
 (cd repo
   git config user.name "Author"
   git config user.email "author@example.com"
+  git config core.autocrlf input
   echo a > file
   git add . && git commit -m "init"
 )
@@ -25,6 +26,7 @@ git clone repo conficted_entries_get_written_when_leaving_edit_mode
 (cd conficted_entries_get_written_when_leaving_edit_mode
   git config user.name "Author"
   git config user.email "author@example.com"
+  git config core.autocrlf input
   git checkout -b left
   echo left > conflict
   git add . && git commit -m "left"

@@ -144,7 +144,12 @@ pub fn safe_checkout(
 
         git2_repo.checkout_tree(
             &destination_tree,
-            Some(opts.update_index(true).force().disable_pathspec_match(true)),
+            Some(
+                opts.update_index(true)
+                    .force()
+                    .disable_pathspec_match(true)
+                    .disable_filters(true),
+            ),
         )?;
 
         if num_deleted_files > 0

@@ -15,6 +15,26 @@ pub fn isolate_env_std_cmd(cmd: &mut std::process::Command) -> &mut std::process
     cmd
 }
 
+/// Apply the same environment isolation as [`isolate_env_std_cmd`] to the current process.
+///
+/// This is useful for tests that execute library code which spawns `git` without going through the
+/// test helpers, ensuring global/user/system git configuration does not leak into test behavior.
+pub fn isolate_process_env() {
+    static ONCE: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    ONCE.get_or_init(|| {
+        // SAFETY: environment mutation is process-global and potentially racy. We set these at most once,
+        // and do so as part of test setup.
+        unsafe {
+            for op in updates() {
+                match op {
+                    EnvOp::Remove(var) => std::env::remove_var(var),
+                    EnvOp::Add { name, value } => std::env::set_var(name, value),
+                }
+            }
+        }
+    });
+}
+
 /// Change the `cmd` environment to be very isolated, particularly when Git is involved.
 #[cfg(feature = "snapbox")]
 pub fn isolate_snapbox_cmd(mut cmd: snapbox::cmd::Command) -> snapbox::cmd::Command {

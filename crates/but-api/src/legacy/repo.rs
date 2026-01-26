@@ -107,6 +107,7 @@ pub fn pre_commit_hook_diffspecs(
         &repository,
         &mut changes,
         context_lines,
+        but_core::tree::ApplyWorktreeChangesMode::ForCommit,
     )?;
 
     hooks::pre_commit_with_tree(&ctx, new_tree.to_git2())

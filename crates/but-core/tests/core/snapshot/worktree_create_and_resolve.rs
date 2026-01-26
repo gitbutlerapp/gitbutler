@@ -53,6 +53,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
 
     let out = snapshot::create_tree(head_tree_id, state.clone())?;
     assert!(!out.is_empty(), "it picks up the untracked files");
+    #[cfg(not(windows))]
     insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
     a863d4e
     ├── HEAD:4b825dc 
@@ -61,6 +62,16 @@ fn unborn_untracked() -> anyhow::Result<()> {
         ├── untracked:100644:d95f3ad "content\n"
         └── untracked-exe:100755:86daf54 "exe\n"
     "#);
+    #[cfg(windows)]
+    insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
+    3500f27
+    ├── HEAD:4b825dc 
+    └── worktree:92efebf 
+        ├── link:100644:faf96c1 "untracked"
+        ├── untracked:100644:d95f3ad "content\n"
+        └── untracked-exe:100644:86daf54 "exe\n"
+    "#);
+    #[cfg(not(windows))]
     insta::assert_debug_snapshot!(out, @r"
     Outcome {
         snapshot_tree: Sha1(a863d4e32304f2f8e5d80b18a4f6fd614c052590),
@@ -110,6 +121,7 @@ fn worktree_all_filetypes() -> anyhow::Result<()> {
     let (head_tree_id, mut state) = args_for_worktree_changes(&repo)?;
 
     let out = snapshot::create_tree(head_tree_id, state.clone())?;
+    #[cfg(not(windows))]
     insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
     9d274f3
     ├── HEAD:3fd29f0 
@@ -121,7 +133,20 @@ fn worktree_all_filetypes() -> anyhow::Result<()> {
         ├── file-renamed:100644:c5c4315 "5\n6\n7\n8\n9\n10\n"
         └── link-renamed:120000:94e4e07 "other-nonexisting-target"
     "#);
+    #[cfg(windows)]
+    insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
+    be01cd8
+    ├── HEAD:3fd29f0 
+    │   ├── executable:100755:01e79c3 "1\n2\n3\n"
+    │   ├── file:100644:3aac70f "5\n6\n7\n8\n"
+    │   └── link:120000:c4c364c "nonexisting-target"
+    └── worktree:bf9bf90 
+        ├── executable-renamed:100644:8a1218a "1\n2\n3\n4\n5\n"
+        ├── file-renamed:100644:c5c4315 "5\n6\n7\n8\n9\n10\n"
+        └── link-renamed:100644:94e4e07 "other-nonexisting-target"
+    "#);
 
+    #[cfg(not(windows))]
     insta::assert_debug_snapshot!(out, @r"
     Outcome {
         snapshot_tree: Sha1(9d274f3ad046ca7d50285c6c5056bfe89f16587c),

@@ -40,7 +40,7 @@ fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {
     let worktree = repo.worktrees()?[0].clone();
     let worktree_repo = worktree.clone().into_repo()?;
     assert_eq!(
-        worktree.base()?,
+        worktree.base()?.canonicalize()?,
         outcome.created.path.canonicalize()?,
         "Worktree should be created where we say"
     );
@@ -88,7 +88,7 @@ fn can_create_worktree_from_feature_b() -> anyhow::Result<()> {
     let worktree = repo.worktrees()?[0].clone();
     let worktree_repo = worktree.clone().into_repo()?;
     assert_eq!(
-        worktree.base()?,
+        worktree.base()?.canonicalize()?,
         outcome.created.path.canonicalize()?,
         "Worktree should be created where we say"
     );
@@ -136,7 +136,7 @@ fn can_create_worktree_from_feature_c() -> anyhow::Result<()> {
     let worktree = repo.worktrees()?[0].clone();
     let worktree_repo = worktree.clone().into_repo()?;
     assert_eq!(
-        worktree.base()?,
+        worktree.base()?.canonicalize()?,
         outcome.created.path.canonicalize()?,
         "Worktree should be created where we say"
     );

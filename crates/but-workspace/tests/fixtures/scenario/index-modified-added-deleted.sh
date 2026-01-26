@@ -8,22 +8,19 @@ set -eu -o pipefail
 git init
 echo content > modified-content
 echo change-exe-bit > modified-exe
-echo "soon deleted in index but left on disk" > deleted-exe && chmod +x deleted-exe
-mkfifo fifo-should-be-ignored
+echo "soon deleted in index but left on disk" > deleted-exe
 
-git add . && git commit -m "init"
+git add .
+git update-index --chmod=+x deleted-exe
+git commit -m "init"
 
 echo index-content >modified-content && \
   git add modified-content && \
   echo content >modified-content
 
-ln -s only-in-index link && \
-  git add link && \
-  rm link
+link_oid=$(printf '%s' only-in-index | git hash-object -w --stdin)
+printf "120000 %s 0\tlink\n" "$link_oid" | git update-index --index-info
 
 git rm --cached deleted-exe
 
-chmod +x modified-exe && \
-  git add modified-exe && \
-  chmod -x modified-exe
-
+git update-index --chmod=+x modified-exe

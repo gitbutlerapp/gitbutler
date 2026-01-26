@@ -12,9 +12,17 @@ git init embedded-repository
 git init
 git submodule add ./embedded-repository submodule
 echo content >file-to-remain
-echo exe >executable && chmod +x executable
-ln -s file-to-remain link
-git add . && git commit -m "init"
+echo exe >executable
+chmod +x executable 2>/dev/null || true
+if ln -s file-to-remain link 2>/dev/null; then
+  :
+else
+  printf '%s' file-to-remain >link
+fi
+git add .
+git update-index --chmod=+x executable
+link_oid=$(printf '%s' file-to-remain | git hash-object -w --stdin)
+printf "120000 %s 0\tlink\n" "$link_oid" | git update-index --index-info
+git commit -m "init"
 
 rm -Rf ./embedded-repository/ ./submodule/ executable link .gitmodules
-

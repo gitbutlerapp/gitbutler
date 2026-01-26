@@ -139,6 +139,7 @@ pub(super) mod function {
             repo,
             &mut changes_to_apply,
             0, /* context lines don't matter */
+            tree::ApplyWorktreeChangesMode::ForSnapshot,
         )?;
 
         let rejected = changes_to_apply

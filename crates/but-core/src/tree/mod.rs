@@ -67,6 +67,17 @@ pub struct CreateTreeOutcome {
     pub changed_tree_pre_cherry_pick: Option<gix::ObjectId>,
 }
 
+/// Controls how worktree entries are converted into tree entries when applying changes.
+#[derive(Debug, Copy, Clone)]
+pub enum ApplyWorktreeChangesMode {
+    /// Prefer the entry kind as it should be represented in Git (e.g. executable bits, symlinks).
+    ///
+    /// This is useful on platforms where the filesystem cannot faithfully represent these modes.
+    ForCommit,
+    /// Prefer the entry kind as it is represented in the worktree filesystem.
+    ForSnapshot,
+}
+
 /// A lower-level function that only returns a new tree, without finally associating it with a commit.
 pub fn create_tree(
     repo: &gix::Repository,
@@ -94,7 +105,13 @@ pub fn create_tree(
                             .into()
                     })
                     .unwrap_or(target_tree);
-                apply_worktree_changes(changes_base_tree, repo, &mut changes, context_lines)?
+                apply_worktree_changes(
+                    changes_base_tree,
+                    repo,
+                    &mut changes,
+                    context_lines,
+                    ApplyWorktreeChangesMode::ForCommit,
+                )?
             };
 
             let tree_with_changes = if new_tree == actual_base_tree
@@ -183,15 +200,18 @@ pub fn apply_worktree_changes<'repo>(
     repo: &'repo gix::Repository,
     changes: &mut [PossibleChange],
     context_lines: u32,
+    mode: ApplyWorktreeChangesMode,
 ) -> anyhow::Result<(gix::Id<'repo>, gix::ObjectId)> {
     let base_tree = actual_base_tree.attach(repo).object()?.peel_to_tree()?;
     let mut base_tree_editor = base_tree.edit()?;
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
+    let should_infer_entry_kind =
+        matches!(mode, ApplyWorktreeChangesMode::ForCommit) && cfg!(windows);
     let has_changes_with_hunks = changes
         .iter()
         .filter_map(|c| c.as_ref().ok())
         .any(|c| !c.hunk_headers.is_empty());
-    let worktree_changes = has_changes_with_hunks
+    let worktree_changes = (has_changes_with_hunks || should_infer_entry_kind)
         .then(|| crate::diff::worktree_changes(repo).map(|wtc| wtc.changes))
         .transpose()?;
     let mut current_worktree = Vec::new();
@@ -219,6 +239,37 @@ pub fn apply_worktree_changes<'repo>(
             let rela_path = change_request.path.as_bstr();
             match pipeline.worktree_file_to_object(rela_path, &index)? {
                 Some((id, kind, _fs_metadata)) => {
+                    let kind = if should_infer_entry_kind {
+                        worktree_changes
+                            .as_ref()
+                            .and_then(|worktree_changes| {
+                                worktree_changes.iter().find(|c| {
+                                    c.path == change_request.path
+                                        && c.previous_path()
+                                            == change_request
+                                                .previous_path
+                                                .as_ref()
+                                                .map(|p| p.as_bstr())
+                                })
+                            })
+                            .and_then(|c| {
+                                let kind = c.status.state().map(|state| state.kind)?;
+                                let kind = match &c.status {
+                                    crate::TreeStatus::Rename { previous_state, .. }
+                                        if cfg!(windows)
+                                            && previous_state.kind == EntryKind::Link
+                                            && kind == EntryKind::Blob =>
+                                    {
+                                        EntryKind::Link
+                                    }
+                                    _ => kind,
+                                };
+                                Some(kind)
+                            })
+                            .unwrap_or(kind)
+                    } else {
+                        kind
+                    };
                     base_tree_editor.upsert(rela_path, kind, id)?;
                 }
                 None => into_err_spec(
@@ -287,7 +338,22 @@ pub fn apply_worktree_changes<'repo>(
                 .map(|(state, maybe_path)| (Some(state), maybe_path))
                 .unwrap_or_default();
             let base_rela_path = previous_path.unwrap_or(change_request.path.as_bstr());
-            let current_entry_kind = if md.is_symlink() {
+            let current_entry_kind = if should_infer_entry_kind {
+                let Some(mut current_entry_kind) =
+                    worktree_change.status.state().map(|state| state.kind)
+                else {
+                    into_err_spec(possible_change, RejectionReason::UnsupportedDirectoryEntry);
+                    continue;
+                };
+                if previous_path.is_some()
+                    && previous_state.is_some_and(|state| state.kind == EntryKind::Link)
+                    && current_entry_kind == EntryKind::Blob
+                    && !md.is_symlink()
+                {
+                    current_entry_kind = EntryKind::Link;
+                }
+                current_entry_kind
+            } else if md.is_symlink() {
                 EntryKind::Link
             } else if md.is_file() {
                 if md.is_executable() {
@@ -300,6 +366,14 @@ pub fn apply_worktree_changes<'repo>(
                 into_err_spec(possible_change, RejectionReason::UnsupportedDirectoryEntry);
                 continue;
             };
+            if !matches!(
+                current_entry_kind,
+                EntryKind::Blob | EntryKind::BlobExecutable | EntryKind::Link
+            ) {
+                // This could be a fifo (skip) or a repository. But that wouldn't have hunks.
+                into_err_spec(possible_change, RejectionReason::UnsupportedDirectoryEntry);
+                continue;
+            }
 
             let worktree_base = match previous_state {
                 None => Vec::new(),

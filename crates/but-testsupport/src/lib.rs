@@ -9,6 +9,8 @@ use gix::{
 };
 pub use gix_testtools;
 use gix_testtools::{Creation, tempfile};
+#[cfg(windows)]
+use std::sync::{Mutex, OnceLock};
 
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
@@ -102,9 +104,14 @@ pub fn invoke_bash_at_dir(script: &str, dir: &Path) {
 /// * it's isolated and won't load environment variables.
 /// * an object cache is set for minor speed boost.
 pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
+    ensure_isolated_git_configuration_for_tests();
     let mut repo = gix::open_opts(path, open_repo_config()?)?;
     repo.object_cache_size_if_unset(512 * 1024);
     Ok(repo)
+}
+
+fn ensure_isolated_git_configuration_for_tests() {
+    prepare_cmd_env::isolate_process_env();
 }
 
 /// Return isolated configuration with a basic setup to run read-only and read-write tests.
@@ -470,6 +477,34 @@ pub fn read_only_in_memory_scenario_named(
     script_name: &str,
     dirname: &str,
 ) -> anyhow::Result<gix::Repository> {
+    #[cfg(windows)]
+    static FIXTURE_CACHE: OnceLock<
+        Mutex<HashMap<String, (std::path::PathBuf, tempfile::TempDir)>>,
+    > = OnceLock::new();
+
+    #[cfg(windows)]
+    let root = {
+        let cache = FIXTURE_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        let mut cache = cache.lock().expect("not poisoned");
+
+        if let Some((root, _keep_alive)) = cache.get(script_name) {
+            root.clone()
+        } else {
+            // Use a short temp path on Windows to avoid MAX_PATH failures when fixtures contain
+            // deeply nested repos (e.g. refs like `.git/refs/heads/gitbutler/workspace`).
+            let tempdir = gix_testtools::scripted_fixture_writable_with_args_single_archive(
+                format!("scenario/{script_name}.sh"),
+                None::<String>,
+                gix_testtools::Creation::ExecuteScript,
+            )
+            .map_err(anyhow::Error::from_boxed)?;
+            let root = tempdir.path().to_owned();
+            cache.insert(script_name.to_owned(), (root.clone(), tempdir));
+            root
+        }
+    };
+
+    #[cfg(not(windows))]
     let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
     let repo = open_repo(&root.join(dirname))?.with_object_memory();

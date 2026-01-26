@@ -1,8 +1,9 @@
 use but_core::worktree::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout};
+#[cfg(unix)]
+use but_testsupport::visualize_disk_tree_skip_dot_git;
 use but_testsupport::{
-    git_status, read_only_in_memory_scenario, visualize_commit_graph_all,
-    visualize_disk_tree_skip_dot_git, visualize_index, visualize_tree, writable_scenario,
-    writable_scenario_slow,
+    git_status, read_only_in_memory_scenario, visualize_commit_graph_all, visualize_index,
+    visualize_tree, writable_scenario, writable_scenario_slow,
 };
 use gix::{object::tree::EntryKind, prelude::ObjectIdExt};
 
@@ -398,6 +399,7 @@ fn snapshot_fails_by_default_if_changed_file_turns_into_directory() -> anyhow::R
 
     let out = safe_checkout(head_commit.id, new_commit.id, &repo, overwrite_options())
         .expect("no error as we keep the snapshot for later");
+    #[cfg(not(windows))]
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         snapshot_tree: Some(
@@ -408,6 +410,19 @@ fn snapshot_fails_by_default_if_changed_file_turns_into_directory() -> anyhow::R
         head_update: "Update refs/heads/main to Some(Object(Sha1(434b90855459c3a7421a7c8b32b3423e6eafe107)))",
     }
     "#);
+    #[cfg(windows)]
+    {
+        assert!(
+            out.snapshot_tree.is_some(),
+            "a snapshot tree is kept for later"
+        );
+        assert_eq!(out.num_deleted_files, 2);
+        assert_eq!(out.num_added_or_updated_files, 2);
+        assert!(
+            out.head_update.is_some(),
+            "HEAD moves to the new commit when forcing checkout"
+        );
+    }
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 434b908 (HEAD -> main) turn changed files into a directories
     * 647cc94 init
@@ -653,6 +668,7 @@ fn forced_changes_with_snapshot_and_directory_to_file() -> anyhow::Result<()> {
     100644:dcefb7d other-file
     100644:e69de29 to-be-overwritten
     ");
+    #[cfg(unix)]
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
     .
     ├── .git:40755
@@ -684,6 +700,7 @@ fn forced_changes_with_snapshot_and_directory_to_file() -> anyhow::Result<()> {
         "dir to file and file to dir",
     )?;
     let out = safe_checkout(head_commit.id, new_commit.id, &repo, overwrite_options())?;
+    #[cfg(not(windows))]
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         snapshot_tree: Some(
@@ -694,9 +711,23 @@ fn forced_changes_with_snapshot_and_directory_to_file() -> anyhow::Result<()> {
         head_update: "Update refs/heads/main to Some(Object(Sha1(ace716c5fae006fe5c7057017bafbdadf1e2fcbb)))",
     }
     "#);
+    #[cfg(windows)]
+    {
+        assert!(
+            out.snapshot_tree.is_some(),
+            "a snapshot tree is kept for later"
+        );
+        assert_eq!(out.num_deleted_files, 2);
+        assert_eq!(out.num_added_or_updated_files, 2);
+        assert!(
+            out.head_update.is_some(),
+            "HEAD moves to the new commit when forcing checkout"
+        );
+    }
 
     // TODO: use `gix` to also checkout 'dir-to-be-file', for some reason `git2` doesn't check it out
     //       even though it's given and it's part of the tree.
+    #[cfg(unix)]
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
     .
     ├── .git:40755
@@ -782,6 +813,7 @@ fn forced_changes_with_snapshot_and_directory_to_file() -> anyhow::Result<()> {
     // 'file-to-be-dir/file' is locally present, *and* added to the index.
     // Both the file on disk and in the index remain.
     // link-renamed was untracked, and is also still present.
+    #[cfg(unix)]
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
     .
     ├── .git:40755

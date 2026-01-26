@@ -3,6 +3,12 @@ use but_meta::{
     VirtualBranchesTomlMetadata,
     virtual_branches_legacy_types::{Stack, StackBranch, Target},
 };
+#[cfg(windows)]
+use std::{
+    any::Any,
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
+};
 
 pub fn read_only_in_memory_scenario(
     name: &str,
@@ -34,6 +40,32 @@ pub fn read_only_in_memory_scenario_named(
     script_name: &str,
     dirname: &str,
 ) -> anyhow::Result<gix::Repository> {
+    #[cfg(windows)]
+    type FixtureCache = OnceLock<Mutex<HashMap<String, (std::path::PathBuf, Box<dyn Any + Send>)>>>;
+    #[cfg(windows)]
+    static FIXTURE_CACHE: FixtureCache = OnceLock::new();
+
+    #[cfg(windows)]
+    let root = {
+        let cache = FIXTURE_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        let mut cache = cache.lock().expect("not poisoned");
+
+        if let Some((root, _keep_alive)) = cache.get(script_name) {
+            root.clone()
+        } else {
+            let tempdir = gix_testtools::scripted_fixture_writable_with_args_single_archive(
+                format!("{script_name}.sh"),
+                None::<String>,
+                gix_testtools::Creation::ExecuteScript,
+            )
+            .map_err(anyhow::Error::from_boxed)?;
+            let root = tempdir.path().to_owned();
+            cache.insert(script_name.to_owned(), (root.clone(), Box::new(tempdir)));
+            root
+        }
+    };
+
+    #[cfg(not(windows))]
     let root = gix_testtools::scripted_fixture_read_only(format!("{script_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
     let repo =

@@ -55,7 +55,7 @@ fn commit_with_message_file_not_found() -> anyhow::Result<()> {
 Error: Failed to read commit message from file: nonexistent-file.txt
 
 Caused by:
-    No such file or directory (os error 2)
+    [..] (os error 2)
 
 "#]]);
 
@@ -365,7 +365,7 @@ fn commit_empty_rejects_both_flags() -> anyhow::Result<()> {
         .stderr_eq(str![[r#"
 error: the argument '--before <BEFORE>' cannot be used with '--after <AFTER>'
 
-Usage: but commit empty --before <BEFORE> [TARGET]
+Usage: but[EXE] commit empty --before <BEFORE> [TARGET]
 
 For more information, try '--help'.
 
@@ -507,7 +507,7 @@ fn commit_ai_conflicts_with_message() -> anyhow::Result<()> {
         .stderr_eq(str![[r#"
 error: the argument '--ai [<AI>]' cannot be used with '--message <MESSAGE>'
 
-Usage: but commit --ai [<AI>] [BRANCH]
+Usage: but[EXE] commit --ai [<AI>] [BRANCH]
 
 For more information, try '--help'.
 
@@ -530,7 +530,7 @@ fn commit_ai_conflicts_with_file() -> anyhow::Result<()> {
         .stderr_eq(str![[r#"
 error: the argument '--ai [<AI>]' cannot be used with '--file <FILE>'
 
-Usage: but commit --ai [<AI>] [BRANCH]
+Usage: but[EXE] commit --ai [<AI>] [BRANCH]
 
 For more information, try '--help'.
 

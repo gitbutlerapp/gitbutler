@@ -10,6 +10,7 @@ fn unborn_added_to_index() -> anyhow::Result<()> {
     let (head_tree_id, mut state) = args_for_worktree_changes(&repo)?;
 
     let out = snapshot::create_tree(head_tree_id, state.clone())?;
+    #[cfg(not(windows))]
     insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
     085f2bf
     ├── HEAD:4b825dc 
@@ -22,6 +23,20 @@ fn unborn_added_to_index() -> anyhow::Result<()> {
         ├── untracked:100644:d95f3ad "content\n"
         └── untracked-exe:100755:86daf54 "exe\n"
     "#);
+    #[cfg(windows)]
+    insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
+    f84ea4f
+    ├── HEAD:4b825dc 
+    ├── index:7f802e9 
+    │   ├── link:120000:faf96c1 "untracked"
+    │   ├── untracked:100644:d95f3ad "content\n"
+    │   └── untracked-exe:100755:86daf54 "exe\n"
+    └── worktree:92efebf 
+        ├── link:100644:faf96c1 "untracked"
+        ├── untracked:100644:d95f3ad "content\n"
+        └── untracked-exe:100644:86daf54 "exe\n"
+    "#);
+    #[cfg(not(windows))]
     insta::assert_debug_snapshot!(out, @r"
     Outcome {
         snapshot_tree: Sha1(085f2bfb08640d035adff078f19d75477fea1a86),

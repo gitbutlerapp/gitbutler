@@ -71,7 +71,7 @@ fn worktree_changes() -> anyhow::Result<()> {
                 "kind": "Blob"
               },
               "state": {
-                "id": "0000000000000000000000000000000000000000",
+                "id": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
                 "kind": "BlobExecutable"
               },
               "flags": "ExecutableBitAdded"
@@ -102,7 +102,7 @@ fn worktree_changes() -> anyhow::Result<()> {
                 "kind": "Blob"
               },
               "state": {
-                "id": "0000000000000000000000000000000000000000",
+                "id": "7ad106d48bf91c7ef87a38db2397b661a50102f5",
                 "kind": "Link"
               },
               "flags": "TypeChangeFileToLink"

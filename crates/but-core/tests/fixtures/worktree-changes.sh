@@ -82,8 +82,10 @@ git init renamed-in-index
 
 git init renamed-in-index-with-executable-bit
 (cd renamed-in-index-with-executable-bit
-  echo content >to-be-renamed && chmod +x to-be-renamed
-  git add . && git commit -m "init"
+  echo content >to-be-renamed
+  git add .
+  git update-index --chmod=+x to-be-renamed
+  git commit -m "init"
   git mv to-be-renamed new-name
 )
 
@@ -96,8 +98,11 @@ git init renamed-in-worktree
 
 git init renamed-in-worktree-with-executable-bit
 (cd renamed-in-worktree-with-executable-bit
-  echo content >to-be-renamed && chmod +x to-be-renamed
-  git add . && git commit -m "init"
+  echo content >to-be-renamed
+  git add .
+  git update-index --chmod=+x to-be-renamed
+  git commit -m "init"
+  git config core.fileMode false
   mv to-be-renamed new-name
 )
 
@@ -119,18 +124,35 @@ git init modified-in-index-and-worktree-mod-mod-noop
 
 git init modified-in-index-and-worktree-mod-mod-symlink
 (cd modified-in-index-and-worktree-mod-mod-symlink
-  ln -s nonexisting-initial link
-  git add . && git commit -m "init"
-  rm link && ln -s nonexisting-index link && git add .
-  rm link && ln -s nonexisting-wt-change link
+  # Avoid OS-level symlinks (not available on all Windows setups) while still
+  # creating proper git symlink entries (mode 120000). Git will check these out
+  # as regular files with link-target contents when core.symlinks is disabled.
+  git config core.symlinks false
+
+  initial_oid=$(printf '%s' nonexisting-initial | git hash-object -w --stdin)
+  printf "120000 %s 0\tlink\n" "$initial_oid" | git update-index --index-info
+  git commit -m "init"
+
+  git checkout -f HEAD
+
+  index_oid=$(printf '%s' nonexisting-index | git hash-object -w --stdin)
+  printf "120000 %s 0\tlink\n" "$index_oid" | git update-index --index-info
+
+  printf '%s' nonexisting-wt-change >link
 )
 
 git init modified-in-index-and-worktree-mod-mod-symlink-noop
 (cd modified-in-index-and-worktree-mod-mod-symlink-noop
-  ln -s nonexisting-initial link
-  git add . && git commit -m "init"
-  rm link && ln -s nonexisting-index link && git add .
-  rm link && ln -s nonexisting-initial link
+  git config core.symlinks false
+
+  initial_oid=$(printf '%s' nonexisting-initial | git hash-object -w --stdin)
+  printf "120000 %s 0\tlink\n" "$initial_oid" | git update-index --index-info
+  git commit -m "init"
+
+  git checkout -f HEAD
+
+  index_oid=$(printf '%s' nonexisting-index | git hash-object -w --stdin)
+  printf "120000 %s 0\tlink\n" "$index_oid" | git update-index --index-info
 )
 
 git init modified-in-index-and-worktree-add-mod
