@@ -1,9 +1,12 @@
 use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::graph_rebase::{GraphExt, testing::Testing as _};
-use but_testsupport::{graph_tree, visualize_commit_graph_all};
+use but_testsupport::{StackState, graph_tree, visualize_commit_graph_all};
 
-use crate::utils::{fixture, standard_options};
+use crate::{
+    graph_rebase::add_stack_with_segments,
+    utils::{fixture, fixture_writable, standard_options},
+};
 
 #[test]
 fn four_commits() -> Result<()> {
@@ -127,7 +130,6 @@ fn many_references() -> Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @r"
-
     └── 👉►:0[0]:main[🌳]
         ├── ·120e3a9 (⌂|1)
         ├── ·a96434e (⌂|1)
@@ -171,7 +173,6 @@ fn first_parent_leg_long() -> Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @r"
-
     └── 👉►:0[0]:with-inner-merge[🌳]
         └── ·6ac5745 (⌂|1)
             └── ►:1[1]:anon:
@@ -229,7 +230,6 @@ fn second_parent_leg_long() -> Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @r"
-
     └── 👉►:0[0]:with-inner-merge[🌳]
         └── ·a6775ea (⌂|1)
             └── ►:1[1]:anon:
@@ -262,6 +262,66 @@ fn second_parent_leg_long() -> Result<()> {
     ● refs/heads/main
     ● refs/tags/base
     ● 8f0d338 base
+    ╵
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn workspace_with_empty_stack() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
+
+    add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   74bcc92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    * | 2169646 (stack-1) Commit D
+    * | 46ef828 Commit C
+    |/  
+    | * a0f2ac5 (origin/main, main) Commit X
+    |/  
+    * f555940 (stack-2) Commit A
+    * d664be0 Commit B
+    * fafd9d0 init
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   └── ·74bcc92 (⌂|🏘|01)
+    │       ├── 📙►:3[1]:stack-1
+    │       │   ├── ·2169646 (⌂|🏘|01)
+    │       │   └── ·46ef828 (⌂|🏘|01)
+    │       │       └── ►:4[2]:anon: →:5:
+    │       │           ├── ·f555940 (⌂|🏘|✓|11)
+    │       │           ├── ·d664be0 (⌂|🏘|✓|11)
+    │       │           └── ·fafd9d0 (⌂|🏘|✓|11)
+    │       └── 📙►:5[1]:stack-2
+    │           └── →:4:
+    └── ►:1[0]:origin/main →:2:
+        └── ►:2[1]:main <> origin/main →:1:
+            └── ·a0f2ac5 (⌂|✓|10)
+                └── →:4:
+    ");
+
+    let editor = graph.to_editor(&repo)?;
+
+    insta::assert_snapshot!(editor.steps_ascii(), @r"
+    ● refs/heads/gitbutler/workspace
+    ● 74bcc92 GitButler Workspace Commit
+    ├─╮
+    ● │ refs/heads/stack-1
+    ● │ 2169646 Commit D
+    ● │ 46ef828 Commit C
+    │ ● refs/heads/stack-2
+    ├─╯
+    ● f555940 Commit A
+    ● d664be0 Commit B
+    ● fafd9d0 init
     ╵
     ");
 

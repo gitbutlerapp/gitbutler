@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashSet};
 
 use anyhow::Result;
-use but_graph::{Commit, CommitFlags, Graph, Segment};
-use petgraph::Direction;
+use but_graph::{Commit, CommitFlags, Graph, Segment, SegmentIndex};
+use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
     Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
@@ -24,17 +24,21 @@ impl GraphExt for Graph {
 
         // Commits in this list are ordered such that iterating in reverse will
         // have any relevant parent commits already inserted in the graph.
-        let mut commits: Vec<Commit> = Vec::new();
+        let mut commits: Vec<Commit> = vec![];
         // References are ordered from child-most to parent-most
         let mut references: BTreeMap<gix::ObjectId, Vec<gix::refs::FullName>> = BTreeMap::new();
 
         let mut head_refname = None;
         let workspace_commit_id = self.managed_entrypoint_commit(repo)?.map(|c| c.id);
 
+        let mut segment_ids = vec![];
+
         self.visit_all_segments_including_start_until(
             entrypoint.segment_index,
             Direction::Outgoing,
             |segment| {
+                segment_ids.push(segment.id);
+
                 // Make a note to create a reference for named segments
                 if let Some(refname) = segment.ref_name()
                     && let Some(commit) = find_nearest_commit(self, segment)
@@ -136,12 +140,37 @@ impl GraphExt for Graph {
             );
         }
 
-        for c in commits {
-            for (i, p) in c.parent_ids.iter().enumerate() {
-                if let (Some(StepChain { bottom, .. }), Some(StepChain { top, .. })) =
-                    (steps_for_commits.get(&c.id), steps_for_commits.get(p))
-                {
-                    graph.add_edge(*bottom, *top, Edge { order: i });
+        for sidx in segment_ids {
+            let s = &self[sidx];
+            for (idx, c) in s.commits.iter().enumerate() {
+                let parent_ids = if idx == s.commits.len() - 1 {
+                    find_segment_edge_commits(self, sidx)
+                } else {
+                    vec![CommitViaReference {
+                        commit: &s.commits[idx + 1],
+                        // We always want to point to the references point to a
+                        // commit within a segment.
+                        via_reference: true,
+                    }]
+                };
+
+                for (i, p) in parent_ids.iter().enumerate() {
+                    if let (
+                        Some(StepChain { bottom, .. }),
+                        Some(StepChain {
+                            top: top_p,
+                            bottom: bottom_p,
+                        }),
+                    ) = (
+                        steps_for_commits.get(&c.id),
+                        steps_for_commits.get(&p.commit.id),
+                    ) {
+                        if p.via_reference {
+                            graph.add_edge(*bottom, *top_p, Edge { order: i });
+                        } else {
+                            graph.add_edge(*bottom, *bottom_p, Edge { order: i });
+                        }
+                    }
                 }
             }
         }
@@ -190,4 +219,66 @@ fn find_nearest_commit<'graph>(
     }
 
     None
+}
+
+/// When we try to find the parent commits of the bottom commit in a given
+/// segment, did we also encounter a reference that points to the commit.
+struct CommitViaReference<'a> {
+    commit: &'a Commit,
+    /// Between the source sidx did we encounter a reference that points to the
+    /// commit
+    via_reference: bool,
+}
+
+/// For a given segment, find what the but_graph considers to be the parent
+/// commits.
+///
+/// It also annotates whether a reference was found between the bottom of the
+/// starting sidx and each parent commit.
+fn find_segment_edge_commits(
+    graph: &but_graph::Graph,
+    sidx: SegmentIndex,
+) -> Vec<CommitViaReference<'_>> {
+    struct SegmentViaReference {
+        sidx: SegmentIndex,
+        via_reference: bool,
+    }
+
+    let mut potential_parents = graph
+        .edges_directed(sidx, Direction::Outgoing)
+        .map(|p| SegmentViaReference {
+            sidx: p.target(),
+            via_reference: graph[p.target()].ref_name().is_some(),
+        })
+        .collect::<Vec<_>>();
+
+    let mut seen = potential_parents
+        .iter()
+        .map(|e| e.sidx)
+        .collect::<HashSet<_>>();
+
+    let mut parents = vec![];
+
+    while let Some(candidate) = potential_parents.pop() {
+        if let Some(commit) = graph[candidate.sidx].commits.first() {
+            parents.push(CommitViaReference {
+                commit,
+                via_reference: candidate.via_reference || !commit.refs.is_empty(),
+            });
+            // Don't pursue the children
+            continue;
+        };
+
+        for edge in graph.edges_directed(candidate.sidx, Direction::Outgoing) {
+            if seen.insert(edge.target()) {
+                potential_parents.push(SegmentViaReference {
+                    sidx: edge.target(),
+                    via_reference: candidate.via_reference
+                        || graph[edge.target()].ref_name().is_some(),
+                });
+            }
+        }
+    }
+
+    parents
 }
