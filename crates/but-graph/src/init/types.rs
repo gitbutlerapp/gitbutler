@@ -1,9 +1,8 @@
+use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
 use std::{
     collections::{BTreeSet, VecDeque},
     ops::Range,
 };
-
-use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
 
 use crate::{CommitFlags, CommitIndex, Edge, SegmentIndex};
 
@@ -181,6 +180,13 @@ pub struct Queue {
 
 /// Counted queuing
 impl Queue {
+    /// Sort the queue items so that the ones that are a goal themselves stay where they are,
+    /// while everything else is sorted so young commits come first.
+    pub fn sort(&mut self) {
+        self.inner
+            .make_contiguous()
+            .sort_by(|a, b| a.0.gen_then_time.cmp(&b.0.gen_then_time));
+    }
     #[must_use]
     pub fn push_back_exhausted(&mut self, item: QueueItem) -> bool {
         self.inner.push_back(item);

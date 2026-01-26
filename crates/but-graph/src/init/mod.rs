@@ -447,7 +447,12 @@ impl Graph {
             }
             // As workspaces typically have integration branches which can help us to stop the traversal,
             // pick these up first.
-            let ws_tip_info = find(commit_graph.as_ref(), repo.for_find_only(), ws_tip, &mut buf)?;
+            let ws_tip_info = find(
+                commit_graph.as_ref(),
+                repo.for_find_only(),
+                ws_tip,
+                &mut buf,
+            )?;
             _ = next.push_front_exhausted((
                 ws_tip_info,
                 CommitFlags::InWorkspace |
@@ -488,7 +493,12 @@ impl Graph {
                             }
                         };
                         let goal = goals.flag_for(target_local_tip).unwrap_or_default();
-                        let local_tip_info = find(commit_graph.as_ref(), repo.for_find_only(), target_local_tip, &mut buf)?;
+                        let local_tip_info = find(
+                            commit_graph.as_ref(),
+                            repo.for_find_only(),
+                            target_local_tip,
+                            &mut buf,
+                        )?;
                         _ = next.push_front_exhausted((
                             local_tip_info,
                             CommitFlags::NotInRemote | goal,
@@ -500,7 +510,12 @@ impl Graph {
                     } else {
                         (None, CommitFlags::empty())
                     };
-                let target_ref_info = find(commit_graph.as_ref(), repo.for_find_only(), target_ref_id, &mut buf)?;
+                let target_ref_info = find(
+                    commit_graph.as_ref(),
+                    repo.for_find_only(),
+                    target_ref_id,
+                    &mut buf,
+                )?;
                 _ = next.push_front_exhausted((
                     target_ref_info,
                     CommitFlags::Integrated,
@@ -606,7 +621,12 @@ impl Graph {
                         .map(SegmentMetadata::Branch);
                 }
                 let segment = graph.insert_segment(segment);
-                let segment_tip_info = find(commit_graph.as_ref(), repo.for_find_only(), segment_tip.detach(), &mut buf)?;
+                let segment_tip_info = find(
+                    commit_graph.as_ref(),
+                    repo.for_find_only(),
+                    segment_tip.detach(),
+                    &mut buf,
+                )?;
                 _ = next.push_back_exhausted((
                     segment_tip_info,
                     CommitFlags::NotInRemote,
@@ -624,7 +644,11 @@ impl Graph {
         )?;
         max_commits_recharge_location.sort();
         let mut no_duplicate_parents = gix::hashtable::HashSet::default();
+        let mut points_of_interest_to_traverse_first = next.iter().count();
         while let Some((info, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
+            points_of_interest_to_traverse_first =
+                points_of_interest_to_traverse_first.saturating_sub(1);
+
             let id = info.id;
             if max_commits_recharge_location.binary_search(&id).is_ok() {
                 limit.set_but_keep_goal(max_limit);
@@ -768,6 +792,9 @@ impl Graph {
             }
 
             prune_integrated_tips(&mut graph, &mut next)?;
+            if points_of_interest_to_traverse_first == 0 {
+                next.sort();
+            }
         }
 
         graph.post_processed(meta, tip, ctx)
@@ -826,10 +853,9 @@ fn add_extra_target<T: RefMetadata>(
     objects: &impl gix::objs::Find,
     buf: &mut Vec<u8>,
 ) -> anyhow::Result<SegmentIndex> {
-    let sidx = if let Some(existing_segment) =
-        next.iter().find_map(|(info, _, instruction, _)| {
-            (info.id == extra_target).then_some(instruction.segment_idx())
-        }) {
+    let sidx = if let Some(existing_segment) = next.iter().find_map(|(info, _, instruction, _)| {
+        (info.id == extra_target).then_some(instruction.segment_idx())
+    }) {
         // For now just assume the settings are good/similar enough so we don't
         // have to adjust the existing queue item.
         existing_segment

@@ -1,14 +1,4 @@
 //! Utilities for graph-walking specifically.
-use anyhow::{Context as _, bail};
-use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
-use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
-use petgraph::Direction;
-use std::cmp::Ordering;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::Deref,
-};
-
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
     Worktree,
@@ -18,6 +8,16 @@ use crate::{
         remotes,
         types::{EdgeOwned, Instruction, Limit, Queue, QueueItem},
     },
+};
+use anyhow::{Context as _, bail};
+use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
+use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
+use petgraph::Direction;
+use petgraph::prelude::EdgeRef;
+use std::cmp::Ordering;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::Deref,
 };
 
 pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
@@ -139,12 +139,14 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
 
 /// Split `sidx[commit..]` into its own segment and connect the parts. Move all connections in `commit..`
 /// from `sidx` to the new segment, and return that.
+/// Note that `standin` is used instead of creating a new buttom segment, and all its outgoing connections will be removed.
 pub fn split_commit_into_segment(
     graph: &mut Graph,
     next: &mut Queue,
     seen: &mut gix::revwalk::graph::IdMap<SegmentIndex>,
     sidx: SegmentIndex,
     commit: CommitIndex,
+    standin: Option<SegmentIndex>,
 ) -> anyhow::Result<SegmentIndex> {
     let mut bottom_segment = Segment {
         commits: graph[sidx].commits.clone(),
@@ -158,9 +160,57 @@ pub fn split_commit_into_segment(
         .into_iter()
         .skip(commits_in_top_segment)
         .collect();
-    let top_commit = graph[sidx].last_commit_index();
-    let bottom_id = bottom_segment.commits[0].id;
-    let bottom_segment = graph.connect_new_segment(sidx, top_commit, bottom_segment, 0, bottom_id);
+    let top_commit_index = graph[sidx].last_commit_index();
+    let bottom_commit_id = bottom_segment.commits[0].id;
+    let bottom_segment = match standin {
+        None => {
+            graph.connect_new_segment(sidx, top_commit_index, bottom_segment, 0, bottom_commit_id)
+        }
+        Some(standin_sidx) => {
+            let outgoing_edges: Vec<_> = graph
+                .edges_directed(standin_sidx, Direction::Outgoing)
+                .map(|e| e.id())
+                .collect();
+            for edge_id in outgoing_edges {
+                graph.remove_edge(edge_id);
+            }
+
+            let top_commit_id = top_commit_index.map(|idx| graph[sidx].commits[idx].id);
+            graph.connect_segments_with_ids(
+                sidx,
+                top_commit_index,
+                top_commit_id,
+                standin_sidx,
+                0,
+                Some(bottom_commit_id),
+            );
+            let s = &mut graph[standin_sidx];
+            s.commits = bottom_segment.commits;
+            if !s.commits[0].refs.is_empty()
+                && let Some(ref_info) = s.ref_info.take()
+            {
+                let first = &mut s.commits[0];
+                if let Some(pos) = first
+                    .refs
+                    .iter()
+                    .position(|ri| ri.ref_name == ref_info.ref_name)
+                {
+                    // The standin segment name is already mentioned there (as duplicate),
+                    // So remove it.
+                    first.refs.remove(pos);
+                    // But if there is no name left, put our name back as it's not ambiguous.
+                    if first.refs.is_empty() {
+                        s.ref_info = Some(ref_info);
+                    }
+                } else {
+                    // Since there are more than one refs here, it's ambiguous,
+                    // leave it to post-processing to resolve
+                    s.commits[0].refs.push(ref_info);
+                }
+            }
+            standin_sidx
+        }
+    };
 
     // Res-assign ownership to assure future queries will find the right segment.
     for commit_id in graph[bottom_segment].commits.iter().map(|c| c.id) {
@@ -322,17 +372,18 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
     if src_segment.commits.is_empty() {
         return Ok(None);
     }
-    let maybe_segment_name_from_unabigous_refs =
+    let maybe_segment_name_from_unambiguous_refs =
         disambiguate_refs_by_branch_metadata_with_lookup((refs_by_id, info.id), meta);
-    let Some(maybe_segment_name) = maybe_segment_name_from_unabigous_refs
-        .map(Some)
-        .or_else(|| {
-            let want_segment_without_name = Some(None);
-            if info.parent_ids.len() < 2 {
-                return None;
-            }
-            want_segment_without_name
-        })
+    let Some(maybe_segment_name) =
+        maybe_segment_name_from_unambiguous_refs
+            .map(Some)
+            .or_else(|| {
+                let want_segment_without_name = Some(None);
+                if info.parent_ids.len() < 2 {
+                    return None;
+                }
+                want_segment_without_name
+            })
     else {
         return Ok(None);
     };
@@ -536,11 +587,11 @@ pub struct TraverseInfo {
     /// The pre-parsed commit if available.
     commit: Option<Commit>,
     /// A means of sorting the entry on the queue.
-    gen_then_time: GenThenTime,
+    pub(crate) gen_then_time: GenThenTime,
 }
 
 #[derive(Debug, Clone)]
-struct GenThenTime {
+pub(crate) struct GenThenTime {
     /// The generation number from the commit-graph cache, if there was one.
     generation: Option<u32>,
     /// The committer timestamp, either from the commit-graph cache, or as parsed from the commit.
@@ -567,7 +618,7 @@ impl Ord for GenThenTime {
     fn cmp(&self, other: &Self) -> Ordering {
         let time_cmp = self.committer_time.cmp(&other.committer_time).reverse();
         match (self.generation, other.generation) {
-            (Some(a), Some(b)) => a.cmp(&b).then(time_cmp),
+            (Some(a), Some(b)) => a.cmp(&b).reverse().then(time_cmp),
             _ => time_cmp,
         }
     }
@@ -993,12 +1044,36 @@ pub fn possibly_split_occupied_segment(
     })?;
 
     if bottom_cidx != 0 {
+        // Re-use an existing empty segment to better integrate them into the graph, and to prevent loose segments
+        // just 'hanging around'. This can happen particularly for remote tracking branches which get to their commit
+        // too late, but might also be possible for other nodes we have created with a name pre-emptively.
+        // And even though there is a good reason to do what we do with remote tracking segments,
+        // maybe all this can be simpler?
+        let standin = {
+            let s = &graph[src_sidx];
+            (top_sidx == src_sidx
+                && s.commits.is_empty()
+                && s.ref_info.is_some()
+                && graph
+                    .neighbors_directed(src_sidx, Direction::Incoming)
+                    .next()
+                    .is_none()
+                && graph[bottom_sidx]
+                    .commits
+                    .first()
+                    .is_some_and(|c| c.flags.is_remote()))
+            .then_some(src_sidx)
+        };
         let new_bottom_sidx =
-            split_commit_into_segment(graph, next, seen, bottom_sidx, bottom_cidx)?;
+            split_commit_into_segment(graph, next, seen, bottom_sidx, bottom_cidx, standin)?;
         bottom_sidx = new_bottom_sidx;
         bottom_cidx = 0;
     }
-    graph.connect_segments(top_sidx, top_cidx, bottom_sidx, bottom_cidx);
+
+    // Standins will cause this, avoid self-connection.
+    if top_sidx != bottom_sidx {
+        graph.connect_segments(top_sidx, top_cidx, bottom_sidx, bottom_cidx);
+    }
     let top_flags = top_cidx
         .map(|cidx| graph[top_sidx].commits[cidx].flags)
         .unwrap_or_default();
