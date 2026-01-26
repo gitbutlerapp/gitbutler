@@ -56,7 +56,7 @@ test('should show commit-msg hook rejection error', async ({ page, context }, te
 	await clickByTestId(page, 'commit-drawer-action-button');
 
 	// Should show an error toast about the hook rejection
-	const toastMessage = getByTestId(page, 'toast-info-message');
+	const toastMessage = getByTestId(page, 'toast-info-message').filter({ hasText: 'REJECT' }).last();
 	await expect(toastMessage).toBeVisible({ timeout: 5000 });
 	await expect(toastMessage).toContainText('REJECT');
 });
@@ -200,7 +200,9 @@ test('should reject commit when pre-commit hook fails', async ({ page, context }
 	await clickByTestId(page, 'commit-drawer-action-button');
 
 	// Should show an error toast about the pre-commit hook rejection
-	const toastMessage = getByTestId(page, 'toast-info-message');
+	const toastMessage = getByTestId(page, 'toast-info-message')
+		.filter({ hasText: 'FORBIDDEN' })
+		.last();
 	await expect(toastMessage).toBeVisible({ timeout: 5000 });
 	await expect(toastMessage).toContainText('FORBIDDEN');
 });

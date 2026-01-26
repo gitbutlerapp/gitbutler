@@ -57,10 +57,27 @@ export async function dragAndDropByTestId(
 	const source = await waitForTestId(page, sourceId);
 	const target = await waitForTestId(page, targetId);
 
-	await source.hover();
+	await source.scrollIntoViewIfNeeded();
+	const sourceBox = await source.boundingBox();
+	if (sourceBox) {
+		await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+	} else {
+		await source.hover();
+	}
 	await page.mouse.down();
-	await target.hover();
-	await target.hover({ force: true });
+	await target.scrollIntoViewIfNeeded();
+	const targetBox = await target.boundingBox();
+	if (targetBox) {
+		await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+			steps: 20
+		});
+		await page.evaluate(async () => {
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+		});
+	} else {
+		await target.hover();
+		await target.hover({ force: true });
+	}
 	await page.mouse.up();
 }
 
@@ -81,10 +98,27 @@ export async function dragAndDropByLocator(
 	target: Locator,
 	options: DropOptions = {}
 ) {
-	await source.hover();
+	await source.scrollIntoViewIfNeeded();
+	const sourceBox = await source.boundingBox();
+	if (sourceBox) {
+		await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+	} else {
+		await source.hover();
+	}
 	await page.mouse.down();
-	await target.hover({ force: options.force, position: options.position });
-	await target.hover({ force: true, position: options.position });
+	await target.scrollIntoViewIfNeeded();
+	const targetBox = await target.boundingBox();
+	if (targetBox) {
+		const x = targetBox.x + (options.position?.x ?? targetBox.width / 2);
+		const y = targetBox.y + (options.position?.y ?? targetBox.height / 2);
+		await page.mouse.move(x, y, { steps: 20 });
+		await page.evaluate(async () => {
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+		});
+	} else {
+		await target.hover({ force: options.force, position: options.position });
+		await target.hover({ force: true, position: options.position });
+	}
 	await page.mouse.up();
 }
 

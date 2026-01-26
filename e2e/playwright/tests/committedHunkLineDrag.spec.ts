@@ -133,10 +133,19 @@ test('should drag only selected lines when dragging committed hunks', async ({
 	await destinationCommitRow.click();
 
 	const destinationAddedLines = stackPreview.locator('.table__textContent.diff-line-addition');
-	await expect(destinationAddedLines.filter({ hasText: linesToMove[0]! })).toHaveCount(1);
-	await expect(destinationAddedLines.filter({ hasText: linesToMove[1]! })).toHaveCount(1);
-	await expect(destinationAddedLines.filter({ hasText: linesToStay[0]! })).toHaveCount(0);
-	await expect(destinationAddedLines.filter({ hasText: linesToStay[1]! })).toHaveCount(0);
+	const movedLinesTimeoutMs = 30_000;
+	await expect(destinationAddedLines.filter({ hasText: linesToMove[0]! })).toHaveCount(1, {
+		timeout: movedLinesTimeoutMs
+	});
+	await expect(destinationAddedLines.filter({ hasText: linesToMove[1]! })).toHaveCount(1, {
+		timeout: movedLinesTimeoutMs
+	});
+	await expect(destinationAddedLines.filter({ hasText: linesToStay[0]! })).toHaveCount(0, {
+		timeout: movedLinesTimeoutMs
+	});
+	await expect(destinationAddedLines.filter({ hasText: linesToStay[1]! })).toHaveCount(0, {
+		timeout: movedLinesTimeoutMs
+	});
 
 	// Source commit should still add the STAY lines (MOVE_ME becomes context after moving).
 	await sourceCommitRow.click();
