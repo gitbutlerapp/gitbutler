@@ -1,20 +1,14 @@
 <script lang="ts">
 	import MobileMenu from '$home/components/MobileMenu.svelte';
 	import GitbutlerLogoLink from '$lib/components/GitbutlerLogoLink.svelte';
-	import NoSSR from '$lib/components/NoSSR.svelte';
-	import UserAuthAvatar from '$lib/components/UserAuthAvatar.svelte';
+	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
 	import { Icon } from '@gitbutler/ui';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
 		disableLogoLink?: boolean;
 	}
-
-	const userService = inject(USER_SERVICE);
-	const user = $derived(userService.user);
 
 	const { disableLogoLink }: Props = $props();
 </script>
@@ -66,13 +60,8 @@
 				href: jsonLinks.resources.jobs.url,
 				label: jsonLinks.resources.jobs.label
 			})}
+			<HeaderAuthSection />
 		</section>
-
-		<NoSSR>
-			{#if $user}
-				<UserAuthAvatar user={$user} />
-			{/if}
-		</NoSSR>
 	</nav>
 
 	<MobileMenu />
