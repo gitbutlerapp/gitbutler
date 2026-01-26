@@ -2,14 +2,14 @@
 	"name": "@gitbutler/e2e",
 	"type": "module",
 	"devDependencies": {
-		"@playwright/test": "1.56.1",
-		"@types/node": "^24.3.0",
-		"@wdio/cli": "^9.18.4",
-		"@wdio/globals": "^9.17.0",
-		"@wdio/local-runner": "^9.18.4",
-		"@wdio/mocha-framework": "^9.18.0",
-		"@wdio/spec-reporter": "^9.18.0",
-		"@wdio/types": "^9.19.1",
+		"@playwright/test": "1.58.0",
+		"@types/node": "^22.19.7",
+		"@wdio/cli": "^9.23.2",
+		"@wdio/globals": "^9.23.0",
+		"@wdio/local-runner": "^9.23.2",
+		"@wdio/mocha-framework": "^9.23.2",
+		"@wdio/spec-reporter": "^9.23.2",
+		"@wdio/types": "^9.23.2",
 		"wdio-video-reporter": "^6.0.0"
 	},
 	"scripts": {
