@@ -377,7 +377,6 @@
 							label="Absorb changes"
 							icon="absorb"
 							testId={TestId.FileListItemContextMenu_Absorb}
-							tooltip="Try to find the best commit in the workspace to amend the changes into."
 							onclick={() => {
 								triggerAbsorbChanges(item.changes);
 								contextMenu.close();
