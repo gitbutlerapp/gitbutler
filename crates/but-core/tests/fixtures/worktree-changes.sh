@@ -83,6 +83,7 @@ git init renamed-in-index
 git init renamed-in-index-with-executable-bit
 (cd renamed-in-index-with-executable-bit
   echo content >to-be-renamed
+  chmod +x to-be-renamed
   git add .
   git update-index --chmod=+x to-be-renamed
   git commit -m "init"
@@ -99,6 +100,7 @@ git init renamed-in-worktree
 git init renamed-in-worktree-with-executable-bit
 (cd renamed-in-worktree-with-executable-bit
   echo content >to-be-renamed
+  chmod +x to-be-renamed
   git add .
   git update-index --chmod=+x to-be-renamed
   git commit -m "init"
