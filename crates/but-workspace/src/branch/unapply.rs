@@ -4,6 +4,7 @@ use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use std::borrow::Cow;
 
 /// Returned by [unapply()](function::unapply()).
+#[derive(Debug)]
 pub struct Outcome<'workspace> {
     /// The newly created workspace, if owned, or the one that was passed in if borrowed, to show how the workspace looks like now.
     ///
@@ -82,10 +83,18 @@ pub struct Options {
 
 pub(crate) mod function {
     use super::{Options, Outcome};
+    use crate::ref_info::WorkspaceExt;
+    use anyhow::bail;
     use but_core::RefMetadata;
+    use but_graph::projection::WorkspaceKind;
     use gix::refs::FullNameRef;
 
-    /// TODO
+    /// Alter the `workspace` so that `branch` can't be found in it anymore as visible Stack.
+    /// This requires a managed workspace, as ad-hoc workspaces, i.e. single-branch mode, doesn't support
+    /// parallel branches.
+    ///
+    /// If the workspace tree changed, but the workspace isn't checked out, we will not check out the new workspace.
+    /// Otherwise, we will do that though.
     pub fn unapply<'ws>(
         branch: &FullNameRef,
         workspace: &'ws but_graph::projection::Workspace,
@@ -93,6 +102,13 @@ pub(crate) mod function {
         meta: &mut impl RefMetadata,
         opts: Options,
     ) -> anyhow::Result<Outcome<'ws>> {
+        if workspace.has_workspace_commit_in_ancestry(repo) {
+            bail!("Refusing to work on workspace whose workspace commit isn't at the top");
+        }
+        if matches!(workspace.kind, WorkspaceKind::AdHoc) {
+            bail!("Cannot unapply anything on a checked-out branch");
+        }
+        // if workspace.ref_name().is_some_and()
         todo!()
     }
 }

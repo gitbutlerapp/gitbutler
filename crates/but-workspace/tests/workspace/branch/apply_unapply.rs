@@ -60,9 +60,13 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
         "Refusing to apply symbolic ref 'HEAD' due to potential ambiguity"
     );
 
-    let res = but_workspace::branch::unapply(branch_b, &ws, &repo, &mut meta, unapply_options());
-
-    // TODO: unapply, commit, uncommit
+    let err = but_workspace::branch::unapply(branch_b, &ws, &repo, &mut meta, unapply_options())
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Refusing to work on workspace whose workspace commit isn't at the top",
+        "cannot unapply on a workspace that isn't proper"
+    );
     Ok(())
 }
 
@@ -361,6 +365,20 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
             └── ·e5d0542 ►A, ►B
     ");
 
+    let err = but_workspace::branch::unapply(
+        r("refs/heads/main"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Cannot unapply anything on a checked-out branch",
+        "cannot do anything in an ad-hoc workspace, i.e. single-branch mode"
+    );
+
     // Put "A" into the workspace, creating the workspace ref, but never put a branch related to the target in as well,
     // which is currently checked out with `main`.
     let out =
@@ -484,6 +502,8 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     └── ≡📙:2:B on e5d0542 {42}
         └── 📙:2:B
     ");
+
+    // TODO: unapply
 
     Ok(())
 }
@@ -1509,13 +1529,8 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     ");
 
     // Apply the workspace ref itself, it's a no-op
-    let out = but_workspace::branch::apply(
-        r("refs/heads/gitbutler/workspace"),
-        &ws,
-        &repo,
-        &mut meta,
-        apply_options(),
-    )?;
+    let ws_ref = r("refs/heads/gitbutler/workspace");
+    let out = but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1523,6 +1538,14 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         applied_branches: "[refs/heads/gitbutler/workspace]",
     }
     "#);
+
+    let err = but_workspace::branch::unapply(ws_ref, &ws, &repo, &mut meta, unapply_options())
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "TBD",
+        "it's unclear how to make the workspace unobservable, maybe one could just checkout the target if available?"
+    );
 
     let (b_id, b_ref) = id_at(&repo, "B");
     let ws = but_graph::Graph::from_commit_traversal(
@@ -1797,13 +1820,8 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
     ");
 
     // Idempotency in ad-hoc workspace
-    let out = but_workspace::branch::apply(
-        r("refs/heads/main"),
-        &ws,
-        &repo,
-        &mut *meta,
-        apply_options(),
-    )?;
+    let main = r("refs/heads/main");
+    let out = but_workspace::branch::apply(main, &ws, &repo, &mut *meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1814,13 +1832,8 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
 
     // Cannot apply branch without a base,
     // but since remote is transformed into a local tracking branch, it's a noop.
-    let out = but_workspace::branch::apply(
-        r("refs/remotes/orphan/main"),
-        &ws,
-        &repo,
-        &mut *meta,
-        apply_options(),
-    )?;
+    let orphan_main = r("refs/remotes/orphan/main");
+    let out = but_workspace::branch::apply(orphan_main, &ws, &repo, &mut *meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1835,6 +1848,11 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
     └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
     ");
+
+    let out =
+        but_workspace::branch::unapply(orphan_main, &ws, &repo, &mut *meta, unapply_options())?;
+    // the remote tracking branch is not applied
+    insta::assert_debug_snapshot!(out, @r"");
 
     // TODO: can we reproduce this original error?
     // assert_eq!(

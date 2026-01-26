@@ -160,7 +160,9 @@ pub(crate) mod function {
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.
-    /// The changed workspace will be checked out.
+    /// The changed workspace will be checked out, but only if its tree changed, and independently of the entrypoint,
+    /// i.e. a branch in the workspace may have been checked out, and we will check out the enclosing workspace to make the
+    /// applied branch observable.
     /// If `branch` is a remote tracking branch, we will instead apply the local tracking branch if it exists or fail otherwise.
     /// Otherwise, add it to the existing `workspace`, and update its metadata accordingly.
     /// **This means that the contents of `branch` is observable from the new state of `repo`**.
