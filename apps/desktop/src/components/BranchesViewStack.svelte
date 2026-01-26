@@ -12,7 +12,6 @@
 		inWorkspace: boolean;
 		isTarget?: boolean;
 		selectedCommitId?: string;
-		onBranchClick: (branchName: string, remote?: string) => void;
 		onCommitClick: (commitId: string) => void;
 		onFileClick: (index: number) => void;
 		onerror: (err: unknown) => void;
@@ -24,7 +23,6 @@
 		inWorkspace,
 		isTarget,
 		selectedCommitId,
-		onBranchClick,
 		onCommitClick,
 		onFileClick,
 		onerror
@@ -59,7 +57,6 @@
 					{inWorkspace}
 					{isTarget}
 					{selectedCommitId}
-					{onBranchClick}
 					{onCommitClick}
 					{onFileClick}
 					{onerror}

@@ -20,7 +20,6 @@
 		isTarget?: boolean;
 		inWorkspace?: boolean;
 		selectedCommitId?: string;
-		onBranchClick: (branchName: string, remote?: string) => void;
 		onCommitClick: (commitId: string) => void;
 		onFileClick: (index: number) => void;
 		onerror?: (error: unknown) => void;
@@ -35,7 +34,6 @@
 		inWorkspace,
 		isTarget,
 		selectedCommitId,
-		onBranchClick,
 		onCommitClick,
 		onFileClick,
 		onerror
@@ -122,6 +120,7 @@
 	{@const commitColor = getColorFromPushStatus(branch.pushStatus)}
 	{@const localCount = branch.commits?.length ?? 0}
 	{@const hasCommits = localCount > 0}
+
 	<BranchCard
 		type="normal-branch"
 		first={isTopBranch}
@@ -134,8 +133,8 @@
 		trackingBranch={branch.remoteTrackingBranch || undefined}
 		readonly
 		roundedBottom={!hasCommits}
-		selected={!selectedCommitId}
-		onclick={() => onBranchClick(branchName, remote)}
+		selected={false}
+		disableClick
 	>
 		{#snippet branchContent()}
 			{#if hasCommits}
