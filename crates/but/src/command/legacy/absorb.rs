@@ -34,8 +34,7 @@ pub(crate) fn handle(
     source: Option<&str>,
     dry_run: bool,
 ) -> anyhow::Result<()> {
-    let mut id_map = IdMap::new_from_context(ctx, None)?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, None)?;
     let source: Option<CliId> = source
         .and_then(|s| parse_sources(ctx, &id_map, s).ok())
         .and_then(|s| {

@@ -24,7 +24,6 @@ fn stacks_info_without_short_ids(stacks: Vec<Stack>) -> StacksInfo {
                 .map(|commit| WorkspaceCommitWithId {
                     short_id: ShortId::default(),
                     inner: commit,
-                    tree_changes: Vec::new(),
                 })
                 .collect::<Vec<_>>();
             let remote_commits = std::mem::take(&mut segment.commits_on_remote)

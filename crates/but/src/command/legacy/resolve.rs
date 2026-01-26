@@ -54,7 +54,7 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Resolve the commit ID using the IdMap
-    let matches = id_map.resolve_entity_to_ids(commit_id_str)?;
+    let matches = id_map.parse_using_context(commit_id_str, ctx)?;
 
     if matches.is_empty() {
         bail!(

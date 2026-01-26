@@ -12,11 +12,10 @@ pub async fn handle(
 ) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
 
-    let mut id_map = IdMap::new_from_context(ctx, None)?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Resolve the branch ID
-    let resolved_ids = id_map.resolve_entity_to_ids(branch_id)?;
+    let resolved_ids = id_map.parse_using_context(branch_id, ctx)?;
     if resolved_ids.is_empty() {
         bail!("Could not find branch: {}", branch_id);
     }

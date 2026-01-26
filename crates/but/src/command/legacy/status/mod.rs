@@ -128,8 +128,7 @@ pub(crate) async fn worktree(
 
     let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
 
-    let mut id_map = IdMap::new(head_info.stacks, worktree_changes.assignments.clone())?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new(head_info.stacks, worktree_changes.assignments.clone())?;
 
     let stacks = &id_map.stacks;
     // Store the count of stacks for hint logic later
@@ -702,7 +701,7 @@ pub fn print_group(
                 print_commit(
                     commit.short_id.clone(),
                     &commit.inner.inner,
-                    CommitChanges::Workspace(&commit.tree_changes),
+                    CommitChanges::Workspace(&commit.tree_changes_using_repo(&repo)?),
                     classification,
                     marked,
                     show_files,

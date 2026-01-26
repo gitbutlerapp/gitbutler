@@ -105,7 +105,7 @@ pub(crate) fn handle(
     let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Resolve source
-    let source_matches = id_map.resolve_entity_to_ids(source_str)?;
+    let source_matches = id_map.parse_using_context(source_str, ctx)?;
     if source_matches.is_empty() {
         bail!(
             "Source '{}' not found. If you just performed a Git operation, try running 'but status' to refresh.",
@@ -122,7 +122,7 @@ pub(crate) fn handle(
     let source_id = &source_matches[0];
 
     // Resolve target
-    let target_matches = id_map.resolve_entity_to_ids(target_str)?;
+    let target_matches = id_map.parse_using_context(target_str, ctx)?;
     if target_matches.is_empty() {
         bail!(
             "Target '{}' not found. If you just performed a Git operation, try running 'but status' to refresh.",

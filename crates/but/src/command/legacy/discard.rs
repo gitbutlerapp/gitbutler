@@ -20,8 +20,7 @@ use crate::{CliId, IdMap, command::legacy::rub::parse_sources, utils::OutputChan
 /// The ID should be a file or hunk ID as shown in `but status`.
 pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()> {
     // Build ID map to resolve the user's ID
-    let mut id_map = IdMap::new_from_context(ctx, None)?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Resolve the ID to get file information
     let resolved_ids = parse_sources(ctx, &id_map, id)

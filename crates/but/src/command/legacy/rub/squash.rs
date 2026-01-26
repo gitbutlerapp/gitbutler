@@ -51,7 +51,7 @@ pub(crate) fn handle(
         let entity_str = &commits[0];
 
         // First try to resolve as a single entity (branch name or commit)
-        let matches = id_map.resolve_entity_to_ids(entity_str)?;
+        let matches = id_map.parse_using_context(entity_str, ctx)?;
 
         // If we get exactly one match, handle it
         if matches.len() == 1 {
@@ -99,7 +99,7 @@ pub(crate) fn handle(
         }
 
         if entity_str.contains(',') {
-            let sources = parse_commit_list(&id_map, entity_str)?;
+            let sources = parse_commit_list(ctx, &id_map, entity_str)?;
             if sources.len() < 2 {
                 bail!("Need at least 2 commits to squash");
             }
@@ -116,7 +116,7 @@ pub(crate) fn handle(
     // Multiple separate commit arguments - resolve each one
     let mut sources = Vec::new();
     for commit_str in commits {
-        let matches = id_map.resolve_entity_to_ids(commit_str)?;
+        let matches = id_map.parse_using_context(commit_str, ctx)?;
         if matches.is_empty() {
             bail!("No matching commit found for '{}'", commit_str);
         }
@@ -390,8 +390,8 @@ fn parse_commit_range(
     let end_str = parts[1];
 
     // Resolve start and end to commit IDs
-    let start_matches = id_map.resolve_entity_to_ids(start_str)?;
-    let end_matches = id_map.resolve_entity_to_ids(end_str)?;
+    let start_matches = id_map.parse_using_context(start_str, ctx)?;
+    let end_matches = id_map.parse_using_context(end_str, ctx)?;
 
     if start_matches.len() != 1 {
         bail!(
@@ -446,7 +446,7 @@ fn parse_commit_range(
                 let commit_oid = commit.commit_id();
                 // Find the CliId for this commit
                 if let Some(cli_id) = id_map
-                    .resolve_entity_to_ids(&commit_oid.to_string())
+                    .parse_using_context(&commit_oid.to_string(), ctx)
                     .ok()
                     .and_then(|matches| matches.first().cloned())
                 {
@@ -486,7 +486,11 @@ fn parse_commit_range(
 }
 
 /// Parse a comma-separated list of commits like "c1,c2,c3"
-fn parse_commit_list(id_map: &IdMap, list_str: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_commit_list(
+    ctx: &mut Context,
+    id_map: &IdMap,
+    list_str: &str,
+) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = list_str.split(',').collect();
     let mut result = Vec::new();
 
@@ -496,7 +500,7 @@ fn parse_commit_list(id_map: &IdMap, list_str: &str) -> anyhow::Result<Vec<CliId
             continue;
         }
 
-        let matches = id_map.resolve_entity_to_ids(part)?;
+        let matches = id_map.parse_using_context(part, ctx)?;
         if matches.is_empty() {
             bail!("Commit '{}' not found", part);
         }

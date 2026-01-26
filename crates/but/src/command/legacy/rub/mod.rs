@@ -291,8 +291,7 @@ pub(crate) fn handle(
     source_str: &str,
     target_str: &str,
 ) -> anyhow::Result<()> {
-    let mut id_map = IdMap::new_from_context(ctx, None)?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, None)?;
     let (sources, target) = ids(ctx, &id_map, source_str, target_str, out)?;
 
     for source in sources {
@@ -448,7 +447,7 @@ fn ids(
     out: &mut OutputChannel,
 ) -> anyhow::Result<(Vec<CliId>, CliId)> {
     let sources = parse_sources_with_disambiguation(ctx, id_map, source, out)?;
-    let target_result = id_map.resolve_entity_to_ids(target)?;
+    let target_result = id_map.parse_using_context(target, ctx)?;
 
     if target_result.is_empty() {
         return Err(anyhow::anyhow!(
@@ -517,11 +516,11 @@ fn parse_sources_with_disambiguation(
     }
     // Check if it's a list (contains ',')
     else if source.contains(',') {
-        parse_list_with_disambiguation(id_map, source, out)
+        parse_list_with_disambiguation(ctx, id_map, source, out)
     }
     // Single source
     else {
-        let source_result = id_map.resolve_entity_to_ids(source)?;
+        let source_result = id_map.parse_using_context(source, ctx)?;
         if source_result.is_empty() {
             return Err(anyhow::anyhow!(
                 "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
@@ -550,11 +549,11 @@ pub(crate) fn parse_sources(
     }
     // Check if it's a list (contains ',')
     else if source.contains(',') {
-        parse_list(id_map, source)
+        parse_list(ctx, id_map, source)
     }
     // Single source
     else {
-        let source_result = id_map.resolve_entity_to_ids(source)?;
+        let source_result = id_map.parse_using_context(source, ctx)?;
         if source_result.len() != 1 {
             if source_result.is_empty() {
                 return Err(anyhow::anyhow!(
@@ -590,8 +589,8 @@ fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Resul
     let end_str = parts[1];
 
     // Get the start and end IDs
-    let start_matches = id_map.resolve_entity_to_ids(start_str)?;
-    let end_matches = id_map.resolve_entity_to_ids(end_str)?;
+    let start_matches = id_map.parse_using_context(start_str, ctx)?;
+    let end_matches = id_map.parse_using_context(end_str, ctx)?;
 
     if start_matches.len() != 1 {
         return Err(anyhow::anyhow!(
@@ -665,6 +664,7 @@ fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::
 
 /// Internal helper for parsing comma-separated lists with disambiguation support.
 fn parse_list_with_disambiguation(
+    ctx: &mut Context,
     id_map: &IdMap,
     source: &str,
     out: &mut OutputChannel,
@@ -680,7 +680,7 @@ fn parse_list_with_disambiguation(
             continue;
         }
 
-        let matches = id_map.resolve_entity_to_ids(part)?;
+        let matches = id_map.parse_using_context(part, ctx)?;
         if matches.is_empty() {
             return Err(anyhow::anyhow!(
                 "Item '{}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
@@ -709,7 +709,7 @@ fn parse_list_with_disambiguation(
     Ok(result)
 }
 
-fn parse_list(id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
+fn parse_list(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split(',').collect();
     let mut result = Vec::new();
 
@@ -721,7 +721,7 @@ fn parse_list(id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
             continue;
         }
 
-        let matches = id_map.resolve_entity_to_ids(part)?;
+        let matches = id_map.parse_using_context(part, ctx)?;
         if matches.len() != 1 {
             if matches.is_empty() {
                 return Err(anyhow::anyhow!(
@@ -770,12 +770,13 @@ fn create_snapshot(ctx: &mut Context, operation: OperationKind) {
 /// # Returns
 /// The resolved CliId
 fn resolve_single_id(
+    ctx: &mut Context,
     id_map: &IdMap,
     entity_str: &str,
     context: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<CliId> {
-    let matches = id_map.resolve_entity_to_ids(entity_str)?;
+    let matches = id_map.parse_using_context(entity_str, ctx)?;
 
     if matches.is_empty() {
         return Err(anyhow::anyhow!(
@@ -833,7 +834,7 @@ pub(crate) fn handle_amend(
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_str, out)?;
-    let commit = resolve_single_id(&id_map, commit_str, "Commit", out)?;
+    let commit = resolve_single_id(ctx, &id_map, commit_str, "Commit", out)?;
 
     // Validate that all files are uncommitted
     for file in &files {
@@ -879,7 +880,7 @@ pub(crate) fn handle_stage(
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
-    let branch = resolve_single_id(&id_map, branch_str, "Branch", out)?;
+    let branch = resolve_single_id(ctx, &id_map, branch_str, "Branch", out)?;
 
     // Validate that all files are uncommitted
     for file in &files {
@@ -944,7 +945,7 @@ pub(crate) fn handle_unstage(
 
     // If a branch is specified, validate it exists (but we don't strictly require the file to be assigned to it)
     if let Some(branch_name) = branch_str {
-        let branch = resolve_single_id(&id_map, branch_name, "Branch", out)?;
+        let branch = resolve_single_id(ctx, &id_map, branch_name, "Branch", out)?;
         match &branch {
             CliId::Branch { .. } => {
                 // Valid - branch exists

@@ -6,7 +6,7 @@
 
 #![forbid(missing_docs)]
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
@@ -15,10 +15,7 @@ use but_hunk_assignment::HunkAssignment;
 use but_workspace::{branch::Stack, ref_info::LocalCommitRelation};
 use nonempty::NonEmpty;
 
-use crate::id::{
-    file_info::FileInfo, id_usage::IdUsage, stacks_info::StacksInfo,
-    uncommitted_info::UncommittedInfo,
-};
+use crate::id::{file_info::FileInfo, stacks_info::StacksInfo, uncommitted_info::UncommittedInfo};
 
 mod file_info;
 mod id_usage;
@@ -32,6 +29,59 @@ mod tests;
 type ShortId = String;
 
 const UNASSIGNED: &str = "zz";
+
+fn rhs_indexes_from_tree_changes(
+    tree_changes: Vec<but_core::TreeChange>,
+) -> anyhow::Result<Vec<(u64, but_core::TreeChange)>> {
+    let FileInfo { changes } = FileInfo::from_tree_changes(tree_changes)?;
+    let mut used_indexes: HashSet<u64> = HashSet::new();
+
+    // First pass: assign indexes for all filenames that look like nonnegative
+    // integers
+    let changes: Vec<(Option<u64>, Vec<but_core::TreeChange>)> = changes
+        .into_iter()
+        .map(|(path, changes)| {
+            (
+                if let Ok(utf8) = str::from_utf8(&path)
+                    && let Ok(index) = utf8.parse::<u64>()
+                {
+                    used_indexes.insert(index);
+                    Some(index)
+                } else {
+                    None
+                },
+                changes,
+            )
+        })
+        .collect();
+
+    // Second pass: assign indexes for all other filenames
+    let mut candidate_index = 0u64;
+    let mut tree_changes: Vec<(u64, but_core::TreeChange)> = Vec::new();
+    for (assigned_index, changes) in changes {
+        let index_to_use = if let Some(index) = assigned_index {
+            index
+        } else {
+            while used_indexes.contains(&candidate_index) {
+                candidate_index = candidate_index
+                    .checked_add(1)
+                    .ok_or_else(|| anyhow::format_err!("commit has more than 2**64 changes"))?;
+            }
+            let index_to_use = candidate_index;
+            candidate_index = candidate_index
+                .checked_add(1)
+                .ok_or_else(|| anyhow::format_err!("commit has more than 2**64 changes"))?;
+            index_to_use
+        };
+        tree_changes.extend(
+            changes
+                .into_iter()
+                .map(move |change| (index_to_use, change)),
+        );
+    }
+
+    Ok(tree_changes)
+}
 
 /// A change in a workspace commit.
 #[derive(Debug, Clone)]
@@ -49,9 +99,6 @@ pub struct WorkspaceCommitWithId {
     pub short_id: ShortId,
     /// The original workspace commit.
     pub inner: but_workspace::ref_info::LocalCommit,
-    /// When part of [IdMap], this is originally blank, but will be populated
-    /// when [IdMap::add_committed_file_info] is called.
-    pub tree_changes: Vec<TreeChangeWithId>,
 }
 impl WorkspaceCommitWithId {
     /// The object ID of the commit.
@@ -65,6 +112,39 @@ impl WorkspaceCommitWithId {
     /// State in relation to its remote tracking branch.
     pub fn relation(&self) -> LocalCommitRelation {
         self.inner.relation
+    }
+}
+/// Methods to calculate the short IDs of committed files.
+impl WorkspaceCommitWithId {
+    /// Calculate the short IDs of all changes in this commit.
+    pub fn tree_changes<F>(
+        &self,
+        mut changes_in_commit_fn: F,
+    ) -> anyhow::Result<Vec<TreeChangeWithId>>
+    where
+        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
+    {
+        let rhs_indexes = rhs_indexes_from_tree_changes(changes_in_commit_fn(
+            self.commit_id(),
+            self.first_parent_id(),
+        )?)?;
+        Ok(rhs_indexes
+            .into_iter()
+            .map(|(index, tree_change)| TreeChangeWithId {
+                short_id: format!("{}:{}", self.short_id, index),
+                inner: tree_change,
+            })
+            .collect())
+    }
+    /// Convenience for [WorkspaceCommitWithId::tree_changes] if a
+    /// [gix::Repository] is available.
+    pub fn tree_changes_using_repo(
+        &self,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Vec<TreeChangeWithId>> {
+        self.tree_changes(|commit_id, parent_id| {
+            but_core::diff::tree_changes(repo, parent_id, commit_id)
+        })
     }
 }
 
@@ -137,12 +217,6 @@ pub struct StackWithId {
 }
 
 /// A mapping from user-friendly CLI IDs to GitButler entities.
-///
-/// # Lifecycle
-///
-/// 1. Create an `IdMap` for example using [IdMap::new]
-/// 2. Optionally add file information for example using [IdMap::add_committed_file_info_from_context]
-/// 3. Use [IdMap::resolve_entity_to_ids] to parse user input into matching IDs
 #[derive(Debug)]
 pub struct IdMap {
     /// Stacks with segment and commit IDs.
@@ -152,9 +226,6 @@ pub struct IdMap {
     /// Maps [ShortId]s of branches if they are autogenerated to CLI IDs.
     /// This will be duplicate at least in parts with `branch_name_to_cli_id`.
     branch_auto_id_to_cli_id: HashMap<ShortId, CliId>,
-    /// Tracks all non-commit IDs that have been used to avoid collisions.
-    /// Needed when adding more IDs to know which one is next.
-    id_usage: IdUsage,
     /// Commit IDs reachable from workspace tips with their first parent IDs
     workspace_commits: HashMap<ShortId, WorkspaceCommit>,
     /// Mapping from stack IDs to their corresponding stack CLI IDs.
@@ -169,15 +240,12 @@ pub struct IdMap {
     pub uncommitted_files: BTreeMap<ShortId, UncommittedFile>,
     /// Uncommitted hunks.
     pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
-    /// Committed files.
-    committed_files: BTreeMap<ShortId, CommittedFile>,
 }
 
 /// Lifecycle methods for creating and initializing `IdMap` instances.
 impl IdMap {
     /// Initializes CLI IDs for branches, commits, and uncommitted
-    /// files/hunks. To enable parsing of committed file IDs, call
-    /// [IdMap::add_committed_file_info_from_context].
+    /// files/hunks.
     pub fn new(stacks: Vec<Stack>, hunk_assignments: Vec<HunkAssignment>) -> anyhow::Result<Self> {
         let UncommittedInfo {
             partitioned_hunks,
@@ -256,7 +324,6 @@ impl IdMap {
             stacks,
             branch_name_to_cli_id,
             branch_auto_id_to_cli_id,
-            id_usage,
             workspace_commits,
             stack_ids,
             remote_commit_ids,
@@ -265,7 +332,6 @@ impl IdMap {
             },
             uncommitted_files,
             uncommitted_hunks,
-            committed_files: BTreeMap::new(),
         })
     }
 
@@ -314,73 +380,8 @@ impl IdMap {
     }
 }
 
-/// Methods for adding context to enable file ID generation for the entities it contains.
-impl IdMap {
-    /// Adds committed file information from a `ctx` to add IDs for all changed
-    /// files of all workspace commits.
-    pub fn add_committed_file_info_from_context(
-        &mut self,
-        ctx: &mut Context,
-    ) -> anyhow::Result<()> {
-        let repo = &*ctx.repo.get()?;
-        self.add_committed_file_info(|commit_id, parent_id| {
-            but_core::diff::tree_changes(repo, parent_id, commit_id)
-        })
-    }
-
-    /// Trigger the generation of IDs for committed files and store them in the map.
-    ///
-    /// It generates unique 2-character hash-based IDs for each file, ensuring no collisions with existing branch
-    /// and commit IDs.
-    ///
-    /// * `changes_in_commit_fn(commit, parent)` returns the changes for a given commit
-    ///   and its parent. Used to identify all files altered by workspace commits.
-    fn add_committed_file_info<F>(&mut self, changes_in_commit_fn: F) -> anyhow::Result<()>
-    where
-        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
-    {
-        let FileInfo { mut changes } = FileInfo::from_workspace_commits_and_status(
-            self.workspace_commits.values().map(|workspace_commit| {
-                (
-                    &workspace_commit.commit_id,
-                    &workspace_commit.first_parent_id,
-                )
-            }),
-            changes_in_commit_fn,
-        )?;
-        for stack in self.stacks.iter_mut() {
-            for segment in stack.segments.iter_mut() {
-                for workspace_commit in segment.workspace_commits.iter_mut() {
-                    let Some(paths_to_changes) = changes.remove(&workspace_commit.commit_id())
-                    else {
-                        continue;
-                    };
-                    for (path, changes) in paths_to_changes {
-                        let short_id = self.id_usage.next_available()?.to_short_id();
-                        for change in changes {
-                            workspace_commit.tree_changes.push(TreeChangeWithId {
-                                short_id: short_id.clone(),
-                                inner: change,
-                            });
-                        }
-                        self.committed_files.insert(
-                            short_id,
-                            CommittedFile {
-                                commit_id: workspace_commit.commit_id(),
-                                path,
-                            },
-                        );
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
 /// Private methods to individually parse what can appear on both side of a
-/// colon. (They can also appear alone.)
+/// colon. (Some of them can also appear alone.)
 impl IdMap {
     /// Parses "long" IDs, which take precedence over any "regular" ID.
     fn parse_long_lhs(&self, entity: &str) -> Vec<CliId> {
@@ -491,7 +492,38 @@ impl IdMap {
         }
         matches
     }
-    // TODO make a method that parses committed files, and use it in `resolve_entity_to_ids`
+    /// Parses indexes or filenames of committed files.
+    fn parse_committed_filename_rhs<F>(
+        &self,
+        workspace_commit: &WorkspaceCommit,
+        mut changes_in_commit_fn: F,
+        lhs: &str,
+        rhs: &str,
+    ) -> anyhow::Result<Option<CliId>>
+    where
+        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
+    {
+        let rhs_indexes = rhs_indexes_from_tree_changes(changes_in_commit_fn(
+            workspace_commit.commit_id,
+            workspace_commit.first_parent_id,
+        )?)?;
+        let rhs_u64 = rhs.parse::<u64>().ok();
+        for (index, tree_change) in rhs_indexes {
+            let is_match = if let Some(rhs_u64) = rhs_u64 {
+                index == rhs_u64
+            } else {
+                tree_change.path == BStr::new(rhs)
+            };
+            if is_match {
+                return Ok(Some(CliId::CommittedFile {
+                    commit_id: workspace_commit.commit_id,
+                    path: tree_change.path,
+                    id: format!("{}:{}", lhs, rhs),
+                }));
+            }
+        }
+        Ok(None)
+    }
 }
 
 /// Methods for parsing and generating CLI IDs.
@@ -501,7 +533,10 @@ impl IdMap {
     ///
     /// Besides generated IDs, this method also accepts filenames, which are
     /// interpreted as uncommitted, unassigned files.
-    pub fn resolve_entity_to_ids(&self, entity: &str) -> anyhow::Result<Vec<CliId>> {
+    pub fn parse<F>(&self, entity: &str, mut changes_in_commit_fn: F) -> anyhow::Result<Vec<CliId>>
+    where
+        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
+    {
         if let Some((lhs, rhs)) = entity.split_once(':') {
             let mut lhs_matches = self.parse_long_lhs(lhs);
             if lhs_matches.is_empty() {
@@ -512,17 +547,35 @@ impl IdMap {
             }
             let mut matches = Vec::new();
             for cli_id in lhs_matches {
-                let stack_id = match cli_id {
-                    CliId::Unassigned { .. } => None,
-                    CliId::Stack { stack_id, .. } => Some(stack_id),
+                match cli_id {
+                    CliId::Unassigned { .. } => {
+                        matches.append(&mut self.parse_uncommitted_filename_rhs(None, rhs));
+                    }
+                    CliId::Stack { stack_id, .. } => {
+                        matches
+                            .append(&mut self.parse_uncommitted_filename_rhs(Some(stack_id), rhs));
+                    }
+                    CliId::Commit { commit_id, .. } => {
+                        if let Some(workspace_commit) = self
+                            .workspace_commits
+                            .values()
+                            .find(|workspace_commit| workspace_commit.commit_id == commit_id)
+                        {
+                            matches.extend(self.parse_committed_filename_rhs(
+                                workspace_commit,
+                                &mut changes_in_commit_fn,
+                                lhs,
+                                rhs,
+                            )?);
+                        }
+                    }
                     _ => {
                         // TODO: it may be confusing for the user if some IDs
-                        // (e.g. branch, commit) silently do not match instead
+                        // (e.g. branch) silently do not match instead
                         // of an error message being printed.
                         continue;
                     }
                 };
-                matches.append(&mut self.parse_uncommitted_filename_rhs(stack_id, rhs));
             }
             return Ok(matches);
         }
@@ -544,13 +597,6 @@ impl IdMap {
         if let Some(uncommitted_file) = self.uncommitted_files.get(entity) {
             matches.push(uncommitted_file.to_cli_id(entity.to_owned()));
         }
-        if let Some(CommittedFile { commit_id, path }) = self.committed_files.get(entity) {
-            matches.push(CliId::CommittedFile {
-                commit_id: *commit_id,
-                path: path.clone(),
-                id: entity.to_string(),
-            });
-        }
         if let Some(uncommitted_hunk) = self.uncommitted_hunks.get(entity) {
             matches.push(CliId::Uncommitted(UncommittedCliId {
                 id: entity.to_string(),
@@ -560,6 +606,27 @@ impl IdMap {
         }
 
         Ok(matches)
+    }
+
+    /// Convenience for [IdMap::parse] if a [gix::Repository] is available.
+    pub fn parse_using_repo(
+        &self,
+        entity: &str,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Vec<CliId>> {
+        self.parse(entity, |commit_id, parent_id| {
+            but_core::diff::tree_changes(repo, parent_id, commit_id)
+        })
+    }
+
+    /// Convenience for [IdMap::parse] if a [Context] is available.
+    pub fn parse_using_context(
+        &self,
+        entity: &str,
+        ctx: &mut Context,
+    ) -> anyhow::Result<Vec<CliId>> {
+        let repo = &*ctx.repo.get()?;
+        self.parse_using_repo(entity, repo)
     }
 
     /// Returns the [`CliId::Stack`] for a given `stack_id`, if it exists.
@@ -769,13 +836,6 @@ impl UncommittedFile {
             is_entire_file: true,
         })
     }
-}
-
-/// Internal representation of a committed file with its CLI ID.
-#[derive(Debug)]
-struct CommittedFile {
-    commit_id: gix::ObjectId,
-    path: BString,
 }
 
 /// An uncommitted hunk.
