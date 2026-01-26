@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import BranchExplorer from '$components/BranchExplorer.svelte';
-	import BranchView from '$components/BranchView.svelte';
 	import BranchesViewBranch from '$components/BranchesViewBranch.svelte';
 	import BranchesViewPr from '$components/BranchesViewPR.svelte';
 	import BranchesViewStack from '$components/BranchesViewStack.svelte';
@@ -12,7 +11,6 @@
 	import Resizer from '$components/Resizer.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
 	import TargetCommitList from '$components/TargetCommitList.svelte';
-	import UnappliedBranchView from '$components/UnappliedBranchView.svelte';
 	import UnappliedCommitView from '$components/UnappliedCommitView.svelte';
 	import BranchListCard from '$components/branchesPage/BranchListCard.svelte';
 	import BranchesListGroup from '$components/branchesPage/BranchesListGroup.svelte';
@@ -27,7 +25,6 @@
 	import { handleCreateBranchFromBranchOutcome } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
-	import { createBranchRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { AsyncButton, Button, Modal, TestId } from '@gitbutler/ui';
@@ -377,77 +374,22 @@
 
 			<div class="commit-column" bind:this={commitColumn}>
 				{#if selection.type === 'branch' && selection.commitId}
-					{@const { stackId, branchName, remote } = selection}
-					{@const selectedBranch = branchService.get(projectId, selection.branchName)}
-					<ReduxResult {projectId} result={selectedBranch.result}>
-						{#snippet children(branch)}
-							{@const inWorkspace = branch.stack?.inWorkspace}
-							{@const prNumber = branch.stack?.pullRequests[branchName]}
-
-							{#if inWorkspace && stackId}
-								<BranchView
-									{projectId}
-									laneId="branches-view"
-									{branchName}
-									{stackId}
-									active
-									rounded
-									{onerror}
-								/>
-								{@const changesQuery = stackService.branchChanges({
-									projectId,
-									stackId: stackId,
-									branch: branchName
-								})}
-								<ReduxResult {projectId} {stackId} result={changesQuery.result}>
-									{#snippet children(result, { projectId, stackId })}
-										<MultiDiffView
-											bind:this={multiDiffView}
-											{stackId}
-											selectionId={{
-												type: 'branch',
-												branchName,
-												remote: undefined
-											}}
-											changes={result.changes}
-											{projectId}
-											draggable={true}
-											selectable={false}
-										/>
-									{/snippet}
-								</ReduxResult>
-							{:else}
-								{@const branchRef = createBranchRef(branchName, remote)}
-								{@const changesQuery = stackService.branchChanges({
-									projectId,
-									branch: branchRef
-								})}
-								<UnappliedBranchView
-									{projectId}
-									{branchName}
-									{stackId}
-									{remote}
-									{prNumber}
-									{onerror}
-								/>
-								<ReduxResult {projectId} {stackId} result={changesQuery.result}>
-									{#snippet children(result, { projectId, stackId })}
-										<MultiDiffView
-											bind:this={multiDiffView}
-											{stackId}
-											selectionId={{
-												type: 'branch',
-												branchName,
-												remote
-											}}
-											changes={result.changes}
-											{projectId}
-											draggable={true}
-											selectable={false}
-										/>
-									{/snippet}
-								</ReduxResult>
-							{/if}
+					{@const { commitId } = selection}
+					{@const changesQuery = stackService.commitChanges(projectId, commitId)}
+					<UnappliedCommitView {projectId} {commitId} />
+					<ReduxResult {projectId} result={changesQuery.result}>
+						{#snippet children(result, { projectId })}
+							<MultiDiffView
+								bind:this={multiDiffView}
+								selectionId={{
+									type: 'commit',
+									commitId: commitId
+								}}
+								changes={result.changes}
+								{projectId}
+								draggable={true}
+								selectable={false}
+							/>
 						{/snippet}
 					</ReduxResult>
 				{:else if selection.type === 'pr'}
