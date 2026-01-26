@@ -199,7 +199,7 @@ impl Queue {
 
     /// Return `true` if `id` is on the queue.
     pub fn is_queued(&self, id: gix::ObjectId) -> bool {
-        self.inner.iter().any(|(tip, _, _, _)| tip == &id)
+        self.inner.iter().any(|(info, _, _, _)| info.id == id)
     }
 
     /// Add `goal` as additional goal to `id` or panic if `id` was not found.
@@ -207,7 +207,7 @@ impl Queue {
         let limit = self
             .inner
             .iter_mut()
-            .find_map(|(tip, _, _, limit)| (tip == &id).then_some(limit))
+            .find_map(|(info, _, _, limit)| (info.id == id).then_some(limit))
             .expect("BUG: id is queued");
         *limit = limit.additional_goal(goal);
     }
@@ -290,7 +290,7 @@ impl Instruction {
     }
 }
 
-pub type QueueItem = (gix::ObjectId, CommitFlags, Instruction, Limit);
+pub type QueueItem = (super::walk::TraverseInfo, CommitFlags, Instruction, Limit);
 
 #[derive(Debug)]
 pub(crate) struct EdgeOwned {

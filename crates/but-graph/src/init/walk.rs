@@ -41,7 +41,7 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
 ) -> anyhow::Result<Vec<SegmentIndex>> {
     next.inner
         .make_contiguous()
-        .sort_by_key(|(_id, _flags, instruction, _limit)| {
+        .sort_by_key(|(_info, _flags, instruction, _limit)| {
             // put local branches first, everything else later.
             graph[instruction.segment_idx()]
                 .ref_name()
@@ -71,15 +71,15 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
         if crate::projection::commit::is_managed_workspace_by_message(
             repo.find_commit(ws_tip)?.message_raw()?,
         ) {
-            if next.iter().filter(|(tip, ..)| *tip == ws_tip).count() <= 1 {
+            if next.iter().filter(|(info, ..)| info.id == ws_tip).count() <= 1 {
                 // Assume it's the workspace tip, and it's uniquely assigned to a workspace segment.
                 continue 'next_ws_tip;
             }
             let mut segments_with_ws_tip =
                 next.iter()
                     .enumerate()
-                    .filter_map(|(idx, (tip, _, instruction, _))| {
-                        (*tip == ws_tip).then_some((idx, instruction.segment_idx()))
+                    .filter_map(|(idx, (info, _, instruction, _))| {
+                        (info.id == ws_tip).then_some((idx, instruction.segment_idx()))
                     });
             let (first, second) = (
                 segments_with_ws_tip.next().expect("at least two"),
@@ -91,13 +91,13 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
             // Assure that the workspace comes first.
             drop(segments_with_ws_tip);
             next.inner.swap(first.0, second.0);
-        } else if next.iter().filter(|(tip, ..)| *tip == ws_tip).count() >= 2 {
+        } else if next.iter().filter(|(info, ..)| info.id == ws_tip).count() >= 2 {
             // There are multiple tips pointing to the unmanaged workspace commit.
             let mut segments_with_ws_tip =
                 next.iter()
                     .enumerate()
-                    .filter_map(|(idx, (tip, _, instruction, _))| {
-                        (*tip == ws_tip).then_some((idx, instruction.segment_idx()))
+                    .filter_map(|(idx, (info, _, instruction, _))| {
+                        (info.id == ws_tip).then_some((idx, instruction.segment_idx()))
                     });
             let (first, second) = (
                 segments_with_ws_tip.next().expect("at least two"),
@@ -114,9 +114,9 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
             // Otherwise, assure there is an owner that isn't the workspace branch.
             // To keep it simple, just create anon segments that are fixed up later.
 
-            let (_, flags, _instruction, limit) = next
+            let (info, flags, _instruction, limit) = next
                 .iter()
-                .find(|t| t.0 == ws_tip)
+                .find(|t| t.0.id == ws_tip)
                 .cloned()
                 .expect("each ws-tip has one entry on queue");
             let new_anon_segment = graph.insert_segment_set_entrypoint(
@@ -124,7 +124,7 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
             );
             // This segment acts as stand-in - always process it even if the queue says it's done.
             _ = next.push_front_exhausted((
-                ws_tip,
+                info,
                 flags,
                 Instruction::CollectCommit {
                     into: new_anon_segment,
@@ -359,7 +359,7 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
 /// seems to do that which breaks invariants. Admittedly, this code runs for all merge commits, not just our workspace commits,
 /// but as a matter of fact under many situations we already miss such duplicate connection due to the way the traversal is run,
 /// so this at least makes this apply to the whole graph uniformly.
-#[must_use]
+#[expect(clippy::too_many_arguments)]
 pub fn queue_parents(
     next: &mut Queue,
     no_duplicate_parents: &mut gix::hashtable::HashSet,
@@ -368,9 +368,12 @@ pub fn queue_parents(
     current_sidx: SegmentIndex,
     current_cidx: CommitIndex,
     mut limit: Limit,
-) -> bool {
+    commit_graph: Option<&gix::commitgraph::Graph>,
+    objects: &impl gix::objs::Find,
+    buf: &mut Vec<u8>,
+) -> anyhow::Result<bool> {
     if limit.is_exhausted_or_decrement(flags, next) {
-        return false;
+        return Ok(false);
     }
     if parent_ids.len() > 1 {
         let instruction = Instruction::ConnectNewSegment {
@@ -383,22 +386,24 @@ pub fn queue_parents(
             if !no_duplicate_parents.insert(*pid) {
                 continue;
             };
-            if next.push_back_exhausted((*pid, flags, instruction, limit_per_parent)) {
-                return true;
+            let info = find(commit_graph, objects, *pid, buf)?;
+            if next.push_back_exhausted((info, flags, instruction, limit_per_parent)) {
+                return Ok(true);
             }
         }
-    } else if !parent_ids.is_empty()
-        && next.push_back_exhausted((
-            parent_ids[0],
+    } else if !parent_ids.is_empty() {
+        let info = find(commit_graph, objects, parent_ids[0], buf)?;
+        if next.push_back_exhausted((
+            info,
             flags,
             Instruction::CollectCommit { into: current_sidx },
             limit,
-        ))
-    {
-        return true;
+        )) {
+            return Ok(true);
+        }
     }
 
-    false
+    Ok(false)
 }
 
 /// As convenience, if `ref_name` is `Some` and the metadata is not set, it will look it up for you.
@@ -525,7 +530,7 @@ fn extract_local_branch_metadata<T: RefMetadata>(
 }
 
 // Like the plumbing type, but will keep information that was already accessible for us.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TraverseInfo {
     inner: gix::traverse::commit::Info,
     /// The pre-parsed commit if available.
@@ -534,7 +539,7 @@ pub struct TraverseInfo {
     gen_then_time: GenThenTime,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct GenThenTime {
     /// The generation number from the commit-graph cache, if there was one.
     generation: Option<u32>,
@@ -868,6 +873,9 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
     goals: &mut Goals,
     next: &Queue,
     worktree_by_branch: &WorktreeByBranch,
+    commit_graph: Option<&gix::commitgraph::Graph>,
+    objects: &impl gix::objs::Find,
+    buf: &mut Vec<u8>,
 ) -> anyhow::Result<RemoteQueueOutcome> {
     let mut goal_flags = CommitFlags::empty();
     let mut limit_flags = CommitFlags::empty();
@@ -894,7 +902,7 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
         // It can happen a remote is in the workspace and was already queued as workspace tip.
         // Don't double-queue.
         if next.iter().any(|t| {
-            t.0 == remote_tip
+            t.0.id == remote_tip
                 && graph[t.2.segment_idx()]
                     .ref_name()
                     .is_some_and(|rn| rn == remote_tracking_branch.as_ref())
@@ -917,8 +925,9 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
         // Also, this makes the local tracking branch look for its remote, which is important
         // if the remote is far away as the local branch was rebased somewhere far ahead of the remote.
         goal_flags |= remote_limit.goal_flags();
+        let remote_tip_info = find(commit_graph, objects, remote_tip, buf)?;
         queue.push((
-            remote_tip,
+            remote_tip_info,
             self_flags,
             Instruction::CollectCommit {
                 into: remote_segment,

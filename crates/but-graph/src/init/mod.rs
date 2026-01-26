@@ -378,8 +378,9 @@ impl Graph {
                 Some((&ctx.refs_by_id, tip)),
                 &ctx.worktree_by_branch,
             )?);
+            let tip_info = find(commit_graph.as_ref(), repo.for_find_only(), tip, &mut buf)?;
             _ = next.push_back_exhausted((
-                tip,
+                tip_info,
                 tip_flags,
                 Instruction::CollectCommit { into: current },
                 max_limit,
@@ -446,8 +447,9 @@ impl Graph {
             }
             // As workspaces typically have integration branches which can help us to stop the traversal,
             // pick these up first.
+            let ws_tip_info = find(commit_graph.as_ref(), repo.for_find_only(), ws_tip, &mut buf)?;
             _ = next.push_front_exhausted((
-                ws_tip,
+                ws_tip_info,
                 CommitFlags::InWorkspace |
                     // We only allow workspaces that are not remote, and that are not target refs.
                     // Theoretically they can still cross-reference each other, but then we'd simply ignore
@@ -486,8 +488,9 @@ impl Graph {
                             }
                         };
                         let goal = goals.flag_for(target_local_tip).unwrap_or_default();
+                        let local_tip_info = find(commit_graph.as_ref(), repo.for_find_only(), target_local_tip, &mut buf)?;
                         _ = next.push_front_exhausted((
-                            target_local_tip,
+                            local_tip_info,
                             CommitFlags::NotInRemote | goal,
                             Instruction::CollectCommit { into: local_sidx },
                             target_limit,
@@ -497,8 +500,9 @@ impl Graph {
                     } else {
                         (None, CommitFlags::empty())
                     };
+                let target_ref_info = find(commit_graph.as_ref(), repo.for_find_only(), target_ref_id, &mut buf)?;
                 _ = next.push_front_exhausted((
-                    target_ref_id,
+                    target_ref_info,
                     CommitFlags::Integrated,
                     Instruction::CollectCommit {
                         into: target_segment,
@@ -519,6 +523,9 @@ impl Graph {
                 meta,
                 &ctx,
                 target_limit,
+                commit_graph.as_ref(),
+                repo.for_find_only(),
+                &mut buf,
             )?;
             graph.extra_target = Some(sidx);
         }
@@ -541,6 +548,9 @@ impl Graph {
                 meta,
                 &ctx,
                 target_limit,
+                commit_graph.as_ref(),
+                repo.for_find_only(),
+                &mut buf,
             )?;
         }
 
@@ -564,7 +574,7 @@ impl Graph {
                 };
                 // Avoid duplication before we create a new branch segment, these should not interfere,
                 // just integrate.
-                if next.iter().any(|t| t.0 == segment_tip) {
+                if next.iter().any(|t| t.0.id == segment_tip) {
                     next.add_goal_to(
                         segment_tip.detach(),
                         goals.flag_for(tip).unwrap_or_default(),
@@ -596,8 +606,9 @@ impl Graph {
                         .map(SegmentMetadata::Branch);
                 }
                 let segment = graph.insert_segment(segment);
+                let segment_tip_info = find(commit_graph.as_ref(), repo.for_find_only(), segment_tip.detach(), &mut buf)?;
                 _ = next.push_back_exhausted((
-                    segment_tip.detach(),
+                    segment_tip_info,
                     CommitFlags::NotInRemote,
                     Instruction::CollectCommit { into: segment },
                     max_limit.with_indirect_goal(tip, &mut goals),
@@ -613,11 +624,11 @@ impl Graph {
         )?;
         max_commits_recharge_location.sort();
         let mut no_duplicate_parents = gix::hashtable::HashSet::default();
-        while let Some((id, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
+        while let Some((info, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
+            let id = info.id;
             if max_commits_recharge_location.binary_search(&id).is_ok() {
                 limit.set_but_keep_goal(max_limit);
             }
-            let info = find(commit_graph.as_ref(), repo.for_find_only(), id, &mut buf)?;
             let src_flags = graph[instruction.segment_idx()]
                 .commits
                 .last()
@@ -709,6 +720,9 @@ impl Graph {
                 &mut goals,
                 &next,
                 &ctx.worktree_by_branch,
+                commit_graph.as_ref(),
+                repo.for_find_only(),
+                &mut buf,
             )?;
 
             let segment = &mut graph[segment_idx_for_id];
@@ -722,7 +736,10 @@ impl Graph {
                 segment_idx_for_id,
                 commit_idx_for_possible_fork,
                 limit.additional_goal(limit_to_let_local_find_remote),
-            );
+                commit_graph.as_ref(),
+                repo.for_find_only(),
+                &mut buf,
+            )?;
             if hard_limit_hit {
                 return graph.post_processed(meta, tip, ctx.with_hard_limit());
             }
@@ -797,6 +814,7 @@ impl Graph {
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn add_extra_target<T: RefMetadata>(
     graph: &mut Graph,
     next: &mut Queue,
@@ -804,10 +822,13 @@ fn add_extra_target<T: RefMetadata>(
     meta: &OverlayMetadata<'_, T>,
     ctx: &post::Context,
     limit: Limit,
+    commit_graph: Option<&gix::commitgraph::Graph>,
+    objects: &impl gix::objs::Find,
+    buf: &mut Vec<u8>,
 ) -> anyhow::Result<SegmentIndex> {
     let sidx = if let Some(existing_segment) =
-        next.iter().find_map(|(tip_id, _, instruction, _)| {
-            (tip_id == &extra_target).then_some(instruction.segment_idx())
+        next.iter().find_map(|(info, _, instruction, _)| {
+            (info.id == extra_target).then_some(instruction.segment_idx())
         }) {
         // For now just assume the settings are good/similar enough so we don't
         // have to adjust the existing queue item.
@@ -819,8 +840,9 @@ fn add_extra_target<T: RefMetadata>(
             Some((&ctx.refs_by_id, extra_target)),
             &ctx.worktree_by_branch,
         )?);
+        let extra_target_info = find(commit_graph, objects, extra_target, buf)?;
         _ = next.push_front_exhausted((
-            extra_target,
+            extra_target_info,
             CommitFlags::Integrated,
             Instruction::CollectCommit {
                 into: extra_target_sidx,
