@@ -441,24 +441,25 @@
 		if (items && viewport) {
 			untrack(async () => {
 				heightMap.length = items.length;
-				if (!isInitialized() && items.length > 0) {
+
+				const needsInitialization = !isInitialized() && items.length > 0;
+				if (needsInitialization) {
 					const index = stickToBottom ? items.length - 1 : startIndex || 0;
 					await initializeAt(index);
-					if (!isInitialized()) {
-						return;
-					}
+					return;
 				}
 
-				if (stickToBottom) {
-					if (previousDistance < STICKY_DISTANCE) {
-						await recalculateVisibleRange();
-						if (getDistanceFromBottom() !== 0) {
-							scrollToBottom();
-						}
-					} else {
-						const count = items.length;
-						hasNewItemsAtBottom = count > previousCount && count > visibleRange.end;
-					}
+				const wasNearBottom = previousDistance < STICKY_DISTANCE;
+				if (stickToBottom && !wasNearBottom) {
+					const count = items.length;
+					hasNewItemsAtBottom = count > previousCount && count > visibleRange.end;
+				}
+
+				// This recalculate is needed for `onloadmore` to work correctly.
+				await recalculateVisibleRange();
+
+				if (stickToBottom && wasNearBottom && getDistanceFromBottom() !== 0) {
+					scrollToBottom();
 				}
 			});
 		}
