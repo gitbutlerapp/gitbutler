@@ -597,7 +597,7 @@ pub(crate) mod function {
                 inner,
                 relation: if flags.contains(StackCommitFlags::Integrated) {
                     LocalCommitRelation::Integrated(id)
-                } else if flags.contains(StackCommitFlags::ReachableByRemote) {
+                } else if flags.contains(StackCommitFlags::ReachableByMatchingRemote) {
                     LocalCommitRelation::LocalAndRemote(id)
                 } else {
                     LocalCommitRelation::LocalOnly
