@@ -701,6 +701,16 @@ pub fn try_refname_to_id(
 
 /// Propagation is always called if one segment reaches another one, which is when the flag
 /// among the shared commit are send downward, towards the base.
+///
+/// # Performance Warning
+///
+/// This function is critical to performance, and ideally is called less. But when it is called,
+/// it must be fast, hence the manual implementation of the TopoWalk, which is about 60% faster.
+///
+/// To validate your changes, clone https://@github.com/schacon/homebrew-cask.git, and run
+/// `cargo run --release --bin but-testing -- -dd -C /path/to/homebrew-cask graph -s -l 300 --no-debug-workspace`
+///
+/// If this gets slower, the change isn't good.
 pub fn propagate_flags_downward(
     graph: &mut PetGraph,
     flags_to_add: CommitFlags,
@@ -708,8 +718,6 @@ pub fn propagate_flags_downward(
     dst_commit: Option<CommitIndex>,
     needs_leafs: bool,
 ) -> Option<Vec<SegmentIndex>> {
-    // For an acyclic graph, use DFS which is more cache-friendly and efficient
-    // We use a bitmask to track visited nodes since SegmentIndex values are typically small
     let mut visited = gix::hashtable::HashSet::default();
     let mut leafs = needs_leafs.then(Vec::new);
     let mut stack = vec![(dst_sidx, dst_commit)];
@@ -731,15 +739,15 @@ pub fn propagate_flags_downward(
             }
         }
 
-        // Track edges for leaf detection
-        let mut edge_count = 0;
-
         // Process outgoing edges
         let mut neighbors = graph
             .neighbors_directed(segment, petgraph::Direction::Outgoing)
             .detach();
 
+        // Track edges for leaf detection
+        let mut edge_count = 0;
         while let Some((edge_idx, target_segment)) = neighbors.next(graph) {
+            edge_count += 1;
             let edge = &graph[edge_idx];
 
             // Skip edges that don't originate from our commit range
@@ -749,10 +757,8 @@ pub fn propagate_flags_downward(
                 continue;
             }
 
-            edge_count += 1;
-
             // For DAG, we can visit each node multiple times from different parents,
-            // but we want to process each (segment, commit_index) pair only once
+            // but we want to process each commit-id only once in this walk.
             let next_commit = edge.dst_id;
             if let Some(commit_id) = next_commit
                 && visited.insert(commit_id)
