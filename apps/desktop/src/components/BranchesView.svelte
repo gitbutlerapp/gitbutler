@@ -9,7 +9,6 @@
 	import PrBranchView from '$components/PRBranchView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import Scrollbar from '$components/Scrollbar.svelte';
 	import TargetCommitList from '$components/TargetCommitList.svelte';
 	import UnappliedCommitView from '$components/UnappliedCommitView.svelte';
 	import BranchListCard from '$components/branchesPage/BranchListCard.svelte';
@@ -18,7 +17,6 @@
 	import PRListCard from '$components/branchesPage/PRListCard.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
-	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import { isParsedError } from '$lib/error/parser';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { workspacePath } from '$lib/routes/routes.svelte';
@@ -65,8 +63,6 @@
 	let selection = $state<BranchesSelection>({ type: 'target' });
 
 	let branchColumn = $state<HTMLDivElement>();
-	let commitColumn = $state<HTMLDivElement>();
-	let rightWrapper = $state<HTMLDivElement>();
 	let branchViewLeftEl = $state<HTMLDivElement>();
 
 	async function checkoutBranch(args: {
@@ -120,15 +116,6 @@
 			console.warn('Branches selection cleared');
 		}
 	}
-
-	const horizontalPanner = $derived(rightWrapper ? new HorizontalPanner(rightWrapper) : undefined);
-
-	$effect(() => {
-		if (horizontalPanner) {
-			const unsub = horizontalPanner.registerListeners();
-			return () => unsub?.();
-		}
-	});
 
 	let multiDiffView = $state<MultiDiffView>();
 </script>
@@ -262,7 +249,7 @@
 	</div>
 
 	<div class="branches-view__right">
-		<div class="right-wrapper hide-native-scrollbar dotted-pattern" bind:this={rightWrapper}>
+		<div class="right-wrapper dotted-pattern">
 			<div class="branch-column" bind:this={branchColumn} use:focusable={{ vertical: true }}>
 				{#if selection.type === 'target'}
 					<TargetCommitList
@@ -372,7 +359,7 @@
 				/>
 			</div>
 
-			<div class="commit-column" bind:this={commitColumn}>
+			<div class="commit-column">
 				{#if selection.type === 'branch' && selection.commitId}
 					{@const { commitId } = selection}
 					{@const changesQuery = stackService.commitChanges(projectId, commitId)}
@@ -419,8 +406,6 @@
 				{/if}
 			</div>
 		</div>
-
-		<Scrollbar viewport={rightWrapper} horz />
 	</div>
 </div>
 
@@ -450,15 +435,13 @@
 		display: flex;
 		position: relative;
 		height: 100%;
-		margin-right: -1px;
-		margin-left: -1px;
 		overflow: hidden;
-		overflow-x: auto;
 	}
 
 	.branch-column {
 		display: flex;
 		position: relative;
+		flex: 1;
 		flex-grow: 0;
 		flex-shrink: 0;
 		flex-direction: column;
@@ -470,8 +453,7 @@
 	.commit-column {
 		display: flex;
 		position: relative;
-		flex-grow: 1;
-		flex-shrink: 0;
+		flex: 1;
 		flex-direction: column;
 		max-height: 100%;
 		padding: 12px;
