@@ -1,13 +1,13 @@
 //! Utilities for graph-walking specifically.
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::Deref,
-};
-
 use anyhow::{Context as _, bail};
 use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
 use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
 use petgraph::Direction;
+use std::cmp::Ordering;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::Deref,
+};
 
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
@@ -530,6 +530,42 @@ pub struct TraverseInfo {
     inner: gix::traverse::commit::Info,
     /// The pre-parsed commit if available.
     commit: Option<Commit>,
+    /// A means of sorting the entry on the queue.
+    gen_then_time: GenThenTime,
+}
+
+#[derive(Debug)]
+struct GenThenTime {
+    /// The generation number from the commit-graph cache, if there was one.
+    generation: Option<u32>,
+    /// The committer timestamp, either from the commit-graph cache, or as parsed from the commit.
+    committer_time: u64,
+}
+
+impl Eq for GenThenTime {}
+
+impl PartialEq<Self> for GenThenTime {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+
+impl PartialOrd<Self> for GenThenTime {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.cmp(other).into()
+    }
+}
+
+/// Sort it so younger generations sort first, and lacking two generations, so that more recent times (i.e. higher)
+/// sort first.
+impl Ord for GenThenTime {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let time_cmp = self.committer_time.cmp(&other.committer_time).reverse();
+        match (self.generation, other.generation) {
+            (Some(a), Some(b)) => a.cmp(&b).then(time_cmp),
+            _ => time_cmp,
+        }
+    }
 }
 
 impl TraverseInfo {
@@ -574,7 +610,7 @@ pub fn find(
     buf: &mut Vec<u8>,
 ) -> anyhow::Result<TraverseInfo> {
     let mut parent_ids = gix::traverse::commit::ParentIds::new();
-    let commit = match gix::traverse::commit::find(cache, objects, &id, buf)? {
+    let (commit, gen_then_time) = match gix::traverse::commit::find(cache, objects, &id, buf)? {
         Either::CachedCommit(c) => {
             let cache = cache.expect("cache is available if a cached commit is returned");
             for parent_id in c.iter_parents() {
@@ -589,9 +625,16 @@ pub fn find(
                     }
                 }
             }
-            None
+            (
+                None,
+                GenThenTime {
+                    generation: c.generation().into(),
+                    committer_time: c.committer_timestamp(),
+                },
+            )
         }
         Either::CommitRefIter(iter) => {
+            let mut committer_time = None;
             for token in iter {
                 use gix::objs::commit::ref_iter::Token;
                 match token {
@@ -599,16 +642,31 @@ pub fn find(
                     Ok(Token::Parent { id }) => {
                         parent_ids.push(id);
                     }
+                    Ok(Token::Author { .. }) => continue,
+                    Ok(Token::Committer { signature }) => {
+                        committer_time = Some(
+                            signature
+                                .time()
+                                .map(|t| t.seconds as u64)
+                                .unwrap_or_default(),
+                        )
+                    }
                     Ok(_other_tokens) => break,
                     Err(err) => return Err(err.into()),
                 };
             }
-            Some(Commit {
-                id,
-                parent_ids: parent_ids.iter().cloned().collect(),
-                refs: Vec::new(),
-                flags: CommitFlags::empty(),
-            })
+            (
+                Some(Commit {
+                    id,
+                    parent_ids: parent_ids.iter().cloned().collect(),
+                    refs: Vec::new(),
+                    flags: CommitFlags::empty(),
+                }),
+                GenThenTime {
+                    generation: None,
+                    committer_time: committer_time.unwrap_or_default(),
+                },
+            )
         }
     };
 
@@ -619,6 +677,7 @@ pub fn find(
             commit_time: None,
         },
         commit,
+        gen_then_time,
     })
 }
 
