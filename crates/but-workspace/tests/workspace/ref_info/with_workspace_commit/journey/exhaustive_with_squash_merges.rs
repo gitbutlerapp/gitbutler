@@ -1089,7 +1089,7 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
             ),
             extra_target: None,
             lower_bound: Some(
-                NodeIndex(7),
+                NodeIndex(8),
             ),
             is_managed_ref: true,
             is_managed_commit: true,

@@ -456,17 +456,17 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     // That's why it's the *hard* limit.
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_hard_limit(7))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉►:0[0]:B[🌳] <> origin/B →:1:
     │   └── ·312f819 (⌂|001)
-    │       └── ►:2[1]:A <> origin/A →:3:
-    │           └── ·e255adc (⌂|101)
-    │               └── ►:4[2]:main
-    │                   └── ·fafd9d0 (⌂|101)
+    │       └── ►:2[1]:A <> origin/A →:4:
+    │           └── ❌·e255adc (⌂|101)
     ├── ►:1[0]:origin/B →:0:
-    │   └── ❌🟣682be32 (0x0|010)
-    └── ►:3[0]:origin/A →:2:
+    │   └── 🟣682be32 (0x0|010)
+    │       └── ►:4[1]:origin/A →:2:
+    │           └── ❌🟣e29c23d (0x0|010)
+    └── ►:3[0]:origin/A
     ");
     // As the remotes don't connect, they are entirely unknown.
     // And if it's weird, it's due to the hard limit

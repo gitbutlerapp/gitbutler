@@ -1,14 +1,4 @@
 //! Utilities for graph-walking specifically.
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::Deref,
-};
-
-use anyhow::{Context as _, bail};
-use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
-use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
-use petgraph::Direction;
-
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
     Worktree,
@@ -18,6 +8,16 @@ use crate::{
         remotes,
         types::{EdgeOwned, Instruction, Limit, Queue, QueueItem},
     },
+};
+use anyhow::{Context as _, bail};
+use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
+use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
+use petgraph::Direction;
+use petgraph::prelude::EdgeRef;
+use std::cmp::Ordering;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::Deref,
 };
 
 pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
@@ -41,7 +41,7 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
 ) -> anyhow::Result<Vec<SegmentIndex>> {
     next.inner
         .make_contiguous()
-        .sort_by_key(|(_id, _flags, instruction, _limit)| {
+        .sort_by_key(|(_info, _flags, instruction, _limit)| {
             // put local branches first, everything else later.
             graph[instruction.segment_idx()]
                 .ref_name()
@@ -71,15 +71,15 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
         if crate::projection::commit::is_managed_workspace_by_message(
             repo.find_commit(ws_tip)?.message_raw()?,
         ) {
-            if next.iter().filter(|(tip, ..)| *tip == ws_tip).count() <= 1 {
+            if next.iter().filter(|(info, ..)| info.id == ws_tip).count() <= 1 {
                 // Assume it's the workspace tip, and it's uniquely assigned to a workspace segment.
                 continue 'next_ws_tip;
             }
             let mut segments_with_ws_tip =
                 next.iter()
                     .enumerate()
-                    .filter_map(|(idx, (tip, _, instruction, _))| {
-                        (*tip == ws_tip).then_some((idx, instruction.segment_idx()))
+                    .filter_map(|(idx, (info, _, instruction, _))| {
+                        (info.id == ws_tip).then_some((idx, instruction.segment_idx()))
                     });
             let (first, second) = (
                 segments_with_ws_tip.next().expect("at least two"),
@@ -91,13 +91,13 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
             // Assure that the workspace comes first.
             drop(segments_with_ws_tip);
             next.inner.swap(first.0, second.0);
-        } else if next.iter().filter(|(tip, ..)| *tip == ws_tip).count() >= 2 {
+        } else if next.iter().filter(|(info, ..)| info.id == ws_tip).count() >= 2 {
             // There are multiple tips pointing to the unmanaged workspace commit.
             let mut segments_with_ws_tip =
                 next.iter()
                     .enumerate()
-                    .filter_map(|(idx, (tip, _, instruction, _))| {
-                        (*tip == ws_tip).then_some((idx, instruction.segment_idx()))
+                    .filter_map(|(idx, (info, _, instruction, _))| {
+                        (info.id == ws_tip).then_some((idx, instruction.segment_idx()))
                     });
             let (first, second) = (
                 segments_with_ws_tip.next().expect("at least two"),
@@ -114,9 +114,9 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
             // Otherwise, assure there is an owner that isn't the workspace branch.
             // To keep it simple, just create anon segments that are fixed up later.
 
-            let (_, flags, _instruction, limit) = next
+            let (info, flags, _instruction, limit) = next
                 .iter()
-                .find(|t| t.0 == ws_tip)
+                .find(|t| t.0.id == ws_tip)
                 .cloned()
                 .expect("each ws-tip has one entry on queue");
             let new_anon_segment = graph.insert_segment_set_entrypoint(
@@ -124,7 +124,7 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
             );
             // This segment acts as stand-in - always process it even if the queue says it's done.
             _ = next.push_front_exhausted((
-                ws_tip,
+                info,
                 flags,
                 Instruction::CollectCommit {
                     into: new_anon_segment,
@@ -139,12 +139,14 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
 
 /// Split `sidx[commit..]` into its own segment and connect the parts. Move all connections in `commit..`
 /// from `sidx` to the new segment, and return that.
+/// Note that `standin` is used instead of creating a new bottom segment, and all its outgoing connections will be removed.
 pub fn split_commit_into_segment(
     graph: &mut Graph,
     next: &mut Queue,
     seen: &mut gix::revwalk::graph::IdMap<SegmentIndex>,
     sidx: SegmentIndex,
     commit: CommitIndex,
+    standin: Option<SegmentIndex>,
 ) -> anyhow::Result<SegmentIndex> {
     let mut bottom_segment = Segment {
         commits: graph[sidx].commits.clone(),
@@ -158,9 +160,57 @@ pub fn split_commit_into_segment(
         .into_iter()
         .skip(commits_in_top_segment)
         .collect();
-    let top_commit = graph[sidx].last_commit_index();
-    let bottom_id = bottom_segment.commits[0].id;
-    let bottom_segment = graph.connect_new_segment(sidx, top_commit, bottom_segment, 0, bottom_id);
+    let top_commit_index = graph[sidx].last_commit_index();
+    let bottom_commit_id = bottom_segment.commits[0].id;
+    let bottom_segment = match standin {
+        None => {
+            graph.connect_new_segment(sidx, top_commit_index, bottom_segment, 0, bottom_commit_id)
+        }
+        Some(standin_sidx) => {
+            let outgoing_edges: Vec<_> = graph
+                .edges_directed(standin_sidx, Direction::Outgoing)
+                .map(|e| e.id())
+                .collect();
+            for edge_id in outgoing_edges {
+                graph.remove_edge(edge_id);
+            }
+
+            let top_commit_id = top_commit_index.map(|idx| graph[sidx].commits[idx].id);
+            graph.connect_segments_with_ids(
+                sidx,
+                top_commit_index,
+                top_commit_id,
+                standin_sidx,
+                0,
+                Some(bottom_commit_id),
+            );
+            let s = &mut graph[standin_sidx];
+            s.commits = bottom_segment.commits;
+            if !s.commits[0].refs.is_empty()
+                && let Some(ref_info) = s.ref_info.take()
+            {
+                let first = &mut s.commits[0];
+                if let Some(pos) = first
+                    .refs
+                    .iter()
+                    .position(|ri| ri.ref_name == ref_info.ref_name)
+                {
+                    // The standin segment name is already mentioned there (as duplicate),
+                    // So remove it.
+                    first.refs.remove(pos);
+                    // But if there is no name left, put our name back as it's not ambiguous.
+                    if first.refs.is_empty() {
+                        s.ref_info = Some(ref_info);
+                    }
+                } else {
+                    // Since there are more than one refs here, it's ambiguous,
+                    // leave it to post-processing to resolve
+                    s.commits[0].refs.push(ref_info);
+                }
+            }
+            standin_sidx
+        }
+    };
 
     // Res-assign ownership to assure future queries will find the right segment.
     for commit_id in graph[bottom_segment].commits.iter().map(|c| c.id) {
@@ -322,17 +372,18 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
     if src_segment.commits.is_empty() {
         return Ok(None);
     }
-    let maybe_segment_name_from_unabigous_refs =
+    let maybe_segment_name_from_unambiguous_refs =
         disambiguate_refs_by_branch_metadata_with_lookup((refs_by_id, info.id), meta);
-    let Some(maybe_segment_name) = maybe_segment_name_from_unabigous_refs
-        .map(Some)
-        .or_else(|| {
-            let want_segment_without_name = Some(None);
-            if info.parent_ids.len() < 2 {
-                return None;
-            }
-            want_segment_without_name
-        })
+    let Some(maybe_segment_name) =
+        maybe_segment_name_from_unambiguous_refs
+            .map(Some)
+            .or_else(|| {
+                let want_segment_without_name = Some(None);
+                if info.parent_ids.len() < 2 {
+                    return None;
+                }
+                want_segment_without_name
+            })
     else {
         return Ok(None);
     };
@@ -359,7 +410,7 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
 /// seems to do that which breaks invariants. Admittedly, this code runs for all merge commits, not just our workspace commits,
 /// but as a matter of fact under many situations we already miss such duplicate connection due to the way the traversal is run,
 /// so this at least makes this apply to the whole graph uniformly.
-#[must_use]
+#[expect(clippy::too_many_arguments)]
 pub fn queue_parents(
     next: &mut Queue,
     no_duplicate_parents: &mut gix::hashtable::HashSet,
@@ -368,9 +419,12 @@ pub fn queue_parents(
     current_sidx: SegmentIndex,
     current_cidx: CommitIndex,
     mut limit: Limit,
-) -> bool {
+    commit_graph: Option<&gix::commitgraph::Graph>,
+    objects: &impl gix::objs::Find,
+    buf: &mut Vec<u8>,
+) -> anyhow::Result<bool> {
     if limit.is_exhausted_or_decrement(flags, next) {
-        return false;
+        return Ok(false);
     }
     if parent_ids.len() > 1 {
         let instruction = Instruction::ConnectNewSegment {
@@ -383,22 +437,24 @@ pub fn queue_parents(
             if !no_duplicate_parents.insert(*pid) {
                 continue;
             };
-            if next.push_back_exhausted((*pid, flags, instruction, limit_per_parent)) {
-                return true;
+            let info = find(commit_graph, objects, *pid, buf)?;
+            if next.push_back_exhausted((info, flags, instruction, limit_per_parent)) {
+                return Ok(true);
             }
         }
-    } else if !parent_ids.is_empty()
-        && next.push_back_exhausted((
-            parent_ids[0],
+    } else if !parent_ids.is_empty() {
+        let info = find(commit_graph, objects, parent_ids[0], buf)?;
+        if next.push_back_exhausted((
+            info,
             flags,
             Instruction::CollectCommit { into: current_sidx },
             limit,
-        ))
-    {
-        return true;
+        )) {
+            return Ok(true);
+        }
     }
 
-    false
+    Ok(false)
 }
 
 /// As convenience, if `ref_name` is `Some` and the metadata is not set, it will look it up for you.
@@ -525,11 +581,47 @@ fn extract_local_branch_metadata<T: RefMetadata>(
 }
 
 // Like the plumbing type, but will keep information that was already accessible for us.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TraverseInfo {
     inner: gix::traverse::commit::Info,
     /// The pre-parsed commit if available.
     commit: Option<Commit>,
+    /// A means of sorting the entry on the queue.
+    pub(crate) gen_then_time: GenThenTime,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct GenThenTime {
+    /// The generation number from the commit-graph cache, if there was one.
+    generation: Option<u32>,
+    /// The committer timestamp, either from the commit-graph cache, or as parsed from the commit.
+    committer_time: u64,
+}
+
+impl Eq for GenThenTime {}
+
+impl PartialEq<Self> for GenThenTime {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+
+impl PartialOrd<Self> for GenThenTime {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.cmp(other).into()
+    }
+}
+
+/// Sort it so younger generations sort first, and lacking two generations, so that more recent times (i.e. higher)
+/// sort first.
+impl Ord for GenThenTime {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let time_cmp = self.committer_time.cmp(&other.committer_time).reverse();
+        match (self.generation, other.generation) {
+            (Some(a), Some(b)) => a.cmp(&b).reverse().then(time_cmp),
+            _ => time_cmp,
+        }
+    }
 }
 
 impl TraverseInfo {
@@ -574,7 +666,7 @@ pub fn find(
     buf: &mut Vec<u8>,
 ) -> anyhow::Result<TraverseInfo> {
     let mut parent_ids = gix::traverse::commit::ParentIds::new();
-    let commit = match gix::traverse::commit::find(cache, objects, &id, buf)? {
+    let (commit, gen_then_time) = match gix::traverse::commit::find(cache, objects, &id, buf)? {
         Either::CachedCommit(c) => {
             let cache = cache.expect("cache is available if a cached commit is returned");
             for parent_id in c.iter_parents() {
@@ -589,9 +681,16 @@ pub fn find(
                     }
                 }
             }
-            None
+            (
+                None,
+                GenThenTime {
+                    generation: c.generation().into(),
+                    committer_time: c.committer_timestamp(),
+                },
+            )
         }
         Either::CommitRefIter(iter) => {
+            let mut committer_time = None;
             for token in iter {
                 use gix::objs::commit::ref_iter::Token;
                 match token {
@@ -599,16 +698,31 @@ pub fn find(
                     Ok(Token::Parent { id }) => {
                         parent_ids.push(id);
                     }
+                    Ok(Token::Author { .. }) => continue,
+                    Ok(Token::Committer { signature }) => {
+                        committer_time = Some(
+                            signature
+                                .time()
+                                .map(|t| t.seconds as u64)
+                                .unwrap_or_default(),
+                        )
+                    }
                     Ok(_other_tokens) => break,
                     Err(err) => return Err(err.into()),
                 };
             }
-            Some(Commit {
-                id,
-                parent_ids: parent_ids.iter().cloned().collect(),
-                refs: Vec::new(),
-                flags: CommitFlags::empty(),
-            })
+            (
+                Some(Commit {
+                    id,
+                    parent_ids: parent_ids.iter().cloned().collect(),
+                    refs: Vec::new(),
+                    flags: CommitFlags::empty(),
+                }),
+                GenThenTime {
+                    generation: None,
+                    committer_time: committer_time.unwrap_or_default(),
+                },
+            )
         }
     };
 
@@ -619,6 +733,7 @@ pub fn find(
             commit_time: None,
         },
         commit,
+        gen_then_time,
     })
 }
 
@@ -809,6 +924,9 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
     goals: &mut Goals,
     next: &Queue,
     worktree_by_branch: &WorktreeByBranch,
+    commit_graph: Option<&gix::commitgraph::Graph>,
+    objects: &impl gix::objs::Find,
+    buf: &mut Vec<u8>,
 ) -> anyhow::Result<RemoteQueueOutcome> {
     let mut goal_flags = CommitFlags::empty();
     let mut limit_flags = CommitFlags::empty();
@@ -835,7 +953,7 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
         // It can happen a remote is in the workspace and was already queued as workspace tip.
         // Don't double-queue.
         if next.iter().any(|t| {
-            t.0 == remote_tip
+            t.0.id == remote_tip
                 && graph[t.2.segment_idx()]
                     .ref_name()
                     .is_some_and(|rn| rn == remote_tracking_branch.as_ref())
@@ -858,8 +976,9 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
         // Also, this makes the local tracking branch look for its remote, which is important
         // if the remote is far away as the local branch was rebased somewhere far ahead of the remote.
         goal_flags |= remote_limit.goal_flags();
+        let remote_tip_info = find(commit_graph, objects, remote_tip, buf)?;
         queue.push((
-            remote_tip,
+            remote_tip_info,
             self_flags,
             Instruction::CollectCommit {
                 into: remote_segment,
@@ -925,12 +1044,36 @@ pub fn possibly_split_occupied_segment(
     })?;
 
     if bottom_cidx != 0 {
+        // Re-use an existing empty segment to better integrate them into the graph, and to prevent loose segments
+        // just 'hanging around'. This can happen particularly for remote tracking branches which get to their commit
+        // too late, but might also be possible for other nodes we have created with a name pre-emptively.
+        // And even though there is a good reason to do what we do with remote tracking segments,
+        // maybe all this can be simpler?
+        let standin = {
+            let s = &graph[src_sidx];
+            (top_sidx == src_sidx
+                && s.commits.is_empty()
+                && s.ref_info.is_some()
+                && graph
+                    .neighbors_directed(src_sidx, Direction::Incoming)
+                    .next()
+                    .is_none()
+                && graph[bottom_sidx]
+                    .commits
+                    .first()
+                    .is_some_and(|c| c.flags.is_remote()))
+            .then_some(src_sidx)
+        };
         let new_bottom_sidx =
-            split_commit_into_segment(graph, next, seen, bottom_sidx, bottom_cidx)?;
+            split_commit_into_segment(graph, next, seen, bottom_sidx, bottom_cidx, standin)?;
         bottom_sidx = new_bottom_sidx;
         bottom_cidx = 0;
     }
-    graph.connect_segments(top_sidx, top_cidx, bottom_sidx, bottom_cidx);
+
+    // Standins will cause this, avoid self-connection.
+    if top_sidx != bottom_sidx {
+        graph.connect_segments(top_sidx, top_cidx, bottom_sidx, bottom_cidx);
+    }
     let top_flags = top_cidx
         .map(|cidx| graph[top_sidx].commits[cidx].flags)
         .unwrap_or_default();

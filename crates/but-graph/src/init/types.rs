@@ -1,9 +1,8 @@
+use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
 use std::{
     collections::{BTreeSet, VecDeque},
     ops::Range,
 };
-
-use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
 
 use crate::{CommitFlags, CommitIndex, Edge, SegmentIndex};
 
@@ -181,6 +180,19 @@ pub struct Queue {
 
 /// Counted queuing
 impl Queue {
+    /// Sort the queue items so that young commits come first. This way, the traversal goes
+    /// back in time continuously, which helps to avoid having too many graph traversals
+    /// in disjoint regions happen at the same time.
+    /// Note that traversals sorted like this are much less prone to run into the `propagate_flags_downward`
+    /// bottleneck. While they may (depending on the graph) create their own bottleneck if they end up missing
+    /// their point of interest and overshoot to the beginning of time, this is still preferable over the flag
+    /// propagation bottleneck. This is true Particularly if a commit-graph exists which typically is the case
+    /// where this starts to matter, as it speeds up traversal by factor 8 easily.
+    pub fn sort(&mut self) {
+        self.inner
+            .make_contiguous()
+            .sort_by(|a, b| a.0.gen_then_time.cmp(&b.0.gen_then_time));
+    }
     #[must_use]
     pub fn push_back_exhausted(&mut self, item: QueueItem) -> bool {
         self.inner.push_back(item);
@@ -199,7 +211,7 @@ impl Queue {
 
     /// Return `true` if `id` is on the queue.
     pub fn is_queued(&self, id: gix::ObjectId) -> bool {
-        self.inner.iter().any(|(tip, _, _, _)| tip == &id)
+        self.inner.iter().any(|(info, _, _, _)| info.id == id)
     }
 
     /// Add `goal` as additional goal to `id` or panic if `id` was not found.
@@ -207,7 +219,7 @@ impl Queue {
         let limit = self
             .inner
             .iter_mut()
-            .find_map(|(tip, _, _, limit)| (tip == &id).then_some(limit))
+            .find_map(|(info, _, _, limit)| (info.id == id).then_some(limit))
             .expect("BUG: id is queued");
         *limit = limit.additional_goal(goal);
     }
@@ -290,7 +302,7 @@ impl Instruction {
     }
 }
 
-pub type QueueItem = (gix::ObjectId, CommitFlags, Instruction, Limit);
+pub type QueueItem = (super::walk::TraverseInfo, CommitFlags, Instruction, Limit);
 
 #[derive(Debug)]
 pub(crate) struct EdgeOwned {
