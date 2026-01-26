@@ -130,10 +130,10 @@
 		// To get default behavior you can add a "Select All" predefined menu item to the
 		// Edit menu, but that prevents the event from reaching the webview.
 		if (
+			(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) &&
 			(e.metaKey || e.ctrlKey) &&
 			e.key === 'a' &&
-			e.target &&
-			e.target instanceof HTMLInputElement
+			e.target
 		) {
 			e.target.select();
 			e.preventDefault();
