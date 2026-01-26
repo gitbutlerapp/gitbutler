@@ -15,7 +15,12 @@
 	const { releases = [] }: Props = $props();
 </script>
 
-<Hero />
+<Hero>
+	{#snippet descriptionContent()}
+		GitButler is the Git-backed change management tool for modern, AI&nbsp;coding workflows.
+		Parallel and stacked branches, unlimited undo, agent integrations, and more. It's Git, refined.
+	{/snippet}
+</Hero>
 <MainFeatures />
 <AiFeatures />
 <FeatureUpdates />

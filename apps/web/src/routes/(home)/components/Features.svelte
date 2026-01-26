@@ -1,5 +1,6 @@
 <script lang="ts">
 	interface Props {
+		noMargin?: boolean;
 		items: {
 			title: string;
 			description: string;
@@ -8,7 +9,7 @@
 		}[];
 	}
 
-	const { items }: Props = $props();
+	const { noMargin, items }: Props = $props();
 </script>
 
 {#snippet cardContent(title: string, description: string, icon?: string)}
@@ -25,7 +26,7 @@
 	</div>
 {/snippet}
 
-<section class="features">
+<section class="features" class:no-margins={noMargin}>
 	{#each items as item}
 		{#if item.link}
 			<a class="feature-item" href={item.link} target="_blank" rel="noopener noreferrer">
@@ -56,6 +57,10 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-xl);
+
+		&.no-margins {
+			margin-top: 0;
+		}
 	}
 
 	.features::before {
