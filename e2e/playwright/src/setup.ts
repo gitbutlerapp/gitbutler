@@ -199,6 +199,7 @@ function spawnProcess(
 			VITE_BUILD_TARGET: 'web',
 			BUT_TESTING: BUT_TESTING,
 			VITE_HOST,
+			RUST_LOG: 'error',
 			...env
 		}
 	});
