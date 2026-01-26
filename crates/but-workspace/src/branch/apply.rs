@@ -4,7 +4,7 @@ use but_core::{
     WORKSPACE_REF_NAME, ref_metadata::StackId, worktree::checkout::UncommitedWorktreeChanges,
 };
 
-use crate::branch::OnWorkspaceMergeConflict;
+use crate::branch::{OnWorkspaceMergeConflict, try_find_validated_ref};
 
 /// Returned by [apply()].
 pub struct Outcome<'workspace> {
@@ -136,9 +136,7 @@ use anyhow::{Context as _, bail};
 use but_core::{
     ObjectStorageExt, RefMetadata, RepositoryExt, extract_remote_name_and_short_name, ref_metadata,
     ref_metadata::{
-        StackKind,
-        StackKind::AppliedAndUnapplied,
-        Workspace,
+        StackKind, Workspace,
         WorkspaceCommitRelation::{Merged, Outside},
     },
 };
@@ -153,7 +151,15 @@ use gix::{
 };
 use tracing::instrument;
 
-use crate::{WorkspaceCommit, commit::merge::Tip, ref_info::WorkspaceExt};
+use crate::{
+    WorkspaceCommit,
+    branch::{
+        anon_stacks, correlate_conflicting_stack_ids,
+        correlate_conflicting_stack_ids_and_remove_from_workspace, ensure_no_missing_stacks,
+    },
+    commit::merge::Tip,
+    ref_info::WorkspaceExt,
+};
 
 /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
 /// along with its `meta`-data if it doesn't exist yet.
@@ -195,7 +201,7 @@ pub fn apply<'ws>(
     let new_stack_id = new_stack_id.unwrap_or(generate_new_stack_id);
     let branch_orig = branch;
     let (mut branch_ref, mut incoming_branch_is_remote_tracking_without_local_tracking) =
-        (try_find_validated_ref(repo, branch)?, false);
+        (try_find_validated_ref(repo, branch, "apply")?, false);
     if ws.is_branch_the_target_or_its_local_tracking_branch(branch) {
         bail!("Cannot add the target '{branch}' branch to its own workspace");
     }
@@ -215,7 +221,7 @@ pub fn apply<'ws>(
         // Pretend the upstream branch is also the local tracking name.
         incoming_branch_is_remote_tracking_without_local_tracking = true;
         branch = upstream_branch_name;
-        branch_ref = try_find_validated_ref(repo, branch.as_ref())?;
+        branch_ref = try_find_validated_ref(repo, branch.as_ref(), "apply")?;
     }
     let conflicting_stack_ids = Vec::new();
     if ws.is_reachable_from_entrypoint(branch.as_ref()) {
@@ -689,27 +695,6 @@ pub fn apply<'ws>(
     })
 }
 
-fn anon_stacks(stacks: &[but_graph::workspace::Stack]) -> impl Iterator<Item = (usize, Tip)> {
-    stacks.iter().enumerate().filter_map(|(idx, s)| {
-        if s.ref_name().is_none() {
-            s.tip_skip_empty().and_then(|cid| {
-                s.segments.first().map(|s| {
-                    (
-                        idx,
-                        Tip {
-                            name: None,
-                            commit_id: cid,
-                            segment_idx: s.id,
-                        },
-                    )
-                })
-            })
-        } else {
-            None
-        }
-    })
-}
-
 fn filter_superseded_metadata_stacks<'a>(
     stack_iter: impl Iterator<Item = &'a ref_metadata::WorkspaceStack>,
     existing_stacks_superseded_by_branch: &[(
@@ -881,38 +866,6 @@ fn add_branch_as_stack_forcefully(
     stack.workspacecommit_relation = Merged;
 }
 
-fn correlate_conflicting_stack_ids(
-    ws: &Workspace,
-    conflicts: &[crate::commit::merge::ConflictingStack],
-) -> Vec<StackId> {
-    conflicts
-        .iter()
-        .filter_map(|cs| cs.ref_name.as_ref())
-        .filter_map(|ref_name| {
-            ws.find_stack_with_branch(ref_name.as_ref(), AppliedAndUnapplied)
-                .map(|stack| stack.id)
-        })
-        .collect()
-}
-
-/// Note that we chose to put it outside the workspace, instead of just leaving it unmerged.
-fn correlate_conflicting_stack_ids_and_remove_from_workspace(
-    ws: &mut Workspace,
-    conflicts: &[crate::commit::merge::ConflictingStack],
-) -> Vec<StackId> {
-    let conflicting_stack_ids = correlate_conflicting_stack_ids(ws, conflicts);
-    for conflicting_id in &conflicting_stack_ids {
-        let stack = ws
-            .stacks
-            .iter_mut()
-            .find(|s| s.id == *conflicting_id)
-            .expect("if it was found before it will be found as id");
-        // TODO: this might as well be 'Unmerged' to keep them in the workspace, but not let them be merged.
-        stack.workspacecommit_relation = Outside;
-    }
-    conflicting_stack_ids
-}
-
 fn persist_metadata_and_gitconfig<T: RefMetadata>(
     meta: &mut T,
     branches_to_apply: &[gix::refs::FullName],
@@ -1024,34 +977,6 @@ fn needs_workspace_commit_without_remerge(
         },
         WorkspaceMerge::MergeIfNeeded => false,
     }
-}
-
-fn ensure_no_missing_stacks(merge: &crate::commit::merge::Outcome) -> anyhow::Result<()> {
-    if merge.missing_stacks.is_empty() {
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!(
-            "Somehow some of the new stacks weren't part of the graph: {:#?}",
-            merge.missing_stacks
-        ))
-    }
-}
-
-fn try_find_validated_ref<'repo>(
-    repo: &'repo gix::Repository,
-    branch: &gix::refs::FullNameRef,
-) -> anyhow::Result<Option<gix::Reference<'repo>>> {
-    let branch_ref = repo.try_find_reference(branch)?;
-    if branch_ref
-        .as_ref()
-        .is_some_and(|r| matches!(r.target(), gix::refs::TargetRef::Symbolic(_)))
-    {
-        bail!(
-            "Refusing to apply symbolic ref '{}' due to potential ambiguity",
-            branch.shorten()
-        );
-    }
-    Ok(branch_ref)
 }
 
 fn generate_new_stack_id(_: &gix::refs::FullNameRef) -> StackId {
