@@ -1,5 +1,4 @@
 <script lang="ts">
-	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
 	import ThemeSwitcher from '$lib/components/marketing/ThemeSwitcher.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import osIcons from '$lib/data/os-icons.json';
@@ -117,8 +116,6 @@
 				</li>
 			{/each}
 		</ul>
-
-		<HeaderAuthSection hideIfUserAuthenticated />
 
 		<div class="stack-v gap-20">
 			<div class="meta-links">
