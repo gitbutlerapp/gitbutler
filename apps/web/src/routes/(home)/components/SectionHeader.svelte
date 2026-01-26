@@ -24,6 +24,8 @@
 <style>
 	.section-header {
 		display: flex;
+		z-index: 1;
+		position: relative;
 		grid-column: narrow-start / narrow-end;
 		align-items: center;
 		justify-content: space-between;
