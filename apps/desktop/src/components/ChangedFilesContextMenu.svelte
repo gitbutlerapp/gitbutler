@@ -377,7 +377,6 @@
 							label="Absorb changes"
 							icon="absorb"
 							testId={TestId.FileListItemContextMenu_Absorb}
-							tooltip="Try to find the best commit in the workspace to amend the changes into."
 							onclick={() => {
 								triggerAbsorbChanges(item.changes);
 								contextMenu.close();
@@ -647,7 +646,6 @@
 
 <Modal
 	width={500}
-	type="info"
 	noPadding
 	bind:this={absorbPlanModal}
 	testId={TestId.AbsobModal}
@@ -664,9 +662,7 @@
 		}
 	}}
 >
-	<ModalHeader type="warning" sticky={!isAbsorbModalScrollVisible}
-		>Absorb Changes into Commits</ModalHeader
-	>
+	<ModalHeader sticky={!isAbsorbModalScrollVisible}>Absorb Changes into Commits</ModalHeader>
 	<ScrollableContainer onscrollTop={(visible) => (isAbsorbModalScrollVisible = visible)}>
 		<div class="absorb-plan-content">
 			<p class="text-13 text-body clr-text-2">
@@ -678,7 +674,7 @@
 						{#if commitAbsorption.reason !== 'default_stack'}
 							<div class="absorption__reason text-12 text-body clr-text-2">
 								{#if commitAbsorption.reason === 'hunk_dependency'}
-									📍 Files locked to commit due to hunk range overlap
+									📍 Files depend on the commit due to overlapping hunks
 								{:else if commitAbsorption.reason === 'stack_assignment'}
 									🔖 Files assigned to this stack
 								{/if}
@@ -780,7 +776,7 @@
 		display: flex;
 		padding: 8px;
 		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-theme-warn-bg);
+		background-color: var(--clr-bg-2);
 	}
 	.absorption__content {
 		display: flex;
