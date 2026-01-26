@@ -53,9 +53,10 @@
 	let listMode: 'list' | 'tree' = $state('tree');
 	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
 	let folded = $state(foldedByDefault);
+	let hasManuallyToggledFold = $state(false);
 
 	$effect(() => {
-		if (changes.length === 0 && !hasConflicts) {
+		if (!hasManuallyToggledFold && changes.length === 0 && !hasConflicts) {
 			folded = true;
 		}
 	});
@@ -77,6 +78,7 @@
 			role="presentation"
 			ondblclick={() => {
 				folded = !folded;
+				hasManuallyToggledFold = true;
 			}}
 		>
 			<div class="stack-h gap-4">
@@ -87,6 +89,7 @@
 					onclick={(e) => {
 						e.stopPropagation();
 						folded = !folded;
+						hasManuallyToggledFold = true;
 					}}
 					aria-label="Toggle file list"
 					aria-expanded={!folded}
