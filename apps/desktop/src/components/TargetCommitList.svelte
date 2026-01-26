@@ -97,7 +97,7 @@
 						onloadmore={async () => await loadMore()}
 						renderDistance={100}
 					>
-						{#snippet template(commit)}
+						{#snippet template(commit, index)}
 							<CommitRow
 								disableCommitActions
 								type="LocalAndRemote"
@@ -110,6 +110,7 @@
 								createdAt={commitCreatedAt(commit)}
 								author={commit.author}
 								selected={commit.id === selectedCommitId}
+								lastCommit={index === commits.length - 1}
 								onclick={() => {
 									selectedCommitId = commit.id;
 									onclick(commit.id);
