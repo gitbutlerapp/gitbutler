@@ -64,17 +64,12 @@
 	/>
 {/snippet}
 
-{#snippet renderCommitRow(
-	commit: Commit,
-	idx: number,
-	totalLocal: number,
-	branchFirstCommitType: string | undefined
-)}
+{#snippet renderCommitRow(commit: Commit, idx: number, totalLocal: number)}
 	{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
 		{@render commitMenu(rightClickTrigger, commit.id)}
 	{/snippet}
 	{@const localCommit = commit}
-	{@const commitType: 'LocalOnly' | 'LocalAndRemote' | 'Integrated' = (branchFirstCommitType as 'LocalOnly' | 'LocalAndRemote' | 'Integrated') ?? 'LocalOnly'}
+	{@const commitType: 'LocalOnly' | 'LocalAndRemote' | 'Integrated' = commit.state.type}
 	{@const isDiverged =
 		localCommit.state.type === 'LocalAndRemote' && commit.id !== localCommit.state.subject}
 	{@const shouldShowMenu = !(
@@ -111,7 +106,6 @@
 		branchesSelection.current.branchName === branch.name &&
 		branchesSelection.current.stackId === env.stackId &&
 		!branchesSelection.current.commitId}
-	{@const branchFirstCommitType = branch.commits?.at(0)?.state.type}
 	<BranchCard
 		type="normal-branch"
 		first={isTopBranch}
@@ -148,7 +142,7 @@
 			{#if hasCommits}
 				<div class="branch-commits">
 					{#each branch.commits ?? [] as commit, idx}
-						{@render renderCommitRow(commit, idx, localCount, branchFirstCommitType)}
+						{@render renderCommitRow(commit, idx, localCount)}
 					{/each}
 				</div>
 			{/if}
