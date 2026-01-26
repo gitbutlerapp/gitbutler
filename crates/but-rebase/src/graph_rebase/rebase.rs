@@ -320,7 +320,7 @@ mod test {
         use anyhow::Result;
 
         use crate::graph_rebase::{
-            Edge, Step, StepGraph, rebase::order_steps_picking, testing::TestingDot as _,
+            Edge, Step, StepGraph, rebase::order_steps_picking, testing::render_ascii_graph,
         };
 
         #[test]
@@ -339,15 +339,12 @@ mod test {
             graph.add_edge(a, b, Edge { order: 0 });
             graph.add_edge(b, c, Edge { order: 0 });
 
-            insta::assert_snapshot!(graph.steps_dot(), @r#"
-            digraph {
-                0 [ label="pick: 1000000000000000000000000000000000000000"]
-                1 [ label="pick: 2000000000000000000000000000000000000000"]
-                2 [ label="pick: 3000000000000000000000000000000000000000"]
-                0 -> 1 [ label="order: 0"]
-                1 -> 2 [ label="order: 0"]
-            }
-            "#);
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @r"
+            ● 1000000
+            ● 2000000
+            ● 3000000
+            ╵
+            ");
 
             let ordered_from_a = order_steps_picking(&graph, &[a]);
             assert_eq!(&ordered_from_a, &[c, b, a]);
@@ -387,10 +384,10 @@ mod test {
                 "8000000000000000000000000000000000000000",
             )?));
             let i = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "8000000000000000000000000000000000000000",
+                "9000000000000000000000000000000000000000",
             )?));
             let j = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "8000000000000000000000000000000000000000",
+                "1100000000000000000000000000000000000000",
             )?));
 
             graph.add_edge(a, b, Edge { order: 0 });
@@ -405,28 +402,22 @@ mod test {
 
             graph.add_edge(i, j, Edge { order: 0 });
 
-            insta::assert_snapshot!(graph.steps_dot(), @r#"
-            digraph {
-                0 [ label="pick: 1000000000000000000000000000000000000000"]
-                1 [ label="pick: 2000000000000000000000000000000000000000"]
-                2 [ label="pick: 3000000000000000000000000000000000000000"]
-                3 [ label="pick: 4000000000000000000000000000000000000000"]
-                4 [ label="pick: 5000000000000000000000000000000000000000"]
-                5 [ label="pick: 6000000000000000000000000000000000000000"]
-                6 [ label="pick: 7000000000000000000000000000000000000000"]
-                7 [ label="pick: 8000000000000000000000000000000000000000"]
-                8 [ label="pick: 8000000000000000000000000000000000000000"]
-                9 [ label="pick: 8000000000000000000000000000000000000000"]
-                0 -> 1 [ label="order: 0"]
-                1 -> 2 [ label="order: 0"]
-                2 -> 3 [ label="order: 0"]
-                3 -> 4 [ label="order: 0"]
-                5 -> 6 [ label="order: 0"]
-                6 -> 2 [ label="order: 0"]
-                7 -> 3 [ label="order: 0"]
-                8 -> 9 [ label="order: 0"]
-            }
-            "#);
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @r"
+            ● 1000000
+            ● 2000000
+            │ ● 6000000
+            │ ● 7000000
+            ├─╯
+            ● 3000000
+            │ ● 8000000
+            ├─╯
+            ● 4000000
+            ● 5000000
+            ╵
+            ● 9000000
+            ● 1100000
+            ╵
+            ");
 
             let ordered_from_a = order_steps_picking(&graph, &[f, h]);
             assert_eq!(&ordered_from_a, &[e, d, h, c, g, f]);
@@ -460,20 +451,16 @@ mod test {
             graph.add_edge(d, e, Edge { order: 0 });
             graph.add_edge(e, b, Edge { order: 0 });
 
-            insta::assert_snapshot!(graph.steps_dot(), @r#"
-            digraph {
-                0 [ label="pick: 1000000000000000000000000000000000000000"]
-                1 [ label="pick: 2000000000000000000000000000000000000000"]
-                2 [ label="pick: 3000000000000000000000000000000000000000"]
-                3 [ label="pick: 4000000000000000000000000000000000000000"]
-                4 [ label="pick: 5000000000000000000000000000000000000000"]
-                0 -> 1 [ label="order: 0"]
-                1 -> 2 [ label="order: 0"]
-                0 -> 3 [ label="order: 1"]
-                3 -> 4 [ label="order: 0"]
-                4 -> 1 [ label="order: 0"]
-            }
-            "#);
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @r"
+            ● 1000000
+            ├─╮
+            │ ● 4000000
+            │ ● 5000000
+            ├─╯
+            ● 2000000
+            ● 3000000
+            ╵
+            ");
 
             let ordered_from_a = order_steps_picking(&graph, &[a]);
             assert_eq!(&ordered_from_a, &[c, b, e, d, a]);
@@ -507,20 +494,16 @@ mod test {
 
             graph.add_edge(a, b, Edge { order: 1 });
 
-            insta::assert_snapshot!(graph.steps_dot(), @r#"
-            digraph {
-                0 [ label="pick: 1000000000000000000000000000000000000000"]
-                1 [ label="pick: 2000000000000000000000000000000000000000"]
-                2 [ label="pick: 3000000000000000000000000000000000000000"]
-                3 [ label="pick: 4000000000000000000000000000000000000000"]
-                4 [ label="pick: 5000000000000000000000000000000000000000"]
-                0 -> 3 [ label="order: 0"]
-                3 -> 4 [ label="order: 0"]
-                4 -> 1 [ label="order: 0"]
-                1 -> 2 [ label="order: 0"]
-                0 -> 1 [ label="order: 1"]
-            }
-            "#);
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @r"
+            ● 1000000
+            ├─╮
+            ● │ 4000000
+            ● │ 5000000
+            ├─╯
+            ● 2000000
+            ● 3000000
+            ╵
+            ");
 
             let ordered_from_a = order_steps_picking(&graph, &[a]);
             assert_eq!(&ordered_from_a, &[c, b, e, d, a]);
