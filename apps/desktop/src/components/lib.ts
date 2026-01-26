@@ -60,7 +60,7 @@ export function getBranchStatusLabelAndColor(pushStatus: PushStatus): {
 } {
 	switch (pushStatus) {
 		case 'completelyUnpushed':
-			return { label: 'Unpushed', color: colorMap.LocalOnly };
+			return { label: 'Unpushed branch', color: colorMap.LocalOnly };
 		case 'nothingToPush':
 			return { label: 'Nothing to push', color: colorMap.LocalAndRemote };
 		case 'unpushedCommits':

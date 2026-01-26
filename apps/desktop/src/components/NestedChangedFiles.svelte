@@ -51,9 +51,14 @@
 	const firstChangePath = $derived(changes.at(0)?.path);
 
 	let listMode: 'list' | 'tree' = $state('tree');
+	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
 	let folded = $state(foldedByDefault);
 
-	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
+	$effect(() => {
+		if (changes.length === 0 && !hasConflicts) {
+			folded = true;
+		}
+	});
 
 	$effect(() => {
 		const id = readStableSelectionKey(stringSelectionKey);
@@ -105,8 +110,8 @@
 				<EmptyStatePlaceholder
 					image={emptyFolderSvg}
 					gap={0}
-					topBottomPadding={4}
-					bottomMargin={24}
+					topBottomPadding={14}
+					bottomMargin={20}
 				>
 					{#snippet caption()}
 						No files changed
