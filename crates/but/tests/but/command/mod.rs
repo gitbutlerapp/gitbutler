@@ -30,6 +30,7 @@ mod status;
 #[cfg(feature = "legacy")]
 mod teardown;
 
+#[cfg(feature = "legacy")]
 mod util {
     use crate::utils::Sandbox;
 
