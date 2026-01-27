@@ -152,6 +152,8 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     };
 
     /// Helper to run a command and check its exit status
+    /// Used for macOS and Linux terminals that are launched via `open` or direct commands.
+    /// These typically return immediately (async launch), so we only check if the launch succeeded.
     fn run_terminal_command(mut cmd: Command, terminal_name: &str, path: &str) -> Result<()> {
         let status = cmd
             .status()
@@ -213,27 +215,63 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
 
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        use std::path::Path;
+
+        // Validate path exists and canonicalize it to proper Windows format
+        let path_buf = Path::new(&path);
+        if !path_buf.exists() {
+            bail!("Path does not exist: {}", path);
+        }
+        if !path_buf.is_dir() {
+            bail!("Path is not a directory: {}", path);
+        }
+
+        // Canonicalize to get the absolute, properly formatted Windows path
+        // This converts forward slashes to backslashes and resolves . and ..
+        let canonical_path = path_buf
+            .canonicalize()
+            .with_context(|| format!("Failed to canonicalize path: {}", path))?;
+
+        // Strip the \\?\ prefix that canonicalize adds on Windows
+        // CMD.exe and some terminals don't support UNC paths with this prefix
+        let path_str = canonical_path
+            .to_str()
+            .context("Path contains invalid UTF-8")?;
+        let cleaned_path = path_str.strip_prefix(r"\\?\").unwrap_or(path_str);
+
+        // CREATE_NEW_CONSOLE: Creates a new console for the process (0x00000010)
+        // This allows the terminal to run independently without blocking our thread
+        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+
         match terminal_id.as_str() {
             "wt" => {
                 let mut cmd = Command::new("wt");
-                cmd.arg("-d").arg(&path);
-                run_terminal_command(cmd, "Windows Terminal", &path)?;
+                cmd.arg("-d").arg(cleaned_path);
+                cmd.creation_flags(CREATE_NEW_CONSOLE);
+                // Windows Terminal detaches automatically, just check if it launches
+                cmd.spawn().with_context(|| {
+                    format!("Failed to launch Windows Terminal at '{}'", cleaned_path)
+                })?;
             }
             "powershell" => {
                 let mut cmd = Command::new("powershell");
-                // Escape single quotes by doubling them for PowerShell
-                let escaped_path = path.replace('\'', "''");
-                cmd.arg("-NoExit")
-                    .arg("-Command")
-                    .arg(format!("cd '{}'", escaped_path));
-                run_terminal_command(cmd, "PowerShell", &path)?;
+                // Set the working directory directly instead of using cd command
+                cmd.current_dir(cleaned_path);
+                cmd.arg("-NoExit"); // Keep the window open
+                cmd.creation_flags(CREATE_NEW_CONSOLE);
+                cmd.spawn()
+                    .with_context(|| format!("Failed to launch PowerShell at '{}'", cleaned_path))?;
             }
             "cmd" => {
                 let mut cmd = Command::new("cmd");
-                // Escape double quotes by doubling them for CMD
-                let escaped_path = path.replace('"', "\"\"");
-                cmd.arg("/K").arg(format!("cd /d \"{}\"", escaped_path));
-                run_terminal_command(cmd, "Command Prompt", &path)?;
+                // Set the working directory directly - OS handles path format
+                cmd.current_dir(cleaned_path);
+                cmd.arg("/K"); // Keep the window open
+                cmd.creation_flags(CREATE_NEW_CONSOLE);
+                cmd.spawn().with_context(|| {
+                    format!("Failed to launch Command Prompt at '{}'", cleaned_path)
+                })?;
             }
             _ => bail!("Unknown terminal: {}", terminal_id),
         };
