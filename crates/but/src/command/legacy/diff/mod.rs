@@ -14,12 +14,11 @@ pub fn handle(
     target_str: Option<&str>,
 ) -> anyhow::Result<()> {
     let wt_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
-    let mut id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
 
     if let Some(entity) = target_str {
         let id = id_map
-            .resolve_entity_to_ids(entity)? // TODO: look up plain names
+            .parse_using_context(entity, ctx)? // TODO: look up plain names
             .first() // TODO: handle ambiguity
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("No ID found for entity"))?;

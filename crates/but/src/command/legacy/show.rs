@@ -46,10 +46,9 @@ pub(crate) fn show_commit(
 
     // Not a branch, proceed with commit logic
     // Try to resolve the commit ID through the IdMap
-    let mut id_map = IdMap::new_from_context(ctx, None)?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, None)?;
 
-    let cli_ids = id_map.resolve_entity_to_ids(commit_id_str)?;
+    let cli_ids = id_map.parse_using_context(commit_id_str, ctx)?;
 
     let commit_id = if cli_ids.is_empty() {
         // If not found in IdMap, try to parse as a git commit ID directly

@@ -72,8 +72,7 @@ pub fn handle(
             branch_name,
             anchor,
         }) => {
-            let mut id_map = IdMap::new_from_context(ctx, None)?;
-            id_map.add_committed_file_info_from_context(ctx)?;
+            let id_map = IdMap::new_from_context(ctx, None)?;
             // Get branch name or use canned name
             let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
                 but_api::legacy::workspace::canned_branch_name(ctx.legacy_project.id)
@@ -86,7 +85,7 @@ pub fn handle(
                 // Use the new create_reference API when anchor is provided
 
                 // Resolve the anchor string to a CliId
-                let anchor_ids = id_map.resolve_entity_to_ids(&anchor_str)?;
+                let anchor_ids = id_map.parse_using_context(&anchor_str, ctx)?;
                 if anchor_ids.is_empty() {
                     return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
                 }

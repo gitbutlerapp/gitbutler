@@ -14,11 +14,10 @@ pub(crate) fn reword_target(
     message: Option<&str>,
     format: bool,
 ) -> Result<()> {
-    let mut id_map = IdMap::new_from_context(ctx, None)?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Resolve the commit ID
-    let cli_ids = id_map.resolve_entity_to_ids(target)?;
+    let cli_ids = id_map.parse_using_context(target, ctx)?;
 
     if cli_ids.is_empty() {
         bail!("ID '{}' not found", target);

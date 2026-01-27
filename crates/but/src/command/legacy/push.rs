@@ -45,8 +45,7 @@ pub fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let mut id_map = IdMap::new_from_context(ctx, None)?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Check gerrit mode early
     let gerrit_mode = {
@@ -168,8 +167,7 @@ fn handle_dry_run(
     // Filter based on branch_id if provided
     let branches_to_show: Vec<_> = if let Some(branch_id) = branch_id {
         // Resolve branch name
-        let mut id_map = IdMap::new_from_context(ctx, None)?;
-        id_map.add_committed_file_info_from_context(ctx)?;
+        let id_map = IdMap::new_from_context(ctx, None)?;
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
 
         branches_with_info
@@ -1043,7 +1041,7 @@ fn resolve_branch_name(
     branch_id: &str,
 ) -> anyhow::Result<String> {
     // Try to resolve as CliId first
-    let cli_ids = id_map.resolve_entity_to_ids(branch_id)?;
+    let cli_ids = id_map.parse_using_context(branch_id, ctx)?;
 
     if cli_ids.is_empty() {
         // If no CliId matches, treat as literal branch name but validate it exists

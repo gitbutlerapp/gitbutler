@@ -291,6 +291,7 @@ impl From<Vec<but_forge::CiCheck>> for Ci {
 impl Branch {
     #[allow(clippy::too_many_arguments)]
     pub fn from_branch_details(
+        repo: &gix::Repository,
         cli_id: String,
         segment: SegmentWithId,
         review_id: Option<String>,
@@ -301,7 +302,7 @@ impl Branch {
         let commits = segment
             .workspace_commits
             .iter()
-            .map(|c| Commit::from_local_commit(c.short_id.clone(), c.clone(), show_files))
+            .map(|c| Commit::from_local_commit(repo, c.short_id.clone(), c.clone(), show_files))
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         let upstream_commits = segment
@@ -335,6 +336,7 @@ impl FileChange {
 
 impl Commit {
     pub fn from_local_commit(
+        repo: &gix::Repository,
         cli_id: String,
         commit: WorkspaceCommitWithId,
         show_files: bool,
@@ -342,7 +344,7 @@ impl Commit {
         let changes = if show_files {
             Some(
                 commit
-                    .tree_changes
+                    .tree_changes_using_repo(repo)?
                     .into_iter()
                     .map(|tree_change| {
                         FileChange::from_tree_change(tree_change.short_id, tree_change.inner.into())
@@ -465,6 +467,7 @@ fn convert_file_assignments(
 
 /// Convert a BranchDetails to the JSON Branch type
 fn convert_branch_to_json(
+    repo: &gix::Repository,
     segment: &SegmentWithId,
     show_files: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
@@ -513,6 +516,7 @@ fn convert_branch_to_json(
     });
 
     Branch::from_branch_details(
+        repo,
         cli_id,
         segment.clone(),
         review_id,
@@ -561,6 +565,7 @@ pub(super) fn build_workspace_status_json(
                 .iter()
                 .map(|segment| {
                     convert_branch_to_json(
+                        repo,
                         segment,
                         show_files,
                         review_map,

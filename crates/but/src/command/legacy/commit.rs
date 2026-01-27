@@ -25,11 +25,10 @@ pub(crate) fn insert_blank_commit(
     target: &str,
     insert_side: InsertSide,
 ) -> Result<()> {
-    let mut id_map = IdMap::new_from_context(ctx, None)?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Resolve the target ID
-    let cli_ids = id_map.resolve_entity_to_ids(target)?;
+    let cli_ids = id_map.parse_using_context(target, ctx)?;
 
     if cli_ids.is_empty() {
         bail!("Target '{}' not found", target);
@@ -166,8 +165,7 @@ pub(crate) fn commit(
     no_hooks: bool,
     generate_message: Option<Option<String>>,
 ) -> anyhow::Result<()> {
-    let mut id_map = IdMap::new_from_context(ctx, None)?;
-    id_map.add_committed_file_info_from_context(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Get all stacks using but-api
     let project_id = ctx.legacy_project.id;
@@ -313,7 +311,7 @@ pub(crate) fn commit(
             .find(|branch| branch.name == hint)
             .or_else(|| {
                 // If no exact match, try to parse as CLI ID and match
-                if let Ok(cli_ids) = id_map.resolve_entity_to_ids(hint) {
+                if let Ok(cli_ids) = id_map.parse_using_context(hint, ctx) {
                     for cli_id in cli_ids {
                         if let CliId::Branch { name, .. } = cli_id
                             && let Some(branch) =
@@ -486,7 +484,7 @@ fn find_stack_by_hint(
     }
 
     // Try CLI ID parsing
-    let cli_ids = id_map.resolve_entity_to_ids(hint).ok()?;
+    let cli_ids = id_map.parse(hint, |_, _| Ok(Vec::new())).ok()?;
     for cli_id in cli_ids {
         if let CliId::Branch { name, .. } = cli_id {
             for (stack_id, stack_details) in stacks {
