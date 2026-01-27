@@ -54,6 +54,10 @@ tauri-plugin-clipboard-manager = "2.3.2"
 
 
 anyhow.workspace = true
+
+# For error casting
+rusqlite.workspace = true
+
 backtrace = { version = "0.3.76", optional = true }
 console-subscriber = "0.5.0"
 gix = { workspace = true, features = ["max-performance", "worktree-mutation" ] }

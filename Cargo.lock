@@ -3918,6 +3918,7 @@ dependencies = [
  "open",
  "opener",
  "parking_lot",
+ "rusqlite",
  "serde",
  "serde_json",
  "tauri",
