@@ -25,6 +25,7 @@
 		allowUnselect?: boolean;
 		persistId?: string;
 		foldedByDefault?: boolean;
+		visibleRange?: { start: number; end: number };
 	};
 
 	const {
@@ -41,7 +42,8 @@
 		onFileClick,
 		allowUnselect = true,
 		persistId = 'default',
-		foldedByDefault = false
+		foldedByDefault = false,
+		visibleRange
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -128,6 +130,7 @@
 					{draggableFiles}
 					{ancestorMostConflictedCommitId}
 					{allowUnselect}
+					{visibleRange}
 					{onFileClick}
 				/>
 			{/if}

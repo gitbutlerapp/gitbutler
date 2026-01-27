@@ -32,6 +32,7 @@
 		startIndex?: number;
 		selectionId: SelectionId;
 		onclose?: () => void;
+		onVisibleChange?: (change: { start: number; end: number }) => void;
 	};
 
 	let {
@@ -44,7 +45,8 @@
 		showRoundedEdges = true,
 		startIndex,
 		selectionId,
-		onclose
+		onclose,
+		onVisibleChange
 	}: Props = $props();
 
 	const diffService = inject(DIFF_SERVICE);
@@ -84,7 +86,8 @@
 			items={changes}
 			defaultHeight={102}
 			visibility="scroll"
-			renderDistance={100}
+			renderDistance={300}
+			{onVisibleChange}
 		>
 			{#snippet template(change, index)}
 				{@const diffQuery = diffService.getDiff(projectId, change)}

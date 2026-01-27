@@ -53,6 +53,7 @@
 		stackingReorderDropzoneManager: ReorderCommitDzFactory;
 		roundedTop?: boolean;
 		active?: boolean;
+		visibleRange?: { start: number; end: number };
 
 		handleUncommit: (commitId: string, branchName: string) => Promise<void>;
 		startEditingCommitMessage: (branchName: string, commitId: string) => void;
@@ -70,6 +71,7 @@
 		stackingReorderDropzoneManager,
 		roundedTop,
 		active,
+		visibleRange,
 		handleUncommit,
 		startEditingCommitMessage,
 		onclick,
@@ -407,6 +409,7 @@
 													title="Changed files"
 													{projectId}
 													{stackId}
+													{visibleRange}
 													draggableFiles
 													selectionId={createCommitSelection({ commitId: commitId, stackId })}
 													persistId={`commit-${commitId}`}
