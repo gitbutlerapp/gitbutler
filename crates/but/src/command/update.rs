@@ -1,4 +1,6 @@
 use anyhow::Result;
+#[cfg(target_os = "macos")]
+use but_installer::VersionRequest;
 use but_settings::AppSettings;
 use but_update::{AppName, CheckUpdateStatus, check_status};
 use colored::Colorize;
@@ -13,6 +15,8 @@ pub fn handle(
     match cmd {
         update::Subcommands::Check => check_for_updates(out, app_settings),
         update::Subcommands::Suppress { days } => suppress_updates(out, days),
+        #[cfg(target_os = "macos")]
+        update::Subcommands::Install { target } => install(out, target),
     }
 }
 
@@ -99,6 +103,63 @@ fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
             "days": days,
             "hours": hours
         }))?;
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
+    // Installation requires interactive output and cannot be used with JSON mode
+    // because the installer writes directly to stdout/stderr
+    if out.for_json().is_some() {
+        anyhow::bail!(
+            "JSON output is not supported for 'but update install'.\n\n\
+             The installation process requires interactive output.\n\
+             For automated installations, use the standalone installer:\n\
+             https://docs.gitbutler.com/installation"
+        );
+    }
+
+    // Parse target to determine what to install
+    let version_request = match target.as_deref() {
+        Some("nightly") => VersionRequest::Nightly,
+        Some("release") => VersionRequest::Release,
+        Some(version_str) => {
+            // Specific version - validate and create
+            // Wrap validation errors with CLI-specific context
+            VersionRequest::from_string(Some(version_str.to_string())).map_err(|e| {
+                anyhow::anyhow!(
+                    "Invalid version '{}': {}\n\nValid targets:\n  nightly          Install latest nightly build\n  release          Install latest stable release\n  <version>        Install specific version (e.g., 0.18.7)",
+                    version_str,
+                    e
+                )
+            })?
+        }
+        None => {
+            // Auto-detect from current channel
+            let current_channel = but_path::AppChannel::new();
+            match current_channel {
+                but_path::AppChannel::Nightly => VersionRequest::Nightly,
+                but_path::AppChannel::Release => VersionRequest::Release,
+                but_path::AppChannel::Dev => VersionRequest::Release, // Dev installs release
+            }
+        }
+    };
+
+    // Call installer directly (handles all user-facing output)
+    // Don't print usage info since user is already using the CLI
+    but_installer::run_installation_with_version(version_request, false)?;
+
+    // Show change log link
+    if let Some(writer) = out.for_human() {
+        writeln!(
+            writer,
+            "{} {}",
+            "→".cyan().bold(),
+            "View release notes: https://gitbutler.com/releases".bold()
+        )?;
+        writeln!(writer)?;
     }
 
     Ok(())

@@ -190,26 +190,27 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Channel) -> 
     // New installation is valid - now do the atomic swap
     info("Swapping new installation into place...");
 
-    // Backup existing installation if it exists
-    let had_backup = install_app.exists();
-    if had_backup && let Err(e) = fs::rename(&install_app, &install_app_backup) {
-        // Failed to backup - clean up artifacts before failing
+    // Helper to clean up stale installation artifacts
+    let cleanup_artifacts = || {
         let _ = fs::remove_dir_all(&install_app_new);
         #[cfg(unix)]
         {
             let _ = fs::remove_file(&but_new);
         }
+    };
+
+    // Backup existing installation if it exists
+    let had_backup = install_app.exists();
+    if had_backup && let Err(e) = fs::rename(&install_app, &install_app_backup) {
+        // Failed to backup - clean up artifacts before failing
+        cleanup_artifacts();
         return Err(e.into());
     }
 
     // Move new installation into place with rollback on failure
     if let Err(e) = fs::rename(&install_app_new, &install_app) {
         // Clean up stale artifacts before handling the error
-        let _ = fs::remove_dir_all(&install_app_new);
-        #[cfg(unix)]
-        {
-            let _ = fs::remove_file(&but_new);
-        }
+        cleanup_artifacts();
 
         // Critical failure - restore backup if we created one
         if had_backup && install_app_backup.exists() {
