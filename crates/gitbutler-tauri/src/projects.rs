@@ -130,7 +130,7 @@ fn assure_database_valid(data_dir: PathBuf) -> anyhow::Result<Option<String>> {
                 .with_context(|| {
                     format!(
                         "Cannot recover from this error - probably a more recent version of\n\
-                         this app was used to the project. '{}' is incompatible",
+                         this app was used to open the project. '{}' is incompatible",
                         db_path.display()
                     )
                 })

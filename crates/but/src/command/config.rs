@@ -686,7 +686,7 @@ async fn target_config(
                         "\nThe following branches are currently applied:\n".bold()
                     )?;
                     ws.stacks.iter().for_each(|stack| {
-                        stack.segments.iter().for_each(|stack| {
+                        {
                             writeln!(
                                 out,
                                 "{} Applied branch: {}",
@@ -700,7 +700,7 @@ async fn target_config(
                                     .cyan()
                             )
                             .ok();
-                        });
+                        };
                     });
                     writeln!(
                         out,

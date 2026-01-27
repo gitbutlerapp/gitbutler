@@ -16,10 +16,9 @@ pub fn init(level: u8) -> anyhow::Result<()> {
             return false;
         }
         if level_t < Level::DEBUG
-            && meta
+            && !meta
                 .module_path()
-                .and_then(|p| p.strip_prefix("but")?.as_bytes().first())
-                .is_some_and(|c| *c != b':' || *c != b'_')
+                .is_some_and(|p| p.starts_with("but::") || p.starts_with("but_"))
         {
             return false;
         }
