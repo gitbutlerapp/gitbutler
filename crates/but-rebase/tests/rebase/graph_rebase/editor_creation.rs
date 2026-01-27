@@ -24,7 +24,7 @@ fn four_commits() -> Result<()> {
     let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @r"
-    ● refs/heads/main
+    ◎ refs/heads/main
     ● 120e3a9 c
     ● a96434e b
     ● d591dfe a
@@ -54,17 +54,17 @@ fn merge_in_the_middle() -> Result<()> {
     let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @r"
-    ● refs/heads/with-inner-merge
+    ◎ refs/heads/with-inner-merge
     ● e8ee978 on top of inner merge
     ● 2fc288c Merge branch 'B' into with-inner-merge
     ├─╮
-    ● │ refs/heads/A
+    ◎ │ refs/heads/A
     ● │ add59d2 A: 10 lines on top
-    │ ● refs/heads/B
+    │ ◎ refs/heads/B
     │ ● 984fd1c C: new file with 10 lines
     ├─╯
-    ● refs/heads/main
-    ● refs/tags/base
+    ◎ refs/heads/main
+    ◎ refs/tags/base
     ● 8f0d338 base
     ╵
     ");
@@ -95,20 +95,20 @@ fn three_branches_merged() -> Result<()> {
     let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @r"
-    ● refs/heads/main
+    ◎ refs/heads/main
     ● 1348870 Merge branches 'A', 'B' and 'C'
     ├─┬─╮
-    ● │ │ refs/heads/A
+    ◎ │ │ refs/heads/A
     ● │ │ add59d2 A: 10 lines on top
-    │ ● │ refs/heads/B
+    │ ◎ │ refs/heads/B
     │ ● │ a748762 B: another 10 lines at the bottom
     │ ● │ 62e05ba B: 10 lines at the bottom
-    │ │ ● refs/heads/C
+    │ │ ◎ refs/heads/C
     │ │ ● 930563a C: add another 10 lines to new file
     │ │ ● 68a2fc3 C: add 10 lines to new file
     │ │ ● 984fd1c C: new file with 10 lines
     ├─┴─╯
-    ● refs/tags/base
+    ◎ refs/tags/base
     ● 8f0d338 base
     ╵
     ");
@@ -140,12 +140,12 @@ fn many_references() -> Result<()> {
     let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @r"
-    ● refs/heads/main
+    ◎ refs/heads/main
     ● 120e3a9 c
     ● a96434e b
-    ● refs/heads/X
-    ● refs/heads/Y
-    ● refs/heads/Z
+    ◎ refs/heads/X
+    ◎ refs/heads/Y
+    ◎ refs/heads/Z
     ● d591dfe a
     ● 35b8235 base
     ╵
@@ -191,19 +191,19 @@ fn first_parent_leg_long() -> Result<()> {
     let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @r"
-    ● refs/heads/with-inner-merge
+    ◎ refs/heads/with-inner-merge
     ● 6ac5745 on top of inner merge
     ● d20f547 Merge branch 'B' into with-inner-merge
     ├─╮
-    ● │ refs/heads/A
+    ◎ │ refs/heads/A
     ● │ 198d2e4 A: 10 more more lines on top
     ● │ 7325853 A: 10 more lines on top
     ● │ add59d2 A: 10 lines on top
-    │ ● refs/heads/B
+    │ ◎ refs/heads/B
     │ ● 984fd1c C: new file with 10 lines
     ├─╯
-    ● refs/heads/main
-    ● refs/tags/base
+    ◎ refs/heads/main
+    ◎ refs/tags/base
     ● 8f0d338 base
     ╵
     ");
@@ -248,19 +248,19 @@ fn second_parent_leg_long() -> Result<()> {
     let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @r"
-    ● refs/heads/with-inner-merge
+    ◎ refs/heads/with-inner-merge
     ● a6775ea on top of inner merge
     ● b85214b Merge branch 'B' into with-inner-merge
     ├─╮
-    ● │ refs/heads/A
+    ◎ │ refs/heads/A
     ● │ add59d2 A: 10 lines on top
-    │ ● refs/heads/B
+    │ ◎ refs/heads/B
     │ ● f87f875 C: 10 more more lines on top
     │ ● cb181a0 C: 10 more lines on top
     │ ● 984fd1c C: new file with 10 lines
     ├─╯
-    ● refs/heads/main
-    ● refs/tags/base
+    ◎ refs/heads/main
+    ◎ refs/tags/base
     ● 8f0d338 base
     ╵
     ");
@@ -311,13 +311,13 @@ fn workspace_with_empty_stack() -> Result<()> {
     let editor = graph.to_editor(&repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @r"
-    ● refs/heads/gitbutler/workspace
+    ◎ refs/heads/gitbutler/workspace
     ● 74bcc92 GitButler Workspace Commit
     ├─╮
-    ● │ refs/heads/stack-1
+    ◎ │ refs/heads/stack-1
     ● │ 2169646 Commit D
     ● │ 46ef828 Commit C
-    │ ● refs/heads/stack-2
+    │ ◎ refs/heads/stack-2
     ├─╯
     ● f555940 Commit A
     ● d664be0 Commit B

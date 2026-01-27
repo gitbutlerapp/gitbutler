@@ -78,7 +78,9 @@ fn lookup_commit_title(repo: &gix::Repository, id: gix::ObjectId) -> Option<Stri
 }
 
 mod chars {
-    pub const COMMIT: char = '●';
+    pub const STEP_PICK: char = '●';
+    pub const STEP_REFERENCE: char = '◎';
+    pub const STEP_NONE: char = '◌';
     pub const VERT: char = '│';
     pub const HORIZ: char = '─';
     pub const FORK_DOWN: char = '┬';
@@ -88,6 +90,20 @@ mod chars {
     pub const CROSS: char = '╪'; // double horizontal crossing vertical - shows passover
     pub const VERT_RIGHT: char = '├';
     pub const TERM_UP: char = '╵'; // branch termination going up
+}
+
+trait ToSymbol {
+    fn to_symbol(&self) -> char;
+}
+
+impl ToSymbol for Step {
+    fn to_symbol(&self) -> char {
+        match self {
+            Self::Pick(_) => chars::STEP_PICK,
+            Self::Reference { .. } => chars::STEP_REFERENCE,
+            Self::None => chars::STEP_NONE,
+        }
+    }
 }
 
 /// A layout event to be rendered
@@ -195,7 +211,7 @@ fn format_step(step: &Step, title: Option<String>) -> String {
             }
         }
         Step::Reference { refname } => refname.as_bstr().to_string(),
-        Step::None => "(none)".to_string(),
+        Step::None => "no-op".to_string(),
     }
 }
 
@@ -394,7 +410,7 @@ fn render_node_line(col: usize, step: &Step, active: &[bool], title: Option<Stri
 
     for (c, &is_active) in active.iter().enumerate() {
         if c == col {
-            cells[c] = [chars::COMMIT, ' '];
+            cells[c] = [step.to_symbol(), ' '];
         } else if is_active {
             cells[c] = [chars::VERT, ' '];
         }
@@ -537,17 +553,20 @@ mod tests {
         let b = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
         let c = graph.add_node(make_pick("2222222222222222222222222222222222222222"));
         let d = graph.add_node(make_pick("3333333333333333333333333333333333333333"));
+        let none = graph.add_node(Step::None);
 
         add_edge(&mut graph, a, b, 0);
         add_edge(&mut graph, b, c, 0);
         add_edge(&mut graph, c, d, 0);
+        add_edge(&mut graph, d, none, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ● 1111111
         ● 2222222
         ● 3333333
+        ◌ no-op
         ╵
         ");
     }
@@ -575,7 +594,7 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ├─╮
         ● │ aaaaaaa
         │ ● bbbbbbb
@@ -611,7 +630,7 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ├─┬─╮
         ● │ │ aaaaaaa
         │ ● │ bbbbbbb
@@ -660,7 +679,7 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ├─╮
         ● │ fffffff
         ├─╪─┬─╮
@@ -697,7 +716,7 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ├─┬─┬─╮
         ● │ │ │ aaaaaaa
         │ ● │ │ bbbbbbb
@@ -738,7 +757,7 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ├─╮
         ● │ a1a1a1a
         ● │ a2a2a2a
@@ -783,7 +802,7 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ├─╮
         ● │ bbbbbbb
         ├─╪─╮
@@ -836,7 +855,7 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ├─┬─╮
         ● │ │ fffffff
         ├─╪─╪─┬─╮
@@ -897,7 +916,7 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ├─┬─╮
         ● │ │ aaaaaaa
         ● │ │ ddddddd
@@ -962,7 +981,7 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ├─┬─╮
         ● │ │ aaaaaaa
         ● │ │ ddddddd
@@ -1027,7 +1046,7 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @r"
-        ● refs/heads/main
+        ◎ refs/heads/main
         ├─┬─╮
         ● │ │ aaaaaaa
         ● │ │ ddddddd
