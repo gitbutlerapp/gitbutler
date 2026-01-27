@@ -1,27 +1,39 @@
-use tracing::metadata::LevelFilter;
+use tracing::Level;
+use tracing_subscriber::filter::DynFilterFn;
 use tracing_subscriber::{
     Layer, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
 };
 
 pub fn init(level: u8) -> anyhow::Result<()> {
-    let filter = match level {
-        1 => LevelFilter::INFO,
-        2 => LevelFilter::DEBUG,
-        _ => LevelFilter::TRACE,
+    let level_t = match level {
+        1 => Level::INFO,
+        2 => Level::DEBUG,
+        _ => Level::TRACE,
     };
+
+    let filter = DynFilterFn::new(move |meta, _cx| {
+        if *meta.level() > level_t {
+            return false;
+        }
+        if level_t < Level::DEBUG
+            && meta
+                .module_path()
+                .and_then(|p| p.strip_prefix("but")?.as_bytes().first())
+                .is_some_and(|c| *c != b':' || *c != b'_')
+        {
+            return false;
+        }
+        true
+    });
+
     if level >= 4 {
         tracing_subscriber::registry()
             .with(
                 tracing_subscriber::fmt::layer()
                     .compact()
                     .with_span_events(FmtSpan::CLOSE)
-                    .with_writer(std::io::stderr),
-            )
-            .with(
-                tracing_forest::ForestLayer::from(
-                    tracing_forest::printer::PrettyPrinter::new().writer(std::io::stderr),
-                )
-                .with_filter(filter),
+                    .with_writer(std::io::stderr)
+                    .with_filter(filter),
             )
             .init()
     } else {
