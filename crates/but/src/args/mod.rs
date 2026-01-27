@@ -17,6 +17,8 @@ use std::path::PathBuf;
 )]
 pub struct Args {
     /// Enable tracing for debug and performance information printed to stderr.
+    ///
+    /// Repeat up to 4 times for increasingly verbose output.
     #[clap(short = 't', long, action = clap::ArgAction::Count, hide = true, env = "BUT_TRACE")]
     pub trace: u8,
     /// Run as if gitbutler-cli was started in PATH instead of the current working directory.
