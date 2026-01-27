@@ -20,6 +20,7 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
       ui: ${{ steps.filter.outputs.ui }}
       docs: ${{ steps.filter.outputs.docs }}
+      but_installer: ${{ steps.filter.outputs.but_installer }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -48,6 +49,10 @@ jobs:
             rust: &any-rust
               - *rust
               - 'crates/**'
+            but_installer:
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'crates/but-installer/**'
 
   prettier:
     needs: changes
@@ -260,6 +265,98 @@ jobs:
       - name: 'cargo check'
         run: cargo check --workspace --all-targets --features windows
 
+  build-installer-macos:
+    needs: changes
+    if: ${{ needs.changes.outputs.but_installer == 'true' }}
+    permissions:
+      contents: read
+    runs-on: macos-14
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install Rust targets
+        run: |
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          shared-key: installer-macos
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Build installer for x86_64
+        run: cargo build --release -p but-installer --target x86_64-apple-darwin
+      - name: Build installer for aarch64
+        run: cargo build --release -p but-installer --target aarch64-apple-darwin
+      - name: Verify binaries
+        run: |
+          test -x target/x86_64-apple-darwin/release/but-installer
+          test -x target/aarch64-apple-darwin/release/but-installer
+          echo "x86_64 binary:"
+          file target/x86_64-apple-darwin/release/but-installer
+          echo "aarch64 binary:"
+          file target/aarch64-apple-darwin/release/but-installer
+      - name: Upload x86_64 installer artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: 'but-installer-darwin-x86_64-${{ github.run_number }}'
+          path: target/x86_64-apple-darwin/release/but-installer
+          retention-days: 7
+          if-no-files-found: error
+      - name: Upload aarch64 installer artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: 'but-installer-darwin-aarch64-${{ github.run_number }}'
+          path: target/aarch64-apple-darwin/release/but-installer
+          retention-days: 7
+          if-no-files-found: error
+
+  publish-installer:
+    needs: build-installer-macos
+    if: ${{ github.ref == 'refs/heads/master' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Download x86_64 installer
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: 'but-installer-darwin-x86_64-${{ github.run_number }}'
+          path: installer-artifacts/darwin-x86_64
+      - name: Download aarch64 installer
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: 'but-installer-darwin-aarch64-${{ github.run_number }}'
+          path: installer-artifacts/darwin-aarch64
+      - name: Prepare S3 payload
+        run: |
+          mkdir -p s3-upload/macos/x86_64
+          mkdir -p s3-upload/macos/aarch64
+          cp installer-artifacts/darwin-x86_64/but-installer s3-upload/macos/x86_64/but-installer
+          cp installer-artifacts/darwin-aarch64/but-installer s3-upload/macos/aarch64/but-installer
+          chmod +x s3-upload/macos/*/but-installer
+      - name: Upload to S3
+        uses: shallwefootball/s3-upload-action@4350529f410221787ccf424e50133cbc1b52704e # master
+        with:
+          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_bucket: 'releases.gitbutler.com'
+          source_dir: 's3-upload/'
+          destination_dir: 'installers/${{ github.sha }}'
+      - name: Upload to S3 (latest)
+        uses: shallwefootball/s3-upload-action@4350529f410221787ccf424e50133cbc1b52704e # master
+        with:
+          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_bucket: 'releases.gitbutler.com'
+          source_dir: 's3-upload/'
+          destination_dir: 'installers/latest'
+
   check-rust:
     if: always()
     needs:
@@ -269,6 +366,7 @@ jobs:
       - rust-test-tauri
       - rust-lint
       - cargo-doc
+      - build-installer-macos
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always

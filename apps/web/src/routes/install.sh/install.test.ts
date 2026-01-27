@@ -8,44 +8,44 @@ describe('Install script import', () => {
 		expect(installScript.length).toBeGreaterThan(0);
 	});
 
-	it('contains bash shebang', () => {
-		expect(installScript).toContain('#!/bin/bash');
+	it('contains shell shebang', () => {
+		expect(installScript).toContain('#!/bin/sh');
 	});
 
-	it('contains critical installation steps', () => {
-		// Verify key sections exist
-		expect(installScript).toContain('Detected platform:');
-		expect(installScript).toContain('$HOME/Applications/$APP_BASENAME');
-		expect(installScript).toContain('$HOME/.local/bin');
-		expect(installScript).toContain('GitButler CLI installation completed');
+	it('is a bootstrap script that downloads the installer binary', () => {
+		// Verify this is the lightweight bootstrap
+		expect(installScript).toContain('GitButler installer bootstrap script');
+		expect(installScript).toContain('https://app.gitbutler.com/installers/info');
+		expect(installScript).toContain('https://releases.gitbutler.com');
 	});
 
 	it('has proper error handling', () => {
-		expect(installScript).toContain('set -euo pipefail');
-		expect(installScript).toContain('error()');
+		expect(installScript).toContain('set -e');
 	});
 
-	it('supports macOS platforms', () => {
+	it('detects OS and architecture', () => {
+		expect(installScript).toContain('uname -s');
+		expect(installScript).toContain('uname -m');
 		expect(installScript).toContain('darwin');
 		expect(installScript).toContain('x86_64');
 		expect(installScript).toContain('aarch64');
 	});
 
-	it('handles Fish shell', () => {
-		expect(installScript).toContain('FISH_SHELL');
-		expect(installScript).toContain('fish_add_path');
+	it('validates download URLs', () => {
+		// Verify URL validation exists
+		expect(installScript).toContain('EFFECTIVE_URL');
+		expect(installScript).toContain('untrusted URL');
 	});
 
-	it('supports nightly channel installations', () => {
-		// Verify nightly channel support exists
-		expect(installScript).toContain('nightly');
-		expect(installScript).toContain('/releases/nightly');
-		expect(installScript).toContain('CHANNEL');
+	it('forwards arguments to installer binary', () => {
+		// Verify args are forwarded (supports nightly, versions, etc.)
+		expect(installScript).toContain('exec "$INSTALLER_BIN" "$@"');
 	});
 
-	it('handles channel detection and switching', () => {
-		// Verify channel detection logic
-		expect(installScript).toContain('PREVIOUS_CHANNEL');
-		expect(installScript).toContain('Switched');
+	it('checks for required commands', () => {
+		// Verify preflight checks exist
+		expect(installScript).toContain('command -v');
+		expect(installScript).toContain('curl');
+		expect(installScript).toContain('mktemp');
 	});
 });

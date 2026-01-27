@@ -14,22 +14,20 @@ test.describe('Install script endpoint', () => {
 		// Verify the script content
 		const scriptContent = await response.text();
 
-		// Check for bash shebang
-		expect(scriptContent).toContain('#!/bin/bash');
+		// Check for shell shebang
+		expect(scriptContent).toContain('#!/bin/sh');
 
-		// Check for key script sections to ensure it's the right file
-		expect(scriptContent).toContain('GitButler CLI installation');
-		expect(scriptContent).toContain('Detected platform:');
-		expect(scriptContent).toContain('$HOME/Applications/$APP_BASENAME');
-		expect(scriptContent).toContain('$HOME/.local/bin');
+		// Check that it's the bootstrap script
+		expect(scriptContent).toContain('GitButler installer bootstrap script');
+		expect(scriptContent).toContain('https://app.gitbutler.com/installers/info');
+		expect(scriptContent).toContain('https://releases.gitbutler.com');
 
 		// Verify script has proper error handling
-		expect(scriptContent).toContain('set -euo pipefail');
+		expect(scriptContent).toContain('set -e');
 
-		// Verify it's executable bash (no obvious syntax errors in critical sections)
-		expect(scriptContent).toContain('error()');
-		expect(scriptContent).toContain('success()');
-		expect(scriptContent).toContain('info()');
+		// Verify platform detection
+		expect(scriptContent).toContain('uname');
+		expect(scriptContent).toContain('darwin');
 	});
 
 	test('script has no-cache headers', async ({ request }) => {
@@ -53,6 +51,20 @@ test.describe('Install script endpoint', () => {
 
 		expect(response.status()).toBe(200);
 		const scriptContent = await response.text();
-		expect(scriptContent).toContain('#!/bin/bash');
+		expect(scriptContent).toContain('#!/bin/sh');
+	});
+
+	test('script checks for required commands', async ({ request }) => {
+		const response = await request.get('/install.sh');
+		const scriptContent = await response.text();
+
+		// Verify preflight checks for required commands
+		expect(scriptContent).toContain('command -v');
+		expect(scriptContent).toContain('curl');
+		expect(scriptContent).toContain('mktemp');
+		expect(scriptContent).toContain('grep');
+		expect(scriptContent).toContain('sed');
+		expect(scriptContent).toContain('uname');
+		expect(scriptContent).toContain('chmod');
 	});
 });

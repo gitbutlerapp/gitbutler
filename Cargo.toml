@@ -103,6 +103,8 @@ members = [
     "crates/gitbutler-tauri",
     # Hack at will. Can be of any quality level, as long as it works for you.
     "crates/but-testing",
+    # GitButler installation binary
+    "crates/but-installer",
 
     ##
     ### Legacy
@@ -148,6 +150,7 @@ but-github = { path = "crates/but-github" }
 but-error = { path = "crates/but-error" }
 but-serde = { path = "crates/but-serde" }
 but-update = { path = "crates/but-update" }
+but-installer = { path = "crates/but-installer" }
 but-secret = { path = "crates/but-secret" }
 but-feedback = { path = "crates/but-feedback" }
 but-forge-storage = { path = "crates/but-forge-storage" }
@@ -302,3 +305,7 @@ serde_json = { opt-level = 3 }
 # This one is special as we can run into debug assertions otherwise.
 # They have a time, but let's chose the time instead of always being hit by it.
 gix-merge = { opt-level = 3, debug-assertions = false }
+
+[profile.release.package.but-installer]
+opt-level = "z" # Optimize for size instead of speed
+strip = true    # Strip symbols from binary
