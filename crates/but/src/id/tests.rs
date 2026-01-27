@@ -998,15 +998,13 @@ mod util {
         /// Return a sorted list of all CliIds we can provide, excluding unassigned.
         pub fn all_ids(&self) -> Vec<CliId> {
             let IdMap {
-                stacks: _,
+                indexed_stacks,
                 branch_name_to_cli_id,
                 // All branch IDs are already obtained from
                 // `branch_name_to_cli_id`, so we don't need the keys in
                 // `branch_auto_id_to_cli_id`.
                 branch_auto_id_to_cli_id: _,
-                workspace_commits,
                 stack_ids,
-                remote_commit_ids,
                 unassigned: _,
                 uncommitted_files,
                 uncommitted_hunks,
@@ -1021,8 +1019,20 @@ mod util {
                 .values()
                 .chain(stack_ids.values())
                 .map(|id| id.to_short_string())
-                .chain(workspace_commits.keys().cloned())
-                .chain(remote_commit_ids.keys().cloned())
+                .chain(
+                    indexed_stacks
+                        .borrow_dependent()
+                        .workspace_commits
+                        .values()
+                        .map(|workspace_commit| workspace_commit.short_id.clone()),
+                )
+                .chain(
+                    indexed_stacks
+                        .borrow_dependent()
+                        .remote_commits
+                        .values()
+                        .map(|remote_commit| remote_commit.short_id.clone()),
+                )
                 .chain(uncommitted_files.keys().cloned())
                 .chain(uncommitted_hunks.keys().cloned())
                 .flat_map(|id| {
@@ -1042,15 +1052,13 @@ mod util {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             use itertools::Itertools;
             let IdMap {
-                stacks: _,
+                indexed_stacks: _,
                 branch_name_to_cli_id,
                 // All branch IDs are already obtained from
                 // `branch_name_to_cli_id`, so we don't need to print the keys
                 // in `branch_auto_id_to_cli_id`.
                 branch_auto_id_to_cli_id: _,
-                workspace_commits: _,
                 stack_ids,
-                remote_commit_ids: _,
                 unassigned: _,
                 uncommitted_files,
                 uncommitted_hunks,

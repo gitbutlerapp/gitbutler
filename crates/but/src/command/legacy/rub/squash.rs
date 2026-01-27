@@ -320,7 +320,7 @@ fn squash_branch_commits(
 
     // Find all commits in this branch (segment)
     let mut branch_commits: Vec<gix::ObjectId> = Vec::new();
-    for stack in &id_map.stacks {
+    for stack in id_map.stacks() {
         if stack.id == Some(stack_id) {
             for segment in &stack.segments {
                 if let Some(seg_branch_name) = segment.branch_name()
@@ -435,7 +435,7 @@ fn parse_commit_range(
 
     // Get all commits in order from the SAME stack only
     let mut all_commits_in_order: Vec<(gix::ObjectId, CliId)> = Vec::new();
-    for stack in &id_map.stacks {
+    for stack in id_map.stacks() {
         // Only process the stack that contains our commits
         if stack.id != Some(start_stack) {
             continue;

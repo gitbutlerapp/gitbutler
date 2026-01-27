@@ -134,6 +134,7 @@ machine-uid = "0.5.4"
 tempfile.workspace = true
 nonempty.workspace = true
 itertools.workspace = true
+self_cell.workspace = true
 
 [dev-dependencies]
 but-graph.workspace = true
