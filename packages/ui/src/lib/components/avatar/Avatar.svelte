@@ -3,16 +3,13 @@
 	import { stringToColor } from '$lib/utils/stringToColor';
 
 	interface Props {
-		srcUrl?: string | null;
+		srcUrl: string | null;
 		username: string;
 		tooltip?: string;
 		tooltipAlign?: TooltipAlign;
 		tooltipPosition?: TooltipPosition;
 		size?: 'small' | 'medium' | 'large';
 	}
-
-	let isLoaded = $state(false);
-	let hasError = $state(false);
 
 	const {
 		srcUrl,
@@ -22,26 +19,6 @@
 		tooltipPosition,
 		size = 'small'
 	}: Props = $props();
-
-	const shouldShowImage = $derived(!!srcUrl && !hasError);
-
-	// Reset error state when srcUrl changes
-	$effect(() => {
-		if (srcUrl) {
-			hasError = false;
-			isLoaded = false;
-		}
-	});
-
-	// Extract initials from name (first letter of each word, max 2 letters)
-	function getInitials(name: string): string {
-		if (!name) return '';
-		return name
-			.split(' ')
-			.map((word) => word.charAt(0).toUpperCase())
-			.join('')
-			.slice(0, 2);
-	}
 </script>
 
 <Tooltip text={tooltip ?? username} align={tooltipAlign} position={tooltipPosition}>
@@ -49,19 +26,8 @@
 		class="image-wrapper {size}"
 		style:background-color={stringToColor(username || srcUrl || undefined)}
 	>
-		{#if shouldShowImage}
-			<img
-				class="avatar"
-				alt={tooltip}
-				src={srcUrl}
-				loading="lazy"
-				onload={() => (isLoaded = true)}
-				onerror={() => (hasError = true)}
-				class:show={isLoaded}
-			/>
-		{/if}
-		{#if !shouldShowImage}
-			<span class="initials">{getInitials(username)}</span>
+		{#if srcUrl}
+			<img class="avatar" alt={tooltip} src={srcUrl} loading="lazy" />
 		{/if}
 	</div>
 </Tooltip>
@@ -105,26 +71,5 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		opacity: 0;
-	}
-
-	.show {
-		opacity: 1;
-	}
-
-	.initials {
-		font-weight: 500;
-		font-size: 8px;
-		line-height: 1;
-		text-align: center;
-		user-select: none;
-	}
-
-	.medium .initials {
-		font-size: 10px;
-	}
-
-	.large .initials {
-		font-size: 14px;
 	}
 </style>
