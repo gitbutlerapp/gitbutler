@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import FullscreenUtilityCard from '$lib/components/service/FullscreenUtilityCard.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import { AsyncButton, chipToasts } from '@gitbutler/ui';
+	import { AsyncButton, Button, chipToasts } from '@gitbutler/ui';
 	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
 
 	const loginService = inject(LOGIN_SERVICE);
@@ -29,10 +30,15 @@
 	}}
 >
 	<div class="loggedin__success-card-content">
-		<p class="text-14 clr-text-1">
-			<span class="loggedin__emphasize">NOW:</span> Copy the access token and paste it in your client
-		</p>
-		<AsyncButton style="pop" icon="copy" action={copyAccessToken}>Copy Access Token</AsyncButton>
+		<p class="text-13">You can now close this window and return to your client.</p>
+		<div class="flex gap-8 m-t-8">
+			<AsyncButton style="gray" kind="outline" icon="copy-small" action={copyAccessToken}
+				>Copy Access Token</AsyncButton
+			>
+			<Button style="gray" kind="ghost" onclick={() => goto('/profile')} icon="profile"
+				>Profile page</Button
+			>
+		</div>
 	</div>
 </FullscreenUtilityCard>
 
@@ -40,12 +46,6 @@
 	.loggedin__success-card-content {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		margin-top: 24px;
 		gap: 16px;
-	}
-
-	.loggedin__emphasize {
-		font-weight: 600;
 	}
 </style>
