@@ -1,24 +1,29 @@
-<script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { Icon } from '@gitbutler/ui';
+<script lang="ts" module>
 	import iconsJson from '@gitbutler/ui/data/icons.json';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { type Snippet } from 'svelte';
-
-	type Page = {
+	// This module script is necessary to make Svelte recognize the generics in the component
+	export type Page = {
 		id: string;
 		label: string;
 		icon: keyof typeof iconsJson;
 		adminOnly?: boolean;
 		[key: string]: any; // Allow additional properties for flexibility
 	};
+</script>
+
+<script lang="ts" generics="T extends Page">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import { Icon } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
+	import { type Snippet } from 'svelte';
+
+	type PageId = T['id'];
 
 	type Props = {
 		title: string;
-		pages: Page[];
+		pages: readonly T[];
 		selectedId?: string;
 		isAdmin?: boolean;
-		onSelectPage: (pageId: string) => void;
+		onSelectPage: (pageId: PageId) => void;
 		content: Snippet<[{ currentPage: Page | undefined }]>;
 		footer?: Snippet;
 	};

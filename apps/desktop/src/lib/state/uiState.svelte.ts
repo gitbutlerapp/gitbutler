@@ -11,6 +11,8 @@ import {
 	type UnknownAction
 } from '@reduxjs/toolkit';
 import type { ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
+import type { GeneralSettingsPageId } from '$lib/settings/generalSettingsPages';
+import type { ProjectSettingsPageId } from '$lib/settings/projectSettingsPages';
 import type { StackDetails } from '$lib/stacks/stack';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
 
@@ -93,13 +95,13 @@ export type AuthorMissingModalState = BaseGlobalModalState & {
 
 export type GeneralSettingsModalState = BaseGlobalModalState & {
 	type: 'general-settings';
-	selectedId?: string;
+	selectedId?: GeneralSettingsPageId;
 };
 
 export type ProjectSettingsModalState = BaseGlobalModalState & {
 	type: 'project-settings';
 	projectId: string;
-	selectedId?: string;
+	selectedId?: ProjectSettingsPageId;
 };
 
 export type GlobalModalState =
