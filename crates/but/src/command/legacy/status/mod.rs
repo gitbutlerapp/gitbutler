@@ -130,7 +130,7 @@ pub(crate) async fn worktree(
 
     let id_map = IdMap::new(head_info.stacks, worktree_changes.assignments.clone())?;
 
-    let stacks = &id_map.stacks;
+    let stacks = id_map.stacks();
     // Store the count of stacks for hint logic later
     let has_branches = !stacks.is_empty();
 
