@@ -819,6 +819,29 @@ pub enum Subcommands {
         branch: Option<String>,
     },
 
+    /// Manage Claude AI skills for GitButler.
+    ///
+    /// Skills provide enhanced AI capabilities for working with GitButler through
+    /// Claude Code and other AI assistants.
+    ///
+    /// Use `but skill install` to install the GitButler skill files into your
+    /// repository or globally.
+    ///
+    /// ## Examples
+    ///
+    /// Install the skill in the current repository:
+    ///
+    /// ```text
+    /// but skill install
+    /// ```
+    ///
+    /// Install the skill globally:
+    ///
+    /// ```text
+    /// but skill install --global
+    /// ```
+    Skill(skill::Platform),
+
     /// Show help information grouped by category.
     ///
     /// Displays all available commands organized into functional categories
@@ -832,6 +855,7 @@ pub enum Subcommands {
 pub mod alias;
 pub mod commit;
 pub mod config;
+pub mod skill;
 pub mod update;
 
 pub mod actions {
