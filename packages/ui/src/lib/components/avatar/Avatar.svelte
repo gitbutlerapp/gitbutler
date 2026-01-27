@@ -3,16 +3,13 @@
 	import { stringToColor } from '$lib/utils/stringToColor';
 
 	interface Props {
-		srcUrl?: string | null;
+		srcUrl: string | null;
 		username: string;
 		tooltip?: string;
 		tooltipAlign?: TooltipAlign;
 		tooltipPosition?: TooltipPosition;
 		size?: 'small' | 'medium' | 'large';
 	}
-
-	let isLoaded = $state(false);
-	let hasError = $state(false);
 
 	const {
 		srcUrl,
@@ -29,19 +26,8 @@
 		class="image-wrapper {size}"
 		style:background-color={stringToColor(username || srcUrl || undefined)}
 	>
-		{#if shouldShowImage}
-			<img
-				class="avatar"
-				alt={tooltip}
-				src={srcUrl}
-				loading="lazy"
-				onload={() => (isLoaded = true)}
-				onerror={() => (hasError = true)}
-				class:show={isLoaded}
-			/>
-		{/if}
-		{#if !shouldShowImage}
-			<span class="initials">{getInitials(username)}</span>
+		{#if srcUrl}
+			<img class="avatar" alt={tooltip} src={srcUrl} loading="lazy" />
 		{/if}
 	</div>
 </Tooltip>
@@ -85,26 +71,5 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		opacity: 0;
-	}
-
-	.show {
-		opacity: 1;
-	}
-
-	.initials {
-		font-weight: 500;
-		font-size: 8px;
-		line-height: 1;
-		text-align: center;
-		user-select: none;
-	}
-
-	.medium .initials {
-		font-size: 10px;
-	}
-
-	.large .initials {
-		font-size: 14px;
 	}
 </style>

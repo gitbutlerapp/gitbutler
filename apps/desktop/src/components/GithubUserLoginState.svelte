@@ -29,7 +29,7 @@
 	<CardGroup.Item>
 		{#snippet iconSide()}
 			<div class="avatar">
-				<Avatar size="large" username={account.info.username} srcUrl={undefined} />
+				<Avatar size="large" username={account.info.username} srcUrl={null} />
 			</div>
 		{/snippet}
 
@@ -76,7 +76,7 @@
 					</svg>
 				{/if}
 
-				<Avatar size="large" username={account.info.username} srcUrl={user?.avatarUrl} />
+				<Avatar size="large" username={account.info.username} srcUrl={user?.avatarUrl ?? null} />
 			</div>
 		{/snippet}
 
