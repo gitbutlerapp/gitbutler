@@ -152,7 +152,7 @@ const exampleDiffs: DiffInput[] = [hunk1, hunk2];
 function buildDefaultServices() {
 	const gitConfig = new DummyGitConfigService(structuredClone(defaultGitConfig));
 	const secretsService = new DummySecretsService(structuredClone(defaultSecretsConfig));
-	const tokenMemoryService = new TokenMemoryService(secretsService);
+	const tokenMemoryService = new TokenMemoryService();
 	const fetchMock = vi.fn();
 	const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 	return {
@@ -186,7 +186,7 @@ describe('AIService', () => {
 				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn
 			});
 			const secretsService = new DummySecretsService({ [AISecretHandle.OpenAIKey]: 'sk-asdfasdf' });
-			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const tokenMemoryService = new TokenMemoryService();
 			const fetchMock = vi.fn();
 			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
@@ -200,7 +200,7 @@ describe('AIService', () => {
 				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn
 			});
 			const secretsService = new DummySecretsService();
-			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const tokenMemoryService = new TokenMemoryService();
 			const fetchMock = vi.fn();
 			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
@@ -221,7 +221,7 @@ describe('AIService', () => {
 			const secretsService = new DummySecretsService({
 				[AISecretHandle.AnthropicKey]: 'test-key'
 			});
-			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const tokenMemoryService = new TokenMemoryService();
 			const fetchMock = vi.fn();
 			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
@@ -236,7 +236,7 @@ describe('AIService', () => {
 				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn
 			});
 			const secretsService = new DummySecretsService();
-			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const tokenMemoryService = new TokenMemoryService();
 			const fetchMock = vi.fn();
 			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
