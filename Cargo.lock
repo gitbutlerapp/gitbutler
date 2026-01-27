@@ -1331,6 +1331,7 @@ dependencies = [
  "but-graph",
  "but-meta",
  "but-testsupport",
+ "gitbutler-reference",
  "gix",
  "insta",
  "petgraph",

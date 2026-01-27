@@ -28,3 +28,5 @@ petgraph.workspace = true
 but-testsupport.workspace = true
 insta = "1.45.1"
 but-meta = { workspace = true, features = ["legacy"] }
+
+gitbutler-reference.workspace = true
