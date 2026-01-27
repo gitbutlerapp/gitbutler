@@ -3,15 +3,15 @@
 //! Provides subcommands to view and modify configuration settings including
 //! user information, AI provider, forge accounts, and target branch.
 
-use anyhow::{Context as _, Result};
-use but_ctx::Context;
-use colored::Colorize;
-use serde::Serialize;
-use std::fmt::Write;
-
 use crate::args::config::{ForgeSubcommand, Subcommands, UserSubcommand};
 use crate::tui;
 use crate::utils::{ConfirmOrEmpty, InputOutputChannel, OutputChannel};
+use anyhow::{Context as _, Result};
+use but_ctx::Context;
+use cfg_if::cfg_if;
+use colored::Colorize;
+use serde::Serialize;
+use std::fmt::Write;
 
 /// Main entry point for config command
 pub async fn exec(
@@ -52,8 +52,14 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
     };
 
     // Get target branch
-    let target_branch =
-        but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)?;
+    cfg_if! {
+        if #[cfg(feature = "legacy")] {
+            let target_branch = but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)?
+                                    .map(|b| b.branch_name);
+        } else {
+            let target_branch = None::<String>;
+        }
+    };
 
     // Get forge accounts
     let known_accounts = but_api::github::list_known_github_accounts().await?;
@@ -76,7 +82,7 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         // Target branch
         writeln!(out, "{}:", "Target Branch".bold())?;
         if let Some(branch) = &target_branch {
-            writeln!(out, "    {}", branch.branch_name.cyan())?;
+            writeln!(out, "    {}", branch.cyan())?;
         } else {
             writeln!(out, "    {}", "(not set)".dimmed())?;
         }
@@ -116,12 +122,11 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
             "but config target".blue().dimmed()
         )?;
     } else if let Some(out) = out.for_json() {
-        let target_branch_name = target_branch.map(|b| b.branch_name.to_string());
         out.write_value(serde_json::json!(ConfigOverview {
             name: user_info.name,
             email: user_info.email,
             editor: Some(user_info.editor),
-            target_branch: target_branch_name,
+            target_branch,
             forge_accounts,
         }))?;
     }
@@ -638,39 +643,41 @@ async fn target_config(
 ) -> Result<()> {
     match branch {
         None => {
-            let target =
-                but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)?;
+            #[cfg(feature = "legacy")]
+            {
+                let target =
+                    but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)?;
 
-            if let Some(target_branch) = target {
-                if let Some(out) = out.for_human() {
-                    writeln!(out, "{}",  "Used to determine common base to calculate commits unique to each branch (not yet integrated)\n".dimmed())?;
-                    writeln!(out, "{}:", "Target Branch".bold())?;
-                    writeln!(out, "\n  {}", target_branch.branch_name.to_string().cyan())?;
-                    writeln!(out)?;
-                    writeln!(out, "  {}: {}", "Remote".dimmed(), target_branch.remote_url)?;
-                    writeln!(out, "  {}:    {}", "SHA".dimmed(), target_branch.base_sha)?;
-                    writeln!(out, "\n{}:", "To change target branch".dimmed())?;
-                    writeln!(
-                        out,
-                        "  {}",
-                        "but config target <branch_name>".blue().dimmed()
-                    )?;
-                } else if let Some(out) = out.for_json() {
-                    out.write_value(serde_json::json!({
-                        "branch": target_branch.branch_name.to_string(),
-                        "remote_url": target_branch.remote_url,
-                        "sha": target_branch.base_sha.to_string(),
-                    }))?;
-                } // View current target
+                if let Some(target_branch) = target {
+                    if let Some(out) = out.for_human() {
+                        writeln!(out, "{}", "Used to determine common base to calculate commits unique to each branch (not yet integrated)\n".dimmed())?;
+                        writeln!(out, "{}:", "Target Branch".bold())?;
+                        writeln!(out, "\n  {}", target_branch.branch_name.to_string().cyan())?;
+                        writeln!(out)?;
+                        writeln!(out, "  {}: {}", "Remote".dimmed(), target_branch.remote_url)?;
+                        writeln!(out, "  {}:    {}", "SHA".dimmed(), target_branch.base_sha)?;
+                        writeln!(out, "\n{}:", "To change target branch".dimmed())?;
+                        writeln!(
+                            out,
+                            "  {}",
+                            "but config target <branch_name>".blue().dimmed()
+                        )?;
+                    } else if let Some(out) = out.for_json() {
+                        out.write_value(serde_json::json!({
+                            "branch": target_branch.branch_name.to_string(),
+                            "remote_url": target_branch.remote_url,
+                            "sha": target_branch.base_sha.to_string(),
+                        }))?;
+                    } // View current target
+                }
             }
         }
         Some(new_branch) => {
             // refuse to run if there are any applied branches. if so, ask user to unapply first.
-            let applied_stacks = but_api::legacy::workspace::stacks(
-                ctx.legacy_project.id,
-                Some(but_workspace::legacy::StacksFilter::InWorkspace),
-            )?;
-            if !applied_stacks.is_empty() {
+            let guard = ctx.exclusive_worktree_access();
+            let (_meta, ws) =
+                ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+            if !ws.stacks.is_empty() {
                 // list the applied branches
                 if let Some(out) = out.for_human() {
                     writeln!(
@@ -678,16 +685,22 @@ async fn target_config(
                         "{}",
                         "\nThe following branches are currently applied:\n".bold()
                     )?;
-                    applied_stacks.iter().for_each(|stack| {
-                        stack.heads.iter().for_each(|head| {
+                    ws.stacks.iter().for_each(|stack| {
+                        {
                             writeln!(
                                 out,
                                 "{} Applied branch: {}",
                                 "•".dimmed(),
-                                head.name.to_string().cyan()
+                                stack
+                                    .ref_name()
+                                    .map_or_else(
+                                        || "ANONYMOUS".to_string(),
+                                        |rn| rn.shorten().to_string()
+                                    )
+                                    .cyan()
                             )
                             .ok();
-                        });
+                        };
                     });
                     writeln!(
                         out,
@@ -711,11 +724,17 @@ async fn target_config(
             }
 
             // from the new_branch string, we need to parse out the remote name and branch name
-            but_api::legacy::virtual_branches::set_base_branch(
-                ctx.legacy_project.id,
-                new_branch.clone(),
-                None,
-            )?;
+            cfg_if! {
+                if #[cfg(feature = "legacy")] {
+                    but_api::legacy::virtual_branches::set_base_branch(
+                        ctx.legacy_project.id,
+                        new_branch.clone(),
+                        None,
+                    )?;
+                } else {
+                    anyhow::bail!("Cannot yet set the base-branch without legacy functions - needs port")
+                }
+            };
         }
     }
 

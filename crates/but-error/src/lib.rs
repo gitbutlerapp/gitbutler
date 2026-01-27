@@ -136,6 +136,7 @@ pub enum Code {
     MissingLoginKeychain,
     GitForcePushProtection,
     NetworkError,
+    ProjectDatabaseIncompatible,
 }
 
 impl std::fmt::Display for Code {
@@ -155,6 +156,7 @@ impl std::fmt::Display for Code {
             Code::MissingLoginKeychain => "errors.secret.missing_login_keychain",
             Code::GitForcePushProtection => "errors.git.force_push_protection",
             Code::NetworkError => "errors.network",
+            Code::ProjectDatabaseIncompatible => "errors.projectdb.migration",
         };
         f.write_str(code)
     }

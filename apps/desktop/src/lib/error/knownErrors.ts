@@ -8,7 +8,8 @@ export enum Code {
 	ProjectMissing = 'errors.projects.missing',
 	SecretKeychainNotFound = 'errors.secret.keychain_notfound',
 	MissingLoginKeychain = 'errors.secret.missing_login_keychain',
-	GitHubTokenExpired = 'errors.github.expired_token'
+	GitHubTokenExpired = 'errors.github.expired_token',
+	ProjectDatabaseIncompatible = 'errors.projectdb.migration'
 }
 
 export const KNOWN_ERRORS: Record<string, string> = {
@@ -34,5 +35,8 @@ With \`seahorse\` or equivalent, create a \`Login\` password store, right click 
 	`,
 	[Code.GitHubTokenExpired]: `
 Your GitHub token appears expired. Please log out and back in to refresh it. (Settings -> Integrations -> Forget) 
+	`,
+	[Code.ProjectDatabaseIncompatible]: `
+The database was changed by a more recent version of GitButler - cannot safely open it anymore. 
 	`
 };

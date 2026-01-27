@@ -90,7 +90,6 @@ gitbutler-operating-modes = { workspace = true, optional = true }
 gitbutler-repo = { workspace = true, optional = true }
 
 git2.workspace = true
-async-openai.workspace = true
 schemars.workspace = true
 posthog-rs = { version = "0.3.7" }
 serde.workspace = true

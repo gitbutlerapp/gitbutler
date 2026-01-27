@@ -116,8 +116,26 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
 /// Fatal errors are returned as error, fixed errors for tracing will be `Some(err)`
 #[instrument(level = "debug")]
 fn assure_database_valid(data_dir: PathBuf) -> anyhow::Result<Option<String>> {
+    use rusqlite::ErrorCode;
     if let Err(err) = but_db::DbHandle::new_in_directory(&data_dir) {
         let db_path = but_db::DbHandle::db_file_path(&data_dir);
+        if let Some(but_db::migration::Error::Permanent(sql_err)) =
+            err.downcast_ref::<but_db::migration::Error>()
+            && (!matches!(
+                sql_err.sqlite_error_code(),
+                Some(ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase)
+            ) || matches!(sql_err, rusqlite::Error::ToSqlConversionFailure(_)))
+        {
+            return Err(err)
+                .with_context(|| {
+                    format!(
+                        "Cannot recover from this error - probably a more recent version of\n\
+                         this app was used to open the project. '{}' is incompatible",
+                        db_path.display()
+                    )
+                })
+                .context(but_error::Code::ProjectDatabaseIncompatible);
+        }
         let db_filename = db_path.file_name().unwrap();
         let max_attempts = 255;
         for round in 1..max_attempts {

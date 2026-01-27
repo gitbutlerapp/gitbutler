@@ -29,6 +29,12 @@ use cfg_if::cfg_if;
 use clap::Parser;
 
 pub mod args;
+use crate::{
+    setup::{BackgroundSync, InitCtxOptions},
+    utils::{
+        OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
+    },
+};
 use args::{
     Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
     metrics, update as update_args, worktree,
@@ -36,13 +42,6 @@ use args::{
 use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
-
-use crate::{
-    setup::{BackgroundSync, InitCtxOptions},
-    utils::{
-        OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
-    },
-};
 
 mod id;
 pub use id::{CliId, IdMap};
@@ -117,6 +116,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     if args.trace > 0 {
         trace::init(args.trace)?;
     }
+    let _span = tracing::info_span!("CLI").entered();
 
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
     but_secret::secret::set_application_namespace(namespace);
@@ -944,5 +944,5 @@ async fn match_subcommand(
 mod legacy;
 
 mod setup;
-mod trace;
+pub mod trace;
 mod utils;

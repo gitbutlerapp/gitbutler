@@ -54,7 +54,7 @@ fn run_migrations(conn: &mut rusqlite::Connection) -> anyhow::Result<()> {
         if count > 0 {
             tracing::info!("Database updated with {count} migrations");
         }
-        Ok::<_, backoff::Error<migration::Error>>(())
+        Ok::<_, migration::Error>(())
     })?;
     Ok(())
 }
