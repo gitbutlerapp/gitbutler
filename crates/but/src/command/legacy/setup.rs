@@ -296,7 +296,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         .unwrap_or_default();
 
     // switch to gitbutler/workspace if not already there
-    if head_name != "gitbutler/workspace" {
+    if !head_name.starts_with("gitbutler/") {
         but_api::legacy::virtual_branches::switch_back_to_workspace(project.id)?;
     }
 
@@ -381,8 +381,8 @@ pub fn check_project_setup(project: &Project) -> anyhow::Result<bool> {
         .referent_name()
         .map(|n| n.shorten().to_string())
         .unwrap_or_default();
-    if head_name != "gitbutler/workspace" {
-        anyhow::bail!("Not currently on gitbutler/workspace branch.");
+    if !head_name.starts_with("gitbutler/") {
+        anyhow::bail!("Not currently on a gitbutler/* branch.");
     }
 
     Ok(true)
