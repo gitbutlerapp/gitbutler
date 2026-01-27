@@ -8,12 +8,14 @@
 	import { SSH_KEY_SERVICE } from '$lib/sshKeyService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
+	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
 	import { Button, CardGroup, chipToasts, Icon, Modal, Spacer } from '@gitbutler/ui';
+	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
 	import { env } from '$env/dynamic/public';
 
 	const userService = inject(USER_SERVICE);
@@ -21,6 +23,7 @@
 	const notificationSettingsService = inject(NOTIFICATION_SETTINGS_SERVICE);
 	const sshKeyService = inject(SSH_KEY_SERVICE);
 	const recentProjects = getRecentlyPushedProjects();
+	const loginService = inject(LOGIN_SERVICE);
 
 	const notificationSettings = getNotificationSettingsInterest(
 		appState,
@@ -75,6 +78,15 @@
 		await userService.deleteAccount();
 		logout();
 	}
+
+	async function copyAccessToken() {
+		const response = await loginService.token();
+		if (response.type === 'success' && response.data) {
+			copyToClipboard(response.data);
+		} else {
+			chipToasts.error('Failed to get token');
+		}
+	}
 </script>
 
 <svelte:head>
@@ -120,19 +132,35 @@
 					{/snippet}
 				</CardGroup.Item>
 
-				<CardGroup.Item standalone>
-					{#snippet title()}
-						Refresh access token
-					{/snippet}
-					{#snippet caption()}
-						If you suspect any unusual activity, it's a good idea to refresh your access token to
-						keep your account secure. This will log you out of all active sessions including on the
-						desktop application.
-					{/snippet}
-					{#snippet actions()}
-						<Button kind="outline" icon="update" onclick={refreshAccessToken}>Refresh</Button>
-					{/snippet}
-				</CardGroup.Item>
+				<CardGroup>
+					<CardGroup.Item>
+						{#snippet title()}
+							Access token
+						{/snippet}
+						{#snippet caption()}
+							Your access token is used to authenticate the GitButler clients with our API. Keep it
+							secure and refresh it periodically for enhanced security.
+						{/snippet}
+					</CardGroup.Item>
+					<CardGroup.Item>
+						{#snippet caption()}
+							Copy your access token to access the API in the desktop application or the CLI.
+						{/snippet}
+						{#snippet actions()}
+							<Button style="pop" icon="copy" onclick={copyAccessToken}>Copy Access Token</Button>
+						{/snippet}
+					</CardGroup.Item>
+					<CardGroup.Item>
+						{#snippet caption()}
+							If you suspect any unusual activity, it's a good idea to refresh your access token to
+							keep your account secure. This will log you out of all active sessions including on
+							the desktop application.
+						{/snippet}
+						{#snippet actions()}
+							<Button kind="outline" icon="update" onclick={refreshAccessToken}>Refresh</Button>
+						{/snippet}
+					</CardGroup.Item>
+				</CardGroup>
 
 				<Spacer />
 
