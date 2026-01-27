@@ -22,26 +22,6 @@
 		tooltipPosition,
 		size = 'small'
 	}: Props = $props();
-
-	const shouldShowImage = $derived(!!srcUrl && !hasError);
-
-	// Reset error state when srcUrl changes
-	$effect(() => {
-		if (srcUrl) {
-			hasError = false;
-			isLoaded = false;
-		}
-	});
-
-	// Extract initials from name (first letter of each word, max 2 letters)
-	function getInitials(name: string): string {
-		if (!name) return '';
-		return name
-			.split(' ')
-			.map((word) => word.charAt(0).toUpperCase())
-			.join('')
-			.slice(0, 2);
-	}
 </script>
 
 <Tooltip text={tooltip ?? username} align={tooltipAlign} position={tooltipPosition}>
