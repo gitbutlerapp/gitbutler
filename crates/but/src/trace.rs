@@ -18,7 +18,7 @@ pub fn init(level: u8) -> anyhow::Result<()> {
         if level_t < Level::DEBUG
             && !meta
                 .module_path()
-                .is_some_and(|p| p.starts_with("but::") || p.starts_with("but_"))
+                .is_some_and(|p| p == "but" || p.starts_with("but::") || p.starts_with("but_"))
         {
             return false;
         }

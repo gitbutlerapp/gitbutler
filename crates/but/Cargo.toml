@@ -111,7 +111,7 @@ regex.workspace = true
 anyhow.workspace = true
 rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
-gix.workspace = true
+gix = { workspace = true, features = ["tracing", "tracing-detail"] }
 colored = "3.0.0"
 serde_json.workspace = true
 terminal_size = "0.4.3"
