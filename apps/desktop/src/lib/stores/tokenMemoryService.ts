@@ -4,7 +4,7 @@ import type { UserService as _UserService } from '$lib/user/userService';
 /**
  * Holds the logged in user's token in memory
  *
- * Persistance is handled by the login process.
+ * Persistence is handled by the login process.
  * @see _UserService#setUser for more details.
  */
 export class TokenMemoryService {
