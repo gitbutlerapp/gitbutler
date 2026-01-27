@@ -9,6 +9,7 @@
 	import FileName from '$components/file/FileName.svelte';
 	import FileStatusBadge from '$components/file/FileStatusBadge.svelte';
 	import { focusable } from '$lib/focus/focusable';
+	import { slide } from 'svelte/transition';
 	import type { FileStatus } from '$components/file/types';
 	import type { FocusableOptions } from '$lib/focus/focusManager';
 
@@ -37,6 +38,7 @@
 		executable?: boolean;
 		isLast?: boolean;
 		actionOpts?: FocusableOptions;
+		notched?: boolean;
 		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
 			e: Event & {
@@ -77,6 +79,7 @@
 		executable,
 		isLast = false,
 		actionOpts,
+		notched,
 		oncheck,
 		oncheckclick,
 		onclick,
@@ -102,6 +105,7 @@
 	class:focused
 	class:draggable
 	class:conflicted
+	class:notched
 	class:list-mode={listMode === 'list'}
 	class:is-last={isLast}
 	aria-selected={selected}
@@ -129,6 +133,14 @@
 		<div class="file-list-item__indicators">
 			{#if showIndent}
 				<FileIndent {depth} />
+			{/if}
+
+			{#if notched}
+				<div
+					class="commit-row__select-indicator"
+					class:active
+					in:slide={{ axis: 'x', duration: 150 }}
+				></div>
 			{/if}
 
 			{#if showCheckbox}
@@ -319,5 +331,9 @@
 			display: flex;
 			color: var(--clr-change-icon-modification);
 		}
+	}
+
+	.notched {
+		margin-left: 6px;
 	}
 </style>

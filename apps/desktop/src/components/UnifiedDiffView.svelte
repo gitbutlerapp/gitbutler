@@ -333,6 +333,18 @@
 				</div>
 			{/if}
 		{/if}
+		<!-- The context menu should be outside the each block. -->
+		<HunkContextMenu
+			bind:this={contextMenu}
+			trigger={viewport}
+			{projectId}
+			{change}
+			discardable={isUncommittedChange}
+			{selectable}
+			{selectAllHunkLines}
+			{unselectAllHunkLines}
+			{invertHunkSelection}
+		/>
 	</div>
 {/snippet}
 

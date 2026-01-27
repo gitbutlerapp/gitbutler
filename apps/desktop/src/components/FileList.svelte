@@ -47,6 +47,7 @@
 		allowUnselect?: boolean;
 		showLockedIndicator?: boolean;
 		dataTestId?: string;
+		visibleRange?: { start: number; end: number };
 	};
 
 	const {
@@ -62,7 +63,8 @@
 		onFileClick,
 		allowUnselect = true,
 		showLockedIndicator = false,
-		dataTestId
+		dataTestId,
+		visibleRange
 	}: Props = $props();
 
 	const focusManager = inject(FOCUS_MANAGER);
@@ -275,6 +277,7 @@
 		{lockedCommitIds}
 		{lockedTargets}
 		{isLast}
+		notched={visibleRange && idx >= visibleRange.start && idx < visibleRange.end}
 		draggable={draggableFiles}
 		executable={isExecutable}
 		showCheckbox={showCheckboxes}

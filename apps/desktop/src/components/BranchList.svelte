@@ -45,9 +45,19 @@
 		active: boolean;
 		onclick?: () => void;
 		onFileClick?: (index: number) => void;
+		visibleRange: { start: number; end: number };
 	};
 
-	const { projectId, branches, stackId, laneId, active, onclick, onFileClick }: Props = $props();
+	const {
+		projectId,
+		branches,
+		stackId,
+		laneId,
+		active,
+		visibleRange,
+		onclick,
+		onFileClick
+	}: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
@@ -407,6 +417,7 @@
 										changes={result.changes}
 										stats={result.stats}
 										allowUnselect={false}
+										{visibleRange}
 										onFileClick={(index) => {
 											// Ensure the branch is selected so the preview shows it
 											const currentSelection = laneState.selection.current;
@@ -438,6 +449,7 @@
 								codegenQuery?.response &&
 								codegenQuery.response.length > 0}
 							{active}
+							{visibleRange}
 							{handleUncommit}
 							{startEditingCommitMessage}
 							{onclick}
