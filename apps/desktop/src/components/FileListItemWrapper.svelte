@@ -37,6 +37,7 @@
 		lockedCommitIds?: string[];
 		lockedTargets?: HunkLockTarget[];
 		isLast?: boolean;
+		notched?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		conflictEntries?: ConflictEntriesObj;
@@ -60,6 +61,7 @@
 		lockedCommitIds = [],
 		lockedTargets = [],
 		isLast = false,
+		notched,
 		onclick,
 		onkeydown
 	}: Props = $props();
@@ -183,6 +185,7 @@
 		locked={locked || false}
 		{lockText}
 		{isLast}
+		{notched}
 		onlockhover={handleLockHover}
 		onlockunhover={handleLockUnhover}
 		conflicted={!!conflict}
