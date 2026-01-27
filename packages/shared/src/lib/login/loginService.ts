@@ -24,6 +24,44 @@ export const LOGIN_SERVICE: InjectionToken<LoginService> = new InjectionToken('L
 export default class LoginService {
 	constructor(private readonly httpClient: HttpClient) {}
 
+	private async sendGetRequest<T>(
+		path: string,
+		successHandler?: (data: any) => T | undefined
+	): Promise<LoginResponse<T>> {
+		try {
+			const response = await this.httpClient.get(path);
+
+			if (response) {
+				const result = successHandler ? successHandler(response) : response;
+				return {
+					type: 'success',
+					data: result as T
+				};
+			}
+
+			return {
+				type: 'error',
+				errorCode: 'empty_response',
+				errorMessage: 'No data received from server'
+			};
+		} catch (error) {
+			if (error instanceof Error) {
+				return {
+					type: 'error',
+					errorCode: 'network_error',
+					errorMessage: error.message,
+					raw: error
+				};
+			}
+			return {
+				type: 'error',
+				errorCode: 'unknown_error',
+				errorMessage: 'An unknown error occurred',
+				raw: error
+			};
+		}
+	}
+
 	private async sendPostRequest<T>(
 		path: string,
 		body: Record<string, unknown>,
@@ -120,6 +158,13 @@ export default class LoginService {
 		return await this.sendPostRequest('sessions/resend_confirmation', { email }, (data) => {
 			if (!isStr(data.message)) throw new Error('Invalid message format');
 			return { message: data.message };
+		});
+	}
+
+	async token(): Promise<LoginResponse<string>> {
+		return await this.sendGetRequest('sessions/toke_me_bro', (data) => {
+			if (!isStr(data.token)) throw new Error('Invalid token format');
+			return data.token;
 		});
 	}
 
