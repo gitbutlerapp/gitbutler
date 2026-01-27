@@ -33,7 +33,7 @@
 <SettingsModalLayout
 	title="Project settings"
 	{pages}
-	selectedId={data.selectedId}
+	selectedId={currentSelectedId}
 	onSelectPage={selectPage}
 >
 	{#snippet content({ currentPage })}

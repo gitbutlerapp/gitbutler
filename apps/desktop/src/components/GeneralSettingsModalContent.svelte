@@ -30,7 +30,7 @@
 	const user = userService.user;
 	const urlService = inject(URL_SERVICE);
 
-	let currentSelectedId = $state(data.selectedId || generalSettingsPages[0]!.id);
+	let currentSelectedId = $derived(data.selectedId || generalSettingsPages[0]!.id);
 
 	function selectPage(pageId: GeneralSettingsPageId) {
 		currentSelectedId = pageId;
@@ -40,7 +40,7 @@
 <SettingsModalLayout
 	title="Global settings"
 	pages={generalSettingsPages}
-	selectedId={data.selectedId}
+	selectedId={currentSelectedId}
 	isAdmin={$user?.role === 'admin'}
 	onSelectPage={selectPage}
 >

@@ -21,7 +21,7 @@
 	type Props = {
 		title: string;
 		pages: readonly T[];
-		selectedId?: string;
+		selectedId?: PageId;
 		isAdmin?: boolean;
 		onSelectPage: (pageId: PageId) => void;
 		content: Snippet<[{ currentPage: Page | undefined }]>;
@@ -30,7 +30,7 @@
 
 	const { title, pages, selectedId, isAdmin, onSelectPage, content, footer }: Props = $props();
 
-	let currentSelectedId = $state(selectedId || pages[0]?.id || '');
+	let currentSelectedId = $derived(selectedId || pages[0]?.id || '');
 	const currentPage = $derived(pages.find((p) => p.id === currentSelectedId));
 	let scrollableContainer: ConfigurableScrollableContainer;
 
