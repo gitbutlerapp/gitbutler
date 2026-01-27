@@ -120,8 +120,7 @@
 		try {
 			await settingsService.deleteAllData();
 			projectsService.unsetLastOpenedProject();
-			await userService.logout();
-			// TODO: Delete user from observable!!!
+			await userService.forgetUserCredentials();
 			chipToasts.success('All data deleted');
 			goto('/', { replaceState: true, invalidateAll: true });
 		} catch (err: any) {
@@ -159,18 +158,18 @@
 	<CardGroup>
 		<CardGroup.Item>
 			{#snippet title()}
-				Signing out
+				Forget credentials and log out
 			{/snippet}
 			{#snippet caption()}
-				Ready to take a break? Click here to log out and unwind.
+				Ready to take a break? Click here to clear your credentials and unwind.
 			{/snippet}
 			{#snippet actions()}
 				<Button
 					kind="outline"
 					icon="signout"
 					onclick={async () => {
-						await userService.logout();
-					}}>Log out</Button
+						await userService.forgetUserCredentials();
+					}}>Forget credentials</Button
 				>
 			{/snippet}
 		</CardGroup.Item>

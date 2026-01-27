@@ -1,10 +1,9 @@
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { showError } from '$lib/notifications/toasts';
-import { sleep } from '$lib/utils/sleep';
 import { InjectionToken } from '@gitbutler/core/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
-import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
-import { derived, get, readable, writable, type Readable } from 'svelte/store';
+import { chipToasts } from '@gitbutler/ui';
+import { derived, writable, type Readable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { IBackend } from '$lib/backend';
 import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
@@ -81,7 +80,16 @@ export class UserService {
 		setSentryUser(user);
 	}
 
-	async logout() {
+	async setUserAccessToken(token: string) {
+		const user = await this.httpClient.get<User>('login/whoami', {
+			headers: {
+				'X-Auth-Token': token
+			}
+		});
+		await this.setUser(user);
+	}
+
+	async forgetUserCredentials() {
 		await this.clearUser();
 		this.user.set(undefined);
 		this.tokenMemoryService.setToken(undefined);
@@ -89,68 +97,38 @@ export class UserService {
 		resetSentry();
 	}
 
-	private async loginCommon(
-		action: (url: string) => void,
-		aborted: Readable<boolean>
-	): Promise<User | undefined> {
-		this.logout();
-		this.loading.set(true);
+	private async getLoginUrl(): Promise<string> {
+		this.forgetUserCredentials();
 		try {
-			// Create login token
+			// Get the login url from the backend
 			const token = await this.httpClient.post<LoginToken>('login/token.json');
 			const url = new URL(token.url);
 			url.host = this.httpClient.apiUrl.host;
 
-			action(url.toString());
-
-			const user = await this.pollForUser(token.token, aborted);
-			this.tokenMemoryService.setToken(undefined);
-			this.setUser(user);
-
-			return user;
+			return url.toString();
 		} catch (err) {
 			console.error(err);
-			showError('Error occurred while logging in', err);
-		} finally {
-			this.loading.set(false);
+			showError('Error occurred while fetching the login URL', err);
+			throw err;
 		}
 	}
 
-	async login(aborted: Readable<boolean> = readable(false)): Promise<User | undefined> {
-		return await this.loginCommon((url) => {
-			this.backend.openExternalUrl(url);
-		}, aborted);
+	async openLoginPage(): Promise<void> {
+		const url = await this.getLoginUrl();
+		await this.backend.openExternalUrl(url);
 	}
 
-	async loginAndCopyLink(aborted: Readable<boolean> = readable(false)): Promise<User | undefined> {
-		return await this.loginCommon((url) => {
-			setTimeout(() => {
-				copyToClipboard(url);
-			}, 0);
-		}, aborted);
-	}
-
-	private async pollForUser(token: string, aborted: Readable<boolean>): Promise<User | undefined> {
-		const pollingDuration = 20 * 60 * 1000; // 20 minutes
-		const pollingFrequency = 5 * 1000; // 5 seconds
-
-		let apiUser: User | null;
-		for (let i = 0; i < pollingDuration / pollingFrequency; i++) {
-			if (get(aborted)) return;
-			apiUser = await this.getLoginUser(token).catch(() => null);
-			if (apiUser) {
-				this.setUser(apiUser);
-				return apiUser;
-			}
-			await sleep(pollingFrequency);
-		}
-
-		throw new Error('Login token expired. Please try logging in again');
-	}
-
-	// TODO: Remove token from URL, we don't want that leaking into logs.
-	private async getLoginUser(token: string): Promise<User> {
-		return await this.httpClient.get(`login/user/${token}.json`);
+	async copyLoginPageLink(): Promise<void> {
+		const url = await this.getLoginUrl();
+		await this.backend
+			.writeTextToClipboard(url)
+			.then(() => {
+				chipToasts.success('Login URL copied to clipboard');
+			})
+			.catch((err) => {
+				showError('Error copying login URL to clipboard', err);
+				throw err;
+			});
 	}
 
 	async getUser(): Promise<ApiUser> {
