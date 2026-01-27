@@ -138,26 +138,29 @@
 							Access token
 						{/snippet}
 						{#snippet caption()}
-							Your access token is used to authenticate the GitButler clients with our API. Keep it
-							secure and refresh it periodically for enhanced security.
+							Your access token is used to authenticate the GitButler clients with our API.
+							<br />
+							Keep it secure and refresh it periodically for enhanced security.
+						{/snippet}
+					</CardGroup.Item>
+					<CardGroup.Item alignment="center">
+						{#snippet caption()}
+							Copy your token to use with the desktop app or CLI.
+						{/snippet}
+						{#snippet actions()}
+							<Button kind="outline" icon="copy-small" onclick={copyAccessToken}>Copy token</Button>
 						{/snippet}
 					</CardGroup.Item>
 					<CardGroup.Item>
 						{#snippet caption()}
-							Copy your access token to access the API in the desktop application or the CLI.
+							Refresh your token if you notice unusual activity.
+							<br />
+							This logs you out everywhere, including the desktop app.
 						{/snippet}
 						{#snippet actions()}
-							<Button style="pop" icon="copy" onclick={copyAccessToken}>Copy Access Token</Button>
-						{/snippet}
-					</CardGroup.Item>
-					<CardGroup.Item>
-						{#snippet caption()}
-							If you suspect any unusual activity, it's a good idea to refresh your access token to
-							keep your account secure. This will log you out of all active sessions including on
-							the desktop application.
-						{/snippet}
-						{#snippet actions()}
-							<Button kind="outline" icon="update" onclick={refreshAccessToken}>Refresh</Button>
+							<Button kind="outline" icon="update" onclick={refreshAccessToken}
+								>Refresh token</Button
+							>
 						{/snippet}
 					</CardGroup.Item>
 				</CardGroup>
