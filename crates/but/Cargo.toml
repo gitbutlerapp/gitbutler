@@ -48,6 +48,7 @@ but-settings.workspace = true
 but-serde.workspace = true
 but-secret.workspace = true
 but-update.workspace = true
+but-installer.workspace = true
 but-oxidize.workspace = true
 but-path.workspace = true
 but-db.workspace = true

@@ -591,7 +591,9 @@ pub enum Subcommands {
         shell: Option<clap_complete::Shell>,
     },
 
-    /// Check for and install updates to the GitButler CLI.
+    /// Manage GitButler CLI and app updates.
+    ///
+    /// Check for new versions, install updates, or suppress update notifications.
     Update(update::Platform),
 
     /// Manage command aliases.
