@@ -24,7 +24,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
             .unwrap_or_default()
     };
 
-    if head_name != "gitbutler/workspace" {
+    if !head_name.starts_with("gitbutler/") {
         if let Some(out) = out.for_human() {
             writeln!(
                 out,
