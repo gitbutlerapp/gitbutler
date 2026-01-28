@@ -10,11 +10,14 @@
 	import OrganisationSettings from '$components/profileSettings/OrganisationSettings.svelte';
 	import TelemetrySettings from '$components/profileSettings/TelemetrySettings.svelte';
 	import AppearanceSettings from '$components/projectSettings/AppearanceSettings.svelte';
+	import {
+		generalSettingsPages,
+		type GeneralSettingsPageId
+	} from '$lib/settings/generalSettingsPages';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 	import { Icon } from '@gitbutler/ui';
-	import iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { GeneralSettingsModalState } from '$lib/state/uiState.svelte';
 
 	type Props = {
@@ -27,66 +30,17 @@
 	const user = userService.user;
 	const urlService = inject(URL_SERVICE);
 
-	const pages = [
-		{
-			id: 'general',
-			label: 'General',
-			icon: 'settings' as keyof typeof iconsJson
-		},
-		{
-			id: 'appearance',
-			label: 'Appearance',
-			icon: 'appearance' as keyof typeof iconsJson
-		},
-		{
-			id: 'lanes-and-branches',
-			label: 'Lanes & branches',
-			icon: 'lanes' as keyof typeof iconsJson
-		},
-		{
-			id: 'git',
-			label: 'Git stuff',
-			icon: 'git' as keyof typeof iconsJson
-		},
-		{
-			id: 'integrations',
-			label: 'Integrations',
-			icon: 'integrations' as keyof typeof iconsJson
-		},
-		{
-			id: 'ai',
-			label: 'AI Options',
-			icon: 'ai' as keyof typeof iconsJson
-		},
-		{
-			id: 'telemetry',
-			label: 'Telemetry',
-			icon: 'stat' as keyof typeof iconsJson
-		},
-		{
-			id: 'experimental',
-			label: 'Experimental',
-			icon: 'idea' as keyof typeof iconsJson
-		},
-		{
-			id: 'organizations',
-			label: 'Organizations',
-			icon: 'idea' as keyof typeof iconsJson,
-			adminOnly: true
-		}
-	];
+	let currentSelectedId = $derived(data.selectedId || generalSettingsPages[0]!.id);
 
-	let currentSelectedId = $state(data.selectedId || pages[0]!.id);
-
-	function selectPage(pageId: string) {
+	function selectPage(pageId: GeneralSettingsPageId) {
 		currentSelectedId = pageId;
 	}
 </script>
 
 <SettingsModalLayout
 	title="Global settings"
-	{pages}
-	selectedId={data.selectedId}
+	pages={generalSettingsPages}
+	selectedId={currentSelectedId}
 	isAdmin={$user?.role === 'admin'}
 	onSelectPage={selectPage}
 >

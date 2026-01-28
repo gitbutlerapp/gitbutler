@@ -1,0 +1,20 @@
+<svg width="81" height="51" viewBox="0 0 81 51" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M59.7 0.600342C70.8009 0.600342 79.7996 9.59903 79.7996 20.7C79.7996 31.8009 70.8009 40.7996 59.7 40.7996H20.7C9.59909 40.7996 0.600403 31.8009 0.600403 20.7C0.600403 9.59903 9.59909 0.600342 20.7 0.600342H59.7Z"
+    fill="var(--clr-art-scene-fill)" stroke="var(--clr-art-scene-outline)" stroke-width="1.2" />
+  <path opacity="0.4"
+    d="M13.9333 26.2L18.7 19.9241M18.7 19.9241L23.4667 26.2M18.7 19.9241L25.2 18.131M18.7 19.9241L12.2 18.131M18.7 19.9241V13.2"
+    stroke="var(--clr-art-scene-outline)" stroke-width="3" />
+  <path opacity="0.4"
+    d="M31.9333 26.2L36.7 19.9241M36.7 19.9241L41.4667 26.2M36.7 19.9241L43.2 18.131M36.7 19.9241L30.2 18.131M36.7 19.9241V13.2"
+    stroke="var(--clr-art-scene-outline)" stroke-width="3" />
+  <path opacity="0.4" d="M49.9333 26.2L54.7 19.9241M54.7 19.9241L48.2 18.131M54.7 19.9241V13.2"
+    stroke="var(--clr-art-scene-outline)" stroke-width="3" />
+  <path d="M72.2 35.2V27.2C72.2 23.334 69.066 20.2 65.2 20.2C61.334 20.2 58.2 23.334 58.2 27.2V35.2"
+    stroke="var(--clr-art-scene-outline)" stroke-width="4" />
+  <rect x="50.6" y="31.6" width="29.2" height="18.2" fill="var(--clr-art-scene-fill)"
+    stroke="var(--clr-art-scene-outline)" stroke-width="1.2" />
+  <path fill-rule="evenodd" clip-rule="evenodd"
+    d="M64.5478 36.2C63.2512 36.2 62.2 37.2666 62.2 38.5823C62.2 39.6734 62.9228 40.5932 63.9091 40.8754L62.9826 45.2H67.4174L66.4909 40.8754C67.4772 40.5932 68.2 39.6734 68.2 38.5823C68.2 37.2666 67.1489 36.2 65.8522 36.2H64.5478Z"
+    fill="var(--clr-art-scene-outline)" />
+</svg>
