@@ -24,9 +24,9 @@ but status --json
 but stage a1 bu    # api/users.js → api-endpoint branch
 but stage a2 bv    # Button.svelte → ui-styling branch
 
-# 6. Commit each branch
-but commit bu -m "Add user details endpoint"
-but commit bv -m "Update button hover styles"
+# 6. Commit each branch (--only to commit only staged files)
+but commit bu --only -m "Add user details endpoint"
+but commit bv --only -m "Update button hover styles"
 
 # 7. Push branches independently
 but push bu
@@ -54,7 +54,8 @@ but branch new add-authentication
 # 3. Implement auth and commit
 # (edit auth/login.js, auth/middleware.js)
 but status --json
-but commit bu -m "Add JWT authentication"
+but stage <file-ids> bu  # Stage changes to auth branch
+but commit bu --only -m "Add JWT authentication"
 
 # 4. Create stacked branch anchored on authentication
 but branch new user-profile -a bu
@@ -62,7 +63,8 @@ but branch new user-profile -a bu
 # 5. Implement profile page (depends on auth)
 # (edit pages/profile.js)
 but status --json
-but commit bv -m "Add user profile page"
+but stage <file-ids> bv  # Stage changes to profile branch
+but commit bv --only -m "Add user profile page"
 
 # 6. Push both branches (maintains stack relationship)
 but push
@@ -176,8 +178,8 @@ but mark bu    # Branch bu (refactor) is now marked
 # 4. All changes automatically staged to refactor branch
 but status --json  # Shows all changes staged to bu
 
-# 5. Commit everything
-but commit bu -m "Refactor error handling across app"
+# 5. Commit the staged changes
+but commit bu --only -m "Refactor error handling across app"
 
 # 6. Remove mark
 but unmark
@@ -262,16 +264,17 @@ but branch new user-dashboard
 
 # 4. Check and stage
 but status --json
-# If only one branch applied, files auto-stage
-# Otherwise: but stage <files> bu
+but stage <file-ids> bu  # Stage changes to dashboard branch
 
 # 5. First commit
-but commit bu -m "Add dashboard route and basic layout"
+but commit bu --only -m "Add dashboard route and basic layout"
 
 # 6. Continue iterating
 # (add widgets, styling)
-but commit bu -m "Add dashboard widgets"
-but commit bu -m "Style dashboard components"
+but stage <file-ids> bu
+but commit bu --only -m "Add dashboard widgets"
+but stage <file-ids> bu
+but commit bu --only -m "Style dashboard components"
 
 # 7. Make small fix
 # (fix typo in widget)
@@ -316,8 +319,9 @@ but branch unapply bv
 but branch unapply bw
 
 # 3. Focus on feature-a
-# (make changes, commit)
-but commit bu -m "Complete feature-a"
+# (make changes, stage, commit)
+but stage <file-ids> bu
+but commit bu --only -m "Complete feature-a"
 
 # 4. Push and create PR for feature-a
 but push bu
@@ -385,22 +389,27 @@ but branch new fix-auth-bug       # Create branch for today's work
 
 # Work and commit iteratively
 # (make changes)
-but commit bu -m "Identify auth bug source"
+but status --json                 # Check changes
+but stage <file-ids> bu           # Stage to branch
+but commit bu --only -m "Identify auth bug source"
 # (make more changes)
-but commit bu -m "Fix token expiration handling"
+but stage <file-ids> bu           # Stage to branch
+but commit bu --only -m "Fix token expiration handling"
 # (small fix)
 but absorb                        # Amend into previous commit
 
 # Mid-day: Start urgent fix on different branch
 but branch new hotfix-login       # Parallel branch for urgent work
 # (make fix)
-but commit bv -m "Fix login redirect loop"
+but stage <file-ids> bv           # Stage to hotfix branch
+but commit bv --only -m "Fix login redirect loop"
 but push bv                       # Push urgent fix
 but pr new bv                     # Create PR immediately
 
 # Back to original work
 # (continue working on bu, auth bug fix)
-but commit bu -m "Add tests for token handling"
+but stage <file-ids> bu           # Stage to auth branch
+but commit bu --only -m "Add tests for token handling"
 
 # End of day: Clean up and push
 but squash bu                     # Combine into clean history

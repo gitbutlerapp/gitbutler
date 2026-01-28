@@ -123,12 +123,14 @@ but rub <file-id> <branch-id>    # Stage file to branch
 Commit changes to a branch.
 
 ```bash
-but commit <branch> -m "message"         # Commit with message
-but commit <branch> --only               # Only commit already-staged files
+but commit <branch> --only -m "message"  # Commit ONLY staged changes (recommended)
+but commit <branch> -m "message"         # Commit ALL uncommitted changes to branch
 but commit <branch> -i                   # AI-generated commit message
 but commit empty --before <target>       # Insert empty commit before target
 but commit empty --after <target>        # Insert empty commit after target
 ```
+
+**Important:** Without `--only`, ALL uncommitted changes are committed to the branch, not just staged files. Use `--only` when you've staged specific files and want to commit only those.
 
 If only one branch is applied, you can omit the branch ID.
 

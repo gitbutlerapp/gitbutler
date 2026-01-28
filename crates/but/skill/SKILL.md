@@ -17,7 +17,7 @@ Help users work with GitButler CLI (`but` command) in workspace mode.
 2. **Start work** → `but branch new <task-name>` (create stack for this work theme)
 3. **Make changes** → Edit files as needed
 4. **Stage changes IMMEDIATELY** → `but stage <file> <branch>` (after EVERY Write/Edit tool use)
-5. **Commit work** → `but commit <branch> -m "message"` (preserve logical units)
+5. **Commit work** → `but commit <branch> --only -m "message"` (commit only staged changes)
 6. **Refine** → Use `but absorb` or `but squash` to clean up history
 
 **Step 4 is required immediately after any file modification** - do not skip or delay staging.
@@ -65,7 +65,7 @@ but skill install --path <path>    # Install/update skill (agents use --path wit
 but status --json       # Always start here - shows workspace state (JSON for agents)
 but branch new feature  # Create new stack for work
 but stage <file> <id>   # Stage changes to branch
-but commit <id> -m "…"  # Commit to branch
+but commit <id> --only -m "…"  # Commit only staged changes
 but push <id>           # Push to remote
 ```
 
@@ -94,7 +94,8 @@ For detailed command syntax and all available options, see [references/reference
 
 **Making changes:**
 
-- `but commit <branch> -m "msg"` - Create commit
+- `but commit <branch> --only -m "msg"` - Commit only staged changes
+- `but commit <branch> -m "msg"` - Commit ALL uncommitted changes to branch
 - `but absorb` - Auto-amend into existing commits
 
 **Editing history:**
@@ -142,7 +143,7 @@ but branch new ui-update
 # Make changes, then stage to appropriate branches
 but stage <api-file> <api-branch>
 but status --json  # Verify staging
-but commit <api-branch> -m "Add endpoint"
+but commit <api-branch> --only -m "Add endpoint"
 ```
 
 **Cleaning up commits:**
