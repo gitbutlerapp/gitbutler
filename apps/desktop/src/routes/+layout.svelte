@@ -78,6 +78,9 @@
 	backend.initDeepLinking({
 		open: (path: string) => {
 			projectsService.handleDeepLinkOpen(path);
+		},
+		login: (accessToken: string) => {
+			userService.setUserAccessToken(accessToken);
 		}
 	});
 
