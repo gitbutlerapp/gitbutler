@@ -137,6 +137,8 @@ function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
 	handleTopLevel(topLevel, params, handlers);
 }
 
+const LOGIN_LINK_EXPIRATION_MS = 30 * 1000; // 30 seconds
+
 function handleTopLevel(
 	path: DeepLinkTopLevelPath,
 	params: URLSearchParams,
@@ -152,6 +154,16 @@ function handleTopLevel(
 		}
 		case 'login': {
 			const accessToken = params.get('access_token');
+			const timestampStr = params.get('t');
+			if (!timestampStr) {
+				return true;
+			}
+			const timestamp = Number(timestampStr);
+			const now = Date.now();
+			if (isNaN(timestamp) || now - timestamp > LOGIN_LINK_EXPIRATION_MS) {
+				console.warn('Ignoring expired login deep link');
+				return true;
+			}
 			if (accessToken) {
 				handlers.login(accessToken);
 			}
