@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use but_api::{commit, diff, github, legacy};
+use but_api::{commit, diff, github, legacy, platform};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
@@ -393,6 +393,7 @@ fn main() -> anyhow::Result<()> {
                 commit::tauri_commit_insert_blank::commit_insert_blank,
                 commit::tauri_commit_move_changes_between::commit_move_changes_between,
                 commit::tauri_commit_uncommit_changes::commit_uncommit_changes,
+                platform::tauri_build_type::build_type,
             ])
             .menu(move |handle| menu::build(handle, &app_settings_for_menu))
             .on_window_event(|window, event| match event {

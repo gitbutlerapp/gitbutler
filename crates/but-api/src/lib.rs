@@ -25,3 +25,6 @@ pub mod diff;
 /// Types meant to be serialised to JSON, without degenerating information despite the need to be UTF-8 encodable.
 /// EXPERIMENTAL
 pub mod json;
+
+/// Functions releated to platform detection and information.
+pub mod platform;

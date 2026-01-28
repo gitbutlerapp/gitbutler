@@ -14,7 +14,7 @@ use axum::{
     response::IntoResponse,
     routing::{any, post},
 };
-use but_api::{commit, diff, github, json, legacy};
+use but_api::{commit, diff, github, json, legacy, platform};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
@@ -694,6 +694,7 @@ pub async fn run() {
             "/commit_uncommit_changes",
             post(json_response(commit::commit_uncommit_changes_cmd)),
         )
+        .route("/build_type", post(json_response(platform::build_type_cmd)))
         // Catch-all for commands that need special handling (app, extra, app_settings_sync)
         .route("/{command}", post(post_handle_command_with_path))
         .route(

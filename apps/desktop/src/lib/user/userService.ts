@@ -104,6 +104,9 @@ export class UserService {
 			const token = await this.httpClient.post<LoginToken>('login/token.json');
 			const url = new URL(token.url);
 			url.host = this.httpClient.apiUrl.host;
+			const buildType = await this.backend.invoke<string>('build_type').catch(() => undefined);
+			if (buildType !== undefined && buildType !== 'development')
+				url.searchParams.set('bt', buildType);
 
 			return url.toString();
 		} catch (err) {
