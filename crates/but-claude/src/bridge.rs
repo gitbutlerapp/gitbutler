@@ -50,7 +50,7 @@ use crate::{
     SystemMessage, ThinkingLevel, Transcript, UserInput,
     broadcaster::FrontendEvent,
     claude_config::fmt_claude_settings,
-    claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
+    claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig, convert_mcp_config_to_sdk},
     claude_settings::ClaudeSettings,
     db::{self, list_messages_by_session},
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
@@ -187,6 +187,13 @@ impl Claudes {
         stack_id: StackId,
         user_params: ClaudeUserParams,
     ) -> Result<()> {
+        // Check if we should use the Rust SDK instead of the binary
+        if sync_ctx.settings.claude.use_rust_sdk {
+            return self
+                .spawn_claude_sdk(sync_ctx, broadcaster, stack_id, user_params)
+                .await;
+        }
+
         // Capture the start time to filter messages created during this session
         let session_start_time = chrono::Utc::now().naive_utc();
 
@@ -196,39 +203,12 @@ impl Claudes {
             .await
             .insert(stack_id, Arc::new(Claude { kill: send_kill }));
 
-        // We're also making the bold assumption that if we can find the
-        // transcript, that a session was created. This is _not_ the best
-        // way to do this.
-        //
-        // <https://github.com/anthropics/claude-code/issues/5161> could
-        // simplify this
-        let (summary_to_resume, session_id, session) = {
-            let mut ctx = sync_ctx.clone().into_thread_local();
-            let mut guard = ctx.exclusive_worktree_access();
-
-            // Create repo and workspace once at the entry point
-            let rule = {
-                list_claude_assignment_rules(&ctx)?
-                    .into_iter()
-                    .find(|rule| rule.stack_id == stack_id)
-            };
-
-            let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
-
-            let session = upsert_session(&mut ctx, session_id, stack_id, guard.write_permission())?;
-            let ctx = sync_ctx.clone().into_thread_local();
-            let messages = list_messages_by_session(&ctx, session.id)?;
-
-            let summary = if let Some(ClaudeMessage { payload, .. }) = messages.last() {
-                match payload {
-                    MessagePayload::System(SystemMessage::CompactFinished { summary }) => Some(summary.clone()),
-                    _ => None,
-                }
-            } else {
-                None
-            };
-            (summary, session_id, session)
-        };
+        let SessionSetup {
+            summary_to_resume,
+            session_id,
+            session,
+            project_workdir,
+        } = setup_session(&sync_ctx, stack_id)?;
 
         // Store the original message for UI display (without inlined file content)
         // while Claude gets the enhanced message with file content inlined
@@ -282,35 +262,443 @@ impl Claudes {
         )
         .await?;
 
-        // Broadcast system any messages created during this Claude session
-        // (e.g., commit created notification from the Stop hook)
-        let project_id = sync_ctx.legacy_project.id;
-        let all_messages = {
-            let ctx = sync_ctx.clone().into_thread_local();
-            db::list_messages_by_session(&ctx, session_id)
-        };
-        if let Ok(all_messages) = all_messages {
-            let new_messages: Vec<_> = all_messages
-                .into_iter()
-                .filter(|msg| matches!(msg.payload, MessagePayload::GitButler(_)))
-                .filter(|msg| msg.created_at > session_start_time)
-                .collect();
+        broadcast_gitbutler_messages(&sync_ctx, &broadcaster, session_id, stack_id, session_start_time).await;
+        send_completion_notification(&sync_ctx);
 
-            // Broadcast each new message
-            for message in new_messages {
-                broadcaster.lock().await.send(FrontendEvent {
-                    name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
-                    payload: serde_json::json!(message),
-                });
+        Ok(())
+    }
+
+    /// SDK-based implementation of Claude execution using the Rust SDK
+    async fn spawn_claude_sdk(
+        &self,
+        sync_ctx: ThreadSafeContext,
+        broadcaster: Arc<Mutex<Broadcaster>>,
+        stack_id: StackId,
+        user_params: ClaudeUserParams,
+    ) -> Result<()> {
+        use claude_agent_sdk_rs::{ClaudeAgentOptions, ClaudeClient, Message as SdkMessage, SystemPrompt};
+        use futures::stream::StreamExt;
+
+        // Capture the start time to filter messages created during this session
+        let session_start_time = chrono::Utc::now().naive_utc();
+
+        let (send_kill, mut recv_kill) = unbounded_channel();
+        self.requests
+            .lock()
+            .await
+            .insert(stack_id, Arc::new(Claude { kill: send_kill }));
+
+        let SessionSetup {
+            summary_to_resume,
+            session_id,
+            session,
+            project_workdir,
+        } = setup_session(&sync_ctx, stack_id)?;
+
+        let transcript_current_id = Transcript::current_valid_session_id(&project_workdir, &session).await?;
+
+        tracing::info!(
+            "spawn_claude_sdk: session.id={}, session.session_ids={:?}, transcript_current_id={:?}, summary_to_resume={:?}",
+            session.id,
+            session.session_ids,
+            transcript_current_id,
+            summary_to_resume
+                .as_ref()
+                .map(|s| s.chars().take(100).collect::<String>())
+        );
+
+        // Store the original user message for UI display
+        send_claude_message(
+            sync_ctx.clone(),
+            broadcaster.clone(),
+            session_id,
+            stack_id,
+            MessagePayload::User(UserInput {
+                message: user_params.message.clone(),
+                attachments: user_params.attachments.clone(),
+            }),
+        )
+        .await?;
+
+        // Configure SDK options
+        let dangerously_skip_permissions = sync_ctx.settings.claude.dangerously_allow_all_permissions;
+        let permission_mode = if dangerously_skip_permissions {
+            claude_agent_sdk_rs::PermissionMode::BypassPermissions
+        } else {
+            match user_params.permission_mode {
+                PermissionMode::Default => claude_agent_sdk_rs::PermissionMode::Default,
+                PermissionMode::Plan => claude_agent_sdk_rs::PermissionMode::Plan,
+                PermissionMode::AcceptEdits => claude_agent_sdk_rs::PermissionMode::AcceptEdits,
+            }
+        };
+
+        // Determine the session ID to use, matching the binary implementation logic:
+        // - If resuming after compaction (summary_to_resume.is_some()), use a new random ID
+        // - If resuming an existing session (transcript_current_id), use that ID
+        // - If starting new, use the stable session.id
+        let claude_session_id = if summary_to_resume.is_some() {
+            // After compaction, start with a new session ID
+            uuid::Uuid::new_v4()
+        } else if let Some(current_id) = transcript_current_id {
+            // If resuming, use the existing current_id
+            current_id
+        } else {
+            // If starting new, ensure there isn't an existing invalid transcript
+            // (matching binary implementation)
+            let path = Transcript::get_transcript_path(&project_workdir, session.id)?;
+            if fs::try_exists(&path).await? {
+                fs::remove_file(&path).await?;
+            }
+            // Use the stable session.id
+            session.id
+        };
+
+        // Build MCP server configuration using the same logic as the binary implementation
+        let cc_settings = ClaudeSettings::open(&project_workdir).await;
+        let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_workdir).await;
+
+        // Get MCP config with but-security server included
+        let mcp_config = mcp_config.mcp_servers_with_security(claude_session_id);
+
+        // Filter out disabled servers
+        let disabled_mcp_servers = user_params
+            .disabled_mcp_servers
+            .iter()
+            .filter(|f| *f != BUT_SECURITY_MCP)
+            .map(String::as_str)
+            .collect::<Vec<&str>>();
+        let mcp_config = mcp_config.exclude(&disabled_mcp_servers);
+
+        // Convert McpConfig to SDK's McpServers format
+        let mcp_servers = convert_mcp_config_to_sdk(&mcp_config);
+
+        // Build system prompt with branch info (same as binary implementation)
+        let system_prompt_append = {
+            let mut ctx = sync_ctx.clone().into_thread_local();
+            let guard = ctx.exclusive_worktree_access();
+            let repo = ctx.repo.get()?.clone();
+            let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+            let branch_info = format_branch_info(&mut ctx, &repo, &workspace, stack_id);
+            format!("{}\n\n{}", system_prompt(), branch_info)
+        };
+        let sdk_system_prompt = SystemPrompt::Preset(claude_agent_sdk_rs::SystemPromptPreset::with_append(
+            "claude_code",
+            system_prompt_append,
+        ));
+
+        // Build options
+        // Only set model if useConfiguredModel is false (same as binary implementation)
+        let model = if sync_ctx.settings.claude.use_configured_model {
+            None
+        } else {
+            Some(user_params.model.to_cli_string().to_string())
+        };
+        // Determine resume behavior (matching binary implementation):
+        // - summary_to_resume.is_some(): Don't resume, start fresh with summary context (use --session-id)
+        // - transcript_current_id.is_some() && summary_to_resume.is_none(): Resume existing session (use --resume)
+        // - Otherwise: Start new session (use --session-id)
+        let (resume, extra_args) = if summary_to_resume.is_none() && transcript_current_id.is_some() {
+            // Resume existing session
+            (Some(claude_session_id.to_string()), HashMap::new())
+        } else {
+            // Start new session (or after compaction) - pass session-id via extra_args
+            let mut args = HashMap::new();
+            args.insert("session-id".to_string(), Some(claude_session_id.to_string()));
+            (None, args)
+        };
+
+        let options = ClaudeAgentOptions {
+            model,
+            permission_mode: Some(permission_mode),
+            mcp_servers,
+            cwd: Some(project_workdir.clone()),
+            system_prompt: Some(sdk_system_prompt),
+            resume,
+            extra_args,
+            permission_prompt_tool_name: if dangerously_skip_permissions {
+                None
+            } else {
+                Some("mcp__but-security__approval_prompt".to_string())
+            },
+            add_dirs: user_params.add_dirs.iter().map(Into::into).collect(),
+            ..Default::default()
+        };
+
+        // Create client and connect
+        let mut client = ClaudeClient::new(options);
+        if let Err(e) = client.connect().await {
+            self.requests.lock().await.remove(&stack_id);
+            send_claude_message(
+                sync_ctx.clone(),
+                broadcaster.clone(),
+                session_id,
+                stack_id,
+                MessagePayload::System(SystemMessage::UnhandledException {
+                    message: format!("Failed to connect to Claude SDK: {}", e),
+                }),
+            )
+            .await?;
+            return Err(e.into());
+        }
+
+        // Persist the Claude session ID to the database so we can resume later.
+        // This is equivalent to what the binary path does in spawn_response_streaming
+        // when it extracts session_id from the first streamed event.
+        {
+            let mut ctx = sync_ctx.clone().into_thread_local();
+            if let Err(e) = db::add_session_id(&mut ctx, session_id, claude_session_id) {
+                tracing::warn!(
+                    "spawn_claude_sdk: Failed to persist claude_session_id {} to session {}: {}",
+                    claude_session_id,
+                    session_id,
+                    e
+                );
+            } else {
+                tracing::info!(
+                    "spawn_claude_sdk: Persisted claude_session_id {} to session {}",
+                    claude_session_id,
+                    session_id
+                );
             }
         }
 
-        // Send completion notification
-        if let Err(e) = crate::notifications::notify_completion(&sync_ctx.settings) {
-            tracing::warn!("Failed to send completion notification: {}", e);
+        // Prepare and send the message (matching binary implementation)
+        let message = if let Some(attachments) = &user_params.attachments {
+            format_message_with_attachments(&user_params.message, attachments).await?
+        } else {
+            user_params.message.clone()
+        };
+
+        // Format message with summary context if resuming from compaction
+        let formatted_message = if let Some(summary) = &summary_to_resume {
+            format_message_with_summary(summary, &message, user_params.thinking_level)
+        } else {
+            format_message(&message, user_params.thinking_level)
+        };
+
+        if let Err(e) = client.query(&formatted_message).await {
+            self.requests.lock().await.remove(&stack_id);
+            client.disconnect().await?;
+            send_claude_message(
+                sync_ctx.clone(),
+                broadcaster.clone(),
+                session_id,
+                stack_id,
+                MessagePayload::System(SystemMessage::UnhandledException {
+                    message: format!("Failed to send query to Claude: {}", e),
+                }),
+            )
+            .await?;
+            return Err(e.into());
         }
 
+        // Stream responses
+        let mut stream = client.receive_response();
+
+        loop {
+            tokio::select! {
+                message_result = stream.next() => {
+                    match message_result {
+                        Some(Ok(sdk_message)) => {
+                            match sdk_message {
+                                SdkMessage::Assistant(assistant_msg) => {
+                                    // Convert SDK message to ClaudeOutput format
+                                    let mut data = serde_json::to_value(&assistant_msg)?;
+                                    if let Some(obj) = data.as_object_mut() {
+                                        obj.insert("type".to_string(), serde_json::json!("assistant"));
+                                    }
+                                    send_claude_message(
+                                        sync_ctx.clone(),
+                                        broadcaster.clone(),
+                                        session_id,
+                                        stack_id,
+                                        MessagePayload::Claude(ClaudeOutput { data }),
+                                    )
+                                    .await?;
+                                }
+                                SdkMessage::User(user_msg) => {
+                                    // The CLI outputs: {"type": "user", "message": {"content": [...]}}
+                                    // The SDK's UserMessage struct has content directly, but due to
+                                    // serde flatten, the "message" wrapper ends up in user_msg.extra.
+                                    // We need to reconstruct the format expected by the frontend.
+                                    let data = if let Some(message) = user_msg.extra.get("message") {
+                                        // The "message" wrapper is in extra - use it directly
+                                        serde_json::json!({
+                                            "type": "user",
+                                            "message": message
+                                        })
+                                    } else if user_msg.content.is_some() {
+                                        // Content is at top level (alternative format)
+                                        serde_json::json!({
+                                            "type": "user",
+                                            "message": {
+                                                "content": user_msg.content
+                                            }
+                                        })
+                                    } else {
+                                        // Fallback: serialize the whole message
+                                        let mut data = serde_json::to_value(&user_msg)?;
+                                        if let Some(obj) = data.as_object_mut() {
+                                            obj.insert("type".to_string(), serde_json::json!("user"));
+                                        }
+                                        data
+                                    };
+                                    send_claude_message(
+                                        sync_ctx.clone(),
+                                        broadcaster.clone(),
+                                        session_id,
+                                        stack_id,
+                                        MessagePayload::Claude(ClaudeOutput { data }),
+                                    )
+                                    .await?;
+                                }
+                                SdkMessage::Result(result_msg) => {
+                                    send_claude_message(
+                                        sync_ctx.clone(),
+                                        broadcaster.clone(),
+                                        session_id,
+                                        stack_id,
+                                        MessagePayload::System(SystemMessage::ClaudeExit {
+                                            code: if result_msg.is_error { 1 } else { 0 },
+                                            message: result_msg.result.unwrap_or_default(),
+                                        }),
+                                    )
+                                    .await?;
+                                    break;
+                                }
+                                // System and StreamEvent messages are informational
+                                _ => {}
+                            }
+                        }
+                        Some(Err(e)) => {
+                            send_claude_message(
+                                sync_ctx.clone(),
+                                broadcaster.clone(),
+                                session_id,
+                                stack_id,
+                                MessagePayload::System(SystemMessage::UnhandledException {
+                                    message: format!("SDK error: {}", e),
+                                }),
+                            )
+                            .await?;
+                            break;
+                        }
+                        None => break,
+                    }
+                }
+                _ = recv_kill.recv() => {
+                    send_claude_message(
+                        sync_ctx.clone(),
+                        broadcaster.clone(),
+                        session_id,
+                        stack_id,
+                        MessagePayload::System(SystemMessage::UserAbort),
+                    )
+                    .await?;
+                    break;
+                }
+            }
+        }
+
+        // Clean up
+        drop(stream);
+        self.requests.lock().await.remove(&stack_id);
+        client.disconnect().await?;
+
+        broadcast_gitbutler_messages(&sync_ctx, &broadcaster, session_id, stack_id, session_start_time).await;
+        send_completion_notification(&sync_ctx);
+
         Ok(())
+    }
+}
+
+/// Result of setting up a Claude session, shared between binary and SDK implementations.
+struct SessionSetup {
+    /// Summary from context compaction, if resuming after compaction
+    summary_to_resume: Option<String>,
+    /// Our internal session ID (stable across Claude session restarts)
+    session_id: uuid::Uuid,
+    /// The session object from the database
+    session: crate::ClaudeSession,
+    /// The project working directory
+    project_workdir: std::path::PathBuf,
+}
+
+/// Sets up the Claude session, finding or creating the session and checking for compaction summary.
+fn setup_session(sync_ctx: &ThreadSafeContext, stack_id: StackId) -> Result<SessionSetup> {
+    let mut ctx = sync_ctx.clone().into_thread_local();
+
+    // Create repo and workspace once at the entry point
+    let guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?.clone();
+    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+
+    let rule = {
+        list_claude_assignment_rules(&ctx)?
+            .into_iter()
+            .find(|rule| rule.stack_id == stack_id)
+    };
+
+    let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
+    let session = upsert_session(&mut ctx, &repo, &workspace, session_id, stack_id)?;
+    let project_workdir = repo
+        .workdir()
+        .ok_or_else(|| anyhow::anyhow!("Repository has no working directory"))?
+        .to_owned();
+
+    // Check for summary from context compaction
+    let ctx = sync_ctx.clone().into_thread_local();
+    let messages = list_messages_by_session(&ctx, session.id)?;
+    let summary_to_resume = if let Some(ClaudeMessage { payload, .. }) = messages.last() {
+        match payload {
+            MessagePayload::System(SystemMessage::CompactFinished { summary }) => Some(summary.clone()),
+            _ => None,
+        }
+    } else {
+        None
+    };
+
+    Ok(SessionSetup {
+        summary_to_resume,
+        session_id,
+        session,
+        project_workdir,
+    })
+}
+
+/// Broadcasts any GitButler messages created during this Claude session.
+async fn broadcast_gitbutler_messages(
+    sync_ctx: &ThreadSafeContext,
+    broadcaster: &Arc<Mutex<Broadcaster>>,
+    session_id: uuid::Uuid,
+    stack_id: StackId,
+    session_start_time: chrono::NaiveDateTime,
+) {
+    let project_id = sync_ctx.legacy_project.id;
+    let all_messages = {
+        let ctx = sync_ctx.clone().into_thread_local();
+        db::list_messages_by_session(&ctx, session_id)
+    };
+    if let Ok(all_messages) = all_messages {
+        let new_messages: Vec<_> = all_messages
+            .into_iter()
+            .filter(|msg| matches!(msg.payload, MessagePayload::GitButler(_)))
+            .filter(|msg| msg.created_at > session_start_time)
+            .collect();
+
+        for message in new_messages {
+            broadcaster.lock().await.send(FrontendEvent {
+                name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+                payload: serde_json::json!(message),
+            });
+        }
+    }
+}
+
+/// Sends completion notification if configured.
+fn send_completion_notification(sync_ctx: &ThreadSafeContext) {
+    if let Err(e) = crate::notifications::notify_completion(&sync_ctx.settings) {
+        tracing::warn!("Failed to send completion notification: {}", e);
     }
 }
 

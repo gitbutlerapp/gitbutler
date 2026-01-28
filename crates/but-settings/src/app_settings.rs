@@ -103,6 +103,8 @@ pub struct Claude {
     pub auto_commit_after_completion: bool,
     /// Whether to use the configured model in .claude/settings.json instead of passing --model.
     pub use_configured_model: bool,
+    /// Whether to use the Rust SDK instead of spawning the Claude binary.
+    pub use_rust_sdk: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]

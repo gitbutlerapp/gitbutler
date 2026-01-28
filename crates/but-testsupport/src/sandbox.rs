@@ -386,6 +386,7 @@ impl Sandbox {
                 dangerously_allow_all_permissions: false,
                 auto_commit_after_completion: false,
                 use_configured_model: false,
+                use_rust_sdk: false,
             },
             reviews: Reviews {
                 auto_fill_pr_description_from_commit: false,
