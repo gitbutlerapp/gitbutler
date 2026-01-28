@@ -13,7 +13,7 @@ use gix::{objs::tree::EntryKind, prelude::ObjectIdExt as _};
 use crate::{cherry_pick::function::ConflictEntries, commit::DateMode};
 
 /// Describes the outcome of cherrypick.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum CherryPickOutcome {
     /// Successfully cherry picked cleanly.
     Commit(gix::ObjectId),
@@ -23,7 +23,16 @@ pub enum CherryPickOutcome {
     Identity(gix::ObjectId),
     /// Represents the cases where either the source or the target commits failed to
     /// merge cleanly.
-    FailedToMergeBases,
+    FailedToMergeBases {
+        /// Whther the merge operation performed on the list of bases failed.
+        base_merge_failed: bool,
+        /// The shas of the commits that we were trying to cherry pick from.
+        bases: Option<Vec<gix::ObjectId>>,
+        /// Whther the merge operation performed on the list of ontos failed.
+        onto_merge_failed: bool,
+        /// The shas of the commits that we were trying to cherry pick onto.
+        ontos: Option<Vec<gix::ObjectId>>,
+    },
 }
 
 /// Cherry pick, but supports supports cherry-picking merge commits.
@@ -61,20 +70,37 @@ pub fn cherry_pick(
     // We want to cherry-pick onto the merge result.
     let onto_t = tree_from_merging_commits(repo, ontos, TreeKind::AutoResolution)?;
 
-    match (base_t, onto_t) {
+    match (&base_t, &onto_t) {
         (MergeOutcome::NoCommit, MergeOutcome::NoCommit) => {
             // We shouldn't actually ever hit this because it should be handled
             // by the ontos & parents comparison.
             Ok(CherryPickOutcome::Identity(target.id.detach()))
         }
-        (MergeOutcome::Conflict, _) | (_, MergeOutcome::Conflict) => {
-            // TODO(cto): We can handle the specific case where (the base is
-            // _not_ conflicted & the ontos _is_ conflicted & the target == base
-            // & ontos.len() == 2) by writing out the ontos conflict as a
-            // conflicted merge commit, without expanding our conflict
-            // representation.
-            Ok(CherryPickOutcome::FailedToMergeBases)
+        // TODO(cto): We can handle the specific case where (the base is
+        // _not_ conflicted & the ontos _is_ conflicted & the target == base
+        // & ontos.len() == 2) by writing out the ontos conflict as a
+        // conflicted merge commit, without expanding our conflict
+        // representation.
+        (MergeOutcome::Conflict { commits: bases }, MergeOutcome::Conflict { commits: ontos }) => {
+            Ok(CherryPickOutcome::FailedToMergeBases {
+                base_merge_failed: true,
+                bases: Some(bases.to_vec()),
+                onto_merge_failed: true,
+                ontos: Some(ontos.to_vec()),
+            })
         }
+        (MergeOutcome::Conflict { commits }, _) => Ok(CherryPickOutcome::FailedToMergeBases {
+            base_merge_failed: true,
+            bases: Some(commits.to_vec()),
+            onto_merge_failed: false,
+            ontos: None,
+        }),
+        (_, MergeOutcome::Conflict { commits }) => Ok(CherryPickOutcome::FailedToMergeBases {
+            base_merge_failed: false,
+            bases: None,
+            onto_merge_failed: true,
+            ontos: Some(commits.to_vec()),
+        }),
         (
             MergeOutcome::Success(_) | MergeOutcome::NoCommit,
             MergeOutcome::Success(_) | MergeOutcome::NoCommit,
@@ -118,11 +144,14 @@ pub fn cherry_pick(
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum MergeOutcome {
     Success(gix::ObjectId),
     NoCommit,
-    Conflict,
+    Conflict {
+        /// The commits that we were trying to merge together
+        commits: Vec<gix::ObjectId>,
+    },
 }
 
 impl MergeOutcome {
@@ -180,7 +209,9 @@ fn tree_from_merging_commits(
             repo.merge_trees(base_tree, sum, tree, repo.default_merge_labels(), options)?;
 
         if output.has_unresolved_conflicts(conflicts) {
-            return Ok(MergeOutcome::Conflict);
+            return Ok(MergeOutcome::Conflict {
+                commits: commits.into(),
+            });
         }
 
         sum = output.tree.write()?;
