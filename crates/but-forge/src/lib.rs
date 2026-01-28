@@ -7,6 +7,7 @@ mod ci;
 mod db;
 mod review;
 pub use ci::{CiCheck, CiConclusion, CiOutput, CiStatus, ci_checks_for_ref_with_cache};
+pub use db::cache_review;
 pub use review::{
     CacheConfig, CreateForgeReviewParams, ForgeReview, ForgeReviewFilter, ReviewTemplateFunctions,
     available_review_templates, create_forge_review, get_forge_review,

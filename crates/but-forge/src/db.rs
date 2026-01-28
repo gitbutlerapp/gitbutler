@@ -106,6 +106,12 @@ pub(crate) fn cache_reviews(
         .map_err(Into::into)
 }
 
+/// Cache a single review in the database (insert or update).
+pub fn cache_review(db: &mut but_db::DbHandle, review: &ForgeReview) -> anyhow::Result<()> {
+    let db_review: but_db::ForgeReview = review.clone().try_into()?;
+    db.forge_reviews_mut()?.insert(db_review)
+}
+
 use super::CiCheck;
 
 impl TryFrom<CiCheck> for but_db::CiCheck {
