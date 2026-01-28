@@ -296,12 +296,15 @@ Run regularly to stay up to date with main development line.
 Create and manage pull requests.
 
 ```bash
+but pr new <branch-id>        # Push branch and create PR (recommended)
+but pr new <branch-id> -m "Title" -m "Body"  # With title and description
 but pr                        # Create PR (prompts for branch)
-but pr new <branch-id>        # Create PR for specific branch
 but pr template               # Configure PR description template
 ```
 
-Requires GitHub CLI (`gh`) to be installed and authenticated.
+**Key behavior:** `but pr new` automatically pushes the branch to remote before creating the PR. No need to run `but push` first.
+
+Requires forge integration to be configured via `but config forge auth`.
 
 ### `but merge <branch>`
 

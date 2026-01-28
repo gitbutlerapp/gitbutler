@@ -108,7 +108,7 @@ For detailed command syntax and all available options, see [references/reference
 
 - `but pull` - Update with upstream
 - `but push [branch]` - Push to remote
-- `but pr new <branch>` - Create pull request
+- `but pr new <branch>` - Push and create pull request (auto-pushes, no need to push first)
 
 ## Key Concepts
 

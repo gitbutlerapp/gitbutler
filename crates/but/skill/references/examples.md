@@ -28,11 +28,11 @@ but stage a2 bv    # Button.svelte → ui-styling branch
 but commit bu --only -m "Add user details endpoint"
 but commit bv --only -m "Update button hover styles"
 
-# 7. Push branches independently
+# 7. Push branches independently (optional, can skip if using pr new)
 but push bu
 but push bv
 
-# 8. Create pull requests
+# 8. Create pull requests (auto-pushes if not already pushed)
 but pr new bu
 but pr new bv
 ```
@@ -286,7 +286,7 @@ but status --json
 # 9. Clean up if needed
 but squash bu    # Combine all commits (optional)
 
-# 10. Push to remote
+# 10. Push to remote (can also skip - pr new auto-pushes)
 but push bu
 
 # 11. Create pull request
@@ -323,8 +323,7 @@ but branch unapply bw
 but stage <file-ids> bu
 but commit bu --only -m "Complete feature-a"
 
-# 4. Push and create PR for feature-a
-but push bu
+# 4. Create PR for feature-a (auto-pushes)
 but pr new bu
 
 # 5. Reapply other branches
@@ -403,18 +402,16 @@ but branch new hotfix-login       # Parallel branch for urgent work
 # (make fix)
 but stage <file-ids> bv           # Stage to hotfix branch
 but commit bv --only -m "Fix login redirect loop"
-but push bv                       # Push urgent fix
-but pr new bv                     # Create PR immediately
+but pr new bv                     # Push and create PR immediately
 
 # Back to original work
 # (continue working on bu, auth bug fix)
 but stage <file-ids> bu           # Stage to auth branch
 but commit bu --only -m "Add tests for token handling"
 
-# End of day: Clean up and push
+# End of day: Clean up and create PR
 but squash bu                     # Combine into clean history
-but push bu                       # Push work
-but pr new bu                     # Create PR
+but pr new bu                     # Push and create PR
 
 # After PR review: Make requested changes
 # (make changes based on feedback)
