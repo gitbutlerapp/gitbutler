@@ -81,20 +81,16 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
         writeln!(progress, "Fetching from upstream remotes...")?;
     }
 
-    let base_branch = but_api::legacy::virtual_branches::fetch_from_remotes(
-        ctx.legacy_project.id,
-        Some("auto".to_string()),
-    )?;
+    let base_branch =
+        but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("auto".to_string()))?;
 
     if out.for_human().is_some() {
         writeln!(progress, "Checking integration statuses...")?;
     }
 
-    let status = but_api::legacy::virtual_branches::upstream_integration_statuses(
-        ctx.legacy_project.id,
-        None,
-    )
-    .await?;
+    let status =
+        but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)
+            .await?;
 
     if let Some(out) = out.for_json() {
         let (up_to_date, has_worktree_conflicts, branch_statuses) = match &status {
@@ -274,10 +270,8 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
     }
 
     // Fetch from remotes to get latest upstream info
-    let base_branch = but_api::legacy::virtual_branches::fetch_from_remotes(
-        ctx.legacy_project.id,
-        Some("pull".to_string()),
-    )?;
+    let base_branch =
+        but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("pull".to_string()))?;
 
     let upstream_url = format!(
         "{}/{}",
@@ -334,11 +328,9 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
     }
 
     // Step 2: Check integration status
-    let status = but_api::legacy::virtual_branches::upstream_integration_statuses(
-        ctx.legacy_project.id,
-        None,
-    )
-    .await?;
+    let status =
+        but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)
+            .await?;
 
     let resolutions = match status {
         UpToDate => {
@@ -479,18 +471,15 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
             resolution_map.insert(resolution.stack_id, resolution.approach);
         }
 
-        let integration_result = but_api::legacy::virtual_branches::integrate_upstream(
-            ctx.legacy_project.id,
-            resolutions,
-            None,
-        )
-        .await;
+        let integration_result =
+            but_api::legacy::virtual_branches::integrate_upstream(ctx.to_sync(), resolutions, None)
+                .await;
 
         match integration_result {
             Ok(_outcome) => {
                 // Re-fetch status to check for any remaining conflicts
                 let post_status = but_api::legacy::virtual_branches::upstream_integration_statuses(
-                    ctx.legacy_project.id,
+                    ctx.to_sync(),
                     None,
                 )
                 .await?;
@@ -522,18 +511,14 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
 
                                 // Also check if any commits in the branch have conflicts
                                 let has_conflicted_commits =
-                                    but_api::legacy::workspace::stack_details(
-                                        ctx.legacy_project.id,
-                                        Some(*stack_id),
-                                    )
-                                    .ok()
-                                    .map(|details| {
-                                        details
-                                            .branch_details
-                                            .iter()
-                                            .any(|bd| bd.commits.iter().any(|c| c.has_conflicts))
-                                    })
-                                    .unwrap_or(false);
+                                    but_api::legacy::workspace::stack_details(ctx, Some(*stack_id))
+                                        .ok()
+                                        .map(|details| {
+                                            details.branch_details.iter().any(|bd| {
+                                                bd.commits.iter().any(|c| c.has_conflicts)
+                                            })
+                                        })
+                                        .unwrap_or(false);
 
                                 if still_conflicted || has_conflicted_commits {
                                     conflicted_rebases.push(branch_name.to_string());

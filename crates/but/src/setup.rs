@@ -130,21 +130,22 @@ pub fn init_ctx(
             };
 
             // Check project setup, prompt for setup if needed
-            if let Err(e) = check_project_setup(&project) {
+            let ctx = Context::new_from_legacy_project(project)?;
+            if let Err(e) = check_project_setup(&ctx) {
                 let message = e.to_string();
                 match prompt_for_setup(out, &message) {
                     SetupPromptResult::RunSetup => {
                         // Run setup to fix the project configuration
                         crate::command::legacy::setup::repo(&args.current_dir, out, false)?;
                         // Re-find and re-check the project after setup
-                        let project =
+                        let _project =
                             LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
                                 anyhow::anyhow!(
                                     "Setup completed but project still not found at {}",
                                     workdir.display()
                                 )
                             })?;
-                        check_project_setup(&project)?;
+                        check_project_setup(&ctx)?;
                     }
                     SetupPromptResult::Declined => {
                         anyhow::bail!("Setup required: {}", message);
@@ -152,7 +153,6 @@ pub fn init_ctx(
                 }
             }
 
-            let ctx = Context::new_from_legacy_project(project)?;
             let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
             let last_fetch = ctx
                 .legacy_project

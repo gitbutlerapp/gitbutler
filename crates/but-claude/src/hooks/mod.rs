@@ -134,7 +134,7 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
         file_path: None,
     };
 
-    if !defer.ctx.settings().claude.auto_commit_after_completion {
+    if !defer.ctx.settings.claude.auto_commit_after_completion {
         return Ok(ClaudeHookOutput {
             do_continue: true,
             stop_reason: "No after-hook behaviour required.".to_string(),
@@ -198,7 +198,7 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
                         branch_name: branch.branch_name.clone(),
                         commit_id,
                         project: project.clone(),
-                        app_settings: defer.ctx.settings().clone(),
+                        app_settings: defer.ctx.settings.clone(),
                         trigger: id,
                     };
                     let reword_result = but_action::reword::commit(&llm, commit_event)
@@ -456,12 +456,13 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
         but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
             .changes;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        defer.ctx,
+        defer.ctx.db.get_mut()?.hunk_assignments_mut()?,
         &repo,
         &workspace,
         true,
         Some(changes.clone()),
         None,
+        defer.ctx.settings.context_lines,
     )?;
 
     let assignment_reqs: Vec<HunkAssignmentRequest> = assignments
@@ -490,8 +491,14 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
         })
         .collect();
 
-    let _rejections =
-        but_hunk_assignment::assign(defer.ctx, &repo, &workspace, assignment_reqs, None)?;
+    let _rejections = but_hunk_assignment::assign(
+        defer.ctx.db.get_mut()?.hunk_assignments_mut()?,
+        &repo,
+        &workspace,
+        assignment_reqs,
+        None,
+        defer.ctx.settings.context_lines,
+    )?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,

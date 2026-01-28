@@ -44,22 +44,7 @@ impl Context<'_> {
 impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with
     /// the requirement of them to be computationally cheap.
-    #[instrument(
-        level = "trace",
-        skip(
-            self,
-            meta,
-            refs_by_id,
-            repo,
-            symbolic_remote_names,
-            configured_remote_tracking_branches,
-            inserted_proxy_segments,
-            hard_limit,
-            dangerously_skip_postprocessing_for_debugging,
-            worktree_by_branch
-        ),
-        err(Debug)
-    )]
+    #[instrument(level = "trace", skip_all, fields(tip), err(Debug))]
     pub(super) fn post_processed<T: RefMetadata>(
         mut self,
         meta: &OverlayMetadata<'_, T>,

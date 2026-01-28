@@ -18,7 +18,6 @@ but-graph.workspace = true
 but-hunk-dependency.workspace = true
 but-db.workspace = true
 but-serde.workspace = true
-but-ctx.workspace = true
 
 gix.workspace = true
 

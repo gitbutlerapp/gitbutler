@@ -80,7 +80,7 @@ pub fn update_uncommitted_changes(
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
-    let uncommitted_changes = (!ctx.settings().feature_flags.cv3)
+    let uncommitted_changes = (!ctx.settings.feature_flags.cv3)
         .then(|| repo.create_wd_tree(0).map(|tree| tree.id()))
         .transpose()?;
 

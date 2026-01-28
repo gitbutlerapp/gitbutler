@@ -32,7 +32,7 @@ pub fn commit(
         )?;
         (
             changes
-                .try_to_unidiff(repo, ctx.settings().context_lines)?
+                .try_to_unidiff(repo, ctx.settings.context_lines)?
                 .to_string(),
             ctx.into_sync(),
         )

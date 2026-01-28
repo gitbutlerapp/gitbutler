@@ -15,7 +15,7 @@ mod state;
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
 use but_core::{HunkHeader, TreeChange, UnifiedPatch, ref_metadata::StackId};
-use but_ctx::Context;
+use but_db::{HunkAssignmentsHandle, HunkAssignmentsHandleMut};
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
@@ -356,12 +356,15 @@ impl HunkAssignment {
 /// be computed using the provided `repo` and `workspace`.
 ///
 /// The provided hunk dependencies should be computed for all workspace changes.
+///
+/// `context_lines` determines the amount of context lines in diffs, and it should match the UI.
 pub fn assign(
-    ctx: &mut Context,
+    db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
     requests: Vec<HunkAssignmentRequest>,
     deps: Option<&HunkDependencies>,
+    context_lines: u32,
 ) -> Result<Vec<AssignmentRejection>> {
     let identifiable_stacks = workspace
         .stacks
@@ -381,7 +384,7 @@ pub fn assign(
         but_core::diff::worktree_changes(repo)?.changes;
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
-        let diff = change.unified_patch(repo, ctx.settings().context_lines);
+        let diff = change.unified_patch(repo, context_lines);
         worktree_assignments.extend(HunkAssignment::from_tree_change(
             change,
             diff.ok().flatten(),
@@ -389,8 +392,7 @@ pub fn assign(
     }
 
     // Reconcile worktree with the persisted assignments
-    let db = &mut *ctx.db.get_mut()?;
-    let persisted_assignments = state::assignments(db)?;
+    let persisted_assignments = state::assignments(db.to_ref())?;
     let with_worktree = reconcile::assignments(
         &worktree_assignments,
         &persisted_assignments,
@@ -444,31 +446,34 @@ pub fn assign(
 /// Similar to the `reconcile_with_worktree_and_locks` function.
 /// TODO: figure out a better name for this function
 pub fn assignments_with_fallback(
-    ctx: &mut Context,
+    db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
     set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     deps: Option<&HunkDependencies>,
+    context_lines: u32,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
     let hunk_assignments = reconcile_worktree_changes_with_worktree_and_locks(
-        ctx,
+        db,
         repo,
         workspace,
         set_assignment_from_locks,
         worktree_changes,
         deps,
+        context_lines,
     )?;
     Ok((hunk_assignments, None))
 }
 
 fn reconcile_worktree_changes_with_worktree_and_locks(
-    ctx: &mut Context,
+    db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
     set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     deps: Option<&HunkDependencies>,
+    context_lines: u32,
 ) -> Result<Vec<HunkAssignment>> {
     let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
         Some(wtc) => wtc.into_iter().map(Into::into).collect(),
@@ -492,21 +497,21 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
     }
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
-        let diff = change.unified_patch(repo, ctx.settings().context_lines);
+        let diff = change.unified_patch(repo, context_lines);
         worktree_assignments.extend(HunkAssignment::from_tree_change(
             change,
             diff.ok().flatten(),
         ));
     }
     let reconciled = reconcile_with_worktree_and_locks(
-        ctx,
+        db.to_ref(),
         workspace,
         set_assignment_from_locks,
         &worktree_assignments,
         deps,
+        context_lines,
     )?;
 
-    let db = &mut *ctx.db.get_mut()?;
     state::set_assignments(db, reconciled.clone())?;
     Ok(reconciled)
 }
@@ -530,13 +535,17 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
 /// This needs to be ran only after the worktree has changed.
 ///
 /// If `worktree_changes` is `None`, they will be fetched automatically.
-#[instrument(skip(ctx, workspace, worktree_assignments, deps), err(Debug))]
+///
+/// `context_lines` determines the amount of context lines in diffs, and it should match the UI.
+// TODO: Isn't it usually better to have no context, and look at hunks themselves?
+#[instrument(skip(db, workspace, worktree_assignments, deps), err(Debug))]
 fn reconcile_with_worktree_and_locks(
-    ctx: &mut Context,
+    db: HunkAssignmentsHandle,
     workspace: &but_graph::projection::Workspace,
     set_assignment_from_locks: bool,
     worktree_assignments: &[HunkAssignment],
     deps: &HunkDependencies,
+    context_lines: u32,
 ) -> Result<Vec<HunkAssignment>> {
     let identifiable_stacks = workspace
         .stacks
@@ -544,7 +553,6 @@ fn reconcile_with_worktree_and_locks(
         .filter_map(|s| s.id)
         .collect::<Vec<_>>();
 
-    let db = &*ctx.db.get()?;
     let persisted_assignments = state::assignments(db)?;
     let with_worktree = reconcile::assignments(
         worktree_assignments,

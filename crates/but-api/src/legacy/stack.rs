@@ -42,10 +42,9 @@ pub mod create_reference {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_reference(
-    project_id: ProjectId,
+    ctx: &Context,
     request: create_reference::Request,
 ) -> Result<(Option<StackId>, gix::refs::FullName)> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let create_reference::Request { new_name, anchor } = request;
     let new_ref = Category::LocalBranch
         .to_full_name(normalize_branch_name(&new_name)?.as_str())
@@ -75,8 +74,7 @@ pub fn create_reference(
         })
         .transpose()?;
 
-    let mut guard = ctx.exclusive_worktree_access();
-    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.write_permission())?;
+    let (_guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
     let repo = ctx.repo.get()?;
     let ws = but_workspace::branch::create_reference(
         new_ref.clone(),
@@ -104,8 +102,7 @@ pub fn create_branch(
 ) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     use but_workspace::branch::create_reference::Position::Above;
-    let mut guard = ctx.exclusive_worktree_access();
-    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.write_permission())?;
+    let (mut guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
     let repo = ctx.repo.get()?;
     let stack = ws.try_find_stack_by_id(stack_id)?;
     let normalized_name = normalize_branch_name(&request.name)?;
@@ -159,8 +156,7 @@ pub fn create_branch(
 #[instrument(err(Debug))]
 pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: String) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.write_permission())?;
+    let (mut guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
     let repo = ctx.repo.get()?;
     let ref_name = Category::LocalBranch
         .to_full_name(branch_name.as_str())
@@ -186,27 +182,25 @@ pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: Stri
 #[but_api]
 #[instrument(err(Debug))]
 pub fn update_branch_name(
-    project_id: ProjectId,
+    ctx: &Context,
     stack_id: StackId,
     branch_name: String,
     new_name: String,
 ) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    gitbutler_branch_actions::stack::update_branch_name(&ctx, stack_id, branch_name, new_name)?;
+    gitbutler_branch_actions::stack::update_branch_name(ctx, stack_id, branch_name, new_name)?;
     Ok(())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn update_branch_pr_number(
-    project_id: ProjectId,
+    ctx: &Context,
     stack_id: StackId,
     branch_name: String,
     pr_number: Option<usize>,
 ) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
     gitbutler_branch_actions::stack::update_branch_pr_number(
-        &ctx,
+        ctx,
         stack_id,
         branch_name,
         pr_number,
@@ -217,7 +211,7 @@ pub fn update_branch_pr_number(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn push_stack(
-    project_id: ProjectId,
+    ctx: &mut Context,
     stack_id: StackId,
     with_force: bool,
     skip_force_push_protection: bool,
@@ -225,10 +219,8 @@ pub fn push_stack(
     run_hooks: bool,
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<PushResult> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     gitbutler_branch_actions::stack::push_stack(
-        &mut ctx,
+        ctx,
         stack_id,
         with_force,
         skip_force_push_protection,

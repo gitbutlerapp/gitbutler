@@ -666,7 +666,7 @@ fn format_branch_info(
 
     append_target_branch_info(&mut output, ctx);
     append_stack_branches_info(&mut output, stack_id, ctx);
-    append_assigned_files_info(&mut output, stack_id, ctx, repo, workspace);
+    append_assigned_files_info(&mut output, stack_id, ctx, repo, workspace).ok();
 
     output.push_str("</branch-info>");
     output
@@ -734,25 +734,26 @@ fn append_assigned_files_info(
     ctx: &mut Context,
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
-) {
+) -> anyhow::Result<()> {
     let assignments = match but_hunk_assignment::assignments_with_fallback(
-        ctx,
+        ctx.db.get_mut()?.hunk_assignments_mut()?,
         repo,
         workspace,
         false,
         None::<Vec<but_core::TreeChange>>,
         None,
+        ctx.settings.context_lines,
     ) {
         Ok((assignments, _error)) => assignments,
         Err(e) => {
             tracing::warn!("Failed to fetch hunk assignments: {}", e);
-            return;
+            return Ok(());
         }
     };
 
     let file_assignments = group_assignments_by_file(&assignments, stack_id);
     if file_assignments.is_empty() {
-        return;
+        return Ok(());
     }
 
     let mut file_paths: Vec<_> = file_assignments.keys().copied().collect();
@@ -762,6 +763,7 @@ fn append_assigned_files_info(
     for file_path in file_paths {
         format_file_with_line_ranges(output, file_path, &file_assignments[file_path]);
     }
+    Ok(())
 }
 
 type FileAssignments<'a> = HashMap<&'a str, Vec<&'a but_hunk_assignment::HunkAssignment>>;

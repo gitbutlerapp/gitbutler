@@ -23,27 +23,23 @@ pub fn handle(
 
     if fetch {
         out.write_str("\nFetching from remotes...")?;
-        let fetch_result = but_api::legacy::virtual_branches::fetch_from_remotes(
-            ctx.legacy_project.id,
-            Some("auto".to_string()),
-        );
+        let fetch_result =
+            but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("auto".to_string()));
         if fetch_result.is_err() {
             out.write_str("Failed to fetch from the remote repository.")?;
         }
     }
     if prs {
         out.write_str("\nGetting PR data...")?;
-        let pr_result = but_api::legacy::forge::list_reviews(
-            ctx.legacy_project.id,
-            Some(but_forge::CacheConfig::NoCache),
-        );
+        let pr_result =
+            but_api::legacy::forge::list_reviews(ctx, Some(but_forge::CacheConfig::NoCache));
         if pr_result.is_err() {
             out.write_str("Failed to refresh pull request data.")?;
         }
     }
     if ci {
         out.write_str("\nGetting CI checks...")?;
-        let ci_result = but_api::legacy::forge::warm_ci_checks_cache(ctx.legacy_project.id);
+        let ci_result = but_api::legacy::forge::warm_ci_checks_cache(ctx);
         if ci_result.is_err() {
             out.write_str("Failed to refresh CI data.")?;
         }

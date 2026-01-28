@@ -81,18 +81,13 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
     }
 
     // Get stacks filtered to only those in workspace, sorted by order to find the leftmost
-    let mut stacks = match but_api::legacy::workspace::stacks(
-        ctx.legacy_project.id,
-        Some(StacksFilter::InWorkspace),
-    ) {
+    let mut stacks = match but_api::legacy::workspace::stacks(ctx, Some(StacksFilter::InWorkspace))
+    {
         Ok(stacks) => stacks,
         Err(_e) => {
             try_stack_fixes(ctx, out)?;
-            but_api::legacy::workspace::stacks(
-                ctx.legacy_project.id,
-                Some(StacksFilter::InWorkspace),
-            )
-            .context("Failed to retrieve stacks after attempting fixes")?
+            but_api::legacy::workspace::stacks(ctx, Some(StacksFilter::InWorkspace))
+                .context("Failed to retrieve stacks after attempting fixes")?
         }
     };
 

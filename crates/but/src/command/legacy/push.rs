@@ -3,7 +3,6 @@ use but_ctx::Context;
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 use gitbutler_branch_actions::internal::PushResult;
-use gitbutler_project::Project;
 use serde::Serialize;
 use std::fmt::Write;
 
@@ -55,9 +54,7 @@ pub fn handle(
 
     // If dry-run, show what would be pushed
     if args.dry_run {
-        let project_id = ctx.legacy_project.id;
-        let project_gb_dir = ctx.legacy_project.gb_dir().to_path_buf();
-        return handle_dry_run(ctx, project_id, &project_gb_dir, &args.branch_id, out);
+        return handle_dry_run(ctx, &args.branch_id, out);
     }
 
     // If no branch_id is provided, show all branches and prompt or push all
@@ -66,22 +63,15 @@ pub fn handle(
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
         BranchSelection::Single(branch_name)
     } else {
-        handle_no_branch_specified(ctx, &ctx.legacy_project, out)?
+        handle_no_branch_specified(ctx, out)?
     };
 
     // Handle branch selection
     match branch_selection {
-        BranchSelection::All => {
-            push_all_branches(ctx, &ctx.legacy_project, &args, gerrit_mode, out)
+        BranchSelection::All => push_all_branches(ctx, &args, gerrit_mode, out),
+        BranchSelection::Single(branch_name) => {
+            push_single_branch(ctx, &branch_name, &args, gerrit_mode, out)
         }
-        BranchSelection::Single(branch_name) => push_single_branch(
-            ctx,
-            &ctx.legacy_project,
-            &branch_name,
-            &args,
-            gerrit_mode,
-            out,
-        ),
         BranchSelection::None => Ok(()),
     }
 }
@@ -147,8 +137,6 @@ struct DryRunResult {
 
 fn handle_dry_run(
     ctx: &mut Context,
-    project_id: gitbutler_project::ProjectId,
-    project_gb_dir: &std::path::Path,
     branch_id: &Option<String>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
@@ -159,10 +147,10 @@ fn handle_dry_run(
         writeln!(progress, "Fetching from remote...")?;
     }
 
-    but_api::legacy::virtual_branches::fetch_from_remotes(project_id, Some("dry_run_push".into()))?;
+    but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("dry_run_push".into()))?;
 
     // Get all branches with info
-    let branches_with_info = get_branches_with_unpushed_info(ctx, &ctx.legacy_project)?;
+    let branches_with_info = get_branches_with_unpushed_info(ctx)?;
 
     // Filter based on branch_id if provided
     let branches_to_show: Vec<_> = if let Some(branch_id) = branch_id {
@@ -201,12 +189,12 @@ fn handle_dry_run(
     let mut dry_run_infos = Vec::new();
 
     let stacks = but_api::legacy::workspace::stacks(
-        project_id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
     // Get the default target for remote name
-    let vb_state = gitbutler_stack::VirtualBranchesHandle::new(project_gb_dir);
+    let vb_state = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_state.get_default_target()?;
     let remote = default_target.push_remote_name();
 
@@ -214,8 +202,7 @@ fn handle_dry_run(
         // Find the stack containing this branch
         for stack_entry in &stacks {
             if let Some(stack_id) = stack_entry.id {
-                let stack_details =
-                    but_api::legacy::workspace::stack_details(project_id, Some(stack_id))?;
+                let stack_details = but_api::legacy::workspace::stack_details(ctx, Some(stack_id))?;
 
                 // Find the branch details
                 if let Some(branch_detail) = stack_details
@@ -594,14 +581,13 @@ fn handle_dry_run(
 }
 
 fn push_single_branch(
-    ctx: &Context,
-    project: &Project,
+    ctx: &mut Context,
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let result = push_single_branch_impl(ctx, project, branch_name, args, gerrit_mode)?;
+    let result = push_single_branch_impl(ctx, branch_name, args, gerrit_mode)?;
     let mut progress = out.progress_channel();
 
     if let Some(out) = out.for_json() {
@@ -645,24 +631,23 @@ fn push_single_branch(
 
 // Shared implementation for pushing a single branch
 fn push_single_branch_impl(
-    ctx: &Context,
-    project: &Project,
+    ctx: &mut Context,
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
 ) -> anyhow::Result<PushResult> {
     // Check for conflicted commits before pushing
-    check_for_conflicted_commits(ctx, project, branch_name)?;
+    check_for_conflicted_commits(ctx, branch_name)?;
 
     // Find stack_id from branch name
-    let stack_id = find_stack_id_by_branch_name(project, branch_name)?;
+    let stack_id = find_stack_id_by_branch_name(ctx, branch_name)?;
 
     // Convert CLI args to gerrit flags with validation
     let gerrit_flags = get_gerrit_flags(args, branch_name, gerrit_mode)?;
 
     // Call push_stack
     let result: PushResult = but_api::legacy::stack::push_stack(
-        project.id,
+        ctx,
         stack_id,
         args.with_force,
         args.skip_force_push_protection,
@@ -675,14 +660,13 @@ fn push_single_branch_impl(
 }
 
 fn push_all_branches(
-    ctx: &Context,
-    project: &Project,
+    ctx: &mut Context,
     args: &Command,
     gerrit_mode: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
-    let branches_with_info = get_branches_with_unpushed_info(ctx, project)?;
+    let branches_with_info = get_branches_with_unpushed_info(ctx)?;
 
     // Filter to only branches with unpushed commits
     let branches_to_push: Vec<_> = branches_with_info
@@ -725,7 +709,7 @@ fn push_all_branches(
             write!(progress, "  {} {}... ", "→".cyan(), branch_name.bold())?;
         }
 
-        match push_single_branch_impl(ctx, project, &branch_name, args, gerrit_mode) {
+        match push_single_branch_impl(ctx, &branch_name, args, gerrit_mode) {
             Ok(result) => {
                 total_commits_pushed += unpushed_count;
                 if out.for_human().is_some() {
@@ -832,10 +816,9 @@ fn push_all_branches(
 
 fn handle_no_branch_specified(
     ctx: &Context,
-    project: &Project,
     out: &mut OutputChannel,
 ) -> anyhow::Result<BranchSelection> {
-    let branches_with_info = get_branches_with_unpushed_info(ctx, project)?;
+    let branches_with_info = get_branches_with_unpushed_info(ctx)?;
 
     if branches_with_info.is_empty() {
         anyhow::bail!("No branches found in the workspace");
@@ -909,12 +892,9 @@ fn handle_no_branch_specified(
     }
 }
 
-fn get_branches_with_unpushed_info(
-    _ctx: &Context,
-    project: &Project,
-) -> anyhow::Result<Vec<(String, usize, String)>> {
+fn get_branches_with_unpushed_info(ctx: &Context) -> anyhow::Result<Vec<(String, usize, String)>> {
     let stacks = but_api::legacy::workspace::stacks(
-        project.id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
@@ -922,8 +902,7 @@ fn get_branches_with_unpushed_info(
 
     for stack in stacks {
         if let Some(stack_id) = stack.id {
-            let stack_details =
-                but_api::legacy::workspace::stack_details(project.id, Some(stack_id))?;
+            let stack_details = but_api::legacy::workspace::stack_details(ctx, Some(stack_id))?;
             let stack_name = stack
                 .name()
                 .map(|n| n.to_string())
@@ -1115,9 +1094,9 @@ fn format_branch_suggestions(branches: &[String]) -> String {
         .join("\n")
 }
 
-fn find_stack_id_by_branch_name(project: &Project, branch_name: &str) -> anyhow::Result<StackId> {
+fn find_stack_id_by_branch_name(ctx: &Context, branch_name: &str) -> anyhow::Result<StackId> {
     let stacks = but_api::legacy::workspace::stacks(
-        project.id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
@@ -1146,13 +1125,9 @@ fn find_stack_id_by_branch_name(project: &Project, branch_name: &str) -> anyhow:
 
 /// Check if a branch contains any conflicted commits
 /// Returns an error if conflicted commits are found
-fn check_for_conflicted_commits(
-    _ctx: &Context,
-    project: &Project,
-    branch_name: &str,
-) -> anyhow::Result<()> {
+fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Result<()> {
     let stacks = but_api::legacy::workspace::stacks(
-        project.id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
@@ -1161,8 +1136,7 @@ fn check_for_conflicted_commits(
         if let Some(stack_id) = stack.id {
             // Check if this stack contains the branch we're looking for
             if stack.heads.iter().any(|h| h.name == branch_name) {
-                let stack_details =
-                    but_api::legacy::workspace::stack_details(project.id, Some(stack_id))?;
+                let stack_details = but_api::legacy::workspace::stack_details(ctx, Some(stack_id))?;
 
                 // Find the branch details
                 if let Some(branch_detail) = stack_details

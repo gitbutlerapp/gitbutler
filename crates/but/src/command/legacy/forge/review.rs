@@ -3,7 +3,6 @@ use bstr::{BStr, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_oxidize::OidExt;
-use but_settings::AppSettings;
 use but_workspace::ui::Commit;
 use cli_prompts::DisplayPrompt;
 use colored::{ColoredString, Colorize};
@@ -30,9 +29,8 @@ pub fn set_review_template(
             writeln!(out, "{}", message)?;
         }
     } else {
-        let current_template = but_api::legacy::forge::review_template(ctx.legacy_project.id)?;
-        let available_templates =
-            but_api::legacy::forge::list_available_review_templates(ctx.legacy_project.id)?;
+        let current_template = but_api::legacy::forge::review_template(ctx)?;
+        let available_templates = but_api::legacy::forge::list_available_review_templates(ctx)?;
         let template_prompt = cli_prompts::prompts::Selection::new_with_transformation(
             "Select a review template (and press Enter)",
             available_templates.into_iter(),
@@ -77,9 +75,9 @@ pub async fn create_pr(
     default: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let review_map = get_review_map(&ctx.legacy_project, Some(but_forge::CacheConfig::CacheOnly))?;
+    let review_map = get_review_map(ctx, Some(but_forge::CacheConfig::CacheOnly))?;
     let applied_stacks = but_api::legacy::workspace::stacks(
-        ctx.legacy_project.id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
@@ -117,7 +115,7 @@ pub async fn create_pr(
     };
 
     handle_multiple_branches_in_workspace(
-        &ctx.legacy_project,
+        ctx,
         &review_map,
         &applied_stacks,
         skip_force_push_protection,
@@ -173,7 +171,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
 
 #[allow(clippy::too_many_arguments)]
 pub async fn handle_multiple_branches_in_workspace(
-    project: &Project,
+    ctx: &mut Context,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     skip_force_push_protection: bool,
@@ -191,7 +189,7 @@ pub async fn handle_multiple_branches_in_workspace(
     let selected_branches = if let Some(branches) = selected_branches {
         branches
     } else {
-        prompt_for_branch_selection(project, review_map, applied_stacks, out)?
+        prompt_for_branch_selection(ctx, review_map, applied_stacks, out)?
     };
 
     if selected_branches.is_empty() {
@@ -214,7 +212,7 @@ pub async fn handle_multiple_branches_in_workspace(
         };
 
         let outcome = publish_reviews_for_branch_and_dependents(
-            project,
+            ctx,
             top_most_selected_head.name.to_str()?,
             review_map,
             stack_entry,
@@ -243,12 +241,12 @@ pub async fn handle_multiple_branches_in_workspace(
 
 /// Prompt the user to select branches to publish from a numbered list.
 fn prompt_for_branch_selection(
-    project: &Project,
+    ctx: &Context,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<String>> {
-    let (base_branch, ctx) = get_base_branch_and_context(project)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
     let base_branch_id = base_branch.current_sha.to_gix();
     let repo = &*ctx.repo.get()?;
 
@@ -334,7 +332,7 @@ fn prompt_for_branch_selection(
 
 #[allow(clippy::too_many_arguments)]
 async fn publish_reviews_for_branch_and_dependents(
-    project: &Project,
+    ctx: &mut Context,
     branch_name: &str,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     stack_entry: &but_workspace::legacy::ui::StackEntry,
@@ -344,7 +342,7 @@ async fn publish_reviews_for_branch_and_dependents(
     default_message: bool,
     out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
-    let (base_branch, _) = get_base_branch_and_context(project)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
     let all_branches_up_to_subject = stack_entry
         .heads
         .iter()
@@ -367,7 +365,7 @@ async fn publish_reviews_for_branch_and_dependents(
     }
 
     let result = but_api::legacy::stack::push_stack(
-        project.id,
+        ctx,
         stack_entry
             .id
             .context("BUG: Stack entry is missing ID for push")?,
@@ -403,7 +401,7 @@ async fn publish_reviews_for_branch_and_dependents(
         }
 
         let published_review = publish_review_for_branch(
-            project,
+            ctx,
             stack_entry.id,
             head.name.to_str()?,
             current_target_branch,
@@ -433,15 +431,6 @@ async fn publish_reviews_for_branch_and_dependents(
     };
 
     Ok(outcome)
-}
-
-fn get_base_branch_and_context(
-    project: &Project,
-) -> Result<(gitbutler_branch_actions::BaseBranch, but_ctx::Context), anyhow::Error> {
-    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
-    let ctx = Context::new_from_legacy_project_and_settings(project, app_settings);
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-    Ok((base_branch, ctx))
 }
 
 /// Display a summary of published and already existing reviews for humans
@@ -535,7 +524,7 @@ enum PublishReviewResult {
 }
 
 async fn publish_review_for_branch(
-    project: &Project,
+    ctx: &Context,
     stack_id: Option<StackId>,
     branch_name: &str,
     target_branch: &str,
@@ -551,7 +540,7 @@ async fn publish_review_for_branch(
         return Ok(PublishReviewResult::AlreadyExists(reviews.clone()));
     }
 
-    let commit = default_commit(project, stack_id, branch_name)?;
+    let commit = default_commit(ctx, stack_id, branch_name)?;
     let (title, body) = if default_message {
         let title = extract_commit_title(commit.as_ref())
             .map(|t| t.to_string())
@@ -561,12 +550,12 @@ async fn publish_review_for_branch(
             .unwrap_or_default();
         (title, body)
     } else {
-        get_pr_title_and_body_from_editor(project, stack_id, commit.as_ref(), branch_name)?
+        get_pr_title_and_body_from_editor(ctx, stack_id, commit.as_ref(), branch_name)?
     };
 
     // Publish a new review for the branch
     but_api::legacy::forge::publish_review(
-        project.id,
+        ctx.to_sync(),
         but_forge::CreateForgeReviewParams {
             title,
             body,
@@ -580,7 +569,7 @@ async fn publish_review_for_branch(
         if let Some(stack_id) = stack_id {
             let review_number = review.number.try_into().ok();
             but_api::legacy::stack::update_branch_pr_number(
-                project.id,
+                ctx,
                 stack_id,
                 branch_name.to_string(),
                 review_number,
@@ -593,11 +582,11 @@ async fn publish_review_for_branch(
 
 /// Get the default commit for the branch, if it has exactly one commit.
 fn default_commit(
-    project: &Project,
+    ctx: &Context,
     stack_id: Option<StackId>,
     branch_name: &str,
 ) -> Result<Option<Commit>, anyhow::Error> {
-    let stack_details = but_api::legacy::workspace::stack_details(project.id, stack_id)?;
+    let stack_details = but_api::legacy::workspace::stack_details(ctx, stack_id)?;
     let branch = stack_details
         .branch_details
         .into_iter()
@@ -617,7 +606,7 @@ fn default_commit(
 /// Opens a single file where the first line is the title and the rest is the description.
 /// Pre-fills with commit message if available and includes commit list with files.
 fn get_pr_title_and_body_from_editor(
-    project: &Project,
+    ctx: &Context,
     stack_id: Option<StackId>,
     commit: Option<&Commit>,
     branch_name: &str,
@@ -643,7 +632,7 @@ fn get_pr_title_and_body_from_editor(
             template.push_str(line);
             template.push('\n');
         }
-    } else if let Some(review_template) = but_api::legacy::forge::review_template(project.id)? {
+    } else if let Some(review_template) = but_api::legacy::forge::review_template(ctx)? {
         template.push_str(&review_template.content);
         template.push('\n');
     }
@@ -660,7 +649,7 @@ fn get_pr_title_and_body_from_editor(
     template.push_str("#\n");
 
     // Add commit list with modified files as context
-    if let Ok(stack_details) = but_api::legacy::workspace::stack_details(project.id, stack_id)
+    if let Ok(stack_details) = but_api::legacy::workspace::stack_details(ctx, stack_id)
         && let Some(branch) = stack_details
             .branch_details
             .into_iter()
@@ -671,54 +660,49 @@ fn get_pr_title_and_body_from_editor(
         template.push_str("#\n");
 
         // Get the repository for diff operations
-        if let Ok(ctx) = but_ctx::Context::new_from_legacy_project(project.clone())
-            && let Ok(repo) = ctx.repo.get()
-        {
-            for (idx, commit) in branch.commits.iter().enumerate() {
-                // Extract commit title (first line of message)
-                let commit_title = commit
-                    .message
-                    .lines()
-                    .next()
-                    .and_then(|l| l.to_str().ok())
-                    .unwrap_or("");
-                template.push_str(&format!(
-                    "# {}. {} ({})\n",
-                    idx + 1,
-                    commit_title,
-                    commit.id.to_hex_with_len(7)
-                ));
+        let repo = ctx.repo.get()?;
+        for (idx, commit) in branch.commits.iter().enumerate() {
+            // Extract commit title (first line of message)
+            let commit_title = commit
+                .message
+                .lines()
+                .next()
+                .and_then(|l| l.to_str().ok())
+                .unwrap_or("");
+            template.push_str(&format!(
+                "# {}. {} ({})\n",
+                idx + 1,
+                commit_title,
+                commit.id.to_hex_with_len(7)
+            ));
 
-                // Get the files modified in this commit
-                let parent = commit.parent_ids.first().copied();
-                if let Ok(changes) =
-                    but_core::diff::TreeChanges::from_trees(&repo, parent, commit.id)
-                {
-                    let mut file_paths: Vec<String> = changes
-                        .0
-                        .iter()
-                        .map(|change| {
-                            let tree_change: but_core::TreeChange = change.clone().into();
-                            tree_change.path.to_string()
-                        })
-                        .collect();
-                    file_paths.sort();
+            // Get the files modified in this commit
+            let parent = commit.parent_ids.first().copied();
+            if let Ok(changes) = but_core::diff::TreeChanges::from_trees(&repo, parent, commit.id) {
+                let mut file_paths: Vec<String> = changes
+                    .0
+                    .iter()
+                    .map(|change| {
+                        let tree_change: but_core::TreeChange = change.clone().into();
+                        tree_change.path.to_string()
+                    })
+                    .collect();
+                file_paths.sort();
 
-                    if !file_paths.is_empty() {
-                        template.push_str("#    Modified files:\n");
-                        for file in file_paths.iter().take(10) {
-                            template.push_str(&format!("#      - {}\n", file));
-                        }
-                        if file_paths.len() > 10 {
-                            template.push_str(&format!(
-                                "#      ... and {} more files\n",
-                                file_paths.len() - 10
-                            ));
-                        }
+                if !file_paths.is_empty() {
+                    template.push_str("#    Modified files:\n");
+                    for file in file_paths.iter().take(10) {
+                        template.push_str(&format!("#      - {}\n", file));
+                    }
+                    if file_paths.len() > 10 {
+                        template.push_str(&format!(
+                            "#      ... and {} more files\n",
+                            file_paths.len() - 10
+                        ));
                     }
                 }
-                template.push_str("#\n");
             }
+            template.push_str("#\n");
         }
     }
     template.push_str("#\n");
@@ -768,13 +752,12 @@ fn extract_commit_title(commit: Option<&Commit>) -> Option<&str> {
 }
 
 /// Get a mapping from branch names to their associated reviews.
-#[instrument(skip(project))]
+#[instrument(skip(ctx))]
 pub fn get_review_map(
-    project: &Project,
+    ctx: &mut Context,
     cache_config: Option<but_forge::CacheConfig>,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
-    let reviews =
-        but_api::legacy::forge::list_reviews(project.id, cache_config).unwrap_or_default();
+    let reviews = but_api::legacy::forge::list_reviews(ctx, cache_config).unwrap_or_default();
 
     let branch_review_map =
         reviews

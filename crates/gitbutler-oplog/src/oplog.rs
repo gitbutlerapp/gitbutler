@@ -630,7 +630,7 @@ fn restore_snapshot(
     git2_repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
 
     // Define the checkout builder
-    if ctx.settings().feature_flags.cv3 {
+    if ctx.settings.feature_flags.cv3 {
         but_core::worktree::safe_checkout_from_head(
             workdir_tree.id().to_gix(),
             &gix_repo,

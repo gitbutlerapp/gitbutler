@@ -121,10 +121,7 @@ pub(crate) async fn worktree(
     } else {
         but_forge::CacheConfig::CacheOnly
     };
-    let review_map = crate::command::legacy::forge::review::get_review_map(
-        &ctx.legacy_project,
-        Some(cache_config.clone()),
-    )?;
+    let review_map = review::get_review_map(ctx, Some(cache_config.clone()))?;
 
     let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
 
@@ -181,7 +178,7 @@ pub(crate) async fn worktree(
 
         // Get cached upstream state information (without fetching)
         let (upstream_state, last_fetched_ms, base_branch) =
-            but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)
+            but_api::legacy::virtual_branches::get_base_branch_data(ctx)
                 .ok()
                 .flatten()
                 .map(|base_branch| {
@@ -1072,11 +1069,9 @@ async fn compute_branch_merge_statuses(
     use gitbutler_branch_actions::upstream_integration::StackStatuses;
 
     // Get upstream integration statuses using the public API
-    let statuses = but_api::legacy::virtual_branches::upstream_integration_statuses(
-        ctx.legacy_project.id,
-        None,
-    )
-    .await?;
+    let statuses =
+        but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)
+            .await?;
 
     let mut result = BTreeMap::new();
 

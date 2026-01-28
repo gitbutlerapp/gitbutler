@@ -101,12 +101,13 @@ fn handle_changes_simple_inner(
     let repo = ctx.repo.get()?.clone();
     let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(perm.read_permission())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx,
+        ctx.db.get_mut()?.hunk_assignments_mut()?,
         &repo,
         &workspace,
         true,
         None::<Vec<but_core::TreeChange>>,
         None,
+        ctx.settings.context_lines,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;
     if assignments.is_empty() {

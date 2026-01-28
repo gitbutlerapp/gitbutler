@@ -96,6 +96,7 @@ pub fn shared_worktree_access(git_dir: impl Into<PathBuf>) -> WorkspaceReadGuard
 }
 
 /// A utility that drops an exclusive lock on drop.
+#[must_use]
 pub struct WorkspaceWriteGuard {
     inner: Option<parking_lot::ArcRwLockWriteGuard<RawRwLock, ()>>,
     perm: WorktreeWritePermission,
@@ -136,6 +137,7 @@ impl WorkspaceWriteGuard {
 }
 
 /// A utility that drops a shared lock on drop.
+#[must_use]
 pub struct WorkspaceReadGuard(Option<parking_lot::ArcRwLockReadGuard<RawRwLock, ()>>);
 
 impl WorkspaceReadGuard {

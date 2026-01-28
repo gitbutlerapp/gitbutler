@@ -91,7 +91,7 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     }
 
     // Find which stack this commit belongs to
-    let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
+    let stacks = but_api::legacy::workspace::stacks(ctx, None)?;
     let mut found_stack_id = None;
     for stack in &stacks {
         // Check if this commit is in any of the stack's heads
@@ -470,7 +470,7 @@ fn check_for_new_conflicts_after_rebase(
 
 /// Find all conflicted commits across all stacks, grouped by branch
 fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<ConflictedCommit>>> {
-    let stacks = but_api::legacy::workspace::stacks(ctx.legacy_project.id, None)?;
+    let stacks = but_api::legacy::workspace::stacks(ctx, None)?;
     let git2_repo = ctx.git2_repo.get()?;
     let repo = ctx.repo.get()?;
     let mut conflicts_by_branch: BTreeMap<String, Vec<ConflictedCommit>> = BTreeMap::new();

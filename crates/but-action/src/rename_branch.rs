@@ -34,7 +34,7 @@ pub fn rename_branch(
     let changes =
         but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(repo, commit_id)?;
     let diff = changes
-        .try_to_unidiff(repo, ctx.settings().context_lines)?
+        .try_to_unidiff(repo, ctx.settings.context_lines)?
         .to_string();
     let diffs = vec![diff];
 

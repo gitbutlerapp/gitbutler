@@ -60,7 +60,7 @@ pub mod migration;
 use std::path::PathBuf;
 #[rustfmt::skip]
 pub use table::{
-    hunk_assignments::HunkAssignment,
+    hunk_assignments::{HunkAssignmentsHandleMut, HunkAssignmentsHandle, HunkAssignment},
     butler_actions::ButlerAction,
     workflows::Workflow,
     claude::{ClaudeMessage, ClaudePermissionRequest, ClaudeSession},

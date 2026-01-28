@@ -198,7 +198,7 @@ pub fn unapply_stack(
         perm,
         false,
         assigned_diffspec,
-        ctx.settings().feature_flags.cv3,
+        ctx.settings.feature_flags.cv3,
     )?;
     Ok(branch_name)
 }

@@ -11,7 +11,6 @@ use but_api::{
 use but_core::{DiffSpec, ui::TreeChange};
 use but_rebase::graph_rebase::mutate::InsertSide;
 use colored::Colorize;
-use gitbutler_project::Project;
 use gitbutler_repo::hooks;
 
 use crate::utils::InputOutputChannel;
@@ -169,7 +168,7 @@ pub(crate) fn commit(
 
     // Get all stacks using but-api
     let project_id = ctx.legacy_project.id;
-    let stack_entries = workspace::stacks(project_id, None)?;
+    let stack_entries = workspace::stacks(ctx, None)?;
     let stacks: Vec<(
         but_core::ref_metadata::StackId,
         but_workspace::ui::StackDetails,
@@ -177,21 +176,15 @@ pub(crate) fn commit(
         .iter()
         .filter_map(|s| {
             s.id.and_then(|id| {
-                workspace::stack_details(project_id, Some(id))
+                workspace::stack_details(ctx, Some(id))
                     .ok()
                     .map(|details| (id, details))
             })
         })
         .collect();
 
-    let (target_stack_id, target_stack) = select_stack(
-        &id_map,
-        &ctx.legacy_project,
-        &stacks,
-        branch_hint,
-        create_branch,
-        out,
-    )?;
+    let (target_stack_id, target_stack) =
+        select_stack(&id_map, ctx, &stacks, branch_hint, create_branch, out)?;
 
     // Get changes and assignments using but-api
     let worktree_changes = diff::changes_in_worktree(ctx)?;
@@ -380,7 +373,7 @@ pub(crate) fn commit(
 
 fn create_independent_branch(
     branch_name: &str,
-    project: &Project,
+    ctx: &but_ctx::Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
@@ -388,7 +381,7 @@ fn create_independent_branch(
 )> {
     // Create a new independent stack with the given branch name
     let (new_stack_id_opt, _new_ref) = but_api::legacy::stack::create_reference(
-        project.id,
+        ctx,
         but_api::legacy::stack::create_reference::Request {
             new_name: branch_name.to_string(),
             anchor: None,
@@ -401,7 +394,7 @@ fn create_independent_branch(
         }
         Ok((
             new_stack_id,
-            workspace::stack_details(project.id, Some(new_stack_id))?,
+            workspace::stack_details(ctx, Some(new_stack_id))?,
         ))
     } else {
         bail!("Failed to create new branch '{}'", branch_name);
@@ -410,7 +403,7 @@ fn create_independent_branch(
 
 fn select_stack(
     id_map: &IdMap,
-    project: &Project,
+    ctx: &but_ctx::Context,
     stacks: &[(
         but_core::ref_metadata::StackId,
         but_workspace::ui::StackDetails,
@@ -426,9 +419,9 @@ fn select_stack(
     if stacks.is_empty() {
         let branch_name = match branch_hint {
             Some(hint) => String::from(hint),
-            None => but_api::legacy::workspace::canned_branch_name(project.id)?,
+            None => but_api::legacy::workspace::canned_branch_name(ctx)?,
         };
-        return create_independent_branch(&branch_name, project, out);
+        return create_independent_branch(&branch_name, ctx, out);
     }
 
     match branch_hint {
@@ -440,15 +433,15 @@ fn select_stack(
 
             // Branch not found - create if flag is set, otherwise error
             if create_branch {
-                create_independent_branch(hint, project, out)
+                create_independent_branch(hint, ctx, out)
             } else {
                 bail!("Branch '{}' not found", hint)
             }
         }
         None if create_branch => {
             // Create with canned name
-            let branch_name = but_api::legacy::workspace::canned_branch_name(project.id)?;
-            create_independent_branch(&branch_name, project, out)
+            let branch_name = but_api::legacy::workspace::canned_branch_name(ctx)?;
+            create_independent_branch(&branch_name, ctx, out)
         }
         None if stacks.len() == 1 => {
             // Only one stack - use it

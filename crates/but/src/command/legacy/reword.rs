@@ -2,7 +2,6 @@ use anyhow::{Result, bail};
 use bstr::BString;
 use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
-use gitbutler_project::Project;
 use gix::prelude::ObjectIdExt;
 
 use crate::{CliId, IdMap, tui, utils::OutputChannel};
@@ -38,7 +37,7 @@ pub(crate) fn reword_target(
             if format {
                 bail!("--format flag can only be used with commits, not branches");
             }
-            edit_branch_name(ctx, &ctx.legacy_project, name, out, message)?;
+            edit_branch_name(ctx, name, out, message)?;
         }
         CliId::Commit { commit_id: oid, .. } => {
             edit_commit_message_by_id(ctx, *oid, out, message, format)?;
@@ -55,15 +54,14 @@ pub(crate) fn reword_target(
 }
 
 fn edit_branch_name(
-    _ctx: &Context,
-    project: &Project,
+    ctx: &Context,
     branch_name: &str,
     out: &mut OutputChannel,
     message: Option<&str>,
 ) -> Result<()> {
     // Find which stack this branch belongs to
     let stacks = but_api::legacy::workspace::stacks(
-        project.id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
     for stack_entry in &stacks {
@@ -76,7 +74,7 @@ fn edit_branch_name(
             let new_name = prepare_provided_message(message, "branch name")
                 .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
             but_api::legacy::stack::update_branch_name(
-                project.id,
+                ctx,
                 sid,
                 branch_name.to_owned(),
                 new_name.clone(),

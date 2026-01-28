@@ -33,7 +33,7 @@ members = [
     "crates/but-oplog",             # 📄A sketch of a modern `gitbutler-oplog`
     # 👉mostly powered by legacy, but will help to transition to `but-db` backing.
     "crates/but-meta",              # 📄An interface to support Git-entity metadata;
-    # 👉uses `but-ctx`, and lacks tests.
+    # 👉lacks tests
     "crates/but-hunk-assignment",   # 📄Assign uncommitted changes to stacks/lanes.
     # 👉uses `but-ctx`.
     "crates/but-hunk-dependency",   # 📄Assuming it works, it feels close to 'Exemplary',

@@ -80,16 +80,16 @@ fn wt_assignments(ctx: &mut Context) -> anyhow::Result<Vec<HunkAssignment>> {
         ctx.legacy_project.worktree_dir()?.into(),
     )?
     .changes;
-    let guard = ctx.shared_worktree_access();
     let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    let (_guard, ws) = ctx.workspace_from_head()?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        ctx,
+        ctx.db.get_mut()?.hunk_assignments_mut()?,
         &repo,
-        &workspace,
+        &ws,
         false,
         Some(changes.clone()),
         None,
+        ctx.settings.context_lines,
     )?;
     Ok(assignments)
 }
@@ -110,7 +110,7 @@ fn amend_diff_specs(
             new_message: None,
         },
         but_workspace::flatten_diff_specs(diff_specs),
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
         perm,
     )
 }

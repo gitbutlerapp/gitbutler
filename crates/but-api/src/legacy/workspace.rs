@@ -48,10 +48,9 @@ pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn stacks(
-    project_id: ProjectId,
+    ctx: &Context,
     filter: Option<but_workspace::legacy::StacksFilter>,
 ) -> Result<Vec<StackEntry>> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ref_metadata_toml(&ctx.legacy_project)?;
     but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
@@ -112,11 +111,9 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn stack_details(
-    project_id: ProjectId,
+    ctx: &Context,
     stack_id: Option<StackId>,
 ) -> Result<but_workspace::ui::StackDetails> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = Context::new_from_legacy_project(project.clone())?;
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(&ctx.legacy_project)?;
@@ -360,7 +357,7 @@ pub fn discard_worktree_changes(
     let refused = but_workspace::discard_workspace_changes(
         &repo,
         worktree_changes,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
     )?;
     if !refused.is_empty() {
         tracing::warn!(?refused, "Failed to discard at least one hunk");
@@ -410,7 +407,7 @@ pub fn move_changes_between_commits(
         destination_stack_id,
         destination_commit_id.into(),
         changes,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -442,7 +439,7 @@ pub fn split_branch(
         source_branch_name,
         new_branch_name.clone(),
         &file_changes_to_split_off,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -483,7 +480,7 @@ pub fn split_branch_into_dependent_branch(
         source_branch_name,
         new_branch_name.clone(),
         &file_changes_to_split_off,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -527,12 +524,13 @@ pub fn uncommit_changes(
     // We then convert those into assignment requests for the given stack.
     let before_assignments = if assign_to.is_some() {
         let changes = but_hunk_assignment::assignments_with_fallback(
-            &mut ctx,
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
             &repo,
             &workspace,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
+            ctx.settings.context_lines,
         )?;
         Some(changes.0)
     } else {
@@ -544,7 +542,7 @@ pub fn uncommit_changes(
         stack_id,
         commit_id.into(),
         changes,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -552,12 +550,13 @@ pub fn uncommit_changes(
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            &mut ctx,
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
             &repo,
             &workspace,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
+            ctx.settings.context_lines,
         )?;
 
         let before_assignments = before_assignments
@@ -575,7 +574,14 @@ pub fn uncommit_changes(
             })
             .collect::<Vec<_>>();
 
-        but_hunk_assignment::assign(&mut ctx, &repo, &workspace, to_assign, None)?;
+        but_hunk_assignment::assign(
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            &repo,
+            &workspace,
+            to_assign,
+            None,
+            ctx.settings.context_lines,
+        )?;
     }
 
     Ok(result.into())
@@ -627,7 +633,7 @@ pub fn stash_into_branch(
             }),
         },
         worktree_changes,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
         perm,
     );
 
@@ -640,7 +646,7 @@ pub fn stash_into_branch(
         perm,
         false,
         Vec::new(),
-        ctx.settings().feature_flags.cv3,
+        ctx.settings.feature_flags.cv3,
     )?;
 
     let outcome = outcome?;
@@ -651,8 +657,7 @@ pub fn stash_into_branch(
 /// The main point of this is to be able to provide branch names that are not already taken.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn canned_branch_name(project_id: ProjectId) -> Result<String> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
+pub fn canned_branch_name(ctx: &Context) -> Result<String> {
     let template = gitbutler_stack::canned_branch_name(&*ctx.git2_repo.get()?)?;
     let state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let repo = ctx.repo.get()?;

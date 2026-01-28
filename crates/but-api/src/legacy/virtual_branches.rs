@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
 use but_core::DiffSpec;
-use but_ctx::Context;
+use but_ctx::{Context, ThreadSafeContext};
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
@@ -33,17 +33,15 @@ pub fn normalize_branch_name(name: String) -> Result<String> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_virtual_branch(
-    project_id: ProjectId,
+    ctx: &Context,
     branch: BranchCreateRequest,
 ) -> Result<StackEntryNoOpt> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let stack_entry = {
-        let mut guard = ctx.exclusive_worktree_access();
-        let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.write_permission())?;
+        let (_guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
         let repo = ctx.repo.get()?;
         let branch_name = match branch.name {
             Some(name) => normalize_name(&name)?,
-            None => canned_branch_name(project_id)?,
+            None => canned_branch_name(ctx)?,
         };
         let new_ref = Category::LocalBranch
             .to_full_name(branch_name.as_str())
@@ -191,9 +189,8 @@ pub fn switch_back_to_workspace(project_id: ProjectId) -> Result<BaseBranch> {
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    if let Ok(base_branch) = gitbutler_branch_actions::base::get_base_branch_data(&ctx) {
+pub fn get_base_branch_data(ctx: &but_ctx::Context) -> Result<Option<BaseBranch>> {
+    if let Ok(base_branch) = gitbutler_branch_actions::base::get_base_branch_data(ctx) {
         Ok(Some(base_branch))
     } else {
         Ok(None)
@@ -203,32 +200,24 @@ pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>>
 #[but_api]
 #[instrument(err(Debug))]
 pub fn set_base_branch(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     branch: String,
     push_remote: Option<String>,
 ) -> Result<BaseBranch> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let branch_name = format!("refs/remotes/{branch}")
         .parse()
         .context("Invalid branch name")?;
-    let base_branch = gitbutler_branch_actions::set_base_branch(
-        &ctx,
-        &branch_name,
-        ctx.exclusive_worktree_access().write_permission(),
-    )?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let base_branch =
+        gitbutler_branch_actions::set_base_branch(ctx, &branch_name, guard.write_permission())?;
 
     // if they also sent a different push remote, set that too
     if let Some(push_remote) = push_remote {
-        gitbutler_branch_actions::set_target_push_remote(&ctx, &push_remote)?;
+        gitbutler_branch_actions::set_target_push_remote(ctx, &push_remote)?;
     }
     {
-        let mut guard = ctx.exclusive_worktree_access();
-        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(
-            &mut ctx,
-            guard.write_permission(),
-        )
-        .ok();
+        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission())
+            .ok();
     }
 
     Ok(base_branch)
@@ -259,7 +248,7 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
     let repo = ctx.repo.get()?.clone();
     let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx,
+        ctx.db.get_mut()?.hunk_assignments_mut()?,
         &repo,
         &workspace,
         false,
@@ -268,6 +257,7 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
                 .changes,
         ),
         None,
+        ctx.settings.context_lines,
     )?;
     let assigned_diffspec = but_workspace::flatten_diff_specs(
         assignments
@@ -323,11 +313,10 @@ pub fn reorder_stack(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn list_branches(
-    project_id: ProjectId,
+    ctx: &Context,
     filter: Option<BranchListingFilter>,
 ) -> Result<Vec<BranchListing>> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let branches = gitbutler_branch_actions::list_branches(&ctx, filter, None)?;
+    let branches = gitbutler_branch_actions::list_branches(ctx, filter, None)?;
     Ok(branches)
 }
 
@@ -368,11 +357,9 @@ pub fn squash_commits(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn fetch_from_remotes(project_id: ProjectId, action: Option<String>) -> Result<BaseBranch> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-
+pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseBranch> {
     let project_data_last_fetched = gitbutler_branch_actions::fetch_from_remotes(
-        &ctx,
+        ctx,
         Some(action.unwrap_or_else(|| "unknown".to_string())),
     )?;
 
@@ -389,7 +376,7 @@ pub fn fetch_from_remotes(project_id: ProjectId, action: Option<String>) -> Resu
         return Err(anyhow!(error));
     }
 
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
     Ok(base_branch)
 }
 
@@ -454,15 +441,14 @@ pub fn update_commit_message(
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn upstream_integration_statuses(
-    project_id: ProjectId,
+    ctx: ThreadSafeContext,
     target_commit_id: Option<String>,
 ) -> Result<StackStatuses> {
-    let project = gitbutler_project::get(project_id)?;
-    let (base_branch, commit_id, sync_ctx) = {
-        let ctx = Context::new_from_legacy_project(project.clone())?;
+    let (base_branch, commit_id, ctx) = {
         let commit_id = target_commit_id
             .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
             .transpose()?;
+        let ctx = ctx.into_thread_local();
 
         // Get all the actively applied reviews
         (
@@ -472,26 +458,25 @@ pub async fn upstream_integration_statuses(
         )
     };
 
-    let resolved_reviews = resolve_review_map(project, &base_branch).await?;
-    let ctx = sync_ctx.into_thread_local();
+    let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch).await?;
+    let ctx = ctx.into_thread_local();
     gitbutler_branch_actions::upstream_integration_statuses(&ctx, commit_id, &resolved_reviews)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn integrate_upstream(
-    project_id: ProjectId,
+    ctx: ThreadSafeContext,
     resolutions: Vec<Resolution>,
     base_branch_resolution: Option<BaseBranchResolution>,
 ) -> Result<IntegrationOutcome> {
-    let project = gitbutler_project::get(project_id)?;
-    let (base_branch, sync_ctx) = {
-        let ctx = Context::new_from_legacy_project(project.clone())?;
+    let (base_branch, ctx) = {
+        let ctx = ctx.into_thread_local();
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-        (base_branch, ctx.into_sync())
+        (base_branch, ctx.to_sync())
     };
-    let resolved_reviews = resolve_review_map(project, &base_branch).await?;
-    let ctx = sync_ctx.into_thread_local();
+    let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch).await?;
+    let ctx = ctx.into_thread_local();
     let outcome = gitbutler_branch_actions::integrate_upstream(
         &ctx,
         &resolutions,
@@ -505,17 +490,15 @@ pub async fn integrate_upstream(
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn resolve_upstream_integration(
-    project_id: ProjectId,
+    ctx: ThreadSafeContext,
     resolution_approach: BaseBranchResolutionApproach,
 ) -> Result<String> {
-    let project = gitbutler_project::get(project_id)?;
     let (base_branch, sync_ctx) = {
-        let ctx = Context::new_from_legacy_project(project.clone())?;
-
+        let ctx = ctx.into_thread_local();
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
         (base_branch, ctx.into_sync())
     };
-    let resolved_reviews = resolve_review_map(project, &base_branch).await?;
+    let resolved_reviews = resolve_review_map(sync_ctx.clone(), &base_branch).await?;
     let ctx = sync_ctx.into_thread_local();
     let new_target_id = gitbutler_branch_actions::resolve_upstream_integration(
         &ctx,
@@ -528,7 +511,7 @@ pub async fn resolve_upstream_integration(
 
 /// Resolve all actively applied reviews for the given project and command context
 async fn resolve_review_map(
-    project: gitbutler_project::Project,
+    ctx: ThreadSafeContext,
     base_branch: &BaseBranch,
 ) -> Result<HashMap<String, but_forge::ForgeReview>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -543,7 +526,11 @@ async fn resolve_review_map(
         local: None,
         applied: Some(true),
     });
-    let branches = list_branches(project.id, filter)?;
+    let (branches, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let preferred_forge_user = ctx.legacy_project.preferred_forge_user.clone();
+        (list_branches(&ctx, filter)?, preferred_forge_user)
+    };
     let mut reviews = branches.iter().fold(HashMap::new(), |mut acc, branch| {
         if let Some(stack_ref) = &branch.stack {
             acc.extend(stack_ref.pull_requests.iter().map(|(k, v)| (k.clone(), *v)));
@@ -552,13 +539,9 @@ async fn resolve_review_map(
     });
     let mut resolved_reviews = HashMap::new();
     for (key, pr_number) in reviews.drain() {
-        if let Ok(resolved) = but_forge::get_forge_review(
-            &project.preferred_forge_user,
-            forge_repo_info,
-            pr_number,
-            &storage,
-        )
-        .await
+        if let Ok(resolved) =
+            but_forge::get_forge_review(&preferred_forge_user, forge_repo_info, pr_number, &storage)
+                .await
         {
             resolved_reviews.insert(key, resolved);
         }
