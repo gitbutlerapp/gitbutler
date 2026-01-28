@@ -77,7 +77,7 @@ but push
 **Scenario:** Made a small typo fix that should be part of the last commit, not a new commit.
 
 ```bash
-# 1. Check current commits
+# 1. Check current commits and unstaged changes
 but status --json
 
 # Output shows:
@@ -88,15 +88,22 @@ but status --json
 # Unstaged:
 #   a1: fix-typo.js (staged to bu)
 
-# 2. Absorb the change into appropriate commit
-but absorb
+# 2. Preview what absorb would do (recommended first step)
+but absorb a1 --dry-run    # Shows where a1 would be absorbed
+
+# 3. Absorb the specific file into appropriate commit
+but absorb a1              # Absorb just this file
 
 # GitButler analyzes the change and amends it into c3
 # (because the typo is in code from c3)
+```
 
-# Alternative: Preview first with dry-run
-but absorb --dry-run    # Shows what would happen
-but absorb              # Actually do it
+**Targeted vs blanket absorb:**
+
+```bash
+but absorb a1              # Absorb specific file (recommended)
+but absorb bu              # Absorb all changes staged to branch bu
+but absorb                 # Absorb ALL uncommitted changes (use with caution)
 ```
 
 **Why absorb?** Keeps history clean. Small fixes belong in the commits they fix, not as separate "fix typo" commits.
@@ -278,7 +285,8 @@ but commit bu --only -m "Style dashboard components"
 
 # 7. Make small fix
 # (fix typo in widget)
-but absorb    # Amends into appropriate commit
+but status --json          # Check file ID of the fix (e.g., a1)
+but absorb a1              # Absorb specific file into appropriate commit
 
 # 8. Review history
 but status --json
@@ -394,8 +402,9 @@ but commit bu --only -m "Identify auth bug source"
 # (make more changes)
 but stage <file-ids> bu           # Stage to branch
 but commit bu --only -m "Fix token expiration handling"
-# (small fix)
-but absorb                        # Amend into previous commit
+# (small fix to existing code)
+but status --json                 # Get file ID (e.g., a1)
+but absorb a1                     # Absorb specific fix into appropriate commit
 
 # Mid-day: Start urgent fix on different branch
 but branch new hotfix-login       # Parallel branch for urgent work
@@ -415,7 +424,10 @@ but pr new bu                     # Push and create PR
 
 # After PR review: Make requested changes
 # (make changes based on feedback)
-but absorb                        # Amend into existing commits
+but status --json                 # Check file IDs of changes
+but absorb <file-id>              # Absorb specific changes into commits
+# Or absorb all changes for this branch:
+but absorb bu                     # Absorb all changes staged to bu
 but push bu --with-force          # Force push updated history
 ```
 
@@ -475,7 +487,7 @@ but status -f    # File-centric view for quick overview
 ### Preview Before Doing
 
 ```bash
-but absorb --dry-run    # See what would happen
+but absorb <file-id> --dry-run  # See where specific file would be absorbed
 but push --dry-run      # See what would be pushed
 ```
 

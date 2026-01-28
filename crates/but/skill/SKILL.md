@@ -96,7 +96,10 @@ For detailed command syntax and all available options, see [references/reference
 
 - `but commit <branch> --only -m "msg"` - Commit only staged changes
 - `but commit <branch> -m "msg"` - Commit ALL uncommitted changes to branch
-- `but absorb` - Auto-amend into existing commits
+- `but amend <file-id> <commit-id>` - Amend file into specific commit (explicit control)
+- `but absorb <file-id>` - Absorb file into auto-detected commit (smart matching)
+- `but absorb <branch-id>` - Absorb all changes staged to a branch
+- `but absorb` - Absorb ALL uncommitted changes (use with caution)
 
 **Editing history:**
 

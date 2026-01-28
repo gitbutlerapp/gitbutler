@@ -139,11 +139,14 @@ If only one branch is applied, you can omit the branch ID.
 Automatically amend uncommitted changes into existing commits.
 
 ```bash
-but absorb                    # Amend all changes
-but absorb <file-id>          # Amend only this file
-but absorb <branch-id>        # Amend only changes staged to this branch
+but absorb <file-id>          # Absorb specific file (recommended)
+but absorb <branch-id>        # Absorb all changes staged to this branch
+but absorb                    # Absorb ALL uncommitted changes (use with caution)
 but absorb --dry-run          # Preview without making changes
+but absorb <file-id> --dry-run  # Preview specific file absorption
 ```
+
+**Recommendation:** Prefer targeted absorb (`but absorb <file-id>`) over absorbing everything. Running `but absorb` without arguments absorbs ALL uncommitted changes across all branches, which may not be what you want.
 
 Logic:
 
@@ -178,11 +181,15 @@ but squash <branch>          # Squash all commits in branch into bottom-most
 
 ### `but amend <file> <commit>`
 
-Amend file into a specific commit.
+Amend file into a specific commit. Use when you know exactly which commit the change belongs to.
 
 ```bash
-but amend <file-id> <commit-id>
+but amend <file-id> <commit-id>    # Amend file into specific commit
 ```
+
+**When to use `amend` vs `absorb`:**
+- `but amend` - You know the target commit; explicit control
+- `but absorb` - Let GitButler auto-detect the target; smart matching based on dependencies
 
 Alias for `but rub <file> <commit>`.
 
