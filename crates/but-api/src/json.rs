@@ -164,7 +164,7 @@ mod error {
         where
             S: serde::Serializer,
         {
-            let ctx = self.0.custom_context_or_root_cause();
+            let ctx = self.0.custom_context_or_error_chain();
 
             let mut map = serializer.serialize_map(Some(2))?;
             map.serialize_entry("code", &ctx.code.to_string())?;
@@ -213,7 +213,7 @@ mod error {
         where
             S: serde::Serializer,
         {
-            let ctx = self.0.custom_context_or_root_cause();
+            let ctx = self.0.custom_context_or_error_chain();
 
             let mut map = serializer.serialize_map(Some(2))?;
             map.serialize_entry("code", &ctx.code.to_string())?;
@@ -250,7 +250,7 @@ mod error {
             assert_eq!(
                 json(err),
                 "{\"code\":\"errors.unknown\",\"message\":\"err msg\"}",
-                "if there is no explicit error code or context, the original error message is shown"
+                "if there is no explicit error code or context, the original error message is shown (and chain)"
             );
         }
 
@@ -267,6 +267,19 @@ mod error {
                 "{\"code\":\"errors.validation\",\"message\":\"err msg\"}",
                 "the 'code' is available as string, but the message is taken from the source error"
             );
+        }
+
+        #[test]
+        fn error_chain_display_without_context_or_code() {
+            let original_err = std::io::Error::other("actual cause");
+            let err = anyhow::Error::from(original_err).context("err msg");
+
+            insta::assert_json_snapshot!(Error(err), @r#"
+            {
+              "code": "errors.unknown",
+              "message": "err msg\n\nCaused by:\n    1: actual cause\n"
+            }
+            "#);
         }
 
         #[test]

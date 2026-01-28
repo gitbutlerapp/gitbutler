@@ -322,6 +322,8 @@ pnpm exec playwright show-trace e2e/test-results/path-to-trace.zip
 ls e2e/blackbox/videos/
 ```
 
+You can also download them from the respective E2E Job on CI, or find a link in the "Upload Artifact" job log.
+
 ## Test Structure
 
 ```

@@ -899,6 +899,7 @@ dependencies = [
  "gitbutler-stack",
  "gitbutler-user",
  "gix",
+ "insta",
  "itertools",
  "open",
  "schemars 1.2.0",

@@ -20,7 +20,7 @@ const E2E_MESSAGES_TO_IGNORE = [
 function shouldIgnoreError(error: unknown): boolean {
 	const { message } = parseError(error);
 	if (import.meta.env.VITE_E2E === 'true') {
-		return E2E_MESSAGES_TO_IGNORE_DURING_E2E.includes(message);
+		return E2E_MESSAGES_TO_IGNORE_DURING_E2E.some((entry) => message.includes(entry));
 	}
 
 	return E2E_MESSAGES_TO_IGNORE.includes(message);
