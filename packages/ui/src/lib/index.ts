@@ -19,6 +19,7 @@ export { default as DropdownButton } from '$components/DropdownButton.svelte';
 export { default as EditorLogo } from '$components/EditorLogo.svelte';
 export { default as EmptyStatePlaceholder } from '$components/EmptyStatePlaceholder.svelte';
 export { default as HunkDiff, type LineClickParams } from '$components/hunkDiff/HunkDiff.svelte';
+export { default as HunkDiffSkeleton } from '$components/hunkDiff/HunkDiffSkeleton.svelte';
 export { default as Icon, type IconName } from '$components/Icon.svelte';
 export { default as ImageDiff } from '$components/ImageDiff.svelte';
 export { default as InfoButton } from '$components/InfoButton.svelte';

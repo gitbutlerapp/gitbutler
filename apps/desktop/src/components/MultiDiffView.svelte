@@ -17,7 +17,7 @@
 	import { type SelectionId } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, FileViewHeader, VirtualList } from '@gitbutler/ui';
+	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -75,9 +75,9 @@
 			{startIndex}
 			grow
 			items={changes}
-			defaultHeight={300}
+			defaultHeight={140}
 			visibility="scroll"
-			renderDistance={300}
+			renderDistance={100}
 		>
 			{#snippet template(change, index)}
 				{@const diffQuery = diffService.getDiff(projectId, change)}
@@ -121,7 +121,9 @@
 							/>
 						{/snippet}
 						{#snippet loading()}
-							<div style="height: 300px">loading</div>
+							<div class="loading">
+								<HunkDiffSkeleton />
+							</div>
 						{/snippet}
 					</ReduxResult>
 				</Drawer>
@@ -135,6 +137,7 @@
 <style>
 	.multi-diff-view {
 		display: flex;
+		position: relative;
 		flex-grow: 1;
 		width: 100%;
 		height: 100%;
@@ -162,5 +165,10 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-s);
+	}
+
+	.loading {
+		height: 130px;
+		padding: 12px;
 	}
 </style>
