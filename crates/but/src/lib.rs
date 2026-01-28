@@ -269,7 +269,16 @@ async fn match_subcommand(
 
             let ctx = but_ctx::Context::discover(&args.current_dir);
             let mut ctx = if needs_repo { Some(ctx?) } else { ctx.ok() };
-            command::skill::handle(ctx.as_mut(), out, cmd).emit_metrics(metrics_ctx)
+            let result = command::skill::handle(ctx.as_mut(), out, cmd);
+
+            // Handle user cancellation gracefully (exit 0 instead of error)
+            if let Err(ref e) = result
+                && e.downcast_ref::<command::skill::UserCancelled>().is_some()
+            {
+                return Ok(());
+            }
+
+            result.emit_metrics(metrics_ctx)
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             cfg_if! {

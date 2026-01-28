@@ -5,6 +5,18 @@ use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 use std::{fmt::Write as _, path::PathBuf};
 
+/// Error type for user-initiated cancellation
+#[derive(Debug, Clone, Copy)]
+pub struct UserCancelled;
+
+impl std::fmt::Display for UserCancelled {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Installation cancelled by user")
+    }
+}
+
+impl std::error::Error for UserCancelled {}
+
 // Embedded skill files
 const SKILL_MD: &[u8] = include_bytes!("../../skill/SKILL.md");
 const CONCEPTS_MD: &[u8] = include_bytes!("../../skill/references/concepts.md");
@@ -319,8 +331,7 @@ fn prompt_for_install_path(
         Err(_) => {
             // User cancelled the prompt (e.g., pressed Escape)
             writeln!(progress)?;
-            writeln!(progress, "Installation cancelled.")?;
-            std::process::exit(0);
+            return Err(UserCancelled.into());
         }
     };
 
