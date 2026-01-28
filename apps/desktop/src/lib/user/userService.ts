@@ -81,12 +81,17 @@ export class UserService {
 	}
 
 	async setUserAccessToken(token: string) {
-		const user = await this.httpClient.get<User>('login/whoami', {
-			headers: {
-				'X-Auth-Token': token
-			}
-		});
-		await this.setUser(user);
+		try {
+			const user = await this.httpClient.get<User>('login/whoami', {
+				headers: {
+					'X-Auth-Token': token
+				}
+			});
+			await this.setUser(user);
+		} catch (error) {
+			console.error('Error setting user access token', error);
+			showError('Error occurred while logging in', error);
+		}
 	}
 
 	async forgetUserCredentials() {
