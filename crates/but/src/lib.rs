@@ -320,9 +320,6 @@ async fn match_subcommand(
                 claude::Subcommands::Stop => but_claude::hooks::handle_stop(std::io::stdin().lock())
                     .output_claude_json()
                     .emit_metrics(metrics_ctx),
-                claude::Subcommands::PermissionPromptMcp { session_id } => {
-                    but_claude::mcp::start(&args.current_dir, &session_id).await
-                }
                 claude::Subcommands::Last { offset } => {
                     let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
                     let message = but_claude::db::get_user_message(&ctx, Some(offset as i64))?;

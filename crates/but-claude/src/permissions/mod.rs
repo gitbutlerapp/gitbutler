@@ -481,20 +481,20 @@ mod test {
 
         #[test]
         fn mcp_server_pattern() {
-            let pattern = McpPattern::new("mcp__but-security".to_string());
+            let pattern = McpPattern::new("mcp__example-server".to_string());
             let perm = Permission::Mcp(pattern);
             let ctx = create_test_context(false);
 
-            assert_eq!(perm.serialize(&ctx).unwrap(), "mcp__but-security");
+            assert_eq!(perm.serialize(&ctx).unwrap(), "mcp__example-server");
         }
 
         #[test]
         fn mcp_tool_pattern() {
-            let pattern = McpPattern::new("mcp__but-security__approval_prompt".to_string());
+            let pattern = McpPattern::new("mcp__example-server__some_tool".to_string());
             let perm = Permission::Mcp(pattern);
             let ctx = create_test_context(false);
 
-            assert_eq!(perm.serialize(&ctx).unwrap(), "mcp__but-security__approval_prompt");
+            assert_eq!(perm.serialize(&ctx).unwrap(), "mcp__example-server__some_tool");
         }
     }
 

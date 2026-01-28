@@ -11,7 +11,6 @@ bitflags! {
         const Workflows = 1 << 1;
         const Assignments = 1 << 2;
         const Rules = 1 << 3;
-        const ClaudePermissionRequests = 1 << 4;
     }
 }
 
@@ -38,7 +37,6 @@ impl DbHandle {
                 let mut prev_workflows = Vec::new();
                 let mut prev_actions = Vec::new();
                 let mut prev_rules = Vec::new();
-                let mut prev_claude_requests = Vec::new();
                 'outer: loop {
                     std::thread::sleep(interval);
                     for to_check in ItemKind::all().iter() {
@@ -94,19 +92,6 @@ impl DbHandle {
                                 }
                                 Err(e) => tx.send(Err(e)),
                             }
-                        } else if kind & to_check == ItemKind::ClaudePermissionRequests {
-                            let res = db.claude().list_permission_requests();
-                            match res {
-                                Ok(items) => {
-                                    if items != prev_claude_requests {
-                                        prev_claude_requests = items;
-                                        tx.send(Ok(ItemKind::ClaudePermissionRequests))
-                                    } else {
-                                        continue;
-                                    }
-                                }
-                                Err(e) => tx.send(Err(e)),
-                            }
                         } else {
                             eprintln!("BUG: didn't implement a branch for {to_check:?}");
                             break 'outer;
@@ -141,7 +126,6 @@ impl DbHandle {
             let mut prev_workflows = Vec::new();
             let mut prev_actions = Vec::new();
             let mut prev_rules = Vec::new();
-            let mut prev_claude_requests = Vec::new();
             let mut ticker = tokio::time::interval(interval);
             loop {
                 ticker.tick().await;
@@ -198,19 +182,6 @@ impl DbHandle {
                             }
                             Err(e) => tx.send(Err(e.into())).await,
                         }
-                    } else if kind & to_check == ItemKind::ClaudePermissionRequests {
-                        let res = this.claude().list_permission_requests();
-                        match res {
-                            Ok(items) => {
-                                if items != prev_claude_requests {
-                                    prev_claude_requests = items;
-                                    tx.send(Ok(ItemKind::ClaudePermissionRequests)).await
-                                } else {
-                                    continue;
-                                }
-                            }
-                            Err(e) => tx.send(Err(e.into())).await,
-                        }
                     } else {
                         eprintln!("BUG: didn't implement a branch for {to_check:?}");
                         return;
@@ -245,11 +216,7 @@ pub fn watch_in_background(
     send_event: impl Fn(ItemKind) -> anyhow::Result<()> + Send + Sync + 'static,
 ) -> anyhow::Result<DBWatcherHandle, anyhow::Error> {
     let mut rx = db.poll_changes_async(
-        ItemKind::Actions
-            | ItemKind::Workflows
-            | ItemKind::Assignments
-            | ItemKind::Rules
-            | ItemKind::ClaudePermissionRequests,
+        ItemKind::Actions | ItemKind::Workflows | ItemKind::Assignments | ItemKind::Rules,
         std::time::Duration::from_millis(500),
     )?;
 

@@ -117,7 +117,7 @@ impl Subcommands {
                 claude::Subcommands::PreTool => ClaudePreTool,
                 claude::Subcommands::PostTool => ClaudePostTool,
                 claude::Subcommands::Stop => ClaudeStop,
-                claude::Subcommands::Last { .. } | claude::Subcommands::PermissionPromptMcp { .. } => Unknown,
+                claude::Subcommands::Last { .. } => Unknown,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {

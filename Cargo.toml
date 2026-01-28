@@ -203,7 +203,7 @@ git2 = { version = "0.20.4", features = [
     "vendored-openssl",
     "vendored-libgit2",
 ] }
-uuid = { version = "1.18.1", features = ["v4", "serde"] }
+uuid = { version = "1.20", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive", "std"] }
 serde_json = "1.0.148"
 thiserror = "2.0.17"

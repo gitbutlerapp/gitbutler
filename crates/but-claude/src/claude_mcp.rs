@@ -3,38 +3,37 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use but_action::cli::get_cli_path;
+use claude_agent_sdk_rs::{McpServerConfig, McpServers, types::mcp::McpStdioServerConfig};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::claude_settings::ClaudeSettings;
 
-/// Represents the MCP-relevant parts of Claude Json
+/// Represents the MCP-relevant parts of ~/.claude.json
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ClaudeJson {
+struct ClaudeJson {
     projects: Option<HashMap<String, Project>>,
-    mcp_servers: Option<McpServers>,
+    mcp_servers: Option<McpServerMap>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 struct Project {
-    mcp_servers: Option<McpServers>,
+    mcp_servers: Option<McpServerMap>,
 }
 
-/// Represents an Mcp Config.
-///
-/// This is the expected file format of a `.mcp.json`. It is also the format that
-/// CC expects to be given when using the `--mcp-config` command.
+/// MCP config format for .mcp.json files and API responses.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct McpConfig {
-    pub mcp_servers: McpServers,
+    pub mcp_servers: McpServerMap,
 }
 
-type McpServers = HashMap<String, McpServer>;
+/// Map of server name to server configuration.
+pub type McpServerMap = HashMap<String, McpServer>;
 
+/// MCP server configuration as stored in JSON config files.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServer {
@@ -60,8 +59,6 @@ pub struct ClaudeMcpConfig {
     mcp_json: Option<McpConfig>,
 }
 
-pub const BUT_SECURITY_MCP: &str = "but-security";
-
 impl ClaudeMcpConfig {
     pub async fn open(settings: &ClaudeSettings, project_path: &Path) -> Self {
         Self {
@@ -72,13 +69,35 @@ impl ClaudeMcpConfig {
         }
     }
 
+    /// Returns all MCP servers as a JSON-serializable config (for API/UI).
     pub fn mcp_servers(&self) -> McpConfig {
-        let mut out = McpConfig {
-            mcp_servers: HashMap::new(),
-        };
+        McpConfig {
+            mcp_servers: self.collect_servers(),
+        }
+    }
 
+    /// Returns MCP servers in SDK format, ready to pass to the Claude agent.
+    ///
+    /// Only stdio-based MCP servers are supported by the SDK.
+    pub fn mcp_servers_for_sdk(&self, disabled_servers: &[&str]) -> McpServers {
+        let mut servers = self.collect_servers();
+
+        // Filter out disabled servers
+        for server in disabled_servers {
+            servers.remove(*server);
+        }
+
+        convert_to_sdk_format(servers)
+    }
+
+    /// Collects servers from all sources, applying settings filters.
+    fn collect_servers(&self) -> McpServerMap {
+        let mut servers: McpServerMap = HashMap::new();
+
+        // Collect from ~/.claude.json
         if let Some(claude_json) = &self.claude_json {
-            let servers = claude_json
+            // Project-specific servers
+            let project_servers = claude_json
                 .projects
                 .as_ref()
                 .and_then(|projects| {
@@ -87,56 +106,67 @@ impl ClaudeMcpConfig {
                 })
                 .and_then(|project| project.mcp_servers);
 
-            if let Some(servers) = servers {
-                for (k, v) in servers {
-                    out.mcp_servers.insert(k, v);
+            if let Some(project_servers) = project_servers {
+                for (k, v) in project_servers {
+                    servers.insert(k, v);
                 }
             }
 
-            if let Some(servers) = &claude_json.mcp_servers {
-                for (k, v) in servers {
-                    out.mcp_servers.insert(k.clone(), v.clone());
+            // Global servers
+            if let Some(global_servers) = &claude_json.mcp_servers {
+                for (k, v) in global_servers {
+                    servers.insert(k.clone(), v.clone());
                 }
             }
         }
 
+        // Collect from .mcp.json (filtered by settings)
         let all_enabled = self.settings.enable_all_project_mcp_servers();
         let enabled = self.settings.enabled_project_mcp_servers();
 
         if let Some(mcp_json) = &self.mcp_json {
             for (k, v) in &mcp_json.mcp_servers {
                 if all_enabled || enabled.contains(k) {
-                    out.mcp_servers.insert(k.clone(), v.clone());
+                    servers.insert(k.clone(), v.clone());
                 }
             }
         }
 
-        out
+        servers
+    }
+}
+
+/// Converts MCP server configs to SDK format.
+/// Only stdio-based servers are supported; others are logged and skipped.
+fn convert_to_sdk_format(servers: McpServerMap) -> McpServers {
+    let mut sdk_servers = HashMap::new();
+
+    for (name, server) in servers {
+        // Check if this is a stdio server (has command, and type is either "stdio" or unset)
+        let is_stdio = server.command.is_some() && server.r#type.as_ref().is_none_or(|t| t == "stdio" || t.is_empty());
+
+        if is_stdio {
+            if let Some(command) = server.command {
+                sdk_servers.insert(
+                    name,
+                    McpServerConfig::Stdio(McpStdioServerConfig {
+                        command,
+                        args: server.args,
+                        env: server.env,
+                    }),
+                );
+            }
+        } else {
+            let server_type = server.r#type.as_deref().unwrap_or("unknown");
+            tracing::warn!(
+                "MCP server '{}' has unsupported type '{}' (only stdio supported)",
+                name,
+                server_type
+            );
+        }
     }
 
-    pub fn mcp_servers_with_security(&self, current_session_id: uuid::Uuid) -> McpConfig {
-        let cli_path = get_cli_path()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or("but".into());
-        let mut out = self.mcp_servers();
-        out.mcp_servers.insert(
-            BUT_SECURITY_MCP.to_owned(),
-            McpServer {
-                r#type: Some("stdio".to_owned()),
-                command: Some(cli_path),
-                url: None,
-                args: Some(vec![
-                    "claude".to_owned(),
-                    "permission-prompt-mcp".to_owned(),
-                    "--session-id".to_owned(),
-                    current_session_id.to_string(),
-                ]),
-                env: Some(HashMap::new()),
-                headers: None,
-            },
-        );
-        out
-    }
+    McpServers::Dict(sdk_servers)
 }
 
 async fn read_claude_json() -> Option<ClaudeJson> {
@@ -152,15 +182,4 @@ async fn read_mcp_json(project_path: &Path) -> Option<McpConfig> {
     let string = fs::read_to_string(&path).await.ok()?;
     let out = serde_json_lenient::from_str(&string).ok()?;
     Some(out)
-}
-
-impl McpConfig {
-    #[allow(unused)]
-    pub(crate) fn exclude(&self, to_exclude: &[&str]) -> Self {
-        let mut out = self.clone();
-        for server in to_exclude {
-            out.mcp_servers.remove(*server);
-        }
-        out
-    }
 }
