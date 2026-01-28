@@ -56,7 +56,7 @@ fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStat
     } else {
         writeln!(
             writer,
-            "{} A new version is available: {} {} {}",
+            "{} A new version is available: {} {} {}. Install it with 'but update install'",
             "→".yellow().bold(),
             env!("CARGO_PKG_VERSION").dimmed(),
             "→".dimmed(),
