@@ -1,6 +1,9 @@
 //! Perform the actual rebase operations
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    fmt::Write as _,
+};
 
 use anyhow::{Context, Result, bail};
 use gix::refs::{
@@ -87,10 +90,20 @@ impl Editor {
 
                             new_idx
                         }
-                        CherryPickOutcome::FailedToMergeBases => {
+                        CherryPickOutcome::FailedToMergeBases {
+                            base_merge_failed,
+                            bases,
+                            onto_merge_failed,
+                            ontos,
+                        } => {
                             // Exit early - the rebase failed because it encountered a commit it couldn't pick
-                            // TODO(CTO): Detect if this was the merge commit itself & signal that seperatly
-                            bail!("Failed to merge bases for commit {}", pick.id);
+                            bail!(format_base_merge_error(
+                                pick.id,
+                                base_merge_failed,
+                                bases,
+                                onto_merge_failed,
+                                ontos
+                            ));
                         }
                     }
                 }
@@ -310,6 +323,52 @@ fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<
     }
 
     ordered
+}
+
+fn format_base_merge_error(
+    target: gix::ObjectId,
+    base_merge_failed: bool,
+    bases: Option<Vec<gix::ObjectId>>,
+    onto_merge_failed: bool,
+    ontos: Option<Vec<gix::ObjectId>>,
+) -> String {
+    fn fmt_side(out: &mut String, kind: &str, failed: bool, shas: Option<Vec<gix::ObjectId>>) {
+        if failed {
+            if let Some(shas) = shas {
+                writeln!(
+                    out,
+                    "Encountered a conflict while merging the commit's {kind}: {}.",
+                    shas.iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+                .ok();
+            } else {
+                writeln!(
+                    out,
+                    "Encountered a conflict while merging the commit's {kind}."
+                )
+                .ok();
+            }
+        }
+    }
+
+    let mut out = "".to_string();
+    writeln!(
+        &mut out,
+        "Failed to merge bases while cherry picking commit {}.",
+        target
+    )
+    .ok();
+    fmt_side(&mut out, "original bases", base_merge_failed, bases);
+    fmt_side(&mut out, "new bases", onto_merge_failed, ontos);
+    writeln!(
+        &mut out,
+        "Any ids mentioned may be in-memory and inaccessible through the git CLI."
+    )
+    .ok();
+    out
 }
 
 #[cfg(test)]

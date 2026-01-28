@@ -196,7 +196,19 @@ fn single_parent_to_multiple_parents_parents_conflict() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @"FailedToMergeBases");
+    insta::assert_debug_snapshot!(result, @r"
+    FailedToMergeBases {
+        base_merge_failed: false,
+        bases: None,
+        onto_merge_failed: true,
+        ontos: Some(
+            [
+                Sha1(cc8998caa25bc039884eb893ec89b4880c6bd232),
+                Sha1(16cfd2c3707e064337a80ba66fc0f6d2171d6ddb),
+            ],
+        ),
+    }
+    ");
 
     Ok(())
 }
@@ -291,7 +303,19 @@ fn multiple_parents_to_single_parent_parents_conflict() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto], true)?;
 
-    insta::assert_debug_snapshot!(result, @"FailedToMergeBases");
+    insta::assert_debug_snapshot!(result, @r"
+    FailedToMergeBases {
+        base_merge_failed: true,
+        bases: Some(
+            [
+                Sha1(5183ac6942d0fc2fc0cca84e1a8ad06370f2952c),
+                Sha1(a3e84fbc36af1f7f48f9b8e3c61f71db360d6b7c),
+            ],
+        ),
+        onto_merge_failed: false,
+        ontos: None,
+    }
+    ");
 
     Ok(())
 }
@@ -392,7 +416,19 @@ fn multiple_parents_to_multiple_parents_base_parents_conflict() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @"FailedToMergeBases");
+    insta::assert_debug_snapshot!(result, @r"
+    FailedToMergeBases {
+        base_merge_failed: true,
+        bases: Some(
+            [
+                Sha1(5183ac6942d0fc2fc0cca84e1a8ad06370f2952c),
+                Sha1(a3e84fbc36af1f7f48f9b8e3c61f71db360d6b7c),
+            ],
+        ),
+        onto_merge_failed: false,
+        ontos: None,
+    }
+    ");
 
     Ok(())
 }
@@ -407,7 +443,19 @@ fn multiple_parents_to_multiple_parents_target_parents_conflict() -> Result<()> 
 
     let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @"FailedToMergeBases");
+    insta::assert_debug_snapshot!(result, @r"
+    FailedToMergeBases {
+        base_merge_failed: false,
+        bases: None,
+        onto_merge_failed: true,
+        ontos: Some(
+            [
+                Sha1(cc8998caa25bc039884eb893ec89b4880c6bd232),
+                Sha1(16cfd2c3707e064337a80ba66fc0f6d2171d6ddb),
+            ],
+        ),
+    }
+    ");
 
     Ok(())
 }
