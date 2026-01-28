@@ -24,7 +24,7 @@ use crate::{
 };
 
 /// A workspace reference is a list of [Stacks](Stack), with a reference to the underlying [`Graph`].
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Workspace {
     /// The underlying graph for providing simplified access to data.
     pub graph: Graph,
@@ -292,7 +292,7 @@ impl Workspace {
 }
 
 /// A classifier for the workspace.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WorkspaceKind {
     /// The `HEAD` is pointing to a dedicated workspace reference, like `refs/heads/gitbutler/workspace`.
     /// This also means that we have a workspace commit that `ref_name` points to directly, which is also owned
@@ -349,7 +349,7 @@ impl WorkspaceKind {
 }
 
 /// Information about the target reference.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TargetRef {
     /// The name of the target branch, i.e. the branch that all [Stacks](Stack) want to get merged into.
     /// Typically, this is `refs/remotes/origin/main`.
@@ -361,7 +361,7 @@ pub struct TargetRef {
 }
 
 /// Information about the target commit.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TargetCommit {
     /// The hash of the commit that was once included in the [target ref](TargetRef), and that we remember to expand
     /// the reach of the workspace.

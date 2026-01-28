@@ -240,6 +240,27 @@ pub struct Graph {
     /// Public to be able to change it before calling [Graph::redo_traversal_with_overlay()].
     pub options: init::Options,
 }
+impl PartialEq for Graph {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner.node_count() == other.inner.node_count()
+            && self.inner.edge_count() == other.inner.edge_count()
+            && self
+                .inner
+                .node_indices()
+                .all(|nidx| self.inner[nidx] == other.inner[nidx])
+            && self
+                .inner
+                .edge_indices()
+                .all(|eidx| self.inner[eidx] == other.inner[eidx])
+            && self.entrypoint == other.entrypoint
+            && self.entrypoint_ref == other.entrypoint_ref
+            && self.extra_target == other.extra_target
+            && self.hard_limit_hit == other.hard_limit_hit
+            && self.options == other.options
+    }
+}
+
+impl Eq for Graph {}
 
 /// A resolved entry point into the graph for easy access to the segment, commit,
 /// and the respective indices for later traversal.
@@ -264,7 +285,7 @@ pub struct EntryPoint<'graph> {
 /// doesn't yet have a commit.
 /// The idea is to write code that keeps edge information consistent, and our visualization tools highlights
 /// issues with the inherent invariants.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Edge {
     /// `None` if the source segment has no commit.
     src: Option<CommitIndex>,

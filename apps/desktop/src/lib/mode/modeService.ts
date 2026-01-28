@@ -86,6 +86,10 @@ export class ModeService {
 			{ transform: (response) => response.headSha }
 		);
 	}
+
+	workspaceUpdates(projectId: string) {
+		return this.api.endpoints.workspaceUpdates.useQuery({ projectId });
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -182,6 +186,27 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						`project://${arg.projectId}/git/activity`,
 						(event) => {
 							lifecycleApi.updateCachedData(() => event.payload);
+						}
+					);
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				}
+			}),
+			workspaceUpdates: build.query<string, { projectId: string }>({
+				queryFn: () => {
+					const now = new Date().toISOString();
+					return { data: now };
+				},
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Backend not found!');
+					}
+					await lifecycleApi.cacheDataLoaded;
+					const unsubscribe = lifecycleApi.extra.backend.listen(
+						`project://${arg.projectId}/workspace_changes`,
+						() => {
+							const now = new Date().toISOString();
+							lifecycleApi.updateCachedData(() => now);
 						}
 					);
 					await lifecycleApi.cacheEntryRemoved;

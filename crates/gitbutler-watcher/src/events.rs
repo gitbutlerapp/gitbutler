@@ -19,4 +19,7 @@ pub enum Change {
         project_id: ProjectId,
         changes: but_hunk_assignment::WorktreeChanges,
     },
+    WorkspaceChanges {
+        project_id: ProjectId,
+    },
 }

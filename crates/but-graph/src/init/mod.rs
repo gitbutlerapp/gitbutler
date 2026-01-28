@@ -41,7 +41,7 @@ pub struct Overlay {
 pub(super) type PetGraph = petgraph::stable_graph::StableGraph<Segment, Edge>;
 
 /// Options for use in [`Graph::from_head()`] and [`Graph::from_commit_traversal()`].
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Options {
     /// Associate tag references with commits.
     ///

@@ -206,8 +206,12 @@
 	// FEED & UPDATES MANAGEMENT
 	// =============================================================================
 
-	const headResponse = $derived(modeService.head(projectId));
+	const headResponse = $derived(modeService.workspaceUpdates(projectId));
 	const head = $derived(headResponse.response);
+	const debouncedInvalidateStacks = debounce((value: string) => {
+		console.log('Head changed, invalidating stacks and details', value);
+		stackService.invalidateStacksAndDetails();
+	}, 300);
 
 	// If the head changes, invalidate stacks and details
 	// We need to track the previous head value to avoid infinite loops
@@ -216,7 +220,7 @@
 		if (head && head !== previousHead) {
 			untrack(() => {
 				previousHead = head;
-				stackService.invalidateStacksAndDetails();
+				debouncedInvalidateStacks(head);
 			});
 		}
 	});

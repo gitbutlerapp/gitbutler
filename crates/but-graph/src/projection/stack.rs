@@ -8,7 +8,7 @@ use petgraph::Direction;
 use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata, init::PetGraph};
 
 /// A list of segments that together represent a list of dependent branches, stacked on top of each other.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Stack {
     /// If the stack belongs to a managed workspace, the `id` will be set and persist.
     /// Otherwise, it is `None`.
@@ -143,7 +143,7 @@ impl std::fmt::Debug for Stack {
 /// As it stands, we may 'doctor' the `ref_name`, `remote_tracking_ref_name` and `metadata` *if* `commits_outside` is not
 /// `None`. This is to help with visualisation, but makes this data much less usable in algorithms, at least if
 /// these fields are significant.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct StackSegment {
     /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit,
     /// along with its worktree information.
