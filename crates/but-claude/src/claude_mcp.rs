@@ -39,17 +39,17 @@ type McpServers = HashMap<String, McpServer>;
 #[serde(rename_all = "camelCase")]
 pub struct McpServer {
     #[serde(skip_serializing_if = "Option::is_none")]
-    r#type: Option<String>,
+    pub r#type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    command: Option<String>,
+    pub command: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    url: Option<String>,
+    pub url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    args: Option<Vec<String>>,
+    pub args: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    env: Option<HashMap<String, String>>,
+    pub env: Option<HashMap<String, String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    headers: Option<HashMap<String, String>>,
+    pub headers: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone)]

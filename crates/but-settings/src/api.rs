@@ -32,6 +32,7 @@ pub struct ClaudeUpdate {
     pub dangerously_allow_all_permissions: Option<bool>,
     pub auto_commit_after_completion: Option<bool>,
     pub use_configured_model: Option<bool>,
+    pub use_rust_sdk: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -128,6 +129,9 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(use_configured_model) = update.use_configured_model {
             settings.claude.use_configured_model = use_configured_model;
+        }
+        if let Some(use_rust_sdk) = update.use_rust_sdk {
+            settings.claude.use_rust_sdk = use_rust_sdk;
         }
         settings.save()
     }

@@ -62,7 +62,9 @@
 		// Whether to automatically commit changes and rename branches after completion.
 		"autoCommitAfterCompletion": true,
 		// Whether to use the configured model in .claude/settings.json instead of passing --model.
-		"useConfiguredModel": false
+		"useConfiguredModel": false,
+		// Whether to use the Rust SDK instead of spawning the Claude binary.
+		"useRustSdk": false
 	},
 	// Settings related to code reviews and pull requests.
 	"reviews": {
