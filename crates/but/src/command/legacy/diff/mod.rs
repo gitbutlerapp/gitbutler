@@ -1,4 +1,5 @@
 use but_ctx::Context;
+use serde::Serialize;
 
 use crate::{CliId, IdMap, command::legacy::diff::show::Filter, utils::OutputChannel};
 
@@ -38,4 +39,48 @@ pub fn handle(
     } else {
         show::worktree(id_map, out, None)
     }
+}
+
+// JSON output structures
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonDiffOutput {
+    changes: Vec<JsonChange>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonChange {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
+    path: String,
+    status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    old_path: Option<String>,
+    diff: JsonDiff,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+enum JsonDiff {
+    Binary,
+    TooLarge {
+        size_in_bytes: u64,
+    },
+    Patch {
+        hunks: Vec<JsonHunk>,
+        #[serde(skip_serializing_if = "std::ops::Not::not")]
+        is_binary_to_text: bool,
+    },
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonHunk {
+    old_start: u32,
+    old_lines: u32,
+    new_start: u32,
+    new_lines: u32,
+    diff: String,
 }
