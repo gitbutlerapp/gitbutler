@@ -77,9 +77,14 @@ For detailed command syntax and all available options, see [references/reference
 
 **Understanding state:**
 
-- `but status --json [-f]` - Overview (START HERE, always use --json for agents, add -f to include file lists)
+- `but status --json` - Overview (START HERE, always use --json for agents)
+- `but status --json -f` - Overview with full file lists (use when you need to see all changed files)
 - `but show <id> --json` - Details about commit/branch
 - `but diff <id>` - Show diff
+
+**Flags explanation:**
+- `--json` - Output structured JSON instead of human-readable text (always use for agents)
+- `-f` - Include detailed file lists in status output (combines with --json: `but status --json -f`)
 
 **Organizing work:**
 
