@@ -134,12 +134,28 @@ function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
 
 	markDeepLinkUrlAsProcessed(url);
 
-	switch (topLevel) {
+	handleTopLevel(topLevel, params, handlers);
+}
+
+function handleTopLevel(
+	path: DeepLinkTopLevelPath,
+	params: URLSearchParams,
+	handlers: DeepLinkHandlers
+): true {
+	switch (path) {
 		case 'open': {
-			const path = params.get('path');
-			if (path) {
-				handlers.open(path);
+			const filePath = params.get('path');
+			if (filePath) {
+				handlers.open(filePath);
 			}
+			return true;
+		}
+		case 'login': {
+			const accessToken = params.get('access_token');
+			if (accessToken) {
+				handlers.login(accessToken);
+			}
+			return true;
 		}
 	}
 }
@@ -147,7 +163,7 @@ function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
 const DEEP_LINK_SCHMES = ['but', 'but-dev', 'but-nightly'] as const;
 type DeepLinkScheme = (typeof DEEP_LINK_SCHMES)[number];
 
-const DEEP_LINK_TOP_LEVEL_PATHS = ['open'] as const;
+const DEEP_LINK_TOP_LEVEL_PATHS = ['open', 'login'] as const;
 type DeepLinkTopLevelPath = (typeof DEEP_LINK_TOP_LEVEL_PATHS)[number];
 
 type DeepLinkUrl = `${DeepLinkScheme}://${DeepLinkTopLevelPath}${string}`;
