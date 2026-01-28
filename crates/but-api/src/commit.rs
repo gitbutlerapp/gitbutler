@@ -183,7 +183,7 @@ pub fn commit_move_changes_between_only(
         source_commit_id.into(),
         destination_commit_id.into(),
         changes,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
     )?;
     let materialized = outcome.rebase.materialize()?;
     let new_source_commit_id = materialized.lookup_pick(outcome.source_selector)?;
@@ -248,12 +248,13 @@ pub fn commit_uncommit_changes_only(
 
     let before_assignments = if assign_to.is_some() {
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            ctx,
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
             &repo,
             &workspace,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
+            ctx.settings.context_lines,
         )?;
         Some(assignments)
     } else {
@@ -264,7 +265,7 @@ pub fn commit_uncommit_changes_only(
         editor,
         commit_id.into(),
         changes,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
     )?;
 
     let materialized = outcome.rebase.materialize_without_checkout()?;
@@ -277,12 +278,13 @@ pub fn commit_uncommit_changes_only(
         (before_assignments, assign_to, workspace)
     {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            ctx,
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
             &repo,
             &workspace,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
+            ctx.settings.context_lines,
         )?;
 
         let before_ids: HashSet<_> = before_assignments
@@ -300,7 +302,14 @@ pub fn commit_uncommit_changes_only(
             })
             .collect();
 
-        but_hunk_assignment::assign(ctx, &repo, &workspace, to_assign, None)?;
+        but_hunk_assignment::assign(
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            &repo,
+            &workspace,
+            to_assign,
+            None,
+            ctx.settings.context_lines,
+        )?;
     }
 
     Ok(json::UIMoveChangesResult {

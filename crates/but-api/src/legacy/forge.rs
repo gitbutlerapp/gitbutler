@@ -2,7 +2,7 @@
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::RepositoryExt;
-use but_ctx::Context;
+use but_ctx::{Context, ThreadSafeContext};
 use but_forge::{
     ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions,
 };
@@ -22,17 +22,15 @@ pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<Strin
 /// Get the list of review template paths for the given project.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn list_available_review_templates(project_id: ProjectId) -> Result<Vec<String>> {
-    let project = gitbutler_project::get_validated(project_id)?;
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+pub fn list_available_review_templates(ctx: &Context) -> Result<Vec<String>> {
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
     let forge = &base_branch
         .forge_repo_info
         .as_ref()
         .context("No forge could be determined for this repository branch")?
         .forge;
 
-    Ok(available_review_templates(project.worktree_dir()?, forge))
+    Ok(available_review_templates(&ctx.workdir_or_gitdir()?, forge))
 }
 
 /// (Deprecated) Get the PR template content for the given project and relative path.
@@ -82,8 +80,8 @@ mod json {
 /// from the git config.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn review_template(project_id: ProjectId) -> Result<Option<json::ReviewTemplateInfo>> {
-    let project = gitbutler_project::get_validated(project_id)?;
+pub fn review_template(ctx: &Context) -> Result<Option<json::ReviewTemplateInfo>> {
+    let project = gitbutler_project::get_validated(ctx.legacy_project.id)?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
     let forge = &base_branch
@@ -161,23 +159,22 @@ pub fn set_review_template(project_id: ProjectId, template_path: Option<String>)
 #[but_api]
 #[instrument(err(Debug))]
 pub fn list_reviews(
-    project_id: ProjectId,
+    ctx: &mut Context,
     cache_config: Option<but_forge::CacheConfig>,
 ) -> Result<Vec<but_forge::ForgeReview>> {
-    let mut ctx = Context::new_from_legacy_project_id(project_id)?;
-    let (storage, base_branch, project) = {
-        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let (storage, base_branch, preferred_forge_user) = {
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             base_branch,
-            ctx.legacy_project,
+            ctx.legacy_project.preferred_forge_user.clone(),
         )
     };
 
     let db = &mut *ctx.db.get_mut()?;
 
     but_forge::list_forge_reviews_with_cache(
-        project.preferred_forge_user,
+        preferred_forge_user,
         &base_branch
             .forge_repo_info
             .context("No forge could be determined for this repository branch")?,
@@ -217,20 +214,20 @@ pub fn list_ci_checks_and_update_cache(
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn publish_review(
-    project_id: ProjectId,
+    ctx: ThreadSafeContext,
     params: but_forge::CreateForgeReviewParams,
 ) -> Result<but_forge::ForgeReview> {
-    let (storage, base_branch, project) = {
-        let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let (storage, base_branch, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             base_branch,
-            ctx.legacy_project,
+            ctx.legacy_project.preferred_forge_user.clone(),
         )
     };
     but_forge::create_forge_review(
-        &project.preferred_forge_user,
+        &preferred_forge_user,
         &base_branch
             .forge_repo_info
             .context("No forge could be determined for this repository branch")?,
@@ -275,11 +272,9 @@ pub async fn list_reviews_for_branch(
 /// part of any applied stack.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn warm_ci_checks_cache(project_id: ProjectId) -> Result<()> {
-    let mut ctx = Context::new_from_legacy_project_id(project_id)?;
-
+pub fn warm_ci_checks_cache(ctx: &mut Context) -> Result<()> {
     // Get all stacks
-    let stacks = crate::legacy::workspace::stacks(project_id, None)?;
+    let stacks = crate::legacy::workspace::stacks(ctx, None)?;
 
     // Collect branch references that have CI checks cached
     let mut current_refs = std::collections::HashSet::new();
@@ -287,14 +282,14 @@ pub fn warm_ci_checks_cache(project_id: ProjectId) -> Result<()> {
     // For each stack, get details and check branches
     for stack in stacks {
         if let Some(stack_id) = stack.id {
-            let details = crate::legacy::workspace::stack_details(project_id, Some(stack_id))?;
+            let details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
 
             // Process each branch that has a PR
             for branch in &details.branch_details {
                 if branch.pr_number.is_some() {
                     // Fetch CI checks with NoCache to force refresh
                     let _ = list_ci_checks_and_update_cache(
-                        &mut ctx,
+                        ctx,
                         branch.name.to_string(),
                         Some(but_forge::CacheConfig::NoCache),
                     );

@@ -132,12 +132,13 @@ pub mod assignment {
         let repo = ctx.repo.get()?.clone();
         let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            ctx,
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
             &repo,
             &workspace,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
+            ctx.settings.context_lines,
         )?;
         if use_json {
             let json = serde_json::to_string_pretty(&assignments)?;
@@ -159,8 +160,14 @@ pub mod assignment {
         let guard = ctx.exclusive_worktree_access();
         let repo = ctx.repo.get()?.clone();
         let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-        let rejections =
-            but_hunk_assignment::assign(ctx, &repo, &workspace, vec![assignment], None)?;
+        let rejections = but_hunk_assignment::assign(
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            &repo,
+            &workspace,
+            vec![assignment],
+            None,
+            ctx.settings.context_lines,
+        )?;
         if use_json {
             let json = serde_json::to_string_pretty(&rejections)?;
             println!("{json}");
@@ -563,9 +570,8 @@ pub fn remove_reference(
 }
 
 pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyhow::Result<()> {
-    let ctx = but_ctx::Context::discover(&args.current_dir)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    let (mut meta, ws) = ctx.workspace_and_meta_from_head(guard.write_permission())?;
+    let ctx = Context::discover(&args.current_dir)?;
+    let (_guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
     let repo = ctx.repo.get()?;
     let branch = repo.find_reference(short_name)?;
     let apply_outcome = but_workspace::branch::apply(

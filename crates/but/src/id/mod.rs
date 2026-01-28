@@ -364,12 +364,13 @@ impl IdMap {
                     let (_, workspace) =
                         ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
                     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-                        ctx,
+                        ctx.db.get_mut()?.hunk_assignments_mut()?,
                         &repo,
                         &workspace,
                         false,
                         Some(changes),
                         None,
+                        ctx.settings.context_lines,
                     )?;
                     assignments
                 } else {

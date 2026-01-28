@@ -54,7 +54,7 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
     // Get target branch
     cfg_if! {
         if #[cfg(feature = "legacy")] {
-            let target_branch = but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)?
+            let target_branch = but_api::legacy::virtual_branches::get_base_branch_data(ctx)?
                                     .map(|b| b.branch_name);
         } else {
             let target_branch = None::<String>;
@@ -645,8 +645,7 @@ async fn target_config(
         None => {
             #[cfg(feature = "legacy")]
             {
-                let target =
-                    but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)?;
+                let target = but_api::legacy::virtual_branches::get_base_branch_data(ctx)?;
 
                 if let Some(target_branch) = target {
                     if let Some(out) = out.for_human() {
@@ -674,9 +673,7 @@ async fn target_config(
         }
         Some(new_branch) => {
             // refuse to run if there are any applied branches. if so, ask user to unapply first.
-            let guard = ctx.exclusive_worktree_access();
-            let (_meta, ws) =
-                ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+            let (guard, ws) = ctx.workspace_from_head()?;
             if !ws.stacks.is_empty() {
                 // list the applied branches
                 if let Some(out) = out.for_human() {
@@ -726,8 +723,9 @@ async fn target_config(
             // from the new_branch string, we need to parse out the remote name and branch name
             cfg_if! {
                 if #[cfg(feature = "legacy")] {
+                    drop(guard);
                     but_api::legacy::virtual_branches::set_base_branch(
-                        ctx.legacy_project.id,
+                        ctx,
                         new_branch.clone(),
                         None,
                     )?;

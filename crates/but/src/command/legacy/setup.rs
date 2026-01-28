@@ -1,11 +1,10 @@
 use std::path::{self, Path};
 
-use but_core::RepositoryExt;
-use colored::Colorize;
-use gitbutler_project::Project;
-use serde::Serialize;
-
 use crate::utils::OutputChannel;
+use but_core::RepositoryExt;
+use but_ctx::Context;
+use colored::Colorize;
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -171,7 +170,8 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
     }
 
     // Check if target branch is set
-    let target = but_api::legacy::virtual_branches::get_base_branch_data(project.id)?;
+    let mut ctx = but_ctx::Context::from_repo(repo)?;
+    let target = but_api::legacy::virtual_branches::get_base_branch_data(&ctx)?;
 
     // If new or already exists but target is not set, set the target to be the remote's HEAD
     if (matches!(outcome, gitbutler_project::AddProjectOutcome::Added(_))
@@ -187,6 +187,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
             writeln!(out, "{}", "→ Configuring default target branch".dimmed())?;
         }
 
+        let repo = ctx.repo.get()?;
         let remote_name = match repo.remote_default_name(gix::remote::Direction::Push) {
             Some(name) => {
                 if let Some(out) = out.for_human() {
@@ -231,8 +232,9 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
             }
         };
 
+        drop(repo);
         but_api::legacy::virtual_branches::set_base_branch(
-            project.id,
+            &mut ctx,
             name.clone(),
             Some(remote_name.clone()),
         )?;
@@ -289,6 +291,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
     }
 
     // what branch is head() pointing to?
+    let repo = ctx.repo.get()?;
     let head = repo.head()?;
     let head_name = head
         .referent_name()
@@ -361,14 +364,13 @@ More info: https://docs.gitbutler.com/workspace-branch
 /// - if there is a remote
 /// - if there is a default target branch set
 /// - if we're on gitbutler/workspace
-pub fn check_project_setup(project: &Project) -> anyhow::Result<bool> {
-    let target = but_api::legacy::virtual_branches::get_base_branch_data(project.id)?;
+pub fn check_project_setup(ctx: &Context) -> anyhow::Result<bool> {
+    let target = but_api::legacy::virtual_branches::get_base_branch_data(ctx)?;
     if target.is_none() {
         anyhow::bail!("No default target branch set.");
     }
 
-    let repo = gix::open(project.worktree_dir()?)?;
-
+    let repo = ctx.repo.get()?;
     // check if there is a remote
     let _remote_name = match repo.remote_default_name(gix::remote::Direction::Push) {
         Some(name) => name.to_string(),

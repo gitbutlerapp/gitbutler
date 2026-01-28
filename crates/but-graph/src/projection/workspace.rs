@@ -466,7 +466,12 @@ impl Graph {
     /// that target as base. The same is true for [target commit ids](but_core::ref_metadata::Workspace::target_commit_id).
     /// This affects what we consider to be the part of the workspace.
     /// Typically, that's a previous location of the target segment.
-    #[instrument(level = "trace", skip(self), err(Debug))]
+    #[instrument(
+        name = "Graph::into_workspace",
+        level = "debug",
+        skip(self),
+        err(Debug)
+    )]
     pub fn into_workspace(self) -> anyhow::Result<Workspace> {
         let state = self.to_workspace_state(workspace::Downgrade::Allow)?;
         Ok(Workspace::from_state(self, state))

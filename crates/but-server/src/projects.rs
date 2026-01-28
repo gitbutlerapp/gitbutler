@@ -83,9 +83,7 @@ impl ActiveProjects {
                     },
                 };
 
-                println!("Sending event");
                 broadcaster.blocking_lock().send(frontend_event);
-                println!("Sent event");
                 Ok(())
             }
         });

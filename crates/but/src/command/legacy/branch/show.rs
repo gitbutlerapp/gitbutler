@@ -2,7 +2,6 @@ use but_ctx::Context;
 use but_llm::ChatMessage;
 use but_oxidize::OidExt;
 use colored::Colorize;
-use gitbutler_project::Project;
 use tracing::instrument;
 
 use super::list::load_id_map;
@@ -39,7 +38,7 @@ pub fn show(
     };
 
     // Get the list of commits ahead of base for this branch
-    let commits = get_commits_ahead(&ctx.legacy_project, &branch_name, show_files)?;
+    let commits = get_commits_ahead(ctx, &branch_name, show_files)?;
 
     // Get unassigned files for this branch
     let unassigned_files = get_unassigned_files(ctx, &branch_name)?;
@@ -47,7 +46,7 @@ pub fn show(
     // Get review information if requested
     let reviews = if review {
         crate::command::legacy::forge::review::get_review_map(
-            &ctx.legacy_project,
+            ctx,
             Some(but_forge::CacheConfig::CacheOnly),
         )?
         .get(&branch_name)
@@ -71,7 +70,7 @@ pub fn show(
 
     // Check merge conflicts if requested
     let merge_check = if check_merge {
-        Some(check_merge_conflicts(&ctx.legacy_project, &branch_name)?)
+        Some(check_merge_conflicts(ctx, &branch_name)?)
     } else {
         None
     };
@@ -123,18 +122,14 @@ struct CommitRef {
     timestamp: i64,
 }
 
-fn check_merge_conflicts(
-    project: &Project,
-    branch_name: &str,
-) -> Result<MergeCheck, anyhow::Error> {
+fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck, anyhow::Error> {
     use but_core::RepositoryExt;
 
-    let ctx = Context::new_from_legacy_project(project.clone())?;
     let git2_repo = &*ctx.git2_repo.get()?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     // Get the target (remote tracking branch like origin/master)
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
+    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
@@ -155,7 +150,7 @@ fn check_merge_conflicts(
     };
 
     // Find the branch by name
-    let branches = but_api::legacy::virtual_branches::list_branches(project.id, None)?;
+    let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     let branch = branches
         .iter()
         .find(|b| b.name.to_string() == branch_name)
@@ -307,17 +302,14 @@ fn find_commits_modifying_file(
 }
 
 fn get_commits_ahead(
-    project: &Project,
+    ctx: &Context,
     branch_name: &str,
     show_files: bool,
 ) -> Result<Vec<CommitInfo>, anyhow::Error> {
-    use but_ctx::Context;
-
-    let ctx = Context::new_from_legacy_project(project.clone())?;
     let repo = &*ctx.git2_repo.get()?;
 
     // Get the target (remote tracking branch like origin/master)
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
+    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
@@ -339,7 +331,7 @@ fn get_commits_ahead(
     };
 
     // Find the branch by name
-    let branches = but_api::legacy::virtual_branches::list_branches(project.id, None)?;
+    let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     let branch = branches
         .iter()
         .find(|b| b.name.to_string() == branch_name)
@@ -463,7 +455,7 @@ fn get_unassigned_files(
 
     // Find the stack that contains this branch
     let stacks = but_api::legacy::workspace::stacks(
-        ctx.legacy_project.id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 

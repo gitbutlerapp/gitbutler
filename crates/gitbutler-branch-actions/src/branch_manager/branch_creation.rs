@@ -111,7 +111,8 @@ impl BranchManager<'_> {
 
         // Assume that this is always about 'apply' and hijack the entire method.
         // That way we'd learn what's missing.
-        if self.ctx.settings().feature_flags.apply3 {
+        if self.ctx.settings.feature_flags.apply3 {
+            #[allow(deprecated)] // should have no need for this in modern code anymore
             let (mut meta, ws) = self.ctx.workspace_and_meta_from_head(perm)?;
             let repo = self.ctx.repo.get()?;
 
@@ -162,7 +163,7 @@ impl BranchManager<'_> {
                 conflicted_stack_short_names_for_display,
             ));
         }
-        let old_cwd = (!self.ctx.settings().feature_flags.cv3)
+        let old_cwd = (!self.ctx.settings.feature_flags.cv3)
             .then(|| {
                 self.ctx
                     .git2_repo

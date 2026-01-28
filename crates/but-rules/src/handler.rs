@@ -121,7 +121,7 @@ fn handle_amend(
             new_message: None,
         },
         changes,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
         guard.write_permission(),
     )?;
     Ok(())
@@ -191,12 +191,14 @@ fn handle_assign(
     deps: Option<&HunkDependencies>,
 ) -> anyhow::Result<usize> {
     let len = assignments.len();
+    let context_lines = ctx.settings.context_lines;
     if assign(
-        ctx,
+        ctx.db.get_mut()?.hunk_assignments_mut()?,
         repo,
         workspace,
         assignments_to_requests(assignments),
         deps,
+        context_lines,
     )
     .is_ok()
     {

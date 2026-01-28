@@ -68,7 +68,7 @@ pub fn get_base_branch_data(ctx: &Context) -> Result<BaseBranch> {
 #[instrument(skip(ctx), err(Debug))]
 fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<BaseBranch> {
     let gix_repo = ctx.clone_repo_for_merging()?;
-    if ctx.settings().feature_flags.cv3 {
+    if ctx.settings.feature_flags.cv3 {
         let workspace_commit_to_checkout =
             but_workspace::legacy::remerged_workspace_commit_v2(ctx)?;
         let tree_to_checkout_to_avoid_ref_update = gix_repo

@@ -124,7 +124,7 @@ impl Mcp {
 
         // Send notification for permission request
         if let Err(e) =
-            crate::notifications::notify_permission_request(ctx.settings(), &req.tool_name)
+            crate::notifications::notify_permission_request(&ctx.settings, &req.tool_name)
         {
             tracing::warn!("Failed to send permission request notification: {}", e);
         }

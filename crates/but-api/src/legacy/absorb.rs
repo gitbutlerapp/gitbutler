@@ -20,7 +20,6 @@ use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_project::{Project, ProjectId};
 use gitbutler_stack::StackId;
 use itertools::Itertools;
 
@@ -90,8 +89,6 @@ pub fn absorption_plan(
     ctx: &mut Context,
     target: AbsorptionTarget,
 ) -> anyhow::Result<Vec<CommitAbsorption>> {
-    let project_id = ctx.legacy_project.id;
-
     let assignments = match target {
         AbsorptionTarget::Branch { branch_name } => {
             // Get all worktree changes, assignments, and dependencies
@@ -101,7 +98,7 @@ pub fn absorption_plan(
             let all_assignments = worktree_changes.assignments;
 
             // Get the stack ID for this branch
-            let stacks = crate::legacy::workspace::stacks(project_id, None)?;
+            let stacks = crate::legacy::workspace::stacks(ctx, None)?;
 
             // Find the stack that contains this branch
             let stack = stacks
@@ -170,18 +167,17 @@ pub fn absorption_plan(
     let repo = ctx.repo.get()?;
 
     // Group all changes by their target commit
-    let changes_by_commit =
-        group_changes_by_target_commit(project_id, &graph, &repo, &assignments)?;
+    let changes_by_commit = group_changes_by_target_commit(ctx, &graph, &repo, &assignments)?;
 
     // Prepare commit absorptions for display
-    let commit_absorptions = prepare_commit_absorptions(&ctx.legacy_project, changes_by_commit)?;
+    let commit_absorptions = prepare_commit_absorptions(ctx, changes_by_commit)?;
 
     Ok(commit_absorptions)
 }
 
 /// Group changes by their target commit based on dependencies and assignments
 fn group_changes_by_target_commit(
-    project_id: ProjectId,
+    ctx: &Context,
     graph: &Graph,
     repo: &gix::Repository,
     assignments: &[HunkAssignment],
@@ -193,13 +189,8 @@ fn group_changes_by_target_commit(
     // Process each assignment
     for assignment in assignments {
         // Determine the target commit for this assignment
-        let (stack_id, commit_id, reason) = determine_target_commit(
-            project_id,
-            assignment,
-            &mut stack_details_cache,
-            graph,
-            repo,
-        )?;
+        let (stack_id, commit_id, reason) =
+            determine_target_commit(ctx, assignment, &mut stack_details_cache, graph, repo)?;
 
         let entry = changes_by_commit
             .entry((stack_id, commit_id))
@@ -218,7 +209,7 @@ fn group_changes_by_target_commit(
 // Find the lock that is highest in the application order (child-most commit)
 fn find_top_most_lock<'a>(
     locks: &'a [HunkLock],
-    project_id: ProjectId,
+    ctx: &Context,
     stack_details_cache: &'a mut HashMap<StackId, StackDetails>,
 ) -> Option<&'a HunkLock> {
     // These are all the stack IDs that the hunk is dependent on.
@@ -233,8 +224,7 @@ fn find_top_most_lock<'a>(
             let stack_details = if let Some(details) = stack_details_cache.get(stack_id) {
                 details.clone()
             } else {
-                let details =
-                    crate::legacy::workspace::stack_details(project_id, Some(*stack_id)).ok()?;
+                let details = crate::legacy::workspace::stack_details(ctx, Some(*stack_id)).ok()?;
                 stack_details_cache.insert(*stack_id, details.clone());
                 details
             };
@@ -257,7 +247,7 @@ fn find_top_most_lock<'a>(
 
 /// Determine the target commit for an assignment based on dependencies and assignments
 fn determine_target_commit(
-    project_id: ProjectId,
+    ctx: &Context,
     assignment: &HunkAssignment,
     stack_details_cache: &mut HashMap<StackId, StackDetails>,
     graph: &Graph,
@@ -269,7 +259,7 @@ fn determine_target_commit(
 )> {
     // Priority 1: Check if there's a dependency lock for this hunk
     if let Some(locks) = &assignment.hunk_locks {
-        if let Some(lock) = find_top_most_lock(locks, project_id, stack_details_cache) {
+        if let Some(lock) = find_top_most_lock(locks, ctx, stack_details_cache) {
             if let HunkLockTarget::Stack(stack_id) = lock.target {
                 return Ok((stack_id, lock.commit_id, AbsorptionReason::HunkDependency));
             }
@@ -284,7 +274,7 @@ fn determine_target_commit(
     // Priority 2: Use the assignment's stack ID if available
     if let Some(stack_id) = assignment.stack_id {
         // We need to find the topmost commit in this stack
-        let stack_details = crate::legacy::workspace::stack_details(project_id, Some(stack_id))?;
+        let stack_details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
 
         // Find the topmost commit in the first branch
         if let Some(branch) = stack_details.branch_details.first()
@@ -306,7 +296,7 @@ fn determine_target_commit(
         )?;
 
         // Now fetch the stack details again to get the newly created commit
-        let stack_details = crate::legacy::workspace::stack_details(project_id, Some(stack_id))?;
+        let stack_details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
         if let Some(branch) = stack_details.branch_details.first()
             && let Some(commit) = branch.commits.first()
         {
@@ -317,11 +307,11 @@ fn determine_target_commit(
     }
 
     // Priority 3: If no assignment, find the topmost commit of the leftmost lane
-    let stacks = crate::legacy::workspace::stacks(project_id, None)?;
+    let stacks = crate::legacy::workspace::stacks(ctx, None)?;
     if let Some(stack) = stacks.first()
         && let Some(stack_id) = stack.id
     {
-        let stack_details = crate::legacy::workspace::stack_details(project_id, Some(stack_id))?;
+        let stack_details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
         if let Some(branch) = stack_details.branch_details.first()
             && let Some(commit) = branch.commits.first()
         {
@@ -341,7 +331,7 @@ fn determine_target_commit(
         )?;
 
         // Now fetch the stack details again to get the newly created commit
-        let stack_details = crate::legacy::workspace::stack_details(project_id, Some(stack_id))?;
+        let stack_details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
         if let Some(branch) = stack_details.branch_details.first()
             && let Some(commit) = branch.commits.first()
         {
@@ -395,13 +385,10 @@ fn convert_assignments_to_diff_specs(
 ///
 /// This returns a vector of absorption information, sorted and ready for processing.
 fn prepare_commit_absorptions(
-    project: &Project,
+    ctx: &Context,
     changes_by_commit: GroupedChanges,
 ) -> anyhow::Result<Vec<CommitAbsorption>> {
     let mut commit_absorptions = Vec::new();
-
-    // Open the repository to read commit messages
-    let repo = project.open_repo()?;
 
     // Cache the stack details to determine the commit order
     let mut stack_details_map = HashMap::<StackId, StackDetails>::new();
@@ -413,7 +400,7 @@ fn prepare_commit_absorptions(
 
     for stack_id in &all_stack_ids {
         if let std::collections::hash_map::Entry::Vacant(e) = stack_details_map.entry(*stack_id) {
-            let details = crate::legacy::workspace::stack_details(project.id, Some(*stack_id))?;
+            let details = crate::legacy::workspace::stack_details(ctx, Some(*stack_id))?;
             e.insert(details);
         }
     }
@@ -434,7 +421,7 @@ fn prepare_commit_absorptions(
                         commit_absorptions.push(CommitAbsorption {
                             stack_id,
                             commit_id: commit.id,
-                            commit_summary: get_commit_summary(&repo, commit.id)?,
+                            commit_summary: get_commit_summary(&*ctx.repo.get()?, commit.id)?,
                             files,
                             reason: reason.clone(),
                         });

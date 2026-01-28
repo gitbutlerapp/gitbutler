@@ -575,7 +575,7 @@ pub(crate) fn integrate_upstream(
                 permission,
                 false,
                 Vec::new(),
-                ctx.settings().feature_flags.cv3,
+                ctx.settings.feature_flags.cv3,
             )?;
         }
 

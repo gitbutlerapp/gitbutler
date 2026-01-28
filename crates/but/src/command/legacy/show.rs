@@ -15,7 +15,7 @@ pub(crate) fn show_commit(
     verbose: bool,
 ) -> Result<()> {
     // First check if this is a branch by trying to find it in the branch list
-    let branches = but_api::legacy::virtual_branches::list_branches(ctx.legacy_project.id, None)?;
+    let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     let branch_match = branches.iter().find(|b| {
         b.name.to_string() == commit_id_str
             || b.name.to_string().to_lowercase() == commit_id_str.to_lowercase()
@@ -28,7 +28,7 @@ pub(crate) fn show_commit(
 
     // Also check stacks to find branches within stacks
     let stacks = but_api::legacy::workspace::stacks(
-        ctx.legacy_project.id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
@@ -237,13 +237,11 @@ fn show_branch(
     branch_name: &str,
     verbose: bool,
 ) -> Result<()> {
-    let project = &ctx.legacy_project;
-
     // Get the commits for the branch
-    let (commits, base_commit_info) = get_branch_commits(project, branch_name, verbose)?;
+    let (commits, base_commit_info) = get_branch_commits(ctx, branch_name, verbose)?;
 
     // Get the stack chain (branches this branch is stacked on)
-    let stack_chain = get_stack_chain(project, branch_name)?;
+    let stack_chain = get_stack_chain(ctx, branch_name)?;
 
     // Display branch information
     if let Some(out) = out.for_human() {
@@ -443,19 +441,16 @@ struct StackChainBranch {
 }
 
 /// Helper function to find a branch OID by name, checking both list_branches and stacks
-fn find_branch_oid(
-    project_id: gitbutler_project::ProjectId,
-    branch_name: &str,
-) -> Result<git2::Oid> {
+fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<git2::Oid> {
     // First check list_branches
-    let branches = but_api::legacy::virtual_branches::list_branches(project_id, None)?;
+    let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     if let Some(branch) = branches.iter().find(|b| b.name.to_string() == branch_name) {
         return Ok(branch.head);
     }
 
     // Not found in list_branches, check stacks
     let stacks = but_api::legacy::workspace::stacks(
-        project_id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
@@ -471,15 +466,14 @@ fn find_branch_oid(
 }
 
 fn get_branch_commits(
-    project: &gitbutler_project::Project,
+    ctx: &Context,
     branch_name: &str,
     verbose: bool,
 ) -> Result<(Vec<BranchCommitInfo>, Option<BranchCommitInfo>)> {
-    let ctx = but_ctx::Context::new_from_legacy_project(project.clone())?;
     let repo = &*ctx.git2_repo.get()?;
 
     // Get the target (remote tracking branch like origin/master)
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
+    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
@@ -501,7 +495,7 @@ fn get_branch_commits(
     };
 
     // Find the branch by name
-    let branch_oid = find_branch_oid(project.id, branch_name)?;
+    let branch_oid = find_branch_oid(ctx, branch_name)?;
     let branch_commit = repo.find_commit(branch_oid)?;
 
     // Find merge base
@@ -736,13 +730,10 @@ fn show_branch_summary(out: &mut dyn std::fmt::Write, commits: &[BranchCommitInf
     Ok(())
 }
 
-fn get_stack_chain(
-    project: &gitbutler_project::Project,
-    branch_name: &str,
-) -> Result<Vec<StackChainBranch>> {
+fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBranch>> {
     // Get all stacks
     let stacks = but_api::legacy::workspace::stacks(
-        project.id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
@@ -780,7 +771,7 @@ fn get_stack_chain(
         let head_name = head.name.to_str_lossy().to_string();
 
         // Count commits for this branch
-        let commit_count = get_branch_commit_count(project, &head_name)?;
+        let commit_count = get_branch_commit_count(ctx, &head_name)?;
 
         chain.push(StackChainBranch {
             name: head_name,
@@ -791,15 +782,11 @@ fn get_stack_chain(
     Ok(chain)
 }
 
-fn get_branch_commit_count(
-    project: &gitbutler_project::Project,
-    branch_name: &str,
-) -> Result<usize> {
-    let ctx = but_ctx::Context::new_from_legacy_project(project.clone())?;
+fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     let repo = &*ctx.git2_repo.get()?;
 
     // Get the target (remote tracking branch like origin/master)
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
+    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch
@@ -818,7 +805,7 @@ fn get_branch_commit_count(
     };
 
     // Find the branch OID
-    let branch_oid = find_branch_oid(project.id, branch_name)?;
+    let branch_oid = find_branch_oid(ctx, branch_name)?;
     let branch_commit = repo.find_commit(branch_oid)?;
     let merge_base = repo.merge_base(target_commit.id(), branch_commit.id())?;
 

@@ -24,7 +24,12 @@ pub fn ours() -> impl Iterator<Item = M<'static>> {
 /// for an intermediate failure related to databases.
 ///
 /// Currently, either all migrations succeed, or all fail.
-#[instrument(level = "debug", skip(conn, migrations), err(Debug))]
+#[instrument(
+    name = "run_migration",
+    level = "trace",
+    skip(conn, migrations),
+    err(Debug)
+)]
 pub fn run<'m>(
     conn: &mut rusqlite::Connection,
     migrations: impl IntoIterator<Item = M<'m>>,

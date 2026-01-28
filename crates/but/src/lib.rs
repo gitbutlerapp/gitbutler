@@ -595,8 +595,7 @@ async fn match_subcommand(
                         // No arguments provided - default to inserting at top of first branch
                         use but_api::legacy::workspace;
 
-                        let project_id = ctx.legacy_project.id;
-                        let stack_entries = workspace::stacks(project_id, None)?;
+                        let stack_entries = workspace::stacks(&ctx, None)?;
                         let stacks: Vec<(
                             but_core::ref_metadata::StackId,
                             but_workspace::ui::StackDetails,
@@ -604,7 +603,7 @@ async fn match_subcommand(
                             .iter()
                             .filter_map(|s| {
                                 s.id.and_then(|id| {
-                                    workspace::stack_details(project_id, Some(id))
+                                    workspace::stack_details(&ctx, Some(id))
                                         .ok()
                                         .map(|details| (id, details))
                                 })

@@ -174,12 +174,13 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
         but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
             .changes;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        ctx,
+        ctx.db.get_mut()?.hunk_assignments_mut()?,
         &gix_repo,
         &workspace,
         true,
         Some(changes.clone()),
         None,
+        ctx.settings.context_lines,
     )?;
 
     let assignment_reqs: Vec<HunkAssignmentRequest> = assignments
@@ -208,8 +209,14 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
         })
         .collect();
 
-    let _rejections =
-        but_hunk_assignment::assign(ctx, &gix_repo, &workspace, assignment_reqs, None)?;
+    let _rejections = but_hunk_assignment::assign(
+        ctx.db.get_mut()?.hunk_assignments_mut()?,
+        &gix_repo,
+        &workspace,
+        assignment_reqs,
+        None,
+        ctx.settings.context_lines,
+    )?;
 
     Ok(CursorHookOutput::default())
 }
@@ -306,7 +313,7 @@ pub async fn handle_stop(
                         branch_name: branch.branch_name.clone(),
                         commit_id,
                         project: project.clone(),
-                        app_settings: ctx.settings().clone(),
+                        app_settings: ctx.settings.clone(),
                         trigger: id,
                     };
                     let reword_result = but_action::reword::commit(&llm, commit_event)

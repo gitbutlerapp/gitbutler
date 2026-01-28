@@ -506,7 +506,7 @@ pub fn amend_commit_inner(
     commit_mapping: Option<&HashMap<gix::ObjectId, gix::ObjectId>>,
 ) -> anyhow::Result<but_workspace::commit_engine::CreateCommitOutcome> {
     let repo = ctx.repo.get()?;
-    let settings = ctx.settings();
+    let context_lines = ctx.settings.context_lines;
     let mut guard = ctx.exclusive_worktree_access();
     let worktree = but_core::diff::worktree_changes(&repo)?;
 
@@ -540,7 +540,7 @@ pub fn amend_commit_inner(
             new_message: Some(message),
         },
         file_changes,
-        settings.context_lines,
+        context_lines,
         guard.write_permission(),
     );
 
@@ -753,7 +753,7 @@ pub fn move_file_changes(
         destination_stack_id,
         destination_commit_id,
         changes,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -860,7 +860,7 @@ pub fn commit_details(
         .map(|change| change.into())
         .collect();
 
-    let diff = unified_diff_for_changes(&repo, changes, ctx.settings().context_lines)?;
+    let diff = unified_diff_for_changes(&repo, changes, ctx.settings.context_lines)?;
     let file_changes = get_file_changes(&diff, vec![]);
 
     Ok(file_changes)
@@ -1227,7 +1227,7 @@ pub fn split_branch(
         params.source_branch_name,
         params.new_branch_name.clone(),
         &params.files_to_split_off,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
     )?;
 
     update_workspace_commit(&vb_state, ctx, false)?;
@@ -1365,7 +1365,7 @@ pub fn split_commit(
         source_stack_id,
         source_commit_id,
         &pieces,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
     )?;
 
     let CommmitSplitOutcome {
@@ -1625,14 +1625,16 @@ pub fn get_filtered_changes(
     } else {
         worktree.changes.clone()
     };
-    let diff = unified_diff_for_changes(&repo, changes, ctx.settings().context_lines)?;
+    let context_lines = ctx.settings.context_lines;
+    let diff = unified_diff_for_changes(&repo, changes, context_lines)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx,
+        ctx.db.get_mut()?.hunk_assignments_mut()?,
         &repo,
         &workspace,
         false,
         None::<Vec<but_core::TreeChange>>,
         None,
+        context_lines,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;
     let file_changes = get_file_changes(&diff, assignments.clone());

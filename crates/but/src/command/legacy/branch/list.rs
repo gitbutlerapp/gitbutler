@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use but_ctx::Context;
 use but_oxidize::OidExt;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
@@ -19,8 +20,8 @@ fn generate_cli_id(index: usize) -> String {
 }
 
 /// Store the ID map to a file for later lookup
-fn store_id_map(project: &Project, id_map: &HashMap<String, String>) -> Result<(), anyhow::Error> {
-    let gb_dir = project.gb_dir();
+fn store_id_map(ctx: &Context, id_map: &HashMap<String, String>) -> Result<(), anyhow::Error> {
+    let gb_dir = ctx.project_data_dir();
     let id_map_path = gb_dir.join("branch_id_map.json");
     let json_data = serde_json::to_string_pretty(id_map)?;
     std::fs::write(id_map_path, json_data)?;
@@ -45,7 +46,7 @@ pub fn load_id_map(project: &Project) -> Result<HashMap<String, String>, anyhow:
 
 #[allow(clippy::too_many_arguments)]
 pub fn list(
-    project: &Project,
+    ctx: &mut but_ctx::Context,
     local: bool,
     remote: bool,
     all: bool,
@@ -66,7 +67,7 @@ pub fn list(
 
     let branch_review_map = if review {
         crate::command::legacy::forge::review::get_review_map(
-            project,
+            ctx,
             Some(but_forge::CacheConfig::CacheOnly),
         )?
     } else {
@@ -74,7 +75,7 @@ pub fn list(
     };
 
     let mut applied_stacks = but_api::legacy::workspace::stacks(
-        project.id,
+        ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
@@ -95,8 +96,7 @@ pub fn list(
         }
     }
 
-    let mut branches =
-        but_api::legacy::virtual_branches::list_branches(project.id, listing_filter)?;
+    let mut branches = but_api::legacy::virtual_branches::list_branches(ctx, listing_filter)?;
 
     // Filter out branches that are part of applied stacks
     let applied_stack_ids: Vec<_> = applied_stacks.iter().filter_map(|s| s.id).collect();
@@ -156,7 +156,7 @@ pub fn list(
 
     // Calculate commits ahead if requested
     let commits_ahead_map: Option<HashMap<String, usize>> = if ahead {
-        Some(calculate_commits_ahead(project, &branches_to_show)?)
+        Some(calculate_commits_ahead(ctx, &branches_to_show)?)
     } else {
         None
     };
@@ -164,7 +164,7 @@ pub fn list(
     // Check merge status if requested
     let merge_status_map: Option<HashMap<String, bool>> = if check_merge {
         Some(check_branches_merge_cleanly(
-            project,
+            ctx,
             &applied_stacks,
             &branches_to_show,
         )?)
@@ -192,7 +192,7 @@ pub fn list(
         index += 1;
     }
 
-    store_id_map(project, &id_map)?;
+    store_id_map(ctx, &id_map)?;
 
     if let Some(out) = out.for_json() {
         output_json(
@@ -202,7 +202,7 @@ pub fn list(
             &branch_review_map,
             commits_ahead_map.as_ref(),
             merge_status_map.as_ref(),
-            project,
+            ctx,
             out,
         )?;
     } else if let Some(out) = out.for_human() {
@@ -212,7 +212,7 @@ pub fn list(
             print_applied_branches_table(
                 &applied_stacks,
                 &branch_review_map,
-                project,
+                ctx,
                 commits_ahead_map.as_ref(),
                 merge_status_map.as_ref(),
                 &id_map,
@@ -255,16 +255,14 @@ fn output_json(
     branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
     commits_ahead_map: Option<&HashMap<String, usize>>,
     merge_status_map: Option<&HashMap<String, bool>>,
-    project: &Project,
+    ctx: &Context,
     out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
-    use but_ctx::Context;
     use but_oxidize::gix_to_git2_oid;
 
     use crate::command::legacy::branch::json::*;
 
     // Open repo to get commit information
-    let ctx = Context::new_from_legacy_project(project.clone())?;
     let repo = &*ctx.git2_repo.get()?;
 
     let applied_stacks_output: Vec<StackOutput> = applied_stacks
@@ -374,18 +372,16 @@ fn get_reviews_json(
 }
 
 fn check_branches_merge_cleanly(
-    project: &Project,
+    ctx: &Context,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     branches: &[gitbutler_branch_actions::BranchListing],
 ) -> Result<HashMap<String, bool>, anyhow::Error> {
     use but_core::RepositoryExt;
-    use but_ctx::Context;
 
-    let ctx = Context::new_from_legacy_project(project.clone())?;
     let git2_repo = &*ctx.git2_repo.get()?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
 
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
+    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
@@ -479,14 +475,11 @@ fn check_branches_merge_cleanly(
 }
 
 fn calculate_commits_ahead(
-    project: &Project,
+    ctx: &Context,
     branches: &[gitbutler_branch_actions::BranchListing],
 ) -> Result<HashMap<String, usize>, anyhow::Error> {
-    use but_ctx::Context;
-
-    let ctx = Context::new_from_legacy_project(project.clone())?;
     let repo = &*ctx.git2_repo.get()?;
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir());
+    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
@@ -565,23 +558,20 @@ fn format_date_for_display(timestamp_ms: u128) -> String {
 fn print_applied_branches_table(
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
-    project: &Project,
+    ctx: &Context,
     commits_ahead_map: Option<&HashMap<String, usize>>,
     merge_status_map: Option<&HashMap<String, bool>>,
     id_map: &HashMap<String, String>,
     out: &mut (dyn std::fmt::Write + 'static),
 ) -> Result<(), anyhow::Error> {
-    use but_ctx::Context;
-    use but_oxidize::gix_to_git2_oid;
-
     use crate::tui::{Table, table::Cell};
+    use but_oxidize::gix_to_git2_oid;
 
     if applied_stacks.is_empty() {
         return Ok(());
     }
 
     // Open repo to get commit information
-    let ctx = Context::new_from_legacy_project(project.clone())?;
     let repo = &*ctx.git2_repo.get()?;
 
     // Define column headers with fixed widths

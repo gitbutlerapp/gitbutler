@@ -45,17 +45,7 @@ pub fn handle(
         }) => {
             let ahead = !no_ahead; // Invert the flag
             let check = !no_check; // Invert the flag
-            list::list(
-                &ctx.legacy_project,
-                local,
-                remote,
-                all,
-                ahead,
-                review,
-                filter,
-                out,
-                check,
-            )?;
+            list::list(ctx, local, remote, all, ahead, review, filter, out, check)?;
             Ok(())
         }
         Some(Subcommands::Show {
@@ -74,9 +64,9 @@ pub fn handle(
         }) => {
             let id_map = IdMap::new_from_context(ctx, None)?;
             // Get branch name or use canned name
-            let branch_name = branch_name.map(Ok).unwrap_or_else(|| {
-                but_api::legacy::workspace::canned_branch_name(ctx.legacy_project.id)
-            })?;
+            let branch_name = branch_name
+                .map(Ok)
+                .unwrap_or_else(|| but_api::legacy::workspace::canned_branch_name(ctx))?;
 
             // Store anchor string for JSON output
             let anchor_for_json = anchor.clone();
@@ -124,7 +114,7 @@ pub fn handle(
                 None
             };
             but_api::legacy::stack::create_reference(
-                ctx.legacy_project.id,
+                ctx,
                 but_api::legacy::stack::create_reference::Request {
                     new_name: branch_name.clone(),
                     anchor,
@@ -146,7 +136,7 @@ pub fn handle(
         }
         Some(Subcommands::Delete { branch_name, force }) => {
             let stacks = but_api::legacy::workspace::stacks(
-                ctx.legacy_project.id,
+                ctx,
                 Some(but_workspace::legacy::StacksFilter::InWorkspace),
             )?;
 
@@ -178,7 +168,7 @@ pub fn handle(
         }
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::legacy::workspace::stacks(
-                ctx.legacy_project.id,
+                ctx,
                 Some(but_workspace::legacy::StacksFilter::InWorkspace),
             )?;
 

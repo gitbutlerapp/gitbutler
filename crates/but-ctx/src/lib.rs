@@ -2,11 +2,11 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
-use std::path::{Path, PathBuf};
-
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::{WorkspaceReadGuard, WorkspaceWriteGuard, WorktreeWritePermission};
 use but_core::{RepositoryExt, sync::WorktreeReadPermission};
 use but_settings::AppSettings;
+use std::path::{Path, PathBuf};
+use tracing::instrument;
 
 /// Legacy types that shouldn't be used.
 #[cfg(feature = "legacy")]
@@ -129,6 +129,14 @@ impl TryFrom<gix::Repository> for Context {
 impl std::fmt::Debug for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Context")
+            .field("git_dir", &self.gitdir)
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for ThreadSafeContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ThreadSafeContext")
             .field("git_dir", &self.gitdir)
             .finish()
     }
@@ -262,25 +270,61 @@ impl Context {
 /// Trampolines that create new uncached instances of major types.
 impl Context {
     /// Create a new workspace as seen from the current HEAD and return it,
-    /// along with read-only metadata.
+    /// without the metadata that was used to create it,
+    /// but returning a guard for exclusive access to the workspace.
     ///
-    /// The write-permission is required to obtain an exclusive metadata instance.
-    pub fn workspace_and_meta_from_head(
+    /// # IMPORTANT
+    ///
+    /// Keep the guard alive like `let (_guard, ws) = …`!
+    #[instrument(
+        name = "Context::workspace_and_meta_from_head_for_editing",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn workspace_and_meta_from_head_for_editing(
         &self,
-        _exclusive_access: &WorktreeWritePermission,
     ) -> anyhow::Result<(
+        WorkspaceWriteGuard,
         impl but_core::RefMetadata + 'static,
         but_graph::projection::Workspace,
     )> {
-        let (meta, graph) =
-            self.graph_and_read_only_meta_from_head(_exclusive_access.read_permission())?;
-        Ok((meta, graph.into_workspace()?))
+        let guard = self.exclusive_worktree_access();
+        let (meta, graph) = self.graph_and_read_only_meta_from_head(guard.read_permission())?;
+        Ok((guard, meta, graph.into_workspace()?))
+    }
+
+    /// Create a new workspace as seen from the current HEAD and return it,
+    /// without the metadata that used to create it,
+    /// but with a guard to prevent writers while the read is in progress.
+    ///
+    /// # IMPORTANT
+    ///
+    /// Keep the guard alive like `let (_guard, ws) = …`!
+    #[instrument(
+        name = "Context::workspace_from_head",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn workspace_from_head(
+        &self,
+    ) -> anyhow::Result<(WorkspaceReadGuard, but_graph::projection::Workspace)> {
+        let guard = self.shared_worktree_access();
+        let (_meta, graph) = self.graph_and_read_only_meta_from_head(guard.read_permission())?;
+        Ok((guard, graph.into_workspace()?))
     }
 
     /// Create a new workspace as seen from the current HEAD and return it,
     /// along with read-only metadata.
     ///
     /// The read-permission is required to obtain a shared metadata instance.
+    #[instrument(
+        name = "Context::workspace_and_read_only_meta_from_head",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
     pub fn workspace_and_read_only_meta_from_head(
         &self,
         _read_only: &WorktreeReadPermission,
@@ -296,14 +340,47 @@ impl Context {
     /// along with read-only metadata.
     ///
     /// The read-permission is required to obtain a shared metadata instance.
+    #[instrument(
+        name = "Context::graph_and_read_only_meta_from_head",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
     pub fn graph_and_read_only_meta_from_head(
         &self,
         _read_only: &WorktreeReadPermission,
-    ) -> anyhow::Result<(impl but_core::RefMetadata + 'static, but_graph::Graph)> {
+    ) -> anyhow::Result<(
+        impl but_core::RefMetadata + 'static + use<>,
+        but_graph::Graph,
+    )> {
         let repo = self.repo.get()?;
         let meta = self.meta_inner()?;
         let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
         Ok((meta, graph))
+    }
+
+    /// Create a new workspace as seen from the current HEAD and return it,
+    /// along with read-only metadata.
+    ///
+    /// The write-permission is required to obtain an exclusive metadata instance, which is needed
+    /// to lock the workspace and its metadata for modification.
+    #[deprecated = "Prefer workspace_and_meta_from_head_for_editing()"]
+    #[instrument(
+        name = "DEPRECATED: Context::workspace_and_meta_from_head",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn workspace_and_meta_from_head(
+        &self,
+        _exclusive_access: &WorktreeWritePermission,
+    ) -> anyhow::Result<(
+        impl but_core::RefMetadata + 'static,
+        but_graph::projection::Workspace,
+    )> {
+        let (meta, graph) =
+            self.graph_and_read_only_meta_from_head(_exclusive_access.read_permission())?;
+        Ok((meta, graph.into_workspace()?))
     }
 
     fn meta_inner(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
@@ -393,15 +470,6 @@ impl Context {
     }
 }
 
-/// Accessors
-impl Context {
-    /// Return a shared references to the application settings.
-    ///
-    pub fn settings(&self) -> &AppSettings {
-        &self.settings
-    }
-}
-
 /// *Repository* helpers, for when you need something more specific than [Self::repo].
 impl Context {
     /// Open an isolated repository, one that didn't read options beyond `.git/config` and
@@ -444,10 +512,12 @@ fn project_data_dir(gitdir: &Path) -> PathBuf {
     gitdir.join("gitbutler")
 }
 
+#[instrument(level = "trace")]
 fn new_ondemand_repo(gitdir: PathBuf) -> OnDemand<gix::Repository> {
     OnDemand::new(move || gix::open(&gitdir).map_err(Into::into))
 }
 
+#[instrument(level = "trace")]
 fn new_ondemand_git2_repo(gitdir: PathBuf) -> OnDemand<git2::Repository> {
     OnDemand::new({
         let gitdir = gitdir.clone();
@@ -455,10 +525,12 @@ fn new_ondemand_git2_repo(gitdir: PathBuf) -> OnDemand<git2::Repository> {
     })
 }
 
+#[instrument(level = "trace")]
 fn new_ondemand_db(gitdir: PathBuf) -> OnDemand<but_db::DbHandle> {
     OnDemand::new(move || but_db::DbHandle::new_in_directory(project_data_dir(&gitdir)))
 }
 
+#[instrument(level = "trace")]
 fn new_ondemand_app_cache(cache_dir: Option<PathBuf>) -> OnDemandCache<but_db::AppCacheHandle> {
     OnDemandCache::new(move || but_db::AppCacheHandle::new_in_directory(cache_dir.clone()))
 }

@@ -2,8 +2,8 @@ use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
 use but_settings::AppSettings;
 
 use crate::{
-    Context, LegacyProjectId, app_settings, new_ondemand_app_cache, new_ondemand_db,
-    new_ondemand_git2_repo, new_ondemand_repo,
+    Context, LegacyProjectId, ThreadSafeContext, app_settings, new_ondemand_app_cache,
+    new_ondemand_db, new_ondemand_git2_repo, new_ondemand_repo,
 };
 
 pub(crate) mod types {
@@ -84,34 +84,12 @@ impl TryFrom<LegacyProjectId> for Context {
     }
 }
 
-/// Trampolines that create new uncached instances of major types.
-impl Context {
-    /// Open the repository with standard options and create a new Graph traversal from the given `ref_name`,
-    /// along with a new metadata instance, and the graph itself.
-    ///
-    /// The write-permission is required to obtain a mutable metadata instance. Note that it must be held
-    /// for until the end of the operation for the protection to be effective.
-    pub fn graph_and_legacy_meta_mut_and_repo_from_reference(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-        _write: &mut WorktreeWritePermission,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        // Specifically used for migrations, hence the original type for direct access.
-        but_meta::VirtualBranchesTomlMetadata,
-        but_graph::Graph,
-    )> {
-        let repo = self.repo.get()?;
-        let meta = self.meta_inner()?;
-        let mut reference = repo.find_reference(ref_name)?;
-        let commit_id = reference.peel_to_commit()?.id();
-        let graph = but_graph::Graph::from_commit_traversal(
-            commit_id,
-            reference.name().to_owned(),
-            &meta,
-            but_graph::init::Options::limited(),
-        )?;
-        Ok((repo.clone(), meta, graph))
+impl TryFrom<LegacyProjectId> for ThreadSafeContext {
+    type Error = anyhow::Error;
+
+    fn try_from(value: LegacyProjectId) -> Result<Self, Self::Error> {
+        let ctx: Context = value.try_into()?;
+        Ok(ctx.into_sync())
     }
 }
 

@@ -30,9 +30,8 @@ pub async fn handle(
     };
 
     // Get the base branch data to find the target
-    let base_branch =
-        but_api::legacy::virtual_branches::get_base_branch_data(ctx.legacy_project.id)?
-            .ok_or_else(|| anyhow::anyhow!("No base branch configured"))?;
+    let base_branch = but_api::legacy::virtual_branches::get_base_branch_data(ctx)?
+        .ok_or_else(|| anyhow::anyhow!("No base branch configured"))?;
 
     let target_remote = base_branch.remote_name;
 

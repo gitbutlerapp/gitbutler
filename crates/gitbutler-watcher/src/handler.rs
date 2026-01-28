@@ -235,12 +235,13 @@ fn assignments_and_errors(
 ) -> Result<(Vec<HunkAssignment>, Option<serde_error::Error>)> {
     let (assignments, assignments_error) = match &dependencies {
         Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
-            ctx,
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
             repo,
             workspace,
             false,
             Some(tree_changes),
             Some(dependencies),
+            ctx.settings.context_lines,
         )?,
         Err(e) => (
             vec![],

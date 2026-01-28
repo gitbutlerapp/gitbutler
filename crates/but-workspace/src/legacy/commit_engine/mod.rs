@@ -82,7 +82,7 @@ pub fn create_commit_simple(
             }),
         },
         worktree_changes,
-        ctx.settings().context_lines,
+        ctx.settings.context_lines,
         perm,
     );
 

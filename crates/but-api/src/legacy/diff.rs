@@ -48,20 +48,22 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
     // so we pass an empty HunkDependencies in that case.
     let (assignments, assignments_error) = match &dependencies {
         Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
-            ctx,
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
             &repo,
             &workspace,
             false,
             Some(changes.changes.clone()),
             Some(dependencies),
+            ctx.settings.context_lines,
         )?,
         Err(_) => but_hunk_assignment::assignments_with_fallback(
-            ctx,
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
             &repo,
             &workspace,
             false,
             Some(changes.changes.clone()),
             Some(&HunkDependencies::default()), // empty dependencies on error
+            ctx.settings.context_lines,
         )?,
     };
 
@@ -95,6 +97,13 @@ pub fn assign_hunk(
     let guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?.clone();
     let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-    let rejections = but_hunk_assignment::assign(ctx, &repo, &workspace, assignments, None)?;
+    let rejections = but_hunk_assignment::assign(
+        ctx.db.get_mut()?.hunk_assignments_mut()?,
+        &repo,
+        &workspace,
+        assignments,
+        None,
+        ctx.settings.context_lines,
+    )?;
     Ok(rejections)
 }

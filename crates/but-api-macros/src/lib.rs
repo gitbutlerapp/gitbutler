@@ -27,7 +27,7 @@ use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 /// * `func_json` for calls from the frontend, taking `(#(json_params*),)` and returning `Result<JsonRVal, json::Error>`
 ///     - This is also annotated with the `tauri` macro when the feature is enabled in the `but-api` crate.
 ///     - **Parameter Transformation**
-///         - It supports `but_ctx::Context`, `&Context` or `&mut Context` as parameter,
+///         - It supports `but_ctx::Context`, `&Context`, `&mut Context` or `ThreadSafeContext` as parameter,
 ///           which will be translated to `LegacyProjectId` with the `project_id` parameter name.
 ///         - `gix::ObjectId` will be translated into `json::HexHash`.
 /// * `func_cmd` for calls from the `but-server`, taking `(params: Params) ` and returning `Result<serde_json::Value, json::Error>`.
@@ -330,33 +330,34 @@ fn build_json_type_mapping<'a>(
         }
 
         let last = &segments.last().unwrap().ident;
-        let (name, mapping) =
-            if last == "Context" && (segments.len() == 1 || segments[0].ident == "but_ctx") {
-                (
-                    pat_ident.ident.to_string(),
-                    JsonParameterMapping {
-                        json_ty: syn::parse_str("but_ctx::LegacyProjectId")?,
-                        json_ident: Some(syn::parse_str("project_id")?),
-                        from_mode: FromMode::TryFrom,
-                    },
-                )
-            } else if last == "ObjectId" && (segments.len() == 1 || segments[0].ident == "gix") {
-                (
-                    pat_ident.ident.to_string(),
-                    JsonParameterMapping {
-                        json_ty: syn::parse_str("crate::json::HexHash")?,
-                        json_ident: None,
-                        from_mode: FromMode::From,
-                    },
-                )
-            } else if is_reference {
-                return Err(syn::Error::new_spanned(
-                    ty,
-                    "Only `&Context` or `&but_ctx::Context` may be references",
-                ));
-            } else {
-                continue;
-            };
+        let (name, mapping) = if (last == "Context" || last == "ThreadSafeContext")
+            && (segments.len() == 1 || segments[0].ident == "but_ctx")
+        {
+            (
+                pat_ident.ident.to_string(),
+                JsonParameterMapping {
+                    json_ty: syn::parse_str("but_ctx::LegacyProjectId")?,
+                    json_ident: Some(syn::parse_str("project_id")?),
+                    from_mode: FromMode::TryFrom,
+                },
+            )
+        } else if last == "ObjectId" && (segments.len() == 1 || segments[0].ident == "gix") {
+            (
+                pat_ident.ident.to_string(),
+                JsonParameterMapping {
+                    json_ty: syn::parse_str("crate::json::HexHash")?,
+                    json_ident: None,
+                    from_mode: FromMode::From,
+                },
+            )
+        } else if is_reference {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "Only `&Context` or `&but_ctx::Context` may be references",
+            ));
+        } else {
+            continue;
+        };
         out.insert(name, mapping);
     }
 

@@ -37,13 +37,15 @@ fn unapply_with_data() -> anyhow::Result<()> {
         ctx.exclusive_worktree_access().read_permission(),
     )?;
 
+    let mut db = ctx.db.get_mut()?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        ctx,
+        db.hunk_assignments_mut()?,
         &gix_repo,
         &workspace,
         false,
         Some(changes.clone()),
         None,
+        ctx.settings.context_lines,
     )
     .unwrap();
     let req = HunkAssignmentRequest {
@@ -51,14 +53,23 @@ fn unapply_with_data() -> anyhow::Result<()> {
         path_bytes: assignments[0].path_bytes.clone(),
         stack_id: Some(stacks[0].0),
     };
-    but_hunk_assignment::assign(ctx, &gix_repo, &workspace, vec![req], None).unwrap();
+    but_hunk_assignment::assign(
+        db.hunk_assignments_mut()?,
+        &gix_repo,
+        &workspace,
+        vec![req],
+        None,
+        ctx.settings.context_lines,
+    )
+    .unwrap();
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        ctx,
+        db.hunk_assignments_mut()?,
         &gix_repo,
         &workspace,
         false,
         Some(changes.clone()),
         None,
+        ctx.settings.context_lines,
     )
     .unwrap();
     let assigned_diffspec = but_workspace::flatten_diff_specs(
@@ -69,6 +80,7 @@ fn unapply_with_data() -> anyhow::Result<()> {
             .collect::<Vec<DiffSpec>>(),
     );
 
+    drop(db);
     gitbutler_branch_actions::unapply_stack(
         ctx,
         ctx.exclusive_worktree_access().write_permission(),

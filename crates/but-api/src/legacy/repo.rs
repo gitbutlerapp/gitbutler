@@ -98,7 +98,7 @@ pub fn pre_commit_hook_diffspecs(
         .head_tree_id_or_empty()
         .context("Failed to get head tree")?;
 
-    let context_lines = ctx.settings().context_lines;
+    let context_lines = ctx.settings.context_lines;
 
     let mut changes = changes.into_iter().map(Ok).collect::<Vec<_>>();
 

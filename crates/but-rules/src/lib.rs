@@ -318,12 +318,13 @@ pub fn process_rules(
     )?;
 
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx,
+        ctx.db.get_mut()?.hunk_assignments_mut()?,
         repo,
         workspace,
         false,
         Some(wt_changes.changes),
         Some(&dependencies),
+        ctx.settings.context_lines,
     )
     .map_err(|e| anyhow::anyhow!("Failed to get assignments: {}", e))?;
 
