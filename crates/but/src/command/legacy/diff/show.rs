@@ -57,7 +57,7 @@ pub(crate) fn worktree(
         if let Some(json_out) = out.for_json() {
             let output = JsonDiffOutput { changes: vec![] };
             json_out.write_value(output)?;
-        } else if let Some(out) = out.for_human() {
+        } else if let Some(out) = out.for_human_or_shell() {
             writeln!(out, "No diffs to show.")?;
         }
     } else if let Some(json_out) = out.for_json() {
@@ -68,7 +68,7 @@ pub(crate) fn worktree(
 
         let output = JsonDiffOutput { changes };
         json_out.write_value(output)?;
-    } else if let Some(out) = out.for_human() {
+    } else if let Some(out) = out.for_human_or_shell() {
         for (short_id, assignment) in short_id_assignment_pairs {
             write!(out, "{}", assignment.print_diff(Some(short_id)))?;
         }
@@ -99,7 +99,7 @@ pub(crate) fn commit(
 
         let output = JsonDiffOutput { changes };
         json_out.write_value(output)?;
-    } else if let Some(out) = out.for_human() {
+    } else if let Some(out) = out.for_human_or_shell() {
         for change in result.diff_with_first_parent {
             if path.as_ref().is_none_or(|p| p == &change.path) {
                 let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone().into())
@@ -134,7 +134,7 @@ pub(crate) fn branch(
 
         let output = JsonDiffOutput { changes };
         json_out.write_value(output)?;
-    } else if let Some(out) = out.for_human() {
+    } else if let Some(out) = out.for_human_or_shell() {
         for change in result.changes {
             let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone())
                 .ok()

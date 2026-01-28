@@ -103,9 +103,14 @@ impl OutputChannel {
     pub fn for_human(&mut self) -> Option<&mut (dyn std::fmt::Write + 'static)> {
         matches!(self.format, OutputFormat::Human).then(|| self as &mut dyn std::fmt::Write)
     }
-    /// Provide a write implementation for Shwll output, if the format setting permits.
+    /// Provide a write implementation for Shell output, if the format setting permits.
     pub fn for_shell(&mut self) -> Option<&mut (dyn std::fmt::Write + 'static)> {
         matches!(self.format, OutputFormat::Shell).then(|| self as &mut dyn std::fmt::Write)
+    }
+    /// Provide a write implementation for text output (human or shell), if the format setting permits.
+    pub fn for_human_or_shell(&mut self) -> Option<&mut (dyn std::fmt::Write + 'static)> {
+        matches!(self.format, OutputFormat::Human | OutputFormat::Shell)
+            .then(|| self as &mut dyn std::fmt::Write)
     }
     /// Provide a handle to receive a serde-serializable value to write to stdout.
     pub fn for_json(&mut self) -> Option<&mut Self> {
