@@ -62,13 +62,14 @@
 	}}
 >
 	<div class="loggedin__success-card-content">
-		<p class="text-13">You can now close this window and return to your client.</p>
 		<div class="flex gap-8 m-t-8">
 			{#if buildType !== null}
-				<AsyncButton style="gray" kind="outline" icon="open-editor" action={followDeeplink}
+				<p class="text-13">Click below to open your client and complete sign-in.</p>
+				<AsyncButton style="gray" kind="outline" icon="open-editor-small" action={followDeeplink}
 					>Open client</AsyncButton
 				>
 			{:else}
+				<p class="text-13">Copy the access token and paste it in your client.</p>
 				<AsyncButton style="gray" kind="outline" icon="copy-small" action={copyAccessToken}
 					>Copy Access Token</AsyncButton
 				>
