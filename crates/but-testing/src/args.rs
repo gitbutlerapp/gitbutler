@@ -6,7 +6,7 @@ use std::path::PathBuf;
 #[clap(name = "gitbutler-cli", about = "A CLI for GitButler", version = option_env!("GIX_VERSION"))]
 pub struct Args {
     /// Enable tracing for debug and performance information printed to stderr.
-    #[clap(short = 'd', long, action = clap::ArgAction::Count,)]
+    #[clap(short = 't', long, action = clap::ArgAction::Count)]
     pub trace: u8,
     /// Run as if gitbutler-cli was started in PATH instead of the current working directory.
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]

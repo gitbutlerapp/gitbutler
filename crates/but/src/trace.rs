@@ -15,14 +15,23 @@ pub fn init(level: u8) -> anyhow::Result<()> {
         if *meta.level() > level_t {
             return false;
         }
-        if level_t < Level::DEBUG
-            && !meta
-                .module_path()
-                .is_some_and(|p| p.starts_with("but::") || p.starts_with("but_"))
-        {
-            return false;
+        if level_t > Level::DEBUG {
+            return true;
         }
-        true
+        if level_t > Level::INFO
+            && meta
+                .module_path()
+                .is_some_and(|p| p.starts_with("gitbutler_"))
+        {
+            return true;
+        }
+        if meta
+            .module_path()
+            .is_some_and(|p| p == "but" || p.starts_with("but::") || p.starts_with("but_"))
+        {
+            return true;
+        }
+        false
     });
 
     if level >= 4 {
