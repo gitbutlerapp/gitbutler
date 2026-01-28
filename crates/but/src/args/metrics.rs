@@ -50,6 +50,7 @@ pub enum CommandName {
     Resolve,
     Update,
     Merge,
+    SkillInstall,
     #[default]
     Unknown,
 }

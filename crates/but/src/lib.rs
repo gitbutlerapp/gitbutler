@@ -250,6 +250,27 @@ async fn match_subcommand(
                 }
             }
         }
+        Subcommands::Skill(args::skill::Platform { cmd }) => {
+            // For global installs or absolute paths, we don't need to be in a git repository
+            // For --infer without --global, we try to get repo context but don't require it
+            let needs_repo = match &cmd {
+                args::skill::Subcommands::Install {
+                    global,
+                    path,
+                    infer,
+                } => {
+                    !global
+                        && !infer
+                        && path
+                            .as_ref()
+                            .is_none_or(|p| !std::path::Path::new(p).is_absolute())
+                }
+            };
+
+            let ctx = but_ctx::Context::discover(&args.current_dir);
+            let mut ctx = if needs_repo { Some(ctx?) } else { ctx.ok() };
+            command::skill::handle(ctx.as_mut(), out, cmd).emit_metrics(metrics_ctx)
+        }
         Subcommands::Branch(branch::Platform { cmd }) => {
             cfg_if! {
                 if #[cfg(feature = "legacy")]  {

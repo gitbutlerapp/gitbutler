@@ -56,7 +56,7 @@ impl Subcommands {
     fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{alias as alias_args, branch, claude, cursor, forge, worktree};
+        use crate::args::{alias as alias_args, branch, claude, cursor, forge, skill, worktree};
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -176,6 +176,9 @@ impl Subcommands {
             Subcommands::Merge { .. } => Merge,
             #[cfg(feature = "legacy")]
             Subcommands::Move { .. } => Rub,
+            Subcommands::Skill(skill::Platform { cmd }) => match cmd {
+                skill::Subcommands::Install { .. } => SkillInstall,
+            },
         }
     }
 }

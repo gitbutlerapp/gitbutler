@@ -10,4 +10,5 @@ pub mod config;
 pub mod gui;
 pub mod help;
 pub mod push;
+pub mod skill;
 pub mod update;

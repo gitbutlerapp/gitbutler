@@ -777,6 +777,7 @@ dependencies = [
  "cli-prompts",
  "colored",
  "command-group",
+ "dirs 6.0.0",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
