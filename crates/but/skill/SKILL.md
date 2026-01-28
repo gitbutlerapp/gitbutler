@@ -13,21 +13,22 @@ Help users work with GitButler CLI (`but` command) in workspace mode.
 
 **CRITICAL:** Follow this pattern for EVERY task involving code changes:
 
-1. **Start work** → `but branch new <task-name>` (create stack for this work theme)
-2. **Make changes** → Edit files as needed
-3. **Stage changes IMMEDIATELY** → `but stage <file> <branch>` (after EVERY Write/Edit tool use)
-4. **Commit work** → `but commit <branch> -m "message"` (preserve logical units)
-5. **Refine** → Use `but absorb` or `but squash` to clean up history
+1. **Check state** → `but status --json` (always use `--json` for structured output)
+2. **Start work** → `but branch new <task-name>` (create stack for this work theme)
+3. **Make changes** → Edit files as needed
+4. **Stage changes IMMEDIATELY** → `but stage <file> <branch>` (after EVERY Write/Edit tool use)
+5. **Commit work** → `but commit <branch> -m "message"` (preserve logical units)
+6. **Refine** → Use `but absorb` or `but squash` to clean up history
 
-**Step 3 is required immediately after any file modification** - do not skip or delay staging.
+**Step 4 is required immediately after any file modification** - do not skip or delay staging.
 
 ## After Using Write/Edit Tools
 
 **ALWAYS do this immediately:**
 
-1. Run `but status` to see the new changes
+1. Run `but status --json` to see the new changes (use `--json` for structured output)
 2. Stage the modified files: `but stage <file-id> <branch-id>`
-3. Verify with `but status` again
+3. Verify with `but status --json` again
 
 Do not proceed to other tasks until changes are staged.
 
@@ -54,12 +55,14 @@ but setup                          # Initialize in your repo
 but skill install --path <path>    # Install/update skill (agents use --path with known location)
 ```
 
-**Note for AI agents:** When installing or updating this skill programmatically, always use `--path` to specify the exact installation directory. The `--infer` flag requires user interaction if multiple installations exist.
+**Note for AI agents:**
+- When installing or updating this skill programmatically, always use `--path` to specify the exact installation directory. The `--infer` flag requires user interaction if multiple installations exist.
+- **Use `--json` flag for all commands** to get structured, parseable output. This is especially important for `but status --json` to reliably parse workspace state.
 
 **Core workflow:**
 
 ```bash
-but status              # Always start here - shows workspace state
+but status --json       # Always start here - shows workspace state (JSON for agents)
 but branch new feature  # Create new stack for work
 but stage <file> <id>   # Stage changes to branch
 but commit <id> -m "…"  # Commit to branch
@@ -70,10 +73,12 @@ but push <id>           # Push to remote
 
 For detailed command syntax and all available options, see [references/reference.md](references/reference.md).
 
+**IMPORTANT for AI agents:** Add `--json` flag to all commands for structured, parseable output.
+
 **Understanding state:**
 
-- `but status [-f]` - Overview (START HERE)
-- `but show <id>` - Details about commit/branch
+- `but status --json [-f]` - Overview (START HERE, always use --json for agents, add -f to include file lists)
+- `but show <id> --json` - Details about commit/branch
 - `but diff <id>` - Show diff
 
 **Organizing work:**
@@ -151,11 +156,11 @@ but resolve finish      # Complete resolution
 
 ## Guidelines
 
-1. Always start with `but status` to understand current state
+1. Always start with `but status --json` to understand current state (agents should always use `--json`)
 2. Create a new stack for each independent work theme
 3. Stage changes after making edits (especially after formatters/linters)
 4. Commit at logical units of work
-5. Use `--json` flag when parsing output programmatically
+5. **Use `--json` flag for ALL commands** when running as an agent - this provides structured, parseable output instead of human-readable text
 6. Use `--dry-run` flags (push, absorb) when unsure
 7. Run `but pull` regularly to stay updated with upstream
 8. When updating this skill, use `but skill install --path <known-path>` to avoid prompts
