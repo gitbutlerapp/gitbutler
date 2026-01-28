@@ -1,8 +1,8 @@
 <script lang="ts">
-	import signinSvg from '$lib/assets/signin.svg?raw';
+	import signinSvg from '$lib/assets/token.svg?raw';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, CardGroup, Textbox } from '@gitbutler/ui';
+	import { Button, CardGroup, Textbox, Spacer } from '@gitbutler/ui';
 
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
@@ -11,43 +11,24 @@
 </script>
 
 {#if !$user}
-	<CardGroup>
-		<CardGroup.Item>
-			{#snippet title()}
-				<h3 class="text-18 text-bold">Access Token</h3>
-			{/snippet}
-			<p class="text-12 text-body clr-text-2">
-				An access token is required to use GitButler's smart automation features, including
-				intelligent branch creation and commit message generation.
-			</p>
-			<Textbox
-				size="large"
-				type="password"
-				value={accessToken}
-				placeholder="************************"
-				oninput={(value) => (accessToken = value)}
-			/>
-			<Button
-				style="pop"
-				disabled={accessToken.trim().length === 0}
-				onclick={async () => {
-					await userService.setUserAccessToken(accessToken.trim());
-					accessToken = '';
-				}}>Save Access Token</Button
-			>
-		</CardGroup.Item>
-		<CardGroup.Item>
-			{#snippet title()}
-				<h3 class="text-18 text-bold">Get an Access Token</h3>
-			{/snippet}
-			{#snippet caption()}
+	<!-- <CardGroup> -->
+	<CardGroup.Item standalone>
+		<div class="token-content">
+			<div class="token-svg">
+				{@html signinSvg}
+			</div>
+
+			<div class="info-section">
+				<h2 class="text-15 text-bold m-b-6">Access token</h2>
+
 				<p class="text-12 text-body clr-text-2">
-					No Access Token? No problem! Sign up or log in to GitButler to generate your personal
-					access token and unlock
+					Sign in to GitButler to get your personal access token.
 				</p>
-				<div class="flex gap-8 m-t-8">
+
+				<div class="flex gap-8 m-t-12">
 					<Button
 						style="pop"
+						icon="signin"
 						onclick={async () => {
 							await userService.openLoginPage();
 						}}>Log in / Sign up</Button
@@ -61,22 +42,62 @@
 						}}>Copy login link</Button
 					>
 				</div>
-			{/snippet}
-			{#snippet actions()}
-				<div class="signin-svg">
-					{@html signinSvg}
+
+				<Spacer dotted margin={16} />
+
+				<div class="token-fields">
+					<Textbox
+						size="large"
+						type="password"
+						value={accessToken}
+						placeholder="•••••••••••••••••••••••••"
+						oninput={(value) => (accessToken = value)}
+					/>
+					<Button
+						style="pop"
+						disabled={accessToken.trim().length === 0}
+						onclick={async () => {
+							await userService.setUserAccessToken(accessToken.trim());
+							accessToken = '';
+						}}>Authorize access token</Button
+					>
 				</div>
-			{/snippet}
-		</CardGroup.Item>
-	</CardGroup>
+
+				<p class="text-12 text-body clr-text-2 m-t-16">
+					An access token is required to use GitButler's smart automation features, including
+					intelligent branch creation and commit message generation.
+				</p>
+			</div>
+		</div>
+	</CardGroup.Item>
 {/if}
 
 <style lang="postcss">
-	.signin-svg {
+	.token-svg {
+		display: flex;
 		flex-shrink: 0;
-		width: 100px;
-		height: 70px;
+		align-items: center;
+		justify-content: center;
+		width: 110px;
+		height: 100px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-art-scene-bg);
+	}
+
+	.token-content {
+		display: flex;
+		gap: 24px;
+	}
+
+	.info-section {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+	}
+
+	.token-fields {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
 	}
 </style>

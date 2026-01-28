@@ -161,7 +161,7 @@
 				Forget credentials and log out
 			{/snippet}
 			{#snippet caption()}
-				Ready to take a break? Click here to clear your credentials and unwind.
+				Click here to clear your credentials and unwind.
 			{/snippet}
 			{#snippet actions()}
 				<Button
