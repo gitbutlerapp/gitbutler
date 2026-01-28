@@ -60,6 +60,7 @@ class GitButlerManager implements GitButler {
 			E2E_TEST_APP_DATA_DIR: this.configDir,
 			BUTLER_PORT: getButlerPort(),
 			GIT_CONFIG_GLOBAL,
+			RUST_LOG: 'error',
 			...this.env
 		};
 
@@ -119,7 +120,26 @@ class GitButlerManager implements GitButler {
 }
 
 function createButServerProcess(rootDir: string, serverEnv: Record<string, string>): ChildProcess {
-	return spawnProcess('cargo', ['run', '-p', 'but-server'], rootDir, serverEnv);
+	const child = spawn('cargo', ['run', '-p', 'but-server'], {
+		cwd: rootDir,
+		stdio: 'pipe',
+		env: {
+			...process.env,
+			...serverEnv
+		}
+	});
+
+	// Reprint stdout in green
+	child.stdout?.on('data', (data) => {
+		process.stdout.write(`BUT-SERVER: ${colors.green}${data}${colors.reset}`);
+	});
+
+	// Reprint stderr in green
+	child.stderr?.on('data', (data) => {
+		process.stderr.write(`BUT-SERVER: ${colors.red}${data}${colors.reset}`);
+	});
+
+	return child;
 }
 
 function getButlerDataDir(configDir: string): string {
@@ -199,7 +219,6 @@ function spawnProcess(
 			VITE_BUILD_TARGET: 'web',
 			BUT_TESTING: BUT_TESTING,
 			VITE_HOST,
-			RUST_LOG: 'error',
 			...env
 		}
 	});
