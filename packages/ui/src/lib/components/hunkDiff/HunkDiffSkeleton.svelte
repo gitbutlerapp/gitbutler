@@ -1,22 +1,19 @@
 <script lang="ts">
-	interface Props {
-		lineCount?: number;
-	}
-
-	const { lineCount = 3 }: Props = $props();
+	import SkeletonBone from '$components/SkeletonBone.svelte';
 </script>
 
 <div class="hunk-loading-skeleton">
 	<div class="skeleton-header">
-		<div class="skeleton-checkbox"></div>
-		<div class="skeleton-hunk-info"></div>
+		<SkeletonBone width="32px" height="12px" />
+		<SkeletonBone width="32px" height="12px" />
+		<SkeletonBone width="100px" height="12px" />
 	</div>
 	<div class="skeleton-body">
-		{#each Array(lineCount) as _}
-			<div class="skeleton-line">
-				<div class="skeleton-line-number"></div>
-				<div class="skeleton-line-number"></div>
-				<div class="skeleton-line-content" style="--width: {20 + Math.random() * 70}%"></div>
+		{#each Array(3) as _, i}
+			<div class="skeleton-line" style:opacity={1 - i * 0.23}>
+				<SkeletonBone width="32px" height="12px" />
+				<SkeletonBone width="32px" height="12px" />
+				<SkeletonBone width="{20 + Math.random() * 70}%" height="12px" />
 			</div>
 		{/each}
 	</div>
@@ -38,68 +35,22 @@
 		display: flex;
 		align-items: center;
 		height: 28px;
+		padding: 0 10px;
+		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
-	}
-
-	.skeleton-checkbox {
-		flex-shrink: 0;
-		width: 60px;
-		height: 16px;
-		margin: 0 8px;
-		border-radius: 3px;
-		background-color: var(--clr-bg-2);
-		opacity: 0.5;
-	}
-
-	.skeleton-hunk-info {
-		flex: 1;
-		height: 14px;
-		margin: 0 8px;
-		border-radius: 3px;
-		background-color: var(--clr-bg-2);
-		opacity: 0.5;
 	}
 
 	.skeleton-body {
 		display: flex;
 		flex-direction: column;
-		padding: 8px 0;
+		padding: 10px;
+		gap: 8px;
 	}
 
 	.skeleton-line {
 		display: flex;
 		align-items: center;
-		height: 20px;
-		padding: 0 8px;
 		gap: 8px;
-	}
-
-	.skeleton-line-number {
-		flex-shrink: 0;
-		width: 32px;
-		height: 12px;
-		border-radius: 3px;
-		background-color: var(--clr-bg-2);
-		opacity: 0.4;
-	}
-
-	.skeleton-line-content {
-		width: var(--width);
-		height: 12px;
-		border-radius: 3px;
-		background-color: var(--clr-bg-2);
-		animation: skeleton-pulse 2s ease-in-out infinite;
-		opacity: 0.5;
-	}
-
-	@keyframes skeleton-pulse {
-		0%,
-		100% {
-			opacity: 0.5;
-		}
-		50% {
-			opacity: 0.3;
-		}
 	}
 </style>

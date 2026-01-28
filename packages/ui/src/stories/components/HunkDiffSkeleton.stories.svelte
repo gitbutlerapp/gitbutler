@@ -4,17 +4,14 @@
 
 	const { Story } = defineMeta({
 		title: 'Code / HunkDiffSkeleton',
-		component: HunkDiffSkeleton,
-		args: {
-			lineCount: 8
-		}
+		component: HunkDiffSkeleton
 	});
 </script>
 
 <Story name="Playground">
-	{#snippet template(args)}
+	{#snippet template()}
 		<div class="wrap">
-			<HunkDiffSkeleton {...args} />
+			<HunkDiffSkeleton />
 		</div>
 	{/snippet}
 </Story>
@@ -22,7 +19,6 @@
 <style>
 	.wrap {
 		display: flex;
-		width: 600px;
-		padding: 20px;
+		max-width: 600px;
 	}
 </style>
