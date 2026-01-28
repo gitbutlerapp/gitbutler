@@ -123,12 +123,14 @@ but rub <file-id> <branch-id>    # Stage file to branch
 Commit changes to a branch.
 
 ```bash
-but commit <branch> -m "message"         # Commit with message
-but commit <branch> --only               # Only commit already-staged files
+but commit <branch> --only -m "message"  # Commit ONLY staged changes (recommended)
+but commit <branch> -m "message"         # Commit ALL uncommitted changes to branch
 but commit <branch> -i                   # AI-generated commit message
 but commit empty --before <target>       # Insert empty commit before target
 but commit empty --after <target>        # Insert empty commit after target
 ```
+
+**Important:** Without `--only`, ALL uncommitted changes are committed to the branch, not just staged files. Use `--only` when you've staged specific files and want to commit only those.
 
 If only one branch is applied, you can omit the branch ID.
 
@@ -137,11 +139,14 @@ If only one branch is applied, you can omit the branch ID.
 Automatically amend uncommitted changes into existing commits.
 
 ```bash
-but absorb                    # Amend all changes
-but absorb <file-id>          # Amend only this file
-but absorb <branch-id>        # Amend only changes staged to this branch
+but absorb <file-id>          # Absorb specific file (recommended)
+but absorb <branch-id>        # Absorb all changes staged to this branch
+but absorb                    # Absorb ALL uncommitted changes (use with caution)
 but absorb --dry-run          # Preview without making changes
+but absorb <file-id> --dry-run  # Preview specific file absorption
 ```
+
+**Recommendation:** Prefer targeted absorb (`but absorb <file-id>`) over absorbing everything. Running `but absorb` without arguments absorbs ALL uncommitted changes across all branches, which may not be what you want.
 
 Logic:
 
@@ -176,11 +181,15 @@ but squash <branch>          # Squash all commits in branch into bottom-most
 
 ### `but amend <file> <commit>`
 
-Amend file into a specific commit.
+Amend file into a specific commit. Use when you know exactly which commit the change belongs to.
 
 ```bash
-but amend <file-id> <commit-id>
+but amend <file-id> <commit-id>    # Amend file into specific commit
 ```
+
+**When to use `amend` vs `absorb`:**
+- `but amend` - You know the target commit; explicit control
+- `but absorb` - Let GitButler auto-detect the target; smart matching based on dependencies
 
 Alias for `but rub <file> <commit>`.
 
@@ -294,12 +303,15 @@ Run regularly to stay up to date with main development line.
 Create and manage pull requests.
 
 ```bash
+but pr new <branch-id>        # Push branch and create PR (recommended)
+but pr new <branch-id> -m "Title" -m "Body"  # With title and description
 but pr                        # Create PR (prompts for branch)
-but pr new <branch-id>        # Create PR for specific branch
 but pr template               # Configure PR description template
 ```
 
-Requires GitHub CLI (`gh`) to be installed and authenticated.
+**Key behavior:** `but pr new` automatically pushes the branch to remote before creating the PR. No need to run `but push` first.
+
+Requires forge integration to be configured via `but config forge auth`.
 
 ### `but merge <branch>`
 
