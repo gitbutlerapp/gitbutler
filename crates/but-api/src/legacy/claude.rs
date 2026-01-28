@@ -123,7 +123,7 @@ pub async fn claude_cancel_session(claude: &Claude, params: CancelSessionParams)
 pub async fn claude_check_available() -> Result<ClaudeCheckResult> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let claude_executable = app_settings.claude.executable.clone();
-    Ok(but_claude::bridge::check_claude_available(&claude_executable).await)
+    Ok(but_claude::session::check_claude_available(&claude_executable).await)
 }
 
 #[derive(Deserialize)]

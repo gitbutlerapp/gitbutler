@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-};
+use std::{collections::HashSet, path::PathBuf};
 
 use serde::Deserialize;
 use tokio::fs;
@@ -23,7 +20,6 @@ pub struct ClaudeSettings {
 
 #[derive(Deserialize, Debug, Clone)]
 struct ClaudeSetting {
-    env: Option<HashMap<String, String>>,
     #[serde(rename = "enableAllProjectMcpServers")]
     enable_all_project_mcp_servers: Option<bool>,
     #[serde(rename = "enabledMcpjsonServers")]
@@ -79,20 +75,6 @@ impl ClaudeSettings {
             if let Some(enabled) = &setting.enabled_project_mcp_servers {
                 for name in enabled {
                     out.insert(name.clone());
-                }
-            }
-        }
-
-        out
-    }
-
-    pub(crate) fn env(&self) -> HashMap<String, String> {
-        let mut out = HashMap::new();
-
-        for setting in &self.settings {
-            if let Some(env) = &setting.env {
-                for (k, v) in env {
-                    out.insert(k.clone(), v.clone());
                 }
             }
         }

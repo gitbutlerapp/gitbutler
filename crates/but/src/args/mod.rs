@@ -1071,12 +1071,6 @@ pub mod claude {
         #[clap(alias = "post-tool-use")]
         PostTool,
         Stop,
-        #[clap(alias = "pp")]
-        PermissionPromptMcp {
-            /// The Claude session ID for this MCP server instance
-            #[clap(long)]
-            session_id: String,
-        },
         /// Get the last user message (for testing purposes)
         #[clap(hide = true)]
         Last {
