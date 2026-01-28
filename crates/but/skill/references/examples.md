@@ -8,7 +8,7 @@ Real-world examples of common workflows.
 
 ```bash
 # 1. Check current state
-but status
+but status --json
 
 # 2. Create two independent (parallel) branches
 but branch new api-endpoint
@@ -18,7 +18,7 @@ but branch new ui-styling
 # (edit api/users.js and components/Button.svelte)
 
 # 4. Check what's unstaged
-but status
+but status --json
 
 # 5. Stage files to appropriate branches
 but stage a1 bu    # api/users.js → api-endpoint branch
@@ -46,14 +46,14 @@ but pr new bv
 ```bash
 # 1. Check current state and update
 but pull
-but status
+but status --json
 
 # 2. Create base branch for authentication
 but branch new add-authentication
 
 # 3. Implement auth and commit
 # (edit auth/login.js, auth/middleware.js)
-but status
+but status --json
 but commit bu -m "Add JWT authentication"
 
 # 4. Create stacked branch anchored on authentication
@@ -61,7 +61,7 @@ but branch new user-profile -a bu
 
 # 5. Implement profile page (depends on auth)
 # (edit pages/profile.js)
-but status
+but status --json
 but commit bv -m "Add user profile page"
 
 # 6. Push both branches (maintains stack relationship)
@@ -76,7 +76,7 @@ but push
 
 ```bash
 # 1. Check current commits
-but status
+but status --json
 
 # Output shows:
 # Branch: feature-x (bu)
@@ -129,7 +129,7 @@ but squash c2 c3 c4    # Squashes these three
 
 ```bash
 # 1. See which files are in which commits
-but status --file
+but status --json -f
 
 # Output shows:
 # c3: api.js, utils.js
@@ -145,7 +145,7 @@ but rub a2 c2    # File a2 (utils.js) → commit c2
 
 ```bash
 # 1. Check current state
-but status
+but status --json
 
 # Output:
 # Branch: feature-a (bu)
@@ -174,7 +174,7 @@ but mark bu    # Branch bu (refactor) is now marked
 # (edit 20 different files)
 
 # 4. All changes automatically staged to refactor branch
-but status    # Shows all changes staged to bu
+but status --json  # Shows all changes staged to bu
 
 # 5. Commit everything
 but commit bu -m "Refactor error handling across app"
@@ -214,7 +214,7 @@ but pull
 # Conflict in commit c3 on branch feature-x
 
 # 2. Check status
-but status
+but status --json
 
 # Output:
 # Branch: feature-x (bu)
@@ -261,7 +261,7 @@ but branch new user-dashboard
 # (create dashboard.js, add routes)
 
 # 4. Check and stage
-but status
+but status --json
 # If only one branch applied, files auto-stage
 # Otherwise: but stage <files> bu
 
@@ -278,7 +278,7 @@ but commit bu -m "Style dashboard components"
 but absorb    # Amends into appropriate commit
 
 # 8. Review history
-but status
+but status --json
 
 # 9. Clean up if needed
 but squash bu    # Combine all commits (optional)
@@ -302,7 +302,7 @@ but pull
 
 ```bash
 # 1. Check active branches
-but status
+but status --json
 
 # Output:
 # Applied branches:
@@ -337,7 +337,7 @@ but resolve ...
 
 ```bash
 # 1. Current state
-but status
+but status --json
 
 # Output:
 # Branch: feature-x (bu)
@@ -359,7 +359,7 @@ but move c5 c3    # Move c5 before c3
 but squash c2 c3    # Combine error handling commits
 
 # 5. Review final state
-but status
+but status --json
 
 # Output:
 # Branch: feature-x (bu)
@@ -448,7 +448,7 @@ but restore s4
 
 ```bash
 # Changed a file but want to discard
-but status
+but status --json
 
 # Output:
 # Unstaged:

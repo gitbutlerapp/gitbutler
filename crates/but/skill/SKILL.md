@@ -136,11 +136,12 @@ For complete step-by-step workflows and real-world scenarios, see [references/ex
 **Starting independent work:**
 
 ```bash
-but status
+but status --json
 but branch new api-endpoint
 but branch new ui-update
 # Make changes, then stage to appropriate branches
 but stage <api-file> <api-branch>
+but status --json  # Verify staging
 but commit <api-branch> -m "Add endpoint"
 ```
 
@@ -148,6 +149,7 @@ but commit <api-branch> -m "Add endpoint"
 
 ```bash
 but absorb              # Auto-amend changes
+but status --json       # Verify absorb result
 but squash <branch>     # Squash all commits in branch
 ```
 
