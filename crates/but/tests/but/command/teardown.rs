@@ -4,6 +4,7 @@ use crate::utils::{CommandExt, Sandbox};
 
 /// Test 1: Simple case of a single branch
 /// - Teardown should return HEAD to that branch
+/// - All gitbutler branches cleaned up
 #[test]
 fn single_branch_simple_teardown() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
@@ -39,6 +40,15 @@ To return to GitButler mode, run:
         .arg("HEAD")
         .output()?;
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "A");
+
+    // Verify that there are no gitbutler branches
+    for reference in env.open_repo()?.references()?.local_branches()? {
+        let reference = reference.expect("could not read reference");
+        let branch_name = reference.name().shorten();
+        if branch_name != b"A" && branch_name != b"main" {
+            panic!("unexpected branch `{}`", branch_name);
+        }
+    }
 
     Ok(())
 }

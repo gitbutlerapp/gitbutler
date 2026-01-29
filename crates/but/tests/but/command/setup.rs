@@ -596,3 +596,87 @@ More info: https://docs.gitbutler.com/workspace-branch
 
     Ok(())
 }
+
+#[test]
+fn setup_after_teardown_and_new_commit() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    // Run teardown
+    env.but("teardown").assert().success();
+
+    // Create a new commit on branch A, and verify that the commit graph is what
+    // we expect
+    but_testsupport::git(&env.open_repo()?)
+        .env("GIT_AUTHOR_DATE", "1675176957 +0100")
+        .env("GIT_COMMITTER_DATE", "1675176957 +0100")
+        .arg("commit")
+        .arg("--allow-empty")
+        .arg("-m")
+        .arg("New commit on branch A")
+        .output()?;
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * 30cd751 (HEAD -> A) New commit on branch A
+    * 9477ae7 add A
+    | * d3e2ba3 (B) add B
+    |/  
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
+
+    // Verify that setup works
+    // TODO it shouldn't say "already set up", since some setup tasks needed to
+    // be done (creating the gitbutler/workspace branch etc.)
+    env.but("setup")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Setting up GitButler project...
+
+→ Adding repository to GitButler project registry
+  ✓ Repository added to project registry
+
+GitButler project is already set up!
+Target branch: origin/main
+
+
+Setting up your project for GitButler tooling. Some things to note:
+
+- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
+- Installing Git hooks to help manage commits on the workspace branch
+
+To undo these changes and return to normal Git mode, either:
+
+    - Directly checkout a branch (`git checkout A`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch                    
+
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes] 
+┊     no changes
+┊
+┊╭┄g0 [A]  
+┊●   30cd751 New commit on branch A (no changes)  
+┊●   9477ae7 add A  
+├╯
+┊
+┊╭┄h0 [B]  
+┊●   d3e2ba3 add B  
+├╯
+┊
+┴ 0dc3733 (common base) [origin/main] 2000-01-02 add M 
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}

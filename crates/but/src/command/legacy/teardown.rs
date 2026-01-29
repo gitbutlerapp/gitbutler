@@ -2,7 +2,7 @@ use anyhow::Context as _;
 use but_ctx::Context;
 use but_workspace::legacy::StacksFilter;
 use colored::Colorize;
-use gix::refs::transaction::PreviousValue;
+use gix::refs::transaction::{Change, PreviousValue, RefEdit, RefLog};
 use serde::Serialize;
 
 use crate::utils::OutputChannel;
@@ -177,6 +177,41 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
             out,
             "  {}",
             format!("✓ Checked out: {}", target_branch_name).green()
+        )?;
+        writeln!(out)?;
+    }
+
+    // Remove gitbutler branches
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "{}",
+            "→ Removing GitButler workspace artifacts...".dimmed()
+        )?;
+    }
+    repo.edit_references([
+        RefEdit {
+            change: Change::Delete {
+                expected: PreviousValue::Any,
+                log: RefLog::AndReference,
+            },
+            name: "refs/heads/gitbutler/workspace".try_into()?,
+            deref: false,
+        },
+        RefEdit {
+            change: Change::Delete {
+                expected: PreviousValue::Any,
+                log: RefLog::AndReference,
+            },
+            name: "refs/heads/gitbutler/target".try_into()?,
+            deref: false,
+        },
+    ])?;
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "  {}",
+            "✓ Removed GitButler workspace artifacts".green()
         )?;
         writeln!(out)?;
     }
